@@ -49,7 +49,7 @@ No new data model or contract: align CLR annotations to the existing snapshot wi
 2. **B2 Tooling:** add the D3 package and tool pin; pass quickstart §1.
 3. **B3 US1:** make both missing-connection outcomes explicit; record quickstart §2–§3.
 4. **B4 US2:** make unknown-id Delete throw; record quickstart §4 and the DEV-280 deferral.
-5. **B5 US3:** align mapped-model nullability; apply behavior-preserving consumer nullability fixes (T013a); confirm quickstart §5 shows only the `Status` AddColumn pending; set `harness.yml`; Ledger reviews under Q3; in-scope Critical/High findings close before B6 (Q4).
+5. **B5 US3:** align mapped-model nullability; apply behavior-preserving consumer nullability fixes (T013a); confirm quickstart §5 shows no pending operation beyond the `Status` AddColumn, apart from the six `Id` IdentityColumn baseline residuals (owner option A); set `harness.yml`; Ledger reviews under Q3; in-scope Critical/High findings close before B6 (Q4).
 6. **B6 Verification:** run pipeline gates with numeric exits; check the diff boundary; hand off to review.
 
 ## File impact boundary
