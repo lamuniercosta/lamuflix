@@ -50,11 +50,11 @@ namespace LamuFlix.Web.Extensions
 
             if (propType.GetInterface(nameof(IEnumerable)) != null && propType != typeof(String))
             {
-                query = ApplyCollectionFilter(query, property, item, map, prop, propType, value, queryConstExpr);
+                query = ApplyCollectionFilter(property, item, map, prop, propType, value, queryConstExpr);
             }
             else
             {
-                query = ApplyScalarFilter(query, property, item, prop, propType, value, queryConstExpr);
+                query = ApplyScalarFilter(property, item, prop, propType, value, queryConstExpr);
             }
 
             return query;
@@ -62,7 +62,7 @@ namespace LamuFlix.Web.Extensions
 
         // ReSharper disable NullableWarningSuppressionIsUsed
         // Reflection result on a known member
-        private static IQueryable<T> ApplyCollectionFilter<T>(IQueryable<T> query, PropertyInfo property, ParameterExpression item, DataMapping map, MemberExpression prop, Type propType, ConstantExpression value, ConstantExpression queryConstExpr)
+        private static IQueryable<T> ApplyCollectionFilter<T>(PropertyInfo property, ParameterExpression item, DataMapping map, MemberExpression prop, Type propType, ConstantExpression value, ConstantExpression queryConstExpr)
         {
             var innerType = propType.GetGenericArguments().FirstOrDefault()!;
             var innerItem = Expression.Parameter(innerType, "innerItem");
@@ -88,14 +88,13 @@ namespace LamuFlix.Web.Extensions
             var whereExp = Expression.Call(typeof(Queryable), "Where", [typeof(T)], queryConstExpr, lambda2);
             Expression<Func<IQueryable<T>>> lambda = Expression.Lambda<Func<IQueryable<T>>>(whereExp);
             var resultFunc = lambda.Compile();
-            query = resultFunc();
-            return query;
+            return resultFunc();
         }
         // ReSharper restore NullableWarningSuppressionIsUsed
 
         // ReSharper disable NullableWarningSuppressionIsUsed
         // Reflection result on a known member
-        private static IQueryable<T> ApplyScalarFilter<T>(IQueryable<T> query, PropertyInfo property, ParameterExpression item, MemberExpression prop, Type propType, ConstantExpression value, ConstantExpression queryConstExpr)
+        private static IQueryable<T> ApplyScalarFilter<T>(PropertyInfo property, ParameterExpression item, MemberExpression prop, Type propType, ConstantExpression value, ConstantExpression queryConstExpr)
         {
             LambdaExpression lambda1;
             if (property.PropertyType == typeof(String))
@@ -115,8 +114,7 @@ namespace LamuFlix.Web.Extensions
             var whereExp = Expression.Call(typeof(Queryable), "Where", [typeof(T)], queryConstExpr, lambda1);
             Expression<Func<IQueryable<T>>> lambda = Expression.Lambda<Func<IQueryable<T>>>(whereExp);
             var resultFunc = lambda.Compile();
-            query = resultFunc();
-            return query;
+            return resultFunc();
         }
         // ReSharper restore NullableWarningSuppressionIsUsed
 
