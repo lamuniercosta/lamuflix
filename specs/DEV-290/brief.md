@@ -130,3 +130,22 @@ the flat layout as Known Technical Debt ("Transitional layout").
   1. The Round-3 wording edits (A2–A4) are applied after the cap. The persisted `analyze.md` either predates them or is re-run once, and it must show Critical 0 and High 0.
   2. The A2 Gauge re-run (the baseline with `-Files` and findings lists) gates T022. It is now filed in `recon-DEV-290` §"A2 re-run 2026-09-23": all four gates exit 0 with findings `[]`.
 - **Gate 1 owner checkboxes:** still none.
+
+## Plan challenge adjudication (Keel, 2026-09-23)
+
+Axes challenged `69b4d40`, which is HEAD. Nothing in the findings was already fixed. Bar: Critical/High with a concrete failure blocks; Medium is fixed only when the fix is wording on a decision already made.
+
+| Finding | Ruling | Reason |
+|---|---|---|
+| Compass F1 (High), `git mv` into missing `src/`, `tests/` | **Accept** | `git mv` does not create parent dirs (exit 128, reproduced). The S1–S4 destinations already imply the dirs; creating them is not new work. |
+| Compass F2 (High), Sentry F4, Ledger 1, analyze I1: `-Files` globs | **Accept** | `_gate-common.ps1:438-440,467-469` matches literal paths only. The globs match nothing, roslyn/CC exit 0 vacuously, and SC-007 is unproven. |
+| Compass F3 (Med), inspectcode run bare | **Accept** (merged into the row above) | `run-jetbrains-inspectcode.ps1:18,141,176` accepts `-Files`; analyze.md:12 is wrong. |
+| Compass F4 (Low→Med), diff base `450e70f` | **Accept** | `origin/main` is already at `d1d9cfa` (DEV-362). `450e70f...HEAD` on a Phase B branch off main would list unrelated tickets' files and fail the boundary. |
+| Sentry F1 (Med), stale bin/obj after moves | **Accept** (cheap) | Stale `obj/` from the old depth can make SC-001 evidence wrong. Purging untracked build output does not touch the diff. |
+| analyze I2 (Low), wrong recon section cited | **Accept** (rides with T022) | T022 must match against the findings lists, and only §"A2 re-run 2026-09-23" has them. |
+| Sentry F2 (Low), sln casing literals | **Reject**, already fixed | tasks.md:50-51 (T013/T014) pin the exact literals; the implementer runs tasks. |
+| Sentry F3 (Low), rollback composition | **Reject**, below bar | Phase B is a task branch; to abandon it, discard the branch. No task reverts single commits. |
+
+**Decision changes** (they replace Test strategy item 3 and the Gate expectations head-run wording above):
+- **D6, diff base.** At T003 the implementer records `$pickupBase = git merge-base HEAD origin/main`. SC-003/T018 and T024 diff `$pickupBase...HEAD`, not `450e70f...HEAD`. The expected set is the file impact boundary, adjusted because `specs/DEV-290/*` is already on main: the only spec entry is `specs/DEV-290/tasks.md` as M.
+- **D7, gate file set.** The head `-Files` set is built with `git ls-files`, never with a glob: `$files = @(git ls-files -- src/LamuFlix.Data src/LamuFlix.Web src/LamuFlix.Worker tests/LamuFlix.Test | Where-Object { $_ -like '*.cs' })`. The same `$files` goes to all four runs, inspectcode included. Guard: `$files.Count` must equal the base count, which is `git ls-tree -r --name-only 450e70f -- LamuFlix.Data LamuFlix.Web LamuFlix.Work LamuFlix.Test` filtered to `*.cs` less `Temp.cs`. Each script's "analyzing N file(s)" line must also show that count. A count mismatch is a stop to Keel. It is not a pass.
