@@ -1,0 +1,92 @@
+---
+name: using-agent-skills
+description: Use the meta-router for skill selection on any non-trivial task, when unsure which skill fits: which skill, pipeline stage, or supporting skills apply.
+---
+
+# Using Agent Skills (router)
+
+Adapted from [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) `using-agent-skills` (MIT). Rewritten to route this harness's skill set.
+
+## Two families of skills
+
+1. **The gated pipeline** (feature delivery) — Spec Kit stages plus this harness's stages, with human gates. Use `/pipeline` to find the current stage. Stage order and gates: see the agent-pipeline rule. Acceptance tests (Gherkin/Reqnroll) are **opt-in** — skip the Gherkin stage and gate 2 unless requested.
+2. **Supporting skills** (non-gated) — pulled in as needed during the pipeline. This router maps tasks to them.
+
+## Discovery routing
+
+| Task shape | Skill(s) |
+|---|---|
+| Where am I in the pipeline? | `/pipeline` |
+| Starting ANY task (have an issue) | `/task <issue>` |
+| Branch created, before spec/code | `/grill-with-docs` |
+| Alignment done → write the spec | `/speckit-specify` |
+| Spec has ambiguities | `/speckit-clarify` |
+| Need plan / tasks / consistency check | `/speckit-plan` · `/speckit-tasks` · `/speckit-analyze` |
+| Acceptance scenarios (OPTIONAL, opt-in) | `/gherkin` |
+| Implementing (after gate 1, or gate 2) | `/implement` |
+| Writing new C# | `/modern-csharp` |
+| New feature slice / command / query | `/scaffold` |
+| Match project conventions | `/convention-learner` |
+| Traces / metrics / spans | `/opentelemetry` |
+| Retry / circuit breaker / timeouts | `/resilience` |
+| Writing tests / coverage strategy | `/testing` · `/test-engineer` |
+| Verify against official docs | `/grill-with-docs` |
+| Is this change ready? | `/verify` |
+| Refactor gate (CC, property tests) | `/refactor` |
+| Mutation / architect gate | `/architect` |
+| Something broke | `/diagnosing-bugs` |
+| Reviewing code (gated) | `/code-review` |
+| Accepted findings to close | `/remediate` |
+| Reviewing a PR you did not author | `/pr-review` |
+| After rebase, before opening the PR | `/ship-review` |
+| Open PR with external review feedback | `/address-pr-review` |
+| Designing architecture / domain | `/codebase-design` · `/domain-modeling` |
+| Broad architecture assessment | `/improve-codebase-architecture` |
+| Performance / load / SLA | `/k6-load-testing` |
+| Pausing / resuming later | `/handoff` |
+
+Every harness skill above ships on Cursor, Claude Code, and Codex. The installed
+Codex copy renders explicit invocations as `$name`; Cursor and Claude Code use
+`/name`. The `speckit-*` skills come from
+[Spec Kit](https://github.com/github/spec-kit), not this harness, and resolve only
+after the matching integration has been installed (`specify init --integration
+codex` for Codex). Check before routing there.
+
+## Agents
+
+Named profiles cover noisy stages and bounded mid-task errands:
+
+| Instead of | Delegate to | Why |
+|---|---|---|
+| Running gate scripts inline | `gate-runner` | Returns `file:line` + cause, not raw analyzer output |
+| Bulk searching when only a conclusion is needed | `code-scout` | Keeps raw material out of the parent context |
+| Applying a fully specified mechanical edit | `edit-applier` | Changes only an explicit, exclusively assigned file set |
+| Writing tests inline on a large change | `test-writer` | Keeps fixture/spec churn out of the main context |
+| Reading Stryker's report | `mutation-analyst` | Survivor lists are long and mostly noise |
+| Reviewing a whole diff | `code-reviewer` · `security-reviewer` | Independent perspectives, run in parallel |
+
+Installation generates named profiles in `.claude/agents/` for Claude Code,
+`.cursor/agents/` for Cursor, and `.codex/agents/` for Codex. The always-on
+`delegation.mdc` rule governs cheap errands; do not restate its eligibility and
+one-strike rules here.
+
+## Core operating behaviors (always on)
+
+1. **Surface assumptions** before non-trivial work: list them and invite correction rather than silently guessing.
+2. **Manage confusion actively.** On inconsistency: stop, name it, present the tradeoff/question, wait. ("Spec says X, code does Y — which wins?")
+3. **Push back when warranted.** Not a yes-machine: state the concrete downside (quantify if possible), propose an alternative, accept an informed override.
+4. **Enforce simplicity.** Prefer the boring, obvious solution; fewer lines; abstractions must earn their keep.
+5. **Maintain scope discipline.** Touch only what's asked. No orthogonal cleanup, no deleting code you don't understand, no unrequested features.
+6. **Verify, don't assume.** A task is done only with evidence — the gate scripts and `dotnet test` pass (see `/verify`). "Looks right" is never sufficient.
+
+## Skill rules
+
+1. Check for an applicable skill **before** starting work — skills encode processes that prevent mistakes.
+2. Skills are workflows, not suggestions — follow steps in order; don't skip verification.
+3. Multiple skills compose — a feature typically chains several (see the routing table).
+4. Respect the human gates — do not skip gate 1/2/3 unless the user explicitly approves.
+5. When in doubt on a non-trivial task with no spec, start with `/speckit-specify`.
+
+## How the pipeline uses this router
+
+At the start of a task, consult this router (referenced from the `agent-pipeline` rule) to select the pipeline stage and any supporting skills, then load them. Re-consult when the task type changes — implementation → debugging → review.

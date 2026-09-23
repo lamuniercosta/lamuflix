@@ -1,0 +1,7 @@
+P:System.DateTime.Now;Machine-local and untestable. Use System.TimeProvider.
+P:System.DateTime.UtcNow;Non-deterministic ambient UTC. Use System.TimeProvider.
+P:System.DateTime.Today;Machine-local and untestable. Use System.TimeProvider.
+P:System.DateTimeOffset.Now;Machine-local and untestable. Use System.TimeProvider.
+P:System.DateTimeOffset.UtcNow;Non-deterministic ambient UTC. Use System.TimeProvider.
+M:System.Threading.Tasks.Task.Wait;Sync-over-async deadlocks under a synchronization context. Await the task.
+M:System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task[]);Sync-over-async. Use await Task.WhenAll(...).

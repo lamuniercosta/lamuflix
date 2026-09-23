@@ -1,0 +1,87 @@
+﻿@model Movie
+@{
+    ViewData["Title"] = $"{Model.Title} - Detalhes";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<div class="row">
+    <div class="col-md-4  text-center">
+        <div class="card hovercard">
+            <div class="card-header">
+                <a href="@Model.Poster" target="_blank"><img style="width:350px; height:500px" alt="@Model.Title" src="@Model.Poster"></a>         
+            </div>  
+            <br />
+            <div class="card-footer">
+                @Html.ActionLink("Voltar", "Index", "Filmes", null, new { @class = "btn btn-default btn-sm" })
+                <input type="button" value="Assistir Filme" onclick="AssistirFilme('@Model.Id')" class="btn btn-primary btn-sm" />
+                <input type="button" value="Excluir Filme" onclick="ExcluirFilme('@Model.Id')" class="btn btn-danger btn-sm" />
+                @if (Model.IsInWatchList)
+                {
+                    <input type="button" value="Remover da Lista" onclick="RemoveFromWatchList('@Model.Id')" class="btn btn-success btn-sm" />
+                }
+                else
+                {
+                    <input type="button" value="Adicionar à Lista" onclick="AddToWatchList('@Model.Id')" class="btn btn-success btn-sm" />
+                }
+
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="form-inline">
+            <label for="@Model.Year">Ano de Lançamento:</label> @Html.DisplayFor(x => x.Year)
+        </div>
+        <div class="form-inline">
+            <label for="@Model.Duration">Duração:</label> @Html.DisplayFor(x => x.Duration) min
+        </div>
+        <div class="form-inline">
+            <label for="@Model.Synopsis">Sinopse:</label> @Html.DisplayFor(x => x.Synopsis)
+        </div>
+        <div class="form-inline">
+            <label for="@Model.ImdbRating">Nota IMDb:</label> @Html.DisplayFor(x => x.ImdbRating)
+        </div>
+        <div class="form-inline">
+            <label for="@Model.RottenTomatoes">Rotten Tomatoes:</label> @Html.DisplayFor(x => x.RottenTomatoes)%
+        </div>
+        <div class="form-inline">
+            <label for="@Model.MetaScore">MetaScore:</label> @Html.DisplayFor(x => x.MetaScore)
+        </div>
+        <hr />
+        <div class="form-inline">
+            <label for="@Model.Genres">Gêneros:</label> <p>@String.Join(", ", Model.Genres.Select(x => x.Genre.Name))</p>
+        </div>
+        <div class="form-inline">
+            <label for="@Model.Directors">Diretor(es):</label> <p>@String.Join(", ", Model.Directors.Select(x => x.Director.Name))</p>
+        </div>
+        <div class="form-inline">
+            <label for="@Model.Actors">Elenco:</label> <p>@String.Join(", ", Model.Actors.Select(x => x.Actor.Name))</p>
+        </div>
+        @if (Model.Collection != null)
+        {
+            <div class="form-inline">
+                <label for="@Model.Collection">Filmes nesta coleção:</label> <p>
+                    @foreach (var item in Model.Collection.Movies.Where(x => x.Id != Model.Id).OrderBy(x => x.Year))
+                    {
+                        <ul>
+                            <li>
+                                @Html.ActionLink(item.Title, "Details", new { id = item.Id })
+                            </li>
+                        </ul>
+
+                    }
+                </p>
+
+
+            </div>
+        }
+
+
+        <br />
+
+    </div>
+
+</div>
+<br />
+
+

@@ -1,0 +1,44 @@
+---
+description: Architect gate — Stryker mutation, Gherkin mutation, full test suite
+alwaysApply: false
+---
+
+# Architect Gate
+
+Runs during `/architect` after refactor. Final automated hardening before gated `/code-review` (stage 9). Human gate 3 is merge at stage 12, not this step.
+
+## When to run
+
+After `/refactor` passes all refactor gates.
+
+## Scripts
+
+From repository root:
+
+```powershell
+dotnet stryker --config-file stryker-config.json
+dotnet test
+# Only when acceptance tests exist (opt-in for now):
+./scripts/run-gherkin-mutation.ps1
+```
+
+Ensure tools are restored: `dotnet tool restore`
+
+## Thresholds
+
+- **Stryker mutation score:** at or above `gates.mutation.threshold` in `harness.yml` (default **80%**), rendered into `stryker-config.json` by `install.ps1`.
+
+  A surviving mutant means the mutated line's behaviour is unasserted. **Fix the test, never the threshold** — lowering the number is accepting the defect, not resolving it. Route survivors through `mutation-analyst`, which separates real gaps from equivalent mutants.
+- **Gherkin mutation** *(only when `specs/<feature>/acceptance/*.feature` exists)*: zero survivors — mutated scenarios must cause test failures. Acceptance tests are opt-in for now; skip this check when there are none.
+
+## Survivor routing
+
+| Failure | Re-run |
+|---|---|
+| Stryker survivor | `/implement` or `/refactor` (add/strengthen tests) |
+| Gherkin mutation survivor *(if acceptance tests exist)* | `/implement` (strengthen bindings) |
+| Full suite failure | Fix and re-run architect gates |
+
+## Do not
+
+Mark feature complete or suggest opening a PR until architect gates, `/code-review` (stage 9), and `/ship-review` (stage 10) have all completed. Human gate 3 is merge at stage 12, after the PR.

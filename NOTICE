@@ -1,0 +1,15 @@
+# NOTICE
+
+Deviations from vendored third-party rules (`.claude/rules/vendor/`, `.cursor/rules/vendor/`),
+recorded here as the vendor README requires. Vendored files are kept verbatim; the override
+lives in a project-owned rule.
+
+## aaron-csharp-testing.md — assertion library
+
+- **Upstream says**: use xUnit's built-in `Assert`; avoid third-party assertion libraries.
+- **This project says**: use Shouldly. FluentAssertions is forbidden (paid commercial licence
+  from v8). xUnit `Assert` is permitted only for `Assert.Collection`.
+- **Override**: `.claude/rules/pipeline/test-assertions.mdc` (Claude Code) and
+  `.cursor/rules/test-assertions.mdc` (Cursor).
+- **Authority**: `.specify/memory/constitution.md`, Principle IX and the Technology Stack
+  "Forbidden" list.

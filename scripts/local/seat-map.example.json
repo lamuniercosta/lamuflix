@@ -1,0 +1,631 @@
+{
+    "schemaVersion":  2,
+    "updatedAt":  "2026-09-16",
+    "charterDate":  "2026-09-11",
+    "invariants":  {
+                       "maxCursorHeads":  4,
+                       "maxAgyGHeads":  3,
+                       "minGeminiHeads":  1,
+                       "disallowedFloorPools":  [
+                                                    "ZEN"
+                                                ],
+                       "zenFloorExceptions":  [
+                                                  "Quill"
+                                              ],
+                       "distinctPoolsPerSeat":  false,
+                       "tierPolicy":  {
+                                          "note":  "Operator consumption preferences (2026-09-16). Every finding from this block is a WARNING: any model may run on any seat; the validator only says which preference the choice crosses.",
+                                          "consumptionOrder":  [
+                                                                   1,
+                                                                   2,
+                                                                   3,
+                                                                   4,
+                                                                   0
+                                                               ],
+                                          "tierLabels":  {
+                                                             "1":  "generous flat-rate",
+                                                             "2":  "limited flat-rate",
+                                                             "3":  "metered, monthly refill",
+                                                             "4":  "metered, out of pocket",
+                                                             "0":  "free"
+                                                         },
+                                          "poolTiers":  {
+                                                            "CLAUDE":  1,
+                                                            "CODEX":  1,
+                                                            "CURSOR":  2,
+                                                            "AGY-G":  1,
+                                                            "AGY-C":  2,
+                                                            "GEMINI":  3,
+                                                            "JETBRAINS":  3,
+                                                            "OPENROUTER":  4,
+                                                            "DEEPSEEK":  4,
+                                                            "ZEN":  0
+                                                        },
+                                          "modelTiers":  [
+                                                             {
+                                                                 "pool":  "CODEX",
+                                                                 "modelPattern":  "^gpt-5(\\.[0-4])?(-|$)",
+                                                                 "tier":  2,
+                                                                 "why":  "codex gpt below 5.5 is the limited allowance; gpt-5.6-luna is the generous one"
+                                                             },
+                                                             {
+                                                                 "pool":  "CURSOR",
+                                                                 "modelPattern":  "^(composer|cursor-grok)",
+                                                                 "tier":  1,
+                                                                 "why":  "composer/grok run on the Cursor allowance; other-models are metered inside Cursor"
+                                                             },
+                                                             {
+                                                                 "pool":  "OPENROUTER",
+                                                                 "modelPattern":  ":free$",
+                                                                 "tier":  0,
+                                                                 "why":  "OpenRouter free endpoints"
+                                                             }
+                                                         ],
+                                          "poolModelPreference":  {
+                                                                      "CLAUDE":  [
+                                                                                     "claude-4.5-haiku"
+                                                                                 ],
+                                                                      "OPENROUTER":  [
+                                                                                         "glm-5.3-flash"
+                                                                                     ],
+                                                                      "DEEPSEEK":  [
+                                                                                       "deepseek-v4.1-flash"
+                                                                                   ]
+                                                                  },
+                                          "maxActiveSeatsPerPool":  {
+                                                                        "ZEN":  1,
+                                                                        "CODEX":  2
+                                                                    },
+                                          "poolDisallowedSeats":  {
+                                                                      "ZEN":  [
+                                                                                  "rigger"
+                                                                              ]
+                                                                  },
+                                          "seatHeadPoolPreference":  {
+                                                                         "conductor":  [
+                                                                                           "CODEX"
+                                                                                       ],
+                                                                         "keel":  [
+                                                                                      "AGY-G"
+                                                                                  ]
+                                                                     },
+                                          "seatPoolAvoid":  [
+                                                                {
+                                                                    "seat":  "cog",
+                                                                    "pool":  "AGY-G",
+                                                                    "reason":  "Cog keeps stalling on agy (observed 2026-09-16); model or tool at fault not yet known"
+                                                                }
+                                                            ]
+                                      }
+                   },
+    "seats":  [
+                  {
+                      "id":  "conductor",
+                      "name":  "Conductor",
+                      "codename":  "Dudamel",
+                      "roleId":  "0FD7CF98-CCD8-44DF-B78A-957262622A27",
+                      "activeRung":  "first",
+                      "preset":  "opencode",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "codex --model gpt-5.6-luna -c model_reasoning_effort=xhigh --dangerously-bypass-approvals-and-sandbox",
+                                        "pool":  "CODEX",
+                                        "evidence":  "unmeasured",
+                                        "host":  "codex",
+                                        "model":  "gpt-5.6-luna",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "opencode --model opencode/muse-spark-1.3-contributor-free --auto",
+                                        "pool":  "ZEN",
+                                        "evidence":  "unmeasured",
+                                        "host":  "opencode",
+                                        "model":  "opencode/muse-spark-1.3-contributor-free",
+                                        "tier":  0
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "gemini -m gemini-3.5-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.5-flash-lite",
+                                        "tier":  3
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "agent --model composer-2.5 --trust",
+                                        "pool":  "CURSOR",
+                                        "evidence":  "unmeasured",
+                                        "host":  "cursor",
+                                        "model":  "composer-2.5",
+                                        "tier":  1
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "keel",
+                      "name":  "Thinker",
+                      "codename":  "Keel",
+                      "roleId":  "3D84958E-075E-4739-8307-77D2F46FEA31",
+                      "activeRung":  "second",
+                      "preset":  "Claude Code",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "agent --model glm-5.2-high --trust",
+                                        "pool":  "CURSOR",
+                                        "evidence":  "measured",
+                                        "host":  "cursor",
+                                        "model":  "glm-5.2-high",
+                                        "tier":  2
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "codex --model gpt-5.5 --effort high",
+                                        "pool":  "CODEX",
+                                        "evidence":  "unmeasured",
+                                        "host":  "codex",
+                                        "model":  "gpt-5.5",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "gemini -m gemini-3.5-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.5-flash-lite",
+                                        "tier":  3
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "opencode --model openrouter/deepseek/deepseek-v4.1-flash --auto",
+                                        "pool":  "OPENROUTER",
+                                        "evidence":  "measured",
+                                        "host":  "opencode",
+                                        "model":  "openrouter/deepseek/deepseek-v4.1-flash",
+                                        "tier":  4
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "anvil",
+                      "name":  "Builder",
+                      "codename":  "Anvil",
+                      "roleId":  "BA23D857-A79B-4128-B154-8D05C3D5DC31",
+                      "activeRung":  "third",
+                      "preset":  "Cursor",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "agent --model cursor-grok-4.6-high --trust",
+                                        "pool":  "CURSOR",
+                                        "evidence":  "unmeasured",
+                                        "host":  "cursor",
+                                        "model":  "cursor-grok-4.6-high",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "agy --model gemini-3.7-flash-low --dangerously-skip-permissions",
+                                        "pool":  "AGY-G",
+                                        "evidence":  "measured",
+                                        "host":  "agy",
+                                        "model":  "gemini-3.7-flash-low",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "opencode --model openrouter/deepseek/deepseek-v4.1-flash --auto",
+                                        "pool":  "OPENROUTER",
+                                        "evidence":  "measured",
+                                        "host":  "opencode",
+                                        "model":  "openrouter/deepseek/deepseek-v4.1-flash",
+                                        "tier":  4
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "gemini -m gemini-3.5-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.5-flash-lite",
+                                        "tier":  3
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "cog",
+                      "name":  "Mechanic",
+                      "codename":  "Cog",
+                      "roleId":  "1E272DA5-EB12-4E33-8A46-5D5579AB066C",
+                      "activeRung":  "first",
+                      "preset":  "junie",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "agy --model gemini-3.6-flash-low --dangerously-skip-permissions",
+                                        "pool":  "AGY-G",
+                                        "evidence":  "measured",
+                                        "host":  "agy",
+                                        "model":  "gemini-3.6-flash-low",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "gemini -m gemini-3.5-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.5-flash-lite",
+                                        "tier":  3
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "agent --model composer-2.5 --trust",
+                                        "pool":  "CURSOR",
+                                        "evidence":  "unmeasured",
+                                        "host":  "cursor",
+                                        "model":  "composer-2.5",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "junie --model gemini-3.1-flash-lite",
+                                        "pool":  "JETBRAINS",
+                                        "evidence":  "measured",
+                                        "host":  "junie",
+                                        "model":  "gemini-3.1-flash-lite",
+                                        "tier":  3
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "wisp",
+                      "name":  "Scout",
+                      "codename":  "Wisp",
+                      "roleId":  "BC1DFB5E-A5F9-44A0-B7F6-B54E1A8C92A1",
+                      "activeRung":  "second",
+                      "preset":  "gemini",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "gemini -m gemini-3.5-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.5-flash-lite",
+                                        "tier":  3
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "opencode --model opencode/muse-spark-1.3-contributor-free --auto",
+                                        "pool":  "ZEN",
+                                        "evidence":  "measured",
+                                        "host":  "opencode",
+                                        "model":  "opencode/muse-spark-1.3-contributor-free",
+                                        "tier":  0
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "agent --model composer-2.5 --trust",
+                                        "pool":  "CURSOR",
+                                        "evidence":  "unmeasured",
+                                        "host":  "cursor",
+                                        "model":  "composer-2.5",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "opencode --model openrouter/thinkingmachines/inkling:free --auto",
+                                        "pool":  "OPENROUTER",
+                                        "evidence":  "measured",
+                                        "host":  "opencode",
+                                        "model":  "openrouter/thinkingmachines/inkling:free",
+                                        "tier":  0
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "gauge",
+                      "name":  "Verifier",
+                      "codename":  "Gauge",
+                      "roleId":  "10F01BD9-13DA-486F-A4B9-2871C99C3F3A",
+                      "activeRung":  "floor",
+                      "preset":  "Cursor",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "agent --model composer-2.5 --trust",
+                                        "pool":  "CURSOR",
+                                        "evidence":  "unmeasured",
+                                        "host":  "cursor",
+                                        "model":  "composer-2.5",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "opencode --model opencode/muse-spark-1.3-contributor-free",
+                                        "pool":  "ZEN",
+                                        "evidence":  "measured",
+                                        "host":  "opencode",
+                                        "model":  "opencode/muse-spark-1.3-contributor-free",
+                                        "tier":  0
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "opencode --model openrouter/z-ai/glm-5.3-flash --auto",
+                                        "pool":  "OPENROUTER",
+                                        "evidence":  "measured",
+                                        "host":  "opencode",
+                                        "model":  "openrouter/z-ai/glm-5.3-flash",
+                                        "tier":  4
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "gemini -m gemini-3.1-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.1-flash-lite",
+                                        "tier":  3
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "sentry",
+                      "name":  "Challenger Risk",
+                      "codename":  "Sentry",
+                      "roleId":  "B8809D4A-1FA3-4FC7-A778-43BC15EE3E39",
+                      "activeRung":  "first",
+                      "preset":  "opencode",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "opencode --model openrouter/z-ai/glm-5.3-flash --auto",
+                                        "pool":  "OPENROUTER",
+                                        "evidence":  "measured",
+                                        "host":  "opencode",
+                                        "model":  "openrouter/z-ai/glm-5.3-flash",
+                                        "tier":  4
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "junie --model grok-4.3",
+                                        "pool":  "JETBRAINS",
+                                        "evidence":  "probed",
+                                        "host":  "junie",
+                                        "model":  "grok-4.3",
+                                        "tier":  3
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "gemini -m gemini-3.5-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.5-flash-lite",
+                                        "tier":  3
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "agy --model gemini-3.7-flash-low",
+                                        "pool":  "AGY-G",
+                                        "evidence":  "measured",
+                                        "host":  "agy",
+                                        "model":  "gemini-3.7-flash-low",
+                                        "tier":  1
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "ledger",
+                      "name":  "Challenger Standards",
+                      "codename":  "Ledger",
+                      "roleId":  "5B0DFF23-B156-4ACF-90C4-49EF76DB8177",
+                      "activeRung":  "third",
+                      "preset":  "Codex",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "codex --model gpt-5.6-luna -c model_reasoning_effort=high --dangerously-bypass-approvals-and-sandbox",
+                                        "pool":  "CODEX",
+                                        "evidence":  "probed",
+                                        "host":  "codex",
+                                        "model":  "gpt-5.6-luna",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "agy --model gemini-3.7-flash-medium --dangerously-skip-permissions",
+                                        "pool":  "AGY-G",
+                                        "evidence":  "measured",
+                                        "host":  "agy",
+                                        "model":  "gemini-3.7-flash-medium",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "agent --model composer-2.5 --trust",
+                                        "pool":  "CURSOR",
+                                        "evidence":  "unmeasured",
+                                        "host":  "cursor",
+                                        "model":  "composer-2.5",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "gemini -m gemini-3.1-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.1-flash-lite",
+                                        "tier":  3
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "compass",
+                      "name":  "Challenger Spec",
+                      "codename":  "Compass",
+                      "roleId":  "1E7515A4-5F96-4DD4-96DE-11A5916635CA",
+                      "activeRung":  "second",
+                      "preset":  "agy",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "agy --model gemini-3.8-flash-high --dangerously-skip-permissions",
+                                        "pool":  "AGY-G",
+                                        "evidence":  "measured",
+                                        "host":  "agy",
+                                        "model":  "gemini-3.8-flash-high",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "agent --model muse-spark-1.3-high --trust",
+                                        "pool":  "CURSOR",
+                                        "evidence":  "probed",
+                                        "host":  "cursor",
+                                        "model":  "muse-spark-1.3-high",
+                                        "tier":  2
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "gemini -m gemini-3.5-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.5-flash-lite",
+                                        "tier":  3
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "agy --model claude-sonnet-4-6 --dangerously-skip-permissions",
+                                        "pool":  "AGY-C",
+                                        "evidence":  "measured",
+                                        "host":  "agy",
+                                        "model":  "claude-sonnet-4-6",
+                                        "tier":  2
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "quill",
+                      "name":  "Writer",
+                      "codename":  "Quill",
+                      "roleId":  "AD8EE43F-9AE5-46C6-88C8-375C7C935AEA",
+                      "activeRung":  "first",
+                      "preset":  "agy",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "agy --model claude-sonnet-4-6 --dangerously-skip-permissions",
+                                        "pool":  "AGY-C",
+                                        "evidence":  "measured",
+                                        "host":  "agy",
+                                        "model":  "claude-sonnet-4-6",
+                                        "tier":  2
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "claude --model claude-sonnet-4-6",
+                                        "pool":  "CLAUDE",
+                                        "evidence":  "unmeasured",
+                                        "host":  "claude",
+                                        "model":  "claude-sonnet-4-6",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "gemini -m gemini-3.5-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.5-flash-lite",
+                                        "tier":  3
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "opencode --model opencode/muse-spark-1.3-contributor-free",
+                                        "pool":  "ZEN",
+                                        "evidence":  "measured",
+                                        "host":  "opencode",
+                                        "model":  "opencode/muse-spark-1.3-contributor-free",
+                                        "tier":  0
+                                    }
+                                ]
+                  },
+                  {
+                      "id":  "rigger",
+                      "name":  "Operator",
+                      "codename":  "Rigger",
+                      "roleId":  "2138D9EB-6583-4964-AA5C-E88D17CB343F",
+                      "activeRung":  "second",
+                      "preset":  "opencode",
+                      "rungs":  [
+                                    {
+                                        "name":  "first",
+                                        "role":  "head",
+                                        "launch":  "agent --model cursor-grok-4.5-low --trust",
+                                        "pool":  "CURSOR",
+                                        "evidence":  "unmeasured",
+                                        "host":  "cursor",
+                                        "model":  "cursor-grok-4.5-low",
+                                        "tier":  1
+                                    },
+                                    {
+                                        "name":  "second",
+                                        "launch":  "opencode --model opencode/muse-spark-1.2-contributor-free --auto",
+                                        "pool":  "ZEN",
+                                        "evidence":  "measured",
+                                        "host":  "opencode",
+                                        "model":  "opencode/muse-spark-1.2-contributor-free",
+                                        "tier":  0
+                                    },
+                                    {
+                                        "name":  "third",
+                                        "launch":  "gemini -m gemini-3.5-flash-lite --yolo",
+                                        "pool":  "GEMINI",
+                                        "evidence":  "cleared",
+                                        "host":  "gemini",
+                                        "model":  "gemini-3.5-flash-lite",
+                                        "tier":  3
+                                    },
+                                    {
+                                        "name":  "floor",
+                                        "role":  "floor",
+                                        "launch":  "opencode --model openrouter/z-ai/glm-5.3-flash --auto",
+                                        "pool":  "OPENROUTER",
+                                        "evidence":  "unmeasured",
+                                        "host":  "opencode",
+                                        "model":  "openrouter/z-ai/glm-5.3-flash",
+                                        "tier":  4
+                                    }
+                                ]
+                  }
+              ]
+}

@@ -1,0 +1,96 @@
+---
+description: Test assertion, mocking and test-data libraries (overrides vendor/aaron-csharp-testing.md)
+globs: "**/*.cs"
+paths:
+  - "**/*.cs"
+alwaysApply: false
+---
+
+# Test Assertions and Test Data
+
+Project-owned rule. It **overrides** the "Use xUnit's built-in assertions" and
+"Avoid third-party assertion libraries" sections of `vendor/aaron-csharp-testing.md`,
+which is kept verbatim for upstream re-sync. Authoritative source: constitution
+Principle IX (`.specify/memory/constitution.md`).
+
+## Libraries
+
+| Concern | Use | Do not use |
+|---|---|---|
+| Assertions | **Shouldly** | FluentAssertions (paid commercial licence from v8); raw xUnit `Assert` except `Assert.Collection` |
+| Mocking | **NSubstitute** | Moq |
+| Anonymous test data | **AutoFixture** (`Fixture`, `[AutoData]`) | hand-rolled random values |
+| Realistic fake values | **Faker.Net** | Bogus |
+
+Adding a second assertion or mocking library is a defect.
+
+## Assertions
+
+Read as *actual should be expected*; Shouldly prints both values and the expression on failure.
+
+```csharp
+// arrange
+var order = new Order(OrderId.New(), [new OrderLine("SKU1", 2, 10.0m)]);
+
+// act
+var total = order.CalculateTotal();
+
+// assert
+total.ShouldBe(20.0m);
+order.Lines.ShouldHaveSingleItem().Sku.ShouldBe("SKU1");
+Should.Throw<ArgumentException>(() => new Order(OrderId.New(), []))
+    .Message.ShouldBe("Order must have at least one line");
+```
+
+Group related checks with `ShouldSatisfyAllConditions` so one run reports every failure:
+
+```csharp
+result.ShouldSatisfyAllConditions(
+    r => r.IsSuccess.ShouldBeTrue(),
+    r => r.OrderId.ShouldBe(order.Id),
+    r => r.Errors.ShouldBeEmpty());
+```
+
+Common equivalents for the vendored xUnit examples:
+
+| xUnit `Assert` | Shouldly |
+|---|---|
+| `Assert.Equal(e, a)` | `a.ShouldBe(e)` |
+| `Assert.True(x)` / `Assert.False(x)` | `x.ShouldBeTrue()` / `x.ShouldBeFalse()` |
+| `Assert.Null(x)` / `Assert.NotNull(x)` | `x.ShouldBeNull()` / `x.ShouldNotBeNull()` |
+| `Assert.Contains(i, c)` / `Assert.DoesNotContain(i, c)` | `c.ShouldContain(i)` / `c.ShouldNotContain(i)` |
+| `Assert.Empty(c)` / `Assert.NotEmpty(c)` | `c.ShouldBeEmpty()` / `c.ShouldNotBeEmpty()` |
+| `Assert.Single(c)` | `c.ShouldHaveSingleItem()` |
+| `Assert.All(c, x => …)` | `c.ShouldAllBe(x => …)` |
+| `Assert.IsType<T>(x)` | `x.ShouldBeOfType<T>()` |
+| `Assert.IsAssignableFrom<T>(x)` | `x.ShouldBeAssignableTo<T>()` |
+| `Assert.Throws<T>(() => …)` | `Should.Throw<T>(() => …)` |
+| `await Assert.ThrowsAsync<T>(…)` | `await Should.ThrowAsync<T>(…)` |
+| `Assert.InRange(x, lo, hi)` | `x.ShouldBeInRange(lo, hi)` |
+| `Assert.StartsWith` / `Assert.Matches` | `ShouldStartWith` / `ShouldMatch` |
+| `Assert.Same` / `Assert.NotSame` | `ShouldBeSameAs` / `ShouldNotBeSameAs` |
+
+`Assert.Collection` has no Shouldly equivalent for ordered, per-element lambdas and remains
+the one permitted xUnit assertion; use Shouldly inside each element lambda.
+
+## Mocking
+
+```csharp
+var repository = Substitute.For<IOrderRepository>();
+repository.FindAsync(id, Arg.Any<CancellationToken>()).Returns(order);
+
+await sut.ProcessAsync(id, TestContext.Current.CancellationToken);
+
+await repository.Received(1).SaveAsync(order, Arg.Any<CancellationToken>());
+```
+
+Never mock infrastructure (database, broker, file system): use Testcontainers, WireMock.Net,
+or `MockFileSystem` as the vendored rule already requires.
+
+## Test data
+
+- `AutoFixture` for values whose content does not matter to the test; `[Theory, AutoData]`
+  when every parameter is anonymous.
+- `Faker.Net` when a human-plausible value matters (titles, names, years, paths).
+- Hand-written builders only for domain invariants AutoFixture cannot satisfy, such as a
+  `Movie` that must already be in a specific `EnrichmentStatus`.

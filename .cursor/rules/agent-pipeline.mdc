@@ -1,0 +1,137 @@
+---
+description: Agent development pipeline stage order and handoff rules
+alwaysApply: true
+---
+
+# Agent Development Pipeline
+
+## Stage Order
+
+0. **Task intake** — `/task <id>` (the entry step): tracker-neutral read of the configured tracker task (`github`, `youtrack`, or `none`) and create the `{feature|bug|hotfix}/{id}-{slug}` branch off the remote's default branch in a worktree
+1. **Alignment (MANDATORY)** — `/grill-with-docs`: question the development, settle vocabulary in `CONTEXT.md` + ADRs, and write `specs/<feature>/brief.md`. Runs before any spec or code — never skipped
+2. **Formal spec** — `/speckit-specify`, `/speckit-clarify`, `/speckit-checklist`, `/speckit-plan`, `/speckit-tasks`, `/speckit-analyze`
+3. **Human gate 1** *(5–10 min)* — approve spec, plan, tasks
+4. **Gherkin** *(OPTIONAL — opt-in)* — `/gherkin` → `acceptance/*.feature`. Skipped unless the repo has adopted acceptance tests (see the policy below)
+5. **Human gate 2** *(5 min, only if the Gherkin stage ran)* — spot-check Gherkin before implementation
+6. **Implement** — `/implement` (TDD optional; unit + integration tests must pass)
+7. **Refactor** — `/refactor` (complexity ≤ `gates.complexity.refactor`, property tests)
+8. **Architect** — `/architect` (Stryker mutation ≥ `gates.mutation.threshold`; Gherkin mutation only if acceptance tests exist)
+9. **Code review** *(gated)* — `/code-review`; above-bar findings → `/remediate` → re-review until clean (later rounds pass `Explicit diff range: ROUND_BASE...HEAD` three-dot, merge-base). A no-C# refusal is **out of scope for this skill**, not a failed review, and does not route to `/remediate`. The common `Explicit diff range:` transport rejects two-dot ranges so a dropped-dot typo fails closed.
+10. **Ship** — `./scripts/rebase-task-branch.ps1 -Push`, then `/ship-review` (stage-10 post-rebase correctness lane uses the discriminated `Explicit ship-review rebase-delta range: <stage-9-cleared>..HEAD` two-dot filtered delta — patch-id / `git range-diff` between `old_base..stage-9-cleared` and `new_base..HEAD`, where `new_base = git merge-base HEAD origin/main` from a freshly fetched `origin/main` only and any failure to resolve it is **Could not run** / **NEEDS FIXES**, excluding already-cleared feature work and upstream churn; empty delta is a named confirmation, not a skipped lane), then open the PR
+11. **Address PR review** *(conditional)* — `/address-pr-review` when external feedback arrives
+12. **Merge** *(human gate 3)* — the human reads the PR on GitHub and merges
+
+Thresholds come from `harness.yml`. Never hardcode one in a prompt or a script.
+
+## Acceptance-tests policy
+
+Acceptance tests (Gherkin + Reqnroll) are **opt-in**. Skip Stage 4, Human gate 2, and the Gherkin-mutation check unless the user asks for them or `specs/<feature>/acceptance/*.feature` already exists. **Unit and integration tests remain required** — the opt-in applies only to the acceptance layer.
+
+## Handoff Rules
+
+- Every task starts with `/task <id>`; intake is tracker-neutral (`harness.yml` `tracker`). `/grill-with-docs` is **mandatory** immediately after and before `/speckit-specify` — never skip straight to spec or code
+- Do not skip human gates unless the user explicitly approves (gate 2 applies only when acceptance scenarios exist)
+- Do not block progress on missing `.feature` files; unit + integration coverage is the required bar
+- When present, Gherkin lives in `specs/<feature>/acceptance/` — the source of truth for acceptance scenarios
+- After `/implement`, run the refactor gates before marking a feature complete
+- A surviving mutant is a missing test. Route it back to `/implement` — **never lower the threshold to go green**
+- Rebase onto the latest default branch before `/ship-review`
+- **A gate that could not run has not passed.** Report `Could not run` with remediation. Exit 2: SKIPPED (scope-empty, blocking) vs SKIP (configured opt-out in harness.yml, non-blocking); never fold SKIPPED or Could not run into a green verdict
+
+## Failure Routing
+
+A failing gate names the stage that owns the fix. Going forward from where you are
+leaves the cause in place; the table says where to go back to.
+
+| Failure | Symptom | Route to |
+|---|---|---|
+| Spec ambiguity | `/speckit-analyze` reports CRITICAL against the constitution | `/speckit-clarify` → `/speckit-plan` |
+| Missing task coverage | Analyze finds a gap between `tasks.md` and `spec.md` | `/speckit-tasks` |
+| Weak Gherkin *(opt-in only)* | Scenario is vague or not testable as written | `/gherkin` |
+| Acceptance gap *(opt-in only)* | Reqnroll scenario fails, or its binding is missing | `/implement` |
+| Unit or integration test gap | `dotnet test` failure | `/implement` |
+| Complexity over the gate | CA1502 above `gates.complexity.refactor` | `/refactor` — extract helpers, early returns, guard clauses |
+| Duplication | InspectCode `DuplicatedCode` | `/refactor` |
+| Property counterexample | FsCheck shrinks to a failing case | `/refactor` — the invariant or the code is wrong |
+| Code mutation survivor | Stryker below `gates.mutation.threshold` | `/implement` or `/refactor` |
+| Gherkin mutation survivor *(opt-in only)* | A mutated `Then` step still passes | `/implement` — strengthen the binding |
+| Coverage gap | Uncovered branch in changed files | `/implement` |
+| Review finding above the closing bar | `/code-review` or `/address-pr-review` reports a finding meeting `brief.md`'s bar | `/remediate` |
+| `/code-review` out of scope (no `.cs`) | Skill reports **out of scope for this skill** with a declined zero-finding artifact | Do not route to `/remediate`; not a failed review |
+
+Never route a failure to the threshold. Lowering `gates.*` to clear a gate converts a
+finding into a silence, and the next run reports green having verified less.
+
+## Loop Discipline
+
+Stages 7 and 8 (`/refactor`, `/architect`) stop on a numeric `harness.yml`
+threshold. Stages judged by readback — `/code-review`, `/ship-review`, and any
+ad hoc `/loop` — need an explicit stop in `brief.md` before Stage 6, or they
+do not converge:
+
+1. **A closing bar.** Which severities block — e.g. Critical/High *with a concrete
+   failure scenario*. The bar and frozen scope control which findings get a fix
+   commit on the open loop. Everything else is a follow-up issue, never a fix
+   commit on this loop.
+2. **A frozen, countable scope**, ending with "anything else is a follow-up issue,
+   not a finding in this round." Without that line each fix invites a stricter
+   pass at the same list.
+3. **A round cap** (two, by default). Past the cap, unresolved findings become
+   follow-up issues and the stage exits.
+
+Stage 9 loops to `/remediate` until it finds nothing above the bar. A normal
+no-C# refusal (`out of scope for this skill`) is not a finding, does not look
+like a failed review, and does not enter `/remediate`. Round one reviews the whole
+change and freezes its findings. Every later round reviews **only the diff that
+fixed the previous round's findings**, passed as `Explicit diff range: ROUND_BASE...HEAD` (three-dot, merge-base). Each round's input is strictly smaller
+than the last, so the loop converges. The round cap is a backstop: a fix diff
+that keeps generating new findings is evidence the change is wrong, not that
+the review is. Stage 10 `/ship-review` does not use that three-dot fix-round transport for its correctness lane; its post-rebase delta is the discriminated `Explicit ship-review rebase-delta range: <stage-9-cleared>..HEAD` (two-dot, ship-review-only) with patch-id-filtered / range-diff semantics that excludes already-cleared feature work and upstream churn. `new_base` comes from a freshly force-fetched `origin/main` only (verified against the remote tip; no `origin/master`, local `main`/`master`, or `--fork-point`), and any failure to resolve it fresh is **Could not run** / **NEEDS FIXES** for producer and consumers alike. Empty delta is a named confirmation, not a skipped lane, and uses the same filtered comparison as the non-empty path. `/architect` is **not** re-run per round. It runs once when the
+loop closes, against the accumulated fixes, before stage 10.
+
+A Critical or High finding deferred to a follow-up still keeps the stage at
+**NEEDS FIXES**; deferral stops further fix commits, it does not make the diff
+READY. Amendments to the bar or scope after a loop starts are a new issue — the
+loop closes against what it opened with.
+
+**Why:** an ungated review loop ran nine rounds and grew the diff from 1,974 to
+6,556 added lines without converging, because "findings exist" is a verdict on
+review coverage, not on merge readiness. Gated stages don't have this failure
+mode; the gap is stages with no numeric threshold.
+
+## Orchestration
+
+Use `/pipeline` to determine the current stage. Extension hooks in `.specify/extensions.yml` chain analyze → refactor → architect.
+
+## Agents
+
+Delegate noisy stages and eligible mid-task errands so raw material does not
+consume the main context. All seven profiles ship in the native discovery tree
+for Claude Code, Cursor, and Codex. The always-on `delegation.mdc` rule decides
+when spawning a cheap errand actually saves context and cost.
+
+| Stage | Agent |
+|---|---|
+| Running any gate | `gate-runner` (read-only) |
+| Bulk repository search with a compact factual answer | `code-scout` (read-only) |
+| Fully specified mechanical edit to exclusive files | `edit-applier` (writable) |
+| Writing or extending tests | `test-writer` (writable; tests only) |
+| Interpreting Stryker survivors | `mutation-analyst` (read-only) |
+| Reviewing a diff | `code-reviewer` · `security-reviewer` (read-only) |
+
+## Supporting Skills (non-gated)
+
+Start non-trivial tasks by consulting **`/using-agent-skills`**. It encodes the core operating behaviours (surface assumptions, manage confusion, push back, simplicity, scope discipline, verify).
+
+- `/using-agent-skills` — meta-router; consult first, re-consult when the task type changes
+- `/grilling`, `/domain-modeling`, `/codebase-design` — reference skills invoked by the mandatory `/grill-with-docs` alignment stage
+- `/convention-learner` — detect and match repo conventions before generating code
+- `/scaffold` — generate a complete feature slice matching the repo's existing architecture
+- `/modern-csharp`, `/resilience`, `/opentelemetry` — implementation reference during Stage 6
+- `/testing`, `/test-engineer` — test strategy, coverage-gap analysis, Prove-It tests
+- `/verify` — ad-hoc pre-PR readiness runner wrapping the gate scripts
+- `/diagnosing-bugs` — hard bugs, flakes, performance regressions
+- `/ship-review` — stage 10, after rebase
+- `/k6-load-testing` — performance/SLA load tests in `tests/load/`
+- `/improve-codebase-architecture` — feed it Stryker survivors and complexity hot spots
+- `/handoff` — near a context limit or the end of a session

@@ -1,0 +1,16 @@
+{
+    "mcpServers": {
+        "microsoft-learn": {
+            "url": "https://learn.microsoft.com/api/mcp"
+        },
+        "context7": {
+            "url": "https://mcp.context7.com/mcp",
+            "headers": {
+                "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+            }
+        },
+        "cwm-roslyn-navigator": {
+            "command": "cwm-roslyn-navigator"
+        }
+    }
+}

@@ -1,0 +1,86 @@
+---
+description: Tracker-neutral task intake, branch naming, commit, and rebase-before-PR conventions
+alwaysApply: false
+---
+
+# Task workflow
+
+When the user references a task id, or asks to start a task, create a branch, or prep a PR, follow these conventions. Full guidance: `/task`.
+
+Intake is **tracker-neutral**. `harness.yml` `tracker` is `github` (default), `youtrack`, or `none`. GitHub remains the code host for remotes, branches, commits, pushes, and pull requests.
+
+## Task intake
+
+Delegate retrieval to `./scripts/get-task.ps1` — do not call `gh` or YouTrack REST yourself, and never print `YOUTRACK_TOKEN`:
+
+```powershell
+./scripts/get-task.ps1 -TaskId 142
+./scripts/get-task.ps1 -TaskId DAH-123
+```
+
+`-Issue` is a compatibility alias for `-TaskId`. The tracker is **optional**. With nothing to read from, pass a description straight through and everything below still applies. `tracker: none` is description-only; supplying `-TaskId`/`-Issue` fails before git mutation.
+
+## Branch naming
+
+Create branches from the **latest remote default branch** using:
+
+```powershell
+./scripts/new-task-branch.ps1 -TaskId 142
+./scripts/new-task-branch.ps1 -Issue 142
+./scripts/new-task-branch.ps1 -TaskId 142 -Type bug
+./scripts/new-task-branch.ps1 -TaskId DAH-123
+./scripts/new-task-branch.ps1 -Description "Add upload retry" -Type feature
+```
+
+- Feature → `feature/{id}-{slug}`
+- Bug → `bug/{id}-{slug}`
+- Hotfix → `hotfix/{id}-{slug}`
+
+GitHub ids are numeric (`feature/142-…`). YouTrack ids stay readable and keep their case (`feature/DAH-123-…`). Description-only intake omits the id. Type is inferred by the provider (GitHub `bug`/`defect` labels → `bug`; YouTrack `Type = Bug` → `bug`), defaulting to `feature`. **Hotfix is always an explicit human call** and is never inferred. Never branch from a stale local default branch — the script fetches first. Config, id, and fetch failures happen before any git mutation.
+
+## Worktree per task
+
+Each task gets its own git worktree at `<repo>.worktrees/{type}-{id}-{slug}`, beside the repo. A single checkout serialises work: one branch at a time, and a dirty tree blocks intake. `cd` into the worktree the script prints and do the work there — the main checkout stays on its own branch.
+
+Never create a worktree inside the repo. Git excludes linked worktrees from `git status`, but `dotnet build`, InspectCode, and recursive globs still walk them, so one task's checkout contaminates another's gate results.
+
+A worktree does not inherit gitignored files. The script copies `harness.yml` (without it, configured thresholds silently revert to defaults) and warns when `.specify/` is missing — run `specify init` there before any `/speckit-*` step. Remove the worktree with `git worktree remove <path>` once the PR merges.
+
+`-NoWorktree` (or `task.worktree: false` in `harness.yml`) keeps the old switch-in-place behaviour, dirty-tree refusal included.
+
+## After branching (mandatory)
+
+Immediately run `/grill-with-docs` — question the development, settle vocabulary in `CONTEXT.md` and ADRs, and write `specs/<feature>/brief.md`. Do this **before** `/speckit-specify` or any code; it is never skipped, though it scales down for a small change.
+
+## Commit messages
+
+Reference the task in the subject so the tracker links the work:
+
+```
+Add dark mode toggle (#142)
+Add retry handling (DAH-123)
+```
+
+The reference is a **suffix, not a prefix**. A subject beginning with `#` is treated as a comment by git's editor-based commit path and gets silently stripped. GitHub auto-links `#142`; YouTrack links the readable id in parentheses. Description-only intake has no tracker suffix.
+
+Only commit when explicitly asked — the standard git safety rules still apply.
+
+## Before a PR
+
+Always rebase onto the latest default branch first, so recently merged work is included:
+
+```powershell
+./scripts/rebase-task-branch.ps1 -Push
+```
+
+Resolve any conflicts (`git rebase --continue` / `--abort`), then re-run. The script forces with `--force-with-lease` only when the rebase rewrote already-pushed history; a first push is a plain `--set-upstream` push. Do **not** open a PR until the branch is cleanly rebased.
+
+Never open or push a PR automatically — that is a human decision at gate 3.
+
+## Context-floor baseline
+
+If this repository maintains a context-floor baseline, running the ratchet regenerates the whole baseline (all hosts), so host counts unrelated to the edited files may shift from corrected staleness. When the commit includes a baseline refresh, the PR body must state which hosts moved, which were expected, and why any unrelated host also moved. If this repository has a porcelain guard for the baseline file, run it before committing to catch accidental modifications.
+
+## What is deliberately not here
+
+No hosted code-review service, and no metered PR bot. Issue intake is tracker-neutral (`github`, `youtrack`, or `none`); Git hosting stays GitHub. The review that gates a PR is `/ship-review`, which runs this harness's own agents locally. CodeQL is the only CI-side analysis, and it is free for public repositories and optional everywhere else.

@@ -1,0 +1,185 @@
+#!/usr/bin/env pwsh
+# Self-test for guard.ps1.
+#
+# A guard that is trusted but bypassable is worse than no guard, so its
+# behaviour is asserted rather than assumed. Includes the escaped-quote payload
+# that defeats a grep/sed-based extractor - the regression this hook exists to
+# fix.
+#
+#   pwsh ./hooks/Test-Guard.ps1
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$guard = Join-Path $PSScriptRoot 'guard.ps1'
+$failures = 0
+$checks = 0
+
+function Invoke-Guard {
+    param([string]$Json)
+    $Json | & pwsh -NoProfile -File $guard 2>&1 | Out-Null
+    return $LASTEXITCODE
+}
+
+function Assert-Blocked {
+    param([string]$Name, [string]$Json)
+    $script:checks++
+    if ((Invoke-Guard $Json) -eq 2) { Write-Host "  ok       blocked: $Name" }
+    else { Write-Host "  FAIL     allowed: $Name" -ForegroundColor Red; $script:failures++ }
+}
+
+function Assert-Allowed {
+    param([string]$Name, [string]$Json)
+    $script:checks++
+    if ((Invoke-Guard $Json) -eq 0) { Write-Host "  ok       allowed: $Name" }
+    else { Write-Host "  FAIL     blocked: $Name" -ForegroundColor Red; $script:failures++ }
+}
+
+function Bash { param([string]$Cmd) (@{ tool_name = 'Bash'; tool_input = @{ command = $Cmd } } | ConvertTo-Json -Compress -Depth 5) }
+function Edit {
+    param([string]$Path, [string]$Cwd)
+    $payload = @{ tool_name = 'Edit'; tool_input = @{ file_path = $Path } }
+    if (-not [string]::IsNullOrWhiteSpace($Cwd)) { $payload['cwd'] = $Cwd }
+    $payload | ConvertTo-Json -Compress -Depth 5
+}
+function Apply-Patch {
+    param([string]$Command, [string]$Cwd)
+    $payload = @{ tool_name = 'apply_patch'; tool_input = @{ command = $Command } }
+    if (-not [string]::IsNullOrWhiteSpace($Cwd)) { $payload['cwd'] = $Cwd }
+    $payload | ConvertTo-Json -Compress -Depth 5
+}
+
+Write-Host 'Destructive commands are blocked:'
+Assert-Blocked 'rm -rf /'                (Bash 'rm -rf /')
+Assert-Blocked 'rm -rf ~'                (Bash 'rm -rf ~')
+Assert-Blocked 'rm -rf $HOME'            (Bash 'rm -rf $HOME')
+Assert-Blocked 'rm -fr node_modules'     (Bash 'rm -fr node_modules')
+Assert-Blocked 'rm -rf src/bin'          (Bash 'rm -rf src/bin')
+Assert-Blocked 'force-push main'         (Bash 'git push --force origin main')
+Assert-Blocked 'force-push -f develop'   (Bash 'git push -f origin develop')
+Assert-Blocked 'lease-push main'         (Bash 'git push --force-with-lease origin main')
+Assert-Blocked 'scoped lease-push main'  (Bash 'git push --force-with-lease=refs/heads/main origin HEAD:refs/heads/main')
+Assert-Blocked 'bare lease push'         (Bash 'git push --force-with-lease')
+Assert-Blocked 'lease remote only'       (Bash 'git push --force-with-lease origin')
+Assert-Blocked 'lease separator remote only' (Bash 'git push --force-with-lease -- origin')
+Assert-Blocked 'scoped lease remote only' (Bash 'git push --force-with-lease=refs/heads/feature/142-add-retry upstream')
+Assert-Blocked 'plain force remote only' (Bash 'git push --force origin')
+Assert-Blocked 'short force remote only' (Bash 'git push -f origin')
+Assert-Blocked 'clustered force remote only' (Bash 'git push -uf custom')
+Assert-Blocked 'force all branches'      (Bash 'git push --force origin --all')
+Assert-Blocked 'force wildcard refspec'  (Bash 'git push --force origin refs/heads/*:refs/heads/*')
+Assert-Blocked 'plus refspec to main'     (Bash 'git push origin +HEAD:refs/heads/main')
+Assert-Blocked 'mirror push is implicit force' (Bash 'git push --mirror origin')
+Assert-Blocked 'remote-only force with redirection' (Bash 'git push -f origin >push.log')
+Assert-Blocked 'remote-only force with fd redirection' (Bash 'git push -f origin 2>&1')
+Assert-Blocked 'remote-only force in subshell' (Bash '(git push -f origin)')
+Assert-Blocked 'remote-only force via git path' (Bash '/usr/bin/git push -f origin')
+Assert-Blocked 'force after -C'            (Bash 'git -C . push -f origin main')
+Assert-Blocked 'lease after -c'            (Bash 'git -c push.default=upstream push --force-with-lease origin')
+Assert-Blocked 'force after --git-dir='    (Bash 'git --git-dir=.git push --force origin main')
+Assert-Blocked 'force after --git-dir value' (Bash 'git --git-dir .git push --force origin main')
+Assert-Blocked 'force after --work-tree'   (Bash 'git --work-tree . push --force origin main')
+Assert-Blocked 'force after --namespace='  (Bash 'git --namespace=tenant push --force origin main')
+Assert-Blocked 'force after --config-env'  (Bash 'git --config-env core.editor=EDITOR push --force origin main')
+Assert-Blocked 'force after global flags'  (Bash 'git --no-pager --bare push --force origin main')
+Assert-Blocked 'force after exec-path='    (Bash 'git --exec-path=/opt/git push --force origin main')
+Assert-Blocked 'force after no optional locks' (Bash 'git --no-optional-locks push --force origin main')
+Assert-Blocked 'force after literal pathspecs' (Bash 'git --literal-pathspecs push -f origin')
+Assert-Blocked 'lease after glob pathspecs' (Bash 'git --glob-pathspecs push --force-with-lease origin')
+Assert-Blocked 'force after mixed global options' (Bash 'git -C sub -c k=v --no-optional-locks push -f origin')
+Assert-Blocked 'reset --hard origin'     (Bash 'git reset --hard origin/main')
+Assert-Blocked 'checkout -- .'           (Bash 'git checkout -- .')
+
+Write-Host ''
+Write-Host 'Deleting a protected branch via push is blocked:'
+Assert-Blocked 'delete --delete main'     (Bash 'git push origin --delete main')
+Assert-Blocked 'delete -d master'         (Bash 'git push origin -d master')
+Assert-Blocked 'delete :refs/heads/main'  (Bash 'git push origin :refs/heads/main')
+Assert-Blocked 'delete :main'             (Bash 'git push origin :main')
+Assert-Blocked 'delete behind global opt' (Bash 'git -C . push origin :main')
+Assert-Blocked 'delete clustered -fd'     (Bash 'git push -fd origin main')
+Assert-Blocked 'delete wildcard refspec'  (Bash 'git push origin :refs/heads/*')
+Assert-Blocked 'delete HEAD'              (Bash 'git push origin --delete HEAD')
+Assert-Blocked 'delete under dry-run'     (Bash 'git push --dry-run --delete origin main')
+Assert-Blocked 'delete plus empty source' (Bash 'git push origin +:main')
+Assert-Blocked 'delete abbrev --del'      (Bash 'git push origin --del main')
+Assert-Blocked 'delete abbrev --de'       (Bash 'git push origin --de main')
+Assert-Blocked 'delete abbrev --delet'    (Bash 'git push origin --delet master')
+
+Write-Host ''
+Write-Host 'The escaped-quote bypass is closed:'
+# A grep -o '"command"[^"]*"' extractor truncates at the escaped quote and sees
+# only `echo `, so every pattern below it misses the rm that follows.
+Assert-Blocked 'escaped quote then rm -rf /' (Bash 'echo \"safe\" && rm -rf /')
+Assert-Blocked 'quoted arg then force-push'  (Bash 'git commit -m \"wip\" && git push --force origin main')
+
+Write-Host ''
+Write-Host 'Protected paths are blocked:'
+Assert-Blocked 'write node_modules' (Edit '/repo/node_modules/pkg/index.js')
+Assert-Blocked 'write obj'          (Edit 'C:\repo\src\obj\Debug\gen.cs')
+Assert-Blocked 'write .git'         (Edit '/repo/.git/config')
+Assert-Blocked 'patch Add bin'       (Apply-Patch "*** Begin Patch`n*** Add File: src/bin/Generated.cs`n*** End Patch")
+Assert-Blocked 'patch Update obj'    (Apply-Patch "*** Begin Patch`n*** Update File: src/obj/Generated.cs`n*** End Patch")
+Assert-Blocked 'patch Delete node_modules' (Apply-Patch "*** Begin Patch`n*** Delete File: node_modules/pkg/index.js`n*** End Patch")
+Assert-Blocked 'patch Move to .git'  (Apply-Patch "*** Begin Patch`n*** Update File: src/Config.cs`n*** Move to: .git/config`n*** End Patch")
+
+Write-Host ''
+Write-Host 'Ordinary work is allowed:'
+Assert-Allowed 'dotnet build'         (Bash 'dotnet build')
+Assert-Allowed 'rm one file'          (Bash 'rm src/Temp.cs')
+Assert-Allowed 'push a task branch'   (Bash 'git push -u origin feature/142-add-retry')
+Assert-Allowed 'explicit force-with-lease' (Bash 'git push --force-with-lease=refs/heads/feature/142-add-retry --set-upstream -- origin HEAD:refs/heads/feature/142-add-retry')
+Assert-Allowed 'lease explicit task branch' (Bash 'git push --force-with-lease origin feature/142-add-retry')
+Assert-Allowed 'plain force explicit task ref' (Bash 'git push --force upstream HEAD:refs/heads/feature/142-add-retry')
+Assert-Allowed 'clustered force explicit task ref' (Bash 'git push -uf -- custom HEAD:refs/heads/feature/142-add-retry')
+Assert-Allowed 'protected name in later command' (Bash 'git push -f origin feature/142-add-retry && echo main')
+Assert-Allowed 'protected source to task destination' (Bash 'git push -f origin main:refs/heads/feature/142-add-retry')
+Assert-Allowed 'quoted force-push prose' (Bash 'echo "git push -f origin"')
+Assert-Allowed 'force-looking ref after separator' (Bash 'git push -- --force-with-lease')
+Assert-Allowed 'plus refspec to task branch' (Bash 'git push origin +HEAD:refs/heads/feature/142-add-retry')
+Assert-Allowed 'repo option with explicit task ref' (Bash 'git push --force --repo origin HEAD:refs/heads/feature/142-add-retry')
+Assert-Allowed 'explicit task ref with redirection' (Bash 'git push -f origin HEAD:refs/heads/feature/142-add-retry >push.log')
+Assert-Allowed 'explicit task ref with fd redirection' (Bash 'git push -f origin HEAD:refs/heads/feature/142-add-retry 2>&1')
+Assert-Allowed 'task ref after -C' (Bash 'git -C . push -f origin HEAD:refs/heads/feature/142-add-retry')
+Assert-Allowed 'task ref after -c' (Bash 'git -c push.default=upstream push --force origin HEAD:refs/heads/feature/142-add-retry')
+Assert-Allowed 'option value named push is not subcommand' (Bash 'git -C push status --short')
+Assert-Allowed 'task ref after unlisted global flag' (Bash 'git --literal-pathspecs push -f origin HEAD:refs/heads/feature/142-add-retry')
+Assert-Allowed 'delete a task branch'  (Bash 'git push origin --delete feature/142-add-retry')
+Assert-Allowed 'delete task branch colon form' (Bash 'git push origin :feature/142-add-retry')
+Assert-Allowed 'bare delete, no ref'   (Bash 'git push --delete origin')
+Assert-Allowed 'push-option d not a delete' (Bash 'git push -od origin main')
+Assert-Allowed 'ref named --delete after separator' (Bash 'git push -- --delete')
+Assert-Allowed 'plain push to protected branch' (Bash 'git push origin main')
+Assert-Allowed 'task delete beside protected fast-forward' (Bash 'git push origin :old-feature main')
+Assert-Allowed 'negated --no-delete to protected' (Bash 'git push --no-delete origin main')
+Assert-Allowed 'dry-run push to protected' (Bash 'git push --dry-run origin main')
+Assert-Allowed 'reset --hard HEAD~1'  (Bash 'git reset --hard HEAD~1')
+Assert-Allowed 'restore one path'     (Bash 'git checkout -- src/Foo.cs')
+Assert-Allowed 'edit source'          (Edit '/repo/src/Api/Program.cs')
+Assert-Allowed 'edit a file named bing.cs' (Edit '/repo/src/bing.cs')
+Assert-Allowed 'patch source'         (Apply-Patch "*** Begin Patch`n*** Update File: src/Api/Program.cs`n*** End Patch")
+Assert-Allowed 'unparseable payload'  'not json at all'
+
+Write-Host ''
+Write-Host 'Worktree CWD boundary:'
+$outside = if ($IsWindows) { 'C:\outside\file.cs' } else { '/outside/file.cs' }
+$nonGitCwd = if ($IsWindows) { $env:TEMP } else { '/tmp' }
+$sessionCwd = $PSScriptRoot
+$insideAbsolute = Join-Path $PSScriptRoot 'guard.ps1'
+Assert-Blocked 'absolute path outside git toplevel' (Edit $outside -Cwd $sessionCwd)
+Assert-Blocked 'apply_patch outside git toplevel' (Apply-Patch "*** Begin Patch`n*** Add File: $outside`n*** End Patch" -Cwd $sessionCwd)
+Assert-Blocked 'relative ../../ escape' (Edit '../../outside.cs' -Cwd $sessionCwd)
+$rootedTraversal = if ($IsWindows) { Join-Path $PSScriptRoot '..\..\outside.cs' } else { Join-Path $PSScriptRoot '/../../outside.cs' }
+Assert-Blocked 'rooted path with .. traversal' (Edit $rootedTraversal -Cwd $sessionCwd)
+Assert-Allowed 'path inside git toplevel' (Edit $insideAbsolute -Cwd $sessionCwd)
+Assert-Allowed 'relative path inside git toplevel' (Edit 'guard.ps1' -Cwd $sessionCwd)
+Assert-Allowed 'outside path without CWD' (Edit $outside)
+Assert-Allowed 'non-git TEMP or /tmp CWD' (Edit $outside -Cwd $nonGitCwd)
+
+Write-Host ''
+if ($failures -gt 0) {
+    Write-Host "$failures of $checks checks FAILED." -ForegroundColor Red
+    exit 1
+}
+Write-Host "All $checks checks passed." -ForegroundColor Green
+exit 0

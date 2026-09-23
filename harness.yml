@@ -1,0 +1,66 @@
+# dotnet-agent-harness — LamuFlix configuration
+harnessVersion: 0.7.1
+pack: dotnet
+baseBranch: main
+tracker: youtrack
+solution: null
+
+task:
+  worktree: true
+  worktreeRoot: F:\Dev\LamuFlix.worktrees
+
+gates:
+  complexity:
+    implement: 15
+    refactor: 6
+
+  mutation:
+    threshold: 80
+
+  analyzers:
+    mode: All
+    warningsAsErrors: false
+
+  vulnerablePackages:
+    fail: true
+    includeTransitive: true
+
+  inspectCode:
+    enabled: true
+
+  propertyTests:
+    # DEV-289: tooling-only ticket; no domain invariants to property-test (Patron option A).
+    enabled: false
+
+agents:
+  tiers:
+    fast:
+      claude:
+        model: claude-haiku-4-5-20251001
+        effort: low
+      cursor:
+        model: gpt-5.6-luna
+        effort: low
+      codex:
+        model: gpt-5.6-terra
+        effort: low
+    balanced:
+      claude:
+        model: inherit
+        effort: inherit
+      cursor:
+        model: inherit
+        effort: inherit
+      codex:
+        model: inherit
+        effort: inherit
+    deep:
+      claude:
+        model: inherit
+        effort: inherit
+      cursor:
+        model: inherit
+        effort: inherit
+      codex:
+        model: inherit
+        effort: inherit

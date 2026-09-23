@@ -1,0 +1,83 @@
+﻿@model PagedListing<FilmesListViewModel>
+@{
+    ViewData["Title"] = "Minha Lista";
+}
+
+<h2>@Html.DisplayFor(model => model.TotalItems) Filmes na Minha Lista</h2>
+
+<form>
+    @Html.Hidden("parms.SortBy", ViewData["CurrentSort"])
+    @Html.Hidden("parms.SortOrder", ViewData["CurrentSortOrder"])
+</form>
+<div class="row">
+    <div class="col-md-12">
+        <table class="table table-hover table-striped">
+            <thead>
+                <tr>
+                    <th style="width: 30px;"></th>
+                    <th>
+                        <a href="#/" onclick="SortList('Title','@ViewData["SortOrder"]')">@Html.DisplayName("Título")</a>
+                    </th>
+                    <th>
+                        <a href="#/" onclick="SortList('Year','@ViewData["SortOrder"]')">@Html.DisplayName("Ano")</a>
+                    </th>
+                    <th>
+                        <a href="#/" onclick="SortList('Duration','@ViewData["SortOrder"]')">@Html.DisplayName("Duração")</a>
+                    </th>
+                    <th>
+                        <a href="#/" onclick="SortList('ImdbRating','@ViewData["SortOrder"]')"> @Html.DisplayName("Nota IMDb")</a>
+                    </th>
+                    <th>
+                        <a href="#/" onclick="SortList('MetaScore','@ViewData["SortOrder"]')"> @Html.DisplayName("MetaScore")</a>
+                    </th>
+                    <th>
+                        <a href="#/" onclick="SortList('RottenTomatoes','@ViewData["SortOrder"]')"> @Html.DisplayName("Rotten Tomatoes")</a>
+                    </th>
+                    <th style="width: 30px;"></th>
+                    <th style="width: 30px;"></th>
+                    <th style="width: 30px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>
+                            <a href="@Url.Action("Details", new { id = item.Id })">
+                                <img style="width:100px; height:150px" title="Ver detalhes" src="@item.Poster">
+                            </a>
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.Title)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.Year)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.Duration)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.IMDB)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.MetaScore)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.RottenTomatoes)
+                        </td>
+                        <td>
+                            <a href="#/" title="Assistir Filme" onclick="AssistirFilme('@item.Id')"><i class="fa fa-play-circle-o fa-3x"></i></a>
+                        </td>
+                        <td>
+                            <a href="#/" title="Excluir Filme" onclick="ExcluirFilme('@item.Id')"><i style="color: red" class="fa fa-trash-o fa-3x"></i></a>
+                        </td>
+                        <td>
+                            <a href="#/" title="@item.WatchListTitle" onclick="@item.WatchListMethod"><i style="color: forestgreen" class="@item.WatchListIcon"></i></a>
+                        </td>
+                    </tr>}
+            </tbody>
+        </table>
+
+        <pagination asp-paginationlist="@Model"></pagination>
+    </div>
+</div>
