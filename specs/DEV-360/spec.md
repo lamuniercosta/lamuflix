@@ -17,7 +17,7 @@ As a repository caller, a delete for an unknown id reports failure. **Independen
 
 ### User Story 3 — Existing model and gates agree (Priority: P2)
 
-As a maintainer, CLR nullability reflects the current EF snapshot, warning settings agree, and DEV-289 Standards findings are handled within the ticket budget. **Independent test:** [quickstart.md](quickstart.md) §5 shows exactly one pending operation (the pre-existing `Movie.Status` AddColumn) and no migration is committed; §6 settings agree; Ledger's dispositions carry follow-up ids.
+As a maintainer, CLR nullability reflects the current EF snapshot, warning settings agree, and DEV-289 Standards findings are handled within the ticket budget. **Independent test:** [quickstart.md](quickstart.md) §5 introduces no pending operation beyond the pre-existing `Movie.Status` AddColumn (the six `Id` IdentityColumn `AlterColumn` operations are recorded baseline residuals) and no migration is committed; §6 settings agree; Ledger's dispositions carry follow-up ids.
 
 ### Edge Cases
 
@@ -46,7 +46,7 @@ As a maintainer, CLR nullability reflects the current EF snapshot, warning setti
 
 - **SC-001**: [quickstart.md](quickstart.md) §2 records `InvalidOperationException` naming `LAMUFLIX_CONNECTION`; §3 records MSTest Inconclusive naming `LAMUFLIX_TEST_CONNECTION`; §4 confirms the Delete exception and the PR records the DEV-280 test deferral.
 - **SC-002**: The three live `AssistirFilme_*` tests execute and pass when `LAMUFLIX_TEST_CONNECTION` is unset.
-- **SC-003**: After DEV-360, [quickstart.md](quickstart.md) §5 shows exactly one pending model operation, the pre-existing `AddColumn` for `Movie.Status`, and no other pending operation; no migration is committed (Patron H1 ruling, `task-DEV-360:89`; AC4 correction recorded by Rigger).
+- **SC-003**: After DEV-360, [quickstart.md](quickstart.md) §5 shows no pending model operation introduced beyond the pre-existing `AddColumn` for `Movie.Status`. The only other operations allowed are the six pre-existing `AlterColumn` operations on `Id` that add `MySql:ValueGenerationStrategy` IdentityColumn to actor, collection, director, genre, movie, and player. They are pre-existing baseline residuals of the EF 2.1.3-era snapshot (T007 baseline, `research.md`), not DEV-360 drift. Any other pending operation fails SC-003. No migration is committed and the model snapshot is not edited. Refreshing the snapshot is deferred to DEV-19's fresh Initial migration (Patron H1 ruling, `task-DEV-360:89`; AC4 as amended by owner option A, 2026-09-23).
 - **SC-004**: Both warning settings read true. No in-scope Critical/High Ledger finding stays open, and every other finding is fixed or linked to a follow-up ticket id.
 - **SC-005**: No hardcoded database connection string, user id, or password literal remains in Data or Test; gitleaks is green.
 - **SC-006**: Every [quickstart.md](quickstart.md) §1 step exits 0 with matching 9.0.x versions, and the Design package is absent from the `LamuFlix.Web` and `LamuFlix.Work` package graphs and build outputs (§1.5–§1.6).
@@ -61,5 +61,6 @@ Owner answers of 2026-09-23 (`task-DEV-360:81-84`; `chain:7`):
 - Patron ruling, owner-accepted: retain `KeyNotFoundException` under the transitional-layout clause; no new `NotFoundException` type (`task-DEV-360:83`). Patron's C1/C2 ruling is the authority for both that exception and the retained direct `LAMUFLIX_CONNECTION` read: they are scoped, ticket-decided transitional behavior in the flat projects that constitution:426-429 describes. No amendment, ADR, or owner choice (`task-DEV-360:89`).
 - Patron's M2 ruling: rename-on-contact (constitution:219-221) applies only to identifiers this ticket edits or signatures it changes, never to every identifier in a touched file. Portuguese-vocabulary cleanup is a DEV-290/Epic 1 follow-up.
 - Rigger recorded the D2 deferral on DEV-280 and DEV-360, the H1 AC4 correction, and a DEV-360 comment recording D1–D3 and the AC3 deferral (Patron's Compass-F2 ruling: comment-only record suffices), each with verified read-back (`task-DEV-360:90-91,93`).
+- [x] **T014 block — Owner:** blocked: structural — the T014 probe still shows six `Id` IdentityColumn `AlterColumn` operations beside `AddColumn Status`, and removing them needs a migration or snapshot edit (§2.3 item 3). **Answered 2026-09-23: option A.** Amend AC4/SC-003 to record them as pre-existing baseline residuals. DEV-360 must introduce no pending operation beyond `AddColumn movie.Status`, and it adds no migration or snapshot edit. DEV-19's fresh Initial migration owns the snapshot refresh. Patron authorized reopening the frozen spec early for this amendment only.
 - Patron's Q1 ticket clarification is recorded on DEV-360 and verified by Rigger's read-back (`chain:7`).
 - Nothing else is authorized: no other dependency, project, layer, schema or migration, public API, or out-of-ticket file rewrite. Any additional planned work goes to the owner.
