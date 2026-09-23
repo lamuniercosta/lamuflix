@@ -66,7 +66,7 @@ namespace LamuFlix.Test
                     foreach (var item in subDirectory.EnumerateDirectories())
                     {
                         var movieName = item.Name.Split('[').ElementAt(0);
-                        if ((movies == null) || (movies != null && !movies.Select(x => x.Title).Contains(movieName)))
+                        if (!movies.Select(x => x.Title).Contains(movieName))
                         {
                             ProcessMovie(item, directory.Name);
                         }
@@ -77,7 +77,7 @@ namespace LamuFlix.Test
                 else
                 {
                     var movieName = directory.Name.Split('[').ElementAt(0);
-                    if ((movies == null) || (movies != null && !movies.Select(x => x.Title).Contains(movieName)))
+                    if (!movies.Select(x => x.Title).Contains(movieName))
                     {
                         ProcessMovie(directory, null);
                     }
@@ -106,7 +106,7 @@ namespace LamuFlix.Test
                 foreach (var item in subDirectory.EnumerateDirectories())
                 {
                     var movieName = item.Name.Split('[').ElementAt(0);
-                    if ((movies == null) || (movies != null && !movies.Select(x => x.Title).Contains(movieName)))
+                    if (!movies.Select(x => x.Title).Contains(movieName))
                     {
                         ProcessMovie(item, directory.Name);
                     }
@@ -117,7 +117,7 @@ namespace LamuFlix.Test
             else
             {
                 var movieName = directory.Name.Split('[').ElementAt(0);
-                if ((movies == null) || (movies != null && !movies.Select(x => x.Title).Contains(movieName)))
+                if (!movies.Select(x => x.Title).Contains(movieName))
                 {
                     ProcessMovie(directory, null);
                 }
