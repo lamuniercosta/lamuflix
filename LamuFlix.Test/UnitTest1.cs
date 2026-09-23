@@ -135,6 +135,8 @@ namespace LamuFlix.Test
         }
 
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // deserialized result
         private void ProcessMovie(DirectoryInfo directory, string? collection)
         {
             var movie = directory.Name.Split('[');
@@ -160,6 +162,7 @@ namespace LamuFlix.Test
             _dataContext.Add(movieModel);
             _dataContext.SaveChanges();
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         private Movie BuildMovieFromApiResponse(ApiDataModel retorno, string movieName, string movieYear, FileInfo file)
         {
@@ -392,6 +395,8 @@ namespace LamuFlix.Test
             Assert.AreNotEqual(totalResults, 0);
         }
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // reflection lookup of a known member
         private IQueryable<T> DynamicQuery<T>(QueryParams dtParams, IQueryable<T> query)
         {
             var filter = dtParams.Filter;
@@ -474,6 +479,7 @@ namespace LamuFlix.Test
 
             return query;
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         private static LamuFlixContext CreateInMemoryContext()
         {

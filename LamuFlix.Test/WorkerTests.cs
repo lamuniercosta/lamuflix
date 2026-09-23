@@ -1,4 +1,3 @@
-#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +7,6 @@ using LamuFlix.Worker;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -30,20 +28,26 @@ namespace LamuFlix.Test
         }
 
         [TestMethod]
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // Deliberate null asserting ArgumentNullException
         public void QueueWorker_Constructor_ThrowsOnNullLogger()
         {
             var config = new ConfigurationBuilder().Build();
 
             Assert.ThrowsException<ArgumentNullException>(() => new QueueWorker(null!, config));
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         [TestMethod]
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // Deliberate null asserting ArgumentNullException
         public void QueueWorker_Constructor_ThrowsOnNullConfiguration()
         {
             var logger = NullLogger<QueueWorker>.Instance;
 
             Assert.ThrowsException<ArgumentNullException>(() => new QueueWorker(logger, null!));
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         [TestMethod]
         public void CreateHostBuilder_RegistersQueueWorkerAsHostedService()
@@ -72,7 +76,7 @@ namespace LamuFlix.Test
 
             using var worker = new QueueWorker(logger, config);
             using var cts = new CancellationTokenSource();
-            cts.Cancel();
+            await cts.CancelAsync();
 
             await worker.StartAsync(cts.Token);
             await worker.StopAsync(CancellationToken.None);
