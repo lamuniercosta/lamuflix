@@ -18,11 +18,11 @@
 
 ## Phase B0: Plan-time Recon Addendum (pickup prerequisite)
 
-- [ ] T003 At pickup, **re-confirm** the following lines on the pickup base; if any line differs from what is recorded here, stop and report to Keel before making any edits.
+- [ ] T003 At pickup, **re-confirm** the following lines on the pickup base; if any line differs from what is recorded here, stop and report to Keel before making any edits. Record `pickupBase = $(git merge-base HEAD origin/main)` for use in T018, T024, and Phase 6.
   (a) Exact sln project-path lines (at 450e70f): sln:6 Test (`LamuFlix.Test\LamuFlix.Test.csproj`), sln:8 Worker (`LamuFlix.Work\LamuFlix.Worker.csproj`), sln:10 Data (`LamuFlix.Data\LamuFlix.Data.csproj`), sln:12 Web (`LamuFlix.Web\LamuFlix.Web.csproj`). Re-read these four lines on the pickup base; report any difference.
   (b) Exact ProjectReference lines (at 450e70f): `LamuFlix.Test\LamuFlix.Test.csproj`:19 Data, `:20` Web, `:21` Worker; `LamuFlix.Web\LamuFlix.Web.csproj`:19 Data; `LamuFlix.Work\LamuFlix.Worker.csproj`:18 Data. Re-read these five lines on the pickup base; report any difference.
-  (c) Gauge baselines per recon A2 re-run (recon-DEV-290 section "Baseline gates (Gauge GREEN 2026-09-23 at 450e70f)"): `dotnet build LamuFlix.sln` — **0 warnings / 0 errors**; `dotnet test` — **18 passed / 4 skipped / 0 failed**; `run-roslyn-analyzers.ps1` exit **0**; `run-cyclomatic-complexity.ps1` (CC15) exit **0**; `run-cyclomatic-complexity.ps1 -Threshold 6` (CC6) exit **0**; `run-jetbrains-inspectcode.ps1` exit **0**. Re-measure on a moved `main` as a drift check; report any difference. Never measure baselines in the main checkout — use a throwaway detached worktree.
-  Record confirmations in the PR "Verification evidence" section. This task is read-only; it changes only the PR evidence record.
+  (c) Gauge baselines per recon A2 re-run 2026-09-23 (recon-DEV-290): `dotnet build LamuFlix.sln` — **0 warnings / 0 errors**; `dotnet test` — **18 passed / 4 skipped / 0 failed**; `run-roslyn-analyzers.ps1` exit **0** findings []; `run-cyclomatic-complexity.ps1` (CC15) exit **0** findings []; `run-cyclomatic-complexity.ps1 -Threshold 6` (CC6) exit **0** findings []; `run-jetbrains-inspectcode.ps1` exit **0** findings []. Re-measure on a moved `main` as a drift check; report any difference. Never measure baselines in the main checkout — use a throwaway detached worktree.
+  Record confirmations and pickupBase in the PR "Verification evidence" section. This task is read-only; it changes only the PR evidence record.
 
 ---
 
@@ -37,10 +37,11 @@
 
 ## Phase B2: Moves (S1–S4)
 
-- [ ] T008 `git mv LamuFlix.Web src/LamuFlix.Web` (S1). Depends on T007.
-- [ ] T009 `git mv LamuFlix.Data src/LamuFlix.Data` (S2). Depends on T007 (Temp.cs already deleted).
-- [ ] T010 `git mv LamuFlix.Work src/LamuFlix.Worker` (S3, corrects stale folder name; no content change — csproj and namespaces already `LamuFlix.Worker`). Depends on T007.
-- [ ] T011 `git mv LamuFlix.Test tests/LamuFlix.Test` (S4). Depends on T007.
+- [ ] T007a `New-Item -ItemType Directory -Force -Path src,tests`. Create the target directories before moving projects. Depends on T007.
+- [ ] T008 `git mv LamuFlix.Web src/LamuFlix.Web` (S1). Depends on T007a.
+- [ ] T009 `git mv LamuFlix.Data src/LamuFlix.Data` (S2). Depends on T007a (Temp.cs already deleted).
+- [ ] T010 `git mv LamuFlix.Work src/LamuFlix.Worker` (S3, corrects stale folder name; no content change — csproj and namespaces already `LamuFlix.Worker`). Depends on T007a.
+- [ ] T011 `git mv LamuFlix.Test tests/LamuFlix.Test` (S4). Depends on T007a.
 - [ ] T012 Commit: `DEV-290 - move projects into src/ and tests/`. The build is intentionally broken here (path strings not yet updated). Depends on T008–T011.
 
 ---
@@ -53,15 +54,21 @@
 
 ---
 
+## Phase B3a: Cleanup untracked build artifacts
+
+- [ ] T015a Purge untracked build output: `Get-ChildItem src,tests -Directory | ForEach-Object { Remove-Item -Recurse -Force (Join-Path $_.FullName bin),(Join-Path $_.FullName obj) -ErrorAction SilentlyContinue }`. This command changes no tracked file. Depends on T015.
+
+---
+
 ## Phase B4: Evidence checks
 
-- [ ] T016 [SC-001] Run `dotnet build LamuFlix.sln`. Record exit code and warning count. Warning count must be **0** (base is 0 warnings at 450e70f). Depends on T015.
+- [ ] T016 [SC-001] Run `dotnet build LamuFlix.sln`. Record exit code and warning count. Warning count must be **0** (base is 0 warnings at 450e70f). Depends on T015a.
 - [ ] T017 [SC-002] Run `dotnet test`. Record exit code, pass count, skip count, fail count. Counts must match T003(c) base (18 passed / 4 skipped / 0 failed). Depends on T016.
-- [ ] T018 [SC-003] Run `git diff -M100% --name-status 450e70f...HEAD`. Every path not listed below must show R100. The only other entries must be: the 3 deletions; sln as M; LamuFlix.Test.csproj as a D+A pair; and the additions `docs/adr/0013-src-tests-solution-layout.md` and `specs/DEV-290/*`. Also record `git diff -M100% --stat 450e70f...HEAD` as a supplement. Depends on T015.
+- [ ] T018 [SC-003] Run `git diff -M100% --name-status $pickupBase...HEAD`. Every path not listed below must show R100. The only other entries must be: the 3 deletions; sln as M; LamuFlix.Test.csproj as a D+A pair; and the additions `docs/adr/0013-src-tests-solution-layout.md` and `specs/DEV-290/*`. Also record `git diff -M100% --stat $pickupBase...HEAD` as a supplement. Depends on T015a.
 - [ ] T019 [SC-004] Run `git grep -n -w Temp -- '*.cs'`. Before deletion the only hit was `LamuFlix.Data/Models/Temp.cs:5`; after deletion the command must return 0 lines (exit 1). The `-w` flag is required to prevent false hits from `TempData`/`Template` in controllers and views. Record the command and output. Depends on T015.
 - [ ] T020 [SC-005] Run `Test-Path` for each old location: `LamuFlix.Web.old`, `SetupWorker`, `LamuFlix.WorkerSetup`, `LamuFlix.Work`, root `LamuFlix.Web`, root `LamuFlix.Data`, root `LamuFlix.Test`. All must return False. Verify D1 (LamuFlix.Web.old is absent). Depends on T015.
 - [ ] T021 [SC-006] Run `dotnet format --verify-no-changes`. Record exit. Depends on T015.
-- [ ] T022 [SC-007] Run the three pipeline gates with explicit `-Files` at the new project paths (pwsh 7): `run-roslyn-analyzers.ps1 -Files "src/LamuFlix.Data/*.cs","src/LamuFlix.Web/*.cs","src/LamuFlix.Worker/*.cs","tests/LamuFlix.Test/*.cs"`, `run-cyclomatic-complexity.ps1 -Files "src/LamuFlix.Data/*.cs","src/LamuFlix.Web/*.cs","src/LamuFlix.Worker/*.cs","tests/LamuFlix.Test/*.cs"` (threshold 15), `run-cyclomatic-complexity.ps1 -Files "src/LamuFlix.Data/*.cs","src/LamuFlix.Web/*.cs","src/LamuFlix.Worker/*.cs","tests/LamuFlix.Test/*.cs" -Threshold 6`, and `run-jetbrains-inspectcode.ps1`. Record all numeric exits and findings lists. Match findings against the T003(c) baseline by rule and code line, ignoring path prefix (D2). Apply the gate-finding ladder from plan.md Phase 4; a new finding stops to Patron. Pre-existing findings are listed as PR follow-ups (DEV-281, DEV-366). A skipped or unrunnable gate is not a pass. Depends on T016–T021.
+- [ ] T022 [SC-007] Run the four pipeline gates with files from `git ls-files` (D7). First, retrieve the tracked .cs files: `$files = @(git ls-files 'src/**/*.cs','tests/**/*.cs'); $fileCount = $files.Count; if ($fileCount -eq 0) { Write-Error "No .cs files found"; exit 1 }`. Pass the same `$files` array to all four gates (pwsh 7): `run-roslyn-analyzers.ps1 -Files $files`, `run-cyclomatic-complexity.ps1 -Files $files` (threshold 15), `run-cyclomatic-complexity.ps1 -Files $files -Threshold 6`, and `run-jetbrains-inspectcode.ps1 -Files $files`. Record all numeric exits, file count, and findings lists. Match findings against the T003(c) baseline by rule and code line, ignoring path prefix (D2, findings [] for all four gates). Apply the gate-finding ladder from plan.md Phase 4; a new finding stops to Patron. Pre-existing findings are listed as PR follow-ups (DEV-281, DEV-366). A skipped or unrunnable gate is not a pass. Depends on T016–T021.
 
 ---
 
@@ -73,13 +80,13 @@
 
 ## Phase B6: Scope guard and handoff
 
-- [ ] T024 Run `git diff 450e70f...HEAD --name-only`. Confirm the changed set matches the file impact boundary in plan.md exactly: renames under the four project folders; the sln and LamuFlix.Test.csproj edits; the three deletions; `docs/adr/0013-src-tests-solution-layout.md`; and `specs/DEV-290/*` (spec.md, plan.md, tasks.md, ASSUMPTIONS.md, CONCLUSIONS.md, brief.md, analyze.md). `.specify/feature.json` must not appear. Any file outside the boundary is a §2.3 question, not implied authorization. Record the check in the PR evidence section. Depends on T023.
+- [ ] T024 Run `git diff $pickupBase...HEAD --name-only`. Confirm the changed set matches the file impact boundary in plan.md exactly: renames under the four project folders; the sln and LamuFlix.Test.csproj edits; the three deletions; `docs/adr/0013-src-tests-solution-layout.md`; and `specs/DEV-290/*` (spec.md, plan.md, tasks.md, ASSUMPTIONS.md, CONCLUSIONS.md, brief.md, analyze.md). `.specify/feature.json` must not appear. Any file outside the boundary is a §2.3 question, not implied authorization. Record the check in the PR evidence section. Depends on T023.
 
 ---
 
 ## Dependencies and execution order
 
-T001–T002 complete in Phase A before Gate 1. After the spec PR is merged, T003 is the Phase B pickup step. T004–T006 precede T007 (deletion commit). T008–T011 depend on T007 and can run in any order (disjoint folders). T012 follows T008–T011. T013–T014 depend on T012 and can run in any order (disjoint files). T015 follows T013–T014. T016–T021 depend on T015 and may run in parallel (independent checks). T022 depends on T016–T021. T023 follows T022. T024 follows T023.
+T001–T002 complete in Phase A before Gate 1. After the spec PR is merged, T003 is the Phase B pickup step. T004–T006 precede T007 (deletion commit). T007a follows T007 (directory creation). T008–T011 depend on T007a and can run in any order (disjoint folders). T012 follows T008–T011. T013–T014 depend on T012 and can run in any order (disjoint files). T015 follows T013–T014. T015a follows T015 (cleanup). T016–T021 depend on T015a and may run in parallel (independent checks). T022 depends on T016–T021. T023 follows T022. T024 follows T023.
 
 ## Implementation strategy
 
