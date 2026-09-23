@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/290-spec`
 **Created**: 2026-09-23
-**Status**: Phase A — spec PR open, Gate 1 needs no owner checkbox
+**Status**: Phase A — `gate1: provisional` (Patron, 2026-09-23); the spec PR is open and Gate 1 needs no owner checkbox
 **Input**: DEV-290 Scope & Technical Design; grill rulings Q1–Q4 and drift re-confirms D1–D5 in [CONCLUSIONS.md](CONCLUSIONS.md); recon facts from `recon-DEV-290`; [ASSUMPTIONS.md](ASSUMPTIONS.md)
 
 ## User Scenarios & Testing
@@ -60,3 +60,4 @@ As a developer, `SetupWorker/`, `LamuFlix.WorkerSetup/`, and `LamuFlix.Data/Mode
 - No owner checkbox is required. The src/tests moves and the deletions are named in the ticket. Q1 (no-op) and D1 (void by drift) remove work without adding or reordering any. No §2.3 item is open.
 - Nothing else is authorized: no `.cs` content edit, namespace rename, Web→Api rename, Data→Infrastructure rename, new dependency, schema change, public API change, or out-of-ticket file rewrite. Any such need is a structural owner question.
 - Acceptance tests (Gherkin/Reqnroll) are opted out (Q4).
+- [x] **Process (status record):** Patron set `gate1: provisional` on 2026-09-23. The freeze `/speckit-analyze` is clean (Critical 0 / High 0; coverage 19/19, 26 tasks; `analyze.md` SHA256 `2AB3B679…`) and the plan challenge is adjudicated (D6, D7). The findings I1 (T022 `-Files` set vs D7), I2 (`$pickupBase` spec-entry wording vs D6), I3, I4, and C1 ride on this PR as owner review items — they are not Gate 1 checkboxes.
