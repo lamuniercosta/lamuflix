@@ -1,7 +1,28 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (none) → 1.0.0 (MAJOR — initial ratification)
+Version change: 1.0.0 → 1.1.0 (MINOR — comment policy materially expanded)
+
+Amendment 1.1.0 (2026-09-23):
+  Modified sections:
+    ✏️ Development Workflow → Coding Conventions → Comments: "unless required by best practice"
+       replaced with "unless strictly necessary" (non-obvious WHY only); change narration, task
+       references, and commented-out code explicitly banned; exemptions widened from AAA headers
+       only to AAA headers, empty-block justifications, and scoped warning suppressions
+       (aligns with the existing justification requirement in Static-Analysis Gates).
+       Wording adapted from FMC.GrantEval constitution ("No gratuitous comments").
+    ✏️ Development Workflow → Pull Request Quality Gates: comment checkbox updated to match
+  Added / removed sections: none
+  Templates reviewed:
+    ✅ .specify/templates/*.md — no comment-policy references; no edits required
+  Follow-up (upstream, harness-generated — do not edit locally, reinstall overwrites):
+    ⚠ AGENTS.md, .claude/agents/test-writer.md, .codex/agents/test-writer.toml,
+      .claude/skills/testing/SKILL.md, .agents/skills/testing/SKILL.md,
+      .claude/rules/pipeline/coding-conventions.mdc, .cursor/rules/coding-conventions.mdc
+      still call AAA headers "the one exception". Fix in dotnet-agent-harness; until then the
+      constitution prevails (see Governance).
+
+Ratification 1.0.0 (2026-09-21):
 
 Source documents:
   - docs/architecture/architecture-plan.md (reviewed 2026-09-21 against commit 9c4765c, DEV-16)
@@ -322,8 +343,9 @@ Every PR MUST satisfy all of the following before merging:
 - [ ] New domain terms added to `CONTEXT.md`; no Portuguese identifiers introduced
 - [ ] Tests use xUnit v3 + NSubstitute + Shouldly + AutoFixture/Faker.Net;
       infrastructure via Testcontainers, WireMock.Net, or `MockFileSystem`
-- [ ] No descriptive comments added unless explicitly requested or required by best practice
-      (test `// arrange`, `// act`, `// assert` section comments are permitted)
+- [ ] No comments added unless requested or strictly necessary; the only exemptions are AAA
+      test headers, empty-block justifications, and scoped warning suppressions (see Coding
+      Conventions)
 - [ ] New or modified `.cs` files pass all three static-analysis gates (see below)
 - [ ] `dotnet format --verify-no-changes` passes
 
@@ -357,9 +379,17 @@ Code MUST follow `.claude/rules/vendor/aaron-csharp-coding-style.md` and these p
   inheritance; identifiers and constrained values are value objects (`MovieId`, `ImdbId`,
   `ImdbRating`, `Runtime`, `ReleaseYear`, `LibraryPath`, `MediaFormat`) with `TryParse`-style
   factories. Collections in records are `System.Collections.Immutable`.
-- **Comments**: descriptive comments (inline `//`, XML `///`, block) MUST NOT be added unless
-  explicitly requested or required by an established best practice; test methods MAY use
-  `// arrange`, `// act`, `// assert`.
+- **Comments**: code MUST NOT carry comments (inline `//`, XML `///`, block) unless the user
+  explicitly requests one or it is strictly necessary — a non-obvious WHY the code cannot
+  express, such as a hidden constraint or a workaround for a specific external bug. Names carry
+  the WHAT. Comments that restate the code, narrate a change, reference a task, ticket, or
+  caller, or hold commented-out code MUST be removed. Only three uses are exempt:
+  - **Test structure**: `// arrange`, `// act`, `// assert` section headers in test methods.
+  - **Empty-block justification**: one comment inside an intentionally empty block (a
+    swallowed `catch`, a no-op override, an empty `default:`) stating why it is empty.
+  - **Temporary warning suppression**: `#pragma warning disable`/`restore` pairs and
+    `// ReSharper disable once …` directives, scoped to the fewest lines possible, with a brief
+    justification on the same line.
 - **Interface placement**: ports live in `Core/Ports/`, separate from their adapters. Any other
   interface MUST be defined in the same file as its primary implementation.
 - **Naming**: functionality-based, English, per `CONTEXT.md`; `nameof` for every symbol
@@ -464,4 +494,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-09-21
+**Version**: 1.1.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-09-23
