@@ -37,7 +37,7 @@ namespace LamuFlix.Data.Repositories
             T? entityToDelete = dbSet.Find(id);
             if (entityToDelete is null)
             {
-                return;
+                throw new KeyNotFoundException($"{typeof(T).Name} with id '{id}' was not found.");
             }
 
             Delete(entityToDelete);

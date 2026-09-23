@@ -5,7 +5,7 @@ namespace LamuFlix.Data.Models
     public class Director
     {
         public int Id { get; set; }
-        public string Name { get; set; } = null!;
+        public string? Name { get; set; }
 
         public IList<MovieDirectors> Movies { get; set; } = [];
     }

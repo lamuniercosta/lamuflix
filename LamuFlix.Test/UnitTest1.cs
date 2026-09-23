@@ -27,20 +27,28 @@ namespace LamuFlix.Test
         private static string FilePath = @"F:/Filmes/";
         private static string ApiKey => Environment.GetEnvironmentVariable("LAMUFLIX_OMDB_API_KEY") ?? string.Empty;
 
-        private LamuFlixContext _dataContext = null!;
+        private LamuFlixContext? _lazyDataContext;
 
-        [TestInitialize]
-        public void SetUp()
+        private LamuFlixContext _dataContext
         {
-            var services = new ServiceCollection();
+            get
+            {
+                if (_lazyDataContext is not null)
+                {
+                    return _lazyDataContext;
+                }
 
-            var connectionString = Environment.GetEnvironmentVariable("LAMUFLIX_TEST_CONNECTION")
-                ?? "server=localhost;user id=test;password=test;port=3306;database=lamuflix;";
-            services.AddDbContext<LamuFlixContext>(opts => opts.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 31)), s => s.MigrationsAssembly("LamuFlix.Data")));
+                var connectionString = Environment.GetEnvironmentVariable("LAMUFLIX_TEST_CONNECTION");
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    Assert.Inconclusive("LAMUFLIX_TEST_CONNECTION is not set.");
+                }
 
-            var serviceProvider = services.BuildServiceProvider();
-
-            _dataContext = serviceProvider.GetRequiredService<LamuFlixContext>();
+                var services = new ServiceCollection();
+                services.AddDbContext<LamuFlixContext>(opts => opts.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 31)), s => s.MigrationsAssembly("LamuFlix.Data")));
+                _lazyDataContext = services.BuildServiceProvider().GetRequiredService<LamuFlixContext>();
+                return _lazyDataContext;
+            }
         }
 
         [TestMethod]
