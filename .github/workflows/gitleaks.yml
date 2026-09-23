@@ -1,0 +1,37 @@
+# Commit-time secret scan. The agent hooks (scripts/hooks/secret-scan.ps1 and
+# the pre-commit hook) cover what reaches a model and what gets committed
+# locally; this covers everything that reaches GitHub, whoever pushed it.
+#
+# The repo is public and owned by a personal account, so gitleaks-action
+# needs no license key.
+name: gitleaks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: gitleaks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Findings go to the job log and summary; no PR comments.
+          GITLEAKS_ENABLE_COMMENTS: false

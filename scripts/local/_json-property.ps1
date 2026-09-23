@@ -1,5 +1,5 @@
 # StrictMode-safe JSON note-property helpers.
-# Dot-sourced by Set-IssueInProgress.ps1 and Test-JsonProperty.ps1.
+# Dot-sourced by Set-YouTrackState.ps1 and Test-JsonProperty.ps1.
 
 function Test-JsonProperty {
     <#

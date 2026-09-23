@@ -21,6 +21,10 @@
       "Bash(git log:*)",
       "Bash(git show:*)",
       "Bash(git branch:*)"
+    ],
+    "deny": [
+      "Bash(gh pr merge:*)",
+      "PowerShell(gh pr merge:*)"
     ]
   },
   "hooks": {
@@ -50,6 +54,15 @@
           {
             "type": "command",
             "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/hooks/guard.ps1\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/hooks/deny-merge.ps1\""
           }
         ]
       }
