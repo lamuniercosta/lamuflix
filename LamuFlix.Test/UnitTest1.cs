@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -18,6 +17,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Net.Http;
 using System.Reflection;
+using System.Text.Json;
 
 namespace LamuFlix.Test
 {
@@ -135,6 +135,12 @@ namespace LamuFlix.Test
         }
 
 
+        private static readonly JsonSerializerOptions OmdbJsonOptions = new()
+        {
+            PropertyNamingPolicy = null,
+            PropertyNameCaseInsensitive = true,
+        };
+
         // ReSharper disable NullableWarningSuppressionIsUsed
         // deserialized result
         private void ProcessMovie(DirectoryInfo directory, string? collection)
@@ -148,7 +154,7 @@ namespace LamuFlix.Test
             //string apiURL = $"http://www.omdbapi.com/?apikey={ApiKey}&t={movieName}&y{movieYear}";
             string apiURL = $"http://www.omdbapi.com/?apikey={ApiKey}&i=tt0903657";
 
-            var retorno = JsonConvert.DeserializeObject<ApiDataModel>(GET(apiURL))!;
+            var retorno = JsonSerializer.Deserialize<ApiDataModel>(GET(apiURL), OmdbJsonOptions)!;
 
             Movie movieModel = retorno.Response == "True"
                 ? BuildMovieFromApiResponse(retorno, movieName, movieYear, file!)
