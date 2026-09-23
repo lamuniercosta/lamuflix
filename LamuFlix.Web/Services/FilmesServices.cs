@@ -63,6 +63,8 @@ namespace LamuFlix.Web.Services
             _queuePublisher = queuePublisher;
         }
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
         public void AssistirFilme(int filmeId)
         {
             if (!(_configuration?.GetValue<bool>("Features:LocalPlay") ?? false))
@@ -75,6 +77,7 @@ namespace LamuFlix.Web.Services
             var startInfo = BuildProcessStartInfo(player, filme.Location!);
             ProcessStarter(startInfo);
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         private string? ResolvePlayerPath(string format)
         {
@@ -115,6 +118,8 @@ namespace LamuFlix.Web.Services
 
         public Movie? GetMovie(int filmeId) => _dataContext.Movies.Find(filmeId);
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
         public Task<Movie?> GetDetalhesFilmeAsync(int filmeId) => _dataContext.Movies
                 .Include(x => x.Actors)
                 .ThenInclude(x => x.Actor)
@@ -125,7 +130,10 @@ namespace LamuFlix.Web.Services
                 .Include(x => x.Collection)
                 .ThenInclude(x => x!.Movies)
                 .SingleOrDefaultAsync(x => x.Id == filmeId);
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
         public async Task<PagedListing<FilmesListViewModel>> GetFilmesListAsync(QueryParams dtParams)
         {
             var queryResult = CreateFilmesListQuery(dtParams);
@@ -145,6 +153,7 @@ namespace LamuFlix.Web.Services
 
             return new PagedListing<FilmesListViewModel>(listResult, queryResult.TotalRecords, dtParams.Page, dtParams.PageSize);
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         private QueryableResult<Movie> CreateFilmesListQuery(QueryParams dtParams)
         {
@@ -176,6 +185,8 @@ namespace LamuFlix.Web.Services
             return result;
         }
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
         public void CriarFilme(CriarFilmeViewModel model)
         {
             var existingTitles = _dataContext.Movies.Select(x => x.Title!).ToList();
@@ -197,6 +208,7 @@ namespace LamuFlix.Web.Services
                 ProcessStandaloneMovie(model, existingTitles);
             }
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         private void ProcessMovieWithId(CriarFilmeViewModel model)
         {
@@ -299,6 +311,8 @@ namespace LamuFlix.Web.Services
             movieModel.Collection = collectionModel;
         }
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // DI-injected configuration; nullable-column read preserving the pre-DEV-360 contract (DEV-360 FR-004)
         private void PublishEnrichment(Movie movieModel, string? movieId)
         {
             var publisher = _queuePublisher ?? new RabbitMqEnrichmentQueuePublisher(_configuration!);
@@ -310,8 +324,12 @@ namespace LamuFlix.Web.Services
                 ImdbId = movieId
             }).GetAwaiter().GetResult();
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
         public IEnumerable<string> GetMoviesByName(string query) => [.. _dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => x.Title!)];
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         public void ExcluirFilme(int filmeId)
         {
@@ -345,6 +363,8 @@ namespace LamuFlix.Web.Services
             }
         }
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
         public PagedListing<FilmesListViewModel> GetMinhaLista(QueryParams dtParams)
         {
             QueryableResult<Movie> result = new QueryableResult<Movie>();
@@ -384,8 +404,12 @@ namespace LamuFlix.Web.Services
 
             return new PagedListing<FilmesListViewModel>(listResult, result.TotalRecords, dtParams.Page, dtParams.PageSize);
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
         public IEnumerable<FilmesListViewModel> QuickSearch(string query) => [.. _dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => new FilmesListViewModel { Id = x.Id, Title = x.Title!, Poster = x.Poster ?? string.Empty })];
+        // ReSharper restore NullableWarningSuppressionIsUsed
     }
 
 }

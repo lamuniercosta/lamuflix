@@ -8,8 +8,11 @@ namespace LamuFlix.Web.TagHelpers
     [HtmlTargetElement("alerthelper")]
     public class AlertsTagHelper : TagHelper
     {
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // Razor attribute binding
         public string Type { get; set; } = null!;
         public string Message { get; set; } = null!;
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         public override void Process(TagHelperContext context, TagHelperOutput output)
         {
