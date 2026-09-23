@@ -37,6 +37,13 @@
         "matcher": "Bash|Shell|run_terminal_cmd|Edit|Write|MultiEdit|create_file|edit_file|search_replace",
         "timeout": 15,
         "failClosed": false
+      },
+      {
+        "$comment": "LamuFlix-local: agents never merge PRs (gh pr merge, the REST merge endpoint, the merge GraphQL mutations). The owner merges.",
+        "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"scripts/hooks/deny-merge.ps1\" -OutputContract Cursor",
+        "matcher": "Bash|Shell|run_terminal_cmd",
+        "timeout": 15,
+        "failClosed": false
       }
     ],
     "postToolUse": [

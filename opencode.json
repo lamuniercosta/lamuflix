@@ -1,5 +1,15 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "gh pr merge*": "deny",
+      "gh * pr merge*": "deny",
+      "gh api *pulls/*/merge*": "deny",
+      "gh api *mergePullRequest*": "deny",
+      "gh api *enablePullRequestAutoMerge*": "deny"
+    }
+  },
   "mcp": {
     "microsoft-learn": {
       "type": "remote",

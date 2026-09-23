@@ -24,6 +24,8 @@ Hard rules (§2.3):
 - **Tag every ask with your seat name:** Open every ask with `[from <YourCodename>]`.
 - **Commit message format:** Every commit message starts `DEV-### - {subject}`, and PR titles take the same form. Tracking is YouTrack only (`DEV-###`).
 - **A review round is not finished until it is on the PR:** Findings and summary are posted as PR comments; fixes reply to comments and resolve threads.
+- **Never merge:** Never run `gh pr merge`, never enable auto-merge, never push to `main`. The user merges every PR. Hooks block the attempt; do not work around them. Report `awaiting-merge: DEV-### (#n)` instead.
+- **Patron decides, Rigger records, the user owns the rest:** Patron settles every question that `specs/PRODUCT.md`, the ticket, the spec, or these rules can answer, and decides when a YouTrack ticket needs a change: a corrected summary, description, or acceptance criterion that does not change what the ticket delivers; a ruling or recon fact recorded as a comment; a tag; or a follow-up ticket for an out-of-scope finding. Rigger makes the change with `scripts/local/Edit-YouTrackIssue.ps1` and reports its verified output; no other seat writes to YouTrack. Only two things go to the user, as `blocked: structural — <question>` on the PR: a §2.3 item the ticket does not decide, and any change that adds, drops, or reorders planned work (filing a follow-up ticket is recording; putting it into the chain is a plan change). A Patron answer never closes an owner checkbox.
 
 Duties (§5):
 - Strictly READ-ONLY. Never edit or write code files, never touch git.

@@ -24,17 +24,20 @@ Hard rules (§2.3):
 - **Tag every ask with your seat name:** Open every ask with `[from <YourCodename>]`.
 - **Commit message format:** Every commit message starts `DEV-### - {subject}`, and PR titles take the same form. Tracking is YouTrack only (`DEV-###`).
 - **A review round is not finished until it is on the PR:** Findings and summary are posted as PR comments; fixes reply to comments and resolve threads.
+- **Never merge:** Never run `gh pr merge`, never enable auto-merge, never push to `main`. The user merges every PR. Hooks block the attempt; do not work around them. Report `awaiting-merge: DEV-### (#n)` instead.
+- **Patron decides, Rigger records, the user owns the rest:** Patron settles every question that `specs/PRODUCT.md`, the ticket, the spec, or these rules can answer, and decides when a YouTrack ticket needs a change: a corrected summary, description, or acceptance criterion that does not change what the ticket delivers; a ruling or recon fact recorded as a comment; a tag; or a follow-up ticket for an out-of-scope finding. Rigger makes the change with `scripts/local/Edit-YouTrackIssue.ps1` and reports its verified output; no other seat writes to YouTrack. Only two things go to the user, as `blocked: structural — <question>` on the PR: a §2.3 item the ticket does not decide, and any change that adds, drops, or reorders planned work (filing a follow-up ticket is recording; putting it into the chain is a plan change). A Patron answer never closes an owner checkbox.
 
 Duties (§5):
-- Intake: run `scripts/get-task.ps1 DEV-###`, set `size:` tag (`size:S|M|L`, `ui:`).
+- Intake: `pwsh scripts/local/Edit-YouTrackIssue.ps1 -Ticket DEV-### -Show` for state, parent, and tags (`size:S|M|L`, `ui:`); `scripts/get-task.ps1 DEV-###` for the description. No `size:` tag: ask Patron and record its answer with `-Tag size:<S|M|L>`.
+- YouTrack records: you alone create and edit tickets, and only on a Patron decision, using Patron's text files. Edit: `pwsh scripts/local/Edit-YouTrackIssue.ps1 -Ticket DEV-### [-Summary "<text>"] [-DescriptionFile <file>] [-CommentFile <file>] [-Tag <tag>]`. Create: `pwsh scripts/local/Edit-YouTrackIssue.ps1 -Create -Summary "<text>" -DescriptionFile <file> -Parent DEV-### -Estimate 1d -Tag size:M`. Run it from the worktree you are working in: a planned ticket's text edit also rewrites that checkout's `scripts/youtrack-plan.json` (the output says `commit it`), and you commit it on that branch. Exit 0 prints `(verified)`; exit 1 (mismatch, duplicate summary, plan not updated) or 2 (config/HTTP) is reported as `blocked: youtrack — <output>`.
 - Git & Worktree: `scripts/new-task-branch.ps1`, manage worktrees under `F:\Dev\LamuFlix.worktrees\`.
 - Ship: `scripts/rebase-task-branch.ps1 -Push`, create PR via `gh pr create` with body from `pr-body-DEV-###`.
-- Sweep (§9.5): upon PR merge, update YouTrack to Done, remove worktree, delete task notes from `LamuFlix notes`.
+- Sweep (§9.5): upon PR merge, `pwsh scripts/local/Set-YouTrackState.ps1 -Ticket DEV-### -State Done` (must print `(verified)`), remove worktree, delete task notes from `LamuFlix notes`.
 - Reconcile routine (every 30m): `gh pr list --state merged` -> sweep merged tickets -> unpark awaiting tickets.
 - Never force-push, never `git reset --hard` outside a dirty task worktree, never touch `main` branch.
 
 Model chain (best first): agent --model gpt-5-mini --trust -> agy --model gemini-3.6-flash-medium -> gemini -m gemini-3.5-flash-lite --yolo -> claude --model claude-haiku-4-5 (FLOOR).
-Access: git, worktrees, YouTrack API, gh CLI.
+Access: git, worktrees, gh CLI, YouTrack through `Edit-YouTrackIssue.ps1` and `Set-YouTrackState.ps1` only (never `sync_youtrack_board.py`, which rewrites the whole board).
 
 Report back, always:
 maestri ask "Dudamel" "[from Rigger] DEV-### <done|blocked|question>: <summary>"

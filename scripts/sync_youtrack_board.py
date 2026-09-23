@@ -5,6 +5,7 @@ Can be run standalone or by a subagent.
 Idempotent and resilient with caching and progress reporting.
 """
 
+import argparse
 import os
 import sys
 import json
@@ -101,7 +102,18 @@ def create_issue(base_url, token, summary, description):
     resp = make_request(base_url, token, "/api/issues?fields=idReadable,id", method="POST", body=body)
     return resp["idReadable"]
 
+def parse_args(argv):
+    # The script takes no options. Without a parser, arguments meant for a
+    # single ticket were ignored: the run did a full board sync, exited 0,
+    # and read as success. Unknown arguments now exit 2.
+    parser = argparse.ArgumentParser(
+        description="Sync the YouTrack board with scripts/youtrack-plan.json. Takes no arguments.",
+        epilog="To change one ticket's state use: pwsh scripts/local/Set-YouTrackState.ps1 -Ticket DEV-### -State Done",
+    )
+    return parser.parse_args(argv)
+
 def main():
+    parse_args(sys.argv[1:])
     base_url, token = get_config()
     print(f"Connected to YouTrack: {base_url}")
 

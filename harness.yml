@@ -29,8 +29,10 @@ gates:
     enabled: true
 
   propertyTests:
-    # DEV-289: tooling-only ticket; no domain invariants to property-test (Patron option A).
-    enabled: false
+    # Repo-wide switch; leave it on. A ticket with no domain invariants records
+    # its opt-out in its task note, and the pipeline then accepts the gate's
+    # "no tests tagged" exit 2 for that ticket only.
+    enabled: true
 
 agents:
   tiers:

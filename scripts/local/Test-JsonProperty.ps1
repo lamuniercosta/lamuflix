@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Self-test for StrictMode-safe JSON helpers used by Set-IssueInProgress.ps1.
+# Self-test for StrictMode-safe JSON helpers used by Set-YouTrackState.ps1.
 #
 # These are the shapes that previously crashed under Set-StrictMode -Version Latest:
 # bad credentials (no data key), empty Status field object, and a normal path.

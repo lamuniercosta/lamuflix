@@ -4,6 +4,11 @@
       "AGENTS.md"
     ]
   },
+  "tools": {
+    "exclude": [
+      "run_shell_command(gh pr merge)"
+    ]
+  },
   "mcpServers": {
     "microsoft-learn": {
       "httpUrl": "https://learn.microsoft.com/api/mcp"
