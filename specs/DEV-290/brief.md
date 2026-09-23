@@ -74,6 +74,8 @@ Every commit message follows `DEV-290 - {subject}`.
 
 None. The src/tests moves and the deletions are named in the ticket. Q1 (no-op) and D1 (void by drift) remove work without adding or reordering any. No §2.3 item is open.
 
+**Status: `gate1: provisional`** (Patron, 2026-09-23). The freeze `/speckit-analyze` is clean — Critical 0 / High 0 / Medium 2 / Low 3, coverage 19/19, 26 tasks, `analyze.md` SHA256 `2AB3B679…` — and the plan challenge is adjudicated (§"Plan challenge adjudication", D6/D7). The five findings are **not** Gate 1 checkboxes, and no owner checkbox is required: I1 (T022's `-Files` set vs D7) and I2 (the `$pickupBase` spec-entry wording vs D6) are wording that brings `tasks.md`/`spec.md`/`plan.md` in line with decisions already recorded, and they ride on the spec PR as owner review items; I3 (dependency wording T015 → T015a), I4 (shorthand "sln + Test.csproj"), and C1 (constitution §VIII note, no violation) are Low review items. All of it sits inside ticket-named scope, and Q1/D1 only remove work without adding or reordering any.
+
 ## Pending records (Rigger)
 
 A recon comment for DEV-290 is queued: LamuFlix.Web.old is absent at `450e70f` and from reachable history, and `e65cd71` no longer resolves. Its body is in the canvas note `DEV-290-patron-youtrack-pending`. Rigger is not connected. Only Rigger writes to YouTrack.
