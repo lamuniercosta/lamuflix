@@ -41,7 +41,7 @@ The following lines were recorded by Wisp (recon), filed by the Conductor in rec
 - `LamuFlix.Web/LamuFlix.Web.csproj`:19 — reference to `LamuFlix.Data`
 - `LamuFlix.Work/LamuFlix.Worker.csproj`:18 — reference to `LamuFlix.Data`
 
-**Gauge baselines** (recon A2 re-run, recon-DEV-290 section "Baseline gates (Gauge GREEN 2026-09-23 at 450e70f)"):
+**Gauge baselines** (recon A2 re-run 2026-09-23, recon-DEV-290):
 - `dotnet build LamuFlix.sln`: **0 warnings / 0 errors**
 - `dotnet test`: **18 passed / 4 skipped / 0 failed**
 - `run-roslyn-analyzers.ps1`: exit **0**
@@ -60,13 +60,14 @@ Delete the three legacy assets before any move, so that `Temp.cs` is never moved
 
 ## Phase 2: Moves (S1–S4)
 
-Move all four project folders into their new locations. The build will break here until Phase 3 fixes the path strings; that is expected and short-lived.
+Create the target directories, then move all four project folders into their new locations. The build will break here until Phase 3 fixes the path strings; that is expected and short-lived.
 
-1. `git mv LamuFlix.Web src/LamuFlix.Web` (S1).
-2. `git mv LamuFlix.Data src/LamuFlix.Data` (S2, after the S9 deletion above).
-3. `git mv LamuFlix.Work src/LamuFlix.Worker` (S3, corrects the stale folder name; csproj and namespaces already `LamuFlix.Worker`).
-4. `git mv LamuFlix.Test tests/LamuFlix.Test` (S4).
-5. Commit: `DEV-290 - move projects into src/ and tests/`.
+1. `New-Item -ItemType Directory -Force -Path src,tests` (create target directories).
+2. `git mv LamuFlix.Web src/LamuFlix.Web` (S1).
+3. `git mv LamuFlix.Data src/LamuFlix.Data` (S2, after the S9 deletion above).
+4. `git mv LamuFlix.Work src/LamuFlix.Worker` (S3, corrects the stale folder name; csproj and namespaces already `LamuFlix.Worker`).
+5. `git mv LamuFlix.Test tests/LamuFlix.Test` (S4).
+6. Commit: `DEV-290 - move projects into src/ and tests/`.
 
 ## Phase 3: Path-string fixes (S5, S6)
 
@@ -75,6 +76,7 @@ Update only the path strings in the `.sln` and LamuFlix.Test.csproj files. No ot
 1. Edit `LamuFlix.sln`: update sln:6 (Test), sln:8 (Worker), sln:10 (Data), sln:12 (Web) to the new locations.
 2. Edit `LamuFlix.Test.csproj`: update `Test.csproj:19` (Data), `:20` (Web), `:21` (Worker) path strings.
 3. Commit: `DEV-290 - fix project path strings in sln and csproj files`.
+4. Purge untracked build output: `Get-ChildItem src,tests -Directory | ForEach-Object { Remove-Item -Recurse -Force (Join-Path $_.FullName bin),(Join-Path $_.FullName obj) -ErrorAction SilentlyContinue }`. This command changes no tracked file.
 
 At this point `dotnet build LamuFlix.sln` must exit 0 with **0 warnings** (matching the 450e70f baseline) and `dotnet test` must pass with the same test count as the base.
 
@@ -84,12 +86,12 @@ Run and record all six acceptance checks before writing the ADR:
 
 1. `dotnet build LamuFlix.sln` — 0 errors, **0 warnings** (base is 0 warnings at 450e70f; SC-001).
 2. `dotnet test` — same pass/skip/fail counts as base (SC-002).
-3. `git diff -M100% --name-status 450e70f...HEAD` — every path not listed below shows R100. The only other entries are the 3 deletions (S7–S9), sln as M, LamuFlix.Test.csproj as D+A pair, and the additions `docs/adr/0013` and `specs/DEV-290/*`. Use `--stat` as a supplement (SC-003).
+3. `git diff -M100% --name-status $pickupBase...HEAD` — every path not listed below shows R100. The only other entries are the 3 deletions (S7–S9), sln as M, LamuFlix.Test.csproj as D+A pair, and the additions `docs/adr/0013` and `specs/DEV-290/*`. Use `--stat` as a supplement (SC-003).
 4. `git grep -n -w Temp -- '*.cs'` — 0 hits (exit 1); before deletion the only hit was `LamuFlix.Data/Models/Temp.cs:5`; after deletion the command returns 0 lines. The `-w` flag prevents false hits from `TempData`/`Template` in controllers and views (SC-004).
 5. `Test-Path` False for all old locations: `LamuFlix.Web.old`, `SetupWorker`, `LamuFlix.WorkerSetup`, `LamuFlix.Work`, root `LamuFlix.Web`, root `LamuFlix.Data`, root `LamuFlix.Test` (SC-005, D1).
 6. `dotnet format --verify-no-changes` exits 0 (SC-006).
 
-Then run the three pipeline gates on the moved file set, matching against the Phase 0 baseline by rule and code line (D2). Record all numeric exits (SC-007).
+Then run the four pipeline gates on the moved file set using `git ls-files` (D7), matching against the Phase 0 baseline by rule and code line (D2). Record all numeric exits, file count, and findings lists (SC-007).
 
 Gate-finding ladder (D2):
 - (a) A new finding introduced by the DEV-290 diff: because this ticket changes path strings only, a new finding implies a gate configuration issue; stop and report to Patron.
@@ -102,7 +104,7 @@ Commit the ADR **verbatim** from the text in `specs/DEV-290/brief.md` section "A
 
 ## Phase 6: Task list tick and handoff
 
-Tick tasks.md items. Run final scope-guard diff: `git diff 450e70f...HEAD --name-only`. The changed set is:
+Tick tasks.md items. Run final scope-guard diff: `git diff $pickupBase...HEAD --name-only`. The changed set is:
 - Renamed: every tracked file under the four project folders (S1–S4).
 - Edited (path strings only): `LamuFlix.sln`, `LamuFlix.Test.csproj` (S5, S6).
 - Deleted: `SetupWorker/SetupWorker.vdproj`, `LamuFlix.WorkerSetup/LamuFlix.WorkerSetup.vdproj`, `LamuFlix.Data/Models/Temp.cs` (S7–S9).
@@ -128,6 +130,7 @@ Renamed: all tracked files under `LamuFlix.Web/`, `LamuFlix.Data/`, `LamuFlix.Wo
 Content-edited: `LamuFlix.sln`, `LamuFlix.Test.csproj` (path strings only).
 Deleted: `SetupWorker/SetupWorker.vdproj`, `LamuFlix.WorkerSetup/LamuFlix.WorkerSetup.vdproj`, `LamuFlix.Data/Models/Temp.cs`.
 Added: `docs/adr/0013-src-tests-solution-layout.md`, `specs/DEV-290/*` (spec.md, plan.md, tasks.md, ASSUMPTIONS.md, CONCLUSIONS.md, brief.md, analyze.md). `.specify/feature.json` is untracked and not ignored; never committed.
+Baseline measurement: Gauge baseline (SC-001 through SC-007) compares against commit 450e70f using the rules and code lines from recon A2 re-run 2026-09-23 (recon-DEV-290). Scope guard uses pickupBase `git merge-base HEAD origin/main`.
 No other file. Anything outside this boundary is a §2.3 question, not implied authorization.
 
 ## Complexity tracking
