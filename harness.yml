@@ -19,7 +19,7 @@ gates:
 
   analyzers:
     mode: All
-    warningsAsErrors: false
+    warningsAsErrors: true
 
   vulnerablePackages:
     fail: true

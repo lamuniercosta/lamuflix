@@ -71,8 +71,8 @@ namespace LamuFlix.Web.Services
             }
 
             var filme = GetMovie(filmeId) ?? throw new InvalidOperationException("Filme não encontrado.");
-            var player = ResolvePlayerPath(filme.Format);
-            var startInfo = BuildProcessStartInfo(player, filme.Location);
+            var player = ResolvePlayerPath(filme.Format!);
+            var startInfo = BuildProcessStartInfo(player, filme.Location!);
             ProcessStarter(startInfo);
         }
 
@@ -103,7 +103,7 @@ namespace LamuFlix.Web.Services
         private string? GetPlayer(string format) =>
             string.IsNullOrEmpty(format)
                 ? null
-                : _dataContext.Players.SingleOrDefault(x => ((string?)x.Formats) != null && ((string?)x.Formats)!.Contains(format))?.Path;
+                : _dataContext.Players.SingleOrDefault(x => x.Formats != null && x.Formats.Contains(format))?.Path;
 
         public IEnumerable<Actor> GetActors() => _dataContext.Actors;
 
@@ -123,7 +123,7 @@ namespace LamuFlix.Web.Services
                 .Include(x => x.Genres)
                 .ThenInclude(x => x.Genre)
                 .Include(x => x.Collection)
-                .ThenInclude(x => x.Movies)
+                .ThenInclude(x => x!.Movies)
                 .SingleOrDefaultAsync(x => x.Id == filmeId);
 
         public async Task<PagedListing<FilmesListViewModel>> GetFilmesListAsync(QueryParams dtParams)
@@ -133,7 +133,7 @@ namespace LamuFlix.Web.Services
                 new FilmesListViewModel
                 {
                     Id = m.Id,
-                    Title = m.Title,
+                    Title = m.Title!,
                     Duration = m.Duration,
                     IMDB = m.ImdbRating,
                     MetaScore = m.MetaScore,
@@ -178,7 +178,7 @@ namespace LamuFlix.Web.Services
 
         public void CriarFilme(CriarFilmeViewModel model)
         {
-            var existingTitles = _dataContext.Movies.Select(x => x.Title).ToList();
+            var existingTitles = _dataContext.Movies.Select(x => x.Title!).ToList();
 
             if (!string.IsNullOrEmpty(model.MovieId))
             {
@@ -305,13 +305,13 @@ namespace LamuFlix.Web.Services
             publisher.PublishAsync(new MovieEnrichmentMessage
             {
                 MovieId = movieModel.Id,
-                Title = movieModel.Title,
+                Title = movieModel.Title!,
                 Year = movieModel.Year,
                 ImdbId = movieId
             }).GetAwaiter().GetResult();
         }
 
-        public IEnumerable<string> GetMoviesByName(string query) => [.. _dataContext.Movies.Where(x => x.Title.Contains(query)).Select(x => x.Title)];
+        public IEnumerable<string> GetMoviesByName(string query) => [.. _dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => x.Title!)];
 
         public void ExcluirFilme(int filmeId)
         {
@@ -372,7 +372,7 @@ namespace LamuFlix.Web.Services
                 new FilmesListViewModel
                 {
                     Id = m.Id,
-                    Title = m.Title,
+                    Title = m.Title!,
                     Duration = m.Duration,
                     IMDB = m.ImdbRating,
                     MetaScore = m.MetaScore,
@@ -385,7 +385,7 @@ namespace LamuFlix.Web.Services
             return new PagedListing<FilmesListViewModel>(listResult, result.TotalRecords, dtParams.Page, dtParams.PageSize);
         }
 
-        public IEnumerable<FilmesListViewModel> QuickSearch(string query) => [.. _dataContext.Movies.Where(x => x.Title.Contains(query)).Select(x => new FilmesListViewModel { Id = x.Id, Title = x.Title, Poster = x.Poster ?? string.Empty })];
+        public IEnumerable<FilmesListViewModel> QuickSearch(string query) => [.. _dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => new FilmesListViewModel { Id = x.Id, Title = x.Title!, Poster = x.Poster ?? string.Empty })];
     }
 
 }

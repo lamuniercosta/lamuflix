@@ -30,14 +30,20 @@ namespace LamuFlix.Data
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            if (!optionsBuilder.IsConfigured)
+            if (optionsBuilder.IsConfigured)
             {
-                var connectionString = Environment.GetEnvironmentVariable("LAMUFLIX_CONNECTION")
-                    ?? "server=localhost;user id=test;password=test;port=3306;database=lamuflix;";
-                optionsBuilder.UseMySql(connectionString,
-                    new MySqlServerVersion(new Version(8, 0, 31)),
-                    x => x.MigrationsHistoryTable("__efmigrationshistory"));
+                return;
             }
+
+            var connectionString = Environment.GetEnvironmentVariable("LAMUFLIX_CONNECTION");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("LAMUFLIX_CONNECTION is not set.");
+            }
+
+            optionsBuilder.UseMySql(connectionString,
+                new MySqlServerVersion(new Version(8, 0, 31)),
+                x => x.MigrationsHistoryTable("__efmigrationshistory"));
         }
 
         protected override void OnModelCreating(ModelBuilder builder)
