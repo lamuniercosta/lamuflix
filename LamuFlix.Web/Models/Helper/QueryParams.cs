@@ -2,6 +2,8 @@
 
 namespace LamuFlix.Web.Models.Helper
 {
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // MVC model binder
     public class QueryParams
     {
         [FromQuery]
@@ -26,4 +28,5 @@ namespace LamuFlix.Web.Models.Helper
         [FromQuery]
         public string SortOrder { get; set; } = null!;
     }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 }
