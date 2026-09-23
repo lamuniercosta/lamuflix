@@ -50,11 +50,11 @@ namespace LamuFlix.Web.Extensions
 
             if (propType.GetInterface(nameof(IEnumerable)) != null && propType != typeof(String))
             {
-                query = ApplyCollectionFilter(property, item, map, prop, propType, value, queryConstExpr);
+                query = ApplyCollectionFilter<T>(property, item, map, prop, propType, value, queryConstExpr);
             }
             else
             {
-                query = ApplyScalarFilter(property, item, prop, propType, value, queryConstExpr);
+                query = ApplyScalarFilter<T>(property, item, prop, propType, value, queryConstExpr);
             }
 
             return query;
