@@ -4,6 +4,8 @@ using System;
 
 namespace LamuFlix.Data
 {
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // EF Core DbSet initialization
     public class LamuFlixContext : DbContext
     {
         public DbSet<Movie> Movies { get; set; } = null!;
@@ -152,4 +154,5 @@ namespace LamuFlix.Data
             });
         }
     }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 }
