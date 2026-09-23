@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/360-dev-360-spec`  
 **Created**: 2026-09-23  
-**Status**: Draft; owner decisions D1–D3 answered 2026-09-23. Gate 1 not yet passed: it passes when analysis is clean, the plan is frozen, and the user merges the spec PR  
+**Status**: Gate 1 passed (spec PR merged, `a03da44`), then reopened on 2026-09-23 for the owner-option-A amendment of AC4/SC-003 (Gate 1 "T014 block"). Owner decisions D1–D3 were answered 2026-09-23. The re-freeze needs a clean analysis newer than every edit, after Rigger's DEV-360 AC4 read-back  
 **Input**: DEV-360 Scope & Technical Design (`task-DEV-360:14-29`), acceptance criteria (`task-DEV-360:31-40`), owner decisions (`task-DEV-360:81-84`), Patron rulings (`task-DEV-360:89-90`)
 
 ## User Scenarios & Testing
