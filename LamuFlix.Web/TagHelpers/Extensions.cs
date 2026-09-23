@@ -40,7 +40,7 @@ namespace LamuFlix.Web.TagHelpers
         {
             var qs = QueryStringValues.SingleOrDefault(x => string.Equals(x.Key, Key, StringComparison.OrdinalIgnoreCase));
             if (null != qs.Value)
-                QueryStringValues.Remove(qs);
+                QueryStringValues.RemoveAll(x => string.Equals(x.Key, qs.Key, StringComparison.OrdinalIgnoreCase) && string.Equals(x.Value, qs.Value, StringComparison.Ordinal));
 
             QueryStringValues.Add(new KeyValuePair<string, string>(Key, Value));
         }
@@ -53,7 +53,7 @@ namespace LamuFlix.Web.TagHelpers
         {
             var qs = QueryStringValues.SingleOrDefault(x => string.Equals(x.Key, Key, StringComparison.OrdinalIgnoreCase));
             if (null != qs.Value)
-                QueryStringValues.Remove(qs);
+                QueryStringValues.RemoveAll(x => string.Equals(x.Key, qs.Key, StringComparison.OrdinalIgnoreCase) && string.Equals(x.Value, qs.Value, StringComparison.Ordinal));
         }
 
         public QueryStringBuilder(string displayUrl)
