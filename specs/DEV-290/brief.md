@@ -55,7 +55,7 @@ This is the ticket's *Scope & Technical Design* with the Q1 and D1 rulings appli
 
 The pass bar is **no finding missing from the `450e70f` baseline** of the same file set at its old paths. Findings are matched by rule and code line, ignoring the path prefix. Measure the baseline with explicit `-Files` on an unchanged `450e70f` checkout in a throwaway detached worktree, never in the main checkout. Record the numeric exit codes of all four runs for both base and head. Pre-existing hits are carried forward, never fixed or suppressed. List them in the PR as existing follow-ups (DEV-281, DEV-366), citing DEV-360 `plan.md:29` as precedent. If a **new** finding appears that only a `.cs` content edit could clear, do not edit and do not suppress. Report `blocked: structural` to Patron.
 
-**Baseline evidence (A2, 2026-09-23).** The recorded `450e70f` gate baseline is exit codes only. Nothing proves `-Files` was used, and no findings lists were recorded. A no-arg run on a base equal to the default branch analyses zero files, so its exit 0 proves nothing. Before T024 can pass, a Gauge re-run must file the following in `recon-DEV-290`: the exact `-Files` set (every tracked `.cs` under the four project folders at their old paths, less `Temp.cs`), the command lines, the numeric exits, and the findings list of each of the four runs, where an empty list is recorded as `[]`. The head run uses the same set at the new paths, with explicit `-Files`.
+**Baseline evidence (A2, 2026-09-23).** The recorded `450e70f` gate baseline is exit codes only. Nothing proves `-Files` was used, and no findings lists were recorded. A no-arg run on a base equal to the default branch analyses zero files, so its exit 0 proves nothing. Before T022 can pass, a Gauge re-run must file the following in `recon-DEV-290`: the exact `-Files` set (every tracked `.cs` under the four project folders at their old paths, less `Temp.cs`), the command lines, the numeric exits, and the findings list of each of the four runs, where an empty list is recorded as `[]`. The head run uses the same set at the new paths, with explicit `-Files`.
 
 **Task ordering.**
 1. Plan-time recon addendum: the exact sln and csproj path lines, and the Gauge baselines (build warnings, test count, gate runs at `450e70f`).
@@ -84,7 +84,7 @@ Logged `[assumed]` in [ASSUMPTIONS.md](ASSUMPTIONS.md).
 
 ## ADR 0013 draft (Keel, 2026-09-23)
 
-At T025 the implementer commits this text verbatim as `docs/adr/0013-src-tests-solution-layout.md`. `docs/` does not exist at `450e70f`, so the commit creates it. The only change allowed is to the date.
+At T023 the implementer commits this text verbatim as `docs/adr/0013-src-tests-solution-layout.md`. `docs/` does not exist at `450e70f`, so the commit creates it. The only change allowed is to the date.
 
 ```markdown
 # 0013. Solution layout: src/ and tests/
@@ -128,5 +128,5 @@ the flat layout as Known Technical Debt ("Transitional layout").
 - **A2–A4:** Quill applies them as wording fixes to decisions already made. They add no new decision.
 - **The cap is reached at 2 rounds (Q4), so the plan does not freeze by round.** The spec PR carries the following for owner review. They are review items, not Gate 1 checkboxes:
   1. The Round-3 wording edits (A2–A4) are applied after the cap. The persisted `analyze.md` either predates them or is re-run once, and it must show Critical 0 and High 0.
-  2. The A2 Gauge re-run (the baseline with `-Files` and findings lists) is still open. T024 cannot pass until it is filed in `recon-DEV-290`.
+  2. The A2 Gauge re-run (the baseline with `-Files` and findings lists) gates T022. It is now filed in `recon-DEV-290` §"A2 re-run 2026-09-23": all four gates exit 0 with findings `[]`.
 - **Gate 1 owner checkboxes:** still none.
