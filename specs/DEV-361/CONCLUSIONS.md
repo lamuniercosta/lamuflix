@@ -55,3 +55,42 @@
 ## C1 — Principle VIII language migration (Patron DEV-361 analyze ruling)
 
 **Patron ruling.** Preserve existing Portuguese identifiers during DEV-361's bounded suppression and minimal fixes, introduce no new Portuguese identifiers, and record a separate Epic-1 language migration issue for `FilmesFilterViewModel` and the `AssistirFilme_*` tests in `UnitTest1.cs:479,498,541`. This reconciles Principle VIII (`constitution.md:217-232`) with transitional debt (`constitution.md:421-429`) for this ticket. Rigger records that follow-up under T003; it is not scheduled into the chain and is not an owner checkbox.
+
+---
+
+## B1 — Owner answer: reverse B1 and widen scope (2026-09-23)
+
+**Question.** The owner checkbox asked: "blocked: structural — restore `nullable_warning_suppression_is_used` to warning (reverses B1)?"
+
+**Owner answer.** **[x]** on merged PR #3. The user confirmed through the Conductor on 2026-09-23: a checked box is the source of truth, and [x] means reverse B1, restore `.editorconfig:68` to `warning`, and expand past the frozen three-file scope. This is an owner decision. No Patron ruling stands in for it, and it is not re-asked.
+
+**Implication (Keel, measured at `5a38215`; re-baselined below).** 114 `NullableWarningSuppressionIsUsed` hits in 24 `.cs` files join DEV-361, which gives 25 AC2 paths with the Round 1 set. The resolution is per type or member, with a reason naming the writer (FR-008). The Round 1 answers to Q1 (the three-file freeze) and Q5 (the frozen scope wording) are superseded **only** as to the file set: it is now the 25 FR-002 paths. Q2–Q4 and C1 stand unchanged. §2.3 limits still apply:
+
+- No EF-mapped nullability change, since that is a schema change.
+- No DTO shape change.
+- No package, project, or layer.
+- No file outside FR-002.
+
+**Patron T019 ruling (2026-09-23):**
+
+- The Round 1 three-file no-refactor/baseline clause is superseded for the expanded modified-file set.
+- T019 same-file helper extraction is constitution-mandated (`constitution.md:344-345`).
+- A failure that extraction cannot remedy remains a hard stop.
+- Size stays M, with no L-only mutation gate.
+
+The owner's plan-change choice, (A) include T019 (Patron recommends) or (B) defer to a prerequisite follow-up and block the six-key restoration, was a spec PR checkbox (T020). **The owner answered (A) on 2026-09-23.** P3 was ruled by Patron, and the Round 2 re-freeze is recorded in `plan-challenge-adjudication.md`.
+
+## T001 drift — DEV-360 merged before Phase B pickup (2026-09-23)
+
+**Finding.** T001's path check found `origin/main` at `3cd5802`, not `5a38215`. DEV-360 touched 9 of the 25 FR-002 paths. It did not touch `.editorconfig`, `specs/DEV-361/`, or `EntityExtensions.cs`. T001 stopped before T004, as designed.
+
+**Keel adjudication.** The fix is updated baselines on a rebased base, not a re-plan. The 25 paths, the six keys, T019, the task set, and the task order are unchanged. No work is added, dropped, or reordered, so there is no owner checkbox. Re-measured on `3cd5802` (`research.md` "Re-baseline after DEV-360"):
+
+- B1 is 112 hits in 18 files. That was 114 in 24: -11 in the Data models and -1 at `UnitTest1.cs:30` from DEV-360 FR-004 / FR-001/2, -1 at `FilmesServices.cs:106` (resolved upstream), and +11 new `FilmesServices.cs` `!` reads of nullable columns.
+- There are 10 five-target hits, and `Details.cshtml:60` is gone. The WARNING+ count stays 39, with `Details.cshtml:68 AssignNullToNotNullAttribute` replacing `:60`.
+- `dotnet format` exits 0, and `dotnet test` passes 18, skips 4, and fails 0.
+- `UnitTest1.cs` lines moved down by 8.
+
+**Patron item-5 ruling (2026-09-23).** `FilmesServices.cs:74,75` sit inside `AssistirFilme`, behind `Features:LocalPlay` and before `ProcessStarter`. §2.3 item 5 does **not** fire for a comment-only member bracket there, as long as no executable line of the member changes. There is no checkbox. This is folded next to F1 in `spec.md`.
+
+**FR-008 reason category added (Keel, wording).** DEV-360's `Title!`, `Format!`, `Location!`, and `x!.Movies` reads are not provably non-null. Their bracket reason is "nullable-column read; `!` preserves the pre-DEV-360 contract (DEV-360 FR-004)". This keeps the reasons honest and changes no scope.
