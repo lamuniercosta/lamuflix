@@ -12,11 +12,14 @@ namespace LamuFlix.Web.TagHelpers
         private const string PaginationListAttributeName = "asp-paginationlist";
 
         [HtmlAttributeName(PaginationListAttributeName)]
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // Razor attribute binding / [ViewContext] activation
         public IPagedListing PaginationList { get; set; } = null!;
 
         [HtmlAttributeNotBound]
         [ViewContext]
         public ViewContext ViewContext { get; set; } = null!;
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
         public override void Process(TagHelperContext context, TagHelperOutput output)
         {

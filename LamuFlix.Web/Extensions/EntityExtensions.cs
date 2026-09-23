@@ -10,6 +10,8 @@ namespace LamuFlix.Web.Extensions
 {
     public static class EntityExtensions
     {
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // Reflection result on a known member
         public static IQueryable<T> DynamicQuery<T>(this IQueryable<T> query, object? filter)
         {
             if (filter == null)
@@ -96,7 +98,10 @@ namespace LamuFlix.Web.Extensions
 
             return query;
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
 
+        // ReSharper disable NullableWarningSuppressionIsUsed
+        // Reflection result on a known member
         public static IQueryable<T> DynamicSort<T>(this IQueryable<T> query, object? filter, string sortBy, string sortOrder)
         {
             string methodName;
@@ -124,5 +129,6 @@ namespace LamuFlix.Web.Extensions
 
             return (IQueryable<T>)ret!;
         }
+        // ReSharper restore NullableWarningSuppressionIsUsed
     }
 }
