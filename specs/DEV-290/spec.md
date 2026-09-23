@@ -48,7 +48,7 @@ As a developer, `SetupWorker/`, `LamuFlix.WorkerSetup/`, and `LamuFlix.Data/Mode
 
 - **SC-001**: `dotnet build LamuFlix.sln` exits 0 with 0 warnings / 0 errors (the `450e70f` base per recon Baseline gates is 0 warnings).
 - **SC-002**: `dotnet test` passes; the test count matches the `450e70f` base (18 passed / 4 skipped).
-- **SC-003**: `git diff -M100% --name-status 450e70f...HEAD` shows every moved `.cs` file as R100 (pure rename). The only other entries are the 3 deletions (S7–S9), sln as M, LamuFlix.Test.csproj as D+A pair, and additions `docs/adr/0013` + `specs/DEV-290/`. (Use `--stat` as a supplement for byte count.)
+- **SC-003**: `git diff -M100% --name-status 450e70f...HEAD` shows every path not listed below as R100 (pure rename). The only other entries are the 3 deletions (S7–S9), sln as M, LamuFlix.Test.csproj as D+A pair, and additions `docs/adr/0013` + `specs/DEV-290/`. (Use `--stat` as a supplement for byte count.)
 - **SC-004**: `git grep -n -w Temp -- '*.cs'` returns no matches after deletion (baseline: `LamuFlix.Data/Models/Temp.cs:5` before deletion; exit 1 after).
 - **SC-005**: `Test-Path` returns False for `LamuFlix.Web.old`, `SetupWorker`, `LamuFlix.WorkerSetup`, `LamuFlix.Work`, `LamuFlix.Web` (root), `LamuFlix.Data` (root), `LamuFlix.Test` (root).
 - **SC-006**: `dotnet format --verify-no-changes` exits 0.
