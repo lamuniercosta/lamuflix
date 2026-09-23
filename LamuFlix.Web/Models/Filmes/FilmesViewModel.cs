@@ -4,6 +4,8 @@ using LamuFlix.Web.Models.Helper;
 
 namespace LamuFlix.Web.Models.Filmes
 {
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // MVC model binder (FilmesController.cs:25)
     public class FilmesFilterViewModel : FilterViewModel
     {
         [DataMapping("Title")]
@@ -28,7 +30,10 @@ namespace LamuFlix.Web.Models.Filmes
         public IList<int> ActorIds { get; set; } = [];
         // ReSharper restore CollectionNeverUpdated.Global
     }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // In-product initializer FilmesServices.cs:136,375,388
     public class FilmesListViewModel
     {
         public int Id { get; set; }
@@ -88,7 +93,10 @@ namespace LamuFlix.Web.Models.Filmes
         }
 
     }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // MVC model binder (FilmesController.cs:90)
     public class CriarFilmeViewModel
     {
         public string Filme { get; set; } = null!;
@@ -101,7 +109,10 @@ namespace LamuFlix.Web.Models.Filmes
             this.Filme = "";
         }
     }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // Newtonsoft.Json deserialization
     public class ApiDataModel
     {
         public string Title { get; set; } = null!;
@@ -130,10 +141,14 @@ namespace LamuFlix.Web.Models.Filmes
         public string Website { get; set; } = null!;
         public string Response { get; set; } = null!;
     }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // Newtonsoft.Json deserialization
     public class RatingsModel
     {
         public string Source { get; set; } = null!;
         public string Value { get; set; } = null!;
     }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 }
