@@ -64,16 +64,16 @@ resharper_async_void_method_highlighting = warning
 resharper_async_method_without_await_highlighting = warning
 resharper_async_void_method_without_await_highlighting = warning
 resharper_method_supports_cancellation_highlighting = warning
-# B1 authorizes `= null!` / `!` for legacy DTOs under nullable enable; keep as suggestion.
-resharper_nullable_warning_suppression_is_used_highlighting = suggestion
-# MVC model-binding DTOs trip these as false positives; not product defects for DEV-289.
-resharper_unused_auto_property_accessor_global_highlighting = suggestion
-resharper_collection_never_updated_global_highlighting = suggestion
-# Pre-existing KeyValuePair equality in TagHelpers; follow-up, not this remediation.
-resharper_usage_of_default_struct_equality_highlighting = suggestion
-# Legacy ignored integration tests; always-true branches are pre-existing fixture shape.
-resharper_condition_is_always_true_or_false_highlighting = suggestion
-resharper_condition_is_always_true_or_false_according_to_nullable_api_contract_highlighting = suggestion
+# DEV-361: owner reversed B1; key is warning. Legacy null! sites get per-type or member suppressions.
+resharper_nullable_warning_suppression_is_used_highlighting = warning
+# DEV-361 restored these to warning; unused-setter and collection hits get member-scoped suppression or a binder-safe fix.
+resharper_unused_auto_property_accessor_global_highlighting = warning
+resharper_collection_never_updated_global_highlighting = warning
+# DEV-361 restored this to warning; TagHelpers compare KeyValuePair keys ordinal-ignore-case and values ordinally.
+resharper_usage_of_default_struct_equality_highlighting = warning
+# DEV-361 restored these to warning; TestMethod1 and TestMethod2 dead null branches are simplified in place.
+resharper_condition_is_always_true_or_false_highlighting = warning
+resharper_condition_is_always_true_or_false_according_to_nullable_api_contract_highlighting = warning
 
 resharper_switch_expression_handles_some_known_enum_values_with_exception_in_default_highlighting = warning
 
