@@ -11,13 +11,22 @@ namespace LamuFlix.Web.Models.Filmes
         [DataMapping("Year")]
         public int? Year { get; set; }
         [DataMapping("Directors", "DirectorId")]
+        // ReSharper disable UnusedAutoPropertyAccessor.Global
+        // Written by the ASP.NET Core MVC model binder (FilmesController.cs:25)
         public int? DirectorId { get; set; }
+        // ReSharper restore UnusedAutoPropertyAccessor.Global
         [DataMapping("CollectionId")]
+        // ReSharper disable UnusedAutoPropertyAccessor.Global
+        // Written by the ASP.NET Core MVC model binder (FilmesController.cs:25)
         public int? CollectionId { get; set; }
+        // ReSharper restore UnusedAutoPropertyAccessor.Global
         [DataMapping("Genres", "GenreId")]
         public IList<int> GenreIds { get; set; } = [];
         [DataMapping("Actors", "ActorId")]
+        // ReSharper disable CollectionNeverUpdated.Global
+        // Written by the ASP.NET Core MVC model binder (FilmesController.cs:25)
         public IList<int> ActorIds { get; set; } = [];
+        // ReSharper restore CollectionNeverUpdated.Global
     }
 
     public class FilmesListViewModel
