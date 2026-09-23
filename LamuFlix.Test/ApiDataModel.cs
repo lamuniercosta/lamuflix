@@ -2,6 +2,8 @@
 
 namespace LamuFlix.Test
 {
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // Newtonsoft.Json deserialization
     public class ApiDataModel
     {
         public string Title { get; set; } = null!;
@@ -30,10 +32,14 @@ namespace LamuFlix.Test
         public string Website { get; set; } = null!;
         public string Response { get; set; } = null!;
     }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // Newtonsoft.Json deserialization
     public class RatingsModel
     {
         public string Source { get; set; } = null!;
         public string Value { get; set; } = null!;
     }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 }
