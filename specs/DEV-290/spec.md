@@ -25,7 +25,7 @@ As a developer, `SetupWorker/`, `LamuFlix.WorkerSetup/`, and `LamuFlix.Data/Mode
 - All 8 `LamuFlix.Web/wwwroot/lib` folders are used by live views. None are deleted (Q1 no-op).
 - No `.cs` content changes, no namespace edits, no Web→Api or Data→Infrastructure rename (Q2). Any edit beyond a path string stops and goes to Patron.
 - `Temp.cs` has zero production references: no other `.cs` file, no `DbSet<Temp>`, no EF snapshot entity (D3). The deletion is a `git rm` at its current path, before the S2 move, so the file is never moved and then deleted.
-- The path-string edits in S5 and S6 touch only the four files named in the brief at `450e70f` and no other file (D4). If any other file is found to need a path edit, stop and report to Patron.
+- The path-string edits in S5 and S6 touch only sln + Test.csproj and no other file (D4). If any other file is found to need a path edit, stop and report to Patron.
 - Pre-existing analyzer findings are carried forward as follow-ups (DEV-281, DEV-366). They are not fixed or suppressed. A new finding that only a `.cs` content edit could clear is `blocked: structural` to Patron.
 
 ## Requirements

@@ -41,7 +41,7 @@ The following lines were recorded by Wisp (recon), filed by the Conductor in rec
 - `LamuFlix.Web/LamuFlix.Web.csproj`:19 — reference to `LamuFlix.Data`
 - `LamuFlix.Work/LamuFlix.Worker.csproj`:18 — reference to `LamuFlix.Data`
 
-**Gauge baselines** (recon note `recon-DEV-290`, section "Baseline gates (Gauge GREEN 2026-09-23 at 450e70f)"):
+**Gauge baselines** (recon A2 re-run, recon-DEV-290 section "Baseline gates (Gauge GREEN 2026-09-23 at 450e70f)"):
 - `dotnet build LamuFlix.sln`: **0 warnings / 0 errors**
 - `dotnet test`: **18 passed / 4 skipped / 0 failed**
 - `run-roslyn-analyzers.ps1`: exit **0**
@@ -104,7 +104,7 @@ Commit the ADR **verbatim** from the text in `specs/DEV-290/brief.md` section "A
 
 Tick tasks.md items. Run final scope-guard diff: `git diff 450e70f...HEAD --name-only`. The changed set is:
 - Renamed: every tracked file under the four project folders (S1–S4).
-- Edited (path strings only): `LamuFlix.sln`, `LamuFlix.Test.csproj`, `LamuFlix.Web.csproj`, `LamuFlix.Worker.csproj` (S5, S6).
+- Edited (path strings only): `LamuFlix.sln`, `LamuFlix.Test.csproj` (S5, S6).
 - Deleted: `SetupWorker/SetupWorker.vdproj`, `LamuFlix.WorkerSetup/LamuFlix.WorkerSetup.vdproj`, `LamuFlix.Data/Models/Temp.cs` (S7–S9).
 - Added: `docs/adr/0013-src-tests-solution-layout.md`, `specs/DEV-290/*` (spec.md, plan.md, tasks.md, ASSUMPTIONS.md, CONCLUSIONS.md, brief.md, analyze.md).
 - `.specify/feature.json` is untracked and not ignored; it is **never committed**.
