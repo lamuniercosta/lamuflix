@@ -360,4 +360,4 @@
 
 **Line count (tasks.md body only):** 355 lines (13 tasks total: T001–T013)
 
-**Status:** Ready for implementation pending owner checkbox (FR-008, Decision D4) ticking. Phase I: T001 rebase @ b2659b7 complete; T002–T003 blocked until DEV-290 Phase B restructure PR merged to origin/main. Phase II blocked until Phase I complete and owner checkbox (FR-008) ticked to Option A (required for frozen plan execution).
+**Status:** Phase II (T004–T010) complete on `feature/DEV-280`. Option A. Full suite 18 passed / 0 skipped / 0 failed. Phase III (T011–T013) not started.
