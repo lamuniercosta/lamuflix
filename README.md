@@ -1,5 +1,7 @@
 # LamuFlix
 
+[![CI](https://github.com/lamuniercosta/lamuflix/actions/workflows/ci.yml/badge.svg)](https://github.com/lamuniercosta/lamuflix/actions/workflows/ci.yml)
+
 LamuFlix is a media management and playback application modernization project.
 
 ## Modernization to .NET 10
