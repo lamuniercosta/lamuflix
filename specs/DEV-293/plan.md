@@ -79,7 +79,7 @@ Use compiler/Roslyn-assisted symbol rename restricted to the eight frozen mappin
 - Line 118 — function call `ExcluirFilme()` → `DeleteMovie()`
 
 **Exclusions (leave unchanged):**
-- `[Route(/MinhaLista/)]` at `FilmesController.cs:159` (unchanged in Phase B; owner answer authorizes a follow-up only)
+- `[Route("/MinhaLista/")]` at `FilmesController.cs:159` (unchanged in Phase B; owner answer authorizes a follow-up only)
 - JSON field `filmes` at `FilmesController.cs:113,115` and `site.js:23,37,80` (unchanged in Phase B; owner answer authorizes a follow-up only)
 - `wwwroot/js/site.min.js` (generated; follow-up)
 - Model folder `Models/Filmes/` and composites (unchanged in Phase B; owner answer authorizes a follow-up only)
