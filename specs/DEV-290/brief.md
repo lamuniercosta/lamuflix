@@ -175,3 +175,11 @@ Axes challenged `69b4d40`, which is HEAD. Nothing in the findings was already fi
 - `feature-spec-sprint-1` has untracked `specs/DEV-360` and `specs/DEV-361` that differ from origin/main (`plan-challenge-adjudication.md` among them) and 0 unpushed commits. **KEEP.**
 - `.claude/*` worktrees: list only.
 - `DEV-360`, `feature-360-dev-360-spec`, and `fix-youtrack-state-transitions`: newly spotted, no receipt yet. **KEEP, list only.** Removing any of them later needs the same receipt: clean or proven-redundant status, and a `git cherry` with no `+`.
+
+## Pickup drift to 8d1d183 (Keel 2026-09-24)
+
+**D13, rebase onto `8d1d183`.** `origin/main` moved `1d9a616`→`8d1d183` (PR #11, `fix/youtrack-state-transitions`) during Phase B. PR #11 changes only `scripts/local/Set-YouTrackState.ps1`, `Setup-MaestriWorkspace.ps1`, `Test-SetYouTrackState.ps1` and `scripts/local/roles/rigger.md`. None of those overlap the moved set, the sln, any csproj, `Temp.cs` or the vdproj files. No PRs are open. `feature/DEV-290` is rebased onto `8d1d183` before T003, while it holds only spec commits. The rebase changes no ticket content and replaces the pre-PR rebase.
+- **Diff base.** D6 and D8 are amended: `$pickupBase` (T003, `git merge-base HEAD origin/main`) must equal `8d1d183`. T018 and T024 diff `8d1d183...HEAD`. If it is not equal, stop and report to Keel.
+- **Gate baseline.** D9 carries unchanged. G1 at `1d9a616` stays the baseline, and T003(c), T016, T022 and T023 keep their `1d9a616` cites, because `1d9a616..8d1d183` touches none of the 52 D7 files, the sln or any csproj. No re-measure.
+- **`Set-YouTrackState.ps1`.** After the rebase the branch carries `8d1d183`'s copy, which is identical to main. It is not in the T024 changed set, and nothing in D10 is left to do.
+- **Order.** This commit comes first. Rigger then rebases with `git rebase --onto 8d1d183 1d9a616 feature/DEV-290`, updates the remote branch with lease protection, and reports: the new HEAD, merge-base = `8d1d183`, 3 commits replayed, and a clean status. A conflict means stop. Anvil T003 is held until that receipt arrives.
