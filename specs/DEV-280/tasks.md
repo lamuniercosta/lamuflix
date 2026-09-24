@@ -209,6 +209,7 @@
 
 ### T009: Migrate tests/LamuFlix.Test/UnitTest1.cs: delete 4 ignored tests, migrate 3 AssistirFilme tests
 
+**Status:** ✓ **DONE** — Option A. `dotnet test --filter UnitTest1`: 3 passed, 0 skipped, 0 failed. Four ignored tests and the private helpers only they used are deleted. Location literals are `C:\TestLibrary\Test[2020]\test.mkv` and `test.mp4`. ProcessStarter stays a hand-fake.
 **Owner:** Implementation  
 **Depends on:** T008 complete and **Checkpoint 1 (FR-008) ticked to Option A** (gate: fixture decision required)  
 **File:** `tests/LamuFlix.Test/UnitTest1.cs` (post-DEV-290 path)  
@@ -247,6 +248,7 @@
 
 ### T010: Remove MSTest and Moq packages
 
+**Status:** ✓ **DONE** — `dotnet test`: 18 passed, 0 skipped, 0 failed. InMemory `PackageReference` removed from `tests/LamuFlix.Test` (D2: only `LamuFlixContextFactory` calls `UseInMemoryDatabase`). `IsTestingPlatformApplication` is false so `dotnet test` stays on VSTest + `xunit.runner.visualstudio` (recon item 7: MTP runner stays out). MSTest.TestAdapter hook Remove deleted with the package.
 **Owner:** Implementation  
 **Depends on:** T009 complete and all 18 tests passing  
 **Files:** `Directory.Packages.props`, `tests/LamuFlix.Test/LamuFlix.Test.csproj`  
