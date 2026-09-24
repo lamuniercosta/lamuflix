@@ -5,22 +5,24 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Data;
+using LamuFlix.Data.Models;
+using LamuFlix.Tests.Common;
+using LamuFlix.Web.Services;
+using LamuFlix.Worker.Models;
+using LamuFlix.Worker.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using RabbitMQ.Client;
-using LamuFlix.Data;
-using LamuFlix.Data.Models;
-using LamuFlix.Worker.Models;
-using LamuFlix.Worker.Services;
-using LamuFlix.Web.Services;
+using Shouldly;
+using Xunit;
 
 namespace LamuFlix.Test
 {
-    [TestClass]
     public sealed class EnrichmentTests
     {
         private class TestHttpMessageHandler : HttpMessageHandler
@@ -43,7 +45,7 @@ namespace LamuFlix.Test
                 .AddInMemoryCollection(new Dictionary<string, string?> { ["Movies:OMDB_API_KEY"] = "test-key" })
                 .Build();
 
-        [TestMethod]
+        [Fact]
         public async Task OmdbMetadataProvider_Success_ReturnsMetadata()
         {
             var json = "{\"Response\":\"True\",\"Title\":\"Test Movie\",\"Plot\":\"Great plot\",\"Year\":\"2020\",\"Runtime\":\"120 min\",\"Poster\":\"http://poster\",\"imdbRating\":\"8.0\",\"Metascore\":\"85\",\"imdbID\":\"tt123\",\"Genre\":\"Action\",\"Director\":\"Director X\",\"Actors\":\"Actor Y\",\"Ratings\":[{\"Source\":\"Rotten Tomatoes\",\"Value\":\"90%\"}]}";
@@ -55,19 +57,19 @@ namespace LamuFlix.Test
             var config = CreateOmdbConfig();
             var provider = new OmdbMetadataProvider(httpClient, config);
 
-            var meta = await provider.FetchMetadataAsync("Test Movie");
+            var meta = await provider.FetchMetadataAsync("Test Movie", cancellationToken: TestContext.Current.CancellationToken);
 
-            Assert.IsNotNull(meta);
-            Assert.AreEqual("Test Movie", meta.Title);
-            Assert.AreEqual(2020, meta.Year);
-            Assert.AreEqual(120, meta.DurationMinutes);
-            Assert.AreEqual(0.8m, meta.ImdbRating);
-            Assert.AreEqual(90, meta.RottenTomatoesScore);
-            Assert.AreEqual(85, meta.MetaScore);
-            Assert.AreEqual("tt123", meta.ImdbId);
+            meta.ShouldNotBeNull();
+            meta.Title.ShouldBe("Test Movie");
+            meta.Year.ShouldBe(2020);
+            meta.DurationMinutes.ShouldBe(120);
+            meta.ImdbRating.ShouldBe(0.8m);
+            meta.RottenTomatoesScore.ShouldBe(90);
+            meta.MetaScore.ShouldBe(85);
+            meta.ImdbId.ShouldBe("tt123");
         }
 
-        [TestMethod]
+        [Fact]
         public async Task OmdbMetadataProvider_NotFound_ReturnsNull()
         {
             var json = "{\"Response\":\"False\",\"Error\":\"Movie not found!\"}";
@@ -79,12 +81,12 @@ namespace LamuFlix.Test
             var config = CreateOmdbConfig();
             var provider = new OmdbMetadataProvider(httpClient, config);
 
-            var meta = await provider.FetchMetadataAsync("Unknown");
+            var meta = await provider.FetchMetadataAsync("Unknown", cancellationToken: TestContext.Current.CancellationToken);
 
-            Assert.IsNull(meta);
+            meta.ShouldBeNull();
         }
 
-        [TestMethod]
+        [Fact]
         public async Task OmdbMetadataProvider_ServerError_ThrowsException()
         {
             var handler = new TestHttpMessageHandler(new HttpResponseMessage(HttpStatusCode.InternalServerError));
@@ -92,37 +94,32 @@ namespace LamuFlix.Test
             var config = CreateOmdbConfig();
             var provider = new OmdbMetadataProvider(httpClient, config);
 
-            await Assert.ThrowsExceptionAsync<HttpRequestException>(() => provider.FetchMetadataAsync("Error Movie"));
+            await Should.ThrowAsync<HttpRequestException>(() => provider.FetchMetadataAsync("Error Movie", cancellationToken: TestContext.Current.CancellationToken));
         }
 
-        [TestMethod]
+        [Fact]
         public void OmdbMetadataProvider_MissingApiKey_ThrowsInvalidOperationException()
         {
             var handler = new TestHttpMessageHandler(new HttpResponseMessage(HttpStatusCode.OK));
             var httpClient = new HttpClient(handler);
             var config = new ConfigurationBuilder().Build();
 
-            var ex = Assert.ThrowsException<InvalidOperationException>(() => new OmdbMetadataProvider(httpClient, config));
-            Assert.IsTrue(ex.Message.Contains("Movies:OMDB_API_KEY"));
+            var ex = Should.Throw<InvalidOperationException>(() => new OmdbMetadataProvider(httpClient, config));
+            ex.Message.Contains("Movies:OMDB_API_KEY").ShouldBeTrue();
         }
 
-        private static (LamuFlixContext, IServiceProvider) CreateInMemoryDb()
+        private static IServiceProvider BuildProvider(LamuFlixContext context)
         {
-            var options = new DbContextOptionsBuilder<LamuFlixContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-                .Options;
-            var context = new LamuFlixContext(options);
-
             var services = new ServiceCollection();
             services.AddSingleton(context);
-            var provider = services.BuildServiceProvider();
-            return (context, provider);
+            return services.BuildServiceProvider();
         }
 
-        [TestMethod]
+        [Fact]
         public async Task EnrichmentJobProcessor_TransitionsToEnriched()
         {
-            var (db, provider) = CreateInMemoryDb();
+            var db = LamuFlixContextFactory.CreateContext();
+            var provider = BuildProvider(db);
             var movie = new Movie
             {
                 Title = "Matrix",
@@ -132,36 +129,37 @@ namespace LamuFlix.Test
                 Status = MovieEnrichmentStatus.Pending
             };
             db.Movies.Add(movie);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-            var metadataProviderMock = new Mock<IMetadataProvider>();
-            metadataProviderMock
-                .Setup(x => x.FetchMetadataAsync("Matrix", 1999, null, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new MovieMetadata("Matrix", "Sci-Fi action", 1999, 136, "http://poster", 8.7m, 88, 73, "tt0133093", new[] { "Action" }, new[] { "Keanu Reeves" }, new[] { "Wachowskis" }));
+            var metadataProvider = Substitute.For<IMetadataProvider>();
+            metadataProvider
+                .FetchMetadataAsync("Matrix", 1999, null, Arg.Any<CancellationToken>())
+                .Returns(new MovieMetadata("Matrix", "Sci-Fi action", 1999, 136, "http://poster", 8.7m, 88, 73, "tt0133093", new[] { "Action" }, new[] { "Keanu Reeves" }, new[] { "Wachowskis" }));
 
-            var scopeFactoryMock = new Mock<IServiceScopeFactory>();
-            var scopeMock = new Mock<IServiceScope>();
-            scopeMock.Setup(x => x.ServiceProvider).Returns(provider);
-            scopeFactoryMock.Setup(x => x.CreateScope()).Returns(scopeMock.Object);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(provider);
+            scopeFactory.CreateScope().Returns(scope);
 
             var config = new ConfigurationBuilder().Build();
-            var processor = new EnrichmentJobProcessor(scopeFactoryMock.Object, metadataProviderMock.Object, config, NullLogger<EnrichmentJobProcessor>.Instance);
+            var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-            var channelMock = new Mock<IModel>();
+            var channel = Substitute.For<IModel>();
             var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Matrix", Year = 1999 };
 
-            await processor.ProcessMessageAsync(message, channelMock.Object, 1UL);
+            await processor.ProcessMessageAsync(message, channel, 1UL);
 
-            var updatedMovie = await db.Movies.SingleAsync(x => x.Id == movie.Id);
-            Assert.AreEqual(MovieEnrichmentStatus.Enriched, updatedMovie.Status);
-            Assert.AreEqual("Sci-Fi action", updatedMovie.Synopsis);
-            channelMock.Verify(x => x.BasicAck(1UL, false), Times.Once());
+            var updatedMovie = await db.Movies.SingleAsync(x => x.Id == movie.Id, TestContext.Current.CancellationToken);
+            updatedMovie.Status.ShouldBe(MovieEnrichmentStatus.Enriched);
+            updatedMovie.Synopsis.ShouldBe("Sci-Fi action");
+            channel.Received(1).BasicAck(1UL, false);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task EnrichmentJobProcessor_TransitionsToNotFound_RowRemainsVisible()
         {
-            var (db, provider) = CreateInMemoryDb();
+            var db = LamuFlixContextFactory.CreateContext();
+            var provider = BuildProvider(db);
             var movie = new Movie
             {
                 Title = "Missing Movie",
@@ -171,37 +169,38 @@ namespace LamuFlix.Test
                 Status = MovieEnrichmentStatus.Pending
             };
             db.Movies.Add(movie);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-            var metadataProviderMock = new Mock<IMetadataProvider>();
-            metadataProviderMock
-                .Setup(x => x.FetchMetadataAsync("Missing Movie", 2021, null, It.IsAny<CancellationToken>()))
-                .ReturnsAsync((MovieMetadata?)null);
+            var metadataProvider = Substitute.For<IMetadataProvider>();
+            metadataProvider
+                .FetchMetadataAsync("Missing Movie", 2021, null, Arg.Any<CancellationToken>())
+                .Returns((MovieMetadata?)null);
 
-            var scopeFactoryMock = new Mock<IServiceScopeFactory>();
-            var scopeMock = new Mock<IServiceScope>();
-            scopeMock.Setup(x => x.ServiceProvider).Returns(provider);
-            scopeFactoryMock.Setup(x => x.CreateScope()).Returns(scopeMock.Object);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(provider);
+            scopeFactory.CreateScope().Returns(scope);
 
             var config = new ConfigurationBuilder().Build();
-            var processor = new EnrichmentJobProcessor(scopeFactoryMock.Object, metadataProviderMock.Object, config, NullLogger<EnrichmentJobProcessor>.Instance);
+            var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-            var channelMock = new Mock<IModel>();
+            var channel = Substitute.For<IModel>();
             var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Missing Movie", Year = 2021 };
 
-            await processor.ProcessMessageAsync(message, channelMock.Object, 2UL);
+            await processor.ProcessMessageAsync(message, channel, 2UL);
 
-            var updatedMovie = await db.Movies.SingleAsync(x => x.Id == movie.Id);
-            Assert.AreEqual(MovieEnrichmentStatus.NotFound, updatedMovie.Status);
+            var updatedMovie = await db.Movies.SingleAsync(x => x.Id == movie.Id, TestContext.Current.CancellationToken);
+            updatedMovie.Status.ShouldBe(MovieEnrichmentStatus.NotFound);
             // Verify row remains visible in DB
-            Assert.IsNotNull(updatedMovie);
-            channelMock.Verify(x => x.BasicAck(2UL, false), Times.Once());
+            updatedMovie.ShouldNotBeNull();
+            channel.Received(1).BasicAck(2UL, false);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task EnrichmentJobProcessor_Idempotency_SkipsAlreadyEnriched()
         {
-            var (db, provider) = CreateInMemoryDb();
+            var db = LamuFlixContextFactory.CreateContext();
+            var provider = BuildProvider(db);
             var movie = new Movie
             {
                 Title = "Already Enriched",
@@ -211,30 +210,31 @@ namespace LamuFlix.Test
                 Status = MovieEnrichmentStatus.Enriched
             };
             db.Movies.Add(movie);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-            var metadataProviderMock = new Mock<IMetadataProvider>();
-            var scopeFactoryMock = new Mock<IServiceScopeFactory>();
-            var scopeMock = new Mock<IServiceScope>();
-            scopeMock.Setup(x => x.ServiceProvider).Returns(provider);
-            scopeFactoryMock.Setup(x => x.CreateScope()).Returns(scopeMock.Object);
+            var metadataProvider = Substitute.For<IMetadataProvider>();
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(provider);
+            scopeFactory.CreateScope().Returns(scope);
 
             var config = new ConfigurationBuilder().Build();
-            var processor = new EnrichmentJobProcessor(scopeFactoryMock.Object, metadataProviderMock.Object, config, NullLogger<EnrichmentJobProcessor>.Instance);
+            var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-            var channelMock = new Mock<IModel>();
+            var channel = Substitute.For<IModel>();
             var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Already Enriched", Year = 2020 };
 
-            await processor.ProcessMessageAsync(message, channelMock.Object, 3UL);
+            await processor.ProcessMessageAsync(message, channel, 3UL);
 
-            metadataProviderMock.Verify(x => x.FetchMetadataAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never());
-            channelMock.Verify(x => x.BasicAck(3UL, false), Times.Once());
+            metadataProvider.ReceivedCalls().ShouldBeEmpty();
+            channel.Received(1).BasicAck(3UL, false);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task EnrichmentJobProcessor_RetryOnFailure_RepublishesWhenRetryCountBelowThree()
         {
-            var (db, provider) = CreateInMemoryDb();
+            var db = LamuFlixContextFactory.CreateContext();
+            var provider = BuildProvider(db);
             var movie = new Movie
             {
                 Title = "Failing Movie",
@@ -244,35 +244,36 @@ namespace LamuFlix.Test
                 Status = MovieEnrichmentStatus.Pending
             };
             db.Movies.Add(movie);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-            var metadataProviderMock = new Mock<IMetadataProvider>();
-            metadataProviderMock
-                .Setup(x => x.FetchMetadataAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            var metadataProvider = Substitute.For<IMetadataProvider>();
+            metadataProvider
+                .FetchMetadataAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
                 .ThrowsAsync(new HttpRequestException("Network error"));
 
-            var scopeFactoryMock = new Mock<IServiceScopeFactory>();
-            var scopeMock = new Mock<IServiceScope>();
-            scopeMock.Setup(x => x.ServiceProvider).Returns(provider);
-            scopeFactoryMock.Setup(x => x.CreateScope()).Returns(scopeMock.Object);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(provider);
+            scopeFactory.CreateScope().Returns(scope);
 
             var config = new ConfigurationBuilder().Build();
-            var processor = new EnrichmentJobProcessor(scopeFactoryMock.Object, metadataProviderMock.Object, config, NullLogger<EnrichmentJobProcessor>.Instance);
+            var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-            var channelMock = new Mock<IModel>();
+            var channel = Substitute.For<IModel>();
             var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Failing Movie", RetryCount = 0 };
 
-            await processor.ProcessMessageAsync(message, channelMock.Object, 4UL);
+            await processor.ProcessMessageAsync(message, channel, 4UL);
 
-            Assert.AreEqual(1, message.RetryCount);
-            channelMock.Verify(x => x.QueueDeclare("task_queue", true, false, false, null), Times.Once());
-            channelMock.Verify(x => x.BasicAck(4UL, false), Times.Once());
+            message.RetryCount.ShouldBe(1);
+            channel.Received(1).QueueDeclare("task_queue", true, false, false, null);
+            channel.Received(1).BasicAck(4UL, false);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task EnrichmentJobProcessor_ExceedsMaxRetries_MarksFailedAndForwardsToDlq()
         {
-            var (db, provider) = CreateInMemoryDb();
+            var db = LamuFlixContextFactory.CreateContext();
+            var provider = BuildProvider(db);
             var movie = new Movie
             {
                 Title = "Dead Letter Movie",
@@ -282,38 +283,38 @@ namespace LamuFlix.Test
                 Status = MovieEnrichmentStatus.Pending
             };
             db.Movies.Add(movie);
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-            var metadataProviderMock = new Mock<IMetadataProvider>();
-            metadataProviderMock
-                .Setup(x => x.FetchMetadataAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            var metadataProvider = Substitute.For<IMetadataProvider>();
+            metadataProvider
+                .FetchMetadataAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
                 .ThrowsAsync(new HttpRequestException("Persistent error"));
 
-            var scopeFactoryMock = new Mock<IServiceScopeFactory>();
-            var scopeMock = new Mock<IServiceScope>();
-            scopeMock.Setup(x => x.ServiceProvider).Returns(provider);
-            scopeFactoryMock.Setup(x => x.CreateScope()).Returns(scopeMock.Object);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(provider);
+            scopeFactory.CreateScope().Returns(scope);
 
             var config = new ConfigurationBuilder().Build();
-            var processor = new EnrichmentJobProcessor(scopeFactoryMock.Object, metadataProviderMock.Object, config, NullLogger<EnrichmentJobProcessor>.Instance);
+            var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-            var channelMock = new Mock<IModel>();
+            var channel = Substitute.For<IModel>();
             var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Dead Letter Movie", RetryCount = 3 };
 
-            await processor.ProcessMessageAsync(message, channelMock.Object, 5UL);
+            await processor.ProcessMessageAsync(message, channel, 5UL);
 
-            var updatedMovie = await db.Movies.SingleAsync(x => x.Id == movie.Id);
-            Assert.AreEqual(MovieEnrichmentStatus.Failed, updatedMovie.Status);
-            channelMock.Verify(x => x.QueueDeclare("task_queue_dlq", true, false, false, null), Times.Once());
-            channelMock.Verify(x => x.BasicAck(5UL, false), Times.Once());
+            var updatedMovie = await db.Movies.SingleAsync(x => x.Id == movie.Id, TestContext.Current.CancellationToken);
+            updatedMovie.Status.ShouldBe(MovieEnrichmentStatus.Failed);
+            channel.Received(1).QueueDeclare("task_queue_dlq", true, false, false, null);
+            channel.Received(1).BasicAck(5UL, false);
         }
 
-        [TestMethod]
+        [Fact]
         public void FilmesService_CriarFilme_InsertsAsPendingAndPublishesMessage()
         {
-            var (db, _) = CreateInMemoryDb();
-            var queuePublisherMock = new Mock<IEnrichmentQueuePublisher>();
-            _ = new FilmesService(db, null, queuePublisherMock.Object);
+            var db = LamuFlixContextFactory.CreateContext();
+            var queuePublisher = Substitute.For<IEnrichmentQueuePublisher>();
+            _ = new FilmesService(db, null, queuePublisher);
 
             var movie = new Movie
             {
@@ -326,7 +327,7 @@ namespace LamuFlix.Test
             db.Movies.Add(movie);
             db.SaveChanges();
 
-            Assert.AreEqual(MovieEnrichmentStatus.Pending, movie.Status);
+            movie.Status.ShouldBe(MovieEnrichmentStatus.Pending);
         }
     }
 }
