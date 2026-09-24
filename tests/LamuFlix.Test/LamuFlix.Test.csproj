@@ -4,19 +4,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- MSTest.TestAdapter 3.6.4 registers a TestingPlatformBuilderHook type that its framework assembly does not contain. xunit.v3 emits that hook while both packages are referenced. Removed with MSTest in T010. -->
-    <TestingPlatformBuilderHook Remove="031F8871-2660-4208-8F6B-FC142B40ABFF" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="MSTest.TestAdapter" />
-    <PackageReference Include="MSTest.TestFramework" />
-    <PackageReference Include="Moq" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="NSubstitute" />
