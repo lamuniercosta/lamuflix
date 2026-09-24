@@ -90,6 +90,7 @@
 
 ### T005: Create tests/LamuFlix.Tests.Common project and factory
 
+**Status:** ✓ **DONE**
 **Owner:** Implementation  
 **Depends on:** T004 complete  
 **Files:**
