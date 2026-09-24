@@ -126,6 +126,7 @@
 
 ### T006: Update tests/LamuFlix.Test/LamuFlix.Test.csproj for xUnit v3
 
+**Status:** ✓ **DONE** — AutoFixture and Faker.Net PackageReference omitted (D2: no migrated test uses them; PackageVersion entries remain).
 **Owner:** Implementation  
 **Depends on:** T005 complete  
 **File:** `tests/LamuFlix.Test/LamuFlix.Test.csproj` (post-DEV-290 path)  
