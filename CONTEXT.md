@@ -12,9 +12,47 @@ Format: the term, what it means here, and the names it displaces. The
 
 ---
 
-**Work Item**
-A single unit of asynchronous processing, tracked from acceptance through
-completion or failure.
-_Avoid_: Job, task, message
+**Movie**
+_Avoid_: Filme, Film
 
-<!-- Replace the example above with your first real term. -->
+**Library**
+A set of movies on disk under LibraryOptions.RootPath.
+
+**Import**
+_Avoid_: Criar, Create, Scan (for single folder case)
+
+**Enrichment**
+_Avoid_: job, task, processing
+
+**Enrichment Status**
+Pending, Enriched, NotFound, Failed.
+_Avoid_: state, job status
+
+**Failure Category**
+A caller-safe taxonomy.
+_Avoid_: error type, raw exception
+
+**Metadata Provider**
+_Avoid_: hardcoding OMDb in Core names
+
+**Watchlist**
+_Avoid_: MinhaLista, My List
+
+**Playback**
+_Avoid_: Assistir, Watch
+
+**Playback Event**
+A record of a play launch.
+_Avoid_: watch log, history entry
+
+**Recommendation**
+A suggested library movie from the details page.
+
+**Reason**
+A caller-safe explanation attached to a recommendation.
+
+**Taste Profile**
+A recency-weighted aggregate of the user's watched movies.
+
+**Feedback**
+Explicit Watched / Not Interested marks.
