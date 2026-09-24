@@ -8,14 +8,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Shouldly;
+using Xunit;
 
 namespace LamuFlix.Test
 {
-    [TestClass]
     public sealed class WorkerTests
     {
-        [TestMethod]
+        [Fact]
         public void QueueWorker_ImplementsBackgroundServiceAndHostedService()
         {
             var config = new ConfigurationBuilder().Build();
@@ -23,33 +23,33 @@ namespace LamuFlix.Test
 
             using var worker = new QueueWorker(logger, config);
 
-            Assert.IsInstanceOfType(worker, typeof(BackgroundService));
-            Assert.IsInstanceOfType(worker, typeof(IHostedService));
+            worker.ShouldBeAssignableTo<BackgroundService>();
+            worker.ShouldBeAssignableTo<IHostedService>();
         }
 
-        [TestMethod]
+        [Fact]
         // ReSharper disable NullableWarningSuppressionIsUsed
         // Deliberate null asserting ArgumentNullException
         public void QueueWorker_Constructor_ThrowsOnNullLogger()
         {
             var config = new ConfigurationBuilder().Build();
 
-            Assert.ThrowsException<ArgumentNullException>(() => new QueueWorker(null!, config));
+            Should.Throw<ArgumentNullException>(() => new QueueWorker(null!, config));
         }
         // ReSharper restore NullableWarningSuppressionIsUsed
 
-        [TestMethod]
+        [Fact]
         // ReSharper disable NullableWarningSuppressionIsUsed
         // Deliberate null asserting ArgumentNullException
         public void QueueWorker_Constructor_ThrowsOnNullConfiguration()
         {
             var logger = NullLogger<QueueWorker>.Instance;
 
-            Assert.ThrowsException<ArgumentNullException>(() => new QueueWorker(logger, null!));
+            Should.Throw<ArgumentNullException>(() => new QueueWorker(logger, null!));
         }
         // ReSharper restore NullableWarningSuppressionIsUsed
 
-        [TestMethod]
+        [Fact]
         public void CreateHostBuilder_RegistersQueueWorkerAsHostedService()
         {
             var hostBuilder = Program.CreateHostBuilder(Array.Empty<string>());
@@ -58,10 +58,10 @@ namespace LamuFlix.Test
             var hostedServices = host.Services.GetServices<IHostedService>();
             var workerService = hostedServices.FirstOrDefault(s => s is QueueWorker);
 
-            Assert.IsNotNull(workerService);
+            workerService.ShouldNotBeNull();
         }
 
-        [TestMethod]
+        [Fact]
         public async Task QueueWorker_StartAsync_WhenCancelled_TerminatesCleanly()
         {
             var inMemoryConfig = new Dictionary<string, string?>

@@ -126,7 +126,7 @@
 
 ### T006: Update tests/LamuFlix.Test/LamuFlix.Test.csproj for xUnit v3
 
-**Status:** ✓ **DONE** — AutoFixture and Faker.Net PackageReference omitted (D2: no migrated test uses them; PackageVersion entries remain).
+**Status:** ✓ **DONE** — AutoFixture and Faker.Net PackageReference omitted (D2: no migrated test uses them; PackageVersion entries remain). MSTest.TestAdapter 3.6.4 hook `031F8871-2660-4208-8F6B-FC142B40ABFF` removed so xunit.v3's generated entry point compiles while MSTest remains; delete that Remove with T010.
 **Owner:** Implementation  
 **Depends on:** T005 complete  
 **File:** `tests/LamuFlix.Test/LamuFlix.Test.csproj` (post-DEV-290 path)  
@@ -154,6 +154,7 @@
 
 ### T007: Migrate tests/LamuFlix.Test/WorkerTests.cs to xUnit v3 + NSubstitute + Shouldly
 
+**Status:** ✓ **DONE**
 **Owner:** Implementation  
 **Depends on:** T006 complete  
 **File:** `tests/LamuFlix.Test/WorkerTests.cs` (post-DEV-290 path)  
