@@ -60,7 +60,7 @@
 - [ ] Verify branch: `git branch --show-current` → `feature/293`
 - [ ] **Record property-tests opt-out in task-DEV-293** (before any C# edits; consumed by gate runner)
   - Notation: `propertyTests: opt-out — no domain invariant added by pure rename`
-- [ ] Review and confirm frozen scope from spec.md; owner answers never change Phase B scope
+- [ ] Review and confirm frozen scope from spec.md and the owner answers on the spec PR (Q3 and Q5-B are required by Constitution VIII; Q5-A is optional)
 - [ ] Verify excluded scope (Q3, Q5-A/B, test method names, local text)
 - [ ] **One atomic change set:** Symbol rename + file/view moves + Razor/JS edits + test updates in single commit (or two if refactoring follows separately)
 
@@ -76,7 +76,7 @@ Files and symbols (ordered by edit complexity):
 **C# controller rename and move:**
 - [ ] Rename `src/LamuFlix.Web/Controllers/FilmesController.cs` → `MoviesController.cs` (file move)
   - [ ] Update class name `FilmesController` → `MoviesController`
-  - [ ] Update action methods: `CriarFilme`/`ProcessarFilme` → `ImportMovieFolder`, `AssistirFilme` → `PlayMovie`, `ExcluirFilme` → `DeleteMovie`, `MinhaLista` → `Watchlist`, `GetDetalhesFilmeAsync` → `GetMovieDetails`
+  - [ ] Update action methods: `CriarFilme`/`ProcessarFilme` → `ImportMovieFolder`, `AssistirFilme` → `PlayMovie`, `ExcluirFilme` → `DeleteMovie`, `MinhaLista` → `Watchlist`, `GetDetalhesFilmeAsync` → `GetMovieDetails`; the `GetDetalhesFilmeAsync` -> `GetMovieDetails` item is the service method only (`FilmesServices.cs:25,123`) - the controller action stays `Details` (`FilmesController.cs:61`) and its view stays `Details.cshtml`
   - [ ] Exclude: hand-written `[Route("/MinhaLista/")]` (unchanged in Phase B; owner answer authorizes a follow-up only)
 
 **C# service interface/implementation rename and move:**
@@ -91,8 +91,8 @@ Files and symbols (ordered by edit complexity):
 - [ ] Move folder `src/LamuFlix.Web/Views/Filmes/` → `Views/Movies/`
 - [ ] Rename `Views/Filmes/CriarFilme.cshtml` → `Views/Movies/ImportMovieFolder.cshtml`
 - [ ] Rename `Views/Filmes/MinhaLista.cshtml` → `Views/Movies/Watchlist.cshtml`
-- [ ] Rename `Views/Filmes/Index.cshtml` → `Views/Movies/Index.cshtml` (or keep as-is if view name unchanged)
-- [ ] Rename `Views/Filmes/Details.cshtml` → `Views/Movies/Details.cshtml` (or keep as-is)
+- [ ] `Views/Filmes/Index.cshtml` moves with the folder to `Views/Movies/Index.cshtml`; file name unchanged (action name unchanged)
+- [ ] `Views/Filmes/Details.cshtml` moves with the folder to `Views/Movies/Details.cshtml`; file name unchanged (action name unchanged)
 
 **Conventional route verification (read-only):**
 - [ ] Verify `src/LamuFlix.Web/Startup.cs:72-74` conventional route `{controller=Home}/{action=Index}/{id?}`
@@ -288,15 +288,15 @@ dotnet stryker
 
 ---
 
-## Follow-ups (post-Gate 1, post-delivery)
+## Required owner answers and follow-ups
 
-These are not findings; they are intentional exclusions and logged gaps:
+These are not findings. Items 3-5 are owner decisions; the remaining items are logged gaps:
 
 1. **Generated JavaScript (`site.min.js`):** Regenerate after Phase B; verify `/Movies/` references in minified output. Linked from `_Layout.cshtml:64`? Verify and update if needed.
 2. **Route/link automated coverage:** In-process route tests would require `Microsoft.AspNetCore.Mvc.Testing` NuGet dependency, outside Phase B scope. Document manual smoke in PR description; open follow-up for automated regression test.
-3. **Q3 owner checkpoint (model composites):** If authorized in spec PR, open follow-up issue for `Models/Filmes/` folder rename, composite identifiers, namespace updates.
-4. **Q5-A owner checkpoint (explicit route):** If authorized, update hand-written `[Route("/MinhaLista/")]` → `[Route("/Watchlist/")]` in follow-up issue.
-5. **Q5-B owner checkpoint (JSON field):** If authorized, update response field `filmes` → `movies` in follow-up issue. Verify all callers updated.
+3. **Q3 (required by Constitution VIII):** On YES, Patron amends DEV-293 with the exact targets and the composite and model-folder renames become frozen Phase B scope. On NO, DEV-293 is re-scoped or closed; it does not merge with Portuguese identifiers present.
+4. **Q5-A (optional route literal):** On YES, change hand-written `[Route("/MinhaLista/")]` -> `[Route("/Watchlist/")]` in this delivery. On NO, the URL stays.
+5. **Q5-B (required by Constitution VIII):** On YES, Patron amends DEV-293 and the response field `filmes` -> `movies` becomes frozen Phase B scope, with consumers at `site.js:23,37,80` updated. On NO, DEV-293 is re-scoped or closed.
 6. **Test method naming:** Portuguese → English test method name refactor is a separate refactor issue, not included in this pure identifier rename.
 
 ---
@@ -317,6 +317,6 @@ All of the following must be true:
 10. ✓ Code review findings: All in-scope Critical/High/Medium resolved; low/out-of-scope logged as Follow-ups
 11. ✓ Ship review findings: All in-scope Critical/High/Medium resolved; low/out-of-scope logged as Follow-ups
 12. ✓ Delivery PR: Merged with merge-bar proof and follow-up documentation
-13. ⊗ Conditional: Acceptance line 20 (zero Portuguese in API surface) is conditional on owner answers to Q3, Q5-A, Q5-B
+13. Conditional on the owner answers: acceptance line 20 (zero Portuguese in the API surface) cannot be met while Q3 and Q5-B are declined, and Governance blocks the merge in that case
 
-Owner checkpoint answers determine scope for any Phase C follow-ups.
+Owner answers to Q3 and Q5-B determine whether DEV-293 can meet its own acceptance criterion; a NO answer re-scopes or closes the ticket.

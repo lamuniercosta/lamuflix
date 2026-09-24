@@ -237,12 +237,12 @@ dotnet stryker
 
 ### Dependency on owner answers
 
-Phase B applies **frozen scope only** (Q1–Q2, eight ticket mappings and their references). Owner answers to Q3, Q5-A, and Q5-B determine post-delivery follow-up work, never Phase B scope:
+Phase B applies **frozen scope only** (Q1-Q2, the eight ticket mappings and their references) plus any Q3 and Q5-B targets the owner answers YES to and Patron then names in DEV-293. Constitution VIII and Governance make Q3 (composite identifiers and the `Models/Filmes/` move) and Q5-B (the `filmes` response field) compliance requirements, not optional follow-ups; Q5-A stays optional:
 
-- **Q3:** If authorized by user on spec PR, post-delivery follow-up issue opens for composite model renames (namespace, folder, identifiers).
-- **Q5-A:** If authorized by user on spec PR, post-delivery follow-up issue opens for explicit route `/MinhaLista/` → `/Watchlist/`.
-- **Q5-B:** If authorized by user on spec PR, post-delivery follow-up issue opens for JSON response field `filmes` → `movies`.
-- **If not authorized:** Scope exclusions remain permanent; no follow-up issues opened.
+- **Q3:** On YES, Patron amends DEV-293 with the exact targets (`MoviesFilterViewModel`, `MoviesListViewModel`, `ImportMovieFolderViewModel`, `IMovieService`, `GetMoviesListAsync`, `GetMoviesJson`, `CreateMoviesListQuery`, namespace `LamuFlix.Web.Models.Movies`, folder `Models/Movies/`, file `MoviesViewModel.cs`) and they are frozen Phase B scope. On NO, the ticket is re-scoped or closed; no merge with Portuguese identifiers present.
+- **Q5-A:** Optional. On YES, the URL changes to `/Watchlist/` in this delivery; on NO, it stays `/MinhaLista/`.
+- **Q5-B:** Required by Constitution VIII. On YES, Patron amends DEV-293 and `filmes` becomes `movies` in frozen Phase B scope with `site.js:23,37,80` updated; on NO, the ticket is re-scoped or closed.
+- **If a required answer is NO or absent:** Gate 1 does not close and DEV-293 does not merge.
 
 ---
 
