@@ -68,24 +68,24 @@ The following renames and reference updates are authorized by ticket Scope & Tec
 - `tests/LamuFlix.Test/UnitTest1.cs:16,29,67,78,109` (`FilmesService` → `MovieService`, `AssistirFilme` → `PlayMovie`)
 - `tests/LamuFlix.Test/EnrichmentTests.cs:313,317` (`FilmesService` → `MovieService`, `CriarFilme` → `ImportMovieFolder`)
 
-### Exclusions (not in this scope)
+### Exclusions and required renames
 
-- Model folder `Models/Filmes/` and its contents (`FilmesViewModel.cs`, `FilmesFilterViewModel`, `FilmesListViewModel`, `CriarFilmeViewModel`) — Q3 owner checkbox
-- Service interface `IFilmesService` and derived composites (`GetFilmesListAsync`, `GetFilmesJson`, `CreateFilmesListQuery`) — Q3 owner checkbox
-- Namespace `LamuFlix.Web.Models.Filmes` — Q3 owner checkbox
-- Explicit route attribute `[Route("/MinhaLista/")]` at `src/LamuFlix.Web/Controllers/FilmesController.cs:159` — Q5-A owner checkbox
-- JSON response field name `filmes` at `src/LamuFlix.Web/Controllers/FilmesController.cs:113,115` and `site.js:23,37,80` — Q5-B owner checkbox
+- Model folder `Models/Filmes/` and its contents (`FilmesViewModel.cs`, `FilmesFilterViewModel`, `FilmesListViewModel`, `CriarFilmeViewModel`) — Q3 owner checkbox; required by Constitution VIII - a NO answer re-scopes DEV-293
+- Service interface `IFilmesService` and derived composites (`GetFilmesListAsync`, `GetFilmesJson`, `CreateFilmesListQuery`) — Q3 owner checkbox; required by Constitution VIII - a NO answer re-scopes DEV-293
+- Namespace `LamuFlix.Web.Models.Filmes` — Q3 owner checkbox; required by Constitution VIII - a NO answer re-scopes DEV-293
+- Explicit route attribute `[Route("/MinhaLista/")]` at `src/LamuFlix.Web/Controllers/FilmesController.cs:159` — Q5-A owner checkbox; optional - a route literal is not an identifier
+- JSON response field name `filmes` at `src/LamuFlix.Web/Controllers/FilmesController.cs:113,115` and `site.js:23,37,80` — Q5-B owner checkbox; required by Constitution VIII - the anonymous-object property is an identifier
 - Razor UI copy (Portuguese labels, empty states)
 - Local variable names and exception text in `FilmesServices.cs:75`
 - Test method names
 - `wwwroot/js/site.min.js` (generated; logged as follow-up)
 - No behavior or architecture logic change; no new NuGet or npm dependency; `Features:LocalPlay` gate and playback behavior unchanged
 
-## Owner checkboxes (exactly three, unticked)
+## Owner checkboxes (exactly three, unticked: Q3 required, Q5-B required, Q5-A optional)
 
 ### Q3 — Composite identifiers and model paths
 
-- [ ] **Authorize renaming model folder `Models/Filmes/` → `Models/Movies/`, file `FilmesViewModel.cs` → `MoviesViewModel.cs`, namespace `LamuFlix.Web.Models.Filmes` → `LamuFlix.Web.Models.Movies`, and the following composite identifiers?**
+- [ ] **Authorize these exact targets? YES or NO.** Folder `Models/Filmes/` -> `Models/Movies/`, file `FilmesViewModel.cs` -> `MoviesViewModel.cs`, namespace `LamuFlix.Web.Models.Filmes` -> `LamuFlix.Web.Models.Movies`, and the composite identifiers listed below.
   - `FilmesFilterViewModel` → `MoviesFilterViewModel`
   - `FilmesListViewModel` → `MoviesListViewModel`
   - `CriarFilmeViewModel` → `ImportMovieFolderViewModel`
@@ -94,19 +94,21 @@ The following renames and reference updates are authorized by ticket Scope & Tec
   - `GetFilmesJson` → `GetMoviesJson`
   - `CreateFilmesListQuery` → `CreateMoviesListQuery`
 
-**Rationale:** These identifiers are not individually named in the ticket; their plural/singular targets require owner confirmation per §2.3.6 structural decision rule.
+**Rationale:** Constitution VIII forbids these Portuguese identifiers and Governance blocks a non-compliant merge; because the ticket targets are ambiguous, the owner confirms the exact names. YES makes them frozen Phase B scope once Patron amends DEV-293; NO re-scopes or closes DEV-293.
 
 ### Q5-A — Explicit route attribute
 
-- [ ] **The action `MinhaLista` → `Watchlist` is renamed in scope; the hand-written route attribute `[Route("/MinhaLista/")]` at `src/LamuFlix.Web/Controllers/FilmesController.cs:159` is not named in the ticket. Authorize a follow-up URL change to `/Watchlist/`, or confirm the URL stays `/MinhaLista/`?**
+- [ ] **Authorize the URL change to `/Watchlist/`? YES or NO (optional).** The hand-written route literal `[Route("/MinhaLista/")]` at `src/LamuFlix.Web/Controllers/FilmesController.cs:159` is not an identifier, so Constitution VIII does not require it.
 
-**Rationale:** The ticket names only the action method, not the explicit route. Convention-derived routes are in scope; hand-written literals require explicit authorization per §2.3.4.
+**Rationale:** A route literal is not an identifier, so Constitution VIII does not require it; it is a section 2.3.4 public API shape choice and stays optional, recommended because the action and view are renamed to `Watchlist`.
 
 ### Q5-B — JSON response field
 
-- [ ] **The JSON response field `filmes` emitted at `src/LamuFlix.Web/Controllers/FilmesController.cs:113,115` and consumed at `src/LamuFlix.Web/wwwroot/js/site.js:23,37,80` is not named in the ticket. Authorize a follow-up response-contract rename to `movies`, or confirm the field stays `filmes`?**
+- [ ] **Authorize `filmes` -> `movies`? YES or NO (required).** The property in `Json(new { filmes = ... })` at `src/LamuFlix.Web/Controllers/FilmesController.cs:113,115` is a C# identifier, so Constitution VIII forbids it; the contract change needs owner confirmation, and its consumers at `src/LamuFlix.Web/wwwroot/js/site.js:23,37,80` are updated in the same delivery.
 
-**Rationale:** The ticket does not name the response field. JSON contract changes are a public API shape decision outside committed scope per §2.3.4.
+**Rationale:** The `filmes` property is a C# identifier, so Constitution VIII forbids it; the rename changes the response contract, so the owner confirms the target under section 2.3.4. YES makes it frozen Phase B scope once Patron amends DEV-293; NO re-scopes or closes DEV-293.
+
+Constitution VIII forbids Portuguese identifiers and requires them renamed on contact (`Filme`, `CriarFilme`, `AssistirFilme`, `ExcluirFilme`, `MinhaLista`, `ProcessarFilme` and similar), and Governance blocks a non-compliant merge unless an amendment is simultaneously submitted and approved. Q3 and Q5-B are therefore compliance requirements, not optional follow-ups: the owner answers YES to the exact targets, or DEV-293 is re-scoped or closed and does not merge with Portuguese identifiers present. Q5-A is a route literal, not an identifier, so it remains the owner optional choice. On a YES answer Patron amends DEV-293 so the named targets are frozen Phase B scope; on a NO answer the ticket returns to the owner for re-scoping or closure.
 
 ## Test strategy
 
