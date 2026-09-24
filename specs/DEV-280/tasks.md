@@ -180,6 +180,7 @@
 
 ### T008: Migrate tests/LamuFlix.Test/EnrichmentTests.cs to xUnit v3 + extract factory
 
+**Status:** ✓ **DONE** — `dotnet test --filter EnrichmentTests`: 10 passed, 0 skipped, 0 failed. `CreateInMemoryDb` removed; context comes from `LamuFlixContextFactory.CreateContext()`. Service-provider registration that the factory does not own stays in `BuildProvider`.
 **Owner:** Implementation  
 **Depends on:** T007 complete  
 **File:** `tests/LamuFlix.Test/EnrichmentTests.cs` (post-DEV-290 path)  
