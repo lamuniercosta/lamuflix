@@ -68,14 +68,14 @@
 **Depends on:** T003 complete (owner checkbox ticked, baseline recorded)  
 **File:** `Directory.Packages.props`  
 **Action:**
-- Add 6 new `<PackageVersion>` entries (candidate pins, pending R4 verification):
-  - xunit.v3 1.1.0
-  - xunit.runner.visualstudio 3.0.2
-  - NSubstitute 5.3.0
+- Add 6 new `<PackageVersion>` entries (hardened pins):
+  - xunit.v3 4.0.1
+  - xunit.runner.visualstudio 4.0.0
+  - NSubstitute 6.2.0
   - Shouldly 4.3.0
   - AutoFixture 4.18.1
   - Faker.Net 2.0.163
-- Do **not** bump `Microsoft.NET.Test.Sdk` at this step (condition: only bump to 18.0.1 if R4 verification shows 17.12.0 is below xunit.v3 floor; otherwise keep 17.12.0).
+- Keep `Microsoft.NET.Test.Sdk` at 17.12.0 (no bump required).
 - Do **not** remove MSTest + Moq versions yet (tree must stay green).
 
 **Acceptance:**
@@ -83,7 +83,7 @@
 - All new versions and bumped version visible in `PackageVersion` nodes.
 - Existing MSTest/Moq entries still present.
 
-**Deliverable:** Commit `DEV-280 - add xunit.v3, NSubstitute, Shouldly, AutoFixture, Faker.Net (candidate pins, pending R4)`.
+**Deliverable:** Commit `DEV-280 - add xunit.v3, NSubstitute, Shouldly, AutoFixture, Faker.Net (hardened pins)`.
 
 ---
 
@@ -109,14 +109,14 @@
 
 **Update tests/LamuFlix.Test/LamuFlix.Test.csproj:**
 - Add `<ProjectReference>` to `tests/LamuFlix.Tests.Common/LamuFlix.Tests.Common.csproj`.
-- Set `<OutputType>Exe</OutputType>` if R4 verification confirms it is required for xUnit v3 runner compatibility (conditional, not automatic).
+- Set `<OutputType>Exe</OutputType>` unconditionally (required for xUnit v3 runner compatibility).
 
 **Acceptance:**
 - `dotnet build` succeeds; no unresolved references.
 - Factory method compiles and produces a valid in-memory context.
 - `tests/LamuFlix.Test` project references the new project.
 - **Not added to `LamuFlix.sln`** (builds as transitive dependency).
-- OutputType is Exe if R4 confirms required for xUnit v3 runner compatibility (conditional, not automatic).
+- OutputType is set to Exe (required for xUnit v3 runner compatibility).
 
 **Deliverable:** Commit `DEV-280 - create tests/LamuFlix.Tests.Common with factory`.
 
@@ -129,9 +129,9 @@
 **File:** `tests/LamuFlix.Test/LamuFlix.Test.csproj` (post-DEV-290 path)  
 **Actions:**
 - Add `<PackageReference>` entries (non-transitive):
-  - xunit.v3 1.1.0
-  - xunit.runner.visualstudio 3.0.2
-  - NSubstitute 5.3.0
+  - xunit.v3 4.0.1
+  - xunit.runner.visualstudio 4.0.0
+  - NSubstitute 6.2.0
   - Shouldly 4.3.0
   - AutoFixture 4.18.1 (conditional per D2: only if migrated tests use it)
   - Faker.Net 2.0.163 (conditional per D2: only if migrated tests use it)
@@ -353,4 +353,4 @@
 
 **Line count (tasks.md body only):** 355 lines (13 tasks total: T001–T013)
 
-**Status:** Ready for implementation pending owner checkbox D4 ticking. Phase I: T001 rebase @ b2659b7 complete; T002–T003 blocked until DEV-290 Phase B restructure PR merged to origin/main. Phase II blocked until Phase I complete and owner checkbox D4 ticked (Option A required for frozen plan execution).
+**Status:** Ready for implementation pending owner checkbox (FR-008, Decision D4) ticking. Phase I: T001 rebase @ b2659b7 complete; T002–T003 blocked until DEV-290 Phase B restructure PR merged to origin/main. Phase II blocked until Phase I complete and owner checkbox (FR-008) ticked to Option A (required for frozen plan execution).
