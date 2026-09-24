@@ -128,7 +128,7 @@ try {
 Write-Host "Configuring merge-reconcile routine..."
 $routines = & maestri routine list
 if ($routines -notmatch '\bmerge-reconcile\b') {
-    & maestri routine create "merge-reconcile" --command "[from Routine] merge-reconcile check: run gh pr list --state merged --json number,headRefName,mergedAt. For any PR merged since last check, sweep worktree and task notes, mark ticket Done in YouTrack, and unpark awaiting tickets." --every 30m --terminal "Watcher"
+    & maestri routine create "merge-reconcile" --command "[from Routine] merge-reconcile: apply task-chain section 2.1 to every open-PR row. A merged spec PR (feature/<nnn>-spec) only removes its spec worktree; only a merged delivery PR (feature/DEV-###) sweeps and sets Done." --every 30m --terminal "Watcher"
     Write-Host "Routine 'merge-reconcile' created successfully."
 } else {
     Write-Host "Routine 'merge-reconcile' already exists."

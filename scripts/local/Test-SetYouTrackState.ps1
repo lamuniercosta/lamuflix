@@ -56,12 +56,12 @@ Write-Host 'Set-YouTrackState'
 $done = Invoke-SetState -Ticket 'DEV-289' -State 'Done' -ReadBackState 'Done'
 Assert-True 'exit 0 when read-back matches' ($done.ExitCode -eq 0)
 Assert-True 'reports verified state' ($done.Output -match 'DEV-289 State: Done \(verified\)')
-Assert-True 'posts the State command' ($done.Calls[0] -match '^Post https://yt\.example/api/commands .*"query":"State \{Done\}"')
+Assert-True 'posts the State command without braces' ($done.Calls[0] -match '^Post https://yt\.example/api/commands .*"query":"State Done"')
 Assert-True 'reads the issue back' ($done.Calls[1] -match '^Get https://yt\.example/api/issues/DEV-289\?fields=')
 Assert-True 'sends the token as Bearer' ($done.Calls[0] -match 'auth=Bearer perm-test$')
 
 $multi = Invoke-SetState -Ticket 'DEV-290' -State 'In Progress' -ReadBackState 'In Progress'
-Assert-True 'multi-word state is braced and verified' ($multi.ExitCode -eq 0 -and $multi.Calls[0] -match '"query":"State \{In Progress\}"')
+Assert-True 'multi-word state is sent unbraced and verified' ($multi.ExitCode -eq 0 -and $multi.Calls[0] -match '"query":"State In Progress"')
 
 $caseInsensitive = Invoke-SetState -Ticket 'DEV-1' -State 'done' -ReadBackState 'Done'
 Assert-True 'state comparison ignores case' ($caseInsensitive.ExitCode -eq 0)
