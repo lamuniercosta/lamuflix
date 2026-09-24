@@ -64,6 +64,7 @@
 
 ### T004: Add packages to Directory.Packages.props
 
+**Status:** ✓ **DONE**
 **Owner:** Implementation  
 **Depends on:** T003 complete (owner checkbox ticked, baseline recorded)  
 **File:** `Directory.Packages.props`  
