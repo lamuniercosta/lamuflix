@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-
+    <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LamuFlix.Data\LamuFlix.Data.csproj" />
+    <ProjectReference Include="..\LamuFlix.Tests.Common\LamuFlix.Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Web\LamuFlix.Web.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Worker\LamuFlix.Worker.csproj" />
   </ItemGroup>
