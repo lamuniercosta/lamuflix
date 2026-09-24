@@ -1,0 +1,50 @@
+# DEV-293 Phase A brief
+
+Status: grill complete at 12/12 questions. Authorized scope frozen for Quill's Phase A draft. Gate 1 remains closed pending three owner checkboxes on the spec PR. `CONCLUSIONS.md` preserves every question, answer, rationale, and correction.
+
+## Source and worktree
+
+- Ticket: DEV-293, In Progress, parent DEV-281, size M; independent of DEV-292 (task-DEV-293 lines 1–25; recon-DEV-293-2 lines 3–16).
+- Spec worktree: `F:\Dev\LamuFlix.worktrees\feature-293-spec`, branch `feature/293-spec`, intake HEAD `8a5c995fcffbf004ebb464eb44871e20e493e72e`, feature pin `specs/DEV-293`.
+- Ticket's explicit mappings (task lines 8–15): `Filme` → `Movie`; `FilmesController` → `MoviesController`; `FilmesServices` → `MovieService`; `CriarFilme`/`ProcessarFilme` → `ImportMovieFolder`; `AssistirFilme` → `PlayMovie`; `ExcluirFilme` → `DeleteMovie`; `MinhaLista` → `Watchlist`; `GetDetalhesFilmeAsync` → `GetMovieDetails`.
+- Ticket safety and acceptance (task lines 17–21): pure mechanical rename, no behavior or architecture logic change; update references and tests; zero Portuguese identifiers in public/internal API surface; solution builds and existing tests pass. The zero-Portuguese criterion remains conditional because the three owner-only API/model choices below are excluded from committed scope.
+
+## Frozen committed scope
+
+1. Rename only ticket-named symbols and unambiguous token substitutions within an in-scope file and declared type. Include `filmeId` → `movieId` in service interface/implementations (`FilmesServices.cs:25,27,31,41,43,45,68,119,123,132,334,336,344,346,355,357`) and `GetMinhaLista` → `GetWatchlist` (`FilmesServices.cs:47,368`). These follow the ticket's `Filme` and `MinhaLista` mappings without a new target-name decision.
+2. Move exact physical counterparts: `Controllers/FilmesController.cs` → `MoviesController.cs`, `Services/FilmesServices.cs` → `MovieService.cs`, `Views/Filmes` → `Views/Movies`, `CriarFilme.cshtml` → `ImportMovieFolder.cshtml`, and `MinhaLista.cshtml` → `Watchlist.cshtml`. Update required callers and existing tests; do not restructure unrelated folders.
+3. The conventional `{controller=Home}/{action=Index}/{id?}` route at `src/LamuFlix.Web/Startup.cs:72-74` changes `/Filmes/...` to `/Movies/...` with the named controller rename. Update references; do not preserve the old convention-derived route through attributes.
+4. Update Razor links/tag helpers and shipped JavaScript references, including `_Layout.cshtml:30-31`, `Views/Filmes/Index.cshtml:6,85,108,111`, `CriarFilme.cshtml:16`, `MinhaLista.cshtml:46,69,72`, `Details.cshtml:17,18`, and `wwwroot/js/site.js` URL strings at 5,9,22,36,50,79,103,123,127,144,159. Include JS call-contract symbols `AssistirFilme` → `PlayMovie` (`site.js:5`) and `ExcluirFilme` → `DeleteMovie` (`site.js:118`) with those Razor callers. Line anchors are Patron's recon-based planning evidence; implementation must verify its actual diff.
+5. Keep the `Features:LocalPlay` gate and all playback behavior intact. No new dependency, architectural layer, database schema, opportunistic cleanup, or behavior change.
+
+**Scope rule:** IN when the new name is an unambiguous token substitution from a ticket-named mapping inside an in-scope file and declared type. OUT as an owner checkbox when the target is ambiguous, an unnamed file/folder must move, or a public API shape changes. This boundary is frozen: anything else is a follow-up issue, not a finding in this round.
+
+## Explicit exclusions and owner-only checkboxes
+
+- [ ] **Q3 — Composite identifiers and model paths (§2.3.6):** The ticket does not name `FilmesFilterViewModel`, `FilmesListViewModel`, `CriarFilmeViewModel`, `IFilmesService`, `GetFilmesListAsync`, `GetFilmesJson`, `CreateFilmesListQuery`, namespace `LamuFlix.Web.Models.Filmes`, folder `Models/Filmes/`, or file `Models/Filmes/FilmesViewModel.cs`. Its `Filmes` targets vary between singular and plural. Authorize renaming those identifiers and moving that folder/file, and confirm exact targets? Patron recommends `MoviesFilterViewModel`, `MoviesListViewModel`, `ImportMovieFolderViewModel`, `IMovieService`/`MovieService`, `GetMoviesListAsync`, `GetMoviesJson`, `CreateMoviesListQuery`, namespace `LamuFlix.Web.Models.Movies`, folder `Models/Movies/`, file `Models/Movies/MoviesViewModel.cs`. These are outside Phase B scope; an owner answer authorizes a follow-up ticket only.
+- [ ] **Q5-A — Explicit route (§2.3.4):** The ticket names the `MinhaLista` action but not `[Route("/MinhaLista/")]` at `FilmesController.cs:159`. The committed rename changes the action and view to `Watchlist` but leaves this URL unchanged. Authorize a later URL change to `/Watchlist/`, or confirm `/MinhaLista/` stays? Patron recommends the URL rename subject to owner authorization.
+- [ ] **Q5-B — JSON field (§2.3.4):** The ticket does not name `filmes` emitted at `FilmesController.cs:113,115` and consumed by `site.js:23,37,80`. Leave this response field unchanged in committed scope. Authorize a later response-contract rename to `movies`, or confirm `filmes` stays? Patron recommends the rename subject to owner authorization.
+
+All three boxes are unticked on the spec PR. Gate 1 stays closed until the user answers and merges. The spec PR can open with these questions; the chain does not wait in chat. Existing test method names, Portuguese local/exception text at `FilmesServices.cs:75`, hardcoded `_filePath`, and Razor UI copy are outside scope and not findings. `wwwroot/js/site.min.js` is generated and unreferenced by `_Layout.cshtml:64`; do not edit it. Record it as a follow-up. No taste assumptions were made.
+
+## Approach and files for Quill's plan
+
+Use a compiler/Roslyn-assisted, symbol-aware rename bounded by the eight ticket mappings and the explicit unambiguous substitutions above. Then handle Razor, view paths, and `site.js` explicitly. Check excluded literals and composite names remain untouched, and review `git diff <base>...<head>` for accidental behavior changes. The named files in the frozen scope are the authorized edit envelope; Quill should not infer a blanket string replacement or a new architectural layer.
+
+## Test strategy and gate expectations
+
+- Update existing symbol references only in `tests/LamuFlix.Test/UnitTest1.cs:16,29,67,78,109` and `EnrichmentTests.cs:313,317`; retain test method names. Existing LocalPlay tests must remain green with the feature flag behavior intact. Add no new behavior tests that mirror a rename.
+- A new in-process route test would require `Microsoft.AspNetCore.Mvc.Testing`, a new NuGet dependency outside scope. Document a manual smoke of Index, Details, PlayMovie, ImportMovieFolder, DeleteMovie, GetFilmesJson, QuickSearch, AddToWatchList, RemoveFromWatchList, and Watchlist. If the configured database prevents local startup, perform static stale `/Filmes/` and tag-helper checks and record the link contract as unverified. Route/link automated coverage is a follow-up, not a fabricated pass.
+- Record a per-ticket property-tests opt-out in task-DEV-293 before gates: the rename adds no domain invariant. `run-property-tests.ps1` exit 2 is accepted only with that durable opt-out and is reported SKIPPED/OPT-OUT, never PASS.
+- Phase B under pwsh 7: run `run-roslyn-analyzers.ps1 -BaseRef main`, `run-cyclomatic-complexity.ps1 -BaseRef main` (configured implement threshold 15), and `run-jetbrains-inspectcode.ps1 -BaseRef main` sequentially on the `main...HEAD` diff, expecting exit 0; run `run-vulnerable-packages.ps1` with configured settings, solution `dotnet build`, and `dotnet test`, all expecting success. Pre-PR `dotnet stryker` uses configured mutation threshold 80. Never lower a threshold. No `/web` changes or web gates.
+- Exit 0 = Pass; exit 1 = Failure; exit 2 is blocking SKIPPED unless the recorded property-tests opt-out applies. A gate that could not run is `Could not run`, never green. Plain build cannot substitute for analyzers.
+
+## Closing bar and round cap
+
+Every verified in-scope Critical, High, or Medium blocks both code review and ship review. Low and out-of-frozen-scope findings remain Follow-ups with source and severity intact. An unresolved Critical/High even in Follow-ups prevents READY under ship-review rules. Two formal review rounds maximum, with at most two fix commits per round. After the cap, report unresolved above-bar findings to Patron as blocked/NEEDS FIXES; no third round or severity relabel. Owner checkboxes consume no round.
+
+## Task ordering and next action
+
+**Phase A in this spec worktree:** this brief and conclusions → Quill drafts spec/plan/tasks → Keel read-only `/speckit-analyze`, numbered fix list if needed, plan challenge/adjudication → freeze → spec PR with exactly three unticked owner checkboxes and documented follow-ups. Phase A changes specs only; no code, analyze, or PR is part of this grill handoff. Next action now: hand this completed brief to Conductor for Quill.
+
+**Phase B only after Gate 1/user spec-PR merge:** separate DEV-293 delivery worktree from merged default branch; verify worktree/branch and `DEV-293 - {subject}` commit format; pin scope and record property opt-out in task note; perform C# rename, file/view moves, Razor/JS reference updates, and existing test updates as one atomic change set; build and `dotnet test` immediately; inspect diff and smoke links (static fallback if necessary); run sequential gates, rerunning build/tests only after further edits; route file-and-source follow-ups to Patron, not into the chain; open delivery PR. Main checkout stays clean.
