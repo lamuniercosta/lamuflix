@@ -3,6 +3,7 @@
 **Status:** draft  
 **Author:** Quill (Drafter)  
 **Based on:** brief.md, CONCLUSIONS.md (Q1–Q5, D1–D4), post-DEV-290 paths  
+**Gate 1 Status:** ✓ FIRM — Checkpoint 1 (FR-008) ticked to Option A on PR #13.
 
 ---
 
@@ -92,10 +93,10 @@ Two test files must be migrated as faithful 1:1 translations:
 **Option B (Not executable under frozen plan):** Not executable without Patron plan amendment. If chosen, the 3 tests are **not deleted** until plan is formally amended to lock alternative requirements (passed count would drop to 15; requires decision audit before edit begins). The 3 tests remain in code until plan amendment is complete.
 
 **Checkpoint 1 — FR-008 (Owner decision):**
-- [ ] **I choose Option A: migrate the 3 AssistirFilme tests** (execute directly under this plan).
+- [x] **I choose Option A: migrate the 3 AssistirFilme tests** (execute directly under this plan).
 - [ ] **I choose Option B: delete the 3 AssistirFilme tests** (STOP — do not edit; report to Patron; requires plan amendment before edit).
 
-*Gate 1 remains closed until Checkpoint 1 is ticked. Spec is provisional until decision is made.*
+*Gate 1 is firm. Checkpoint 1 ticked to Option A on PR #13 (verified via task-DEV-280 intake line 14; Phase II implementation complete per task-DEV-280 lines 17-37).*
 
 ### FR-009: Remove MSTest and Moq packages
 
@@ -152,7 +153,7 @@ The test project must be configured for xUnit v3 execution:
 - **Acceptance criteria (post-Phase II):**
   - If owner chooses **Option A** (migrate 3 AssistirFilme tests): **18 passed / 0 skipped / 0 failed** (all tests pass; 4 [Ignore] tests no longer skipped because they are deleted).
   - If owner chooses **Option B** (delete 3 AssistirFilme tests): **15 passed / 0 skipped / 0 failed** (7 tests total deleted: 4 [Ignore] + 3 AssistirFilme_*; requires plan amendment).
-- **Gate 1 remains CLOSED** until the owner ticks the checkbox on FR-008. This spec is provisional.
+- **Gate 1 FIRM.** Checkpoint 1 ticked to Option A on PR #13 (2026-09-24). Phase II implementation recorded; Phase III gates recorded exit 0 (property exit 2 OPT-OUT/SKIP); delivery PR and Phase V pending.
 - The translation table lives in plan.md to keep this spec focused on requirements.
 - Pre-existing EF Core InMemory and RabbitMQ `IModel` mocks are carried debt, not findings; they are translated 1:1 and never fixed or extended (per CONCLUSIONS.md Q5).
 - `ApiDataModel.cs` is orphaned after test deletions but not ticket-named; it is a follow-up, never a review finding.

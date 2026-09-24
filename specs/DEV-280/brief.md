@@ -2,7 +2,7 @@
 
 **Seat:** Keel (Thinker) · **Owner proxy:** Patron · **Conductor:** Bernstein · **Drafter:** Quill
 **Size:** M · **ui:** none · **Parent:** DEV-281 · **Worktree:** `F:\Dev\LamuFlix.worktrees\feature-280-spec` (`feature/280-spec`, base `d1d9cfa`)
-**Gate 1:** `provisional` — closed until the owner ticks the checkbox below.
+**Gate 1:** ✓ **FIRM** — Checkpoint 1 (FR-008) ticked to Option A on PR #13 (verified via task-DEV-280 intake; 2026-09-24).
 **Grill record:** every question and ruling is in `CONCLUSIONS.md` (Q1–Q5, D1–D4). This brief is the decision of record; if it is not here, it is not decided.
 
 ## Frozen scope
@@ -115,7 +115,7 @@ This ticket *is* test code; there are no new production behaviours. The proof is
 
 ## Gate 1 owner checkboxes
 
-- [ ] **1. UnitTest1.cs non-ignored tests (§2.3 item 5; alternative is item 6).** The ticket does not name the 3 `FilmesService` tests (`UnitTest1.cs:498`, `:517`, `:560`). **Option A (recommended):** migrate them, preserving assertions and the injected `ProcessStarter` seam. This includes the two inert `Location` replacements (`F:\Filmes` → synthetic `C:\TestLibrary\…`, N1), with assertions unchanged. Production `FilmesService` and the `Features:LocalPlay` gate stay unchanged. Post-change: 18 passed / 0 skipped / 0 failed. **Option B:** delete them. Post-change passed drops to 15 and tests the ticket does not name are removed. This drops planned work, so it is not executable under the frozen plan and needs a Patron plan amendment before any edit (N3). Zero-MSTest requires one or the other. The pickup baseline is 18 / 4 / 0 either way (N2).
+- [x] **1. UnitTest1.cs non-ignored tests (§2.3 item 5; alternative is item 6).** The ticket does not name the 3 `FilmesService` tests (`UnitTest1.cs:498`, `:517`, `:560`). **Option A (recommended):** migrate them, preserving assertions and the injected `ProcessStarter` seam. This includes the two inert `Location` replacements (`F:\Filmes` → synthetic `C:\TestLibrary\…`, N1), with assertions unchanged. Production `FilmesService` and the `Features:LocalPlay` gate stay unchanged. Post-change: 18 passed / 0 skipped / 0 failed. **Option B:** delete them. Post-change passed drops to 15 and tests the ticket does not name are removed. This drops planned work, so it is not executable under the frozen plan and needs a Patron plan amendment before any edit (N3). Zero-MSTest requires one or the other. The pickup baseline is 18 / 4 / 0 either way (N2).
 
 ## Pending records (Rigger)
 
@@ -140,6 +140,6 @@ All 19 are accepted. Only A1 (H5) and A2 (M3) change a decision. The rest restat
 
 - **Verdict: FREEZABLE**, C0 / H0 / M3 / L5. `analyze.md` SHA256 `AC0BAA67…` (round 2 of 2, final). Plan frozen.
 - **H7** (the AC3 backslash grep was vacuous because BRE reads `\F` as `F`) was **fixed by Patron** in `spec.md` and `tasks.md`: `git grep -F "F:\Filmes" …`.
-- **Gate 1 stays CLOSED** (`gate1: provisional`) on owner checkbox 1 (FR-008).
-- **Pending:** T002 pickup drift check at Phase B.
+- **Gate 1 FIRM** (`gate1: Option A ticked`) on owner checkbox 1 (FR-008) — verified via task-DEV-280 intake (PR #13, 2026-09-24).
+- **Phase III Gates Recorded:** Applicable Phase III gates recorded exit 0 on the changed `.cs` set; property tests exit 2 (OPT-OUT/SKIP); four analyzer logs zero-byte (Roslyn, cyclomatic complexity, property, vulnerable-packages); InspectCode log nonempty; delivery PR and Phase V pending.
 Keel: facts I used to produce this brief: worktree feature/280-spec @ d1d9cfa (origin/main now b2659b7, PR #9 = DEV-290 Phase A only, no tests/ or src/ on main); recon-DEV-280 (Directory.Packages.props: Microsoft.NET.Test.Sdk 17.12.0, MSTest.TestAdapter 3.6.4, MSTest.TestFramework 3.6.4, Moq 4.20.72; no xUnit/NSubstitute/Shouldly/AutoFixture); Patron R2 (Moq/MSTest only in LamuFlix.Test.csproj:12-14 + Directory.Packages.props:18-20); baseline 18 passed/4 skipped/0 failed at 450e70f (DEV-290 spec.md:50) = Worker 5 + Enrichment 10 + UnitTest1 3; UnitTest1.cs 7 tests, [Ignore] TestMethod1/2/4/5, Process.Start only UnitTest1.cs:358; shared InMemory factories UnitTest1.cs:490 + EnrichmentTests.cs:109; constitution IX 258-276 + 304 + 315-316 (xUnit v3, NSubstitute, Shouldly, AutoFixture, Faker.Net; MSTest/Moq/FluentAssertions/Bogus forbidden); R4 versions + R6 construct inventory still open.
