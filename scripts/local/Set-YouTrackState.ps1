@@ -43,8 +43,9 @@ $YouTrackTool = 'Set-YouTrackState'
 
 Connect-YouTrack
 
-# Braces let multi-word values such as {In Progress} parse as one value.
-$null = Send-YouTrack Post '/api/commands' @{ query = "State {$State}"; issues = @(@{ idReadable = $Ticket }) }
+# No braces: this instance rejects "State {Done}" as a parse error (HTTP 400) and parses
+# multi-word values such as "State In Progress" without them.
+$null = Send-YouTrack Post '/api/commands' @{ query = "State $State"; issues = @(@{ idReadable = $Ticket }) }
 $issue = Send-YouTrack Get "/api/issues/$([uri]::EscapeDataString($Ticket))?fields=idReadable,customFields(name,value(name))"
 
 $actual = Get-CustomFieldName $issue 'State'
