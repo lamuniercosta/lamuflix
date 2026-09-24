@@ -36,7 +36,7 @@
 - [ ] Open spec PR from this branch (feature/293-spec)
 - [ ] Include exactly three unticked owner checkboxes (Q3, Q5-A, Q5-B)
 - [ ] Link grill brief and conclusions as evidence
-- [ ] Document follow-ups (site.min.js, route/link coverage, property-tests opt-out notation)
+- [ ] Document follow-ups (site.min.js, route/link coverage, propertyTests opt-out notation)
 - [ ] User answers three checkboxes and merges PR
 - [ ] Gate 1 closes (no Phase B start before this merge)
 
@@ -59,8 +59,8 @@
 - [ ] Create delivery worktree: `worktree add <path> main`
 - [ ] Verify branch: `git branch --show-current` → `feature/293`
 - [ ] **Record property-tests opt-out in task-DEV-293** (before any C# edits; consumed by gate runner)
-  - Notation: `property-tests: OPT-OUT (no domain invariant added by pure rename)`
-- [ ] Review and confirm frozen scope from spec.md and owner answers
+  - Notation: `propertyTests: opt-out — no domain invariant added by pure rename`
+- [ ] Review and confirm frozen scope from spec.md; owner answers never change Phase B scope
 - [ ] Verify excluded scope (Q3, Q5-A/B, test method names, local text)
 - [ ] **One atomic change set:** Symbol rename + file/view moves + Razor/JS edits + test updates in single commit (or two if refactoring follows separately)
 
@@ -77,7 +77,7 @@ Files and symbols (ordered by edit complexity):
 - [ ] Rename `src/LamuFlix.Web/Controllers/FilmesController.cs` → `MoviesController.cs` (file move)
   - [ ] Update class name `FilmesController` → `MoviesController`
   - [ ] Update action methods: `CriarFilme`/`ProcessarFilme` → `ImportMovieFolder`, `AssistirFilme` → `PlayMovie`, `ExcluirFilme` → `DeleteMovie`, `MinhaLista` → `Watchlist`, `GetDetalhesFilmeAsync` → `GetMovieDetails`
-  - [ ] Exclude: hand-written `[Route(/MinhaLista/)]` (unchanged in Phase B; owner answer authorizes a follow-up only)
+  - [ ] Exclude: hand-written `[Route("/MinhaLista/")]` (unchanged in Phase B; owner answer authorizes a follow-up only)
 
 **C# service interface/implementation rename and move:**
 - [ ] Rename `src/LamuFlix.Web/Services/FilmesServices.cs` → `MovieService.cs` (file move)
