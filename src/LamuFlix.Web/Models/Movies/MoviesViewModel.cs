@@ -11,6 +11,7 @@ namespace LamuFlix.Web.Models.Movies
         [DataMapping("Title")]
         public new string SearchField { get; set; } = null!;
         [DataMapping("Year")]
+        // ReSharper disable once UnusedAutoPropertyAccessor.Global -- MVC-bound filter input consumed by MovieService
         public int? Year { get; set; }
         [DataMapping("Directors", "DirectorId")]
         // ReSharper disable UnusedAutoPropertyAccessor.Global
@@ -23,6 +24,7 @@ namespace LamuFlix.Web.Models.Movies
         public int? CollectionId { get; set; }
         // ReSharper restore UnusedAutoPropertyAccessor.Global
         [DataMapping("Genres", "GenreId")]
+        // ReSharper disable once CollectionNeverUpdated.Global -- MVC-bound collection filter
         public IList<int> GenreIds { get; set; } = [];
         [DataMapping("Actors", "ActorId")]
         // ReSharper disable CollectionNeverUpdated.Global
