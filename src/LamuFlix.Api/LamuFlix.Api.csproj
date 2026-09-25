@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LamuFlix.Core\LamuFlix.Core.csproj" />
+    <ProjectReference Include="..\LamuFlix.Infrastructure\LamuFlix.Infrastructure.csproj" />
+    <ProjectReference Include="..\LamuFlix.ServiceDefaults\LamuFlix.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>
