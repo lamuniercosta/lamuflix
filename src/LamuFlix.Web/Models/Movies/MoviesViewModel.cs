@@ -101,14 +101,14 @@ namespace LamuFlix.Web.Models.Movies
     // MVC model binder (MoviesController.cs:90)
     public class ImportMovieFolderViewModel
     {
-        public string Filme { get; set; } = null!;
+        public string Movie { get; set; } = null!;
         public string CollectionName { get; set; } = null!;
         public string MovieId { get; set; } = null!;
 
-        public void Limpar()
+        public void Clear()
         {
             this.CollectionName = "";
-            this.Filme = "";
+            this.Movie = "";
         }
     }
     // ReSharper restore NullableWarningSuppressionIsUsed
