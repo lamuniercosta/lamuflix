@@ -484,6 +484,7 @@ $RECYCLE.BIN/
 # Maestri local workspace state
 /.maestri/
 /scratch/
+/scripts/local/roles/
 
 # Agent session worktrees and per-user agent settings
 /.claude/worktrees/
