@@ -1,7 +1,7 @@
 using LamuFlix.Data;
 using LamuFlix.Data.Models;
 using LamuFlix.Web.Extensions;
-using LamuFlix.Web.Models.Filmes;
+using LamuFlix.Web.Models.Movies;
 using LamuFlix.Web.Models.Helper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -14,21 +14,21 @@ using System.Threading.Tasks;
 
 namespace LamuFlix.Web.Services
 {
-    public interface IFilmesService
+    public interface IMovieService
     {
-        Task<PagedListing<FilmesListViewModel>> GetFilmesListAsync(QueryParams dtParams);
+        Task<PagedListing<MoviesListViewModel>> GetMoviesListAsync(QueryParams dtParams);
 
         IEnumerable<String> GetMoviesByName(string query);
 
-        IEnumerable<FilmesListViewModel> QuickSearch(string query);
+        IEnumerable<MoviesListViewModel> QuickSearch(string query);
 
-        Task<Movie?> GetDetalhesFilmeAsync(int filmeId);
+        Task<Movie?> GetMovieDetails(int movieId);
 
-        void AssistirFilme(int filmeId);
+        void PlayMovie(int movieId);
 
-        void CriarFilme(CriarFilmeViewModel model);
+        void ImportMovieFolder(ImportMovieFolderViewModel model);
 
-        Movie? GetMovie(int filmeId);
+        Movie? GetMovie(int movieId);
 
         IEnumerable<Actor> GetActors();
 
@@ -38,16 +38,16 @@ namespace LamuFlix.Web.Services
 
         IEnumerable<Collection> GetCollections();
 
-        void ExcluirFilme(int filmeId);
+        void DeleteMovie(int movieId);
 
-        void AddToWatchList(int filmeId);
+        void AddToWatchList(int movieId);
 
-        void RemoveFromWatchList(int filmeId);
+        void RemoveFromWatchList(int movieId);
 
-        PagedListing<FilmesListViewModel> GetMinhaLista(QueryParams dtParams);
+        PagedListing<MoviesListViewModel> GetWatchlist(QueryParams dtParams);
     }
 
-    public class FilmesService : IFilmesService
+    public class MovieService : IMovieService
     {
         private readonly LamuFlixContext _dataContext;
         private readonly IConfiguration? _configuration;
@@ -56,7 +56,7 @@ namespace LamuFlix.Web.Services
 
         internal Func<ProcessStartInfo, Process?> ProcessStarter { get; set; } = Process.Start;
 
-        public FilmesService(LamuFlixContext dataContext, IConfiguration? configuration = null, IEnrichmentQueuePublisher? queuePublisher = null)
+        public MovieService(LamuFlixContext dataContext, IConfiguration? configuration = null, IEnrichmentQueuePublisher? queuePublisher = null)
         {
             _dataContext = dataContext;
             _configuration = configuration;
@@ -65,14 +65,14 @@ namespace LamuFlix.Web.Services
 
         // ReSharper disable NullableWarningSuppressionIsUsed
         // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public void AssistirFilme(int filmeId)
+        public void PlayMovie(int movieId)
         {
             if (!(_configuration?.GetValue<bool>("Features:LocalPlay") ?? false))
             {
                 throw new InvalidOperationException("LocalPlay is disabled.");
             }
 
-            var filme = GetMovie(filmeId) ?? throw new InvalidOperationException("Filme não encontrado.");
+            var filme = GetMovie(movieId) ?? throw new InvalidOperationException("Filme não encontrado.");
             var player = ResolvePlayerPath(filme.Format!);
             var startInfo = BuildProcessStartInfo(player, filme.Location!);
             ProcessStarter(startInfo);
@@ -116,11 +116,11 @@ namespace LamuFlix.Web.Services
 
         public IEnumerable<Genre> GetGenres() => _dataContext.Genres;
 
-        public Movie? GetMovie(int filmeId) => _dataContext.Movies.Find(filmeId);
+        public Movie? GetMovie(int movieId) => _dataContext.Movies.Find(movieId);
 
         // ReSharper disable NullableWarningSuppressionIsUsed
         // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public Task<Movie?> GetDetalhesFilmeAsync(int filmeId) => _dataContext.Movies
+        public Task<Movie?> GetMovieDetails(int movieId) => _dataContext.Movies
                 .Include(x => x.Actors)
                 .ThenInclude(x => x.Actor)
                 .Include(x => x.Directors)
@@ -129,16 +129,16 @@ namespace LamuFlix.Web.Services
                 .ThenInclude(x => x.Genre)
                 .Include(x => x.Collection)
                 .ThenInclude(x => x!.Movies)
-                .SingleOrDefaultAsync(x => x.Id == filmeId);
+                .SingleOrDefaultAsync(x => x.Id == movieId);
         // ReSharper restore NullableWarningSuppressionIsUsed
 
         // ReSharper disable NullableWarningSuppressionIsUsed
         // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public async Task<PagedListing<FilmesListViewModel>> GetFilmesListAsync(QueryParams dtParams)
+        public async Task<PagedListing<MoviesListViewModel>> GetMoviesListAsync(QueryParams dtParams)
         {
-            var queryResult = CreateFilmesListQuery(dtParams);
+            var queryResult = CreateMoviesListQuery(dtParams);
             var listResult = await queryResult.Query.Select(m =>
-                new FilmesListViewModel
+                new MoviesListViewModel
                 {
                     Id = m.Id,
                     Title = m.Title!,
@@ -151,11 +151,11 @@ namespace LamuFlix.Web.Services
                     IsInWatchList = m.IsInWatchList
                 }).ToListAsync();
 
-            return new PagedListing<FilmesListViewModel>(listResult, queryResult.TotalRecords, dtParams.Page, dtParams.PageSize);
+            return new PagedListing<MoviesListViewModel>(listResult, queryResult.TotalRecords, dtParams.Page, dtParams.PageSize);
         }
         // ReSharper restore NullableWarningSuppressionIsUsed
 
-        private QueryableResult<Movie> CreateFilmesListQuery(QueryParams dtParams)
+        private QueryableResult<Movie> CreateMoviesListQuery(QueryParams dtParams)
         {
             QueryableResult<Movie> result = new QueryableResult<Movie>();
 
@@ -170,7 +170,7 @@ namespace LamuFlix.Web.Services
                 .OrderBy(x => x.Title)
                 .AsNoTracking();
 
-            var filter = dtParams.Filter as FilmesFilterViewModel;
+            var filter = dtParams.Filter as MoviesFilterViewModel;
 
             query = query.DynamicQuery(filter);
 
@@ -187,7 +187,7 @@ namespace LamuFlix.Web.Services
 
         // ReSharper disable NullableWarningSuppressionIsUsed
         // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public void CriarFilme(CriarFilmeViewModel model)
+        public void ImportMovieFolder(ImportMovieFolderViewModel model)
         {
             var existingTitles = _dataContext.Movies.Select(x => x.Title!).ToList();
 
@@ -210,34 +210,34 @@ namespace LamuFlix.Web.Services
         }
         // ReSharper restore NullableWarningSuppressionIsUsed
 
-        private void ProcessMovieWithId(CriarFilmeViewModel model)
+        private void ProcessMovieWithId(ImportMovieFolderViewModel model)
         {
             var directory = new DirectoryInfo($"{_filePath}//{model.CollectionName}//{model.Filme}");
-            ProcessarFilme(directory, model.CollectionName, model.MovieId);
+            ImportMovieFolder(directory, model.CollectionName, model.MovieId);
         }
 
-        private void ProcessCollectionDirectory(CriarFilmeViewModel model, List<string> existingTitles)
+        private void ProcessCollectionDirectory(ImportMovieFolderViewModel model, List<string> existingTitles)
         {
             var caminhoCollection = new DirectoryInfo($"{_filePath}//{model.CollectionName}");
             foreach (var item in caminhoCollection.EnumerateDirectories())
             {
                 EnsureMovieNotRegistered(item, existingTitles);
-                ProcessarFilme(item, model.CollectionName, null);
+                ImportMovieFolder(item, model.CollectionName, null);
             }
         }
 
-        private void ProcessMovieInCollection(CriarFilmeViewModel model, List<string> existingTitles)
+        private void ProcessMovieInCollection(ImportMovieFolderViewModel model, List<string> existingTitles)
         {
             var directory = new DirectoryInfo($"{_filePath}//{model.CollectionName}//{model.Filme}");
             EnsureMovieNotRegistered(directory, existingTitles);
-            ProcessarFilme(directory, model.CollectionName, null);
+            ImportMovieFolder(directory, model.CollectionName, null);
         }
 
-        private void ProcessStandaloneMovie(CriarFilmeViewModel model, List<string> existingTitles)
+        private void ProcessStandaloneMovie(ImportMovieFolderViewModel model, List<string> existingTitles)
         {
             var directory = new DirectoryInfo($"{_filePath}//{model.Filme}");
             EnsureMovieNotRegistered(directory, existingTitles);
-            ProcessarFilme(directory, null, null);
+            ImportMovieFolder(directory, null, null);
         }
 
         private static void EnsureMovieNotRegistered(DirectoryInfo directory, List<string> existingTitles)
@@ -249,7 +249,7 @@ namespace LamuFlix.Web.Services
             }
         }
 
-        private void ProcessarFilme(DirectoryInfo directory, string? collection, string? movieId)
+        private void ImportMovieFolder(DirectoryInfo directory, string? collection, string? movieId)
         {
             var (movieName, movieYear) = ParseDirectoryInfo(directory);
             var file = GetMovieFile(directory);
@@ -331,9 +331,9 @@ namespace LamuFlix.Web.Services
         public IEnumerable<string> GetMoviesByName(string query) => [.. _dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => x.Title!)];
         // ReSharper restore NullableWarningSuppressionIsUsed
 
-        public void ExcluirFilme(int filmeId)
+        public void DeleteMovie(int movieId)
         {
-            var filme = _dataContext.Movies.Find(filmeId);
+            var filme = _dataContext.Movies.Find(movieId);
             if (filme != null)
             {
                 _dataContext.Movies.Remove(filme);
@@ -341,9 +341,9 @@ namespace LamuFlix.Web.Services
             }
         }
 
-        public void AddToWatchList(int filmeId)
+        public void AddToWatchList(int movieId)
         {
-            var movie = _dataContext.Movies.Find(filmeId);
+            var movie = _dataContext.Movies.Find(movieId);
             if (movie != null)
             {
                 movie.IsInWatchList = true;
@@ -352,9 +352,9 @@ namespace LamuFlix.Web.Services
             }
         }
 
-        public void RemoveFromWatchList(int filmeId)
+        public void RemoveFromWatchList(int movieId)
         {
-            var movie = _dataContext.Movies.Find(filmeId);
+            var movie = _dataContext.Movies.Find(movieId);
             if (movie != null)
             {
                 movie.IsInWatchList = false;
@@ -365,7 +365,7 @@ namespace LamuFlix.Web.Services
 
         // ReSharper disable NullableWarningSuppressionIsUsed
         // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public PagedListing<FilmesListViewModel> GetMinhaLista(QueryParams dtParams)
+        public PagedListing<MoviesListViewModel> GetWatchlist(QueryParams dtParams)
         {
             QueryableResult<Movie> result = new QueryableResult<Movie>();
 
@@ -389,7 +389,7 @@ namespace LamuFlix.Web.Services
             result.Query = query.Skip(dtParams.PageSize * (dtParams.Page - 1)).Take(dtParams.PageSize);
 
             var listResult = result.Query.Select(m =>
-                new FilmesListViewModel
+                new MoviesListViewModel
                 {
                     Id = m.Id,
                     Title = m.Title!,
@@ -402,13 +402,13 @@ namespace LamuFlix.Web.Services
                     IsInWatchList = m.IsInWatchList
                 }).ToList();
 
-            return new PagedListing<FilmesListViewModel>(listResult, result.TotalRecords, dtParams.Page, dtParams.PageSize);
+            return new PagedListing<MoviesListViewModel>(listResult, result.TotalRecords, dtParams.Page, dtParams.PageSize);
         }
         // ReSharper restore NullableWarningSuppressionIsUsed
 
         // ReSharper disable NullableWarningSuppressionIsUsed
         // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public IEnumerable<FilmesListViewModel> QuickSearch(string query) => [.. _dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => new FilmesListViewModel { Id = x.Id, Title = x.Title!, Poster = x.Poster ?? string.Empty })];
+        public IEnumerable<MoviesListViewModel> QuickSearch(string query) => [.. _dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => new MoviesListViewModel { Id = x.Id, Title = x.Title!, Poster = x.Poster ?? string.Empty })];
         // ReSharper restore NullableWarningSuppressionIsUsed
     }
 

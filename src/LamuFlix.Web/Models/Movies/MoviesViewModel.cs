@@ -2,11 +2,11 @@
 using System.ComponentModel.DataAnnotations;
 using LamuFlix.Web.Models.Helper;
 
-namespace LamuFlix.Web.Models.Filmes
+namespace LamuFlix.Web.Models.Movies
 {
     // ReSharper disable NullableWarningSuppressionIsUsed
-    // MVC model binder (FilmesController.cs:25)
-    public class FilmesFilterViewModel : FilterViewModel
+    // MVC model binder (MoviesController.cs:25)
+    public class MoviesFilterViewModel : FilterViewModel
     {
         [DataMapping("Title")]
         public new string SearchField { get; set; } = null!;
@@ -14,27 +14,27 @@ namespace LamuFlix.Web.Models.Filmes
         public int? Year { get; set; }
         [DataMapping("Directors", "DirectorId")]
         // ReSharper disable UnusedAutoPropertyAccessor.Global
-        // Written by the ASP.NET Core MVC model binder (FilmesController.cs:25)
+        // Written by the ASP.NET Core MVC model binder (MoviesController.cs:25)
         public int? DirectorId { get; set; }
         // ReSharper restore UnusedAutoPropertyAccessor.Global
         [DataMapping("CollectionId")]
         // ReSharper disable UnusedAutoPropertyAccessor.Global
-        // Written by the ASP.NET Core MVC model binder (FilmesController.cs:25)
+        // Written by the ASP.NET Core MVC model binder (MoviesController.cs:25)
         public int? CollectionId { get; set; }
         // ReSharper restore UnusedAutoPropertyAccessor.Global
         [DataMapping("Genres", "GenreId")]
         public IList<int> GenreIds { get; set; } = [];
         [DataMapping("Actors", "ActorId")]
         // ReSharper disable CollectionNeverUpdated.Global
-        // Written by the ASP.NET Core MVC model binder (FilmesController.cs:25)
+        // Written by the ASP.NET Core MVC model binder (MoviesController.cs:25)
         public IList<int> ActorIds { get; set; } = [];
         // ReSharper restore CollectionNeverUpdated.Global
     }
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     // ReSharper disable NullableWarningSuppressionIsUsed
-    // In-product initializer FilmesServices.cs:136,375,388
-    public class FilmesListViewModel
+    // In-product initializer MovieService.cs:136,375,388
+    public class MoviesListViewModel
     {
         public int Id { get; set; }
         public string Title { get; set; } = null!;
@@ -96,8 +96,8 @@ namespace LamuFlix.Web.Models.Filmes
     // ReSharper restore NullableWarningSuppressionIsUsed
 
     // ReSharper disable NullableWarningSuppressionIsUsed
-    // MVC model binder (FilmesController.cs:90)
-    public class CriarFilmeViewModel
+    // MVC model binder (MoviesController.cs:90)
+    public class ImportMovieFolderViewModel
     {
         public string Filme { get; set; } = null!;
         public string CollectionName { get; set; } = null!;

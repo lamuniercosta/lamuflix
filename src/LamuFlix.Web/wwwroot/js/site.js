@@ -2,11 +2,11 @@
 // for details on configuring this project to bundle and minify static web assets.
 
 // Write your JavaScript code.
-function AssistirFilme(id) {
+function PlayMovie(id) {
     $.ajax(
         {
             type: 'GET',
-            url: '/Filmes/AssistirFilme',
+            url: '/Movies/PlayMovie',
             data: { id: id },
             dataType: 'html',
             cache: false,
@@ -19,8 +19,8 @@ function AssistirFilme(id) {
 $(document).ready(function () {
     $('#SearchField').autocomplete({
         source: function (request, response) {
-            $.getJSON("/Filmes/GetFilmesJson?query=" + request.term, function (data) {
-                response($.map(data.filmes, function (value, key) {
+            $.getJSON("/Movies/GetMoviesJson?query=" + request.term, function (data) {
+                response($.map(data.movies, function (value, key) {
                     return {
                         label: value,
                         value: value
@@ -33,8 +33,8 @@ $(document).ready(function () {
     
     $("#QuickSearchField").autocomplete({
         source: function (request, response) {
-            $.getJSON("/Filmes/QuickSearch?query=" + request.term, function (data) {
-                response($.map(data.filmes, function (item) {
+            $.getJSON("/Movies/QuickSearch?query=" + request.term, function (data) {
+                response($.map(data.movies, function (item) {
                     return {
                         label: item.title,
                         value: item.id,
@@ -47,7 +47,7 @@ $(document).ready(function () {
         select: function (event, ui) {
             var url = ui.item.value;
             if (url != '') {
-                location.href = '/Filmes/Details/' + url;
+                location.href = '/Movies/Details/' + url;
             }
         },
         html: true,
@@ -76,8 +76,8 @@ $(document).ready(function () {
         }
     }).autocomplete({
         source: function (request, response) {
-            $.getJSON("/Filmes/GetFilmesJson?query=" + request.term, function (data) {
-                response($.map(data.filmes, function (value, key) {
+            $.getJSON("/Movies/GetMoviesJson?query=" + request.term, function (data) {
+                response($.map(data.movies, function (value, key) {
                     return {
                         label: value,
                         value: value
@@ -100,7 +100,7 @@ $(document).ready(function () {
     $('#QuickSearchButton').click(function () {
         quickSearch = $("#QuickSearchField").val();
         if (quickSearch != '') {
-            location.href = '/Filmes?SearchField=' + quickSearch;
+            location.href = '/Movies?SearchField=' + quickSearch;
         }
     });
 });
@@ -115,16 +115,16 @@ function OpenKeyboard() {
     $('#SearchField').getkeyboard().reveal();
 }
 
-function ExcluirFilme(id) {
+function DeleteMovie(id) {
     var confirm = window.confirm("Este filme será permanentemente excluído!\n\nTem certeza que deseja continuar?");
     if (confirm == true) {
         $.ajax({
             type: "POST",
-            url: "/Filmes/ExcluirFilme",
+            url: "/Movies/DeleteMovie",
             data: { id: id },
             success: function (data) {
                 if (location.href.includes('/Details')) {
-                    location.href = '/Filmes';
+                    location.href = '/Movies';
                 }
                 else {
                     location.reload();
@@ -141,7 +141,7 @@ function ExcluirFilme(id) {
 function AddToWatchList(id) {
     $.ajax({
         type: "POST",
-        url: "/Filmes/AddToWatchList",
+        url: "/Movies/AddToWatchList",
         data: { id: id },
         success: function (data) {
             location.reload();
@@ -156,7 +156,7 @@ function AddToWatchList(id) {
 function RemoveFromWatchList(id) {
     $.ajax({
         type: "POST",
-        url: "/Filmes/RemoveFromWatchList",
+        url: "/Movies/RemoveFromWatchList",
         data: { id: id },
         success: function (data) {
             location.reload();

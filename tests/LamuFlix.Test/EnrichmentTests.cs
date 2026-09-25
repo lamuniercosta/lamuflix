@@ -314,7 +314,7 @@ namespace LamuFlix.Test
         {
             var db = LamuFlixContextFactory.CreateContext();
             var queuePublisher = Substitute.For<IEnrichmentQueuePublisher>();
-            _ = new FilmesService(db, null, queuePublisher);
+            _ = new MovieService(db, null, queuePublisher);
 
             var movie = new Movie
             {

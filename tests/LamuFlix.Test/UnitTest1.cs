@@ -24,9 +24,9 @@ namespace LamuFlix.Test
 
             using (var context = LamuFlixContextFactory.CreateContext())
             {
-                var service = new FilmesService(context, config);
+                var service = new MovieService(context, config);
 
-                var ex = Should.Throw<InvalidOperationException>(() => service.AssistirFilme(1));
+                var ex = Should.Throw<InvalidOperationException>(() => service.PlayMovie(1));
                 ex.Message.ShouldBe("LocalPlay is disabled.");
             }
         }
@@ -55,7 +55,7 @@ namespace LamuFlix.Test
                 context.SaveChanges();
 
                 ProcessStartInfo? capturedStartInfo = null;
-                var service = new FilmesService(context, config)
+                var service = new MovieService(context, config)
                 {
                     ProcessStarter = psi =>
                     {
@@ -64,7 +64,7 @@ namespace LamuFlix.Test
                     }
                 };
 
-                service.AssistirFilme(1);
+                service.PlayMovie(1);
 
                 capturedStartInfo.ShouldNotBeNull();
                 capturedStartInfo.UseShellExecute.ShouldBeTrue();
@@ -97,7 +97,7 @@ namespace LamuFlix.Test
                 context.SaveChanges();
 
                 ProcessStartInfo? capturedStartInfo = null;
-                var service = new FilmesService(context, config)
+                var service = new MovieService(context, config)
                 {
                     ProcessStarter = psi =>
                     {
@@ -106,7 +106,7 @@ namespace LamuFlix.Test
                     }
                 };
 
-                service.AssistirFilme(2);
+                service.PlayMovie(2);
 
                 capturedStartInfo.ShouldNotBeNull();
                 capturedStartInfo.UseShellExecute.ShouldBeTrue();

@@ -3,7 +3,7 @@
 namespace LamuFlix.Web.Models.Helper
 {
     // ReSharper disable NullableWarningSuppressionIsUsed
-    // In-product assignment FilmesServices.cs:151,350
+    // In-product assignment MovieService.cs:151,350
     public class QueryableResult<T>
     {
         public int TotalRecords { get; set; }

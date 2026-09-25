@@ -1,7 +1,7 @@
 ﻿namespace LamuFlix.Web.Models
 {
     // ReSharper disable NullableWarningSuppressionIsUsed
-    // In-product initializer FilmesController.cs:97,103,108
+    // In-product initializer MoviesController.cs:97,103,108
     public class AlertModel
     {
         public string Text { get; set; } = null!;
