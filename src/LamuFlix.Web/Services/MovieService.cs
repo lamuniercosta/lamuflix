@@ -195,11 +195,11 @@ namespace LamuFlix.Web.Services
             {
                 ProcessMovieWithId(model);
             }
-            else if (string.IsNullOrEmpty(model.Filme) && !string.IsNullOrEmpty(model.CollectionName))
+            else if (string.IsNullOrEmpty(model.Movie) && !string.IsNullOrEmpty(model.CollectionName))
             {
                 ProcessCollectionDirectory(model, existingTitles);
             }
-            else if (!string.IsNullOrEmpty(model.Filme) && !string.IsNullOrEmpty(model.CollectionName))
+            else if (!string.IsNullOrEmpty(model.Movie) && !string.IsNullOrEmpty(model.CollectionName))
             {
                 ProcessMovieInCollection(model, existingTitles);
             }
@@ -212,7 +212,7 @@ namespace LamuFlix.Web.Services
 
         private void ProcessMovieWithId(ImportMovieFolderViewModel model)
         {
-            var directory = new DirectoryInfo($"{_filePath}//{model.CollectionName}//{model.Filme}");
+            var directory = new DirectoryInfo($"{_filePath}//{model.CollectionName}//{model.Movie}");
             ImportMovieFolder(directory, model.CollectionName, model.MovieId);
         }
 
@@ -228,14 +228,14 @@ namespace LamuFlix.Web.Services
 
         private void ProcessMovieInCollection(ImportMovieFolderViewModel model, List<string> existingTitles)
         {
-            var directory = new DirectoryInfo($"{_filePath}//{model.CollectionName}//{model.Filme}");
+            var directory = new DirectoryInfo($"{_filePath}//{model.CollectionName}//{model.Movie}");
             EnsureMovieNotRegistered(directory, existingTitles);
             ImportMovieFolder(directory, model.CollectionName, null);
         }
 
         private void ProcessStandaloneMovie(ImportMovieFolderViewModel model, List<string> existingTitles)
         {
-            var directory = new DirectoryInfo($"{_filePath}//{model.Filme}");
+            var directory = new DirectoryInfo($"{_filePath}//{model.Movie}");
             EnsureMovieNotRegistered(directory, existingTitles);
             ImportMovieFolder(directory, null, null);
         }

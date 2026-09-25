@@ -91,7 +91,7 @@ namespace LamuFlix.Web.Controllers
         {
             try
             {
-                if (!(String.IsNullOrEmpty(model.Filme)) || !(String.IsNullOrEmpty(model.CollectionName)) || !(String.IsNullOrEmpty(model.CollectionName)))
+                if (!(String.IsNullOrEmpty(model.Movie)) || !(String.IsNullOrEmpty(model.CollectionName)) || !(String.IsNullOrEmpty(model.CollectionName)))
                 {
                     MovieService.ImportMovieFolder(model);
                     ViewBag.alerts = new AlertModel { Type = GeneralConstants.SUCCESS, Text = "Registro inserido com sucesso" };
