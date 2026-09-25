@@ -36,7 +36,7 @@ namespace LamuFlix.Web
                 options.MinimumSameSitePolicy = SameSiteMode.None;
             });
 
-            services.AddTransient<IFilmesService, FilmesService>();
+            services.AddTransient<IMovieService, MovieService>();
 
             services.AddDistributedMemoryCache(); // Adds a default in-memory implementation of IDistributedCache
             services.AddSession(options =>

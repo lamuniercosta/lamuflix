@@ -1,4 +1,4 @@
-﻿@model PagedListing<FilmesListViewModel>
+﻿@model PagedListing<MoviesListViewModel>
 @{
     ViewData["Title"] = "Minha Lista";
 }
@@ -66,10 +66,10 @@
                             @Html.DisplayFor(modelItem => item.RottenTomatoes)
                         </td>
                         <td>
-                            <a href="#/" title="Assistir Filme" onclick="AssistirFilme('@item.Id')"><i class="fa fa-play-circle-o fa-3x"></i></a>
+                            <a href="#/" title="Assistir Filme" onclick="PlayMovie('@item.Id')"><i class="fa fa-play-circle-o fa-3x"></i></a>
                         </td>
                         <td>
-                            <a href="#/" title="Excluir Filme" onclick="ExcluirFilme('@item.Id')"><i style="color: red" class="fa fa-trash-o fa-3x"></i></a>
+                            <a href="#/" title="Excluir Filme" onclick="DeleteMovie('@item.Id')"><i style="color: red" class="fa fa-trash-o fa-3x"></i></a>
                         </td>
                         <td>
                             <a href="#/" title="@item.WatchListTitle" onclick="@item.WatchListMethod"><i style="color: forestgreen" class="@item.WatchListIcon"></i></a>

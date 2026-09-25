@@ -3,7 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using LamuFlix.Data.Constants;
 using LamuFlix.Web.Models;
-using LamuFlix.Web.Models.Filmes;
+using LamuFlix.Web.Models.Movies;
 using LamuFlix.Web.Models.Helper;
 using LamuFlix.Web.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -11,24 +11,24 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace LamuFlix.Web.Controllers
 {
-    public class FilmesController : Controller
+    public class MoviesController : Controller
     {
-        private readonly IFilmesService FilmesService;
+        private readonly IMovieService MovieService;
         private readonly TimeProvider _timeProvider;
 
-        public FilmesController(IFilmesService filmesService, TimeProvider? timeProvider = null)
+        public MoviesController(IMovieService movieService, TimeProvider? timeProvider = null)
         {
-            FilmesService = filmesService;
+            MovieService = movieService;
             _timeProvider = timeProvider ?? TimeProvider.System;
         }
 
-        public async Task<IActionResult> Index([FromQuery] FilmesFilterViewModel filter, QueryParams parms)
+        public async Task<IActionResult> Index([FromQuery] MoviesFilterViewModel filter, QueryParams parms)
         {
             ViewBag.Year = new SelectList(Enumerable.Range(1900, (_timeProvider.GetUtcNow().Year - 1899)).OrderByDescending(x => x).Select(x => new SelectListItem { Value = x.ToString(), Text = x.ToString() }), "Text", "Value", filter.Year);
-            ViewBag.DirectorId = new SelectList(FilmesService.GetDirectors(), "Id", "Name", filter.DirectorId);
-            ViewBag.CollectionId = new SelectList(FilmesService.GetCollections(), "Id", "Name", filter.CollectionId);
-            ViewBag.GenreIds = new MultiSelectList(FilmesService.GetGenres(), "Id", "Name", filter.GenreIds);
-            ViewBag.ActorIds = new MultiSelectList(FilmesService.GetActors(), "Id", "Name", filter.ActorIds);
+            ViewBag.DirectorId = new SelectList(MovieService.GetDirectors(), "Id", "Name", filter.DirectorId);
+            ViewBag.CollectionId = new SelectList(MovieService.GetCollections(), "Id", "Name", filter.CollectionId);
+            ViewBag.GenreIds = new MultiSelectList(MovieService.GetGenres(), "Id", "Name", filter.GenreIds);
+            ViewBag.ActorIds = new MultiSelectList(MovieService.GetActors(), "Id", "Name", filter.ActorIds);
 
             parms.Filter = filter;
 
@@ -49,7 +49,7 @@ namespace LamuFlix.Web.Controllers
                 parms.SortOrder = GeneralConstants.Descending;
             }
 
-            var model = await FilmesService.GetFilmesListAsync(parms);
+            var model = await MovieService.GetMoviesListAsync(parms);
 
             ViewData["CurrentFilter"] = parms.Filter;
             ViewData["CurrentSort"] = parms.SortBy;
@@ -60,7 +60,7 @@ namespace LamuFlix.Web.Controllers
 
         public async Task<IActionResult> Details(int id)
         {
-            var model = await FilmesService.GetDetalhesFilmeAsync(id);
+            var model = await MovieService.GetMovieDetails(id);
 
             if (null == model)
                 return NotFound();
@@ -68,11 +68,11 @@ namespace LamuFlix.Web.Controllers
             return View(model);
         }
 
-        public IActionResult AssistirFilme(int id)
+        public IActionResult PlayMovie(int id)
         {
             try
             {
-                FilmesService.AssistirFilme(id);
+                MovieService.PlayMovie(id);
             }
             catch (Exception ex)
             {
@@ -81,19 +81,19 @@ namespace LamuFlix.Web.Controllers
             return Ok();
         }
 
-        public IActionResult CriarFilme()
+        public IActionResult ImportMovieFolder()
         {
             return View();
         }
 
         [HttpPost]
-        public IActionResult CriarFilme(CriarFilmeViewModel model)
+        public IActionResult ImportMovieFolder(ImportMovieFolderViewModel model)
         {
             try
             {
                 if (!(String.IsNullOrEmpty(model.Filme)) || !(String.IsNullOrEmpty(model.CollectionName)) || !(String.IsNullOrEmpty(model.CollectionName)))
                 {
-                    FilmesService.CriarFilme(model);
+                    MovieService.ImportMovieFolder(model);
                     ViewBag.alerts = new AlertModel { Type = GeneralConstants.SUCCESS, Text = "Registro inserido com sucesso" };
                     ModelState.Clear();
                     return View();
@@ -110,16 +110,16 @@ namespace LamuFlix.Web.Controllers
             return View(model);
         }
 
-        public IActionResult GetFilmesJson(string query) => Json(new { filmes = FilmesService.GetMoviesByName(query) });
+        public IActionResult GetMoviesJson(string query) => Json(new { movies = MovieService.GetMoviesByName(query) });
 
-        public IActionResult QuickSearch(string query) => Json(new { filmes = FilmesService.QuickSearch(query) });
+        public IActionResult QuickSearch(string query) => Json(new { movies = MovieService.QuickSearch(query) });
 
         [HttpPost]
-        public IActionResult ExcluirFilme(int id)
+        public IActionResult DeleteMovie(int id)
         {
             try
             {
-                FilmesService.ExcluirFilme(id);
+                MovieService.DeleteMovie(id);
                 return Ok();
             }
             catch (Exception ex)
@@ -133,7 +133,7 @@ namespace LamuFlix.Web.Controllers
         {
             try
             {
-                FilmesService.AddToWatchList(id);
+                MovieService.AddToWatchList(id);
                 return Ok();
             }
             catch (Exception ex)
@@ -147,7 +147,7 @@ namespace LamuFlix.Web.Controllers
         {
             try
             {
-                FilmesService.RemoveFromWatchList(id);
+                MovieService.RemoveFromWatchList(id);
                 return Ok();
             }
             catch (Exception ex)
@@ -156,8 +156,8 @@ namespace LamuFlix.Web.Controllers
             }
         }
 
-        [Route("/MinhaLista/")]
-        public IActionResult MinhaLista(QueryParams parms)
+        [Route("/Watchlist/")]
+        public IActionResult Watchlist(QueryParams parms)
         {
             if (!String.IsNullOrEmpty(parms.SortBy))
             {
@@ -176,7 +176,7 @@ namespace LamuFlix.Web.Controllers
                 parms.SortOrder = GeneralConstants.Descending;
             }
 
-            var model = FilmesService.GetMinhaLista(parms);
+            var model = MovieService.GetWatchlist(parms);
 
             ViewData["CurrentFilter"] = parms.Filter;
             ViewData["CurrentSort"] = parms.SortBy;

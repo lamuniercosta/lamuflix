@@ -13,9 +13,9 @@
             </div>  
             <br />
             <div class="card-footer">
-                @Html.ActionLink("Voltar", "Index", "Filmes", null, new { @class = "btn btn-default btn-sm" })
-                <input type="button" value="Assistir Filme" onclick="AssistirFilme('@Model.Id')" class="btn btn-primary btn-sm" />
-                <input type="button" value="Excluir Filme" onclick="ExcluirFilme('@Model.Id')" class="btn btn-danger btn-sm" />
+                @Html.ActionLink("Voltar", "Index", "Movies", null, new { @class = "btn btn-default btn-sm" })
+                <input type="button" value="Assistir Filme" onclick="PlayMovie('@Model.Id')" class="btn btn-primary btn-sm" />
+                <input type="button" value="Excluir Filme" onclick="DeleteMovie('@Model.Id')" class="btn btn-danger btn-sm" />
                 @if (Model.IsInWatchList)
                 {
                     <input type="button" value="Remover da Lista" onclick="RemoveFromWatchList('@Model.Id')" class="btn btn-success btn-sm" />
