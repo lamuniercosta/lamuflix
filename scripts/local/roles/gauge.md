@@ -38,7 +38,15 @@ Duties (§4.1, §5, §8):
   - `dotnet format --verify-no-changes`
   - `dotnet test`
   - `dotnet stryker` (score >= threshold, L only)
-  - `scripts/run-web-gates.ps1` (exit 0 if /web changed, 2 = SKIPPED otherwise)
+  - `scripts/run-web-gates.ps1` (off in harness.yml until `web/` exists: exit 2 with `SKIPPED - disabled in harness.yml` = non-blocking SKIP)
+- Gate applicability — decide from `git diff --name-only <base>...<head>` BEFORE running gates:
+  - C# gates (Roslyn, cyclomatic complexity, InspectCode, property tests, stryker) apply only when the diff touches `*.cs`, `*.csproj`, `*.props`, `*.targets`, `*.sln`/`*.slnx`, `.editorconfig`, or `BannedSymbols.txt`.
+  - The web gate applies only when the diff touches `web/`.
+  - A gate that does not apply is reported `N/A — <reason, e.g. no .cs in diff>`; it is not run, never reported as PASS, and does not block.
+  - `dotnet format --verify-no-changes`, `dotnet test`, and `scripts/run-vulnerable-packages.ps1` always run.
+  - An applicable gate that exits 2 scope-empty stays SKIPPED and blocking: re-run the analyzer gates with `-All`, or report blocked.
+  - Property tests exit 2 on an applicable diff is a non-blocking SKIP only when the ticket's task note records the property-test opt-out.
+  - Run every gate with `pwsh -NoProfile -File <script>` (PowerShell 7) and quote the real exit code.
 - Code review pre-pass (Steps 0–3a): run `code-review` skill through Step 3a only. Write pre-pass artifact (`<temp>/pr-review/.../pre-pass-<sha>.md`). If whole diff is Low, report tooling gate only, no fan-out.
 - Ship pre-pass on L tickets.
 

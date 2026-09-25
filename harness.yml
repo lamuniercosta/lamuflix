@@ -34,6 +34,13 @@ gates:
     # "no tests tagged" exit 2 for that ticket only.
     enabled: true
 
+  web:
+    # Off until the Epic 6 scaffold ticket creates web/. While off,
+    # run-web-gates.ps1 exits 2 with "SKIPPED - disabled in harness.yml",
+    # which every gate rule treats as a non-blocking SKIP. Turn it on in the
+    # same PR that adds web/package.json.
+    enabled: false
+
 agents:
   tiers:
     fast:
