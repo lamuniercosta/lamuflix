@@ -52,13 +52,21 @@ namespace LamuFlix.Test
         [Fact]
         public void CreateHostBuilder_RegistersQueueWorkerAsHostedService()
         {
-            var hostBuilder = Program.CreateHostBuilder(Array.Empty<string>());
+            IServiceCollection? capturedServices = null;
+            var hostBuilder = Program.CreateHostBuilder(new[]
+            {
+                "ConnectionStrings:DefaultConnection=placeholder"
+            });
+            hostBuilder.ConfigureServices(services => capturedServices = services);
+
             using var host = hostBuilder.Build();
 
-            var hostedServices = host.Services.GetServices<IHostedService>();
-            var workerService = hostedServices.FirstOrDefault(s => s is QueueWorker);
-
-            workerService.ShouldNotBeNull();
+            capturedServices.ShouldNotBeNull();
+            host.ShouldNotBeNull();
+            capturedServices.Count(descriptor =>
+                    descriptor.ServiceType == typeof(IHostedService)
+                    && descriptor.ImplementationType == typeof(QueueWorker))
+                .ShouldBe(1);
         }
 
         [Fact]
