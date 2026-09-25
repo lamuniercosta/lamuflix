@@ -21,6 +21,7 @@
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="AutoFixture" Version="4.18.1" />
     <PackageVersion Include="Faker.Net" Version="2.0.163" />
+    <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
 
     <!-- Analyzers (no version upgrades) -->
     <PackageVersion Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0" />

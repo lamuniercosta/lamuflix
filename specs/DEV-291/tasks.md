@@ -19,13 +19,13 @@
 
 **⚠️ CRITICAL**: All Phase 1 tasks must complete before proceeding to Phase 2
 
-- [ ] T001 [P] Create `src/LamuFlix.Core/` directory with empty `LamuFlix.Core.csproj`
-- [ ] T003 [P] Create `src/LamuFlix.Infrastructure/` directory with empty `LamuFlix.Infrastructure.csproj`
-- [ ] T004 [P] Create `src/LamuFlix.ServiceDefaults/` directory with empty `LamuFlix.ServiceDefaults.csproj`
-- [ ] T005 [P] Create `src/LamuFlix.Api/` directory with empty `LamuFlix.Api.csproj`
-- [ ] T006 Create `tests/LamuFlix.ArchitectureTests/` directory with empty `LamuFlix.ArchitectureTests.csproj`
-- [ ] T007 Create `LamuFlix.sln` solution file with placeholder for five projects
-- [ ] T008 Add `<PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />` to existing `Directory.Packages.props` at repository root
+- [X] T001 [P] Create `src/LamuFlix.Core/` directory with empty `LamuFlix.Core.csproj`
+- [X] T003 [P] Create `src/LamuFlix.Infrastructure/` directory with empty `LamuFlix.Infrastructure.csproj`
+- [X] T004 [P] Create `src/LamuFlix.ServiceDefaults/` directory with empty `LamuFlix.ServiceDefaults.csproj`
+- [X] T005 [P] Create `src/LamuFlix.Api/` directory with empty `LamuFlix.Api.csproj`
+- [X] T006 Create `tests/LamuFlix.ArchitectureTests/` directory with empty `LamuFlix.ArchitectureTests.csproj`
+- [X] T007 Create `LamuFlix.sln` solution file with placeholder for five projects
+- [X] T008 Add `<PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />` to existing `Directory.Packages.props` at repository root
 
 **Checkpoint**: Project structure created; ready for Phase 2 foundational setup
 
@@ -39,42 +39,42 @@
 
 ### Core Project Setup
 
-- [ ] T011 Update `src/LamuFlix.Core/LamuFlix.Core.csproj` with target framework `net10.0`, `Nullable=enable`, `TreatWarningsAsErrors=true`, and package references to `Microsoft.Extensions.Logging.Abstractions` and `System.Collections.Immutable` only
-- [ ] T012 Create `src/LamuFlix.Core/Features/` directory (placeholder for future features)
-- [ ] T013 [P] Create `src/LamuFlix.Core/Ports/` directory (placeholder for port interfaces)
-- [ ] T014 [P] Create `src/LamuFlix.Core/Domain/` directory (placeholder for shared domain concepts)
-- [ ] T015 [P] Create `src/LamuFlix.Core/Pipeline/` directory (placeholder for shared pipeline utilities)
+- [X] T011 Update `src/LamuFlix.Core/LamuFlix.Core.csproj` with target framework `net10.0`, `Nullable=enable`, `TreatWarningsAsErrors=true`, and package references to `Microsoft.Extensions.Logging.Abstractions` and `System.Collections.Immutable` only
+- [X] T012 Create `src/LamuFlix.Core/Features/` directory (placeholder for future features)
+- [X] T013 [P] Create `src/LamuFlix.Core/Ports/` directory (placeholder for port interfaces)
+- [X] T014 [P] Create `src/LamuFlix.Core/Domain/` directory (placeholder for shared domain concepts)
+- [X] T015 [P] Create `src/LamuFlix.Core/Pipeline/` directory (placeholder for shared pipeline utilities)
 
 ### Infrastructure Project Setup
 
-- [ ] T016 Update `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj` with target framework `net10.0` and project reference to `LamuFlix.Core`
-- [ ] T017 Create `src/LamuFlix.Infrastructure/Data/` directory (placeholder for EF Core DbContext)
-- [ ] T018 [P] Create `src/LamuFlix.Infrastructure/Adapters/` directory (placeholder for port adapters)
+- [X] T016 Update `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj` with target framework `net10.0` and project reference to `LamuFlix.Core`
+- [X] T017 Create `src/LamuFlix.Infrastructure/Data/` directory (placeholder for EF Core DbContext)
+- [X] T018 [P] Create `src/LamuFlix.Infrastructure/Adapters/` directory (placeholder for port adapters)
 
 ### ServiceDefaults Project Setup
 
-- [ ] T019 Update `src/LamuFlix.ServiceDefaults/LamuFlix.ServiceDefaults.csproj` with target framework `net10.0` (no project references, no packages in Phase 2)
-- [ ] T020 Create `src/LamuFlix.ServiceDefaults/Extensions.cs` with placeholder extension methods for ServiceDefaults configuration
+- [X] T019 Update `src/LamuFlix.ServiceDefaults/LamuFlix.ServiceDefaults.csproj` with target framework `net10.0` (no project references, no packages in Phase 2)
+- [X] T020 Create `src/LamuFlix.ServiceDefaults/Extensions.cs` with placeholder extension methods for ServiceDefaults configuration
 
 ### Api Project Setup
 
-- [ ] T021 Update `src/LamuFlix.Api/LamuFlix.Api.csproj` with target framework `net10.0` and project references to `LamuFlix.Core`, `LamuFlix.Infrastructure`, and `LamuFlix.ServiceDefaults`
-- [ ] T022 Create `src/LamuFlix.Api/Program.cs` with ASP.NET Core minimal API setup (empty endpoints)
-- [ ] T023 [P] Create `src/LamuFlix.Api/Endpoints/` directory (placeholder for endpoint groups)
+- [X] T021 Update `src/LamuFlix.Api/LamuFlix.Api.csproj` with target framework `net10.0` and project references to `LamuFlix.Core`, `LamuFlix.Infrastructure`, and `LamuFlix.ServiceDefaults`
+- [X] T022 Create `src/LamuFlix.Api/Program.cs` with ASP.NET Core minimal API setup (empty endpoints)
+- [X] T023 [P] Create `src/LamuFlix.Api/Endpoints/` directory (placeholder for endpoint groups)
 
 ### ArchitectureTests Project Setup
 
-- [ ] T024 Update `tests/LamuFlix.ArchitectureTests/LamuFlix.ArchitectureTests.csproj` with target framework `net10.0`, package references to `NetArchTest.Rules` (via Directory.Packages.props) and `xUnit` (v3), and project references to all other projects (Core, Infrastructure, Api, ServiceDefaults)
-- [ ] T025 Create empty test file `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` with using statements for NetArchTest.Rules and test class placeholder
+- [X] T024 Update `tests/LamuFlix.ArchitectureTests/LamuFlix.ArchitectureTests.csproj` with target framework `net10.0`, package references to `NetArchTest.Rules` (via Directory.Packages.props) and `xUnit` (v3), and project references to all other projects (Core, Infrastructure, Api, ServiceDefaults)
+- [X] T025 Create empty test file `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` with using statements for NetArchTest.Rules and test class placeholder
 
 ### Solution Integration
 
-- [ ] T026 Add all five projects to `LamuFlix.sln` in correct structure:
+- [X] T026 Add all five projects to `LamuFlix.sln` in correct structure:
   - Folder: `src/` → LamuFlix.Core, LamuFlix.Infrastructure, LamuFlix.ServiceDefaults, LamuFlix.Api
   - Folder: `tests/` → LamuFlix.ArchitectureTests
 
-- [ ] T027 Verify `dotnet restore` completes successfully (all package sources accessible)
-- [ ] T028 Verify `dotnet build` compiles all five projects with zero warnings
+- [X] T027 Verify `dotnet restore` completes successfully (all package sources accessible)
+- [X] T028 Verify `dotnet build` compiles all five projects with zero warnings
 
 **Checkpoint**: Foundation ready - architecture tests can now be implemented; validate Core accepts only authorized packages
 
@@ -88,23 +88,23 @@
 
 ### Implementation for User Story 1
 
-- [ ] T029 [US1] Implement rule: "Core MUST NOT reference EF Core" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` using NetArchTest.Rules
+- [X] T029 [US1] Implement rule: "Core MUST NOT reference EF Core" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` using NetArchTest.Rules
   - Test class: `ArchitectureTests`
   - Rule: Verify no type in LamuFlix.Core references EntityFrameworkCore or Microsoft.EntityFrameworkCore namespaces; test must fail when Core imports EF
 
-- [ ] T030 [US1] Implement rule: "Core MUST NOT reference Npgsql" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
+- [X] T030 [US1] Implement rule: "Core MUST NOT reference Npgsql" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
   - Test class: `ArchitectureTests`
   - Rule: Verify no type in LamuFlix.Core references Npgsql namespaces
 
-- [ ] T031 [US1] Implement rule: "Core MUST NOT reference RabbitMQ" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
+- [X] T031 [US1] Implement rule: "Core MUST NOT reference RabbitMQ" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
   - Test class: `ArchitectureTests`
   - Rule: Verify no type in LamuFlix.Core references RabbitMQ namespaces
 
-- [ ] T032 [US1] Implement rule: "Core MUST NOT reference Infrastructure" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
+- [X] T032 [US1] Implement rule: "Core MUST NOT reference Infrastructure" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
   - Test class: `ArchitectureTests`
   - Rule: Verify no type in LamuFlix.Core references LamuFlix.Infrastructure namespace
 
-- [ ] T033 [US1] EF Core counterexample: Verify architecture test fails when a temporary EF Core reference is introduced in Core (FR-014)
+- [X] T033 [US1] EF Core counterexample: Verify architecture test fails when a temporary EF Core reference is introduced in Core (FR-014)
   - Temporarily add `<PackageReference Include="Microsoft.EntityFrameworkCore" />` to `src/LamuFlix.Core/LamuFlix.Core.csproj` (EF Core is already centrally versioned in `Directory.Packages.props`; no new CPM line required)
   - Add a transient type in `src/LamuFlix.Core/` that references `Microsoft.EntityFrameworkCore` (e.g., a class with a `DbContext` field)
   - Run `dotnet test tests/LamuFlix.ArchitectureTests` and observe test failure
@@ -112,7 +112,7 @@
   - Revert both: remove the `<PackageReference>` line from Core.csproj and delete the transient type file
   - Verify tests pass again with exit 0 after revert
 
-- [ ] T034 [US1] Run `dotnet test tests/LamuFlix.ArchitectureTests` and verify all four dependency rules pass
+- [X] T034 [US1] Run `dotnet test tests/LamuFlix.ArchitectureTests` and verify all four dependency rules pass
 
 **Checkpoint**: US1 complete - Core dependency isolation is enforced at test time
 
@@ -126,24 +126,24 @@
 
 ### Implementation for User Story 2
 
-- [ ] T035 [US2] Implement rule: "All Command records in Core MUST be sealed" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
+- [X] T035 [US2] Implement rule: "All Command records in Core MUST be sealed" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
   - Test class: `ArchitectureTests`
   - Rule: Verify all types in LamuFlix.Core with names containing "Command" that are records or classes are declared sealed
   - Note: Use NetArchTest.Rules v1.3.2 API to identify types by naming convention and verify sealed modifier
   - Non-vacuous: the rule targets `LamuFlix.Core` assembly types; permanent valid fixture `SealedCommandFixture` and violating fixture `UnsealedCommandFixture` (both plain C# in `tests/LamuFlix.ArchitectureTests/Fixtures/`) make the rule non-vacuous without affecting production Core
 
-- [ ] T036 [US2] Implement rule: "All Query records in Core MUST be sealed" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
+- [X] T036 [US2] Implement rule: "All Query records in Core MUST be sealed" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
   - Test class: `ArchitectureTests`
   - Rule: Verify all types in LamuFlix.Core with names containing "Query" that are records or classes are declared sealed
   - Note: Separate test method from T035; permanent `SealedQueryFixture` (valid) and `UnsealedQueryFixture` (violating) in `Fixtures/` prevent vacuous pass
   - Note: If NetArchTest.Rules cannot filter by naming convention targeting `LamuFlix.Core` only (excluding ArchitectureTests fixtures), scope the assembly filter to `LamuFlix.Core` only and place fixtures in the ArchitectureTests assembly; the test then applies naming convention within the Core assembly
 
-- [ ] T037 [US2] Implement rule: "All Handler classes in Core MUST be sealed" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
+- [X] T037 [US2] Implement rule: "All Handler classes in Core MUST be sealed" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
   - Test class: `ArchitectureTests`
   - Rule: Verify all types in LamuFlix.Core with names containing "Handler" are declared sealed
   - Note: Permanent `SealedHandlerFixture` (valid) and `UnsealedHandlerFixture` (violating) in `Fixtures/` prevent vacuous pass
 
-- [ ] T038 [US2] Add durable fixtures to `tests/LamuFlix.ArchitectureTests/` for sealing and port checks (HIGH-1)
+- [X] T038 [US2] Add durable fixtures to `tests/LamuFlix.ArchitectureTests/` for sealing and port checks (HIGH-1)
   - Create `tests/LamuFlix.ArchitectureTests/Fixtures/Valid/SealedCommandFixture.cs` — a `sealed record SealedCommandFixture` (plain C#, no NetArchTest dependency)
   - Create `tests/LamuFlix.ArchitectureTests/Fixtures/Violating/UnsealedCommandFixture.cs` — a non-sealed `record UnsealedCommandFixture`
   - Create analogous `SealedQueryFixture` / `UnsealedQueryFixture` and `SealedHandlerFixture` / `UnsealedHandlerFixture` in same directories
@@ -151,7 +151,7 @@
   - These fixtures are permanent; they are never deleted; their presence ensures sealing and port checks cannot pass vacuously
   - Run `dotnet test tests/LamuFlix.ArchitectureTests` and verify: violating fixtures cause the relevant check to fail; then scope the architecture rule to the `LamuFlix.Core` assembly (not ArchitectureTests), reverify all eight checks pass with only Core assembly in scope
 
-- [ ] T039 [US2] Run `dotnet test tests/LamuFlix.ArchitectureTests` and verify all sealing rules pass
+- [X] T039 [US2] Run `dotnet test tests/LamuFlix.ArchitectureTests` and verify all sealing rules pass
 
 **Checkpoint**: US2 complete - Core exports only sealed abstractions; Infrastructure cannot extend Core types
 
@@ -165,13 +165,13 @@
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Implement rule: "Cross-feature access in Core MUST be mediated through ports" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
+- [X] T040 [US3] Implement rule: "Cross-feature access in Core MUST be mediated through ports" in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`
   - Test class: `ArchitectureTests`
   - Rule: Implement test method that verifies types in LamuFlix.Core.Features only depend on LamuFlix.Core.Ports, LamuFlix.Core.Domain, or LamuFlix.Core.Pipeline (FR-010)
   - Non-vacuous: T038 creates permanent fixture types `PortMediatedFixture` (valid) and `DirectFeatureCouplingFixture` (violating) in `tests/LamuFlix.ArchitectureTests/Fixtures/`; the architecture rule scopes to the `LamuFlix.Core` assembly so fixture types in ArchitectureTests do not conflict; the violating fixture confirms the rule catches violations before any real features exist
   - Use NetArchTest.Rules v1.3.2 API to verify namespace-level dependencies; ensure rule is not skipped or commented
 
-- [ ] T041 [US3] Run `dotnet test tests/LamuFlix.ArchitectureTests` and verify all eight architecture checks pass:
+- [X] T041 [US3] Run `dotnet test tests/LamuFlix.ArchitectureTests` and verify all eight architecture checks pass:
   - Four dependency checks: Core ≠ EF Core, Core ≠ Npgsql, Core ≠ RabbitMQ, Core ≠ Infrastructure
   - Three sealing checks: Commands sealed, Queries sealed, Handlers sealed (each non-vacuous via T038 durable fixtures)
   - One port-mediation check: Cross-feature access via ports (non-vacuous via T038 durable fixtures; not vacuous)
@@ -188,24 +188,24 @@
 
 ### Implementation for User Story 4
 
-- [ ] T043 [US4] Run `dotnet build LamuFlix.sln` and verify:
+- [X] T043 [US4] Run `dotnet build LamuFlix.sln` and verify:
   - Exit code: 0
   - Compiler warnings: 0
   - All five projects compile successfully
 
-- [ ] T044 [US4] Run `dotnet test tests/LamuFlix.ArchitectureTests` and verify:
+- [X] T044 [US4] Run `dotnet test tests/LamuFlix.ArchitectureTests` and verify:
   - Exit code: 0
   - All eight architecture test assertions pass (FR-006 through FR-010: four dependency checks, three sealing checks, one port-mediation check)
   - Test output shows clear names for each rule and passes at 100% pass rate
 
-- [ ] T045 [US4] [P] Build each project individually and verify zero warnings:
+- [X] T045 [US4] [P] Build each project individually and verify zero warnings:
   - `dotnet build src/LamuFlix.Core/LamuFlix.Core.csproj`
   - `dotnet build src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`
   - `dotnet build src/LamuFlix.ServiceDefaults/LamuFlix.ServiceDefaults.csproj`
   - `dotnet build src/LamuFlix.Api/LamuFlix.Api.csproj`
   - `dotnet build tests/LamuFlix.ArchitectureTests/LamuFlix.ArchitectureTests.csproj`
 
-- [ ] T046 [US4] Validate Success Criteria are met:
+- [X] T046 [US4] Validate Success Criteria are met:
   - SC-001: LamuFlix.sln compiles with exit code 0 and zero warnings (verify by T043)
   - SC-002: All tests in LamuFlix.ArchitectureTests pass at 100% pass rate (verify by T044)
   - SC-003: Architecture tests fail when a temporary EF Core `<PackageReference>` is added to Core.csproj and a type using that namespace is introduced; failure exit code and test name recorded as exit evidence; reference and type reverted; tests pass again (validated by T033)
@@ -222,20 +222,20 @@
 
 **⚠️ CRITICAL**: All gates must pass before PR submission
 
-- [ ] T047 Run Roslyn analyzers: `./scripts/run-roslyn-analyzers.ps1`
+- [X] T047 Run Roslyn analyzers: `./scripts/run-roslyn-analyzers.ps1`
   - Expected: Exit 0, zero warnings
   - Location: Script at `./scripts/run-roslyn-analyzers.ps1` (per CLAUDE.md harness.yml)
 
-- [ ] T048 Run cyclomatic complexity gate: `./scripts/run-cyclomatic-complexity.ps1`
+- [X] T048 Run cyclomatic complexity gate: `./scripts/run-cyclomatic-complexity.ps1`
   - Expected: Exit 0, method threshold defined in harness.yml
   - Location: Script at `./scripts/run-cyclomatic-complexity.ps1` (per CLAUDE.md harness.yml)
   - Note: Do not hardcode threshold 15; read from harness.yml
 
-- [ ] T049 Run InspectCode gate: `./scripts/run-jetbrains-inspectcode.ps1`
+- [X] T049 Run InspectCode gate: `./scripts/run-jetbrains-inspectcode.ps1`
   - Expected: Exit 0, zero issues at WARNING or higher
   - Location: Script at `./scripts/run-jetbrains-inspectcode.ps1` (per CLAUDE.md harness.yml)
 
-- [ ] T050 Run format check: `dotnet format --verify-no-changes`
+- [X] T050 Run format check: `dotnet format --verify-no-changes`
   - Expected: Exit 0, no formatting changes needed
 
 **Checkpoint**: All quality gates pass; ready for PR submission and review
