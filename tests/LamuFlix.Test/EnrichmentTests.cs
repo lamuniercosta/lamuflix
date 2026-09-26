@@ -26,7 +26,7 @@ using Xunit;
 
 namespace LamuFlix.Test;
 
-public sealed class ContainerFixtureForTests : IAsyncLifetime, IAsyncDisposable
+public sealed class ContainerFixtureForTests : IAsyncLifetime
 {
     public ValueTask InitializeAsync() => new(ContainerFixture.StartAsync());
 
