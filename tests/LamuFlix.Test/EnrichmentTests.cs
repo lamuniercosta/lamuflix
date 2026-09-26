@@ -21,7 +21,16 @@ using RabbitMQ.Client;
 using Shouldly;
 using Xunit;
 
+[assembly: AssemblyFixture(typeof(LamuFlix.Test.ContainerFixtureForTests))]
+
 namespace LamuFlix.Test;
+
+public sealed class ContainerFixtureForTests : IAsyncLifetime, IAsyncDisposable
+{
+    public ValueTask InitializeAsync() => new(ContainerFixture.StartAsync());
+
+    public ValueTask DisposeAsync() => ContainerFixture.DisposeAsync();
+}
 
 public sealed class EnrichmentTests
 {
