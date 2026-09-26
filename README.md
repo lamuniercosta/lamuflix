@@ -59,7 +59,7 @@ From the worktree root (each worktree restores independently):
 dotnet tool restore
 ```
 
-Exit `0` means the pinned tools are available. A non-zero exit means restore failed; when the cause is a pinned version being unavailable, no fallback version is installed; there is no fallback while `rollForward` is `false`.
+Exit `0` means the pinned tools are available. A non-zero exit means restore failed; when the cause is a pinned version being unavailable, no fallback version is installed.
 
 **Usage**
 
