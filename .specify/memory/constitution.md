@@ -26,7 +26,6 @@ Ratification 1.0.0 (2026-09-21):
 
 Source documents:
   - docs/architecture/architecture-plan.md (reviewed 2026-09-21 against commit 9c4765c, DEV-16)
-  - F:\Dev\Valcre\Valcre.Web.AssetManager\.specify\memory\constitution.md v1.4.0 (structural base)
   - CLAUDE.md and .claude/rules/vendor/aaron-*.md (coding style, testing, SDK/dependency rules)
 
 Added sections:
@@ -120,7 +119,7 @@ mapped to HTTP once, in a single `IExceptionHandler` in `LamuFlix.Api`. A `Resul
 NOT introduced unless an ADR justifies it.
 
 **Rationale**: Explicit registration makes the call chain readable in one file, keeps decorators
-unit-testable without a framework, and matches the Valcre reference implementation. Three
+unit-testable without a framework, and matches the original reference implementation. Three
 failure kinds plus one mapper is simpler than a Result monad and aligns with the C# style rules.
 
 ### III. Filters Are a Typed Query Model (NON-NEGOTIABLE)
@@ -441,7 +440,7 @@ Code MUST follow `.claude/rules/vendor/aaron-csharp-coding-style.md` and these p
 - Architectural decisions are recorded as one-page ADRs in `docs/adr/` (status Accepted),
   numbered per the architecture plan (ADR-0001 … ADR-0012). A PR that changes an architectural
   choice MUST add or supersede an ADR.
-- `CONTEXT.md` is the ubiquitous-language source of truth in the Valcre format (term,
+- `CONTEXT.md` is the ubiquitous-language source of truth in the original format (term,
   definition, avoid).
 - The README MUST carry the modernisation narrative, a C4 container diagram, a trace screenshot,
   how to run with compose, how to run the quality gates, and links to the ADRs.
