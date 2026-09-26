@@ -34,3 +34,52 @@ To build the complete solution and run tests:
 dotnet build LamuFlix.sln
 dotnet test
 ```
+
+## Local .NET tools
+
+The repository pins three local tools in `.config/dotnet-tools.json` (`isRoot: true`). Each entry sets `rollForward: false` so restore uses that exact version, with no fallback to another installed version.
+
+| Package | Pinned version | Command |
+|---|---|---|
+| `jetbrains.resharper.globaltools` | 2026.1.3 | `jb` |
+| `dotnet-stryker` | 4.16.0 | `dotnet-stryker` |
+| `dotnet-ef` | 9.0.0 | `dotnet-ef` |
+
+**Purpose**
+
+- **`jb`:** ReSharper InspectCode, used by `./scripts/run-jetbrains-inspectcode.ps1`.
+- **`dotnet-stryker`:** Mutation testing from the root `stryker-config.json`.
+- **`dotnet-ef`:** EF Core design-time CLI only (not part of the running app). It is pinned at 9.0.0 for the .NET 10 / EF Core 9.0 stack (DEV-360).
+
+**Restore**
+
+From the worktree root (each worktree restores independently):
+
+```bash
+dotnet tool restore
+```
+
+Exit `0` means the pinned tools are available. Exit `1` means a pinned version could not be restored; there is no fallback while `rollForward` is `false`.
+
+**Usage**
+
+- InspectCode: `./scripts/run-jetbrains-inspectcode.ps1` (the script runs `dotnet tool restore` and invokes `jb`). If `jb` is not wired, that gate exits `1`.
+- Mutation testing from the repo root: `dotnet-stryker`
+- EF Core design-time: `dotnet tool run dotnet-ef` or `dotnet-ef`
+
+**Update**
+
+Change a pin only with an explicit version, then verify `.config/dotnet-tools.json`:
+
+```bash
+dotnet tool update <package-id> --version <version>
+```
+
+Do not use `dotnet tool update --all` to refresh these pins: that command ignores `rollForward: false` and can move the manifest off the versions above.
+
+**Troubleshooting**
+
+- After clone or in a new worktree, run `dotnet tool restore` before the InspectCode gate or other local-tool commands.
+- If a pinned version is unavailable, `dotnet tool restore` fails with exit `1` and does not install a different version.
+- Restoring a reverted manifest in git does not by itself replace tools already cached at other versions. Uninstall the local tool, then `dotnet tool restore`, so the cache matches the pins.
+- Confirm the running pins with `dotnet tool list --local`; they must match the table above.
