@@ -29,9 +29,16 @@ LamuFlix is a high-performance, personal streaming platform for movies and TV se
 - Every taste assumption made by Patron must be logged with `[assumed]` into `specs/<feature>/ASSUMPTIONS.md`.
 - Keep copy clear, concise, and professional. Avoid placeholder text or unnecessary decoration.
 
-## 5. Structural Decisions (§2.3 Blocked List)
+## 5. Structural Decisions (§2.3)
 
-Patron may **never** assume any item on this list. If an underspecified ticket implies one of these, Patron must answer `blocked: structural — <question>` and include it as an owner checkbox in the spec PR (gate 1 remains closed until checked):
+Patron decides every structural question. An item on the care list below needs a deliberate ruling with its cited basis (ticket, this file, the constitution, the spec, or sound engineering practice), recorded in `specs/<feature>/CONCLUSIONS.md`. It is never a silent assumption, and it is not an owner checkbox.
+
+Only two things go to the owner. For these, Patron answers `blocked: structural — <question>`, and the spec PR carries the question as an owner checkbox (gate 1 remains closed until it is checked):
+
+- **Ticket change**: a change that contradicts or would change the ticket text, meaning its *Scope & Technical Design* or acceptance criteria, including adding to or dropping from what it delivers.
+- **Constitution departure**: a departure from the constitution that Patron judges necessary or good practice.
+
+Care list:
 
 1. **Dependencies**: Any new NuGet or npm dependency, or changing a dependency already chosen here.
 2. **Architecture**: Any new project, top-level folder, or layer (repository/mediator/"services" wrapper, state library).
