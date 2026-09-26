@@ -25,7 +25,7 @@ _Avoid_: Criar, Create, Scan (for single folder case)
 _Avoid_: job, task, processing
 
 **Enrichment Status**
-Pending, Enriched, NotFound, Failed.
+Pending, Enriched, NotFound, or Failed on the Movie aggregate. `MarkEnriched`, `MarkNotFound`, and `MarkFailed` are legal only from Pending. `RequestEnrichment` is legal only from Enriched, NotFound, or Failed.
 _Avoid_: state, job status
 
 **Failure Category**
@@ -35,7 +35,16 @@ _Avoid_: error type, raw exception
 **Metadata Provider**
 _Avoid_: hardcoding OMDb in Core names
 
+**Movie Aggregate**
+The in-memory domain root for one library movie and its enrichment workflow. Created only through `Movie.Create`. It is not the EF Movie entity.
+_Avoid_: Data.Models.Movie, EF entity
+
+**Enrichment Attempt**
+The monotonic count of completed enrichment outcomes on a Movie aggregate. `MarkEnriched`, `MarkNotFound`, and `MarkFailed` increment it. `RequestEnrichment` keeps the count.
+_Avoid_: a retry counter that resets
+
 **Watchlist**
+Membership of a Movie aggregate, independent of enrichment status. `AddToWatchlist` throws when the movie is already in the watchlist. `RemoveFromWatchlist` throws when it is absent.
 _Avoid_: MinhaLista, My List
 
 **Playback**

@@ -13,11 +13,13 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="Shouldly" />
+    <PackageReference Include="FsCheck" />
     <PackageReference Include="FsCheck.Xunit.v3" />
     <PackageReference Include="RabbitMQ.Client" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\LamuFlix.Core\LamuFlix.Core.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Data\LamuFlix.Data.csproj" />
     <ProjectReference Include="..\LamuFlix.Tests.Common\LamuFlix.Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Web\LamuFlix.Web.csproj" />
