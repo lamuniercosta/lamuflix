@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Data;
@@ -146,15 +147,13 @@ public sealed class EnrichmentTests
         var config = new ConfigurationBuilder().Build();
         var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-        var channel = Substitute.For<IModel>();
         var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Matrix", Year = 1999 };
 
-        await processor.ProcessMessageAsync(message, channel, 1UL);
+        await RunAndAssertAckedAsync(processor, message);
 
         var updatedMovie = await db.Movies.SingleAsync(x => x.Id == movie.Id, TestContext.Current.CancellationToken);
         updatedMovie.Status.ShouldBe(MovieEnrichmentStatus.Enriched);
         updatedMovie.Synopsis.ShouldBe("Sci-Fi action");
-        channel.Received(1).BasicAck(1UL, false);
     }
 
     [Fact]
@@ -186,16 +185,13 @@ public sealed class EnrichmentTests
         var config = new ConfigurationBuilder().Build();
         var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-        var channel = Substitute.For<IModel>();
         var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Missing Movie", Year = 2021 };
 
-        await processor.ProcessMessageAsync(message, channel, 2UL);
+        await RunAndAssertAckedAsync(processor, message);
 
         var updatedMovie = await db.Movies.SingleAsync(x => x.Id == movie.Id, TestContext.Current.CancellationToken);
         updatedMovie.Status.ShouldBe(MovieEnrichmentStatus.NotFound);
-        // Verify row remains visible in DB
         updatedMovie.ShouldNotBeNull();
-        channel.Received(1).BasicAck(2UL, false);
     }
 
     [Fact]
@@ -223,13 +219,11 @@ public sealed class EnrichmentTests
         var config = new ConfigurationBuilder().Build();
         var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-        var channel = Substitute.For<IModel>();
         var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Already Enriched", Year = 2020 };
 
-        await processor.ProcessMessageAsync(message, channel, 3UL);
+        await RunAndAssertAckedAsync(processor, message);
 
         metadataProvider.ReceivedCalls().ShouldBeEmpty();
-        channel.Received(1).BasicAck(3UL, false);
     }
 
     [Fact]
@@ -261,14 +255,11 @@ public sealed class EnrichmentTests
         var config = new ConfigurationBuilder().Build();
         var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-        var channel = Substitute.For<IModel>();
         var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Failing Movie", RetryCount = 0 };
 
-        await processor.ProcessMessageAsync(message, channel, 4UL);
+        await RunAndAssertRepublishedAsync(processor, message, "task_queue", 1);
 
         message.RetryCount.ShouldBe(1);
-        channel.Received(1).QueueDeclare("task_queue", true, false, false, null);
-        channel.Received(1).BasicAck(4UL, false);
     }
 
     [Fact]
@@ -300,15 +291,12 @@ public sealed class EnrichmentTests
         var config = new ConfigurationBuilder().Build();
         var processor = new EnrichmentJobProcessor(scopeFactory, metadataProvider, config, NullLogger<EnrichmentJobProcessor>.Instance);
 
-        var channel = Substitute.For<IModel>();
         var message = new MovieEnrichmentMessage { MovieId = movie.Id, Title = "Dead Letter Movie", RetryCount = 3 };
 
-        await processor.ProcessMessageAsync(message, channel, 5UL);
+        await RunAndAssertRepublishedAsync(processor, message, "task_queue_dlq", 3);
 
         var updatedMovie = await db.Movies.SingleAsync(x => x.Id == movie.Id, TestContext.Current.CancellationToken);
         updatedMovie.Status.ShouldBe(MovieEnrichmentStatus.Failed);
-        channel.Received(1).QueueDeclare("task_queue_dlq", true, false, false, null);
-        channel.Received(1).BasicAck(5UL, false);
     }
 
     [Fact]
@@ -330,5 +318,107 @@ public sealed class EnrichmentTests
         db.SaveChanges();
 
         movie.Status.ShouldBe(MovieEnrichmentStatus.Pending);
+    }
+
+    private static IConnection OpenRabbitConnection()
+    {
+        return new ConnectionFactory
+        {
+            Uri = new Uri(ContainerFixture.RabbitMq.GetConnectionString())
+        }.CreateConnection();
+    }
+
+    private static void DeclareProcessorQueues(IModel channel)
+    {
+        channel.QueueDeclare("task_queue", durable: true, exclusive: false, autoDelete: false, arguments: null);
+        channel.QueueDeclare("task_queue_dlq", durable: true, exclusive: false, autoDelete: false, arguments: null);
+        channel.QueuePurge("task_queue");
+        channel.QueuePurge("task_queue_dlq");
+    }
+
+    private static string DeclareSourceQueue(IModel channel)
+    {
+        var sourceQueue = $"source_{Guid.NewGuid():N}";
+        channel.QueueDeclare(sourceQueue, durable: true, exclusive: false, autoDelete: false, arguments: null);
+        return sourceQueue;
+    }
+
+    private static ulong PublishAndTake(IModel channel, string sourceQueue, MovieEnrichmentMessage message)
+    {
+        var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
+        channel.BasicPublish(string.Empty, sourceQueue, basicProperties: null, body: body);
+        var delivery = channel.BasicGet(sourceQueue, autoAck: false);
+        if (delivery is null)
+        {
+            throw new InvalidOperationException("Message not found");
+        }
+
+        return delivery.DeliveryTag;
+    }
+
+    private static void AssertSourceQueueAcked(string sourceQueue)
+    {
+        using var connection = OpenRabbitConnection();
+        using var channel = connection.CreateModel();
+        channel.QueueDeclarePassive(sourceQueue).MessageCount.ShouldBe(0u);
+    }
+
+    private static void AssertRepublished(IModel channel, string queue, int expectedRetryCount)
+    {
+        var delivery = channel.BasicGet(queue, autoAck: true);
+        delivery.ShouldNotBeNull();
+        var republished = JsonSerializer.Deserialize<MovieEnrichmentMessage>(delivery.Body.Span);
+        republished.ShouldNotBeNull();
+        republished.RetryCount.ShouldBe(expectedRetryCount);
+    }
+
+    private static void DeleteSourceQueue(string sourceQueue)
+    {
+        using var connection = OpenRabbitConnection();
+        using var channel = connection.CreateModel();
+        channel.QueueDelete(sourceQueue);
+    }
+
+    private static async Task RunAndAssertAckedAsync(EnrichmentJobProcessor processor, MovieEnrichmentMessage message)
+    {
+        using var connection = OpenRabbitConnection();
+        using var channel = connection.CreateModel();
+        DeclareProcessorQueues(channel);
+        var sourceQueue = DeclareSourceQueue(channel);
+        try
+        {
+            var deliveryTag = PublishAndTake(channel, sourceQueue, message);
+            await processor.ProcessMessageAsync(message, channel, deliveryTag);
+            channel.Close();
+            AssertSourceQueueAcked(sourceQueue);
+        }
+        finally
+        {
+            DeleteSourceQueue(sourceQueue);
+        }
+    }
+
+    private static async Task RunAndAssertRepublishedAsync(
+        EnrichmentJobProcessor processor,
+        MovieEnrichmentMessage message,
+        string targetQueue,
+        int expectedRetryCount)
+    {
+        using var connection = OpenRabbitConnection();
+        using var channel = connection.CreateModel();
+        DeclareProcessorQueues(channel);
+        var sourceQueue = DeclareSourceQueue(channel);
+        try
+        {
+            var deliveryTag = PublishAndTake(channel, sourceQueue, message);
+            channel.ConfirmSelect();
+            await processor.ProcessMessageAsync(message, channel, deliveryTag);
+            channel.WaitForConfirmsOrDie(TimeSpan.FromSeconds(5));
+            AssertRepublished(channel, targetQueue, expectedRetryCount);
+        }
+        finally
+        {
+            DeleteSourceQueue(sourceQueue);
+        }
     }
 }
