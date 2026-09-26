@@ -129,7 +129,7 @@ public class EnrichmentJobProcessor(
                 actor = new Actor { Name = name };
                 db.Actors.Add(actor);
             }
-            if (movie.Actors.All(x => x.Actor?.Name != name))
+            if (movie.Actors.All(x => x.Actor.Name != name))
             {
                 movie.Actors.Add(new MovieActors { Movie = movie, Actor = actor });
             }
@@ -147,7 +147,7 @@ public class EnrichmentJobProcessor(
                 genre = new Genre { Name = name };
                 db.Genres.Add(genre);
             }
-            if (movie.Genres.All(x => x.Genre?.Name != name))
+            if (movie.Genres.All(x => x.Genre.Name != name))
             {
                 movie.Genres.Add(new MovieGenre { Movie = movie, Genre = genre });
             }
@@ -165,7 +165,7 @@ public class EnrichmentJobProcessor(
                 director = new Director { Name = name };
                 db.Directors.Add(director);
             }
-            if (movie.Directors.All(x => x.Director?.Name != name))
+            if (movie.Directors.All(x => x.Director.Name != name))
             {
                 movie.Directors.Add(new MovieDirectors { Movie = movie, Director = director });
             }
