@@ -37,7 +37,7 @@ dotnet test
 
 ## Local .NET tools
 
-The repository pins three local tools in `.config/dotnet-tools.json` (`isRoot: true`). Each entry sets `rollForward: false` so restore uses that exact version, with no fallback to another installed version.
+The repository pins three local tools in `.config/dotnet-tools.json` (`isRoot: true`). The manifest version pins each tool to the exact release listed; each entry also sets `rollForward: false`.
 
 | Package | Pinned version | Command |
 |---|---|---|
@@ -59,7 +59,7 @@ From the worktree root (each worktree restores independently):
 dotnet tool restore
 ```
 
-Exit `0` means the pinned tools are available. Exit `1` means a pinned version could not be restored; there is no fallback while `rollForward` is `false`.
+Exit `0` means the pinned tools are available. A non-zero exit means restore failed; when the cause is a pinned version being unavailable, no fallback version is installed; there is no fallback while `rollForward` is `false`.
 
 **Usage**
 
