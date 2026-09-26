@@ -1,12 +1,10 @@
-#nullable enable
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Data.Models;
 
-namespace LamuFlix.Web.Services
+namespace LamuFlix.Web.Services;
+
+public interface IEnrichmentQueuePublisher
 {
-    public interface IEnrichmentQueuePublisher
-    {
-        Task PublishAsync(MovieEnrichmentMessage message, CancellationToken cancellationToken = default);
-    }
+    Task PublishAsync(MovieEnrichmentMessage message, CancellationToken cancellationToken = default);
 }

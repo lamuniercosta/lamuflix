@@ -1,26 +1,19 @@
 ﻿using System;
 
-namespace LamuFlix.Web.Models.Helper
+namespace LamuFlix.Web.Models.Helper;
+
+public class DataMapping(string destination, string? key = null) : Attribute
 {
-    public class DataMapping : Attribute
+    private string Destination { get; } = destination;
+    private string? Key { get; } = key;
+
+    public string GetDestination()
     {
-        private string Destination { get; }
-        private string? Key { get; }
+        return Destination;
+    }
 
-        public DataMapping(string destination, string? key = null)
-        {
-            Destination = destination;
-            Key = key;
-        }
-
-        public string GetDestination()
-        {
-            return Destination;
-        }
-
-        public string? GetKey()
-        {
-            return Key;
-        }
+    public string? GetKey()
+    {
+        return Key;
     }
 }

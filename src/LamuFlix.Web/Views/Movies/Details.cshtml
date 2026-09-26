@@ -49,13 +49,13 @@
         </div>
         <hr />
         <div class="form-inline">
-            <label for="@Model.Genres">Gêneros:</label> <p>@String.Join(", ", Model.Genres.Select(x => x.Genre.Name))</p>
+            <label for="@Model.Genres">Gêneros:</label> <p>@string.Join(", ", Model.Genres.Select(x => x.Genre.Name))</p>
         </div>
         <div class="form-inline">
-            <label for="@Model.Directors">Diretor(es):</label> <p>@String.Join(", ", Model.Directors.Select(x => x.Director.Name))</p>
+            <label for="@Model.Directors">Diretor(es):</label> <p>@string.Join(", ", Model.Directors.Select(x => x.Director.Name))</p>
         </div>
         <div class="form-inline">
-            <label for="@Model.Actors">Elenco:</label> <p>@String.Join(", ", Model.Actors.Select(x => x.Actor.Name))</p>
+            <label for="@Model.Actors">Elenco:</label> <p>@string.Join(", ", Model.Actors.Select(x => x.Actor.Name))</p>
         </div>
         @if (Model.Collection != null)
         {
