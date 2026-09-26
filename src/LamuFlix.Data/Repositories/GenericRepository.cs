@@ -34,8 +34,7 @@ public sealed class GenericRepository<T> : IGenericRepository<T> where T : class
 
     public void Delete(object id)
     {
-        var entityToDelete = _dbSet.Find(id) ?? throw new KeyNotFoundException($"{typeof(T).Name} with id '{id}' was not found.");
-        Delete(entityToDelete);
+        Delete(FindOrThrow(id));
     }
 
     private void Delete(T entityToDelete)
@@ -47,9 +46,14 @@ public sealed class GenericRepository<T> : IGenericRepository<T> where T : class
         _dbSet.Remove(entityToDelete);
     }
 
-    public T? GetById(object id)
+    public T GetById(object id)
     {
-        return _dbSet.Find(id);
+        return FindOrThrow(id);
+    }
+
+    private T FindOrThrow(object id)
+    {
+        return _dbSet.Find(id) ?? throw new KeyNotFoundException($"{typeof(T).Name} with id '{id}' was not found.");
     }
 
     public IEnumerable<T> Get(Expression<Func<T, bool>>? filter = null, Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null, string includeProperties = "")
@@ -79,6 +83,6 @@ public sealed class GenericRepository<T> : IGenericRepository<T> where T : class
 
     IEnumerable<T> IGenericRepository<T>.GetById(object id)
     {
-        throw new NotImplementedException();
+        return [FindOrThrow(id)];
     }
 }
