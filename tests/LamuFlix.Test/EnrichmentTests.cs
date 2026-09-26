@@ -415,6 +415,8 @@ public sealed class EnrichmentTests
             await processor.ProcessMessageAsync(message, channel, deliveryTag);
             channel.WaitForConfirmsOrDie(TimeSpan.FromSeconds(5));
             AssertRepublished(channel, targetQueue, expectedRetryCount);
+            channel.Close();
+            AssertSourceQueueAcked(sourceQueue);
         }
         finally
         {
