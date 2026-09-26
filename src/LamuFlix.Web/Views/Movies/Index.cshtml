@@ -54,6 +54,7 @@
             <thead>
                 <tr>
                     <th style="width: 30px;"></th>
+                    @* ReSharper disable Html.IdNotResolved — href '#/' is a client script hook; unresolved id is the Razor-generated '/' *@
                     <th>
                         <a href="#/" onclick="SortList('Title','@ViewData["SortOrder"]')">@Html.DisplayName("Título")</a>
                     </th>
@@ -72,6 +73,7 @@
                     <th>
                         <a href="#/" onclick="SortList('RottenTomatoes','@ViewData["SortOrder"]')"> @Html.DisplayName("Rotten Tomatoes")</a>
                     </th>
+                    @* ReSharper restore Html.IdNotResolved *@
                     <th style="width: 30px;"></th>
                     <th style="width: 30px;"></th>
                     <th style="width: 30px;"></th>
@@ -104,6 +106,7 @@
                     <td>
                         @Html.DisplayFor(modelItem => item.RottenTomatoes)%
                     </td>
+                    @* ReSharper disable Html.IdNotResolved — href '#/' is a client script hook; unresolved id is the Razor-generated '/' *@
                     <td>
                         <a href="#/" title="Assistir Filme" onclick="PlayMovie('@item.Id')"><i class="fa fa-play-circle-o fa-3x"></i></a>
                     </td>
@@ -113,6 +116,7 @@
                     <td>
                         <a href="#/" title="@item.WatchListTitle" onclick="@item.WatchListMethod"><i style="color: forestgreen" class="@item.WatchListIcon"></i></a>
                     </td>
+                    @* ReSharper restore Html.IdNotResolved *@
                 </tr>}
             </tbody>
         </table>

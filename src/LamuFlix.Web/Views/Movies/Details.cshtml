@@ -65,7 +65,7 @@
                     {
                         <ul>
                             <li>
-                                @Html.ActionLink(item.Title, "Details", new { id = item.Id })
+                                @Html.ActionLink(item.Title ?? string.Empty, "Details", new { id = item.Id })
                             </li>
                         </ul>
 

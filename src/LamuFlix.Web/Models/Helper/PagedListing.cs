@@ -43,7 +43,7 @@ public class PagedListing<T> : IPagedListing
         CurrentPage = page;
 
         // Total Pages
-        TotalPages = (int)(Math.Ceiling((decimal)TotalItems / (decimal)ItemsPerPage));
+        TotalPages = (int)Math.Ceiling((decimal)TotalItems / ItemsPerPage);
 
         // Set PagerStart
         var pagingStart = CurrentPage - 5;
