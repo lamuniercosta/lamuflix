@@ -4,93 +4,81 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 
-namespace LamuFlix.Data.Repositories
+namespace LamuFlix.Data.Repositories;
+
+public interface IGenericRepository<T> where T : class
 {
-    public interface IGenericRepository<T> where T : class
+    IEnumerable<T> GetById(object id);
+    IEnumerable<T> Get(Expression<Func<T, bool>>? filter = null, Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null, string includeProperties = "");
+    void Add(T entity);
+    void Delete(object id);
+    void Update(T entity);
+}
+
+public sealed class GenericRepository<T> : IGenericRepository<T> where T : class
+{
+    private LamuFlixContext DataContext { get; }
+
+    private readonly DbSet<T> _dbSet;
+
+    public GenericRepository(LamuFlixContext dataContext)
     {
-        IEnumerable<T> GetById(object id);
-        IEnumerable<T> Get(Expression<Func<T, bool>>? filter = null, Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null, string includeProperties = "");
-        void Add(T entity);
-        void Delete(object id);
-        void Update(T entity);
+        DataContext = dataContext;
+        _dbSet = DataContext.Set<T>();
     }
 
-    public class GenericRepository<T> : IGenericRepository<T> where T : class
+    public void Add(T entity)
     {
-        internal LamuFlixContext DataContext { get; }
+        _dbSet.Add(entity);
+    }
 
-        internal DbSet<T> dbSet;
+    public void Delete(object id)
+    {
+        var entityToDelete = _dbSet.Find(id) ?? throw new KeyNotFoundException($"{typeof(T).Name} with id '{id}' was not found.");
+        Delete(entityToDelete);
+    }
 
-        public GenericRepository(LamuFlixContext dataContext)
+    private void Delete(T entityToDelete)
+    {
+        if (DataContext.Entry(entityToDelete).State == EntityState.Detached)
         {
-            DataContext = dataContext;
-            dbSet = DataContext.Set<T>();
+            _dbSet.Attach(entityToDelete);
+        }
+        _dbSet.Remove(entityToDelete);
+    }
+
+    public T? GetById(object id)
+    {
+        return _dbSet.Find(id);
+    }
+
+    public IEnumerable<T> Get(Expression<Func<T, bool>>? filter = null, Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null, string includeProperties = "")
+    {
+        IQueryable<T> query = _dbSet;
+
+        if (filter != null)
+        {
+            query = query.Where(filter);
         }
 
-        public void Add(T entity)
+        query = includeProperties.Split([','], StringSplitOptions.RemoveEmptyEntries).Aggregate(query, (current, includeProperty) => current.Include(includeProperty));
+
+        if (orderBy != null)
         {
-            dbSet.Add(entity);
+            return [.. orderBy(query)];
         }
 
-        public virtual void Delete(object id)
-        {
-            T? entityToDelete = dbSet.Find(id);
-            if (entityToDelete is null)
-            {
-                throw new KeyNotFoundException($"{typeof(T).Name} with id '{id}' was not found.");
-            }
+        return [.. query];
+    }
 
-            Delete(entityToDelete);
-        }
+    public void Update(T entity)
+    {
+        _dbSet.Attach(entity);
+        DataContext.Entry(entity).State = EntityState.Modified;
+    }
 
-        public virtual void Delete(T entityToDelete)
-        {
-            if (DataContext.Entry(entityToDelete).State == EntityState.Detached)
-            {
-                dbSet.Attach(entityToDelete);
-            }
-            dbSet.Remove(entityToDelete);
-        }
-
-        public virtual T? GetById(object id)
-        {
-            return dbSet.Find(id);
-        }
-
-        public virtual IEnumerable<T> Get(Expression<Func<T, bool>>? filter = null, Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null, string includeProperties = "")
-        {
-            IQueryable<T> query = dbSet;
-
-            if (filter != null)
-            {
-                query = query.Where(filter);
-            }
-
-            foreach (var includeProperty in includeProperties.Split
-                ([','], StringSplitOptions.RemoveEmptyEntries))
-            {
-                query = query.Include(includeProperty);
-            }
-
-            if (orderBy != null)
-            {
-                return [.. orderBy(query)];
-            }
-            else
-            {
-                return [.. query];
-            }
-        }
-
-        public void Update(T entity)
-        {
-            dbSet.Attach(entity);
-            DataContext.Entry(entity).State = EntityState.Modified;
-        }
-
-        IEnumerable<T> IGenericRepository<T>.GetById(object id)
-        {
-            throw new NotImplementedException();
-        }
+    IEnumerable<T> IGenericRepository<T>.GetById(object id)
+    {
+        throw new NotImplementedException();
     }
 }

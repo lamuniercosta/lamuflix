@@ -1,7 +1,7 @@
 ﻿@model PagedListing<MoviesListViewModel>
 @{
     ViewData["Title"] = "Filmes";
-    MoviesFilterViewModel? filter = ViewData["CurrentFilter"] as MoviesFilterViewModel;
+    var filter = ViewData["CurrentFilter"] as MoviesFilterViewModel;
 }
 <h2>@Html.DisplayFor(model => model.TotalItems) Filmes Encontrados <a asp-action="ImportMovieFolder" title="Criar Filme"><i class="fa fa-plus-circle"></i></a></h2>
 
@@ -96,7 +96,7 @@
                         @Html.DisplayFor(modelItem => item.Duration) min
                     </td>
                     <td>
-                        @Html.DisplayFor(modelItem => item.IMDB)
+                        @Html.DisplayFor(modelItem => item.Imdb)
                     </td>
                     <td>
                         @Html.DisplayFor(modelItem => item.MetaScore)

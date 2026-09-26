@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using LamuFlix.ArchitectureTests.Fixtures.Valid;
 using LamuFlix.ArchitectureTests.Fixtures.Valid.Features.MediaLibrary;
@@ -67,7 +68,7 @@ public sealed class ArchitectureTests
     [Fact]
     public void Core_features_must_depend_only_on_ports_domain_or_pipeline()
     {
-        IReadOnlyList<string> coreViolations = FindPortViolations(
+        var coreViolations = FindPortViolations(
             Core,
             "LamuFlix.Core.Features",
             "LamuFlix.Core.Ports",
@@ -75,7 +76,7 @@ public sealed class ArchitectureTests
             "LamuFlix.Core.Pipeline");
         Assert.True(coreViolations.Count == 0, string.Join(", ", coreViolations));
 
-        IReadOnlyList<string> valid = FindPortViolations(
+        var valid = FindPortViolations(
             Fixtures,
             "LamuFlix.ArchitectureTests.Fixtures.Valid.Features",
             "LamuFlix.ArchitectureTests.Fixtures.Valid.Ports",
@@ -85,7 +86,7 @@ public sealed class ArchitectureTests
         _ = new PortMediatedFixture(new StubMediaPort()).Port.Title;
         _ = new DirectFeatureCouplingFixture().User.Name;
 
-        IReadOnlyList<string> violating = FindPortViolations(
+        var violating = FindPortViolations(
             Fixtures,
             "LamuFlix.ArchitectureTests.Fixtures.Violating.Features",
             "LamuFlix.ArchitectureTests.Fixtures.Violating.Ports",
@@ -96,7 +97,7 @@ public sealed class ArchitectureTests
 
     private static void AssertNoDependency(Assembly assembly, string dependency)
     {
-        ArchitectureResult result = Types.InAssembly(assembly)
+        var result = Types.InAssembly(assembly)
             .ShouldNot()
             .HaveDependencyOn(dependency)
             .GetResult();
@@ -106,7 +107,7 @@ public sealed class ArchitectureTests
 
     private static void AssertSealed(Assembly core, string namePattern, string validName, string violatingName)
     {
-        ArchitectureResult coreResult = Types.InAssembly(core)
+        var coreResult = Types.InAssembly(core)
             .That()
             .HaveNameMatching(namePattern)
             .Should()
@@ -114,7 +115,7 @@ public sealed class ArchitectureTests
             .GetResult();
         Assert.True(coreResult.IsSuccessful, Describe(coreResult));
 
-        ArchitectureResult valid = Types.InAssembly(Fixtures)
+        var valid = Types.InAssembly(Fixtures)
             .That()
             .HaveName(validName)
             .Should()
@@ -122,7 +123,7 @@ public sealed class ArchitectureTests
             .GetResult();
         Assert.True(valid.IsSuccessful, Describe(valid));
 
-        ArchitectureResult violating = Types.InAssembly(Fixtures)
+        var violating = Types.InAssembly(Fixtures)
             .That()
             .HaveName(violatingName)
             .Should()
@@ -138,35 +139,24 @@ public sealed class ArchitectureTests
         string domainNamespace,
         string pipelineNamespace)
     {
-        var failing = new List<string>();
-        foreach (Type featureType in Types.InAssembly(assembly).That().ResideInNamespaceStartingWith(featuresRoot).GetTypes())
-        {
-            string ownNamespace = featureType.Namespace
-                ?? throw new InvalidOperationException($"Feature type {featureType.Name} has no namespace.");
-
-            ArchitectureResult result = Types.InAssembly(assembly)
+        return
+        [
+            .. from featureType in Types.InAssembly(assembly).That().ResideInNamespaceStartingWith(featuresRoot)
+                .GetTypes()
+            let ownNamespace = featureType.Namespace ??
+                               throw new InvalidOperationException($"Feature type {featureType.Name} has no namespace.")
+            let result = Types.InAssembly(assembly)
                 .That()
                 .ResideInNamespace(ownNamespace)
                 .And()
                 .HaveName(featureType.Name)
                 .Should()
-                .OnlyHaveDependenciesOn(
-                    ownNamespace,
-                    portsNamespace,
-                    domainNamespace,
-                    pipelineNamespace,
-                    "System",
-                    "Microsoft.Extensions.Logging",
-                    "Microsoft.Extensions.Logging.Abstractions")
-                .GetResult();
-
-            if (!result.IsSuccessful)
-            {
-                failing.Add(featureType.FullName ?? featureType.Name);
-            }
-        }
-
-        return failing;
+                .OnlyHaveDependenciesOn(ownNamespace, portsNamespace, domainNamespace, pipelineNamespace, "System",
+                    "Microsoft.Extensions.Logging", "Microsoft.Extensions.Logging.Abstractions")
+                .GetResult()
+            where !result.IsSuccessful
+            select featureType.FullName ?? featureType.Name
+        ];
     }
 
     private sealed class StubMediaPort : IMediaPort

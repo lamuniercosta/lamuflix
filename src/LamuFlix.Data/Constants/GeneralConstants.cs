@@ -1,22 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace LamuFlix.Data.Constants;
 
-namespace LamuFlix.Data.Constants
+public class GeneralConstants
 {
-    public class GeneralConstants
-    {
-        public GeneralConstants() { }
+    public const string Success = "success";
+    public const string Error = "danger";
 
-        public static readonly string SUCCESS = "success";
-        public static readonly string ERROR = "danger";
-        public static readonly string INFO = "info";
-
-        public static readonly string OrderByDescending = "OrderByDescending";
-        public static readonly string OrderBy = "OrderBy";
-        public static readonly string Descending = "desc";
-        public static readonly string Id = "Id";
-
-        public static readonly string Collection = "Collection";
-    }
+    public const string OrderByDescending = "OrderByDescending";
+    public const string OrderBy = "OrderBy";
+    public const string Descending = "desc";
+    public const string Id = "Id";
 }

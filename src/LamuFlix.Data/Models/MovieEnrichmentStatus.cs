@@ -1,10 +1,9 @@
-namespace LamuFlix.Data.Models
+namespace LamuFlix.Data.Models;
+
+public enum MovieEnrichmentStatus
 {
-    public enum MovieEnrichmentStatus
-    {
-        Pending = 0,
-        Enriched = 1,
-        NotFound = 2,
-        Failed = 3
-    }
+    Pending = 0,
+    Enriched = 1,
+    NotFound = 2,
+    Failed = 3
 }

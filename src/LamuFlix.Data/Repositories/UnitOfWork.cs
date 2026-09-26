@@ -1,60 +1,39 @@
 ﻿using System;
-using LamuFlix.Data.Models;
 
-namespace LamuFlix.Data.Repositories
+namespace LamuFlix.Data.Repositories;
+
+public interface IUnitOfWork : IDisposable
 {
-    public interface IUnitOfWork : IDisposable
+    void Save();
+    new void Dispose();
+}
+
+public class UnitOfWork(LamuFlixContext dataContext) : IUnitOfWork
+{
+    private LamuFlixContext DataContext { get; } = dataContext;
+
+    public void Save()
     {
-        void Save();
-        new void Dispose();
+        DataContext.SaveChanges();
     }
 
-    public class UnitOfWork : IUnitOfWork
+    private bool _disposed;
+
+    protected virtual void Dispose(bool disposing)
     {
-        public LamuFlixContext DataContext { get; }
-
-        public UnitOfWork(LamuFlixContext dataContext)
+        if (!_disposed)
         {
-            DataContext = dataContext;
-        }
-
-        private GenericRepository<Movie>? movieRepository;
-
-        public GenericRepository<Movie> MovieRepository
-        {
-            get
+            if (disposing)
             {
-                if (this.movieRepository == null)
-                {
-                    this.movieRepository = new GenericRepository<Movie>(DataContext);
-                }
-                return movieRepository;
+                DataContext.Dispose();
             }
         }
+        _disposed = true;
+    }
 
-        public void Save()
-        {
-            DataContext.SaveChanges();
-        }
-
-        private bool disposed;
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!this.disposed)
-            {
-                if (disposing)
-                {
-                    DataContext.Dispose();
-                }
-            }
-            this.disposed = true;
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
     }
 }

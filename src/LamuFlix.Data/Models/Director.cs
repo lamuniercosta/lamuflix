@@ -1,12 +1,11 @@
 ﻿using System.Collections.Generic;
 
-namespace LamuFlix.Data.Models
-{
-    public class Director
-    {
-        public int Id { get; set; }
-        public string? Name { get; set; }
+namespace LamuFlix.Data.Models;
 
-        public IList<MovieDirectors> Movies { get; set; } = [];
-    }
+public class Director
+{
+    public int Id { get; set; }
+    public string? Name { get; set; }
+
+    public IList<MovieDirectors> Movies { get; set; } = [];
 }

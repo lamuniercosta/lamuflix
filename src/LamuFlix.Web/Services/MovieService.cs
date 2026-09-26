@@ -12,404 +12,390 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace LamuFlix.Web.Services
+namespace LamuFlix.Web.Services;
+
+public interface IMovieService
 {
-    public interface IMovieService
+    Task<PagedListing<MoviesListViewModel>> GetMoviesListAsync(QueryParams dtParams);
+
+    IEnumerable<string> GetMoviesByName(string query);
+
+    IEnumerable<MoviesListViewModel> QuickSearch(string query);
+
+    Task<Movie?> GetMovieDetails(int movieId);
+
+    void PlayMovie(int movieId);
+
+    void ImportMovieFolder(ImportMovieFolderViewModel model);
+
+    Movie? GetMovie(int movieId);
+
+    IEnumerable<Actor> GetActors();
+
+    IEnumerable<Director> GetDirectors();
+
+    IEnumerable<Genre> GetGenres();
+
+    IEnumerable<Collection> GetCollections();
+
+    void DeleteMovie(int movieId);
+
+    void AddToWatchList(int movieId);
+
+    void RemoveFromWatchList(int movieId);
+
+    PagedListing<MoviesListViewModel> GetWatchlist(QueryParams dtParams);
+}
+
+public class MovieService(
+    LamuFlixContext dataContext,
+    IConfiguration? configuration = null,
+    IEnrichmentQueuePublisher? queuePublisher = null)
+    : IMovieService
+{
+    private const string FilePath = @"F:/Filmes";
+
+    internal Func<ProcessStartInfo, Process?> ProcessStarter { get; set; } = Process.Start;
+
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
+    public void PlayMovie(int movieId)
     {
-        Task<PagedListing<MoviesListViewModel>> GetMoviesListAsync(QueryParams dtParams);
+        if (!(configuration?.GetValue<bool>("Features:LocalPlay") ?? false))
+        {
+            throw new InvalidOperationException("LocalPlay is disabled.");
+        }
 
-        IEnumerable<String> GetMoviesByName(string query);
+        var filme = GetMovie(movieId) ?? throw new InvalidOperationException("Filme não encontrado.");
+        var player = ResolvePlayerPath(filme.Format!);
+        var startInfo = BuildProcessStartInfo(player, filme.Location!);
+        ProcessStarter(startInfo);
+    }
+    // ReSharper restore NullableWarningSuppressionIsUsed
 
-        IEnumerable<MoviesListViewModel> QuickSearch(string query);
-
-        Task<Movie?> GetMovieDetails(int movieId);
-
-        void PlayMovie(int movieId);
-
-        void ImportMovieFolder(ImportMovieFolderViewModel model);
-
-        Movie? GetMovie(int movieId);
-
-        IEnumerable<Actor> GetActors();
-
-        IEnumerable<Director> GetDirectors();
-
-        IEnumerable<Genre> GetGenres();
-
-        IEnumerable<Collection> GetCollections();
-
-        void DeleteMovie(int movieId);
-
-        void AddToWatchList(int movieId);
-
-        void RemoveFromWatchList(int movieId);
-
-        PagedListing<MoviesListViewModel> GetWatchlist(QueryParams dtParams);
+    private string? ResolvePlayerPath(string format)
+    {
+        var configuredPath = configuration?["Features:PlayerPath"];
+        return !string.IsNullOrWhiteSpace(configuredPath) ? configuredPath : GetPlayer(format);
     }
 
-    public class MovieService : IMovieService
+    private static ProcessStartInfo BuildProcessStartInfo(string? player, string location)
     {
-        private readonly LamuFlixContext _dataContext;
-        private readonly IConfiguration? _configuration;
-        private readonly IEnrichmentQueuePublisher? _queuePublisher;
-        private static string _filePath = @"F:/Filmes";
-
-        internal Func<ProcessStartInfo, Process?> ProcessStarter { get; set; } = Process.Start;
-
-        public MovieService(LamuFlixContext dataContext, IConfiguration? configuration = null, IEnrichmentQueuePublisher? queuePublisher = null)
+        var startInfo = new ProcessStartInfo
         {
-            _dataContext = dataContext;
-            _configuration = configuration;
-            _queuePublisher = queuePublisher;
-        }
-
-        // ReSharper disable NullableWarningSuppressionIsUsed
-        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public void PlayMovie(int movieId)
+            UseShellExecute = true
+        };
+        if (!string.IsNullOrWhiteSpace(player))
         {
-            if (!(_configuration?.GetValue<bool>("Features:LocalPlay") ?? false))
-            {
-                throw new InvalidOperationException("LocalPlay is disabled.");
-            }
-
-            var filme = GetMovie(movieId) ?? throw new InvalidOperationException("Filme não encontrado.");
-            var player = ResolvePlayerPath(filme.Format!);
-            var startInfo = BuildProcessStartInfo(player, filme.Location!);
-            ProcessStarter(startInfo);
+            startInfo.FileName = player;
+            startInfo.ArgumentList.Add(location);
         }
-        // ReSharper restore NullableWarningSuppressionIsUsed
-
-        private string? ResolvePlayerPath(string format)
+        else
         {
-            var configuredPath = _configuration?["Features:PlayerPath"];
-            return !string.IsNullOrWhiteSpace(configuredPath) ? configuredPath : GetPlayer(format);
+            startInfo.FileName = location;
         }
-
-        private static ProcessStartInfo BuildProcessStartInfo(string? player, string location)
-        {
-            var startInfo = new ProcessStartInfo
-            {
-                UseShellExecute = true
-            };
-            if (!string.IsNullOrWhiteSpace(player))
-            {
-                startInfo.FileName = player;
-                startInfo.ArgumentList.Add(location);
-            }
-            else
-            {
-                startInfo.FileName = location;
-            }
-            return startInfo;
-        }
-
-        private string? GetPlayer(string format) =>
-            string.IsNullOrEmpty(format)
-                ? null
-                : _dataContext.Players.SingleOrDefault(x => x.Formats != null && x.Formats.Contains(format))?.Path;
-
-        public IEnumerable<Actor> GetActors() => _dataContext.Actors;
-
-        public IEnumerable<Director> GetDirectors() => _dataContext.Directors;
-
-        public IEnumerable<Collection> GetCollections() => _dataContext.Collections;
-
-        public IEnumerable<Genre> GetGenres() => _dataContext.Genres;
-
-        public Movie? GetMovie(int movieId) => _dataContext.Movies.Find(movieId);
-
-        // ReSharper disable NullableWarningSuppressionIsUsed
-        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public Task<Movie?> GetMovieDetails(int movieId) => _dataContext.Movies
-                .Include(x => x.Actors)
-                .ThenInclude(x => x.Actor)
-                .Include(x => x.Directors)
-                .ThenInclude(x => x.Director)
-                .Include(x => x.Genres)
-                .ThenInclude(x => x.Genre)
-                .Include(x => x.Collection)
-                .ThenInclude(x => x!.Movies)
-                .SingleOrDefaultAsync(x => x.Id == movieId);
-        // ReSharper restore NullableWarningSuppressionIsUsed
-
-        // ReSharper disable NullableWarningSuppressionIsUsed
-        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public async Task<PagedListing<MoviesListViewModel>> GetMoviesListAsync(QueryParams dtParams)
-        {
-            var queryResult = CreateMoviesListQuery(dtParams);
-            var listResult = await queryResult.Query.Select(m =>
-                new MoviesListViewModel
-                {
-                    Id = m.Id,
-                    Title = m.Title!,
-                    Duration = m.Duration,
-                    IMDB = m.ImdbRating,
-                    MetaScore = m.MetaScore,
-                    RottenTomatoes = m.RottenTomatoes,
-                    Year = m.Year,
-                    Poster = m.Poster ?? string.Empty,
-                    IsInWatchList = m.IsInWatchList
-                }).ToListAsync();
-
-            return new PagedListing<MoviesListViewModel>(listResult, queryResult.TotalRecords, dtParams.Page, dtParams.PageSize);
-        }
-        // ReSharper restore NullableWarningSuppressionIsUsed
-
-        private QueryableResult<Movie> CreateMoviesListQuery(QueryParams dtParams)
-        {
-            QueryableResult<Movie> result = new QueryableResult<Movie>();
-
-            var query = _dataContext.Movies
-                .Include(x => x.Actors)
-                .ThenInclude(x => x.Actor)
-                .Include(x => x.Directors)
-                .ThenInclude(x => x.Director)
-                .Include(x => x.Genres)
-                .ThenInclude(x => x.Genre)
-                .Include(x => x.Collection)
-                .OrderBy(x => x.Title)
-                .AsNoTracking();
-
-            var filter = dtParams.Filter as MoviesFilterViewModel;
-
-            query = query.DynamicQuery(filter);
-
-            // Save total records
-            result.TotalRecords = query.Count();
-
-            query = query.DynamicSort(filter, dtParams.SortBy, dtParams.SortOrder);
-
-            // Paging
-            result.Query = query.Skip(dtParams.PageSize * (dtParams.Page - 1)).Take(dtParams.PageSize);
-
-            return result;
-        }
-
-        // ReSharper disable NullableWarningSuppressionIsUsed
-        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public void ImportMovieFolder(ImportMovieFolderViewModel model)
-        {
-            var existingTitles = _dataContext.Movies.Select(x => x.Title!).ToList();
-
-            if (!string.IsNullOrEmpty(model.MovieId))
-            {
-                ProcessMovieWithId(model);
-            }
-            else if (string.IsNullOrEmpty(model.Movie) && !string.IsNullOrEmpty(model.CollectionName))
-            {
-                ProcessCollectionDirectory(model, existingTitles);
-            }
-            else if (!string.IsNullOrEmpty(model.Movie) && !string.IsNullOrEmpty(model.CollectionName))
-            {
-                ProcessMovieInCollection(model, existingTitles);
-            }
-            else
-            {
-                ProcessStandaloneMovie(model, existingTitles);
-            }
-        }
-        // ReSharper restore NullableWarningSuppressionIsUsed
-
-        private void ProcessMovieWithId(ImportMovieFolderViewModel model)
-        {
-            var directory = new DirectoryInfo($"{_filePath}//{model.CollectionName}//{model.Movie}");
-            ImportMovieFolder(directory, model.CollectionName, model.MovieId);
-        }
-
-        private void ProcessCollectionDirectory(ImportMovieFolderViewModel model, List<string> existingTitles)
-        {
-            var caminhoCollection = new DirectoryInfo($"{_filePath}//{model.CollectionName}");
-            foreach (var item in caminhoCollection.EnumerateDirectories())
-            {
-                EnsureMovieNotRegistered(item, existingTitles);
-                ImportMovieFolder(item, model.CollectionName, null);
-            }
-        }
-
-        private void ProcessMovieInCollection(ImportMovieFolderViewModel model, List<string> existingTitles)
-        {
-            var directory = new DirectoryInfo($"{_filePath}//{model.CollectionName}//{model.Movie}");
-            EnsureMovieNotRegistered(directory, existingTitles);
-            ImportMovieFolder(directory, model.CollectionName, null);
-        }
-
-        private void ProcessStandaloneMovie(ImportMovieFolderViewModel model, List<string> existingTitles)
-        {
-            var directory = new DirectoryInfo($"{_filePath}//{model.Movie}");
-            EnsureMovieNotRegistered(directory, existingTitles);
-            ImportMovieFolder(directory, null, null);
-        }
-
-        private static void EnsureMovieNotRegistered(DirectoryInfo directory, List<string> existingTitles)
-        {
-            var movieName = directory.Name.Split('[').ElementAt(0);
-            if (existingTitles.Contains(movieName))
-            {
-                throw new Exception("Filme já cadastrado.");
-            }
-        }
-
-        private void ImportMovieFolder(DirectoryInfo directory, string? collection, string? movieId)
-        {
-            var (movieName, movieYear) = ParseDirectoryInfo(directory);
-            var file = GetMovieFile(directory);
-            var movieModel = CreateMovieModel(directory, file, movieName, movieYear);
-
-            AssignCollection(movieModel, collection);
-            SaveMovie(movieModel);
-            PublishEnrichment(movieModel, movieId);
-        }
-
-        private static (string name, int year) ParseDirectoryInfo(DirectoryInfo directory)
-        {
-            var parts = directory.Name.Split('[');
-            var name = parts[0];
-            var year = parts.Length > 1 ? Convert.ToInt32(parts[1].Replace("]", "")) : 0;
-            return (name, year);
-        }
-
-        private static FileInfo? GetMovieFile(DirectoryInfo directory)
-        {
-            return directory.GetFiles().SingleOrDefault(x => !x.Extension.Equals(".srt") && !x.Extension.Equals(".sub"));
-        }
-
-        private static Movie CreateMovieModel(DirectoryInfo directory, FileInfo? file, string name, int year)
-        {
-            var location = file != null ? file.FullName : directory.FullName;
-            var format = file != null ? file.Extension : string.Empty;
-            return new Movie
-            {
-                Title = name,
-                Synopsis = "Pending",
-                Year = year,
-                Location = location,
-                Format = format,
-                Status = MovieEnrichmentStatus.Pending
-            };
-        }
-
-        private void SaveMovie(Movie movieModel)
-        {
-            _dataContext.Add(movieModel);
-            _dataContext.SaveChanges();
-        }
-
-        private void AssignCollection(Movie movieModel, string? collection)
-        {
-            if (string.IsNullOrEmpty(collection)) return;
-
-            var collectionModel = _dataContext.Collections.SingleOrDefault(x => x.Name == collection.Trim());
-            if (collectionModel == null)
-            {
-                collectionModel = new Collection
-                {
-                    Name = collection.Trim()
-                };
-                _dataContext.Add(collectionModel);
-            }
-
-            movieModel.Collection = collectionModel;
-        }
-
-        // ReSharper disable NullableWarningSuppressionIsUsed
-        // DI-injected configuration; nullable-column read preserving the pre-DEV-360 contract (DEV-360 FR-004)
-        private void PublishEnrichment(Movie movieModel, string? movieId)
-        {
-            var publisher = _queuePublisher ?? new RabbitMqEnrichmentQueuePublisher(_configuration!);
-            publisher.PublishAsync(new MovieEnrichmentMessage
-            {
-                MovieId = movieModel.Id,
-                Title = movieModel.Title!,
-                Year = movieModel.Year,
-                ImdbId = movieId
-            }).GetAwaiter().GetResult();
-        }
-        // ReSharper restore NullableWarningSuppressionIsUsed
-
-        // ReSharper disable NullableWarningSuppressionIsUsed
-        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public IEnumerable<string> GetMoviesByName(string query) => [.. _dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => x.Title!)];
-        // ReSharper restore NullableWarningSuppressionIsUsed
-
-        public void DeleteMovie(int movieId)
-        {
-            var filme = _dataContext.Movies.Find(movieId);
-            if (filme != null)
-            {
-                _dataContext.Movies.Remove(filme);
-                _dataContext.SaveChanges();
-            }
-        }
-
-        public void AddToWatchList(int movieId)
-        {
-            var movie = _dataContext.Movies.Find(movieId);
-            if (movie != null)
-            {
-                movie.IsInWatchList = true;
-                _dataContext.Update(movie);
-                _dataContext.SaveChanges();
-            }
-        }
-
-        public void RemoveFromWatchList(int movieId)
-        {
-            var movie = _dataContext.Movies.Find(movieId);
-            if (movie != null)
-            {
-                movie.IsInWatchList = false;
-                _dataContext.Update(movie);
-                _dataContext.SaveChanges();
-            }
-        }
-
-        // ReSharper disable NullableWarningSuppressionIsUsed
-        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public PagedListing<MoviesListViewModel> GetWatchlist(QueryParams dtParams)
-        {
-            QueryableResult<Movie> result = new QueryableResult<Movie>();
-
-            var query = _dataContext.Movies
-                .Include(x => x.Actors)
-                .ThenInclude(x => x.Actor)
-                .Include(x => x.Directors)
-                .ThenInclude(x => x.Director)
-                .Include(x => x.Genres)
-                .ThenInclude(x => x.Genre)
-                .Include(x => x.Collection)
-                .Where(x => x.IsInWatchList)
-                .OrderBy(x => x.Title)
-                .AsNoTracking();
-
-            query = query.DynamicSort(dtParams.Filter, dtParams.SortBy, dtParams.SortOrder);
-
-            // Paging
-            result.TotalRecords = query.Count();
-
-            result.Query = query.Skip(dtParams.PageSize * (dtParams.Page - 1)).Take(dtParams.PageSize);
-
-            var listResult = result.Query.Select(m =>
-                new MoviesListViewModel
-                {
-                    Id = m.Id,
-                    Title = m.Title!,
-                    Duration = m.Duration,
-                    IMDB = m.ImdbRating,
-                    MetaScore = m.MetaScore,
-                    RottenTomatoes = m.RottenTomatoes,
-                    Year = m.Year,
-                    Poster = m.Poster ?? string.Empty,
-                    IsInWatchList = m.IsInWatchList
-                }).ToList();
-
-            return new PagedListing<MoviesListViewModel>(listResult, result.TotalRecords, dtParams.Page, dtParams.PageSize);
-        }
-        // ReSharper restore NullableWarningSuppressionIsUsed
-
-        // ReSharper disable NullableWarningSuppressionIsUsed
-        // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
-        public IEnumerable<MoviesListViewModel> QuickSearch(string query) => [.. _dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => new MoviesListViewModel { Id = x.Id, Title = x.Title!, Poster = x.Poster ?? string.Empty })];
-        // ReSharper restore NullableWarningSuppressionIsUsed
+        return startInfo;
     }
 
+    private string? GetPlayer(string format) =>
+        string.IsNullOrEmpty(format)
+            ? null
+            : dataContext.Players.SingleOrDefault(x => x.Formats != null && x.Formats.Contains(format))?.Path;
+
+    public IEnumerable<Actor> GetActors() => dataContext.Actors;
+
+    public IEnumerable<Director> GetDirectors() => dataContext.Directors;
+
+    public IEnumerable<Collection> GetCollections() => dataContext.Collections;
+
+    public IEnumerable<Genre> GetGenres() => dataContext.Genres;
+
+    public Movie? GetMovie(int movieId) => dataContext.Movies.Find(movieId);
+
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
+    public Task<Movie?> GetMovieDetails(int movieId) => dataContext.Movies
+        .Include(x => x.Actors)
+        .ThenInclude(x => x.Actor)
+        .Include(x => x.Directors)
+        .ThenInclude(x => x.Director)
+        .Include(x => x.Genres)
+        .ThenInclude(x => x.Genre)
+        .Include(x => x.Collection)
+        .ThenInclude(x => x!.Movies)
+        .SingleOrDefaultAsync(x => x.Id == movieId);
+    // ReSharper restore NullableWarningSuppressionIsUsed
+
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
+    public async Task<PagedListing<MoviesListViewModel>> GetMoviesListAsync(QueryParams dtParams)
+    {
+        var queryResult = CreateMoviesListQuery(dtParams);
+        var listResult = await queryResult.Query.Select(m =>
+            new MoviesListViewModel
+            {
+                Id = m.Id,
+                Title = m.Title!,
+                Duration = m.Duration,
+                Imdb = m.ImdbRating,
+                MetaScore = m.MetaScore,
+                RottenTomatoes = m.RottenTomatoes,
+                Year = m.Year,
+                Poster = m.Poster ?? string.Empty,
+                IsInWatchList = m.IsInWatchList
+            }).ToListAsync();
+
+        return new PagedListing<MoviesListViewModel>(listResult, queryResult.TotalRecords, dtParams.Page, dtParams.PageSize);
+    }
+    // ReSharper restore NullableWarningSuppressionIsUsed
+
+    private QueryableResult<Movie> CreateMoviesListQuery(QueryParams dtParams)
+    {
+        var result = new QueryableResult<Movie>();
+
+        var query = dataContext.Movies
+            .Include(x => x.Actors)
+            .ThenInclude(x => x.Actor)
+            .Include(x => x.Directors)
+            .ThenInclude(x => x.Director)
+            .Include(x => x.Genres)
+            .ThenInclude(x => x.Genre)
+            .Include(x => x.Collection)
+            .OrderBy(x => x.Title)
+            .AsNoTracking();
+
+        var filter = dtParams.Filter as MoviesFilterViewModel;
+
+        query = query.DynamicQuery(filter);
+
+        // Save total records
+        result.TotalRecords = query.Count();
+
+        query = query.DynamicSort(filter, dtParams.SortBy, dtParams.SortOrder);
+
+        // Paging
+        result.Query = query.Skip(dtParams.PageSize * (dtParams.Page - 1)).Take(dtParams.PageSize);
+
+        return result;
+    }
+
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
+    public void ImportMovieFolder(ImportMovieFolderViewModel model)
+    {
+        var existingTitles = dataContext.Movies.Select(x => x.Title!).ToList();
+
+        if (!string.IsNullOrEmpty(model.MovieId))
+        {
+            ProcessMovieWithId(model);
+        }
+        else if (string.IsNullOrEmpty(model.Movie) && !string.IsNullOrEmpty(model.CollectionName))
+        {
+            ProcessCollectionDirectory(model, existingTitles);
+        }
+        else if (!string.IsNullOrEmpty(model.Movie) && !string.IsNullOrEmpty(model.CollectionName))
+        {
+            ProcessMovieInCollection(model, existingTitles);
+        }
+        else
+        {
+            ProcessStandaloneMovie(model, existingTitles);
+        }
+    }
+    // ReSharper restore NullableWarningSuppressionIsUsed
+
+    private void ProcessMovieWithId(ImportMovieFolderViewModel model)
+    {
+        var directory = new DirectoryInfo($"{FilePath}//{model.CollectionName}//{model.Movie}");
+        ImportMovieFolder(directory, model.CollectionName, model.MovieId);
+    }
+
+    private void ProcessCollectionDirectory(ImportMovieFolderViewModel model, List<string> existingTitles)
+    {
+        var caminhoCollection = new DirectoryInfo($"{FilePath}//{model.CollectionName}");
+        foreach (var item in caminhoCollection.EnumerateDirectories())
+        {
+            EnsureMovieNotRegistered(item, existingTitles);
+            ImportMovieFolder(item, model.CollectionName, null);
+        }
+    }
+
+    private void ProcessMovieInCollection(ImportMovieFolderViewModel model, List<string> existingTitles)
+    {
+        var directory = new DirectoryInfo($"{FilePath}//{model.CollectionName}//{model.Movie}");
+        EnsureMovieNotRegistered(directory, existingTitles);
+        ImportMovieFolder(directory, model.CollectionName, null);
+    }
+
+    private void ProcessStandaloneMovie(ImportMovieFolderViewModel model, List<string> existingTitles)
+    {
+        var directory = new DirectoryInfo($"{FilePath}//{model.Movie}");
+        EnsureMovieNotRegistered(directory, existingTitles);
+        ImportMovieFolder(directory, null, null);
+    }
+
+    private static void EnsureMovieNotRegistered(DirectoryInfo directory, List<string> existingTitles)
+    {
+        var movieName = directory.Name.Split('[').ElementAt(0);
+        if (existingTitles.Contains(movieName))
+        {
+            throw new Exception("Filme já cadastrado.");
+        }
+    }
+
+    private void ImportMovieFolder(DirectoryInfo directory, string? collection, string? movieId)
+    {
+        var (movieName, movieYear) = ParseDirectoryInfo(directory);
+        var file = GetMovieFile(directory);
+        var movieModel = CreateMovieModel(directory, file, movieName, movieYear);
+
+        AssignCollection(movieModel, collection);
+        SaveMovie(movieModel);
+        PublishEnrichment(movieModel, movieId);
+    }
+
+    private static (string name, int year) ParseDirectoryInfo(DirectoryInfo directory)
+    {
+        var parts = directory.Name.Split('[');
+        var name = parts[0];
+        var year = parts.Length > 1 ? Convert.ToInt32(parts[1].Replace("]", "")) : 0;
+        return (name, year);
+    }
+
+    private static FileInfo? GetMovieFile(DirectoryInfo directory)
+    {
+        return directory.GetFiles().SingleOrDefault(x => !x.Extension.Equals(".srt") && !x.Extension.Equals(".sub"));
+    }
+
+    private static Movie CreateMovieModel(DirectoryInfo directory, FileInfo? file, string name, int year)
+    {
+        var location = file != null ? file.FullName : directory.FullName;
+        var format = file != null ? file.Extension : string.Empty;
+        return new Movie
+        {
+            Title = name,
+            Synopsis = "Pending",
+            Year = year,
+            Location = location,
+            Format = format,
+            Status = MovieEnrichmentStatus.Pending
+        };
+    }
+
+    private void SaveMovie(Movie movieModel)
+    {
+        dataContext.Add(movieModel);
+        dataContext.SaveChanges();
+    }
+
+    private void AssignCollection(Movie movieModel, string? collection)
+    {
+        if (string.IsNullOrEmpty(collection)) return;
+
+        var collectionModel = dataContext.Collections.SingleOrDefault(x => x.Name == collection.Trim());
+        if (collectionModel == null)
+        {
+            collectionModel = new Collection
+            {
+                Name = collection.Trim()
+            };
+            dataContext.Add(collectionModel);
+        }
+
+        movieModel.Collection = collectionModel;
+    }
+
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // DI-injected configuration; nullable-column read preserving the pre-DEV-360 contract (DEV-360 FR-004)
+    private void PublishEnrichment(Movie movieModel, string? movieId)
+    {
+        var publisher = queuePublisher ?? new RabbitMqEnrichmentQueuePublisher(configuration!);
+        publisher.PublishAsync(new MovieEnrichmentMessage
+        {
+            MovieId = movieModel.Id,
+            Title = movieModel.Title!,
+            Year = movieModel.Year,
+            ImdbId = movieId
+        }).GetAwaiter().GetResult();
+    }
+    // ReSharper restore NullableWarningSuppressionIsUsed
+
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
+    public IEnumerable<string> GetMoviesByName(string query) => [.. dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => x.Title!)];
+    // ReSharper restore NullableWarningSuppressionIsUsed
+
+    public void DeleteMovie(int movieId)
+    {
+        var filme = dataContext.Movies.Find(movieId);
+        if (filme == null) return;
+        dataContext.Movies.Remove(filme);
+        dataContext.SaveChanges();
+    }
+
+    public void AddToWatchList(int movieId)
+    {
+        var movie = dataContext.Movies.Find(movieId);
+        if (movie == null) return;
+        movie.IsInWatchList = true;
+        dataContext.Update(movie);
+        dataContext.SaveChanges();
+    }
+
+    public void RemoveFromWatchList(int movieId)
+    {
+        var movie = dataContext.Movies.Find(movieId);
+        if (movie == null) return;
+        movie.IsInWatchList = false;
+        dataContext.Update(movie);
+        dataContext.SaveChanges();
+    }
+
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
+    public PagedListing<MoviesListViewModel> GetWatchlist(QueryParams dtParams)
+    {
+        var result = new QueryableResult<Movie>();
+
+        var query = dataContext.Movies
+            .Include(x => x.Actors)
+            .ThenInclude(x => x.Actor)
+            .Include(x => x.Directors)
+            .ThenInclude(x => x.Director)
+            .Include(x => x.Genres)
+            .ThenInclude(x => x.Genre)
+            .Include(x => x.Collection)
+            .Where(x => x.IsInWatchList)
+            .OrderBy(x => x.Title)
+            .AsNoTracking();
+
+        query = query.DynamicSort(dtParams.Filter, dtParams.SortBy, dtParams.SortOrder);
+
+        // Paging
+        result.TotalRecords = query.Count();
+
+        result.Query = query.Skip(dtParams.PageSize * (dtParams.Page - 1)).Take(dtParams.PageSize);
+
+        var listResult = result.Query.Select(m =>
+            new MoviesListViewModel
+            {
+                Id = m.Id,
+                Title = m.Title!,
+                Duration = m.Duration,
+                Imdb = m.ImdbRating,
+                MetaScore = m.MetaScore,
+                RottenTomatoes = m.RottenTomatoes,
+                Year = m.Year,
+                Poster = m.Poster ?? string.Empty,
+                IsInWatchList = m.IsInWatchList
+            }).ToList();
+
+        return new PagedListing<MoviesListViewModel>(listResult, result.TotalRecords, dtParams.Page, dtParams.PageSize);
+    }
+    // ReSharper restore NullableWarningSuppressionIsUsed
+
+    // ReSharper disable NullableWarningSuppressionIsUsed
+    // nullable-column read; ! preserves the pre-DEV-360 contract (DEV-360 FR-004)
+    public IEnumerable<MoviesListViewModel> QuickSearch(string query) => [.. dataContext.Movies.Where(x => x.Title!.Contains(query)).Select(x => new MoviesListViewModel { Id = x.Id, Title = x.Title!, Poster = x.Poster ?? string.Empty })];
+    // ReSharper restore NullableWarningSuppressionIsUsed
 }

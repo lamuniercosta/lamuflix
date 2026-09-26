@@ -9,180 +9,173 @@ using LamuFlix.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
-namespace LamuFlix.Web.Controllers
+namespace LamuFlix.Web.Controllers;
+
+public class MoviesController(IMovieService movieService, TimeProvider? timeProvider = null)
+    : Controller
 {
-    public class MoviesController : Controller
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
+    public async Task<IActionResult> Index([FromQuery] MoviesFilterViewModel filter, QueryParams parms)
     {
-        private readonly IMovieService MovieService;
-        private readonly TimeProvider _timeProvider;
+        ViewBag.Year = new SelectList(Enumerable.Range(1900, (_timeProvider.GetUtcNow().Year - 1899)).OrderByDescending(x => x).Select(x => new SelectListItem { Value = x.ToString(), Text = x.ToString() }), "Text", "Value", filter.Year);
+        ViewBag.DirectorId = new SelectList(movieService.GetDirectors(), "Id", "Name", filter.DirectorId);
+        ViewBag.CollectionId = new SelectList(movieService.GetCollections(), "Id", "Name", filter.CollectionId);
+        ViewBag.GenreIds = new MultiSelectList(movieService.GetGenres(), "Id", "Name", filter.GenreIds);
+        ViewBag.ActorIds = new MultiSelectList(movieService.GetActors(), "Id", "Name", filter.ActorIds);
 
-        public MoviesController(IMovieService movieService, TimeProvider? timeProvider = null)
+        parms.Filter = filter;
+
+        if (!string.IsNullOrEmpty(parms.SortBy))
         {
-            MovieService = movieService;
-            _timeProvider = timeProvider ?? TimeProvider.System;
-        }
-
-        public async Task<IActionResult> Index([FromQuery] MoviesFilterViewModel filter, QueryParams parms)
-        {
-            ViewBag.Year = new SelectList(Enumerable.Range(1900, (_timeProvider.GetUtcNow().Year - 1899)).OrderByDescending(x => x).Select(x => new SelectListItem { Value = x.ToString(), Text = x.ToString() }), "Text", "Value", filter.Year);
-            ViewBag.DirectorId = new SelectList(MovieService.GetDirectors(), "Id", "Name", filter.DirectorId);
-            ViewBag.CollectionId = new SelectList(MovieService.GetCollections(), "Id", "Name", filter.CollectionId);
-            ViewBag.GenreIds = new MultiSelectList(MovieService.GetGenres(), "Id", "Name", filter.GenreIds);
-            ViewBag.ActorIds = new MultiSelectList(MovieService.GetActors(), "Id", "Name", filter.ActorIds);
-
-            parms.Filter = filter;
-
-            if (!String.IsNullOrEmpty(parms.SortBy))
+            if (!string.IsNullOrEmpty(parms.SortOrder) && parms.SortOrder.Contains(GeneralConstants.Descending))
             {
-                if (!String.IsNullOrEmpty(parms.SortOrder) && parms.SortOrder.Contains(GeneralConstants.Descending))
-                {
-                    ViewData["SortOrder"] = "";
-                }
-                else
-                {
-                    ViewData["SortOrder"] = GeneralConstants.Descending;
-                }
+                ViewData["SortOrder"] = "";
             }
             else
             {
-                parms.SortBy = GeneralConstants.Id;
-                parms.SortOrder = GeneralConstants.Descending;
+                ViewData["SortOrder"] = GeneralConstants.Descending;
             }
-
-            var model = await MovieService.GetMoviesListAsync(parms);
-
-            ViewData["CurrentFilter"] = parms.Filter;
-            ViewData["CurrentSort"] = parms.SortBy;
-            ViewData["CurrentSortOrder"] = parms.SortOrder;
-
-            return View(model);
+        }
+        else
+        {
+            parms.SortBy = GeneralConstants.Id;
+            parms.SortOrder = GeneralConstants.Descending;
         }
 
-        public async Task<IActionResult> Details(int id)
+        var model = await movieService.GetMoviesListAsync(parms);
+
+        ViewData["CurrentFilter"] = parms.Filter;
+        ViewData["CurrentSort"] = parms.SortBy;
+        ViewData["CurrentSortOrder"] = parms.SortOrder;
+
+        return View(model);
+    }
+
+    public async Task<IActionResult> Details(int id)
+    {
+        var model = await movieService.GetMovieDetails(id);
+
+        if (null == model)
+            return NotFound();
+
+        return View(model);
+    }
+
+    public IActionResult PlayMovie(int id)
+    {
+        try
         {
-            var model = await MovieService.GetMovieDetails(id);
-
-            if (null == model)
-                return NotFound();
-
-            return View(model);
+            movieService.PlayMovie(id);
         }
-
-        public IActionResult PlayMovie(int id)
+        catch (Exception ex)
         {
-            try
+            return BadRequest(ex.Message);
+        }
+        return Ok();
+    }
+
+    public IActionResult ImportMovieFolder()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    public IActionResult ImportMovieFolder(ImportMovieFolderViewModel model)
+    {
+        try
+        {
+            if (!(string.IsNullOrEmpty(model.Movie)) || !(string.IsNullOrEmpty(model.CollectionName)) || !(string.IsNullOrEmpty(model.CollectionName)))
             {
-                MovieService.PlayMovie(id);
+                movieService.ImportMovieFolder(model);
+                ViewBag.alerts = new AlertModel { Type = GeneralConstants.Success, Text = "Registro inserido com sucesso" };
+                ModelState.Clear();
+                return View();
             }
-            catch (Exception ex)
+            else
             {
-                return BadRequest(ex.Message);
+                ViewBag.alerts = new AlertModel { Type = GeneralConstants.Error, Text = "Pelo menos um dos campos precisa ser preenchido" };
             }
+        }
+        catch (Exception ex)
+        {
+            ViewBag.alerts = new AlertModel { Type = GeneralConstants.Error, Text = ex.Message };
+        }
+        return View(model);
+    }
+
+    public IActionResult GetMoviesJson(string query) => Json(new { movies = movieService.GetMoviesByName(query) });
+
+    public IActionResult QuickSearch(string query) => Json(new { movies = movieService.QuickSearch(query) });
+
+    [HttpPost]
+    public IActionResult DeleteMovie(int id)
+    {
+        try
+        {
+            movieService.DeleteMovie(id);
             return Ok();
         }
-
-        public IActionResult ImportMovieFolder()
+        catch (Exception ex)
         {
-            return View();
+            return BadRequest(ex.Message);
         }
+    }
 
-        [HttpPost]
-        public IActionResult ImportMovieFolder(ImportMovieFolderViewModel model)
+    [HttpPost]
+    public IActionResult AddToWatchList(int id)
+    {
+        try
         {
-            try
-            {
-                if (!(String.IsNullOrEmpty(model.Movie)) || !(String.IsNullOrEmpty(model.CollectionName)) || !(String.IsNullOrEmpty(model.CollectionName)))
-                {
-                    MovieService.ImportMovieFolder(model);
-                    ViewBag.alerts = new AlertModel { Type = GeneralConstants.SUCCESS, Text = "Registro inserido com sucesso" };
-                    ModelState.Clear();
-                    return View();
-                }
-                else
-                {
-                    ViewBag.alerts = new AlertModel { Type = GeneralConstants.ERROR, Text = "Pelo menos um dos campos precisa ser preenchido" };
-                }
-            }
-            catch (Exception ex)
-            {
-                ViewBag.alerts = new AlertModel { Type = GeneralConstants.ERROR, Text = ex.Message };
-            }
-            return View(model);
+            movieService.AddToWatchList(id);
+            return Ok();
         }
-
-        public IActionResult GetMoviesJson(string query) => Json(new { movies = MovieService.GetMoviesByName(query) });
-
-        public IActionResult QuickSearch(string query) => Json(new { movies = MovieService.QuickSearch(query) });
-
-        [HttpPost]
-        public IActionResult DeleteMovie(int id)
+        catch (Exception ex)
         {
-            try
-            {
-                MovieService.DeleteMovie(id);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            return BadRequest(ex.Message);
         }
+    }
 
-        [HttpPost]
-        public IActionResult AddToWatchList(int id)
+    [HttpPost]
+    public IActionResult RemoveFromWatchList(int id)
+    {
+        try
         {
-            try
-            {
-                MovieService.AddToWatchList(id);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            movieService.RemoveFromWatchList(id);
+            return Ok();
         }
-
-        [HttpPost]
-        public IActionResult RemoveFromWatchList(int id)
+        catch (Exception ex)
         {
-            try
-            {
-                MovieService.RemoveFromWatchList(id);
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            return BadRequest(ex.Message);
         }
+    }
 
-        [Route("/Watchlist/")]
-        public IActionResult Watchlist(QueryParams parms)
+    [Route("/Watchlist/")]
+    public IActionResult Watchlist(QueryParams parms)
+    {
+        if (!string.IsNullOrEmpty(parms.SortBy))
         {
-            if (!String.IsNullOrEmpty(parms.SortBy))
+            if (!string.IsNullOrEmpty(parms.SortOrder) && parms.SortOrder.Contains(GeneralConstants.Descending))
             {
-                if (!String.IsNullOrEmpty(parms.SortOrder) && parms.SortOrder.Contains(GeneralConstants.Descending))
-                {
-                    ViewData["SortOrder"] = "";
-                }
-                else
-                {
-                    ViewData["SortOrder"] = GeneralConstants.Descending;
-                }
+                ViewData["SortOrder"] = "";
             }
             else
             {
-                parms.SortBy = GeneralConstants.Id;
-                parms.SortOrder = GeneralConstants.Descending;
+                ViewData["SortOrder"] = GeneralConstants.Descending;
             }
-
-            var model = MovieService.GetWatchlist(parms);
-
-            ViewData["CurrentFilter"] = parms.Filter;
-            ViewData["CurrentSort"] = parms.SortBy;
-            ViewData["CurrentSortOrder"] = parms.SortOrder;
-
-            return View(model);
         }
+        else
+        {
+            parms.SortBy = GeneralConstants.Id;
+            parms.SortOrder = GeneralConstants.Descending;
+        }
+
+        var model = movieService.GetWatchlist(parms);
+
+        ViewData["CurrentFilter"] = parms.Filter;
+        ViewData["CurrentSort"] = parms.SortBy;
+        ViewData["CurrentSortOrder"] = parms.SortOrder;
+
+        return View(model);
     }
 }
