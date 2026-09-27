@@ -1,7 +1,16 @@
 {
   "stryker-config": {
     "mutation-level": "Standard",
+    "project": "LamuFlix.Core.csproj",
+    "test-projects": [
+      "tests/LamuFlix.Test/LamuFlix.Test.csproj"
+    ],
+    "mutate": [
+      "**/EnrichmentFailureCategory.cs",
+      "**/EnrichmentFailureClassifier.cs"
+    ],
     "since": {
+      "enabled": false,
       "target": "main"
     },
     "thresholds": {
