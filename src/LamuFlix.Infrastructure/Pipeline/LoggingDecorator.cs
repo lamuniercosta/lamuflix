@@ -19,20 +19,21 @@ public sealed class LoggingDecorator<TReq, TRes>(
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         var started = timeProvider.GetTimestamp();
+        var requestType = typeof(TReq).Name;
         try
         {
             var result = await inner(request, cancellationToken);
-            HandlerLog.Completed(logger, typeof(TReq).Name, Elapsed(started));
+            HandlerLog.Completed(logger, requestType, Elapsed(started));
             return result;
         }
         catch (ValidationException)
         {
-            HandlerLog.ValidationFailed(logger, typeof(TReq).Name, Elapsed(started));
+            HandlerLog.ValidationFailed(logger, requestType, Elapsed(started));
             throw;
         }
         catch (Exception exception)
         {
-            HandlerLog.Failed(logger, exception, typeof(TReq).Name, Elapsed(started));
+            HandlerLog.Failed(logger, exception, requestType, Elapsed(started));
             throw;
         }
     }
