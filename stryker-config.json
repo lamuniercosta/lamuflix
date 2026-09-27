@@ -2,7 +2,7 @@
   "stryker-config": {
     "mutation-level": "Standard",
     "since": {
-      "target": "main"
+      "target": "origin/main"
     },
     "thresholds": {
       "high": 90,
