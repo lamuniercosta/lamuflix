@@ -25,6 +25,15 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
         }
 
         httpContext.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+        return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = httpContext,
+            ProblemDetails = CreateProblem(httpContext, validationException),
+        });
+    }
+
+    private static ProblemDetails CreateProblem(HttpContext httpContext, ValidationException validationException)
+    {
         var problem = new ProblemDetails
         {
             Status = StatusCodes.Status422UnprocessableEntity,
@@ -33,11 +42,6 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
         };
         problem.Extensions["traceId"] = httpContext.TraceIdentifier;
         problem.Extensions["errors"] = validationException.Errors;
-
-        return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = httpContext,
-            ProblemDetails = problem,
-        });
+        return problem;
     }
 }

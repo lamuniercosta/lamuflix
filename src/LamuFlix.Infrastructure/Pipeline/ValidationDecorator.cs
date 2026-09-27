@@ -18,6 +18,19 @@ public sealed class ValidationDecorator<TReq, TRes>(
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentNullException.ThrowIfNull(validators);
 
+        var failures = await CollectFailures(request, cancellationToken);
+        if (failures.Count > 0)
+        {
+            throw new Core.Pipeline.ValidationException(ToReadOnly(failures));
+        }
+
+        return await inner(request, cancellationToken);
+    }
+
+    private async Task<Dictionary<string, List<string>>> CollectFailures(
+        TReq request,
+        CancellationToken cancellationToken)
+    {
         var failures = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var validator in validators)
         {
@@ -28,12 +41,7 @@ public sealed class ValidationDecorator<TReq, TRes>(
             }
         }
 
-        if (failures.Count > 0)
-        {
-            throw new Core.Pipeline.ValidationException(ToReadOnly(failures));
-        }
-
-        return await inner(request, cancellationToken);
+        return failures;
     }
 
     private static void AddFailure(Dictionary<string, List<string>> failures, string propertyName, string message)

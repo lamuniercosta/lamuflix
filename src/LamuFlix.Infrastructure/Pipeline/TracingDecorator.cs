@@ -18,8 +18,9 @@ public sealed class TracingDecorator<TReq, TRes>(
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentNullException.ThrowIfNull(activitySource);
 
-        using var activity = activitySource.StartActivity(typeof(TReq).Name);
-        activity?.SetTag(TelemetryConstants.HandlerRequest, typeof(TReq).Name);
+        var requestType = typeof(TReq).Name;
+        using var activity = activitySource.StartActivity(requestType);
+        activity?.SetTag(TelemetryConstants.HandlerRequest, requestType);
         try
         {
             return await inner(request, cancellationToken);
