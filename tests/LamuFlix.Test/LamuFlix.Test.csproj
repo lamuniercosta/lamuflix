@@ -13,6 +13,7 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="Shouldly" />
+    <PackageReference Include="FsCheck.Xunit.v3" />
     <PackageReference Include="RabbitMQ.Client" />
   </ItemGroup>
 
@@ -21,6 +22,7 @@
     <ProjectReference Include="..\LamuFlix.Tests.Common\LamuFlix.Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Web\LamuFlix.Web.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Worker\LamuFlix.Worker.csproj" />
+    <ProjectReference Include="..\..\src\LamuFlix.Core\LamuFlix.Core.csproj" />
   </ItemGroup>
 
 </Project>
