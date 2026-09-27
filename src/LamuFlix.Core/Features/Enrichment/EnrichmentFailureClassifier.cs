@@ -14,16 +14,7 @@ public static class EnrichmentFailureClassifier
     public static EnrichmentFailureCategory Classify(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
-        foreach (var node in Flatten(exception))
-        {
-            var category = MapNode(node);
-            if (category is not null)
-            {
-                return category;
-            }
-        }
-
-        return EnrichmentFailureCategory.Unknown;
+        return FindFirstCategory(exception) ?? EnrichmentFailureCategory.Unknown;
     }
 
     private static EnrichmentFailureCategory? MapNode(Exception node)
@@ -113,10 +104,9 @@ public static class EnrichmentFailureClassifier
         return null;
     }
 
-    private static List<Exception> Flatten(Exception root)
+    private static EnrichmentFailureCategory? FindFirstCategory(Exception root)
     {
         var visited = new HashSet<Exception>(ReferenceEqualityComparer.Instance);
-        var order = new List<Exception>();
         var pending = new Stack<Exception>();
         pending.Push(root);
         while (pending.Count > 0)
@@ -127,11 +117,16 @@ public static class EnrichmentFailureClassifier
                 continue;
             }
 
-            order.Add(node);
+            var category = MapNode(node);
+            if (category is not null)
+            {
+                return category;
+            }
+
             PushChildren(pending, node);
         }
 
-        return order;
+        return null;
     }
 
     private static void PushChildren(Stack<Exception> pending, Exception node)
