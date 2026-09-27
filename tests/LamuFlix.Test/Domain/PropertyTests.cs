@@ -399,8 +399,22 @@ public sealed class PropertyTests
             movie.AddToWatchlist();
         }
 
-        var status = movie.Status;
-        var attempts = movie.EnrichmentAttempts;
+        var before = Take(movie);
+        if (!TryWatchlist(movie, add, out var rejected))
+        {
+            return false;
+        }
+
+        if (rejected)
+        {
+            return !legal && SameHistory(movie, before);
+        }
+
+        return legal && WatchlistFlipped(movie, before);
+    }
+
+    private static bool TryWatchlist(Movie movie, bool add, out bool rejected)
+    {
         try
         {
             if (add)
@@ -412,24 +426,27 @@ public sealed class PropertyTests
                 movie.RemoveFromWatchlist();
             }
 
-            if (!legal)
-            {
-                return false;
-            }
+            rejected = false;
+            return true;
         }
         catch (InvalidTransitionException)
         {
-            return !legal && movie.IsInWatchlist == startInWatchlist && movie.Status == status && movie.EnrichmentAttempts == attempts;
+            rejected = true;
+            return true;
         }
         catch (Exception)
         {
+            rejected = false;
             return false;
         }
-
-        return movie.IsInWatchlist == !startInWatchlist
-            && movie.Status == status
-            && movie.EnrichmentAttempts == attempts;
     }
+
+    private static bool WatchlistFlipped(Movie movie, Taken before) =>
+        movie.IsInWatchlist == !before.InWatchlist
+        && movie.Status == before.Status
+        && movie.EnrichmentAttempts == before.Attempts
+        && movie.LastAttemptAt == before.LastAttemptAt
+        && KeptHistory(movie, before);
 
     private static Movie MovieIn(EnrichmentStatus status, string title)
     {
