@@ -91,8 +91,8 @@ public class EnrichmentFailureCategoryPropertyTests
                 }
             });
 
-    private static FsCheck.Gen<Exception> ExceptionSamples() =>
-        FsCheck.Fluent.Gen.Elements<Exception>(
+    private static Gen<Exception> ExceptionSamples() =>
+        Gen.Elements<Exception>(
             new HttpRequestException("status", null, HttpStatusCode.TooManyRequests),
             new HttpRequestException("status", null, HttpStatusCode.InternalServerError),
             new HttpRequestException("status", null, (HttpStatusCode)408),
