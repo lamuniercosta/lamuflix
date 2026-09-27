@@ -36,4 +36,11 @@ public sealed record MovieMetadata
     public ImdbRating? ImdbRating { get; }
 
     public ImdbId? ImdbId { get; }
+
+    public bool Equals(MovieMetadata? other) => other is not null && State() == other.State();
+
+    public override int GetHashCode() => State().GetHashCode();
+
+    private (string Title, string? Synopsis, ReleaseYear? ReleaseYear, Runtime? Runtime, ImdbRating? ImdbRating, ImdbId? ImdbId) State() =>
+        (Title, Synopsis, ReleaseYear, Runtime, ImdbRating, ImdbId);
 }

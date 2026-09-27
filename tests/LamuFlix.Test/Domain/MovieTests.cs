@@ -278,7 +278,26 @@ public sealed class MovieTests
         DateTimeOffset? EnrichedAt,
         int EnrichmentAttempts,
         EnrichmentFailureCategory? LastFailureCategory,
-        DateTimeOffset? LastAttemptAt);
+        DateTimeOffset? LastAttemptAt)
+    {
+        public bool Equals(Snapshot? other) => other is not null && State() == other.State();
+
+        public override int GetHashCode() => State().GetHashCode();
+
+        private (
+            MovieId Id,
+            string Title,
+            LibraryPath Path,
+            MediaFormat Format,
+            bool IsInWatchlist,
+            MovieMetadata? Metadata,
+            EnrichmentStatus Status,
+            DateTimeOffset? EnrichedAt,
+            int EnrichmentAttempts,
+            EnrichmentFailureCategory? LastFailureCategory,
+            DateTimeOffset? LastAttemptAt) State() =>
+            (Id, Title, Path, Format, IsInWatchlist, Metadata, Status, EnrichedAt, EnrichmentAttempts, LastFailureCategory, LastAttemptAt);
+    }
 
     public enum EnrichmentAction
     {
