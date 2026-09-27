@@ -8,4 +8,10 @@
     <ProjectReference Include="..\LamuFlix.Core\LamuFlix.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" VersionOverride="10.0.1" />
+  </ItemGroup>
+
 </Project>

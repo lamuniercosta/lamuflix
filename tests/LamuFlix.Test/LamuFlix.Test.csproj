@@ -24,6 +24,10 @@
     <ProjectReference Include="..\..\src\LamuFlix.Web\LamuFlix.Web.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Worker\LamuFlix.Worker.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Core\LamuFlix.Core.csproj" />
+    <ProjectReference Include="..\..\src\LamuFlix.Infrastructure\LamuFlix.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\LamuFlix.Api\LamuFlix.Api.csproj">
+      <Aliases>api</Aliases>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>
