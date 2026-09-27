@@ -50,29 +50,23 @@ public sealed class Movie
 
     public void MarkEnriched(MovieMetadata metadata, DateTimeOffset now)
     {
-        RequirePending(nameof(MarkEnriched));
-        EnrichmentAttempts++;
+        BeginPendingAttempt(nameof(MarkEnriched), now);
         EnrichedAt = now;
         Metadata = metadata;
-        LastAttemptAt = now;
         LastFailureCategory = null;
         Status = EnrichmentStatus.Enriched;
     }
 
     public void MarkNotFound(DateTimeOffset now)
     {
-        RequirePending(nameof(MarkNotFound));
-        EnrichmentAttempts++;
-        LastAttemptAt = now;
+        BeginPendingAttempt(nameof(MarkNotFound), now);
         Status = EnrichmentStatus.NotFound;
     }
 
     public void MarkFailed(EnrichmentFailureCategory category, DateTimeOffset now)
     {
-        RequirePending(nameof(MarkFailed));
-        EnrichmentAttempts++;
+        BeginPendingAttempt(nameof(MarkFailed), now);
         LastFailureCategory = category;
-        LastAttemptAt = now;
         Status = EnrichmentStatus.Failed;
     }
 
@@ -100,6 +94,13 @@ public sealed class Movie
         }
 
         IsInWatchlist = false;
+    }
+
+    private void BeginPendingAttempt(string action, DateTimeOffset now)
+    {
+        RequirePending(action);
+        EnrichmentAttempts++;
+        LastAttemptAt = now;
     }
 
     private void RequirePending(string action)

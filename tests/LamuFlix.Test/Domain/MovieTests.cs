@@ -116,27 +116,8 @@ public sealed class MovieTests
     [Fact]
     public void RequestEnrichment_KeepsAttemptHistory()
     {
-        var failed = InStatus(EnrichmentStatus.Failed);
-        var failedBefore = Capture(failed);
-        failed.RequestEnrichment();
-        var failedAfter = Capture(failed);
-        failedAfter.Status.ShouldBe(EnrichmentStatus.Pending);
-        failedAfter.EnrichmentAttempts.ShouldBe(failedBefore.EnrichmentAttempts);
-        failedAfter.EnrichedAt.ShouldBe(failedBefore.EnrichedAt);
-        failedAfter.Metadata.ShouldBe(failedBefore.Metadata);
-        failedAfter.LastFailureCategory.ShouldBe(failedBefore.LastFailureCategory);
-        failedAfter.LastAttemptAt.ShouldBe(failedBefore.LastAttemptAt);
-
-        var enriched = InStatus(EnrichmentStatus.Enriched);
-        var enrichedBefore = Capture(enriched);
-        enriched.RequestEnrichment();
-        var enrichedAfter = Capture(enriched);
-        enrichedAfter.Status.ShouldBe(EnrichmentStatus.Pending);
-        enrichedAfter.EnrichmentAttempts.ShouldBe(enrichedBefore.EnrichmentAttempts);
-        enrichedAfter.EnrichedAt.ShouldBe(enrichedBefore.EnrichedAt);
-        enrichedAfter.Metadata.ShouldBe(enrichedBefore.Metadata);
-        enrichedAfter.LastFailureCategory.ShouldBe(enrichedBefore.LastFailureCategory);
-        enrichedAfter.LastAttemptAt.ShouldBe(enrichedBefore.LastAttemptAt);
+        AssertRequestKeepsHistory(InStatus(EnrichmentStatus.Failed));
+        AssertRequestKeepsHistory(InStatus(EnrichmentStatus.Enriched));
     }
 
     [Fact]
@@ -171,6 +152,19 @@ public sealed class MovieTests
         enriched.EnrichedAt.ShouldBe(ActedAt);
         enriched.Metadata.ShouldBe(ActMetadata);
         enriched.LastAttemptAt.ShouldBe(ActedAt);
+    }
+
+    private static void AssertRequestKeepsHistory(Movie movie)
+    {
+        var before = Capture(movie);
+        movie.RequestEnrichment();
+        var after = Capture(movie);
+        after.Status.ShouldBe(EnrichmentStatus.Pending);
+        after.EnrichmentAttempts.ShouldBe(before.EnrichmentAttempts);
+        after.EnrichedAt.ShouldBe(before.EnrichedAt);
+        after.Metadata.ShouldBe(before.Metadata);
+        after.LastFailureCategory.ShouldBe(before.LastFailureCategory);
+        after.LastAttemptAt.ShouldBe(before.LastAttemptAt);
     }
 
     private static bool IsLegal(EnrichmentStatus status, EnrichmentAction action) =>
