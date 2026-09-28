@@ -172,26 +172,8 @@ public sealed class MovieTests
             ? status != EnrichmentStatus.Pending
             : status == EnrichmentStatus.Pending;
 
-    private static Movie InStatus(EnrichmentStatus status)
-    {
-        var movie = Movie.Create(new MovieId(7), "Seven", new LibraryPath(@"C:\lib\a.mkv"), new MediaFormat("mkv"));
-        switch (status)
-        {
-            case EnrichmentStatus.Pending:
-                return movie;
-            case EnrichmentStatus.Enriched:
-                movie.MarkEnriched(SeedMetadata, ArrivedAt);
-                return movie;
-            case EnrichmentStatus.NotFound:
-                movie.MarkNotFound(ArrivedAt);
-                return movie;
-            case EnrichmentStatus.Failed:
-                movie.MarkFailed(EnrichmentFailureCategory.RateLimited, ArrivedAt);
-                return movie;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown enrichment status.");
-        }
-    }
+    private static Movie InStatus(EnrichmentStatus status) =>
+        MovieFixture.CreateInStatus(status, 7, "Seven", ArrivedAt);
 
     private static void Act(Movie movie, EnrichmentAction action)
     {
