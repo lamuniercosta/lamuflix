@@ -140,7 +140,7 @@ Every file lives in `src/LamuFlix.Core/Domain/`, one type per file, flat, in nam
 
 ## Follow-ups (Patron decides; Rigger records; filing is not a plan change)
 
-1. Persistence, rehydration, and adoption of the aggregate: EF mapping or migration, and wiring `EnrichmentJobProcessor` and `MovieService`. Parent DEV-282, estimate 5, `size:L` (Q2).
+1. Persistence, rehydration, and adoption of the aggregate: EF mapping or migration, and wiring `EnrichmentJobProcessor` and `MovieService`. Append LibraryPath root-path concern (#3 Sentry P3, Low, PLAUSIBLE) and concrete `Movies..2025` scenario. Parent DEV-282, estimate 5, `size:L` (Q2; cite DEV-294:1257 and findings-DEV-294-Sentry:91-94).
 2. Map `InvalidTransitionException` to HTTP 409 at the API boundary (Q8). This follow-up also carries the constitution PR-gate line "new exception types are mapped in the single IExceptionHandler" (D6).
 3. ~~If Q10(b) is answered NO: how the property-tests gate is satisfied.~~ **Deleted by D11:** the owner answered YES.
 
@@ -179,6 +179,25 @@ Source: Keel's read-only `/speckit-analyze` (DEV-294 note:35-160) and recon-DEV-
   - plan.md and tasks.md use the repo invocation as-is: `dotnet stryker` from the repo root with the unchanged `stryker-config.json`. Do not add CLI project flags and do not edit the config (it is an unnamed file, §2.3 #6);
   - the Phase B evidence is the Stryker report, whose mutated-file list must contain only `src/LamuFlix.Core/Domain/*.cs`, with a score of at least 80;
   - **stop condition:** if the report mutates files outside `src/LamuFlix.Core/Domain/`, does not cover the Core domain files, or Stryker cannot run solution-wide, stop and report to Keel. Do not add flags or edit config to work around it.
+- **D7a (amends D7; Patron ruling CONCLUSIONS.md:172-178, DEV-294 note :1181-1184; cause DEV-294:1166-1179, recon-DEV-294:82-97).** The D7 invocation cannot measure DEV-294, because dotnet-stryker 4.16.0 `since` resolves a linked worktree to the main checkout. D7a supersedes D7's invocation and its "no flags / no config" line. D7's evidence bar and stop condition stay as they are, tightened as set out below. Architect stays FAIL until this run passes. Frozen invocation, in pwsh 7, run once:
+  ```powershell
+  Set-Location F:\Dev\LamuFlix.worktrees\DEV-294
+  if ((git branch --show-current) -ne 'feature/DEV-294') { throw 'wrong branch' }
+  $cfg = Join-Path $env:TEMP 'DEV-294-stryker-config.json'
+  $json = '{"stryker-config":{"mutation-level":"Standard","since":{"enabled":false},"mutate":["Domain/EnrichmentStatus.cs","Domain/ImdbId.cs","Domain/ImdbRating.cs","Domain/InvalidTransitionException.cs","Domain/LibraryPath.cs","Domain/MediaFormat.cs","Domain/Movie.cs","Domain/MovieId.cs","Domain/MovieMetadata.cs","Domain/ReleaseYear.cs","Domain/Runtime.cs"],"thresholds":{"high":90,"low":80,"break":80},"reporters":["progress","html","json"]}}'
+  Set-Content -Path $cfg -Value $json -Encoding utf8NoBOM
+  Get-FileHash $cfg -Algorithm SHA256
+  dotnet stryker -f $cfg -p LamuFlix.Core.csproj
+  $LASTEXITCODE
+  ```
+  - The JSON above (single-quoted, one line, so there is no here-string indentation hazard) is the tracked `stryker-config.json` read at HEAD 0a321517, with `mutation-level`, `thresholds` (90/80/80) and `reporters` copied verbatim, `since` replaced by `{ "enabled": false }`, and `mutate` added. Before writing the temp file, the runner confirms `git diff 0a321517 -- stryker-config.json` is empty. If it is not, stop and report to Keel.
+  - The 11 globs are exactly `git diff --name-only origin/main -- src/LamuFlix.Core/Domain/*.cs` at 0a321517 (read-only check by Keel, 2026-09-27), written relative to the Core project as Patron ruled.
+  - **Receipt must include:** the temp config path and its SHA256, the branch, HEAD, the native exit code, the StrykerOutput report path, the per-file mutated list, the tested/killed/survived counts, and the score.
+  - **PASS bar (all required):** native exit 0; at least one tested mutant; every mutated file among those 11 paths, with Core Domain covered; score >= 80.
+  - **Stop condition:** 0 tested mutants, no score, any other mutated path, a non-zero exit, or an invocation that cannot run means FAIL and a return to Keel. No retry, no change to globs or scope, and no other flag without a new Patron ruling.
+  - **Forbidden:** editing tracked `stryker-config.json` or `harness.yml`, any action on or from the main checkout, a ref move, a rebase, or a code change. The temp file is disposable and lives outside the repo. The worktree `StrykerOutput/` output is the evidence, as in the earlier run (:1083).
+  - No §2.3 (a)/(b) item, so no owner checkbox (Patron CONCLUSIONS.md:178).
+  - **Outcome (Keel, DEV-294:1205-1214): PASS** on HEAD 0a321517. Exit 0, 119 tested, 119 killed, score 100%. A "mutated file" is a report entry with at least one mutant. Zero-mutant entries (every project file is listed) are not mutated paths.
 - **D8 (Sentry S4, Patron R1).** ImdbRating is valid iff 0.0m <= v <= 10.0m and v == decimal.Round(v, 1). The check is on the numeric value, not the decimal scale. So 5.50m and 10.00m are valid, and 5.55m and 10.05m are invalid. The supplied value is kept as is: no normalizing, no rounding. The tests add the four named examples, and the FsCheck property uses the same predicate. Supersedes the reading of brief:56.
 - **D9 (Compass C4 / Sentry S1, Patron R2).** Add only the base `FsCheck` package: one PackageVersion in Directory.Packages.props and one PackageReference in tests/LamuFlix.Test/LamuFlix.Test.csproj. Pin a stable version compatible with net10.0, chosen and recorded in the commit at Phase B. FsCheck.Xunit.v3 is not authorized. Properties are plain xUnit v3 `[Fact]` methods in tests/LamuFlix.Test/Domain/PropertyTests.cs. Each is tagged `[Trait("Category", "Property")]` and runs FsCheck so that a failure propagates to xUnit. They cover every value-object invariant and the transition table.
 - **D10 (S1). Gate sequence becomes 10 gates.** Insert as Gate 9, after `dotnet test`: `./scripts/run-property-tests.ps1 -Project tests/LamuFlix.Test/LamuFlix.Test.csproj`. It must exit 0, and exit 2 SKIPPED is a failure. Stryker becomes Gate 10. Supersedes brief:114 and brief:76.
