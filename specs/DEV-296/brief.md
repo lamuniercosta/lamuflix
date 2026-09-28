@@ -348,3 +348,78 @@ Input: D7b above; Wisp recon `recon-DEV-296:1-36`; Anvil round-1 commit b184d52,
   - A score under 80 with other survivors goes to Anvil on the round counter. The threshold is never lowered.
 - **Forbidden:** everything D7a forbids, and committing any `DEV-296-stryker-d7c-*.json` or a run script.
 - There is no §2.3 (a)/(b) item, so no owner checkbox. This is a gate-tooling setting in disposable temp configs. The tracked config, the thresholds, and the ticket text are unchanged.
+
+## D7d — D7c corrected: console log capture, stop on pre-mutation failure (Keel, 2026-09-28)
+
+Input: D7c above; Keel D7c run adjudication (DEV-296 note :294-313); Wisp recon Q4-Q6 (DEV-296 note :315-318).
+
+- **Facts used.**
+  - Q4: Stryker's allowed `stryker-config` keys (log lines 9-15) include `coverage-analysis`, `additional-timeout`, `concurrency` and `verbosity`. `log-to-file` is not an allowed key.
+  - Q5: no other key was rejected.
+  - Q6: the log does not print the dotnet-stryker version. The tool manifest `.config/dotnet-tools.json` pins `dotnet-stryker` 4.16.0, `rollForward: false`.
+- **Ruling: the text log comes from console capture, not from Stryker.**
+  - Drop `"log-to-file":true` from the temp JSON. Keep `"verbosity":"debug"`, which is an allowed key, so the debug output goes to the console.
+  - Each invocation's console output (stdout and stderr) is teed to `$env:TEMP\dev-296-d7d-<name>.log`.
+  - Rejected option: the `-L`/`--log-to-file` CLI flag. It would break the `-f`/`-p`-only rule, and no recon has confirmed it for 4.16.0. A wrong flag would cost another cannot-run cycle. Console capture gives the same facts with no new flag.
+- **Ruling: stop on a pre-mutation failure.**
+  - Stryker exits non-zero both on a pre-mutation failure and on a score below `break` 80. So the exit code alone cannot tell them apart.
+  - Test: after each invocation, look for a `mutation-report.json` under `StrykerOutput\` written after that invocation started. If the exit code is non-zero and there is no such report, the invocation failed before mutation. Break the loop, and do not start the later invocations.
+  - A non-zero exit that has a new report is a scored run. The loop continues, as in D7a.
+- **Frozen temp-JSON settings:** D7c's settings minus `log-to-file`. Nothing else changes. Expected SHA256 values of the three temp JSONs, computed by Keel from this block in memory, with no Stryker run:
+  - Core `392F15723415411FA62D09A17EA55062AE698D2D9EA6D3FF96CCE491F5CD3943`
+  - Infrastructure `BBD48DBF615377F41FE7C88E36426BD0351CFD5C73A525AD5C04BEA9778BA19D`
+  - Api `9C3E78DC70EB716F585849E2244ADAC4A8283FBC370AD7F39570C178B1144E05`
+
+  A hash that does not match is a stop before `dotnet stryker` runs. The block throws.
+- **Unchanged from D7c:** everything in D7c "Unchanged" (:297-303). That includes CLI flags `-f` and `-p` only, the Core and Infrastructure globs, and the Api `mutate` limited to `ValidationExceptionHandler.cs`.
+- **Frozen next-run block, pwsh 7, run once. NOT AUTHORIZED.** It runs only after a separate, owner-directed Keel go note in the DEV-296 task note that cites D7d. Save it outside the repo, as `$env:TEMP\dev-296-d7d.ps1`.
+  ```powershell
+  Set-Location F:\Dev\LamuFlix.worktrees\DEV-296
+  if ((git branch --show-current) -ne 'feature/DEV-296') { throw 'wrong branch' }
+  $base = '{"mutation-level":"Standard","since":{"enabled":false},"thresholds":{"high":90,"low":80,"break":80},"reporters":["progress","html","json"],"coverage-analysis":"off","additional-timeout":60000,"concurrency":1,"verbosity":"debug",'
+  $runs = [ordered]@{
+    'LamuFlix.Core.csproj'           = '"mutate":["Pipeline/ICommandHandler.cs","Pipeline/IQueryHandler.cs","Pipeline/TelemetryConstants.cs","Pipeline/ValidationException.cs"]'
+    'LamuFlix.Infrastructure.csproj' = '"mutate":["Pipeline/HandlerLog.cs","Pipeline/LoggingDecorator.cs","Pipeline/ServiceCollectionExtensions.cs","Pipeline/TracingDecorator.cs","Pipeline/ValidationDecorator.cs"]'
+    'LamuFlix.Api.csproj'            = '"mutate":["ExceptionHandling/ValidationExceptionHandler.cs"]'
+  }
+  $expected = @{
+    'Core'           = '392F15723415411FA62D09A17EA55062AE698D2D9EA6D3FF96CCE491F5CD3943'
+    'Infrastructure' = 'BBD48DBF615377F41FE7C88E36426BD0351CFD5C73A525AD5C04BEA9778BA19D'
+    'Api'            = '9C3E78DC70EB716F585849E2244ADAC4A8283FBC370AD7F39570C178B1144E05'
+  }
+  foreach ($p in $runs.Keys) {
+    $name = $p -replace '^LamuFlix\.|\.csproj$',''
+    $cfg = Join-Path $env:TEMP "DEV-296-stryker-d7d-$name.json"
+    $log = Join-Path $env:TEMP "dev-296-d7d-$name.log"
+    Set-Content -Path $cfg -Value ('{"stryker-config":' + $base + $runs[$p] + '}}') -Encoding utf8NoBOM
+    Get-Content $cfg -Raw | ConvertFrom-Json | Out-Null
+    $hash = (Get-FileHash $cfg -Algorithm SHA256).Hash
+    "SHA256 $name = $hash"
+    if ($hash -ne $expected[$name]) { throw "STOP ${name}: config hash mismatch" }
+    $start = Get-Date
+    dotnet stryker -f $cfg -p $p 2>&1 | Tee-Object -FilePath $log
+    $exit = $LASTEXITCODE
+    $report = Get-ChildItem -Path StrykerOutput -Recurse -Filter mutation-report.json -ErrorAction SilentlyContinue |
+      Where-Object LastWriteTime -gt $start | Select-Object -First 1
+    "EXIT $p = $exit; LOG = $log; REPORT = $($report.FullName)"
+    if ($exit -ne 0 -and -not $report) { "STOP ${p}: failed before mutation; later invocations not started"; break }
+  }
+  ```
+- **Pre-run check (read-only). If any item is false, do not start; report to Keel:** every D7c item (:324-331), plus:
+  - HEAD is the commit that records D7d, or a specs-only descendant of it.
+  - `.config/dotnet-tools.json` pins `dotnet-stryker` 4.16.0, and `git diff ff2f3d2 HEAD -- .config/dotnet-tools.json` is empty.
+  - `tmp-dev-296-d7a.ps1`, `%TEMP%\dev-296-d7c.ps1`, `%TEMP%\dev-296-d7c.log` and the D7c temp JSONs are left untouched.
+- **Stop conditions:** D7c's (:332-336), now enforced as follows.
+  - Stop 1 is enforced by the block's break.
+  - A config hash mismatch is also a stop 1.
+  - Stop 2 (initial test count below the `dotnet test` count) is read from the Core log right after invocation 1. If it is found only after the run, it is still a FAIL.
+- **Receipt:** D7c's (:337-341), plus:
+  - each invocation's SHA256, exit code, log path and report path;
+  - whether the break fired.
+
+  The log excerpts come from the `dev-296-d7d-<name>.log` console captures.
+- **PASS bar:** D7c's (:342-344), with item (6) restated. The config applied `coverage-analysis` `off`: the hash matched, and Stryker accepted the keys. The receipt quotes the debug log line that shows the coverage mode if one is printed. If none is printed, the receipt says so. That absence alone is not a FAIL.
+- **Routing and forbidden actions:** as in D7c (:345-349), with `DEV-296-stryker-d7d-*.json`, `dev-296-d7d-*.log` and the run script added to the never-commit list.
+  - The architect-remediation round counter stays at 1 of 2.
+  - Another pre-mutation stop is a tooling FAIL back to Keel. No retry.
+- There is no §2.3 (a)/(b) item, so no owner checkbox. The change is a gate-tooling setting in disposable temp configs. The tracked config, the thresholds and the ticket text are unchanged.
