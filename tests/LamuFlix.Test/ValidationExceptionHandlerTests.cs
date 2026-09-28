@@ -24,10 +24,7 @@ public class ValidationExceptionHandlerTests
     {
         // arrange
         var handler = CreateHandler(out var context);
-        var exception = new ValidationException(new Dictionary<string, string[]>
-        {
-            ["Title"] = ["required"],
-        });
+        var exception = CreateValidationException();
 
         // act
         var handled = await handler.TryHandleAsync(context, exception, CancellationToken.None);
@@ -63,6 +60,49 @@ public class ValidationExceptionHandlerTests
         handled.ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task TryHandleAsync_NullHttpContext_ThrowsArgumentNullException()
+    {
+        // arrange
+        var handler = CreateHandler(out _);
+        var exception = CreateValidationException();
+
+        // act
+        var thrown = await Should.ThrowAsync<ArgumentNullException>(
+            () => handler.TryHandleAsync(null!, exception, CancellationToken.None).AsTask());
+
+        // assert
+        thrown.ParamName.ShouldBe("httpContext");
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_NullException_ThrowsArgumentNullException()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var thrown = await Should.ThrowAsync<ArgumentNullException>(
+            () => handler.TryHandleAsync(context, null!, CancellationToken.None).AsTask());
+
+        // assert
+        thrown.ParamName.ShouldBe("exception");
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_CanceledToken_ThrowsOperationCanceledException()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+        var exception = CreateValidationException();
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
+
+        // act
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => handler.TryHandleAsync(context, exception, cancellationTokenSource.Token).AsTask());
+    }
+
     private static ValidationExceptionHandler CreateHandler(out DefaultHttpContext context)
     {
         var services = new ServiceCollection();
@@ -78,6 +118,12 @@ public class ValidationExceptionHandlerTests
         context.Response.Body = new MemoryStream();
         return new ValidationExceptionHandler(provider.GetRequiredService<IProblemDetailsService>());
     }
+
+    private static ValidationException CreateValidationException() =>
+        new(new Dictionary<string, string[]>
+        {
+            ["Title"] = ["required"],
+        });
 
     private static async Task<JsonDocument> ReadBody(HttpContext context)
     {
