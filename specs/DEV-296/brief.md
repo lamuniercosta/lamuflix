@@ -276,7 +276,7 @@ Input: Anvil receipt, DEV-296 note :195-201. Verified read-only by Keel:
 
 ## D7c — Stryker tooling fix, temp JSON only (Keel, 2026-09-28)
 
-Input: D7b above; Wisp recon `recon-DEV-296:1-36`; Anvil round-1 commit b184d52 (receipt DEV-296 note :230-233).
+Input: D7b above; Wisp recon `recon-DEV-296:1-36`; Anvil round-1 commit b184d52, rebased as d186ecf (receipt DEV-296 note :230-233).
 
 - **Evidence being addressed.**
   - Infrastructure: 40 of 40 tested mutants are Timeout, with 0 Killed (recon:30).
@@ -323,10 +323,10 @@ Input: D7b above; Wisp recon `recon-DEV-296:1-36`; Anvil round-1 commit b184d52 
   ```
 - **Pre-run check (read-only). If any item is false, do not start; report to Keel:**
   - The branch is `feature/DEV-296`.
-  - b184d52 is an ancestor of HEAD.
-  - `git diff 8855b978 HEAD -- src stryker-config.json harness.yml` is empty.
-  - `git diff --name-only 8855b978 HEAD -- tests` is exactly `tests/LamuFlix.Test/ValidationExceptionHandlerTests.cs`.
-  - Every commit after b184d52 touches `specs/` only.
+  - d186ecf (round-1, rebased from b184d52) is an ancestor of HEAD. SHA map after the owner rebase onto main at 1d7efa1 (PR #44), patch-identical: 8855b978->ff2f3d2, 08b416e->01ab228, da2b62a->98cfe7e, b184d52->d186ecf.
+  - `git diff ff2f3d2 HEAD -- src stryker-config.json harness.yml` is empty (verified by Keel at 0bcc83a+amendment). The tracked `stryker-config.json` differs from pre-rebase 8855b978 only by main's PR #44 removal of `since`; that is irrelevant, because the temp JSON sets `since` disabled literally.
+  - `git diff --name-only ff2f3d2 HEAD -- tests` is exactly `tests/LamuFlix.Test/ValidationExceptionHandlerTests.cs`.
+  - Every commit after d186ecf touches `specs/` only.
   - Docker is running (`docker info` exits 0).
   - The known working-tree items stay untouched, as in D7a, plus `tmp-dev-296-d7a.ps1`.
 - **Stop conditions. Stop the whole run, and do not start the later invocations or retry:**
