@@ -273,3 +273,78 @@ Input: Anvil receipt, DEV-296 note :195-201. Verified read-only by Keel:
   After that, it is one run of the D7a shape on the new HEAD. Its pre-run check becomes: `git diff 8855b978 HEAD -- src stryker-config.json harness.yml` is empty, and `tests` differ only by Anvil's round-1 commit(s). The PASS/FAIL bar at :230-235 stands, tightened by one item: an invocation whose tested mutants are all Timeout, with 0 Killed, is a FAIL.
 - **Hygiene:** `tmp-dev-296-d7a.ps1` (untracked, Anvil's run script) must not be committed. Its disposal joins the Patron and Rigger cleanup route with `DEV-296-phase3-stryker-report.txt`.
 - No §2.3 (a)/(b) item, so no owner checkbox. D7b narrows a gate glob inside the constitution's Core-only mutation scope, and changes no ticket text.
+
+## D7c — Stryker tooling fix, temp JSON only (Keel, 2026-09-28)
+
+Input: D7b above; Wisp recon `recon-DEV-296:1-36`; Anvil round-1 commit b184d52 (receipt DEV-296 note :230-233).
+
+- **Evidence being addressed.**
+  - Infrastructure: 40 of 40 tested mutants are Timeout, with 0 Killed (recon:30).
+  - Api: the report's `testFiles` lists only `AddHandlerTests.cs`, and omits `ValidationExceptionHandlerTests.cs` (recon:36). Yet five survivors are asserted by that file (D7b).
+  - The `api` alias is not the cause (recon:35).
+  - `LamuFlix.Test` binds a Testcontainers assembly fixture (`EnrichmentTests.cs:25`), so every test session starts Docker (recon:28-29).
+  - No text log exists, so the discovered test count, per-mutant timeout, and coverage mode could not be read (recon:13-16, :21-24).
+- **Cause, as ruled.** Stryker's default `perTest` coverage capture is not mapping mutants to the tests that exercise them. Stryker therefore runs only the tests it thinks cover each mutant (the wrong ones), so asserted mutants Survive. The container start-up inside every per-mutant session, plus parallel sessions contending for Docker, exceeds the timeout computed from the initial run. That produces the all-Timeout result. The tooling fix is:
+  - drop per-test coverage, so every mutant runs the whole test project;
+  - widen the timeout margin;
+  - serialise the sessions;
+  - write a text log, so the next receipt carries the facts Q1 could not.
+- **Frozen temp-JSON settings.** These are added to the D7a base. Nothing else changes:
+  - `"coverage-analysis":"off"`: every mutant runs all tests. Test selection no longer depends on coverage capture.
+  - `"additional-timeout":60000`: 60 s is added on top of Stryker's measured test time, to cover the container start-up in each session.
+  - `"concurrency":1`: one test session at a time, so there is no Docker contention.
+  - `"log-to-file":true` and `"verbosity":"debug"`: this writes a text log under `StrykerOutput/<ts>/logs/`.
+- **Unchanged:**
+  - `mutation-level` Standard, `since` disabled, `thresholds` 90/80/80, and `reporters`, copied verbatim as in D7a;
+  - tracked `stryker-config.json` and `harness.yml`;
+  - no test filter, and no `test-projects` override, so the evidence is not narrowed;
+  - CLI flags `-f` and `-p` only;
+  - Core and Infrastructure globs, as in D7a;
+  - Api `mutate` = `["ExceptionHandling/ValidationExceptionHandler.cs"]` only (D7b routing 3).
+- **Frozen next-run block, pwsh 7, run once. NOT YET AUTHORIZED.** It runs only on an explicit Keel go note in the DEV-296 task note that cites this section. Save it outside the repo (for example `$env:TEMP\dev-296-d7c.ps1`), never in the worktree.
+  ```powershell
+  Set-Location F:\Dev\LamuFlix.worktrees\DEV-296
+  if ((git branch --show-current) -ne 'feature/DEV-296') { throw 'wrong branch' }
+  $base = '{"mutation-level":"Standard","since":{"enabled":false},"thresholds":{"high":90,"low":80,"break":80},"reporters":["progress","html","json"],"coverage-analysis":"off","additional-timeout":60000,"concurrency":1,"log-to-file":true,"verbosity":"debug",'
+  $runs = [ordered]@{
+    'LamuFlix.Core.csproj'           = '"mutate":["Pipeline/ICommandHandler.cs","Pipeline/IQueryHandler.cs","Pipeline/TelemetryConstants.cs","Pipeline/ValidationException.cs"]'
+    'LamuFlix.Infrastructure.csproj' = '"mutate":["Pipeline/HandlerLog.cs","Pipeline/LoggingDecorator.cs","Pipeline/ServiceCollectionExtensions.cs","Pipeline/TracingDecorator.cs","Pipeline/ValidationDecorator.cs"]'
+    'LamuFlix.Api.csproj'            = '"mutate":["ExceptionHandling/ValidationExceptionHandler.cs"]'
+  }
+  foreach ($p in $runs.Keys) {
+    $name = $p -replace '^LamuFlix\.|\.csproj$',''
+    $cfg = Join-Path $env:TEMP "DEV-296-stryker-d7c-$name.json"
+    Set-Content -Path $cfg -Value ('{"stryker-config":' + $base + $runs[$p] + '}}') -Encoding utf8NoBOM
+    Get-Content $cfg -Raw | ConvertFrom-Json | Out-Null
+    Get-FileHash $cfg -Algorithm SHA256
+    dotnet stryker -f $cfg -p $p
+    "EXIT $p = $LASTEXITCODE"
+  }
+  ```
+- **Pre-run check (read-only). If any item is false, do not start; report to Keel:**
+  - The branch is `feature/DEV-296`.
+  - b184d52 is an ancestor of HEAD.
+  - `git diff 8855b978 HEAD -- src stryker-config.json harness.yml` is empty.
+  - `git diff --name-only 8855b978 HEAD -- tests` is exactly `tests/LamuFlix.Test/ValidationExceptionHandlerTests.cs`.
+  - Every commit after b184d52 touches `specs/` only.
+  - Docker is running (`docker info` exits 0).
+  - The known working-tree items stay untouched, as in D7a, plus `tmp-dev-296-d7a.ps1`.
+- **Stop conditions. Stop the whole run, and do not start the later invocations or retry:**
+  1. Stryker rejects the config or fails before testing any mutant (config or option error, initial test run failed, or cannot-run), on any invocation. Report the log excerpt to Keel. Do not substitute a CLI flag, drop a key, or edit the JSON.
+  2. The initial test run shows fewer tests discovered than `dotnet test` reports for `LamuFlix.Test`. Report both counts. (This is read from the log after invocation 1. If it is found only after the run, it is still a FAIL.)
+
+  Otherwise all three invocations are executed even if an earlier one fails its bar, as in D7a.
+- **Receipt:**
+  - everything the D7a receipt requires;
+  - for each invocation, the `logs/` file path and log excerpts giving: the coverage-analysis mode as applied, the initial test count and duration, the computed timeout, and any test-host or coverage warnings;
+  - for each Api mutant at `ValidationExceptionHandler.cs:18, :19, :20, :24, :37, :40, :41, :43, :44`, the status and `killedBy`;
+  - the Infrastructure counts of Killed and Timeout.
+- **PASS bar:** the D7a bar (items 1-4 above) plus D7b's all-Timeout rule, plus:
+  - (5) every invocation with at least 1 tested mutant has at least 1 Killed with `killedBy` populated;
+  - (6) the log confirms coverage-analysis `off`.
+- **FAIL routing, no retry:**
+  - A survivor at `:18`, `:19` or `:20` goes to Anvil as architect-remediation round 2 of 2 (tests only).
+  - A survivor or Timeout at `:24`, `:37`, `:40`, `:41`, `:43` or `:44`, an all-Timeout invocation, or a stop condition is a tooling FAIL back to Keel.
+  - A score under 80 with other survivors goes to Anvil on the round counter. The threshold is never lowered.
+- **Forbidden:** everything D7a forbids, and committing any `DEV-296-stryker-d7c-*.json` or a run script.
+- There is no §2.3 (a)/(b) item, so no owner checkbox. This is a gate-tooling setting in disposable temp configs. The tracked config, the thresholds, and the ticket text are unchanged.
