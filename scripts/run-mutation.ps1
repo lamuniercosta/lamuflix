@@ -3,16 +3,24 @@
 # Exits 0 on PASS, 1 on FAIL, 2 on SKIPPED (no production files changed).
 #
 # Worktree-safe replacement for `dotnet stryker --since`:
-# In Stryker 4.16.0, the built-in `since` filter resolves linked git worktrees
-# to the main checkout and measures nothing. This script discovers changed production
-# files via git merge-base, maps them to project-relative mutate globs, generates
-# temporary configs in $env:TEMP with since disabled, and executes Stryker sequentially
-# per project.
+# In Stryker 4.16.0 the built-in `since` filter resolved linked git worktrees to the
+# main checkout and measured nothing; it has not been re-verified on 5.0.0, so it stays
+# disabled. This script discovers changed production files via git merge-base, maps them
+# to project-relative mutate globs, generates temporary configs in the system temp
+# directory with since disabled, and executes Stryker sequentially per project.
+#
+# Test runner (DEV-382, docs/adr/0016-stryker-mtp-runner.md): the xUnit v3 test projects
+# are executables, so under VSTest the tests run in a child of testhost that never sees
+# the active mutant and every mutant survives. The tracked config therefore selects the
+# MTP runner with coverage off, and every generated config carries both settings plus an
+# explicit test-projects list that excludes *.ArchitectureTests: those tests fail on the
+# Stryker.* types injected into every mutated assembly, which is an artifact kill.
 #
 # Usage:
 #   ./scripts/run-mutation.ps1
 #   ./scripts/run-mutation.ps1 -BaseRef origin/main
 #   ./scripts/run-mutation.ps1 -DryRun
+#   ./scripts/run-mutation.ps1 -Project LamuFlix.Api -OutputRoot <dir outside the repo>
 #   ./scripts/run-mutation.ps1 -EvaluateReport <path/to/mutation-report.json>
 
 [CmdletBinding()]
@@ -20,6 +28,8 @@ param(
     [string]$BaseRef = '',
     [switch]$DryRun,
     [string]$EvaluateReport = '',
+    [string[]]$Project = @(),
+    [string]$OutputRoot = '',
     [switch]$Help
 )
 
@@ -39,15 +49,69 @@ OPTIONS:
   -BaseRef <ref>          Git ref to diff against (default: origin/<baseBranch> from harness.yml)
   -DryRun                 Discover changed files and generate temp configs without running Stryker
   -EvaluateReport <path>  Evaluate an existing Stryker mutation report without running Stryker (skips changed-file containment checks when run standalone)
+  -Project <name[]>       Only run these changed projects (e.g. LamuFlix.Api or LamuFlix.Api.csproj); a name with no changed files is an error
+  -OutputRoot <dir>       Where Stryker output goes, one <Project> folder each (default: <system temp>/LamuFlix-stryker/<UTC stamp>; must be outside the repo)
   -Help                   Show this help
 
 EXAMPLES:
   ./scripts/run-mutation.ps1
   ./scripts/run-mutation.ps1 -BaseRef origin/main
   ./scripts/run-mutation.ps1 -DryRun
-  ./scripts/run-mutation.ps1 -EvaluateReport ./StrykerOutput/2026-09-28.03-18-47/reports/mutation-report.json
+  ./scripts/run-mutation.ps1 -Project LamuFlix.Infrastructure,LamuFlix.Api
+  ./scripts/run-mutation.ps1 -EvaluateReport <output root>/LamuFlix.Api/reports/mutation-report.json
 "@
     exit 0
+}
+
+function Get-ReportTestIndex {
+    # Maps each test id in a schema-2 report's testFiles to its name and file, so
+    # killedBy ids can be attributed. Reports without testFiles yield an empty map.
+    param($Report)
+
+    $index = @{}
+    if ($Report.PSObject.Properties.Match('testFiles').Count -eq 0 -or -not $Report.testFiles) {
+        return $index
+    }
+    foreach ($tf in $Report.testFiles.PSObject.Properties) {
+        if ($tf.Value.PSObject.Properties.Match('tests').Count -eq 0) { continue }
+        foreach ($t in @($tf.Value.tests)) {
+            $index[[string]$t.id] = [PSCustomObject]@{ Name = [string]$t.name; File = [string]$tf.Name }
+        }
+    }
+    return $index
+}
+
+function Test-ArchitectureTestKiller {
+    param($Test)
+
+    return ($Test.File -match '[\\/]([^\\/]*\.)?ArchitectureTests[\\/]') -or
+           ($Test.Name -match '(^|\.)ArchitectureTests\.')
+}
+
+function Get-EligibleTestProjects {
+    # Test projects that directly reference the mutated project, minus ArchitectureTests.
+    # Stryker's project mode needs a direct reference; listing them explicitly keeps
+    # ArchitectureTests (artifact kills) out of the run.
+    param(
+        [string[]]$TestProjects,
+        [string]$MutatedProjectPath
+    )
+
+    $target = [System.IO.Path]::GetFullPath($MutatedProjectPath)
+    $eligible = foreach ($tp in $TestProjects) {
+        if ([System.IO.Path]::GetFileNameWithoutExtension($tp) -match '(^|\.)ArchitectureTests$') { continue }
+        $tpDir = Split-Path $tp -Parent
+        $xml = [xml](Get-Content -LiteralPath $tp -Raw)
+        $refs = @($xml.SelectNodes('//*[local-name()="ProjectReference"]/@Include') | ForEach-Object { $_.Value })
+        foreach ($ref in $refs) {
+            $refFull = [System.IO.Path]::GetFullPath((Join-Path $tpDir ($ref -replace '[\\/]', [System.IO.Path]::DirectorySeparatorChar)))
+            if ($refFull.Equals($target, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $tp
+                break
+            }
+        }
+    }
+    return @($eligible | Sort-Object)
 }
 
 function Evaluate-MutationReport {
@@ -65,6 +129,9 @@ function Evaluate-MutationReport {
     $mutatedFiles = [System.Collections.Generic.List[string]]::new()
     $outsideFiles = [System.Collections.Generic.List[string]]::new()
     $filesWithMutantsNoneTested = [System.Collections.Generic.List[string]]::new()
+    $artifactKillers = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
+    $artifactKills = 0
+    $unattributedKills = 0
 
     if ($NativeExitCode -ne 0) {
         $failureReasons.Add("Native exit code was non-zero ($NativeExitCode).")
@@ -86,6 +153,8 @@ function Evaluate-MutationReport {
             Tested                     = 0
             Score                      = $null
             SinceFilterIgnoredCount    = 0
+            ArtifactKills              = 0
+            UnattributedKills          = 0
             MutatedFiles               = @()
             OutsideMutatedFiles        = @()
             FilesWithMutantsNoneTested = @()
@@ -96,6 +165,7 @@ function Evaluate-MutationReport {
     }
 
     $report = Get-Content -LiteralPath $ReportPath -Raw | ConvertFrom-Json
+    $testIndex = Get-ReportTestIndex -Report $report
 
     $killed = 0
     $survived = 0
@@ -149,6 +219,21 @@ function Evaluate-MutationReport {
                         'Killed' {
                             $killed++
                             $fileTested++
+                            # Every kill must name a resolvable test, and none may come from
+                            # ArchitectureTests (artifact kill on the injected Stryker.* types).
+                            $killerIds = @(if ($m.PSObject.Properties.Match('killedBy').Count -gt 0) { $m.killedBy | Where-Object { $_ } })
+                            $unresolved = ($killerIds.Count -eq 0)
+                            $isArtifact = $false
+                            foreach ($kid in $killerIds) {
+                                $killer = $testIndex[[string]$kid]
+                                if ($null -eq $killer) { $unresolved = $true; continue }
+                                if (Test-ArchitectureTestKiller -Test $killer) {
+                                    $isArtifact = $true
+                                    [void]$artifactKillers.Add($killer.Name)
+                                }
+                            }
+                            if ($unresolved) { $unattributedKills++ }
+                            if ($isArtifact) { $artifactKills++ }
                         }
                         'Survived' {
                             $survived++
@@ -214,7 +299,17 @@ function Evaluate-MutationReport {
     }
 
     if ($tested -gt 0 -and $killed -eq 0) {
-        $failureReasons.Add("Killed 0 of $tested tested mutant(s) ($timeout timeout).")
+        $failureReasons.Add("Killed 0 of $tested tested mutant(s) ($timeout timeout) - this indicates a mutant-to-test linkage or measurement failure, not a test-quality verdict.")
+    }
+
+    if ($artifactKills -gt 0) {
+        $shown = @($artifactKillers | Select-Object -First 5)
+        $more = if ($artifactKillers.Count -gt $shown.Count) { ", +$($artifactKillers.Count - $shown.Count) more" } else { '' }
+        $failureReasons.Add("Artifact kill: $artifactKills killed mutant(s) attributed to ArchitectureTests test(s) ($($shown -join ', ')$more); these fail on Stryker's injected types, not on the mutation.")
+    }
+
+    if ($unattributedKills -gt 0) {
+        $failureReasons.Add("$unattributedKills killed mutant(s) have no killedBy test names resolvable through testFiles; artifact kills cannot be ruled out.")
     }
 
     if ($score -ne $null -and $score -lt $Threshold) {
@@ -238,6 +333,8 @@ function Evaluate-MutationReport {
         Tested                     = $tested
         Score                      = $score
         SinceFilterIgnoredCount    = $sinceFilterIgnoredCount
+        ArtifactKills              = $artifactKills
+        UnattributedKills          = $unattributedKills
         MutatedFiles               = @($mutatedFiles)
         OutsideMutatedFiles        = @($outsideFiles)
         FilesWithMutantsNoneTested = @($filesWithMutantsNoneTested)
@@ -370,6 +467,7 @@ if ($changedFiles.Count -eq 0) {
 # Group changed files by nearest ancestor *.csproj
 $projectGroups = [ordered]@{}
 $projectDirs = @{}
+$projectPaths = @{}
 
 foreach ($file in $changedFiles) {
     $fullPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $file))
@@ -397,6 +495,7 @@ foreach ($file in $changedFiles) {
     $projName = $foundCsproj.Name
     $projDir = $foundCsproj.DirectoryName
     $projectDirs[$projName] = $projDir
+    $projectPaths[$projName] = $foundCsproj.FullName
 
     $relToProj = [System.IO.Path]::GetRelativePath($projDir, $fullPath).Replace('\', '/')
     if (-not $projectGroups.Contains($projName)) {
@@ -415,16 +514,72 @@ if (-not (Test-Path -LiteralPath $strykerConfigPath)) {
 $baseConfigJson = Get-Content -LiteralPath $strykerConfigPath -Raw | ConvertFrom-Json
 $baseStryker = $baseConfigJson.'stryker-config'
 
-# Write one temp config per project into $env:TEMP
+# Without these two keys Stryker falls back to VSTest, where no mutant reaches the
+# xUnit v3 test executables and every mutant survives (DEV-382).
+foreach ($requiredKey in 'test-runner', 'coverage-analysis') {
+    if ($baseStryker.PSObject.Properties.Match($requiredKey).Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$baseStryker.$requiredKey)) {
+        Write-Host "GATE NOT WIRED: stryker-config.json does not set '$requiredKey' (expected test-runner=mtp, coverage-analysis=off; see docs/adr/0016-stryker-mtp-runner.md)."
+        exit 1
+    }
+}
+
+$sortedProjects = @($projectGroups.Keys | Sort-Object)
+
+if ($Project.Count -gt 0) {
+    $requested = @($Project | ForEach-Object { $_ -split ',' } | Where-Object { $_.Trim() } |
+        ForEach-Object { $n = $_.Trim(); if ($n -notmatch '\.csproj$') { "$n.csproj" } else { $n } })
+    $unknown = @($requested | Where-Object { $sortedProjects -notcontains $_ })
+    if ($unknown.Count -gt 0) {
+        Write-Host "Mutation testing: FAILED - -Project names with no changed production files: $($unknown -join ', ')."
+        Write-Host "  Changed projects: $($sortedProjects -join ', ')"
+        exit 1
+    }
+    $sortedProjects = @($sortedProjects | Where-Object { $requested -contains $_ })
+}
+
+# Eligible test projects per mutated project; fail closed before any Stryker run.
+$allTestProjects = @(Get-TestProjects -RepoRoot $repoRoot)
+$testProjectsByProject = @{}
+$projectsWithoutTests = [System.Collections.Generic.List[string]]::new()
+foreach ($proj in $sortedProjects) {
+    $eligible = @(Get-EligibleTestProjects -TestProjects $allTestProjects -MutatedProjectPath $projectPaths[$proj])
+    $testProjectsByProject[$proj] = $eligible
+    $shown = if ($eligible.Count -gt 0) {
+        ($eligible | ForEach-Object { [System.IO.Path]::GetRelativePath($repoRoot, $_).Replace('\', '/') }) -join ', '
+    }
+    else { '(none)' }
+    Write-Host "Test projects for ${proj}: $shown"
+    if ($eligible.Count -eq 0) { $projectsWithoutTests.Add($proj) }
+}
+if ($projectsWithoutTests.Count -gt 0) {
+    Write-Host "Mutation testing: FAILED - no eligible test project (a test project that directly references it, excluding *.ArchitectureTests) for: $($projectsWithoutTests -join ', ')."
+    exit 1
+}
+
+# Output root lives outside the repo so StrykerOutput never lands in the working tree.
+$outputRootPath = if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) {
+    [System.IO.Path]::GetFullPath($OutputRoot)
+}
+else {
+    Join-Path ([System.IO.Path]::GetTempPath()) ("LamuFlix-stryker/" + [System.DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
+}
+$outputRootPath = [System.IO.Path]::GetFullPath($outputRootPath)
+$repoRootWithSep = $repoRoot.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+if ($outputRootPath.Equals($repoRoot.TrimEnd('\', '/'), [System.StringComparison]::OrdinalIgnoreCase) -or
+    $outputRootPath.StartsWith($repoRootWithSep, [System.StringComparison]::OrdinalIgnoreCase)) {
+    Write-Host "Mutation testing: FAILED - -OutputRoot '$outputRootPath' is inside the repository; use a directory outside '$repoRoot'."
+    exit 1
+}
+Write-Host "Output root: $outputRootPath"
+
+# Write one temp config per project into the system temp directory
 $tempConfigs = [ordered]@{}
 $tempFilesToClean = [System.Collections.Generic.List[string]]::new()
 
 try {
-    $sortedProjects = @($projectGroups.Keys | Sort-Object)
-
     foreach ($proj in $sortedProjects) {
         $projShortName = $proj -replace '\.csproj$', ''
-        $tempConfigPath = Join-Path $env:TEMP "stryker-$projShortName-$([System.Guid]::NewGuid().ToString('N').Substring(0, 8)).json"
+        $tempConfigPath = Join-Path ([System.IO.Path]::GetTempPath()) "stryker-$projShortName-$([System.Guid]::NewGuid().ToString('N').Substring(0, 8)).json"
         $tempFilesToClean.Add($tempConfigPath)
 
         $high = if ($baseStryker.thresholds.high -ne $null) { [int]$baseStryker.thresholds.high } else { 90 }
@@ -432,8 +587,11 @@ try {
 
         $strykerObj = [ordered]@{
             'stryker-config' = [ordered]@{
-                'mutation-level' = $baseStryker.'mutation-level'
-                'since'          = [ordered]@{ 'enabled' = $false }
+                'mutation-level'    = $baseStryker.'mutation-level'
+                'test-runner'       = $baseStryker.'test-runner'
+                'coverage-analysis' = $baseStryker.'coverage-analysis'
+                'test-projects'     = @($testProjectsByProject[$proj])
+                'since'             = [ordered]@{ 'enabled' = $false }
                 'mutate'         = @($projectGroups[$proj])
                 'thresholds'     = [ordered]@{
                     'high'  = $high
@@ -473,71 +631,41 @@ try {
         exit 0
     }
 
-    # Run Stryker sequentially per project
+    # Run Stryker sequentially per project, from the project directory, into <output root>/<project>
     $results = [System.Collections.Generic.List[PSCustomObject]]::new()
-    $strykerOutputDir = Join-Path $repoRoot 'StrykerOutput'
 
-    Push-Location $repoRoot
-    try {
-        foreach ($proj in $sortedProjects) {
-            Write-Host "`n================================================================================"
-            Write-Host "Running Stryker for $proj..."
-            Write-Host "================================================================================"
+    foreach ($proj in $sortedProjects) {
+        Write-Host "`n================================================================================"
+        Write-Host "Running Stryker for $proj..."
+        Write-Host "================================================================================"
 
-            $cfgPath = $tempConfigs[$proj].Path
-            $runStartTime = [System.DateTime]::UtcNow
+        $cfgPath = $tempConfigs[$proj].Path
+        $projOut = Join-Path $outputRootPath ($proj -replace '\.csproj$', '')
+        New-Item -ItemType Directory -Path $projOut -Force | Out-Null
+        Copy-Item -LiteralPath $cfgPath -Destination (Join-Path $projOut 'stryker-config.json') -Force
 
-            # Record directories in StrykerOutput before run
-            $preDirs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-            if (Test-Path -LiteralPath $strykerOutputDir) {
-                Get-ChildItem -Path $strykerOutputDir -Directory -ErrorAction SilentlyContinue |
-                    ForEach-Object { [void]$preDirs.Add($_.FullName) }
-            }
-
-            & dotnet stryker -f $cfgPath -p $proj
+        Push-Location $projectDirs[$proj]
+        try {
+            & dotnet stryker -f $cfgPath -p $proj -O $projOut
             $nativeExit = $LASTEXITCODE
-
-            # Locate the newest report produced by this run
-            $reportPath = $null
-            if (Test-Path -LiteralPath $strykerOutputDir) {
-                $candidateDirs = @(
-                    Get-ChildItem -Path $strykerOutputDir -Directory -ErrorAction SilentlyContinue |
-                        Where-Object { -not $preDirs.Contains($_.FullName) } |
-                        Sort-Object LastWriteTimeUtc -Descending
-                )
-
-                if ($candidateDirs.Count -gt 0) {
-                    $candidateReport = Join-Path $candidateDirs[0].FullName 'reports\mutation-report.json'
-                    if (Test-Path -LiteralPath $candidateReport) {
-                        $reportPath = (Resolve-Path -LiteralPath $candidateReport).Path
-                    }
-                }
-
-                if (-not $reportPath) {
-                    $fallbackReports = @(
-                        Get-ChildItem -Path $strykerOutputDir -Filter 'mutation-report.json' -Recurse -File -ErrorAction SilentlyContinue |
-                            Where-Object { $_.LastWriteTimeUtc -ge $runStartTime.AddSeconds(-5) } |
-                            Sort-Object LastWriteTimeUtc -Descending
-                    )
-                    if ($fallbackReports.Count -gt 0) {
-                        $reportPath = $fallbackReports[0].FullName
-                    }
-                }
-            }
-
-            $projEval = Evaluate-MutationReport `
-                -ReportPath $reportPath `
-                -NativeExitCode $nativeExit `
-                -ProjectName $proj `
-                -ChangedFiles $changedFiles `
-                -Threshold $threshold `
-                -RepoRoot $repoRoot
-
-            $results.Add($projEval)
         }
-    }
-    finally {
-        Pop-Location
+        finally {
+            Pop-Location
+        }
+        Write-Host "Stryker native exit for ${proj}: $nativeExit"
+
+        $candidateReport = Join-Path $projOut 'reports/mutation-report.json'
+        $reportPath = if (Test-Path -LiteralPath $candidateReport) { (Resolve-Path -LiteralPath $candidateReport).Path } else { $null }
+
+        $projEval = Evaluate-MutationReport `
+            -ReportPath $reportPath `
+            -NativeExitCode $nativeExit `
+            -ProjectName $proj `
+            -ChangedFiles $changedFiles `
+            -Threshold $threshold `
+            -RepoRoot $repoRoot
+
+        $results.Add($projEval)
     }
 
     # Summary and evaluation
@@ -581,6 +709,7 @@ try {
         $runFailureReasons.Add('Total number of tested mutants across all invocations is 0.')
     }
 
+    Write-Host "`nOutput root: $outputRootPath"
     Write-Host "`n--------------------------------------------------------------------------------"
     if ($runFailureReasons.Count -eq 0) {
         Write-Host "Mutation testing: PASSED (all projects scored at or above threshold $threshold%, total tested: $totalTestedOverall)."

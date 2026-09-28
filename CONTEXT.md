@@ -65,3 +65,15 @@ A recency-weighted aggregate of the user's watched movies.
 
 **Feedback**
 Explicit Watched / Not Interested marks.
+
+**Mutant linkage**
+Whether the mutant Stryker activates is the one executing inside the process that runs the tests. A broken linkage makes every mutant survive regardless of test quality (DEV-382).
+_Avoid_: "tests are weak" for a 0-kill run before linkage is proven
+
+**Artifact kill**
+A mutant reported Killed by a test that fails because of Stryker's instrumentation itself (e.g. ArchitectureTests rejecting injected `Stryker.*` types), not because of the mutation. The mutation gate fails on any artifact kill.
+_Avoid_: counting it as a kill
+
+**Mutation receipt**
+The committed, compact evidence of one mutation run: SHAs, Stryker version, effective config, mutated files, per-mutant status and killedBy names, native exits, and process and assembly identity. Bulky reports stay outside the repo.
+_Avoid_: report (the full Stryker output)

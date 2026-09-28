@@ -1,6 +1,8 @@
 {
   "stryker-config": {
     "mutation-level": "Standard",
+    "test-runner": "mtp",
+    "coverage-analysis": "off",
     "thresholds": {
       "high": 90,
       "low": 80,

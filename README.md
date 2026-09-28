@@ -42,13 +42,13 @@ The repository pins three local tools in `.config/dotnet-tools.json` (`isRoot: t
 | Package | Pinned version | Command |
 |---|---|---|
 | `jetbrains.resharper.globaltools` | 2026.1.3 | `jb` |
-| `dotnet-stryker` | 4.16.0 | `dotnet-stryker` |
+| `dotnet-stryker` | 5.0.0 | `dotnet-stryker` |
 | `dotnet-ef` | 9.0.0 | `dotnet-ef` |
 
 **Purpose**
 
 - **`jb`:** ReSharper InspectCode, used by `./scripts/run-jetbrains-inspectcode.ps1`.
-- **`dotnet-stryker`:** Mutation testing via `./scripts/run-mutation.ps1` (or local single-file `--mutate`).
+- **`dotnet-stryker`:** Mutation testing via `./scripts/run-mutation.ps1` (`-Project <name>` narrows it; reports go to an output root outside the repo, which the gate prints).
 - **`dotnet-ef`:** EF Core design-time CLI only (not part of the running app). It is pinned at 9.0.0 for the .NET 10 / EF Core 9.0 stack (DEV-360).
 
 **Restore**
