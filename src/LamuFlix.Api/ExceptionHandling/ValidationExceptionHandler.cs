@@ -28,11 +28,11 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
-            ProblemDetails = CreateProblem(httpContext, validationException),
+            ProblemDetails = CreateProblem(validationException),
         });
     }
 
-    private static ProblemDetails CreateProblem(HttpContext httpContext, ValidationException validationException)
+    private static ProblemDetails CreateProblem(ValidationException validationException)
     {
         var problem = new ProblemDetails
         {
@@ -40,7 +40,6 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
             Title = "Unprocessable Entity",
             Type = "https://tools.ietf.org/html/rfc9110#section-15.5.21",
         };
-        problem.Extensions["traceId"] = httpContext.TraceIdentifier;
         problem.Extensions["errors"] = validationException.Errors;
         return problem;
     }

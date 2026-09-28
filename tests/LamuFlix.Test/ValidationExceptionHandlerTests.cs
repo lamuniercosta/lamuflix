@@ -17,7 +17,7 @@ using Xunit;
 
 namespace LamuFlix.Test;
 
-public class ValidationExceptionHandlerTests
+public sealed class ValidationExceptionHandlerTests
 {
     [Fact]
     public async Task TryHandleAsync_ValidationException_Writes422WithoutExceptionLeak()

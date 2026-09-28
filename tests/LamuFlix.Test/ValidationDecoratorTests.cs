@@ -8,7 +8,7 @@ using Xunit;
 
 namespace LamuFlix.Test;
 
-public class ValidationDecoratorTests
+public sealed class ValidationDecoratorTests
 {
     [Fact]
     public async Task HandleAsync_MultipleValidators_AggregatesFailuresAndSkipsHandler()
