@@ -69,6 +69,7 @@ public class ValidationExceptionHandlerTests
 
         // act
         var thrown = await Should.ThrowAsync<ArgumentNullException>(
+            // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
             () => handler.TryHandleAsync(null!, exception, CancellationToken.None).AsTask());
 
         // assert
@@ -83,6 +84,7 @@ public class ValidationExceptionHandlerTests
 
         // act
         var thrown = await Should.ThrowAsync<ArgumentNullException>(
+            // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
             () => handler.TryHandleAsync(context, null!, CancellationToken.None).AsTask());
 
         // assert
@@ -96,7 +98,7 @@ public class ValidationExceptionHandlerTests
         var handler = CreateHandler(out var context);
         var exception = CreateValidationException();
         using var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
+        await cancellationTokenSource.CancelAsync();
 
         // act
         await Should.ThrowAsync<OperationCanceledException>(
