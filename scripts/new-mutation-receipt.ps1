@@ -163,7 +163,10 @@ $samplerBody = {
                 $entry.modules.Add($m.FileName)
                 $grew = $true
                 if ($TargetModules -contains $m.ModuleName) {
-                    $id = Get-AssemblyIdentity -Path $m.FileName
+                    # A locked or vanished file must not end the sampler; record the load
+                    # with a null hash, which the verdict never counts as a mutated load.
+                    try { $id = Get-AssemblyIdentity -Path $m.FileName }
+                    catch { $id = [ordered]@{ sha256 = $null; strykerTypes = $null } }
                     $entry.targets.Add([ordered]@{ path = $m.FileName; sha256 = $id.sha256; strykerTypes = $id.strykerTypes; seenUtc = [DateTime]::UtcNow.ToString('o') })
                 }
             }
@@ -231,7 +234,10 @@ function Write-ReceiptMarkdown {
         $lines.Add('| Loaded path | pid | Run SHA256 | Stryker types | Clean SHA256 | Clean Stryker types |')
         $lines.Add('|---|---|---|---|---|---|')
         foreach ($o in $r.assembly.observations) {
-            $lines.Add("| ``$($o.path)`` | $($o.pid) | ``$($o.runSha256.Substring(0, 12))`` | $($o.runStrykerTypes) | $(if ($o.cleanSha256) { '`' + $o.cleanSha256.Substring(0, 12) + '`' } else { 'n/a (path gone)' }) | $($o.cleanStrykerTypes) |")
+            # Hashing a loaded DLL can fail in the sampler, leaving the run hash null.
+            $runHashCell = if ($o.runSha256) { '`' + $o.runSha256.Substring(0, 12) + '`' } else { 'hash failed' }
+            $cleanHashCell = if ($o.cleanSha256) { '`' + $o.cleanSha256.Substring(0, 12) + '`' } else { 'n/a (path gone or unreadable)' }
+            $lines.Add("| ``$($o.path)`` | $($o.pid) | $runHashCell | $($o.runStrykerTypes) | $cleanHashCell | $($o.cleanStrykerTypes) |")
         }
         $lines.Add('')
     }
@@ -279,7 +285,8 @@ $overlay = @($overlayFiles | ForEach-Object { [ordered]@{ path = $_; sha256 = Ge
 $overlay += [ordered]@{ path = 'scripts/new-mutation-receipt.ps1'; sha256 = Get-FileSha256 -Path $PSCommandPath }
 
 $work = if ($WorkRoot) { [System.IO.Path]::GetFullPath($WorkRoot) } else {
-    Join-Path ([System.IO.Path]::GetTempPath()) ("LamuFlix-receipt/" + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
+    # The GUID suffix keeps two runs started in the same second out of one folder.
+    Join-Path ([System.IO.Path]::GetTempPath()) ("LamuFlix-receipt/" + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
 }
 $checkout = Join-Path $work 'checkout'
 $receiptRoot = if ([System.IO.Path]::IsPathRooted($ReceiptDir)) { $ReceiptDir } else { Join-Path $repoRoot $ReceiptDir }
@@ -295,6 +302,7 @@ $roots[$HOME] = '<home>'
 
 $failed = $false
 $worktreeAdded = $false
+$previousHarnessRepoRoot = $env:HARNESS_REPO_ROOT
 try {
     git -C $repoRoot worktree add --detach $checkout $sha
     if ($LASTEXITCODE -ne 0) { throw "git worktree add failed ($LASTEXITCODE)." }
@@ -365,7 +373,10 @@ try {
         . $assemblyProbe
         $observations = @(foreach ($p in $processes) {
                 foreach ($t in @($p.targets)) {
-                    $clean = if (Test-Path -LiteralPath $t.path) { Get-AssemblyIdentity -Path $t.path } else { $null }
+                    $clean = $null
+                    if (Test-Path -LiteralPath $t.path) {
+                        try { $clean = Get-AssemblyIdentity -Path $t.path } catch { $clean = $null }
+                    }
                     [ordered]@{
                         pid               = $p.pid
                         path              = $t.path
@@ -376,7 +387,8 @@ try {
                     }
                 }
             })
-        $mutatedLoads = @($observations | Where-Object { $_.runStrykerTypes -gt 0 -and $_.runSha256 -ne $_.cleanSha256 })
+        # A load whose run hash could not be computed is never evidence of a mutated assembly.
+        $mutatedLoads = @($observations | Where-Object { $_.runSha256 -and $_.runStrykerTypes -gt 0 -and $_.runSha256 -ne $_.cleanSha256 })
         $verdict, $note = if ($processes.Count -eq 0) {
             'not-observed', 'The sampler observed no test process for this run. This receipt carries no assembly-loading evidence; absence of evidence is not proof of linkage.'
         }
@@ -425,6 +437,8 @@ catch {
     $failed = $true
 }
 finally {
+    # Restore the caller's value; assigning $null leaves it unset if it was unset before.
+    $env:HARNESS_REPO_ROOT = $previousHarnessRepoRoot
     if ($worktreeAdded -and -not $KeepCheckout) {
         git -C $repoRoot worktree remove --force $checkout
     }
