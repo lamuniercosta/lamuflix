@@ -28,42 +28,40 @@ public static class ServiceCollectionExtensions
         services.AddScoped<THandler>();
         if (isCommand)
         {
-            services.AddScoped<ICommandHandler<TReq, TRes>>(Compose<THandler, TReq, TRes>);
+            services.AddScoped<ICommandHandler<TReq, TRes>>(serviceProvider =>
+                Compose<THandler, TReq, TRes>(
+                    serviceProvider,
+                    (handler, request, cancellationToken) =>
+                        ((ICommandHandler<TReq, TRes>)handler).HandleAsync(request, cancellationToken)));
         }
 
         if (isQuery)
         {
-            services.AddScoped<IQueryHandler<TReq, TRes>>(Compose<THandler, TReq, TRes>);
+            services.AddScoped<IQueryHandler<TReq, TRes>>(serviceProvider =>
+                Compose<THandler, TReq, TRes>(
+                    serviceProvider,
+                    (handler, request, cancellationToken) =>
+                        ((IQueryHandler<TReq, TRes>)handler).HandleAsync(request, cancellationToken)));
         }
 
         return services;
     }
 
-    private static TracingDecorator<TReq, TRes> Compose<THandler, TReq, TRes>(IServiceProvider serviceProvider)
+    private static TracingDecorator<TReq, TRes> Compose<THandler, TReq, TRes>(
+        IServiceProvider serviceProvider,
+        Func<THandler, TReq, CancellationToken, Task<TRes>> dispatch)
         where THandler : class
         where TReq : class
     {
         var handler = serviceProvider.GetRequiredService<THandler>();
         var validation = new ValidationDecorator<TReq, TRes>(
-            (request, cancellationToken) => Invoke<THandler, TReq, TRes>(handler, request, cancellationToken),
+            (request, cancellationToken) => dispatch(handler, request, cancellationToken),
             serviceProvider.GetServices<IValidator<TReq>>());
         var logging = new LoggingDecorator<TReq, TRes>(
             validation.HandleAsync,
             CreateLogger(serviceProvider),
             serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System);
         return new TracingDecorator<TReq, TRes>(logging.HandleAsync, PipelineActivity.Source);
-    }
-
-    private static Task<TRes> Invoke<THandler, TReq, TRes>(THandler handler, TReq request, CancellationToken cancellationToken)
-        where THandler : class
-        where TReq : class
-    {
-        if (handler is ICommandHandler<TReq, TRes> command)
-        {
-            return command.HandleAsync(request, cancellationToken);
-        }
-
-        return ((IQueryHandler<TReq, TRes>)handler).HandleAsync(request, cancellationToken);
     }
 
     private static ILogger CreateLogger(IServiceProvider serviceProvider) =>

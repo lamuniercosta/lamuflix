@@ -134,6 +134,13 @@ public sealed class ArchitectureTests
         Assert.DoesNotContain(
             violations,
             violation => violation.HandlerName == nameof(SealedRecordRequestCommandHandler));
+        Assert.Contains(
+            violations,
+            violation => violation.HandlerName == nameof(UnsealedRequestQueryHandler)
+                && violation.Reason == "request is not sealed");
+        Assert.DoesNotContain(
+            violations,
+            violation => violation.HandlerName == nameof(SealedRecordRequestQueryHandler));
     }
 
     private static void AssertNoDependency(Assembly assembly, string dependency)

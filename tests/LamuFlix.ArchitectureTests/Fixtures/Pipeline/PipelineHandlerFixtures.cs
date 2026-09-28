@@ -35,3 +35,19 @@ public class UnsealedPipelineCommandHandler : ICommandHandler<UnsealedHandlerPip
     public Task<int> HandleAsync(UnsealedHandlerPipelineRequest command, CancellationToken cancellationToken) =>
         Task.FromResult(0);
 }
+
+public sealed record SealedRecordPipelineQueryRequest;
+
+public sealed class SealedRecordRequestQueryHandler : IQueryHandler<SealedRecordPipelineQueryRequest, int>
+{
+    public Task<int> HandleAsync(SealedRecordPipelineQueryRequest query, CancellationToken cancellationToken) =>
+        Task.FromResult(0);
+}
+
+public class UnsealedPipelineQueryRequest;
+
+public sealed class UnsealedRequestQueryHandler : IQueryHandler<UnsealedPipelineQueryRequest, int>
+{
+    public Task<int> HandleAsync(UnsealedPipelineQueryRequest query, CancellationToken cancellationToken) =>
+        Task.FromResult(0);
+}

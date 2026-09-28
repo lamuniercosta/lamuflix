@@ -106,8 +106,8 @@ public class AddHandlerTests
             .HandleAsync(new Ping("both"), CancellationToken.None);
 
         // assert
-        command.ShouldBe("both");
-        query.ShouldBe("both");
+        command.ShouldBe("command");
+        query.ShouldBe("query");
     }
 
     [Fact]
@@ -208,8 +208,15 @@ public class AddHandlerTests
 
     private sealed class BothHandler : ICommandHandler<Ping, string>, IQueryHandler<Ping, string>
     {
-        public Task<string> HandleAsync(Ping request, CancellationToken cancellationToken) =>
-            Task.FromResult(request.Value);
+        Task<string> ICommandHandler<Ping, string>.HandleAsync(
+            Ping command,
+            CancellationToken cancellationToken) =>
+            Task.FromResult("command");
+
+        Task<string> IQueryHandler<Ping, string>.HandleAsync(
+            Ping query,
+            CancellationToken cancellationToken) =>
+            Task.FromResult("query");
     }
 
     private sealed class NotAHandler;
