@@ -110,7 +110,7 @@ These servers are registered in `.codex/config.toml`, `.cursor/mcp.json`, `openc
 ./scripts/run-property-tests.ps1
 ./scripts/run-vulnerable-packages.ps1
 dotnet test
-dotnet stryker --since:$(git merge-base HEAD origin/main)   # minutes-expensive; pre-PR only
+pwsh -NoProfile -File ./scripts/run-mutation.ps1            # minutes-expensive; pre-PR only (--since is unusable from worktrees)
 ```
 
 The three analyzer gates — `run-roslyn-analyzers.ps1`,
