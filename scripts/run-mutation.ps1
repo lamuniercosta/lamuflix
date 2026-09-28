@@ -50,7 +50,7 @@ OPTIONS:
   -DryRun                 Discover changed files and generate temp configs without running Stryker
   -EvaluateReport <path>  Evaluate an existing Stryker mutation report without running Stryker (skips changed-file containment checks when run standalone)
   -Project <name[]>       Only run these changed projects (e.g. LamuFlix.Api or LamuFlix.Api.csproj); a name with no changed files is an error
-  -OutputRoot <dir>       Where Stryker output goes, one <Project> folder each (default: <system temp>/LamuFlix-stryker/<UTC stamp>; must be outside the repo)
+  -OutputRoot <dir>       Where Stryker output goes, one <Project> folder each (default: <system temp>/LamuFlix-stryker/<UTC yyyyMMdd-HHmmss>-<6 hex>; must be outside the repo)
   -Help                   Show this help
 
 EXAMPLES:
@@ -514,11 +514,19 @@ if (-not (Test-Path -LiteralPath $strykerConfigPath)) {
 $baseConfigJson = Get-Content -LiteralPath $strykerConfigPath -Raw | ConvertFrom-Json
 $baseStryker = $baseConfigJson.'stryker-config'
 
-# Without these two keys Stryker falls back to VSTest, where no mutant reaches the
-# xUnit v3 test executables and every mutant survives (DEV-382).
-foreach ($requiredKey in 'test-runner', 'coverage-analysis') {
+# Stryker must run on MTP with coverage off: under VSTest (or with coverage analysis on)
+# no mutant reaches the xUnit v3 test executables and every mutant survives (DEV-382).
+# Require the exact values, not just non-blank ones.
+$requiredSettings = [ordered]@{ 'test-runner' = 'mtp'; 'coverage-analysis' = 'off' }
+foreach ($requiredKey in $requiredSettings.Keys) {
+    $expectedValue = $requiredSettings[$requiredKey]
     if ($baseStryker.PSObject.Properties.Match($requiredKey).Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$baseStryker.$requiredKey)) {
         Write-Host "GATE NOT WIRED: stryker-config.json does not set '$requiredKey' (expected test-runner=mtp, coverage-analysis=off; see docs/adr/0016-stryker-mtp-runner.md)."
+        exit 1
+    }
+    $actualValue = ([string]$baseStryker.$requiredKey).Trim()
+    if ($actualValue -ne $expectedValue) {
+        Write-Host "GATE NOT WIRED: stryker-config.json sets '$requiredKey' to '$actualValue' (expected test-runner=mtp, coverage-analysis=off; see docs/adr/0016-stryker-mtp-runner.md)."
         exit 1
     }
 }
@@ -561,7 +569,8 @@ $outputRootPath = if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) {
     [System.IO.Path]::GetFullPath($OutputRoot)
 }
 else {
-    Join-Path ([System.IO.Path]::GetTempPath()) ("LamuFlix-stryker/" + [System.DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
+    # The GUID suffix keeps two runs started in the same second out of one folder.
+    Join-Path ([System.IO.Path]::GetTempPath()) ("LamuFlix-stryker/" + [System.DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
 }
 $outputRootPath = [System.IO.Path]::GetFullPath($outputRootPath)
 $repoRootWithSep = $repoRoot.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
