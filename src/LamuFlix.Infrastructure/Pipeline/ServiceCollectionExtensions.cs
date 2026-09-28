@@ -51,7 +51,7 @@ public static class ServiceCollectionExtensions
             validation.HandleAsync,
             CreateLogger(serviceProvider),
             serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System);
-        return new TracingDecorator<TReq, TRes>(logging.HandleAsync, TracingDecorator<TReq, TRes>.Source);
+        return new TracingDecorator<TReq, TRes>(logging.HandleAsync, PipelineActivity.Source);
     }
 
     private static Task<TRes> Invoke<THandler, TReq, TRes>(THandler handler, TReq request, CancellationToken cancellationToken)

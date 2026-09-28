@@ -4,7 +4,7 @@ using LamuFlix.Core.Pipeline;
 
 namespace LamuFlix.ArchitectureTests.Fixtures.Pipeline;
 
-public sealed record SealedRecordPipelineRequest(string Value);
+public sealed record SealedRecordPipelineRequest;
 
 public sealed class SealedRecordRequestCommandHandler : ICommandHandler<SealedRecordPipelineRequest, int>
 {
@@ -28,7 +28,7 @@ public sealed class SealedNonRecordRequestCommandHandler : ICommandHandler<Seale
         Task.FromResult(0);
 }
 
-public sealed record UnsealedHandlerPipelineRequest(string Value);
+public sealed record UnsealedHandlerPipelineRequest;
 
 public class UnsealedPipelineCommandHandler : ICommandHandler<UnsealedHandlerPipelineRequest, int>
 {

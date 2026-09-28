@@ -155,7 +155,7 @@ public class AddHandlerTests
         services.AddSingleton(timeProvider);
         foreach (var validator in validators)
         {
-            services.AddSingleton<IValidator<TReq>>(validator);
+            services.AddSingleton(validator);
         }
 
         services.AddHandler<THandler, TReq, TRes>();
@@ -167,8 +167,8 @@ public class AddHandlerTests
         var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            SampleUsingParentId = (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
+            Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
+            SampleUsingParentId = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStarted = _ => sequence.Add("Tracing:start"),
             ActivityStopped = _ => sequence.Add("Tracing:stop"),
         };
