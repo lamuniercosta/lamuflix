@@ -1,0 +1,1519 @@
+{
+  "ticket": "DEV-382",
+  "project": "LamuFlix.Infrastructure",
+  "generatedUtc": "2026-09-28T21:03:49Z",
+  "measured": {
+    "commit": "f66d8c2d0c9ab1084fe3786d1f69e903680d2cb3",
+    "remoteBranches": [
+      "origin/feature/DEV-296"
+    ],
+    "baseRef": "origin/main",
+    "mergeBase": "1d7efa132817ff9c9e87b4adbfa59f97845ba4d5"
+  },
+  "tooling": {
+    "commit": "1d7efa132817ff9c9e87b4adbfa59f97845ba4d5",
+    "dirty": true,
+    "overlaid": [
+      {
+        "path": ".config/dotnet-tools.json",
+        "sha256": "57ce0f1f28826394e28966753ead381564043cc4b306e58dc940145b5ca020a4"
+      },
+      {
+        "path": "stryker-config.json",
+        "sha256": "b24688206ffd7b046b9494ea638e80ed757e93eeee12737fcd7582323ab51507"
+      },
+      {
+        "path": "scripts/run-mutation.ps1",
+        "sha256": "5deed151a56230e9092fc4b0344262e23e3b7ccf95720602c173ab6266a33965"
+      },
+      {
+        "path": "scripts/_gate-common.ps1",
+        "sha256": "b4906af9e753329680dec85bfe9e65f93ef5538f00c87f73ceafc425822a85fd"
+      },
+      {
+        "path": "scripts/_harness-config.ps1",
+        "sha256": "4544aee7d3f69728694efce2ced4c7b779cbb719db751bed193e1f9c7b086d5a"
+      },
+      {
+        "path": "scripts/new-mutation-receipt.ps1",
+        "sha256": "d7606c2e4779d6018cba339baf889655a0111cc39468abd5f0c401cd0fbef2c0"
+      }
+    ]
+  },
+  "strykerVersion": "5.0.0",
+  "threshold": 80,
+  "effectiveConfig": {
+    "stryker-config": {
+      "mutation-level": "Standard",
+      "test-runner": "mtp",
+      "coverage-analysis": "off",
+      "test-projects": [
+        "<checkout>\\tests\\LamuFlix.Test\\LamuFlix.Test.csproj"
+      ],
+      "since": {
+        "enabled": false
+      },
+      "mutate": [
+        "Pipeline/HandlerLog.cs",
+        "Pipeline/LoggingDecorator.cs",
+        "Pipeline/ServiceCollectionExtensions.cs",
+        "Pipeline/TracingDecorator.cs",
+        "Pipeline/ValidationDecorator.cs"
+      ],
+      "thresholds": {
+        "high": 90,
+        "low": 80,
+        "break": 80
+      },
+      "reporters": [
+        "progress",
+        "html",
+        "json"
+      ]
+    }
+  },
+  "testProjects": [
+    "tests/LamuFlix.Test/LamuFlix.Test.csproj"
+  ],
+  "exits": {
+    "toolRestore": 0,
+    "gate": 0,
+    "stryker": 0,
+    "cleanBuild": 0
+  },
+  "gate": {
+    "verdictLines": "Mutation testing: PASSED (all projects scored at or above threshold 80%, total tested: 39)."
+  },
+  "mutatedFiles": [
+    "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+    "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+    "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+    "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs"
+  ],
+  "counts": {
+    "Killed": 19,
+    "Survived": 1,
+    "Timeout": 19,
+    "NoCoverage": 0,
+    "Ignored": 18,
+    "CompileError": 2,
+    "Tested": 39,
+    "Score": 97.44
+  },
+  "mutants": [
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 16,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 17,
+      "mutator": "Statement mutation",
+      "status": "Survived",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 18,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 19,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 24,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 26,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_Success_RecordsDecoratorOrderAndHandlerSpan",
+        "LamuFlix.Test.LoggingDecoratorTests.HandleAsync_Success_LogsInformationWithElapsedAndNoPayload"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 30,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 31,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler",
+        "LamuFlix.Test.LoggingDecoratorTests.HandleAsync_ValidationException_LogsWarningAndRethrowsWithoutPayload"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 32,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler",
+        "LamuFlix.Test.LoggingDecoratorTests.HandleAsync_ValidationException_LogsWarningAndRethrowsWithoutPayload"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 35,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 36,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.LoggingDecoratorTests.HandleAsync_OtherException_LogsErrorAndRethrowsWithoutPayload"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/LoggingDecorator.cs",
+      "line": 37,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.LoggingDecoratorTests.HandleAsync_OtherException_LogsErrorAndRethrowsWithoutPayload"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 17,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 18,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 22,
+      "mutator": "Logical mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 22,
+      "mutator": "LogicalNotExpression to un-LogicalNotExpression mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 22,
+      "mutator": "LogicalNotExpression to un-LogicalNotExpression mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_QueryHandler_ResolvesTracingDecorator",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_NeitherInterface_ThrowsInvalidOperationException"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 22,
+      "mutator": "Negate expression",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 23,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 24,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 25,
+      "mutator": "String mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 28,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_HandlerImplementingBoth_ResolvesEachInterface",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_ManualValidator_IsAppliedAndUnregisteredValidatorIsNot",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_Success_RecordsDecoratorOrderAndHandlerSpan",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_QueryHandler_ResolvesTracingDecorator"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 29,
+      "mutator": "Negate expression",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 30,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 31,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_HandlerImplementingBoth_ResolvesEachInterface",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_ManualValidator_IsAppliedAndUnregisteredValidatorIsNot",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_Success_RecordsDecoratorOrderAndHandlerSpan"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 38,
+      "mutator": "Negate expression",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 39,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 40,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_HandlerImplementingBoth_ResolvesEachInterface",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_QueryHandler_ResolvesTracingDecorator"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 55,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 63,
+      "mutator": "Null coalescing mutation (remove left)",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_Success_RecordsDecoratorOrderAndHandlerSpan"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ServiceCollectionExtensions.cs",
+      "line": 68,
+      "mutator": "Null coalescing mutation (remove left)",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 15,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 16,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 17,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 21,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 23,
+      "mutator": "Block removal mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 27,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 28,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.TracingDecoratorTests.HandleAsync_HandlerThrows_SetsErrorStatusAndRethrows"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 29,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler",
+        "LamuFlix.Test.TracingDecoratorTests.HandleAsync_NoListener_RethrowsException",
+        "LamuFlix.Test.TracingDecoratorTests.HandleAsync_HandlerThrows_SetsErrorStatusAndRethrows"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 34,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 35,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/TracingDecorator.cs",
+      "line": 36,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 17,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 18,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 19,
+      "mutator": "Statement mutation",
+      "status": "Timeout",
+      "statusReason": "",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 22,
+      "mutator": "Equality mutation",
+      "status": "CompileError",
+      "statusReason": "Mutant caused compile errors",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 22,
+      "mutator": "Equality mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_HandlerImplementingBoth_ResolvesEachInterface",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_ManualValidator_IsAppliedAndUnregisteredValidatorIsNot",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_Success_RecordsDecoratorOrderAndHandlerSpan",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_QueryHandler_ResolvesTracingDecorator",
+        "LamuFlix.Test.ValidationDecoratorTests.HandleAsync_ZeroValidators_InvokesHandler"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 22,
+      "mutator": "Linq method mutation (Count() to Sum())",
+      "status": "CompileError",
+      "statusReason": "Mutant caused compile errors",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 22,
+      "mutator": "Negate expression",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.ValidationDecoratorTests.HandleAsync_ZeroValidators_InvokesHandler",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_HandlerImplementingBoth_ResolvesEachInterface",
+        "LamuFlix.Test.ValidationDecoratorTests.HandleAsync_MultipleValidators_AggregatesFailuresAndSkipsHandler",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_ManualValidator_IsAppliedAndUnregisteredValidatorIsNot",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_Success_RecordsDecoratorOrderAndHandlerSpan",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_QueryHandler_ResolvesTracingDecorator"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 23,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 24,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.ValidationDecoratorTests.HandleAsync_MultipleValidators_AggregatesFailuresAndSkipsHandler",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 33,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 36,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 39,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 40,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.ValidationDecoratorTests.HandleAsync_MultipleValidators_AggregatesFailuresAndSkipsHandler",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 48,
+      "mutator": "Block removal mutation",
+      "status": "Ignored",
+      "statusReason": "Removed by block already covered filter",
+      "killedBy": []
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 49,
+      "mutator": "LogicalNotExpression to un-LogicalNotExpression mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.ValidationDecoratorTests.HandleAsync_MultipleValidators_AggregatesFailuresAndSkipsHandler",
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 50,
+      "mutator": "Block removal mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler",
+        "LamuFlix.Test.ValidationDecoratorTests.HandleAsync_MultipleValidators_AggregatesFailuresAndSkipsHandler"
+      ]
+    },
+    {
+      "file": "src/LamuFlix.Infrastructure/Pipeline/ValidationDecorator.cs",
+      "line": 55,
+      "mutator": "Statement mutation",
+      "status": "Killed",
+      "statusReason": "",
+      "killedBy": [
+        "LamuFlix.Test.ValidationDecoratorTests.HandleAsync_MultipleValidators_AggregatesFailuresAndSkipsHandler"
+      ]
+    }
+  ],
+  "processes": [
+    {
+      "pid": 15104,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 55488",
+      "firstSeenUtc": "2026-09-28T21:02:34.0180872Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 39700,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 55456",
+      "firstSeenUtc": "2026-09-28T21:02:30.3075778Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 43888,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61553",
+      "firstSeenUtc": "2026-09-28T21:01:37.9668297Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll"
+      ]
+    },
+    {
+      "pid": 56544,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61559",
+      "firstSeenUtc": "2026-09-28T21:01:39.5558884Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 57720,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61282",
+      "firstSeenUtc": "2026-09-28T21:00:45.3433822Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 60392,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58828",
+      "firstSeenUtc": "2026-09-28T21:03:28.3079398Z",
+      "modules": []
+    },
+    {
+      "pid": 64188,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58192",
+      "firstSeenUtc": "2026-09-28T20:58:50.3329096Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll"
+      ]
+    },
+    {
+      "pid": 70168,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58196",
+      "firstSeenUtc": "2026-09-28T20:58:53.7715759Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 78980,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61283",
+      "firstSeenUtc": "2026-09-28T21:00:46.1205490Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 80544,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58767",
+      "firstSeenUtc": "2026-09-28T21:03:25.7822572Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll"
+      ]
+    },
+    {
+      "pid": 81816,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58195",
+      "firstSeenUtc": "2026-09-28T20:58:51.8157358Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 84720,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 55485",
+      "firstSeenUtc": "2026-09-28T21:02:32.9416196Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 85608,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 60971",
+      "firstSeenUtc": "2026-09-28T20:59:49.1164653Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 85656,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58194",
+      "firstSeenUtc": "2026-09-28T20:58:52.6377933Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 86644,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 55490",
+      "firstSeenUtc": "2026-09-28T21:02:35.7737401Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 90564,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 55489",
+      "firstSeenUtc": "2026-09-28T21:02:34.9187555Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 93064,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61558",
+      "firstSeenUtc": "2026-09-28T21:01:38.7383062Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 93216,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61560",
+      "firstSeenUtc": "2026-09-28T21:01:40.4116167Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 93680,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58191",
+      "firstSeenUtc": "2026-09-28T20:58:49.6849468Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 95088,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58197",
+      "firstSeenUtc": "2026-09-28T20:58:48.8743254Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 95936,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61561",
+      "firstSeenUtc": "2026-09-28T21:01:41.3775157Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 97484,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 60969",
+      "firstSeenUtc": "2026-09-28T20:59:48.2846416Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 97552,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58833",
+      "firstSeenUtc": "2026-09-28T21:03:28.9565356Z",
+      "modules": []
+    },
+    {
+      "pid": 98880,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 55494",
+      "firstSeenUtc": "2026-09-28T21:02:37.5166036Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 98908,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58076",
+      "firstSeenUtc": "2026-09-28T20:58:22.2190282Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 100064,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58193",
+      "firstSeenUtc": "2026-09-28T20:58:48.1474934Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 100120,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61550",
+      "firstSeenUtc": "2026-09-28T21:01:37.1644975Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 100324,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58834",
+      "firstSeenUtc": "2026-09-28T21:03:29.5078269Z",
+      "modules": []
+    },
+    {
+      "pid": 100376,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 60967",
+      "firstSeenUtc": "2026-09-28T20:59:47.3905294Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 100508,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 60966",
+      "firstSeenUtc": "2026-09-28T20:59:46.5582429Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 100856,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58190",
+      "firstSeenUtc": "2026-09-28T20:58:51.0460606Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 100900,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 60963",
+      "firstSeenUtc": "2026-09-28T20:59:43.2624138Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 100904,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 58073",
+      "firstSeenUtc": "2026-09-28T20:58:20.2347680Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll"
+      ]
+    },
+    {
+      "pid": 100916,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 60970",
+      "firstSeenUtc": "2026-09-28T20:59:49.9067379Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 101556,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 55492",
+      "firstSeenUtc": "2026-09-28T21:02:36.6733544Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 102116,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 60965",
+      "firstSeenUtc": "2026-09-28T20:59:45.7557108Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 102132,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61546",
+      "firstSeenUtc": "2026-09-28T21:01:36.3216033Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll"
+      ]
+    },
+    {
+      "pid": 102404,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61281",
+      "firstSeenUtc": "2026-09-28T21:00:44.4792767Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 102440,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61280",
+      "firstSeenUtc": "2026-09-28T21:00:43.6453101Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 102652,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61284",
+      "firstSeenUtc": "2026-09-28T21:00:46.9148432Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    },
+    {
+      "pid": 103036,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61265",
+      "firstSeenUtc": "2026-09-28T21:00:39.5153436Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 103176,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 55497",
+      "firstSeenUtc": "2026-09-28T21:02:38.3884386Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll"
+      ]
+    },
+    {
+      "pid": 103292,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61276",
+      "firstSeenUtc": "2026-09-28T21:00:40.2836941Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll"
+      ]
+    },
+    {
+      "pid": 103368,
+      "name": "dotnet.exe",
+      "parentPid": 95560,
+      "parentName": "dotnet.exe",
+      "commandLine": "\"<dotnet>\\dotnet.exe\" <checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll --server --client-port 61278",
+      "firstSeenUtc": "2026-09-28T21:00:41.2231521Z",
+      "modules": [
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Test.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Core.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Tests.Common.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Worker.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Data.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Web.dll",
+        "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Api.dll"
+      ]
+    }
+  ],
+  "assembly": {
+    "module": "LamuFlix.Infrastructure.dll",
+    "verdict": "mutated-assembly-loaded",
+    "note": "23 of 24 observed load(s) of LamuFlix.Infrastructure.dll contain Stryker types and differ from the clean rebuild of the same path (where that path still exists): the test process ran the mutated assembly.",
+    "observations": [
+      {
+        "pid": 15104,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 39700,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 43888,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 57720,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 64188,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 70168,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 81816,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 84720,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 85608,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 85656,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 86644,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 90564,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 93680,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 95088,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 98880,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 98908,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "runStrykerTypes": 0,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 100064,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 100856,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 100916,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 101556,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 102132,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 102404,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 102652,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      },
+      {
+        "pid": 103368,
+        "path": "<checkout>\\tests\\LamuFlix.Test\\bin\\Debug\\net10.0\\LamuFlix.Infrastructure.dll",
+        "runSha256": "503e79b1b0d03a7f977b7f31fe686a7487dbd187c47922cfa146e43d1ab7ce30",
+        "runStrykerTypes": 2,
+        "cleanSha256": "053ca7afce1d5900bc3318516a39276d6a8b7caf9aed004044f84068a9294e50",
+        "cleanStrykerTypes": 0
+      }
+    ]
+  }
+}
