@@ -1,7 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation;
-using LamuFlix.Core.Pipeline;
 using ValidationException = LamuFlix.Core.Pipeline.ValidationException;
 using LamuFlix.Infrastructure.Pipeline;
 using Shouldly;

@@ -28,7 +28,7 @@ public class TracingDecoratorTests
         string result;
         try
         {
-            result = await decorator.HandleAsync(new SampleRequest("value"), CancellationToken.None);
+            result = await decorator.HandleAsync(new SampleRequest(), CancellationToken.None);
         }
         finally
         {
@@ -56,7 +56,7 @@ public class TracingDecoratorTests
 
         // act
         var exception = await Should.ThrowAsync<InvalidOperationException>(
-            () => decorator.HandleAsync(new SampleRequest("value"), CancellationToken.None));
+            () => decorator.HandleAsync(new SampleRequest(), CancellationToken.None));
 
         // assert
         exception.Message.ShouldBe("boom");
@@ -75,7 +75,7 @@ public class TracingDecoratorTests
             source);
 
         // act
-        var result = await decorator.HandleAsync(new SampleRequest("value"), CancellationToken.None);
+        var result = await decorator.HandleAsync(new SampleRequest(), CancellationToken.None);
 
         // assert
         result.ShouldBe("ok");
@@ -92,7 +92,7 @@ public class TracingDecoratorTests
 
         // act
         var exception = await Should.ThrowAsync<InvalidOperationException>(
-            () => decorator.HandleAsync(new SampleRequest("value"), CancellationToken.None));
+            () => decorator.HandleAsync(new SampleRequest(), CancellationToken.None));
 
         // assert
         exception.Message.ShouldBe("boom");
@@ -103,13 +103,13 @@ public class TracingDecoratorTests
         var listener = new ActivityListener
         {
             ShouldListenTo = candidate => candidate.Name == source.Name,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            SampleUsingParentId = (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
+            Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
+            SampleUsingParentId = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStopped = onStopped,
         };
         ActivitySource.AddActivityListener(listener);
         return listener;
     }
 
-    private sealed record SampleRequest(string Value);
+    private sealed record SampleRequest;
 }

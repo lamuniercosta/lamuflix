@@ -11,8 +11,6 @@ public sealed class TracingDecorator<TReq, TRes>(
     ActivitySource activitySource) : ICommandHandler<TReq, TRes>, IQueryHandler<TReq, TRes>
     where TReq : class
 {
-    public static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
-
     public async Task<TRes> HandleAsync(TReq request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(inner);
@@ -37,4 +35,9 @@ public sealed class TracingDecorator<TReq, TRes>(
         activity?.SetStatus(ActivityStatusCode.Error);
         activity?.SetTag(TelemetryConstants.ErrorType, exception.GetType().Name);
     }
+}
+
+internal static class PipelineActivity
+{
+    public static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
 }
