@@ -1,7 +1,29 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.1.0 (MINOR — comment policy materially expanded)
+Version change: 1.1.0 → 1.2.0 (MINOR — closed-set types standardised on SmartEnum-style Enumerations)
+
+Amendment 1.2.0 (2026-09-28):
+  Modified sections:
+    ✏️ I. Ports and Adapters: `Ardalis.SmartEnum` added to the packages `LamuFlix.Core` may reference
+    ✏️ III. Filters: `MovieSort` / `SortDirection` are Enumerations, not plain enums
+    ✏️ IV. Enrichment: `EnrichmentStatus` is `SmartEnum<EnrichmentStatus, int>` (numeric values
+       unchanged, still the database contract); `EnrichmentFailureCategory` is an Enumeration
+       carrying `IsRetryable` and the caller-safe message
+    ✏️ Technology Stack Constraints: Category types row loses its plain-enum exceptions;
+       Serialization row uses the SmartEnum System.Text.Json converters
+    ✏️ Development Workflow → Coding Conventions: new **Enumerations** rule
+    ✏️ Development Workflow → Pull Request Quality Gates: Enumeration checkbox added
+    ✏️ Development Workflow → API and Contract Rules: Enumerations serialized by `Name`
+  Added / removed sections: none
+  Templates reviewed:
+    ✅ .specify/templates/*.md — no enum references; no edits required
+  Follow-up:
+    ⚠ src/LamuFlix.Data/Models/MovieEnrichmentStatus.cs is a plain enum in the transitional
+      layout (see Known Technical Debt); convert when Epic 1 replaces it with Core's
+      `EnrichmentStatus`, or on contact.
+
+Previous version change: 1.0.0 → 1.1.0 (MINOR — comment policy materially expanded)
 
 Amendment 1.1.0 (2026-09-23):
   Modified sections:
@@ -80,7 +102,7 @@ Project reference rules are strict and unidirectional:
 
 | Project | May reference |
 |---|---|
-| `LamuFlix.Core` | BCL, `Microsoft.Extensions.Logging.Abstractions`, `System.Collections.Immutable` only |
+| `LamuFlix.Core` | BCL, `Microsoft.Extensions.Logging.Abstractions`, `System.Collections.Immutable`, `Ardalis.SmartEnum` only |
 | `LamuFlix.Infrastructure` | Core |
 | `LamuFlix.Api` | Core, Infrastructure, ServiceDefaults |
 | `LamuFlix.Worker` | Core, Infrastructure, ServiceDefaults |
@@ -129,8 +151,9 @@ the repository. Reflection-based dynamic queries and string-named sort propertie
 
 - `MovieQuery` is a `sealed record` with typed members (`Text`, `GenreIds`, `ActorIds`,
   `RuntimeRange`, `YearRange`, `Statuses`, `InWatchlist`, `MovieSort`, `SortDirection`, `Page`).
-- Sorting is a `switch` over the `MovieSort` enum — an explicit whitelist. `NULLS LAST` semantics
-  MUST be preserved for nullable sort keys.
+- `MovieSort` and `SortDirection` are Enumerations (see Coding Conventions). Sorting dispatches
+  over the closed `MovieSort` set — an explicit whitelist, never a property name. `NULLS LAST`
+  semantics MUST be preserved for nullable sort keys.
 - Each predicate is one small `IQueryable<Movie>` extension (`WhereText`, `WhereGenres`,
   `WhereRuntime`, …) in Infrastructure; the browse projection goes straight to `MovieSummary`
   with no entity tracking.
@@ -149,13 +172,15 @@ state is provably faithful.
 `MarkEnriched`, `MarkNotFound`, `MarkFailed`, `RequestEnrichment`, `AddToWatchlist`,
 `RemoveFromWatchlist`. Illegal transitions throw `InvalidTransitionException` (HTTP 409).
 
-- `EnrichmentStatus` is `Pending = 0, Enriched = 1, NotFound = 2, Failed = 3`; the numeric values
-  are part of the database contract and MUST NOT change.
+- `EnrichmentStatus` is a `SmartEnum<EnrichmentStatus, int>` with `Pending = 0, Enriched = 1,
+  NotFound = 2, Failed = 3`, persisted as its `Value`; the numeric values are part of the
+  database contract and MUST NOT change.
 - Claiming work MUST be atomic: `IMovieRepository.TryClaimForEnrichmentAsync` performs a single
   `UPDATE … WHERE Status = Pending` (`ExecuteUpdateAsync`). Exactly one of two concurrent claims
   wins; an integration test MUST prove it. A claim older than the lease window is free.
-- Failures are classified into `EnrichmentFailureCategory` (`ProviderUnavailable`, `RateLimited`,
-  `InvalidResponse`, `Unknown`), each with `IsRetryable` and a caller-safe message. Classification
+- Failures are classified into the `EnrichmentFailureCategory` Enumeration (`ProviderUnavailable`,
+  `RateLimited`, `InvalidResponse`, `Unknown`); each member carries its own `IsRetryable` and
+  caller-safe message. Classification
   from the root-cause exception lives in exactly one `EnrichmentFailureClassifier`.
 - Retry is category-driven: retryable and attempts < max → republish with `Attempt + 1`
   (`RateLimited` via the TTL retry queue); otherwise `MarkFailed(category)` and dead-letter.
@@ -301,8 +326,8 @@ and an ADR.
 | Time | `TimeProvider` | `DateTime.Now` family banned |
 | Validation | FluentValidation, executed by the validation decorator | |
 | Test tooling | xUnit v3, NSubstitute, Shouldly, AutoFixture, Faker.Net | See Principle IX |
-| Category types | SmartEnum-style closed sets (`Ardalis.SmartEnum` or sealed records) | Plain `enum` only for `EnrichmentStatus`, `MovieSort`, `SortDirection` |
-| Serialization | `System.Text.Json`, `JsonStringEnumConverter` | Newtonsoft.Json MUST NOT be introduced |
+| Category types | Enumerations: `Ardalis.SmartEnum` (or an equivalent `Enumeration` base class in `Core/Domain/`) | Plain `enum` forbidden for project-owned types; see Coding Conventions |
+| Serialization | `System.Text.Json`; `Ardalis.SmartEnum.SystemTextJson` name converters for Enumerations | Newtonsoft.Json MUST NOT be introduced |
 | Object mapping | Mapster | `IRegister` configs live beside the feature they serve; AutoMapper MUST NOT be introduced |
 | Logging | Serilog (console JSON; OTLP/Seq optional) | Wired in ServiceDefaults |
 | Telemetry | OpenTelemetry traces/metrics/logs, OTLP exporter | Aspire dashboard as local target |
@@ -327,6 +352,8 @@ Every PR MUST satisfy all of the following before merging:
       `AddHandler<…>`; no MediatR or reflection dispatch introduced
 - [ ] New ports have an ADR; adapters live in `LamuFlix.Infrastructure`
 - [ ] New filters extend `MovieQuery` and the sort whitelist; no dynamic property access
+- [ ] New closed sets of values are Enumerations (`Ardalis.SmartEnum` or equivalent); no new
+      project-owned C# `enum`
 - [ ] New `Movie` state transitions are validated methods with unit tests for every legal and
       illegal transition
 - [ ] New endpoints use `TypedResults`, are covered by `WebApplicationFactory` integration
@@ -378,6 +405,16 @@ Code MUST follow `.claude/rules/vendor/aaron-csharp-coding-style.md` and these p
   inheritance; identifiers and constrained values are value objects (`MovieId`, `ImdbId`,
   `ImdbRating`, `Runtime`, `ReleaseYear`, `LibraryPath`, `MediaFormat`) with `TryParse`-style
   factories. Collections in records are `System.Collections.Immutable`.
+- **Enumerations**: every closed set of named values (statuses, categories, sort keys,
+  directions, formats) MUST be an Enumeration — `Ardalis.SmartEnum` (`SmartEnum<T>` or
+  `SmartEnum<T, TValue>`) or an equivalent sealed `Enumeration` base class — never a C#
+  `enum`. Behaviour that varies by member (flags such as `IsRetryable`, messages, sort
+  expressions, allowed transitions) lives on the member instead of in `switch` statements
+  scattered across callers. Parsing uses `TryFromName`/`TryFromValue`, never casts from `int`
+  or `Enum.Parse`. EF Core persists the `Value` through a value converter; JSON uses the name
+  converter. A plain `enum` is permitted only where an external API requires one (BCL or
+  third-party types such as `HttpStatusCode`, `[Flags]` interop); it MUST NOT leak into Core
+  signatures.
 - **Comments**: code MUST NOT carry comments (inline `//`, XML `///`, block) unless the user
   explicitly requests one or it is strictly necessary — a non-obvious WHY the code cannot
   express, such as a hidden constraint or a workaround for a specific external bug. Names carry
@@ -428,7 +465,7 @@ Code MUST follow `.claude/rules/vendor/aaron-csharp-coding-style.md` and these p
 - Success/error shapes follow the endpoint table in the architecture plan (§6): `202` with a
   `Location` header for import and enrichment requests, `204` for watchlist and play, `403`
   when `LocalPlay` is off.
-- Enums are serialized as strings. `Movie` enrichment fields are exposed as
+- Enumerations are serialized by `Name` as strings; numeric values never cross the API. `Movie` enrichment fields are exposed as
   `EnrichmentStatus`, `EnrichedAt`, `EnrichmentAttempts`, `LastFailureCategory`; never raw error text.
 - The OpenAPI document is committed at `web/src/api/openapi.json`, snapshot-tested with Verify,
   and regenerated in CI; drift fails the build. The TypeScript client and MSW handlers are
@@ -493,4 +530,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-09-23
+**Version**: 1.2.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-09-28
