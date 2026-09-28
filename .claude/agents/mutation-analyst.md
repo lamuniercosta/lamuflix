@@ -15,10 +15,12 @@ Stryker's raw report is long, largely noise, and the main reason people stop run
 
 ```powershell
 pwsh -NoProfile -File ./scripts/run-mutation.ps1            # worktree gate (--since is unusable from worktrees)
-dotnet stryker --mutate "**/ImportHandler.cs"   # scoped to one file
+pwsh -NoProfile -File ./scripts/run-mutation.ps1 -Project LamuFlix.Core   # one changed project
 ```
 
 The threshold comes from `harness.yml` (`gates.mutation.threshold`, rendered into `stryker-config.json`). This takes minutes — say so up front if the caller may not expect it.
+
+Survivors are in `<output root>/<project>/reports/mutation-report.json`; the gate prints the output root. Do not run `dotnet stryker` directly: it skips the gate's test-project filter and its artifact-kill check (`docs/adr/0016-stryker-mtp-runner.md`).
 
 If Stryker cannot run (tool not restored, build broken, no test project), report
 **Could not run** with the remediation. A mutation gate that did not execute has

@@ -24,7 +24,7 @@ This command is _informed_ by the project's domain model and built on a shared d
 
 **Feed in metric evidence when available.** These are input signals, not verdicts — the deletion test and friction reading below still decide:
 
-- **Stryker.NET survivors.** If `StrykerOutput/` reports exist (or the user can run `dotnet stryker`), clusters of surviving mutants mark code whose tests can't see it through its current interface — prime deepening territory.
+- **Stryker.NET survivors.** If mutation reports exist (`./scripts/run-mutation.ps1` prints the output root that holds them), clusters of surviving mutants mark code whose tests can't see it through its current interface — prime deepening territory.
 - **Roslyn / NDepend complexity.** If the repo enforces cyclomatic complexity (CA1502 / NDepend rules), the files that keep tripping or hovering near the threshold are candidates.
 - **Coverage gaps** from `dotnet test --collect:"XPlat Code Coverage"` — untested code that *can't* be tested through its interface is different from untested code nobody bothered with; only the former is architectural.
 

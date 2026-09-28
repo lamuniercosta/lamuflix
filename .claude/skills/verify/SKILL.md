@@ -29,7 +29,7 @@ This is the ad-hoc runner. It wraps the same scripts the gated pipeline uses, so
 | 6. Property tests | `./scripts/run-property-tests.ps1` | FAIL on counterexample |
 | 7. Security | `./scripts/run-vulnerable-packages.ps1` + secret/injection review | FAIL on any vulnerable package |
 | 8. Format | `dotnet format --verify-no-changes` | No |
-| 9. Mutation | `./scripts/run-mutation.ps1` (or local `dotnet stryker --mutate "**/File.cs"`) | FAIL below threshold |
+| 9. Mutation | `./scripts/run-mutation.ps1` (`-Project <name>` to narrow) | FAIL below threshold |
 | 10. Diff review | `git diff` analysis | No |
 
 Phases 2–4 are the **static-analysis gates**. They are not interchangeable — each catches a different class of problem, and `dotnet build` alone surfaces none of them reliably.
