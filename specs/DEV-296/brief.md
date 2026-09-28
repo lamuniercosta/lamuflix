@@ -438,7 +438,7 @@ Input: D7d run receipt (DEV-296 note :372-386); Keel D7d adjudication (:407-434)
   - Item 5, at least 1 Killed with `killedBy`: **pass**. Mutants 259 and 261 were killed by `AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler` (:494-495).
   - Item 6, coverage off: **pass**, under the :421 restatement.
   - D7a FAIL list: **no FAIL.** Mutant 260 is "Removed by block already covered filter", which is the standard dedup (:491), and there is no "Removed by since filter" mutant.
-  - The console totals of 262 created and 248 Ignored are not report entries. Item 3 is judged on report entries (DEV-294:1208), and D7b routing 4 already disposed of the CompileErrors (:268).
+  - The console totals of 262 created and 248 Ignored are not report entries. Item 3 is judged on report entries (DEV-294:1208), and D7b routing 4 already disposed of the CompileErrors (:267).
 - **Stop 2 (:415): NOT assessed. Q12 is circular.**
   - The "receipt" Wisp cites (:496-498) is Keel's D7e line :476. That line only restates the Stryker initial-run count (:437).
   - Comparing 173 with 173 compares that count with itself. It is not an independent `dotnet test` count for `LamuFlix.Test`.
@@ -459,5 +459,5 @@ Input: D7d run receipt (DEV-296 note :372-386); Keel D7d adjudication (:407-434)
   - No Anvil dispatch is authorized.
   - The architect-remediation counter stays at 1 of 2.
   - The review cap of 2 (:75) is unchanged.
-- **Hygiene:** as in D7d (:424). `CONCLUSIONS.md` stays uncommitted, pending Patron and Rigger (:236).
+- **Hygiene:** as in D7d (:422). `CONCLUSIONS.md` stays uncommitted, pending Patron and Rigger (:236).
 - There is no §2.3 (a)/(b) item, so no owner checkbox.
