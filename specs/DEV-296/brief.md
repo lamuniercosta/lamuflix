@@ -198,3 +198,40 @@ Input: Conductor receipt (DEV-296 task note :178-185); `StrykerOutput/2026-09-28
   4. Whether report paths (`src\LamuFlix\...`) match the diff paths used by the `since` filter.
 - **Scope of the gate:** this brief's Gate expectations (Roslyn, complexity, InspectCode, vulnerable packages, format, test) are unaffected and are judged on their own receipts. Architect stays open; the ticket does not reach review with a null score.
 - **Worktree hygiene:** `DEV-296-phase3-stryker-report.txt` (untracked) and `StrykerOutput/` are run artifacts; they must not be committed. The report text belongs in the task note. `.junie/mcp/mcp.json` shows a working-copy modification the ticket does not name (§2.3 item 6); it must not be committed. Restoring it is for the Conductor to confirm with its owner.
+
+## D7a-equivalent Stryker amendment (Keel, 2026-09-28)
+
+Basis: owner direction relayed by Fixer (2026-09-28): apply the DEV-294 D7a approach, and do not wait for supplemental compiler-error recon. Precedent: DEV-294 brief D7a and its PASS adjudication (DEV-294 note :1205-1214). Cause: the `since` run at 8855b978 (DEV-296 note :178-183) reproduced the DEV-294 linked-worktree `since` failure, where every changed-file mutant was Ignored with "Removed by since filter". This amendment supersedes the "no retry until recon" line above and the invocation authorised in DEV-296 note :152-155. Recon items 2-4 above are no longer preconditions. The evidence bar stays as it is, tightened below.
+
+- **Invocations: three, as one run.** dotnet-stryker 4.16.0 takes one `--project` (`-p`) per invocation, and `mutate` globs resolve relative to that project (the DEV-294 D7a precedent: `Domain/*.cs` under `-p LamuFlix.Core.csproj`). The 11 files span three projects, so the run is exactly three sequential invocations: Core, Infrastructure, Api. Each one runs from the worktree root with its own temp config. Together they are the single run. All three are executed even if an earlier one fails, so the evidence is complete. No invocation is retried.
+- **Pre-run check (read-only). If any of these is false, stop and report to Keel:** the branch is `feature/DEV-296`; `git diff 8855b97805522ac9ea1acf61f5e5f8c8a22f7919 HEAD -- src tests stryker-config.json harness.yml` is empty (HEAD may be past 8855b978 by spec-only commits); `git diff eae97ae3 HEAD -- stryker-config.json harness.yml` is empty. Known pre-existing working-tree items are allowed and must stay untouched: `specs/DEV-296/CONCLUSIONS.md` (M), `recon-DEV-296.md`, `DEV-296-phase3-stryker-report.txt`, `StrykerOutput/`.
+- **Frozen invocation, pwsh 7, run once:**
+  ```powershell
+  Set-Location F:\Dev\LamuFlix.worktrees\DEV-296
+  if ((git branch --show-current) -ne 'feature/DEV-296') { throw 'wrong branch' }
+  $base = '{"mutation-level":"Standard","since":{"enabled":false},"thresholds":{"high":90,"low":80,"break":80},"reporters":["progress","html","json"],'
+  $runs = [ordered]@{
+    'LamuFlix.Core.csproj'           = '"mutate":["Pipeline/ICommandHandler.cs","Pipeline/IQueryHandler.cs","Pipeline/TelemetryConstants.cs","Pipeline/ValidationException.cs"]'
+    'LamuFlix.Infrastructure.csproj' = '"mutate":["Pipeline/HandlerLog.cs","Pipeline/LoggingDecorator.cs","Pipeline/ServiceCollectionExtensions.cs","Pipeline/TracingDecorator.cs","Pipeline/ValidationDecorator.cs"]'
+    'LamuFlix.Api.csproj'            = '"mutate":["ExceptionHandling/ValidationExceptionHandler.cs","Program.cs"]'
+  }
+  foreach ($p in $runs.Keys) {
+    $name = $p -replace '^LamuFlix\.|\.csproj$',''
+    $cfg = Join-Path $env:TEMP "DEV-296-stryker-$name.json"
+    Set-Content -Path $cfg -Value ('{"stryker-config":' + $base + $runs[$p] + '}}') -Encoding utf8NoBOM
+    Get-FileHash $cfg -Algorithm SHA256
+    dotnet stryker -f $cfg -p $p
+    "EXIT $p = $LASTEXITCODE"
+  }
+  ```
+  - Each temp JSON is the tracked `stryker-config.json` at eae97ae3, with `mutation-level`, `thresholds` (90/80/80) and `reporters` copied verbatim, `since` replaced by `{ "enabled": false }`, and `mutate` added. It lives outside the repo and is disposable.
+  - The 11 globs are exactly `git diff --name-only eae97ae3...HEAD -- 'src/*.cs'`: Core 4, Infrastructure 5, Api 2. They are written relative to each project. `LamuFlix.Infrastructure.csproj` is in the diff but is not a `.cs` file, so it is not mutated.
+- **Receipt, for each invocation:** the temp config path and SHA256, the exact command, the native exit, the StrykerOutput report path, the created/tested/killed/survived/timeout/NoCoverage/Ignored/CompileError counts, the score, and the per-file list of mutated files with each file's status counts and `statusReason` for Ignored. The receipt also states the branch and HEAD, before and after the run.
+- **PASS bar (all required):**
+  1. All three native exits are 0.
+  2. At least 1 tested mutant across the run.
+  3. The mutated files are a subset of the 11. A "mutated file" is a report entry with at least 1 mutant; zero-mutant entries (every project file is listed) are not mutated paths (DEV-294:1208).
+  4. Every invocation that has at least 1 tested mutant scores at least 80, the break threshold. An invocation whose frozen files all have 0 mutants, with a null score, passes that item. This can only happen for the interface-only and constant-only files. Such files are not a failure.
+- **FAIL, with no retry, report to Keel:** any non-zero exit, 0 tested overall, a mutated path outside the 11, an invocation with at least 1 mutant and a null score, a score under 80, any mutant whose `statusReason` is "Removed by since filter", or any of the 11 files that has mutants but none of them tested (all Ignored or CompileError). A cannot-run invocation is also a FAIL. "Removed by block already covered filter" is Stryker's standard dedup and is not a failure (DEV-294:1209). If the score is under 80, the survivors go back to Anvil for tests on the round counter. The threshold is never lowered.
+- **Forbidden:** editing tracked `stryker-config.json` or `harness.yml`, any flag beyond `-f` and `-p`, a change to the globs, any action on or from the main checkout, a ref move, fetch or rebase, a code change, committing `StrykerOutput/`, and touching `recon-DEV-296.md`, `.junie/mcp/mcp.json`, `DEV-296-phase3-stryker-report.txt` or `specs/DEV-296/CONCLUSIONS.md` (pending Patron and Rigger, CONCLUSIONS.md:33-39).
+- There is no §2.3 (a)/(b) item, so no owner checkbox. This is a gate invocation, not a ticket or constitution change. The direction came from the owner.
