@@ -423,3 +423,41 @@ Input: D7c above; Keel D7c run adjudication (DEV-296 note :294-313); Wisp recon 
   - The architect-remediation round counter stays at 1 of 2.
   - Another pre-mutation stop is a tooling FAIL back to Keel. No retry.
 - There is no §2.3 (a)/(b) item, so no owner checkbox. The change is a gate-tooling setting in disposable temp configs. The tracked config, the thresholds and the ticket text are unchanged.
+
+## D7f — Core-scope Architect adjudication (Keel, 2026-09-28)
+
+Input: D7d run receipt (DEV-296 note :372-386); Keel D7d adjudication (:407-434); Keel D7e (:473-487, continued at :500-520 after Wisp's receipt was inserted at :488-499); Wisp Q11/Q12 (:488-499); Patron's Core-scope ruling (CONCLUSIONS.md:47-49).
+
+- **Gate scope (Patron, CONCLUSIONS.md:47-49):** the Architect mutation gate closes on `LamuFlix.Core` alone, at break 80. This replaces the D7b requirement that all three invocations pass (:256). Basis: constitution.md:284-290. No ticket text or constitution change, so no owner checkbox.
+- **Core bar on D7d** (`StrykerOutput/2026-09-28.13-28-03`), one line per frozen item:
+  - Item 1, exit 0: **pass**.
+  - Item 2, at least 1 tested: **pass** (2).
+  - Item 3, mutated files within the Core globs: **pass**. The only file with at least 1 mutant is `Pipeline/ValidationException.cs`, which has 3 mutants. The other three Core files have 0 mutants, as allowed by D7a item 4 (Q11, :490-492).
+  - Item 4, score at least 80: **pass** (100%).
+  - All-Timeout rule: **pass** (0 Timeout).
+  - Item 5, at least 1 Killed with `killedBy`: **pass**. Mutants 259 and 261 were killed by `AddHandlerTests.AddHandler_FailingValidator_LogsWarningAndSkipsHandler` (:494-495).
+  - Item 6, coverage off: **pass**, under the :421 restatement.
+  - D7a FAIL list: **no FAIL.** Mutant 260 is "Removed by block already covered filter", which is the standard dedup (:491), and there is no "Removed by since filter" mutant.
+  - The console totals of 262 created and 248 Ignored are not report entries. Item 3 is judged on report entries (DEV-294:1208), and D7b routing 4 already disposed of the CompileErrors (:268).
+- **Stop 2 (:415): NOT assessed. Q12 is circular.**
+  - The "receipt" Wisp cites (:496-498) is Keel's D7e line :476. That line only restates the Stryker initial-run count (:437).
+  - Comparing 173 with 173 compares that count with itself. It is not an independent `dotnet test` count for `LamuFlix.Test`.
+  - The 173 also spans two test projects (:438).
+  - A skipped check is never a passed check.
+- **Verdict: Core PASS is supported on every item except stop 2. The Architect stage stays OPEN until stop 2 is closed and the follow-up below is filed.**
+  - Stop 2 closes on one independent `LamuFlix.Test` count taken on a `src` and `tests` tree equal to e4d9f29's (d186ecf or a specs-only descendant), where that count is at most 173. Then Core PASS is declared, and the Architect stage closes with no further Keel freeze. Keel records that as a one-line note ruling.
+  - If the count is over 173, Core FAILs stop 2. That is a tooling FAIL back to Keel, with no retry.
+- **Getting the stop-2 count:**
+  - (a) Conductor sends Wisp a read-only search of the `chain` note and `DEV-296-phase3-stryker-report.txt` only. These are the sources Q10 and Q12 did not cover. Wisp returns a per-project `LamuFlix.Test` total with its HEAD. The DEV-296 note is excluded, since Q10 found nothing there.
+  - (b) If no such receipt exists, the count needs the single count-only run D7e named: `dotnet test tests/LamuFlix.Test/LamuFlix.Test.csproj --nologo -v q` on e4d9f29. **It is NOT authorized now.** Patron's latest instruction bars all Stryker, build and test runs. The run happens only on an explicit Patron authorization recorded in CONCLUSIONS.md.
+- **Infrastructure and Api:** they are out of gate scope, and their status is **unresolved tooling**. The mutant-to-test linkage fault is unidentified (D7e): 0 of 40 and 0 of 9 Killed with coverage off, even though the tests were discovered and the DLLs were injected.
+  - This is not a test-quality verdict. VEH :18-:20 already have round-1 tests (d186ecf).
+  - **Rigger files the follow-up ticket** (Patron, CONCLUSIONS.md:49): "Stryker mutant-to-test linkage fault for LamuFlix.Infrastructure and LamuFlix.Api (D7d: 0/40, 0/9 Killed, coverage-analysis off; cause unidentified, DEV-296 D7e)". It links DEV-296 and records the D7d report paths.
+  - Filing it is a closing condition for the Architect stage.
+- **Rounds:**
+  - No Stryker run or retry is authorized.
+  - No Anvil dispatch is authorized.
+  - The architect-remediation counter stays at 1 of 2.
+  - The review cap of 2 (:75) is unchanged.
+- **Hygiene:** as in D7d (:424). `CONCLUSIONS.md` stays uncommitted, pending Patron and Rigger (:236).
+- There is no §2.3 (a)/(b) item, so no owner checkbox.
