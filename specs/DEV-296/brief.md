@@ -235,3 +235,41 @@ Basis: owner direction relayed by Fixer (2026-09-28): apply the DEV-294 D7a appr
 - **FAIL, with no retry, report to Keel:** any non-zero exit, 0 tested overall, a mutated path outside the 11, an invocation with at least 1 mutant and a null score, a score under 80, any mutant whose `statusReason` is "Removed by since filter", or any of the 11 files that has mutants but none of them tested (all Ignored or CompileError). A cannot-run invocation is also a FAIL. "Removed by block already covered filter" is Stryker's standard dedup and is not a failure (DEV-294:1209). If the score is under 80, the survivors go back to Anvil for tests on the round counter. The threshold is never lowered.
 - **Forbidden:** editing tracked `stryker-config.json` or `harness.yml`, any flag beyond `-f` and `-p`, a change to the globs, any action on or from the main checkout, a ref move, fetch or rebase, a code change, committing `StrykerOutput/`, and touching `recon-DEV-296.md`, `.junie/mcp/mcp.json`, `DEV-296-phase3-stryker-report.txt` or `specs/DEV-296/CONCLUSIONS.md` (pending Patron and Rigger, CONCLUSIONS.md:33-39).
 - There is no §2.3 (a)/(b) item, so no owner checkbox. This is a gate invocation, not a ticket or constitution change. The direction came from the owner.
+- **Outcome (Keel, DEV-296 note ruling after :201): FAIL** on HEAD 08b416e. See D7b.
+
+## D7b — adjudication of the D7a-equivalent run and next route (Keel, 2026-09-28)
+
+Input: Anvil receipt, DEV-296 note :195-201. Verified read-only by Keel:
+- The three temp configs match the frozen JSON byte for byte (SHA256 A9003548…, 1964D503…, 8A5FD541…).
+- `tmp-dev-296-d7a.ps1` is the frozen block word for word.
+- The three reports are `StrykerOutput/2026-09-28.04-20-28`, `04-22-08` and `04-26-36`.
+- The malformed-JSON attempt Anvil disclosed produced no StrykerOutput.
+
+- **Verdict: Architect FAIL**, under the frozen bar (brief:230-235). The Api invocation exited 2 with a score of 7.14%, below break 80. No retry of this run.
+- **No partial credit.**
+  - The mutated files are a subset of the 11 on all three reports:
+    - Core: ValidationException only.
+    - Infrastructure: 4 decorator/registration files. HandlerLog has 0 mutants.
+    - Api: 2 files.
+  - No "Removed by since filter" mutant appears, so the D7a mechanism worked.
+  - Infrastructure's "100%" is **not accepted**: all 40 tested mutants are Timeout and none are Killed. That is not evidence of detection.
+  - Core's 2/2 kills (killedBy populated) are consistent, but the next run must pass all three invocations.
+- **The Api result is not a credible verdict on test quality.** Five survivors are already asserted by existing tests:
+  - `ValidationExceptionHandler.cs:24` (`false`→`true`) vs `ValidationExceptionHandlerTests.cs:63` `ShouldBeFalse`;
+  - `:40` and `:41` (Title/Type → `""`) vs tests :41-42 `ShouldNotBeNullOrWhiteSpace`;
+  - `:43` and `:44` (`"traceId"`/`"errors"` → `""`) vs tests :43-44 `GetProperty`, which throws on a missing key.
+
+  Together with the 40/40 Infrastructure timeouts, this means the mutant-to-test link is broken for Api and Infrastructure. Writing new tests would not fix that.
+- **Survivor routing:**
+  1. **`ValidationExceptionHandler.cs:18, :19, :20`** (statement removal of `ThrowIfNull(httpContext)`, `ThrowIfNull(exception)` and `ThrowIfCancellationRequested`) are real test gaps: no test passes null or a cancelled token. **Anvil adds tests. This is architect-remediation round 1 of 2, with at most 2 commits, test files only, and no `src/` change.**
+  2. **`:24, :37 (Timeout), :40, :41, :43, :44`** need no new tests. They must be Killed on the next run. If they are not, that is a tooling FAIL returned to Keel, not an Anvil round.
+  3. **`Program.cs:7-12`** (5 statement removals in the composition root) cannot be killed in frozen scope. Only booting the host could detect them. The brief bars that at :67 (no `Mvc.Testing`/`WebApplicationFactory`), and CONCLUSIONS.md:23 says "add no test package". The mutation break of 80 is constitutionally scoped to Core (constitution.md:290), so dropping Program.cs is not a departure. **Program.cs is removed from the Api `mutate` set** for the next run. Host-level wiring coverage goes to DEV-376 (FU-3, live endpoint and 422 host). The next Api `mutate` is `["ExceptionHandling/ValidationExceptionHandler.cs"]` only.
+  4. The CompileErrors (Api 4, Infrastructure 3, Core 12 in the summary) are excluded from the score by Stryker. They are not a failure under the bar and need no disposition.
+- **The next run is not authorized yet.** It needs, in order:
+  - (a) Recon answering the linkage questions in the DEV-296 note ruling.
+  - (b) Keel freezing the tooling fix here as D7c, as settings inside the temp JSONs only. The tracked config and thresholds stay unchanged.
+  - (c) Anvil's round-1 test commit.
+
+  After that, it is one run of the D7a shape on the new HEAD. Its pre-run check becomes: `git diff 8855b978 HEAD -- src stryker-config.json harness.yml` is empty, and `tests` differ only by Anvil's round-1 commit(s). The PASS/FAIL bar at :230-235 stands, tightened by one item: an invocation whose tested mutants are all Timeout, with 0 Killed, is a FAIL.
+- **Hygiene:** `tmp-dev-296-d7a.ps1` (untracked, Anvil's run script) must not be committed. Its disposal joins the Patron and Rigger cleanup route with `DEV-296-phase3-stryker-report.txt`.
+- No §2.3 (a)/(b) item, so no owner checkbox. D7b narrows a gate glob inside the constitution's Core-only mutation scope, and changes no ticket text.
