@@ -184,3 +184,17 @@ Inputs: findings-DEV-296-Ledger (Standards), findings-DEV-296-Compass (Spec), fi
 - **Follow-up candidates, routed to Patron (non-blocking):** FU-1 ServiceDefaults `AddSource("LamuFlix")` + `TimeProvider` registration (R5, R6, PC-5); FU-2 error-span policy for expected `ValidationException` once tracing is exported (R5); FU-3 any host dispatching handlers must reference Infrastructure, and the 422 mapper must reach the live host when endpoints migrate (ADR-0015:44-46; F8).
 - **Housekeeping:** an untracked `recon-DEV-296` file (Wisp report copy, 6663 bytes) sits at the worktree root. It is not a spec artifact and must not be committed.
 
+
+## Architect (Stryker) ruling (Keel, 2026-09-28)
+
+Input: Conductor receipt (DEV-296 task note :178-185); `StrykerOutput/2026-09-28.03-18-47/reports/mutation-report.json`; `stryker-config.json` (break 80, `since` origin/main, no `project`/`test-projects`).
+
+- **Outcome: NOT PASSED — inconclusive tooling run, not a verdict on the code.** 1660 created, 0 tested, 1620 Ignored, 40 CompileError, score null. Native exit 0 is not a pass: no mutant was tested, so the break-80 threshold was never evaluated. A skipped gate is never a passed gate.
+- **No retry until recon.** A re-run of the same command would reproduce the same result. The next run happens once, after recon names the cause, with the fix recorded here first.
+- **Needs recon (Conductor → recon-DEV-296-stryker):**
+  1. For each `.cs` file in `git diff --name-only <merge-base>...HEAD` under `src/`: mutant count by `status` and `statusReason` from the report. Are the Pipeline decorators, `ServiceCollectionExtensions.cs`, and `ValidationExceptionHandler.cs` Ignored, and with what reason?
+  2. The 40 CompileError mutants: file:line, mutator, and the compiler error Stryker logged. Why are unchanged Web/Worker files among them?
+  3. From the Stryker log: which project(s) were mutated, which test project(s) ran, and whether the initial test run discovered and passed tests.
+  4. Whether report paths (`src\LamuFlix\...`) match the diff paths used by the `since` filter.
+- **Scope of the gate:** this brief's Gate expectations (Roslyn, complexity, InspectCode, vulnerable packages, format, test) are unaffected and are judged on their own receipts. Architect stays open; the ticket does not reach review with a null score.
+- **Worktree hygiene:** `DEV-296-phase3-stryker-report.txt` (untracked) and `StrykerOutput/` are run artifacts; they must not be committed. The report text belongs in the task note. `.junie/mcp/mcp.json` shows a working-copy modification the ticket does not name (§2.3 item 6); it must not be committed. Restoring it is for the Conductor to confirm with its owner.
