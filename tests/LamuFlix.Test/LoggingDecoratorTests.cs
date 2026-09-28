@@ -10,7 +10,7 @@ using Xunit;
 
 namespace LamuFlix.Test;
 
-public class LoggingDecoratorTests
+public sealed class LoggingDecoratorTests
 {
     private const string PayloadSecret = "payload-secret-9f3a";
 

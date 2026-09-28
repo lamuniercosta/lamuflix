@@ -14,7 +14,7 @@ using Xunit;
 
 namespace LamuFlix.Test;
 
-public class AddHandlerTests
+public sealed class AddHandlerTests
 {
     [Fact]
     public async Task AddHandler_Success_RecordsDecoratorOrderAndHandlerSpan()

@@ -9,7 +9,7 @@ using Xunit;
 
 namespace LamuFlix.Test;
 
-public class TracingDecoratorTests
+public sealed class TracingDecoratorTests
 {
     [Fact]
     public async Task HandleAsync_ListenerPresent_StartsChildActivityWithRequestAttribute()
