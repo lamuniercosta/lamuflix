@@ -52,7 +52,7 @@ Every file lives in `src/LamuFlix.Core/Domain/`, one type per file, flat, in nam
    | Type | Rule |
    |---|---|
    | `MovieId` | > 0 |
-   | `ImdbId` | Non-null and matches `^tt\d{7,8}$` via `[GeneratedRegex]` |
+   | `ImdbId` | Non-null and matches `^tt[0-9]{7,8}$` via `[GeneratedRegex]` |
    | `ImdbRating` | 0.0-10.0 inclusive, at most one decimal place, no rounding |
    | `Runtime` | `Minutes > 0` |
    | `LibraryPath` | Non-blank, rejects any literal `..` substring |

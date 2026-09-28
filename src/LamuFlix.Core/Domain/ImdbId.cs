@@ -33,6 +33,6 @@ public sealed partial record ImdbId
     private static bool IsValid([NotNullWhen(true)] string? value) =>
         value is not null && IdPattern().IsMatch(value);
 
-    [GeneratedRegex(@"^tt\d{7,8}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^tt[0-9]{7,8}$", RegexOptions.CultureInvariant)]
     private static partial Regex IdPattern();
 }

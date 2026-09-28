@@ -39,7 +39,7 @@ All files are `src/LamuFlix.Core/Domain/<Type>.cs`, flat structure. Namespace: `
 | `InvalidTransitionException.cs` | `public sealed class` | Carries action name and current state; inherits `InvalidOperationException`; domain pattern per ADR 0014; mapped to HTTP 409 in follow-up #2 | 20 |
 | `MovieMetadata.cs` | `public sealed record` | Value carrier for enriched metadata: `Title` (non-blank), `Synopsis?`, `ReleaseYear?`, `Runtime?`, `ImdbRating?`, `ImdbId?`. No `TryCreate` factory (validate via constructor only). | 8 |
 | `MovieId.cs` | `public sealed record` | `Value` (int) > 0; includes `TryCreate` factory | 15 |
-| `ImdbId.cs` | `public sealed record` | `Value` (string) matches `^tt\d{7,8}$` via `[GeneratedRegex]`; includes `TryCreate` factory | 20 |
+| `ImdbId.cs` | `public sealed record` | `Value` (string) matches `^tt[0-9]{7,8}$` via `[GeneratedRegex]`; includes `TryCreate` factory | 20 |
 | `ImdbRating.cs` | `public sealed record` | `Value` (decimal) 0.0–10.0 inclusive, value == decimal.Round(value, 1) (numeric, not scale; D8); includes `TryCreate` factory | 20 |
 | `Runtime.cs` | `public sealed record` | `Minutes` (int) > 0; includes `TryCreate` factory | 10 |
 | `ReleaseYear.cs` | `public sealed record` | `Value` (int); explicit constructor (not a positional record) `ReleaseYear(int value, DateTimeOffset now)` validates `1888 ≤ value ≤ now.Year + 5`, equality uses `Value` only, `now` is parameter only, never a property (D12); includes `TryCreate` factory | 20 |
