@@ -200,3 +200,29 @@ DEV-377 and DEV-378 stand as the authorized A/B children; no correction or withd
 Preserve both unstaged YouTrack script diffs and all five scratch description files in place. No checkout, reset, edit, delete, or cleanup is authorized. Their ownership, provenance, and any repair belong to a separate bounded maintenance investigation after Phase 4, with no automatic ticket or DEV-294 scope expansion. Current diffs and file hashes are established, but pre-checkout script content and scratch Git classification are not (`DEV-294:1287-1289`; `recon-DEV-294:111-112`).
 
 Rigger may resume only the three absent DEV-282 children: C status-fixture duplication (2h, `size:S`), D duplicate Core ProjectReference (1h, `size:S`), and E failure-category spec drift (2h, `size:S`). Before each creation, check the live tracker for a matching ticket and use a description matching the exact frozen row above. Use the existing YouTrack tool as-is; read back each ID, parent, estimate, size tag, and description, then report `(verified)`. Stop on the first mismatch or tool failure. No script edits, tests, gates, cleanup, other worktree edits, other YouTrack action, comment `7-219` action, PR, or active-chain change (`DEV-294:1281-1285,1287-1289`; `recon-DEV-294:111-112`).
+
+## Stage 10 ruling on commit 915453d (Patron, 2026-09-28)
+
+**Decision: SPLIT C/D/E out of DEV-294.** Commit `915453d99ffc32ca97b124ca8f3aafbd47699ca6` ("DEV-294 - Deduplicate fixture switches, remove duplicate reference, and align failure category spec", authored under the user's identity, 7 files +45/-46: `specs/DEV-294/{brief,spec,tasks}.md`, `tests/LamuFlix.Test/Domain/{MovieFixture,MovieTests,PropertyTests}.cs`, `tests/LamuFlix.Test/LamuFlix.Test.csproj`) is preserved as the user's commit. It is not accepted as in-round DEV-294 remediation and does not count as current-head verification.
+
+**Basis.** The live DEV-294 ticket's Scope & Technical Design lists the Movie aggregate, the value objects and their unit tests. Its acceptance criteria cover the state-machine branches and validation. `specs/PRODUCT.md:23-24,34-39` makes that ticket authoritative, and §2.3(a) applies to adding follow-up deliverables to it. The frozen `brief.md:133-139` sends Medium and Low findings to follow-ups. The rows above (:180-194) allocate C/D/E to DEV-282 children at :189-191. DEV-294:1296-1297 leaves them user-owned, and DEV-294:1333-1336 says matching content does not authorize a DEV-294 delivery commit. The user's authorship of 915453d proves the edits were made. It is not an explicit decision to amend the ticket or the closing bar, or to retire the follow-ups. That the edits touch DEV-294's own spec and test paths does not override the frozen scope. No constitution departure is alleged, so §2.3(b) does not apply.
+
+**Route.**
+1. **Keel.** Keel does not reset, revert, cherry-pick, move files, run gates, push or open a PR. Keel reports to Bernstein that the branch is blocked on an owner disposition covering the user's commit and the prior preservation boundary.
+2. **Bernstein.** Bernstein gets explicit owner direction on preserving and splitting this commit. Bernstein then gives the authorized operator a bounded plan:
+   - preserve C on DEV-379 and D on DEV-380, each in its own task worktree;
+   - find out whether an E ticket already exists before any E tracker write;
+   - once the authorized tracker owner has identified or created that follow-up, preserve E on it.
+3. **Removal from DEV-294.** First verify each follow-up's content and branch receipt. Only then remove C/D/E from DEV-294, using a separately authorized, path-limited operation. Do not silently drop the commit or rewrite its history.
+4. **Preservation.** Both YouTrack script diffs, recon-DEV-294 and the five scratch files stay preserved in place (:196-202; DEV-294:1327-1328,1335).
+5. **Phase 5.** The committed C/D/E paths no longer dirty the worktree. The two tracked script diffs still block the prescribed Phase 5 rebase/push script (DEV-294:1336). After an authorized clean-state recovery, verify branch, HEAD and status, then run the prescribed Phase 5 sequence against the resulting HEAD. Earlier gate and review receipts prove neither 915453d nor any later split HEAD.
+
+This entry does not claim C/D/E are complete, and it does not open a new review round. The preservation ruling at :196-202 still stands.
+
+## Owner disposition on Stage 10 SPLIT ruling (user, 2026-09-28)
+
+**Decision: DENIED.** The owner denies Patron's Stage 10 SPLIT recommendation and explicitly directs that commit `915453d` remain in DEV-294.
+
+**Direction.** "Just run the remaining phases as you were told." The C/D/E content in commit 915453d (fixture-switch deduplication, duplicate Core ProjectReference removal, and failure-category spec alignment) stays on the DEV-294 branch and remains part of the current delivery. The remaining Phase 5 and later phases run as prescribed in the brief and spec, without splitting C/D/E to follow-up tickets.
+
+**Implication.** This direction supersedes the Stage 10 SPLIT disposition. The Phase 4 follow-up grouping (:180-194) and the stopped Phase 4 handoff ruling (:196-202) remain preserved as record of Patron's review; the three absent DEV-282 children (C status-fixture duplication, D duplicate ProjectReference, and E failure-category spec drift) are not opened in YouTrack. Commit `915453d` does not constitute independent verification of C/D/E completion (Stage 10:206-208 applies). The ticket's closed deliverables and acceptance criteria are not amended. No constitution departure is alleged.
