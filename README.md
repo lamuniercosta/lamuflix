@@ -48,7 +48,7 @@ The repository pins three local tools in `.config/dotnet-tools.json` (`isRoot: t
 **Purpose**
 
 - **`jb`:** ReSharper InspectCode, used by `./scripts/run-jetbrains-inspectcode.ps1`.
-- **`dotnet-stryker`:** Mutation testing from the root `stryker-config.json`.
+- **`dotnet-stryker`:** Mutation testing via `./scripts/run-mutation.ps1` (or local single-file `--mutate`).
 - **`dotnet-ef`:** EF Core design-time CLI only (not part of the running app). It is pinned at 9.0.0 for the .NET 10 / EF Core 9.0 stack (DEV-360).
 
 **Restore**
@@ -64,7 +64,7 @@ Exit `0` means the pinned tools are available. A non-zero exit means restore fai
 **Usage**
 
 - InspectCode: `./scripts/run-jetbrains-inspectcode.ps1` (the script runs `dotnet tool restore` and invokes `jb`). If `jb` is not wired, that gate exits `1`.
-- Mutation testing from the repo root: `dotnet-stryker`
+- Mutation testing from repo/worktree root: `pwsh -NoProfile -File ./scripts/run-mutation.ps1`
 - EF Core design-time: `dotnet tool run dotnet-ef` or `dotnet-ef`
 
 **Update**

@@ -14,7 +14,7 @@ Stryker's raw report is long, largely noise, and the main reason people stop run
 ## Run
 
 ```powershell
-dotnet stryker --since:$(git merge-base HEAD origin/main)   # diff base = branch fork point
+pwsh -NoProfile -File ./scripts/run-mutation.ps1            # worktree gate (--since is unusable from worktrees)
 dotnet stryker --mutate "**/ImportHandler.cs"   # scoped to one file
 ```
 
