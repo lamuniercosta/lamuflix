@@ -19,7 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LamuFlix.Core\LamuFlix.Core.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Data\LamuFlix.Data.csproj" />
     <ProjectReference Include="..\LamuFlix.Tests.Common\LamuFlix.Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Web\LamuFlix.Web.csproj" />

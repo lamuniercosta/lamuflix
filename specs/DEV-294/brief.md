@@ -45,7 +45,7 @@ Every file lives in `src/LamuFlix.Core/Domain/`, one type per file, flat, in nam
    - It carries the attempted action name and the current state as a string, and has the standard message constructors.
    - ~~The XML doc records the HTTP 409 mapping.~~ **Superseded by D1:** no XML doc; ADR 0014 and follow-up #2 record the 409 mapping. No endpoint or middleware is added.
 5. **`EnrichmentStatus` (ticket).** `Pending=0, Enriched=1, NotFound=2, Failed=3`. It is independent of `LamuFlix.Data.Models.MovieEnrichmentStatus` (Q3).
-6. **`EnrichmentFailureCategory` (Q8).** `Unknown=0, ProviderUnavailable=1, RateLimited=2, InvalidResponse=3`.
+6. **`EnrichmentFailureCategory` (Q8).** Canonical closed sealed-record set in `Core.Domain` delivered by DEV-295 (`ProviderUnavailable`, `RateLimited`, `InvalidResponse`, `Unknown`) with properties `Code`, `SafeDescription`, `IsRetryable`.
 7. **`MovieMetadata` (Q4).** A new `sealed record` in Core with `Title` (non-blank), `Synopsis?`, `ReleaseYear?`, `Runtime?`, `ImdbRating?`, `ImdbId?`. It is a separate type from Worker's `MovieMetadata`, which stays untouched.
 8. **Value objects (Q9).** Each is a `sealed record` with an explicit validating constructor and a get-only `Value` property (no `init`, so `with` cannot bypass validation). Invalid input throws the `ArgumentException` family. Each also gets a `TryCreate` factory (D2), and the `with` guarantee is evidenced by reflection (D4).
 

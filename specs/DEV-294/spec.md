@@ -35,7 +35,7 @@ All files are `src/LamuFlix.Core/Domain/<Type>.cs`, flat structure. Namespace: `
 | File | Type | Purpose | Lines |
 |---|---|---|---|
 | `EnrichmentStatus.cs` | `public enum` | `Pending=0, Enriched=1, NotFound=2, Failed=3` | 5 |
-| `EnrichmentFailureCategory.cs` | `public enum` | `Unknown=0, ProviderUnavailable=1, RateLimited=2, InvalidResponse=3` | 5 |
+| `EnrichmentFailureCategory.cs` | `public sealed record` | Canonical closed set from DEV-295 (already in `LamuFlix.Core.Domain`): `ProviderUnavailable`, `RateLimited`, `InvalidResponse`, `Unknown` with properties `Code`, `SafeDescription`, `IsRetryable` | 38 |
 | `InvalidTransitionException.cs` | `public sealed class` | Carries action name and current state; inherits `InvalidOperationException`; domain pattern per ADR 0014; mapped to HTTP 409 in follow-up #2 | 20 |
 | `MovieMetadata.cs` | `public sealed record` | Value carrier for enriched metadata: `Title` (non-blank), `Synopsis?`, `ReleaseYear?`, `Runtime?`, `ImdbRating?`, `ImdbId?`. No `TryCreate` factory (validate via constructor only). | 8 |
 | `MovieId.cs` | `public sealed record` | `Value` (int) > 0; includes `TryCreate` factory | 15 |
@@ -186,7 +186,7 @@ Owner checkboxes answered YES 2026-09-26 (CONCLUSIONS.md:165-168). Gate 1 opens 
 ## File Manifest (Phase B deliverables)
 
 - `src/LamuFlix.Core/Domain/EnrichmentStatus.cs`
-- `src/LamuFlix.Core/Domain/EnrichmentFailureCategory.cs`
+- `src/LamuFlix.Core/Domain/EnrichmentFailureCategory.cs` (DEV-295 sealed record already in Core)
 - `src/LamuFlix.Core/Domain/InvalidTransitionException.cs`
 - `src/LamuFlix.Core/Domain/MovieMetadata.cs`
 - `src/LamuFlix.Core/Domain/MovieId.cs`

@@ -448,26 +448,8 @@ public sealed class PropertyTests
         && movie.LastAttemptAt == before.LastAttemptAt
         && KeptHistory(movie, before);
 
-    private static Movie MovieIn(EnrichmentStatus status, string title)
-    {
-        var movie = Movie.Create(new MovieId(1), title, new LibraryPath("C:/lib/a.mkv"), new MediaFormat("mkv"));
-        switch (status)
-        {
-            case EnrichmentStatus.Pending:
-                return movie;
-            case EnrichmentStatus.Enriched:
-                movie.MarkEnriched(new MovieMetadata("Seed"), ArrivedAt);
-                return movie;
-            case EnrichmentStatus.NotFound:
-                movie.MarkNotFound(ArrivedAt);
-                return movie;
-            case EnrichmentStatus.Failed:
-                movie.MarkFailed(EnrichmentFailureCategory.RateLimited, ArrivedAt);
-                return movie;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown enrichment status.");
-        }
-    }
+    private static Movie MovieIn(EnrichmentStatus status, string title) =>
+        MovieFixture.CreateInStatus(status, 1, title, ArrivedAt);
 
     private static void Apply(Movie movie, MovieTransition action, DateTimeOffset actedAt, string title)
     {

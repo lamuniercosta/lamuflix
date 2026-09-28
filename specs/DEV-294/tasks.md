@@ -79,10 +79,10 @@ Owner checkboxes answered YES 2026-09-26 (CONCLUSIONS.md:165-168). Gate 1 opens 
 
 ### Commit 1: Value Objects and Enums
 
-Create 7 sealed records and 2 enums in `src/LamuFlix.Core/Domain/`:
+Create 7 sealed records and 1 enum in `src/LamuFlix.Core/Domain/` (consuming the DEV-295 EnrichmentFailureCategory sealed record already in Core):
 
 - [ ] `EnrichmentStatus.cs` (5 lines): Enum `Pending=0, Enriched=1, NotFound=2, Failed=3`
-- [ ] `EnrichmentFailureCategory.cs` (5 lines): Enum `Unknown=0, ProviderUnavailable=1, RateLimited=2, InvalidResponse=3`
+- [ ] `EnrichmentFailureCategory.cs`: Sealed-record set from DEV-295 already in Core (`ProviderUnavailable`, `RateLimited`, `InvalidResponse`, `Unknown`) with properties `Code`, `SafeDescription`, `IsRetryable`
 - [ ] `MovieId.cs` (15 lines): Sealed record `Value` (int) > 0; includes `TryCreate(int value, [NotNullWhen(true)] out MovieId? result)` factory
 - [ ] `ImdbId.cs` (20 lines): Sealed record `Value` (string) matches `^tt\d{7,8}$`; includes `TryCreate` factory
 - [ ] `ImdbRating.cs` (20 lines): Sealed record `Value` (decimal) 0.0–10.0 inclusive, value == decimal.Round(value, 1) (numeric, not scale; D8); includes `TryCreate` factory
