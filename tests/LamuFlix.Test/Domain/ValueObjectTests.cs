@@ -54,6 +54,15 @@ public sealed class ValueObjectTests
         Should.Throw<ArgumentException>(() => new ImdbId(value));
     }
 
+    [Fact]
+    public void ImdbId_TryCreate_RejectsNonAsciiDigits()
+    {
+        const string value = "tt\u0661\u0662\u0663\u0664\u0665\u0666\u0667";
+        ImdbId.TryCreate(value, out var result).ShouldBeFalse();
+        result.ShouldBeNull();
+        Should.Throw<ArgumentException>(() => new ImdbId(value));
+    }
+
     [Theory]
     [InlineData("0.0", true)]
     [InlineData("10.0", true)]

@@ -26,7 +26,7 @@ public sealed class PropertyTests
     {
         Prop.ForAll<string>(value =>
         {
-            var matches = value is not null && System.Text.RegularExpressions.Regex.IsMatch(value, @"^tt\d{7,8}$");
+            var matches = value is not null && System.Text.RegularExpressions.Regex.IsMatch(value, @"^tt[0-9]{7,8}$");
             return TryAgrees(ImdbId.TryCreate(value, out var created), created, matches, () => new ImdbId(value));
         }).QuickCheckThrowOnFailure();
     }
