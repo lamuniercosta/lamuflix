@@ -38,7 +38,7 @@ The threshold is read from harness.yml at gates.mutation.threshold (default: 80)
 OPTIONS:
   -BaseRef <ref>          Git ref to diff against (default: origin/<baseBranch> from harness.yml)
   -DryRun                 Discover changed files and generate temp configs without running Stryker
-  -EvaluateReport <path>  Evaluate an existing Stryker mutation report without running Stryker
+  -EvaluateReport <path>  Evaluate an existing Stryker mutation report without running Stryker (skips changed-file containment checks when run standalone)
   -Help                   Show this help
 
 EXAMPLES:
@@ -213,6 +213,10 @@ function Evaluate-MutationReport {
         $failureReasons.Add("Invocation has $totalMutants mutant(s) but 0 tested (no score).")
     }
 
+    if ($tested -gt 0 -and $killed -eq 0) {
+        $failureReasons.Add("Killed 0 of $tested tested mutant(s) ($timeout timeout).")
+    }
+
     if ($score -ne $null -and $score -lt $Threshold) {
         $scoreStr = "{0:N2}%" -f $score
         $failureReasons.Add("Score $scoreStr is below threshold $Threshold%.")
@@ -303,7 +307,7 @@ if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
     Write-Host ("  Mutants: {0} | Killed: {1} | Survived: {2} | Timeout: {3} | NoCoverage: {4} | Ignored: {5} | CompileError: {6}" -f `
         $eval.TotalMutants, $eval.Killed, $eval.Survived, $eval.Timeout, $eval.NoCoverage, $eval.Ignored, $eval.CompileError)
     $scoreText = if ($eval.Score -ne $null) { ("{0:N2}%" -f $eval.Score) } else { 'N/A (0 tested)' }
-    Write-Host ("  Tested:  {0} | Score: {1} (Threshold: {2}%)" -f $eval.Tested, $scoreText, $threshold)
+    Write-Host ("  Tested:  {0} | Score: {1} (Threshold: {2}%, {3} timeout)" -f $eval.Tested, $scoreText, $threshold, $eval.Timeout)
 
     if ($eval.SurvivingMutants.Count -gt 0) {
         Write-Host "`nSurviving mutants ($($eval.SurvivingMutants.Count)):"
@@ -339,14 +343,12 @@ else {
 }
 
 $mergeBase = git -C $repoRoot merge-base HEAD $targetRef 2>$null
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($mergeBase)) {
-    if ([string]::IsNullOrWhiteSpace($BaseRef)) {
-        $mergeBase = git -C $repoRoot merge-base HEAD $baseBranch 2>$null
-    }
-}
 
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($mergeBase)) {
     Write-Host "Mutation testing: FAILED - could not resolve git merge-base between HEAD and '$targetRef'."
+    if ([string]::IsNullOrWhiteSpace($BaseRef)) {
+        Write-Host "  Fetch the remote branch with 'git fetch origin' or pass -BaseRef explicitly."
+    }
     exit 1
 }
 
@@ -354,7 +356,7 @@ $mergeBase = $mergeBase.Trim()
 
 # Discover changed production C# files under src/
 $changedFiles = @(
-    git -C $repoRoot diff --name-only --diff-filter=AMR $mergeBase HEAD -- 'src/**/*.cs' |
+    git -C $repoRoot diff --name-only --diff-filter=AMR $mergeBase HEAD -- 'src/*.cs' 'src/**/*.cs' |
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
         ForEach-Object { $_.Trim().Replace('\', '/') } |
         Select-Object -Unique
@@ -559,7 +561,7 @@ try {
             $r.TotalMutants, $r.Killed, $r.Survived, $r.Timeout, $r.NoCoverage, $r.Ignored, $r.CompileError)
         $scoreText = if ($r.Score -ne $null) { ("{0:N2}%" -f $r.Score) } else { 'N/A (0 tested)' }
         $statusText = if ($r.Passed) { 'PASS' } else { 'FAIL' }
-        Write-Host ("  Tested:  {0} | Score: {1} (Threshold: {2}%) -> {3}" -f $r.Tested, $scoreText, $threshold, $statusText)
+        Write-Host ("  Tested:  {0} | Score: {1} (Threshold: {2}%, {3} timeout) -> {4}" -f $r.Tested, $scoreText, $threshold, $r.Timeout, $statusText)
 
         if (-not $r.Passed) {
             foreach ($fr in $r.FailureReasons) {
