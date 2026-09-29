@@ -7,4 +7,7 @@ public sealed record MovieDetails(
     string Title,
     LibraryPath Path,
     MediaFormat Format,
-    MovieMetadata? Metadata);
+    MovieMetadata? Metadata)
+{
+    public override string ToString() => $"{nameof(MovieDetails)} {{ {nameof(Id)} = {Id}, {nameof(Title)} = {Title}, {nameof(Path)} = {Path}, {nameof(Format)} = {Format}, {nameof(Metadata)} = {Metadata} }}";
+}
