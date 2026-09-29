@@ -16,21 +16,21 @@ internal static class MovieFixture
     {
         var timestamp = arrivedAt ?? SeedTimestamp;
         var movie = Movie.Create(new MovieId(id), title, new LibraryPath(@"C:\lib\a.mkv"), new MediaFormat("mkv"));
-        switch (status)
+        switch (status.Name)
         {
-            case EnrichmentStatus.Pending:
+            case "Pending":
                 return movie;
-            case EnrichmentStatus.Enriched:
+            case "Enriched":
                 movie.MarkEnriched(SeedMetadata, timestamp);
                 return movie;
-            case EnrichmentStatus.NotFound:
+            case "NotFound":
                 movie.MarkNotFound(timestamp);
                 return movie;
-            case EnrichmentStatus.Failed:
+            case "Failed":
                 movie.MarkFailed(EnrichmentFailureCategory.RateLimited, timestamp);
                 return movie;
             default:
-                throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown enrichment status.");
+                throw new ArgumentOutOfRangeException(nameof(status), status.Name, "Unknown enrichment status.");
         }
     }
 }

@@ -48,23 +48,22 @@ public sealed class MovieTests
             new MediaFormat("mkv")));
     }
 
+    public static TheoryData<EnrichmentStatus, EnrichmentAction> EnrichmentTransitions()
+    {
+        var data = new TheoryData<EnrichmentStatus, EnrichmentAction>();
+        foreach (var status in EnrichmentStatus.List)
+        {
+            data.Add(status, EnrichmentAction.MarkEnriched);
+            data.Add(status, EnrichmentAction.MarkNotFound);
+            data.Add(status, EnrichmentAction.MarkFailed);
+            data.Add(status, EnrichmentAction.RequestEnrichment);
+        }
+
+        return data;
+    }
+
     [Theory]
-    [InlineData(EnrichmentStatus.Pending, EnrichmentAction.MarkEnriched)]
-    [InlineData(EnrichmentStatus.Pending, EnrichmentAction.MarkNotFound)]
-    [InlineData(EnrichmentStatus.Pending, EnrichmentAction.MarkFailed)]
-    [InlineData(EnrichmentStatus.Pending, EnrichmentAction.RequestEnrichment)]
-    [InlineData(EnrichmentStatus.Enriched, EnrichmentAction.MarkEnriched)]
-    [InlineData(EnrichmentStatus.Enriched, EnrichmentAction.MarkNotFound)]
-    [InlineData(EnrichmentStatus.Enriched, EnrichmentAction.MarkFailed)]
-    [InlineData(EnrichmentStatus.Enriched, EnrichmentAction.RequestEnrichment)]
-    [InlineData(EnrichmentStatus.NotFound, EnrichmentAction.MarkEnriched)]
-    [InlineData(EnrichmentStatus.NotFound, EnrichmentAction.MarkNotFound)]
-    [InlineData(EnrichmentStatus.NotFound, EnrichmentAction.MarkFailed)]
-    [InlineData(EnrichmentStatus.NotFound, EnrichmentAction.RequestEnrichment)]
-    [InlineData(EnrichmentStatus.Failed, EnrichmentAction.MarkEnriched)]
-    [InlineData(EnrichmentStatus.Failed, EnrichmentAction.MarkNotFound)]
-    [InlineData(EnrichmentStatus.Failed, EnrichmentAction.MarkFailed)]
-    [InlineData(EnrichmentStatus.Failed, EnrichmentAction.RequestEnrichment)]
+    [MemberData(nameof(EnrichmentTransitions))]
     public void Enrichment_FromState_MatchesTransitionTable(EnrichmentStatus status, EnrichmentAction action)
     {
         var movie = InStatus(status);

@@ -169,7 +169,7 @@ public sealed class PropertyTests
         {
             var safeTitle = string.IsNullOrWhiteSpace(title) ? "Title" : title;
             var when = actedAt == ArrivedAt ? actedAt.AddTicks(1) : actedAt;
-            foreach (EnrichmentStatus status in Enum.GetValues<EnrichmentStatus>())
+            foreach (var status in EnrichmentStatus.List)
             {
                 foreach (MovieTransition action in Enum.GetValues<MovieTransition>())
                 {
