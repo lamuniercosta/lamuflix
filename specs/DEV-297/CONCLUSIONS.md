@@ -1,5 +1,17 @@
 # DEV-297 conclusions
 
+## Q1 dependency versions and consumers
+
+**Patron ruling:** Pin `Ardalis.SmartEnum` at exact CPM version `8.2.0` and `Ardalis.SmartEnum.SystemTextJson` at exact CPM version `8.1.0`. These are the latest stable releases shown by NuGet for each package as of 2026-09-29; both are compatible with net10.0, and the JSON package accepts SmartEnum >= 8.1.0. The packages share major version 8, but their published patch/minor versions differ; T002 must not require identical numbers. Require `./scripts/run-vulnerable-packages.ps1` exit 0 and record both chosen versions in the PR body; this is a delivery check, not a gate result asserted here.
+
+**Patron ruling:** Reference `Ardalis.SmartEnum` from `LamuFlix.Core`. Reference `Ardalis.SmartEnum.SystemTextJson` only from `tests/LamuFlix.UnitTests` for JSON-by-Name round-trip tests of `EnrichmentStatus`, `MovieSort`, and `SortDirection`; no production project needs its converter in DEV-297.
+
+- DEV-297:12-22 and 30-35 fix the closed sets and test project; `specs/DEV-297/spec.md` FR-009 requires CPM entries and references only where conversion is needed. `specs/PRODUCT.md` §5 assigns the dependency decision to Patron.
+- NuGet package pages: https://www.nuget.org/packages/Ardalis.SmartEnum/8.2.0 and https://www.nuget.org/packages/Ardalis.SmartEnum.SystemTextJson/8.1.0 show the exact versions and net10.0 compatibility; the JSON package declares `Ardalis.SmartEnum >= 8.1.0`.
+- recon-DEV-297:155-161 finds zero production serializers of Core `EnrichmentStatus`; `specs/DEV-297/brief.md`:17-21 identifies Core and UnitTests as the relevant consumers.
+
+---
+
 ## Q1 — MovieSort and SortDirection representation
 
 Keel asked whether the ticket's `enum` wording requires C# enums or permits the constitution's Enumeration types. Keel recommended sealed SmartEnum types with exactly the ticket's MovieSort values (`Title`, `Year`, `Rating`, `Runtime`) and SortDirection values (`Ascending`, `Descending`), parsed by name and serialized by `Name`. Keel noted that query execution and nullable-sort behavior belong to later wiring, outside this ticket, and requested a package-presence check before settling dependency handling.
