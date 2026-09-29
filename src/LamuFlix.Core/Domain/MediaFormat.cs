@@ -43,8 +43,9 @@ public sealed record MediaFormat
             trimmed = trimmed[1..];
         }
 
+        trimmed = trimmed.Trim();
         trimmed = trimmed.ToLowerInvariant();
-        if (trimmed.Length == 0)
+        if (trimmed.Length == 0 || trimmed.StartsWith('.'))
         {
             normalized = null;
             return false;
