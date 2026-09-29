@@ -118,6 +118,16 @@ Keel recommended a Core `MovieQueryString` codec with repeated ordered array key
 
 ---
 
+## D1 — Empty ranges in the Q7 codec
+
+**Patron ruling:** Choose B. When `Runtime` is non-null, `MovieQueryString.Format` emits `runtimeMin`, `runtimeMax`, and `runtimeIncludeUnknown`, writing an empty value for each null bound. When `Year` is non-null, it emits `yearMin` and `yearMax`, likewise writing an empty value for each null bound. Absent range keys mean a null range; present empty bounds mean null bounds in a present range. Thus `RuntimeRange(null, null, false)` and `YearRange(null, null)` remain distinct from null ranges and round-trip unchanged. A partially present range is malformed and `TryParse` fails under the failure policy Keel records for M9. Other null values remain governed by Q7. Do not add a validator rejection for empty ranges.
+
+- DEV-297:12-27 defines nullable range objects and validation only for page and `Min <= Max`; lines 30-31 and 35 require the FsCheck round trip for every valid `MovieQuery`.
+- Constitution 1.2.0 §III, lines 160-163, makes the query string authoritative and requires an unchanged round trip; Q7 in this file preserves the full validator-accepted domain.
+- `specs/DEV-297/brief.md`:60-76 sets the BCL-only codec and Q7 key names; the presence encoding refines Q7's omitted-null rule for range objects without changing ticket scope.
+
+---
+
 ## Q8 — Tests for the compatibility path and status conversion
 
 Keel proposed pure IQueryable characterization tests for the legacy expressions, a real-database translation smoke test using the existing PostgreSQL Testcontainers fixture, and status-value/name tests after converting Core `EnrichmentStatus`. recon-DEV-297:194-199 confirmed the production legacy provider is MySQL, while existing test infrastructure uses PostgreSQL and `LamuFlix.Test` can access Web internals. Keel recommended recording the untested MySQL-specific translation risk instead of adding a new MySQL test dependency.
