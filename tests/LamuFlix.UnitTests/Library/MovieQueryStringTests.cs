@@ -64,9 +64,32 @@ public sealed class MovieQueryStringTests
     }
 
     [Fact]
-    public void TryParse_MissingPageSize_ReturnsFalse()
+    public void TryParse_Fails_WhenRuntimeIncludeUnknownIsEmpty()
     {
-        MovieQueryString.TryParse("sort=Title&direction=Ascending&page=1", out _).ShouldBeFalse();
+        MovieQueryString.TryParse(
+            WithRequiredQuery("runtimeMin=1&runtimeMax=2&runtimeIncludeUnknown="),
+            out _).ShouldBeFalse();
+    }
+
+    [Theory]
+    [MemberData(nameof(RuntimeRangeIsPartialCases))]
+    public void TryParse_Fails_WhenRuntimeRangeIsPartial(string raw)
+    {
+        MovieQueryString.TryParse(raw, out _).ShouldBeFalse();
+    }
+
+    [Theory]
+    [MemberData(nameof(YearRangeIsPartialCases))]
+    public void TryParse_Fails_WhenYearRangeIsPartial(string raw)
+    {
+        MovieQueryString.TryParse(raw, out _).ShouldBeFalse();
+    }
+
+    [Theory]
+    [MemberData(nameof(RequiredKeyIsMissingCases))]
+    public void TryParse_Fails_WhenRequiredKeyIsMissing(string raw)
+    {
+        MovieQueryString.TryParse(raw, out _).ShouldBeFalse();
     }
 
     [Fact]
@@ -102,12 +125,6 @@ public sealed class MovieQueryStringTests
     }
 
     [Fact]
-    public void TryParse_PartialRange_ReturnsFalse()
-    {
-        MovieQueryString.TryParse("yearMin=1990&sort=Title&direction=Ascending&page=1&pageSize=20", out _).ShouldBeFalse();
-    }
-
-    [Fact]
     public void TryParse_EmptyNonRangeValue_ReturnsFalse()
     {
         MovieQueryString.TryParse("sort=&direction=Ascending&page=1&pageSize=20", out _).ShouldBeFalse();
@@ -121,6 +138,16 @@ public sealed class MovieQueryStringTests
         query.Text.ShouldBe(string.Empty);
     }
 
+    [Theory]
+    [MemberData(nameof(HalfBoundedRangesCases))]
+    public void TryParse_RoundTrips_HalfBoundedRanges(MovieQuery query)
+    {
+        var formatted = MovieQueryString.Format(query);
+
+        MovieQueryString.TryParse(formatted, out var parsed).ShouldBeTrue();
+        parsed.ShouldBe(query);
+    }
+
     [Fact]
     [Trait("Category", "Property")]
     public void Format_RoundTripsValidatorAcceptedQueries()
@@ -131,6 +158,38 @@ public sealed class MovieQueryStringTests
             return MovieQueryString.TryParse(formatted, out var parsed) && query.Equals(parsed);
         }).QuickCheckThrowOnFailure();
     }
+
+    public static TheoryData<string> RuntimeRangeIsPartialCases => new()
+    {
+        WithRequiredQuery("runtimeMin=1"),
+        WithRequiredQuery("runtimeMax=2"),
+        WithRequiredQuery("runtimeIncludeUnknown=true"),
+        WithRequiredQuery("runtimeMin=1&runtimeMax=2"),
+        WithRequiredQuery("runtimeMin=1&runtimeIncludeUnknown=true"),
+        WithRequiredQuery("runtimeMax=2&runtimeIncludeUnknown=false"),
+    };
+
+    public static TheoryData<string> YearRangeIsPartialCases => new()
+    {
+        WithRequiredQuery("yearMin=1990"),
+        WithRequiredQuery("yearMax=1999"),
+    };
+
+    public static TheoryData<string> RequiredKeyIsMissingCases => new()
+    {
+        "direction=Ascending&page=1&pageSize=20",
+        "sort=Title&page=1&pageSize=20",
+        "sort=Title&direction=Ascending&pageSize=20",
+        "sort=Title&direction=Ascending&page=1",
+    };
+
+    public static TheoryData<MovieQuery> HalfBoundedRangesCases => new()
+    {
+        Valid(runtime: new RuntimeRange(5, null, true)),
+        Valid(runtime: new RuntimeRange(null, 5, false)),
+        Valid(year: new YearRange(2000, null)),
+        Valid(year: new YearRange(null, 2000)),
+    };
 
     private static MovieQuery Valid(
         string? text = null,
@@ -148,4 +207,7 @@ public sealed class MovieQueryStringTests
             Year = year,
             Statuses = [EnrichmentStatus.Pending],
         };
+
+    private static string WithRequiredQuery(string raw) =>
+        $"{raw}&sort=Title&direction=Ascending&page=1&pageSize=20";
 }

@@ -232,27 +232,14 @@ public static class MovieQueryString
 
     private static bool TryRuntime(ParseState state, out RuntimeRange? runtime)
     {
+        runtime = null;
         if (!HasAnyRuntimeValue(state))
         {
-            runtime = null;
             return true;
         }
 
-        if (!HasCompleteRuntimeValues(state))
+        if (!HasCompleteRuntimeValues(state) || state.RuntimeIncludeUnknown is not { } includeUnknown)
         {
-            runtime = null;
-            return false;
-        }
-
-        if (!TryGetRuntimeIncludeUnknown(state, out var includeUnknown))
-        {
-            runtime = null;
-            return false;
-        }
-
-        if (!HasMatchingRuntimeBoundPresence(state))
-        {
-            runtime = null;
             return false;
         }
 
@@ -262,16 +249,14 @@ public static class MovieQueryString
 
     private static bool TryYear(ParseState state, out YearRange? year)
     {
+        year = null;
         if (!HasAnyYearValue(state))
         {
-            year = null;
             return true;
         }
 
-        if (state.Seen.Contains(YearMinKey) != state.Seen.Contains(YearMaxKey)
-            || state.YearMin.HasValue != state.YearMax.HasValue)
+        if (!HasCompleteYearValues(state))
         {
-            year = null;
             return false;
         }
 
@@ -310,23 +295,11 @@ public static class MovieQueryString
         && state.Seen.Contains(RuntimeMaxKey)
         && state.Seen.Contains(RuntimeIncludeUnknownKey);
 
-    private static bool TryGetRuntimeIncludeUnknown(ParseState state, out bool includeUnknown)
-    {
-        if (state.RuntimeIncludeUnknown is not bool value)
-        {
-            includeUnknown = default;
-            return false;
-        }
-
-        includeUnknown = value;
-        return true;
-    }
-
-    private static bool HasMatchingRuntimeBoundPresence(ParseState state) =>
-        state.RuntimeMin.HasValue == state.RuntimeMax.HasValue;
-
     private static bool HasAnyYearValue(ParseState state) =>
         state.Seen.Contains(YearMinKey) || state.Seen.Contains(YearMaxKey);
+
+    private static bool HasCompleteYearValues(ParseState state) =>
+        state.Seen.Contains(YearMinKey) && state.Seen.Contains(YearMaxKey);
 
     private static bool TrySplit(string segment, out string key, out string value)
     {
