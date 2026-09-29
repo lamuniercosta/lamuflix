@@ -1,5 +1,15 @@
 # DEV-297 conclusions
 
+## Web-gate membership for DEV-297
+
+**Patron ruling:** `./scripts/run-web-gates.ps1` is outside DEV-297's required gate set because its frozen delivery changes no file under `web/`. Do not schedule it for this ticket; report `N/A: no web/ diff`, never PASS or a required scope-empty SKIPPED. This ruling addresses membership only. The existing rule that an exit 2 scope-empty result from any required gate blocks remains in force.
+
+- DEV-297 frozen scope in `specs/DEV-297/brief.md`:145-159 and recon-DEV-297 R2:61-86 identify no `web/` edit; `specs/DEV-297/spec.md`:159-162 excludes Web API contract changes.
+- `task-pipeline`:83 invokes `scripts/run-web-gates.ps1` for `/web` work under web-implement; line 94 identifies exit 2 when `/web` has not changed. The Patron role charter states that `/web` builds with web-implement.
+- `specs/DEV-297/brief.md`:174-183 lists the applicable .NET gates and records the proposed `N/A: no web/ diff` handling; this ruling ratifies membership only.
+
+---
+
 ## Q1 dependency versions and consumers
 
 **Patron ruling:** Pin `Ardalis.SmartEnum` at exact CPM version `8.2.0` and `Ardalis.SmartEnum.SystemTextJson` at exact CPM version `8.1.0`. These are the latest stable releases shown by NuGet for each package as of 2026-09-29; both are compatible with net10.0, and the JSON package accepts SmartEnum >= 8.1.0. The packages share major version 8, but their published patch/minor versions differ; T002 must not require identical numbers. Require `./scripts/run-vulnerable-packages.ps1` exit 0 and record both chosen versions in the PR body; this is a delivery check, not a gate result asserted here.
