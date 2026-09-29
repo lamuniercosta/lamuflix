@@ -1,5 +1,18 @@
 # DEV-297 conclusions
 
+## Phase 4 review decisions at 60409113 (P-1/P-2)
+
+**Patron ruling:** Confirm nullable `MovieQuery.Sort` and `Direction` as the intended Core API shape. They may be absent on construction so the validator can reject them; a successfully parsed or formatted query has both values. K-F3 is a spec-text correction at `spec.md:104,143`, not a source change. Confirm the existing Web-to-Core `ProjectReference` needed by the FR-011 compatibility implementation. K-F4 is a plan-text correction at `plan.md:153`. Keel may record these in `brief.md` and route the text corrections; neither decision opens a user checkbox.
+
+- `specs/DEV-297/spec.md:109,112,120-124,143-147` requires the codec to reject missing sort/direction, the validator to require them, and Web's closed legacy compatibility path. `recon-DEV-297:402-415` locates the implemented nullable fields and project reference and identifies the two text mismatches.
+- `specs/DEV-297/plan.md:150-154` calls Web unchanged despite its required Core reference. `specs/PRODUCT.md:32-46` assigns API-shape care rulings to Patron; this ruling changes no ticket deliverable or constitution rule.
+
+**Patron ruling:** Record K-F1 on DEV-298 as the wiring consumer's latent leading-`?` parser risk; Rigger should add the cited comment. For K-F2, Rigger should check open tickets for the empty `EntityExtensions` class and orphaned `ViewModelExtensions` helpers, fold it into a suitable existing cleanup ticket if one exists, or file one follow-up dead-code ticket. No DEV-297 source change is authorized by this disposition. K-F5 (sub-threshold duplication) and K-F6 (helper naming) need no action: noted, no ticket.
+
+- `recon-DEV-297:396-416` confirms K-F1 at `MovieQueryString.cs:86` is latent until DEV-298/299 consumption, K-F2 at `EntityExtensions.cs:3-5` and `ViewModelExtensions.cs:7-58`, and K-F5/K-F6 as Low maintenance findings. `specs/DEV-297/brief.md:191-198` sends Low review findings to follow-up; `specs/PRODUCT.md:18,32-48` avoids a new abstraction and reserves tracked unnamed-file deletion for a cited Patron ruling.
+
+---
+
 ## Final Spec Kit analysis disposition (round 3 of 3)
 
 **Patron ruling:** DEV-297 remains blocked at the three-round cap. R3-1 through R3-6 and the listed Low findings are defects in the current spec, plan, and tasks against already decided scope; they raise no new ticket-change or constitution-departure question. The existing combined Q4/Q5/Q11 owner checkbox remains unanswered. No YouTrack change or follow-up ticket is needed; Low findings are noted, no ticket. Corrections require a separately authorized future phase. No fourth analysis round, plan challenge, freeze, or Gate 1 approval follows from this disposition.
