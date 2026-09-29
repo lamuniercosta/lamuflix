@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using LamuFlix.Api.ExceptionHandling;
 using LamuFlix.ArchitectureTests.Fixtures.Pipeline;
@@ -23,6 +24,9 @@ public sealed class ArchitectureTests
     private static readonly Assembly Core = CoreAssembly.Instance;
 
     private static readonly Assembly Fixtures = typeof(SealedCommandFixture).Assembly;
+
+    private const string PortWhitelistPattern =
+        "^(IMovieRepository|IMovieCatalog|IMetadataProvider|IEnrichmentQueue|IMediaLibraryScanner|IMediaPlayerLauncher|IRecommendationCandidateSource|IPlaybackHistory)$";
 
     [Fact]
     public void Core_must_not_reference_entity_framework_core()
@@ -142,6 +146,71 @@ public sealed class ArchitectureTests
             violations,
             violation => violation.HandlerName == nameof(SealedRecordRequestQueryHandler));
     }
+
+    [Fact]
+    public void Core_ports_must_match_the_constitution_whitelist()
+    {
+        var ports = Types.InAssembly(Core)
+            .That()
+            .ResideInNamespace("LamuFlix.Core.Ports")
+            .And()
+            .AreInterfaces()
+            .GetTypes()
+            .ToList();
+
+        Assert.True(ports.Count >= 6, $"Expected at least 6 ports, found {ports.Count}.");
+
+        var result = Types.InAssembly(Core)
+            .That()
+            .ResideInNamespace("LamuFlix.Core.Ports")
+            .And()
+            .AreInterfaces()
+            .Should()
+            .HaveNameMatching(PortWhitelistPattern)
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
+    [Fact]
+    public void Core_must_not_depend_on_http_client_types()
+    {
+        var httpClientTypes = HttpClientTypeNames();
+        Assert.NotEmpty(httpClientTypes);
+        Assert.Contains("System.Net.Http.HttpClient", httpClientTypes);
+
+        var result = Types.InAssembly(Core)
+            .ShouldNot()
+            .HaveDependencyOnAny(httpClientTypes)
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
+    [Fact]
+    public void Core_must_not_depend_on_process_or_process_start_info()
+    {
+        var result = Types.InAssembly(Core)
+            .ShouldNot()
+            .HaveDependencyOnAny("System.Diagnostics.Process", "System.Diagnostics.ProcessStartInfo")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
+    private static string[] HttpClientTypeNames()
+    {
+        return
+        [
+            .. typeof(HttpMessageInvoker).Assembly.GetExportedTypes()
+                .Where(IsHttpClientType)
+                .Select(static type => type.FullName)
+                .OfType<string>(),
+        ];
+    }
+
+    private static bool IsHttpClientType(Type type) =>
+        typeof(HttpMessageInvoker).IsAssignableFrom(type) || typeof(HttpMessageHandler).IsAssignableFrom(type);
 
     private static void AssertNoDependency(Assembly assembly, string dependency)
     {
