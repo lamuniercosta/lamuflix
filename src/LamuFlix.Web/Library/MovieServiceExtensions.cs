@@ -10,6 +10,17 @@ namespace LamuFlix.Web.Library;
 
 public static class MovieServiceExtensions
 {
+    private static readonly Dictionary<LegacyMovieSort, Func<IQueryable<Movie>, bool, IQueryable<Movie>>> Orderings =
+        new()
+        {
+            [LegacyMovieSort.Title] = OrderByTitle,
+            [LegacyMovieSort.Year] = (query, descending) => OrderByValue(query, movie => movie.Year, descending),
+            [LegacyMovieSort.Duration] = (query, descending) => OrderByValue(query, movie => movie.Duration, descending),
+            [LegacyMovieSort.ImdbRating] = (query, descending) => OrderByValue(query, movie => movie.ImdbRating, descending),
+            [LegacyMovieSort.MetaScore] = (query, descending) => OrderByValue(query, movie => movie.MetaScore, descending),
+            [LegacyMovieSort.RottenTomatoes] = (query, descending) => OrderByValue(query, movie => movie.RottenTomatoes, descending),
+        };
+
     public static IQueryable<Movie> ApplyLegacyFilters(this IQueryable<Movie> query, MoviesFilterViewModel? filter)
     {
         if (filter is null)
@@ -63,40 +74,8 @@ public static class MovieServiceExtensions
         return Order(query, sort, descending);
     }
 
-    private static IQueryable<Movie> Order(IQueryable<Movie> query, LegacyMovieSort sort, bool descending)
-    {
-        if (sort == LegacyMovieSort.Title)
-        {
-            return OrderByTitle(query, descending);
-        }
-
-        if (sort == LegacyMovieSort.Year)
-        {
-            return OrderByValue(query, movie => movie.Year, descending);
-        }
-
-        if (sort == LegacyMovieSort.Duration)
-        {
-            return OrderByValue(query, movie => movie.Duration, descending);
-        }
-
-        if (sort == LegacyMovieSort.ImdbRating)
-        {
-            return OrderByValue(query, movie => movie.ImdbRating, descending);
-        }
-
-        if (sort == LegacyMovieSort.MetaScore)
-        {
-            return OrderByValue(query, movie => movie.MetaScore, descending);
-        }
-
-        if (sort == LegacyMovieSort.RottenTomatoes)
-        {
-            return OrderByValue(query, movie => movie.RottenTomatoes, descending);
-        }
-
-        return OrderByValue(query, movie => movie.Id, descending);
-    }
+    private static IQueryable<Movie> Order(IQueryable<Movie> query, LegacyMovieSort sort, bool descending) =>
+        Orderings.TryGetValue(sort, out var order) ? order(query, descending) : OrderByValue(query, movie => movie.Id, descending);
 
     private static IQueryable<Movie> OrderByTitle(IQueryable<Movie> query, bool descending)
     {

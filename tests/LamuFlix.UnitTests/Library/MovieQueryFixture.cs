@@ -57,7 +57,13 @@ public static class MovieQueryFixture
             from min in Gen.Choose(0, 120)
             from span in Gen.Choose(0, 60)
             from include in Gen.Elements(true, false)
-            select new RuntimeRange(min, min + span, include);
+            from shape in Gen.Choose(0, 2)
+            select shape switch
+            {
+                0 => new RuntimeRange(min, null, include),
+                1 => new RuntimeRange(null, min + span, include),
+                _ => new RuntimeRange(min, min + span, include),
+            };
         return Gen.OneOf(absentOrEmpty, bounded);
     }
 
@@ -67,7 +73,13 @@ public static class MovieQueryFixture
         var bounded =
             from min in Gen.Choose(1900, 2020)
             from span in Gen.Choose(0, 10)
-            select new YearRange(min, min + span);
+            from shape in Gen.Choose(0, 2)
+            select shape switch
+            {
+                0 => new YearRange(min, null),
+                1 => new YearRange(null, min + span),
+                _ => new YearRange(min, min + span),
+            };
         return Gen.OneOf(absentOrEmpty, bounded);
     }
 }
