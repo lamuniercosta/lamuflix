@@ -20,7 +20,7 @@
 
 **Purpose**: Confirm the baseline before any edit. No project, package or `.csproj` change is allowed (spec FR-010).
 
-- [ ] T001 Verify worktree `F:\Dev\LamuFlix.worktrees\feature-298-spec`, branch `feature/298-spec`, and record the baseline of 276 passing tests (recon:91-92). Confirm `src/LamuFlix.Core/Ports/` contains only `.gitkeep`. `.specify/feature.json` is modified in the worktree but is outside frozen scope (brief:38-45); it stays unstaged and uncommitted.
+- [X] T001 Verify worktree `F:\Dev\LamuFlix.worktrees\feature-298-spec`, branch `feature/298-spec`, and record the baseline of 276 passing tests (recon:91-92). Confirm `src/LamuFlix.Core/Ports/` contains only `.gitkeep`. `.specify/feature.json` is modified in the worktree but is outside frozen scope (brief:38-45); it stays unstaged and uncommitted.
 
 ---
 
@@ -32,11 +32,11 @@
 
 ### Tests for User Story 1 (write first; they must fail before T003)
 
-- [ ] T002 [US1] Create `tests/LamuFlix.UnitTests/Library/PagedResultTests.cs` (xUnit, AAA, Shouldly; namespace and style as in `tests/LamuFlix.UnitTests/Library/EnumerationTests.cs`) with five cases: valid construction; `TotalCount == Items.Length` accepted (boundary); `default(ImmutableArray<T>)` (with `TotalCount` 0) throws `ArgumentException`; `TotalCount < 0` with non-default `Items` (for example `ImmutableArray<T>.Empty`, so it exercises the `TotalCount` guard and not the `IsDefault` guard) throws `ArgumentOutOfRangeException`; `TotalCount < Items.Length` throws `ArgumentOutOfRangeException` (spec US1 scenarios 1-5).
+- [X] T002 [US1] Create `tests/LamuFlix.UnitTests/Library/PagedResultTests.cs` (xUnit, AAA, Shouldly; namespace and style as in `tests/LamuFlix.UnitTests/Library/EnumerationTests.cs`) with five cases: valid construction; `TotalCount == Items.Length` accepted (boundary); `default(ImmutableArray<T>)` (with `TotalCount` 0) throws `ArgumentException`; `TotalCount < 0` with non-default `Items` (for example `ImmutableArray<T>.Empty`, so it exercises the `TotalCount` guard and not the `IsDefault` guard) throws `ArgumentOutOfRangeException`; `TotalCount < Items.Length` throws `ArgumentOutOfRangeException` (spec US1 scenarios 1-5).
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] Create `src/LamuFlix.Core/Ports/PagedResult.cs`: `public sealed record PagedResult<T>` with an explicit constructor `(ImmutableArray<T> items, int totalCount)` and get-only `Items` and `TotalCount` (not a positional record, so a `with` expression cannot bypass the guards). The constructor guards in this order: `Items.IsDefault` is checked first and throws `ArgumentException` (`Items.Length` on a default `ImmutableArray` throws); then ONE comparison, `TotalCount < Items.Length`, throws `ArgumentOutOfRangeException` (this also rejects negatives; a separate `TotalCount < 0` clause is subsumed and its deletion would be a surviving equivalent mutant) (spec FR-004; brief Plan decisions). Do not touch the `.csproj`.
+- [X] T003 [US1] Create `src/LamuFlix.Core/Ports/PagedResult.cs`: `public sealed record PagedResult<T>` with an explicit constructor `(ImmutableArray<T> items, int totalCount)` and get-only `Items` and `TotalCount` (not a positional record, so a `with` expression cannot bypass the guards). The constructor guards in this order: `Items.IsDefault` is checked first and throws `ArgumentException` (`Items.Length` on a default `ImmutableArray` throws); then ONE comparison, `TotalCount < Items.Length`, throws `ArgumentOutOfRangeException` (this also rejects negatives; a separate `TotalCount < 0` clause is subsumed and its deletion would be a surviving equivalent mutant) (spec FR-004; brief Plan decisions). Do not touch the `.csproj`.
 
 **Checkpoint**: T002 tests pass against T003.
 
@@ -48,12 +48,12 @@
 
 **Independent Test**: `dotnet build` of `LamuFlix.Core` succeeds and each type has exactly the AC4 fields.
 
-- [ ] T004 [P] [US2] Create `src/LamuFlix.Core/Ports/MovieSummary.cs`: `public sealed record MovieSummary(MovieId Id, string Title)`.
-- [ ] T005 [P] [US2] Create `src/LamuFlix.Core/Ports/MovieDetails.cs`: `public sealed record MovieDetails(MovieId Id, string Title, LibraryPath Path, MediaFormat Format, MovieMetadata? Metadata)`.
-- [ ] T006 [P] [US2] Create `src/LamuFlix.Core/Ports/MetadataLookup.cs`: `public sealed record MetadataLookup(string Title, ReleaseYear? ReleaseYear)`.
-- [ ] T007 [P] [US2] Create `src/LamuFlix.Core/Ports/EnrichmentRequested.cs`: `public sealed record EnrichmentRequested(MovieId MovieId, int Attempt)`.
-- [ ] T008 [P] [US2] Create `src/LamuFlix.Core/Ports/ScannedMovie.cs`: `public sealed record ScannedMovie(LibraryPath Path, string Title, MediaFormat Format)`.
-- [ ] T009 [P] [US2] Create `src/LamuFlix.Core/Ports/MetadataLookupResult.cs`: a `public abstract record` with a private constructor and the sealed nested records `Found(MovieMetadata Metadata)`, `NotFound` and `Failed(EnrichmentFailureCategory Category)`. No `Match` method, no package, no SmartEnum (spec FR-003; brief Q4).
+- [X] T004 [P] [US2] Create `src/LamuFlix.Core/Ports/MovieSummary.cs`: `public sealed record MovieSummary(MovieId Id, string Title)`.
+- [X] T005 [P] [US2] Create `src/LamuFlix.Core/Ports/MovieDetails.cs`: `public sealed record MovieDetails(MovieId Id, string Title, LibraryPath Path, MediaFormat Format, MovieMetadata? Metadata)`.
+- [X] T006 [P] [US2] Create `src/LamuFlix.Core/Ports/MetadataLookup.cs`: `public sealed record MetadataLookup(string Title, ReleaseYear? ReleaseYear)`.
+- [X] T007 [P] [US2] Create `src/LamuFlix.Core/Ports/EnrichmentRequested.cs`: `public sealed record EnrichmentRequested(MovieId MovieId, int Attempt)`.
+- [X] T008 [P] [US2] Create `src/LamuFlix.Core/Ports/ScannedMovie.cs`: `public sealed record ScannedMovie(LibraryPath Path, string Title, MediaFormat Format)`.
+- [X] T009 [P] [US2] Create `src/LamuFlix.Core/Ports/MetadataLookupResult.cs`: a `public abstract record` with a private constructor and the sealed nested records `Found(MovieMetadata Metadata)`, `NotFound` and `Failed(EnrichmentFailureCategory Category)`. No `Match` method, no package, no SmartEnum (spec FR-003; brief Q4).
 
 **Checkpoint**: Core builds with all contract types.
 
@@ -65,13 +65,13 @@
 
 **Independent Test**: `dotnet build` of `LamuFlix.Core` succeeds. Signatures are checked against brief AC3.
 
-- [ ] T010 [P] [US3] Create `src/LamuFlix.Core/Ports/IMovieRepository.cs` with `Task<Movie?> GetAsync(MovieId id, CancellationToken ct)`, `Task AddAsync(Movie movie, CancellationToken ct)`, `Task SaveChangesAsync(CancellationToken ct)` and `Task<bool> TryClaimForEnrichmentAsync(MovieId id, CancellationToken ct)`. The XML doc on `TryClaimForEnrichmentAsync` states that it is an atomic claim attempt. It returns `true` only when the movie exists and this call newly claims it, and `false` when the movie is absent or already claimed. It says nothing about storage mechanics (AC6; brief Q11).
-- [ ] T011 [P] [US3] Create `src/LamuFlix.Core/Ports/IMovieCatalog.cs` with `Task<PagedResult<MovieSummary>> BrowseAsync(MovieQuery query, CancellationToken ct)` and `Task<MovieDetails?> GetDetailsAsync(MovieId id, CancellationToken ct)`. Reference `MovieQuery` from `LamuFlix.Core.Library` and do not move it (depends on T003, T004, T005).
-- [ ] T012 [P] [US3] Create `src/LamuFlix.Core/Ports/IMetadataProvider.cs` with `Task<MetadataLookupResult> FindAsync(MetadataLookup lookup, CancellationToken ct)` (depends on T006, T009). Leave the legacy `Worker/Services/IMetadataProvider.cs` untouched.
-- [ ] T013 [P] [US3] Create `src/LamuFlix.Core/Ports/IEnrichmentQueue.cs` with `Task EnqueueAsync(EnrichmentRequested message, CancellationToken ct)` (depends on T007).
-- [ ] T014 [P] [US3] Create `src/LamuFlix.Core/Ports/IMediaLibraryScanner.cs` with `ScannedMovie Scan(LibraryPath folder)`. It is synchronous with no `CancellationToken` (brief Q6; depends on T008).
-- [ ] T015 [P] [US3] Create `src/LamuFlix.Core/Ports/IMediaPlayerLauncher.cs` with `void Launch(LibraryPath file, MediaFormat format)`. It is synchronous with no `CancellationToken`. No `Process.Start`, no `Features:LocalPlay` gating and no `DisabledMediaPlayerLauncher` (brief Q6, Q7).
-- [ ] T016 [US3] Delete `src/LamuFlix.Core/Ports/.gitkeep` now that the folder holds files (recon:76).
+- [X] T010 [P] [US3] Create `src/LamuFlix.Core/Ports/IMovieRepository.cs` with `Task<Movie?> GetAsync(MovieId id, CancellationToken ct)`, `Task AddAsync(Movie movie, CancellationToken ct)`, `Task SaveChangesAsync(CancellationToken ct)` and `Task<bool> TryClaimForEnrichmentAsync(MovieId id, CancellationToken ct)`. The XML doc on `TryClaimForEnrichmentAsync` states that it is an atomic claim attempt. It returns `true` only when the movie exists and this call newly claims it, and `false` when the movie is absent or already claimed. It says nothing about storage mechanics (AC6; brief Q11).
+- [X] T011 [P] [US3] Create `src/LamuFlix.Core/Ports/IMovieCatalog.cs` with `Task<PagedResult<MovieSummary>> BrowseAsync(MovieQuery query, CancellationToken ct)` and `Task<MovieDetails?> GetDetailsAsync(MovieId id, CancellationToken ct)`. Reference `MovieQuery` from `LamuFlix.Core.Library` and do not move it (depends on T003, T004, T005).
+- [X] T012 [P] [US3] Create `src/LamuFlix.Core/Ports/IMetadataProvider.cs` with `Task<MetadataLookupResult> FindAsync(MetadataLookup lookup, CancellationToken ct)` (depends on T006, T009). Leave the legacy `Worker/Services/IMetadataProvider.cs` untouched.
+- [X] T013 [P] [US3] Create `src/LamuFlix.Core/Ports/IEnrichmentQueue.cs` with `Task EnqueueAsync(EnrichmentRequested message, CancellationToken ct)` (depends on T007).
+- [X] T014 [P] [US3] Create `src/LamuFlix.Core/Ports/IMediaLibraryScanner.cs` with `ScannedMovie Scan(LibraryPath folder)`. It is synchronous with no `CancellationToken` (brief Q6; depends on T008).
+- [X] T015 [P] [US3] Create `src/LamuFlix.Core/Ports/IMediaPlayerLauncher.cs` with `void Launch(LibraryPath file, MediaFormat format)`. It is synchronous with no `CancellationToken`. No `Process.Start`, no `Features:LocalPlay` gating and no `DisabledMediaPlayerLauncher` (brief Q6, Q7).
+- [X] T016 [US3] Delete `src/LamuFlix.Core/Ports/.gitkeep` now that the folder holds files (recon:76).
 
 **Checkpoint**: Core builds. No port method takes a `TimeProvider` (brief Q5).
 
@@ -83,9 +83,9 @@
 
 **Independent Test**: `dotnet test --filter "FullyQualifiedName~ArchitectureTests" --nologo -v q` passes with the 10 existing rules unchanged.
 
-- [ ] T017 [US4] Edit `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` (additions only): add a whitelist fact asserting that at least 6 interfaces exist in `LamuFlix.Core.Ports` (to avoid a vacuous pass) and that every one is named one of `IMovieRepository`, `IMovieCatalog`, `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `IMediaPlayerLauncher`, `IRecommendationCandidateSource` or `IPlaybackHistory` (brief AC5, Q8; depends on T010-T015).
-- [ ] T018 [US4] In the same file, add a fact that `Core` must not depend on the HTTP client types: reflect the exported types in `typeof(HttpMessageInvoker).Assembly` assignable to `HttpMessageInvoker` or `HttpMessageHandler`, pass their full names to `HaveDependencyOnAny` over Core, and assert the set is non-empty and contains `System.Net.Http.HttpClient`. Do not ban the `System.Net.Http` namespace; `HttpRequestException` stays permitted. Additions-only, no fixture, no package (brief AC5, Plan challenge decisions).
-- [ ] T019 [US4] In the same file, add a fact that `Core` must not depend on `System.Diagnostics.Process` or `System.Diagnostics.ProcessStartInfo`, using `HaveDependencyOnAny("System.Diagnostics.Process", "System.Diagnostics.ProcessStartInfo")`, never the `System.Diagnostics` namespace (brief AC5). If T019 fails because of existing Core code, stop and report `blocked:` naming the offending type. Do not weaken the rule or edit that code (brief Baseline-red rule).
+- [X] T017 [US4] Edit `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` (additions only): add a whitelist fact asserting that at least 6 interfaces exist in `LamuFlix.Core.Ports` (to avoid a vacuous pass) and that every one is named one of `IMovieRepository`, `IMovieCatalog`, `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `IMediaPlayerLauncher`, `IRecommendationCandidateSource` or `IPlaybackHistory` (brief AC5, Q8; depends on T010-T015).
+- [X] T018 [US4] In the same file, add a fact that `Core` must not depend on the HTTP client types: reflect the exported types in `typeof(HttpMessageInvoker).Assembly` assignable to `HttpMessageInvoker` or `HttpMessageHandler`, pass their full names to `HaveDependencyOnAny` over Core, and assert the set is non-empty and contains `System.Net.Http.HttpClient`. Do not ban the `System.Net.Http` namespace; `HttpRequestException` stays permitted. Additions-only, no fixture, no package (brief AC5, Plan challenge decisions).
+- [X] T019 [US4] In the same file, add a fact that `Core` must not depend on `System.Diagnostics.Process` or `System.Diagnostics.ProcessStartInfo`, using `HaveDependencyOnAny("System.Diagnostics.Process", "System.Diagnostics.ProcessStartInfo")`, never the `System.Diagnostics` namespace (brief AC5). If T019 fails because of existing Core code, stop and report `blocked:` naming the offending type. Do not weaken the rule or edit that code (brief Baseline-red rule).
 
 **Checkpoint**: 3 new architecture facts pass and the existing rules are unchanged.
 
