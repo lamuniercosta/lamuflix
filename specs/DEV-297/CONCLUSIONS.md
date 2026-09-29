@@ -1,5 +1,13 @@
 # DEV-297 conclusions
 
+## Final Spec Kit analysis disposition (round 3 of 3)
+
+**Patron ruling:** DEV-297 remains blocked at the three-round cap. R3-1 through R3-6 and the listed Low findings are defects in the current spec, plan, and tasks against already decided scope; they raise no new ticket-change or constitution-departure question. The existing combined Q4/Q5/Q11 owner checkbox remains unanswered. No YouTrack change or follow-up ticket is needed; Low findings are noted, no ticket. Corrections require a separately authorized future phase. No fourth analysis round, plan challenge, freeze, or Gate 1 approval follows from this disposition.
+
+- DEV-297:12-35 fixes the typed fields, page size, validator, and FsCheck round trip; `specs/DEV-297/brief.md`:19,90-91 fixes JSON-by-Name and the required `pageSize` key. R3-1, R3-2, and R3-6 are omissions or contradictions of those decisions.
+- DEV-297 note:121-132 records the six blockers, Low findings, and final-round cap; `specs/DEV-297/brief.md`:191-196 requires `blocked` after three rounds and blocks in-scope Medium spec defects. R3-3 through R3-5 and the Low findings remain artifact corrections within DEV-297.
+- `specs/PRODUCT.md`:23-24,32-39 reserves owner escalation for a ticket change or necessary constitution departure; `specs/DEV-297/CONCLUSIONS.md` Q4/Q5/Q11 already carries the combined owner checkbox. The findings add no new owner decision or separate tracker work.
+
 ## Web-gate membership for DEV-297
 
 **Patron ruling:** `./scripts/run-web-gates.ps1` is outside DEV-297's required gate set because its frozen delivery changes no file under `web/`. Do not schedule it for this ticket; report `N/A: no web/ diff`, never PASS or a required scope-empty SKIPPED. This ruling addresses membership only. The existing rule that an exit 2 scope-empty result from any required gate blocks remains in force.
