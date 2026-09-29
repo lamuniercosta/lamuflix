@@ -12,7 +12,8 @@ public sealed class EnrichmentStatusTests
     public void Values_ArePinned(string name, int value)
     {
         EnrichmentStatus.TryFromName(name, false, out var status).ShouldBeTrue();
-        status!.Value.ShouldBe(value);
+        status.ShouldNotBeNull();
+        status.Value.ShouldBe(value);
         status.Name.ShouldBe(name);
     }
 }

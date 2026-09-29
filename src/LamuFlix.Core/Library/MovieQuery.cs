@@ -50,16 +50,9 @@ public sealed record MovieQuery
             return false;
         }
 
-        return Text == other.Text
-            && Enumerable.SequenceEqual(GenreIds, other.GenreIds)
-            && Enumerable.SequenceEqual(ActorIds, other.ActorIds)
-            && Runtime == other.Runtime
-            && Year == other.Year
-            && Enumerable.SequenceEqual(Statuses, other.Statuses)
-            && InWatchlist == other.InWatchlist
-            && Equals(Sort, other.Sort)
-            && Equals(Direction, other.Direction)
-            && Page == other.Page;
+        return HasSameCoreValues(other)
+            && HasSameCollectionValues(other)
+            && HasSameStatusAndPagingValues(other);
     }
 
     public override int GetHashCode()
@@ -80,6 +73,22 @@ public sealed record MovieQuery
 
     private static ImmutableArray<T> Normalize<T>(ImmutableArray<T> values) =>
         values.IsDefault ? [] : values;
+
+    private bool HasSameCoreValues(MovieQuery other) =>
+        Text == other.Text
+        && Runtime == other.Runtime
+        && Year == other.Year;
+
+    private bool HasSameCollectionValues(MovieQuery other) =>
+        Enumerable.SequenceEqual(GenreIds, other.GenreIds)
+        && Enumerable.SequenceEqual(ActorIds, other.ActorIds)
+        && Enumerable.SequenceEqual(Statuses, other.Statuses);
+
+    private bool HasSameStatusAndPagingValues(MovieQuery other) =>
+        InWatchlist == other.InWatchlist
+        && Equals(Sort, other.Sort)
+        && Equals(Direction, other.Direction)
+        && Page == other.Page;
 
     private static void AddSequence<T>(ref HashCode hash, ImmutableArray<T> values)
     {

@@ -1,4 +1,3 @@
-using FsCheck.Fluent;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Library;
 
@@ -28,7 +27,8 @@ public sealed class MovieQueryStringTests
     public void Format_EmptyText_EmitsEmptyValue()
     {
         MovieQueryString.TryParse(MovieQueryString.Format(Valid(text: string.Empty)), out var parsed).ShouldBeTrue();
-        parsed!.Text.ShouldBe(string.Empty);
+        parsed.ShouldNotBeNull();
+        parsed.Text.ShouldBe(string.Empty);
     }
 
     [Fact]
@@ -55,7 +55,8 @@ public sealed class MovieQueryStringTests
         const string raw = "sort=Title&direction=Ascending&page=1&pageSize=20";
 
         MovieQueryString.TryParse(raw, out var query).ShouldBeTrue();
-        query!.Sort.ShouldBe(MovieSort.Title);
+        query.ShouldNotBeNull();
+        query.Sort.ShouldBe(MovieSort.Title);
         query.Direction.ShouldBe(SortDirection.Ascending);
         query.Page.ShouldBe(new Page(1, 20));
         MovieQueryString.TryParse(MovieQueryString.Format(query), out var again).ShouldBeTrue();
@@ -72,7 +73,8 @@ public sealed class MovieQueryStringTests
     public void TryParse_UnknownKey_IsIgnored()
     {
         MovieQueryString.TryParse("noise=1&sort=Title&direction=Ascending&page=1&pageSize=20", out var query).ShouldBeTrue();
-        query!.Text.ShouldBeNull();
+        query.ShouldNotBeNull();
+        query.Text.ShouldBeNull();
     }
 
     [Fact]
@@ -115,7 +117,8 @@ public sealed class MovieQueryStringTests
     public void TryParse_EmptyText_IsEmptyString()
     {
         MovieQueryString.TryParse("text=&sort=Title&direction=Ascending&page=1&pageSize=20", out var query).ShouldBeTrue();
-        query!.Text.ShouldBe(string.Empty);
+        query.ShouldNotBeNull();
+        query.Text.ShouldBe(string.Empty);
     }
 
     [Fact]

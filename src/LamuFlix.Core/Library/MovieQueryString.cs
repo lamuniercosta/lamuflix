@@ -216,7 +216,7 @@ public static class MovieQueryString
     private static bool TryBuild(ParseState state, [NotNullWhen(true)] out MovieQuery? query)
     {
         query = null;
-        if (state.Sort is null || state.Direction is null || state.Page is null || state.PageSize is null)
+        if (!HasRequiredValues(state))
         {
             return false;
         }
@@ -226,7 +226,59 @@ public static class MovieQueryString
             return false;
         }
 
-        query = new MovieQuery
+        query = CreateQuery(state, runtime, year);
+        return true;
+    }
+
+    private static bool TryRuntime(ParseState state, out RuntimeRange? runtime)
+    {
+        if (!HasAnyRuntimeValue(state))
+        {
+            runtime = null;
+            return true;
+        }
+
+        if (!state.Seen.Contains(RuntimeMinKey)
+            || !state.Seen.Contains(RuntimeMaxKey)
+            || !state.Seen.Contains(RuntimeIncludeUnknownKey)
+            || state.RuntimeIncludeUnknown is not bool includeUnknown
+            || state.RuntimeMin.HasValue != state.RuntimeMax.HasValue)
+        {
+            runtime = null;
+            return false;
+        }
+
+        runtime = new RuntimeRange(state.RuntimeMin, state.RuntimeMax, includeUnknown);
+        return true;
+    }
+
+    private static bool TryYear(ParseState state, out YearRange? year)
+    {
+        if (!HasAnyYearValue(state))
+        {
+            year = null;
+            return true;
+        }
+
+        if (state.Seen.Contains(YearMinKey) != state.Seen.Contains(YearMaxKey)
+            || state.YearMin.HasValue != state.YearMax.HasValue)
+        {
+            year = null;
+            return false;
+        }
+
+        year = new YearRange(state.YearMin, state.YearMax);
+        return true;
+    }
+
+    private static bool HasRequiredValues(ParseState state) =>
+        state.Sort is not null
+        && state.Direction is not null
+        && state.Page is not null
+        && state.PageSize is not null;
+
+    private static MovieQuery CreateQuery(ParseState state, RuntimeRange? runtime, YearRange? year) =>
+        new()
         {
             Text = state.Text,
             GenreIds = [.. state.GenreIds],
@@ -237,45 +289,16 @@ public static class MovieQueryString
             InWatchlist = state.InWatchlist,
             Sort = state.Sort,
             Direction = state.Direction,
-            Page = new Page(state.Page.Value, state.PageSize.Value),
+            Page = new Page(state.Page.GetValueOrDefault(), state.PageSize.GetValueOrDefault()),
         };
-        return true;
-    }
 
-    private static bool TryRuntime(ParseState state, out RuntimeRange? runtime)
-    {
-        var seen = state.Seen.Contains(RuntimeMinKey) ? 1 : 0;
-        seen += state.Seen.Contains(RuntimeMaxKey) ? 1 : 0;
-        seen += state.Seen.Contains(RuntimeIncludeUnknownKey) ? 1 : 0;
-        if (seen == 0)
-        {
-            runtime = null;
-            return true;
-        }
+    private static bool HasAnyRuntimeValue(ParseState state) =>
+        state.Seen.Contains(RuntimeMinKey)
+        || state.Seen.Contains(RuntimeMaxKey)
+        || state.Seen.Contains(RuntimeIncludeUnknownKey);
 
-        if (seen != 3 || state.RuntimeIncludeUnknown is null)
-        {
-            runtime = null;
-            return false;
-        }
-
-        runtime = new RuntimeRange(state.RuntimeMin, state.RuntimeMax, state.RuntimeIncludeUnknown.Value);
-        return true;
-    }
-
-    private static bool TryYear(ParseState state, out YearRange? year)
-    {
-        var minSeen = state.Seen.Contains(YearMinKey);
-        var maxSeen = state.Seen.Contains(YearMaxKey);
-        if (minSeen == maxSeen)
-        {
-            year = minSeen ? new YearRange(state.YearMin, state.YearMax) : null;
-            return true;
-        }
-
-        year = null;
-        return false;
-    }
+    private static bool HasAnyYearValue(ParseState state) =>
+        state.Seen.Contains(YearMinKey) || state.Seen.Contains(YearMaxKey);
 
     private static bool TrySplit(string segment, out string key, out string value)
     {

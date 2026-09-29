@@ -33,7 +33,8 @@ public static class MovieServiceExtensions
             return query;
         }
 
-        return query.Where(movie => movie.Title!.ToLower().Contains(search.ToLower()));
+        var loweredSearch = search.ToLower();
+        return query.Where(movie => movie.Title is not null && movie.Title.ToLower().Contains(loweredSearch));
     }
 
     public static IQueryable<Movie> FilterByYear(this IQueryable<Movie> query, int? year) =>
