@@ -1,8 +1,7 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Data.Models;
-using LamuFlix.Web.Extensions;
+using LamuFlix.Web.Library;
 using LamuFlix.Web.Models.Movies;
 using Shouldly;
 using Xunit;
@@ -18,7 +17,7 @@ public sealed class LegacyMovieSortTests
     }
 
     [Theory]
-    [InlineData("Title", "asc", new[] { 4, 2, 1, 3 })]
+    [InlineData("Title", "asc", new[] { 2, 1, 3, 4 })]
     [InlineData("Title", "desc", new[] { 3, 1, 2, 4 })]
     [InlineData("Year", "asc", new[] { 4, 2, 1, 3 })]
     [InlineData("Year", "desc", new[] { 3, 1, 2, 4 })]
@@ -44,15 +43,15 @@ public sealed class LegacyMovieSortTests
     }
 
     [Fact]
-    public void UnknownSort_ThrowsArgumentException()
+    public void UnknownSort_FallsBackToIdDescending()
     {
-        Should.Throw<ArgumentException>(() => Sort(Catalog(), "XYZ", "desc").ToList());
+        Ids(Sort(Catalog(), "XYZ", "desc")).ShouldBe([4, 3, 2, 1]);
     }
 
     [Fact]
-    public void Title_Nulls_CurrentPlacement()
+    public void Title_Nulls_SortLast()
     {
-        Ids(Sort(Catalog(), "Title", "asc")).ShouldBe([4, 2, 1, 3]);
+        Ids(Sort(Catalog(), "Title", "asc")).ShouldBe([2, 1, 3, 4]);
         Ids(Sort(Catalog(), "Title", "desc")).ShouldBe([3, 1, 2, 4]);
     }
 
@@ -60,46 +59,46 @@ public sealed class LegacyMovieSortTests
     public void SearchField_MatchesTitleSubstringIgnoringCase()
     {
         var filter = new MoviesFilterViewModel { SearchField = "MaT" };
-        Ids(FilterCatalog().AsQueryable().DynamicQuery(filter)).ShouldBe([1]);
+        Ids(FilterCatalog().AsQueryable().ApplyLegacyFilters(filter)).ShouldBe([1]);
     }
 
     [Fact]
     public void Year_MatchesEquality()
     {
         var filter = new MoviesFilterViewModel { Year = 1999 };
-        Ids(FilterCatalog().AsQueryable().DynamicQuery(filter)).ShouldBe([2]);
+        Ids(FilterCatalog().AsQueryable().ApplyLegacyFilters(filter)).ShouldBe([2]);
     }
 
     [Fact]
     public void CollectionId_MatchesEquality()
     {
         var filter = new MoviesFilterViewModel { CollectionId = 8 };
-        Ids(FilterCatalog().AsQueryable().DynamicQuery(filter)).ShouldBe([3]);
+        Ids(FilterCatalog().AsQueryable().ApplyLegacyFilters(filter)).ShouldBe([3]);
     }
 
     [Fact]
     public void DirectorId_MatchesAnyDirector()
     {
         var filter = new MoviesFilterViewModel { DirectorId = 7 };
-        Ids(FilterCatalog().AsQueryable().DynamicQuery(filter)).ShouldBe([2]);
+        Ids(FilterCatalog().AsQueryable().ApplyLegacyFilters(filter)).ShouldBe([2]);
     }
 
     [Fact]
     public void GenreIds_MatchesAnySelectedGenre()
     {
         var filter = new MoviesFilterViewModel { GenreIds = [3] };
-        Ids(FilterCatalog().AsQueryable().DynamicQuery(filter)).ShouldBe([2]);
+        Ids(FilterCatalog().AsQueryable().ApplyLegacyFilters(filter)).ShouldBe([2]);
     }
 
     [Fact]
     public void ActorIds_MatchesAnySelectedActor()
     {
         var filter = new MoviesFilterViewModel { ActorIds = [11] };
-        Ids(FilterCatalog().AsQueryable().DynamicQuery(filter)).ShouldBe([3]);
+        Ids(FilterCatalog().AsQueryable().ApplyLegacyFilters(filter)).ShouldBe([3]);
     }
 
     private static IQueryable<Movie> Sort(IReadOnlyList<Movie> movies, string sortBy, string sortOrder) =>
-        movies.AsQueryable().DynamicSort(null, sortBy, sortOrder);
+        movies.AsQueryable().ApplyLegacySort(sortBy, sortOrder);
 
     private static int[] Ids(IQueryable<Movie> movies) => [.. movies.Select(movie => movie.Id)];
 
@@ -130,17 +129,17 @@ public sealed class LegacyMovieSortTests
         int directorId,
         int[] genreIds,
         int[] actorIds) => new()
-    {
-        Id = id,
-        Title = title,
-        Year = year,
-        Duration = duration,
-        ImdbRating = imdb,
-        MetaScore = meta,
-        RottenTomatoes = rotten,
-        CollectionId = collectionId,
-        Directors = [new MovieDirectors { DirectorId = directorId }],
-        Genres = [.. genreIds.Select(genre => new MovieGenre { GenreId = genre })],
-        Actors = [.. actorIds.Select(actor => new MovieActors { ActorId = actor })],
-    };
+        {
+            Id = id,
+            Title = title,
+            Year = year,
+            Duration = duration,
+            ImdbRating = imdb,
+            MetaScore = meta,
+            RottenTomatoes = rotten,
+            CollectionId = collectionId,
+            Directors = [new MovieDirectors { DirectorId = directorId }],
+            Genres = [.. genreIds.Select(genre => new MovieGenre { GenreId = genre })],
+            Actors = [.. actorIds.Select(actor => new MovieActors { ActorId = actor })],
+        };
 }
