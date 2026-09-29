@@ -2,7 +2,7 @@ using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Core.Ports;
 
-public sealed record EnrichmentRequested(MovieId MovieId, int Attempt)
-{
-    public override string ToString() => $"{nameof(EnrichmentRequested)} {{ {nameof(MovieId)} = {MovieId}, {nameof(Attempt)} = {Attempt} }}";
-}
+// ReSharper disable NotAccessedPositionalProperty.Global
+// Consumed by future enrichment queue and worker adapters
+public sealed record EnrichmentRequested(MovieId MovieId, int Attempt);
+// ReSharper restore NotAccessedPositionalProperty.Global
