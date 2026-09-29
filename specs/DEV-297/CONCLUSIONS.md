@@ -77,3 +77,77 @@ Keel asked where the new Core query types, FluentValidation validator, and typed
 ## Q2 qualification after legacy-path recon
 
 recon-DEV-297:181-189 shows current Razor sorting includes `MetaScore`, `RottenTomatoes`, and `Id`, outside DEV-297's `MovieSort` values; current filtering also includes `DirectorId` and `CollectionId`, outside `MovieQuery`. The Q2 ruling still requires replacing the reflection helpers in DEV-297, but its proposed preservation of every existing legacy behavior cannot be assumed to follow from the canonical `MovieQuery` whitelist. Keel must reconcile the compatibility behavior in the grill, and any ticket-scope or constitution change goes to the owner checkbox.
+
+---
+
+## Q5 — Legacy behavior and canonical MovieQuery
+
+Keel presented three options: a separate typed legacy compatibility model in Web; forcing the old UI through the narrower `MovieQuery` and dropping sorts/filters; or expanding the ticket's fixed canonical fields. Keel recommended the compatibility model with explicit predicates, a closed legacy sort set, and a safe fallback for unknown sort names. Keel also recommended that the canonical `MovieQuery` first be consumed by DEV-299.
+
+**Patron ruling:** The legacy compatibility model is the preferred conditional design: preserve the existing Razor sort and filter choices with explicit, non-reflection expressions, including a closed legacy sort set. Invalid unknown sort names may fall back to the existing `Id` descending default instead of throwing. Do not add legacy-only fields to `MovieQuery` or drop current UI choices. This design requires an owner decision: DEV-297's overview says the reflection helpers are replaced *with* the typed `MovieQuery` model, while the proposed bridge does not consume `MovieQuery`, and Q4 identified a constitution §III placement departure. It is not accepted as unqualified ticket completion until the checkbox is answered.
+
+- DEV-297:9-22 fixes the canonical model and whitelist; recon-DEV-297:175-189 shows the wider legacy sort/filter surface and the current unknown-sort exception.
+- Constitution 1.2.0 §III, lines 147-163, requires a closed typed sort set and forbids reflection; `specs/PRODUCT.md` §5 reserves ticket changes and constitution departures for owner checkboxes.
+- recon-DEV-297:66-86 assigns the future browse handler to DEV-299, but DEV-297:34 assigns legacy reflection replacement to this ticket.
+
+- [ ] **Owner decision for spec PR, combined with Q4:** May DEV-297 replace the live legacy reflection path with an explicit typed Web compatibility model that preserves its wider UI fields, while canonical `MovieQuery` is first consumed by DEV-299? This is a temporary constitution §III predicate-placement departure and a clarification of DEV-297:9-10's replacement wording.
+
+---
+
+## Q6 — Legacy null ordering and page size
+
+Keel asked whether the new legacy compatibility sort must put null values last and whether the legacy `QueryParams.PageSize` must adopt `MovieQuery`'s 1–100 limit. Keel recommended explicit nulls-last ordering for nullable keys in both directions and leaving the legacy page-size and fixed-page request behavior intact.
+
+**Patron ruling:** Use explicit `NULLS LAST` for nullable keys in the conditional compatibility sort and in the canonical `MovieSort` contract. Keep the existing Razor `QueryParams` binding and fixed `Page=1` behavior; apply the 1–100 size and positive-number rules to `MovieQueryValidator`, the type DEV-297 names. Do not silently clamp legacy page size or change the MVC response contract as part of this ticket. Any new internal compatibility query must still receive validation appropriate to its own contract under constitution §V; it does not inherit `MovieQuery`'s 100-size rule merely by proximity.
+
+- Constitution 1.2.0 §III, lines 154-163, mandates nulls-last behavior and the `MovieQuery` validator; §V, lines 196-199, requires validation of new query contracts.
+- DEV-297:23-27 names validation rules for `MovieQuery`; recon-DEV-297:175-189 shows the existing legacy page and sort behavior.
+- `specs/PRODUCT.md` §3 preserves the ticket's fixed scope; the conditional Web path remains under the Q4/Q5 owner checkbox.
+
+---
+
+## Q7 — Query-string codec and round-trip property
+
+Keel recommended a Core `MovieQueryString` codec with repeated ordered array keys, name-based Enumeration values, omitted nulls, and always-emitted sort/direction/page values. Keel proposed sequence-based equality for `ImmutableArray` members and an FsCheck generator restricted to validator-accepted queries. Keel proposed excluding empty `Text` values from the valid domain.
+
+**Patron ruling:** Add the BCL-only Core codec as the required enabler of the ticket's round-trip property. Preserve every validator-accepted `MovieQuery`, including an empty `Text` unless the ticket's validator expressly rejects it; encode empty text distinctly from null. Use sequence equality for the three immutable arrays, preserving element order, and make the property assert parse success plus equality after format/parse. Include URL-hostile characters and prove the generator's values pass `MovieQueryValidator`. The proposed query-key spelling is a taste assumption, recorded separately. Do not narrow the valid domain merely to make the property pass.
+
+- DEV-297:23-31 and 35 require validation and an FsCheck round trip for any valid `MovieQuery`; constitution 1.2.0 §III, lines 160-163, makes URL state authoritative.
+- Constitution 1.2.0 §I permits BCL-only Core code; Testing Matrix, lines 285-288, puts FsCheck properties in `LamuFlix.UnitTests`.
+- `specs/PRODUCT.md` §4 requires taste assumptions in `ASSUMPTIONS.md`.
+
+---
+
+## Q8 — Tests for the compatibility path and status conversion
+
+Keel proposed pure IQueryable characterization tests for the legacy expressions, a real-database translation smoke test using the existing PostgreSQL Testcontainers fixture, and status-value/name tests after converting Core `EnrichmentStatus`. recon-DEV-297:194-199 confirmed the production legacy provider is MySQL, while existing test infrastructure uses PostgreSQL and `LamuFlix.Test` can access Web internals. Keel recommended recording the untested MySQL-specific translation risk instead of adding a new MySQL test dependency.
+
+**Patron ruling:** Put conditional Web compatibility characterization tests in the existing `LamuFlix.Test` project, including each sort and predicate, both directions, and null placement. Use the existing real PostgreSQL fixture for an EF translation smoke test; this proves relational translation on that provider, not production MySQL equivalence. Record the remaining provider risk in Keel's brief and ADR-0009. Add Core status value/name tests in `LamuFlix.UnitTests`, keep the existing `Movie` assertions intact, and require the normal full test and applicable Core mutation gates at implementation verification. Do not add a MySQL Testcontainers dependency for this transitional path.
+
+- recon-DEV-297:88-94, 191-199 bounds the affected status consumers, missing legacy tests, available PostgreSQL fixture, and production provider difference.
+- Constitution 1.2.0 Principle IX and Technology Stack Constraints require real persistence testing and phase-appropriate Core mutation coverage; DEV-297:30-35 requires the FsCheck property.
+- `specs/PRODUCT.md` §5 care items 1 and 6 assigns the dependency/file-scope decision to Patron; the Q4/Q5 compatibility design remains conditional on the owner checkbox.
+
+---
+
+## Q9 — ADR-0009 content and status
+
+Keel asked for the filename, status, and content of the ticket's ADR. Keel recommended the exact ticket filename, Accepted status, the house ADR header, the reflection-to-typed-query decision, and a conditional transitional-compatibility section governed by Q4/Q5.
+
+**Patron ruling:** The implementer writes `docs/adr/ADR-0009.md` at the ticket's exact path with `Status: Accepted`, ticket/date metadata, and concise Context, Decision, and Consequences. It records the typed Core model, closed sort Enumerations, validator, URL codec and equality, pinned status values, and nulls-last rule. It identifies the legacy reflection helpers being removed. A short compatibility/retirement section is conditional on the Q4/Q5 owner answer and must name DEV-298/DEV-299 and the PostgreSQL-only translation evidence if approved. `Accepted` in the document is the proposed decision status; the owner accepts the PR by merging it. Keel records these requirements in `brief.md`; Patron does not author the ADR in Phase A.
+
+- DEV-297:28-29 and 36 names the exact ADR path and accepted outcome; `specs/PRODUCT.md` §3 makes the ticket authoritative.
+- Constitution 1.2.0 §III and Documentation Rules require the typed query decision and a one-page Accepted ADR; `docs/adr/ADR-0010.md` supplies the current house format.
+- Q1–Q8 in this artifact define the decision content; Q4/Q5 owner checkboxes govern any transitional departure.
+
+---
+
+## Q10 — Grill close, scope, gates, and rounds
+
+Keel proposed closing the grill after Q1–Q10 rulings and a matching `brief.md`, with the Q4/Q5 owner checkbox on the spec PR. Keel proposed a task sequence from packages and Core types through validation, tests, conditional Web replacement, ADR, and gates; three Spec Kit analyze/fix rounds and two delivery review rounds.
+
+**Patron ruling:** Close the grill only when every asked question is recorded here and mirrored in Keel's `brief.md`, including the combined Q4/Q5 owner checkbox. The checkbox keeps Gate 1 closed until the owner answers it. Freeze the ticket's named model, validator, FsCheck property, UnitTests project, EnrichmentStatus conversion, reflection removal, ADR, and directly required tests; the Web compatibility implementation is conditional on the owner answer. Anything else is a follow-up issue, not a finding in this round. Sequence characterization tests before replacing the legacy helpers, then verify the changed behavior explicitly. At review, verified Critical/High findings always block; in-scope Medium behavior, spec, or gate defects block; Low and non-blocking Medium maintenance observations go to follow-ups. Preserve the standing three Spec Kit analyze/fix rounds, two review rounds, and two remediation commits per round.
+
+- DEV-297:9-36 fixes the deliverables; `task-pipeline`:23-27,61-76 fixes the grill cap, brief handoff, and review/remediation caps; `specs/DEV-296/brief.md`:72-75 records the existing three-analyze-round convention.
+- `task-pipeline`:86-95 lists the phase-specific native gates, including property tests, vulnerable packages, format, full tests, and conditional Web gates; the AGENTS.md verification contract distinguishes blocking scope-empty SKIPPED from non-blocking configured OPT-OUT.
+- The `code-review` skill severity scale and close rule classify verified findings; constitution 1.2.0 PR Quality Gates and Testing Matrix require applicable tests and mutation evidence. A gate that has not run is not a pass.
