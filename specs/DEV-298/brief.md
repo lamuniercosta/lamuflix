@@ -21,7 +21,7 @@ Keel's closing-bar lines, which come from Patron's rulings and do not change del
   - `IMediaLibraryScanner`: `ScannedMovie Scan(LibraryPath folder)`, which is sync with no CT (Q6).
   - `IMediaPlayerLauncher`: `void Launch(LibraryPath file, MediaFormat format)`, which is sync with no CT (Q6).
 - **AC4 (Q2, Q4):** the contract types exist in `Core/Ports/` as `sealed record`s with exactly these field sets:
-  - `PagedResult<T>(ImmutableArray<T> Items, int TotalCount)`
+  - `PagedResult<T>(ImmutableArray<T> Items, int TotalCount)`. **Amended by PD2 (CONCLUSIONS.md:26):** a `sealed record` with an explicit constructor `(ImmutableArray<T> items, int totalCount)` and get-only `Items` and `TotalCount`, not a positional record, so a `with` expression cannot bypass the guards.
   - `MovieSummary(MovieId Id, string Title)`
   - `MovieDetails(MovieId Id, string Title, LibraryPath Path, MediaFormat Format, MovieMetadata? Metadata)`
   - `MetadataLookup(string Title, ReleaseYear? ReleaseYear)`
@@ -29,6 +29,7 @@ Keel's closing-bar lines, which come from Patron's rulings and do not change del
   - `EnrichmentRequested(MovieId MovieId, int Attempt)`
   - `MetadataLookupResult`: an abstract record with a private constructor and the sealed nested records `Found(MovieMetadata Metadata)`, `NotFound`, and `Failed(EnrichmentFailureCategory Category)`.
 - **AC5 (Q8):** `LamuFlix.ArchitectureTests` gains a port-whitelist rule: every interface in `LamuFlix.Core.Ports` has a name on the constitution's list (the six above plus `IRecommendationCandidateSource` and `IPlaybackHistory`, so DEV-340, DEV-348, and DEV-351 need no test edit). It also gains two Core bans that are not yet enforced, `System.Net.Http` and `System.Diagnostics.Process` (constitution I: "Core MUST NOT reference … `System.IO` process APIs, or any HTTP client"). All existing rules stay unchanged.
+  - **Amended by PD1 (CONCLUSIONS.md:25) and plan-challenge F-R2:** the HTTP ban covers the client types (`HttpClient`, `HttpMessageInvoker`, `HttpMessageHandler` and their subclasses), not the whole `System.Net.Http` namespace. `HttpRequestException` stays permitted (EnrichmentFailureClassifier.cs; recon-DEV-298:218–246). The Process ban names the types `System.Diagnostics.Process` and `System.Diagnostics.ProcessStartInfo`, and never the `System.Diagnostics` namespace, which Core uses for CodeAnalysis. The matching mechanism must be one that recon proves actually matches a type name. It is recorded under *Plan challenge decisions* below.
 - **AC6 (Q11):** the XML doc on `TryClaimForEnrichmentAsync` states that it is an atomic claim attempt. It returns `true` only when the movie exists and this call newly claims it, and `false` when the movie is absent or already claimed. It says nothing about storage mechanics.
 - **AC7:** zero new packages and zero edits to `.csproj`, `Directory.*.props`, or `BannedSymbols.txt`. Zero files outside the frozen scope change, proven by `git diff --stat origin/main...HEAD`.
 - **AC8:** gates (see *Gate expectations*) exit 0. The 276 baseline tests (recon:91) still pass, alongside the new ones.
@@ -42,6 +43,7 @@ Files in scope (all new except the architecture test file):
 - `src/LamuFlix.Core/Ports/.gitkeep`: it may be deleted once the folder holds files (recon:76).
 - `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`: add the AC5 rules and edit nothing else.
 - A new unit-test file under `tests/LamuFlix.UnitTests/` for the `PagedResult<T>` guards. Placement follows the existing Core test folder convention in that project, and there is no new project or folder.
+  - **Keel clarification (analyze R1, P1):** `tests/LamuFlix.UnitTests/Ports/` does not exist, and the only source folders are `Domain` and `Library` (recon-DEV-298:191–216). So the file is `tests/LamuFlix.UnitTests/Library/PagedResultTests.cs`. Paging already lives in `Library` (`MovieQuery`, `Page`; recon:66–70), and this adds no folder.
 - The `specs/DEV-298/*` artifacts.
 
 Out of scope, per Q1, Q7, Q9, and care list #6:
@@ -100,3 +102,19 @@ Out of scope, per Q1, Q7, Q9, and care list #6:
   3. The six port interfaces, including the AC6 XML doc.
   4. The architecture tests (AC5).
   5. Gates and the diff-scope check (AC7, AC8).
+
+## Plan challenge decisions (Keel, 2026-09-29)
+
+Inputs: findings-DEV-298-risk, findings-DEV-298-standards, and findings-DEV-298-spec. The adjudication is in the DEV-298 note, lines 63–77. Patron's rulings are PD1 and PD2 (CONCLUSIONS.md:25–26).
+
+- **PD1:** the HTTP ban is scoped to the client types (see the AC5 amendment).
+- **PD2:** `PagedResult<T>` uses an explicit constructor with get-only properties (see the AC4 amendment). The guards and their order are unchanged: `IsDefault` is checked first, then one `totalCount < items.Length` comparison.
+- **F-R2 mechanism (decided after recon R3, recon-DEV-298:264–324):** in NetArchTest 1.3.2, `HaveDependencyOn` matches an exact type name. It does not match sibling types (`Process` does not match `ProcessStartInfo`), and it does not walk inheritance (`HttpMessageInvoker` does not match `HttpClient`). No assembly that ArchitectureTests loads references either kind of type, so a canary is not possible.
+  - **Process ban:** `HaveDependencyOnAny("System.Diagnostics.Process", "System.Diagnostics.ProcessStartInfo")` over Core. Use the existing `AssertNoDependency` helper (`ArchitectureTests.cs:146–154`) if it takes several names. Otherwise call NetArchTest directly in the same file.
+  - **HTTP ban:** at test time, compute the banned names by reflection. From the `System.Net.Http` assembly (`typeof(HttpMessageInvoker).Assembly`), collect every exported type that is assignable to `HttpMessageInvoker` or `HttpMessageHandler`. That set covers `HttpClient`, `HttpClientHandler`, `SocketsHttpHandler`, `DelegatingHandler`, and the others. Pass the full names to `HaveDependencyOnAny` over Core. A subclass declared inside Core depends on its base type, so this check catches it too. `HttpRequestException` is not in the set.
+  - **Self-check against a vacuous pass:** the same fact asserts that the computed set is non-empty and contains `System.Net.Http.HttpClient`.
+  - The change stays additions-only in `ArchitectureTests.cs`, with no fixture, no new using outside that file, and no package.
+- **F-R4:** no violating fixture file, because the frozen scope is kept. Instead, the whitelist fact also asserts that `LamuFlix.Core.Ports` contains at least 6 interfaces, so it cannot pass while checking nothing.
+- **Compass F3:** the spec drops the claim that "no other type can derive". The private constructor blocks ordinary derivation. Derivation through the synthesized protected copy constructor is a known limitation, and the AC4 union shape is unchanged.
+- **Compass F4:** the negative-total test uses non-default `Items`, such as an empty array. Only the default-array case uses `default`.
+- **Wording fixes:** Ledger's F-STD-2, F-STD-3, and F-STD-4 are accepted as wording fixes (the `MetadataLookupResult` abstract carve-out, `public` in spec US2, and the pinned `Library/` test path).
