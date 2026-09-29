@@ -1,4 +1,3 @@
-using FsCheck.Fluent;
 using LamuFlix.Infrastructure.Library;
 
 namespace LamuFlix.UnitTests.Library;

@@ -36,7 +36,7 @@ public static class MovieQueryFixture
         };
 
     private static Gen<string?> TextGen() =>
-        Gen.Elements<string?>(null, string.Empty, "matrix", "a&b", "x=y", "q \"z", "a b", "ü&=");
+        Gen.Elements(null, string.Empty, "matrix", "a&b", "x=y", "q \"z", "a b", "ü&=");
 
     private static Gen<ImmutableArray<int>> IdList() =>
         Gen.Choose(0, 4).SelectMany(count =>
@@ -49,7 +49,7 @@ public static class MovieQueryFixture
 
     private static Gen<RuntimeRange?> RuntimeGen()
     {
-        var absentOrEmpty = Gen.Elements<RuntimeRange?>(
+        var absentOrEmpty = Gen.Elements(
             null,
             new RuntimeRange(null, null, false),
             new RuntimeRange(null, null, true));
@@ -57,29 +57,17 @@ public static class MovieQueryFixture
             from min in Gen.Choose(0, 120)
             from span in Gen.Choose(0, 60)
             from include in Gen.Elements(true, false)
-            from shape in Gen.Choose(0, 2)
-            select shape switch
-            {
-                0 => new RuntimeRange(min, null, include),
-                1 => new RuntimeRange(null, min + span, include),
-                _ => new RuntimeRange(min, min + span, include),
-            };
+            select new RuntimeRange(min, min + span, include);
         return Gen.OneOf(absentOrEmpty, bounded);
     }
 
     private static Gen<YearRange?> YearGen()
     {
-        var absentOrEmpty = Gen.Elements<YearRange?>(null, new YearRange(null, null));
+        var absentOrEmpty = Gen.Elements(null, new YearRange(null, null));
         var bounded =
             from min in Gen.Choose(1900, 2020)
             from span in Gen.Choose(0, 10)
-            from shape in Gen.Choose(0, 2)
-            select shape switch
-            {
-                0 => new YearRange(min, null),
-                1 => new YearRange(null, min + span),
-                _ => new YearRange(min, min + span),
-            };
+            select new YearRange(min, min + span);
         return Gen.OneOf(absentOrEmpty, bounded);
     }
 }
