@@ -85,7 +85,7 @@ public sealed class PropertyTests
     {
         Prop.ForAll<string>(value =>
         {
-            var valid = TryNormalize(value, out var expected);
+            var valid = TryNormalizeMediaFormat(value, out var expected);
             var createdOk = MediaFormat.TryCreate(value, out var created);
             if (createdOk != valid)
             {
@@ -100,6 +100,22 @@ public sealed class PropertyTests
             return created is not null
                 && created.Extension == expected
                 && new MediaFormat(value).Extension == expected;
+        }).QuickCheckThrowOnFailure();
+    }
+
+    [Fact]
+    [Trait("Category", "Property")]
+    public void MediaFormat_TryCreate_IsIdempotent()
+    {
+        Prop.ForAll<string>(value =>
+        {
+            if (!MediaFormat.TryCreate(value, out var created))
+            {
+                return true;
+            }
+
+            return MediaFormat.TryCreate(created.Extension, out var normalizedAgain)
+                && normalizedAgain.Extension == created.Extension;
         }).QuickCheckThrowOnFailure();
     }
 
@@ -480,7 +496,7 @@ public sealed class PropertyTests
         RequestEnrichment,
     }
 
-    private static bool TryNormalize(string? extension, out string expected)
+    private static bool TryNormalizeMediaFormat(string? extension, out string expected)
     {
         expected = string.Empty;
         if (extension is null)
@@ -494,8 +510,9 @@ public sealed class PropertyTests
             trimmed = trimmed[1..];
         }
 
+        trimmed = trimmed.Trim();
         trimmed = trimmed.ToLowerInvariant();
-        if (trimmed.Length == 0)
+        if (trimmed.Length == 0 || trimmed.StartsWith('.'))
         {
             return false;
         }

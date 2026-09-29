@@ -56,7 +56,7 @@ Every file lives in `src/LamuFlix.Core/Domain/`, one type per file, flat, in nam
    | `ImdbRating` | 0.0-10.0 inclusive, at most one decimal place, no rounding |
    | `Runtime` | `Minutes > 0` |
    | `LibraryPath` | Non-blank, rejects any literal `..` substring |
-   | `MediaFormat` | Non-blank; `Extension` is trimmed, its leading `.` is stripped, and it is lowercased. Order fixed by D3 |
+   | `MediaFormat` | Non-blank; `Extension` is trimmed, at most one leading `.` is stripped, it is trimmed again and lowercased, and any remaining leading `.` causes rejection. [Amended by DEV-378 on 2026-09-28] |
    | `ReleaseYear` | `ReleaseYear(int value, DateTimeOffset now)` accepts `1888 <= value <= now.Year + 5`, with equality on `Value` only. Patron ruled this consistent with the ticket, since `DateTime.Now`/`UtcNow` are banned (recon line 118). |
 9. **Test project reference (Q1).** Add exactly one `<ProjectReference>` to `src/LamuFlix.Core/LamuFlix.Core.csproj` in `tests/LamuFlix.Test/LamuFlix.Test.csproj`. This is an edit, not a rewrite. Tests go in `tests/LamuFlix.Test/Domain/`.
 
@@ -169,7 +169,7 @@ Source: Keel's read-only `/speckit-analyze` (DEV-294 note:35-160) and recon-DEV-
 
 - **D1 (finding 1). No XML doc on `InvalidTransitionException`.** The constitution's Coding Conventions forbid XML comments outside the exempt uses. ADR 0014 and follow-up #2 record the HTTP 409 mapping. Supersedes Frozen scope item 4, second bullet.
 - **D2 (finding 2). `TryCreate` on every value object.** The constitution's Coding Conventions require TryParse-style factories. Each of the 7 value objects gets `public static bool TryCreate(<ctor args>, [NotNullWhen(true)] out T? result)` alongside its throwing constructor, with the same rules. For `ReleaseYear` the signature is `TryCreate(int value, DateTimeOffset now, out ReleaseYear? result)`. Tests cover a valid and an invalid `TryCreate` for each type.
-- **D3 (finding 12). `MediaFormat` normalization order.** Trim, then strip exactly one leading `.`, then lowercase, then reject blank. So `"."` and `" . "` are invalid, and `"..mkv"` becomes `".mkv"`.
+- **D3 (finding 12). `MediaFormat` normalization order.** Trim, strip at most one leading `.`, trim again, lowercase, then reject blank or any remaining leading `.`. So `"..mkv"` and `". "` are invalid, and `". mkv"` becomes `"mkv"`. [Amended by DEV-378 on 2026-09-28]
 - **D4 (finding 5). `with`-bypass evidence.** `with { Value = x }` does not compile against a get-only property, so no runtime test can exercise it. The acceptance item is evidenced by a reflection test: every public property of every value object has `SetMethod == null` (no setter, no `init`).
 - **D5 (finding 8). CONTEXT.md NO consequence.** Recorded next to the checkbox above. A NO answer conflicts with constitution VIII. The box stays unticked.
 - **D6 (finding 9, recon §10a). IExceptionHandler gate: recorded deviation, no fix in scope.** No `IExceptionHandler` implementation exists under `src/` at 1c3d580 (recon-DEV-294:190-194). The constitution PR-gate line "new exception types are mapped in the single IExceptionHandler" therefore cannot be met without creating the handler. Creating one would add a new API-boundary component and edit unnamed API files, which is outside frozen scope and the Q8 ruling. So:
