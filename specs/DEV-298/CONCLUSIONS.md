@@ -19,3 +19,8 @@
 
 - All external dependencies (EF, RabbitMQ, OMDb, FileSystem, Process) abstracted behind interfaces in `LamuFlix.Core`.
 - Core has zero references to concrete infrastructure libraries.
+
+## Plan challenge rulings
+
+1. **PD1 — accept (a):** Enforce the Core ban on HTTP client types (`HttpClient`, `HttpMessageInvoker`, `HttpMessageHandler`, and their subclasses), not the whole `System.Net.Http` namespace. `HttpRequestException` remains permitted. The existing classifier uses that exception but no HTTP client type, so this implements the constitution without changing baseline code or the ticket's delivered scope. Basis: constitution I, line 111 (`any HTTP client`); recon-DEV-298:218–246; `brief.md` AC5, lines 31–32, and baseline-red rule, line 97; `brief.md` AC7, line 33. No owner checkbox.
+2. **PD2 — accept (i):** Make `PagedResult<T>` a `sealed record` with explicit `(ImmutableArray<T> items, int totalCount)` constructor and get-only `Items` and `TotalCount`. Keep the AC4 field set and constructor guards; get-only properties prevent a `with` initializer from bypassing those guards. This follows the existing `LibraryPath` and `ReleaseYear` value-object form. Basis: `brief.md` AC4, lines 23–24; `spec.md`, lines 15 and 118; DEV-298 note, lines 68–70; `LibraryPath.cs` and `ReleaseYear.cs`, lines 6–18. No owner checkbox.
