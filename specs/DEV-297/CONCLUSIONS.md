@@ -151,3 +151,17 @@ Keel proposed closing the grill after Q1–Q10 rulings and a matching `brief.md`
 - DEV-297:9-36 fixes the deliverables; `task-pipeline`:23-27,61-76 fixes the grill cap, brief handoff, and review/remediation caps; `specs/DEV-296/brief.md`:72-75 records the existing three-analyze-round convention.
 - `task-pipeline`:86-95 lists the phase-specific native gates, including property tests, vulnerable packages, format, full tests, and conditional Web gates; the AGENTS.md verification contract distinguishes blocking scope-empty SKIPPED from non-blocking configured OPT-OUT.
 - The `code-review` skill severity scale and close rule classify verified findings; constitution 1.2.0 PR Quality Gates and Testing Matrix require applicable tests and mutation evidence. A gate that has not run is not a pass.
+
+---
+
+## Q11 — Legacy request validation boundary
+
+Keel asked whether a new `LegacyMovieBrowseQuery` record and validator should reject nonpositive ids/year/page size and text longer than 200 characters, then return an empty listing rather than an error. This would keep the MVC status response but change totals for invalid page sizes; Keel proposed tests for those new rules.
+
+**Patron ruling:** Do not introduce `LegacyMovieBrowseQuery` or a new Web validator. Adapt the existing `QueryParams` and `MoviesFilterViewModel` directly through a closed `LegacyMovieSort` parser and explicit predicates under the conditional Q4/Q5 Web bridge. Preserve the existing page, id, year, and text request behavior, with the previously ruled unknown-sort fallback and nulls-last refinements. The proposed empty-list validation response contradicts constitution §V's `422` rule, and a 200-character cap is not specified by DEV-297. No new validation failures or thresholds are introduced. `MovieQueryValidator` remains required for the canonical typed model. The combined owner checkbox must also disclose that the transitional MVC path does not use the canonical handler validation decorator; DEV-299 owns its retirement.
+
+- DEV-297:12-27 names the canonical query and its validation rules, without a legacy request-shape change; recon-DEV-297:175-189 documents current MVC binding and behavior.
+- Constitution 1.2.0 §V, lines 196-199, requires validation failures to return `422` via the decorator; the Q11 empty-list proposal cannot be treated as constitution compliant.
+- `specs/PRODUCT.md` §5 sends a necessary transitional constitution departure to the owner, while keeping the ticket's fixed field set and acceptance criteria intact.
+
+- [ ] **Owner decision for spec PR, combined with Q4/Q5:** May DEV-297 use the temporary explicit Web compatibility path over existing MVC request types, without the canonical handler validation decorator, until DEV-298/DEV-299 migrate browse? The path replaces reflection now, preserves the wider legacy UI fields, and leaves canonical `MovieQuery` for DEV-299.
