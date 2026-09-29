@@ -2,7 +2,7 @@ using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Core.Ports;
 
-public sealed record ScannedMovie(LibraryPath Path, string Title, MediaFormat Format)
-{
-    public override string ToString() => $"{nameof(ScannedMovie)} {{ {nameof(Path)} = {Path}, {nameof(Title)} = {Title}, {nameof(Format)} = {Format} }}";
-}
+// ReSharper disable NotAccessedPositionalProperty.Global
+// Consumed by future media library scanner and filesystem adapters
+public sealed record ScannedMovie(LibraryPath Path, string Title, MediaFormat Format);
+// ReSharper restore NotAccessedPositionalProperty.Global
