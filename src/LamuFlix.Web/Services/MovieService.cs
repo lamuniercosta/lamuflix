@@ -1,6 +1,6 @@
 using LamuFlix.Data;
 using LamuFlix.Data.Models;
-using LamuFlix.Web.Extensions;
+using LamuFlix.Web.Library;
 using LamuFlix.Web.Models.Movies;
 using LamuFlix.Web.Models.Helper;
 using Microsoft.EntityFrameworkCore;
@@ -166,12 +166,12 @@ public class MovieService(
 
         var filter = dtParams.Filter as MoviesFilterViewModel;
 
-        query = query.DynamicQuery(filter);
+        query = query.ApplyLegacyFilters(filter);
 
         // Save total records
         result.TotalRecords = query.Count();
 
-        query = query.DynamicSort(filter, dtParams.SortBy, dtParams.SortOrder);
+        query = query.ApplyLegacySort(dtParams.SortBy, dtParams.SortOrder);
 
         // Paging
         result.Query = query.Skip(dtParams.PageSize * (dtParams.Page - 1)).Take(dtParams.PageSize);
@@ -369,7 +369,7 @@ public class MovieService(
             .OrderBy(x => x.Title)
             .AsNoTracking();
 
-        query = query.DynamicSort(dtParams.Filter, dtParams.SortBy, dtParams.SortOrder);
+        query = query.ApplyLegacySort(dtParams.SortBy, dtParams.SortOrder);
 
         // Paging
         result.TotalRecords = query.Count();
