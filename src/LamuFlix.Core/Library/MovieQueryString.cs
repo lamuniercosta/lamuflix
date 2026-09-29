@@ -238,11 +238,19 @@ public static class MovieQueryString
             return true;
         }
 
-        if (!state.Seen.Contains(RuntimeMinKey)
-            || !state.Seen.Contains(RuntimeMaxKey)
-            || !state.Seen.Contains(RuntimeIncludeUnknownKey)
-            || state.RuntimeIncludeUnknown is not bool includeUnknown
-            || state.RuntimeMin.HasValue != state.RuntimeMax.HasValue)
+        if (!HasCompleteRuntimeValues(state))
+        {
+            runtime = null;
+            return false;
+        }
+
+        if (!TryGetRuntimeIncludeUnknown(state, out var includeUnknown))
+        {
+            runtime = null;
+            return false;
+        }
+
+        if (!HasMatchingRuntimeBoundPresence(state))
         {
             runtime = null;
             return false;
@@ -296,6 +304,26 @@ public static class MovieQueryString
         state.Seen.Contains(RuntimeMinKey)
         || state.Seen.Contains(RuntimeMaxKey)
         || state.Seen.Contains(RuntimeIncludeUnknownKey);
+
+    private static bool HasCompleteRuntimeValues(ParseState state) =>
+        state.Seen.Contains(RuntimeMinKey)
+        && state.Seen.Contains(RuntimeMaxKey)
+        && state.Seen.Contains(RuntimeIncludeUnknownKey);
+
+    private static bool TryGetRuntimeIncludeUnknown(ParseState state, out bool includeUnknown)
+    {
+        if (state.RuntimeIncludeUnknown is not bool value)
+        {
+            includeUnknown = default;
+            return false;
+        }
+
+        includeUnknown = value;
+        return true;
+    }
+
+    private static bool HasMatchingRuntimeBoundPresence(ParseState state) =>
+        state.RuntimeMin.HasValue == state.RuntimeMax.HasValue;
 
     private static bool HasAnyYearValue(ParseState state) =>
         state.Seen.Contains(YearMinKey) || state.Seen.Contains(YearMaxKey);
