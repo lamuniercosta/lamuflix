@@ -29,7 +29,7 @@ public sealed class MovieModelTests
         entity.GetTableName().ShouldBe("movies");
         context.Model.FindEntityType(typeof(Movie)).ShouldBeNull();
 
-        var table = StoreObjectIdentifier.Table("movies", null);
+        var table = StoreObjectIdentifier.Table("movies");
         AssertColumn(entity, table, nameof(MovieRecord.Id), "id", "integer", false);
         AssertColumn(entity, table, nameof(MovieRecord.Title), "title", "text", false);
         AssertColumn(entity, table, nameof(MovieRecord.LibraryPath), "library_path", "text", false);
@@ -87,7 +87,9 @@ public sealed class MovieModelTests
 
         imdb.ShouldNotBeNull();
         imdb.GetFilter().ShouldNotBeNull();
-        imdb.GetFilter()!.Replace("\"", string.Empty, StringComparison.Ordinal)
+        var filter = imdb.GetFilter();
+        filter.ShouldNotBeNull();
+        filter.Replace("\"", string.Empty, StringComparison.Ordinal)
             .ShouldContain("imdb_id IS NOT NULL");
     }
 
