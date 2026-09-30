@@ -13,7 +13,7 @@
 ## Requirement Completeness
 
 - [x] No [NEEDS CLARIFICATION] markers remain (the D3, D5 and D6 gaps were raised to Keel and ruled)
-- [x] Requirements are testable (FR-001 to FR-032)
+- [x] Requirements are testable (FR-001 to FR-036)
 - [x] Success criteria are measurable (SC-001 to SC-009)
 - [x] Acceptance scenarios and edge cases are defined
 - [x] Scope is bounded: sweeper, outbox, OMDb provider and production repository wiring are out of scope
@@ -21,8 +21,8 @@
 
 ## Feature Readiness
 
-- [x] Every requirement traces to a ruling (Q1-Q14, D1-D6) or an `[assumed]` entry in `ASSUMPTIONS.md`
-- [x] User scenarios cover publish, retry and DLQ, tracing, guarded activation, and the ADRs
+- [x] Every requirement traces to a ruling (Q1-Q16, D1-D9) or an `[assumed]` entry in `ASSUMPTIONS.md`
+- [x] User scenarios cover publish, retry and DLQ, tracing, guarded activation, the readiness check (US4 scenario 6), and the ADRs
 - [x] Gates are listed, and a skipped gate is reported as SKIP
 
 ## Notes
