@@ -173,7 +173,7 @@ Cross-cutting rules for every handler (Q12, constitution checklist 367-368 and c
 - **Approach:**
   - Build the shared Pipeline/Domain types first.
   - Then build the handlers feature by feature. Each is a thin orchestration over ports and domain methods, with no handler-to-handler calls and no cross-feature references.
-  - The D1- and D2-gated handlers are planned but their tasks are marked `[BLOCKED: D1|D2]` (Q13 is ruled; its tasks are unblocked) until answered. Tasks are not dropped silently.
+  - The D1- and D2-gated handlers are planned but their tasks are marked `[BLOCKED: D1|D2]` until answered; Q13 is ruled, so the Library tasks are unblocked. Tasks are not dropped silently.
 - **Test strategy:**
   - One test class per handler. Doubles are NSubstitute substitutes of the ports.
   - Movies in a given status are built through the real domain transitions, e.g. `Create` → `MarkNotFound`.
