@@ -72,12 +72,14 @@ public sealed class ApplyEnrichmentResultCommandHandlerTests
         var ct = CancellationToken.None;
 
         // act
-        await Should.ThrowAsync<ArgumentException>(
+        var thrown = await Should.ThrowAsync<ArgumentException>(
             () => handler.HandleAsync(
                 new ApplyEnrichmentResultCommand(id, new MetadataLookupResult.Failed(EnrichmentFailureCategory.Unknown)),
                 ct));
 
         // assert
+        thrown.ParamName.ShouldBe("command");
+        thrown.Message.ShouldContain("Failed lookup results cannot be applied.");
         await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }

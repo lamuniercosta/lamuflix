@@ -35,8 +35,8 @@ public sealed class ValidationExceptionHandlerTests
         using var document = await ReadBody(context);
         var root = document.RootElement;
         root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status422UnprocessableEntity);
-        root.GetProperty("title").GetString().ShouldNotBeNullOrWhiteSpace();
-        root.GetProperty("type").GetString().ShouldNotBeNullOrWhiteSpace();
+        root.GetProperty("title").GetString().ShouldBe("Unprocessable Entity");
+        root.GetProperty("type").GetString().ShouldBe("https://tools.ietf.org/html/rfc9110#section-15.5.21");
         root.GetProperty("traceId").GetString().ShouldBe("trace-296");
         root.GetProperty("errors").GetProperty("Title")[0].GetString().ShouldBe("required");
         var json = root.GetRawText();
@@ -59,8 +59,8 @@ public sealed class ValidationExceptionHandlerTests
         using var document = await ReadBody(context);
         var root = document.RootElement;
         root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status404NotFound);
-        root.GetProperty("title").GetString().ShouldNotBeNullOrWhiteSpace();
-        root.GetProperty("type").GetString().ShouldNotBeNullOrWhiteSpace();
+        root.GetProperty("title").GetString().ShouldBe("Not Found");
+        root.GetProperty("type").GetString().ShouldBe("https://tools.ietf.org/html/rfc9110#section-15.5.5");
         root.GetProperty("traceId").GetString().ShouldBe("trace-296");
         var json = root.GetRawText();
         json.ShouldNotContain("Not found.");
