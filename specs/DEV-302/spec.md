@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/302-spec`
 **Created**: 2026-09-30
-**Status**: Draft
+**Status**: gate1: provisional
 **Input**: Ticket DEV-302 (parent DEV-283, Size M, UI false); `brief.md`, `CONCLUSIONS.md` (Q1–Q12), `ASSUMPTIONS.md`, `recon-DEV-302`; plan-challenge rulings brief §7b (D6–D24)
 
 ## Scope

@@ -167,3 +167,9 @@ The current assigned-role §2.3 and `specs/PRODUCT.md` §5 supersede the older e
 - Basis: Q2 above requires mapping every existing `MovieMetadata` member, with null only for absent representable metadata; `src/LamuFlix.Core/Domain/MovieMetadata.cs:7-25` permits a title with every optional member absent. `specs/DEV-19/CONCLUSIONS.md` Q5 likewise preserves title-only metadata.
 - D14 at `brief.md:152` and its copies in `plan.md:37/72`, `spec.md` US5 and `tasks.md` T012 exclude the title from the absence test. Correct the test to all six sources: `MetadataTitle`, `Plot`, `ReleaseYear`, `RuntimeMinutes`, `ImdbRating`, and `ImdbId`. Persistence-only metadata fields remain outside the unchanged DTO.
 - Keel's `ANALYZE_RECEIPT.md:3-15/55-64` is accepted as the clean two-round baseline at `57e6e70`, with one non-blocking editorial Low and 100% mapped requirements. The later plan challenge is reviewed here separately; the receipt does not claim analysis of `11a4208`. Remaining rulings preserve Q1–Q12 and constitution I/III/IX; D16's property-test opt-out must be recorded by the Conductor in the task note.
+
+---
+
+## Gate 1 confirmation
+
+**Patron:** `gate1: provisional` — Q1–Q12 and D1–D24 ratified with the D14 conformance correction propagated at `83f4484`; basis: clean `ANALYZE_RECEIPT.md` at `b1e07e2` (two-round cap closed), frozen plan at `11a4208`, Patron adjudication at `786b469`, and Keel's correction receipt above. This permits spec-PR handoff only; owner merge remains Gate 1 approval and implementation is not authorised by this marker. No new analysis or challenge round was run.
