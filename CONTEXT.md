@@ -43,6 +43,10 @@ _Avoid_: Data.Models.Movie, EF entity
 The monotonic count of completed enrichment outcomes on a Movie aggregate. `MarkEnriched`, `MarkNotFound`, and `MarkFailed` increment it. `RequestEnrichment` keeps the count.
 _Avoid_: a retry counter that resets
 
+**Stranded Movie**
+A Pending movie whose enrichment claim lease has aged out, or a Pending movie left without a queued `EnrichmentRequested` message. The sweeper re-enqueues `EnrichmentRequested` without claiming.
+_Avoid_: stuck job, abandoned claim
+
 **Watchlist**
 Membership of a Movie aggregate, independent of enrichment status. `AddToWatchlist` throws when the movie is already in the watchlist. `RemoveFromWatchlist` throws when it is absent.
 _Avoid_: MinhaLista, My List
