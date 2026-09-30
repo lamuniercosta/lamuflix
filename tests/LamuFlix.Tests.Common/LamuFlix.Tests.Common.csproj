@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LamuFlix.Data\LamuFlix.Data.csproj" />
+    <ProjectReference Include="..\..\src\LamuFlix.Infrastructure\LamuFlix.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
