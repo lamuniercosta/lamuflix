@@ -13,7 +13,7 @@
 - [ ] **D1 / Q1** (owner): stranded requeue contract. Blocks T030a, T031-T033, the lease/sweep members of `EnrichmentOptions`, the `CONTEXT.md` term and the ADR Q1 section.
 - [ ] **D2 / Q6** (owner): MovieId source on import. Blocks T028-T030.
 - [ ] **D3** (owner): wiring (registration, validators, options `ValidateOnStart`) deferred past this PR, a constitution departure. Blocks no task under (A); under (B) new tasks are added.
-- [ ] **Q13** (Patron): feature allow-list. Blocks T024-T027 (and T035 if it rules the allow-list edit).
+- [x] **Q13** (Patron): feature allow-list. Patron ruled Q13 (CONCLUSIONS.md #13, e865874): add `LamuFlix.Core.Library`; T024-T027 unblocked.
 
 `[BLOCKED: X]` tasks are planned, not dropped. Do not start them until the blocker is checked or ruled and the task is re-scoped to the answer.
 
@@ -81,7 +81,7 @@
 - [ ] T018 [US4] Create `RecordEnrichmentFailureCommand.cs` and handler (`IMovieRepository`, `TimeProvider`, `EnrichmentOptions`, `ILogger<>`): result `EnrichmentFailureDecision`; use `Category.IsRetryable`, `RateLimited` -> `RetryDelayed`.
 - [ ] T019 [P] [US4] Tests `RequestEnrichmentCommandHandlerTests.cs`: `Theory` over 4 statuses (NotFound/Failed succeed; Pending/Enriched -> `InvalidTransitionException` before any domain call); save-before-enqueue ordering; enqueue `EnrichmentRequested(id, 1)`; queue failure propagates; null -> `NotFoundException`.
 - [ ] T020 [US4] Create `RequestEnrichmentCommand.cs` and handler (`IMovieRepository`, `IEnrichmentQueue`): result `MovieId`. Status check uses `==` against `EnrichmentStatus.NotFound`/`Failed`; if T021 is red on `Ardalis.SmartEnum`, switch to `ReferenceEquals(movie.Status, EnrichmentStatus.X)`. Throw `InvalidTransitionException(nameof(RequestEnrichment), movie.Status.ToString())`.
-- [ ] T021 [US4] **SmartEnum probe**: with T014, T016, T018 and T020 compiled (RecordFailure also references SmartEnum statics), run `dotnet test tests/LamuFlix.ArchitectureTests --nologo -v q`. Green: record "no SmartEnum allow-list change needed" in the PR body. Red naming `Ardalis.SmartEnum`: switch every SmartEnum member comparison in the Enrichment handlers (T016, T020) to `ReferenceEquals`, keep T015/T019 green, and re-run. Still red: stop and send the finding to Keel (`maestri ask "Keel" "[from Quill] needs decision: ..."`); Keel routes it to Patron under Q13. Do not edit the arch test.
+- [ ] T021 [US4] **SmartEnum probe**: with T014, T016, T018 and T020 compiled (RecordFailure also references SmartEnum statics), run `dotnet test tests/LamuFlix.ArchitectureTests --nologo -v q`. Green: record "no SmartEnum allow-list change needed" in the PR body. Red naming `Ardalis.SmartEnum`: switch every SmartEnum member comparison in the Enrichment handlers (T016, T020) to `ReferenceEquals`, keep T015/T019 green, and re-run. Still red: stop and send the finding to Keel (`maestri ask "Keel" "[from Quill] needs decision: ..."`); Keel routes it to Patron for a separate ruling (per Q13). Do not add SmartEnum to the arch test.
 
 **Checkpoint**: `LamuFlix.ArchitectureTests` green.
 
@@ -96,12 +96,12 @@
 
 ---
 
-## Phase 7: US6 Library [BLOCKED: Q13]
+## Phase 7: US6 Library
 
-- [ ] T024 [BLOCKED: Q13] [US6] Tests `BrowseMoviesQueryHandlerTests.cs`, `GetMovieDetailsQueryHandlerTests.cs` in `tests/LamuFlix.UnitTests/Features/Library/`.
-- [ ] T025 [BLOCKED: Q13] [US6] Create `BrowseMoviesQuery.cs` and handler; result `PagedResult<MovieSummary>`.
-- [ ] T026 [BLOCKED: Q13] [US6] Create `GetMovieDetailsQuery.cs` and handler; result `MovieDetails`; null -> `NotFoundException`.
-- [ ] T027 [BLOCKED: Q13] [US6] Only if Patron rules the allow-list edit: add `LamuFlix.Core.Library` to `Core_features_must_depend_only_on_ports_domain_or_pipeline` in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`; run the architecture tests. If Patron instead moves `MovieQuery` to `Ports`, replace T027 only with the move of exactly the types Patron's ruling names (`MovieQuery` and the Library siblings it references); T024-T026 stand with updated namespaces.
+- [ ] T024 [US6] Tests `BrowseMoviesQueryHandlerTests.cs`, `GetMovieDetailsQueryHandlerTests.cs` in `tests/LamuFlix.UnitTests/Features/Library/`.
+- [ ] T025 [US6] Create `BrowseMoviesQuery.cs` and handler; result `PagedResult<MovieSummary>`.
+- [ ] T026 [US6] Create `GetMovieDetailsQuery.cs` and handler; result `MovieDetails`; null -> `NotFoundException`.
+- [ ] T027 [US6] Add `LamuFlix.Core.Library` (and nothing else) to `Core_features_must_depend_only_on_ports_domain_or_pipeline` in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` (Q13 ruling); run the architecture tests. `MovieQuery` and its Library value types stay in `LamuFlix.Core.Library`.
 
 **Checkpoint**: `LamuFlix.ArchitectureTests` green.
 

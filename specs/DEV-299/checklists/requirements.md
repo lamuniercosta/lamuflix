@@ -20,15 +20,15 @@
 - [ ] D2 answered (owner)
 - [ ] D3 answered (owner; wiring deferral, constitution departure)
 - [x] Each owner checkbox states its AC1/AC2 ticket-text consequence (Compass S2)
-- [ ] Q13 ruled (Patron)
+- [x] Q13 ruled (Patron; CONCLUSIONS.md #13)
 
 ## Feature Readiness
 
-- [x] Blocked tasks marked `[BLOCKED: D1|D2|Q13]` and none dropped
+- [x] Blocked tasks marked `[BLOCKED: D1|D2]` (Q13 ruled) and none dropped
 - [x] Save-before-enqueue ordering is testable
 - [x] Task ordering matches the brief; T021 probe precedes any arch-test edit
 - [x] Frozen scope matches `git diff --stat` gate (FR-022)
 
 ## Notes
 
-- Items marked incomplete are the three open decisions and keep Gate 1 closed.
+- Items marked incomplete are the three owner decisions (D1-D3) and keep Gate 1 closed.

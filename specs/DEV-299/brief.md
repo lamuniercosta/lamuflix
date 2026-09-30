@@ -12,10 +12,10 @@ The ticket text is recon round 1 (get-task receipt): Scope items 1–6 and two A
 Grill tally:
 
 - **Questions:** 12 asked, against a cap of 12. Patron ruled 10 and returned 2 as `blocked: structural` (Q1, Q6).
-- **Open:** one post-grill finding (Q13) is open for Patron. It is outside the 12-question budget, so I have not asked it (see *Open items*).
+- **Post-grill:** one finding (Q13) went to Patron outside the 12-question budget. Patron ruled Q13 (CONCLUSIONS.md #13, e865874): add `LamuFlix.Core.Library` to the allow-list (see *Open items*).
 - **ADR:** one, drafted by Keel (Q11).
 
-**Gate 1 stays closed** until the owner answers the three checkboxes below (D3 added by the plan challenge) and Patron rules on Q13.
+**Gate 1 stays closed** until the owner answers the three checkboxes below (D3 added by the plan challenge). Q13 is ruled by Patron.
 
 ## Closing bar
 
@@ -32,7 +32,7 @@ Keel's closing-bar lines follow from the rulings. They do not change what the ti
   - `Retry` or `RetryDelayed` (RateLimited) while the category is retryable and `Attempt < EnrichmentOptions.MaxAttempts`, leaving the row Pending;
   - otherwise `DeadLetter`, calling `MarkFailed(category, now)` and saving.
 - **AC6 (Q10):** handler tests are in `tests/LamuFlix.UnitTests/Features/<Feature>/`. They cover every legal path and every exception path. `LamuFlix.UnitTests.csproj` references AutoFixture and Faker.Net, whose versions are already pinned (`Directory.Packages.props:31-32`).
-- **AC7:** `LamuFlix.ArchitectureTests` passes unchanged, unless the Q13 ruling says otherwise. Core gains no package reference.
+- **AC7:** `LamuFlix.ArchitectureTests` passes with one change only: the Q13 ruling adds `LamuFlix.Core.Library` to the feature allow-list. Core gains no package reference.
 - **AC8:** the *Gate expectations* all exit 0, and the full suite is green.
 
 ## Owner checkboxes (§2.3(a), for the spec PR; Gate 1 closed until answered)
@@ -66,7 +66,7 @@ The ruled order of the import once D2 is settled:
 
 ## Open items
 
-- **Q13 (Patron; found after round 1, not asked because the budget is spent):** the arch rule `Core_features_must_depend_only_on_ports_domain_or_pipeline` lets a type under `LamuFlix.Core.Features.*` depend only on:
+- **Q13 (Patron; found after round 1, outside the question budget) - RULED.** Patron ruled Q13 (CONCLUSIONS.md #13, e865874): add `LamuFlix.Core.Library` to the allow-list of `Core_features_must_depend_only_on_ports_domain_or_pipeline`; `MovieQuery` and its Library value types stay in `LamuFlix.Core.Library`. `Ardalis.SmartEnum` is not added: probe it in T021 with the `ReferenceEquals` fallback; a probe still red after the fallback returns to Patron as a separate ruling before implementation. The edit is gate-forced and narrow, not a general widening of feature dependencies. The move-to-Ports candidate below is rejected. Original finding: the arch rule `Core_features_must_depend_only_on_ports_domain_or_pipeline` lets a type under `LamuFlix.Core.Features.*` depend only on:
   - its own namespace;
   - `LamuFlix.Core.Ports`, `.Domain` and `.Pipeline`;
   - `System`, `Microsoft.Extensions.Logging` and `Microsoft.Extensions.Logging.Abstractions`.
@@ -97,7 +97,7 @@ The only files in scope are these. Anything else is out of scope.
 Keel plan decision: Patron fixed the names ([assumed], Q2) but not the placement. They go in Domain beside `EnrichmentFailureCategory` because they are enrichment vocabulary, not handler plumbing. Domain is also outside the feature allow-list, so a SmartEnum base there trips nothing.
 
 **New feature handlers (Q3–Q8).** Each file holds the request record and its handler, or they sit as sibling files; Quill picks one convention and applies it everywhere:
-- `Features/Library/`: `BrowseMoviesQuery` + handler, `GetMovieDetailsQuery` + handler. Q13 gates these.
+- `Features/Library/`: `BrowseMoviesQuery` + handler, `GetMovieDetailsQuery` + handler. Unblocked by the Q13 ruling.
 - `Features/Import/`: `ImportMovieFolderCommand` + handler. D2 gates these.
 - `Features/Enrichment/`: `ClaimEnrichment`, `ApplyEnrichmentResult`, `RecordEnrichmentFailure`, `RequestEnrichment` and `RequeueStrandedMovies` commands + handlers. D1 gates `RequeueStrandedMovies`.
 - `Features/Watchlist/`: `AddToWatchlist` and `RemoveFromWatchlist` commands + handlers.
@@ -107,7 +107,7 @@ Keel plan decision: Patron fixed the names ([assumed], Q2) but not the placement
 - The Api `IExceptionHandler` (`LamuFlix.Api.ExceptionHandling`, `ValidationExceptionHandler.cs`): add a `NotFoundException` → 404 arm, and extend its existing tests (Q4; Patron forced this under constitution checklist 361-362).
 - `tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj`: add `AutoFixture` and `Faker.Net` `PackageReference`s, with no version attribute (Q10).
 - `CONTEXT.md`: add the term **Stranded Movie** (Q9). This applies only if D1 keeps the requeue handler in DEV-299.
-- `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`: only if Q13 rules the allow-list edit.
+- `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`: add `LamuFlix.Core.Library` to the feature allow-list (Q13 ruling); nothing else.
 
 **New tests:** `tests/LamuFlix.UnitTests/Features/{Library,Import,Enrichment,Watchlist,Playback}/<Handler>Tests.cs`, the shared helpers `Features/FixedTimeProvider.cs` and `Features/RecordingLogger.cs` (Q10, Q12, Ledger F1/F6), and `tests/LamuFlix.UnitTests/Pipeline/EnrichmentOptionsTests.cs` (Compass S4).
 
@@ -173,7 +173,7 @@ Cross-cutting rules for every handler (Q12, constitution checklist 367-368 and c
 - **Approach:**
   - Build the shared Pipeline/Domain types first.
   - Then build the handlers feature by feature. Each is a thin orchestration over ports and domain methods, with no handler-to-handler calls and no cross-feature references.
-  - The D1-, D2- and Q13-gated handlers are planned but their tasks are marked `[BLOCKED: D1|D2|Q13]` until answered. Tasks are not dropped silently.
+  - The D1- and D2-gated handlers are planned but their tasks are marked `[BLOCKED: D1|D2]` (Q13 is ruled; its tasks are unblocked) until answered. Tasks are not dropped silently.
 - **Test strategy:**
   - One test class per handler. Doubles are NSubstitute substitutes of the ports.
   - Movies in a given status are built through the real domain transitions, e.g. `Create` → `MarkNotFound`.
@@ -200,7 +200,7 @@ Cross-cutting rules for every handler (Q12, constitution checklist 367-368 and c
   4. Watchlist.
   5. Playback.
   6. Enrichment: Claim → Apply → RecordFailure → RequestEnrichment.
-  7. Library [Q13].
+  7. Library (Q13 ruled).
   8. Import [D2].
   9. RequeueStranded + `CONTEXT.md` [D1].
   10. Api 404 mapping + test.
@@ -214,7 +214,7 @@ Cross-cutting rules for every handler (Q12, constitution checklist 367-368 and c
 - **Order:** Quill's order is accepted: Api 404 (brief step 10) runs before the blocked Library, Import and Requeue phases. Unblocked work goes first, and nothing depends on the old position.
 - **`Unit`:** a `public sealed record Unit` with `public static readonly Unit Value`. Handlers return `Unit.Value`.
 - **RecordFailure log assertion:** add no package, so no `Microsoft.Extensions.Logging.Testing` and no `FakeLogger`. Capture with a small hand-written test logger in `tests/LamuFlix.UnitTests/Features/` (the NSubstitute option is struck by the plan challenge, Ledger F1).
-- **SmartEnum probe:** the probe runs once every Enrichment handler compiles (Claim, Apply, RecordFailure, RequestEnrichment). `LamuFlix.ArchitectureTests` is also re-run at each phase checkpoint. A failure naming `Ardalis.SmartEnum` goes to Patron as part of Q13, and the arch test is not edited.
+- **SmartEnum probe:** the probe runs once every Enrichment handler compiles (Claim, Apply, RecordFailure, RequestEnrichment). `LamuFlix.ArchitectureTests` is also re-run at each phase checkpoint. A failure naming `Ardalis.SmartEnum` that survives the `ReferenceEquals` fallback goes to Patron as a separate ruling (Q13 ruling), and the SmartEnum part of the arch test is not edited.
 - **ADR:** `docs/adr/0017-enrichment-decisions-in-core-handlers.md`, status Proposed. If `origin/main` has taken 0017 by rebase, renumber it.
 
 ## Plan challenge adjudication (Keel, 2026-09-30)
