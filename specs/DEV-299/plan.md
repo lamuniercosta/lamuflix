@@ -47,7 +47,7 @@ Add thin, sealed command/query handlers to `LamuFlix.Core/Features/<Feature>/`, 
 - **"Retryable"**: `EnrichmentFailureCategory.IsRetryable` (existing sealed record). `RateLimited` -> `RetryDelayed`; `ProviderUnavailable`/`Unknown` -> `Retry`; `InvalidResponse` -> dead letter at any attempt.
 - **Retry math**: `Attempt < MaxAttempts` retries with `NextAttempt = Attempt + 1`; otherwise dead-letter. No I/O on the retry path.
 - **Status check in RequestEnrichment**: compare `movie.Status` with `EnrichmentStatus.NotFound`/`Failed` (SmartEnum reference equality). This is the SmartEnum probe input for Q13(ii).
-- **SmartEnum probe (T021)**: after the Apply and RequestEnrichment handlers compile, run `LamuFlix.ArchitectureTests`. Green means no allow-list edit for SmartEnum. Red naming `Ardalis.SmartEnum` is a decision gap: ask Keel, do not edit the test.
+- **SmartEnum probe (T021)**: after T014, T016, T018 and T020 compile (Claim, Apply, RecordFailure, RequestEnrichment), run `LamuFlix.ArchitectureTests`. Green means no allow-list edit for SmartEnum. Red naming `Ardalis.SmartEnum` is a decision gap: the finding goes to Keel, who routes it to Patron under Q13; do not edit the test.
 - **File convention**: one type per file; `XCommand.cs` and `XCommandHandler.cs` are siblings in the feature folder.
 - **Where `Unit` lives**: `Core/Pipeline` (Q5). `EnrichmentFailureAction`/`Decision` live in `Core/Domain` beside `EnrichmentFailureCategory` (Keel plan decision).
 - **Api test location**: the existing `ValidationExceptionHandler` tests are in `tests/LamuFlix.Test/ValidationExceptionHandlerTests.cs` (legacy project). The brief says extend the existing tests, so the 404 test goes there; every new handler test goes to `LamuFlix.UnitTests`.
