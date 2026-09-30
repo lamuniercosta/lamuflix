@@ -5,7 +5,7 @@
 
 ## Phase 1: Test data
 
-- [ ] T001 Create `tests/LamuFlix.IntegrationTests/MovieCatalogSeed.cs`: seed helper over `LamuFlixDbContextFactory` building anonymous `MovieRecord`s via AutoFixture + Faker.Net, pinning only the attribute under test (null runtime/year/rating, status, watchlist, tied keys and titles); a helper exists because a `MovieRecord` is an EF graph with genres/actors. Each test seeds its own data; tests use `Theory` + `MemberData` (FR-010)
+- [ ] T001 Create `tests/LamuFlix.IntegrationTests/MovieCatalogSeed.cs`: seed helper over `LamuFlixDbContextFactory` a small hand-written deterministic factory in the style of `PersistenceRoundTripTests.cs:186-224`, building `MovieRecord`s with exact values (null runtime/year/rating, status, watchlist, tied keys and titles, bounds, literal `%`/`_`/`\`); a `MovieRecord` is an EF graph with genres/actors (brief D3). No package reference added, no csproj edited. Each test seeds its own data; tests use `Theory` + `MemberData` (FR-010)
 
 ## Phase 2: Predicates (each its own task with its own tests; order free after T001)
 
@@ -21,7 +21,7 @@ Note: T002–T008 share one source file and one test file; run them sequentially
 
 ## Phase 3: Sorting (depends on T001 only)
 
-- [ ] T009 Sort mapping (private whitelisted `switch`, one helper per key, nulls-last, Title/Id tie-breakers, no throw path: SmartEnum members are closed) + `EfMovieCatalogSortingTests.cs`: every `MovieSort` × {Asc, Desc}, nulls last both directions, ties (FR-006; Q8, Q9)
+- [ ] T009 Sort mapping (private whitelisted dispatch over the `MovieSort` member, one helper per key, nulls-last, Title/Id tie-breakers, no throw path: SmartEnum members are closed) + `EfMovieCatalogSortingTests.cs`: every `MovieSort` × {Asc, Desc}, nulls last both directions, ties (FR-006; Q8, Q9)
 
 ## Phase 4: Browse (depends on T002–T009)
 
