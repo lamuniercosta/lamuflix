@@ -1,4 +1,3 @@
-using System;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
