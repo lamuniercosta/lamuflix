@@ -117,7 +117,7 @@ A maintainer reads two decision records that explain the topology, the retry and
 
 - A republish is confirmed by the broker but the process dies before the ack: the original is redelivered, so a duplicate is possible. The claim and idempotency behavior in Core absorbs it. Exactly-once delivery is not claimed.
 - Crash redelivery, or competing work, inside a live lease: the claim is refused and the message is acked as skipped. Recovery then depends on the deferred sweeper (stated in ADR-0004).
-- `RetryDelay` so large it cannot become an integer number of milliseconds: startup fails when the consumer is active.
+- `RetryDelay` so large it cannot become an integer number of milliseconds: startup fails, whether or not the consumer is active, because the topology always declares the TTL.
 - The broker holds messages in the old `task_queue` and `task_queue_dlq`: they are not migrated or purged (Q9).
 - A message with a valid `traceparent` but no `tracestate`: only `traceparent` is sent. A `tracestate` is never made up.
 - The provider is registered but misconfigured: its own failure surfaces, and no stub hides it.
@@ -144,18 +144,18 @@ A maintainer reads two decision records that explain the topology, the retry and
 **Consumer (AC3; T06, T09, T10, T11, T21; Q6, Q7, Q14)**
 
 - **FR-009**: The consumer MUST use the asynchronous consumer over a channel, with prefetch taken from `RabbitMqOptions.Prefetch`.
-- **FR-010**: The consumer MUST create a scope for each message and dispatch `ProcessEnrichmentCommand` through the composed command handler (validation, logging, tracing).
+- **FR-010**: The consumer MUST create a scope for each message and dispatch `ProcessEnrichmentCommand` through the composed command handler (execution order Tracing, Logging, Validation, then the handler).
 - **FR-011**: A `Completed` outcome MUST be acked. A claim that was refused MUST be acked, and logged and reported as skipped, never as a success.
 - **FR-012**: A `Retry` or `RetryDelayed` decision MUST be republished persistently to the `retry` key with the decision's `NextAttempt`. A `DeadLetter` decision MUST be republished persistently to the `dead-letter` key. The original MUST be acked only after the republish is confirmed and routed.
 - **FR-013**: The consumer MUST NOT hold any second attempt-limit check. `EnrichmentRequested.Attempt` is the counter on the wire, and Core's counting convention is kept.
 - **FR-014**: A message that cannot be deserialized MUST be rejected with `requeue: false` so that it reaches the dead-letter queue.
 - **FR-015**: On cancellation the message MUST be requeued. An exception, a cancellation, or a failed or uncertain republish MUST never be acked as a success.
-- **FR-016**: A movie MUST be marked Failed only on the terminal path.
+- **FR-016**: A movie MUST be marked Failed, and saved, only on the terminal path. The retry path writes nothing, because the claim already stamped the attempt.
 
 **Core processing (D5, Q13)**
 
 - **FR-017**: Core MUST gain a sealed `ProcessEnrichmentCommand(MovieId, Attempt)` and `ProcessEnrichmentCommandHandler` under `Features/Enrichment`, returning a `ProcessEnrichmentOutcome` that is `Completed` (including a refused claim, flagged as skipped) or the existing `EnrichmentFailureDecision`.
-- **FR-018**: The handler MUST claim before lookup, load the current movie, call `IMetadataProvider.FindAsync`, then apply the result or classify the exception and record the failure. It composes the existing logic through ports and MUST NOT call another handler.
+- **FR-018**: The handler MUST claim before lookup, load the current movie, call `IMetadataProvider.FindAsync`, then apply the result. A provider `Failed(category)` uses its own category; only an exception is classified. The retry-or-terminal rule is one shared Core rule, used by this handler and the existing failure handler. It composes the existing logic through ports and MUST NOT call another handler.
 - **FR-019**: The handler MUST use the existing `EnrichmentFailureClassifier` as the only classifier, add no retry policy of its own, and MUST NOT classify a cancellation as a failure.
 - **FR-020**: The lookup MUST take its year from the movie's metadata, which is unset before the first enrichment.
 
@@ -189,7 +189,7 @@ A maintainer reads two decision records that explain the topology, the retry and
 ### Key Entities
 
 - **Enrichment request**: a movie ID and an attempt number. It is the message body and the counter on the wire.
-- **Enrichment outcome**: what processing returned: completed, completed-but-skipped, or a failure decision with an action (retry, delayed retry, dead letter) and the next attempt.
+- **Enrichment outcome**: what processing returned: completed, skipped (claim refused), or a failure decision with an action (retry, delayed retry, dead letter) and the next attempt.
 - **Exchange and queues**: `lamuflix.enrichment`, with `enrichment.requested`, `enrichment.retry` and `enrichment.dead-letter`.
 - **Claim lease**: how long a claim on a movie blocks another attempt. The retry delay must exceed it.
 - **Trace context**: the `traceparent` and optional `tracestate` carried in message headers.
