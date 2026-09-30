@@ -16,9 +16,9 @@
 - [x] Every handler has a story, an FR and test tasks
 - [x] Every exception path (NotFound, InvalidTransition, ArgumentException, queue failure) has an acceptance scenario
 - [x] Edge cases named (out-of-range Attempt, deleted-between-decisions, duplicate path, cancellation)
-- [ ] D1 answered (owner)
-- [ ] D2 answered (owner)
-- [ ] D3 answered (owner; wiring deferral, constitution departure)
+- [x] D1 answered (owner; checked on spec PR #54)
+- [x] D2 answered (owner; checked on spec PR #54)
+- [x] D3 answered (owner; checked on spec PR #54; wiring deferral, constitution departure)
 - [x] Each owner checkbox states its AC1/AC2 ticket-text consequence (Compass S2)
 - [x] Q13 ruled (Patron; CONCLUSIONS.md #13)
 
