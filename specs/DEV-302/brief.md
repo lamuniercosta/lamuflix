@@ -59,7 +59,7 @@ DEV-302 is done when all of the following hold:
 | Q7 | Default or empty `Statuses` means no filter; otherwise match ANY. `InWatchlist`: null means no filter, true means watchlisted only, false means not watchlisted only. |
 | Q8 | [assumed] Sort keys map Title→`Title`, Year→`ReleaseYear`, Rating→`ImdbRating`, Runtime→`RuntimeMinutes`. Nullable keys sort first on `key == null` ascending, then on the value in the requested Direction, so nulls are last in BOTH directions. |
 | Q9 | Order must be unique: a nullable primary key, then `Title` ASC, then `Id` ASC; a Title primary key, then `Id` ASC. [assumed] Tie-breakers stay ascending whatever the primary Direction is. The order does not promise stability under concurrent writes. |
-| Q10 | Use the validated `MovieQuery.Page.Number/Size` with the existing numbering convention. No new defaults, no hardcoded size. Run `CountAsync` over the full filtered query first, then fetch the page. Both run one after the other on the same context and forward the `CancellationToken`. A page past the end returns empty `Items` with the correct `TotalCount`. **Offset formula is pending recon (see §8).** |
+| Q10 | Use the validated `MovieQuery.Page.Number/Size` with the existing numbering convention. No new defaults, no hardcoded size. Run `CountAsync` over the full filtered query first, then fetch the page. Both run one after the other on the same context and forward the `CancellationToken`. A page past the end returns empty `Items` with the correct `TotalCount`. Offset is `(Number - 1) * Size` (1-based, see §8). |
 | Q11 | Compose translated predicates, then the whitelisted sort, then paging, with `AsNoTracking`, then `Select(r => new MovieSummary(r.Id, r.Title))`. No `Include` and no entity materialisation. Tests assert that the ChangeTracker stays empty AND that the browse SELECT reads only Id/Title, captured through EF command logging or interception. |
 | Q12 | Tests go in `tests/LamuFlix.IntegrationTests` on the existing `PostgresFixture` (full matrix in §5). No mandatory unit tests that duplicate the translated predicates. Spec review is capped at 2 rounds. |
 
@@ -126,5 +126,9 @@ All tests run against real Postgres (`PostgresFixture`, `postgres:16.4`) in a cl
 ## 7. Traceability
 Ticket acceptance L22 (filtering and pagination) → §5.3 filters/combinations/pagination. Ticket acceptance L23 (null ratings and years last) → §5.3 sorting. Ticket L17 (untracked direct projection) → §5.3 projection.
 
-## 8. Open item (pending recon, blocks only the offset formula)
-Q10: which page numbering does `Page` / `MovieQueryValidator` enforce (1-based or 0-based `Number`, and `Size` bounds)? Requested from the Conductor as `needs recon`. Until the answer is in, `plan.md` states the offset as "`Skip((Number − base) * Size)` with base per the validator citation". Keel fills in the exact formula here when recon returns.
+## 8. Paging offset (Q10, resolved by recon-DEV-302 §7 lines 120-179)
+- `Page` is `public sealed record Page(int Number, int Size)` (`src/LamuFlix.Core/Library/Page.cs:3`).
+- `MovieQueryValidator` enforces `Page.Number >= 1` and `Page.Size` in [1, 100] inclusive (`src/LamuFlix.Infrastructure/Library/MovieQueryValidator.cs:10-11`). `MovieQueryValidatorTests.cs:11-29` confirms this.
+- **Offset formula:** `Skip((query.Page.Number - 1) * query.Page.Size).Take(query.Page.Size)`, so page numbers are 1-based.
+- `EfMovieCatalog` trusts the validated query. It does not re-validate, clamp or add a default for `Number` or `Size`, per Q10 ("no replacement defaults or hardcoded size").
+- Tests use `Number` from 1. "First page" means `Number = 1`. The past-end case uses `Number` beyond `ceil(TotalCount / Size)`.
