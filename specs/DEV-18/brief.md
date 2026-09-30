@@ -96,14 +96,13 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
   - **Not in DEV-18.** No `/health/live` or `/health/ready` route is mapped. The endpoint foundation is a pre-existing gap that goes to the Rigger follow-up (Q15). The spec names that gap and never calls readiness reachable, or constitution VI fully aligned.
   - **Tests.** Real broker (IntegrationTests): Healthy against the fixture, and Unhealthy with an unreachable broker using bounded waits. The description carries no credentials. Unit (guard): the check is registered with the `ready` tag in both the active and inactive paths.
   - **ADR-0004** records the check as the broker's readiness contribution and states that the endpoint wiring is outstanding.
-  - **Open prerequisite (sent to Patron as `needs decision`, 2026-09-30).** Q15 assumes the check is package-free, but that holds only for ServiceDefaults.
-    - `IHealthCheck` and `HealthCheckRegistration` live in `Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions`, and `AddHealthChecks()`/`AddCheck` live in `Microsoft.Extensions.Diagnostics.HealthChecks` (Microsoft Learn API reference).
-    - `LamuFlix.Infrastructure.csproj` is a plain `Microsoft.NET.Sdk` project with no ASP.NET Core framework reference, and neither package is referenced.
-    - So the check cannot compile in Infrastructure without one of two things, and each needs a ruling:
-      - (a) a first-party `Microsoft.Extensions.Diagnostics.HealthChecks` package reference, which is a §2.3 item 1 new dependency;
-      - (b) a `Microsoft.AspNetCore.App` framework reference in Infrastructure, which couples the adapter layer to the web shared framework.
-    - Keel recommends (a). It is the same first-party family as the existing `Microsoft.Extensions.*.Abstractions` references, centrally pinned with the other .NET 10 `Microsoft.Extensions` versions.
-    - Quill does not edit the artifacts for D8 until Patron rules; the ruling is recorded here as D8a.
+  - **Prerequisite.** Q15 assumed the check needs no package, which holds only for ServiceDefaults. `IHealthCheck` lives in `Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions`, `AddHealthChecks()`/`AddCheck` live in `Microsoft.Extensions.Diagnostics.HealthChecks`, and `LamuFlix.Infrastructure.csproj` references neither. D8a settles this.
+- **D8a: Infrastructure health-check dependency (Patron Q16, `08c3790`).** No owner checkbox.
+  - Add `<PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.12" />` to `Directory.Packages.props`, next to the existing `Microsoft.Extensions.*` `10.0.12` pins (`Directory.Packages.props:18-19`).
+  - Add a versionless `<PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />` to `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`.
+  - No separate `…HealthChecks.Abstractions` reference; the full package brings it transitively and supplies `AddCheck`.
+  - No `Microsoft.AspNetCore.App` framework reference in Infrastructure. ServiceDefaults keeps its existing framework reference and adds no package for `AddHealthChecks()`.
+  - This corrects Q15's no-package premise only. The deliverable, the endpoint gap and the out-of-scope list are unchanged.
   - **Dependencies.** DEV-392 (production repository and DbContext wiring) was filed by Rigger and fulfils D6's follow-up. DEV-18 depends on DEV-392 only for production activation, not for delivery.
 
 ## Closing bar
@@ -187,8 +186,10 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 
 ## Frozen scope
 
-- `Directory.Packages.props`: bump `RabbitMQ.Client` from `6.8.1` to `7.2.2`, and add an `OpenTelemetry.Api` pin.
-- `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`: add package references to `RabbitMQ.Client` and `OpenTelemetry.Api`.
+- `Directory.Packages.props`: bump `RabbitMQ.Client` from `6.8.1` to `7.2.2`, add an `OpenTelemetry.Api` pin, and add the `Microsoft.Extensions.Diagnostics.HealthChecks` `10.0.12` pin (D8a).
+- `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`: add package references to `RabbitMQ.Client`, `OpenTelemetry.Api` and `Microsoft.Extensions.Diagnostics.HealthChecks` (D8a).
+- `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqHealthCheck.cs` and its `ready`-tagged registration in the DI extension (D8).
+- `src/LamuFlix.ServiceDefaults/Extensions.cs`: the generic `AddHealthChecks()` call only (D8).
 - New files under `src/LamuFlix.Infrastructure/RabbitMq/`:
   - `RabbitMqTopology`;
   - the connection owner;
@@ -203,7 +204,7 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 - `src/LamuFlix.Core/Options/RabbitMqOptions.cs`: add `RetryDelay` and `Prefetch`, with validation. Core stays free of RabbitMQ and OpenTelemetry references.
 - `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs`: add messaging activity and tag names only if the constants they need do not already exist.
 - `src/LamuFlix.Api`: wire the registration (`Program.cs` or the existing composition root) and add the `RabbitMq` section to the appsettings.
-- `tests/LamuFlix.IntegrationTests`: the broker tests for AC1–AC4.
+- `tests/LamuFlix.IntegrationTests`: the broker tests for AC1–AC4, and the D8 Healthy/Unhealthy readiness tests.
 - `tests/LamuFlix.UnitTests`: `ProcessEnrichmentCommandHandler` over fake ports, covering a false claim, success, each classified failure path and cancellation. Also options validation, the pure outcome-to-routing mapping, the guarded-registration rule (each port present or absent), and the D6 cross-option validator (unset, zero or negative ClaimLease; TTL equal to ClaimLease; a rounding edge; the valid case). Any gap in the existing Core policy tests is extended there.
 - `tests/LamuFlix.Tests.Common`: fixture changes only if a test needs them, for example exposing a connection helper.
 - `docs/adr/ADR-0004.md` and `docs/adr/ADR-0005.md`.
@@ -221,6 +222,7 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 - exponential backoff;
 - an OpenTelemetry SDK, exporter or instrumentation package;
 - a docker-compose file;
+- mapping `/health/live` or `/health/ready`, or a Postgres health check (the Q15 shared-endpoint follow-up);
 - schema changes. The sweeper would use the existing `MovieRecord` columns `LastAttemptAt`, `EnrichmentAttempts` and `Status`; the ADRs may cite them.
 
 ## Approach and task ordering
