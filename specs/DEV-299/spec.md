@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-30
 
-**Status**: Draft (Gate 1 closed: D1, D2, D3 owner checkboxes and the Q13 Patron ruling are open)
+**Status**: gate1: provisional (Gate 1 closed: D1, D2, D3 owner checkboxes; Q13 Patron ruling recorded in CONCLUSIONS.md)
 
 **Input**: DEV-299 (parent DEV-282, size L, no ui tag); `specs/DEV-299/brief.md` (AC1-AC8, Q1-Q12 ruled, Q13 open); `specs/DEV-299/CONCLUSIONS.md`; `specs/DEV-299/ASSUMPTIONS.md`; `specs/PRODUCT.md`
 
