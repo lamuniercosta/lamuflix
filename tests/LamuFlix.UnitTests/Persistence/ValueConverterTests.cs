@@ -167,8 +167,12 @@ public sealed class ValueConverterTests
         ConverterAssert.NullIsPreserved(new ReleaseYearConverter(Clock));
 
     [Fact]
-    public void ReleaseYear_NullTimeProvider_ThrowsArgumentNullException() =>
-        Should.Throw<ArgumentNullException>(() => new ReleaseYearConverter(null!));
+    public void ReleaseYear_NullTimeProvider_ThrowsArgumentNullException()
+    {
+#pragma warning disable CS8604, CS8625
+        Should.Throw<ArgumentNullException>(() => new ReleaseYearConverter(null));
+#pragma warning restore CS8604, CS8625
+    }
 
     [Theory]
     [InlineData(0, "Pending")]
