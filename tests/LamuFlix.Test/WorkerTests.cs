@@ -28,26 +28,22 @@ public sealed class WorkerTests
     }
 
     [Fact]
-    // ReSharper disable NullableWarningSuppressionIsUsed
-    // Deliberate null asserting ArgumentNullException
     public void QueueWorker_Constructor_ThrowsOnNullLogger()
     {
         var config = new ConfigurationBuilder().Build();
 
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null asserts ArgumentNullException guard
         Should.Throw<ArgumentNullException>(() => new QueueWorker(null!, config));
     }
-    // ReSharper restore NullableWarningSuppressionIsUsed
 
     [Fact]
-    // ReSharper disable NullableWarningSuppressionIsUsed
-    // Deliberate null asserting ArgumentNullException
     public void QueueWorker_Constructor_ThrowsOnNullConfiguration()
     {
         var logger = NullLogger<QueueWorker>.Instance;
 
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null asserts ArgumentNullException guard
         Should.Throw<ArgumentNullException>(() => new QueueWorker(logger, null!));
     }
-    // ReSharper restore NullableWarningSuppressionIsUsed
 
     [Fact]
     public void CreateHostBuilder_RegistersQueueWorkerAsHostedService()
