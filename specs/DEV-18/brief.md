@@ -1,5 +1,7 @@
 # DEV-18 — Alignment Brief
 
+**Status**: gate1: provisional
+
 Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ.Client 7.x, declare quorum topology with TTL retry and DLQ, propagate W3C trace context, and write ADR-0004/0005.
 
 - Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`; Q15, commit `7788471`; Q16, commit `08c3790`; Q17, commit `5533797`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
