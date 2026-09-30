@@ -48,6 +48,36 @@ public sealed class Movie
         return new Movie(id, title, path, format);
     }
 
+    public static Movie Rehydrate(
+        MovieId id,
+        string title,
+        LibraryPath path,
+        MediaFormat format,
+        bool isInWatchlist,
+        MovieMetadata? metadata,
+        EnrichmentStatus status,
+        DateTimeOffset? enrichedAt,
+        int enrichmentAttempts,
+        EnrichmentFailureCategory? lastFailureCategory,
+        DateTimeOffset? lastAttemptAt)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new ArgumentException("Title is required.", nameof(title));
+        }
+
+        return new Movie(id, title, path, format)
+        {
+            IsInWatchlist = isInWatchlist,
+            Metadata = metadata,
+            Status = status,
+            EnrichedAt = enrichedAt,
+            EnrichmentAttempts = enrichmentAttempts,
+            LastFailureCategory = lastFailureCategory,
+            LastAttemptAt = lastAttemptAt,
+        };
+    }
+
     public void MarkEnriched(MovieMetadata metadata, DateTimeOffset now)
     {
         BeginPendingAttempt(nameof(MarkEnriched), now);
