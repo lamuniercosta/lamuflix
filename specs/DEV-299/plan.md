@@ -28,7 +28,7 @@ Add thin, sealed command/query handlers to `LamuFlix.Core/Features/<Feature>/`, 
 
 ## Constitution Check
 
-*Gate: passes for the unblocked scope. The three blocked items are the only open points.*
+*Gate: passes for the unblocked scope. The four open points are D1, D2, D3 (owner) and Q13 (Patron).*
 
 | Rule | Status |
 |---|---|
@@ -40,7 +40,8 @@ Add thin, sealed command/query handlers to `LamuFlix.Core/Features/<Feature>/`, 
 | Enrichment Reliability 445-459: `EnrichmentRequested` fixed at `MovieId` + `Attempt`; worker claim is the only claim | Pass unless D1 option (C); then needs an amendment |
 | Feature dependency allow-list (arch rule V:1170-1195) | **Open (Q13)** for `LamuFlix.Core.Library`; SmartEnum probe in T021 |
 | Ticket text unchanged | Pass unless D1(A)/D2(C) drop a handler (owner decision) |
-| AddHandler registration (checklist 353-354) and options ValidateOnStart (VII) | Deferred to wiring: Q9 ruling, FR-018 |
+| AddHandler registration (checklist 353-354), FluentValidation validation (V) and options ValidateOnStart (VII) | **Departure, owner checkbox D3**: deferred to wiring by Patron Q9; FR-018 names the prerequisites, including the `Attempt >= 1` and `MaxAttempts >= 1` rules |
+| Closed sets are Enumerations (checklist) | Pass: `EnrichmentFailureAction` is a SmartEnum (Q2) |
 
 ## Research and Decisions
 
@@ -49,7 +50,9 @@ Add thin, sealed command/query handlers to `LamuFlix.Core/Features/<Feature>/`, 
 - **Status check in RequestEnrichment**: compare `movie.Status` with `EnrichmentStatus.NotFound`/`Failed` (SmartEnum reference equality). This is the SmartEnum probe input for Q13(ii).
 - **SmartEnum probe (T021)**: after T014, T016, T018 and T020 compile (Claim, Apply, RecordFailure, RequestEnrichment), run `LamuFlix.ArchitectureTests`. Green means no allow-list edit for SmartEnum. Red naming `Ardalis.SmartEnum` is a decision gap: the finding goes to Keel, who routes it to Patron under Q13; do not edit the test.
 - **File convention**: one type per file; `XCommand.cs` and `XCommandHandler.cs` are siblings in the feature folder.
-- **Where `Unit` lives**: `Core/Pipeline` (Q5). `EnrichmentFailureAction`/`Decision` live in `Core/Domain` beside `EnrichmentFailureCategory` (Keel plan decision).
+- **Where `Unit` lives**: `Core/Pipeline` (Q5); member-less sealed record with a private constructor and `Unit.Value` (plan challenge, Ledger F3).
+- **RecordFailure log capture**: a hand-written `RecordingLogger<T> : ILogger<T>` in `tests/LamuFlix.UnitTests/Features/RecordingLogger.cs`; NSubstitute cannot match `Log<TState>` for the internal or generated state types (Ledger F1).
+- **Import failure semantics (D2-gated)**: one folder, one movie, one save, no compensation; a throwing call stops everything after it (Sentry L1). `EnrichmentFailureAction`/`Decision` live in `Core/Domain` beside `EnrichmentFailureCategory` (Keel plan decision).
 - **Api test location**: the existing `ValidationExceptionHandler` tests are in `tests/LamuFlix.Test/ValidationExceptionHandlerTests.cs` (legacy project). The brief says extend the existing tests, so the 404 test goes there; every new handler test goes to `LamuFlix.UnitTests`.
 
 ## Project Structure
@@ -103,4 +106,4 @@ One test class per handler. NSubstitute doubles of the ports. Movies in a given 
 
 ## Complexity Tracking
 
-No constitution violations. D1 option (C) is the only path that would need an amendment; it is the owner's call.
+One departure, owner checkbox D3: handlers ship without `AddHandler` registration, FluentValidation validators and `EnrichmentOptions` `ValidateOnStart()`, deferred to wiring by Patron Q9. D1 option (C) would additionally need a constitution amendment; both are the owner's call.

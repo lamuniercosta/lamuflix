@@ -12,6 +12,7 @@
 
 - [ ] **D1 / Q1** (owner): stranded requeue contract. Blocks T031-T033, the lease/sweep members of `EnrichmentOptions`, the `CONTEXT.md` term and the ADR Q1 section.
 - [ ] **D2 / Q6** (owner): MovieId source on import. Blocks T028-T030.
+- [ ] **D3** (owner): wiring (registration, validators, options `ValidateOnStart`) deferred past this PR, a constitution departure. Blocks no task under (A); under (B) new tasks are added.
 - [ ] **Q13** (Patron): feature allow-list. Blocks T024-T027 (and T035 if it rules the allow-list edit).
 
 `[BLOCKED: X]` tasks are planned, not dropped. Do not start them until the blocker is checked or ruled and the task is re-scoped to the answer.
@@ -25,7 +26,7 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 Verify worktree `F:\Dev\LamuFlix.worktrees\<implementation-worktree>` and branch, record the baseline test count, and confirm `.specify/feature.json` and the untracked `recon-*`/`_tmp_*` files stay unstaged (outside frozen scope).
+- [ ] T001 Verify worktree `F:\Dev\LamuFlix.worktrees\feature-299` (created by `/task` in Phase B; the pickup drift check confirms the exact path) and branch, record the baseline test count, and confirm `.specify/feature.json` and the untracked `recon-*`/`_tmp_*` files stay unstaged (outside frozen scope).
 - [ ] T002 [Setup] Add `AutoFixture` and `Faker.Net` `PackageReference`s (no version) to `tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj`. Build to confirm central versions resolve (FR-020).
 
 ---
@@ -35,11 +36,11 @@
 **Goal**: shared Pipeline and Domain vocabulary (spec FR-003 to FR-006).
 
 - [ ] T003 [P] [US1] Create `src/LamuFlix.Core/Pipeline/NotFoundException.cs`: `sealed`, mirroring `ValidationException` (no `IReadOnlyDictionary`; message constant, no exception text in API output).
-- [ ] T004 [P] [US1] Create `src/LamuFlix.Core/Pipeline/Unit.cs`: `public sealed record Unit`, with `public static readonly Unit Value`; handlers return `Unit.Value`.
+- [ ] T004 [P] [US1] Create `src/LamuFlix.Core/Pipeline/Unit.cs`: `public sealed record Unit` with no members, a `private Unit()` constructor and `public static readonly Unit Value`; handlers return `Unit.Value`.
 - [ ] T005 [P] [US1] Create `src/LamuFlix.Core/Pipeline/EnrichmentOptions.cs`: `public sealed record EnrichmentOptions` with `int MaxAttempts` and data annotations (`[Range(1, int.MaxValue)]`); no `IOptions`. Lease and sweep-interval members are added only after D1.
 - [ ] T006 [P] [US1] Create `src/LamuFlix.Core/Domain/EnrichmentFailureAction.cs`: `SmartEnum<EnrichmentFailureAction, int>` with `Retry`, `RetryDelayed`, `DeadLetter` (pattern of `EnrichmentStatus.cs`).
-- [ ] T007 [US1] Create `src/LamuFlix.Core/Domain/EnrichmentFailureDecision.cs`: `public sealed record EnrichmentFailureDecision(EnrichmentFailureAction Action, int? NextAttempt)`.
-- [ ] T008 [US1] Add a test `TimeProvider` subclass with a fixed `GetUtcNow` in `tests/LamuFlix.UnitTests/Features/` (shared test helper, one type per file).
+- [ ] T007 [US1] Create `src/LamuFlix.Core/Domain/EnrichmentFailureDecision.cs`: `public sealed record EnrichmentFailureDecision(EnrichmentFailureAction Action, int? NextAttempt)`. No constructor guard; the FR-006 invariant is asserted in T017.
+- [ ] T008 [US1] Add `tests/LamuFlix.UnitTests/Features/FixedTimeProvider.cs` (sealed `TimeProvider` subclass with a fixed `GetUtcNow`) and `tests/LamuFlix.UnitTests/Features/RecordingLogger.cs` (sealed `RecordingLogger<T> : ILogger<T>` capturing level, structured state pairs and the exception argument). Shared test helpers, one type per file.
 
 **Checkpoint**: Core builds; `LamuFlix.ArchitectureTests` green.
 
@@ -75,7 +76,7 @@
 - [ ] T014 [US4] Create `ClaimEnrichmentCommand.cs` and `ClaimEnrichmentCommandHandler.cs` in `src/LamuFlix.Core/Features/Enrichment/`; result `bool`.
 - [ ] T015 [P] [US4] Tests `ApplyEnrichmentResultCommandHandlerTests.cs`: Found -> Enriched saved; NotFound -> NotFound saved; Failed -> `ArgumentException` before any load/save; null -> `NotFoundException`; fixed time asserted on `LastAttemptAt`.
 - [ ] T016 [US4] Create `ApplyEnrichmentResultCommand.cs` and handler (`IMovieRepository`, `TimeProvider`): result `EnrichmentStatus`.
-- [ ] T017 [P] [US4] Tests `RecordEnrichmentFailureCommandHandlerTests.cs`: `Theory`/`MemberData` over 4 categories x below/at `MaxAttempts`; retry path asserts `DidNotReceive` `GetAsync` and `SaveChangesAsync`; dead-letter asserts `MarkFailed` state, save, `NextAttempt = null`; null on dead-letter -> `NotFoundException`; log fields (id, attempt, category, action) with no exception text, captured via NSubstitute `ILogger<T>` `Received` on `Log` or a hand-written test logger under `tests/LamuFlix.UnitTests/Features/` (no new package: no FakeLogger, no Microsoft.Extensions.Logging.Testing); nothing published.
+- [ ] T017 [P] [US4] Tests `RecordEnrichmentFailureCommandHandlerTests.cs`: `Theory`/`MemberData` over 4 categories x below/at `MaxAttempts`; retry path asserts `DidNotReceive` `GetAsync` and `SaveChangesAsync`; every retry row asserts `NextAttempt = Attempt + 1`; dead-letter asserts `MarkFailed` state, save, `NextAttempt = null`; null on dead-letter -> `NotFoundException`; exactly one log entry with fields (id, attempt, category, action) and a null exception argument, captured with `RecordingLogger<T>` from T008 (no NSubstitute on `Log`; no new package: no FakeLogger, no Microsoft.Extensions.Logging.Testing); nothing published.
 - [ ] T018 [US4] Create `RecordEnrichmentFailureCommand.cs` and handler (`IMovieRepository`, `TimeProvider`, `EnrichmentOptions`, `ILogger<>`): result `EnrichmentFailureDecision`; use `Category.IsRetryable`, `RateLimited` -> `RetryDelayed`.
 - [ ] T019 [P] [US4] Tests `RequestEnrichmentCommandHandlerTests.cs`: `Theory` over 4 statuses (NotFound/Failed succeed; Pending/Enriched -> `InvalidTransitionException` before any domain call); save-before-enqueue ordering; enqueue `EnrichmentRequested(id, 1)`; queue failure propagates; null -> `NotFoundException`.
 - [ ] T020 [US4] Create `RequestEnrichmentCommand.cs` and handler (`IMovieRepository`, `IEnrichmentQueue`): result `MovieId`.
@@ -107,7 +108,7 @@
 
 ## Phase 8: US7 Import [BLOCKED: D2]
 
-- [ ] T028 [BLOCKED: D2] [US7] Tests `ImportMovieFolderCommandHandlerTests.cs`: call order Scan -> Create -> Add -> Save -> Enqueue(`EnrichmentRequested(id, 1)`); queue failure propagates; no enqueue when Save throws.
+- [ ] T028 [BLOCKED: D2] [US7] Tests `ImportMovieFolderCommandHandlerTests.cs`: call order Scan -> Create -> Add -> Save -> Enqueue(`EnrichmentRequested(id, 1)`); queue failure propagates; no Save and no Enqueue when `AddAsync` throws; no Enqueue when Save throws (spec US7 scenario 3).
 - [ ] T029 [BLOCKED: D2] [US7] Create `ImportMovieFolderCommand.cs` (`LibraryPath Folder`) and handler (`IMediaLibraryScanner`, `IMovieRepository`, `IEnrichmentQueue`); result `MovieId`; id source per D2.
 - [ ] T030 [BLOCKED: D2] [US7] Apply the D2-authorized contract edit (`IMovieRepository` member, or `Movie.cs` path) if the owner chose (A) or (B); none if (C).
 

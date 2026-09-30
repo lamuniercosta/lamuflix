@@ -33,7 +33,7 @@ dead-letter. The grill rulings are in `specs/DEV-299/CONCLUSIONS.md` (Q2-Q5, Q7,
 - On every path it writes one structured log entry: movie id, attempt, category and action. It
   never logs exception text.
 
-`EnrichmentFailureAction` is a SmartEnum (`Retry`, `RetryDelayed`, `DeadLetter`). It lives in
+`EnrichmentFailureAction` is a SmartEnum (`Retry`, `RetryDelayed`, `DeadLetter`), as the constitution requires of a new closed set of values. It lives in
 `Core/Domain` next to `EnrichmentFailureCategory`. `EnrichmentOptions` is a plain sealed record in
 `Core/Pipeline` with data annotations and no `IOptions`. The host binds and validates it when it
 wires the pipeline.
@@ -86,5 +86,5 @@ This ADR records the answer before it becomes Accepted. The lease and sweep-inte
 - The consumer must switch exhaustively on `EnrichmentFailureAction`. A new action is a breaking
   change for it.
 - Registration, validators, `EnrichmentOptions` binding, the consumer and the LocalPlay-gated
-  launcher belong to wiring work and must exist before these handlers are used. DEV-299 does not
+  launcher belong to wiring work and must exist before these handlers are used. Deferring them is a constitution departure that the owner accepts or rejects as checkbox D3 on the spec PR. DEV-299 does not
   deliver them.

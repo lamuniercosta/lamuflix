@@ -15,7 +15,7 @@ Grill tally:
 - **Open:** one post-grill finding (Q13) is open for Patron. It is outside the 12-question budget, so I have not asked it (see *Open items*).
 - **ADR:** one, drafted by Keel (Q11).
 
-**Gate 1 stays closed** until the owner answers the two checkboxes below and Patron rules on Q13.
+**Gate 1 stays closed** until the owner answers the three checkboxes below (D3 added by the plan challenge) and Patron rules on Q13.
 
 ## Closing bar
 
@@ -49,6 +49,11 @@ Keel's closing-bar lines follow from the rulings. They do not change what the ti
     - (A) `IMovieRepository` gains an id-allocation member;
     - (B) the store assigns the id on save and `Movie` gains a pre-persistence construction path, which edits `Movie.cs`;
     - (C) defer `ImportMovieFolderCommandHandler` to a follow-up.
+- [ ] **D3: wiring deferred past this PR (constitution departure, §2.3(b)).** blocked: structural. May DEV-299 merge Core handlers that are not yet registered via `AddHandler<…>`, have no FluentValidation validators, and whose `EnrichmentOptions` is not bound with `ValidateOnStart()`?
+  - Patron's Q9 ruling puts registration, validators and options binding in wiring work. The constitution makes each a per-PR item: checklist "sealed handlers registered via `AddHandler<…>`" and "new options records are validated at startup", Principle V ("All commands, queries … MUST be validated through FluentValidation"), and the configuration rule (options records with `ValidateOnStart()`). Deferring them is a departure, so it needs the owner's checkbox, not only Patron's ruling (Compass S1).
+  - Candidate answers (not decided):
+    - (A) accept the departure: handlers ship unregistered and unreachable; FR-018 names the wiring prerequisites, and a follow-up ticket delivers them before any use;
+    - (B) pull registration, validators and options binding into DEV-299, which widens its scope beyond the ticket text (then also §2.3(a)).
 
 The ruled order of the import once D2 is settled:
 
@@ -130,7 +135,7 @@ Keel plan decision: Patron fixed the names ([assumed], Q2) but not the placement
 | `ClaimEnrichmentCommandHandler` | `ClaimEnrichmentCommand(MovieId Id)` | `bool` | `IMovieRepository` | Returns the `TryClaimForEnrichmentAsync` result unchanged. |
 | `ApplyEnrichmentResultCommandHandler` | `ApplyEnrichmentResultCommand(MovieId Id, MetadataLookupResult Result)` | `EnrichmentStatus` | `IMovieRepository`, `TimeProvider` | Null → NotFound. `Found` → `MarkEnriched(m, now)`; `NotFound` → `MarkNotFound(now)`; then save and return the new status. `Failed` → `ArgumentException` before any mutation. |
 | `RecordEnrichmentFailureCommandHandler` | `RecordEnrichmentFailureCommand(MovieId Id, int Attempt, EnrichmentFailureCategory Category)` | `EnrichmentFailureDecision` | `IMovieRepository`, `TimeProvider`, `EnrichmentOptions`, `ILogger<>` | Retryable and `Attempt < MaxAttempts` → `Retry`/`RetryDelayed` (`RateLimited`) with `NextAttempt = Attempt + 1`, no mutation. Otherwise load (null → NotFound), `MarkFailed(category, now)`, save, and return `DeadLetter` with `NextAttempt = null`. Every path logs a structured movie id, attempt, category and action, with no exception text. |
-| `RequestEnrichmentCommandHandler` | `RequestEnrichmentCommand(MovieId Id)` | `MovieId` | `IMovieRepository`, `IEnrichmentQueue` | Null → NotFound. A status other than NotFound/Failed → `InvalidTransitionException(nameof(RequestEnrichment), status)` before the domain call. Otherwise `RequestEnrichment()`, save, then enqueue `EnrichmentRequested(id, 1)`. |
+| `RequestEnrichmentCommandHandler` | `RequestEnrichmentCommand(MovieId Id)` | `MovieId` | `IMovieRepository`, `IEnrichmentQueue` | Null → NotFound. A status other than NotFound/Failed → `InvalidTransitionException(nameof(RequestEnrichment), movie.Status.ToString())` before the domain call. Otherwise `RequestEnrichment()`, save, then enqueue `EnrichmentRequested(id, 1)`. |
 | `RequeueStrandedMoviesCommandHandler` | D1-gated | `int` (count enqueued) | D1-gated | D1-gated. |
 | `AddToWatchlistCommandHandler` / `RemoveFromWatchlistCommandHandler` | `(MovieId Id)` | `Unit` | `IMovieRepository` | Null → NotFound. Domain transition, then save. A double add or remove propagates `InvalidTransitionException`. |
 | `PlayMovieCommandHandler` | `PlayMovieCommand(MovieId Id)` | `Unit` | `IMovieCatalog`, `IMediaPlayerLauncher` | `GetDetailsAsync`; null → NotFound; `Launch(Path, Format)`. The handler is ungated; LocalPlay stays adapter-side (Q8, §2.3 #5 ruled). |
@@ -203,9 +208,28 @@ Cross-cutting rules for every handler (Q12, constitution checklist 367-368 and c
 
 - **Order:** Quill's order is accepted: Api 404 (brief step 10) runs before the blocked Library, Import and Requeue phases. Unblocked work goes first, and nothing depends on the old position.
 - **`Unit`:** a `public sealed record Unit` with `public static readonly Unit Value`. Handlers return `Unit.Value`.
-- **RecordFailure log assertion:** add no package, so no `Microsoft.Extensions.Logging.Testing` and no `FakeLogger`. Capture with an NSubstitute `ILogger<T>` (asserting `Received` on `Log`) or with a small hand-written test logger in `tests/LamuFlix.UnitTests/Features/`.
+- **RecordFailure log assertion:** add no package, so no `Microsoft.Extensions.Logging.Testing` and no `FakeLogger`. Capture with a small hand-written test logger in `tests/LamuFlix.UnitTests/Features/` (the NSubstitute option is struck by the plan challenge, Ledger F1).
 - **SmartEnum probe:** the probe runs once every Enrichment handler compiles (Claim, Apply, RecordFailure, RequestEnrichment). `LamuFlix.ArchitectureTests` is also re-run at each phase checkpoint. A failure naming `Ardalis.SmartEnum` goes to Patron as part of Q13, and the arch test is not edited.
 - **ADR:** `docs/adr/0017-enrichment-decisions-in-core-handlers.md`, status Proposed. If `origin/main` has taken 0017 by rebase, renumber it.
+
+## Plan challenge adjudication (Keel, 2026-09-30)
+
+Inputs: `findings-DEV-299-Ledger` (F1-F6, A1-A2), `findings-DEV-299-Compass` (S1 only; the note ends mid-S1, so S2-S8 were never received and are **not adjudicated**), Sentry (L1, L2, duplicate-import note; verdict implementable). Each ruling below supersedes any earlier line in this brief it contradicts.
+
+| # | Verdict | Ruling |
+|---|---|---|
+| Ledger F1 | Accept | NSubstitute cannot usefully assert `ILogger<T>.Log`: the logging extensions and source-generated `LoggerMessage` call `Log<TState>` with an internal or private `TState`, so an `Arg.Any<object>()` match never hits. The round-1 "NSubstitute `Received` on `Log`" option is struck. T017 uses a hand-written `RecordingLogger<T> : ILogger<T>` in `tests/LamuFlix.UnitTests/Features/RecordingLogger.cs` that captures level, the structured state pairs and the exception argument. No package added. |
+| Ledger F2 | Reject (no change) | The selection rule already exists: constitution PR checklist "New closed sets of values are Enumerations (`Ardalis.SmartEnum` or equivalent); no new project-owned C# `enum`". `EnrichmentFailureAction` as a SmartEnum is Patron's Q2 ruling and complies; `EnrichmentFailureCategory`'s sealed record with static instances is the "or equivalent" form and predates this ticket. ADR 0017 gains one sentence citing the rule. |
+| Ledger F3 | Accept in part | `Unit` stays a `sealed record` (Patron Q5 names the shape). Add a `private Unit()` constructor so no caller can mint one. A member-less record has value equality, so every instance equals `Unit.Value` and `with` cannot produce a distinguishable value; assertions use `ShouldBe(Unit.Value)`. |
+| Ledger F4 | Accept, spec line only | FR-006 states the invariant: `Retry`/`RetryDelayed` ⇒ `NextAttempt` non-null and equal to `Attempt + 1`; `DeadLetter` ⇒ `NextAttempt` null. The only producer is RecordFailure, whose T017 matrix asserts it on every row. No constructor guard: Q2 fixed the positional shape, and a guard adds an untested-by-design throw path for one internal producer. |
+| Ledger F5 | Accept | Spec US4 scenario 10 and the handler contract table read `InvalidTransitionException(nameof(RequestEnrichment), movie.Status.ToString())`, per the `(string action, string state)` constructor and the `Movie.cs:110,118` precedent. |
+| Ledger F6 | Accept | T008 names `tests/LamuFlix.UnitTests/Features/FixedTimeProvider.cs`. T001's worktree is `F:\Dev\LamuFlix.worktrees\feature-299` on `feature/299-…` as created by `/task` in Phase B; the pickup drift check confirms the exact path before T001 runs. |
+| Ledger A1, A2 | Noted | No action. RecordFailure's four constructor args sit within the three-port cap because only `IMovieRepository` is a port. The `ValidationExceptionHandler` name is a follow-up naming question, not a fix commit. |
+| Compass S1 | Accept | Deferring registration, validators and options binding is a constitution departure that Patron judged necessary (Q9), so §2.3(b) makes it an owner checkbox: **D3** above. plan.md's Constitution Check and Complexity Tracking now list it instead of "No constitution violations". |
+| Compass S2-S8 | **Not received** | The note was truncated at S1. Ask Compass to re-post; these are adjudicated in a follow-up round before the plan is frozen. |
+| Sentry L1 | Accept, clarify (D2-gated) | Import handles one folder → one `Movie` → one `SaveChangesAsync`, with no compensation. A throw from Scan, `Movie.Create` or `AddAsync` means no Save and no Enqueue; a Save throw means no Enqueue; Save succeeding and Enqueue throwing leaves a `Pending` row that only the D1 sweeper recovers. If the owner picks D1(A), that row has no recovery until the follow-up, and the PR body must say so. T028 adds the `AddAsync`-throws case. |
+| Sentry L2 | Accept, as a wiring rule | `Attempt < 1` is request validation, which the constitution places in the FluentValidation decorator (Principle V), not in the handler. FR-018 now names two validator rules the wiring ticket must deliver: `RecordEnrichmentFailureCommand.Attempt >= 1` and `EnrichmentOptions.MaxAttempts >= 1` (with `ValidateOnStart()`). The handler adds no guard; the edge case line points to FR-018 and D3. |
+| Sentry duplicate-import note | No change | Already out of scope (Patron Q6: note it, file no ticket until existing tickets are checked). It stays in the PR body's follow-up list for Patron to route. |
 
 ## Round cap
 

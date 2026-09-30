@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-30
 
-**Status**: Draft (Gate 1 closed: D1, D2 owner checkboxes and the Q13 Patron ruling are open)
+**Status**: Draft (Gate 1 closed: D1, D2, D3 owner checkboxes and the Q13 Patron ruling are open)
 
 **Input**: DEV-299 (parent DEV-282, size L, no ui tag); `specs/DEV-299/brief.md` (AC1-AC8, Q1-Q12 ruled, Q13 open); `specs/DEV-299/CONCLUSIONS.md`; `specs/DEV-299/ASSUMPTIONS.md`; `specs/PRODUCT.md`
 
@@ -24,6 +24,12 @@
     - (B) the store assigns the id on save and `Movie` gains a pre-persistence construction path, which edits `Movie.cs`;
     - (C) defer `ImportMovieFolderCommandHandler` to a follow-up.
   - Blocks: User Story 7 and FR-015.
+- [ ] **D3: wiring deferred past this PR (constitution departure, §2.3(b)).** blocked: structural. May DEV-299 merge Core handlers that are not yet registered via `AddHandler<…>`, have no FluentValidation validators, and whose `EnrichmentOptions` is not bound with `ValidateOnStart()`?
+  - Patron's Q9 puts these in wiring work, but the constitution makes each a per-PR item (checklist: handlers "registered via `AddHandler<…>`", "new options records are validated at startup"; Principle V: every command validated through FluentValidation). Deferring them is a departure (Compass S1; brief, Plan challenge adjudication).
+  - Candidate answers (not decided):
+    - (A) accept the departure: handlers ship unregistered and unreachable; FR-018 names the prerequisites and a follow-up ticket delivers them before any use;
+    - (B) pull registration, validators and options binding into DEV-299, widening scope beyond the ticket text.
+  - Blocks: Gate 1 only; no task changes under (A).
 
 **Patron ruling still open (not an owner checkbox): Q13.** The `Core_features_must_depend_only_on_ports_domain_or_pipeline` architecture rule (V:1170-1195) forbids a `Features.*` type from depending on `LamuFlix.Core.Library` (where `MovieQuery` lives) and may flag `Ardalis.SmartEnum` member references. Blocks User Story 6 and FR-013 and FR-014. Recommended ruling (Keel): add `LamuFlix.Core.Library`, and `Ardalis.SmartEnum` if the probe in T021 fails, to the allow-list in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`.
 
@@ -110,7 +116,7 @@ As the enrichment pipeline, I need claim, apply-result, record-failure and reque
 7. **Given** a non-retryable category, or `Attempt >= MaxAttempts`, **When** it is handled, **Then** the movie is loaded (null -> `NotFoundException`), `MarkFailed(category, now)` runs, the movie is saved, and the decision is `DeadLetter` with `NextAttempt = null`.
 8. **Given** any path of RecordFailure, **When** it completes, **Then** one structured log entry carries the movie id, attempt, category and action, and no exception text.
 9. **Given** a movie in NotFound or Failed, **When** `RequestEnrichmentCommand` is handled, **Then** `RequestEnrichment()` runs, the movie is saved, then `EnrichmentRequested(id, 1)` is enqueued (save strictly before enqueue), and the `MovieId` is returned.
-10. **Given** a movie in Pending or Enriched, **When** it is handled, **Then** `InvalidTransitionException(nameof(RequestEnrichment), status)` is thrown before any domain call; nothing is saved or enqueued.
+10. **Given** a movie in Pending or Enriched, **When** it is handled, **Then** `InvalidTransitionException(nameof(RequestEnrichment), movie.Status.ToString())` is thrown before any domain call; nothing is saved or enqueued.
 11. **Given** a queue failure on enqueue, **When** RequestEnrichment is handled, **Then** the exception propagates (the sweeper is the recovery, constitution 454-455).
 
 ---
@@ -154,7 +160,8 @@ As the library owner, I need to import a folder so a Pending movie exists and en
 **Acceptance Scenarios** (final shape depends on D2):
 
 1. **Given** a `LibraryPath`, **When** `ImportMovieFolderCommand` is handled, **Then** the order is Scan, `Movie.Create`, `AddAsync`, `SaveChangesAsync`, `EnqueueAsync(EnrichmentRequested(id, 1))`, and the `MovieId` is returned.
-2. **Given** the queue throws, **When** it is handled, **Then** the exception propagates with no catch (the movie stays Pending for the sweeper).
+2. **Given** the queue throws after a successful save, **When** it is handled, **Then** the exception propagates with no catch (the movie stays Pending; only the D1 sweeper recovers it, so under D1(A) it has no recovery until the follow-up).
+3. **Given** Scan, `Movie.Create`, `AddAsync` or `SaveChangesAsync` throws, **When** it is handled, **Then** the exception propagates, nothing after the throwing call runs (no Save after a failed Add, no Enqueue after a failed Save), and there is no compensation (Sentry L1).
 
 ---
 
@@ -175,7 +182,7 @@ As a maintainer, I need the ADR and the domain term, so the decision to keep enr
 
 ### Edge Cases
 
-- `Attempt` below 1 or `MaxAttempts` below 1 reaching RecordFailure: not validated in the handler. `EnrichmentOptions` annotations and validators belong to wiring (FR-018). With the formula `Attempt < MaxAttempts`, an out-of-range value dead-letters or retries deterministically and does not throw.
+- `Attempt` below 1 or `MaxAttempts` below 1 reaching RecordFailure: not validated in the handler, because request and options validation belong to the FluentValidation decorator and `ValidateOnStart()` (constitution V, VII). FR-018 names both rules as wiring prerequisites (Sentry L2; D3). Until wiring lands, the formula `Attempt < MaxAttempts` retries or dead-letters deterministically and does not throw.
 - A movie deleted between retry decision and dead-letter load: `NotFoundException`.
 - A duplicate-path import: not detected here. Noted, no ticket filed until existing tickets are checked (Patron, Q6).
 - Cancellation before a port call: the token reaches every async port; handlers do not swallow `OperationCanceledException`.
@@ -188,9 +195,9 @@ As a maintainer, I need the ADR and the domain term, so the decision to keep enr
 - **FR-001**: Every use case MUST be a `sealed` class implementing `ICommandHandler<,>` or `IQueryHandler<,>` over a `sealed record` request, in `src/LamuFlix.Core/Features/<Feature>/`, one type per file.
 - **FR-002**: `LamuFlix.Core` MUST reference no database, RabbitMQ or new package (AC1, AC7). No handler takes more than three ports; `TimeProvider`, options and the logger are not ports.
 - **FR-003**: `NotFoundException` MUST exist in `LamuFlix.Core.Pipeline`, `sealed`, mirroring `ValidationException`.
-- **FR-004**: `Unit` MUST exist in `LamuFlix.Core.Pipeline` as a `sealed record`.
+- **FR-004**: `Unit` MUST exist in `LamuFlix.Core.Pipeline` as a member-less `sealed record` with a `private` parameterless constructor and `public static readonly Unit Value`; handlers return `Unit.Value`.
 - **FR-005**: `EnrichmentOptions` MUST exist in `LamuFlix.Core.Pipeline` as a plain `sealed record` with `MaxAttempts` and data annotations, with no `IOptions`. Lease and sweep-interval members wait for D1.
-- **FR-006**: `EnrichmentFailureAction` (SmartEnum: `Retry`, `RetryDelayed`, `DeadLetter`) and `EnrichmentFailureDecision(EnrichmentFailureAction Action, int? NextAttempt)` MUST exist in `LamuFlix.Core.Domain`.
+- **FR-006**: `EnrichmentFailureAction` (SmartEnum: `Retry`, `RetryDelayed`, `DeadLetter`) and `EnrichmentFailureDecision(EnrichmentFailureAction Action, int? NextAttempt)` MUST exist in `LamuFlix.Core.Domain`. Invariant: `Retry` and `RetryDelayed` carry a non-null `NextAttempt` equal to `Attempt + 1`; `DeadLetter` carries `NextAttempt = null`. RecordFailure is the only producer, and its tests assert the invariant on every matrix row.
 - **FR-007**: Add/RemoveFromWatchlist handlers MUST return `Unit`, throw `NotFoundException` on a null movie, and let `InvalidTransitionException` propagate.
 - **FR-008**: `PlayMovieCommandHandler` MUST use `IMovieCatalog` and `IMediaPlayerLauncher`, and MUST NOT check `Features:LocalPlay` or start a process.
 - **FR-009**: `ClaimEnrichmentCommandHandler` MUST return the `TryClaimForEnrichmentAsync` result unchanged.
@@ -202,7 +209,7 @@ As a maintainer, I need the ADR and the domain term, so the decision to keep enr
 - **FR-015** [BLOCKED: D2]: `ImportMovieFolderCommandHandler` MUST follow User Story 7 and take a `LibraryPath`.
 - **FR-016** [BLOCKED: D1]: `RequeueStrandedMoviesCommandHandler` MUST return the count enqueued under the D1 contract.
 - **FR-017**: The Api `IExceptionHandler` MUST map `NotFoundException` to 404 `ProblemDetails` (User Story 5), with tests extended beside the existing ones.
-- **FR-018**: The spec MUST list these wiring prerequisites as required-before-use and NOT deliver them: DI/`AddHandler` registration, FluentValidation validators, `EnrichmentOptions` binding, and the LocalPlay-gated launcher.
+- **FR-018**: The spec MUST list these wiring prerequisites as required-before-use and NOT deliver them: DI/`AddHandler` registration, FluentValidation validators (including `RecordEnrichmentFailureCommand.Attempt >= 1`), `EnrichmentOptions` binding with `ValidateOnStart()` (including `MaxAttempts >= 1`), and the LocalPlay-gated launcher. Shipping without them is owner checkbox D3.
 - **FR-019**: Every async port call MUST receive the `CancellationToken`; `TimeProvider.GetUtcNow()` MUST be the only time source; there MUST be no logging beyond RecordFailure's decision log and no comments except AAA headers.
 - **FR-020**: Handler tests MUST live in `tests/LamuFlix.UnitTests/Features/<Feature>/`, cover every legal and exception path, and `LamuFlix.UnitTests.csproj` MUST add `AutoFixture` and `Faker.Net` `PackageReference`s with no version attribute.
 - **FR-021**: `LamuFlix.ArchitectureTests` MUST pass unchanged unless the Q13 ruling authorizes the allow-list edit.
