@@ -23,8 +23,8 @@ Gates checked against `.specify/memory/constitution.md`; all pass, no deviation.
 |---|---|---|
 | I (Ports and Adapters) | Core has no EF references; adapter lives in Infrastructure | `EfMovieCatalog`, predicates and registration are new files in `Infrastructure/Persistence`; `IMovieCatalog` and the Core types are unchanged. |
 | III (Typed query model) | Typed `MovieQuery`; whitelisted sort; NULLS LAST; predicates as extensions; untracked projection | `MovieQuery` is the only input; a closed dispatch over `MovieSort` is the whitelist; nullable keys sort `key == null` first; seven `IQueryable<MovieRecord>` extensions; `AsNoTracking` plus direct `MovieSummary` projection. |
-| IX (Test pyramid, real infrastructure) | xUnit v3, Shouldly, Testcontainers; no InMemory; no mocked infrastructure; fresh data per test; AutoFixture/Faker | Integration tests on `PostgresFixture` (Postgres 16.4); no InMemory, no mocked `IQueryable`; each test seeds its own rows; test data from AutoFixture + Faker.Net. |
-| Tech Stack | Sealed classes, no comments, Enumerations, `CancellationToken` end to end | `EfMovieCatalog` is `sealed`; no code comments; `MovieSort`/`SortDirection` stay SmartEnums; the token reaches `CountAsync`, `ToArrayAsync` and the Details query. |
+| IX (Test pyramid, real infrastructure) | xUnit v3, Shouldly, Testcontainers; no InMemory; no mocked infrastructure; fresh data per test; AutoFixture/Faker (exception below) | Integration tests on `PostgresFixture` (Postgres 16.4); no InMemory, no mocked `IQueryable`; each test seeds its own rows; test data from a small hand-written deterministic seed factory, because these tests need exact bound, tie, null and literal (`%`, `_`, `\`) values that generated data cannot guarantee (brief D3; AutoFixture/Faker.Net are referenced only by `LamuFlix.UnitTests`, so none is added here). |
+| Tech Stack | Sealed classes, no comments, Enumerations, `CancellationToken` end to end | `EfMovieCatalog` is `sealed`; no code comments; `MovieSort`/`SortDirection` stay SmartEnums; the token reaches `CountAsync`, `ToArrayAsync` and the Details query; sort dispatch lives in Infrastructure rather than on the SmartEnum member because Core has no EF (Principle I; brief D5). |
 | Gates | Roslyn analyzers, cyclomatic complexity, InspectCode | Phase 7 tasks T014-T016 (plus format and full suite). |
 
 No new dependency, project, folder, layer, schema change, public API shape, `LocalPlay`/secret/`Process.Start` touch, or deletion of an unnamed file. No §2.3 item is triggered and no structural question is outstanding. Contract chain untouched.
@@ -54,7 +54,7 @@ tests/LamuFlix.IntegrationTests/
   MovieCatalogRegistrationTests.cs
 ```
 
-**Layout choice (brief §5.2)**: `tests/LamuFlix.IntegrationTests` has no `Persistence/` subfolder (`MigrationTests.cs` and `PersistenceRoundTripTests.cs` are flat), so the test files stay flat in that project rather than creating `Persistence/`. The seed helper lives in the integration-test project and reuses `LamuFlixDbContextFactory`; `Tests.Common` is not touched. It exists because a `MovieRecord` is an EF graph (genres, actors) that AutoFixture cannot populate with valid navigation data alone: it builds anonymous `MovieRecord`s with AutoFixture + Faker.Net and pins only the attribute under test (null year, a tied title, a specific status, watchlist), per brief D3. Tests use `Theory` + `MemberData` rather than repeated `Fact`s.
+**Layout choice (brief §5.2)**: `tests/LamuFlix.IntegrationTests` has no `Persistence/` subfolder (`MigrationTests.cs` and `PersistenceRoundTripTests.cs` are flat), so the test files stay flat in that project rather than creating `Persistence/`. The seed helper lives in the integration-test project and reuses `LamuFlixDbContextFactory`; `Tests.Common` is not touched. It is a small hand-written deterministic factory in the style of `PersistenceRoundTripTests.cs:186-224` (`BaseMovie`, `FullyPopulatedMovie`, `TitleOnlyMovie`), because a `MovieRecord` is an EF graph (genres, actors) and the tests need exact bound, tie, null and literal values (brief D3). No package reference is added and no csproj is edited. Each test seeds its own data. Tests use `Theory` + `MemberData` rather than repeated `Fact`s.
 
 ## Test Matrix (brief §5.3)
 
@@ -72,7 +72,7 @@ All on real Postgres; each test seeds its own data (brief D2).
 
 ## Gates (brief §5.4)
 
-Roslyn analyzers, complexity ≤ 15, JetBrains InspectCode on every changed `.cs` (exit 0); refactor gate complexity ≤ 6 (split the sort `switch` per key rather than suppress); no suppression without a cited ruling; `dotnet format --verify-no-changes` clean; full `dotnet test` green with `MigrationTests` and `PersistenceRoundTripTests` unchanged. Stryker does not mutate Infrastructure (constitution IX table), so predicate and bound coverage is held by the explicit Test Matrix cases (brief D4), not a mutation score. Baseline: analyzers SKIPPED at recon (no changed `.cs`); no pre-existing debt.
+Roslyn analyzers, complexity ≤ 15, JetBrains InspectCode on every changed `.cs` (exit 0); refactor gate complexity ≤ 6 (split the dispatch over the `MovieSort` member per key rather than suppress); no suppression without a cited ruling; `dotnet format --verify-no-changes` clean; full `dotnet test` green with `MigrationTests` and `PersistenceRoundTripTests` unchanged. Stryker does not mutate Infrastructure (constitution IX table), so predicate and bound coverage is held by the explicit Test Matrix cases (brief D4), not a mutation score. Baseline: analyzers SKIPPED at recon (no changed `.cs`); no pre-existing debt.
 
 ## Risks
 
