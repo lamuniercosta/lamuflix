@@ -13,7 +13,7 @@ namespace LamuFlix.Test;
 public class UnitTest1
 {
     [Fact]
-    public void AssistirFilme_WhenLocalPlayDisabled_ThrowsInvalidOperationException()
+    public void PlayMovie_WhenLocalPlayDisabled_ThrowsInvalidOperationException()
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -30,7 +30,7 @@ public class UnitTest1
     }
 
     [Fact]
-    public void AssistirFilme_WhenLocalPlayEnabledAndPlayerConfigured_StartsProcessWithConfiguredPlayerAndArgumentList()
+    public void PlayMovie_WhenLocalPlayEnabledAndPlayerConfigured_StartsProcessWithConfiguredPlayerAndArgumentList()
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -71,7 +71,7 @@ public class UnitTest1
     }
 
     [Fact]
-    public void AssistirFilme_WhenLocalPlayEnabledAndPlayerNull_DefaultsToOsAssociation()
+    public void PlayMovie_WhenLocalPlayEnabledAndPlayerNull_DefaultsToOsAssociation()
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
