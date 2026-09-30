@@ -6,7 +6,7 @@
 
 **Status**: gate1: provisional (Gate 1 closed: D1, D2, D3 owner checkboxes; Q13 Patron ruling recorded in CONCLUSIONS.md)
 
-**Input**: DEV-299 (parent DEV-282, size L, no ui tag); `specs/DEV-299/brief.md` (AC1-AC8, Q1-Q12 ruled, Q13 open); `specs/DEV-299/CONCLUSIONS.md`; `specs/DEV-299/ASSUMPTIONS.md`; `specs/PRODUCT.md`
+**Input**: DEV-299 (parent DEV-282, size L, no ui tag); `specs/DEV-299/brief.md` (AC1-AC8, Q1-Q13 ruled); `specs/DEV-299/CONCLUSIONS.md`; `specs/DEV-299/ASSUMPTIONS.md`; `specs/PRODUCT.md`
 
 ## Owner Decisions (Gate 1 stays closed until answered)
 
@@ -32,7 +32,7 @@
     - (B) pull registration, validators and options binding into DEV-299, widening scope beyond the ticket text.
   - Blocks: Gate 1 only; no task changes under (A).
 
-**Patron ruling still open (not an owner checkbox): Q13.** The `Core_features_must_depend_only_on_ports_domain_or_pipeline` architecture rule (V:1170-1195) forbids a `Features.*` type from depending on `LamuFlix.Core.Library` (where `MovieQuery` lives) and may flag `Ardalis.SmartEnum` member references. Blocks User Story 6 and FR-013 and FR-014. Recommended ruling (Keel): add `LamuFlix.Core.Library` to the allow-list in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`. `Ardalis.SmartEnum` reaches Q13 only if the probe in T021 stays red after the `ReferenceEquals` fallback (Compass S5). If Patron instead moves `MovieQuery` to `Ports`, the ruling must name every `LamuFlix.Core.Library` type that moves with it: at least the siblings `MovieQuery` references (`MovieSort`, `Page`, `RuntimeRange`, `YearRange`, `SortDirection`) and any Library type in a Library handler signature (Compass S7).
+**Q13 (Patron ruling, not an owner checkbox) - RULED.** Patron ruled Q13 (CONCLUSIONS.md #13, e865874): add `LamuFlix.Core.Library` to the allow-list in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`; `MovieQuery` and its Library value types stay in Library; `Ardalis.SmartEnum` is probed in T021 with the `ReferenceEquals` fallback, and a probe still red after the fallback returns to Patron before implementation. User Story 6, FR-013 and FR-014 are unblocked. Original finding: The `Core_features_must_depend_only_on_ports_domain_or_pipeline` architecture rule (V:1170-1195) forbids a `Features.*` type from depending on `LamuFlix.Core.Library` (where `MovieQuery` lives) and may flag `Ardalis.SmartEnum` member references. Blocks User Story 6 and FR-013 and FR-014. Recommended ruling (Keel): add `LamuFlix.Core.Library` to the allow-list in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`. `Ardalis.SmartEnum` reaches Q13 only if the probe in T021 stays red after the `ReferenceEquals` fallback (Compass S5). If Patron instead moves `MovieQuery` to `Ports`, the ruling must name every `LamuFlix.Core.Library` type that moves with it: at least the siblings `MovieQuery` references (`MovieSort`, `Page`, `RuntimeRange`, `YearRange`, `SortDirection`) and any Library type in a Library handler signature (Compass S7).
 
 ## Clarifications
 
@@ -139,7 +139,7 @@ As an API client, I need a missing-movie failure to arrive as a 404 `ProblemDeta
 
 ---
 
-### User Story 6 - Library Query Handlers (Priority: P2) [BLOCKED: Q13]
+### User Story 6 - Library Query Handlers (Priority: P2)
 
 As a browsing viewer, I need browse and details queries over the catalog port.
 
@@ -206,15 +206,15 @@ As a maintainer, I need the ADR and the domain term, so the decision to keep enr
 - **FR-010**: `ApplyEnrichmentResultCommandHandler` MUST implement the behaviour in User Story 4 scenarios 2-5 and return the new `EnrichmentStatus`.
 - **FR-011**: `RecordEnrichmentFailureCommandHandler` MUST never publish, MUST follow scenarios 6-8, and MUST log without exception text.
 - **FR-012**: `RequestEnrichmentCommandHandler` MUST follow scenarios 9-11 with save before enqueue.
-- **FR-013** [BLOCKED: Q13]: `BrowseMoviesQueryHandler` MUST pass the query straight to the catalog.
-- **FR-014** [BLOCKED: Q13]: `GetMovieDetailsQueryHandler` MUST throw `NotFoundException` on null.
+- **FR-013**: `BrowseMoviesQueryHandler` MUST pass the query straight to the catalog.
+- **FR-014**: `GetMovieDetailsQueryHandler` MUST throw `NotFoundException` on null.
 - **FR-015** [BLOCKED: D2]: `ImportMovieFolderCommandHandler` MUST follow User Story 7 and take a `LibraryPath`.
 - **FR-016** [BLOCKED: D1]: `RequeueStrandedMoviesCommandHandler` MUST return the count enqueued under the D1 contract.
 - **FR-017**: The Api `IExceptionHandler` MUST map `NotFoundException` to 404 `ProblemDetails` (User Story 5), with tests extended beside the existing ones.
 - **FR-018**: The spec MUST list these wiring prerequisites as required-before-use and NOT deliver them: DI/`AddHandler` registration, FluentValidation validators (including `RecordEnrichmentFailureCommand.Attempt >= 1`), `EnrichmentOptions` binding with `ValidateOnStart()` (including `MaxAttempts >= 1`), and the LocalPlay-gated launcher. Shipping without them is owner checkbox D3.
 - **FR-019**: Every async port call MUST receive the `CancellationToken`; `TimeProvider.GetUtcNow()` MUST be the only time source; there MUST be no logging beyond RecordFailure's decision log and no comments except AAA headers.
 - **FR-020**: Handler tests MUST live in `tests/LamuFlix.UnitTests/Features/<Feature>/`, cover every legal and exception path, and `LamuFlix.UnitTests.csproj` MUST add `AutoFixture` and `Faker.Net` `PackageReference`s with no version attribute.
-- **FR-021**: `LamuFlix.ArchitectureTests` MUST pass unchanged unless the Q13 ruling authorizes the allow-list edit.
+- **FR-021**: `LamuFlix.ArchitectureTests` MUST pass with exactly one change: `LamuFlix.Core.Library` added to the `Core_features_must_depend_only_on_ports_domain_or_pipeline` allow-list (Q13 ruling). No other allow-list entry is added.
 - **FR-022**: The diff MUST contain only frozen-scope files (brief, Frozen scope).
 
 ### Key Entities
