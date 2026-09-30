@@ -1,11 +1,11 @@
 # Tasks: Resilient enrichment messaging on RabbitMQ.Client 7
 
-**Input**: `spec.md`, `plan.md`, `brief.md` (D1-D9). Tests come first in each phase (tests-first, constitution IX). The sweeper is ADR-only: there are no sweeper implementation tasks. Paths are relative to the repo root.
+**Input**: `spec.md`, `plan.md`, `brief.md` (D1-D9b). Tests come first in each phase (tests-first, constitution IX). The sweeper is ADR-only: there are no sweeper implementation tasks. Paths are relative to the repo root.
 
 ## Phase 1: Packages (brief step 1)
 
-- [ ] T001 [P] Bump `RabbitMQ.Client` to 7.2.2 and add the `OpenTelemetry.Api` and `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12 pins in `Directory.Packages.props` (FR-030)
-- [ ] T002 Add all three `PackageReference`s to `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`, then confirm `dotnet build` is green and `dotnet list package --vulnerable` is clean (depends on T001)
+- [ ] T001 [P] In `Directory.Packages.props`, pin `RabbitMQ.Client` 6.8.1 -> 7.2.2, `OpenTelemetry.Api` 1.19.1, `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, `Microsoft.Extensions.Options` 10.0.12 and `Microsoft.Extensions.Hosting.Abstractions` 10.0.12 (FR-030; D8a, D9a, D9b)
+- [ ] T002 Add versionless `PackageReference`s to all five packages in T001 in `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`, then confirm `dotnet build` is green and `dotnet list package --vulnerable` is clean (depends on T001)
 - [ ] T003 [P] Verify `.specify/feature.json` points at `specs/DEV-18` (already set)
 
 ## Phase 2: Options (step 2) — US4
@@ -32,7 +32,7 @@
 
 - [ ] T013 [US3] Unit tests for `TraceContextCarrier`: `traceparent` always, `tracestate` only when present, FsCheck round trip keeps the trace ID, valid context with no listener (FR-027, FR-028)
 - [ ] T014 [US3] Add `TraceContextCarrier.cs` (depends on T013). The propagator is set in T025, not here
-- [ ] T015 [US1] Integration tests: confirmed routed publish; two concurrent publishes, each succeeding on its own channel (FR-004); nack, return and connection failure each throw, and the return case proves the return is observed before the channel is disposed (D9 Risk F2); headers carry a valid `traceparent` with no `ActivityListener`; the ambient context is used when present (FR-001 to FR-004)
+- [ ] T015 [US1] Integration tests: confirmed routed publish; two concurrent publishes, each succeeding on its own channel (FR-004); nack, return and connection failure each throw; the return case asserts `EnqueueAsync` fails for an unroutable publish, driven by `PublishReturnException` from the awaited `BasicPublishAsync` (D9b); headers carry a valid `traceparent` with no `ActivityListener`; the ambient context is used when present (FR-001 to FR-004)
 - [ ] T016 [US1] Add `RabbitMqEnrichmentQueuePublisher.cs` implementing `IEnrichmentQueue`, with a Producer span `Enrichment.Enqueue` and attribute `lamuflix.movie.id` (depends on T012, T014, T015)
 
 ## Phase 6: Consumer (step 6) — US2, US3

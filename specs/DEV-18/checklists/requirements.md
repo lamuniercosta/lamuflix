@@ -21,7 +21,7 @@
 
 ## Feature Readiness
 
-- [x] Every requirement traces to a ruling (Q1-Q16, D1-D9) or an `[assumed]` entry in `ASSUMPTIONS.md`
+- [x] Every requirement traces to a ruling (Q1-Q17, D1-D9b) or an `[assumed]` entry in `ASSUMPTIONS.md`
 - [x] User scenarios cover publish, retry and DLQ, tracing, guarded activation, the readiness check (US4 scenario 6), and the ADRs
 - [x] Gates are listed, and a skipped gate is reported as SKIP
 
