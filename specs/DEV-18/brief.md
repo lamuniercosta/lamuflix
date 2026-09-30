@@ -2,9 +2,9 @@
 
 Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ.Client 7.x, declare quorum topology with TTL retry and DLQ, propagate W3C trace context, and write ADR-0004/0005.
 
-- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`; Q15, commit `7788471`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
-- Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, `recon-DEV-18-3`, `recon-DEV-18-4` (its R3 conclusion is rejected by Q14), and the Conductor's placement resolution of 2026-09-30.
-- Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). Q13 and Q14 were ruled after the grill on Quill's `needs decision:` requests (D5, D6). No owner checkbox: nothing changes the ticket text or departs from the constitution.
+- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`; Q15, commit `7788471`; Q16, commit `08c3790`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
+- Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, `recon-DEV-18-3`, `recon-DEV-18-4` (its R3 conclusion is rejected by Q14), `recon-DEV-18-5`, and the Conductor's placement resolution of 2026-09-30.
+- Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). Q13 and Q14 were ruled after the grill on Quill's `needs decision:` requests (D5, D6); Q15 and Q16 on the readiness check (D8, D8a). The plan challenge is adjudicated in D9. No owner checkbox: nothing changes the ticket text or departs from the constitution.
 - The ticket text (YouTrack DEV-18, cited as T01–T23 in CONCLUSIONS.md) is authoritative. If this brief and the ticket disagree, the ticket wins and the disagreement is a defect in this brief.
 
 ## Solution facts this brief rests on
@@ -103,6 +103,34 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
   - No separate `…HealthChecks.Abstractions` reference; the full package brings it transitively and supplies `AddCheck`.
   - No `Microsoft.AspNetCore.App` framework reference in Infrastructure. ServiceDefaults keeps its existing framework reference and adds no package for `AddHealthChecks()`.
   - This corrects Q15's no-package premise only. The deliverable, the endpoint gap and the out-of-scope list are unchanged.
+
+- **D9: Plan-challenge adjudication (2026-09-30, head `fc568be`).** Reports: `findings-DEV-18-risk` (Sentry), `findings-DEV-18-standards` (Ledger), `findings-DEV-18-spec` (Compass). All three axes are present.
+  - **Risk F1 (High): ACCEPT.** A retryable failure whose republish fails would requeue, be redelivered inside the live lease, be refused, be skip-acked, and be lost; the spec states only the negative.
+    - Fixed transport action: after a failed or uncertain republish, and after any exception other than cancellation (an unclassified exception, or a validation failure), the consumer does `BasicNack(requeue: false)`. The `enrichment.requested` dead-letter exchange routes the original to `enrichment.dead-letter`. The movie is not marked Failed by the consumer: it stays as the handler left it (`Pending` on a retry path, already `Failed` on the terminal path).
+    - Cancellation (host stopping) keeps `requeue: true` (FR-015). Redelivery after a restart inside the lease is the ADR-0004 in-lease limitation; that limitation now names graceful shutdown as well as crashes.
+    - ADR-0004 records the path, the dead-lettering on delivery-limit exhaustion (movie left `Pending`), and a dead-letter queue that rejects publishes because it is full, which falls into this same path. Keel edits ADR-0004.
+    - Test: T020 asserts a republish failure (for example a retry queue at `reject-publish` capacity, or a closed connection) ends with the original in `enrichment.dead-letter`, is never success-acked, and does not mark the movie Failed.
+  - **Risk F2 (Medium): ACCEPT.** Publisher contract in plan D-4: a per-publish returned flag is set from the return event, or the client surfaces a return as an exception under confirmation tracking. The confirm is awaited, then the flag is checked, and the channel is disposed only after both have settled. A confirm timeout or cancellation is an uncertain outcome and fails the call (Q10). T015's return case proves it.
+  - **Risk F3 (Medium): ACCEPT.** `RabbitMqOptions` (`src/LamuFlix.Core/Options/RabbitMqOptions.cs`, a `sealed record` with `Password`) redacts `Password` in its compiler-generated printing: override `PrintMembers` or `ToString` so the output shows `Password = ***`. T004 gains a unit test for the redaction. The file is already in frozen scope. Plan note: nothing logs `RabbitMqOptions` as a whole.
+  - **Risk F4 (Low): ACCEPT.** Add `ProcessEnrichmentCommandValidator` (FluentValidation, the existing pipeline convention) beside the command in `src/LamuFlix.Core/Features/Enrichment/`: `MovieId` non-default, and `Attempt` at or above the floor the existing enqueue handlers use. Quill cites that floor at file:line in the plan. A validation failure is an exception on the F1 path, so the original is dead-lettered. This is the conditional validator frozen scope already allows. T006 covers it tests-first.
+  - **Risk F5 (Low): REJECT (no change).** The registration assigns the same `TraceContextPropagator` every time, so repeated registration is idempotent and "last wins" writes the same value. A future OpenTelemetry SDK sets its own propagator at provider build, after registration. D7's location stands. Plan D-7 gets one caveat line: tests must not set a different global propagator.
+  - **Risk "noted" items.** The health check's connection attempt is bounded by the passed token and by the connection factory's requested connection timeout, and it never retries without a bound (plan D-9 line). The other noted items need no change.
+  - **Standards M1 and M3 (Medium), L1 (Low): ESCALATED to Patron (Q17) as a §2.3 item 1 dependency ruling.** Infrastructure directly uses `IValidateOptions<T>`/`ValidateOptionsResult` (`Microsoft.Extensions.Options`), and `BackgroundService`/`IHostedService` (these live in `Microsoft.Extensions.Hosting.Abstractions`, not in `Microsoft.Extensions.Hosting` as M3 states). Neither is a direct reference today (`LamuFlix.Infrastructure.csproj:11-20`). Both arrive transitively through EF Core and the D8a HealthChecks package.
+    - Keel recommends direct, central, versionless references for both on the `Microsoft.Extensions` 10.0.x line, with one doctrine sentence: "a directly used API surface gets a direct reference". Under that doctrine L1 resolves by keeping D8a as is, because `IHealthCheck` comes from the package that D8a references directly for `AddCheck`, and that package is its documented distribution unit.
+    - Until Q17 is recorded as D9a, T001/T002 stay as they are.
+  - **Standards M2 (Medium): ACCEPT.** `OpenTelemetry.Api` is pinned to an exact version at freeze, not at implementation; this amends D4's "Wisp confirms at implementation". The version comes from recon (requested) and is recorded as D9b.
+  - **Standards L2 (Low): ACCEPT, docs only.** `RabbitMq` casing is the repo convention (`RabbitMqOptions`). Plan structure notes it once.
+  - **Standards L3 (Low): ACCEPT, docs only.** The new `TelemetryConstants` entries are plain `const string`, with no OpenTelemetry type or using in Core. The existing Core-must-not-reference-OpenTelemetry architecture test covers them.
+  - **Standards L4 (Low): ACCEPT.** T025 and T025a each add a one-line comment naming the other half of the health-check registration.
+  - **Standards L5 (Low): REJECT.** The plan is the frozen decision record and names its versions; props is the build's source. Drift is a review check, not a doc-structure change.
+  - **Spec F1 and F3 (Medium, Low): ACCEPT, partly.** Tag T011 with FR-026, and T022 with FR-009 to FR-012, FR-014, FR-015 and FR-029.
+    - T015 adds two concurrent publishes, each succeeding on its own channel (FR-004).
+    - T020 adds a prefetch assertion (FR-009): with `Prefetch = 1` and the first message's handler held, the second message stays Ready. A passive declare's message count is checked with bounded waits.
+    - FR-010 is covered by T023 asserting the consumer resolves the `AddHandler`-composed handler (the outermost registration is the tracing decorator). Decorator order itself is already covered by the existing pipeline tests.
+    - FR-013 is a structural "must not" rule, verified at code review, and gets no test.
+  - **Spec F2 (Low): ACCEPT without renumbering.** FR IDs stay stable. FR-033/FR-034 move into a new "Readiness (D8, D8a; Q15, Q16)" group after Gates, and FR-016 moves to the Core-processing group.
+  - **Spec F4, F5, F6, F8, F9 (Low): ACCEPT.** Provenance becomes D1–D9 and Q1–Q17, with recon-DEV-18-5 as an input. The Clarifications gain Q15/Q16. The checklist is extended to FR-034, Q1–Q16 and D1–D8a, with the readiness scenario. FR-030 names the HealthChecks pin and any D9a/D9b pins. T020 asserts that the movie is not marked Failed on cancellation.
+  - **Spec F7 (Low): ACCEPT.** Plan D-8 comes before D-9. Plan design numbers are headed as the plan's own and cite brief decisions explicitly.
   - **Dependencies.** DEV-392 (production repository and DbContext wiring) was filed by Rigger and fulfils D6's follow-up. DEV-18 depends on DEV-392 only for production activation, not for delivery.
 
 ## Closing bar
@@ -200,8 +228,8 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
   - the DI registration extension.
 
   Quill finalizes file names in `plan.md`.
-- `src/LamuFlix.Core/Features/Enrichment/`: `ProcessEnrichmentCommand`, `ProcessEnrichmentCommandHandler` and `ProcessEnrichmentOutcome`, plus a validator if the pipeline convention requires one (D5), and `EnrichmentRetryPolicy.cs` with the behaviour-preserving edit to `RecordEnrichmentFailureCommandHandler.cs:39-45` (D7). No other Core enrichment file is edited unless `plan.md` justifies it by file:line.
-- `src/LamuFlix.Core/Options/RabbitMqOptions.cs`: add `RetryDelay` and `Prefetch`, with validation. Core stays free of RabbitMQ and OpenTelemetry references.
+- `src/LamuFlix.Core/Features/Enrichment/`: `ProcessEnrichmentCommand`, `ProcessEnrichmentCommandHandler` and `ProcessEnrichmentOutcome`, plus `ProcessEnrichmentCommandValidator` (D5, required by D9 Risk F4), and `EnrichmentRetryPolicy.cs` with the behaviour-preserving edit to `RecordEnrichmentFailureCommandHandler.cs:39-45` (D7). No other Core enrichment file is edited unless `plan.md` justifies it by file:line.
+- `src/LamuFlix.Core/Options/RabbitMqOptions.cs`: add `RetryDelay` and `Prefetch`, with validation, and redact `Password` from the record's generated printing (D9 Risk F3). Core stays free of RabbitMQ and OpenTelemetry references.
 - `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs`: add messaging activity and tag names only if the constants they need do not already exist.
 - `src/LamuFlix.Api`: wire the registration (`Program.cs` or the existing composition root) and add the `RabbitMq` section to the appsettings.
 - `tests/LamuFlix.IntegrationTests`: the broker tests for AC1–AC4, and the D8 Healthy/Unhealthy readiness tests.
