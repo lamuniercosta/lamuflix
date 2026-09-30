@@ -57,36 +57,37 @@ public sealed class MovieModelTests
         using var context = CreateContext();
         var entity = RequireEntity(context, typeof(MovieRecord));
 
-        entity.GetIndexes().ShouldContain(index =>
-            index.Properties.Count == 1 &&
-            index.Properties[0].Name == nameof(MovieRecord.Title) &&
-            !index.IsUnique);
-        entity.GetIndexes().ShouldContain(index =>
-            index.Properties.Count == 1 &&
-            index.Properties[0].Name == nameof(MovieRecord.ReleaseYear) &&
-            !index.IsUnique);
-        entity.GetIndexes().ShouldContain(index =>
-            index.Properties.Count == 1 &&
-            index.Properties[0].Name == nameof(MovieRecord.Status) &&
-            !index.IsUnique);
-        entity.GetIndexes().ShouldContain(index =>
-            index.Properties.Count == 1 &&
-            index.Properties[0].Name == nameof(MovieRecord.LibraryPath) &&
-            index.IsUnique);
-        IIndex? imdb = null;
+        AssertSinglePropertyIndex(entity, nameof(MovieRecord.Title), false);
+        AssertSinglePropertyIndex(entity, nameof(MovieRecord.ReleaseYear), false);
+        AssertSinglePropertyIndex(entity, nameof(MovieRecord.Status), false);
+        AssertSinglePropertyIndex(entity, nameof(MovieRecord.LibraryPath), true);
+        AssertFilteredUniqueImdbIdIndex(FindUniqueSinglePropertyIndex(entity, nameof(MovieRecord.ImdbId)));
+    }
+
+    private static void AssertSinglePropertyIndex(IEntityType entity, string propertyName, bool unique) =>
+        entity.GetIndexes().ShouldContain(index => IsSinglePropertyIndex(index, propertyName, unique));
+
+    private static bool IsSinglePropertyIndex(IIndex index, string propertyName, bool unique) =>
+        index.Properties.Count == 1 &&
+        index.Properties[0].Name == propertyName &&
+        index.IsUnique == unique;
+
+    private static IIndex? FindUniqueSinglePropertyIndex(IEntityType entity, string propertyName)
+    {
         foreach (var index in entity.GetIndexes())
         {
-            if (index.Properties.Count == 1 &&
-                index.Properties[0].Name == nameof(MovieRecord.ImdbId) &&
-                index.IsUnique)
+            if (IsSinglePropertyIndex(index, propertyName, true))
             {
-                imdb = index;
-                break;
+                return index;
             }
         }
 
+        return null;
+    }
+
+    private static void AssertFilteredUniqueImdbIdIndex(IIndex? imdb)
+    {
         imdb.ShouldNotBeNull();
-        imdb.GetFilter().ShouldNotBeNull();
         var filter = imdb.GetFilter();
         filter.ShouldNotBeNull();
         filter.Replace("\"", string.Empty, StringComparison.Ordinal)

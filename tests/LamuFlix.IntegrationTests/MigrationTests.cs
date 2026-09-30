@@ -67,22 +67,43 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await using var context = fixture.CreateContext();
         await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
         var catalog = new PostgresCatalog(context);
+        var cancellationToken = TestContext.Current.CancellationToken;
 
-        var publicTables = await catalog.ListPublicTablesAsync(TestContext.Current.CancellationToken);
+        await AssertPublicTablesAsync(catalog, cancellationToken);
+        await AssertColumnsAreSnakeCaseAsync(catalog, cancellationToken);
+        await AssertMoviesNullabilityAsync(catalog, cancellationToken);
+        await AssertJoinPrimaryKeysAsync(catalog, cancellationToken);
+        await AssertMovieIndexDefinitionsAsync(catalog, cancellationToken);
+    }
+
+    private static async Task AssertPublicTablesAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
+        var publicTables = await catalog.ListPublicTablesAsync(cancellationToken);
         publicTables.ShouldContain("__EFMigrationsHistory");
         publicTables.Except(["__EFMigrationsHistory"]).ShouldBe(ApplicationTables, ignoreOrder: true);
+    }
 
+    private static async Task AssertColumnsAreSnakeCaseAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
         foreach (var table in ApplicationTables)
         {
-            var columns = await catalog.ListColumnsAsync(table, TestContext.Current.CancellationToken);
-            columns.ShouldNotBeEmpty();
-            foreach (var column in columns)
-            {
-                SnakeCase.IsMatch(column).ShouldBeTrue($"Column {table}.{column} must be snake_case.");
-            }
+            await AssertTableColumnsAreSnakeCaseAsync(catalog, table, cancellationToken);
         }
+    }
 
-        var nullability = await catalog.ListMoviesNullabilityAsync(TestContext.Current.CancellationToken);
+    private static async Task AssertTableColumnsAreSnakeCaseAsync(PostgresCatalog catalog, string table, CancellationToken cancellationToken)
+    {
+        var columns = await catalog.ListColumnsAsync(table, cancellationToken);
+        columns.ShouldNotBeEmpty();
+        foreach (var column in columns)
+        {
+            SnakeCase.IsMatch(column).ShouldBeTrue($"Column {table}.{column} must be snake_case.");
+        }
+    }
+
+    private static async Task AssertMoviesNullabilityAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
+        var nullability = await catalog.ListMoviesNullabilityAsync(cancellationToken);
         foreach (var column in NullableMoviesColumns)
         {
             nullability[column].ShouldBeTrue($"Column movies.{column} must be nullable.");
@@ -90,33 +111,71 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         foreach (var (column, isNullable) in nullability)
         {
-            if (NullableMoviesColumns.Contains(column, StringComparer.Ordinal))
-            {
-                continue;
-            }
+            AssertRequiredMoviesColumn(column, isNullable);
+        }
+    }
 
-            isNullable.ShouldBeFalse($"Column movies.{column} must be NOT NULL.");
+    private static void AssertRequiredMoviesColumn(string column, bool isNullable)
+    {
+        if (NullableMoviesColumns.Contains(column, StringComparer.Ordinal))
+        {
+            return;
         }
 
-        (await catalog.ListPrimaryKeyColumnsAsync("movie_actors", TestContext.Current.CancellationToken))
-            .ShouldBe(["actor_id", "movie_id"], ignoreOrder: true);
-        (await catalog.ListPrimaryKeyColumnsAsync("movie_directors", TestContext.Current.CancellationToken))
-            .ShouldBe(["director_id", "movie_id"], ignoreOrder: true);
-        (await catalog.ListPrimaryKeyColumnsAsync("movie_genres", TestContext.Current.CancellationToken))
-            .ShouldBe(["genre_id", "movie_id"], ignoreOrder: true);
-
-        var indexes = await catalog.ListMovieIndexesAsync(TestContext.Current.CancellationToken);
-        indexes.ShouldContain(def => def.Contains("title", StringComparison.Ordinal)
-            && !def.Contains("UNIQUE", StringComparison.Ordinal));
-        indexes.ShouldContain(def => def.Contains("release_year", StringComparison.Ordinal));
-        indexes.ShouldContain(def => def.Contains("status", StringComparison.Ordinal)
-            && !def.Contains("imdb", StringComparison.Ordinal));
-        indexes.ShouldContain(def => def.Contains("library_path", StringComparison.Ordinal)
-            && def.Contains("UNIQUE", StringComparison.Ordinal));
-        indexes.ShouldContain(def => def.Contains("imdb_id", StringComparison.Ordinal)
-            && def.Contains("UNIQUE", StringComparison.Ordinal)
-            && def.Contains("IS NOT NULL", StringComparison.Ordinal));
+        isNullable.ShouldBeFalse($"Column movies.{column} must be NOT NULL.");
     }
+
+    private static async Task AssertJoinPrimaryKeysAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_actors", cancellationToken))
+            .ShouldBe(["actor_id", "movie_id"], ignoreOrder: true);
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_directors", cancellationToken))
+            .ShouldBe(["director_id", "movie_id"], ignoreOrder: true);
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_genres", cancellationToken))
+            .ShouldBe(["genre_id", "movie_id"], ignoreOrder: true);
+    }
+
+    private static async Task AssertMovieIndexDefinitionsAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
+        var indexes = await catalog.ListMovieIndexesAsync(cancellationToken);
+        AssertTitleIndex(indexes);
+        AssertReleaseYearIndex(indexes);
+        AssertStatusIndex(indexes);
+        AssertLibraryPathIndex(indexes);
+        AssertImdbIdIndex(indexes);
+    }
+
+    private static void AssertTitleIndex(List<string> indexes) =>
+        indexes.ShouldContain(def => IsTitleIndex(def));
+
+    private static bool IsTitleIndex(string def) =>
+        def.Contains("title", StringComparison.Ordinal)
+        && !def.Contains("UNIQUE", StringComparison.Ordinal);
+
+    private static void AssertReleaseYearIndex(List<string> indexes) =>
+        indexes.ShouldContain(def => def.Contains("release_year", StringComparison.Ordinal));
+
+    private static void AssertStatusIndex(List<string> indexes) =>
+        indexes.ShouldContain(def => IsStatusIndex(def));
+
+    private static bool IsStatusIndex(string def) =>
+        def.Contains("status", StringComparison.Ordinal)
+        && !def.Contains("imdb", StringComparison.Ordinal);
+
+    private static void AssertLibraryPathIndex(List<string> indexes) =>
+        indexes.ShouldContain(def => IsLibraryPathIndex(def));
+
+    private static bool IsLibraryPathIndex(string def) =>
+        def.Contains("library_path", StringComparison.Ordinal)
+        && def.Contains("UNIQUE", StringComparison.Ordinal);
+
+    private static void AssertImdbIdIndex(List<string> indexes) =>
+        indexes.ShouldContain(def => IsImdbIdIndex(def));
+
+    private static bool IsImdbIdIndex(string def) =>
+        def.Contains("imdb_id", StringComparison.Ordinal)
+        && def.Contains("UNIQUE", StringComparison.Ordinal)
+        && def.Contains("IS NOT NULL", StringComparison.Ordinal);
 
     private sealed class PostgresCatalog(LamuFlixDbContext context)
     {
