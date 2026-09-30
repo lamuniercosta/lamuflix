@@ -1,5 +1,6 @@
 using System;
 using LamuFlix.Infrastructure.Persistence.Converters;
+using LamuFlix.Infrastructure.Persistence.ValueGenerators;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -26,6 +27,7 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
             builder.Property(movie => movie.Id)
                 .HasColumnName("id")
                 .HasColumnType("integer")
+                .HasValueGenerator<MovieIdValueGenerator>()
                 .ValueGeneratedOnAdd()
                 .UseIdentityByDefaultColumn(),
             new MovieIdConverter());

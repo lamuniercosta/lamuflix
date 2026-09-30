@@ -18,7 +18,7 @@ public sealed class LamuFlixDesignTimeDbContextFactoryTests
                 () => new LamuFlixDesignTimeDbContextFactory().CreateDbContext([]));
 
             exception.Message.ShouldContain(LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable);
-            exception.Message.ShouldNotContain("Host=", Case.Insensitive);
+            exception.Message.ShouldNotContain("Host=");
         });
     }
 
@@ -33,7 +33,7 @@ public sealed class LamuFlixDesignTimeDbContextFactoryTests
                 () => new LamuFlixDesignTimeDbContextFactory().CreateDbContext([]));
 
             exception.Message.ShouldContain(LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable);
-            exception.Message.ShouldNotContain("Host=", Case.Insensitive);
+            exception.Message.ShouldNotContain("Host=");
         });
     }
 

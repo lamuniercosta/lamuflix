@@ -1,0 +1,4 @@
+using LamuFlix.Tests.Common;
+using Xunit;
+
+[assembly: AssemblyFixture(typeof(PostgresFixture))]

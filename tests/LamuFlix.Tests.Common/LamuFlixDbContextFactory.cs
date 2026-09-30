@@ -18,8 +18,14 @@ public static class LamuFlixDbContextFactory
         ArgumentNullException.ThrowIfNull(container);
         var dbName = $"lamuflix_test_{Guid.NewGuid():N}";
         CreateDatabase(container.GetConnectionString(), dbName);
+        return OpenContext(WithDatabase(container.GetConnectionString(), dbName));
+    }
+
+    public static LamuFlixDbContext OpenContext(string connectionString)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(WithDatabase(container.GetConnectionString(), dbName))
+            .UseNpgsql(connectionString)
             .Options;
         return new LamuFlixDbContext(options);
     }
