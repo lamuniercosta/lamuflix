@@ -18,7 +18,8 @@
 - [ ] T006 [US2] Unit tests for `ProcessEnrichmentCommandHandler` over fake ports: refused claim reported as skipped, found, not found, each classified failure, a provider `Failed(category)` uses its own category, only exceptions are classified, the terminal path marks Failed and saves, the retry path writes nothing, cancellation never classified, null `ReleaseYear` lookup (FR-016 to FR-020)
 - [ ] T007 [P] [US2] Add `ProcessEnrichmentCommand` and `ProcessEnrichmentOutcome` under `src/LamuFlix.Core/Features/Enrichment/`
 - [ ] T008 [US2] Add `ProcessEnrichmentCommandHandler`, reusing `EnrichmentFailureClassifier.cs:10-17` and the decision in `RecordEnrichmentFailureCommandHandler.cs:39-45`; no second retry policy (depends on T006, T007, T009)
-- [ ] T009 [US2] Extract `EnrichmentRetryPolicy.cs` (pure rule from `RecordEnrichmentFailureCommandHandler.cs:39-45`, D7), edit the Record handler to call it, and keep its existing tests green unchanged. Add unit tests for the policy
+- [ ] T009a [US2] Unit tests for `EnrichmentRetryPolicy` first: retry and delayed-retry categories, `NextAttempt = Attempt + 1`, null when terminal, the `MaxAttempts` boundary
+- [ ] T009 [US2] (depends on T009a) Extract `EnrichmentRetryPolicy.cs` (pure rule from `RecordEnrichmentFailureCommandHandler.cs:39-45`, D7), edit the Record handler to call it, and keep its existing tests green unchanged.
 
 ## Phase 4: Topology and connection owner (step 3) — US1, US2
 
@@ -66,4 +67,4 @@
 
 - T001 → T002. Phase 2 needs T002. Phases 3, 4 and 8 can start after T002 and run in parallel.
 - Phase 5 needs T012. Phase 6 needs Phases 3, 4 and 5. Phase 7 needs Phase 6.
-- Phase 9 runs last. Sweeper, outbox, OMDb provider, production repository wiring and the retired projects and a RabbitMQ readiness health check are out of scope.
+- Phase 9 runs last. Sweeper, outbox, OMDb provider, production repository wiring and the retired projects are out of scope.
