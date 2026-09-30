@@ -67,7 +67,7 @@ DEV-302 is done when all of the following hold:
 
 ### 5.1 Approach
 - **Predicates:** one `internal static` class of `IQueryable<MovieRecord>` extension methods, one method per ticket-named predicate. Each method returns the source unchanged when its filter is inactive, so `BrowseAsync` is a straight chain with no branching.
-- **Sorting:** a private `switch` over `MovieSort` (the whitelist) that returns an `IOrderedQueryable<MovieRecord>`. Nullable keys use `OrderBy(r => r.Key == null)`, then `ThenBy` or `ThenByDescending(r => r.Key)` per Direction, then `ThenBy(Title)` and `ThenBy(Id)`. An undefined `MovieSort` value throws `ArgumentOutOfRangeException` and never falls back silently.
+- **Sorting (superseded in part by D5: dispatch over the SmartEnum member, no throw path):** a private `switch` over `MovieSort` (the whitelist) that returns an `IOrderedQueryable<MovieRecord>`. Nullable keys use `OrderBy(r => r.Key == null)`, then `ThenBy` or `ThenByDescending(r => r.Key)` per Direction, then `ThenBy(Title)` and `ThenBy(Id)`. An undefined `MovieSort` value throws `ArgumentOutOfRangeException` and never falls back silently.
 - **Browse:** `Movies.AsNoTracking()` → predicates → `CountAsync` → sort → `Skip`/`Take` → `Select` to `MovieSummary` → `ToArrayAsync` → `PagedResult<MovieSummary>`.
 - **Details:** `AsNoTracking` `Select` of the scalar columns into a private flat shape (or straight into `MovieDetails`, if the `MovieMetadata` factory can be translated), then map `Metadata` per Q2 in memory. The Details query also must not materialise the entity.
 - **Constructor:** primary constructor taking `LamuFlixDbContext`. The class is `sealed`.
@@ -103,7 +103,7 @@ All tests run against real Postgres (`PostgresFixture`, `postgres:16.4`) in a cl
 - Unit tests are not required. A test to prove an undefined `MovieSort` throws is allowed where cheap.
 
 ### 5.4 Gate expectations
-- Roslyn analyzers, cyclomatic complexity ≤ 15, and JetBrains InspectCode on every changed `.cs` file must exit 0. Refactor gate: complexity ≤ 6. The sort `switch` is the likely hotspot; split it into one helper per key rather than suppressing.
+- Roslyn analyzers, cyclomatic complexity ≤ 15, and JetBrains InspectCode on every changed `.cs` file must exit 0. Refactor gate: complexity ≤ 6. The sort dispatch (D5) is the likely hotspot; split it into one helper per key rather than suppressing.
 - No suppressions without a cited ruling. `dotnet format --verify-no-changes` must be clean.
 - Full `dotnet test` must be green, including the existing `MigrationTests` and `PersistenceRoundTripTests`, which must not change.
 - Mutation (architect stage): predicates and sort mapping are the kill targets. Every predicate's inactive branch and every bound comparison (`<=` vs `<`) must be caught by a test.
