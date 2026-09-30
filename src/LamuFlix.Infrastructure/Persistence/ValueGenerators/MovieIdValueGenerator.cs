@@ -14,7 +14,7 @@ public sealed class MovieIdValueGenerator : ValueGenerator<MovieId?>
         typeof(MovieId).GetField("<Value>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("MovieId backing field was not found.");
 
-    private static int _temporaryValue = int.MaxValue;
+    private static int _temporaryValue;
 
     public override bool GeneratesTemporaryValues => true;
 

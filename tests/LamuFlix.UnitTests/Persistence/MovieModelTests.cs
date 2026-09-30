@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
@@ -62,6 +63,31 @@ public sealed class MovieModelTests
         AssertSinglePropertyIndex(entity, nameof(MovieRecord.Status), false);
         AssertSinglePropertyIndex(entity, nameof(MovieRecord.LibraryPath), true);
         AssertFilteredUniqueImdbIdIndex(FindUniqueSinglePropertyIndex(entity, nameof(MovieRecord.ImdbId)));
+    }
+
+    [Fact]
+    public void MoviesSkipNavigations_UseExpectedJoinTablesAndForeignKeys()
+    {
+        using var context = CreateContext();
+        var movie = RequireEntity(context, typeof(MovieRecord));
+
+        AssertSkipNavigation(movie, nameof(MovieRecord.Actors), "movie_actors", "actor_id");
+        AssertSkipNavigation(movie, nameof(MovieRecord.Directors), "movie_directors", "director_id");
+        AssertSkipNavigation(movie, nameof(MovieRecord.Genres), "movie_genres", "genre_id");
+    }
+
+    private static void AssertSkipNavigation(IEntityType movie, string name, string joinTable, string relatedForeignKey)
+    {
+        var navigation = movie.FindSkipNavigation(name);
+        navigation.ShouldNotBeNull();
+        navigation.JoinEntityType.GetTableName().ShouldBe(joinTable);
+        navigation.ForeignKey.Properties.Select(property => property.Name).ShouldBe(new[] { "movie_id" });
+
+        var inverse = navigation.Inverse;
+        inverse.ShouldNotBeNull();
+        inverse.ForeignKey.Properties.Select(property => property.Name).ShouldBe(new[] { relatedForeignKey });
+        navigation.JoinEntityType.FindProperty("movie_id").ShouldNotBeNull();
+        navigation.JoinEntityType.FindProperty(relatedForeignKey).ShouldNotBeNull();
     }
 
     private static void AssertSinglePropertyIndex(IEntityType entity, string propertyName, bool unique) =>

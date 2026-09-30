@@ -103,3 +103,10 @@
 - Q6 (`CONCLUSIONS.md:45-48`) and FR-010 (`spec.md:118`) fix EF Core/Design at 10.0.12. Keel's verified T004 report identifies Design 10.0.12 -> Caching.Memory 10.0.12 requiring DI.Abstractions and Logging.Abstractions >= 10.0.12; the existing central pins are 10.0.1 (`Directory.Packages.props:17-18`). These patch increases make the approved graph restorable without changing the ticket's delivery.
 - `specs/PRODUCT.md:12,34-43` requires CPM and zero warnings and assigns dependency rulings to Patron. This approval adds no package, swaps no dependency, and authorises no `NoWarn`/NU1605 suppression or `VersionOverride`; changing another pin without the stated restore evidence is outside this ruling.
 - T004 remains the restore/build check (`brief.md:116,132`). Patron relies on Keel's reported failure and has not rerun verification; this ruling authorises the repair, not a restore/build PASS. Any required version outside 10.0.x returns to Patron for a separate dependency ruling.
+
+## Phase 3 Step 4 — Mutation-test refinements
+
+**Accept D2 and D3 as recorded in `brief.md:183-207`.** Refactor the redundant private category lookup boolean and keep index assertions tied to index definitions rather than generated names; add no lookup-table name indexes or migration changes.
+
+- D2 basis: `brief.md:183-192`; `DomainConversion.Require` yields the same exception when a failed lookup's null result is selected, so the boolean mutation is equivalent. The nullable `FindKnownCode` helper preserves behavior while removing the mutant; tests assert the invalid-code exception message and preserve the supported `unknown` category.
+- D3 basis: DEV-19 FR-008/FR-009 and `brief.md:194-207`; verify the five movie indexes by properties, uniqueness, and filter, and ensure Actors, Directors, and Genres have no secondary indexes. EF-generated database names remain unchanged; no schema migration is authorized.

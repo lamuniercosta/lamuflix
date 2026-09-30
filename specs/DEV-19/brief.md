@@ -180,6 +180,32 @@ ADR-0003 ships in the spec PR, not in implementation.
   - Forbidden: `NoWarn`/NU1605 suppression, `VersionOverride`, new packages, and any version outside 10.0.x. A version outside 10.0.x goes back to Patron.
   - T004 stays the restore and solution-build check, and this ruling claims no PASS. It is not an owner checkbox.
 
+### Phase 3 Step 4 mutant 176 decision (Keel; supersedes recon-DEV-19 item 3)
+
+- **D2 (mutant 176, `EnrichmentFailureCategoryConverter.cs:35`, `return false` → `return true`):** Equivalent under the current shape. On a miss, `result` is already `null` (`:34`). With the mutation, `FromCode` (`:13`) selects `result`, which is `null`. `DomainConversion.Require` (`DomainConversion.cs:9`) then throws the same `InvalidOperationException` with the same message. No test can tell them apart.
+  - Recon item 3 is void. `TryConvertFromProvider` does not exist on this converter, and `TryFromKnownCode` is private. Do not add either to the public surface for testing.
+  - Fix: take out the redundant bool, so the mutant goes away instead of being suppressed. Replace `TryFromKnownCode` with `private static EnrichmentFailureCategory? FindKnownCode(string code)`: the same `foreach` over `Known` with an ordinal compare, returning the match or `null`. `FromCode` becomes `DomainConversion.Require(FindKnownCode(code))`. Drop the `System.Diagnostics.CodeAnalysis` using if nothing else needs it. The behaviour stays the same, and the change is limited to one private member. This is not a §2.3 item-6 rewrite.
+  - Test (`ValueConverterTests`; corrected: `"unknown"` is the valid `EnrichmentFailureCategory.Unknown` code, so it cannot be the invalid input):
+    - Extend `EnrichmentFailureCategory_UnknownCode_Throws` (`"not_a_category"`) so it also asserts the exception message `"Invalid EnrichmentFailureCategory provider value."`, the same way `InvalidMovieIdProviderValue_UsesModelNameInExceptionMessage` does. Assert the message, not only the type, so that any later LINQ `First`/`FirstOrDefault` mutation also dies. Change this one test only, not the shared `ConverterAssert.InvalidNonNullProviderThrows` helper.
+    - Keep the existing `EnrichmentFailureCategory_KnownCode_ResolvesSingleton` theory, which has four cases including `"unknown"`. It already covers the loop body and the compare.
+    - Delete `EnrichmentFailureCategory_UnrecognizedCode_ReturnsFalseAndDefault`. It reaches the private `TryFromKnownCode` by reflection, which ties the test to an implementation detail, and the refactor above removes that method anyway.
+  - Forbidden: `// Stryker disable` comments and Stryker config ignores for this mutant.
+
+### Phase 3 Step 4 index decision (Keel; supersedes recon-DEV-19 item 1)
+
+- **D3 (index names and name indexes):** Neither the brief nor the spec requires index *names* or indexes on `name` columns. Recon item 1 (`ix_directors_name`, `ix_genres_name`, and exact `ix_movies_*` names) is void.
+  - Basis:
+    - Brief line 28 and FR-008 require five `movies` indexes, identified by column, uniqueness and filter only.
+    - Line 87 and FR-009 rule out any index on `actors`, `directors` or `genres` beyond the key (care list 3).
+    - "Five named indexes" in SC-001 means the five indexes that FR-008 names. It does not mean specific index identifiers.
+  - Mappings and migration: leave `MovieConfiguration`, the Actor/Director/Genre configurations and the `Initial` migration unchanged. Keep EF's default `IX_movies_*` names. Add no `HasDatabaseName`, no name index and no new or regenerated migration.
+  - `MigrationTests` (T026): read `pg_indexes` for `movies` and match each index by its `indexdef`, never by `indexname`:
+    - non-unique on `(title)`, `(release_year)` and `(status)`;
+    - `UNIQUE` on `(library_path)`;
+    - `UNIQUE` on `(imdb_id) WHERE (imdb_id IS NOT NULL)`.
+  - Also assert that `actors`, `directors` and `genres` have no index other than their primary key. That test enforces FR-009.
+  - This is not blocked, and nothing here goes to the owner.
+
 ## Round cap
 
 - Analyze: 2 rounds.

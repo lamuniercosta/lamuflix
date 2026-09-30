@@ -31,6 +31,15 @@ public sealed class ValueConverterTests
     public void MovieId_Null_IsPreserved() => ConverterAssert.NullIsPreserved(new MovieIdConverter());
 
     [Fact]
+    public void MovieId_ConvertToProvider_MapsNullAndValueExplicitly()
+    {
+        var converter = new MovieIdConverter();
+
+        converter.ConvertToProvider(null).ShouldBeNull();
+        converter.ConvertToProvider(new MovieId(5)).ShouldBe(5);
+    }
+
+    [Fact]
     public void LibraryPath_ValidValue_RoundTrips()
     {
         var converter = new LibraryPathConverter();
@@ -157,6 +166,10 @@ public sealed class ValueConverterTests
     public void ReleaseYear_Null_IsPreserved() =>
         ConverterAssert.NullIsPreserved(new ReleaseYearConverter(Clock));
 
+    [Fact]
+    public void ReleaseYear_NullTimeProvider_ThrowsArgumentNullException() =>
+        Should.Throw<ArgumentNullException>(() => new ReleaseYearConverter(null!));
+
     [Theory]
     [InlineData(0, "Pending")]
     [InlineData(1, "Enriched")]
@@ -201,8 +214,21 @@ public sealed class ValueConverterTests
     }
 
     [Fact]
-    public void EnrichmentFailureCategory_UnknownCode_Throws() =>
-        ConverterAssert.InvalidNonNullProviderThrows(new EnrichmentFailureCategoryConverter(), "not_a_category");
+    public void EnrichmentFailureCategory_UnknownCode_Throws()
+    {
+        var exception = Should.Throw<InvalidOperationException>(() =>
+            new EnrichmentFailureCategoryConverter().ConvertFromProvider("not_a_category"));
+
+        exception.Message.ShouldBe("Invalid EnrichmentFailureCategory provider value.");
+    }
+
+    [Fact]
+    public void InvalidMovieIdProviderValue_UsesModelNameInExceptionMessage()
+    {
+        var exception = Should.Throw<InvalidOperationException>(() => new MovieIdConverter().ConvertFromProvider(0));
+
+        exception.Message.ShouldBe($"Invalid {typeof(MovieId).Name} provider value.");
+    }
 
     [Fact]
     public void EnrichmentFailureCategory_Null_IsPreserved() =>
