@@ -66,11 +66,12 @@ As a browsing user, I need every `MovieSort` key in both directions to place unk
 **Acceptance Scenarios** (Q2):
 
 1. **Given** an existing Id with full metadata **Then** `MovieDetails` maps Id/Title/Path/Format and every `MovieMetadata` member from its persisted column.
-2. **Given** an existing Id where every persisted source of a non-title `MovieMetadata` member is null or empty **Then** `Metadata` is null (D14).
-3. **Given** at least one non-title metadata source set and no `MetadataTitle` **Then** `Metadata` is built and `Metadata.Title` falls back to `Title` (D14).
-4. **Given** a missing Id **Then** null is returned.
-5. The Details query does not materialise the entity; a fresh context's ChangeTracker is empty afterwards (D19).
-6. **Given** a pre-cancelled token **Then** `OperationCanceledException` is thrown; the token reaches `FirstOrDefaultAsync` (D9).
+2. **Given** an existing Id where `MetadataTitle`, `Plot`, `ReleaseYear`, `RuntimeMinutes`, `ImdbRating` and `ImdbId` are all null **Then** `Metadata` is null (D14).
+3. **Given** only `MetadataTitle` set **Then** `Metadata` is title-only `MovieMetadata` with every optional member absent (D14).
+4. **Given** at least one other representable metadata scalar set and no `MetadataTitle` **Then** `Metadata` is built and `Metadata.Title` falls back to `Title`; persistence-only fields do not create or expand the DTO (D14).
+5. **Given** a missing Id **Then** null is returned.
+6. The Details query does not materialise the entity; a fresh context's ChangeTracker is empty afterwards (D19).
+7. **Given** a pre-cancelled token **Then** `OperationCanceledException` is thrown; the token reaches `FirstOrDefaultAsync` (D9).
 
 ### User Story 6 - Scoped DI Registration (Priority: P2)
 

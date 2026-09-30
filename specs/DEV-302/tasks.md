@@ -34,8 +34,9 @@ Note: T002–T008 share one source file and one test file. Run them sequentially
 
 - [ ] T012 `EfMovieCatalog.GetDetailsAsync`, forwarding the token to `FirstOrDefaultAsync(ct)`. Add `EfMovieCatalogDetailsTests.cs` with these cases:
   - full metadata;
-  - no metadata: every non-title metadata source is null or empty → `Metadata == null`;
-  - partial metadata: at least one non-title source set, `MetadataTitle` null → `Title` fallback;
+  - no metadata: `MetadataTitle`, `Plot`, `ReleaseYear`, `RuntimeMinutes`, `ImdbRating` and `ImdbId` all null → `Metadata == null`;
+  - title-only metadata: only `MetadataTitle` set → title-only `MovieMetadata`;
+  - partial metadata: at least one non-title scalar set, `MetadataTitle` null → `Title` fallback;
   - missing Id → null;
   - a fresh context's ChangeTracker is empty afterwards;
   - pre-cancelled token → `OperationCanceledException`.
