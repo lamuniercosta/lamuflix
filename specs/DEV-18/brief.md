@@ -2,9 +2,9 @@
 
 Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ.Client 7.x, declare quorum topology with TTL retry and DLQ, propagate W3C trace context, and write ADR-0004/0005.
 
-- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
-- Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, `recon-DEV-18-3`, and the Conductor's placement resolution of 2026-09-30.
-- Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). Q13 was ruled after the grill on Quill's `needs decision:` (D5). No owner checkbox: nothing changes the ticket text or departs from the constitution.
+- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
+- Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, `recon-DEV-18-3`, `recon-DEV-18-4` (its R3 conclusion is rejected by Q14), and the Conductor's placement resolution of 2026-09-30.
+- Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). Q13 and Q14 were ruled after the grill on Quill's `needs decision:` requests (D5, D6). No owner checkbox: nothing changes the ticket text or departs from the constitution.
 - The ticket text (YouTrack DEV-18, cited as T01–T23 in CONCLUSIONS.md) is authoritative. If this brief and the ticket disagree, the ticket wins and the disagreement is a defect in this brief.
 
 ## Solution facts this brief rests on
@@ -41,19 +41,38 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
     2. load the current movie data;
     3. call `Core.Ports.IMetadataProvider.FindAsync`;
     4. apply the result, or classify the exception and record the failure.
-  - **Outcome.** `ProcessEnrichmentOutcome` is either `Completed` or the existing `EnrichmentFailureDecision`. A false claim also counts as `Completed`: it is acked and ignored.
+  - **Outcome.** `ProcessEnrichmentOutcome` is either `Completed` or the existing `EnrichmentFailureDecision`. A false claim is acked and ignored, but it is reported as skipped (not claimed), never as successful enrichment (D6).
   - **Composition.** The handler composes the existing handlers' logic **through ports**. It never calls one handler from another. It adds no second retry policy, and no `Attempt < MaxAttempts` check outside the existing Core policy.
   - **Classification.** Use the existing `src/LamuFlix.Core/Features/Enrichment/EnrichmentFailureClassifier.cs:10-17`, the single classifier. `plan.md` cites it by file:line. Preserve cancellation: an `OperationCanceledException` from cancellation is never classified as a failure.
   - **Consumer.** The consumer creates a per-message `IServiceScope` and dispatches `ProcessEnrichmentCommand` through the composed `ICommandHandler<,>` (Validation, then Logging, then Tracing). It maps `Completed` to ack. It maps the decision to a routing key as in AC3, confirming before the ack.
-  - **Guarded activation.** Infrastructure's DI extension always registers the connection owner, the topology and the publisher. It registers the consumer hosted service and `ProcessEnrichmentCommandHandler` (via `AddHandler`) **only when an `IMetadataProvider` registration exists**. That check runs after provider registrations.
-    - With no provider, neither is registered, the Api starts, and one startup log line reports the consumer as inactive. Messages wait durably in `enrichment.requested`.
+  - **Guarded activation.** Infrastructure's DI extension always registers the connection owner, the topology and the publisher. It registers the consumer hosted service and `ProcessEnrichmentCommandHandler` (via `AddHandler`) **only when both `IMetadataProvider` and `IMovieRepository` registrations exist** (D6 supersedes the provider-only guard). That check runs after both registrations.
+    - With either port missing, neither is registered, the Api starts, and one startup log line reports the consumer as inactive. Messages wait durably in `enrichment.requested`.
     - No production stub or no-op provider is installed, and no message is consumed or acked while inactive.
     - A registered but misconfigured provider surfaces its own failure.
   - **Startup validation.** Development enables `ValidateOnBuild` and `ValidateScopes` by default; recon R4 is rejected on this point. Keep both enabled, and never disable them to make the guard work.
   - **ADR-0004** documents the activation boundary: the consumer is inactive until a provider is registered.
-  - **Proof.** AC3 tests run the real broker, the real consumer and the real `ProcessEnrichmentCommandHandler`, with a **Core-port fake `IMetadataProvider`** registered in the test host. That fake is not a RabbitMQ mock, so Q11 holds. The tests prove transport and processing, not the OMDb adapter.
+  - **Proof.** AC3 tests run the real broker, the real consumer and the real `ProcessEnrichmentCommandHandler`, with **Core-port fakes for `IMetadataProvider` and `IMovieRepository`** registered in the test host (D6). That fake is not a RabbitMQ mock, so Q11 holds. The tests prove transport and processing, not the OMDb adapter.
   - **Out of scope:** the OMDb implementation of `Core.Ports.IMetadataProvider`. Rigger files it, or folds it into an existing ticket, after a live dedup: parent DEV-282, `size:L`, 5 points, related to DEV-18 as the production activation prerequisite. The follow-up stays outside this chain.
 
+- **D6: Complete guard and lease-safe retry routing (Patron Q14, `d046b24`; recon-DEV-18-4 and DEV-301 on main).** No owner checkbox. DEV-299 Q1 and DEV-316 are not decided or preempted.
+  - **Guard.** Activation requires **both** `IMetadataProvider` and `IMovieRepository` registrations, checked after both are registered. Supporting options, `TimeProvider` and logging must also be resolvable.
+    - Either port missing: no processing handler, no consumer, one inactive-consumer startup log, and messages stay durably queued. Connection owner, topology and publisher are always registered.
+    - Production repository and DbContext wiring is **out of scope** (DEV-301 Q11 deferred it). Rigger dedups it live, then folds it into existing coverage or files a follow-up related to DEV-18 and DEV-301, outside this chain.
+  - **Routing (supersedes Q7 and AC3's `Retry -> requested`).**
+    - Both `Retry` and `RetryDelayed` republish persistently to `retry`. `DeadLetter` goes to `dead-letter`, unchanged.
+    - Core's decision and `NextAttempt` are preserved. Confirm and route before the ack.
+  - **Cross-option validation.**
+    - An Infrastructure `IValidateOptions` runs at startup **only when the consumer is active**. It requires an explicitly configured, positive `EnrichmentOptions.ClaimLease`.
+    - It requires a positive, representable broker TTL whose integer-millisecond value is **strictly greater** than ClaimLease. It validates the converted value, so rounding cannot erase the margin.
+    - The 30 s RetryDelay default stays. No ClaimLease default is invented, and neither value is silently adjusted.
+    - An active host with invalid options fails startup. `ValidateOnBuild` and `ValidateScopes` stay on.
+    - An inactive host needs no lease.
+  - **Honest proof.**
+    - AC3's fake repository implements DEV-301 FR-002: Pending status and a strict lease expiry (`LastAttemptAt == null || LastAttemptAt < now - ClaimLease`). A successful claim stamps `LastAttemptAt` and increments attempts, over a test `TimeProvider`.
+    - The test proves that a TTL-returned retry **reclaims and invokes the provider**, not just that a message moves between queues. No fake whose claim always succeeds is allowed.
+  - **Skipped claim.** A false claim is acked and ignored, but logged and reported as skipped (not claimed), never as success.
+    - An exception, cancellation, or failed or uncertain republish is never acked as success.
+  - **ADR-0004 limitation.** Crash redelivery, or competing work inside a lease, may be refused and acked. Recovery then depends on the deferred sweeper. ADR-0004 states this as a remaining limitation, not as recovery that exists.
 ## Closing bar
 
 Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
@@ -81,17 +100,16 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 - **AC3: TTL retry routing and DLQ (T10, T11, T21, Q6, Q7).**
   - The consumer runs on `AsyncEventingBasicConsumer` over an `IChannel` (T06), with prefetch set from `RabbitMqOptions.Prefetch`.
   - Core outcomes route as follows:
-    - Retry goes to `requested`.
-    - RetryDelayed goes to `retry`, and so comes back through the TTL.
+    - Retry **and** RetryDelayed both go to `retry`, and so come back through the TTL (D6 supersedes Q7's `Retry -> requested`).
     - DeadLetter goes to `dead-letter`.
   - The attempt policy stays in Core, with no second `Attempt < MaxAttempts` check in the adapter. `EnrichmentRequested.Attempt` is the counter on the wire, and its counting convention is preserved.
   - The original message is acked **only after** the republish is confirmed and routed. If the republish fails or its outcome is uncertain, the message is never acked as a success.
   - A message that cannot be deserialized is nacked with `requeue:false` and goes to the DLQ through the DLX.
   - On cancellation the message is requeued.
   - A movie is marked Failed only on the terminal path.
-  - Processing is dispatched to `ProcessEnrichmentCommandHandler` (D5). `Completed` means ack.
+  - Processing is dispatched to `ProcessEnrichmentCommandHandler` (D5). `Completed` means ack; a skipped (false) claim is acked and logged as skipped (D6).
   - Integration tests prove three things:
-    - a RetryDelayed outcome (for example a RateLimited category) comes back after the TTL, using a RetryDelay of about 1 s in the test;
+    - a Retry **and** a RetryDelayed outcome (for example a RateLimited category) each come back after the TTL, **reclaim** the movie through the lease-aware fake repository, and invoke the provider again. The test uses a ClaimLease shorter than the test RetryDelay (for example 500 ms and 1 s) over a test `TimeProvider`;
     - a terminal or non-retryable outcome lands in `enrichment.dead-letter`;
     - a malformed body lands in `enrichment.dead-letter`.
 - **AC4: W3C propagation (T15, T22, Q3, Q4).**
@@ -106,7 +124,7 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
     - the redelivery link.
 - **AC5: Options (Q6, Q9).**
   - `RabbitMqOptions` gains:
-    - `RetryDelay` (TimeSpan, default 30 s, positive, must convert to a TTL in int milliseconds);
+    - `RetryDelay` (TimeSpan, default 30 s, positive, must convert to a TTL in int milliseconds). When the consumer is active, the converted TTL must be strictly greater than `ClaimLease` (D6);
     - `Prefetch` (ushort, default 1, positive).
   - `MaxAttempts` stays in `EnrichmentOptions`.
   - Both are bound through `ServiceDefaults.AddLamuFlixOptions` with startup validation.
@@ -153,7 +171,7 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 - `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs`: add messaging activity and tag names only if the constants they need do not already exist.
 - `src/LamuFlix.Api`: wire the registration (`Program.cs` or the existing composition root) and add the `RabbitMq` section to the appsettings.
 - `tests/LamuFlix.IntegrationTests`: the broker tests for AC1–AC4.
-- `tests/LamuFlix.UnitTests`: `ProcessEnrichmentCommandHandler` over fake ports, covering a false claim, success, each classified failure path and cancellation. Also options validation, the pure outcome-to-routing mapping, and the guarded-registration rule with and without a provider. Any gap in the existing Core policy tests is extended there.
+- `tests/LamuFlix.UnitTests`: `ProcessEnrichmentCommandHandler` over fake ports, covering a false claim, success, each classified failure path and cancellation. Also options validation, the pure outcome-to-routing mapping, the guarded-registration rule (each port present or absent), and the D6 cross-option validator (unset, zero or negative ClaimLease; TTL equal to ClaimLease; a rounding edge; the valid case). Any gap in the existing Core policy tests is extended there.
 - `tests/LamuFlix.Tests.Common`: fixture changes only if a test needs them, for example exposing a connection helper.
 - `docs/adr/ADR-0004.md` and `docs/adr/ADR-0005.md`.
 - `CONTEXT.md`: glossary terms (retry queue, dead-letter queue, publisher confirm, traceparent) only if the file already has a glossary.
@@ -161,7 +179,9 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 **Out of scope. Each is a follow-up, never a finding in this round:**
 
 - implementing the sweeper (Q1);
-- the OMDb (or any real) `IMetadataProvider` implementation (D5, Q13);
+- the OMDb (or any real) `IMetadataProvider` implementation (D5, Q13; already covered by DEV-303);
+- production `IMovieRepository` and DbContext registration in Api (D6, Q14, DEV-301 Q11);
+- a claim-release port member, or any claim-handoff change (DEV-299 Q1 and DEV-316 stay open);
 - a transactional outbox;
 - deleting or editing the retired `src/LamuFlix.Web`, `src/LamuFlix.Worker`, `src/LamuFlix.Data` or `tests/LamuFlix.Test` (D1);
 - migrating or purging `task_queue`/`task_queue_dlq` on any broker (Q9);
@@ -178,8 +198,8 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 4. **Publisher.** Confirms, the mandatory flag, returns, and the propagation helper. Integration tests cover AC1 and AC4 (inject), including the path with no listener.
 5. **Core processing handler (D5).** `ProcessEnrichmentCommandHandler` with unit tests first, over fake ports. It has no broker dependency and can run in parallel with steps 3 and 4.
 6. **Consumer.** The async consumer, a per-message scope dispatching `ProcessEnrichmentCommand`, prefetch, outcome mapping, confirm before ack, malformed messages to the DLQ, and requeue on cancel. Integration tests cover AC3 and AC4 (extract and link), with a Core-port fake provider.
-7. **DI registration and Api wiring,** with provider-gated consumer activation (D5), plus the appsettings.
-8. **ADR-0004 and ADR-0005.** These have no code dependency and can run in parallel with steps 3–7. ADR-0004 includes the D5 activation boundary.
+7. **DI registration and Api wiring,** with consumer activation gated on both ports (D5, D6) and the cross-option validator, plus the appsettings.
+8. **ADR-0004 and ADR-0005.** These have no code dependency and can run in parallel with steps 3–7. ADR-0004 includes the D5 and D6 activation boundary and the D6 in-lease limitation.
 9. **Gates and refactor.** All AC8 gates, then the refactor pass that brings complexity down to ≤6.
 
 Ordering constraints:
