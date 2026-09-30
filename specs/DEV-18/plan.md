@@ -23,6 +23,7 @@ The consumer and the processing handler are registered only when an `IMetadataPr
 
 - `RabbitMQ.Client` 7.2.2 (netstandard2.0 and net8.0 targets; `Directory.Packages.props:9` moves from 6.8.1);
 - `OpenTelemetry.Api`, the latest stable 1.x that targets net8.0 or later. Wisp confirms the exact version at implementation and it is recorded in `Directory.Packages.props` (D4);
+- `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, central pin next to the `Microsoft.Extensions.*` 10.0.12 pins (`Directory.Packages.props:18-19`), versionless `PackageReference` in Infrastructure; no separate Abstractions reference, no `Microsoft.AspNetCore.App` in Infrastructure (D8a, Q16);
 - existing: FluentValidation, `Microsoft.Extensions.*`, Ardalis.SmartEnum.
 
 **Storage**: none new. RabbitMQ queues only. No schema change. The sweeper design (ADRs only) would use the existing `MovieRecord` columns `LastAttemptAt`, `EnrichmentAttempts` and `Status`.
@@ -83,7 +84,7 @@ docs/adr/
 ### Source Code (repository root)
 
 ```text
-Directory.Packages.props                                   # RabbitMQ.Client 7.2.2; add OpenTelemetry.Api
+Directory.Packages.props                                   # RabbitMQ.Client 7.2.2; add OpenTelemetry.Api and HealthChecks pins
 src/LamuFlix.Core/
 ├── Options/RabbitMqOptions.cs                             # + RetryDelay, Prefetch
 ├── Pipeline/TelemetryConstants.cs                         # + messaging names, only those missing
@@ -102,8 +103,11 @@ src/LamuFlix.Infrastructure/
     ├── EnrichmentConsumer.cs                              # BackgroundService
     ├── EnrichmentRouting.cs                               # outcome -> routing key (pure)
     ├── TraceContextCarrier.cs                             # header inject / extract (pure)
+    ├── RabbitMqHealthCheck.cs                             # new, readiness over the connection owner (D8)
     ├── RabbitMqConsumerOptionsValidator.cs                # IValidateOptions, D6
     └── RabbitMqServiceCollectionExtensions.cs             # registration and guard
+src/LamuFlix.ServiceDefaults/
+└── Extensions.cs                                          # edit: AddHealthChecks() only (Patron file-scope ruling)
 src/LamuFlix.Api/
 ├── Program.cs                                             # call the registration
 └── appsettings.json                                       # RabbitMq section, no secrets
@@ -118,8 +122,8 @@ tests/LamuFlix.Tests.Common/                               # only if a test need
 
 ### D-1. Packages (D4; FR-030)
 
-- `Directory.Packages.props`: `RabbitMQ.Client` 6.8.1 → 7.2.2 (line 9). Add an `OpenTelemetry.Api` pin.
-- `LamuFlix.Infrastructure.csproj`: add both `PackageReference`s. `Testcontainers.RabbitMq` 4.15.0 needs `RabbitMQ.Client >= 6.8.1`, which 7.2.2 meets.
+- `Directory.Packages.props`: `RabbitMQ.Client` 6.8.1 → 7.2.2 (line 9). Add an `OpenTelemetry.Api` pin and a `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12 pin.
+- `LamuFlix.Infrastructure.csproj`: add all three `PackageReference`s (HealthChecks versionless). `Testcontainers.RabbitMq` 4.15.0 needs `RabbitMQ.Client >= 6.8.1`, which 7.2.2 meets.
 - `Tests.Common` keeps its existing `RabbitMQ.Client` reference. The integration tests use it as the test consumer and reader. Nothing else references either package.
 - The solution still builds after this step, because nothing built uses the 6.x API.
 
@@ -184,12 +188,19 @@ tests/LamuFlix.Tests.Common/                               # only if a test need
 
 ### D-7. Registration and Api wiring (D5, D6; FR-021, FR-022, FR-024)
 
-- `RabbitMqServiceCollectionExtensions.AddLamuFlixRabbitMq(...)` always registers the connection owner, topology and publisher (as `IEnrichmentQueue`), and sets the propagator.
+- `RabbitMqServiceCollectionExtensions.AddLamuFlixRabbitMq(...)` always registers the connection owner, topology and publisher (as `IEnrichmentQueue`), sets the propagator, and registers `RabbitMqHealthCheck` with the `ready` tag on this always path, not behind the D5/D6 guard (D-9).
 - It then checks the `IServiceCollection` for both an `IMetadataProvider` and an `IMovieRepository` descriptor. **The call must come after both registrations.** If either is absent, it registers neither the consumer nor the handler. No logger exists during registration, so it registers a small hosted service, declared in `RabbitMqServiceCollectionExtensions.cs` (no new file), that logs the "consumer inactive" line once in `StartAsync`. A unit test asserts exactly one line.
 - If both are present, it registers the handler with `AddHandler<ProcessEnrichmentCommandHandler, ProcessEnrichmentCommand, ProcessEnrichmentOutcome>()`, the consumer as a hosted service, and the cross-option validator with `ValidateOnStart`.
 - Supporting options, `TimeProvider` and logging must be resolvable on the active path. `ValidateOnBuild` and `ValidateScopes` are never disabled.
 - `Program.cs` (`src/LamuFlix.Api/Program.cs:5-10`) calls the extension. `appsettings.json` gains a `RabbitMq` section with no secrets; the password comes from user-secrets or the environment.
 - Production wiring of `IMovieRepository` and the DbContext, and the OMDb `IMetadataProvider`, are not in this ticket. Until one of each exists, the Api runs with the consumer inactive.
+
+### D-9. Readiness check (D8, D8a; FR-033, FR-034)
+
+- `RabbitMqHealthCheck : IHealthCheck` reuses the shared connection owner and the cancellation token it is given. It never publishes or consumes. On a connection failure it returns Unhealthy with a fixed description: no credentials, no raw exception text.
+- It is registered in `RabbitMqServiceCollectionExtensions` on the always path: `AddHealthChecks().AddCheck<RabbitMqHealthCheck>(..., tags: ready)`. It is active whether or not the consumer is.
+- `ServiceDefaults.AddServiceDefaults` gains one `AddHealthChecks()` call, and the Api does not duplicate it. This edit is Patron's file-scope ruling (Q15, Q16).
+- The `/health/live` and `/health/ready` endpoints stay unmapped (pre-existing gap, Q15 follow-up). The check is registered, not reachable over HTTP, and constitution VI endpoint alignment is not claimed.
 
 ### D-8. ADRs (AC7; FR-031)
 
