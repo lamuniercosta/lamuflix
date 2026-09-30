@@ -2,7 +2,7 @@
 
 **Branch**: `feature/018-spec` | **Date**: 2026-09-30 | **Spec**: [spec.md](spec.md)
 
-**Input**: `specs/DEV-18/spec.md`, `brief.md` (D1-D6, AC1-AC8), `CONCLUSIONS.md` (Q1-Q14), notes `recon-DEV-18`, `-2`, `-3`, `-4`
+**Input**: `specs/DEV-18/spec.md`, `brief.md` (D1-D9, AC1-AC8), `CONCLUSIONS.md` (Q1-Q16), notes `recon-DEV-18`, `-2`, `-3`, `-4`, `recon-DEV-18-5`
 
 ## Summary
 
@@ -56,7 +56,7 @@ The consumer and the processing handler are registered only when an `IMetadataPr
 | VI. Observability across processes | **Aligned.** Producer and consumer activities on the `LamuFlix` source, W3C inject and extract, a link on redelivery, names from `TelemetryConstants`. |
 | VII. Configuration isolation and deterministic time | **Aligned.** Options are bound through `ServiceDefaults.AddLamuFlixOptions` (`Extensions.cs:18-27`). The handler and tests use `TimeProvider`. |
 | IX. Test pyramid with real infrastructure | **Aligned.** Real broker and real consumer. Fakes only at the Core ports for provider and repository, in place of WireMock and Postgres (IX:299-300), on the basis of Q13 and Q14. |
-| Enrichment reliability rules | **Aligned with a declared limit.** Confirm before ack, `requeue:false` for poison, requeue on cancel. In-lease crash redelivery may be refused and acked; ADR-0004 states it depends on the deferred sweeper. |
+| Enrichment reliability rules | **Aligned with a declared limit.** Confirm before ack, `requeue:false` for poison, a failed or uncertain republish and any unexpected exception (dead-lettered, movie not marked Failed by the consumer), requeue on cancel. In-lease redelivery (crash or graceful shutdown) may be refused and acked, and a dead-lettered failure leaves the movie Pending; ADR-0004 states both depend on the deferred sweeper. |
 | New dependency needs a ruling | **Met.** `RabbitMQ.Client` bump and `OpenTelemetry.Api` (Q3, D4). |
 | Schema change, new project, new layer | **None.** |
 
@@ -87,9 +87,10 @@ docs/adr/
 Directory.Packages.props                                   # RabbitMQ.Client 7.2.2; add OpenTelemetry.Api and HealthChecks pins
 src/LamuFlix.Core/
 ├── Options/RabbitMqOptions.cs                             # + RetryDelay, Prefetch
-├── Pipeline/TelemetryConstants.cs                         # + messaging names, only those missing
+├── Pipeline/TelemetryConstants.cs                         # + messaging names, only those missing (plain const string)
 └── Features/Enrichment/
     ├── ProcessEnrichmentCommand.cs                        # new
+    ├── ProcessEnrichmentCommandValidator.cs               # new, FluentValidation (D5, D9 Risk F4)
     ├── ProcessEnrichmentCommandHandler.cs                 # new
     ├── ProcessEnrichmentOutcome.cs                        # new
     ├── EnrichmentRetryPolicy.cs                           # new, pure rule extracted (D7)
@@ -116,9 +117,11 @@ tests/LamuFlix.IntegrationTests/                           # topology, publisher
 tests/LamuFlix.Tests.Common/                               # only if a test needs a connection helper
 ```
 
-**Structure Decision**: the existing four-project layout. Names are final here (brief: Quill finalizes file names in `plan.md`). Core holds the records, ports and the processing handler. Infrastructure holds every RabbitMQ and OpenTelemetry type. The Api hosts the consumer and adds no code besides the registration call and settings. `CONTEXT.md` gets glossary terms (retry queue, dead-letter queue, publisher confirm, traceparent) unconditionally, because it already has a glossary (`CONTEXT.md:44-48`, constitution VIII:277).
+**Structure Decision**: the existing four-project layout. `RabbitMq` casing is the repo convention (it matches `RabbitMqOptions`). Names are final here (brief: Quill finalizes file names in `plan.md`). Core holds the records, ports and the processing handler. Infrastructure holds every RabbitMQ and OpenTelemetry type. The Api hosts the consumer and adds no code besides the registration call and settings. `CONTEXT.md` gets glossary terms (retry queue, dead-letter queue, publisher confirm, traceparent) unconditionally, because it already has a glossary (`CONTEXT.md:44-48`, constitution VIII:277).
 
 ## Design
+
+Plan D-n numbers are the plan's own; brief decisions are cited as Dn.
 
 ### D-1. Packages (D4; FR-030)
 
@@ -130,6 +133,7 @@ tests/LamuFlix.Tests.Common/                               # only if a test need
 ### D-2. Options (AC5; FR-023, FR-024, FR-025)
 
 - `RabbitMqOptions`: add `RetryDelay` (`TimeSpan`, default 30 s, `[Range]`-style positive check, must convert to an `int` millisecond TTL) and `Prefetch` (`ushort`, default 1, positive). The validation is a data-annotations or `IValidatableObject` rule, so `AddLamuFlixOptions` (`Extensions.cs:23`) picks it up with `ValidateOnStart`.
+- `RabbitMqOptions` is a `sealed record` with `Password`, so it redacts `Password` in its generated printing: override `PrintMembers` (or `ToString`) so the output shows `Password = ***` (D9 Risk F3, FR-036). Nothing logs `RabbitMqOptions` as a whole.
 - `MaxAttempts` stays in `EnrichmentOptions` (`EnrichmentOptions.cs:13`). `ClaimLease` (`:17`) has no default and keeps none.
 - The D6 cross-option check is Infrastructure's `RabbitMqConsumerOptionsValidator : IValidateOptions<...>`. It is registered only on the active path (D-7):
   - `ClaimLease` explicitly set and greater than zero (an unset value is `TimeSpan.Zero`, so zero is the unset signal and is rejected);
@@ -154,10 +158,10 @@ tests/LamuFlix.Tests.Common/                               # only if a test need
 ### D-4. Publisher and propagation (AC1, AC4; FR-001 to FR-004, FR-027, FR-028)
 
 - `RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue` serializes `EnrichmentRequested` (System.Text.Json) and publishes persistent, mandatory messages to `lamuflix.enrichment` with key `requested`. Each call creates a channel with `publisherConfirmationsEnabled` and `publisherConfirmationTrackingEnabled`, and disposes it.
-- A nack, a return (unroutable) or a connection failure surfaces as an exception. A return is detected through the client's returned-message event on that channel, so the failure does not depend on the confirm alone.
+- A nack, a return (unroutable) or a connection failure surfaces as an exception. A per-publish returned flag is set from the return event (or the client surfaces a return as an exception under confirmation tracking). The publisher awaits the confirm, then checks the flag, and disposes the channel only after both have settled. A confirm timeout or cancellation is uncertain and fails the call (Q10; D9 Risk F2).
 - The republish path in the consumer calls the same publish method with a different key (and the next attempt). There is no second publish implementation.
 - `TraceContextCarrier` (pure): injects `traceparent` and, when present, `tracestate` into `BasicProperties.Headers`, and extracts them.
-- The propagator: `Propagators.DefaultTextMapPropagator` is set to the API's `TraceContextPropagator` before first use (it is a no-op until configured). This happens in the registration extension (D-7, D7), not in the carrier and not in a second telemetry stack.
+- The propagator: `Propagators.DefaultTextMapPropagator` is set to the API's `TraceContextPropagator` before first use (it is a no-op until configured). This happens in the registration extension (D-7, D7), not in the carrier and not in a second telemetry stack. Caveat: the assignment is idempotent (the same `TraceContextPropagator` each time), so tests must not set a different global propagator (D9 Risk F5, note only).
 - The publisher starts an `ActivityKind.Producer` span named `Enrichment.Enqueue` from the `LamuFlix` source (`TelemetryConstants.cs:5`, `ActivitySourceName`), with attribute `lamuflix.movie.id`. If `StartActivity` returns null because no listener exists, the publisher injects `Activity.Current` if there is one, otherwise a newly created W3C context. The ordinary path never depends on a test listener.
 
 ### D-5. Core processing handler (D5; FR-017 to FR-020)
@@ -174,7 +178,7 @@ tests/LamuFlix.Tests.Common/                               # only if a test need
 - The handler composes the existing handlers' logic through ports and never calls another handler. A second copy of the retry decision would be a second policy (ADR-0017, D5), so the rule is extracted (required by D7): `EnrichmentRetryPolicy.cs` takes the pure rule from `RecordEnrichmentFailureCommandHandler.cs:39-45` (`IsRetry`, `RetryAction`). Its one function takes the category, the attempt and `MaxAttempts`, and returns the retry `EnrichmentFailureDecision` (`Retry` or `RetryDelayed`, `NextAttempt = Attempt + 1`) or null when the path is terminal. It is `internal static` if `LamuFlix.UnitTests` sees internals, otherwise `public static`. Both handlers call it. The edit to the Record handler replaces two private members, preserves behaviour, and its existing tests stay green unchanged. This is the only Core addition beyond the D5 files.
 - Cancellation: `EnrichmentFailureClassifier` rethrows a cancellation (`EnrichmentFailureClassifier.cs:92-102`), so the handler lets an `OperationCanceledException` tied to its own token propagate. It is never turned into a failure.
 - `Claimed` names what happened: false means the claim was refused and the message is skipped.
-- A validator is added only if the pipeline convention requires one (`ValidationDecorator` takes the registered `IValidator<TReq>` set, and none is required).
+- `ProcessEnrichmentCommandValidator` (FluentValidation, beside the command) is required (D9 Risk F4, FR-035): `MovieId` is not the default value, and `Attempt` is at or above the floor of 1 that the existing enqueue handlers use: `RequestEnrichmentCommandHandler.cs:24`, `RequeueStrandedMoviesCommandHandler.cs:16` and `ImportMovieFolderCommandHandler.cs:22` each enqueue `new EnrichmentRequested(id, 1)`. A validation failure is an exception and takes the D-6 dead-letter path.
 
 ### D-6. Consumer (AC3, AC4; FR-009 to FR-016, FR-029)
 
@@ -183,8 +187,8 @@ tests/LamuFlix.Tests.Common/                               # only if a test need
 - `EnrichmentRouting` (pure) maps the outcome: `Completed` → ack; skipped claim → ack plus a skipped log; `Retry` and `RetryDelayed` → `retry` with `NextAttempt`; `DeadLetter` → `dead-letter`. Both retry actions use the TTL queue so a retry cannot arrive before the lease can expire (D6).
 - Republish goes through the publisher. Ack the original only after the republish is confirmed and routed. On a failed or uncertain republish: no success ack.
 - Malformed body: `BasicNack(requeue: false)` so the dead-letter exchange routes it to `enrichment.dead-letter`.
-- Cancellation: requeue (`BasicNack(requeue: true)`). Any other exception is not a success ack.
-- Telemetry names (`Enrichment.Enqueue`, `Enrichment.Process`, `lamuflix.movie.id`, `messaging.rabbitmq.delivery_count`, `error.type`) come from `TelemetryConstants`; add only the ones that are missing (constitution VI:225-231). Every processing log carries the movie id, the attempt and, where one applies, the category. A skipped claim writes a distinct skipped log event and sets the outcome tag to skipped, never enriched. No metric instruments.
+- Cancellation: requeue (`BasicNack(requeue: true)`). After a failed or uncertain republish, and after any other exception (an unclassified exception or a validation failure), `BasicNack(requeue: false)`: the dead-letter exchange routes the original to `enrichment.dead-letter`, and the consumer does not mark the movie Failed (it stays as the handler left it: Pending on a retry path, already Failed on the terminal path). Cancellation is the only `requeue: true` case (D9 Risk F1, FR-015).
+- Telemetry names (`Enrichment.Enqueue`, `Enrichment.Process`, `lamuflix.movie.id`, `messaging.rabbitmq.delivery_count`, `error.type`) come from `TelemetryConstants`; add only the ones that are missing (constitution VI:225-231). The additions are plain `const string`, with no OpenTelemetry type or using in Core; the existing Core-must-not-reference-OpenTelemetry architecture test covers them. Every processing log carries the movie id, the attempt and, where one applies, the category. A skipped claim writes a distinct skipped log event and sets the outcome tag to skipped, never enriched. No metric instruments.
 
 ### D-7. Registration and Api wiring (D5, D6; FR-021, FR-022, FR-024)
 
@@ -195,18 +199,18 @@ tests/LamuFlix.Tests.Common/                               # only if a test need
 - `Program.cs` (`src/LamuFlix.Api/Program.cs:5-10`) calls the extension. `appsettings.json` gains a `RabbitMq` section with no secrets; the password comes from user-secrets or the environment.
 - Production wiring of `IMovieRepository` and the DbContext, and the OMDb `IMetadataProvider`, are not in this ticket. Until one of each exists, the Api runs with the consumer inactive.
 
-### D-9. Readiness check (D8, D8a; FR-033, FR-034)
-
-- `RabbitMqHealthCheck : IHealthCheck` reuses the shared connection owner and the cancellation token it is given. It never publishes or consumes. On a connection failure it returns Unhealthy with a fixed description: no credentials, no raw exception text.
-- It is registered in `RabbitMqServiceCollectionExtensions` on the always path: `AddHealthChecks().AddCheck<RabbitMqHealthCheck>(..., tags: ready)`. It is active whether or not the consumer is.
-- `ServiceDefaults.AddServiceDefaults` gains one `AddHealthChecks()` call, and the Api does not duplicate it. This edit is Patron's file-scope ruling (Q15, Q16).
-- The `/health/live` and `/health/ready` endpoints stay unmapped (pre-existing gap, Q15 follow-up). The check is registered, not reachable over HTTP, and constitution VI endpoint alignment is not claimed.
-
 ### D-8. ADRs (AC7; FR-031)
 
 - `docs/adr/ADR-0004.md`: topology, retry queue, DLQ and sweeper design. Context and consequences also cover the client-7 async model, publisher confirms, trace propagation, the cutover with no migration of old queues, the activation boundary (inactive until both ports exist), and the limitation that crash redelivery or competing work inside a lease may be refused and acked, so recovery depends on the deferred sweeper.
 - `docs/adr/ADR-0005.md`: dual-write mitigation, sweeper now and a transactional outbox as a stretch.
 - Both are `Status: Accepted` (the merge is the acceptance) and both state that DEV-18 records the sweeper design without implementing it. Existing ADRs use the same status (`ADR-0006.md:3`, `ADR-0010.md:3`).
+
+### D-9. Readiness check (D8, D8a; FR-033, FR-034)
+
+- `RabbitMqHealthCheck : IHealthCheck` reuses the shared connection owner and the cancellation token it is given. Its connection attempt is bounded by that token and by the connection factory's `RequestedConnectionTimeout`, with no retry without a bound. It never publishes or consumes. On a connection failure it returns Unhealthy with a fixed description: no credentials, no raw exception text.
+- It is registered in `RabbitMqServiceCollectionExtensions` on the always path: `AddHealthChecks().AddCheck<RabbitMqHealthCheck>(..., tags: ready)`. It is active whether or not the consumer is.
+- `ServiceDefaults.AddServiceDefaults` gains one `AddHealthChecks()` call, and the Api does not duplicate it. This edit is Patron's file-scope ruling (Q15, Q16).
+- The `/health/live` and `/health/ready` endpoints stay unmapped (pre-existing gap, Q15 follow-up). The check is registered, not reachable over HTTP, and constitution VI endpoint alignment is not claimed.
 
 ## Test Strategy
 

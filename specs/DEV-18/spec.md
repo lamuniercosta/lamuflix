@@ -8,7 +8,7 @@
 
 **Input**: DEV-18 (parent DEV-283): "Upgrade to RabbitMQ.Client 7.x (async API), declare resilient queue topology (quorum, TTL retry, DLQ), inject OpenTelemetry trace headers, and write ADR-0004/0005."
 
-Alignment: `brief.md` (closing bar AC1-AC8, decisions D1-D6, frozen scope) and `CONCLUSIONS.md` (Q1-Q14). This spec restates those decisions as requirements and adds nothing to them. The ticket text (T01-T23) wins over this spec if they disagree.
+Alignment: `brief.md` (closing bar AC1-AC8, decisions D1-D9, frozen scope) and `CONCLUSIONS.md` (Q1-Q16; Q17 once ruled). This spec restates those decisions as requirements and adds nothing to them. The ticket text (T01-T23) wins over this spec if they disagree.
 
 ## Clarifications
 
@@ -21,6 +21,8 @@ The grill is closed: 12 of 12 questions were answered, and Q13 and Q14 were rule
 - Q: What happens when no metadata provider or no movie repository is registered? → A: the consumer and the processing handler are not registered. The Api starts, logs once that the consumer is inactive, and messages wait in `enrichment.requested` (D5, D6).
 - Q: Where does a retryable failure go? → A: both `Retry` and `RetryDelayed` go to the retry queue, so a retry never arrives before the claim lease can expire (D6, Q14, which supersedes Q7's `Retry -> requested`).
 - Q: Is the OMDb provider or the production repository part of this ticket? → A: no. Each is a follow-up that Rigger files or folds into existing coverage (D5, D6).
+- Q: Does the readiness check come with health endpoints? → A: no. The check is registered, and the `/health/live` and `/health/ready` endpoints stay deferred to a follow-up (Q15).
+- Q: Which package carries the readiness check? → A: `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, centrally pinned and referenced by Infrastructure (Q16, D8a).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -117,7 +119,8 @@ A maintainer reads two decision records that explain the topology, the retry and
 ### Edge Cases
 
 - A republish is confirmed by the broker but the process dies before the ack: the original is redelivered, so a duplicate is possible. The claim and idempotency behavior in Core absorbs it. Exactly-once delivery is not claimed.
-- Crash redelivery, or competing work, inside a live lease: the claim is refused and the message is acked as skipped. Recovery then depends on the deferred sweeper (stated in ADR-0004).
+- Crash redelivery, graceful shutdown, or competing work inside a live lease: the claim is refused and the message is acked as skipped. Recovery then depends on the deferred sweeper (stated in ADR-0004).
+- A failed republish or an unexpected exception: the original is dead-lettered (`BasicNack(requeue: false)`) and the movie is left `Pending`. Dead-lettering on delivery-limit exhaustion also leaves the movie `Pending`. All of these are recovered only by the deferred sweeper, as ADR-0004's Limitation bullet states.
 - `RetryDelay` so large it cannot become an integer number of milliseconds: startup fails, whether or not the consumer is active, because the topology always declares the TTL.
 - The broker holds messages in the old `task_queue` and `task_queue_dlq`: they are not migrated or purged (Q9).
 - A message with a valid `traceparent` but no `tracestate`: only `traceparent` is sent. A `tracestate` is never made up.
@@ -150,8 +153,8 @@ A maintainer reads two decision records that explain the topology, the retry and
 - **FR-012**: A `Retry` or `RetryDelayed` decision MUST be republished persistently to the `retry` key with the decision's `NextAttempt`. A `DeadLetter` decision MUST be republished persistently to the `dead-letter` key. The original MUST be acked only after the republish is confirmed and routed.
 - **FR-013**: The consumer MUST NOT hold any second attempt-limit check. `EnrichmentRequested.Attempt` is the counter on the wire, and Core's counting convention is kept.
 - **FR-014**: A message that cannot be deserialized MUST be rejected with `requeue: false` so that it reaches the dead-letter queue.
-- **FR-015**: On cancellation the message MUST be requeued. An exception, a cancellation, or a failed or uncertain republish MUST never be acked as a success.
-- **FR-016**: A movie MUST be marked Failed, and saved, only on the terminal path. The retry path writes nothing, because the claim already stamped the attempt.
+- **FR-015**: On cancellation the message MUST be requeued (`requeue: true`). After a failed or uncertain republish, and after any exception other than cancellation (including a validation failure), the consumer MUST `BasicNack(requeue: false)`, so the original reaches `enrichment.dead-letter` through the dead-letter exchange, and MUST NOT mark the movie Failed. None of these cases may be acked as a success (D9 Risk F1).
+- **FR-035**: `ProcessEnrichmentCommand` MUST be validated (FluentValidation, beside the command): `MovieId` is not the default value, and `Attempt` is at or above the existing enqueue floor of 1. A validation failure is an exception and takes the FR-015 dead-letter path (D9 Risk F4).
 
 **Core processing (D5, Q13)**
 
@@ -159,6 +162,7 @@ A maintainer reads two decision records that explain the topology, the retry and
 - **FR-018**: The handler MUST claim before lookup, load the current movie, call `IMetadataProvider.FindAsync`, then apply the result. A provider `Failed(category)` uses its own category; only an exception is classified. The retry-or-terminal rule is one shared Core rule, used by this handler and the existing failure handler. It composes the existing logic through ports and MUST NOT call another handler.
 - **FR-019**: The handler MUST use the existing `EnrichmentFailureClassifier` as the only classifier, add no retry policy of its own, and MUST NOT classify a cancellation as a failure.
 - **FR-020**: The lookup MUST take its year from the movie's metadata, which is unset before the first enrichment.
+- **FR-016**: A movie MUST be marked Failed, and saved, only on the terminal path. The retry path writes nothing, because the claim already stamped the attempt.
 
 **Activation and options (AC5, AC6; Q6, Q9, Q10, Q13, Q14)**
 
@@ -168,6 +172,7 @@ A maintainer reads two decision records that explain the topology, the retry and
 - **FR-024**: Both options MUST be bound and validated at startup through the existing options registration. Nothing reads raw configuration, no host or secret value is hardcoded as a fallback, and the Api settings gain a `RabbitMq` section without secrets.
 - **FR-025**: When the consumer is active, startup validation MUST require an explicitly set, positive `EnrichmentOptions.ClaimLease` and a converted integer-millisecond retry TTL strictly greater than it. No default is invented and neither value is adjusted. An inactive host needs no lease.
 - **FR-026**: There MUST be one process-owned, asynchronously initialized connection. A failed initialization MUST surface and MUST NOT stick. Shutdown and disposal belong to the owner, and cancellation is propagated.
+- **FR-036**: `RabbitMqOptions` MUST NOT print `Password` in its generated `ToString` or `PrintMembers` (it shows `***`), and nothing logs `RabbitMqOptions` as a whole (D9 Risk F3).
 
 **Tracing (AC4; T15, T22; Q3, Q4)**
 
@@ -177,7 +182,7 @@ A maintainer reads two decision records that explain the topology, the retry and
 
 **Packages and boundaries (D4)**
 
-- **FR-030**: `RabbitMQ.Client` MUST be pinned to `7.2.2`, and `OpenTelemetry.Api` MUST be added as the only new telemetry package, both centrally. Only Infrastructure references `OpenTelemetry.Api`. Core MUST reference neither RabbitMQ nor OpenTelemetry.
+- **FR-030**: `RabbitMQ.Client` MUST be pinned to `7.2.2`, and `OpenTelemetry.Api` MUST be added as the only new telemetry package, both centrally. `Microsoft.Extensions.Diagnostics.HealthChecks` MUST have a central pin at 10.0.12 and a versionless reference in Infrastructure (D8a). Only Infrastructure references `OpenTelemetry.Api`. Core MUST reference neither RabbitMQ nor OpenTelemetry.
 
 **Decision records (AC7; T16-T18, T23)**
 
@@ -185,9 +190,12 @@ A maintainer reads two decision records that explain the topology, the retry and
 
 **Gates (AC8; Q12)**
 
+- **FR-032**: Every configured gate MUST pass or be reported as SKIP. A gate that was skipped or could not run is never reported as PASS.
+
+**Readiness (D8, D8a; Q15, Q16)**
+
 - **FR-033**: The RabbitMQ adapter MUST register an `IHealthCheck`, `RabbitMqHealthCheck`, tagged `ready`, over the shared connection owner, whenever the owner and publisher are registered, including when the consumer is inactive. It MUST report Unhealthy on a broker connection failure, never publish or consume, and never put credentials or raw exception text in the result (constitution VI:232-234, IV).
 - **FR-034**: `ServiceDefaults` `AddServiceDefaults` MUST call `AddHealthChecks()` once, and the Api MUST NOT duplicate it.
-- **FR-032**: Every configured gate MUST pass or be reported as SKIP. A gate that was skipped or could not run is never reported as PASS.
 
 ### Key Entities
 
