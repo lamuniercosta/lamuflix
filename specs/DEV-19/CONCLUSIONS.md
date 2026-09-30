@@ -110,3 +110,9 @@
 
 - D2 basis: `brief.md:183-192`; `DomainConversion.Require` yields the same exception when a failed lookup's null result is selected, so the boolean mutation is equivalent. The nullable `FindKnownCode` helper preserves behavior while removing the mutant; tests assert the invalid-code exception message and preserve the supported `unknown` category.
 - D3 basis: DEV-19 FR-008/FR-009 and `brief.md:194-207`; verify the five movie indexes by properties, uniqueness, and filter, and ensure Actors, Directors, and Genres have no secondary indexes. EF-generated database names remain unchanged; no schema migration is authorized.
+
+## Q9 addendum — xunit.v3.extensibility.core dependency approval
+
+**ACCEPT under care list 1.** Approve the addition of central pin xunit.v3.extensibility.core 4.0.1 in Directory.Packages.props and its reference in LamuFlix.IntegrationTests and LamuFlix.Tests.Common.
+
+Basis: CONCLUSIONS.md:69-71 (Q9) approved aligning integration tests with the existing centrally-pinned xUnit v3 4.0.1 test stack; xunit.v3.extensibility.core supplies IAsyncLifetime for PostgresFixture and introduces no new framework, version deviation, or foreign dependency.
