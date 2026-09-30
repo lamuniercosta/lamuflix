@@ -73,6 +73,22 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
   - **Skipped claim.** A false claim is acked and ignored, but logged and reported as skipped (not claimed), never as success.
     - An exception, cancellation, or failed or uncertain republish is never acked as success.
   - **ADR-0004 limitation.** Crash redelivery, or competing work inside a lease, may be refused and acked. Recovery then depends on the deferred sweeper. ADR-0004 states this as a remaining limitation, not as recovery that exists.
+
+- **D7: Plan decisions from analyze round 1 (Keel).** These settle the points `plan.md` left open at `136a10c`. None of them is a §2.3 trigger.
+  - **Shared retry decision (required, not optional).** Duplicating the policy is forbidden (D5) and so is calling another handler, so extraction is the only conforming option.
+    - Move the pure rule at `RecordEnrichmentFailureCommandHandler.cs:39-45` (`IsRetry`, `RetryAction`) into one new Core file, `src/LamuFlix.Core/Features/Enrichment/EnrichmentRetryPolicy.cs`. It is an `internal static` class, and `LamuFlix.UnitTests` already sees internals if this repo grants that; otherwise make it `public static`.
+    - Its one function takes the category, the attempt and `MaxAttempts`. It returns the retry `EnrichmentFailureDecision` (`Retry` or `RetryDelayed`, `NextAttempt = Attempt + 1`), or null when the path is terminal.
+    - Both handlers call it. The edit to `RecordEnrichmentFailureCommandHandler.cs` is behaviour-preserving: it replaces two private members, and its existing tests stay green unchanged. That is an edit, not a rewrite (§2.3 item 6 is not triggered). The new file is the only Core addition beyond the D5 files.
+  - **Terminal path persistence.** On the terminal path `ProcessEnrichmentCommandHandler` calls `MarkFailed(category, time.GetUtcNow())` on the movie it already loaded, calls `SaveChangesAsync`, and returns `DeadLetter` with a null `NextAttempt`, as `RecordEnrichmentFailureCommandHandler.cs:30-35` does. On a retry path it writes nothing: the claim already stamped the attempt.
+  - **Categories.** A provider result that already carries a category uses that category. Only an exception goes through `EnrichmentFailureClassifier.Classify`. A cancellation on the handler's token propagates (`EnrichmentFailureClassifier.cs:92-102` rethrows it).
+  - **Skipped shape (Quill plan note 1: accepted).** A flag on `Completed` conforms to D5 ("`Completed` or the existing decision"). Name it by what happened, `Claimed` (false = skipped), not by success.
+    - The consumer writes a distinct skipped log event and sets the outcome tag to skipped, never to enriched.
+    - Every processing log carries the movie id, the attempt and, where one applies, the category (constitution VI).
+  - **Propagator location.** `Propagators.DefaultTextMapPropagator` is set in the DI registration extension (plan D-7), not in the carrier.
+  - **Inactive log mechanism.** No logger exists during service registration. On the inactive path the extension registers a small hosted service that logs the inactive line once in `StartAsync`, declared in `RabbitMqServiceCollectionExtensions.cs`, so no file is added. A unit test asserts exactly one line.
+  - **Telemetry names.** Use the constitution VI names: span `Enrichment.Enqueue` (producer) and `Enrichment.Process` (consumer); attributes `lamuflix.movie.id`, `messaging.rabbitmq.delivery_count` and `error.type`. Add them to `TelemetryConstants` only where they are missing. No metric instruments: the ticket does not name them.
+  - **Glossary.** `CONTEXT.md` already has a glossary (`CONTEXT.md:44-48`), so the glossary task is unconditional (constitution VIII).
+
 ## Closing bar
 
 Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
@@ -166,7 +182,7 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
   - the DI registration extension.
 
   Quill finalizes file names in `plan.md`.
-- `src/LamuFlix.Core/Features/Enrichment/`: `ProcessEnrichmentCommand`, `ProcessEnrichmentCommandHandler` and `ProcessEnrichmentOutcome`, plus a validator if the pipeline convention requires one (D5). No other Core enrichment file is edited unless `plan.md` justifies it by file:line.
+- `src/LamuFlix.Core/Features/Enrichment/`: `ProcessEnrichmentCommand`, `ProcessEnrichmentCommandHandler` and `ProcessEnrichmentOutcome`, plus a validator if the pipeline convention requires one (D5), and `EnrichmentRetryPolicy.cs` with the behaviour-preserving edit to `RecordEnrichmentFailureCommandHandler.cs:39-45` (D7). No other Core enrichment file is edited unless `plan.md` justifies it by file:line.
 - `src/LamuFlix.Core/Options/RabbitMqOptions.cs`: add `RetryDelay` and `Prefetch`, with validation. Core stays free of RabbitMQ and OpenTelemetry references.
 - `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs`: add messaging activity and tag names only if the constants they need do not already exist.
 - `src/LamuFlix.Api`: wire the registration (`Program.cs` or the existing composition root) and add the `RabbitMq` section to the appsettings.
@@ -204,7 +220,7 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 
 Ordering constraints:
 
-- Step 3 comes before steps 4 and 5, because both call the one topology owner.
+- Step 3 comes before steps 4 and 6, because both call the one topology owner. (Corrected in analyze round 1: step 5 has no broker dependency.)
 - Step 4 comes before step 6's republish path, because the republish reuses the publisher's confirm and mandatory logic. There must be no second publish implementation.
 - Step 5 comes before step 6, because the consumer dispatches the handler.
 
