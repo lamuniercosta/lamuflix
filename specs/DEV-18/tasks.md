@@ -4,8 +4,8 @@
 
 ## Phase 1: Packages (brief step 1)
 
-- [ ] T001 [P] Bump `RabbitMQ.Client` to 7.2.2 and add the `OpenTelemetry.Api` pin in `Directory.Packages.props` (FR-030)
-- [ ] T002 Add both `PackageReference`s to `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`, then confirm `dotnet build` is green and `dotnet list package --vulnerable` is clean (depends on T001)
+- [ ] T001 [P] Bump `RabbitMQ.Client` to 7.2.2 and add the `OpenTelemetry.Api` and `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12 pins in `Directory.Packages.props` (FR-030)
+- [ ] T002 Add all three `PackageReference`s to `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`, then confirm `dotnet build` is green and `dotnet list package --vulnerable` is clean (depends on T001)
 - [ ] T003 [P] Verify `.specify/feature.json` points at `specs/DEV-18` (already set)
 
 ## Phase 2: Options (step 2) — US4
@@ -46,15 +46,18 @@
 
 ## Phase 7: Registration, guard and Api wiring (step 7) — US4
 
-- [ ] T023 [US4] Unit tests: guard with each of `IMetadataProvider` and `IMovieRepository` present or absent, exactly one inactive log line from a hosted service that logs once in `StartAsync`, `ValidateOnBuild` and `ValidateScopes` still on; validator cases (unset, zero, negative lease; TTL equal to lease; rounding edge; valid) (FR-021 to FR-025)
+- [ ] T023 [US4] Unit tests: guard with each of `IMetadataProvider` and `IMovieRepository` present or absent, exactly one inactive log line from a hosted service that logs once in `StartAsync`, `ValidateOnBuild` and `ValidateScopes` still on; validator cases (unset, zero, negative lease; TTL equal to lease; rounding edge; valid); the health check is registered with the `ready` tag in BOTH the active and inactive paths (FR-021 to FR-025, FR-033)
+- [ ] T024a [US4] Integration test on the fixture: the check is Healthy with the broker up and Unhealthy with an unreachable broker (bounded waits); the description carries no credentials (FR-033)
+- [ ] T024b [US4] Add `RabbitMqHealthCheck.cs` (depends on T011, T024a)
 - [ ] T024 [US4] Add `RabbitMqConsumerOptionsValidator.cs` (active path only) (depends on T023)
-- [ ] T025 [US4] Add `RabbitMqServiceCollectionExtensions.cs` (always: owner, topology, publisher; sets `Propagators.DefaultTextMapPropagator` to `TraceContextPropagator`; guarded: handler via `AddHandler`, consumer, validator; inactive path: the hosted service that logs once, declared in this file) (depends on T022, T023, T024)
+- [ ] T025 [US4] Add `RabbitMqServiceCollectionExtensions.cs` (always: owner, topology, publisher; sets `Propagators.DefaultTextMapPropagator` to `TraceContextPropagator`; guarded: handler via `AddHandler`, consumer, validator; inactive path: the hosted service that logs once, declared in this file; always path: `AddHealthChecks().AddCheck<RabbitMqHealthCheck>(..., tags: ready)`) (depends on T022, T023, T024, T024b)
+- [ ] T025a [P] [US4] Add `AddHealthChecks()` to `src/LamuFlix.ServiceDefaults/Extensions.cs` `AddServiceDefaults`; the Api does not duplicate it (FR-034)
 - [ ] T026 [US4] Call it from `src/LamuFlix.Api/Program.cs` after the port registrations and add a secret-free `RabbitMq` section to `appsettings.json`; do not wire a production repository or provider (depends on T025)
 
 ## Phase 8: Decision records (step 8, parallel with Phases 3-7) — US5
 
-- [ ] T027 [P] [US5] Write `docs/adr/ADR-0004.md` (Accepted): topology, retry, DLQ and sweeper design, client-7 model, confirms, tracing, no-migration cutover, activation boundary, the in-lease crash-redelivery limitation; states DEV-18 does not implement the sweeper (FR-031)
-- [ ] T028 [P] [US5] Write `docs/adr/ADR-0005.md` (Accepted): dual-write mitigation, sweeper now, outbox stretch; same statement (FR-031)
+- [ ] T027 [P] [US5] Review `docs/adr/ADR-0004.md` (drafted by Keel, `c9cba46`) against the implementation and update it if the code diverges. It must cover: topology, retry, DLQ and sweeper design, client-7 model, confirms, tracing, no-migration cutover, activation boundary, the in-lease crash-redelivery limitation; states DEV-18 does not implement the sweeper (FR-031)
+- [ ] T028 [P] [US5] Review `docs/adr/ADR-0005.md` (drafted by Keel, `2d8d37d`) against the implementation and update it if the code diverges. It must cover: dual-write mitigation, sweeper now, outbox stretch; same statement (FR-031)
 - [ ] T029 [P] [US5] Add glossary terms to `CONTEXT.md` (glossary at `CONTEXT.md:44-48`; unconditional, constitution VIII)
 
 ## Phase 9: Gates and refactor (step 9)
@@ -67,4 +70,4 @@
 
 - T001 → T002. Phase 2 needs T002. Phases 3, 4 and 8 can start after T002 and run in parallel.
 - Phase 5 needs T012. Phase 6 needs Phases 3, 4 and 5. Phase 7 needs Phase 6.
-- Phase 9 runs last. Sweeper, outbox, OMDb provider, production repository wiring and the retired projects are out of scope.
+- Phase 9 runs last. Sweeper, outbox, OMDb provider, production repository wiring, shared health endpoints and the retired projects are out of scope.

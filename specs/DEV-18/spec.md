@@ -94,6 +94,7 @@ The Api always starts. It declares the topology and can publish. It consumes onl
 3. **Given** the consumer is active and the claim lease is unset, zero or negative, **When** the Api starts, **Then** startup fails and names the option.
 4. **Given** the consumer is active and the retry TTL in whole milliseconds is not strictly greater than the claim lease, **When** the Api starts, **Then** startup fails. A rounding step never erases the margin.
 5. **Given** the consumer is inactive, **When** the Api starts, **Then** no lease is required.
+6. **Given** a reachable broker, **When** the RabbitMQ readiness check runs, **Then** it reports Healthy; **Given** an unreachable broker, **Then** it reports Unhealthy and its description carries no credentials or raw exception text.
 
 ---
 
@@ -184,6 +185,8 @@ A maintainer reads two decision records that explain the topology, the retry and
 
 **Gates (AC8; Q12)**
 
+- **FR-033**: The RabbitMQ adapter MUST register an `IHealthCheck`, `RabbitMqHealthCheck`, tagged `ready`, over the shared connection owner, whenever the owner and publisher are registered, including when the consumer is inactive. It MUST report Unhealthy on a broker connection failure, never publish or consume, and never put credentials or raw exception text in the result (constitution VI:232-234, IV).
+- **FR-034**: `ServiceDefaults` `AddServiceDefaults` MUST call `AddHealthChecks()` once, and the Api MUST NOT duplicate it.
 - **FR-032**: Every configured gate MUST pass or be reported as SKIP. A gate that was skipped or could not run is never reported as PASS.
 
 ### Key Entities
@@ -215,4 +218,5 @@ A maintainer reads two decision records that explain the topology, the retry and
 - The routing keys `requested`, `retry` and `dead-letter` are Keel's wording, accepted by Patron (`ASSUMPTIONS.md`).
 - `IMetadataProvider` and `IMovieRepository` have no production implementation in the built solution. Their production wiring (DEV-303 for the provider; the repository follow-up that Rigger files or folds in) is outside DEV-18.
 - The claim-handoff question (DEV-299 Q1) and DEV-316 stay open. This spec neither answers nor preempts them.
-- **Out of scope**: implementing the sweeper; a transactional outbox; deleting or editing the retired `Web`, `Worker`, `Data` and `tests/LamuFlix.Test`; purging old queues; exponential backoff; an OpenTelemetry SDK, exporter or instrumentation; a docker-compose file; schema changes; any new project or layer.
+- **Out of scope**: implementing the sweeper; a transactional outbox; deleting or editing the retired `Web`, `Worker`, `Data` and `tests/LamuFlix.Test`; purging old queues; exponential backoff; an OpenTelemetry SDK, exporter or instrumentation; a docker-compose file; schema changes; any new project or layer; mapping `/health/live` or `/health/ready`, or a Postgres health check (Q15 follow-up).
+- **Health endpoints not mapped**: the `/health/live` and `/health/ready` endpoints are not mapped. That is a pre-existing gap, and a separate follow-up (Q15) owns it. The readiness check is registered but NOT reachable over HTTP, and constitution VI endpoint alignment is NOT claimed.
