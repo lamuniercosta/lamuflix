@@ -10,7 +10,7 @@
 
 ## Owner and Patron blockers (preserved from spec.md; Gate 1 closed until answered)
 
-- [ ] **D1 / Q1** (owner): stranded requeue contract. Blocks T031-T033, the lease/sweep members of `EnrichmentOptions`, the `CONTEXT.md` term and the ADR Q1 section.
+- [ ] **D1 / Q1** (owner): stranded requeue contract. Blocks T030a, T031-T033, the lease/sweep members of `EnrichmentOptions`, the `CONTEXT.md` term and the ADR Q1 section.
 - [ ] **D2 / Q6** (owner): MovieId source on import. Blocks T028-T030.
 - [ ] **D3** (owner): wiring (registration, validators, options `ValidateOnStart`) deferred past this PR, a constitution departure. Blocks no task under (A); under (B) new tasks are added.
 - [ ] **Q13** (Patron): feature allow-list. Blocks T024-T027 (and T035 if it rules the allow-list edit).
@@ -37,7 +37,8 @@
 
 - [ ] T003 [P] [US1] Create `src/LamuFlix.Core/Pipeline/NotFoundException.cs`: `sealed`, mirroring `ValidationException` (no `IReadOnlyDictionary`; message constant, no exception text in API output).
 - [ ] T004 [P] [US1] Create `src/LamuFlix.Core/Pipeline/Unit.cs`: `public sealed record Unit` with no members, a `private Unit()` constructor and `public static readonly Unit Value`; handlers return `Unit.Value`.
-- [ ] T005 [P] [US1] Create `src/LamuFlix.Core/Pipeline/EnrichmentOptions.cs`: `public sealed record EnrichmentOptions` with `int MaxAttempts` and data annotations (`[Range(1, int.MaxValue)]`); no `IOptions`. Lease and sweep-interval members are added only after D1.
+- [ ] T005 [P] [US1] Create `src/LamuFlix.Core/Pipeline/EnrichmentOptions.cs`: non-positional `public sealed record EnrichmentOptions` with `[Range(1, int.MaxValue)] public int MaxAttempts { get; init; }` (on the property, never a positional parameter, where it would not validate); no `IOptions`. Lease and sweep-interval members are added only after D1.
+- [ ] T005a [US1] Test `tests/LamuFlix.UnitTests/Pipeline/EnrichmentOptionsTests.cs`: `Validator.TryValidateObject(options, context, results, validateAllProperties: true)` is false with one `MaxAttempts` result for 0 and true for 1 (spec US1 scenario 4). Write it before T005 and see it fail.
 - [ ] T006 [P] [US1] Create `src/LamuFlix.Core/Domain/EnrichmentFailureAction.cs`: `SmartEnum<EnrichmentFailureAction, int>` with `Retry`, `RetryDelayed`, `DeadLetter` (pattern of `EnrichmentStatus.cs`).
 - [ ] T007 [US1] Create `src/LamuFlix.Core/Domain/EnrichmentFailureDecision.cs`: `public sealed record EnrichmentFailureDecision(EnrichmentFailureAction Action, int? NextAttempt)`. No constructor guard; the FR-006 invariant is asserted in T017.
 - [ ] T008 [US1] Add `tests/LamuFlix.UnitTests/Features/FixedTimeProvider.cs` (sealed `TimeProvider` subclass with a fixed `GetUtcNow`) and `tests/LamuFlix.UnitTests/Features/RecordingLogger.cs` (sealed `RecordingLogger<T> : ILogger<T>` capturing level, structured state pairs and the exception argument). Shared test helpers, one type per file.
@@ -79,8 +80,8 @@
 - [ ] T017 [P] [US4] Tests `RecordEnrichmentFailureCommandHandlerTests.cs`: `Theory`/`MemberData` over 4 categories x below/at `MaxAttempts`; retry path asserts `DidNotReceive` `GetAsync` and `SaveChangesAsync`; every retry row asserts `NextAttempt = Attempt + 1`; dead-letter asserts `MarkFailed` state, save, `NextAttempt = null`; null on dead-letter -> `NotFoundException`; exactly one log entry with fields (id, attempt, category, action) and a null exception argument, captured with `RecordingLogger<T>` from T008 (no NSubstitute on `Log`; no new package: no FakeLogger, no Microsoft.Extensions.Logging.Testing); nothing published.
 - [ ] T018 [US4] Create `RecordEnrichmentFailureCommand.cs` and handler (`IMovieRepository`, `TimeProvider`, `EnrichmentOptions`, `ILogger<>`): result `EnrichmentFailureDecision`; use `Category.IsRetryable`, `RateLimited` -> `RetryDelayed`.
 - [ ] T019 [P] [US4] Tests `RequestEnrichmentCommandHandlerTests.cs`: `Theory` over 4 statuses (NotFound/Failed succeed; Pending/Enriched -> `InvalidTransitionException` before any domain call); save-before-enqueue ordering; enqueue `EnrichmentRequested(id, 1)`; queue failure propagates; null -> `NotFoundException`.
-- [ ] T020 [US4] Create `RequestEnrichmentCommand.cs` and handler (`IMovieRepository`, `IEnrichmentQueue`): result `MovieId`.
-- [ ] T021 [US4] **SmartEnum probe**: with T014, T016, T018 and T020 compiled (RecordFailure also references SmartEnum statics), run `dotnet test tests/LamuFlix.ArchitectureTests --nologo -v q`. Green: record "no SmartEnum allow-list change needed" in the PR body. Red naming `Ardalis.SmartEnum`: stop and send the finding to Keel (`maestri ask "Keel" "[from Quill] needs decision: ..."`); Keel routes it to Patron under Q13. Do not edit the arch test.
+- [ ] T020 [US4] Create `RequestEnrichmentCommand.cs` and handler (`IMovieRepository`, `IEnrichmentQueue`): result `MovieId`. Status check uses `==` against `EnrichmentStatus.NotFound`/`Failed`; if T021 is red on `Ardalis.SmartEnum`, switch to `ReferenceEquals(movie.Status, EnrichmentStatus.X)`. Throw `InvalidTransitionException(nameof(RequestEnrichment), movie.Status.ToString())`.
+- [ ] T021 [US4] **SmartEnum probe**: with T014, T016, T018 and T020 compiled (RecordFailure also references SmartEnum statics), run `dotnet test tests/LamuFlix.ArchitectureTests --nologo -v q`. Green: record "no SmartEnum allow-list change needed" in the PR body. Red naming `Ardalis.SmartEnum`: switch every SmartEnum member comparison in the Enrichment handlers (T016, T020) to `ReferenceEquals`, keep T015/T019 green, and re-run. Still red: stop and send the finding to Keel (`maestri ask "Keel" "[from Quill] needs decision: ..."`); Keel routes it to Patron under Q13. Do not edit the arch test.
 
 **Checkpoint**: `LamuFlix.ArchitectureTests` green.
 
@@ -100,7 +101,7 @@
 - [ ] T024 [BLOCKED: Q13] [US6] Tests `BrowseMoviesQueryHandlerTests.cs`, `GetMovieDetailsQueryHandlerTests.cs` in `tests/LamuFlix.UnitTests/Features/Library/`.
 - [ ] T025 [BLOCKED: Q13] [US6] Create `BrowseMoviesQuery.cs` and handler; result `PagedResult<MovieSummary>`.
 - [ ] T026 [BLOCKED: Q13] [US6] Create `GetMovieDetailsQuery.cs` and handler; result `MovieDetails`; null -> `NotFoundException`.
-- [ ] T027 [BLOCKED: Q13] [US6] Only if Patron rules the allow-list edit: add `LamuFlix.Core.Library` to `Core_features_must_depend_only_on_ports_domain_or_pipeline` in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`; run the architecture tests. If Patron instead moves `MovieQuery` to `Ports`, replace T025-T027 with that scope.
+- [ ] T027 [BLOCKED: Q13] [US6] Only if Patron rules the allow-list edit: add `LamuFlix.Core.Library` to `Core_features_must_depend_only_on_ports_domain_or_pipeline` in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`; run the architecture tests. If Patron instead moves `MovieQuery` to `Ports`, replace T027 only with the move of exactly the types Patron's ruling names (`MovieQuery` and the Library siblings it references); T024-T026 stand with updated namespaces.
 
 **Checkpoint**: `LamuFlix.ArchitectureTests` green.
 
@@ -118,6 +119,7 @@
 
 ## Phase 9: US8 Requeue [BLOCKED: D1]
 
+- [ ] T030a [BLOCKED: D1] [US8] Apply the D1-authorized contract edit: (B) add the list-stranded member to `IMovieRepository` and update its implementations; (C) change `EnrichmentRequested` only after the constitution amendment lands; (A) none. This is an unnamed-file edit (§2.3 #6) authorized by the owner's answer.
 - [ ] T031 [BLOCKED: D1] [US8] Tests for `RequeueStrandedMoviesCommandHandler` per the D1 contract.
 - [ ] T032 [BLOCKED: D1] [US8] Create `RequeueStrandedMoviesCommand.cs` and handler; result `int`; add lease/sweep members to `EnrichmentOptions` if D1 requires.
 - [ ] T033 [BLOCKED: D1] [US8] Add the term **Stranded Movie** to `CONTEXT.md`.
@@ -134,7 +136,7 @@
 
 ## Dependencies
 
-- T003-T008 before all handler tasks. T002 before any test task.
+- T003-T008 (with T005a before T005) before all handler tasks. T030a before T031. T002 before any test task.
 - T009/T011/T013/T015/T017/T019 (tests) may run in parallel after Phase 2; each implementation task follows its test.
 - T021 (probe) needs T014, T016, T018 and T020 and closes Phase 5.
 - Blocked phases start only after their blocker is cleared; T035 and T036 run last.

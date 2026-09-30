@@ -40,18 +40,20 @@ Add thin, sealed command/query handlers to `LamuFlix.Core/Features/<Feature>/`, 
 | Enrichment Reliability 445-459: `EnrichmentRequested` fixed at `MovieId` + `Attempt`; worker claim is the only claim | Pass unless D1 option (C); then needs an amendment |
 | Feature dependency allow-list (arch rule V:1170-1195) | **Open (Q13)** for `LamuFlix.Core.Library`; SmartEnum probe in T021 |
 | Ticket text unchanged | Pass unless D1(A)/D2(C) drop a handler (owner decision) |
-| AddHandler registration (checklist 353-354), FluentValidation validation (V) and options ValidateOnStart (VII) | **Departure, owner checkbox D3**: deferred to wiring by Patron Q9; FR-018 names the prerequisites, including the `Attempt >= 1` and `MaxAttempts >= 1` rules |
+| AddHandler registration (checklist 351-352), FluentValidation validation (V) and options validated at startup (VII; checklist 365-366) | **Departure, owner checkbox D3**: deferred to wiring by Patron Q9; FR-018 names the prerequisites, including the `Attempt >= 1` and `MaxAttempts >= 1` rules |
 | Closed sets are Enumerations (checklist) | Pass: `EnrichmentFailureAction` is a SmartEnum (Q2) |
 
 ## Research and Decisions
 
 - **"Retryable"**: `EnrichmentFailureCategory.IsRetryable` (existing sealed record). `RateLimited` -> `RetryDelayed`; `ProviderUnavailable`/`Unknown` -> `Retry`; `InvalidResponse` -> dead letter at any attempt.
 - **Retry math**: `Attempt < MaxAttempts` retries with `NextAttempt = Attempt + 1`; otherwise dead-letter. No I/O on the retry path.
-- **Status check in RequestEnrichment**: compare `movie.Status` with `EnrichmentStatus.NotFound`/`Failed` (SmartEnum reference equality). This is the SmartEnum probe input for Q13(ii).
-- **SmartEnum probe (T021)**: after T014, T016, T018 and T020 compile (Claim, Apply, RecordFailure, RequestEnrichment), run `LamuFlix.ArchitectureTests`. Green means no allow-list edit for SmartEnum. Red naming `Ardalis.SmartEnum` is a decision gap: the finding goes to Keel, who routes it to Patron under Q13; do not edit the test.
+- **Status check in RequestEnrichment**: compare `movie.Status` with `EnrichmentStatus.NotFound`/`Failed` using `==`. This is the SmartEnum probe input for Q13(ii). `==` resolves to the operator inherited from `SmartEnum<,>`, which is an `Ardalis.SmartEnum` reference. Fallback if the probe is red: `ReferenceEquals(movie.Status, EnrichmentStatus.X)`, which is correct because SmartEnum members are singletons and references only `System.Object` and Domain (Compass S5).
+- **SmartEnum probe (T021)**: after T014, T016, T018 and T020 compile (Claim, Apply, RecordFailure, RequestEnrichment), run `LamuFlix.ArchitectureTests`. Green means no allow-list edit for SmartEnum. Red naming `Ardalis.SmartEnum`: first switch every handler comparison of SmartEnum members to `ReferenceEquals` and re-run. Only if it is still red does the finding go to Keel, who routes it to Patron under Q13; do not edit the test.
 - **File convention**: one type per file; `XCommand.cs` and `XCommandHandler.cs` are siblings in the feature folder.
 - **Where `Unit` lives**: `Core/Pipeline` (Q5); member-less sealed record with a private constructor and `Unit.Value` (plan challenge, Ledger F3).
 - **RecordFailure log capture**: a hand-written `RecordingLogger<T> : ILogger<T>` in `tests/LamuFlix.UnitTests/Features/RecordingLogger.cs`; NSubstitute cannot match `Log<TState>` for the internal or generated state types (Ledger F1).
+- **`EnrichmentOptions` shape**: non-positional sealed record, `[Range(1, int.MaxValue)] public int MaxAttempts { get; init; }`, because a positional parameter's attribute never reaches the property (Compass S4). T005a tests the annotation.
+- **D1 contract edit**: T030a applies the port or message edit that D1(B) or D1(C) authorizes, mirroring T030 for D2 (Compass S3).
 - **Import failure semantics (D2-gated)**: one folder, one movie, one save, no compensation; a throwing call stops everything after it (Sentry L1). `EnrichmentFailureAction`/`Decision` live in `Core/Domain` beside `EnrichmentFailureCategory` (Keel plan decision).
 - **Api test location**: the existing `ValidationExceptionHandler` tests are in `tests/LamuFlix.Test/ValidationExceptionHandlerTests.cs` (legacy project). The brief says extend the existing tests, so the 404 test goes there; every new handler test goes to `LamuFlix.UnitTests`.
 
@@ -88,6 +90,7 @@ src/LamuFlix.Core/
 src/LamuFlix.Api/ExceptionHandling/ValidationExceptionHandler.cs                   (edit: 404 arm)
 tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj                                 (edit: 2 refs)
 tests/LamuFlix.UnitTests/Features/{Watchlist,Playback,Enrichment,Library,Import}/  (new)
+tests/LamuFlix.UnitTests/Pipeline/EnrichmentOptionsTests.cs                         (new, T005a)
 tests/LamuFlix.Test/ValidationExceptionHandlerTests.cs                             (edit: 404 test)
 tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs                              (edit only if Q13 rules so)
 CONTEXT.md                                                                         (edit only if D1 keeps requeue)
