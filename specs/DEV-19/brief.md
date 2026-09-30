@@ -171,6 +171,15 @@ All implementation starts only after the owner has answered the Q7 checkbox (Gat
 
 ADR-0003 ships in the spec PR, not in implementation.
 
+### T004 blocker decision (Keel; Patron Q6 addendum, `CONCLUSIONS.md:99-105`, commit `7b51497`)
+
+- **D1 (T004 NU1605):** The first T004 `dotnet restore` failed with NU1605. `Microsoft.EntityFrameworkCore.Design` 10.0.12 pulls in `Microsoft.Extensions.Caching.Memory` 10.0.12, which needs `Microsoft.Extensions.DependencyInjection.Abstractions` and `Microsoft.Extensions.Logging.Abstractions` at 10.0.12 or later. Both are pinned centrally at 10.0.1.
+  - Raise exactly those two pins to 10.0.12 in `Directory.Packages.props`.
+  - Leave every other `Microsoft.Extensions.*` pin as it is, unless a later T004 restore reports an NU1605 downgrade in the Q6 graph. In that case, raise only the flagged existing pin to the required version, and only within 10.0.x.
+  - Disclose every pin change in the T004 record.
+  - Forbidden: `NoWarn`/NU1605 suppression, `VersionOverride`, new packages, and any version outside 10.0.x. A version outside 10.0.x goes back to Patron.
+  - T004 stays the restore and solution-build check, and this ruling claims no PASS. It is not an owner checkbox.
+
 ## Round cap
 
 - Analyze: 2 rounds.
