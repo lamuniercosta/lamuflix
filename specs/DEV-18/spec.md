@@ -8,7 +8,7 @@
 
 **Input**: DEV-18 (parent DEV-283): "Upgrade to RabbitMQ.Client 7.x (async API), declare resilient queue topology (quorum, TTL retry, DLQ), inject OpenTelemetry trace headers, and write ADR-0004/0005."
 
-Alignment: `brief.md` (closing bar AC1-AC8, decisions D1-D9, frozen scope) and `CONCLUSIONS.md` (Q1-Q16; Q17 once ruled). This spec restates those decisions as requirements and adds nothing to them. The ticket text (T01-T23) wins over this spec if they disagree.
+Alignment: `brief.md` (closing bar AC1-AC8, decisions D1-D9b, frozen scope) and `CONCLUSIONS.md` (Q1-Q17). Input notes include `recon-DEV-18-6`. This spec restates those decisions as requirements and adds nothing to them. The ticket text (T01-T23) wins over this spec if they disagree.
 
 ## Clarifications
 
@@ -22,6 +22,7 @@ The grill is closed: 12 of 12 questions were answered, and Q13 and Q14 were rule
 - Q: Where does a retryable failure go? → A: both `Retry` and `RetryDelayed` go to the retry queue, so a retry never arrives before the claim lease can expire (D6, Q14, which supersedes Q7's `Retry -> requested`).
 - Q: Is the OMDb provider or the production repository part of this ticket? → A: no. Each is a follow-up that Rigger files or folds into existing coverage (D5, D6).
 - Q: Does the readiness check come with health endpoints? → A: no. The check is registered, and the `/health/live` and `/health/ready` endpoints stay deferred to a follow-up (Q15).
+- Q: Which directly used API surfaces get a direct package reference? → A: all of them (Q17, commit 5533797). Infrastructure references `RabbitMQ.Client` 7.2.2 (from 6.8.1), `OpenTelemetry.Api` 1.19.1, `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, `Microsoft.Extensions.Options` 10.0.12 and `Microsoft.Extensions.Hosting.Abstractions` 10.0.12 versionlessly, each pinned centrally (D8a, D9a, D9b).
 - Q: Which package carries the readiness check? → A: `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, centrally pinned and referenced by Infrastructure (Q16, D8a).
 
 ## User Scenarios & Testing *(mandatory)*
@@ -182,7 +183,7 @@ A maintainer reads two decision records that explain the topology, the retry and
 
 **Packages and boundaries (D4)**
 
-- **FR-030**: `RabbitMQ.Client` MUST be pinned to `7.2.2`, and `OpenTelemetry.Api` MUST be added as the only new telemetry package, both centrally. `Microsoft.Extensions.Diagnostics.HealthChecks` MUST have a central pin at 10.0.12 and a versionless reference in Infrastructure (D8a). Only Infrastructure references `OpenTelemetry.Api`. Core MUST reference neither RabbitMQ nor OpenTelemetry.
+- **FR-030**: Central pins MUST be `RabbitMQ.Client` 7.2.2 (from 6.8.1), `OpenTelemetry.Api` 1.19.1, `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, `Microsoft.Extensions.Options` 10.0.12 and `Microsoft.Extensions.Hosting.Abstractions` 10.0.12 (D8a, D9a, D9b). Infrastructure MUST reference all five versionlessly. `OpenTelemetry.Api` is the only new telemetry package. Only Infrastructure references `OpenTelemetry.Api`. Core MUST reference neither RabbitMQ nor OpenTelemetry.
 
 **Decision records (AC7; T16-T18, T23)**
 

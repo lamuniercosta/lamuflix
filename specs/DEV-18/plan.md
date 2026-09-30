@@ -2,7 +2,7 @@
 
 **Branch**: `feature/018-spec` | **Date**: 2026-09-30 | **Spec**: [spec.md](spec.md)
 
-**Input**: `specs/DEV-18/spec.md`, `brief.md` (D1-D9, AC1-AC8), `CONCLUSIONS.md` (Q1-Q16), notes `recon-DEV-18`, `-2`, `-3`, `-4`, `recon-DEV-18-5`
+**Input**: `specs/DEV-18/spec.md`, `brief.md` (D1-D9b, AC1-AC8), `CONCLUSIONS.md` (Q1-Q17), notes `recon-DEV-18`, `-2`, `-3`, `-4`, `recon-DEV-18-5`, `recon-DEV-18-6`
 
 ## Summary
 
@@ -22,7 +22,8 @@ The consumer and the processing handler are registered only when an `IMetadataPr
 **Primary Dependencies**:
 
 - `RabbitMQ.Client` 7.2.2 (netstandard2.0 and net8.0 targets; `Directory.Packages.props:9` moves from 6.8.1);
-- `OpenTelemetry.Api`, the latest stable 1.x that targets net8.0 or later. Wisp confirms the exact version at implementation and it is recorded in `Directory.Packages.props` (D4);
+- `OpenTelemetry.Api` 1.19.1 (D4, D9b);
+- `Microsoft.Extensions.Options` 10.0.12 and `Microsoft.Extensions.Hosting.Abstractions` 10.0.12, direct references for `IValidateOptions<T>` and `BackgroundService` (D9a, Q17);
 - `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, central pin next to the `Microsoft.Extensions.*` 10.0.12 pins (`Directory.Packages.props:18-19`), versionless `PackageReference` in Infrastructure; no separate Abstractions reference, no `Microsoft.AspNetCore.App` in Infrastructure (D8a, Q16);
 - existing: FluentValidation, `Microsoft.Extensions.*`, Ardalis.SmartEnum.
 
@@ -84,7 +85,7 @@ docs/adr/
 ### Source Code (repository root)
 
 ```text
-Directory.Packages.props                                   # RabbitMQ.Client 7.2.2; add OpenTelemetry.Api and HealthChecks pins
+Directory.Packages.props                                   # RabbitMQ.Client 7.2.2; add OpenTelemetry.Api, HealthChecks, Options and Hosting.Abstractions pins
 src/LamuFlix.Core/
 ├── Options/RabbitMqOptions.cs                             # + RetryDelay, Prefetch
 ├── Pipeline/TelemetryConstants.cs                         # + messaging names, only those missing (plain const string)
@@ -96,7 +97,7 @@ src/LamuFlix.Core/
     ├── EnrichmentRetryPolicy.cs                           # new, pure rule extracted (D7)
     └── RecordEnrichmentFailureCommandHandler.cs           # edit: behaviour-preserving, calls the policy (D7)
 src/LamuFlix.Infrastructure/
-├── LamuFlix.Infrastructure.csproj                         # + RabbitMQ.Client, OpenTelemetry.Api
+├── LamuFlix.Infrastructure.csproj                         # + five versionless package references (D-1)
 └── RabbitMq/                                              # new folder
     ├── RabbitMqTopology.cs
     ├── RabbitMqConnectionOwner.cs
@@ -125,8 +126,8 @@ Plan D-n numbers are the plan's own; brief decisions are cited as Dn.
 
 ### D-1. Packages (D4; FR-030)
 
-- `Directory.Packages.props`: `RabbitMQ.Client` 6.8.1 → 7.2.2 (line 9). Add an `OpenTelemetry.Api` pin and a `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12 pin.
-- `LamuFlix.Infrastructure.csproj`: add all three `PackageReference`s (HealthChecks versionless). `Testcontainers.RabbitMq` 4.15.0 needs `RabbitMQ.Client >= 6.8.1`, which 7.2.2 meets.
+- `Directory.Packages.props`: `RabbitMQ.Client` 6.8.1 → 7.2.2 (line 9). Add pins for `OpenTelemetry.Api` 1.19.1, `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, `Microsoft.Extensions.Options` 10.0.12 and `Microsoft.Extensions.Hosting.Abstractions` 10.0.12 (D8a, D9a, D9b). A directly used API surface gets a direct reference (Q17). Hosting.Abstractions is pinned at 10.0.12, not 10.0.1, because HealthChecks 10.0.12 requires >= 10.0.12 (NU1605).
+- `LamuFlix.Infrastructure.csproj`: add versionless `PackageReference`s to all five packages. `Testcontainers.RabbitMq` 4.15.0 needs `RabbitMQ.Client >= 6.8.1`, which 7.2.2 meets.
 - `Tests.Common` keeps its existing `RabbitMQ.Client` reference. The integration tests use it as the test consumer and reader. Nothing else references either package.
 - The solution still builds after this step, because nothing built uses the 6.x API.
 
@@ -158,7 +159,7 @@ Plan D-n numbers are the plan's own; brief decisions are cited as Dn.
 ### D-4. Publisher and propagation (AC1, AC4; FR-001 to FR-004, FR-027, FR-028)
 
 - `RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue` serializes `EnrichmentRequested` (System.Text.Json) and publishes persistent, mandatory messages to `lamuflix.enrichment` with key `requested`. Each call creates a channel with `publisherConfirmationsEnabled` and `publisherConfirmationTrackingEnabled`, and disposes it.
-- A nack, a return (unroutable) or a connection failure surfaces as an exception. A per-publish returned flag is set from the return event (or the client surfaces a return as an exception under confirmation tracking). The publisher awaits the confirm, then checks the flag, and disposes the channel only after both have settled. A confirm timeout or cancellation is uncertain and fails the call (Q10; D9 Risk F2).
+- A nack, a return (unroutable) or a connection failure surfaces as an exception. RabbitMQ.Client 7.x has no return event on `IChannel`. With confirmation tracking enabled and `mandatory: true`, the awaited `BasicPublishAsync` throws `PublishReturnException` (a `PublishException` with `IsReturn`) for an unroutable message, and `PublishException` for a nack. The channel is disposed only after that await settles. A timeout or cancellation of the await is uncertain and fails the call (Q10; D9b).
 - The republish path in the consumer calls the same publish method with a different key (and the next attempt). There is no second publish implementation.
 - `TraceContextCarrier` (pure): injects `traceparent` and, when present, `tracestate` into `BasicProperties.Headers`, and extracts them.
 - The propagator: `Propagators.DefaultTextMapPropagator` is set to the API's `TraceContextPropagator` before first use (it is a no-op until configured). This happens in the registration extension (D-7, D7), not in the carrier and not in a second telemetry stack. Caveat: the assignment is idempotent (the same `TraceContextPropagator` each time), so tests must not set a different global propagator (D9 Risk F5, note only).
