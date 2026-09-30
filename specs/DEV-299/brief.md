@@ -199,6 +199,14 @@ Cross-cutting rules for every handler (Q12, constitution checklist 367-368 and c
 
   Steps 4–6 can run in parallel after steps 1–3.
 
+## Plan decisions, analyze round 1 (Keel, 2026-09-30)
+
+- **Order:** Quill's order is accepted: Api 404 (brief step 10) runs before the blocked Library, Import and Requeue phases. Unblocked work goes first, and nothing depends on the old position.
+- **`Unit`:** a `public sealed record Unit` with `public static readonly Unit Value`. Handlers return `Unit.Value`.
+- **RecordFailure log assertion:** add no package, so no `Microsoft.Extensions.Logging.Testing` and no `FakeLogger`. Capture with an NSubstitute `ILogger<T>` (asserting `Received` on `Log`) or with a small hand-written test logger in `tests/LamuFlix.UnitTests/Features/`.
+- **SmartEnum probe:** the probe runs once every Enrichment handler compiles (Claim, Apply, RecordFailure, RequestEnrichment). `LamuFlix.ArchitectureTests` is also re-run at each phase checkpoint. A failure naming `Ardalis.SmartEnum` goes to Patron as part of Q13, and the arch test is not edited.
+- **ADR:** `docs/adr/0017-enrichment-decisions-in-core-handlers.md`, status Proposed. If `origin/main` has taken 0017 by rebase, renumber it.
+
 ## Round cap
 
 - **Grill:** 12/12 questions used; there is no grill round 2. Q13 goes to Patron as a single post-grill ruling, with Conductor's approval to exceed the budget, or as a Quill `needs decision:`.
