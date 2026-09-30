@@ -89,9 +89,9 @@ function Test-ArchitectureTestKiller {
 }
 
 function Get-EligibleTestProjects {
-    # Test projects that directly reference the mutated project, minus ArchitectureTests.
+    # Test projects that directly reference the mutated project, minus ArchitectureTests and IntegrationTests.
     # Stryker's project mode needs a direct reference; listing them explicitly keeps
-    # ArchitectureTests (artifact kills) out of the run.
+    # ArchitectureTests (artifact kills) and IntegrationTests (real-database tests) out of the run.
     param(
         [string[]]$TestProjects,
         [string]$MutatedProjectPath
@@ -99,7 +99,7 @@ function Get-EligibleTestProjects {
 
     $target = [System.IO.Path]::GetFullPath($MutatedProjectPath)
     $eligible = foreach ($tp in $TestProjects) {
-        if ([System.IO.Path]::GetFileNameWithoutExtension($tp) -match '(^|\.)ArchitectureTests$') { continue }
+        if ([System.IO.Path]::GetFileNameWithoutExtension($tp) -match '(^|\.)(ArchitectureTests|IntegrationTests)$') { continue }
         $tpDir = Split-Path $tp -Parent
         $xml = [xml](Get-Content -LiteralPath $tp -Raw)
         $refs = @($xml.SelectNodes('//*[local-name()="ProjectReference"]/@Include') | ForEach-Object { $_.Value })
@@ -456,6 +456,7 @@ $changedFiles = @(
     git -C $repoRoot diff --name-only --diff-filter=AMR $mergeBase HEAD -- 'src/*.cs' 'src/**/*.cs' |
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
         ForEach-Object { $_.Trim().Replace('\', '/') } |
+        Where-Object { $_ -notlike 'src/LamuFlix.Infrastructure/Persistence/Migrations/*' } |
         Select-Object -Unique
 )
 
