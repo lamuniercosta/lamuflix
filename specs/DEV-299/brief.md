@@ -103,7 +103,7 @@ Keel plan decision: Patron fixed the names ([assumed], Q2) but not the placement
 
 **New tests:** `tests/LamuFlix.UnitTests/Features/{Library,Import,Enrichment,Watchlist,Playback}/<Handler>Tests.cs`, plus any test `TimeProvider` subclass (Q10, Q12).
 
-**New docs:** `docs/adr/NNNN-enrichment-decisions-in-core-handlers.md` (Q11, [assumed] title). Keel drafts it; Q1's section stays "pending owner D1".
+**New docs:** `docs/adr/0017-enrichment-decisions-in-core-handlers.md` (Q11, [assumed] title). Keel drafts it; Q1's section stays "pending owner D1".
 
 **Out of scope (Q9 and others):**
 - DI/`AddHandler` registration.
