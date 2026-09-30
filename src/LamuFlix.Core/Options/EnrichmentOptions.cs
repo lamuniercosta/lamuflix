@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace LamuFlix.Core.Options;
 
@@ -8,6 +9,7 @@ public sealed record EnrichmentOptions
 {
     public const string SectionName = "Enrichment";
 
+    [Range(1, int.MaxValue)]
     public int MaxAttempts { get; init; } = 3;
 
     public TimeSpan SweepInterval { get; init; }

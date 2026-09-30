@@ -51,6 +51,17 @@ public sealed class OptionsStartupValidationTests
     }
 
     [Fact]
+    public void ZeroMaxAttempts_FailsValidation()
+    {
+        var values = ValidRequired();
+        values[$"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.MaxAttempts)}"] = "0";
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(EnrichmentOptions.MaxAttempts));
+    }
+
+    [Fact]
     public void RequiredConfig_PassesAndKeepsEnrichmentDefault()
     {
         using var provider = Build(ValidRequired());
