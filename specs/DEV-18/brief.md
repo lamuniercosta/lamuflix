@@ -2,7 +2,7 @@
 
 Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ.Client 7.x, declare quorum topology with TTL retry and DLQ, propagate W3C trace context, and write ADR-0004/0005.
 
-- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
+- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`; Q15, commit `7788471`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
 - Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, `recon-DEV-18-3`, `recon-DEV-18-4` (its R3 conclusion is rejected by Q14), and the Conductor's placement resolution of 2026-09-30.
 - Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). Q13 and Q14 were ruled after the grill on Quill's `needs decision:` requests (D5, D6). No owner checkbox: nothing changes the ticket text or departs from the constitution.
 - The ticket text (YouTrack DEV-18, cited as T01–T23 in CONCLUSIONS.md) is authoritative. If this brief and the ticket disagree, the ticket wins and the disagreement is a defect in this brief.
@@ -88,6 +88,23 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
   - **Inactive log mechanism.** No logger exists during service registration. On the inactive path the extension registers a small hosted service that logs the inactive line once in `StartAsync`, declared in `RabbitMqServiceCollectionExtensions.cs`, so no file is added. A unit test asserts exactly one line.
   - **Telemetry names.** Use the constitution VI names: span `Enrichment.Enqueue` (producer) and `Enrichment.Process` (consumer); attributes `lamuflix.movie.id`, `messaging.rabbitmq.delivery_count` and `error.type`. Add them to `TelemetryConstants` only where they are missing. No metric instruments: the ticket does not name them.
   - **Glossary.** `CONTEXT.md` already has a glossary (`CONTEXT.md:44-48`), so the glossary task is unconditional (constitution VIII).
+
+- **D8: RabbitMQ readiness check (Patron Q15, `7788471`; recon-DEV-18-5).** No owner checkbox.
+  - **Check.** Add `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqHealthCheck.cs` (`IHealthCheck`). It reuses the connection owner and the cancellation token. A broker connection failure reports Unhealthy. It never publishes or consumes, and it never puts credentials or raw exception text in the result description (constitution IV:189 and VI).
+  - **Registration.** The Infrastructure DI extension adds the check with a `ready` tag whenever it registers the connection owner and publisher, **including when the consumer is inactive**. The check is not gated on the D5/D6 guard.
+  - **Foundation.** `src/LamuFlix.ServiceDefaults/Extensions.cs` gains only the generic `AddHealthChecks()` call in `AddServiceDefaults`. ServiceDefaults already has the `Microsoft.AspNetCore.App` framework reference (`LamuFlix.ServiceDefaults.csproj`), so this needs no package. Api does not duplicate either call. This is Patron's deliberate file-scope ruling for that one edit.
+  - **Not in DEV-18.** No `/health/live` or `/health/ready` route is mapped. The endpoint foundation is a pre-existing gap that goes to the Rigger follow-up (Q15). The spec names that gap and never calls readiness reachable, or constitution VI fully aligned.
+  - **Tests.** Real broker (IntegrationTests): Healthy against the fixture, and Unhealthy with an unreachable broker using bounded waits. The description carries no credentials. Unit (guard): the check is registered with the `ready` tag in both the active and inactive paths.
+  - **ADR-0004** records the check as the broker's readiness contribution and states that the endpoint wiring is outstanding.
+  - **Open prerequisite (sent to Patron as `needs decision`, 2026-09-30).** Q15 assumes the check is package-free, but that holds only for ServiceDefaults.
+    - `IHealthCheck` and `HealthCheckRegistration` live in `Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions`, and `AddHealthChecks()`/`AddCheck` live in `Microsoft.Extensions.Diagnostics.HealthChecks` (Microsoft Learn API reference).
+    - `LamuFlix.Infrastructure.csproj` is a plain `Microsoft.NET.Sdk` project with no ASP.NET Core framework reference, and neither package is referenced.
+    - So the check cannot compile in Infrastructure without one of two things, and each needs a ruling:
+      - (a) a first-party `Microsoft.Extensions.Diagnostics.HealthChecks` package reference, which is a §2.3 item 1 new dependency;
+      - (b) a `Microsoft.AspNetCore.App` framework reference in Infrastructure, which couples the adapter layer to the web shared framework.
+    - Keel recommends (a). It is the same first-party family as the existing `Microsoft.Extensions.*.Abstractions` references, centrally pinned with the other .NET 10 `Microsoft.Extensions` versions.
+    - Quill does not edit the artifacts for D8 until Patron rules; the ruling is recorded here as D8a.
+  - **Dependencies.** DEV-392 (production repository and DbContext wiring) was filed by Rigger and fulfils D6's follow-up. DEV-18 depends on DEV-392 only for production activation, not for delivery.
 
 ## Closing bar
 
