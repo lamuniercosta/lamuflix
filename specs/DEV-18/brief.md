@@ -131,6 +131,7 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
   - **Spec F2 (Low): ACCEPT without renumbering.** FR IDs stay stable. FR-033/FR-034 move into a new "Readiness (D8, D8a; Q15, Q16)" group after Gates, and FR-016 moves to the Core-processing group.
   - **Spec F4, F5, F6, F8, F9 (Low): ACCEPT.** Provenance becomes D1–D9b and Q1–Q17, with recon-DEV-18-5 and recon-DEV-18-6 as inputs. The Clarifications gain Q15/Q16. The checklist is extended to FR-034, Q1–Q16 and D1–D8a, with the readiness scenario. FR-030 names the HealthChecks pin and any D9a/D9b pins. T020 asserts that the movie is not marked Failed on cancellation.
   - **Spec F7 (Low): ACCEPT.** Plan D-8 comes before D-9. Plan design numbers are headed as the plan's own and cite brief decisions explicitly.
+  - **Dependencies.** DEV-392 (production repository and DbContext wiring) was filed by Rigger and fulfils D6's follow-up. DEV-18 depends on DEV-392 only for production activation, not for delivery.
 
 - **D9a: direct Infrastructure references (Patron Q17, `5533797`).** No owner checkbox.
   - Central pins in `Directory.Packages.props`: `Microsoft.Extensions.Options` `10.0.12` and `Microsoft.Extensions.Hosting.Abstractions` `10.0.12`. Add versionless `PackageReference`s to `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`.
@@ -140,7 +141,6 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
   - `OpenTelemetry.Api` is pinned to `1.19.1` (latest stable 1.x, net10.0 compatible). This replaces D4's "Wisp confirms at implementation" (Ledger M2 closed).
   - RabbitMQ.Client 7.x has no return event on `IChannel`. With confirmation tracking enabled and `mandatory: true`, an unroutable publish surfaces from the awaited `BasicPublishAsync` as `PublishReturnException`, a subtype of `PublishException` with `IsReturn`. A nack surfaces as `PublishException`.
   - This supersedes D9 Risk F2's "returned flag from the return event". The publisher awaits `BasicPublishAsync` to completion (the confirm), which surfaces both cases, and disposes the channel only after that await settles. A timeout or cancellation of that await is uncertain and fails the call. T015's return case asserts a `PublishReturnException`-driven failure.
-  - **Dependencies.** DEV-392 (production repository and DbContext wiring) was filed by Rigger and fulfils D6's follow-up. DEV-18 depends on DEV-392 only for production activation, not for delivery.
 
 ## Closing bar
 
