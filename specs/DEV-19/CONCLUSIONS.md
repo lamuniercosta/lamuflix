@@ -82,8 +82,8 @@
 
 ## Gate 1 Review — Phase 2 Step 5
 
-**Accept the reviewed document set provisionally; withhold the `gate1: provisional` status marker pending a clean `/speckit-analyze` receipt.** Q7 remains an owner prerequisite; Gate 1 is closed and no implementation is authorised.
+**gate1: provisional** — Rigger may commit the amended spec artifacts and open the Spec PR. Q7 remains an owner prerequisite; Gate 1 is closed until the owner answers Q7 and merges the spec PR, and no implementation is authorised.
 
 - The ticket scope (`artifacts/DEV-19/receipt.json:4`) is covered by `spec.md:108-140`, `plan.md:53-71`, `tasks.md:23-79`, and `brief.md:94-123`: the adjudicated schema, converter, fixture, isolation and gate amendments are incorporated. T000/CHK025 remains an explicit unresolved prerequisite to implementation, not completed evidence (`tasks.md:23,79`; `checklists/requirements.md:45`).
 - Preserve the single proposed Q7(A) scope and unchecked owner prerequisite (`spec.md:11-17`; `checklists/requirements.md:13,50`; Q7/Q10 above). ADR-0003 remains Proposed (`docs/adr/ADR-0003.md:3,49-62`); actual owner approval and spec-PR merge are required, under `specs/PRODUCT.md:19,36-39` and task-pipeline Phase 2 step 7.
-- `DEV-19` task-note lines 16-28 attest generation and three-axis adjudication but contain no clean analysis receipt; none is present in the inspected artifacts. Task-pipeline Phase 2 step 3.3 and the assigned Patron duty require clean `/speckit-analyze` before the status marker. `needs recon: Keel must supply the clean analysis receipt for the amended document set`. No analysis, build, test or implementation gate was run by Patron.
+- The missing analysis receipt is supplied: Keel round 2 is CLEAN (0 Critical, 0 High, 0 Medium, 1 informational Low), A1-A6 resolved, 22/22 requirements covered (`artifacts/DEV-19/analyze-round-2.md:8,14-19,65-72`). This satisfies the analysis prerequisite to the provisional marker; Q7/CHK005 remains unchecked and T000/CHK025 remains open (`artifacts/DEV-19/analyze-round-2.md:32`). No analysis, build, test or implementation gate was run by Patron.
