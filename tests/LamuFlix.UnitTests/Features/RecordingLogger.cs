@@ -10,7 +10,7 @@ public sealed class RecordingLogger<T> : ILogger<T>
 
     private readonly List<LogEntry> entries = [];
 
-    public IDisposable? BeginScope<TState>(TState state)
+    public IDisposable BeginScope<TState>(TState state)
         where TState : notnull => NullScope.Instance;
 
     public bool IsEnabled(LogLevel logLevel) => true;

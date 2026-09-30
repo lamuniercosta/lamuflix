@@ -9,7 +9,6 @@ using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
-using LamuFlix.UnitTests.Features;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 

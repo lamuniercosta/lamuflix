@@ -6,7 +6,6 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
-using LamuFlix.UnitTests.Features;
 using NSubstitute;
 
 namespace LamuFlix.UnitTests.Features.Enrichment;
