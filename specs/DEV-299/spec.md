@@ -16,14 +16,15 @@
     - (A) drop `RequeueStrandedMoviesCommandHandler` from DEV-299 into a follow-up that owns the claim-handoff contract;
     - (B) the sweeper does not claim; a new `IMovieRepository` list-stranded method (lease-aged `Pending`, constitution 187-188) feeds enqueue, and the worker claim remains the only claim;
     - (C) a claim token in `EnrichmentRequested`, which changes a type constitution 445 fixes at `MovieId` + `Attempt` and so needs an amendment.
-  - Blocks: User Story 8, FR-016, the `CONTEXT.md` term **Stranded Movie**, the lease and sweep-interval members of `EnrichmentOptions`, and the Q1 section of the ADR.
+  - Blocks: User Story 8, FR-016, the `CONTEXT.md` term **Stranded Movie**, the lease and sweep-interval members of `EnrichmentOptions`, and the Q1 section of the ADR. Ticket-text consequence (Compass S2): answer (A) drops a handler the ticket names, so AC1 ("All use cases implemented") and AC2 ("all feature handlers") cannot hold as written; choosing it also amends the ticket text (§2.3(a)), and Patron has Rigger record the change and file the follow-up.
+  - Contract impact (Compass S3): (B) adds a member to `IMovieRepository`, a port file the ticket does not name (§2.3 #6), and every implementation of that port must follow; (C) edits `EnrichmentRequested` and needs a constitution amendment (445). Task T030a applies whichever edit the answer authorizes.
 - [ ] **D2 / Q6: MovieId source on import.** blocked: structural. May DEV-299 extend the import contract to obtain a unique `MovieId` before `Movie.Create`, and which port or caller allocates it?
   - `MovieId.TryCreate` only validates a positive int. `Movie.Create` requires the id before `AddAsync`, and no port allocates or returns one (CONCLUSIONS Q6; `Movie.cs:41`).
   - Candidate answers (not decided):
     - (A) `IMovieRepository` gains an id-allocation member;
     - (B) the store assigns the id on save and `Movie` gains a pre-persistence construction path, which edits `Movie.cs`;
     - (C) defer `ImportMovieFolderCommandHandler` to a follow-up.
-  - Blocks: User Story 7 and FR-015.
+  - Blocks: User Story 7 and FR-015. Ticket-text consequence (Compass S2): answer (C) drops a handler the ticket names, so AC1 and AC2 cannot hold as written; choosing it also amends the ticket text (§2.3(a)), and Patron has Rigger record the change and file the follow-up.
 - [ ] **D3: wiring deferred past this PR (constitution departure, §2.3(b)).** blocked: structural. May DEV-299 merge Core handlers that are not yet registered via `AddHandler<…>`, have no FluentValidation validators, and whose `EnrichmentOptions` is not bound with `ValidateOnStart()`?
   - Patron's Q9 puts these in wiring work, but the constitution makes each a per-PR item (checklist: handlers "registered via `AddHandler<…>`", "new options records are validated at startup"; Principle V: every command validated through FluentValidation). Deferring them is a departure (Compass S1; brief, Plan challenge adjudication).
   - Candidate answers (not decided):
@@ -31,7 +32,7 @@
     - (B) pull registration, validators and options binding into DEV-299, widening scope beyond the ticket text.
   - Blocks: Gate 1 only; no task changes under (A).
 
-**Patron ruling still open (not an owner checkbox): Q13.** The `Core_features_must_depend_only_on_ports_domain_or_pipeline` architecture rule (V:1170-1195) forbids a `Features.*` type from depending on `LamuFlix.Core.Library` (where `MovieQuery` lives) and may flag `Ardalis.SmartEnum` member references. Blocks User Story 6 and FR-013 and FR-014. Recommended ruling (Keel): add `LamuFlix.Core.Library`, and `Ardalis.SmartEnum` if the probe in T021 fails, to the allow-list in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`.
+**Patron ruling still open (not an owner checkbox): Q13.** The `Core_features_must_depend_only_on_ports_domain_or_pipeline` architecture rule (V:1170-1195) forbids a `Features.*` type from depending on `LamuFlix.Core.Library` (where `MovieQuery` lives) and may flag `Ardalis.SmartEnum` member references. Blocks User Story 6 and FR-013 and FR-014. Recommended ruling (Keel): add `LamuFlix.Core.Library` to the allow-list in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs`. `Ardalis.SmartEnum` reaches Q13 only if the probe in T021 stays red after the `ReferenceEquals` fallback (Compass S5). If Patron instead moves `MovieQuery` to `Ports`, the ruling must name every `LamuFlix.Core.Library` type that moves with it: at least the siblings `MovieQuery` references (`MovieSort`, `Page`, `RuntimeRange`, `YearRange`, `SortDirection`) and any Library type in a Library handler signature (Compass S7).
 
 ## Clarifications
 
@@ -57,9 +58,10 @@ As a handler author, I need `NotFoundException`, `Unit`, `EnrichmentOptions`, `E
 
 **Acceptance Scenarios**:
 
-1. **Given** the Core assembly, **When** the types are inspected, **Then** `NotFoundException` is a `sealed` exception mirroring `ValidationException`, `Unit` is a `sealed record`, and `EnrichmentOptions` is a `sealed record` with `MaxAttempts` and data annotations and no `IOptions` dependency.
-2. **Given** `EnrichmentFailureAction`, **When** its members are listed, **Then** they are `Retry`, `RetryDelayed` and `DeadLetter`.
-3. **Given** `EnrichmentFailureDecision(Action, NextAttempt)`, **When** it is constructed, **Then** it is a `sealed record` in `LamuFlix.Core.Domain`.
+1. **Given** the Core assembly, **When** the types are inspected, **Then** `NotFoundException` is a `sealed` exception mirroring `ValidationException`, `Unit` is a `sealed record`, and `EnrichmentOptions` is a `sealed record` with a `MaxAttempts` property carrying `[Range(1, int.MaxValue)]` and no `IOptions` dependency (review check for the shapes; the annotation is tested by T005a).
+2. **Given** `EnrichmentFailureAction`, **When** its members are listed, **Then** they are `Retry`, `RetryDelayed` and `DeadLetter` (review check, not a test; T017 exercises every member).
+3. **Given** `EnrichmentFailureDecision(Action, NextAttempt)`, **When** it is constructed, **Then** it is a `sealed record` in `LamuFlix.Core.Domain` (review check, not a test; the FR-006 invariant is tested by T017).
+4. **Given** `EnrichmentOptions { MaxAttempts = 0 }`, **When** `Validator.TryValidateObject(..., validateAllProperties: true)` runs, **Then** it returns false with one `MaxAttempts` error; `MaxAttempts = 1` validates (Compass S4).
 
 ---
 
@@ -196,7 +198,7 @@ As a maintainer, I need the ADR and the domain term, so the decision to keep enr
 - **FR-002**: `LamuFlix.Core` MUST reference no database, RabbitMQ or new package (AC1, AC7). No handler takes more than three ports; `TimeProvider`, options and the logger are not ports.
 - **FR-003**: `NotFoundException` MUST exist in `LamuFlix.Core.Pipeline`, `sealed`, mirroring `ValidationException`.
 - **FR-004**: `Unit` MUST exist in `LamuFlix.Core.Pipeline` as a member-less `sealed record` with a `private` parameterless constructor and `public static readonly Unit Value`; handlers return `Unit.Value`.
-- **FR-005**: `EnrichmentOptions` MUST exist in `LamuFlix.Core.Pipeline` as a plain `sealed record` with `MaxAttempts` and data annotations, with no `IOptions`. Lease and sweep-interval members wait for D1.
+- **FR-005**: `EnrichmentOptions` MUST exist in `LamuFlix.Core.Pipeline` as a plain, non-positional `sealed record` whose `public int MaxAttempts { get; init; }` property carries `[Range(1, int.MaxValue)]`, with no `IOptions`. A positional parameter is not allowed: the attribute would land on the constructor parameter only and never validate (Compass S4). Lease and sweep-interval members wait for D1.
 - **FR-006**: `EnrichmentFailureAction` (SmartEnum: `Retry`, `RetryDelayed`, `DeadLetter`) and `EnrichmentFailureDecision(EnrichmentFailureAction Action, int? NextAttempt)` MUST exist in `LamuFlix.Core.Domain`. Invariant: `Retry` and `RetryDelayed` carry a non-null `NextAttempt` equal to `Attempt + 1`; `DeadLetter` carries `NextAttempt = null`. RecordFailure is the only producer, and its tests assert the invariant on every matrix row.
 - **FR-007**: Add/RemoveFromWatchlist handlers MUST return `Unit`, throw `NotFoundException` on a null movie, and let `InvalidTransitionException` propagate.
 - **FR-008**: `PlayMovieCommandHandler` MUST use `IMovieCatalog` and `IMediaPlayerLauncher`, and MUST NOT check `Features:LocalPlay` or start a process.
@@ -229,7 +231,7 @@ DI registration; FluentValidation validators (Core cannot reference them); optio
 
 ### Measurable Outcomes
 
-- **SC-001**: All unblocked handlers compile with zero warnings and Core has zero new package references (AC1).
+- **SC-001**: All unblocked handlers compile with zero warnings and Core has zero new package references (AC1). AC1 is met in full only when D1 and D2 keep their handlers; D1(A) or D2(C) amends the ticket text instead (Compass S2).
 - **SC-002**: 100% of handler unit tests pass, with every legal and exception path covered (AC2, AC6).
 - **SC-003**: The Api returns 404 `ProblemDetails` for `NotFoundException` and the 422 mapping is unchanged (AC4).
 - **SC-004**: The three static-analysis gates exit 0, the cyclomatic refactor gate at threshold 6 passes, and `dotnet format --verify-no-changes` is clean (AC8).

@@ -19,6 +19,7 @@
 - [ ] D1 answered (owner)
 - [ ] D2 answered (owner)
 - [ ] D3 answered (owner; wiring deferral, constitution departure)
+- [x] Each owner checkbox states its AC1/AC2 ticket-text consequence (Compass S2)
 - [ ] Q13 ruled (Patron)
 
 ## Feature Readiness
