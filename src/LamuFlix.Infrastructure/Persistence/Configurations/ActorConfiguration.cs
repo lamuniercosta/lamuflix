@@ -9,7 +9,6 @@ public sealed class ActorConfiguration : IEntityTypeConfiguration<ActorRecord>
     public void Configure(EntityTypeBuilder<ActorRecord> builder)
     {
         builder.ToTable("actors");
-        builder.HasKey(actor => actor.Id);
         builder.Property(actor => actor.Id)
             .HasColumnName("id")
             .HasColumnType("integer")
