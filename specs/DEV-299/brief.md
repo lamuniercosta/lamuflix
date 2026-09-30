@@ -248,3 +248,35 @@ Inputs: `findings-DEV-299-Ledger` (F1-F6, A1-A2), `findings-DEV-299-Compass` (S1
 
 - **Grill:** 12/12 questions used; there is no grill round 2. Q13 goes to Patron as a single post-grill ruling, with Conductor's approval to exceed the budget, or as a Quill `needs decision:`.
 - **Quill:** at most 2 fix-list rounds on spec/plan/tasks against this brief before escalation to the Conductor.
+
+## Owner answers and review rulings (Keel, 2026-09-30)
+
+This section supersedes the *Owner checkboxes*, *Open items* and *Frozen scope* text above wherever they conflict.
+
+**Gate 1 is approved.** The owner checked all three boxes on spec PR #54, which merged at 2026-09-30T04:44:18Z. The checked text is verbatim:
+
+- [x] D1 (sweeper claim livelock): (Recommended: A) Drop sweeper claim, enqueue directly with existing EnrichmentRequested.
+- [x] D2 (MovieId allocation): (Recommended: A) IMovieRepository gains NextIdentityAsync / Id allocation member.
+- [x] D3 (wiring/validators deferral): (Recommended: A) Accept constitution departure; handlers ship unregistered in Core, wiring delivered in follow-up.
+
+The checked text governs over the options listed in this brief.
+
+- **D1:** The checked text is not this brief's D1(A) ("drop the handler"). The requeue handler ships. `RequeueStrandedMoviesCommand(IReadOnlyList<MovieId>)` enqueues `EnrichmentRequested(id, 1)` for each caller-supplied id through `IEnrichmentQueue`, with no claim, load or save, and returns the count. The worker claim stays the only claim. The code at `5571b91` matches. Finding the lease-aged rows and the sweeper timer belong to the D3 wiring follow-up.
+- **D2:** `IMovieRepository.NextIdentityAsync(CancellationToken)`. Import runs Scan → `NextIdentityAsync` → `Movie.Create` → `AddAsync` → `SaveChangesAsync` → `EnqueueAsync`. US7, FR-015 and US8/FR-016 are unblocked.
+- **D3:** Accepted as a constitution departure. The handlers ship unregistered, and registration, validators (FR-018), `EnrichmentOptions` binding, the consumer and the launcher come in the wiring follow-up.
+
+ADR 0017's *Stranded-work requeue* section records D1 and D2, and its Consequences record D3.
+
+**Q14 (Patron, `CONCLUSIONS.md` Q14, commit `4e9a08b`):** Accept `LamuFlix.Core.Options` on the feature-handler allow-list as-is, and reuse DEV-300's `src/LamuFlix.Core/Options/EnrichmentOptions.cs`. This ruling supersedes:
+
+- Q2's `Core.Pipeline` placement;
+- this brief's frozen-scope entries for `Pipeline/EnrichmentOptions.cs` and `Pipeline/EnrichmentOptionsTests.cs` (neither file is created);
+- AC7's "one change only: Library". The architecture test now carries two allow-list entries, `LamuFlix.Core.Library` (Q13) and `LamuFlix.Core.Options` (Q14), at `ArchitectureTests.cs:274`.
+
+No code change follows from this.
+
+**Sanctioned addition to the frozen scope:** `tests/LamuFlix.UnitTests/Pipeline/NotFoundExceptionTests.cs` is in scope. It exists to kill the mutants on the new Core `NotFoundException`, and the mutation gate requires it. It adds no production surface. This rules on Compass SPEC-3, which was dropped.
+
+**Review follow-up (findings-DEV-299 #5, PLAUSIBLE, no fix commit):** The requeue resets `Attempt` to 1, so a movie that keeps getting stranded can be requeued without bound. The bound belongs to the sweeper/wiring follow-up. Patron routes it and Rigger files it.
+
+**Docs remediation:** Keel has updated this brief and ADR 0017 (findings #2 and #3). Quill amends `spec.md` (status, D1-D3 checkboxes, BLOCKED markers, FR-005, FR-021, FR-022, SC-001), `tasks.md` T005/T005a, and `checklists/requirements.md` (findings #2 and #4).
