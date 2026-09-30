@@ -45,6 +45,29 @@ public sealed class ValidationExceptionHandlerTests
     }
 
     [Fact]
+    public async Task TryHandleAsync_NotFoundException_Writes404WithoutExceptionLeak()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(context, new NotFoundException(), CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status404NotFound);
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status404NotFound);
+        root.GetProperty("title").GetString().ShouldNotBeNullOrWhiteSpace();
+        root.GetProperty("type").GetString().ShouldNotBeNullOrWhiteSpace();
+        root.GetProperty("traceId").GetString().ShouldBe("trace-296");
+        var json = root.GetRawText();
+        json.ShouldNotContain("Not found.");
+        json.ShouldNotContain(nameof(NotFoundException));
+    }
+
+    [Fact]
     public async Task TryHandleAsync_OtherException_ReturnsFalse()
     {
         // arrange

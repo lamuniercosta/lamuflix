@@ -19,20 +19,31 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
         ArgumentNullException.ThrowIfNull(exception);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (exception is not ValidationException validationException)
+        return exception switch
         {
-            return false;
-        }
+            ValidationException validationException => await WriteAsync(
+                httpContext,
+                StatusCodes.Status422UnprocessableEntity,
+                CreateValidationProblem(validationException)),
+            NotFoundException => await WriteAsync(
+                httpContext,
+                StatusCodes.Status404NotFound,
+                CreateNotFoundProblem()),
+            _ => false,
+        };
+    }
 
-        httpContext.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+    private async ValueTask<bool> WriteAsync(HttpContext httpContext, int statusCode, ProblemDetails problem)
+    {
+        httpContext.Response.StatusCode = statusCode;
         return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
-            ProblemDetails = CreateProblem(validationException),
+            ProblemDetails = problem,
         });
     }
 
-    private static ProblemDetails CreateProblem(ValidationException validationException)
+    private static ProblemDetails CreateValidationProblem(ValidationException validationException)
     {
         var problem = new ProblemDetails
         {
@@ -43,4 +54,12 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
         problem.Extensions["errors"] = validationException.Errors;
         return problem;
     }
+
+    private static ProblemDetails CreateNotFoundProblem() =>
+        new()
+        {
+            Status = StatusCodes.Status404NotFound,
+            Title = "Not Found",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+        };
 }

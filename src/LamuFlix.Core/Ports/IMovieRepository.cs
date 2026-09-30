@@ -10,6 +10,8 @@ public interface IMovieRepository
 
     Task AddAsync(Movie movie, CancellationToken ct);
 
+    Task<MovieId> NextIdentityAsync(CancellationToken ct);
+
     Task SaveChangesAsync(CancellationToken ct);
 
     /// <summary>

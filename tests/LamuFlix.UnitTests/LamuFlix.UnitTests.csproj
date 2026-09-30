@@ -16,6 +16,8 @@
     <PackageReference Include="FsCheck" />
     <PackageReference Include="FsCheck.Xunit.v3" />
     <PackageReference Include="Ardalis.SmartEnum.SystemTextJson" />
+    <PackageReference Include="AutoFixture" />
+    <PackageReference Include="Faker.Net" />
   </ItemGroup>
 
   <ItemGroup>
