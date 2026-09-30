@@ -456,7 +456,7 @@ $changedFiles = @(
     git -C $repoRoot diff --name-only --diff-filter=AMR $mergeBase HEAD -- 'src/*.cs' 'src/**/*.cs' |
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
         ForEach-Object { $_.Trim().Replace('\', '/') } |
-        Where-Object { $_ -notlike 'src/LamuFlix.Infrastructure/Persistence/Migrations/*' } |
+        Where-Object { $_ -notmatch 'Persistence[\\/]Migrations[\\/]' } |
         Select-Object -Unique
 )
 

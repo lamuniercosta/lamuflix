@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics.CodeAnalysis;
 using LamuFlix.Core.Domain;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -10,7 +9,7 @@ public sealed class EnrichmentFailureCategoryConverter() : ValueConverter<Enrich
     value => FromCode(value))
 {
     private static EnrichmentFailureCategory FromCode(string code) =>
-        DomainConversion.Require(TryFromKnownCode(code, out var result) ? result : null);
+        DomainConversion.Require(FindKnownCode(code));
 
     private static readonly EnrichmentFailureCategory[] Known =
     [
@@ -20,18 +19,16 @@ public sealed class EnrichmentFailureCategoryConverter() : ValueConverter<Enrich
         EnrichmentFailureCategory.Unknown,
     ];
 
-    private static bool TryFromKnownCode(string code, [NotNullWhen(true)] out EnrichmentFailureCategory? result)
+    private static EnrichmentFailureCategory? FindKnownCode(string code)
     {
         foreach (var category in Known)
         {
             if (string.Equals(category.Code, code, StringComparison.Ordinal))
             {
-                result = category;
-                return true;
+                return category;
             }
         }
 
-        result = null;
-        return false;
+        return null;
     }
 }
