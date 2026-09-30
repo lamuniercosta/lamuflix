@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoFixture;
@@ -86,5 +85,5 @@ public sealed class RequeueStrandedMoviesCommandHandlerTests
         await queue.Received(1).EnqueueAsync(Arg.Any<EnrichmentRequested>(), ct);
     }
 
-    private MovieId NewId() => new(System.Math.Abs(fixture.Create<int>()) + 1);
+    private MovieId NewId() => new(Math.Abs(fixture.Create<int>()) + 1);
 }
