@@ -2,8 +2,8 @@
 
 Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ.Client 7.x, declare quorum topology with TTL retry and DLQ, propagate W3C trace context, and write ADR-0004/0005.
 
-- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`; Q15, commit `7788471`; Q16, commit `08c3790`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
-- Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, `recon-DEV-18-3`, `recon-DEV-18-4` (its R3 conclusion is rejected by Q14), `recon-DEV-18-5`, and the Conductor's placement resolution of 2026-09-30.
+- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`; Q15, commit `7788471`; Q16, commit `08c3790`; Q17, commit `5533797`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
+- Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, `recon-DEV-18-3`, `recon-DEV-18-4` (its R3 conclusion is rejected by Q14), `recon-DEV-18-5`, `recon-DEV-18-6`, and the Conductor's placement resolution of 2026-09-30.
 - Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). Q13 and Q14 were ruled after the grill on Quill's `needs decision:` requests (D5, D6); Q15 and Q16 on the readiness check (D8, D8a). The plan challenge is adjudicated in D9. No owner checkbox: nothing changes the ticket text or departs from the constitution.
 - The ticket text (YouTrack DEV-18, cited as T01–T23 in CONCLUSIONS.md) is authoritative. If this brief and the ticket disagree, the ticket wins and the disagreement is a defect in this brief.
 
@@ -129,8 +129,17 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
     - FR-010 is covered by T023 asserting the consumer resolves the `AddHandler`-composed handler (the outermost registration is the tracing decorator). Decorator order itself is already covered by the existing pipeline tests.
     - FR-013 is a structural "must not" rule, verified at code review, and gets no test.
   - **Spec F2 (Low): ACCEPT without renumbering.** FR IDs stay stable. FR-033/FR-034 move into a new "Readiness (D8, D8a; Q15, Q16)" group after Gates, and FR-016 moves to the Core-processing group.
-  - **Spec F4, F5, F6, F8, F9 (Low): ACCEPT.** Provenance becomes D1–D9 and Q1–Q17, with recon-DEV-18-5 as an input. The Clarifications gain Q15/Q16. The checklist is extended to FR-034, Q1–Q16 and D1–D8a, with the readiness scenario. FR-030 names the HealthChecks pin and any D9a/D9b pins. T020 asserts that the movie is not marked Failed on cancellation.
+  - **Spec F4, F5, F6, F8, F9 (Low): ACCEPT.** Provenance becomes D1–D9b and Q1–Q17, with recon-DEV-18-5 and recon-DEV-18-6 as inputs. The Clarifications gain Q15/Q16. The checklist is extended to FR-034, Q1–Q16 and D1–D8a, with the readiness scenario. FR-030 names the HealthChecks pin and any D9a/D9b pins. T020 asserts that the movie is not marked Failed on cancellation.
   - **Spec F7 (Low): ACCEPT.** Plan D-8 comes before D-9. Plan design numbers are headed as the plan's own and cite brief decisions explicitly.
+
+- **D9a: direct Infrastructure references (Patron Q17, `5533797`).** No owner checkbox.
+  - Central pins in `Directory.Packages.props`: `Microsoft.Extensions.Options` `10.0.12` and `Microsoft.Extensions.Hosting.Abstractions` `10.0.12`. Add versionless `PackageReference`s to `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`.
+  - `Hosting.Abstractions` is pinned at `10.0.12`, not at the `10.0.1` Hosting line, because the D8a HealthChecks 10.0.12 package requires `>= 10.0.12` (NU1605 downgrade).
+  - Doctrine: a directly used API surface gets a direct reference. D8a stands, because `IHealthCheck` comes with the directly referenced HealthChecks package (Ledger L1 closed).
+- **D9b: exact OpenTelemetry.Api pin and publish-return contract (recon-DEV-18-6).**
+  - `OpenTelemetry.Api` is pinned to `1.19.1` (latest stable 1.x, net10.0 compatible). This replaces D4's "Wisp confirms at implementation" (Ledger M2 closed).
+  - RabbitMQ.Client 7.x has no return event on `IChannel`. With confirmation tracking enabled and `mandatory: true`, an unroutable publish surfaces from the awaited `BasicPublishAsync` as `PublishReturnException`, a subtype of `PublishException` with `IsReturn`. A nack surfaces as `PublishException`.
+  - This supersedes D9 Risk F2's "returned flag from the return event". The publisher awaits `BasicPublishAsync` to completion (the confirm), which surfaces both cases, and disposes the channel only after that await settles. A timeout or cancellation of that await is uncertain and fails the call. T015's return case asserts a `PublishReturnException`-driven failure.
   - **Dependencies.** DEV-392 (production repository and DbContext wiring) was filed by Rigger and fulfils D6's follow-up. DEV-18 depends on DEV-392 only for production activation, not for delivery.
 
 ## Closing bar
@@ -214,8 +223,8 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 
 ## Frozen scope
 
-- `Directory.Packages.props`: bump `RabbitMQ.Client` from `6.8.1` to `7.2.2`, add an `OpenTelemetry.Api` pin, and add the `Microsoft.Extensions.Diagnostics.HealthChecks` `10.0.12` pin (D8a).
-- `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`: add package references to `RabbitMQ.Client`, `OpenTelemetry.Api` and `Microsoft.Extensions.Diagnostics.HealthChecks` (D8a).
+- `Directory.Packages.props`: bump `RabbitMQ.Client` from `6.8.1` to `7.2.2`, add the `OpenTelemetry.Api` `1.19.1` pin (D9b), and add the `Microsoft.Extensions.Diagnostics.HealthChecks` (D8a), `Microsoft.Extensions.Options` and `Microsoft.Extensions.Hosting.Abstractions` (D9a) `10.0.12` pins.
+- `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`: add versionless package references to `RabbitMQ.Client`, `OpenTelemetry.Api`, `Microsoft.Extensions.Diagnostics.HealthChecks`, `Microsoft.Extensions.Options` and `Microsoft.Extensions.Hosting.Abstractions`.
 - `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqHealthCheck.cs` and its `ready`-tagged registration in the DI extension (D8).
 - `src/LamuFlix.ServiceDefaults/Extensions.cs`: the generic `AddHealthChecks()` call only (D8).
 - New files under `src/LamuFlix.Infrastructure/RabbitMq/`:
