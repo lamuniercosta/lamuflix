@@ -187,3 +187,10 @@ Ruling: ACCEPT (1a) and (2A): guard both required Core ports and route both retr
 
 Ruling: Leave the repository/DbContext wiring follow-up's YouTrack Estimated Time unset; record `Planning estimate: 3 SP (story points)` in its description, retain `size:M`, and file outside the chain. Do not encode the planning estimate as `3d` or invent a points-to-time conversion.
 - Basis: Rigger's live project/script verification reports only an Estimated Time Period field and no supported story-point field or established conversion; DEV-301/DEV-303's `2d` and DEV-18's `3d` are time values, not evidence of point equivalence. This clarifies Patron's existing Q14 follow-up filing instruction under the seat's tracker-decision authority, without changing delivery scope or either dependency direction.
+
+---
+
+## Follow-up create estimate — mandatory helper parameter correction
+
+Ruling: Supply `-Estimate '3d'` when creating the repository/DbContext wiring follow-up, keep `size:M` and `Planning estimate: 3 SP (story points)` in the description, and explicitly record `3d` as an independently selected time estimate, not a conversion from points. This supersedes the preceding unset-Estimated-Time ruling; do not amend the tracker helper.
+- Basis: Conductor relays Rigger's verified `scripts/local/Edit-YouTrackIssue.ps1:73` Create parameter contract: Estimate is mandatory and accepts period values, so omission cannot execute through the required helper. Patron selects three days as a separate planning estimate for the scoped registration, host wiring and verification already authorized by Q14; no established SP-to-time mapping is asserted. The current seat gives Patron follow-up estimate and tracker-change decisions. Delivery scope, parent DEV-282, dependency directions and outside-chain placement are unchanged.
