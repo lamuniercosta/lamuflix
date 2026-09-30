@@ -2,9 +2,9 @@
 
 Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ.Client 7.x, declare quorum topology with TTL retry and DLQ, propagate W3C trace context, and write ADR-0004/0005.
 
-- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
-- Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, and the Conductor's placement resolution of 2026-09-30.
-- Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). No owner checkbox: nothing changes the ticket text or departs from the constitution.
+- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
+- Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, `recon-DEV-18-3`, and the Conductor's placement resolution of 2026-09-30.
+- Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). Q13 was ruled after the grill on Quill's `needs decision:` (D5). No owner checkbox: nothing changes the ticket text or departs from the constitution.
 - The ticket text (YouTrack DEV-18, cited as T01–T23 in CONCLUSIONS.md) is authoritative. If this brief and the ticket disagree, the ticket wins and the disagreement is a defect in this brief.
 
 ## Solution facts this brief rests on
@@ -30,11 +30,29 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
   - Api is the only host in the solution, so the consumer is a `BackgroundService` in `LamuFlix.Infrastructure/RabbitMq/`, registered through Infrastructure's DI extension and run by Api.
   - This adds no project and no layer.
   - The consumer dispatches each `EnrichmentRequested` to the existing Core enrichment handler(s) through the existing handler pipeline. It maps the outcome from `RecordEnrichmentFailureCommandHandler` (Retry / RetryDelayed / DeadLetter) to routing keys as Q7 sets out.
-  - **Precondition for the plan:** `plan.md` must cite, by file:line, the Core handler that processes an enrichment request and the outcome type's member names. If no such handler exists, Quill raises `needs decision:` and stops. The consumer must not grow enrichment logic of its own (ADR-0017 puts enrichment decisions in Core handlers).
+  - ~~Precondition for the plan: cite the existing Core processing handler.~~ **Superseded by D5.** The precondition failed: no such handler exists (recon-DEV-18-3 R2). The consumer still must not grow enrichment logic of its own. Transport stays in the consumer, and decisions stay in Core.
 - **D4: Package pins.**
   - `RabbitMQ.Client` goes to `7.2.2`.
   - `OpenTelemetry.Api` is pinned to the latest stable 1.x release that targets net8.0 or later. Wisp confirms the exact version at implementation; it is recorded in `plan.md` and in Directory.Packages.props.
   - Only `LamuFlix.Infrastructure` references `OpenTelemetry.Api` (Q3). Only Infrastructure and Tests.Common/IntegrationTests reference `RabbitMQ.Client`, as test consumers.
+- **D5: Core processing handler and provider-gated activation (Patron Q13, `d90eca2`; recon-DEV-18-3).** No owner checkbox: Q13 rules the handler ticket-forced by T06, T09 and T21.
+  - **Handler.** Add sealed `ProcessEnrichmentCommand(MovieId, Attempt)` and `ProcessEnrichmentCommandHandler : ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>` under `src/LamuFlix.Core/Features/Enrichment/`. It runs in this order:
+    1. claim first;
+    2. load the current movie data;
+    3. call `Core.Ports.IMetadataProvider.FindAsync`;
+    4. apply the result, or classify the exception and record the failure.
+  - **Outcome.** `ProcessEnrichmentOutcome` is either `Completed` or the existing `EnrichmentFailureDecision`. A false claim also counts as `Completed`: it is acked and ignored.
+  - **Composition.** The handler composes the existing handlers' logic **through ports**. It never calls one handler from another. It adds no second retry policy, and no `Attempt < MaxAttempts` check outside the existing Core policy.
+  - **Classification.** Use the existing `src/LamuFlix.Core/Features/Enrichment/EnrichmentFailureClassifier.cs:10-17`, the single classifier. `plan.md` cites it by file:line. Preserve cancellation: an `OperationCanceledException` from cancellation is never classified as a failure.
+  - **Consumer.** The consumer creates a per-message `IServiceScope` and dispatches `ProcessEnrichmentCommand` through the composed `ICommandHandler<,>` (Validation, then Logging, then Tracing). It maps `Completed` to ack. It maps the decision to a routing key as in AC3, confirming before the ack.
+  - **Guarded activation.** Infrastructure's DI extension always registers the connection owner, the topology and the publisher. It registers the consumer hosted service and `ProcessEnrichmentCommandHandler` (via `AddHandler`) **only when an `IMetadataProvider` registration exists**. That check runs after provider registrations.
+    - With no provider, neither is registered, the Api starts, and one startup log line reports the consumer as inactive. Messages wait durably in `enrichment.requested`.
+    - No production stub or no-op provider is installed, and no message is consumed or acked while inactive.
+    - A registered but misconfigured provider surfaces its own failure.
+  - **Startup validation.** Development enables `ValidateOnBuild` and `ValidateScopes` by default; recon R4 is rejected on this point. Keep both enabled, and never disable them to make the guard work.
+  - **ADR-0004** documents the activation boundary: the consumer is inactive until a provider is registered.
+  - **Proof.** AC3 tests run the real broker, the real consumer and the real `ProcessEnrichmentCommandHandler`, with a **Core-port fake `IMetadataProvider`** registered in the test host. That fake is not a RabbitMQ mock, so Q11 holds. The tests prove transport and processing, not the OMDb adapter.
+  - **Out of scope:** the OMDb implementation of `Core.Ports.IMetadataProvider`. Rigger files it, or folds it into an existing ticket, after a live dedup: parent DEV-282, `size:L`, 5 points, related to DEV-18 as the production activation prerequisite. The follow-up stays outside this chain.
 
 ## Closing bar
 
@@ -71,6 +89,7 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
   - A message that cannot be deserialized is nacked with `requeue:false` and goes to the DLQ through the DLX.
   - On cancellation the message is requeued.
   - A movie is marked Failed only on the terminal path.
+  - Processing is dispatched to `ProcessEnrichmentCommandHandler` (D5). `Completed` means ack.
   - Integration tests prove three things:
     - a RetryDelayed outcome (for example a RateLimited category) comes back after the TTL, using a RetryDelay of about 1 s in the test;
     - a terminal or non-retryable outcome lands in `enrichment.dead-letter`;
@@ -129,11 +148,12 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
   - the DI registration extension.
 
   Quill finalizes file names in `plan.md`.
+- `src/LamuFlix.Core/Features/Enrichment/`: `ProcessEnrichmentCommand`, `ProcessEnrichmentCommandHandler` and `ProcessEnrichmentOutcome`, plus a validator if the pipeline convention requires one (D5). No other Core enrichment file is edited unless `plan.md` justifies it by file:line.
 - `src/LamuFlix.Core/Options/RabbitMqOptions.cs`: add `RetryDelay` and `Prefetch`, with validation. Core stays free of RabbitMQ and OpenTelemetry references.
 - `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs`: add messaging activity and tag names only if the constants they need do not already exist.
 - `src/LamuFlix.Api`: wire the registration (`Program.cs` or the existing composition root) and add the `RabbitMq` section to the appsettings.
 - `tests/LamuFlix.IntegrationTests`: the broker tests for AC1–AC4.
-- `tests/LamuFlix.UnitTests`: options validation and the pure outcome-to-routing mapping. Any gap in the existing Core policy tests is extended there.
+- `tests/LamuFlix.UnitTests`: `ProcessEnrichmentCommandHandler` over fake ports, covering a false claim, success, each classified failure path and cancellation. Also options validation, the pure outcome-to-routing mapping, and the guarded-registration rule with and without a provider. Any gap in the existing Core policy tests is extended there.
 - `tests/LamuFlix.Tests.Common`: fixture changes only if a test needs them, for example exposing a connection helper.
 - `docs/adr/ADR-0004.md` and `docs/adr/ADR-0005.md`.
 - `CONTEXT.md`: glossary terms (retry queue, dead-letter queue, publisher confirm, traceparent) only if the file already has a glossary.
@@ -141,6 +161,7 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 **Out of scope. Each is a follow-up, never a finding in this round:**
 
 - implementing the sweeper (Q1);
+- the OMDb (or any real) `IMetadataProvider` implementation (D5, Q13);
 - a transactional outbox;
 - deleting or editing the retired `src/LamuFlix.Web`, `src/LamuFlix.Worker`, `src/LamuFlix.Data` or `tests/LamuFlix.Test` (D1);
 - migrating or purging `task_queue`/`task_queue_dlq` on any broker (Q9);
@@ -155,16 +176,17 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 2. **Options.** `RetryDelay` and `Prefetch` with validation and unit tests (test first).
 3. **Topology and connection owner.** An integration test asserts the declared arguments on `rabbitmq:4.0.0`.
 4. **Publisher.** Confirms, the mandatory flag, returns, and the propagation helper. Integration tests cover AC1 and AC4 (inject), including the path with no listener.
-5. **Consumer.** The async consumer, prefetch, outcome mapping, confirm before ack, malformed messages to the DLQ, and requeue on cancel. Integration tests cover AC3 and AC4 (extract and link).
-6. **DI registration and Api wiring,** plus the appsettings.
-7. **ADR-0004 and ADR-0005.** These have no code dependency and can run in parallel with steps 3–6.
-8. **Gates and refactor.** All AC8 gates, then the refactor pass that brings complexity down to ≤6.
+5. **Core processing handler (D5).** `ProcessEnrichmentCommandHandler` with unit tests first, over fake ports. It has no broker dependency and can run in parallel with steps 3 and 4.
+6. **Consumer.** The async consumer, a per-message scope dispatching `ProcessEnrichmentCommand`, prefetch, outcome mapping, confirm before ack, malformed messages to the DLQ, and requeue on cancel. Integration tests cover AC3 and AC4 (extract and link), with a Core-port fake provider.
+7. **DI registration and Api wiring,** with provider-gated consumer activation (D5), plus the appsettings.
+8. **ADR-0004 and ADR-0005.** These have no code dependency and can run in parallel with steps 3–7. ADR-0004 includes the D5 activation boundary.
+9. **Gates and refactor.** All AC8 gates, then the refactor pass that brings complexity down to ≤6.
 
 Ordering constraints:
 
 - Step 3 comes before steps 4 and 5, because both call the one topology owner.
-- Step 4 comes before step 5's republish path, because the republish reuses the publisher's confirm and mandatory logic. There must be no second publish implementation.
-- The step 5 precondition (D3) is checked while planning, not while implementing.
+- Step 4 comes before step 6's republish path, because the republish reuses the publisher's confirm and mandatory logic. There must be no second publish implementation.
+- Step 5 comes before step 6, because the consumer dispatches the handler.
 
 ## Test strategy
 
