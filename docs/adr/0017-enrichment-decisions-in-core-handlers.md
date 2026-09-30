@@ -1,7 +1,7 @@
 # 0017. Enrichment decisions in Core handlers; transport in the consumer
 
-- Status: Proposed (plan frozen after plan challenge; becomes Accepted when the DEV-299 PR merges.
-  The *Stranded-work requeue* section stays pending until the owner answers D1.)
+- Status: Proposed (plan frozen after plan challenge; owner answered D1-D3 on spec PR #54; becomes
+  Accepted when the DEV-299 PR merges.)
 - Date: 2026-09-30
 - Ticket: DEV-299 (parent DEV-282)
 
@@ -34,9 +34,13 @@ dead-letter. The grill rulings are in `specs/DEV-299/CONCLUSIONS.md` (Q2-Q5, Q7,
   never logs exception text.
 
 `EnrichmentFailureAction` is a SmartEnum (`Retry`, `RetryDelayed`, `DeadLetter`), as the constitution requires of a new closed set of values. It lives in
-`Core/Domain` next to `EnrichmentFailureCategory`. `EnrichmentOptions` is a plain sealed record in
-`Core/Pipeline` with data annotations and no `IOptions`. The host binds and validates it when it
-wires the pipeline.
+`Core/Domain` next to `EnrichmentFailureCategory`. The handler reuses DEV-300's existing
+`EnrichmentOptions` in `LamuFlix.Core.Options`: a plain sealed record with data annotations
+(`MaxAttempts`, `SweepInterval`, `ClaimLease`) and no `IOptions`. DEV-299 adds no second options
+type in `Core/Pipeline`. The host binds and validates it when it wires the pipeline. The
+feature-handler architecture rule allows `LamuFlix.Core.Options` for this, next to
+`LamuFlix.Core.Library` (Q13). This is `CONCLUSIONS.md` Q14, which supersedes Q2's `Core.Pipeline`
+placement.
 
 **The consumer owns transport.** Only `EnrichmentConsumer` turns a decision into a republish, a
 delayed republish, a dead-letter, or an ack. It also calls the metadata provider and builds the
@@ -62,20 +66,34 @@ delayed republish, a dead-letter, or an ack. It also calls the metadata provider
 - Playback calls `IMediaPlayerLauncher` without a `Features:LocalPlay` check. That gate stays in
   the adapter registration and in `DisabledMediaPlayerLauncher`.
 
-## Stranded-work requeue: pending owner D1
+## Stranded-work requeue: the sweeper does not claim
 
-This section is not decided. The ticket says the sweeper "claims stranded Pending movies and
-re-enqueues them", and taken literally that livelocks. The sweeper's claim succeeds, so the
-worker's mandatory claim returns false and the message is acked without being processed
-(`CONCLUSIONS.md` Q1). The owner chooses one of three options:
+The ticket says the sweeper "claims stranded Pending movies and re-enqueues them", and taken
+literally that livelocks. The sweeper's claim succeeds, so the worker's mandatory claim returns
+false and the message is acked without being processed (`CONCLUSIONS.md` Q1).
 
-- (A) defer the requeue handler;
-- (B) the sweeper lists lease-aged `Pending` rows through a new repository member and enqueues them
-  without claiming;
-- (C) add a claim token to `EnrichmentRequested`, which needs a constitution amendment.
+The owner checked D1 on spec PR #54: "Drop sweeper claim, enqueue directly with existing
+EnrichmentRequested." So:
 
-This ADR records the answer before it becomes Accepted. The lease and sweep-interval members of
-`EnrichmentOptions` wait for that answer too.
+- `RequeueStrandedMoviesCommand(IReadOnlyList<MovieId> MovieIds)` takes the stranded ids from its
+  caller. `RequeueStrandedMoviesCommandHandler` depends only on `IEnrichmentQueue`. For each id it
+  enqueues `EnrichmentRequested(id, 1)`, and it returns the count.
+- The handler does not claim, load or save. The worker's claim stays the only claim, so the
+  livelock cannot happen. `EnrichmentRequested` keeps its shape, and no constitution amendment is
+  needed.
+- Finding the lease-aged `Pending` rows, the timer, and the `SweepInterval`/`ClaimLease` binding
+  belong to the sweeper wiring follow-up (D3). The lease and sweep-interval members already exist on
+  DEV-300's `EnrichmentOptions`.
+
+The checked text is what governs. It differs from the brief's earlier option (A), "defer the
+requeue handler": the handler ships, and only the claim is dropped.
+
+Consequence: every requeue restarts at attempt 1, so a movie that keeps getting stranded can be
+requeued without bound, and `MaxAttempts` never applies across sweeps. Bounding that belongs to the
+sweeper follow-up, not to this handler.
+
+D2 was answered the same way. `IMovieRepository` gains `NextIdentityAsync(CancellationToken)`, and
+import allocates the id before `Movie.Create`.
 
 ## Consequences
 
@@ -86,5 +104,6 @@ This ADR records the answer before it becomes Accepted. The lease and sweep-inte
 - The consumer must switch exhaustively on `EnrichmentFailureAction`. A new action is a breaking
   change for it.
 - Registration, validators, `EnrichmentOptions` binding, the consumer and the LocalPlay-gated
-  launcher belong to wiring work and must exist before these handlers are used. Deferring them is a constitution departure that the owner accepts or rejects as checkbox D3 on the spec PR. DEV-299 does not
-  deliver them.
+  launcher belong to wiring work and must exist before these handlers are used. Deferring them is a
+  constitution departure. The owner accepted it as checkbox D3 on spec PR #54: the handlers ship
+  unregistered in Core, and the wiring comes in a follow-up. DEV-299 does not deliver them.
