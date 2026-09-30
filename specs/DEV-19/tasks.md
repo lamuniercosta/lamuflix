@@ -46,12 +46,12 @@ Retirement comes first: the Pomelo references in Data and Worker would break the
 
 ## Phase 3: Records, configurations, context, factory (Q1, Q2, Q3, Q5, Q8)
 
-- [ ] T011 [P] [US1] `Persistence/Records/`: `MovieRecord`, `ActorRecord`, `DirectorRecord`, `GenreRecord` (int identity + required `name` for the three ancillary records; nine nullable metadata scalars plus the FR-005a Core scalars on `MovieRecord`; `MovieRecord.Id` is `MovieId`, null before insert)
-- [ ] T012 [US1] `Persistence/Configurations/MovieConfiguration.cs`: table `movies`, snake_case columns, exact types and nullability (FR-005, FR-005a), identity key with the `MovieId` converter and `ValueGeneratedOnAdd`, converters, indexes (`title`, `release_year`, `status`, unique `library_path`, unique filtered `imdb_id`), `UsingEntity` for `movie_actors`, `movie_directors`, `movie_genres` with snake_case FK columns
-- [ ] T013 [P] [US1] `ActorConfiguration`, `DirectorConfiguration`, `GenreConfiguration` (`actors`, `directors`, `genres`)
-- [ ] T014 [US1] `Persistence/LamuFlixDbContext.cs`: `DbContextOptions<LamuFlixDbContext>` constructor, `ApplyConfigurationsFromAssembly`, no `OnConfiguring`
-- [ ] T015 [US4] Test first, then `Persistence/LamuFlixDesignTimeDbContextFactory.cs`: reads only `LAMUFLIX_DESIGN_TIME_CONNECTION_STRING`; missing or blank fails clearly, message never contains the value, no fallback (unit tests set and restore the variable inside a dedicated collection with `DisableParallelization = true`, brief P5)
-- [ ] T016 [US1] Docker-free model test in `tests/LamuFlix.UnitTests/Persistence/`: build the model with `UseNpgsql()` and no connection string; assert that the `movies` key has the `MovieId` converter and `ValueGenerated.OnAdd`, and that the FR-005/FR-005a column names, types and nullability match (brief P3). Build Infrastructure; run gates
+- [x] T011 [P] [US1] `Persistence/Records/`: `MovieRecord`, `ActorRecord`, `DirectorRecord`, `GenreRecord` (int identity + required `name` for the three ancillary records; nine nullable metadata scalars plus the FR-005a Core scalars on `MovieRecord`; `MovieRecord.Id` is `MovieId`, null before insert)
+- [x] T012 [US1] `Persistence/Configurations/MovieConfiguration.cs`: table `movies`, snake_case columns, exact types and nullability (FR-005, FR-005a), identity key with the `MovieId` converter and `ValueGeneratedOnAdd`, converters, indexes (`title`, `release_year`, `status`, unique `library_path`, unique filtered `imdb_id`), `UsingEntity` for `movie_actors`, `movie_directors`, `movie_genres` with snake_case FK columns
+- [x] T013 [P] [US1] `ActorConfiguration`, `DirectorConfiguration`, `GenreConfiguration` (`actors`, `directors`, `genres`)
+- [x] T014 [US1] `Persistence/LamuFlixDbContext.cs`: `DbContextOptions<LamuFlixDbContext>` constructor, `ApplyConfigurationsFromAssembly`, no `OnConfiguring`
+- [x] T015 [US4] Test first, then `Persistence/LamuFlixDesignTimeDbContextFactory.cs`: reads only `LAMUFLIX_DESIGN_TIME_CONNECTION_STRING`; missing or blank fails clearly, message never contains the value, no fallback (unit tests set and restore the variable inside a dedicated collection with `DisableParallelization = true`, brief P5)
+- [x] T016 [US1] Docker-free model test in `tests/LamuFlix.UnitTests/Persistence/`: build the model with `UseNpgsql()` and no connection string; assert that the `movies` key has the `MovieId` converter and `ValueGenerated.OnAdd`, and that the FR-005/FR-005a column names, types and nullability match (brief P3). Build Infrastructure; run gates
 
 ## Phase 4: Tests.Common fixtures and negative sweep
 
