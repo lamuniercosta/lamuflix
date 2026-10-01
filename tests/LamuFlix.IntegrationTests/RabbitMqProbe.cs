@@ -118,7 +118,13 @@ internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
             cancellationToken: cancellationToken);
     }
 
-    public async Task<BasicGetResult?> PollGetAsync(string queue, CancellationToken cancellationToken)
+    public async Task<BasicGetResult?> PollGetAsync(string queue, CancellationToken cancellationToken) =>
+        await PollGetMatchingAsync(queue, _ => true, cancellationToken);
+
+    public async Task<BasicGetResult?> PollGetMatchingAsync(
+        string queue,
+        Func<BasicGetResult, bool> accept,
+        CancellationToken cancellationToken)
     {
         var clock = TimeProvider.System;
         var deadline = clock.GetUtcNow() + Bound;
@@ -126,7 +132,7 @@ internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
         {
             await using var channel = await OpenChannelAsync(cancellationToken);
             var result = await channel.BasicGetAsync(queue, autoAck: true, cancellationToken: cancellationToken);
-            if (result is not null)
+            if (result is not null && accept(result))
             {
                 return result;
             }
@@ -135,6 +141,34 @@ internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
         }
 
         return null;
+    }
+
+    public async Task<Dictionary<string, BasicGetResult>> PollGetAllAsync(
+        string queue,
+        IReadOnlySet<string> keys,
+        Func<BasicGetResult, string> keyOf,
+        CancellationToken cancellationToken)
+    {
+        var found = new Dictionary<string, BasicGetResult>(StringComparer.Ordinal);
+        var clock = TimeProvider.System;
+        var deadline = clock.GetUtcNow() + Bound;
+        while (found.Count < keys.Count && clock.GetUtcNow() < deadline)
+        {
+            await using var channel = await OpenChannelAsync(cancellationToken);
+            var result = await channel.BasicGetAsync(queue, autoAck: true, cancellationToken: cancellationToken);
+            if (result is not null)
+            {
+                var key = keyOf(result);
+                if (keys.Contains(key))
+                {
+                    found[key] = result;
+                }
+            }
+
+            await Task.Delay(PollInterval, cancellationToken);
+        }
+
+        return found;
     }
 
     public async Task DrainAsync(string queue, CancellationToken cancellationToken)
