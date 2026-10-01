@@ -4,9 +4,9 @@
 
 Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ.Client 7.x, declare quorum topology with TTL retry and DLQ, propagate W3C trace context, and write ADR-0004/0005.
 
-- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`; Q15, commit `7788471`; Q16, commit `08c3790`; Q17, commit `5533797`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
+- Rulings and cited bases: `specs/DEV-18/CONCLUSIONS.md` (Q1–Q12, Patron, commit `30f2382`; Q13, commit `d90eca2`; Q14, commit `d046b24`; Q15, commit `7788471`; Q16, commit `08c3790`; Q17, commit `5533797`; Q18, commit `eca24f8`). Taste defaults: `specs/DEV-18/ASSUMPTIONS.md`.
 - Facts: notes `recon-DEV-18`, `recon-DEV-18-2`, `recon-DEV-18-3`, `recon-DEV-18-4` (its R3 conclusion is rejected by Q14), `recon-DEV-18-5`, `recon-DEV-18-6`, and the Conductor's placement resolution of 2026-09-30.
-- Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). Q13 and Q14 were ruled after the grill on Quill's `needs decision:` requests (D5, D6); Q15 and Q16 on the readiness check (D8, D8a). The plan challenge is adjudicated in D9. No owner checkbox: nothing changes the ticket text or departs from the constitution.
+- Grill: **12 questions asked (budget 12), 12/12 answered.** 9 accepted, 3 changed (Q6, Q7, Q12). Q13 and Q14 were ruled after the grill on Quill's `needs decision:` requests (D5, D6); Q15 and Q16 on the readiness check (D8, D8a). The plan challenge is adjudicated in D9; Q18 (the `OpenTelemetry` SDK for the named default propagator) is recorded as D10. No owner checkbox: nothing changes the ticket text or departs from the constitution.
 - The ticket text (YouTrack DEV-18, cited as T01–T23 in CONCLUSIONS.md) is authoritative. If this brief and the ticket disagree, the ticket wins and the disagreement is a defect in this brief.
 
 ## Solution facts this brief rests on
@@ -36,7 +36,8 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
 - **D4: Package pins.**
   - `RabbitMQ.Client` goes to `7.2.2`.
   - `OpenTelemetry.Api` is pinned to the latest stable 1.x release that targets net8.0 or later. Wisp confirms the exact version at implementation; it is recorded in `plan.md` and in Directory.Packages.props. **Amended by D9b: pinned to `1.19.1`.**
-  - Only `LamuFlix.Infrastructure` references `OpenTelemetry.Api` (Q3). Only Infrastructure and Tests.Common/IntegrationTests reference `RabbitMQ.Client`, as test consumers.
+  - **Amended by D10 (Q18):** `OpenTelemetry` (the SDK package) is also pinned to `1.19.1`, solely so registration can call `Sdk.SetDefaultTextMapPropagator`.
+  - Only `LamuFlix.Infrastructure` references `OpenTelemetry.Api` and `OpenTelemetry` (Q3, Q18). Only Infrastructure and Tests.Common/IntegrationTests reference `RabbitMQ.Client`, as test consumers.
 - **D5: Core processing handler and provider-gated activation (Patron Q13, `d90eca2`; recon-DEV-18-3).** No owner checkbox: Q13 rules the handler ticket-forced by T06, T09 and T21.
   - **Handler.** Add sealed `ProcessEnrichmentCommand(MovieId, Attempt)` and `ProcessEnrichmentCommandHandler : ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>` under `src/LamuFlix.Core/Features/Enrichment/`. It runs in this order:
     1. claim first;
@@ -86,7 +87,7 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
   - **Skipped shape (Quill plan note 1: accepted).** A flag on `Completed` conforms to D5 ("`Completed` or the existing decision"). Name it by what happened, `Claimed` (false = skipped), not by success.
     - The consumer writes a distinct skipped log event and sets the outcome tag to skipped, never to enriched.
     - Every processing log carries the movie id, the attempt and, where one applies, the category (constitution VI).
-  - **Propagator location.** `Propagators.DefaultTextMapPropagator` is set in the DI registration extension (plan D-7), not in the carrier.
+  - **Propagator location.** `Propagators.DefaultTextMapPropagator` is set in the DI registration extension (plan D-7), not in the carrier. The setter is `Sdk.SetDefaultTextMapPropagator(new TraceContextPropagator())` (D10, Q18): the API exposes no public setter.
   - **Inactive log mechanism.** No logger exists during service registration. On the inactive path the extension registers a small hosted service that logs the inactive line once in `StartAsync`, declared in `RabbitMqServiceCollectionExtensions.cs`, so no file is added. A unit test asserts exactly one line.
   - **Telemetry names.** Use the constitution VI names: span `Enrichment.Enqueue` (producer) and `Enrichment.Process` (consumer); attributes `lamuflix.movie.id`, `messaging.rabbitmq.delivery_count` and `error.type`. Add them to `TelemetryConstants` only where they are missing. No metric instruments: the ticket does not name them.
   - **Glossary.** `CONTEXT.md` already has a glossary (`CONTEXT.md:44-48`), so the glossary task is unconditional (constitution VIII).
@@ -114,7 +115,7 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
     - Test: T020 asserts a republish failure (for example a retry queue at `reject-publish` capacity, or a closed connection) ends with the original in `enrichment.dead-letter`, is never success-acked, and does not mark the movie Failed.
   - **Risk F2 (Medium): ACCEPT.** Publisher contract in plan D-4: a per-publish returned flag is set from the return event, or the client surfaces a return as an exception under confirmation tracking. The confirm is awaited, then the flag is checked, and the channel is disposed only after both have settled. A confirm timeout or cancellation is an uncertain outcome and fails the call (Q10). T015's return case proves it. **Settled by D9b: 7.x has no return event, so the return surfaces as `PublishReturnException`.**
   - **Risk F3 (Medium): ACCEPT.** `RabbitMqOptions` (`src/LamuFlix.Core/Options/RabbitMqOptions.cs`, a `sealed record` with `Password`) redacts `Password` in its compiler-generated printing: override `PrintMembers` or `ToString` so the output shows `Password = ***`. T004 gains a unit test for the redaction. The file is already in frozen scope. Plan note: nothing logs `RabbitMqOptions` as a whole.
-  - **Risk F4 (Low): ACCEPT.** Add `ProcessEnrichmentCommandValidator` (FluentValidation, the existing pipeline convention) beside the command in `src/LamuFlix.Core/Features/Enrichment/`: `MovieId` non-default, and `Attempt` at or above the floor the existing enqueue handlers use. Quill cites that floor at file:line in the plan. A validation failure is an exception on the F1 path, so the original is dead-lettered. This is the conditional validator frozen scope already allows. T006 covers it tests-first.
+  - **Risk F4 (Low): ACCEPT.** Add `ProcessEnrichmentCommandValidator` (FluentValidation, the existing pipeline convention) in `src/LamuFlix.Infrastructure/Pipeline/ProcessEnrichmentCommandValidator.cs` (**corrected, Compass-L-1:** FluentValidation validators live in Infrastructure, as `Library/MovieQueryValidator.cs` and `RabbitMq/RabbitMqConsumerOptionsValidator.cs` do, which keeps Core free of the FluentValidation dependency; the earlier "beside the command in Core" wording was a brief defect): `MovieId` non-default, and `Attempt` at or above the floor the existing enqueue handlers use. Quill cites that floor at file:line in the plan. A validation failure is an exception on the F1 path, so the original is dead-lettered. This is the conditional validator frozen scope already allows. T006 covers it tests-first.
   - **Risk F5 (Low): REJECT (no change).** The registration assigns the same `TraceContextPropagator` every time, so repeated registration is idempotent and "last wins" writes the same value. A future OpenTelemetry SDK sets its own propagator at provider build, after registration. D7's location stands. Plan D-7 gets one caveat line: tests must not set a different global propagator.
   - **Risk "noted" items.** The health check's connection attempt is bounded by the passed token and by the connection factory's requested connection timeout, and it never retries without a bound (plan D-9 line). The other noted items need no change.
   - **Standards M1 and M3 (Medium), L1 (Low): ESCALATED to Patron (Q17) as a §2.3 item 1 dependency ruling.** Infrastructure directly uses `IValidateOptions<T>`/`ValidateOptionsResult` (`Microsoft.Extensions.Options`), and `BackgroundService`/`IHostedService` (these live in `Microsoft.Extensions.Hosting.Abstractions`, not in `Microsoft.Extensions.Hosting` as M3 states). Neither is a direct reference today (`LamuFlix.Infrastructure.csproj:11-20`). Both arrive transitively through EF Core and the D8a HealthChecks package.
@@ -143,6 +144,10 @@ Grill outcome for DEV-18 (parent DEV-283, size L, UI false): upgrade to RabbitMQ
   - `OpenTelemetry.Api` is pinned to `1.19.1` (latest stable 1.x, net10.0 compatible). This replaces D4's "Wisp confirms at implementation" (Ledger M2 closed).
   - RabbitMQ.Client 7.x has no return event on `IChannel`. With confirmation tracking enabled and `mandatory: true`, an unroutable publish surfaces from the awaited `BasicPublishAsync` as `PublishReturnException`, a subtype of `PublishException` with `IsReturn`. A nack surfaces as `PublishException`.
   - This supersedes D9 Risk F2's "returned flag from the return event". The publisher awaits `BasicPublishAsync` to completion (the confirm), which surfaces both cases, and disposes the channel only after that await settles. A timeout or cancellation of that await is uncertain and fails the call. T015's return case asserts a `PublishReturnException`-driven failure.
+- **D10: OpenTelemetry SDK for the named default propagator (Patron Q18, `eca24f8`; Compass-M-1).** No owner checkbox.
+  - The `OpenTelemetry` SDK package is centrally pinned at `1.19.1` (matching D9b) with a versionless reference in `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`.
+  - Its **sole authorized use** is `Sdk.SetDefaultTextMapPropagator(new TraceContextPropagator())` in `RabbitMqServiceCollectionExtensions`, before first use; the publisher and consumer read `Propagators.DefaultTextMapPropagator`. Reason: `OpenTelemetry.Api` 1.19.1 exposes only an internal setter, and T15 and constitution:222-224 name the default propagator.
+  - This supersedes Q3's API-only/no-SDK restriction, the out-of-scope SDK exclusion and FR-030's sole-new-telemetry-package wording, only as far as that one call needs. No `TracerProvider`, exporter, instrumentation, new project or layer, or Core telemetry reference is authorized. ServiceDefaults keeps host-wide telemetry wiring (constitution:235-236).
 
 ## Closing bar
 
@@ -184,7 +189,7 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
     - a terminal or non-retryable outcome lands in `enrichment.dead-letter`;
     - a malformed body lands in `enrichment.dead-letter`.
 - **AC4: W3C propagation (T15, T22, Q3, Q4).**
-  - `Propagators.DefaultTextMapPropagator` is explicitly set to the API's `TraceContextPropagator` (W3C) before first use. It stays a no-op until configured.
+  - `Propagators.DefaultTextMapPropagator` is explicitly set to the API's `TraceContextPropagator` (W3C) before first use, through `Sdk.SetDefaultTextMapPropagator` (D10, Q18). It stays a no-op until configured.
   - The publisher starts an `ActivityKind.Producer` activity from the existing `LamuFlix` ActivitySource and injects `traceparent` (and `tracestate` only when present) into `BasicProperties.Headers`.
   - If `StartActivity` returns null because nothing is listening, the publisher still injects a valid W3C context: the ambient context if there is one, otherwise a new one.
   - The consumer extracts the context and starts an `ActivityKind.Consumer` activity parented to it. A redelivery adds an `ActivityLink` to the earlier context.
@@ -225,8 +230,8 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 
 ## Frozen scope
 
-- `Directory.Packages.props`: bump `RabbitMQ.Client` from `6.8.1` to `7.2.2`, add the `OpenTelemetry.Api` `1.19.1` pin (D9b), and add the `Microsoft.Extensions.Diagnostics.HealthChecks` (D8a), `Microsoft.Extensions.Options` and `Microsoft.Extensions.Hosting.Abstractions` (D9a) `10.0.12` pins.
-- `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`: add versionless package references to `RabbitMQ.Client`, `OpenTelemetry.Api`, `Microsoft.Extensions.Diagnostics.HealthChecks`, `Microsoft.Extensions.Options` and `Microsoft.Extensions.Hosting.Abstractions`.
+- `Directory.Packages.props`: bump `RabbitMQ.Client` from `6.8.1` to `7.2.2`, add the `OpenTelemetry.Api` `1.19.1` pin (D9b) and the `OpenTelemetry` `1.19.1` pin (D10, Q18; only for `Sdk.SetDefaultTextMapPropagator`), and add the `Microsoft.Extensions.Diagnostics.HealthChecks` (D8a), `Microsoft.Extensions.Options` and `Microsoft.Extensions.Hosting.Abstractions` (D9a) `10.0.12` pins.
+- `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj`: add versionless package references to `RabbitMQ.Client`, `OpenTelemetry.Api`, `OpenTelemetry` (D10), `Microsoft.Extensions.Diagnostics.HealthChecks`, `Microsoft.Extensions.Options` and `Microsoft.Extensions.Hosting.Abstractions`.
 - `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqHealthCheck.cs` and its `ready`-tagged registration in the DI extension (D8).
 - `src/LamuFlix.ServiceDefaults/Extensions.cs`: the generic `AddHealthChecks()` call only (D8).
 - New files under `src/LamuFlix.Infrastructure/RabbitMq/`:
@@ -239,7 +244,8 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
   - the DI registration extension.
 
   Quill finalizes file names in `plan.md`.
-- `src/LamuFlix.Core/Features/Enrichment/`: `ProcessEnrichmentCommand`, `ProcessEnrichmentCommandHandler` and `ProcessEnrichmentOutcome`, plus `ProcessEnrichmentCommandValidator` (D5, required by D9 Risk F4), and `EnrichmentRetryPolicy.cs` with the behaviour-preserving edit to `RecordEnrichmentFailureCommandHandler.cs:39-45` (D7). No other Core enrichment file is edited unless `plan.md` justifies it by file:line.
+- `src/LamuFlix.Core/Features/Enrichment/`: `ProcessEnrichmentCommand`, `ProcessEnrichmentCommandHandler` and `ProcessEnrichmentOutcome` (D5), and `EnrichmentRetryPolicy.cs` with the behaviour-preserving edit to `RecordEnrichmentFailureCommandHandler.cs:39-45` (D7). No other Core enrichment file is edited unless `plan.md` justifies it by file:line.
+- `src/LamuFlix.Infrastructure/Pipeline/ProcessEnrichmentCommandValidator.cs` (D9 Risk F4, corrected location per Compass-L-1).
 - `src/LamuFlix.Core/Options/RabbitMqOptions.cs`: add `RetryDelay` and `Prefetch`, with validation, and redact `Password` from the record's generated printing (D9 Risk F3). Core stays free of RabbitMQ and OpenTelemetry references.
 - `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs`: add messaging activity and tag names only if the constants they need do not already exist.
 - `src/LamuFlix.Api`: wire the registration (`Program.cs` or the existing composition root) and add the `RabbitMq` section to the appsettings.
@@ -259,14 +265,14 @@ Every item below is required. They map to T21–T23 plus the Q4/Q10 behaviours.
 - deleting or editing the retired `src/LamuFlix.Web`, `src/LamuFlix.Worker`, `src/LamuFlix.Data` or `tests/LamuFlix.Test` (D1);
 - migrating or purging `task_queue`/`task_queue_dlq` on any broker (Q9);
 - exponential backoff;
-- an OpenTelemetry SDK, exporter or instrumentation package;
+- any OpenTelemetry SDK use beyond `Sdk.SetDefaultTextMapPropagator` (D10, Q18): no `TracerProvider`/`MeterProvider`, exporter or instrumentation package;
 - a docker-compose file;
 - mapping `/health/live` or `/health/ready`, or a Postgres health check (the Q15 shared-endpoint follow-up);
 - schema changes. The sweeper would use the existing `MovieRecord` columns `LastAttemptAt`, `EnrichmentAttempts` and `Status`; the ADRs may cite them.
 
 ## Approach and task ordering
 
-1. **Packages.** Bump `RabbitMQ.Client` to 7.2.2, add the `OpenTelemetry.Api` pin, and add the Infrastructure package references. The solution still builds because nothing in it uses the 6.x API.
+1. **Packages.** Bump `RabbitMQ.Client` to 7.2.2, add the `OpenTelemetry.Api` and `OpenTelemetry` (D10) pins, and add the Infrastructure package references. The solution still builds because nothing in it uses the 6.x API.
 2. **Options.** `RetryDelay` and `Prefetch` with validation and unit tests (test first).
 3. **Topology and connection owner.** An integration test asserts the declared arguments on `rabbitmq:4.0.0`.
 4. **Publisher.** Confirms, the mandatory flag, returns, and the propagation helper. Integration tests cover AC1 and AC4 (inject), including the path with no listener.
