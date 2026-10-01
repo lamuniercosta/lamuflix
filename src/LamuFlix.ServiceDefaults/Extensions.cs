@@ -22,6 +22,7 @@ public static class ServiceDefaultsExtensions
         BindAndValidate<LibraryOptions>(services, LibraryOptions.SectionName);
         BindAndValidate<PlaybackOptions>(services, PlaybackOptions.SectionName);
         BindAndValidate<OmdbOptions>(services, OmdbOptions.SectionName);
+        BindAndValidate<MetadataProviderResilienceOptions>(services, MetadataProviderResilienceOptions.SectionName);
         BindAndValidate<RabbitMqOptions>(services, RabbitMqOptions.SectionName);
         BindAndValidate<EnrichmentOptions>(services, EnrichmentOptions.SectionName);
         BindAndValidate<FeatureOptions>(services, FeatureOptions.SectionName);
