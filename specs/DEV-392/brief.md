@@ -92,14 +92,14 @@ No taste decisions were made; no `ASSUMPTIONS.md` is created.
 | File | Change |
 |---|---|
 | `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs` | **new** — the extension |
-| `src/LamuFlix.Api/Program.cs` | one added line (the call) |
+| `src/LamuFlix.Api/Program.cs` | one added statement (the call) plus `using LamuFlix.Infrastructure.Persistence;` |
 | `tests/LamuFlix.UnitTests/Persistence/PersistenceServiceCollectionExtensionsTests.cs` | **new** — unit tests, no container |
 | `tests/LamuFlix.IntegrationTests/PersistenceCompositionTests.cs` | **new** — Testcontainers PostgreSQL via `PostgresFixture` |
 | `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` | one added line: `ProjectReference` to `src/LamuFlix.ServiceDefaults` (D1) |
 | `specs/DEV-392/*` | spec artifacts |
 
 No `Directory.Packages.props`, migration, `appsettings*.json`, or Core file changes, and no csproj
-change other than the D1 line. No new NuGet package and no test reference to `LamuFlix.Api` (Q5).
+change other than the D1 line (plus D1's conditional `FrameworkReference` line, only if the build needs it). No new NuGet package and no test reference to `LamuFlix.Api` (Q5).
 Production-equivalent `EnrichmentOptions` binding in tests is the production call itself:
 both test projects call `AddLamuFlixOptions()` (`LamuFlix.UnitTests` already references
 ServiceDefaults; `LamuFlix.IntegrationTests` gains it under D1). Tests do not hand-roll
@@ -128,6 +128,18 @@ integration test composes `AddLamuFlixOptions()` + `AddLamuFlixPersistence(confi
   them. The in-memory configuration (unit and integration) supplies the minimum valid value for any
   section whose annotations require one; that is valid test setup, not a workaround. Quill names the
   required keys in `plan.md` from the options classes in `src/LamuFlix.Core/Options/`.
+
+**D2 (2026-10-01, Plan Challenge adjudication, Compass F1): `GetConnectionString` is not a constitution VII departure.**
+Constitution VII (`.specify/memory/constitution.md:248-249`) forbids reading `IConfiguration` by magic
+string *outside options binding*. Q2 (CONCLUSIONS.md:7) confines the read to the extension's
+configuration-to-`DbContextOptions` binding: the value goes straight into `UseNpgsql` and nowhere else,
+which is EF Core's documented ASP.NET Core pattern. VII's purpose is met: no secret in source, no
+hard-coded fallback, the value is never echoed, and composition fails fast. Patron judged this
+compliant with cited basis, so §2.3(b) is not triggered and no owner checkbox is added. Required
+changes: `plan.md` Constitution Check states this ruling, and the false claim at plan.md:53 that
+nothing else reads `ConnectionStrings` by magic string is removed (`src/LamuFlix.Worker/Program.cs:24`
+and `src/LamuFlix.Web/Startup.cs:21` both do, in legacy hosts this ticket does not touch). The key
+name `"DefaultConnection"` is one `private const string` in the extension, used by the read and the message.
 
 ### Test strategy
 
