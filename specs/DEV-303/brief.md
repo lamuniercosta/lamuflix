@@ -335,6 +335,7 @@ Decision changes from `/speckit-analyze` (round 1). Each one replaces the brief 
   Test code may be written earlier, but the dependency lines must state the real compile dependencies.
 - **D6 — Consumer activation test.** `IsConsumerActive` requires both `IMetadataProvider` and `IMovieRepository` (R:28). The composition test therefore registers an `IMovieRepository` stub on the `ServiceCollection`, following the private nested-fake pattern at `RabbitMqServiceCollectionExtensionsTests.cs` (R:209), and then calls `AddMetadataProvider` before `AddLamuFlixRabbitMq`. It also asserts the inverse: with the provider registered after `AddLamuFlixRabbitMq`, the consumer stays inactive.
 - **D7 — Test shape (constitution IX:302).** Repeated cases use `Theory` with `MemberData` instead of repeated `Fact`s: 400/403/404, the blank/`N/A`/missing Title cases, the domain-invalid optional fields, and the range edges.
+- **D8 — FailureRatio range (analyze round 1, evidence correction).** The pinned library validates `FailureRatio` as `[Range(0, 1)]`, which includes 0. §5.1's "(0, 1]" was a transcription error. §5.1 already says the attributes mirror the pinned library, so the plan's `[Range(0.0, 1.0)]` stands and the default stays 0.1. This is not a scope change.
 
 ## 9. Recon resolved (`recon-DEV-303`:142-217)
 
