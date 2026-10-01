@@ -303,7 +303,38 @@ Tasks that edit the same file are sequenced and never marked `[P]`.
 
 ## 8. Decision log
 
-(Empty. Decision changes after analyze or the plan challenge are appended here as D1… with their basis.)
+Decision changes from `/speckit-analyze` (round 1). Each one replaces the brief text it names. Where a D-entry conflicts with §1–§5, the D-entry wins.
+
+- **D1 — Vendor naming (Patron, CONCLUSIONS.md Analyze ruling, `2ef2c04`; constitution VIII:270, 273-276).**
+  - `OmdbResilienceOptions` becomes `MetadataProviderResilienceOptions`. The section key stays `Omdb:Resilience`.
+  - The adapter is `public sealed partial class OmdbMetadataProvider`, split across `OmdbMetadataProvider.cs`, `OmdbMetadataProvider.Mapping.cs` and `OmdbMetadataProvider.Log.cs`. It holds three private nested types with functional names: `ResponseMapper`, `Response` (the DTO) and the partial `Log`. The files `OmdbResponseMapper.cs` and `OmdbLog.cs` are not created.
+  - The health types are `MetadataProviderHealthCheck` and `MetadataProviderHealthState`, and the check is named `metadata-provider` (still tagged `ready`).
+  - The extension class is `MetadataProviderServiceCollectionExtensions`, with the method `AddMetadataProvider`. This supersedes the Q8 name only; the Api placement before `AddLamuFlixRabbitMq` is unchanged.
+  - Mapping, log, health and resilience behaviour stay as ruled. The "ArchitectureTests has no vendor-naming rule" claim is removed: it has no recon source, and the naming no longer depends on it.
+- **D2 — Span tags (constitution VI:229, "Ad-hoc string literals for telemetry names are forbidden").** No telemetry constant exists for an outcome or status-code tag (R:140), and §2 permits only the `MetadataLookup` constant. So:
+  - On `Failed`, the `Metadata.Lookup` span carries only `TelemetryConstants.ErrorType` = the failure category name, and its status is set to `ActivityStatusCode.Error`.
+  - On `Found` and `NotFound`, it carries no outcome tag.
+  - There is no custom HTTP status-code tag. The status code is already on the `System.Net.Http` child span.
+  - This replaces "outcome category and HTTP status code" in §5.1 Telemetry and §5.3 Telemetry. The telemetry test asserts one activity per call, its parent, `ErrorType` present on a failure, and `ErrorType` absent on `Found`.
+- **D3 — Accessibility (CS0051).** The public adapter's primary constructor takes the health state, so `MetadataProviderHealthState` is a `public sealed class` whose members are all `internal`. `MetadataProviderHealthCheck` stays `internal sealed`. The full constructor is `HttpClient`, `IOptions<OmdbOptions>`, `TimeProvider`, `ILogger<OmdbMetadataProvider>`, `MetadataProviderHealthState`.
+- **D4 — Health status for a non-401 InvalidResponse.** This replaces the §5.1 health table gap. The state records the last outcome category **and** whether that outcome was a 401, because the category alone cannot tell a bad key from a malformed body.
+  - Healthy: no lookup yet, or Found or NotFound.
+  - Degraded: RateLimited, ProviderUnavailable, or InvalidResponse that was not a 401.
+  - Unhealthy: a 401, with the description "Check the OMDb API key configuration."
+  - The health test adds one case: Degraded after a malformed-JSON 200.
+- **D5 — Task ordering (replaces §5.5).** Compile dependencies run in this order:
+  1. Packages, then the vulnerable-packages gate.
+  2. `MetadataProviderResilienceOptions`, its `BindAndValidate` line and its unit tests. The `MetadataLookup` constant. (The tests depend on the record and its attributes.)
+  3. `MetadataProviderHealthState`.
+  4. The adapter partial files: classification, mapping, log and span.
+  5. `AddMetadataProvider`, with the handler configuration and health-check registration, and `MetadataProviderHealthCheck`.
+  6. The WireMock fixture and the config/`ServiceCollection` helper. It calls `AddMetadataProvider`, so it depends on step 5.
+  7. The provider tests (mapping, outcomes, request shape, secrecy, telemetry), the resilience tests, and the registration and health tests. All of these depend on step 6.
+  8. The Api wiring and the composition tests.
+  9. Gates.
+  Test code may be written earlier, but the dependency lines must state the real compile dependencies.
+- **D6 — Consumer activation test.** `IsConsumerActive` requires both `IMetadataProvider` and `IMovieRepository` (R:28). The composition test therefore registers an `IMovieRepository` stub on the `ServiceCollection`, following the private nested-fake pattern at `RabbitMqServiceCollectionExtensionsTests.cs` (R:209), and then calls `AddMetadataProvider` before `AddLamuFlixRabbitMq`. It also asserts the inverse: with the provider registered after `AddLamuFlixRabbitMq`, the consumer stays inactive.
+- **D7 — Test shape (constitution IX:302).** Repeated cases use `Theory` with `MemberData` instead of repeated `Fact`s: 400/403/404, the blank/`N/A`/missing Title cases, the domain-invalid optional fields, and the range edges.
 
 ## 9. Recon resolved (`recon-DEV-303`:142-217)
 
