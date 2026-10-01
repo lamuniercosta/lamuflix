@@ -1,6 +1,6 @@
 # Tasks: EfMovieCatalog with Composable Predicates and Nulls-Last Sorting
 
-**Input**: `specs/DEV-302/` spec.md, plan.md, brief.md §5.5 (task ordering), §7b (plan-challenge rulings D6–D24)
+**Input**: `specs/DEV-302/` spec.md, plan.md, brief.md §5.5 (task ordering), §7b (plan-challenge rulings D6–D24), §7c (D25)
 **Tests**: Integration tests are required (Q12). Each task pairs code with its test. Format: `[ID] [P?] Description (spec ref)`. `[P]` = parallelisable.
 **Test conventions (brief D23)**: `Method_Condition_Expected` names; `TestContext.Current.CancellationToken` on every async call; only `// arrange`, `// act`, `// assert` comments; seed timestamps as fixed `DateTimeOffset` literals (no `DateTime.Now`/`UtcNow`); `Theory` + `MemberData` in place of repeated `Fact`s.
 **Isolation (brief D11)**: each test clears the catalog tables in its own arrange step before seeding. Test classes that share a `PostgresFixture` database are in one xUnit collection. A test only ever asserts on rows it seeded.
@@ -8,6 +8,7 @@
 ## Phase 1: Test data
 
 - [ ] T001 Create `tests/LamuFlix.IntegrationTests/MovieCatalogSeed.cs`: a seed helper over `LamuFlixDbContextFactory`. It is a small hand-written deterministic factory in the style of `PersistenceRoundTripTests.cs:186-224`. It builds `MovieRecord`s with exact values: null runtime, year and rating; status; watchlist; tied keys and titles; bounds; literal `%`, `_`, `\` and the combined `100%\file_name_v2`; and a trailing-space-sensitive title set (`Movie`, `Movie Night`). A `MovieRecord` is an EF graph with genres and actors (brief D3). The helper also provides the per-test table reset (brief D11). No package reference is added and no csproj is edited (FR-010)
+- [ ] T001b In `tests/LamuFlix.UnitTests`, add unit tests for `CompareTo`, the operators (`<`, `<=`, `>`, `>=`) and nulls, for both `Runtime` and `ReleaseYear`. Add one FsCheck property test per type asserting that ordering agrees with `int` ordering, with null lowest (D25)
 
 ## Phase 2: Predicates (each its own task with its own tests; order free after T001)
 
@@ -61,4 +62,4 @@ Property tests: opted out, and recorded in the task note (brief D16). No new Cor
 
 ## Dependencies
 
-T001 → T002–T008, T009 → T010 → T011; T010 → T012 → T013; T011, T013 → T014–T020.
+T001 → T002–T004, T007, T008, T009; T001, T001b → T005, T006; T002–T009 → T010 → T011; T010 → T012 → T013; T011, T013 → T014–T020.
