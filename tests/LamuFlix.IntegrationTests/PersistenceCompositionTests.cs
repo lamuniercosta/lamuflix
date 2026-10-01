@@ -75,10 +75,13 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IClas
             id, "Composed Title", new LibraryPath("C:/library/composed.mkv"), new MediaFormat("mkv"));
         await repository.AddAsync(movie, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
-        var loaded = await repository.GetAsync(id, cancellationToken);
+        await using var queryScope = provider.CreateAsyncScope();
+        var queryRepository = queryScope.ServiceProvider.GetRequiredService<IMovieRepository>();
+        var loaded = await queryRepository.GetAsync(id, cancellationToken);
 
         // assert
         loaded.ShouldNotBeNull();
+        loaded.ShouldNotBeSameAs(movie);
         loaded.Id.ShouldBe(id);
         loaded.Title.ShouldBe(movie.Title);
         loaded.Path.ShouldBe(movie.Path);
