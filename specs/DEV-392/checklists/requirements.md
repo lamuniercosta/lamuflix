@@ -6,7 +6,7 @@
 - [x] No [NEEDS CLARIFICATION] markers remain — every open point is a Patron ruling (Q1-Q8) or the owner checkbox (Q6)
 - [x] Requirements testable and unambiguous (FR-001-FR-014 each map to a ticket Scope bullet or AC, and FR-007/FR-008 name the assertions)
 - [x] Success criteria measurable (SC-001-SC-006)
-- [x] Acceptance scenarios and edge cases defined (4 stories, 10 edge cases)
+- [x] Acceptance scenarios and edge cases defined (4 stories, 9 edge cases)
 - [x] Scope bounded (frozen scope, out-of-scope list FR-012, and the Q6 deferral FR-013)
 - [x] Dependencies and assumptions identified (no new package; D1 project reference; six required in-memory configuration keys)
 - [x] Implementation detail retained only where the brief/Patron rulings fix it (project convention, cf. DEV-301 and DEV-296)
