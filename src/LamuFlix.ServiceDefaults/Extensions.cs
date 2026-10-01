@@ -11,6 +11,8 @@ public static class ServiceDefaultsExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.Services.AddLamuFlixOptions();
+        // The matching AddCheck registrations live in Infrastructure; the Api must not duplicate either call.
+        builder.Services.AddHealthChecks();
         return builder;
     }
 
