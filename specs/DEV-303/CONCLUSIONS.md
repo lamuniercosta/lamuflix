@@ -254,3 +254,13 @@ ACCEPT — Freeze DEV-303 to the adapter, typed-client/resilience registration, 
 (c) ACCEPT — Rename AddOmdbMetadataProvider to AddMetadataProvider; this supersedes Q8's member name only, preserving Infrastructure/Adapters placement and Api invocation before AddLamuFlixRabbitMq.
 
 - Basis: .specify/memory/constitution.md:273-276 also governs members; CONCLUSIONS.md:146-148 authorises the existing composition and order. These conformance corrections preserve the ticket's delivery and make no constitution departure, so specs/PRODUCT.md:34-39 requires no owner checkbox. This ruling does not assert clean analysis or open Gate 1.
+
+---
+
+## D18 — Shared BaseUrl transport validation (Sentry M4)
+
+FOLLOW-UP — Require HTTPS for non-loopback OmdbOptions.BaseUrl values through shared startup validation; preserve Q9's loopback HTTP allowance for WireMock. Rigger must check open tickets for this same validation gap and fold into one if present, otherwise file a size:S, 2h follow-up under DEV-283. DEV-303 scope stays frozen; no owner checkbox.
+
+- Basis: src/LamuFlix.Core/Options/OmdbOptions.cs:14-16 accepts a URL without enforcing HTTPS; recon-DEV-303:52/56 and brief.md:351 identify the cleartext API-key exposure. This is broken security validation and the requested follow-up, not an extra DEV-303 deliverable.
+- Basis: .specify/memory/constitution.md:246-249 and src/LamuFlix.ServiceDefaults/Extensions.cs:19-24 place validation at the existing shared options/startup seam; CONCLUSIONS.md:165-167 requires the shipped HTTPS endpoint and explicitly permits loopback HTTP for WireMock. The follow-up owns the shared-host configuration impact; no new dependency or validation layer is authorised.
+- Basis: CONCLUSIONS.md:237-240 freezes current scope; specs/PRODUCT.md:34-39 and assigned Patron §2.3 require neither ticket change nor constitution departure here. Tracker filing is requested, not yet verified; only Rigger performs and reports that mutation.
