@@ -10,8 +10,8 @@ public sealed class ReleaseYearComparisonTests
     [Fact]
     public void CompareToAndOperators_OrderValuesAndHandleNull()
     {
-        ReleaseYear? lower = new(1990, Now);
-        ReleaseYear? higher = new(2020, Now);
+        ReleaseYear lower = new(1990, Now);
+        ReleaseYear higher = new(2020, Now);
         ReleaseYear? missing = null;
         ReleaseYear? alsoMissing = null;
 
@@ -42,21 +42,42 @@ public sealed class ReleaseYearComparisonTests
         {
             ReleaseYear lower = new(1888 + Math.Abs(left % 138), Now);
             ReleaseYear higher = new(1888 + Math.Abs(right % 138), Now);
-            ReleaseYear? missing = null;
-            ReleaseYear? alsoMissing = null;
-            var comparison = lower.Value.CompareTo(higher.Value);
 
-            return lower.CompareTo(higher) == comparison
-                && (lower < higher) == (comparison < 0)
-                && (lower <= higher) == (comparison <= 0)
-                && (lower > higher) == (comparison > 0)
-                && (lower >= higher) == (comparison >= 0)
-                && (missing < lower)
-                && (lower > missing)
-                && (missing <= alsoMissing)
-                && (missing >= alsoMissing)
-                && !(missing > lower)
-                && !(missing >= lower);
+            return OrderedComparisonsAgree(lower, higher)
+                && NullComparisonsAgree(lower);
         }).QuickCheckThrowOnFailure();
+    }
+
+    private static bool OrderedComparisonsAgree(ReleaseYear lower, ReleaseYear higher)
+    {
+        var comparison = lower.Value.CompareTo(higher.Value);
+
+        return lower.CompareTo(higher) == comparison
+            && (lower < higher) == (comparison < 0)
+            && (lower <= higher) == (comparison <= 0)
+            && (lower > higher) == (comparison > 0)
+            && (lower >= higher) == (comparison >= 0);
+    }
+
+    private static bool NullComparisonsAgree(ReleaseYear lower) =>
+        MissingComparisonsAgree(lower) && BothMissingComparisonsAgree();
+
+    private static bool MissingComparisonsAgree(ReleaseYear lower)
+    {
+        ReleaseYear? missing = null;
+
+        return (missing < lower)
+            && (lower > missing)
+            && !(missing > lower)
+            && !(missing >= lower);
+    }
+
+    private static bool BothMissingComparisonsAgree()
+    {
+        ReleaseYear? missing = null;
+        ReleaseYear? alsoMissing = null;
+
+        return (missing <= alsoMissing)
+            && (missing >= alsoMissing);
     }
 }

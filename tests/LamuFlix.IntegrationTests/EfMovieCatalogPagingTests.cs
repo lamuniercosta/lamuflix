@@ -4,7 +4,6 @@ using System.Linq;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using LamuFlix.Core.Domain;
 using LamuFlix.Core.Library;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
@@ -32,7 +31,9 @@ public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture)
             MovieCatalogSeed.Create("Tie", "page-4"),
             MovieCatalogSeed.Create("Tie", "page-5"));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-        await using var browseContext = LamuFlixDbContextFactory.OpenContext(context.Database.GetConnectionString()!);
+        var connectionString = context.Database.GetConnectionString();
+        connectionString.ShouldNotBeNull();
+        await using var browseContext = LamuFlixDbContextFactory.OpenContext(connectionString);
         var catalog = new EfMovieCatalog(browseContext);
 
         // act
@@ -70,7 +71,6 @@ public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture)
         movie.Genres.Add(new GenreRecord { Name = "Drama" });
         context.Movies.Add(movie);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-        await context.DisposeAsync();
         await using var browseContext = new LamuFlixDbContext(options);
         await browseContext.Database.MigrateAsync(TestContext.Current.CancellationToken);
         interceptor.Commands.Clear();
@@ -81,10 +81,10 @@ public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture)
 
         // assert
         var select = interceptor.Commands.Single(command =>
-            command.Contains("SELECT", System.StringComparison.OrdinalIgnoreCase)
-            && !command.Contains("COUNT(", System.StringComparison.OrdinalIgnoreCase));
-        select.ToLowerInvariant().Split("from", System.StringSplitOptions.None)[0].ShouldContain("title");
-        select.ToLowerInvariant().Split("from", System.StringSplitOptions.None)[0].ShouldContain("id");
+            command.Contains("SELECT", StringComparison.OrdinalIgnoreCase)
+            && !command.Contains("COUNT(", StringComparison.OrdinalIgnoreCase));
+        select.ToLowerInvariant().Split("from")[0].ShouldContain("title");
+        select.ToLowerInvariant().Split("from")[0].ShouldContain("id");
         select.ShouldNotContain("JOIN", Case.Sensitive);
         browseContext.ChangeTracker.Entries().ShouldBeEmpty();
     }
@@ -96,11 +96,12 @@ public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture)
         await using var context = fixture.CreateContext();
         await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         var catalog = new EfMovieCatalog(context);
+        var token = cancellation.Token;
 
         // act
-        var act = () => catalog.BrowseAsync(Query(1, 1), cancellation.Token);
+        var act = () => catalog.BrowseAsync(Query(1, 1), token);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);

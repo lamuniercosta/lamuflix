@@ -26,8 +26,11 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
         movie.ImdbRating = new ImdbRating(8.2m);
         movie.ImdbId = new ImdbId("tt1234567");
         await MovieCatalogSeed.AddAsync(context, movie, TestContext.Current.CancellationToken);
-        var id = movie.Id!;
-        await using var detailsContext = LamuFlixDbContextFactory.OpenContext(context.Database.GetConnectionString()!);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var connectionString = context.Database.GetConnectionString();
+        connectionString.ShouldNotBeNull();
+        await using var detailsContext = LamuFlixDbContextFactory.OpenContext(connectionString);
 
         // act
         var details = await new EfMovieCatalog(detailsContext).GetDetailsAsync(id, TestContext.Current.CancellationToken);
@@ -49,12 +52,15 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
         await using var context = fixture.CreateContext();
         await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
         var movie = await MovieCatalogSeed.AddAsync(context, MovieCatalogSeed.Create("No metadata", "details-none"), TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
 
         // act
-        var details = await new EfMovieCatalog(context).GetDetailsAsync(movie.Id!, TestContext.Current.CancellationToken);
+        var details = await new EfMovieCatalog(context).GetDetailsAsync(id, TestContext.Current.CancellationToken);
 
         // assert
-        details!.Metadata.ShouldBeNull();
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBeNull();
     }
 
     [Fact]
@@ -68,10 +74,13 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
         await MovieCatalogSeed.AddAsync(context, movie, TestContext.Current.CancellationToken);
 
         // act
-        var details = await new EfMovieCatalog(context).GetDetailsAsync(movie.Id!, TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var details = await new EfMovieCatalog(context).GetDetailsAsync(id, TestContext.Current.CancellationToken);
 
         // assert
-        details!.Metadata.ShouldBe(new MovieMetadata("Metadata"));
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBe(new MovieMetadata("Metadata"));
     }
 
     [Fact]
@@ -85,10 +94,13 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
         await MovieCatalogSeed.AddAsync(context, movie, TestContext.Current.CancellationToken);
 
         // act
-        var details = await new EfMovieCatalog(context).GetDetailsAsync(movie.Id!, TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var details = await new EfMovieCatalog(context).GetDetailsAsync(id, TestContext.Current.CancellationToken);
 
         // assert
-        details!.Metadata.ShouldBe(new MovieMetadata("File fallback", "Plot only"));
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBe(new MovieMetadata("File fallback", "Plot only"));
     }
 
     [Fact]
@@ -112,10 +124,12 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
         await using var context = fixture.CreateContext();
         await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
+        var catalog = new EfMovieCatalog(context);
+        var token = cancellation.Token;
 
         // act
-        var act = () => new EfMovieCatalog(context).GetDetailsAsync(new MovieId(1), cancellation.Token);
+        var act = () => catalog.GetDetailsAsync(new MovieId(1), token);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);

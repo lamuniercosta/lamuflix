@@ -67,39 +67,114 @@ public static class MovieRecordQueryExtensions
 
     private static IQueryable<MovieRecord> ApplyRuntimeBounds(IQueryable<MovieRecord> query, RuntimeRange range)
     {
-        Runtime? lower = null;
-        Runtime? upper = null;
-        if (range.Min is int min && !Runtime.TryCreate(min, out lower))
+        if (!TryResolveRuntimeLower(range.Min, out var lower))
         {
-            return query.Where(_ => false);
+            return NoMovies(query);
         }
 
-        if (range.Max is int max && !Runtime.TryCreate(max, out upper))
+        if (!TryResolveRuntimeUpper(range.Max, out var upper))
         {
-            return query.Where(_ => false);
+            return NoMovies(query);
         }
 
-        return query.Where(movie => (lower == null || movie.RuntimeMinutes >= lower)
-            && (upper == null || movie.RuntimeMinutes <= upper));
+        return FilterByRuntime(query, lower, upper);
     }
 
     private static IQueryable<MovieRecord> ApplyYearBounds(IQueryable<MovieRecord> query, YearRange range)
     {
         var now = TimeProvider.System.GetUtcNow();
-        ReleaseYear? lower = null;
-        ReleaseYear? upper = null;
-        if (range.Min is int min && !ReleaseYear.TryCreate(min, now, out lower))
+        if (!TryResolveYearLower(range.Min, now, out var lower))
         {
-            return query.Where(_ => false);
+            return NoMovies(query);
         }
 
-        if (range.Max is int max && !ReleaseYear.TryCreate(max, now, out upper))
+        if (!TryResolveYearUpper(range.Max, now, out var upper))
         {
-            return query.Where(_ => false);
+            return NoMovies(query);
         }
 
-        return query.Where(movie => (lower == null || movie.ReleaseYear >= lower)
-            && (upper == null || movie.ReleaseYear <= upper));
+        return FilterByYear(query, lower, upper);
+    }
+
+    private static IQueryable<MovieRecord> NoMovies(IQueryable<MovieRecord> query) =>
+        query.Where(_ => false);
+
+    private static bool TryResolveRuntimeLower(int? min, out Runtime? lower)
+    {
+        if (min is null)
+        {
+            lower = null;
+            return true;
+        }
+
+        return Runtime.TryCreate(min.Value, out lower);
+    }
+
+    private static bool TryResolveRuntimeUpper(int? max, out Runtime? upper)
+    {
+        if (max is null)
+        {
+            upper = null;
+            return true;
+        }
+
+        return Runtime.TryCreate(max.Value, out upper);
+    }
+
+    private static IQueryable<MovieRecord> FilterByRuntime(IQueryable<MovieRecord> query, Runtime? lower, Runtime? upper)
+    {
+        if (lower is not null && upper is not null)
+        {
+            return query.Where(movie => movie.RuntimeMinutes >= lower && movie.RuntimeMinutes <= upper);
+        }
+
+        if (lower is not null)
+        {
+            return query.Where(movie => movie.RuntimeMinutes >= lower);
+        }
+
+        return upper is not null
+            ? query.Where(movie => movie.RuntimeMinutes <= upper)
+            : query;
+    }
+
+    private static bool TryResolveYearLower(int? min, DateTimeOffset now, out ReleaseYear? lower)
+    {
+        if (min is null)
+        {
+            lower = null;
+            return true;
+        }
+
+        return ReleaseYear.TryCreate(min.Value, now, out lower);
+    }
+
+    private static bool TryResolveYearUpper(int? max, DateTimeOffset now, out ReleaseYear? upper)
+    {
+        if (max is null)
+        {
+            upper = null;
+            return true;
+        }
+
+        return ReleaseYear.TryCreate(max.Value, now, out upper);
+    }
+
+    private static IQueryable<MovieRecord> FilterByYear(IQueryable<MovieRecord> query, ReleaseYear? lower, ReleaseYear? upper)
+    {
+        if (lower is not null && upper is not null)
+        {
+            return query.Where(movie => movie.ReleaseYear >= lower && movie.ReleaseYear <= upper);
+        }
+
+        if (lower is not null)
+        {
+            return query.Where(movie => movie.ReleaseYear >= lower);
+        }
+
+        return upper is not null
+            ? query.Where(movie => movie.ReleaseYear <= upper)
+            : query;
     }
 
     private static IOrderedQueryable<MovieRecord> OrderByTitle(IQueryable<MovieRecord> query, SortDirection direction) =>

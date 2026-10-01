@@ -8,8 +8,8 @@ public sealed class RuntimeComparisonTests
     [Fact]
     public void CompareToAndOperators_OrderMinutesAndHandleNull()
     {
-        Runtime? lower = new Runtime(90);
-        Runtime? higher = new Runtime(120);
+        Runtime lower = new Runtime(90);
+        Runtime higher = new Runtime(120);
         Runtime? missing = null;
         Runtime? alsoMissing = null;
 
@@ -40,21 +40,42 @@ public sealed class RuntimeComparisonTests
         {
             Runtime lower = new(Math.Abs(left % 10000) + 1);
             Runtime higher = new(Math.Abs(right % 10000) + 1);
-            Runtime? missing = null;
-            Runtime? alsoMissing = null;
-            var comparison = lower.Minutes.CompareTo(higher.Minutes);
 
-            return lower.CompareTo(higher) == comparison
-                && (lower < higher) == (comparison < 0)
-                && (lower <= higher) == (comparison <= 0)
-                && (lower > higher) == (comparison > 0)
-                && (lower >= higher) == (comparison >= 0)
-                && (missing < lower)
-                && (lower > missing)
-                && (missing <= alsoMissing)
-                && (missing >= alsoMissing)
-                && !(missing > lower)
-                && !(missing >= lower);
+            return OrderedComparisonsAgree(lower, higher)
+                && NullComparisonsAgree(lower);
         }).QuickCheckThrowOnFailure();
+    }
+
+    private static bool OrderedComparisonsAgree(Runtime lower, Runtime higher)
+    {
+        var comparison = lower.Minutes.CompareTo(higher.Minutes);
+
+        return lower.CompareTo(higher) == comparison
+            && (lower < higher) == (comparison < 0)
+            && (lower <= higher) == (comparison <= 0)
+            && (lower > higher) == (comparison > 0)
+            && (lower >= higher) == (comparison >= 0);
+    }
+
+    private static bool NullComparisonsAgree(Runtime lower) =>
+        MissingComparisonsAgree(lower) && BothMissingComparisonsAgree();
+
+    private static bool MissingComparisonsAgree(Runtime lower)
+    {
+        Runtime? missing = null;
+
+        return (missing < lower)
+            && (lower > missing)
+            && !(missing > lower)
+            && !(missing >= lower);
+    }
+
+    private static bool BothMissingComparisonsAgree()
+    {
+        Runtime? missing = null;
+        Runtime? alsoMissing = null;
+
+        return (missing <= alsoMissing)
+            && (missing >= alsoMissing);
     }
 }
