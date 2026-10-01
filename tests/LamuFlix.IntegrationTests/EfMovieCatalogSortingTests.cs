@@ -11,6 +11,7 @@ using SortDirection = LamuFlix.Core.Library.SortDirection;
 
 namespace LamuFlix.IntegrationTests;
 
+[Collection("MovieCatalog")]
 public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture)
 {
     [Theory]
@@ -76,5 +77,26 @@ public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture)
         firstId.ShouldNotBeNull();
         secondId.ShouldNotBeNull();
         ordered.ShouldBe(new[] { firstId, secondId }.OrderBy(id => id.Value));
+    }
+
+    [Fact]
+    public async Task OrderByMovieSort_EqualYear_UsesTitleAsSecondaryTieBreaker()
+    {
+        // arrange
+        await using var context = fixture.CreateContext();
+        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        var bravo = MovieCatalogSeed.Create("Bravo", "tie-title-bravo");
+        bravo.ReleaseYear = new ReleaseYear(2000, MovieCatalogSeed.FixedTime);
+        var alpha = MovieCatalogSeed.Create("Alpha", "tie-title-alpha");
+        alpha.ReleaseYear = new ReleaseYear(2000, MovieCatalogSeed.FixedTime);
+        context.Movies.AddRange(bravo, alpha);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // act
+        var actual = await context.Movies.OrderByMovieSort(MovieSort.Year, SortDirection.Descending)
+            .Select(movie => movie.Title).ToArrayAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        actual.ShouldBe(["Alpha", "Bravo"]);
     }
 }
