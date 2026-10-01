@@ -150,7 +150,7 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IClassFixt
     private static EnrichmentRequested Read(BasicGetResult message) =>
         JsonSerializer.Deserialize<EnrichmentRequested>(
             Encoding.UTF8.GetString(message.Body.Span),
-            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
 
     private static string? Header(BasicGetResult message, string name) =>
         TraceContextCarrier.TryReadHeader(message.BasicProperties.Headers, name, out var value) ? value : null;

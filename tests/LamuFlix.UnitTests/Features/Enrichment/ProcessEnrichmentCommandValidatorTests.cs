@@ -30,6 +30,7 @@ public sealed class ProcessEnrichmentCommandValidatorTests
         var validator = new ProcessEnrichmentCommandValidator();
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed - the validator must reject a null movie id.
         var result = await validator.ValidateAsync(new ProcessEnrichmentCommand(null!, 1), CancellationToken.None);
 
         // assert
