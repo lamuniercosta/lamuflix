@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,9 +21,12 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .WhereStatuses(query.Statuses)
             .WhereInWatchlist(query.InWatchlist);
         var totalCount = await filtered.CountAsync(ct);
-        var items = await filtered.OrderByMovieSort(query.Sort!, query.Direction!)
+        var sort = query.Sort ?? MovieSort.Runtime;
+        var direction = query.Direction ?? SortDirection.Descending;
+        var items = await filtered.OrderByMovieSort(sort, direction)
             .Skip((query.Page.Number - 1) * query.Page.Size)
             .Take(query.Page.Size)
+            // ReSharper disable once NullableWarningSuppressionIsUsed
             .Select(movie => new MovieSummary(movie.Id!, movie.Title))
             .ToArrayAsync(ct);
         return new PagedResult<MovieSummary>([.. items], totalCount);
@@ -51,6 +53,12 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             return null;
         }
 
+        var movieId = record.Id;
+        if (movieId is null)
+        {
+            return null;
+        }
+
         var metadata = HasMetadata(record)
             ? new MovieMetadata(
                 record.MetadataTitle ?? record.Title,
@@ -60,7 +68,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 record.ImdbRating,
                 record.ImdbId)
             : null;
-        return new MovieDetails(record.Id!, record.Title, record.LibraryPath, record.Format, metadata);
+        return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata);
     }
 
     private static bool HasMetadata(MovieDetailsRecord record) =>

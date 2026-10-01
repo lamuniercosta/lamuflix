@@ -71,6 +71,10 @@ public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture)
             .Select(movie => movie.Id).ToArrayAsync(TestContext.Current.CancellationToken);
 
         // assert
-        ordered.ShouldBe(new[] { first.Id, second.Id }.OrderBy(id => id!.Value));
+        var firstId = first.Id;
+        var secondId = second.Id;
+        firstId.ShouldNotBeNull();
+        secondId.ShouldNotBeNull();
+        ordered.ShouldBe(new[] { firstId, secondId }.OrderBy(id => id.Value));
     }
 }
