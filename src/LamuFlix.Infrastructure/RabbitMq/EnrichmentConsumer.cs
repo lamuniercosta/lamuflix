@@ -93,7 +93,7 @@ public sealed class EnrichmentConsumer(
         connection.ConnectionShutdownAsync += SignalShutdown;
         try
         {
-            using (stoppingToken.Register(static state => { ((TaskCompletionSource)state!).TrySetResult(); }, shutdown))
+            await using (stoppingToken.Register(static state => { if (state is TaskCompletionSource tcs) tcs.TrySetResult(); }, shutdown))
             {
                 await shutdown.Task;
             }
