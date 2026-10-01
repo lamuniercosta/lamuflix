@@ -8,9 +8,9 @@
 
 ## Artifacts written
 
-- `specs/DEV-306/spec.md` — 7 user stories (US1 collection-scoped sharing, US2 a ready database, US3 a genuinely empty reset, US4 a broker whose topology exists, US5 broker isolation, US6 failure-safe lifetime and verified teardown, US7 evidence and boundaries), 43 acceptance scenarios, 15 edge cases, FR-001 to FR-030, 6 key entities, SC-001 to SC-010.
+- `specs/DEV-306/spec.md` — 7 user stories (US1 collection-scoped sharing, US2 a ready database, US3 a genuinely empty reset, US4 a broker whose topology exists, US5 broker isolation, US6 failure-safe lifetime and verified teardown, US7 evidence and boundaries), 43 acceptance scenarios, 16 edge cases, FR-001 to FR-030, 6 key entities, SC-001 to SC-010.
 - `specs/DEV-306/plan.md` — technical context, constitution check (PASS, no departures), project structure of twenty-four changed files with two deletions (twenty-two still on disk, which is what the gate pass walks), Design §1-§7 plus the ruled §8 and the branch table §9, test strategy with the green-steps rule, the fixed container-identity emission mechanism and the four evidence captures, and the gate set including the two deliberately-not-green gate lines.
-- `specs/DEV-306/tasks.md` — 42 tasks in 8 phases (Setup, Foundational, US2, US3, US4, US5, US6, US7), each with an exact file path, plus dependencies, parallel opportunities and incremental strategy. The brief's task ordering is followed verbatim.
+- `specs/DEV-306/tasks.md` — 43 tasks in 8 phases (Setup, Foundational, US2, US3, US4, US5, US6, US7), each with an exact file path, plus dependencies, parallel opportunities and incremental strategy. The brief's task ordering is followed verbatim.
 - `specs/DEV-306/checklists/requirements.md` — 17 quality items, all resolved, with seven items recorded for spec review.
 - `specs/DEV-306/DRAFTING_RECEIPT.md` — this file.
 
@@ -71,4 +71,30 @@ Every line citation in `spec.md` and `plan.md` was checked against this worktree
 
 **Gate 1 status**: closed. Nothing in this receipt or in the drafts opens it. No owner checkbox is proposed, no ticket change is requested, and no constitution departure is claimed.
 
-**Next**: spec review round 2 of 2 (per the brief's Round cap). Round 1's twelve findings are applied above; nothing in the draft is blocked, and no finding opened Gate 1.
+**Next**: plan challenge round 1 fixes applied (below); awaiting Keel's freeze check and re-run of `/speckit-analyze`. Nothing in the draft is blocked, and no finding opened Gate 1.
+
+## Plan challenge round 1, fix list F1-F14 applied
+
+`findings-DEV-306-Sentry` (0 C / 3 H / 4 M / 5 L, security PASS), `findings-DEV-306-Ledger` (0 C / 0 H / 4 M / 6 L) and `findings-DEV-306-Compass` (0 C / 1 H / 2 M / 1 L) — 26 findings, adjudicated in `brief.md` §8. All fourteen **Fix** items are applied; the **Accept-risk** and **Reject** verdicts need no artifact change and are not restated here. `brief.md` was not edited.
+
+| Fix | Where it landed |
+|---|---|
+| **F1** | `spec.md` Assumptions gains **R8**: the reset is the collection's only isolation barrier, a member without it leaks state, and no fixture, definition or gate catches that. Cross-linked from the migration-test edge case, which is now named as the one deliberate exception. Edge-case count 15 → 16. |
+| **F2** | `spec.md` FR-009 gains the bounded lock wait; `plan.md` §3 gains `SET LOCAL lock_timeout = '10s'` in the truncate's own transaction, `55P03` surfaced unwrapped, and the note that no test forces the lock; T020 and plan §9 carry it; T024's R3 note now reads "a `55P03` lock-timeout failure" instead of a hang. |
+| **F3** | `plan.md` §2 states **no fallback of any kind** — no `?.`, no `?? CancellationToken.None`, no guard — with T024 and T029 as the verify-or-stop runs; T012, T025 and the tasks Notes checkpoint say the same. |
+| **F4** | T037 carries the digest-first diagnosis line for the floating tags. |
+| **F5** | Ordering note 4 in `tasks.md` states the one-re-run rule and the D1/R4 stop-candidate record; T010's stop condition and T024, T029, T034, T037 all reference it. |
+| **F6** | `plan.md` §2 and §4 (the fixture-design sections — §1 is the collections section and has no disposal) plus T012 and T025 null the container field on the normal dispose path. |
+| **F7** | `spec.md` US6 *Independent Test* amended to inspection for scenarios 2-3 and running for scenario 4; T035 narrowed to the startup-failure inspection and **T036** added with the four runnable disposal cases, two per fixture-behaviour file; `plan.md` §Test Strategy lists them. Phase 8 renumbered to T037-T043. |
+| **F8** | T043 redacts connection strings, usernames, passwords and broker/database URIs before pasting a receipt. |
+| **F9** | The identity-only `[Fact]`s are gone. The emission rides the startup case in each fixture-behaviour file plus **one existing test** each in `EfMovieRepositoryTests` and `RabbitMqPublisherTests`, as a single Arrange line with no assertion change (T018, T022, T028, T031). `SHOW server_version` and `ServerProperties["version"]` are written by the two startup cases with **no assertion on either value** (T018, T028; plan Test Strategy evidence 1 and 3). T037's count explanation is now the fixture-behaviour cases including the four disposal cases, and no identity-only cases. |
+| **F10** | `plan.md` §3 step 6 and §9 name `ISqlGenerationHelper.DelimitIdentifier(name, schema)` via `context.GetService<ISqlGenerationHelper>()`, and T020 says hand-built quoting fails review. |
+| **F11** | T013 requires `OpenAsync(ct)` and `ExecuteNonQueryAsync(ct)` and forbids calling the synchronous `CreateDatabase` helper; `plan.md` §2 and §9 carry the same. |
+| **F12** | T020 runs the Roslyn gate on `PostgresFixture.cs` at that task, executes the cached non-interpolated string through `ExecuteSqlRawAsync`, and carries the pre-authorised single-site `#pragma warning disable` / `restore` with a justification citing Q1 and F10 — plus the explicit bar on reworking the quoting. `plan.md`'s constitution check and §9 record the same pre-authorisation and its limit. |
+| **F13** | T026 states the token parameter has **no default value** (and `plan.md` §4 repeats it); T042 runs `./scripts/run-vulnerable-packages.ps1` and records its exit code verbatim, with `plan.md` §Gates changed from "out of scope" to "runs, and its exit code is recorded". |
+| **F14** | T010 and T037 both check the parallelism precondition — no `xunit.runner.json` under `tests/`, and `rg -n "CollectionBehavior" tests/LamuFlix.IntegrationTests` returns nothing; T040 takes the `ArchitectureTests` green run from T041's unfiltered `dotnet test` rather than starting a second run. |
+
+Two places carry the substance of a fix where the named target could not hold it, and both are recorded rather than silently swapped:
+
+- **F6 names `plan.md` Design §1/§2.** §1 is the collection-definition section and has no disposal path; the broker fixture's disposal is described in §4. The rule was applied to §2 and §4, which are the two sections that actually describe a fixture's lifetime.
+- **F7 adds a task**, so every task from the old T036 onward shifts by one: the full run is T037, the teardown check T038, sharing T039, boundaries T040, the final gate pass T041, the gate-record T042, and the receipt hand-off T043. 42 tasks → 43.
