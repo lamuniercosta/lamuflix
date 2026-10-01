@@ -1,6 +1,4 @@
-using System;
-using System.Runtime.CompilerServices;
-using Microsoft.Extensions.DependencyInjection;
+﻿using System.Runtime.CompilerServices;
 using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
 

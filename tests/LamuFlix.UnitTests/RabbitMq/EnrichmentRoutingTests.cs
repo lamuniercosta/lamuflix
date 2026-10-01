@@ -1,9 +1,7 @@
-using System;
+﻿using System;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Infrastructure.RabbitMq;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.RabbitMq;
 

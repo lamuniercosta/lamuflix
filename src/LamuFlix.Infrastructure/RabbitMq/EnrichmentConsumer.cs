@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
@@ -115,7 +114,7 @@ public sealed class EnrichmentConsumer(
         ProcessEnrichmentOutcome outcome)
     {
         var disposition = EnrichmentRouting.Decide(outcome);
-        LogOutcome(outcome, request, delivery.Redelivered);
+        LogOutcome(outcome, request);
 
         if (disposition.Action == EnrichmentRouting.Ack)
         {
@@ -136,7 +135,7 @@ public sealed class EnrichmentConsumer(
     private static ValueTask DeadLetterAsync(IChannel consumerChannel, BasicDeliverEventArgs delivery) =>
         consumerChannel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, CancellationToken.None);
 
-    private void LogOutcome(ProcessEnrichmentOutcome outcome, EnrichmentRequested request, bool redelivered)
+    private void LogOutcome(ProcessEnrichmentOutcome outcome, EnrichmentRequested request)
     {
         if (outcome is not ProcessEnrichmentOutcome.Completed completed)
         {
@@ -195,3 +194,4 @@ public sealed class EnrichmentConsumer(
         }
     }
 }
+

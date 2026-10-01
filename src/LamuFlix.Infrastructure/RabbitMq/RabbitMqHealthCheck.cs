@@ -1,11 +1,7 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using LamuFlix.Core.Options;
-using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Options;
-using RabbitMQ.Client;
 
 namespace LamuFlix.Infrastructure.RabbitMq;
 

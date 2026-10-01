@@ -1,7 +1,5 @@
-﻿using System;
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
-using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
 using Microsoft.Extensions.Diagnostics.HealthChecks;

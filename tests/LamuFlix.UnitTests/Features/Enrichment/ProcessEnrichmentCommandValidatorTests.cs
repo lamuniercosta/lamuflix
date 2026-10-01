@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation;
 using LamuFlix.Core.Domain;
@@ -60,7 +60,7 @@ public sealed class ProcessEnrichmentCommandValidatorTests
         // arrange
         var services = new ServiceCollection();
         services.AddSingleton<IValidator<ProcessEnrichmentCommand>, ProcessEnrichmentCommandValidator>();
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
 
         // act
         var resolved = provider.GetRequiredService<IValidator<ProcessEnrichmentCommand>>();

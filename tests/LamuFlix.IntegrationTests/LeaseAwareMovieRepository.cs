@@ -1,9 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
-using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 
 namespace LamuFlix.IntegrationTests;
