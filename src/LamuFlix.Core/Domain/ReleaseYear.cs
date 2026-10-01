@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace LamuFlix.Core.Domain;
 
-public sealed record ReleaseYear
+public sealed record ReleaseYear : IComparable<ReleaseYear>
 {
     public ReleaseYear(int value, DateTimeOffset now)
     {
@@ -16,6 +16,16 @@ public sealed record ReleaseYear
     }
 
     public int Value { get; }
+
+    public int CompareTo(ReleaseYear? other) => other is null ? 1 : Value.CompareTo(other.Value);
+
+    public static bool operator <(ReleaseYear? left, ReleaseYear? right) => Compare(left, right) < 0;
+
+    public static bool operator <=(ReleaseYear? left, ReleaseYear? right) => Compare(left, right) <= 0;
+
+    public static bool operator >(ReleaseYear? left, ReleaseYear? right) => Compare(left, right) > 0;
+
+    public static bool operator >=(ReleaseYear? left, ReleaseYear? right) => Compare(left, right) >= 0;
 
     public static bool TryCreate(int value, DateTimeOffset now, [NotNullWhen(true)] out ReleaseYear? result)
     {
@@ -31,4 +41,7 @@ public sealed record ReleaseYear
 
     private static bool IsValid(int value, DateTimeOffset now) =>
         value >= 1888 && value <= now.Year + 5;
+
+    private static int Compare(ReleaseYear? left, ReleaseYear? right) =>
+        left is null ? (right is null ? 0 : -1) : left.CompareTo(right);
 }
