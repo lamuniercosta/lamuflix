@@ -156,6 +156,18 @@ Existing tests: `ImportMovieFolderCommandHandlerTests` stays green with only the
 - Work only in this worktree. The main checkout stays clean.
 - The scanner must never use `System.IO.File`, `Directory`, `Path`-based disk calls, or a `new FileSystem()` default. `IFileSystem` is the only boundary (ticket AC, Q11).
 
-## 7. Traceability
+## 7. Spec-review decisions (Keel, round 1)
+
+Answers to Quill's `needs decision:` items in `DRAFTING_RECEIPT.md`, plus the open points `/speckit-analyze` raised. None of them changes scope.
+
+- **D1 — §5.5 item 5 reading: confirmed.** Items 3 and 4 land with the minimal `Scan` shell, because the helpers are `private static` and §5.3 reaches every case through `Scan`. Item 5 means the guard clauses (Q9) plus the final result mapping. The dependency direction is unchanged.
+- **D2 — gates missing from §5.4: confirmed in scope.** `run-vulnerable-packages.ps1` runs because two new packages enter the graph (`harness.yml:23-25`). `run-property-tests.ps1` is expected to exit 2. This ticket's opt-out is recorded in the task note and the PR body (`harness.yml:30-34`). §5.4 is read as including both.
+- **D3 — helper visibility: `private static`, reached through `Scan`.** The `internal static` alternative in §5.1 is withdrawn. It would need an `InternalsVisibleTo` edit outside §5.2.
+- **D4 — clock stub: the existing `tests/LamuFlix.UnitTests/Features/FixedTimeProvider.cs`.** `FakeTimeProvider` would bring in a new package (`Microsoft.Extensions.Time.Testing`), which is outside §2.
+- **D5 — vocabulary (`constitution.md:277`): no `CONTEXT.md` edit.** "Primary video" names only a private helper and creates no public type, member or API term. `CONTEXT.md:21-22` (Import, _Avoid_ "Scan" for the single-folder case) applies to command naming. The port `IMediaLibraryScanner.Scan` already exists, and the ticket names `DirectoryMediaLibraryScanner`, so the ticket text decides.
+- **D6 — file count:** `git diff --stat` covers the seven files in §5.2, or eight if the test file is split as §5.2 allows.
+- **D7 — final gate pass (§5.5 item 6):** after coverage, run analyzers, complexity at 15 and then at `-Threshold 6`, and InspectCode once over **every** changed `.cs` file (scanner, test file(s), `ScannedMovie.cs`, `ImportMovieFolderCommandHandlerTests.cs`). Then run format and the full suite.
+
+## 8. Traceability
 - Ticket scope item 1 → Q2, Q5, Q6, Q7, Q10, §5.1. Scope item 2 → Q1, Q8, Q9, §5.3. AC "runs against IFileSystem" → Q11, §6. AC "100% coverage" → Q12, Q12a, §5.4.
 - Rigger action owed: recon-fact comment on DEV-304 for Q1 (no follow-up tickets; Q3/Q11 say note only).
