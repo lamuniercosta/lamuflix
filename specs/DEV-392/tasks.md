@@ -1,0 +1,54 @@
+# Tasks: Production Persistence Registration
+
+**Input**: `specs/DEV-392/` spec.md, plan.md, brief.md (approach, files, test strategy, gates and ordering constraints per brief "Plan decisions" / "Files touched" / "Test strategy" / "Gate expectations" / "Task ordering"; decisions Q1-Q8 and D1)
+
+**Tests**: Required (TDD; write the failing unit test first per task).
+
+Gate step after every `.cs` task: Roslyn analyzers, cyclomatic complexity, InspectCode, `dotnet format --verify-no-changes`.
+
+**Every task below is blocked on Gate 1, which stays closed until the owner answers Q6** (spec.md FR-013). No implementation is authorised before then.
+
+## Phase 1: Unit tests for the guards and descriptors (red first)
+
+Tests register the in-memory configuration with `services.AddSingleton<IConfiguration>(configuration)` — `BindConfiguration` resolves `IConfiguration` from DI — then compose `AddLamuFlixOptions()` and after it `AddLamuFlixPersistence(configuration)` on a plain `ServiceCollection`, mirroring `Program.cs` (Q5, D1). `LamuFlix.UnitTests` already references `LamuFlix.ServiceDefaults` (`LamuFlix.UnitTests.csproj:33`). No container, no Docker; placeholder connection string as in `EfMovieRepositoryConstructorTests.cs:15-18`, never opened. The in-memory configuration supplies every annotated options key from the plan's table so the lease failure is the only one observed.
+
+- [ ] T001 [US2] Write `tests/LamuFlix.UnitTests/Persistence/PersistenceServiceCollectionExtensionsTests.cs`: register `services.AddSingleton<IConfiguration>(configuration)` from the in-memory `ConfigurationBuilder` result, then `AddLamuFlixOptions()` then `AddLamuFlixPersistence(configuration)` (Q5, D1); a missing `ConnectionStrings:DefaultConnection` and a whitespace-only value each throw `InvalidOperationException`; the message names user secrets and `ConnectionStrings__DefaultConnection`; the whitespace value is a multi-character, non-space-only string such as `" \t "` and the thrown message does **not** contain that configured value (AC3, spec.md FR-007)
+- [ ] T002 [US2] In the same file: `Enrichment:ClaimLease` absent, `00:00:00` and negative each make the registered `IStartupValidator.Validate()` throw `OptionsValidationException`, asserting on `Failures` (not only `Message`) that it carries exactly `Enrichment:ClaimLease must be explicitly configured and greater than zero when production persistence is registered`; every other section key stays valid (Q4, plan.md test-strategy table)
+- [ ] T003 [US1] In the same file, using that same registered `IConfiguration`: descriptor assertions — `IMovieRepository` → `EfMovieRepository` Scoped, `LamuFlixDbContext` Scoped, `TimeProvider` Singleton; a `TimeProvider` registered *before* the call is still the one resolved afterwards (Q3 `TryAdd`); and a valid configuration builds under `ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }` with `IStartupValidator.Validate()` passing
+- [ ] T004 [US1] Run `LamuFlix.UnitTests` filtered to the new class and confirm it fails for the right reason (the extension does not exist yet); do not assert anything else at this point
+
+## Phase 2: The registration extension
+
+Order inside the method is the brief's (Q1): guard, DbContext, clock, options validator, repository.
+
+- [ ] T005 [US1] Create `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs`: `public static IServiceCollection AddLamuFlixPersistence(this IServiceCollection services, IConfiguration configuration)` in namespace `LamuFlix.Infrastructure.Persistence`, `ArgumentNullException.ThrowIfNull` on both arguments, returning `services` (style of `Pipeline/ServiceCollectionExtensions.cs:17`)
+- [ ] T006 [US1] In the same file: read `configuration.GetConnectionString("DefaultConnection")`; null or whitespace throws `InvalidOperationException` reusing the wording at `src/LamuFlix.Worker/Program.cs:25-27` (user secrets + `ConnectionStrings__DefaultConnection`), interpolating nothing; then `AddDbContext<LamuFlixDbContext>(o => o.UseNpgsql(connectionString))` at the default scoped lifetime, no `AddDbContextPool`, no `EnableRetryOnFailure` (Q1, Q2)
+- [ ] T007 [US2] In the same file: `services.TryAddSingleton(TimeProvider.System)` (Q3), then `services.AddOptions<EnrichmentOptions>().Validate(o => o.ClaimLease > TimeSpan.Zero, "Enrichment:ClaimLease must be explicitly configured and greater than zero when production persistence is registered").ValidateOnStart()`. Do **not** re-bind the `Enrichment` section — `AddLamuFlixOptions` already binds it (`ServiceDefaults/Extensions.cs:24,32-35`). No default, no `EnrichmentOptions` edit, no repository-guard edit (Q4)
+- [ ] T008 [US1] In the same file, **after** the clock and the validator: `services.AddScoped<IMovieRepository, EfMovieRepository>()` (Q1, Q3). This task is last inside the method so the registration order stays guard → DbContext → clock → options validator → repository; the validator added in T007 sits between the clock and the repository and is not moved. Reuse DEV-301's `EfMovieRepository` as-is; no new repository type
+- [ ] T009 [US1] Run the Phase 1 unit tests to green, then gates on `PersistenceServiceCollectionExtensions.cs`
+- [ ] T010 Refactor pass: `./scripts/run-cyclomatic-complexity.ps1 -Threshold 6` on the new file; extract nothing unless the gate forces it, and add no new abstraction
+
+## Phase 3: Api composition root
+
+- [ ] T011 [US1] `src/LamuFlix.Api/Program.cs`: add exactly one statement, `builder.Services.AddLamuFlixPersistence(builder.Configuration);`, directly after `builder.AddServiceDefaults();` and before `var app = builder.Build();`. No `using` churn, no service-provider override, no other edit to the file (Q1, spec.md FR-005)
+- [ ] T012 [US4] Gates on `src/LamuFlix.Api/Program.cs`: Roslyn analyzers, cyclomatic complexity and InspectCode each exit 0 with 0 findings (the recon baseline was green at 0 findings, R:84-89)
+- [ ] T013 [US1] Review checkpoint, not a test: confirm the persistence call precedes `Build()` and therefore precedes any later DEV-18 activation-guard call (`specs/DEV-18/plan.md:197`); confirm inside `AddLamuFlixPersistence` that the registrations appear in the brief's order — DbContext, clock, options validator, repository, with the repository scoped (spec.md US1 scenario 4, review-verified like scenario 3); and that Development still uses the default `ValidateOnBuild` / `ValidateScopes`. Record all three for the PR body (Q1, Q5; Compass/Ledger review item)
+
+## Phase 4: Integration composition proof (D1)
+
+- [ ] T014 [P] [US1] `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj`: add exactly one `ProjectReference` to `src/LamuFlix.ServiceDefaults` and build. If the build shows `FrameworkReference Microsoft.AspNetCore.App` (`LamuFlix.ServiceDefaults.csproj:8`) does not flow transitively, add that one `FrameworkReference` line to the same csproj — and record that it was needed for the PR body. No `Directory.Packages.props` change, no package, no reference to `LamuFlix.Api` (D1, Q5)
+- [ ] T015 [US3] `tests/LamuFlix.IntegrationTests/PersistenceCompositionTests.cs` with `IClassFixture<PostgresFixture>`: create and migrate one database (`fixture.CreateContext()` + `Database.MigrateAsync`, `PersistenceRoundTripTests.cs:162-167`), take its connection string with `context.Database.GetConnectionString()` (sibling pattern, `:169-174`) and build the in-memory configuration from the plan's key table, with the container's string only for `ConnectionStrings:DefaultConnection`
+- [ ] T016 [US3] In the same file: register `services.AddSingleton<IConfiguration>(configuration)` with the in-memory configuration from T015, then compose `AddLamuFlixOptions()` and after it `AddLamuFlixPersistence(configuration)`, build with `ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }`; in a scope assert `IMovieRepository` resolves as an `EfMovieRepository` and that `LamuFlixDbContext` is the same instance within the scope and a different instance in the next (AC1, Q5, D1)
+- [ ] T017 [US3] In the same file: one real round trip through the DI-resolved repository — `NextIdentityAsync`, `AddAsync`, `SaveChangesAsync`, `GetAsync` — reusing the existing test shape in `EfMovieRepositoryTests.cs`; assert `IStartupValidator.Validate()` passes with the valid configuration (AC4, no driver mocks)
+- [ ] T018 [US3] Gates on `PersistenceCompositionTests.cs`, then run the whole `LamuFlix.IntegrationTests` project once (Docker required)
+
+## Phase 5: Close-out
+
+- [ ] T019 `./scripts/run-property-tests.ps1` and `./scripts/run-vulnerable-packages.ps1` (unchanged — no new packages); `dotnet format --verify-no-changes`; full `dotnet test` green
+- [ ] T020 Mutation gate over the Infrastructure extension. Survivors on the blank-connection-string guard and the `ClaimLease > TimeSpan.Zero` predicate must be killed by the Phase 1 unit tests. If it cannot run, report "Could not run" with the script output and return to Keel; never lower a threshold and never mock the database
+- [ ] T021 [US4] Verify `git diff --stat origin/main...HEAD` shows only the frozen-scope files plus the D1 `ProjectReference` line, plus the `FrameworkReference` line only if FR-009's fallback was needed; confirm no secret, connection string or credential in any committed file; confirm `EfMovieRepository`, `LamuFlixDbContext`, `IMovieRepository`, `EnrichmentOptions`, `ServiceDefaults/Extensions.cs` and migration `20260930153520_Initial` are unchanged, and that DEV-301's claim predicate and strict lease expiry are byte-identical (AC5, FR-011, SC-004, SC-006)
+- [ ] T022 PR notes for Quill: merge-bar gate exit codes, the D1 `FrameworkReference` outcome, the operator note that a Development Api run now needs a positive `Enrichment:ClaimLease` from user secrets or `Enrichment__ClaimLease`, and the outstanding Q6 deferral (FR-013)
+
+## Dependencies
+
+Phase 1 → Phase 2 (the extension must exist before the unit tests compile and pass) → Phase 3 (the extension must exist before the `Program.cs` call compiles) → Phase 4 (depends on Phase 2; T014 may run in parallel with Phase 3) → Phase 5 last. T010 and T014 are parallel. T001, T002 and T003 all write the same unit-test file and are therefore sequential within Phase 1. All phases are gated on the Q6 owner answer before any of them start.
