@@ -238,3 +238,19 @@ ACCEPT — Freeze DEV-303 to the adapter, typed-client/resilience registration, 
 
 - Basis: ticket task note:13 and recon-DEV-303:89/114-118/134 bound the change; Q3/Q5/Q8/Q9/Q11 identify the deliberate supporting edits. No cleanup or repair of legacy Worker/Web/LamuFlix.Test, no schema, no Core port changes, no new endpoint/OpenAPI/web contract, no cache and no imdbId lookup. Anything else is a follow-up issue, not a finding in this round.
 - Apply the existing chain closing bar without re-ruling it: .cursor/rules/agent-pipeline.mdc:72-94 requires frozen scope, hard cap and continued NEEDS FIXES for deferred above-bar findings. No third formal round, silent scope extension or cap reset; no new closing bar is decided by this confirmation.
+
+---
+
+## Analyze ruling — Constitution VIII naming (supersedes Q8 naming only)
+
+(a) ACCEPT — Rename the new Core record to MetadataProviderResilienceOptions; retain the binding key Omdb:Resilience.
+
+- Basis: .specify/memory/constitution.md:270,273-276 requires functional Core/type names and permits vendor configuration keys; VII:246-249 names existing OmdbOptions but grants no exception for a new Core type. Q5's defaults, validation and binding design remain unchanged.
+
+(b) ACCEPT — Use a sealed partial OmdbMetadataProvider across OmdbMetadataProvider.cs, OmdbMetadataProvider.Mapping.cs and OmdbMetadataProvider.Log.cs, with private nested ResponseMapper, Response and partial Log types; use MetadataProviderHealthCheck, MetadataProviderHealthState, MetadataProviderServiceCollectionExtensions and health-check identifier metadata-provider.
+
+- Basis: .specify/memory/constitution.md:273-276 permits the vendor name only on the Infrastructure adapter class itself, not helper types or telemetry identifiers. Private nesting is encapsulation, not a vendor-naming exemption; nested type/member names must remain functional. The ticket (DEV-303 task note:14) explicitly names OmdbMetadataProvider; Q7's mapping and Q11's logging/health behaviour, registration and ready tag remain unchanged.
+
+(c) ACCEPT — Rename AddOmdbMetadataProvider to AddMetadataProvider; this supersedes Q8's member name only, preserving Infrastructure/Adapters placement and Api invocation before AddLamuFlixRabbitMq.
+
+- Basis: .specify/memory/constitution.md:273-276 also governs members; CONCLUSIONS.md:146-148 authorises the existing composition and order. These conformance corrections preserve the ticket's delivery and make no constitution departure, so specs/PRODUCT.md:34-39 requires no owner checkbox. This ruling does not assert clean analysis or open Gate 1.
