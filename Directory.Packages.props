@@ -23,6 +23,7 @@
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.12" />
     <PackageVersion Include="OpenTelemetry.Api" Version="1.19.1" />
+    <PackageVersion Include="OpenTelemetry" Version="1.19.1" />
 
     <!-- Test -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />

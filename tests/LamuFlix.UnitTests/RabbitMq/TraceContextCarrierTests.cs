@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using LamuFlix.Infrastructure.RabbitMq;
+using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Context.Propagation;
 
 namespace LamuFlix.UnitTests.RabbitMq;
@@ -10,31 +11,16 @@ namespace LamuFlix.UnitTests.RabbitMq;
 public sealed class TraceContextCarrierTests
 {
     [Fact]
-    public void Use_AW3CPropagator_IsAccepted()
+    public void DefaultPropagator_AfterRegistration_IsTheW3CPropagator()
     {
         // arrange
-        var original = TraceContextCarrier.Propagator;
+        var services = new ServiceCollection();
 
         // act
-        TraceContextCarrier.Use(new TraceContextPropagator());
+        services.AddLamuFlixRabbitMq();
 
         // assert
-        TraceContextCarrier.Propagator.ShouldBeOfType<TraceContextPropagator>();
-        TraceContextCarrier.Use(original);
-    }
-
-    [Fact]
-    public void Use_WithoutAReplacement_IsRejected()
-    {
-        // arrange
-        var original = TraceContextCarrier.Propagator;
-
-        // act
-        var rejected = Should.Throw<ArgumentNullException>(() => TraceContextCarrier.Use(null!));
-
-        // assert
-        rejected.ShouldNotBeNull();
-        TraceContextCarrier.Propagator.ShouldBeSameAs(original);
+        Propagators.DefaultTextMapPropagator.ShouldBeOfType<TraceContextPropagator>();
     }
 
     [Fact]

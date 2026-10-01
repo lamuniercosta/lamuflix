@@ -22,6 +22,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="OpenTelemetry.Api" />
+    <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="RabbitMQ.Client" />
   </ItemGroup>
 
