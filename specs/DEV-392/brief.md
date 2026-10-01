@@ -40,7 +40,8 @@ The spec phase is done when all of these hold:
 - An Api `appsettings.json` (DEV-18 owns it, `specs/DEV-18/plan.md:200`).
 - `IMetadataProvider` implementation (DEV-303), broker adapter, consumer, activation guard (DEV-18).
 - Legacy Worker/Web MySQL contexts and their configuration.
-- New NuGet packages, including `Microsoft.AspNetCore.Mvc.Testing`; a test reference to `LamuFlix.Api`;
+- New NuGet packages, including `Microsoft.AspNetCore.Mvc.Testing`; a test reference to `LamuFlix.Api`
+  (a test reference to `LamuFlix.ServiceDefaults` is allowed, D1);
   database-driver mocks; any new test framework (Q5).
 - Changes to `EnrichmentOptions` or the `EfMovieRepository` constructor guard (Q4).
 
@@ -94,13 +95,39 @@ No taste decisions were made; no `ASSUMPTIONS.md` is created.
 | `src/LamuFlix.Api/Program.cs` | one added line (the call) |
 | `tests/LamuFlix.UnitTests/Persistence/PersistenceServiceCollectionExtensionsTests.cs` | **new** — unit tests, no container |
 | `tests/LamuFlix.IntegrationTests/PersistenceCompositionTests.cs` | **new** — Testcontainers PostgreSQL via `PostgresFixture` |
+| `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` | one added line: `ProjectReference` to `src/LamuFlix.ServiceDefaults` (D1) |
 | `specs/DEV-392/*` | spec artifacts |
 
-No csproj, `Directory.Packages.props`, migration, `appsettings*.json`, or Core file changes.
-Test projects get no new project or package references; production-equivalent `EnrichmentOptions`
-binding in tests binds the same configuration section `AddLamuFlixOptions` uses (R:36) through
-references the test project already has. If that proves impossible without a new reference, that is
-`needs decision:` to Keel, not a workaround.
+No `Directory.Packages.props`, migration, `appsettings*.json`, or Core file changes, and no csproj
+change other than the D1 line. No new NuGet package and no test reference to `LamuFlix.Api` (Q5).
+Production-equivalent `EnrichmentOptions` binding in tests is the production call itself:
+both test projects call `AddLamuFlixOptions()` (`LamuFlix.UnitTests` already references
+ServiceDefaults; `LamuFlix.IntegrationTests` gains it under D1). Tests do not hand-roll
+`BindConfiguration`. Any further reference need is `needs decision:` to Keel, not a workaround.
+
+### Decisions after grill
+
+**D1 (2026-10-01, answers Quill `needs decision` on IntegrationTests references): option (a).**
+Add one `ProjectReference` to `LamuFlix.ServiceDefaults` in `LamuFlix.IntegrationTests.csproj`; the
+integration test composes `AddLamuFlixOptions()` + `AddLamuFlixPersistence(configuration)` exactly as
+`Program.cs` does, with configuration from `ConfigurationBuilder().AddInMemoryCollection(...)`.
+
+- Basis: Q5 requires *production-equivalent* binding; calling the production registration is the
+  only form that fails if `AddLamuFlixOptions` binding regresses. Option (f) re-implements the
+  binding in the test and would stay green across such a regression. Option (b) adds packages,
+  which Q5 and Out bar. `LamuFlix.UnitTests.csproj:33` already references ServiceDefaults, so this
+  is an existing test-to-ServiceDefaults edge, not a new architectural layer or project (§2.3
+  item 2 not triggered); no package or `Directory.Packages.props` change (§2.3 item 1 not
+  triggered). It does not touch ticket text; the barred `LamuFlix.Api` reference stays barred.
+- Implementation check: `FrameworkReference Microsoft.AspNetCore.App`
+  (`LamuFlix.ServiceDefaults.csproj:8`) is expected to flow to the referencing project. If the build
+  shows it does not, add that one `FrameworkReference` line to the same csproj as well; the test
+  still calls `AddLamuFlixOptions()`, never its own `BindConfiguration`. Report it in the PR.
+- Test configuration: `AddLamuFlixOptions()` validates every options section with
+  `ValidateDataAnnotations().ValidateOnStart()`, so `IStartupValidator.Validate()` checks all of
+  them. The in-memory configuration (unit and integration) supplies the minimum valid value for any
+  section whose annotations require one; that is valid test setup, not a workaround. Quill names the
+  required keys in `plan.md` from the options classes in `src/LamuFlix.Core/Options/`.
 
 ### Test strategy
 
@@ -119,7 +146,7 @@ Unit (`LamuFlix.UnitTests`, no container, placeholder connection string as in
 Integration (`LamuFlix.IntegrationTests`, `IClassFixture<PostgresFixture>`):
 
 - `ServiceCollection` + `IConfiguration` (fixture connection string, positive `ClaimLease`),
-  options binding + `AddLamuFlixPersistence`, `BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true })`.
+  `AddLamuFlixOptions()` + `AddLamuFlixPersistence` (D1), `BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true })`.
 - In a scope: `IMovieRepository` resolves as `EfMovieRepository`; `LamuFlixDbContext` resolves and is
   the same instance within the scope and different across scopes.
 - One real round trip through the resolved repository (`NextIdentityAsync` / `AddAsync` /
