@@ -60,6 +60,14 @@ public sealed class EfMovieRepository : IMovieRepository
             throw new InvalidOperationException($"Movie {movie.Id.Value} is already tracked.");
         }
 
+        var record = ToRecord(movie);
+        db.Movies.Add(record);
+        identityMap.Add(movie.Id, new TrackedMovie(movie, record, Baseline.From(movie)));
+        return Task.CompletedTask;
+    }
+
+    private static MovieRecord ToRecord(Movie movie)
+    {
         var record = new MovieRecord
         {
             Id = movie.Id,
@@ -72,16 +80,35 @@ public sealed class EfMovieRepository : IMovieRepository
             EnrichmentAttempts = movie.EnrichmentAttempts,
             EnrichmentFailureCategory = movie.LastFailureCategory,
             LastAttemptAt = movie.LastAttemptAt,
-            MetadataTitle = movie.Metadata?.Title,
-            Plot = movie.Metadata?.Synopsis,
-            ReleaseYear = movie.Metadata?.ReleaseYear,
-            RuntimeMinutes = movie.Metadata?.Runtime,
-            ImdbRating = movie.Metadata?.ImdbRating,
-            ImdbId = movie.Metadata?.ImdbId,
         };
-        db.Movies.Add(record);
-        identityMap.Add(movie.Id, new TrackedMovie(movie, record, Baseline.From(movie)));
-        return Task.CompletedTask;
+        CopyMetadata(record, movie.Metadata);
+        return record;
+    }
+
+    private static void CopyMetadata(MovieRecord record, MovieMetadata? metadata)
+    {
+        if (metadata is null)
+        {
+            ClearMetadata(record);
+            return;
+        }
+
+        record.MetadataTitle = metadata.Title;
+        record.Plot = metadata.Synopsis;
+        record.ReleaseYear = metadata.ReleaseYear;
+        record.RuntimeMinutes = metadata.Runtime;
+        record.ImdbRating = metadata.ImdbRating;
+        record.ImdbId = metadata.ImdbId;
+    }
+
+    private static void ClearMetadata(MovieRecord record)
+    {
+        record.MetadataTitle = null;
+        record.Plot = null;
+        record.ReleaseYear = null;
+        record.RuntimeMinutes = null;
+        record.ImdbRating = null;
+        record.ImdbId = null;
     }
 
     public async Task<MovieId> NextIdentityAsync(CancellationToken ct)
@@ -144,32 +171,70 @@ public sealed class EfMovieRepository : IMovieRepository
 
     private static void Apply(Movie movie, MovieRecord record, Baseline baseline)
     {
+        ApplyCore(movie, record);
+        ApplyState(movie, record, baseline);
+        ApplyAttempts(movie, record, baseline);
+        ApplyMetadata(movie, record, baseline);
+    }
+
+    private static void ApplyCore(Movie movie, MovieRecord record)
+    {
         record.Title = movie.Title;
         record.LibraryPath = movie.Path;
         record.Format = movie.Format;
-        if (baseline.IsInWatchlist != movie.IsInWatchlist) record.IsInWatchlist = movie.IsInWatchlist;
-        if (baseline.Status != movie.Status) record.Status = movie.Status;
-        if (baseline.EnrichedAt != movie.EnrichedAt) record.EnrichedAt = movie.EnrichedAt;
-        if (baseline.EnrichmentAttempts != movie.EnrichmentAttempts)
-            record.EnrichmentAttempts += movie.EnrichmentAttempts - baseline.EnrichmentAttempts;
-        if (baseline.LastFailureCategory != movie.LastFailureCategory)
-            record.EnrichmentFailureCategory = movie.LastFailureCategory;
-        if (baseline.LastAttemptAt != movie.LastAttemptAt) record.LastAttemptAt = movie.LastAttemptAt;
+    }
 
-        var metadata = movie.Metadata;
-        if (baseline.Metadata != metadata)
+    private static void ApplyState(Movie movie, MovieRecord record, Baseline baseline)
+    {
+        if (baseline.IsInWatchlist != movie.IsInWatchlist)
         {
-            record.MetadataTitle = metadata?.Title;
-            record.Plot = metadata?.Synopsis;
-            record.ReleaseYear = metadata?.ReleaseYear;
-            record.RuntimeMinutes = metadata?.Runtime;
-            record.ImdbRating = metadata?.ImdbRating;
-            record.ImdbId = metadata?.ImdbId;
+            record.IsInWatchlist = movie.IsInWatchlist;
+        }
+
+        if (baseline.Status != movie.Status)
+        {
+            record.Status = movie.Status;
+        }
+
+        if (baseline.EnrichedAt != movie.EnrichedAt)
+        {
+            record.EnrichedAt = movie.EnrichedAt;
+        }
+    }
+
+    private static void ApplyAttempts(Movie movie, MovieRecord record, Baseline baseline)
+    {
+        if (baseline.EnrichmentAttempts != movie.EnrichmentAttempts)
+        {
+            record.EnrichmentAttempts += movie.EnrichmentAttempts - baseline.EnrichmentAttempts;
+        }
+
+        if (baseline.LastFailureCategory != movie.LastFailureCategory)
+        {
+            record.EnrichmentFailureCategory = movie.LastFailureCategory;
+        }
+
+        if (baseline.LastAttemptAt != movie.LastAttemptAt)
+        {
+            record.LastAttemptAt = movie.LastAttemptAt;
+        }
+    }
+
+    private static void ApplyMetadata(Movie movie, MovieRecord record, Baseline baseline)
+    {
+        if (baseline.Metadata != movie.Metadata)
+        {
+            CopyMetadata(record, movie.Metadata);
         }
     }
 
     private static Movie ToDomain(MovieRecord record)
     {
+        if (record.Id is null)
+        {
+            throw new InvalidOperationException("The database returned a movie row without an id.");
+        }
+
         MovieMetadata? metadata = record.MetadataTitle is null
             ? null
             : new MovieMetadata(
@@ -181,7 +246,7 @@ public sealed class EfMovieRepository : IMovieRepository
                 record.ImdbId);
 
         return Movie.Rehydrate(
-            id: record.Id!,
+            id: record.Id,
             title: record.Title,
             path: record.LibraryPath,
             format: record.Format,

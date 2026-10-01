@@ -40,11 +40,7 @@ public sealed class Movie
 
     public static Movie Create(MovieId id, string title, LibraryPath path, MediaFormat format)
     {
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            throw new ArgumentException("Title is required.", nameof(title));
-        }
-
+        RequireTitle(title);
         return new Movie(id, title, path, format);
     }
 
@@ -61,11 +57,7 @@ public sealed class Movie
         EnrichmentFailureCategory? lastFailureCategory,
         DateTimeOffset? lastAttemptAt)
     {
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            throw new ArgumentException("Title is required.", nameof(title));
-        }
-
+        RequireTitle(title);
         return new Movie(id, title, path, format)
         {
             IsInWatchlist = isInWatchlist,
@@ -124,6 +116,14 @@ public sealed class Movie
         }
 
         IsInWatchlist = false;
+    }
+
+    private static void RequireTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new ArgumentException("Title is required.", nameof(title));
+        }
     }
 
     private void BeginPendingAttempt(string action, DateTimeOffset now)

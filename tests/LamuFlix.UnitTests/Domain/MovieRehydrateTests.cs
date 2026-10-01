@@ -1,7 +1,5 @@
 using System;
 using LamuFlix.Core.Domain;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Domain;
 

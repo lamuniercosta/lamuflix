@@ -1,8 +1,6 @@
 using System;
-using FsCheck;
 using FsCheck.Xunit;
 using LamuFlix.Core.Domain;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Domain;
 
@@ -46,16 +44,7 @@ public sealed class MovieRehydratePropertyTests
             id, title, path, format, isInWatchlist, metadata, status, enrichedAt,
             attempts, failureCategory, lastAttemptAt);
 
-        return movie.Id == id
-            && movie.Title == title
-            && movie.Path == path
-            && movie.Format == format
-            && movie.IsInWatchlist == isInWatchlist
-            && Equals(movie.Metadata, metadata)
-            && movie.Status == status
-            && movie.EnrichedAt == enrichedAt
-            && movie.EnrichmentAttempts == attempts
-            && movie.LastFailureCategory == failureCategory
-            && movie.LastAttemptAt == lastAttemptAt;
+        return (movie.Id, movie.Title, movie.Path, movie.Format, movie.IsInWatchlist, movie.Metadata, movie.Status, movie.EnrichedAt, movie.EnrichmentAttempts, movie.LastFailureCategory, movie.LastAttemptAt)
+            .Equals((id, title, path, format, isInWatchlist, metadata, status, enrichedAt, attempts, failureCategory, lastAttemptAt));
     }
 }
