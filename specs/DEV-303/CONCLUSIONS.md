@@ -274,3 +274,13 @@ RECOVER IN PLACE — Retain DEV-393 and its verified approved summary/descriptio
 - Basis: Rigger's supplied receipt verifies duplicate search, partial creation and exact description but reports HTTP 400 and missing metadata; CONCLUSIONS.md:262 specifies parent, estimate and size. A partial create is not a completed follow-up.
 - Basis: scripts/local/Edit-YouTrackIssue.ps1:249-254 creates the issue before a combined metadata command; :275-293 supports tag recovery but not Type/parent/estimate edits. The failing command's cause is unverified: do not blindly replay it, weaken the required metadata or improvise direct tracker writes outside the mandated script.
 - Route the tooling gap to Bernstein for an isolated tooling recovery, outside the DEV-303 branch/delivery. The bounded requirement is an explicit existing-issue recovery path in Edit-YouTrackIssue.ps1 that targets DEV-393, applies only missing required metadata using live project-supported fields/values, and verifies each result before reporting completion. Only Rigger runs the tracker mutation after that path exists. No DEV-303 scope change or owner checkbox.
+
+---
+
+## D19 — T001 package pin conflict (§2.3 item 1)
+
+ACCEPT OPTION A — Update only the Microsoft.Extensions.Http CPM pin from 10.0.1 to 10.0.12 in Directory.Packages.props and retain Microsoft.Extensions.Http.Resilience 10.10.0; this supersedes the 10.0.1 retention wording in spec.md FR-015:149, plan.md:15 and tasks.md T001:15. No owner checkbox.
+
+- Basis: DEV-303 task note:14 requires the typed HttpClient and Microsoft.Extensions.Http.Resilience stack; CONCLUSIONS.md:49-51 approves these dependencies through CPM, and spec.md:18 freezes the resilience package at 10.10.0. Conductor's supplied Anvil receipt reports that 10.10.0 requires Microsoft.Extensions.Http >= 10.0.12 and that Option A restores Infrastructure and IntegrationTests successfully; Patron accepts that receipt without rerunning another seat's verification.
+- Basis: plan.md:62 derives the validation ranges from Microsoft.Extensions.Http.Resilience 10.10.0 and Polly.Core 8.4.2; retaining that pin preserves the basis for spec.md FR-012:146 and T006/T009. The minimum compatible Http patch resolves the conflict without replacing the approved resilience version or re-deriving those ranges.
+- Basis: specs/PRODUCT.md:34-43 assigns dependency changes to Patron and escalates only ticket changes or constitution departures; the ticket fixes no Http patch version, and .specify/memory/constitution.md:318/323 mandates CPM and this resilience stack. This is a dependency compatibility correction within the ticket's delivery. T004/T039 and SC-004 still require the transitive vulnerability gate; the supplied restore receipt is not that gate's pass.
