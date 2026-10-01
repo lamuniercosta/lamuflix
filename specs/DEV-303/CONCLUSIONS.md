@@ -264,3 +264,13 @@ FOLLOW-UP — Require HTTPS for non-loopback OmdbOptions.BaseUrl values through 
 - Basis: src/LamuFlix.Core/Options/OmdbOptions.cs:14-16 accepts a URL without enforcing HTTPS; recon-DEV-303:52/56 and brief.md:351 identify the cleartext API-key exposure. This is broken security validation and the requested follow-up, not an extra DEV-303 deliverable.
 - Basis: .specify/memory/constitution.md:246-249 and src/LamuFlix.ServiceDefaults/Extensions.cs:19-24 place validation at the existing shared options/startup seam; CONCLUSIONS.md:165-167 requires the shipped HTTPS endpoint and explicitly permits loopback HTTP for WireMock. The follow-up owns the shared-host configuration impact; no new dependency or validation layer is authorised.
 - Basis: CONCLUSIONS.md:237-240 freezes current scope; specs/PRODUCT.md:34-39 and assigned Patron §2.3 require neither ticket change nor constitution departure here. Tracker filing is requested, not yet verified; only Rigger performs and reports that mutation.
+
+---
+
+## D18 recovery — Partial follow-up DEV-393
+
+RECOVER IN PLACE — Retain DEV-393 and its verified approved summary/description; never repeat Create or delete it. Rigger may set size:S now through the existing Edit-YouTrackIssue.ps1 -Ticket DEV-393 -Tag size:S path. Completion requires Type Task, parent DEV-283, estimate 2h and size:S, with State Todo retained and all fields read back; until then the follow-up is incomplete.
+
+- Basis: Rigger's supplied receipt verifies duplicate search, partial creation and exact description but reports HTTP 400 and missing metadata; CONCLUSIONS.md:262 specifies parent, estimate and size. A partial create is not a completed follow-up.
+- Basis: scripts/local/Edit-YouTrackIssue.ps1:249-254 creates the issue before a combined metadata command; :275-293 supports tag recovery but not Type/parent/estimate edits. The failing command's cause is unverified: do not blindly replay it, weaken the required metadata or improvise direct tracker writes outside the mandated script.
+- Route the tooling gap to Bernstein for an isolated tooling recovery, outside the DEV-303 branch/delivery. The bounded requirement is an explicit existing-issue recovery path in Edit-YouTrackIssue.ps1 that targets DEV-393, applies only missing required metadata using live project-supported fields/values, and verifies each result before reporting completion. Only Rigger runs the tracker mutation after that path exists. No DEV-303 scope change or owner checkbox.
