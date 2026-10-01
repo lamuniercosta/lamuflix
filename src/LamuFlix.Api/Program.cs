@@ -1,5 +1,6 @@
 using LamuFlix.Api.ExceptionHandling;
 using LamuFlix.Infrastructure.Persistence;
+using LamuFlix.Infrastructure.Playback;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.ServiceDefaults;
 using Microsoft.AspNetCore.Builder;
@@ -9,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddLamuFlixPersistence(builder.Configuration);
 builder.Services.AddLamuFlixRabbitMq();
+builder.Services.AddLamuFlixPlayback();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 var app = builder.Build();
