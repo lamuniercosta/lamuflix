@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-01
 
-**Status**: Draft - Gate 1 closed (no Phase B authorization; see `brief.md` §Gate 1 status)
+**Status**: gate1: provisional - Gate 1 closed pending owner merge of the spec PR (no Phase B authorization; see `brief.md` §Gate 1 status)
 
 **Input**: DEV-306 (parent DEV-283, size M, UI false) — "Create centralized Testcontainers fixtures in `tests/LamuFlix.Tests.Common/`. PostgreSQL fixture starts `postgres:17-alpine`, runs migrations on startup, and provides a connection string and clean reset mechanism. RabbitMQ fixture starts `rabbitmq:4-management-alpine`, declares topology, and provides a connection factory. Use xUnit v3 collection fixtures to share containers across integration test classes." Plus Phase A grill outcome: `brief.md`, `CONCLUSIONS.md` (Q1-Q10), `ASSUMPTIONS.md`, note `recon-DEV-306`, `specs/PRODUCT.md`, `.specify/memory/constitution.md`
 
