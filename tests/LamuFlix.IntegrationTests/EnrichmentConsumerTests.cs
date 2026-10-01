@@ -161,6 +161,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         var movie = host.AddPendingMovie(106);
         await host.Topology.EnsureDeclaredAsync(ct);
         await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await probe.DrainAsync(RabbitMqTopology.RetryQueue, ct);
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
 
@@ -213,12 +214,16 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         var movie = host.AddPendingMovie(108);
         await host.Topology.EnsureDeclaredAsync(ct);
         await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await probe.DrainAsync(RabbitMqTopology.RetryQueue, ct);
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
 
         await host.StartAsync(ct);
         await gate.Task.WaitAsync(ct);
         await host.StopAsync(CancellationToken.None);
-        (await probe.PollMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(1U);
+        (await probe.PollGetMatchingAsync(
+            RabbitMqTopology.RequestedQueue,
+            candidate => Read(candidate).MovieId.Value == 108,
+            ct)).ShouldNotBeNull();
         host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
     }
 
