@@ -8,7 +8,6 @@ using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
 using Microsoft.Extensions.Options;
-using RabbitMQ.Client;
 using Shouldly;
 using Xunit;
 

@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using FluentValidation;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
@@ -16,8 +15,6 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.RabbitMq;
 
@@ -46,14 +43,14 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddLamuFlixRabbitMq_WithBothPorts_ComposesTracingOutermost()
+    public async Task AddLamuFlixRabbitMq_WithBothPorts_ComposesTracingOutermost()
     {
         // arrange
         var services = NewServices(providerPort: true, repositoryPort: true);
         services.AddLamuFlixRabbitMq();
 
         // act
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var handler = scope.ServiceProvider
             .GetRequiredService<ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>>();
@@ -72,7 +69,7 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
         services.AddSingleton<ILoggerFactory>(new SingleLoggerFactory(logger));
 
         // act
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         foreach (var service in provider.GetServices<IHostedService>())
         {
             await service.StartAsync(CancellationToken.None);
@@ -90,7 +87,7 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(false, false)]
-    public void AddLamuFlixRabbitMq_EitherPath_RegistersTheReadyTaggedHealthCheck(
+    public async Task AddLamuFlixRabbitMq_EitherPath_RegistersTheReadyTaggedHealthCheck(
         bool providerPort,
         bool repositoryPort)
     {
@@ -101,7 +98,7 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
         services.AddLamuFlixRabbitMq();
 
         // assert
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         var registrations = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
         var check = registrations.Single(registration => registration.Name == "rabbitmq");
         check.Tags.ShouldContain("ready");
@@ -198,3 +195,5 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
         }
     }
 }
+
+

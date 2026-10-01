@@ -1,9 +1,6 @@
 ﻿using System;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.RabbitMq;
-using Microsoft.Extensions.Options;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.RabbitMq;
 
