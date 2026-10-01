@@ -1,0 +1,183 @@
+# Tasks: Reusable Testcontainers Fixtures
+
+**Input**: Design documents from `specs/DEV-306/` — spec.md, plan.md, brief.md (task ordering per brief "Task ordering"), CONCLUSIONS.md (Q1-Q10), ASSUMPTIONS.md, note `recon-DEV-306`. No `research.md`, `data-model.md`, `contracts/` or `quickstart.md` exists; plan.md's **Note on the Spec Kit phases** states why, and its Design §1-§6, Test Strategy and Gates carry what those files would have.
+
+**Tests**: Required. The ticket's acceptance criteria are container versions, sharing, clean teardown and fixture behaviour, so the fixture-behaviour tests are part of the delivery (Q10) and each story task ends in a real green run, not a mock.
+
+**Gate step after every `.cs` task** (plan §Gates, constitution.md:375/:380-388): Roslyn analyzers, cyclomatic complexity, InspectCode, then `dotnet format --verify-no-changes`. This is the incremental per-edit pass; the single close-out pass over every changed `.cs` file, which also runs complexity at `-Threshold 6`, is T041. Pass `-Files` as real array args through the call operator — not `pwsh -File`, not a comma-joined string, either of which collapses to a single checked file:
+
+```powershell
+& ./scripts/run-roslyn-analyzers.ps1 -Files 'tests/LamuFlix.Tests.Common/PostgresFixture.cs','tests/LamuFlix.IntegrationTests/PostgresCollection.cs'
+```
+
+**Two ordering notes, both from the brief, neither taken silently.**
+
+1. **The brief's task ordering is followed verbatim** and it happens to coincide with spec priority order: collections and wiring (item 2) → database fixture and its consumers (item 3) → broker fixture and its consumers (item 4) → full run and evidence (item 5) → gates (item 6). Item 1 is a drift check, carried as T001. The reason item 2 comes first is stated in plan §Test Strategy: the suite must be green on the **unchanged** image tags before either fixture is touched, so a later failure is unambiguously an image change rather than a sharing change. That same run is where D1's stop condition is first applied (T011).
+2. **The one `needs decision:` this drafting pass raised is ruled.** D1 (Keel, spec-review round 1, recorded in `brief.md` §Drafting decisions) settles the `DisableParallelization` attribute in favour of omitting it, and the drafts already followed that reading — so T002 records the ruling rather than blocking, and T004/T005 are `[P]` again. D1 adds one obligation the drafts did not have: a cross-collection interference failure is a stop-and-report, never a fix by adding the attribute or a third collection (T011, T038).
+
+---
+
+## Phase 1: Setup — drift check and the one open question (T001-T002)
+
+**Purpose**: confirm the worktree still matches what the brief was written against, and settle the single question the writer is not entitled to settle.
+
+- [ ] T001 Pickup drift check against `main`: `git fetch origin` then `git log --oneline origin/main -5` and `git diff --stat 3b2e998...origin/main -- tests/ src/ Directory.Packages.props`. Report any drift in the files this ticket edits — in particular any change to `tests/LamuFlix.Tests.Common/`, to the fourteen consumer classes, or to `Directory.Packages.props:13-14`. Drift that invalidates a line citation in `brief.md` or `plan.md` is reported to Keel before T003; drift in unrelated files is recorded in the task note and ignored
+- [ ] T002 [US1] **RULED — D1, Keel, spec-review round 1. T004-T012 are unblocked.** `brief.md` §Drafting decisions: `PostgresCollection` and `RabbitMqCollection` are plain `[CollectionDefinition("<name>")]` with **no** `DisableParallelization`. Basis: Q3 rules both clauses explicitly — classes within a collection serialise *and* the two collections may run concurrently — and xUnit's default already serialises within a collection, so the attribute would add nothing except the exclusion of every other collection. `CONCLUSIONS.md` outranks the `MovieCatalogCollection.cs:5` precedent, which Q4 deletes anyway. Carry two things forward from the ruling: T038 records AC7's timing as a **concurrent** run, and cross-collection interference is a stop (T011), never a licence to add the attribute
+
+**Checkpoint**: the worktree matches the brief, and the sharing behaviour is ruled.
+
+---
+
+## Phase 2: Foundational — collection definitions and wiring (T003-T012)
+
+**Purpose**: make the two fixtures properties of named collections instead of the assembly, on the **unchanged** image tags, and prove the suite is still green before either fixture is rewritten.
+
+**Critical**: this phase must complete before Phase 3. Both later phases rewrite fixtures, and doing that on top of unsettled sharing would make any failure ambiguous.
+
+- [ ] T003 [P] [US1] Create `tests/LamuFlix.IntegrationTests/IntegrationCollections.cs` with one `internal static class IntegrationCollections` holding the two `[Collection(...)]` name strings `Postgres` and `RabbitMq` (plan §9: one source for a name that must agree across fourteen files; the ruled **type** names `PostgresCollection` and `RabbitMqCollection` are unchanged). No `else`, no fallback, no comment
+- [ ] T004 [P] [US1] Create `tests/LamuFlix.IntegrationTests/RabbitMqCollection.cs`: `[CollectionDefinition(IntegrationCollections.RabbitMq)] public sealed class RabbitMqCollection : ICollectionFixture<RabbitMqFixture>;` — a plain collection definition with **no** `DisableParallelization`, per ruling D1. Change nothing else
+- [ ] T005 [P] [US1] Create `tests/LamuFlix.IntegrationTests/PostgresCollection.cs`: `[CollectionDefinition(IntegrationCollections.Postgres)] public sealed class PostgresCollection : ICollectionFixture<PostgresFixture>;` — a plain collection definition with **no** `DisableParallelization`, per ruling D1. Change nothing else. **Do not add the attribute back** for any reason; see T011
+- [ ] T006 [US1] Delete `tests/LamuFlix.IntegrationTests/AssemblyInfo.cs`. Its entire content is the two `[assembly: AssemblyFixture(typeof(PostgresFixture))]` / `[assembly: AssemblyFixture(typeof(RabbitMqFixture))]` lines at 4-5 plus two usings. **Before deleting, re-read the file and preserve any unrelated attribute that has appeared since the baseline** (Q4). If it is not empty of unrelated content, keep the file and remove only lines 4-5
+- [ ] T007 [US1] Delete `tests/LamuFlix.IntegrationTests/MovieCatalogCollection.cs` — the orphaned definition `PostgresCollection` replaces (Q4)
+- [ ] T008 [US1] Move the four `[Collection("MovieCatalog")]` classes onto the PostgreSQL collection: in `EfMovieCatalogBrowseTests.cs:15`, `EfMovieCatalogSortingTests.cs:14`, `EfMovieCatalogPagingTests.cs:19` and `EfMovieCatalogDetailsTests.cs:13`, replace the attribute argument with `IntegrationCollections.Postgres`. Do **not** add `IClassFixture`, do **not** add `IAsyncLifetime` yet, and change no test body
+- [ ] T009 [US1] Move the remaining five database consumers onto the PostgreSQL collection by **adding** `[Collection(IntegrationCollections.Postgres)]` and **removing** `: IClassFixture<PostgresFixture>` from the class declaration: `EfMovieRepositoryTests.cs:15`, `EfMovieRepositoryClaimConcurrencyTests.cs:16`, `PersistenceCompositionTests.cs:19`, `PersistenceRoundTripTests.cs:15` (primary constructor, no `IClassFixture` to remove), `MigrationTests.cs:17` (same). Change no test body and no fixture call
+- [ ] T010 [US1] Move the five broker consumers onto the RabbitMQ collection the same way, with `ICollectionFixture`-free class declarations: `EnrichmentConsumerTests.cs:28`, `RabbitMqPublisherTests.cs:21`, `RabbitMqHealthCheckTests.cs:12`, `RabbitMqTopologyTests.cs:16`, and `RabbitMqConnectionOwnerTests.cs:17-25` (this one has an explicit constructor and a `fixture` field, not a primary constructor — keep whichever shape it has; the attribute and the interface removal are the whole task)
+- [ ] T011 [US1] Gates on the changed files, then `dotnet test tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` **green on the unchanged image tags** with **105 passing** — the count must not move at this phase, and a move is a defect in T003-T010, not a new baseline. Confirm the two owned container identities are each observed by at least two classes in their collection (plan §Test Strategy evidence 1) and record both identities in the task note. **D1 stop condition applies here and at every later run:** if the two collections overlap and any PostgreSQL class interferes with any RabbitMQ class — shared static telemetry, listener state, or anything of that shape — **stop and report the failing tests to Keel.** Adding `DisableParallelization` back, or splitting into a third collection, is a **new ruling** and is never a silent fix (`brief.md` D1, feeding R1/R6)
+- [ ] T012 [US1] Confirm the boundaries hold so far: `rg -n "AssemblyFixture|IClassFixture<(PostgresFixture|RabbitMqFixture)>" tests/LamuFlix.IntegrationTests` returns **nothing** (T003-T010 landed), and `git diff --stat 3b2e998...HEAD` shows only the files listed above. `tests/LamuFlix.Tests.Common/ContainerFixture.cs`, everything under `tests/LamuFlix.Test/`, and every `src/` file are still untouched
+
+**Checkpoint**: sharing is collection-scoped, the wiring is retired, the suite is green on the old images, and both container identities are recorded.
+
+---
+
+## Phase 3: User Story 2 - A database fixture that is ready to use (Priority: P1)
+
+**Goal**: `postgres:17-alpine`, migrated at startup, connection string, migrated context, and the empty-database path — the ticket's own words for the database half (AC1, Q2, Q6).
+
+**Independent Test**: the fixture-behaviour test in T019 reads the applied migrations with no test-side migration call, opens the connection string, and obtains both context flavours; the existing suite is still green.
+
+- [ ] T013 [US2] Rewrite `tests/LamuFlix.Tests.Common/PostgresFixture.cs` startup: `new PostgreSqlBuilder("postgres:17-alpine")` as a literal at its point of use (Q6 — no constants holder, no fallback), then open a context on the container's default database and `await Database.MigrateAsync(ct)`, then build and cache the truncate statement (T014). Wrap all three in `try`/`catch`; on failure dispose the container through its **async** disposal with **no** test token, swallow any secondary cleanup error, null the field, `throw;` the original (Q9). Extract the guarded body into a private helper if `InitializeAsync` would otherwise exceed the complexity ceiling of 6 — extraction, never suppression
+- [ ] T014 [US2] Add the members to `tests/LamuFlix.Tests.Common/PostgresFixture.cs`: `ConnectionString` (the migrated default database, throwing `InvalidOperationException` naming the fixture before initialisation, matching the existing `Container` accessor at lines 13-15); `CreateMigratedContext()` wrapping `LamuFlixDbContextFactory.OpenContext(ConnectionString)`; and `CreateEmptyDatabaseContextAsync(CancellationToken)` issuing `CREATE DATABASE` for a fresh unique name with **no `TEMPLATE` clause** (R5 — the absence of the clause is what makes it copy `template1`, never the migrated database). Add the async empty-database helper to `tests/LamuFlix.Tests.Common/LamuFlixDbContextFactory.cs` **beside** its existing members; change **no** existing public member's signature or meaning (AC8). Its `CreateContext(PostgresFixture)` overload becomes unreferenced once T015 lands and **stays** — AC8 freezes it, and it is public in a non-packable project so the uncalled-private-code analyzer does not reach it (plan §9)
+- [ ] T015 [US2] Convert the eight normal database consumers: replace every `fixture.CreateContext()` with `fixture.CreateMigratedContext()` in `EfMovieCatalogBrowseTests` (8 sites), `EfMovieCatalogDetailsTests` (6), `EfMovieCatalogPagingTests` (3), `EfMovieCatalogSortingTests` (3), `EfMovieRepositoryTests.cs:211`, `EfMovieRepositoryClaimConcurrencyTests.cs:24`, `PersistenceCompositionTests.cs:92`, `PersistenceRoundTripTests.cs:164`; and remove the now-redundant `Database.MigrateAsync` at `EfMovieRepositoryTests.cs:212`, `ClaimConcurrency:25`, `PersistenceCompositionTests.cs:93`, `PersistenceRoundTripTests.cs:165`, `EfMovieCatalogPagingTests.cs:70,77`. The six connection-string reads off a context (`Details:32`, `Paging:35`, `ClaimConcurrency:26`, `Repository:218`, `Composition:94`, `RoundTrip:171`) need **no** edit — they now return the migrated database's string
+- [ ] T016 [US2] Convert `MigrationTests.cs:53,67` to `await fixture.CreateEmptyDatabaseContextAsync(ct)`. Its own `MigrateAsync` at 55 and 68 and **every** assertion at 51-77 stay exactly as they are — this test exists to prove migration from genuinely empty, so weakening it defeats it
+- [ ] T017 [US2] Switch `EfMovieCatalogPagingTests.cs:66` from `fixture.Container.GetConnectionString()` to `fixture.ConnectionString` (Q2: direct connections use the fixture's connection string)
+- [ ] T018 [US2] Remove the synchronous `PostgresFixture.CreateContext()` at line 31, now that T015 moved every consumer (Q2 — the semantic change is visible at the call sites, not hidden behind the old name)
+- [ ] T019 [P] [US2] Create `tests/LamuFlix.IntegrationTests/PostgresFixtureTests.cs` in `PostgresCollection`, with the startup and reset coverage from T020's first three cases and the reset coverage from T022. `[Fact]`, Shouldly, `TestContext.Current.CancellationToken`, `Method_Scenario_Expectation` names, the three AAA headers and **no other comment** (FR-025, constitution.md:293). The first test must read the applied migrations **without** calling a migration API — that is the whole point of the story
+- [ ] T020 [US2] Gates on the fixture, the factory, `MigrationTests` and the eight converted consumers, then the full `LamuFlix.IntegrationTests` run green on `postgres:17-alpine`. **Record whether `MigrationTests.MigrateAsync_EmptyDatabase_MatchesPostgresCatalogContract` still passes**: it asserts the live catalog (snake_case columns, join primary-key order, five `movies` indexes) at lines 64-77, and a Postgres 17 change there is risk R1 — a real compatibility finding reported to Keel with the resolved version, **never** worked around by reverting the tag or editing the assertions
+
+**Checkpoint**: the database fixture is ready to use, the suite is green on the delivered image, and no consumer migrates for itself.
+
+---
+
+## Phase 4: User Story 3 - A reset that leaves the database genuinely empty (Priority: P1)
+
+**Goal**: one call that returns the shared database to a known-empty state — all tables and join tables, identities restarted, migration history intact, still usable (Q1, Q10).
+
+**Independent Test**: the reset cases in T023 — zero rows everywhere, history intact, same key twice, usable afterwards.
+
+- [ ] T021 [US2] Add `ResetAsync(CancellationToken)` and the cached truncate to `tests/LamuFlix.Tests.Common/PostgresFixture.cs` (T013 caches it; this task makes it callable). Derive the target list from `Model.GetEntityTypes()` in this exact order (plan §3): keep only entities with a non-null `GetTableName()`; schema-qualify each with `GetSchema() ?? "public"`; **de-duplicate** `(schema, table)` pairs — a table two model types map would otherwise be listed twice and the server rejects it; **exclude** `__EFMigrationsHistory`; quote each identifier through the database layer's own quoting, **never** by string assembly. Emit exactly one statement: `TRUNCATE TABLE <list> RESTART IDENTITY CASCADE`. Shared-type join entities come from the model walk — that is why the model is the source and not a hand-written list
+- [ ] T022 [US2] Remove `ResetAsync` from `tests/LamuFlix.IntegrationTests/MovieCatalogSeed.cs` (lines 24-31) and **every** `MovieCatalogSeed.ResetAsync(context, ct)` call site — the four `EfMovieCatalog*Tests`, roughly twenty calls. The class keeps `FixedTime`, `Create` and `AddAsync`, so it stays a seed helper (Q1, plan §6)
+- [ ] T023 [US2] Add `IAsyncLifetime` to the eight normal database consumers: `InitializeAsync` calls `fixture.ResetAsync(TestContext.Current.CancellationToken)`, `DisposeAsync` is empty. `MigrationTests` is **excluded** — it proves the opposite property and deliberately shares nothing (Q2, Q3; `checklists/requirements.md` Notes item 3). If a disposal body is genuinely empty, the one permitted comment is a brief justification on that line
+- [ ] T024 [US2] Add the reset cases to `tests/LamuFlix.IntegrationTests/PostgresFixtureTests.cs` (form fixed by T019): after seeding a movie with an actor, a director and a genre, `ResetAsync` leaves every application table **and** the three join tables at zero rows with `__EFMigrationsHistory` intact; the first insert after each of two consecutive resets receives the same key; and the database is still usable for insert and read after a reset. The join-table case is the one that fails if the de-duplication or the model walk in T021 is wrong
+- [ ] T025 [US2] Gates on the fixture and the seed helper, then the full run green. Watch for risk R3: `TRUNCATE` takes exclusive locks, so a hang means some consumer left a context open inside an uncommitted transaction. That is a **consumer defect to fix**, not a reason to change the reset strategy
+
+**Checkpoint**: one call empties the database completely, and every consumer starts from it.
+
+---
+
+## Phase 5: User Story 4 - A broker fixture whose topology already exists (Priority: P1)
+
+**Goal**: `rabbitmq:4-management-alpine` with the production topology already declared at startup, and the existing connection contract intact (AC2, Q6, Q7).
+
+**Independent Test**: the passive-declare test in T029 — exchange and all three queues exist immediately after startup, with production arguments.
+
+- [ ] T026 [P] [US4] Rewrite the startup half of `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs`: `new RabbitMqBuilder("rabbitmq:4-management-alpine")` as a literal (Q6, same no-fallback and no-constants-holder rules), then the unchanged connection-factory construction from line 28, then declare the topology by running **production** code: `await using var owner = new RabbitMqConnectionOwner(Options.Create(Options));` followed by `await new RabbitMqTopology(owner, Options.Create(Options), Options.Create(new EnrichmentOptions { MaxAttempts = 3 })).EnsureDeclaredAsync(ct)`. A short-lived owner, disposed by `await using`; the fixture holds no connection of its own. **No exchange, queue, binding or queue argument is written in this file** (Q7). Guarded failure handling exactly as in T013 (Q9)
+- [ ] T027 [US4] In `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs`: keep `RetryDelay` (line 13), `OptionsFor` (43-56) and `Options` (22) with their current signatures and semantics, and add an **additive** `CreateConnectionAsync(CancellationToken)` overload that passes the token to `ConnectionFactory.CreateConnectionAsync(ct)` while the existing no-token member at 39-41 stays (plan §9). Preserving it means `tests/LamuFlix.IntegrationTests/RabbitMqProbe.cs:201` needs **no edit at all**
+- [ ] T028 [US4] Delete the now-false comment at `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs:12` ("One declared topology is shared by the whole assembly…"). Q3 makes the sentence untrue, and `AGENTS.md` forbids explanatory comments, so the fix is deletion and not a rewrite (plan §7)
+- [ ] T029 [P] [US4] Create `tests/LamuFlix.IntegrationTests/RabbitMqFixtureTests.cs` in `RabbitMqCollection`, with the startup case from T033's first row and the post-reset cases from T034. Same conventions as T019: `[Fact]`, Shouldly, `TestContext.Current.CancellationToken`, `Method_Scenario_Expectation` names, three AAA headers, no other comment
+- [ ] T030 [US4] Gates on the fixture and the new test file, then the full run green on `rabbitmq:4-management-alpine`. **Record whether `RabbitMqTopologyTests` still passes**: quorum queues with `x-dead-letter-strategy=at-least-once` and `x-overflow=reject-publish` are broker-version-sensitive, and `4-management-alpine` is a **floating minor** — that is risk R1, and a failure is reported to Keel with the resolved version, never worked around by reverting the tag or weakening an assertion
+
+**Checkpoint**: the broker arrives with production topology declared, and the suite is green on the delivered image.
+
+---
+
+## Phase 6: User Story 5 - Broker isolation between tests (Priority: P1)
+
+**Goal**: the known topology removed and re-declared between tests, so nothing survives from one test into the next (Q8).
+
+**Independent Test**: the retry-queue row in T034 — a message published before the reset is in none of the three queues afterwards, and publish/get still work.
+
+- [ ] T031 [US5] Add `ResetTopologyAsync(CancellationToken)` and `DeleteTopologyAsync(CancellationToken)` to `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs`. Both open one short-lived connection and dispose it. `ResetTopologyAsync` deletes `RabbitMqTopology.RequestedQueue`, `RetryQueue`, `DeadLetterQueue` **in that order** and then the exchange — queues before exchange, because a live binding blocks exchange deletion — and then re-declares through a **fresh** `RabbitMqTopology` on a **fresh** short-lived owner, exactly as at startup. `DeleteTopologyAsync` performs the same deletions with **no** re-declaration. Names come from the production constants; no queue name and no queue argument is restated in test code (Q8, plan §5)
+- [ ] T032 [US5] Add `IAsyncLifetime` to the four broker consumers `EnrichmentConsumerTests.cs:28`, `RabbitMqPublisherTests.cs:21`, `RabbitMqHealthCheckTests.cs:12`, `RabbitMqConnectionOwnerTests.cs:17-25`: `InitializeAsync` calls `fixture.ResetTopologyAsync(TestContext.Current.CancellationToken)`, `DisposeAsync` is empty with a one-line justification if the body is empty. Their existing in-test `EnsureDeclaredAsync` and `probe.DrainAsync` calls **stay** — they are harmless and removing them is not required. Confirm every one of the four finishes disposing its host with `await using` before its test returns; one that does not is the risk-R4 defect, fixed here, not a reason to weaken the reset
+- [ ] T033 [US5] Convert `RabbitMqTopologyTests.cs:16`: `InitializeAsync` calls `fixture.DeleteTopologyAsync(ct)` so each test starts from nothing declared; `DisposeAsync` calls `fixture.ResetTopologyAsync(CancellationToken.None)` — `None` deliberately, so the topology is restored even when an assertion failed or the test's token was cancelled (Q7, Q9). **Test bodies at 22-173 stay unchanged**, so `EnsureDeclaredAsync_DeclaresADurableDirectExchange` and `EnsureDeclaredAsync_DeclaresTheThreeQueues` now genuinely fail if production declares nothing. Its private `DeclareAsync`/`NewOwner`/`NewTopology` at 187-199 stay as they are
+- [ ] T034 [US5] Add the reset cases to `tests/LamuFlix.IntegrationTests/RabbitMqFixtureTests.cs` (form fixed by T029): a message published to the retry queue before `ResetTopologyAsync` is in **none** of `retry`, `requested` and `dead-letter` afterwards — the reset deletes the queues, so the message dies with them and no polling is needed to observe the absence; and publish and get both work after a reset
+- [ ] T035 [US5] Gates on the fixture, the four consumers and the topology tests, then the full run green. A cross-test leak that shows up as an ordering-dependent failure is risk R4: fix the consumer that left something running, never the reset
+
+**Checkpoint**: no message, count or queue state crosses a test boundary, and the topology tests prove production declares what it claims.
+
+---
+
+## Phase 7: User Story 6 - Failure-safe lifetime and verified teardown (Priority: P2)
+
+**Goal**: a red run reports the real cause, and a finished run leaves nothing running (AC5, Q9).
+
+**Independent Test**: the exact-identity teardown check in T037 — `docker inspect <id>` reports no such container for each of the two owned identities.
+
+- [ ] T036 [US6] Verify both fixtures' failure paths by inspection against the code written in T013 and T026: a startup failure disposes the container through its async disposal **with no test token**, swallows any secondary cleanup error, nulls the field, and rethrows the original; disposal is idempotent and safe with nothing to dispose; cleanup paths take no token so teardown still runs after cancellation. Confirm no fixture disposes a connection a caller created (Q9, AC/US6 scenario 4-6). A defect here is fixed inside the ruled scope; a behavioural change is a stop
+- [ ] T037 [US6] After the full run, verify teardown **by exact container identity**: for each of the two identities recorded in T011, `docker inspect <id>` must report no such container. A label sweep or an image sweep is **not** acceptable — a concurrent unrelated run on the same machine makes it meaningless in both directions (AC5, Q9). Record both lookups, verbatim, in the task note
+
+**Checkpoint**: the failure path is honest and the containers are gone.
+
+---
+
+## Phase 8: User Story 7 - Evidence, boundaries and gates (Priority: P2)
+
+**Goal**: the merge rests on evidence, not confidence (AC6-AC9, Q10).
+
+**Independent Test**: the task note carries every item below, and each gate reports a real exit code.
+
+- [ ] T038 [US7] Run the full integration suite and record: the pass count against the **105** baseline and an explanation in writing for any difference, with no count or time treated as a threshold (AC6); the resolved image reference and content digest for both delivered tags from `docker image inspect postgres:17-alpine rabbitmq:4-management-alpine --format …`; the PostgreSQL server version from `SHOW server_version` and the broker's `version` server property, both captured through the fixture-behaviour tests' output; and the full-suite time against the 1 m 17 s baseline (recon-DEV-306:62), **recorded as a concurrent run** — the two collections overlapped, because D1 rules no `DisableParallelization`. A serialised run is a defect to report under T011's stop condition, not a timing to present (AC7, `plan.md` §8)
+- [ ] T039 [US7] Re-confirm the sharing evidence (AC4): the same PostgreSQL identity observed by at least two classes in `PostgresCollection` and the same RabbitMQ identity by at least two in `RabbitMqCollection`, correlated to the two owned identities **only** — other same-image starts in the window belong to other runs and are not evidence for this one. No extra fixture or container was created to demonstrate sharing
+- [ ] T040 [US7] Confirm the boundaries (AC8): `git diff --stat 3b2e998...HEAD` shows **zero** changes under `src/`, **zero** changes to `Directory.Packages.props` or any `.csproj`, and **zero** changes to `tests/LamuFlix.Tests.Common/ContainerFixture.cs` or anything under `tests/LamuFlix.Test/`. `rg -n "AssemblyFixture|IClassFixture<(PostgresFixture|RabbitMqFixture)>" tests/LamuFlix.IntegrationTests` returns nothing. `tests/LamuFlix.ArchitectureTests` is **absent from the diff** and its full-suite run is green
+- [ ] T041 [US7] Final gate pass over **every** changed `.cs` file (AC9), `-Files` passed as a real array through the call operator, in this order: (1) `./scripts/run-roslyn-analyzers.ps1` exit 0; (2) `./scripts/run-cyclomatic-complexity.ps1` exit 0 at the ceiling of 15; (3) the same script with `-Threshold 6` exit 0 at the refactor ceiling; (4) `./scripts/run-jetbrains-inspectcode.ps1` with zero issues at WARNING or higher. Then full `dotnet test` green and `dotnet format --verify-no-changes` clean. The exact file list is the `$all` array in `plan.md` §Gates — nineteen files, and every one of them must be listed rather than globbed, because a glob would quietly skip a file. A gate that cannot run is recorded as **"Could not run"**, never as a pass
+- [ ] T042 [US7] Record the two gate lines that are deliberately not green-and-passing, in the task note: `./scripts/run-property-tests.ps1` is expected to exit **2** (scope-empty — the only logic beyond the fixtures' control flow is the truncate-list derivation, which the real-server reset test in T024 covers). Per `harness.yml:30-35`, DEV-306's opt-out is recorded here and the pipeline then accepts that exit **for this ticket only**. Never move a threshold to clear it. `pwsh -NoProfile -File ./scripts/run-mutation.ps1` is recorded as **not applicable**: no `src/` code changes, so Stryker's Core-only scope has nothing of this work to report. `./scripts/run-vulnerable-packages.ps1` is out of scope — no dependency is added or removed, which is the only thing that makes it materially relevant (`harness.yml:23-25`). No `harness.yml` or `stryker-config.json` edit accompanies any of these
+- [ ] T043 [US7] Hand the T011, T020, T030, T037 and T038 receipts to Quill for the PR body: the two owned container identities, the sharing observation, the teardown lookups, the resolved images and server versions, the pass count against baseline, the full-suite timing, the T002 ruling as it affected the run, and each gate's exit code. Commit form `DEV-306 - {subject}`
+
+**Checkpoint**: every acceptance criterion has a receipt, every gate has an exit code, and the ticket is ready for the PR.
+
+---
+
+## Dependencies
+
+- **T001** blocks everything: the brief's line citations are baseline-relative.
+- **T002** is **ruled** (D1) and blocks nothing. T003-T005 are free as soon as T001 reports no drift.
+- **Phase 2 (T003-T012)** blocks Phases 3-6. It is the brief's ordering item 2, and its purpose is to make the suite green on the old images so a later failure is unambiguously an image change (plan §Test Strategy, risk R1). Its green run is also the first place D1's stop condition can fire (T011).
+- **Phase 3 (T013-T020)** and **Phase 5 (T026-T030)** are independent of each other in principle — they touch different fixtures — but the brief delivers them in sequence, and the full run between them is what proves the database half is sound before the broker half moves. Follow the brief.
+- **Phase 4 (T021-T025)** depends on Phase 3: the reset is only meaningful on a fixture that has already migrated, and T022-T023 edit consumers T015 already converted.
+- **Phase 6 (T031-T035)** depends on Phase 5: the reset deletes what the startup declared.
+- **Phase 7** depends on Phases 3-6 (there is nothing to tear down before both fixtures are rewritten). **Phase 8** is last.
+
+## Parallel Opportunities
+
+- T003, T004 and T005 touch three different new files and are all unblocked by T002's ruling — safe in parallel.
+- T019 and T029 create the two fixture-behaviour test files in different collections and are independent; each may be written while its fixture is still settling.
+- T013-T018 (database fixture and its consumers) and T026-T028 (broker fixture) touch disjoint files and can be worked concurrently by two implementers; the brief's sequential ordering is preserved by the full run between them, not by the edits blocking each other.
+- T038, T039, T040 and T042 are read-only evidence and diff tasks over a completed run and are independent of each other; T041's gate pass and T043's receipt hand-off follow them.
+- **Never parallelise T015 with T022**: both touch the four `EfMovieCatalog*Tests` files.
+
+## Implementation Strategy
+
+**MVP first: Phases 1-2.** After T012 the suite shares two containers through two named collections on the unchanged images, with the assembly-level wiring gone — that is US1 delivered and independently valuable, and it is also the phase that de-risks everything after it.
+
+**Incremental delivery.** T001-T002 confirm and unblock. T003-T012 move the wiring and prove the suite stays green. T013-T020 deliver a database fixture that is ready to use. T021-T025 add the reset and remove the hand-rolled delete. T026-T030 deliver a broker fixture whose topology already exists. T031-T035 add broker isolation. T036-T037 prove the lifetime. T038-T043 collect the evidence and run the gates.
+
+**Two green steps, not one red one.** Do not merge Phase 2 alone into the fixture rewrite: its whole value is that the suite is green on the old images, so a failure in Phase 3 is one thing and a failure in Phase 5 is another. Merging them destroys the only evidence that would tell R1's two risks apart.
+
+**Stop at any checkpoint** to validate that story independently before continuing.
+
+## Notes
+
+- `[P]` marks tasks touching disjoint files with no unmet dependency.
+- Commit after each task or logical group, message form `DEV-306 - {subject}`.
+- **No task introduces a package, a project, a schema change, an API change, a reset abstraction, a constants holder for image tags, or any `src/` edit.** If any of those turns out to be necessary, it is a ruling and not an implementation decision: stop and return it to Keel under the brief's Frozen scope rule and `specs/PRODUCT.md:34-48`. A required change to a delivered image tag is a **ticket-change** escalation, not a `needs decision:`.
+- **Three checkpoints from `plan.md` §9 travel with these tasks:** the context helper's `CreateContext(PostgresFixture)` overload stays unreferenced and must be left alone (T014); `Options.Create` resolves transitively through the existing project reference, and if it did not, the correct response is a stop and **not** a `.csproj` edit (T026, AC8); and `TestContext.Current` inside a collection fixture's `InitializeAsync` falls back to a live token, which Q9's "where the API supports it" wording permits (T013, T026).
+- **Every new test carries exactly the three AAA headers and no other comment** (FR-025, `AGENTS.md`). An intentionally empty block gets a one-line justification; nothing else does.

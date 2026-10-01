@@ -203,6 +203,14 @@ Each answer is a summary. The full ruling and its basis are in CONCLUSIONS.md un
 5. Full IntegrationTests run with the evidence capture above.
 6. Gates (AC9) and the refactor gate.
 
+### Drafting decisions (answers to Quill `needs decision:`)
+
+- **D1 — `DisableParallelization` on the new collections: omit it (Outcome A).** `PostgresCollection` and `RabbitMqCollection` are plain `[CollectionDefinition("<name>")]` with no `DisableParallelization`.
+  - Basis: Q3 rules both clauses explicitly: classes within a collection serialize, *and* the two collections may run concurrently (`CONCLUSIONS.md` Q3). xUnit's default already serializes within a collection; `DisableParallelization = true` would additionally run the collection apart from every other collection, which contradicts Q3's second clause. CONCLUSIONS wins over the in-repo precedent.
+  - `MovieCatalogCollection.cs:5` is not a precedent to inherit: the file is deleted by Q4, it pre-dates the two-collection split, and no ruling adopted its attribute. Why it was originally set is not recorded in any ruling, so the stop condition below covers the risk instead.
+  - AC7 timing in T038 is recorded as a concurrent run against the 1 m 17 s baseline.
+  - Stop condition (feeds R1/R6, not a licence to add the attribute): if task-order step 2's green-on-old-images run, or any later run, shows cross-collection interference (for example shared static telemetry or listener state between a PostgreSQL and a RabbitMQ class), stop and report to Keel with the failing tests. Adding `DisableParallelization` or a third collection needs a new ruling; it is never a silent fix.
+
 ## Risks and stop conditions
 
 - **R1 — Image compatibility.** postgres 16.4 → 17-alpine can change catalog output (`MigrationTests.cs:64-77`). rabbitmq 4.0.0 → 4-management-alpine (a floating minor) can change how quorum, at-least-once, or reject-publish arguments are enforced (`RabbitMqTopology.cs:54-80`). Both tags are ticket text.

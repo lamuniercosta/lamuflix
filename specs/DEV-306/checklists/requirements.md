@@ -1,0 +1,50 @@
+# Specification Quality Checklist: Reusable Testcontainers Fixtures
+
+**Purpose**: Validate specification completeness and quality before proceeding to planning
+**Created**: 2026-10-01
+**Feature**: [spec.md](../spec.md)
+
+## Content Quality
+
+- [x] No implementation details (languages, frameworks, APIs) — every technical detail present is fixed by the ticket text, `brief.md`, or a Patron ruling in `CONCLUSIONS.md`, not chosen by the writer. Image tags, collection names, member names, the reset shape and the topology owner are all ticket text or Q1-Q10; the mechanism for quoting identifiers is the only place a mechanism is named, and it is named because Q1 forbids hand-assembly
+- [x] Focused on user value and business needs — the seven stories are sharing, a ready database, a clean reset, a ready broker, broker isolation, safe lifetime, and evidence; none is a component story
+- [x] Written for non-technical stakeholders — each story opens with what a developer writing a test needs, before any mechanism (same convention as DEV-301 and DEV-304)
+- [x] All mandatory sections completed — User Scenarios & Testing, Edge Cases, Requirements (Functional Requirements, Key Entities), Success Criteria, Assumptions
+
+## Requirement Completeness
+
+- [x] No [NEEDS CLARIFICATION] markers remain — zero by construction. All ten grill questions were ruled before drafting, so there is no ambiguity for a marker to describe. A genuine gap is routed to Keel as `needs decision:` rather than guessed, and nothing was guessed; two code-shape items that the brief left as implementation checkpoints are recorded in the Notes below and in `plan.md`, neither of them being a behavioural decision
+- [x] Requirements are testable and unambiguous — each of FR-001 to FR-030 carries its basis (ticket acceptance criterion, ruling, or brief section) and maps to an acceptance scenario, a success criterion, or a gate
+- [x] Success criteria are measurable — SC-001 to SC-010 each carry a count, a set comparison, an identity check, or a diff
+- [x] Success criteria are technology-agnostic — SC-004, SC-007 and SC-009 name container images, resolved digests and gate scripts because Q6 and Q10 fix those as the acceptance evidence; naming them is fidelity to a ruling, not a specification leak. The *mechanism* of the reset, the truncate, appears in FR-009/FR-010 and in plan.md, never in a success criterion
+- [x] All acceptance scenarios defined — 5 + 6 + 7 + 5 + 6 + 7 + 7 = 43 scenarios, plus 15 edge cases
+- [x] Edge cases are identified — truncate locking under an open context, reset under a live consumer, wrong template for the empty database, a table mapped twice, an unmapped entity type, identifier quoting, migration history treated as data, access before startup, failure after container start, double and empty disposal, cleanup after cancellation, two collections at once, floating image tags, polling-for-emptiness versus deleting, and the migration test's deliberate non-sharing
+- [x] Scope is clearly bounded — frozen scope and out-of-scope restated in Assumptions; FR-028 and FR-030 name every exclusion explicitly
+- [x] Dependencies and assumptions identified — the two carried `[assumed]` naming rulings with their basis; zero new packages; the mutation gate's non-applicability and the property gate's opt-out; the deliberate narrowing of sharing scope; the deliberate omission of the old no-parallelisation setting
+
+## Feature Readiness
+
+- [x] All functional requirements have clear acceptance criteria — every FR cites the ruling that fixes it and the scenario or criterion that proves it
+- [x] User scenarios cover primary flows — happy path (US1-US2, US4), isolation (US3, US5), lifecycle (US6), and measurement (US7)
+- [x] Feature meets measurable outcomes defined in Success Criteria — US1 delivers SC-001 and SC-002; US2 delivers SC-004; US3 delivers SC-003; US4 and US5 deliver SC-004; US6 delivers SC-006 and SC-010; US7 delivers SC-005, SC-007, SC-008 and SC-009
+- [x] No implementation detail leaks into specification — mechanism is confined to plan.md; spec.md states only the observable behaviour and its ruling basis
+
+## Notes
+
+Six items were recorded here so they surface at spec review rather than being absorbed silently, plus one gate-scope observation. **None was a gap the writer could fill.** Three are derivations the spec makes explicit because the code precedent points the other way; two are code-shape checkpoints the brief already framed as implementation risk. Item 1 was escalated to Keel and is now **ruled**; items 2-6 are recorded, not escalated.
+
+1. **The no-parallelisation setting on the collection definitions — RESOLVED, D1 (ruled: omit it).** `tests/LamuFlix.IntegrationTests/MovieCatalogCollection.cs:5` — the collection definition this ticket deletes, and the only one in the repository — carries `DisableParallelization = true`, which does more than serialise within a collection: it stops that collection running alongside **any** other. Q3 requires both intra-collection serialisation and cross-collection concurrency, so inheriting the attribute would have contradicted the second clause. Keel ruled Outcome A (omit) in `brief.md` §Drafting decisions as **D1**, on the basis that Q3 rules both clauses explicitly and `CONCLUSIONS.md` outranks the deleted file's precedent. The drafts already followed that reading, so no requirement changed; D1 adds one obligation the first draft did not carry — **cross-collection interference is a stop-and-report to Keel, never a fix by adding the attribute back or splitting into a third collection.** That stop condition is in `plan.md` §8, `spec.md`'s Assumptions, and tasks T011 and T038.
+
+2. **Sharing narrows from assembly-wide to per-collection.** This is a real behavioural change, not a rename: collection fixtures do not share across collections, so the two containers are now properties of their collections rather than of the assembly. It is **agreed** (Q3, and the ticket's own "Use xUnit v3 collection fixtures"), it is recorded in the spec's Assumptions, and every current consumer is placed in one of the two collections so none loses access. Recorded because it is the change most likely to surprise a reader of the diff who assumes the wiring is a pure refactor.
+
+3. **The migration test deliberately does not use the reset.** Q2 and Q3 put `MigrationTests` in the PostgreSQL collection but give it the empty-database path and its own migration, because it proves the opposite property. It is the one database consumer without a reset, and a reader checking "every consumer resets" will find it missing. Recorded so the omission reads as a ruling, not a miss.
+
+4. **Checkpoint — the context helper's `CreateContext(PostgresFixture)` overload becomes unreferenced.** `LamuFlix.Tests.Common/LamuFlixDbContextFactory.cs:10-14` is called only from `PostgresFixture.CreateContext()` at `PostgresFixture.cs:31`, and the brief removes the latter. AC8 freezes the helper's public static members, so the overload stays. It is public in a non-packable, non-test project, so the uncalled-private-code analyzer does not reach it; an inspection finding on it is a finding about AC8, not a defect to fix by deletion. Recorded so the implementer does not "clean it up".
+
+5. **Checkpoint — the broker fixture's new startup path needs `Options.Create`, and AC8 forbids any project-file change.** `Microsoft.Extensions.Options` is a `PackageReference` in `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj` and therefore already flows transitively into `tests/LamuFlix.Tests.Common`, which references that project — verified, no new package and no `.csproj` edit required. The risk is recorded because a compile failure here would be resolved by the obvious `PackageReference` edit, which AC8 and §2.3 item 1 both forbid; the correct response is a stop for a cited Patron ruling, not a project-file edit.
+
+6. **Checkpoint — a collection fixture's own `TestContext.Current`.** Q9 asks initialization to honour `TestContext.Current.CancellationToken`. The plan records that the fixture's startup is expected to have a current test context, and that the fallback permitted by Q9's own wording ("where the API supports it") is a live token for initialization, with cleanup deliberately untied to it. Behaviour is identical either way; the checkpoint exists so the fallback is a recorded choice rather than an improvisation.
+
+**A gate question the brief does not raise, recorded rather than escalated.** `harness.yml:23-25` makes the vulnerable-packages gate materially relevant only when the dependency graph changes. Nothing is added or removed here, so that gate is not in scope. The property gate is expected to exit 2 (scope-empty) and DEV-306's opt-out is recorded in its task note per `harness.yml:30-35`; the mutation gate is recorded as not applicable because no `src/` code changes. Both are carried as tasks so neither is discovered at the gate.
+
+No finding required a spec update after this pass, and none opened Gate 1.
