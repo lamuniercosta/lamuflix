@@ -50,19 +50,17 @@ public sealed class RabbitMqConnectionOwnerTests : IClassFixture<RabbitMqFixture
     [Fact]
     public async Task GetAsync_AfterAFailedCreation_SucceedsOnALaterCall()
     {
-        var ct = TestContext.Current.CancellationToken;
-        var owner = NewOwner(Unreachable());
+        var options = new MutableOptions(Unreachable());
+        await using var owner = new RabbitMqConnectionOwner(options);
         using (var bounded = new CancellationTokenSource(Bound))
         {
             await Should.ThrowAsync<Exception>(() => owner.GetAsync(bounded.Token));
         }
 
-        var recovered = NewOwner(fixture.Options);
-        var connection = await recovered.GetAsync(ct);
+        options.Value = fixture.Options;
+        var connection = await owner.GetAsync(TestContext.Current.CancellationToken);
 
         connection.IsOpen.ShouldBeTrue();
-        await recovered.DisposeAsync();
-        await owner.DisposeAsync();
     }
 
     [Fact]
@@ -93,6 +91,11 @@ public sealed class RabbitMqConnectionOwnerTests : IClassFixture<RabbitMqFixture
         await owner.DisposeAsync();
 
         connection.IsOpen.ShouldBeFalse();
+    }
+
+    private sealed class MutableOptions(RabbitMqOptions value) : IOptions<RabbitMqOptions>
+    {
+        public RabbitMqOptions Value { get; set; } = value;
     }
 
     private RabbitMqOptions Unreachable() => fixture.Options with { Port = ClosedPort() };

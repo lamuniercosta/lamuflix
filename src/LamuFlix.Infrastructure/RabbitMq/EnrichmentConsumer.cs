@@ -27,22 +27,84 @@ public sealed class EnrichmentConsumer(
 {
     private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(5);
 
     private IChannel? channel;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await topology.EnsureDeclaredAsync(stoppingToken);
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await topology.EnsureDeclaredAsync(stoppingToken);
 
-        var connection = await owner.GetAsync(stoppingToken);
-        channel = await connection.CreateChannelAsync(cancellationToken: stoppingToken);
-        await channel.BasicQosAsync(0, options.Value.Prefetch, global: false, stoppingToken);
+                var connection = await owner.GetAsync(stoppingToken);
+                var active = await connection.CreateChannelAsync(cancellationToken: stoppingToken);
+                channel = active;
+                try
+                {
+                    await active.BasicQosAsync(0, options.Value.Prefetch, global: false, stoppingToken);
 
-        var consumer = new AsyncEventingBasicConsumer(channel);
-        consumer.ReceivedAsync += (_, delivery) => HandleAsync(channel, delivery, stoppingToken);
-        await channel.BasicConsumeAsync(RabbitMqTopology.RequestedQueue, autoAck: false, consumer, stoppingToken);
+                    var consumer = new AsyncEventingBasicConsumer(active);
+                    consumer.ReceivedAsync += (_, delivery) => HandleAsync(active, delivery, stoppingToken);
+                    await active.BasicConsumeAsync(RabbitMqTopology.RequestedQueue, autoAck: false, consumer, stoppingToken);
 
-        await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
+                    await WaitForShutdownAsync(connection, active, stoppingToken);
+                }
+                finally
+                {
+                    channel = null;
+                    await active.DisposeAsync();
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "The enrichment consumer lost its RabbitMQ connection and will try to reconnect");
+            }
+
+            try
+            {
+                await Task.Delay(ReconnectDelay, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+        }
+    }
+
+    private static async Task WaitForShutdownAsync(IConnection connection, IChannel active, CancellationToken stoppingToken)
+    {
+        var shutdown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task SignalShutdown(object? sender, ShutdownEventArgs args)
+        {
+            _ = sender;
+            _ = args;
+            shutdown.TrySetResult();
+            return Task.CompletedTask;
+        }
+
+        active.ChannelShutdownAsync += SignalShutdown;
+        connection.ConnectionShutdownAsync += SignalShutdown;
+        try
+        {
+            using (stoppingToken.Register(static state => { ((TaskCompletionSource)state!).TrySetResult(); }, shutdown))
+            {
+                await shutdown.Task;
+            }
+        }
+        finally
+        {
+            active.ChannelShutdownAsync -= SignalShutdown;
+            connection.ConnectionShutdownAsync -= SignalShutdown;
+        }
+
+        stoppingToken.ThrowIfCancellationRequested();
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
@@ -73,7 +135,7 @@ public sealed class EnrichmentConsumer(
         try
         {
             var outcome = await DispatchAsync(request, stoppingToken);
-            await SettleAsync(consumerChannel, delivery, request, outcome);
+            await SettleAsync(activity, consumerChannel, delivery, request, outcome);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -108,13 +170,14 @@ public sealed class EnrichmentConsumer(
     }
 
     private async Task SettleAsync(
+        Activity? activity,
         IChannel consumerChannel,
         BasicDeliverEventArgs delivery,
         EnrichmentRequested request,
         ProcessEnrichmentOutcome outcome)
     {
         var disposition = EnrichmentRouting.Decide(outcome);
-        LogOutcome(outcome, request);
+        LogOutcome(activity, outcome, request);
 
         if (disposition.Action == EnrichmentRouting.Ack)
         {
@@ -135,7 +198,7 @@ public sealed class EnrichmentConsumer(
     private static ValueTask DeadLetterAsync(IChannel consumerChannel, BasicDeliverEventArgs delivery) =>
         consumerChannel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, CancellationToken.None);
 
-    private void LogOutcome(ProcessEnrichmentOutcome outcome, EnrichmentRequested request)
+    private void LogOutcome(Activity? activity, ProcessEnrichmentOutcome outcome, EnrichmentRequested request)
     {
         if (outcome is not ProcessEnrichmentOutcome.Completed completed)
         {
@@ -144,6 +207,7 @@ public sealed class EnrichmentConsumer(
 
         if (completed.Claimed)
         {
+            activity?.SetTag(TelemetryConstants.EnrichmentOutcome, "completed");
             logger.LogInformation(
                 "Enrichment for {MovieId} attempt {Attempt} completed",
                 request.MovieId.Value,
@@ -151,6 +215,7 @@ public sealed class EnrichmentConsumer(
             return;
         }
 
+        activity?.SetTag(TelemetryConstants.EnrichmentOutcome, "skipped");
         logger.LogInformation(
             "Enrichment for {MovieId} attempt {Attempt} skipped because the claim was refused",
             request.MovieId.Value,
