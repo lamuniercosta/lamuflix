@@ -2,8 +2,6 @@ using System;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Persistence;
 
