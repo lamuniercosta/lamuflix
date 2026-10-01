@@ -18,10 +18,11 @@
 - [x] Acceptance scenarios and edge cases are defined
 - [x] Scope is bounded: sweeper, outbox, OMDb provider and production repository wiring are out of scope
 - [x] Dependencies and assumptions identified
+- [x] Dependencies are named with versions and a bounded use: `RabbitMQ.Client` 7.2.2, `OpenTelemetry.Api` 1.19.1, and `OpenTelemetry` 1.19.1 — the SDK Patron authorized in Q18 solely for `Sdk.SetDefaultTextMapPropagator`, with no provider, exporter or instrumentation (D10, FR-030)
 
 ## Feature Readiness
 
-- [x] Every requirement traces to a ruling (Q1-Q17, D1-D9b) or an `[assumed]` entry in `ASSUMPTIONS.md`
+- [x] Every requirement traces to a ruling (Q1-Q18, D1-D10) or an `[assumed]` entry in `ASSUMPTIONS.md`
 - [x] User scenarios cover publish, retry and DLQ, tracing, guarded activation, the readiness check (US4 scenario 6), and the ADRs
 - [x] Gates are listed, and a skipped gate is reported as SKIP
 

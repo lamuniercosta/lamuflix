@@ -8,7 +8,7 @@
 
 **Input**: DEV-18 (parent DEV-283): "Upgrade to RabbitMQ.Client 7.x (async API), declare resilient queue topology (quorum, TTL retry, DLQ), inject OpenTelemetry trace headers, and write ADR-0004/0005."
 
-Alignment: `brief.md` (closing bar AC1-AC8, decisions D1-D9b, frozen scope) and `CONCLUSIONS.md` (Q1-Q17). Input notes include `recon-DEV-18-6`. This spec restates those decisions as requirements and adds nothing to them. The ticket text (T01-T23) wins over this spec if they disagree.
+Alignment: `brief.md` (closing bar AC1-AC8, decisions D1-D10, frozen scope) and `CONCLUSIONS.md` (Q1-Q18). Input notes include `recon-DEV-18-6`. This spec restates those decisions as requirements and adds nothing to them. The ticket text (T01-T23) wins over this spec if they disagree.
 
 ## Clarifications
 
@@ -22,7 +22,7 @@ The grill is closed: 12 of 12 questions were answered, and Q13 and Q14 were rule
 - Q: Where does a retryable failure go? → A: both `Retry` and `RetryDelayed` go to the retry queue, so a retry never arrives before the claim lease can expire (D6, Q14, which supersedes Q7's `Retry -> requested`).
 - Q: Is the OMDb provider or the production repository part of this ticket? → A: no. Each is a follow-up that Rigger files or folds into existing coverage (D5, D6).
 - Q: Does the readiness check come with health endpoints? → A: no. The check is registered, and the `/health/live` and `/health/ready` endpoints stay deferred to a follow-up (Q15).
-- Q: Which directly used API surfaces get a direct package reference? → A: all of them (Q17, commit 5533797). Infrastructure references `RabbitMQ.Client` 7.2.2 (from 6.8.1), `OpenTelemetry.Api` 1.19.1, `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, `Microsoft.Extensions.Options` 10.0.12 and `Microsoft.Extensions.Hosting.Abstractions` 10.0.12 versionlessly, each pinned centrally (D8a, D9a, D9b).
+- Q: Which directly used API surfaces get a direct package reference? → A: all of them (Q17, commit 5533797). Infrastructure references `RabbitMQ.Client` 7.2.2 (from 6.8.1), `OpenTelemetry.Api` 1.19.1, `OpenTelemetry` 1.19.1 (Q18), `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, `Microsoft.Extensions.Options` 10.0.12 and `Microsoft.Extensions.Hosting.Abstractions` 10.0.12 versionlessly, each pinned centrally (D8a, D9a, D9b, D10). The SDK is authorized solely for `Sdk.SetDefaultTextMapPropagator` (Q18, D10).
 - Q: Which package carries the readiness check? → A: `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, centrally pinned and referenced by Infrastructure (Q16, D8a).
 
 ## User Scenarios & Testing *(mandatory)*
@@ -183,7 +183,9 @@ A maintainer reads two decision records that explain the topology, the retry and
 
 **Packages and boundaries (D4)**
 
-- **FR-030**: Central pins MUST be `RabbitMQ.Client` 7.2.2 (from 6.8.1), `OpenTelemetry.Api` 1.19.1, `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, `Microsoft.Extensions.Options` 10.0.12 and `Microsoft.Extensions.Hosting.Abstractions` 10.0.12 (D8a, D9a, D9b). Infrastructure MUST reference all five versionlessly. `OpenTelemetry.Api` is the only new telemetry package. Only Infrastructure references `OpenTelemetry.Api`. Core MUST reference neither RabbitMQ nor OpenTelemetry.
+- **FR-030**: Central pins MUST be `RabbitMQ.Client` 7.2.2 (from 6.8.1), `OpenTelemetry.Api` 1.19.1, `OpenTelemetry` 1.19.1, `Microsoft.Extensions.Diagnostics.HealthChecks` 10.0.12, `Microsoft.Extensions.Options` 10.0.12 and `Microsoft.Extensions.Hosting.Abstractions` 10.0.12 (D8a, D9a, D9b, D10). Infrastructure MUST reference all six versionlessly. Only Infrastructure references either telemetry package. Core MUST reference neither RabbitMQ nor OpenTelemetry.
+
+  `OpenTelemetry.Api` and `OpenTelemetry` are the only new telemetry packages. Patron authorized the `OpenTelemetry` SDK, centrally pinned at 1.19.1 to match the API pin, for the **sole** use of calling `Sdk.SetDefaultTextMapPropagator(new TraceContextPropagator())` before first use; `OpenTelemetry.Api` exposes no public setter for the default propagator (Q18, D10). No `TracerProvider`, `MeterProvider`, exporter or instrumentation package is authorized (D10).
 
 **Decision records (AC7; T16-T18, T23)**
 
@@ -227,5 +229,5 @@ A maintainer reads two decision records that explain the topology, the retry and
 - The routing keys `requested`, `retry` and `dead-letter` are Keel's wording, accepted by Patron (`ASSUMPTIONS.md`).
 - `IMetadataProvider` and `IMovieRepository` have no production implementation in the built solution. Their production wiring (DEV-303 for the provider; the repository follow-up that Rigger files or folds in) is outside DEV-18.
 - The claim-handoff question (DEV-299 Q1) and DEV-316 stay open. This spec neither answers nor preempts them.
-- **Out of scope**: implementing the sweeper; a transactional outbox; deleting or editing the retired `Web`, `Worker`, `Data` and `tests/LamuFlix.Test`; purging old queues; exponential backoff; an OpenTelemetry SDK, exporter or instrumentation; a docker-compose file; schema changes; any new project or layer; mapping `/health/live` or `/health/ready`, or a Postgres health check (Q15 follow-up).
+- **Out of scope**: implementing the sweeper; a transactional outbox; deleting or editing the retired `Web`, `Worker`, `Data` and `tests/LamuFlix.Test`; purging old queues; exponential backoff; any OpenTelemetry use beyond the single `Sdk.SetDefaultTextMapPropagator` call that Q18 authorized — no provider, exporter or instrumentation; a docker-compose file; schema changes; any new project or layer; mapping `/health/live` or `/health/ready`, or a Postgres health check (Q15 follow-up).
 - **Health endpoints not mapped**: the `/health/live` and `/health/ready` endpoints are not mapped. That is a pre-existing gap, and a separate follow-up (Q15) owns it. The readiness check is registered but NOT reachable over HTTP, and constitution VI endpoint alignment is NOT claimed.
