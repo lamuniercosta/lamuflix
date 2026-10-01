@@ -300,6 +300,14 @@ Verdicts:
 
 Freeze condition: Keel checks F1–F14 against this section and re-runs `/speckit-analyze`. On a clean pass the plan is frozen.
 
+### Freeze record
+
+- Quill applied F1–F14 at `c4b7f05`. brief.md was untouched.
+- Keel checked each fix against this section. All 14 are present: spec FR-009, US6 *Independent Test*, Edge Cases (R8); plan §2, §3, §9, Test Strategy; tasks T010, T012, T013, T018, T020, T022, T024–T026, T028, T029, T031, T035–T043.
+- **Renumbering.** `c4b7f05` inserts T036 (the four disposal cases). Task numbers in the verdicts above are as at `72caf3b`, so the old T036–T042 are now T037–T043. Cross-references in tasks.md and plan.md are consistent with the new numbering.
+- `/speckit-analyze` (read-only, `c4b7f05`): 0 CRITICAL, 0 HIGH, 0 MEDIUM, 0 LOW. No placeholders. Every FR and SC maps through its US, AC, or Q tag to at least one task. Task IDs run contiguously from T001 to T043. No constitution conflict.
+- **Plan frozen at `c4b7f05`.** Any later change to spec, plan, or tasks needs a new decision recorded in this brief first.
+
 ## Gate 1 status
 
 Closed. It stays closed until the normal Phase A approval of spec, plan, and tasks, which Quill drafts from this brief. This grill claims no provisional status or approval. Having zero owner checkboxes does not open Gate 1.
