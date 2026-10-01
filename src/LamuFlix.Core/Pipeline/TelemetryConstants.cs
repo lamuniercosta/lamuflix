@@ -7,4 +7,12 @@ public static class TelemetryConstants
     public const string HandlerRequest = "lamuflix.handler.request";
 
     public const string ErrorType = "error.type";
+
+    public const string MovieId = "lamuflix.movie.id";
+
+    public const string EnrichmentEnqueue = "Enrichment.Enqueue";
+
+    public const string EnrichmentProcess = "Enrichment.Process";
+
+    public const string MessagingDeliveryCount = "messaging.rabbitmq.delivery_count";
 }
