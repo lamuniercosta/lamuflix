@@ -21,9 +21,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .WhereStatuses(query.Statuses)
             .WhereInWatchlist(query.InWatchlist);
         var totalCount = await filtered.CountAsync(ct);
-        var sort = query.Sort ?? MovieSort.Runtime;
-        var direction = query.Direction ?? SortDirection.Descending;
-        var items = await filtered.OrderByMovieSort(sort, direction)
+        // ReSharper disable once NullableWarningSuppressionIsUsed
+        var items = await filtered.OrderByMovieSort(query.Sort!, query.Direction!)
             .Skip((query.Page.Number - 1) * query.Page.Size)
             .Take(query.Page.Size)
             // ReSharper disable once NullableWarningSuppressionIsUsed

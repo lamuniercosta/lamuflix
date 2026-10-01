@@ -16,6 +16,7 @@ using SortDirection = LamuFlix.Core.Library.SortDirection;
 
 namespace LamuFlix.IntegrationTests;
 
+[Collection("MovieCatalog")]
 public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture)
 {
     [Fact]
@@ -67,6 +68,7 @@ public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture)
             .Options;
         await using var context = new LamuFlixDbContext(options);
         await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
+        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
         var movie = MovieCatalogSeed.Create("Projection", "projection");
         movie.Genres.Add(new GenreRecord { Name = "Drama" });
         context.Movies.Add(movie);

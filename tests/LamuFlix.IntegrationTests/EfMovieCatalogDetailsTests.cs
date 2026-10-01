@@ -10,6 +10,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
+[Collection("MovieCatalog")]
 public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
 {
     [Fact]

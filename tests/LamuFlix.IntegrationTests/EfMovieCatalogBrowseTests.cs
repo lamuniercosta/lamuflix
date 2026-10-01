@@ -12,6 +12,7 @@ using SortDirection = LamuFlix.Core.Library.SortDirection;
 
 namespace LamuFlix.IntegrationTests;
 
+[Collection("MovieCatalog")]
 public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
 {
     [Theory]
@@ -272,5 +273,44 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
 
         // assert
         result.Items.Select(item => item.Title).ShouldBe(["Matching Film"]);
+    }
+
+    [Fact]
+    public async Task BrowseAsync_TextGenreYearOnly_AppliesAndAcrossActiveFilters()
+    {
+        // arrange
+        await using var context = fixture.CreateContext();
+        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        var genre = new GenreRecord { Name = "Drama" };
+        var match = MovieCatalogSeed.Create("Matching Film", "combine2-match");
+        match.Genres.Add(genre);
+        match.ReleaseYear = new ReleaseYear(2000, MovieCatalogSeed.FixedTime);
+        var textDecoy = MovieCatalogSeed.Create("Unrelated", "combine2-text");
+        textDecoy.Genres.Add(genre);
+        textDecoy.ReleaseYear = new ReleaseYear(2000, MovieCatalogSeed.FixedTime);
+        var genreDecoy = MovieCatalogSeed.Create("Matching Film", "combine2-genre");
+        genreDecoy.ReleaseYear = new ReleaseYear(2000, MovieCatalogSeed.FixedTime);
+        var yearDecoy = MovieCatalogSeed.Create("Matching Film", "combine2-year");
+        yearDecoy.Genres.Add(genre);
+        yearDecoy.ReleaseYear = new ReleaseYear(1990, MovieCatalogSeed.FixedTime);
+        context.Movies.AddRange(match, textDecoy, genreDecoy, yearDecoy);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+        var request = new MovieQuery
+        {
+            Text = "Matching",
+            GenreIds = [genre.Id],
+            Year = new YearRange(1999, 2001),
+            Sort = MovieSort.Title,
+            Direction = SortDirection.Ascending,
+            Page = new Page(1, 10)
+        };
+
+        // act
+        var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
+
+        // assert
+        result.Items.Select(item => item.Title).ShouldBe(["Matching Film"]);
+        result.TotalCount.ShouldBe(1);
     }
 }
