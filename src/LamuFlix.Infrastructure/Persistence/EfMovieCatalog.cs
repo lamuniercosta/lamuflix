@@ -21,8 +21,9 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .WhereStatuses(query.Statuses)
             .WhereInWatchlist(query.InWatchlist);
         var totalCount = await filtered.CountAsync(ct);
-        // ReSharper disable once NullableWarningSuppressionIsUsed
+        // ReSharper disable NullableWarningSuppressionIsUsed
         var items = await filtered.OrderByMovieSort(query.Sort!, query.Direction!)
+        // ReSharper restore NullableWarningSuppressionIsUsed
             .Skip((query.Page.Number - 1) * query.Page.Size)
             .Take(query.Page.Size)
             // ReSharper disable once NullableWarningSuppressionIsUsed
