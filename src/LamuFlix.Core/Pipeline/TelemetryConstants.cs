@@ -14,6 +14,8 @@ public static class TelemetryConstants
 
     public const string EnrichmentProcess = "Enrichment.Process";
 
+    public const string MetadataLookup = "Metadata.Lookup";
+
     public const string EnrichmentOutcome = "enrichment.outcome";
 
     public const string MessagingDeliveryCount = "messaging.rabbitmq.delivery_count";
