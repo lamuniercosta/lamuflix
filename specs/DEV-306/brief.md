@@ -173,7 +173,7 @@ Each answer is a summary. The full ruling and its basis are in CONCLUSIONS.md un
      - The exchange and three queues exist immediately after startup, checked by passive declare.
      - A message published to `retry` before `ResetTopologyAsync` is not present in `retry`, `requested`, or `dead-letter` afterwards.
      - Publish and get work after a reset.
-   - Conventions: xUnit v3 `[Fact]`, Shouldly, `TestContext.Current.CancellationToken`, Method_Scenario_Expectation names (constitution IX).
+   - Conventions: xUnit v3 `[Fact]`, Shouldly, `TestContext.Current.CancellationToken`, Method_Scenario_Expectation names (repo practice, e.g. `MigrationTests`, `RabbitMqTopologyTests`; constitution IX supplies AAA and fresh data, not the naming — §8 Ledger L5).
 
 ### Test strategy
 
@@ -220,11 +220,85 @@ Each answer is a summary. The full ruling and its basis are in CONCLUSIONS.md un
   - A genuinely required production or out-of-scope change goes to Patron first, under the Frozen scope rule.
   - Only a required change to a delivered tag or other ticket text, or a necessary constitution departure, escalates as `blocked: structural`.
 - **R2 — Floating-tag reproducibility.** Minor and patch contents of both tags can change between runs. This is mitigated only by the recorded resolved digests (AC7) and the existing contract tests (Q6). It is accepted, not solved.
-- **R3 — TRUNCATE locking.** TRUNCATE takes ACCESS EXCLUSIVE locks. A context left open from the previous test inside an uncommitted transaction would block the reset. Consumers dispose their contexts with `await using`, which must stay true. A hang here is a consumer bug to fix, not a reason to switch reset strategy.
+- **R3 — TRUNCATE locking.** TRUNCATE takes ACCESS EXCLUSIVE locks. A context left open from the previous test inside an uncommitted transaction would block the reset. Consumers dispose their contexts with `await using`, which must stay true. A hang here is a consumer bug to fix, not a reason to switch reset strategy. The reset's lock wait is bounded (§8 Sentry H-2), so this surfaces as a fast lock-timeout failure rather than a hung run.
 - **R4 — Topology-reset ordering.** Deleting queues while a previous test's consumer is still attached would break that consumer's channel and could let messages leak into the next test. Every broker test must finish disposing its host before it returns. A test that leaves a background consumer running is a defect inside the frozen scope.
 - **R5 — Migration-test empty database.** The empty-database path must create from the default template (`template1`), never from the migrated database. Otherwise `MigrationTests` would silently stop proving migrate-from-empty.
 - **R6 — Any file outside Frozen scope, any package, or any `src/` edit.** Stop for a cited Patron ruling (§2.3 #1 or #6; `specs/PRODUCT.md:34-48`). Only a proposed ticket-delivery change or a necessary constitution departure becomes `blocked: structural` with an owner checkbox.
 - **R7 — Docker absent.** Tests fail; they never skip.
+- **R8 — Reset is the only isolation barrier (accepted).** Isolation moves from a fresh database per call to one shared migrated database with a per-test reset. A future `PostgresCollection` or `RabbitMqCollection` member that omits the `IAsyncLifetime` reset leaks state silently. Accepted; no guard test and no follow-up ticket (§8 Sentry H-1).
+
+## 8. Adjudication Decisions (plan challenge, HEAD 72caf3b)
+
+Inputs: `findings-DEV-306-Sentry` (0 C / 3 H / 4 M / 5 L, security PASS), `findings-DEV-306-Ledger` (0 C / 0 H / 4 M / 6 L), and `findings-DEV-306-Compass` (0 C / 1 H / 2 M / 1 L). All 26 findings are adjudicated. There is no constitution departure, no ticket-text change, no `blocked: structural`, and no owner checkbox. Gate 1 status below is unchanged.
+
+Verdicts:
+- **Fix**: Quill amends spec, plan, or tasks (fix list F1–F14 below).
+- **Accept-risk**: recorded here, no artifact change.
+- **Reject**: no change, with the reason given.
+
+### Sentry (Risk)
+
+- **H-1 Isolation inversion, no tripwire: Accept-risk.** The design is correct under Q1–Q3 and is recorded as R8. A guard test that enumerates collection members would reflect over test types to catch an omission that review already catches. It is not ruled in, not added, and gets no follow-up ticket. The spec records the risk (F1).
+- **H-2 Reset hang unbounded: Fix (F2).** The reset bounds its lock wait. The cached `TRUNCATE` runs with `SET LOCAL lock_timeout = '10s'` in the same transaction, so the setting never leaks into a pooled session. A blocked reset fails with PostgreSQL's lock-timeout error (SQLSTATE `55P03`), surfaced unwrapped. Q1 still holds: one `TRUNCATE … RESTART IDENTITY CASCADE` statement, with the strategy unchanged. No test forces the lock, because no code holds a transaction across a reset today (Sentry's grep).
+- **H-3 `TestContext.Current` in fixture `InitializeAsync` unverified: Fix (F3).** No fallback of any kind: no `?.`, no `?? CancellationToken.None`, and no guard code against the non-nullable API. This is verify-or-stop. The first green run that initialises each fixture is the verification (T024 for PostgreSQL, T029 for RabbitMQ). A `NullReferenceException` or an unavailable token at fixture init is a stop reported to Keel. It is never a silent switch to `CancellationToken.None`, which would drop Q9.
+- **M-1 Floating tags: Accept-risk** (already R2). T036 adds one line: a green-then-red run on the same tag is first diagnosed against the recorded digest, not treated as a code regression (F4).
+- **M-2 D1 interference detectable only after the fact: Fix (F5).** A red run that does not reproduce on one immediate single re-run is recorded as a D1/R4 stop candidate, with both outcomes. It is never retried silently until green.
+- **M-3 Partial topology reset: Accept-risk.** The damage stays within one run. Diagnostic note only: a late topology error in the RabbitMQ collection is read first as a reset failure.
+- **M-4 Resource churn: Accept-risk.** The R7 posture stands. A first-run image-pull failure is not a fixture defect.
+- **L-1 Dispose idempotency leans on Testcontainers: Fix (F6).** Both fixtures null the container field on normal dispose, one line each and in scope, so idempotency is built in rather than borrowed. F7 tests it.
+- **L-2 Empty-database path leaks two databases per run: Accept-risk.** The databases live inside the container and die with the run.
+- **L-3 Deletion order: No change.** T030 already fixes the order as queues first, then the exchange, and that order must not change.
+- **L-4 Ryuk active state unverified: Reject.** It is out of scope, and the T037 exact-ID check catches a leak from this run.
+- **L-5 Credentials in receipts: Fix (F8).** T042 redacts connection strings and credentials from pasted receipts.
+
+### Ledger (Standards)
+
+- **M1 AC7 version evidence has no producing task: Fix (F9).** The PostgreSQL startup case (T018) also writes `SHOW server_version` as one tagged output line. The broker startup case (T028) writes the connection's `ServerProperties["version"]`. These are output only, with **no assertion on the value**, because Q6 forbids tests that mirror the server version.
+- **M2 Quoting API unnamed: Fix (F10).** Identifiers are delimited with EF's `ISqlGenerationHelper.DelimitIdentifier(name, schema)`, obtained through `context.GetService<ISqlGenerationHelper>()`. That is the one call a reviewer checks. Hand-built quoting fails review.
+- **M3 Async-over-sync on the empty-database path: Fix (F11).** The new helper uses `OpenAsync(ct)` and `ExecuteNonQueryAsync(ct)`. It never calls the existing synchronous `CreateDatabase` helper.
+- **M4 Dynamic TRUNCATE vs analyzer gate: Fix (F12).** Run the Roslyn gate on `PostgresFixture.cs` at T020, not first at T040. Execute the cached, non-interpolated string through `ExecuteSqlRawAsync`. If a SQL-review rule (CA2100 or EF1002 class) still fires, one suppression at that single call site is pre-authorised, with a justification citing Q1 (model-derived) and F10 (layer quoting). Reworking the quoting to satisfy the gate is not authorised.
+- **L1 No default value on the token overload: Fix (folded into F13).** `CreateConnectionAsync(CancellationToken cancellationToken)` takes no default.
+- **L2 Fail-fast guard on `TestContext.Current`: Reject.** Sentry H-3 supersedes it: no guard code against a non-nullable API, and an observed absence is a stop.
+- **L3 Near-assertionless identity Facts: Fix (folded into F9).** No dedicated identity-only Facts. The emission line attaches to an existing meaningful Fact:
+  - the startup case in `PostgresFixtureTests` and in `RabbitMqFixtureTests`;
+  - one existing test each in `EfMovieRepositoryTests` and `RabbitMqPublisherTests`, as one write line in Arrange with no assertion change.
+
+  AC4 is unchanged: two classes per collection emit the identity.
+- **L4 Vulnerable-packages gate scoped out: Fix (folded into F13).** Run `./scripts/run-vulnerable-packages.ps1` and record its exit code in T041. Running it costs less than arguing it out of scope.
+- **L5 Naming attributed to constitution IX: Fixed in this brief** (§Plan decisions 6). Spec and plan do not carry the misattribution.
+- **L6 Lifetime paths checked by inspection only: Fix (F7)**, together with Compass H1.
+
+### Compass (Spec)
+
+- **H1 US6 forced-failure test downgraded to inspection: Fix (F7), split in two.**
+  - US6 scenario 4 (idempotent, null-safe disposal) becomes runnable. For each fixture, `DisposeAsync` on a never-initialised instance completes, and a second `DisposeAsync` after the first completes. These need no container: construct the fixture with `new` and never initialise it. That is four cases across the two fixture-behaviour files.
+  - Scenarios 2–3 (startup failure surfaces the original cause, no container left behind) stay inspection-only at T035. Forcing a failure would need an image or builder seam on the fixture. That is a public-shape change for a test-only hazard (§2.3 #4), and Q6 fixes the image as a literal. It is not ruled in.
+  - spec.md US6 *Independent Test* is amended to match: the teardown check plus the runnable disposal cases, with startup failure verified by inspection against FR-020.
+- **M1 Parallelism precondition unasserted: Fix (F14).** T010 checks it and T036 records it: no `xunit.runner.json` under `tests/`, and `rg -n "CollectionBehavior" tests/LamuFlix.IntegrationTests` returns nothing.
+- **M2 Phase 3/4 split vs brief ordering item 3: Accept, no change.** Item 3 asks for green at the *end* of the step. The split ends there (T024), and T019 explicitly forbids a suite run inside the window. The finer checkpoints make the order easier to follow, so the split is worth keeping. Ruled conforming.
+- **L1 ArchitectureTests evidence provenance: Fix (folded into F14).** T039 cites T040's unfiltered `dotnet test` as the source of the ArchitectureTests green run.
+
+### Fix list for Quill (plan challenge round 1)
+
+- **F1** spec.md Edge Cases or Assumptions: add R8 (the reset is the only isolation barrier, so a member without the reset leaks state; accepted).
+- **F2** plan.md §3, T020, and the spec FR that covers the reset: bound the lock wait as ruled under Sentry H-2. T024's R3 note says "a lock-timeout failure" instead of "a hang".
+- **F3** plan.md §2 "Cancellation in `InitializeAsync`", T012, T025, and tasks Notes checkpoint 3: no fallback; verify-or-stop at T024 and T029.
+- **F4** T036: add the digest-first diagnosis line for floating tags.
+- **F5** T010 stop condition (applies to T024, T029, T034, T036): no silent retry; record a red run that does not reproduce as a D1/R4 stop candidate.
+- **F6** plan.md Design §1/§2, T012, T025: null the container field on normal dispose.
+- **F7** spec.md US6 *Independent Test* wording. Split T035 into an inspection task (scenarios 2–3) and a new runnable task that adds the four disposal cases to `PostgresFixtureTests` and `RabbitMqFixtureTests`. Update plan Test Strategy.
+- **F8** T042: redact connection strings and credentials.
+- **F9** T018, T022, T028, T031, T036, T038, and plan Test Strategy evidence 1 and 3:
+  - attach the identity emission to existing Facts and add the version lines;
+  - drop the identity-only Facts;
+  - update T036's count explanation: the new cases are the fixture-behaviour cases, including the four disposal cases, and no identity-only cases.
+- **F10** T020 and plan §3: name `ISqlGenerationHelper.DelimitIdentifier(name, schema)`.
+- **F11** T013: use the async ADO.NET calls, never the sync helper.
+- **F12** T020: run the Roslyn gate on `PostgresFixture.cs` at T020; the single-site suppression is pre-authorised as ruled.
+- **F13** T026: no default on the token parameter. T041: run vulnerable-packages and record the exit code.
+- **F14** T010 and T036: parallelism precondition check. T039: cite T040 for the ArchitectureTests green run.
+
+Freeze condition: Keel checks F1–F14 against this section and re-runs `/speckit-analyze`. On a clean pass the plan is frozen.
 
 ## Gate 1 status
 
