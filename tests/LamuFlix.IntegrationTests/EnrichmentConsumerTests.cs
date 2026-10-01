@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -211,6 +213,42 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
     }
 
     [Fact]
+    public async Task Consumer_ADroppedConnection_ResumesConsumptionAfterReconnect()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost(_ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")));
+        var first = host.AddPendingMovie(201);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(first, 1), ct);
+
+        await host.StartAsync(ct);
+        await host.WaitForStatusAsync(ct, first, EnrichmentStatus.Enriched);
+
+        var connection = await host.Owner.GetAsync(ct);
+        await connection.DisposeAsync();
+
+        var second = host.AddPendingMovie(202);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(second, 1), ct);
+        await host.WaitForStatusAsync(ct, second, EnrichmentStatus.Enriched);
+        await host.StopAsync(CancellationToken.None);
+
+        host.Repository.Find(second).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+    }
+
+    [Fact]
+    public async Task Consumer_ABrokerUnreachableAtBoot_StartsAndStopsWithoutThrowing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")),
+            rabbitOptions: fixture.Options with { Port = ClosedPort() });
+
+        await host.StartAsync(ct);
+        await host.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
     public async Task Consumer_TheConsumerActivity_SharesTheProducerTraceId()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -241,6 +279,15 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         observed.ShouldContain(activity => activity.TraceId.ToString() == traceId.ToString());
     }
 
+    private static int ClosedPort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
     private static EnrichmentRequested Read(BasicGetResult message) =>
         JsonSerializer.Deserialize<EnrichmentRequested>(
             Encoding.UTF8.GetString(message.Body.Span),
@@ -249,12 +296,13 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
     private ConsumerHost NewHost(
         Func<MetadataLookup, MetadataLookupResult> script,
         int maxAttempts = DefaultMaxAttempts,
-        ushort prefetch = 1)
+        ushort prefetch = 1,
+        RabbitMqOptions? rabbitOptions = null)
     {
         var clock = new AdjustableTimeProvider(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
         var provider = new ScriptedMetadataProvider(script);
         var repository = new LeaseAwareMovieRepository(clock, ClaimLease);
-        var options = fixture.Options with { Prefetch = prefetch };
+        var options = (rabbitOptions ?? fixture.Options) with { Prefetch = prefetch };
         var owner = new RabbitMqConnectionOwner(Options.Create(options));
         var enrichment = Options.Create(new EnrichmentOptions { MaxAttempts = maxAttempts, ClaimLease = ClaimLease });
         var topology = new RabbitMqTopology(owner, Options.Create(options), enrichment);
@@ -296,6 +344,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         EnrichmentConsumer consumer,
         ServiceProvider services) : IAsyncDisposable
     {
+        public RabbitMqConnectionOwner Owner => owner;
+
         public RabbitMqTopology Topology { get; } = topology;
 
         public RabbitMqEnrichmentQueuePublisher Publisher { get; } = publisher;
