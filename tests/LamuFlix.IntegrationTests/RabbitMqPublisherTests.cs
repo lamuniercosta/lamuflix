@@ -20,7 +20,6 @@ namespace LamuFlix.IntegrationTests;
 
 public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>
 {
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromMinutes(5);
 
     private readonly RabbitMqProbe probe = new(fixture);
 
@@ -158,7 +157,7 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IClassFixt
 
     private PublisherHost NewHost()
     {
-        var options = fixture.Options with { RetryDelay = RetryDelay };
+        var options = fixture.Options;
         var owner = new RabbitMqConnectionOwner(Options.Create(options));
         var topology = new RabbitMqTopology(
             owner,
@@ -179,3 +178,4 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IClassFixt
         public ValueTask DisposeAsync() => owner.DisposeAsync();
     }
 }
+

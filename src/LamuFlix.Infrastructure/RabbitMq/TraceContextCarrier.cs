@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
-using System.Threading;
 using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
 
@@ -13,16 +12,6 @@ public static class TraceContextCarrier
     public const string TraceParentHeader = "traceparent";
     public const string TraceStateHeader = "tracestate";
 
-    private static TextMapPropagator propagator = new TraceContextPropagator();
-
-    public static TextMapPropagator Propagator => Volatile.Read(ref propagator);
-
-    public static void Use(TextMapPropagator replacement)
-    {
-        ArgumentNullException.ThrowIfNull(replacement);
-        Volatile.Write(ref propagator, replacement);
-    }
-
     public static void Inject(IDictionary<string, object?>? headers, ActivityContext? context = null)
     {
         if (headers is null)
@@ -30,7 +19,7 @@ public static class TraceContextCarrier
             return;
         }
 
-        Propagator.Inject(
+        Propagators.DefaultTextMapPropagator.Inject(
             new PropagationContext(context ?? Activity.Current?.Context ?? NewContext(), Baggage.Current),
             headers,
             static (target, key, value) => target[key] = Encoding.UTF8.GetBytes(value));
@@ -39,7 +28,7 @@ public static class TraceContextCarrier
     public static PropagationContext Extract(IDictionary<string, object?>? headers) =>
         headers is null
             ? default
-            : Propagator.Extract(
+            : Propagators.DefaultTextMapPropagator.Extract(
                 default,
                 headers,
                 static (source, key) => TryReadHeader(source, key, out var value) ? [value] : null);

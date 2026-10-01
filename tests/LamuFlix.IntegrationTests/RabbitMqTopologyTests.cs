@@ -15,7 +15,7 @@ namespace LamuFlix.IntegrationTests;
 
 public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>
 {
-    private const int MaxAttempts = 4;
+    private const int MaxAttempts = 3;
 
     private readonly RabbitMqProbe probe = new(fixture);
 
@@ -198,4 +198,6 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IClassFixtu
             Options.Create(fixture.Options),
             Options.Create(new EnrichmentOptions { MaxAttempts = MaxAttempts }));
 }
+
+
 

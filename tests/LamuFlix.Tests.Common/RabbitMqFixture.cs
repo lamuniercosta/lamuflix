@@ -9,6 +9,9 @@ namespace LamuFlix.Tests.Common;
 
 public sealed class RabbitMqFixture : IAsyncLifetime
 {
+    /// One declared topology is shared by the whole assembly, so every test must agree on the delay.
+    public static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+
     private RabbitMqContainer? container;
     private ConnectionFactory? factory;
 
@@ -47,6 +50,8 @@ public sealed class RabbitMqFixture : IAsyncLifetime
             Port = uri.Port,
             UserName = credentials[0],
             Password = secret,
+            RetryDelay = RetryDelay,
+            Prefetch = 1,
         };
     }
 }
