@@ -148,11 +148,13 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
     public async Task Consumer_APrefetchOfOne_LeavesTheSecondMessageReady()
     {
         var ct = TestContext.Current.CancellationToken;
-        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var host = NewHost(
             _ =>
             {
-                gate.TrySetResult();
+                entered.TrySetResult();
+                release.Task.Wait(ct);
                 return new MetadataLookupResult.NotFound();
             },
             prefetch: 1);
@@ -163,8 +165,16 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
 
         await host.StartAsync(ct);
-        await gate.Task.WaitAsync(ct);
-        (await probe.PollMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(1U);
+        await entered.Task.WaitAsync(ct);
+        try
+        {
+            (await probe.PollMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(1U);
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+
         await host.StopAsync(CancellationToken.None);
     }
 
