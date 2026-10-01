@@ -17,7 +17,7 @@ public sealed class EfMovieRepositoryConstructorTests
             .Options;
         using var db = new LamuFlixDbContext(options);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => new EfMovieRepository(
+        Should.Throw<ArgumentOutOfRangeException>(() => new EfMovieRepository(
             db,
             TimeProvider.System,
             Microsoft.Extensions.Options.Options.Create(

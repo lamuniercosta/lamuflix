@@ -51,13 +51,20 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixt
     }
 
     [Fact]
-    public async Task GetAsync_AbsentIdReturnsNull_AndDuplicateAddThrows()
+    public async Task GetAsync_AbsentId_ReturnsNull()
     {
         await using var db = await MigratedContextAsync();
         var repository = Repository(db);
         var id = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
         (await repository.GetAsync(id, TestContext.Current.CancellationToken)).ShouldBeNull();
+    }
 
+    [Fact]
+    public async Task AddAsync_DuplicateId_ThrowsInvalidOperationException()
+    {
+        await using var db = await MigratedContextAsync();
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
         var movie = Movie.Create(id, "Movie", new LibraryPath("C:/library/movie.mkv"), new MediaFormat("mkv"));
         await repository.AddAsync(movie, TestContext.Current.CancellationToken);
         await Should.ThrowAsync<InvalidOperationException>(() =>
@@ -179,6 +186,15 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixt
         (await repository.TryClaimForEnrichmentAsync(movie.Id, TestContext.Current.CancellationToken)).ShouldBeTrue();
         loaded.AddToWatchlist();
         await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        await using (var seam = OpenSibling(db))
+        {
+            var claimed = await seam.Movies.SingleAsync(item => item.Id == movie.Id, TestContext.Current.CancellationToken);
+            claimed.LastAttemptAt.ShouldBe(Now);
+            claimed.EnrichmentAttempts.ShouldBe(1);
+            claimed.IsInWatchlist.ShouldBeTrue();
+        }
+
         loaded.MarkEnriched(new MovieMetadata("Enriched"), Now.AddMinutes(1));
         await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
 
