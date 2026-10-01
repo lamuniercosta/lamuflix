@@ -20,9 +20,8 @@ public sealed class RecordEnrichmentFailureCommandHandler(
         RecordEnrichmentFailureCommand command,
         CancellationToken cancellationToken)
     {
-        if (IsRetry(command))
+        if (EnrichmentRetryPolicy.Decide(command.Category, command.Attempt, options.MaxAttempts) is { } retry)
         {
-            var retry = new EnrichmentFailureDecision(RetryAction(command.Category), command.Attempt + 1);
             Log(command, retry);
             return retry;
         }
@@ -35,14 +34,6 @@ public sealed class RecordEnrichmentFailureCommandHandler(
         Log(command, deadLetter);
         return deadLetter;
     }
-
-    private bool IsRetry(RecordEnrichmentFailureCommand command) =>
-        command.Category.IsRetryable && command.Attempt < options.MaxAttempts;
-
-    private static EnrichmentFailureAction RetryAction(EnrichmentFailureCategory category) =>
-        ReferenceEquals(category, EnrichmentFailureCategory.RateLimited)
-            ? EnrichmentFailureAction.RetryDelayed
-            : EnrichmentFailureAction.Retry;
 
     private void Log(RecordEnrichmentFailureCommand command, EnrichmentFailureDecision decision) =>
         logger.LogInformation(
