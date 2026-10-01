@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LamuFlix.Infrastructure\LamuFlix.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\LamuFlix.ServiceDefaults\LamuFlix.ServiceDefaults.csproj" />
     <ProjectReference Include="..\..\tests\LamuFlix.Tests.Common\LamuFlix.Tests.Common.csproj" />
   </ItemGroup>
 
