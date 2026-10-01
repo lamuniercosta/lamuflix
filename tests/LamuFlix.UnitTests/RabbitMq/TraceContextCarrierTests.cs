@@ -59,11 +59,10 @@ public sealed class TraceContextCarrierTests
         var headers = new Dictionary<string, object?>();
         var traceId = ActivityTraceId.CreateRandom();
         var spanId = ActivitySpanId.CreateRandom();
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == ActivitySourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-        };
+        using var listener = new ActivityListener();
+        listener.ShouldListenTo = source => source.Name == ActivitySourceName;
+        SampleActivity<ActivityContext> sample = (ref _) => ActivitySamplingResult.AllData;
+        listener.Sample = sample;
         ActivitySource.AddActivityListener(listener);
         using var source = new ActivitySource(ActivitySourceName);
         using var activity = source.StartActivity(
@@ -98,7 +97,7 @@ public sealed class TraceContextCarrierTests
         // assert
         Read(headers, TraceContextCarrier.TraceStateHeader).ShouldContain("vendor=value");
         Read(headers, TraceContextCarrier.TraceParentHeader).ShouldStartWith("00-");
-        Extract(headers).TraceState?.ToString().ShouldContain("vendor=value");
+        Extract(headers).TraceState.ShouldNotBeNull().ShouldContain("vendor=value");
     }
 
     [Fact]

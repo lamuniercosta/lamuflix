@@ -34,6 +34,7 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
 
         await topology.EnsureDeclaredAsync(ct);
 
+        // ReSharper disable once ExplicitCallerInfoArgument - the span name is a telemetry contract, not the caller member name.
         using var activity = Source.StartActivity(
             TelemetryConstants.EnrichmentEnqueue,
             ActivityKind.Producer);

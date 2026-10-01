@@ -139,11 +139,11 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddSingleton(TimeProvider.System);
         services.AddSingleton(ValidRabbitMqOptions());
         services.AddSingleton(ValidEnrichmentOptions());
-        services.AddSingleton<IOptions<RabbitMqOptions>>(Microsoft.Extensions.Options.Options.Create(ValidRabbitMqOptions()));
-        services.AddSingleton<IOptions<EnrichmentOptions>>(Microsoft.Extensions.Options.Options.Create(ValidEnrichmentOptions()));
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(ValidRabbitMqOptions()));
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(ValidEnrichmentOptions()));
         if (providerPort)
         {
             services.AddSingleton<IMetadataProvider, NoMetadataProvider>();

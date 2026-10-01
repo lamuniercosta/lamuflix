@@ -8,6 +8,7 @@ using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
 using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
 using Shouldly;
 using Xunit;
 
@@ -70,7 +71,13 @@ public sealed class RabbitMqConnectionOwnerTests : IClassFixture<RabbitMqFixture
         var ct = TestContext.Current.CancellationToken;
         await using var owner = NewOwner(fixture.Options);
 
-        var connections = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => owner.GetAsync(ct)));
+        var pending = new Task<IConnection>[4];
+        for (var index = 0; index < pending.Length; index++)
+        {
+            pending[index] = owner.GetAsync(ct);
+        }
+
+        var connections = await Task.WhenAll(pending);
 
         connections.ShouldAllBe(connection => connection.IsOpen);
         connections.Distinct().Count().ShouldBe(1);

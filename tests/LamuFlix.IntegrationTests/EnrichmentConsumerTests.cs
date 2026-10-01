@@ -42,7 +42,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         await host.WaitForProviderCallsAsync(ct, 2);
         await host.StopAsync(CancellationToken.None);
 
-        host.Repository.Find(movie)!.EnrichmentAttempts.ShouldBeGreaterThanOrEqualTo(2);
+        host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBeGreaterThanOrEqualTo(2);
         (await probe.PollGetAsync(RabbitMqTopology.DeadLetterQueue, ct)).ShouldBeNull();
     }
 
@@ -58,7 +58,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         await host.WaitForProviderCallsAsync(ct, 2);
         await host.StopAsync(CancellationToken.None);
 
-        host.Repository.Find(movie)!.EnrichmentAttempts.ShouldBeGreaterThanOrEqualTo(2);
+        host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBeGreaterThanOrEqualTo(2);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         await host.WaitForStatusAsync(ct, movie, EnrichmentStatus.Enriched);
         await host.StopAsync(CancellationToken.None);
 
-        host.Repository.Find(movie)!.Status.ShouldBe(EnrichmentStatus.Enriched);
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         await host.StopAsync(CancellationToken.None);
 
         dead.ShouldNotBeNull();
-        host.Repository.Find(movie)!.Status.ShouldBe(EnrichmentStatus.Failed);
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Failed);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         var ct = TestContext.Current.CancellationToken;
         await using var host = NewHost(_ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")));
         var movie = new MovieId(105);
-        host.Repository.Add(
+        await host.Repository.AddAsync(
             Movie.Rehydrate(
                 movie,
                 "Held",
@@ -128,7 +128,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
                 null,
                 0,
                 null,
-                host.Time.GetUtcNow()));
+                host.Time.GetUtcNow()),
+            ct);
 
         await host.StartAsync(ct);
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
@@ -137,8 +138,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         await host.StopAsync(CancellationToken.None);
 
         host.Provider.Calls.ShouldBe(0);
-        host.Repository.Find(movie)!.Status.ShouldBe(EnrichmentStatus.Pending);
-        host.Repository.Find(movie)!.EnrichmentAttempts.ShouldBe(0);
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
+        host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(0);
     }
 
     [Fact]
@@ -184,7 +185,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         await host.StopAsync(CancellationToken.None);
 
         dead.ShouldNotBeNull();
-        host.Repository.Find(movie)!.Status.ShouldBe(EnrichmentStatus.Pending);
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
     }
 
     [Fact]
@@ -206,7 +207,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
         await gate.Task.WaitAsync(ct);
         await host.StopAsync(CancellationToken.None);
         (await probe.PollMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(1U);
-        host.Repository.Find(movie)!.Status.ShouldBe(EnrichmentStatus.Pending);
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
     }
 
     [Fact]
@@ -214,12 +215,11 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
     {
         var ct = TestContext.Current.CancellationToken;
         var observed = new List<Activity>();
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStopped = activity => observed.Add(activity),
-        };
+        using var listener = new ActivityListener();
+        listener.ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName;
+        SampleActivity<ActivityContext> sample = (ref _) => ActivitySamplingResult.AllData;
+        listener.Sample = sample;
+        listener.ActivityStopped = activity => observed.Add(activity);
         ActivitySource.AddActivityListener(listener);
 
         await using var host = NewHost(_ => new MetadataLookupResult.NotFound());
@@ -244,7 +244,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
     private static EnrichmentRequested Read(BasicGetResult message) =>
         JsonSerializer.Deserialize<EnrichmentRequested>(
             Encoding.UTF8.GetString(message.Body.Span),
-            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
 
     private ConsumerHost NewHost(
         Func<MetadataLookup, MetadataLookupResult> script,
@@ -345,7 +345,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
                 await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
             }
 
-            Repository.Find(id)!.Status.ShouldBe(status);
+            Repository.Find(id).ShouldNotBeNull().Status.ShouldBe(status);
         }
 
         public async Task CloseRetryQueueAsync(CancellationToken cancellationToken)
@@ -364,13 +364,20 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
 
     private sealed class AdjustableTimeProvider(DateTimeOffset now) : TimeProvider
     {
+        private readonly Lock sync = new();
         private DateTimeOffset utcNow = now;
 
-        public override DateTimeOffset GetUtcNow() => utcNow;
+        public override DateTimeOffset GetUtcNow()
+        {
+            lock (sync)
+            {
+                return utcNow;
+            }
+        }
 
         public void Advance(TimeSpan amount)
         {
-            lock (this)
+            lock (sync)
             {
                 utcNow += amount;
             }

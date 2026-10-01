@@ -74,6 +74,7 @@ public sealed class EnrichmentRoutingTests
     public void Decide_WithoutAnOutcome_IsRejected()
     {
         // arrange
+        // ReSharper disable once NullableWarningSuppressionIsUsed - the routing table must reject a missing outcome.
         ProcessEnrichmentOutcome outcome = null!;
 
         // act

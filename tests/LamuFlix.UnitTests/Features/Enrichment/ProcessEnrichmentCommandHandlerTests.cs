@@ -245,10 +245,11 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         // arrange
         var movie = PendingMovie();
         using var cts = new CancellationTokenSource();
-        movies.TryClaimForEnrichmentAsync(movie.Id, cts.Token).Returns(true);
-        movies.GetAsync(movie.Id, cts.Token).Returns(movie);
-        provider.FindAsync(Arg.Any<MetadataLookup>(), cts.Token).Returns<MetadataLookupResult>(_ =>
-            throw new OperationCanceledException(cts.Token));
+        var token = cts.Token;
+        movies.TryClaimForEnrichmentAsync(movie.Id, token).Returns(true);
+        movies.GetAsync(movie.Id, token).Returns(movie);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), token).Returns<MetadataLookupResult>(_ =>
+            throw new OperationCanceledException(token));
         await cts.CancelAsync();
 
         // act
