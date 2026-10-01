@@ -173,3 +173,11 @@ The current assigned-role §2.3 and `specs/PRODUCT.md` §5 supersede the older e
 ## Gate 1 confirmation
 
 **Patron:** `gate1: provisional` — Q1–Q12 and D1–D24 ratified with the D14 conformance correction propagated at `83f4484`; basis: clean `ANALYZE_RECEIPT.md` at `b1e07e2` (two-round cap closed), frozen plan at `11a4208`, Patron adjudication at `786b469`, and Keel's correction receipt above. This permits spec-PR handoff only; owner merge remains Gate 1 approval and implementation is not authorised by this marker. No new analysis or challenge round was run.
+
+## D25 — Core ordering for translated range predicates (§2.3 item 6)
+
+**Patron:** Approve additive `IComparable<Runtime>` / `IComparable<ReleaseYear>` and `<`, `<=`, `>`, `>=` in `src/LamuFlix.Core/Domain/Runtime.cs` and `ReleaseYear.cs`, ordered by `Minutes` / `Value`, with null lowest and two nulls equal; no owner checkbox is required.
+
+- Basis: ticket L6/L10–11/L19/L22 (chainable runtime/year filters proven against PostgreSQL), `spec.md:95/98` (SQL translation and Q6 range semantics), and Q6 above (inclusive, optional bounds). Accept Wisp's translation recon as relayed by Keel; this ruling is not an independent verification receipt. Keep explicit unknown-value handling so null-lowest Core ordering preserves Q6 and NULLS LAST sorting.
+- Basis: `specs/PRODUCT.md:34–48` (§2.3 item 6 is Patron's decision; escalation only for ticket changes or constitution departures), constitution I at `.specify/memory/constitution.md:111` (Core has no EF dependency), and existing scalar value objects at `Runtime.cs:6–18/32`, `ReleaseYear.cs:6–18/32–33`. This is an implementation enabler, preserving constructors, invariants, schema, converters, and persistence configuration.
+- Basis: `brief.md:154` (D16 opt-out rationale) and constitution IX at `.specify/memory/constitution.md:282–290` (FsCheck and Core Stryker via `LamuFlix.UnitTests`). D16's opt-out no longer covers these Core edits: add T-new with unit tests and an FsCheck property proving comparison/operator ordering agrees with integer ordering and null-lowest semantics. Existing PostgreSQL inclusive-bound/unknown-value cases remain the proof of adapter translation.
