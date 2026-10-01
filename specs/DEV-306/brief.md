@@ -50,7 +50,7 @@ Lines derived from the rulings (they do not change delivery):
 - `.github/workflows/`
 - `MovieCatalogRegistrationTests` (uses no fixture)
 
-Touching any file outside **In** is `blocked: structural — <file>` (§2.3 #6). It is never a silent edit.
+An edit to a file outside **In**, a new package, or any `src/` change stops for a cited Patron ruling (`specs/PRODUCT.md:34-48`; CONCLUSIONS.md introduction, Q4, Q5). It is never a silent edit, and the implementer does not expand this scope. Only a proposed change to what the ticket delivers, or a necessary constitution departure, becomes `blocked: structural — <question>` with an owner checkbox.
 
 ## Round cap
 
@@ -107,9 +107,11 @@ Each answer is a summary. The full ruling and its basis are in CONCLUSIONS.md un
      2. Open a context on the default database and `await Database.MigrateAsync(ct)`.
      3. Cache the model-derived TRUNCATE statement.
    - Wrap steps 1–3 in try/catch. On failure:
-     1. Dispose the container with `CancellationToken.None`, catching any secondary error from that disposal.
+     1. Dispose the container through its actual async disposal API. That disposal is not tied to the test cancellation token, so it still runs after cancellation. Any secondary error from disposal is caught.
      2. Set the field to null.
-     3. `throw;` the original exception.
+     3. Rethrow the original exception, preserving it as the primary error.
+
+     Builder owns the source-level shape. No disposal overload is assumed.
    - Members:
      - `ConnectionString`: the migrated default database. It throws `InvalidOperationException` before initialization, like the existing `Container` accessor.
      - `CreateMigratedContext()`: wraps `LamuFlixDbContextFactory.OpenContext(ConnectionString)`.
@@ -127,7 +129,12 @@ Each answer is a summary. The full ruling and its basis are in CONCLUSIONS.md un
      2. Build the connection factory, unchanged.
      3. Declare topology: `await using var owner = new RabbitMqConnectionOwner(Options.Create(Options))`, then `await new RabbitMqTopology(owner, Options.Create(Options), Options.Create(new EnrichmentOptions { MaxAttempts = 3 })).EnsureDeclaredAsync(ct)`.
    - Failure handling is the same as for PostgresFixture.
-   - `RetryDelay` (2 s), `OptionsFor`, `Options`, and `CreateConnectionAsync` keep their current signatures and semantics.
+   - `RetryDelay` (2 s), `OptionsFor`, and `Options` keep their current signatures and semantics.
+   - `CreateConnectionAsync()` stays as an existing member. Cancellation propagation (Q9) is met in one of two ways, and the plan picks one:
+     - an additive `CreateConnectionAsync(CancellationToken)` overload that passes the token to `ConnectionFactory.CreateConnectionAsync`, with the existing no-token member preserved;
+     - the token threaded explicitly through the existing connection-factory route.
+
+     The brief does not promise no-token semantics for any new async path.
    - Add `ResetTopologyAsync(CancellationToken)`. It deletes the exchange and the three queues by their `RabbitMqTopology` constants, then re-declares them through a fresh owner and topology instance as at startup.
    - Add `DeleteTopologyAsync(CancellationToken)`, used for the topology tests' empty-start preparation.
    - Both methods are awaited, use their own short-lived connection, and dispose it.
@@ -172,8 +179,11 @@ Each answer is a summary. The full ruling and its basis are in CONCLUSIONS.md un
 
 - The regression net is the 105 baseline integration tests (recon:62), with test names unchanged, plus the new fixture-behavior tests. Any change in test count is explained in the task note (AC6).
 - Collect this verification evidence in the task note:
-  1. **Sharing (AC4).** Record `docker events --since <run-start> --until <run-end> --filter type=container --filter event=start` for the full IntegrationTests run. It must show exactly one `postgres:17-alpine` start and one `rabbitmq:4-management-alpine` start, plus the Testcontainers reaper.
-  2. **Teardown (AC5).** Record the two fixture container IDs from that event log. After the run, `docker inspect <id>` must report no such container for each ID. Check by ID, not by label sweep, so concurrent unrelated runs cannot interfere (Q9).
+  1. **Sharing (AC4).** Each fixture writes its owned container ID through fixture or test diagnostic output.
+     - The evidence shows the same PostgreSQL ID observed by at least two classes in `PostgresCollection`, and the same RabbitMQ ID observed by at least two classes in `RabbitMqCollection`.
+     - Container starts are correlated to those two owned IDs only. Other same-image starts in the window belong to other runs and are not evidence for this one.
+     - No extra fixture or container is created just to test sharing.
+  2. **Teardown (AC5).** After the run, `docker inspect <id>` must report no such container for each of the two owned IDs. Check by ID, not by label or image sweep, so concurrent unrelated runs cannot interfere (Q9).
   3. **Diagnostics (AC7).** Record the resolved image reference and digest (`docker image inspect postgres:17-alpine rabbitmq:4-management-alpine --format …`). Record the server versions (`SHOW server_version` and the broker's `version` server property), captured by the fixture-behavior tests through test output. Record the full-suite time against 1 m 17 s.
   4. **Boundaries (AC3, AC8).** Record `git diff --stat 3b2e998...HEAD` and `rg -n "AssemblyFixture|IClassFixture<(PostgresFixture|RabbitMqFixture)>" tests/LamuFlix.IntegrationTests`, which must return nothing.
 - If either new image fails an existing catalog or topology test, that is a real compatibility finding. Stop and report it to Keel (R1). Never edit tests to make it pass or fall back to the old tags.
@@ -182,7 +192,7 @@ Each answer is a summary. The full ruling and its basis are in CONCLUSIONS.md un
 
 - AC9, plus the refactor gate at threshold 6.
 - Mutation testing: N/A. The change is test infrastructure only, with no `src/` code. Record that line.
-- Property tests: opt-out recorded. There is no pure logic beyond TRUNCATE list derivation, and the real-server reset test covers that.
+- Property tests: opt-out recorded in the task note per `harness.yml:31-35`, with no harness or gate edit. There is no pure logic beyond TRUNCATE list derivation, and the real-server reset test covers that.
 
 ### Task ordering
 
@@ -196,16 +206,18 @@ Each answer is a summary. The full ruling and its basis are in CONCLUSIONS.md un
 ## Risks and stop conditions
 
 - **R1 — Image compatibility.** postgres 16.4 → 17-alpine can change catalog output (`MigrationTests.cs:64-77`). rabbitmq 4.0.0 → 4-management-alpine (a floating minor) can change how quorum, at-least-once, or reject-publish arguments are enforced (`RabbitMqTopology.cs:54-80`). Both tags are ticket text.
-  - A failure is reported to Keel with the resolved versions.
-  - A fix inside the frozen scope is allowed only if the test was wrong (TEST-WRONG ruling).
-  - Otherwise the tag would have to change, which is a ticket change and goes to the user as `blocked: structural`.
+  - A failure stays visible. It is reported to Keel with the resolved versions, and nothing falls back to the old tags.
+  - An actual fixture or consumer integration defect may be fixed within the ruled scope, provided it preserves existing contracts and the exact ticket tags.
+  - A test may be corrected only when it is demonstrated to be incorrect (TEST-WRONG ruling). Assertions are never weakened to make a test pass.
+  - A genuinely required production or out-of-scope change goes to Patron first, under the Frozen scope rule.
+  - Only a required change to a delivered tag or other ticket text, or a necessary constitution departure, escalates as `blocked: structural`.
 - **R2 — Floating-tag reproducibility.** Minor and patch contents of both tags can change between runs. This is mitigated only by the recorded resolved digests (AC7) and the existing contract tests (Q6). It is accepted, not solved.
 - **R3 — TRUNCATE locking.** TRUNCATE takes ACCESS EXCLUSIVE locks. A context left open from the previous test inside an uncommitted transaction would block the reset. Consumers dispose their contexts with `await using`, which must stay true. A hang here is a consumer bug to fix, not a reason to switch reset strategy.
 - **R4 — Topology-reset ordering.** Deleting queues while a previous test's consumer is still attached would break that consumer's channel and could let messages leak into the next test. Every broker test must finish disposing its host before it returns. A test that leaves a background consumer running is a defect inside the frozen scope.
 - **R5 — Migration-test empty database.** The empty-database path must create from the default template (`template1`), never from the migrated database. Otherwise `MigrationTests` would silently stop proving migrate-from-empty.
-- **R6 — Any file outside Frozen scope, any package, or any `src/` edit.** Raise `blocked: structural — <item>` (§2.3 #1 or #6). Never `needs decision:`.
+- **R6 — Any file outside Frozen scope, any package, or any `src/` edit.** Stop for a cited Patron ruling (§2.3 #1 or #6; `specs/PRODUCT.md:34-48`). Only a proposed ticket-delivery change or a necessary constitution departure becomes `blocked: structural` with an owner checkbox.
 - **R7 — Docker absent.** Tests fail; they never skip.
 
 ## Gate 1 status
 
-Open. The spec PR carries no owner checkbox. Gate 1 follows the normal Phase A flow after Quill drafts spec, plan, and tasks from this brief.
+Closed. It stays closed until the normal Phase A approval of spec, plan, and tasks, which Quill drafts from this brief. This grill claims no provisional status or approval. Having zero owner checkboxes does not open Gate 1.
