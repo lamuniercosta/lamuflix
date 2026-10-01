@@ -23,3 +23,5 @@ Exact owner checkbox for the spec PR:
 - [ ] Approve deferring DEV-392 AC2, the consumer-inactivity/no-consume/no-ack portion of AC3, and AC4's active/inactive composition-path verification to DEV-18, with DEV-303 supplying the real metadata-provider prerequisite. DEV-392 retains scoped production registration, actual EfMovieRepository/DbContext resolution, a real PostgreSQL round trip, explicit invalid-persistence failure, and registration before DEV-18's activation guard. The deferred real-port composition verification remains outstanding until those prerequisites exist.
 
 No taste decisions were needed; no ASSUMPTIONS.md entry is created.
+
+Gate 1: provisional — AUTHORISE Rigger to open the spec PR from feature/392-spec with the Q6 owner checkbox above verbatim and unticked; Gate 1 remains closed pending the owner answer and user merge, and no implementation is authorised — basis: spec.md:7,125,153; DEV-392 task note:15 (clean analyze); Conductor Phase 2 Step 7 handoff (Keel adjudicated and froze at 13170d7); specs/PRODUCT.md:20,36-39.
