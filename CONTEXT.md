@@ -47,6 +47,22 @@ _Avoid_: a retry counter that resets
 A Pending movie whose enrichment claim lease has aged out, or a Pending movie left without a queued `EnrichmentRequested` message. The sweeper re-enqueues `EnrichmentRequested` without claiming.
 _Avoid_: stuck job, abandoned claim
 
+**Retry Queue**
+`enrichment.retry`. Holds a republished attempt until `RabbitMqOptions.RetryDelay` has passed, then dead-letters it back to `enrichment.requested`. Both `Retry` and `RetryDelayed` go through it.
+_Avoid_: a fixed-delay exchange, backoff queue
+
+**Dead-Letter Queue**
+`enrichment.dead-letter`. Holds work that cannot be retried: a terminal failure, an unreadable body, a failed or uncertain republish, or broker delivery-limit exhaustion. It rejects publishes when full.
+_Avoid_: error queue, DLQ without the name
+
+**Publisher Confirm**
+The broker's acknowledgement that a message was stored. A confirm does not prove routing; a mandatory publish that cannot be routed fails instead. `EnqueueAsync` returns only after both settle.
+_Avoid_: an ack, a broker receipt
+
+**traceparent**
+The W3C trace-context header carried in message headers, with `tracestate` when one exists. The consumer starts a span parented to it.
+_Avoid_: correlation id, trace header
+
 **Watchlist**
 Membership of a Movie aggregate, independent of enrichment status. `AddToWatchlist` throws when the movie is already in the watchlist. `RemoveFromWatchlist` throws when it is absent.
 _Avoid_: MinhaLista, My List
