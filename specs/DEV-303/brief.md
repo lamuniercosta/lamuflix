@@ -6,7 +6,7 @@ Sources: ticket text (DEV-303 task note:13), `recon-DEV-303` (cited `R:line`), P
 
 If a decision is not in this file, it is not decided. Quill drafts `spec.md`, `plan.md` and `tasks.md` from this brief only.
 
-**Open recon (§9):** four facts are pending from the Conductor. They affect only the items marked **[R-n]** below. Everything else is frozen.
+**Recon (§9):** [R-1] to [R-4] are answered (`recon-DEV-303`:142-217, cited `R:line`) and folded into the items marked **[R-n]** below. Nothing is open. The brief is frozen.
 
 ---
 
@@ -18,7 +18,7 @@ DEV-303 is done when all of the following hold:
 2. Every outcome follows the Q6 table (§5.1). A caller's cancellation is rethrown. Nothing else escapes as an exception for an expected provider outcome.
 3. The API key comes only from `Omdb:ApiKey` (env `Omdb__ApiKey` or Development User Secrets). It has no default. It never appears in logs, exception output or telemetry (Q1, Q9).
 4. `AddOmdbMetadataProvider` is called in Api `Program.cs` before `AddLamuFlixRabbitMq`, so the existing enrichment consumer is active in the Api host (Q8).
-5. A `Metadata.Lookup` span on the existing LamuFlix ActivitySource, source-generated warning logs, and an OMDb health check are in place (Q11).
+5. A `Metadata.Lookup` span on the existing `LamuFlix` ActivitySource name, source-generated warning logs, and a `ready`-tagged OMDb health check are in place (Q11, [R-2], [R-3]).
 6. The WireMock.Net integration matrix (§5.3) is green, including the ticket's Found/NotFound/401/429/500 cases, the transient-retry verification, a real circuit-breaker trip, and the Retry-After and secrecy checks.
 7. All gates in §5.4 pass. Full `dotnet test` is green and `dotnet format --verify-no-changes` is clean.
 
@@ -58,7 +58,7 @@ DEV-303 is done when all of the following hold:
 |---|---|---|
 | Q1 | ACCEPT | The fallback is already absent and nothing is removed. The key comes only from validated `OmdbOptions.ApiKey`, with no default. |
 | Q2 | ACCEPT | A `sealed OmdbMetadataProvider` implements the Core port in `Infrastructure/Adapters/`. The legacy Worker provider, Worker `Program.cs` and its tests stay untouched. |
-| Q3 | ACCEPT | Add `Microsoft.Extensions.Http.Resilience` and `Microsoft.Extensions.Http` (already pinned) to Infrastructure, and `WireMock.Net` to IntegrationTests, all through CPM. No other direct package. Versions are pinned at planning **[R-1]**. |
+| Q3 | ACCEPT | Add `Microsoft.Extensions.Http.Resilience` and `Microsoft.Extensions.Http` (already pinned) to Infrastructure, and `WireMock.Net` to IntegrationTests, all through CPM. No other direct package. Pinned versions: `Microsoft.Extensions.Http.Resilience` 10.10.0, `WireMock.Net` 2.18.0 **[R-1]**. |
 | Q4 | CHANGE | One `AddStandardResilienceHandler`: exponential backoff with jitter, 3 retries, 1 s base delay. Retry and breaker handle only 5xx, 408, 429, `HttpRequestException` and `TimeoutRejectedException`. Attempt timeout 10 s, total 30 s, default rate limiter, breaker 0.1 / 30 s / 100 / 5 s. Retry-After is honoured and never shortened, and `MaxDelay` is not claimed to cap it. The total timeout cancels any wait that runs past the budget, and that outcome is ProviderUnavailable. 401 and other 4xx are never retried. No hedging and no nested retry. |
 | Q5 | CHANGE | The Q4 numbers are bound from `Omdb:Resilience` into a nested, dependency-free options record. The record carries the Q4 defaults and has data-annotation and cross-field validation at startup. Tests override it through configuration with valid, shorter values. No constants and no test-only seam. |
 | Q6 | ACCEPT | The adapter returns Found, NotFound or Failed per §5.1. A caller's cancellation, including during a retry wait or while reading the body, takes precedence and is rethrown. The classifier is unchanged. Programming errors are not caught. |
@@ -94,8 +94,11 @@ DEV-303 is done when all of the following hold:
 - It also registers the health check (below).
 - Infrastructure does not call `AddLamuFlixOptions`. Hosts already get the options from `AddServiceDefaults` (R:57-58).
 
-**Adapter flow.** `OmdbMetadataProvider` takes `HttpClient`, `TimeProvider` **[R-3]** and `ILogger<OmdbMetadataProvider>`, plus the health-state dependency (below), through its primary constructor. The API key comes from `IOptions<OmdbOptions>`. `FindAsync` runs in this order:
-1. Start the `Metadata.Lookup` activity on the existing source **[R-3]**.
+- It calls `services.TryAddSingleton(TimeProvider.System)` **[R-3]**. In the Api, `AddLamuFlixPersistence` already registers it the same way (R:196-197), so this is a no-op there. It keeps the registration self-contained for tests and hosts that do not call persistence, and a pre-registered fake still wins.
+- `IMetadataProvider` here is always `LamuFlix.Core.Ports.IMetadataProvider`, never the legacy `LamuFlix.Worker.Services.IMetadataProvider`. The consumer guard binds only the Core port (R:215).
+
+**Adapter flow.** `OmdbMetadataProvider` takes `HttpClient`, `TimeProvider` (from DI, see Registration) **[R-3]** and `ILogger<OmdbMetadataProvider>`, plus the health-state dependency (below), through its primary constructor. The API key comes from `IOptions<OmdbOptions>`. `FindAsync` runs in this order:
+1. Start the `Metadata.Lookup` activity on the provider's own `private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);` **[R-3]**.
 2. Build a relative request URI with `Uri.EscapeDataString` for the key, title and year: `?apikey=…&t=…&type=movie[&y=…]`.
 3. Call `GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct)` through the pipeline.
 4. Classify the result (table below).
@@ -139,7 +142,7 @@ No URI, key, title, provider `Error` or raw exception message or object is passe
 
 **Telemetry (Q11).**
 - Add `public const string MetadataLookup = "Metadata.Lookup";` to `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs`.
-- The span is started from the existing source **[R-3]** as a child of `Activity.Current`. Its tags are the outcome category (via the existing `ErrorType` constant on failure) and the HTTP status code.
+- The span is started as a child of `Activity.Current` from a `private static readonly ActivitySource` named `TelemetryConstants.ActivitySourceName` **[R-3]**. This follows the existing pattern in `EnrichmentConsumer.cs:28` and `RabbitMqEnrichmentQueuePublisher.cs:15` (R:192-193). It is the same source *name*, so it is not a second source under Q11. `PipelineActivity.Source` is not reused or widened, and no ActivitySource goes into DI. Its tags are the outcome category (via the existing `ErrorType` constant on failure) and the HTTP status code.
 - There is no title, URI or key tag.
 - The built-in HttpClient and Polly telemetry is left at its defaults. `System.Net.Http` query redaction is not disabled anywhere.
 
@@ -153,7 +156,8 @@ No URI, key, title, provider `Error` or raw exception message or object is passe
 | Last lookup was RateLimited or ProviderUnavailable | Degraded |
 | Last lookup was a 401 | Unhealthy, with the description "Check the OMDb API key configuration." |
 
-- The check is registered by `AddOmdbMetadataProvider` through `AddHealthChecks().AddCheck<OmdbHealthCheck>("omdb", tags: …)`, using the tag convention the existing checks use **[R-2]**.
+- The check is registered by `AddOmdbMetadataProvider` through `AddHealthChecks().AddCheck<OmdbHealthCheck>("omdb", tags: ["ready"])` **[R-2]**. This matches the one existing check and its one tag (`RabbitMqServiceCollectionExtensions.cs:38`, R:173-177). The comment invariant at `ServiceDefaults/Extensions.cs:14` holds: the Api does not add another `AddHealthChecks` call.
+- **No health endpoint is mapped.** Nothing in the repo maps one today (R:179-182). Mapping one would be a new public route (§2.3 item 4) outside the ticket, so it stays out of scope. Tests observe the check through `HealthCheckService` and the registration through `IOptions<HealthCheckServiceOptions>` (the pattern at `RabbitMqServiceCollectionExtensionsTests.cs:102`, R:209).
 
 **Api host (Q8, Q9).**
 - In `src/LamuFlix.Api/Program.cs`, add `builder.Services.AddOmdbMetadataProvider();` after `AddLamuFlixPersistence` and before `AddLamuFlixRabbitMq` (R:28-29).
@@ -179,11 +183,12 @@ The integration tests stay flat in the test project, following the DEV-302 D22 p
 Edited (each with a cited ruling):
 - `Directory.Packages.props` (2 `PackageVersion`, Q3)
 - `src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj` (2 `PackageReference`, Q3)
-- `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` (`WireMock.Net`, plus an Infrastructure `ProjectReference` if missing **[R-1]**; Q3)
+- `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` (`WireMock.Net` only, Q3). It already references Infrastructure directly (:20) and ServiceDefaults (:21), so no `ProjectReference` changes **[R-1]**.
 - `src/LamuFlix.ServiceDefaults/Extensions.cs` (one `BindAndValidate<OmdbResilienceOptions>` line, Q5)
 - `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs` (one constant, Q11)
 - `src/LamuFlix.Api/Program.cs`, `src/LamuFlix.Api/appsettings.json`, `src/LamuFlix.Api/LamuFlix.Api.csproj` (Q8, Q9)
-- Any existing test that boots the Api host and would now activate the consumer, edited only to keep it green **[R-4]**
+
+No existing test is edited **[R-4]**. No test boots the Api host, and none composes `AddLamuFlixRabbitMq` with the Api registrations. Every existing `AddLamuFlixRabbitMq` test uses a bare `ServiceCollection` (R:204-213), so registering the provider in the Api cannot flip an existing assertion. No Api host test is added either: that would need `Microsoft.AspNetCore.Mvc.Testing` (a new package, out of scope under Q3) and a `public partial class Program`. Consumer activation is covered by the composition test on a `ServiceCollection` (§5.3).
 
 Nothing is deleted.
 
@@ -238,12 +243,14 @@ Nothing is deleted.
 - One `Metadata.Lookup` activity per call, parented to an ambient test activity, with the outcome and status tags.
 
 **Health**
+- The `omdb` check is registered with the `ready` tag.
 - The `omdb` check is Healthy initially and after Found.
 - It is Degraded after ProviderUnavailable or RateLimited, and Unhealthy after a 401.
 
 **Composition**
 - `AddOmdbMetadataProvider` resolves `IMetadataProvider` as `OmdbMetadataProvider` (a typed client).
-- Registering it before `AddLamuFlixRabbitMq` makes `IsConsumerActive` true. A missing `Omdb:ApiKey` or an invalid `Omdb:Resilience` (for example attempt > total, or sampling < 2 × attempt) fails at startup.
+- Registering it before `AddLamuFlixRabbitMq` makes `IsConsumerActive` true (registration-time evaluation, R:214). The test asserts the active-path registrations, including the `EnrichmentConsumer` hosted service. This is the coverage for the Api's new runtime shape, because no Api host test exists or is added (§5.2, [R-4]).
+- `AddOmdbMetadataProvider` alone (no persistence) still resolves `TimeProvider`, and a pre-registered fake `TimeProvider` wins. A missing `Omdb:ApiKey` or an invalid `Omdb:Resilience` (for example attempt > total, or sampling < 2 × attempt) fails at startup.
 
 **Unit**
 - `OmdbResilienceOptions` validation: every range edge and both cross-field rules. This is Core code, so Stryker covers it.
@@ -257,7 +264,7 @@ Nothing is deleted.
 - Roslyn analyzers, complexity ≤ 15 and InspectCode must exit 0 on every changed `.cs` file. The refactor gate requires complexity ≤ 6. Expected hotspots are the outcome classification and `OmdbResponseMapper`: split them into one helper per status class and per field rather than suppressing.
 - Baseline: 0 analyzer and 0 complexity findings on the in-scope files. InspectCode's only pre-existing warning is in `EnrichmentFailureCategory.cs`, which is out of scope (R:129-134). If the gate is run with `-Files`, do not include that file.
 - No suppressions without a cited ruling. `dotnet format --verify-no-changes` must be clean.
-- `./scripts/run-vulnerable-packages.ps1` must exit 0 with the new packages, including transitive ones.
+- `./scripts/run-vulnerable-packages.ps1` must exit 0 with the new packages, including transitive ones. A probe found zero advisories for both pinned versions (R:157-159). Run it with no arguments: `-IncludeTransitive $true` fails to bind under `pwsh -File`, and the no-argument form reads the setting from harness.yml (R:161).
 - Full `dotnet test`, including ArchitectureTests, must be green. Vendor naming: "Omdb" may appear only on the Infrastructure adapter types and on vendor config keys (constitution :273-276). `OmdbResilienceOptions` uses the existing `OmdbOptions` naming precedent in Core/Options, so the plan cites the ArchitectureTests rule that permits it, or flags it to Keel as a `needs decision:`.
 - Mutation: Core's changed executable code (`OmdbResilienceOptions.Validate`) is in Stryker scope at ≥ 80%. Infrastructure is covered by the explicit matrix (§5.3), not by a mutation claim.
 
@@ -269,8 +276,8 @@ Nothing is deleted.
 4. `OmdbResponseMapper`, with the mapping and outcome tests (depends on 3).
 5. `OmdbMetadataProvider`, `OmdbLog` and the span, with the outcome, request-shape, cancellation, secrecy and telemetry tests (depends on 2, 3 and 4).
 6. `AddOmdbMetadataProvider` with the resilience handler. This adds the retry, Retry-After, timeout and breaker tests (depends on 5). The registration test comes here too.
-7. `OmdbHealthState` and `OmdbHealthCheck`, with their registration and health tests (depends on 6 and [R-2]).
-8. Api `Program.cs`, `appsettings.json` and `UserSecretsId`, plus the composition and consumer-activation tests and any fix to an existing host test (depends on 6 and [R-4]).
+7. `OmdbHealthState` and `OmdbHealthCheck`, with their registration and health tests (depends on 6).
+8. Api `Program.cs`, `appsettings.json` and `UserSecretsId`, plus the composition and consumer-activation tests (depends on 6).
 9. Gates last: analyzers, complexity at 15 and then 6, InspectCode, format, vulnerable packages, the full suite, and ArchitectureTests.
 
 Tasks that edit the same file are sequenced and never marked `[P]`.
@@ -298,9 +305,9 @@ Tasks that edit the same file are sequenced and never marked `[P]`.
 
 (Empty. Decision changes after analyze or the plan challenge are appended here as D1… with their basis.)
 
-## 9. Pending recon (sent to the Conductor; the brief is amended when the answers land)
+## 9. Recon resolved (`recon-DEV-303`:142-217)
 
-- **[R-1]** The latest stable, net10.0-compatible versions of `Microsoft.Extensions.Http.Resilience` and `WireMock.Net`, with the vulnerable-packages result for each (including transitive packages). Whether `LamuFlix.IntegrationTests.csproj` already references `src/LamuFlix.Infrastructure`, directly or through `Tests.Common`.
-- **[R-2]** The existing health-check wiring: where `AddHealthChecks()` is called, which checks and tags exist, and where the endpoints are mapped (ServiceDefaults or Api).
-- **[R-3]** How the existing LamuFlix `ActivitySource` is exposed (a static field or DI, and which file:line), and whether `TimeProvider` is registered in DI for the Api host.
-- **[R-4]** Any existing test that boots the Api host (`WebApplicationFactory<Program>` or equivalent) or composes `AddLamuFlixRabbitMq` with the Api registrations, and that would change behaviour once `IMetadataProvider` is registered, which activates the consumer.
+- **[R-1] Resolved.** Pin `Microsoft.Extensions.Http.Resilience` **10.10.0**, the latest stable version, which has a native net10.0 group (R:150, 154). Pin `WireMock.Net` **2.18.0**, the latest stable version. Its highest target is net8.0, which net10.0 can consume, so this is accepted (R:151, 155). Neither version has advisories, top-level or transitive (R:159). IntegrationTests already references Infrastructure directly, so it needs no `ProjectReference` change (R:164-166). → Q3 row, §5.2, §5.4.
+- **[R-2] Resolved.** There is one existing check, tagged `ready`, and it is registered at the `AddCheck` call site (R:173-177). The `omdb` check uses `tags: ["ready"]`. No health endpoint is mapped anywhere (R:179-182), and DEV-303 maps none (it would be a new route, §2.3 item 4). → §5.1 health check, §5.3 health.
+- **[R-3] Resolved.** There are three separate `private`/`internal static` ActivitySource instances, all named `LamuFlix`, and none is in DI (R:188-194). The provider follows that pattern with its own `private static readonly` source, using the same name and adding no new surface. `TimeProvider` is registered in the Api through `AddLamuFlixPersistence`'s `TryAddSingleton` (R:196-197). `AddOmdbMetadataProvider` adds the same `TryAddSingleton`, so the registration does not depend on persistence (R:199). → §5.1 registration, adapter flow and telemetry.
+- **[R-4] Resolved.** No test boots the Api host, and no test composes `AddLamuFlixRabbitMq` with the Api registrations (R:204-213). No existing test is edited, and no Api host test is added. The Api's activation flip and its new `EnrichmentConsumer` hosted service are covered by the `ServiceCollection` composition test. Registering after `AddLamuFlixRabbitMq` would leave the guard blind (R:214), so registration order is part of the closing bar (§1 item 4). → §5.2, §5.3 composition, §5.5.
