@@ -168,6 +168,37 @@ Answers to Quill's `needs decision:` items in `DRAFTING_RECEIPT.md`, plus the op
 - **D6 — file count:** `git diff --stat` covers the seven files in §5.2, or eight if the test file is split as §5.2 allows.
 - **D7 — final gate pass (§5.5 item 6):** after coverage, run analyzers, complexity at 15 and then at `-Threshold 6`, and InspectCode once over **every** changed `.cs` file (scanner, test file(s), `ScannedMovie.cs`, `ImportMovieFolderCommandHandlerTests.cs`). Then run format and the full suite.
 
-## 8. Traceability
+## 8. Plan-challenge adjudication (Keel, single pass per Q12)
+
+Inputs: `findings-DEV-304-Sentry` (Risk), `findings-DEV-304-Ledger` (Standards), `findings-DEV-304-Compass` (Spec). All three axes are present. Each finding was checked against `plan.md`, `tasks.md` and `spec.md` at the cited line. None of them changes scope, adds a dependency or needs a §2.3 escalation. **The plan freezes once Quill has applied A1–A11.**
+
+### Accepted (required action)
+
+| # | Finding(s) | Verified at | Ruling / action |
+|---|---|---|---|
+| A1 | Sentry H1 | `plan.md:120` vs table `:135`, FR-008, Q5 | Real contradiction: the prose sends "blank preceding text" to `(whole name, null)`, but Q5, FR-008 and the table keep the year. Rewrite `:120` as three outcomes: (a) no match or `TryCreate` rejects → `(whole trimmed name, null)`; (b) valid year with blank preceding text → `(whole trimmed name, year)`; (c) valid year with non-blank preceding text → `(preceding text, year)`. |
+| A2 | Sentry H2 + Compass F2 | `plan.md:89`, `tasks.md:65` (T010), FR-006 | The trim is a Q5 ruling, but no step says where it happens. **Decision D8:** `ParseFolderName` calls `Trim()` on `directory.Name` first, and both the regex match and the "whole name" fallback use the trimmed value. The pattern keeps `$` exactly as §5.1 gives it. Trimming first removes any trailing `\n`, so a `$` vs `\z` difference cannot be observed. State this in plan Design §2 step 5 and §4, and in T010. |
+| A3 | Compass F3 | `tasks.md:65` (T010) | T010 must name branch (b) from A1, the valid year-only name: `(2010)` → Title `(2010)`, Year 2010 (case 11). |
+| A4 | Compass F1 + Sentry M2 | `spec.md:84`, `:119`, `:137`; `tasks.md:92-93` | US4 scenario 5 and the last clause of FR-013 have no proof. **Decision D9:** "Other I/O errors propagate unchanged" is a structural property (the scanner never catches anything), so it is proven by inspection, not by a new test. A test would need an `IFileSystem` double beyond `MockFileSystem`, which the constitution's MockFileSystem-only boundary and §5.3 do not call for. Add to T021: grep the scanner for `try`/`catch`/`when (` and confirm there are none. In spec US4, mark scenario 5 as "verified by T021 inspection". §5.3 stays at 24 cases. |
+| A5 | Ledger LOW-1 | `plan.md:180`; T006/T009/T012/T015 | Verified: every test in `ImportMovieFolderCommandHandlerTests.cs` (lines 29/37/40 …) has `// arrange` / `// act` / `// assert`. Require those headers, and no other comments, in every new test (plan Test Strategy and T006). |
+| A6 | Ledger LOW-2 | `plan.md:180`; T006/T009/T012/T015 | Verified the house form `HandleAsync_HappyPath_…` (`:27`). Require `Scan_<Condition>_<Expected>` names, for example `Scan_ParenthesisedYear_ReturnsTitleAndYear`. |
+| A7 | Ledger LOW-3 (covers Sentry's "mock setup lifetime" LOW) | `tasks.md:50` (T006) | Each test case builds a fresh `MockFileSystem`. No static or shared instance. The immutable `FixedTimeProvider` may be shared. |
+| A8 | Ledger LOW-4 | `tasks.md:38` (T005) | The four sites (32/58/79/100) all read `new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"))`. Pin the edit to appending `, null, 1024L` at each one. |
+| A9 | Compass L1, L2 | `plan.md:163`, `:23` | Fix the wrong task id: `:163` should say T005, not T002. Fix the count at `:23`: "two private static helper methods, one private static allowlist field, plus the source-generated regex partial method". |
+| A10 | Compass L3 | `spec.md:144` (FR-020) | Add the vulnerable-packages gate (exit 0) and the property-test gate (expected exit 2, opt-out recorded per `harness.yml:30-34`) to FR-020, matching D2. |
+| A11 | Compass L4, L5 | `spec.md:102`, `:19`; `tasks.md:120`, `:137` | L4: T026 also confirms `ArchitectureTests.cs` is absent from the diff, and T025's full suite run shows it green. L5: no direct-construction test, because a record with no logic gains nothing from one. Reword US1's Independent Test so it relies on the full-`ScannedMovie` assertions of §5.3 case 1 (T006) plus the T005 compile, not on a standalone construction test. |
+
+**Applied by Quill and verified by Keel.** A1–A11 landed in spec.md, plan.md and tasks.md. Quill made two edits outside the listed locations, and both are accepted. First, plan Test Strategy now says each test case builds a fresh `MockFileSystem`, which is the A7 rule. Second, FR-008 had the same bug as A1: its "Otherwise" list included "a blank title before the marker → Year null", which contradicts Q5. FR-008 is now the same three outcomes (a)/(b)/(c), so spec, plan and Q5 agree. **Plan frozen.**
+
+### Rejected (rationale)
+
+| # | Finding | Rationale |
+|---|---|---|
+| R1 | Sentry M1 (root path gives an empty title) | Below the evidence threshold. No concrete input is given, and `DirectoryInfo.Name` for a root is the root itself (`C:\`, `/`), not empty. No ruling makes a filesystem root a movie folder, so Q5's "whole trimmed name" already decides the output. No action. |
+| R2 | Sentry L1–L6 (unspecified) | No `file:line` and no failure scenario, so there is nothing to verify. The two named themes are handled elsewhere: mock lifetime under A7, and tie-break precedence is CLEAR (Ledger verified `plan.md:107`, `'B'` < `'a'` ordinal). |
+| R3 | Compass L6 (phase-to-US mapping drift) | No line or mismatch is named. I checked the mapping: Phase 3–7 → US1–US5 at `tasks.md:44/58/72/86/100`. No drift. |
+| R4 | Compass L7 (Rigger recon-fact comment has no owner) | This is not a `tasks.md` item, since the implementer never writes to YouTrack. It is owned by §9 below and goes to the Conductor to dispatch Rigger. |
+
+## 9. Traceability
 - Ticket scope item 1 → Q2, Q5, Q6, Q7, Q10, §5.1. Scope item 2 → Q1, Q8, Q9, §5.3. AC "runs against IFileSystem" → Q11, §6. AC "100% coverage" → Q12, Q12a, §5.4.
 - Rigger action owed: recon-fact comment on DEV-304 for Q1 (no follow-up tickets; Q3/Q11 say note only).
