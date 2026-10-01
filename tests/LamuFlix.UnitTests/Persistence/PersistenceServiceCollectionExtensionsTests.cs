@@ -54,31 +54,14 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         exception.Message.ShouldNotContain(whitespace);
     }
 
-    [Fact]
-    public void AddLamuFlixPersistence_ClaimLeaseAbsent_FailsStartupValidation()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("00:00:00")]
+    [InlineData("-00:05:00")]
+    public void AddLamuFlixPersistence_InvalidClaimLease_FailsStartupValidation(string? lease)
     {
         // act
-        var failures = StartupValidationFailures(Configuration(WithClaimLease(null)));
-
-        // assert
-        failures.ShouldBe([ClaimLeaseFailureMessage]);
-    }
-
-    [Fact]
-    public void AddLamuFlixPersistence_ClaimLeaseZero_FailsStartupValidation()
-    {
-        // act
-        var failures = StartupValidationFailures(Configuration(WithClaimLease("00:00:00")));
-
-        // assert
-        failures.ShouldBe([ClaimLeaseFailureMessage]);
-    }
-
-    [Fact]
-    public void AddLamuFlixPersistence_ClaimLeaseNegative_FailsStartupValidation()
-    {
-        // act
-        var failures = StartupValidationFailures(Configuration(WithClaimLease("-00:05:00")));
+        var failures = StartupValidationFailures(Configuration(WithClaimLease(lease)));
 
         // assert
         failures.ShouldBe([ClaimLeaseFailureMessage]);
@@ -100,6 +83,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         repository.Lifetime.ShouldBe(ServiceLifetime.Scoped);
         context.Lifetime.ShouldBe(ServiceLifetime.Scoped);
         clock.Lifetime.ShouldBe(ServiceLifetime.Singleton);
+        clock.ImplementationInstance.ShouldBeSameAs(TimeProvider.System);
     }
 
     [Fact]
