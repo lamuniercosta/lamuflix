@@ -26,6 +26,7 @@
     <PackageReference Include="OpenTelemetry.Api" />
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="RabbitMQ.Client" />
+    <PackageReference Include="System.IO.Abstractions" />
   </ItemGroup>
 
 </Project>
