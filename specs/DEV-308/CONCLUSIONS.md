@@ -215,3 +215,83 @@ Patron verdict: ACCEPT preserving the inherited mapper and exception middleware;
 - Basis: DEV-308 Scope 1/AC1-AC3 require decorated host registration, not endpoint behavior; Overview assigns business endpoints to DEV-309/310. Trusted recon-DEV-308:48 and repaired recon-DEV-308-handlers:56 identify the existing single mapper and DEV-376's live-host criterion. No second mapper, new error shape or production test route is needed. A boot-blocking defect still follows Q4's minimum forced-fix rule, rather than an absolute ban on an initially unnamed file.
 - The first migrated validating endpoint in DEV-309 or DEV-310 must carry the constitution-required host integration proof of its real input/error path (constitution:198-213,359-362), and can furnish evidence to DEV-376. DEV-376 stays open until its own acceptance is verified; no completion, migration ownership transfer, ticket change or constitution departure is implied by this grill. Use the brief wording: DEV-376: Api-host registration prerequisite supplied by DEV-308 implementation; 422 live proof not delivered here.
 - Approve one recording-only comment on DEV-376 through Rigger, describing this planned division and preserving the current acceptance criterion. No follow-up ticket is needed for already-owned migration work. No owner checkbox is required.
+
+---
+
+# DEV-308 grill Q8/12 - File set, gates, size and loop terms (Keel)
+
+## Question
+What is the frozen file set (provisional only where Q6 is pending), the gate expectations, the review size and the round/closing terms that brief.md records?
+
+## Recommendation
+1. **Production files.** Five are certain. Each Q6 outcome can add at most one more.
+   - `src/LamuFlix.Api/Program.cs` (edit): add `AddCors` with the `DevSpa` policy, the call to the HandlerRegistration extension, `UseCors(DevSpa)` after the exception handler, and `MapApiEndpoints()`. The `MapDefaultEndpoints()` and TimeProvider wiring inherited from DEV-307 are kept exactly once (Q1). The policy name and origin are local `const` values in Program.cs. There is no separate CORS file, because the policy has one consumer and a new type would be ceremony.
+   - `src/LamuFlix.Api/HandlerRegistration.cs` (new, internal): one explicit AddHandler line per manifest entry (Q2; manifest frozen at Q6).
+   - `src/LamuFlix.Api/Endpoints/ApiEndpoints.cs`, `LibraryEndpoints.cs`, `ImportEndpoints.cs` (new, internal): Q5.
+   - `src/LamuFlix.Api/Endpoints/.gitkeep` (delete): Q5.
+   - Conditional, one file at most: the minimum boot-blocker fix Q6 rules for G2 (IMediaLibraryScanner), cited to AC1/AC2 under the Q4 rule. Its exact path is named in the Q6 ruling, not here.
+2. **Test files.** Both are new in `tests/LamuFlix.IntegrationTests`, using the factory inherited from DEV-307 (Q4).
+   - `ApiHostCompositionTests.cs`: the AC1 host start, the AC2 manifest theory (TracingDecorator outermost for each entry, plus one full walk), and the route-table check (required health routes present, no `/api` business route; Q5).
+   - `ApiCorsTests.cs`: AC3 exactly as the Q3 ruling.
+   - Conditional: the move-only factory extraction (Q4 care item 6), with the actual files named in the pickup receipt.
+   - No unit-test project change. There are no comments in tests (Q5 ruling).
+3. **No other file changes.** No csproj, no Directory.Packages.props, no appsettings, no ServiceDefaults, no Infrastructure edit beyond any Q6 boot-blocker fix, and no `web/`, OpenAPI or migration files.
+4. **Gates, all required and none waived:**
+   - Run `run-roslyn-analyzers.ps1`, `run-cyclomatic-complexity.ps1` (<= 15, then `-Threshold 6` at refactor) and `run-jetbrains-inspectcode.ps1` on the changed .cs set.
+   - Run `dotnet format --verify-no-changes`, then the full `dotnet test`. Compare the test count with the pickup baseline: only additions are allowed, no removals.
+   - Run `run-vulnerable-packages.ps1` with its exit code recorded. No new pin is expected, but the gate still runs.
+   - The architect stage runs as the pipeline defines it. A surviving mutant in composition code is routed to a test or recorded with its reason, never waived silently.
+   - A skipped gate is reported as skipped, never as passed.
+   - InspectCode findings on the near-empty mappers are fixed by changing the code's shape, never suppressed (Q5 cost).
+5. **Pickup prerequisites (Phase B, recorded in the receipt).**
+   - DEV-307 code is merged on the build base (Q1). `AddServiceDefaults` registers TimeProvider and `MapDefaultEndpoints` exists.
+   - The IntegrationTests csproj carries the Api ProjectReference and Mvc.Testing (Q4). Record the factory type T016 produced and whether extraction is needed.
+   - Re-run `/speckit-analyze` against main. Amend tasks.md if anything has drifted.
+6. **Size and review.** I recommend treating DEV-308 as **M** for review: three axis reports (Sentry, Ledger, Compass) and no adjudication without all three. The scope is composition plus two test files across 7-9 files, with no schema, no new dependency, no new layer and no route. Recon could not read the size tag (note DEV-308:3), so Rigger confirms the YouTrack `size:` tag with `-Show`. If the tag says L, the L process applies and Keel owes an ADR only if a real architectural decision has emerged, and none has so far. If it says S, I still recommend M review, because AC2 asserts on the whole host DI graph.
+7. **Loop terms, inherited from the standing DEV-307 CONCLUSIONS closing terms:**
+   - Only Critical or High findings with a concrete failure scenario block.
+   - The cap is two review rounds and two fix commits per round.
+   - Scope is frozen at this brief. Anything outside it is a follow-up issue filed by Rigger on Patron's decision, not a finding in this round.
+   - Unrelated latent defects follow the follow-up policy. Boot blockers follow Q4.
+   - Never merge. Report `awaiting-merge: DEV-308 (#n)`.
+8. **Closing bar for Phase B.** AC1-AC3 green through the host tests. All gates green or reported. The PR body carries the DEV-376 wording from the Q7 ruling. No DEV-376 acceptance criterion claimed. CONCLUSIONS.md and ASSUMPTIONS.md stay Patron-owned and append-only.
+
+## Basis
+- Ticket scope 1-4 and AC1-AC3.
+- Rulings Q1-Q7 (CONCLUSIONS.md).
+- CLAUDE.md gate section.
+- Keel duties §5 (M/L three-axis rule, ADR for L).
+- DEV-307 CONCLUSIONS closing terms (cited by the Patron start instruction).
+- recon-DEV-308:9-10, :35-37.
+- Note DEV-308:3 (size not surfaced).
+
+## Rationale
+- A file list frozen before plan drafting keeps Quill's plan honest and gives Step 7 a boundary diff to check against.
+- Local constants avoid a speculative CORS type.
+- M review matches a change that is small but touches the host's whole DI graph.
+
+## Cost
+- The file list carries at most two conditional entries until Q6 and the pickup receipt resolve them.
+- The M review costs three axis reports for a small diff.
+- Rigger performs one size-tag read.
+
+## Alternatives rejected
+- A `DevSpaCorsPolicy.cs` type or a CORS extension method: one consumer, so it adds no value.
+- Folding the CORS tests into the composition test file: mixes AC2 and AC3 evidence and makes the axis review harder.
+- Fixing the review size as S now: unknown tag, and the risk sits in the DI graph.
+
+## Asks of Patron in this ruling
+- (a) Accept the file set, with the conditional entries bounded as stated.
+- (b) Accept the gate list and the no-waiver wording.
+- (c) Rule on the review size: M, pending Rigger's tag read.
+- (d) Confirm the inherited loop terms.
+
+## Close note
+After Q6 (manifest and the G2 boot-blocker ruling) I see no independent decision left. Unless Q6 opens something, I will propose closing at Q6 + shared-understanding confirmation rather than filling the 12-question cap.
+
+
+Patron verdict: ACCEPT the file envelope and M review recommendation pending the live size tag; CHANGE gate wording/flags and retain the existing loop terms without reopening them.
+
+- Basis: DEV-308 Scope 1-4/AC1-AC3 and Q1-Q5/Q7 justify Program.cs, HandlerRegistration.cs, the three Endpoints files, disposable .gitkeep removal, two integration test files and only the conditional inherited-factory extraction/Q6 forced DI fix. Do not impose an arbitrary one-file maximum on a required blocker fix; freeze its actual minimum file set from Q6 evidence. No speculative package/project/config/route/schema/web change is approved. Rigger confirms the live size tag; if absent, record size:M; an existing non-M tag comes back for adjudication rather than silently changing it.
+- Required applicable gates must pass. Exit 1 or Could not run blocks; exit 2 scope-empty SKIPPED blocks an applicable gate, and only an actual disabled gate is non-blocking SKIP. Never call all gates green merely because failures were reported. Analyzer/complexity/InspectCode scope and thresholds come from harness.yml and each script's Help; do not invent -Threshold or hardcode thresholds. Include property/vulnerability/format/full test checks and the stage-appropriate mutation gate; every surviving mutant is a missing test, not a reason to waive it. Property tests may be documented as opt-out for composition with no domain invariant, according to the pipeline, but otherwise their gate remains required. Compare actual failures/coverage at pickup, not a rigid test-count rule forbidding legitimate replacement of obsolete tests.
+- Standing DEV-307 CONCLUSIONS closing terms and task-pipeline section 2.2 remain in force: Critical/High concrete failures block; two review rounds, at most two fix commits per round. Frozen scope is DEV-308's complete ticket deliverables and the minimum wiring/verification required by them; anything else is a follow-up issue, not a finding in this round. A deferred blocking failure does not become clean. Pickup recon records merged DEV-307 code, factory/references and inherited route surface; Keel adjudicates meaningful drift and invokes analysis only at its proper pipeline stage/within the existing cap. No owner checkbox is required by Q8.
