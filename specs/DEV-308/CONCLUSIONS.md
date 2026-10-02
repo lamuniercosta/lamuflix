@@ -24,3 +24,17 @@ Acceptance Criteria (verbatim):
 - CORS allows the React dev server origin.
 
 The ticket Overview assigns endpoints to DEV-309/DEV-310 and removal of LamuFlix.Web to DEV-388 after SPA parity. No scope item may be silently omitted, duplicated into a new deliverable, or deferred away. No implementation is authorized by this grill.
+
+---
+
+## Q1 - DEV-307 implementation prerequisite and shared defaults ownership
+
+Question (Keel): does DEV-308 Phase B require DEV-307 implemented on its build base, consuming ServiceDefaults TimeProvider and MapDefaultEndpoints rather than adding provisional copies?
+
+Recommendation (Keel): yes. Phase A proceeds now. Phase B waits for DEV-307 code merged to main; pickup verifies AddServiceDefaults registers TryAddSingleton(TimeProvider.System) and MapDefaultEndpoints exists. Consume the shared registration and mapping; keep any MapDefaultEndpoints call DEV-307 T013 already added rather than duplicating it. Retain the endpoint-group convention half of scope 4. Leave the existing Infrastructure TryAddSingleton calls untouched. Cost: DEV-308 build waits for DEV-307 implementation; no chain reorder.
+
+Patron verdict: ACCEPT; Phase A proceeds, Phase B requires DEV-307 implementation on its merged build base, and DEV-308 consumes the shared defaults once.
+
+- Basis: DEV-308 Scope 2 and 4 expressly reference DEV-307; .specify/memory/constitution.md:235-236 assigns TimeProvider and health wiring to ServiceDefaults and forbids host duplication. Trusted recon-DEV-308:20,28 cites specs/DEV-307/plan.md:172,225-231 and T013 at :87; chain:5-6 already records the dependency.
+- Preserve scope 4 in full: retain a single app.MapDefaultEndpoints() call and establish the MapXxxEndpoints convention. Host integration assertions prove the consumed services and mapping, rather than treating a merged spec as implemented code. No owner checkbox or schedule change is required.
+- Existing Infrastructure fallback registrations at src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs:31 and Adapters/MetadataProviderServiceCollectionExtensions.cs:30 remain outside this edit. No cleanup is forced by the ticket; noted, no ticket. This ruling neither closes DEV-307 owner checkboxes nor authorizes implementation.
