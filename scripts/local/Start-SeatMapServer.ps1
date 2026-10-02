@@ -5,8 +5,9 @@
     Serves artifacts/seat-map-selector.html and applies rung selections:
     preflights target-swap runtime FLOOR with the shared helper, persists any
     declared activeRung on the listener's seat-map, then runs Sync-SeatMap.ps1
-    as a child to rewrite role chains and canvas notes, and optionally runs
-    `maestri recruit --replace`. POST endpoints require the per-session token
+    as a child to rewrite the canvas notes (charter roster, team-restart
+    launch commands), and optionally runs `maestri recruit --replace`. It never
+    reads or writes Maestri role files. POST endpoints require the per-session token
     printed at startup. CORS is restricted to localhost. Fail-closed swaps
     (undeclared rung, no capable runtime floor) leave the seat-map unchanged.
 .PARAMETER Port
@@ -192,7 +193,6 @@ function Invoke-SeatMapSyncChild {
             '-SeatMapPath', $SeatMapPath,
             '-Seat', $SeatId,
             '-Rung', $RungName,
-            '-SyncRoles',
             '-SyncNotes'
         )) {
         [void]$psi.ArgumentList.Add($a)
@@ -305,7 +305,7 @@ function Apply-SeatRung {
     $previousPool = [string]$receipt.previousPool
     $recruitCmd = Get-SeatMapRecruitCommand -Codename $codeName -Preset $preset -Launch $launch
     $liveSwapped = $false
-    $detail = 'map+roles+notes'
+    $detail = 'map+notes'
     if ($env:MAESTRI_PIPE) {
         try {
             $cliPath = if ($env:MAESTRI_CLI) { $env:MAESTRI_CLI } else { 'maestri' }

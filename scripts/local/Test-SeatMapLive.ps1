@@ -14,8 +14,7 @@
 [CmdletBinding()]
 param(
     [switch]$LockOnly,
-    [switch]$Dev240WinPsOnly,
-    [switch]$RolePromptOnly
+    [switch]$Dev240WinPsOnly
 )
 
 Set-StrictMode -Version Latest
@@ -756,8 +755,13 @@ function Assert-SeatMapLockContracts {
     Assert-True 'DEV-241 server: consumes locked-swap receipt after Sync' ($afterSync -match 'Read-SeatMapLockedSwapReceipt') 'Read-SeatMapLockedSwapReceipt' 'missing'
     Assert-True 'DEV-241 server: no stale `$resolvedFloor after Sync' ($afterSync -notmatch '\$resolvedFloor') 'absent $resolvedFloor' $afterSync
     $wfPath = Join-Path $repoRoot '.github' 'workflows' 'lint-harness.yml'
-    $wfSrc = [System.IO.File]::ReadAllText($wfPath)
-    Assert-True 'DEV-241 hosted lock step uses -LockOnly' ($wfSrc -match 'Test-SeatMapLive\.ps1 -LockOnly') './scripts/local/Test-SeatMapLive.ps1 -LockOnly' 'missing'
+    # lint-harness.yml is the harness repo's workflow; a consumer repo without it has no hosted lock step to check.
+    if (Test-Path -LiteralPath $wfPath) {
+        $wfSrc = [System.IO.File]::ReadAllText($wfPath)
+        Assert-True 'DEV-241 hosted lock step uses -LockOnly' ($wfSrc -match 'Test-SeatMapLive\.ps1 -LockOnly') './scripts/local/Test-SeatMapLive.ps1 -LockOnly' 'missing'
+    } else {
+        Write-Host 'SKIPPED: DEV-241 hosted lock step (no .github/workflows/lint-harness.yml in this repo)'
+    }
 }
 
 function Get-SeatMapSourceSlice {
@@ -1108,33 +1112,6 @@ function Get-PrimaryWorktreePath {
     return $RepoRoot
 }
 
-function Install-RoleFixtures {
-    param([string]$RepoRoot, [string]$ExamplePath)
-    $rolesDir = Join-Path $RepoRoot '.maestri' 'roles'
-    New-Item -ItemType Directory -Path $rolesDir -Force | Out-Null
-    $map = Get-Content -LiteralPath $ExamplePath -Raw | ConvertFrom-Json
-    $created = [System.Collections.Generic.List[string]]::new()
-    foreach ($s in @($map.seats)) {
-        $dir = Join-Path $rolesDir $s.roleId
-        New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        $file = Join-Path $dir 'role.json'
-        $headCell = @($s.rungs | Where-Object { $_.name -eq 'first' })[0]
-        $thenCell = @($s.rungs | Where-Object { $_.name -eq 'second' })[0]
-        $floorCell = @($s.rungs | Where-Object { $_.name -eq 'floor' })[0]
-        $headL = if ($null -ne $headCell) { [string]$headCell.launch } else { '' }
-        $thenL = if ($null -ne $thenCell) { [string]$thenCell.launch } else { '' }
-        $floorL = if ($null -ne $floorCell) { [string]$floorCell.launch } else { '' }
-        $obj = [ordered]@{
-            prompt = "Model chain (best first): $headL -> $thenL -> $floorL (FLOOR)."
-        }
-        $json = $obj | ConvertTo-Json -Depth 4
-        if (-not $json.EndsWith("`n")) { $json += "`n" }
-        [System.IO.File]::WriteAllText($file, $json, [System.Text.UTF8Encoding]::new($false))
-        $created.Add($file)
-    }
-    return $created
-}
-
 $realProfile = [Environment]::GetFolderPath('UserProfile')
 $realMaestri = Join-Path $realProfile '.maestri'
 $realSwapLog = Join-Path $realMaestri 'seat-map-swaps.jsonl'
@@ -1161,294 +1138,9 @@ if ([string]::Equals((ConvertTo-Fwd $isoHome).TrimEnd('/'), (ConvertTo-Fwd $real
     throw "Refusing to isolate HOME onto the real user profile: $isoHome"
 }
 
+# The repo-local .maestri is live Maestri state. The harness only reads it,
+# to prove no sync path writes role files there.
 $worktreeMaestri = Join-Path $repoRoot '.maestri'
-$worktreeRoles = Join-Path $worktreeMaestri 'roles'
-$hadWorktreeMaestri = Test-Path -LiteralPath $worktreeMaestri
-$hadWorktreeRoles = Test-Path -LiteralPath $worktreeRoles
-$dev234AnvilRoleFile = $null
-$dev234AnvilRoleHadFile = $false
-$dev234AnvilRolePriorBytes = $null
-$dev234AnvilRoleDirExisted = $false
-
-if ($RolePromptOnly) {
-    Write-Host 'Test-SeatMapLive -RolePromptOnly (isolated RolesDir)'
-    Assert-SeatMapLockContracts
-    $rolePromptIsoHome = Join-Path ([System.IO.Path]::GetTempPath()) ('seat-map-roleprompt-' + [guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Path $rolePromptIsoHome -Force | Out-Null
-    $rolePromptWsId = [guid]::NewGuid().ToString()
-    $rolePromptWsDir = New-WorkspaceDir -HomeDir $rolePromptIsoHome -WorkspaceId $rolePromptWsId -RepoRootHint $repoRoot
-    Write-NoteStubs -WsDir $rolePromptWsDir
-    $rolePromptLivePath = Join-Path $rolePromptWsDir 'seat-map.json'
-    Copy-Item -LiteralPath $examplePath -Destination $rolePromptLivePath
-    $rolePromptLiveSnapshot = Get-Content -LiteralPath $rolePromptLivePath -Raw
-    $worktreeRolesSnapBefore = Get-TargetedMaestriSnapshot -Root $worktreeMaestri
-    $realRolesSnapBefore = Get-TargetedMaestriSnapshot -Root $realMaestri
-    try {
-        # Helper to create isolated RolesDir fixtures with optional stale halt text
-        function New-RolePromptFixture {
-            param([string]$RolesDir, [bool]$WithStale, [bool]$WithoutChain)
-            New-Item -ItemType Directory -Path $RolesDir -Force | Out-Null
-            $map = Get-Content -LiteralPath $examplePath -Raw | ConvertFrom-Json
-            foreach ($s in @($map.seats)) {
-                $dir = Join-Path $RolesDir $s.roleId
-                New-Item -ItemType Directory -Path $dir -Force | Out-Null
-                $chain = Get-ModelChainLine -Seat $s
-                $promptBase = $chain
-                if ($WithStale) {
-                    $promptBase = "$chain You are at or above your floor if the model you are running appears **anywhere in that chain**. Halt and report only if it appears nowhere in it. Duties for $($s.codename) preserved."
-                } elseif (-not $WithoutChain) {
-                    $promptBase = "$chain Duties for $($s.codename) preserved."
-                } else {
-                    $promptBase = "No chain here"
-                }
-                $roleJson = [ordered]@{ prompt = $promptBase } | ConvertTo-Json -Depth 4
-                if (-not $roleJson.EndsWith("`n")) { $roleJson += "`n" }
-                [System.IO.File]::WriteAllText((Join-Path $dir 'role.json'), $roleJson, [System.Text.UTF8Encoding]::new($false))
-                # AGENTS.md and CLAUDE.md with same chain + stale pattern
-                $mdBase = @(
-                    "# $($s.codename) role"
-                    ""
-                    "- Your duties name a **model chain**, best first, ending in a `(FLOOR)` entry."
-                    "  You are at or above your floor if the model you are running appears"
-                    "  **anywhere in that chain**. Halt and report only if it appears nowhere in it."
-                    "  Do not compare yourself against the floor entry alone, and never treat the"
-                    "  floor as your target."
-                    ""
-                    "$chain"
-                    ""
-                    "Duties for $($s.codename) preserved."
-                ) -join "`n"
-                if (-not $WithStale) {
-                    $mdBase = @(
-                        "# $($s.codename) role"
-                        ""
-                        "- Your duties name a **model chain**, best first, ending in a `(FLOOR)` entry."
-                        "  Do not compare yourself against the floor entry alone, and never treat the"
-                        "  floor as your target."
-                        ""
-                        "$chain"
-                        ""
-                        "Duties for $($s.codename) preserved."
-                    ) -join "`n"
-                }
-                [System.IO.File]::WriteAllText((Join-Path $dir 'AGENTS.md'), $mdBase + "`n", [System.Text.UTF8Encoding]::new($false))
-                [System.IO.File]::WriteAllText((Join-Path $dir 'CLAUDE.md'), $mdBase + "`n", [System.Text.UTF8Encoding]::new($false))
-            }
-        }
-        # Test 1: whole-map -SyncRoles removes stale halt from all three surfaces and updates chain line
-        $rolesDir1 = Join-Path $rolePromptIsoHome 'roles1'
-        New-RolePromptFixture -RolesDir $rolesDir1 -WithStale $true -WithoutChain $false
-        $sync1 = Invoke-IsolatedPwsh -HomeDir $rolePromptIsoHome -File $syncScript -ArgumentList @('-SyncRoles', '-RolesDir', $rolesDir1, '-SeatMapPath', $rolePromptLivePath)
-        Assert-True 'RolePrompt whole-map sync: exit 0' ($sync1.ExitCode -eq 0) '0' ("exit=$($sync1.ExitCode)`n$($sync1.StdOut)`n$($sync1.StdErr)")
-        $hasStale1 = $false
-        $chainOk1 = $true
-        $dutiesOk1 = $true
-        foreach ($f in @(Get-ChildItem -LiteralPath $rolesDir1 -Recurse -File)) {
-            $txt = Get-Content -LiteralPath $f.FullName -Raw
-            if ($txt.Contains('Halt and report only if it appears nowhere in it.')) { $hasStale1 = $true }
-            if ($f.Name -eq 'role.json') {
-                if ($txt -notmatch 'Model chain \(best first\):.+?\(FLOOR\)\.') { $chainOk1 = $false }
-                if ($txt -notmatch 'Duties for') { $dutiesOk1 = $false }
-            } elseif ($f.Name -in @('AGENTS.md','CLAUDE.md')) {
-                if ($txt -notmatch 'Model chain \(best first\):.+?\(FLOOR\)\.') { $chainOk1 = $false }
-                if ($txt -notmatch 'Duties for') { $dutiesOk1 = $false }
-                if ($txt -notmatch 'Do not compare yourself against the floor entry alone') { $dutiesOk1 = $false }
-            }
-        }
-        Assert-True 'RolePrompt whole-map sync: no stale halt' (-not $hasStale1) 'no stale' 'still has stale'
-        Assert-True 'RolePrompt whole-map sync: chain line present' $chainOk1 'chain present' 'missing chain'
-        Assert-True 'RolePrompt whole-map sync: duties preserved' $dutiesOk1 'duties preserved' 'duties missing'
-        # Prove isolated temp was used, not live repo tree
-        $worktreeSnapAfter1 = Get-TargetedMaestriSnapshot -Root $worktreeMaestri
-        Assert-True 'RolePrompt whole-map sync: no live worktree Roles overwrite' ($worktreeRolesSnapBefore -eq $worktreeSnapAfter1) $worktreeRolesSnapBefore $worktreeSnapAfter1
-        $realSnapAfter1 = Get-TargetedMaestriSnapshot -Root $realMaestri
-        Assert-True 'RolePrompt whole-map sync: no real HOME Roles overwrite' ($realRolesSnapBefore -eq $realSnapAfter1) $realRolesSnapBefore $realSnapAfter1
-
-        # Test 2: prompts without stale text sync cleanly (no fatal, chain still updated)
-        $rolesDir2 = Join-Path $rolePromptIsoHome 'roles2'
-        New-RolePromptFixture -RolesDir $rolesDir2 -WithStale $false -WithoutChain $false
-        $sync2 = Invoke-IsolatedPwsh -HomeDir $rolePromptIsoHome -File $syncScript -ArgumentList @('-SyncRoles', '-RolesDir', $rolesDir2, '-SeatMapPath', $rolePromptLivePath)
-        Assert-True 'RolePrompt unchanged prompt sync: exit 0' ($sync2.ExitCode -eq 0) '0' ("exit=$($sync2.ExitCode)`n$($sync2.StdOut)`n$($sync2.StdErr)")
-        $hasStale2 = $false
-        foreach ($f in @(Get-ChildItem -LiteralPath $rolesDir2 -Recurse -File)) {
-            $txt = Get-Content -LiteralPath $f.FullName -Raw
-            if ($txt.Contains('Halt and report only if it appears nowhere in it.')) { $hasStale2 = $true }
-        }
-        Assert-True 'RolePrompt unchanged prompt: still no stale' (-not $hasStale2) 'no stale' 'has stale'
-
-        # Test 3: missing optional AGENTS.md/CLAUDE.md is non-fatal
-        $rolesDir3 = Join-Path $rolePromptIsoHome 'roles3'
-        New-RolePromptFixture -RolesDir $rolesDir3 -WithStale $true -WithoutChain $false
-        $sampleSeat = (Get-Content -LiteralPath $examplePath -Raw | ConvertFrom-Json).seats[0]
-        Remove-Item -LiteralPath (Join-Path $rolesDir3 $sampleSeat.roleId 'AGENTS.md') -Force
-        Remove-Item -LiteralPath (Join-Path $rolesDir3 $sampleSeat.roleId 'CLAUDE.md') -Force
-        $sync3 = Invoke-IsolatedPwsh -HomeDir $rolePromptIsoHome -File $syncScript -ArgumentList @('-SyncRoles', '-RolesDir', $rolesDir3, '-SeatMapPath', $rolePromptLivePath)
-        Assert-True 'RolePrompt missing optional MD: exit 0' ($sync3.ExitCode -eq 0) '0' ("exit=$($sync3.ExitCode)`n$($sync3.StdOut)`n$($sync3.StdErr)")
-        $roleHasStale3 = (Get-Content -LiteralPath (Join-Path $rolesDir3 $sampleSeat.roleId 'role.json') -Raw).Contains('Halt and report')
-        Assert-True 'RolePrompt missing optional MD: role still scrubbed' (-not $roleHasStale3) 'no stale' 'has stale'
-
-        # Test 4: target-swap removes stale halt and updates FLOOR to runtime floor
-        $rolesDir4 = Join-Path $rolePromptIsoHome 'roles4'
-        New-RolePromptFixture -RolesDir $rolesDir4 -WithStale $true -WithoutChain $false
-        Copy-Item -LiteralPath $examplePath -Destination $rolePromptLivePath -Force
-        $mapForSwap = Get-Content -LiteralPath $rolePromptLivePath -Raw | ConvertFrom-Json
-        $anvilSeat = $mapForSwap.seats | Where-Object { $_.id -eq 'anvil' } | Select-Object -First 1
-        $expectedFloor = (Resolve-SeatRuntimeFloor -Map $mapForSwap -Seat $anvilSeat).Launch
-        $swapRes = Invoke-IsolatedPwsh -HomeDir $rolePromptIsoHome -File $syncScript -ArgumentList @('-Seat', 'anvil', '-Rung', 'second', '-RolesDir', $rolesDir4, '-SeatMapPath', $rolePromptLivePath)
-        Assert-True 'RolePrompt target-swap: exit 0' ($swapRes.ExitCode -eq 0) '0' ("exit=$($swapRes.ExitCode)`n$($swapRes.StdOut)`n$($swapRes.StdErr)")
-        $anvilRoleAfter = Get-Content -LiteralPath (Join-Path $rolesDir4 $anvilSeat.roleId 'role.json') -Raw
-        Assert-True 'RolePrompt target-swap: no stale in swapped role' (-not $anvilRoleAfter.Contains('Halt and report')) 'no stale' 'has stale'
-        Assert-True 'RolePrompt target-swap: chain contains runtime floor' ($anvilRoleAfter.Contains($expectedFloor)) $expectedFloor $anvilRoleAfter
-        $anvilAgentsAfter = Get-Content -LiteralPath (Join-Path $rolesDir4 $anvilSeat.roleId 'AGENTS.md') -Raw
-        Assert-True 'RolePrompt target-swap: AGENTS.md no stale' (-not $anvilAgentsAfter.Contains('Halt and report')) 'no stale' 'has stale'
-        Assert-True 'RolePrompt target-swap: AGENTS.md chain present' ($anvilAgentsAfter.Contains('Model chain (best first):')) 'chain present' 'missing chain'
-        Assert-True 'RolePrompt target-swap: AGENTS.md chain updated to floor' ($anvilAgentsAfter.Contains($expectedFloor)) $expectedFloor $anvilAgentsAfter
-        $anvilClaudeAfter = Get-Content -LiteralPath (Join-Path $rolesDir4 $anvilSeat.roleId 'CLAUDE.md') -Raw
-        Assert-True 'RolePrompt target-swap: CLAUDE.md no stale' (-not $anvilClaudeAfter.Contains('Halt and report')) 'no stale' 'has stale'
-        Assert-True 'RolePrompt target-swap: CLAUDE.md chain present' ($anvilClaudeAfter.Contains('Model chain (best first):')) 'chain present' 'missing chain'
-        Assert-True 'RolePrompt target-swap: CLAUDE.md chain updated to floor' ($anvilClaudeAfter.Contains($expectedFloor)) $expectedFloor $anvilClaudeAfter
-
-        # Test 5: swap with -SyncRoles also scrubs other seats
-        $rolesDir5 = Join-Path $rolePromptIsoHome 'roles5'
-        New-RolePromptFixture -RolesDir $rolesDir5 -WithStale $true -WithoutChain $false
-        Copy-Item -LiteralPath $examplePath -Destination $rolePromptLivePath -Force
-        $swapSyncRes = Invoke-IsolatedPwsh -HomeDir $rolePromptIsoHome -File $syncScript -ArgumentList @('-Seat', 'anvil', '-Rung', 'second', '-SyncRoles', '-RolesDir', $rolesDir5, '-SeatMapPath', $rolePromptLivePath)
-        Assert-True 'RolePrompt swap+SyncRoles: exit 0' ($swapSyncRes.ExitCode -eq 0) '0' ("exit=$($swapSyncRes.ExitCode)`n$($swapSyncRes.StdOut)`n$($swapSyncRes.StdErr)")
-        $hasStale5 = $false
-        foreach ($f in @(Get-ChildItem -LiteralPath $rolesDir5 -Recurse -File)) {
-            if ((Get-Content -LiteralPath $f.FullName -Raw).Contains('Halt and report')) { $hasStale5 = $true; break }
-        }
-        Assert-True 'RolePrompt swap+SyncRoles: all scrubbed' (-not $hasStale5) 'no stale' 'has stale'
-        $claudeChainOk5 = $true
-        foreach ($s in @((Get-Content -LiteralPath $examplePath -Raw | ConvertFrom-Json).seats)) {
-            $claudePath5 = Join-Path $rolesDir5 $s.roleId 'CLAUDE.md'
-            $claudeTxt5 = Get-Content -LiteralPath $claudePath5 -Raw
-            if (-not $claudeTxt5.Contains('Model chain (best first):')) { $claudeChainOk5 = $false; break }
-        }
-        Assert-True 'RolePrompt swap+SyncRoles: CLAUDE.md chain present for all seats' $claudeChainOk5 'chain present' 'missing chain'
-
-        # B4: over-delete regression - duty between start phrase and halt must survive
-        $rolesDirB4 = Join-Path $rolePromptIsoHome 'rolesB4'
-        New-Item -ItemType Directory -Path $rolesDirB4 -Force | Out-Null
-        $mapB4 = Get-Content -LiteralPath $examplePath -Raw | ConvertFrom-Json
-        foreach ($s in @($mapB4.seats)) {
-            $dirB4 = Join-Path $rolesDirB4 $s.roleId
-            New-Item -ItemType Directory -Path $dirB4 -Force | Out-Null
-            $chainB4 = Get-ModelChainLine -Seat $s
-            $promptB4 = "$chainB4 You are at or above your floor if the model you are running appears **anywhere in that chain**. DUTY THAT MUST SURVIVE Halt and report only if it appears nowhere in it. Duties for $($s.codename) preserved. $chainB4"
-            $roleJsonB4 = [ordered]@{ prompt = $promptB4 } | ConvertTo-Json -Depth 4
-            if (-not $roleJsonB4.EndsWith("`n")) { $roleJsonB4 += "`n" }
-            [System.IO.File]::WriteAllText((Join-Path $dirB4 'role.json'), $roleJsonB4, [System.Text.UTF8Encoding]::new($false))
-            $mdB4 = "# $($s.codename) role`n`n- Your duties name a **model chain**, best first, ending in a `(FLOOR)` entry.`n  You are at or above your floor if the model you are running appears`n  **anywhere in that chain**. DUTY THAT MUST SURVIVE Halt and report only if it appears nowhere in it.`n  Do not compare yourself against the floor entry alone.`n`n$chainB4`n`nDuties for $($s.codename) preserved."
-            [System.IO.File]::WriteAllText((Join-Path $dirB4 'AGENTS.md'), $mdB4 + "`n", [System.Text.UTF8Encoding]::new($false))
-            [System.IO.File]::WriteAllText((Join-Path $dirB4 'CLAUDE.md'), $mdB4 + "`n", [System.Text.UTF8Encoding]::new($false))
-        }
-        $b4Res = Invoke-IsolatedPwsh -HomeDir $rolePromptIsoHome -File $syncScript -ArgumentList @('-SyncRoles', '-RolesDir', $rolesDirB4, '-SeatMapPath', $rolePromptLivePath)
-        Assert-True 'B4 over-delete: exit 0' ($b4Res.ExitCode -eq 0) '0' ("exit=$($b4Res.ExitCode)`n$($b4Res.StdOut)`n$($b4Res.StdErr)")
-        $dutySurvives = $true
-        $noStaleB4 = $true
-        foreach ($f in @(Get-ChildItem -LiteralPath $rolesDirB4 -Recurse -File)) {
-            $txtB4 = Get-Content -LiteralPath $f.FullName -Raw
-            if (-not $txtB4.Contains('DUTY THAT MUST SURVIVE')) { $dutySurvives = $false }
-            if ($txtB4.Contains('Halt and report only if it appears nowhere in it.')) { $noStaleB4 = $false }
-        }
-        Assert-True 'B4 over-delete: DUTY THAT MUST SURVIVE preserved' $dutySurvives 'preserved' 'missing duty'
-        Assert-True 'B4 over-delete: no stale halt remains' $noStaleB4 'no stale' 'has stale'
-
-        # B3: malformed role.json without chain but MD with stale must be fatal or scrubbed - and B6 restore proof
-        $rolesDirB3 = Join-Path $rolePromptIsoHome 'rolesB3'
-        New-Item -ItemType Directory -Path $rolesDirB3 -Force | Out-Null
-        $mapB3 = Get-Content -LiteralPath $examplePath -Raw | ConvertFrom-Json
-        foreach ($s in @($mapB3.seats)) {
-            $dirB3 = Join-Path $rolesDirB3 $s.roleId
-            New-Item -ItemType Directory -Path $dirB3 -Force | Out-Null
-            if ($s.id -eq 'anvil') {
-                $roleJsonB3 = [ordered]@{ prompt = "No chain here stale test" } | ConvertTo-Json -Depth 4
-                if (-not $roleJsonB3.EndsWith("`n")) { $roleJsonB3 += "`n" }
-                [System.IO.File]::WriteAllText((Join-Path $dirB3 'role.json'), $roleJsonB3, [System.Text.UTF8Encoding]::new($false))
-            } else {
-                $chainB3 = Get-ModelChainLine -Seat $s
-                $promptB3 = "$chainB3 Duties for $($s.codename) preserved."
-                $roleJsonB3 = [ordered]@{ prompt = $promptB3 } | ConvertTo-Json -Depth 4
-                if (-not $roleJsonB3.EndsWith("`n")) { $roleJsonB3 += "`n" }
-                [System.IO.File]::WriteAllText((Join-Path $dirB3 'role.json'), $roleJsonB3, [System.Text.UTF8Encoding]::new($false))
-            }
-            $chainB3md = Get-ModelChainLine -Seat $s
-            $mdB3 = "# $($s.codename) role`n`n- Your duties name a **model chain**, best first, ending in a `(FLOOR)` entry.`n  You are at or above your floor if the model you are running appears`n  **anywhere in that chain**. Halt and report only if it appears nowhere in it.`n  Do not compare yourself against the floor entry alone.`n`n$chainB3md`n`nDuties for $($s.codename) preserved."
-            if ($s.id -eq 'anvil') {
-                [System.IO.File]::WriteAllText((Join-Path $dirB3 'AGENTS.md'), $mdB3 + "`n", [System.Text.UTF8Encoding]::new($false))
-                [System.IO.File]::WriteAllText((Join-Path $dirB3 'CLAUDE.md'), $mdB3 + "`n", [System.Text.UTF8Encoding]::new($false))
-            } else {
-                $mdClean = "# $($s.codename) role`n`n- Your duties name a **model chain**, best first, ending in a `(FLOOR)` entry.`n  Do not compare yourself against the floor entry alone.`n`n$chainB3md`n`nDuties for $($s.codename) preserved."
-                [System.IO.File]::WriteAllText((Join-Path $dirB3 'AGENTS.md'), $mdClean + "`n", [System.Text.UTF8Encoding]::new($false))
-                [System.IO.File]::WriteAllText((Join-Path $dirB3 'CLAUDE.md'), $mdClean + "`n", [System.Text.UTF8Encoding]::new($false))
-            }
-        }
-        $b3Res = Invoke-IsolatedPwsh -HomeDir $rolePromptIsoHome -File $syncScript -ArgumentList @('-SyncRoles', '-RolesDir', $rolesDirB3, '-SeatMapPath', $rolePromptLivePath)
-        # B3 decoupled: MD scrub should happen even when role.json chain missing; either scrub succeeds or fatal. Here MD should be scrubbed (no stale) and exit 1 due to missing chain syncMiss.
-        $b3AgentsAfter = Get-Content -LiteralPath (Join-Path $rolesDirB3 $mapB3.seats[0].roleId 'AGENTS.md') -Raw
-        $b3ClaudeAfter = Get-Content -LiteralPath (Join-Path $rolesDirB3 $mapB3.seats[0].roleId 'CLAUDE.md') -Raw
-        Assert-True 'B3 malformed roleJson stale MD: exit 1' ($b3Res.ExitCode -eq 1) '1' ("exit=$($b3Res.ExitCode)`n$($b3Res.StdOut)`n$($b3Res.StdErr)")
-        Assert-True 'B3 malformed roleJson stale MD: AGENTS.md scrubbed' (-not $b3AgentsAfter.Contains('Halt and report')) 'no stale' 'has stale'
-        Assert-True 'B3 malformed roleJson stale MD: CLAUDE.md scrubbed' (-not $b3ClaudeAfter.Contains('Halt and report')) 'no stale' 'has stale'
-
-        # B6: fatal scrub restore - malformed JSON forces exception and restore
-        $rolesDirB6 = Join-Path $rolePromptIsoHome 'rolesB6'
-        New-Item -ItemType Directory -Path $rolesDirB6 -Force | Out-Null
-        $mapB6 = Get-Content -LiteralPath $examplePath -Raw | ConvertFrom-Json
-        foreach ($s in @($mapB6.seats)) {
-            $dirB6 = Join-Path $rolesDirB6 $s.roleId
-            New-Item -ItemType Directory -Path $dirB6 -Force | Out-Null
-            $chainB6 = Get-ModelChainLine -Seat $s
-            $promptB6 = "$chainB6 You are at or above your floor if the model you are running appears **anywhere in that chain**. Halt and report only if it appears nowhere in it. Duties for $($s.codename) preserved."
-            $roleJsonB6 = [ordered]@{ prompt = $promptB6 } | ConvertTo-Json -Depth 4
-            if (-not $roleJsonB6.EndsWith("`n")) { $roleJsonB6 += "`n" }
-            [System.IO.File]::WriteAllText((Join-Path $dirB6 'role.json'), $roleJsonB6, [System.Text.UTF8Encoding]::new($false))
-            $mdB6 = "# $($s.codename) role`n`n- Your duties name a **model chain**, best first, ending in a `(FLOOR)` entry.`n  You are at or above your floor if the model you are running appears`n  **anywhere in that chain**. Halt and report only if it appears nowhere in it.`n  Do not compare yourself against the floor entry alone.`n`n$chainB6`n`nDuties for $($s.codename) preserved."
-            [System.IO.File]::WriteAllText((Join-Path $dirB6 'AGENTS.md'), $mdB6 + "`n", [System.Text.UTF8Encoding]::new($false))
-            [System.IO.File]::WriteAllText((Join-Path $dirB6 'CLAUDE.md'), $mdB6 + "`n", [System.Text.UTF8Encoding]::new($false))
-        }
-        $anvilRoleB6 = Join-Path $rolesDirB6 $mapB6.seats[0].roleId 'role.json'
-        [System.IO.File]::WriteAllText($anvilRoleB6, "{ invalid json", [System.Text.UTF8Encoding]::new($false))
-        $b6Snap = @{}
-        foreach ($f in @(Get-ChildItem -LiteralPath $rolesDirB6 -Recurse -File | Where-Object { $_.Name -in @('role.json','AGENTS.md','CLAUDE.md') })) {
-            try { $b6Snap[$f.FullName] = [System.IO.File]::ReadAllBytes($f.FullName) } catch {}
-        }
-        $b6Res = Invoke-IsolatedPwsh -HomeDir $rolePromptIsoHome -File $syncScript -ArgumentList @('-SyncRoles', '-RolesDir', $rolesDirB6, '-SeatMapPath', $rolePromptLivePath)
-        Assert-True 'B6 fatal scrub restore: exit 1' ($b6Res.ExitCode -eq 1) '1' ("exit=$($b6Res.ExitCode)`n$($b6Res.StdOut)`n$($b6Res.StdErr)")
-        $b6Restored = $true
-        foreach ($p in $b6Snap.Keys) {
-            if (-not (Test-Path -LiteralPath $p)) { $b6Restored = $false; break }
-            $cur = [System.IO.File]::ReadAllBytes($p)
-            $pre = $b6Snap[$p]
-            if ($cur.Length -ne $pre.Length) { $b6Restored = $false; break }
-            for ($i=0; $i -lt $cur.Length; $i++) { if ($cur[$i] -ne $pre[$i]) { $b6Restored = $false; break } }
-            if (-not $b6Restored) { break }
-        }
-        Assert-True 'B6 fatal scrub restore: byte-identical restoration' $b6Restored 'restored' 'not restored'
-
-        Write-Host ''
-        if ($failures -gt 0) {
-            Write-Host "Test-SeatMapLive -RolePromptOnly: $checks checks, $failures failures." -ForegroundColor Red
-            exit 1
-        } else {
-            Write-Host "Test-SeatMapLive -RolePromptOnly: $checks checks, $failures failures." -ForegroundColor Green
-            exit 0
-        }
-    } catch {
-        Write-Host "  FAIL     RolePromptOnly harness: $_" -ForegroundColor Red
-        $script:failures++
-        exit 1
-    } finally {
-        if (Test-Path -LiteralPath $rolePromptIsoHome) {
-            Remove-Item -LiteralPath $rolePromptIsoHome -Recurse -Force -ErrorAction SilentlyContinue
-        }
-        if (Test-Path -LiteralPath $rolePromptLivePath) {
-            # restore example content for outer harness isolation checks
-            Copy-Item -LiteralPath $examplePath -Destination $rolePromptLivePath -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
 
 if ($LockOnly) {
     Write-Host 'Test-SeatMapLive -LockOnly (isolated HOME)'
@@ -1459,20 +1151,10 @@ else {
 }
 Assert-SeatMapLockContracts
 
-$worktreeRolesPreBytes = @{}
-$worktreeRolesPreSnapshot = Get-TargetedMaestriSnapshot -Root $worktreeMaestri
-$worktreeRolesPreFiles = @()
-if (Test-Path -LiteralPath $worktreeRoles) {
-    $worktreeRolesPreFiles = @(Get-ChildItem -LiteralPath $worktreeRoles -Recurse -Force -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in @('role.json','AGENTS.md','CLAUDE.md') } | ForEach-Object { $_.FullName })
-    foreach ($f in @(Get-ChildItem -LiteralPath $worktreeRoles -Recurse -Force -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in @('role.json','AGENTS.md','CLAUDE.md') })) {
-        $worktreeRolesPreBytes[$f.FullName] = [System.IO.File]::ReadAllBytes($f.FullName)
-    }
-}
+$worktreeMaestriPreSnapshot = Get-TargetedMaestriSnapshot -Root $worktreeMaestri
 
 try {
     New-Item -ItemType Directory -Path $isoHome -Force | Out-Null
-    [void](Install-RoleFixtures -RepoRoot $repoRoot -ExamplePath $examplePath)
-    Assert-True 'DEV-247 role fixtures installed' (Test-Path -LiteralPath (Join-Path $repoRoot '.maestri' 'roles')) (Join-Path $repoRoot '.maestri' 'roles') 'missing'
 
     Assert-True 'example file exists' (Test-Path -LiteralPath $examplePath) $examplePath 'missing'
 
@@ -1807,23 +1489,12 @@ try {
     Assert-True 'DEV-237 -All drift: VERIFY DRIFT' (Test-TextContains $allDriftCombined '[VERIFY DRIFT]') '[VERIFY DRIFT]' $allDriftCombined
     Write-MatchingWorkspaceVerifyJson -WsDir $wsDir -RepoRootHint $repoRoot -SeatMapPath $livePath
 
+    # Swap + drift. Role files are no longer a sync surface, and a target swap
+    # preflights the notes, so a swap can no longer reach a sync miss: the swap
+    # commits, the notes sync, verify drifts, and -All prints the completed receipt.
     $completedReceipt = 'Sync phases completed before verify failure; workspace drift remains.'
-    $cogRoleFile = Join-Path $repoRoot '.maestri' 'roles' $cogRoleId 'role.json'
-    $anvilRoleFileForCombo = Join-Path $repoRoot '.maestri' 'roles' $anvilRoleId 'role.json'
-    $cogRoleHadFile = Test-Path -LiteralPath $cogRoleFile
-    $cogRolePriorBytes = $null
-    $anvilRoleComboBytes = $null
-    if (Test-Path -LiteralPath $anvilRoleFileForCombo) {
-        $anvilRoleComboBytes = [System.IO.File]::ReadAllBytes($anvilRoleFileForCombo)
-    }
-    if ($cogRoleHadFile) {
-        $cogRolePriorBytes = [System.IO.File]::ReadAllBytes($cogRoleFile)
-    }
     $mapBeforeCombo = Get-Content -LiteralPath $livePath -Raw
     try {
-        if ($cogRoleHadFile) {
-            Remove-Item -LiteralPath $cogRoleFile -Force
-        }
         $allDriftComboRecords = @(Get-HeadLaunchRecords -SeatMapPath $livePath)
         foreach ($row in $allDriftComboRecords) {
             if ($row.AssignedRoleId -eq $anvilRoleId) { $row.Command = $anvilDriftLaunch }
@@ -1831,22 +1502,13 @@ try {
         Write-MatchingWorkspaceVerifyJson -WsDir $wsDir -RepoRootHint $repoRoot -SeatMapPath $livePath -Terminals $allDriftComboRecords
         $allCombo = Invoke-IsolatedPwsh -HomeDir $isoHome -File $syncScript -ArgumentList @('-All', '-Seat', 'Anvil', '-Rung', 'second')
         $allComboCombined = "$($allCombo.StdOut)`n$($allCombo.StdErr)"
-        Assert-True 'DEV-237 -All swap+syncMiss+drift: exit 1' ($allCombo.ExitCode -eq 1) '1' ("exit=$($allCombo.ExitCode)`n$allComboCombined")
-        Assert-True 'DEV-237 -All swap+syncMiss+drift: Cog role miss handled' (Test-TextContains $allComboCombined 'Role file not found for Cog') 'Role file not found for Cog' $allComboCombined
-        Assert-True 'DEV-237 -All swap+syncMiss+drift: VERIFY DRIFT' (Test-TextContains $allComboCombined $anvilDrift) $anvilDrift $allComboCombined
-        Assert-True 'DEV-237 -All swap+syncMiss+drift: no unqualified completed receipt' (-not (Test-TextContains $allComboCombined $completedReceipt)) "absent $completedReceipt" $allComboCombined
-        Assert-True 'DEV-237 -All swap+syncMiss+drift: syncMiss before verify exit' (
-            ((ConvertTo-Fwd $allComboCombined).IndexOf('Role file not found for Cog') -ge 0) -and
-            ((ConvertTo-Fwd $allComboCombined).IndexOf((ConvertTo-Fwd $anvilDrift)) -ge 0)
-        ) 'syncMiss and drift both present' $allComboCombined
+        Assert-True 'DEV-237 -All swap+drift: exit 1' ($allCombo.ExitCode -eq 1) '1' ("exit=$($allCombo.ExitCode)`n$allComboCombined")
+        Assert-True 'DEV-237 -All swap+drift: LOCKED-SWAP receipt' (Test-TextContains $allComboCombined '[SEAT-MAP LOCKED-SWAP]') '[SEAT-MAP LOCKED-SWAP]' $allComboCombined
+        Assert-True 'DEV-237 -All swap+drift: VERIFY DRIFT' (Test-TextContains $allComboCombined $anvilDrift) $anvilDrift $allComboCombined
+        Assert-True 'DEV-237 -All swap+drift: completed receipt' (Test-TextContains $allComboCombined $completedReceipt) $completedReceipt $allComboCombined
+        Assert-True 'DEV-237 -All swap+drift: no role-file wording' (-not (Test-TextContains $allComboCombined 'Role file')) 'absent Role file' $allComboCombined
     }
     finally {
-        if ($cogRoleHadFile -and $null -ne $cogRolePriorBytes) {
-            [System.IO.File]::WriteAllBytes($cogRoleFile, $cogRolePriorBytes)
-        }
-        if ($null -ne $anvilRoleComboBytes) {
-            [System.IO.File]::WriteAllBytes($anvilRoleFileForCombo, $anvilRoleComboBytes)
-        }
         [System.IO.File]::WriteAllText($livePath, $mapBeforeCombo, [System.Text.UTF8Encoding]::new($false))
         Write-MatchingWorkspaceVerifyJson -WsDir $wsDir -RepoRootHint $repoRoot -SeatMapPath $livePath
     }
@@ -1940,7 +1602,6 @@ try {
 
     # --- DEV-235 B5 & R1 A4: non-WhatIf no-billing probe write & field readback ---
     Copy-Item -LiteralPath $examplePath -Destination $livePath -Force
-    [void](Install-RoleFixtures -RepoRoot $repoRoot -ExamplePath $examplePath)
     $probeFakeWriter = Join-Path $isoHome 'probe-fake-write.ps1'
     $probeScriptLiteral = $probeScript.Replace("'", "''")
     $livePathLiteral = $livePath.Replace("'", "''")
@@ -2236,12 +1897,7 @@ try {
     $tw1MapJson = $tw1MapObj | ConvertTo-Json -Depth 12
     if (-not $tw1MapJson.EndsWith("`n")) { $tw1MapJson += "`n" }
     [System.IO.File]::WriteAllText($tw1MapPath, $tw1MapJson, [System.Text.UTF8Encoding]::new($false))
-    $tw1AnvilRoleDir = Join-Path $repoRoot '.maestri' 'roles' 'BA23D857-A79B-4128-B154-8D05C3D5DC31'
-    New-Item -ItemType Directory -Path $tw1AnvilRoleDir -Force | Out-Null
-    $tw1AnvilRoleFile = Join-Path $tw1AnvilRoleDir 'role.json'
-    [System.IO.File]::WriteAllText($tw1AnvilRoleFile, '{"prompt":"Model chain (best first): HEADCMD -> THENCMD -> FLOORCMD (FLOOR)."}' + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
     $tw1MapHashBefore = (Get-FileHash -LiteralPath $tw1MapPath -Algorithm SHA256).Hash
-    $tw1RoleTextBefore = [System.IO.File]::ReadAllText($tw1AnvilRoleFile)
     $tw1CharterPath = Join-Path $tw1WsDir 'notes' 'lamuflix-team-charter.md'
     $tw1RestartPath = Join-Path $tw1WsDir 'notes' 'team-restart.md'
     $tw1CharterBefore = [System.IO.File]::ReadAllText($tw1CharterPath)
@@ -2280,8 +1936,6 @@ try {
     Assert-True 'TW1 portal failure POST: exit 0' ($tw1PortalFailRes.ExitCode -eq 0) '0' ("exit=$($tw1PortalFailRes.ExitCode)`n$($tw1PortalFailRes.StdOut)`n$($tw1PortalFailRes.StdErr)")
     $tw1MapHashAfter = (Get-FileHash -LiteralPath $tw1MapPath -Algorithm SHA256).Hash
     Assert-True 'TW1 portal failure: seat-map hash unchanged' ($tw1MapHashBefore -eq $tw1MapHashAfter) $tw1MapHashBefore $tw1MapHashAfter
-    $tw1RoleTextAfter = [System.IO.File]::ReadAllText($tw1AnvilRoleFile)
-    Assert-True 'TW1 portal failure: role file text unchanged' ($tw1RoleTextBefore -eq $tw1RoleTextAfter) 'unchanged' 'changed'
     $tw1CharterAfter = [System.IO.File]::ReadAllText($tw1CharterPath)
     Assert-True 'TW1 portal failure: lamuflix-team-charter text unchanged' ($tw1CharterBefore -eq $tw1CharterAfter) 'unchanged' 'changed'
     $tw1RestartAfter = [System.IO.File]::ReadAllText($tw1RestartPath)
@@ -2464,16 +2118,6 @@ try {
     Write-NoteStubs -WsDir $dev234WsDir
     $dev234MapPath = Join-Path $dev234WsDir 'seat-map.json'
 
-    # B2: snapshot Anvil role bytes before isolated writes; restore in finally
-    $dev234AnvilRoleDir = Join-Path $repoRoot '.maestri' 'roles' 'BA23D857-A79B-4128-B154-8D05C3D5DC31'
-    $dev234AnvilRoleDirExisted = Test-Path -LiteralPath $dev234AnvilRoleDir
-    $dev234AnvilRoleFile = Join-Path $dev234AnvilRoleDir 'role.json'
-    $dev234AnvilRoleHadFile = Test-Path -LiteralPath $dev234AnvilRoleFile
-    if ($dev234AnvilRoleHadFile) {
-        $dev234AnvilRolePriorBytes = [System.IO.File]::ReadAllBytes($dev234AnvilRoleFile)
-    }
-    New-Item -ItemType Directory -Path $dev234AnvilRoleDir -Force | Out-Null
-    $anvilRoleFile = $dev234AnvilRoleFile
     $dev234InvalidTierLiteral = "Seat 'Anvil' measured/cleared rung 'floor' has invalid tier"
     $dev234NoFloorLiteral = "Seat 'Anvil' has no capable runtime floor"
 
@@ -2492,6 +2136,15 @@ try {
         [System.IO.File]::WriteAllText($MapPath, $json, [System.Text.UTF8Encoding]::new($false))
     }
 
+    # The runtime floor is observable through the LOCKED-SWAP receipt when the
+    # swap targets the floor rung: the receipt's launch is the resolved floor.
+    $receiptLaunch = {
+        param($Res)
+        $receipt = Read-SeatMapLockedSwapReceipt -Text ([string]$Res.StdOut)
+        if ($null -eq $receipt) { return '' }
+        return [string]$receipt.launch
+    }
+
     # Test A1: Lowest safe tier selection (tiers 1, 2, 4 -> anchors FLOOR to tier-1 launch)
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
     & $mutateSeat $dev234MapPath 'Anvil' {
@@ -2503,11 +2156,10 @@ try {
             [pscustomobject]@{ role = 'floor'; name = 'floor'; launch = 'FLOORCMD'; pool = 'GEMINI'; host = 'gemini'; model = 'm-floor'; tier = 2; evidence = 'measured' }
         )
     }
-    [System.IO.File]::WriteAllText($anvilRoleFile, '{"prompt":"Model chain (best first): HEADCMD -> THENCMD -> FLOORCMD (FLOOR)."}' + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-    $swapA1 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'second', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapA1 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'floor', '-SeatMapPath', $dev234MapPath)
     Assert-True 'A1 target swap: exit 0' ($swapA1.ExitCode -eq 0) '0' ([string]$swapA1.ExitCode)
-    $anvilRoleJson = Get-Content -LiteralPath $anvilRoleFile -Raw | ConvertFrom-Json
-    Assert-True 'A1 model chain FLOOR uses tier-1 launch' (Test-TextContains $anvilRoleJson.prompt '-> THENCMD (FLOOR).') '-> THENCMD (FLOOR).' $anvilRoleJson.prompt
+    $a1Launch = & $receiptLaunch $swapA1
+    Assert-True 'A1 runtime FLOOR uses tier-1 launch' ($a1Launch -eq 'THENCMD') 'THENCMD' $a1Launch
 
     # Test A2: Ignore ineligible evidence (probed, unmeasured, blank)
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
@@ -2520,11 +2172,10 @@ try {
             [pscustomobject]@{ role = 'floor'; name = 'floor'; launch = 'FLOORCMD'; pool = 'GEMINI'; host = 'gemini'; model = 'm-floor'; tier = 2; evidence = 'measured' }
         )
     }
-    [System.IO.File]::WriteAllText($anvilRoleFile, '{"prompt":"Model chain (best first): HEADCMD -> THENCMD -> FLOORCMD (FLOOR)."}' + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-    $swapA2 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapA2 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'floor', '-SeatMapPath', $dev234MapPath)
     Assert-True 'A2 target swap: exit 0' ($swapA2.ExitCode -eq 0) '0' ([string]$swapA2.ExitCode)
-    $anvilRoleJson2 = Get-Content -LiteralPath $anvilRoleFile -Raw | ConvertFrom-Json
-    Assert-True 'A2 model chain FLOOR ignores probed tier 1 and uses measured tier 2' (Test-TextContains $anvilRoleJson2.prompt '-> FLOORCMD (FLOOR).') '-> FLOORCMD (FLOOR).' $anvilRoleJson2.prompt
+    $a2Launch = & $receiptLaunch $swapA2
+    Assert-True 'A2 runtime FLOOR ignores probed tier 1 and uses measured tier 2' ($a2Launch -eq 'FLOORCMD') 'FLOORCMD' $a2Launch
 
     # TW3: Lowest-tier cleared evidence candidate selects CLEAREDCMD
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
@@ -2538,11 +2189,10 @@ try {
             [pscustomobject]@{ role = 'floor'; name = 'floor'; launch = 'FLOORCMD'; pool = 'AGY-G'; host = 'agy'; model = 'm-floor'; tier = 3; evidence = 'measured' }
         )
     }
-    [System.IO.File]::WriteAllText($anvilRoleFile, '{"prompt":"Model chain (best first): HEADCMD -> THENCMD -> FLOORCMD (FLOOR)."}' + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-    $swapTw3 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapTw3 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'floor', '-SeatMapPath', $dev234MapPath)
     Assert-True 'TW3 cleared evidence target swap: exit 0' ($swapTw3.ExitCode -eq 0) '0' ([string]$swapTw3.ExitCode)
-    $anvilRoleJsonTw3 = Get-Content -LiteralPath $anvilRoleFile -Raw | ConvertFrom-Json
-    Assert-True 'TW3 model chain FLOOR uses lowest-tier cleared launch' (Test-TextContains $anvilRoleJsonTw3.prompt '-> CLEAREDCMD (FLOOR).') '-> CLEAREDCMD (FLOOR).' $anvilRoleJsonTw3.prompt
+    $tw3Launch = & $receiptLaunch $swapTw3
+    Assert-True 'TW3 runtime FLOOR uses lowest-tier cleared launch' ($tw3Launch -eq 'CLEAREDCMD') 'CLEAREDCMD' $tw3Launch
 
     # Test A3: ZEN disallowed pool exclusion for non-exception seat (Anvil)
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
@@ -2555,11 +2205,10 @@ try {
             [pscustomobject]@{ role = 'floor'; name = 'floor'; launch = 'FLOORCMD'; pool = 'GEMINI'; host = 'gemini'; model = 'm-floor'; tier = 2; evidence = 'measured' }
         )
     }
-    [System.IO.File]::WriteAllText($anvilRoleFile, '{"prompt":"Model chain (best first): HEADCMD -> opencode -m m-zen -> FLOORCMD (FLOOR)."}' + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-    $swapA3 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapA3 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'floor', '-SeatMapPath', $dev234MapPath)
     Assert-True 'A3 target swap: exit 0' ($swapA3.ExitCode -eq 0) '0' ([string]$swapA3.ExitCode)
-    $anvilRoleJson3 = Get-Content -LiteralPath $anvilRoleFile -Raw | ConvertFrom-Json
-    Assert-True 'A3 model chain FLOOR excludes ZEN candidate and selects tier 2 GEMINI' (Test-TextContains $anvilRoleJson3.prompt '-> FLOORCMD (FLOOR).') '-> FLOORCMD (FLOOR).' $anvilRoleJson3.prompt
+    $a3Launch = & $receiptLaunch $swapA3
+    Assert-True 'A3 runtime FLOOR excludes ZEN candidate and selects tier 2 GEMINI' ($a3Launch -eq 'FLOORCMD') 'FLOORCMD' $a3Launch
 
     # Test A4: Head-pool exclusion & tie resolution order (floor, then, head)
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
@@ -2572,11 +2221,10 @@ try {
             [pscustomobject]@{ role = 'floor'; name = 'floor'; launch = 'FLOORCMD'; pool = 'GEMINI'; host = 'gemini'; model = 'm-floor'; tier = 2; evidence = 'measured' }
         )
     }
-    [System.IO.File]::WriteAllText($anvilRoleFile, '{"prompt":"Model chain (best first): HEADCMD -> THENCMD -> FLOORCMD (FLOOR)."}' + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-    $swapA4 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapA4 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'floor', '-SeatMapPath', $dev234MapPath)
     Assert-True 'A4 target swap: exit 0' ($swapA4.ExitCode -eq 0) '0' ([string]$swapA4.ExitCode)
-    $anvilRoleJson4 = Get-Content -LiteralPath $anvilRoleFile -Raw | ConvertFrom-Json
-    Assert-True 'A4 excludes head pool and breaks tie to floor rung' (Test-TextContains $anvilRoleJson4.prompt '-> FLOORCMD (FLOOR).') '-> FLOORCMD (FLOOR).' $anvilRoleJson4.prompt
+    $a4Launch = & $receiptLaunch $swapA4
+    Assert-True 'A4 excludes head pool and breaks tie to floor rung' ($a4Launch -eq 'FLOORCMD') 'FLOORCMD' $a4Launch
 
     # TW4: Same-tier then beats head and middle/alt
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
@@ -2589,12 +2237,10 @@ try {
             [pscustomobject]@{ role = 'floor'; name = 'floor'; launch = 'FLOORCMD'; pool = 'GEMINI'; host = 'gemini'; model = 'm-floor'; tier = 4; evidence = 'probed' }
         )
     }
-    [System.IO.File]::WriteAllText($anvilRoleFile, '{"prompt":"Model chain (best first): HEADCMD -> THENCMD -> FLOORCMD (FLOOR)."}' + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
-    $swapTw4 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapTw4 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'floor', '-SeatMapPath', $dev234MapPath)
     Assert-True 'TW4 same-tier second-vs-first target swap: exit 0' ($swapTw4.ExitCode -eq 0) '0' ([string]$swapTw4.ExitCode)
-    $anvilRoleJsonTw4 = Get-Content -LiteralPath $anvilRoleFile -Raw | ConvertFrom-Json
-    Assert-True 'TW4 second beats first at same tier' (Test-TextContains $anvilRoleJsonTw4.prompt '-> THENCMD (FLOOR).') '-> THENCMD (FLOOR).' $anvilRoleJsonTw4.prompt
-    Assert-True 'TW4 second beats third at same tier' (Test-TextContains $anvilRoleJsonTw4.prompt '-> THENCMD (FLOOR).') '-> THENCMD (FLOOR).' $anvilRoleJsonTw4.prompt
+    $tw4Launch = & $receiptLaunch $swapTw4
+    Assert-True 'TW4 second beats first and third at same tier' ($tw4Launch -eq 'THENCMD') 'THENCMD' $tw4Launch
 
     # TW2 / A5: Missing, blank, and non-numeric tier failures
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
@@ -2602,7 +2248,7 @@ try {
         param($s)
         $s.rungs[3].tier = 'invalid'
     }
-    $swapA5NonNumeric = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapA5NonNumeric = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SeatMapPath', $dev234MapPath)
     Assert-True 'A5 swap with non-numeric tier fails non-zero' ($swapA5NonNumeric.ExitCode -ne 0) 'non-zero' ([string]$swapA5NonNumeric.ExitCode)
     Assert-True 'TW2 non-numeric tier names seat and floor rung' (Test-TextContains $swapA5NonNumeric.StdErr $dev234InvalidTierLiteral) $dev234InvalidTierLiteral $swapA5NonNumeric.StdErr
 
@@ -2611,7 +2257,7 @@ try {
         param($s)
         $null = $s.rungs[3].PSObject.Properties.Remove('tier')
     }
-    $swapA5Missing = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapA5Missing = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SeatMapPath', $dev234MapPath)
     Assert-True 'TW2 missing tier fails non-zero' ($swapA5Missing.ExitCode -ne 0) 'non-zero' ([string]$swapA5Missing.ExitCode)
     Assert-True 'TW2 missing tier names seat and floor rung' (Test-TextContains $swapA5Missing.StdErr $dev234InvalidTierLiteral) $dev234InvalidTierLiteral $swapA5Missing.StdErr
 
@@ -2620,7 +2266,7 @@ try {
         param($s)
         $s.rungs[3].tier = ''
     }
-    $swapA5Blank = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapA5Blank = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'first', '-SeatMapPath', $dev234MapPath)
     Assert-True 'TW2 blank tier fails non-zero' ($swapA5Blank.ExitCode -ne 0) 'non-zero' ([string]$swapA5Blank.ExitCode)
     Assert-True 'TW2 blank tier names seat and floor rung' (Test-TextContains $swapA5Blank.StdErr $dev234InvalidTierLiteral) $dev234InvalidTierLiteral $swapA5Blank.StdErr
 
@@ -2636,7 +2282,7 @@ try {
         )
     }
     $mapHashMutated = (Get-FileHash -LiteralPath $dev234MapPath -Algorithm SHA256).Hash
-    $swapA6 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'second', '-SyncRoles', '-SeatMapPath', $dev234MapPath)
+    $swapA6 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'second', '-SeatMapPath', $dev234MapPath)
     Assert-True 'A6 swap with no safe floor fails non-zero' ($swapA6.ExitCode -ne 0) 'non-zero' ([string]$swapA6.ExitCode)
     Assert-True 'A6 failure names no capable runtime floor' (Test-TextContains $swapA6.StdErr $dev234NoFloorLiteral) $dev234NoFloorLiteral $swapA6.StdErr
     $mapHashAfterFail = (Get-FileHash -LiteralPath $dev234MapPath -Algorithm SHA256).Hash
@@ -2687,67 +2333,54 @@ try {
     $tw5All = Invoke-IsolatedPwsh -HomeDir $tw5Home -File $syncScript -ArgumentList @('-All', '-SeatMapPath', $tw5MapPath)
     Assert-True 'TW5 -All with unrelated incapable seat: exit 0' ($tw5All.ExitCode -eq 0) '0' ([string]$tw5All.ExitCode)
     Assert-True 'TW5 -All: no target runtime-floor error' (-not (Test-TextContains "$($tw5All.StdOut)`n$($tw5All.StdErr)" $dev234NoFloorLiteral)) "no $dev234NoFloorLiteral" "$($tw5All.StdOut)`n$($tw5All.StdErr)"
-    $tw5SyncRoles = Invoke-IsolatedPwsh -HomeDir $tw5Home -File $syncScript -ArgumentList @('-SyncRoles', '-SeatMapPath', $tw5MapPath)
-    Assert-True 'TW5 -SyncRoles with unrelated incapable seat: exit 0' ($tw5SyncRoles.ExitCode -eq 0) '0' ([string]$tw5SyncRoles.ExitCode)
-    Assert-True 'TW5 -SyncRoles: no target runtime-floor error' (-not (Test-TextContains "$($tw5SyncRoles.StdOut)`n$($tw5SyncRoles.StdErr)" $dev234NoFloorLiteral)) "no $dev234NoFloorLiteral" "$($tw5SyncRoles.StdOut)`n$($tw5SyncRoles.StdErr)"
     $tw5SyncNotes = Invoke-IsolatedPwsh -HomeDir $tw5Home -File $syncScript -ArgumentList @('-SyncNotes', '-SeatMapPath', $tw5MapPath)
     Assert-True 'TW5 -SyncNotes with unrelated incapable seat: exit 0' ($tw5SyncNotes.ExitCode -eq 0) '0' ([string]$tw5SyncNotes.ExitCode)
     Assert-True 'TW5 -SyncNotes: no target runtime-floor error' (-not (Test-TextContains "$($tw5SyncNotes.StdOut)`n$($tw5SyncNotes.StdErr)" $dev234NoFloorLiteral)) "no $dev234NoFloorLiteral" "$($tw5SyncNotes.StdOut)`n$($tw5SyncNotes.StdErr)"
+
+    # Role files are not a sync surface. Run a sandbox copy of the sync script
+    # (so its repo root is the sandbox) with sentinel role files where the old
+    # default RolesDir pointed: -All and a target swap must leave them
+    # byte-identical. Every path here is under the isolated HOME.
+    $roleSandboxRepo = Join-Path $isoHome 'role-sandbox-repo'
+    $roleSandboxLocal = Join-Path $roleSandboxRepo 'scripts' 'local'
+    New-Item -ItemType Directory -Path $roleSandboxLocal -Force | Out-Null
+    foreach ($src in @($syncScript, $helperPath, (Join-Path $PSScriptRoot '_json-property.ps1'), $examplePath)) {
+        Copy-Item -LiteralPath $src -Destination $roleSandboxLocal
+    }
+    $roleSandboxRolesDir = Join-Path $roleSandboxRepo '.maestri' 'roles'
+    foreach ($s in @((Get-Content -LiteralPath $examplePath -Raw | ConvertFrom-Json).seats)) {
+        $roleSandboxSeatDir = Join-Path $roleSandboxRolesDir ([string]$s.roleId)
+        New-Item -ItemType Directory -Path $roleSandboxSeatDir -Force | Out-Null
+        foreach ($roleFileName in @('role.json', 'AGENTS.md', 'CLAUDE.md')) {
+            [System.IO.File]::WriteAllText((Join-Path $roleSandboxSeatDir $roleFileName), "sentinel $($s.codename) $roleFileName Model chain (best first): A -> B (FLOOR).`n", [System.Text.UTF8Encoding]::new($false))
+        }
+    }
+    $roleSandboxBefore = Get-RecursiveFileSnapshot -Root $roleSandboxRolesDir
+    $roleSandboxHome = Join-Path $isoHome 'role-sandbox-home'
+    $roleSandboxWsDir = New-WorkspaceDir -HomeDir $roleSandboxHome -WorkspaceId ([guid]::NewGuid().ToString()) -RepoRootHint $roleSandboxRepo
+    Write-NoteStubs -WsDir $roleSandboxWsDir
+    $roleSandboxMapPath = Join-Path $roleSandboxWsDir 'seat-map.json'
+    Copy-Item -LiteralPath $examplePath -Destination $roleSandboxMapPath
+    Write-MatchingWorkspaceVerifyJson -WsDir $roleSandboxWsDir -RepoRootHint $roleSandboxRepo -SeatMapPath $roleSandboxMapPath
+    $roleSandboxSync = Join-Path $roleSandboxLocal 'Sync-SeatMap.ps1'
+    $roleSandboxAll = Invoke-IsolatedPwsh -HomeDir $roleSandboxHome -File $roleSandboxSync -ArgumentList @('-All', '-SeatMapPath', $roleSandboxMapPath)
+    Assert-True 'Role files untouched: -All exit 0' ($roleSandboxAll.ExitCode -eq 0) '0' ("exit=$($roleSandboxAll.ExitCode)`n$($roleSandboxAll.StdOut)`n$($roleSandboxAll.StdErr)")
+    $roleSandboxSwap = Invoke-IsolatedPwsh -HomeDir $roleSandboxHome -File $roleSandboxSync -ArgumentList @('-Seat', 'Anvil', '-Rung', 'second', '-SyncNotes', '-SeatMapPath', $roleSandboxMapPath)
+    Assert-True 'Role files untouched: swap exit 0' ($roleSandboxSwap.ExitCode -eq 0) '0' ("exit=$($roleSandboxSwap.ExitCode)`n$($roleSandboxSwap.StdOut)`n$($roleSandboxSwap.StdErr)")
+    Assert-True 'Role files untouched: swap emits LOCKED-SWAP receipt' ($null -ne (Read-SeatMapLockedSwapReceipt -Text ([string]$roleSandboxSwap.StdOut))) 'receipt' $roleSandboxSwap.StdOut
+    $roleSandboxAfter = Get-RecursiveFileSnapshot -Root $roleSandboxRolesDir
+    Assert-True 'Role files untouched: role.json/AGENTS.md/CLAUDE.md byte-identical after -All and swap' ($roleSandboxBefore -eq $roleSandboxAfter) $roleSandboxBefore $roleSandboxAfter
     }
 }
 finally {
-    foreach ($p in $worktreeRolesPreBytes.Keys) {
-        $dir = [System.IO.Path]::GetDirectoryName($p)
-        if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-        [System.IO.File]::WriteAllBytes($p, $worktreeRolesPreBytes[$p])
-    }
-    if (Test-Path -LiteralPath $worktreeRoles) {
-        $currentRoleFiles = @(Get-ChildItem -LiteralPath $worktreeRoles -Recurse -Force -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in @('role.json','AGENTS.md','CLAUDE.md') } | ForEach-Object { $_.FullName })
-        foreach ($cf in $currentRoleFiles) {
-            if ($worktreeRolesPreFiles -notcontains $cf) {
-                Remove-Item -LiteralPath $cf -Force -ErrorAction SilentlyContinue
-                $parent = [System.IO.Path]::GetDirectoryName($cf)
-                if (Test-Path -LiteralPath $parent) {
-                    $remaining = @(Get-ChildItem -LiteralPath $parent -Force -ErrorAction SilentlyContinue)
-                    if ($remaining.Count -eq 0) { Remove-Item -LiteralPath $parent -Force -ErrorAction SilentlyContinue }
-                }
-            }
-        }
-    }
-    if ($null -ne $dev234AnvilRoleFile) {
-        if ($dev234AnvilRoleHadFile) {
-            [System.IO.File]::WriteAllBytes($dev234AnvilRoleFile, $dev234AnvilRolePriorBytes)
-        }
-        elseif (Test-Path -LiteralPath $dev234AnvilRoleFile) {
-            Remove-Item -LiteralPath $dev234AnvilRoleFile -Force -ErrorAction SilentlyContinue
-            if (-not $dev234AnvilRoleDirExisted -and (Test-Path -LiteralPath $dev234AnvilRoleDir)) {
-                $dev234RoleDirRemaining = @(Get-ChildItem -LiteralPath $dev234AnvilRoleDir -Force -ErrorAction SilentlyContinue)
-                if ($dev234RoleDirRemaining.Count -eq 0) {
-                    Remove-Item -LiteralPath $dev234AnvilRoleDir -Force -ErrorAction SilentlyContinue
-                }
-            }
-        }
-    }
     if (Test-Path -LiteralPath $isoHome) {
         Remove-Item -LiteralPath $isoHome -Recurse -Force -ErrorAction SilentlyContinue
-    }
-    if (-not $hadWorktreeMaestri) {
-        if (Test-Path -LiteralPath $worktreeMaestri) {
-            Remove-Item -LiteralPath $worktreeMaestri -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-    elseif (-not $hadWorktreeRoles) {
-        if (Test-Path -LiteralPath $worktreeRoles) {
-            Remove-Item -LiteralPath $worktreeRoles -Recurse -Force -ErrorAction SilentlyContinue
-        }
     }
 }
 
 Assert-True 'cleanup: isolated HOME removed' (-not (Test-Path -LiteralPath $isoHome)) 'removed' $isoHome
-if ($hadWorktreeRoles) {
-    $worktreeRolesPostSnapshot = Get-TargetedMaestriSnapshot -Root $worktreeMaestri
-    Assert-True 'B1 worktree roles byte-identical after LockOnly/full' ($worktreeRolesPreSnapshot -eq $worktreeRolesPostSnapshot) $worktreeRolesPreSnapshot $worktreeRolesPostSnapshot
-}
+$worktreeMaestriPostSnapshot = Get-TargetedMaestriSnapshot -Root $worktreeMaestri
+Assert-True 'B1 repo .maestri (incl. role files) byte-identical after LockOnly/full' ($worktreeMaestriPreSnapshot -eq $worktreeMaestriPostSnapshot) $worktreeMaestriPreSnapshot $worktreeMaestriPostSnapshot
 
 $realSwapExistsAfter = Test-Path -LiteralPath $realSwapLog
 if ($realSwapExistsBefore) {

@@ -39,6 +39,7 @@
                                                             "JETBRAINS":  3,
                                                             "OPENROUTER":  4,
                                                             "DEEPSEEK":  4,
+                                                            "OPENCODE-GO":  2,
                                                             "ZEN":  0
                                                         },
                                           "modelTiers":  [
