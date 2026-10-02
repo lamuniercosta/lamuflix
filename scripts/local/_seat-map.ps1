@@ -211,9 +211,9 @@ function Get-SeatMapViolations {
         $Map
     )
 
-    $knownHosts = @('claude', 'cursor', 'agy', 'junie', 'gemini', 'opencode', 'codex')
+    $knownHosts = @('claude', 'cursor', 'agy', 'junie', 'gemini', 'opencode', 'codex', 'muse')
     $validEvidence = @('measured', 'cleared', 'probed', 'unmeasured')
-    $validPools = @('CLAUDE', 'CODEX', 'CURSOR', 'AGY-G', 'AGY-C', 'JETBRAINS', 'GEMINI', 'OPENROUTER', 'DEEPSEEK', 'ZEN')
+    $validPools = @('CLAUDE', 'CODEX', 'CURSOR', 'AGY-G', 'AGY-C', 'JETBRAINS', 'GEMINI', 'OPENROUTER', 'DEEPSEEK', 'ZEN', 'MUSE', 'OPENCODE-GO')
     $validCostSources = @('actual', 'estimated', 'unknown')
     $validRoles = @('head', 'floor')
 
@@ -1231,32 +1231,6 @@ function Replace-LiteralRegex {
     # MatchEvaluator returns the replacement as a literal, so '$' in launch
     # lines is not interpreted as a .NET substitution group.
     return [regex]::Replace($InputText, $Pattern, { param($m) $Replacement })
-}
-
-function Get-ModelChainLine {
-    param(
-        [Parameter(Mandatory = $true)]
-        $Seat,
-        [string]$FloorLaunch
-    )
-    $list = Get-SeatMapRungList -Seat $Seat
-    if ($null -eq $list -or @($list).Count -eq 0) {
-        return 'Model chain (best first): (FLOOR).'
-    }
-    $parts = @(
-        foreach ($cell in @($list)) {
-            if ($null -ne $cell -and (Test-JsonProperty -Object $cell -Name 'launch')) {
-                [string]$cell.launch
-            }
-            else {
-                ''
-            }
-        }
-    )
-    if (-not [string]::IsNullOrWhiteSpace($FloorLaunch) -and $parts.Count -gt 0) {
-        $parts[$parts.Count - 1] = $FloorLaunch
-    }
-    return "Model chain (best first): $($parts -join ' -> ') (FLOOR)."
 }
 
 function Write-SeatMapSwapLog {

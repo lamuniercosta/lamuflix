@@ -226,6 +226,7 @@ function Resolve-ProbePool {
         'opencode' {
             if ($ModelName -like 'openrouter/*') { return 'OPENROUTER' }
             if ($ModelName -like 'deepseek/*') { return 'DEEPSEEK' }
+            if ($ModelName -like 'opencode-go/*') { return 'OPENCODE-GO' }
             return 'ZEN'
         }
         'codex' { return 'CODEX' }
