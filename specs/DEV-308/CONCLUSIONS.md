@@ -109,3 +109,55 @@ Patron verdict: ACCEPT the inherited WAF harness, same-project move-only extract
 - Basis: DEV-308 AC1 requires host startup and AC2 requires the host service provider. Constitution:288 places API integration coverage in LamuFlix.IntegrationTests; recon-DEV-308:34-36 and DEV-307 brief:58,62/tasks T016,T020A identify inherited references and factory prerequisites. Reuse these after Q1; no new package pin, project, explicit Program declaration, or csproj edit is authorized by this ruling. Conditional extraction from the actual DEV-307 health test into a same-project shared factory is approved under PRODUCT.md section 5 care item 6, move-only with unchanged behavior, and must be named in the pickup receipt and touched-file list before edits.
 - No containers are needed for service-graph resolution or /health/live: neither tests query translation, serialization against the driver, broker delivery, or dependency readiness. Keep real production handler/adapter registrations and inherited health stubs; startup validation stays active. Reuse transient test-owned configuration, with no real credential, connection string, or machine path committed. Microsoft Learn integration-test docs (queried 2026-10-02): https://learn.microsoft.com/aspnet/core/test/integration-tests?view=aspnetcore-10.0#customize-the-%60webapplicationfactory%60-with-test-configurations distinguish early host configuration from late ConfigureAppConfiguration; ensure required composition-time values are available before production registration reads them, using .NET 10 APIs.
 - ValidateOnBuild/ValidateScopes may expose defects outside the initial file list. If one prevents required startup or manifest resolution, AC1/Scope 1 forces the minimum fix: bring its file into this ticket with the cited failure, rather than narrowing validation or marking a failing gate green. Unrelated non-blocking defects follow the existing follow-up policy. No test should pretend container-free host startup proves live DB/broker behavior. Report any startup/disposal hang without extending timeouts to conceal it. No owner checkbox is required.
+
+---
+
+# DEV-308 grill Q5/12 - Endpoint-group convention without routes (Keel)
+
+## Question
+What exactly does the "endpoint-group mapping convention" half of scope 4 deliver when DEV-308 owns no routes? Which files, which method signatures, which prefixes, and what proves it?
+
+## Recommendation
+1. **One composition entry point.** New `src/LamuFlix.Api/Endpoints/ApiEndpoints.cs`: `internal static class ApiEndpoints` with `MapApiEndpoints(this IEndpointRouteBuilder app)`. It creates the single root group `app.MapGroup("/api")` and passes that group to each feature mapper in turn. `Program.cs` calls `app.MapDefaultEndpoints()` (inherited from DEV-307, Q1) and then `app.MapApiEndpoints()`, after `UseCors(DevSpa)` per the Q3 ruling. Health stays outside `/api` because DEV-307 owns `/health/*`.
+2. **Exactly the two feature mappers the ticket names, and no others.** `Endpoints/LibraryEndpoints.cs` holds `internal static class LibraryEndpoints` with `MapLibraryEndpoints(this RouteGroupBuilder api)`. `Endpoints/ImportEndpoints.cs` holds `internal static class ImportEndpoints` with `MapImportEndpoints(this RouteGroupBuilder api)`. Each returns `api` and maps **zero routes and no sub-prefix**. The sub-prefix (`/movies`, the import path) and every route, status code and DTO belong to the owning ticket: DEV-309 names `Endpoints/LibraryEndpoints.cs` itself (recon-DEV-308:30), and DEV-310 owns the import surface. The "..." features (enrichment, watchlist, playback, genres, people) are added by DEV-310 as new `MapXxxEndpoints` files following the same shape. DEV-308 does not pre-create them, which is speculative scope.
+3. **The convention is written down once,** as a short XML doc comment on `ApiEndpoints` and nowhere else: one static class per feature in `Endpoints/`, a `MapXxxEndpoints(this RouteGroupBuilder api)` extension, a call added to `MapApiEndpoints`, no versioning in P1. This restates constitution.md:463, which already decides the convention (recon-DEV-308:29), so DEV-308 implements a rule rather than inventing one.
+4. **Visibility is `internal`.** Api is an executable and nothing outside it calls these methods. The tests reach them through the host, not by calling them, so no `InternalsVisibleTo` is needed.
+5. **The `/api` prefix is fixed here.** Basis: the DEV-309 ticket title, "GET /api/movies and GET /api/movies/{id}". It is the only route-shape fact DEV-308 asserts, and it is ticket text, so care item 4 is not triggered. No OpenAPI registration: `AddOpenApi` is not in this ticket. The DEV-307 N1 OpenAPI half stays carried as it is, and `web/src/api/openapi.json` stays untouched. Nothing feeds the contract chain until DEV-309 adds a DTO.
+6. **`Endpoints/.gitkeep` is deleted** once real files occupy the folder. It is a placeholder in a folder the ticket names (recon-DEV-308:9), and removing it is the minimum tidy-up. I ask you to rule it under care item 6, or to keep it if you prefer zero unnamed-file deletions.
+7. **Proof, in the Q4 host test class.** After the host starts, read `EndpointDataSource` from `factory.Services`. Assert that the route set equals exactly the DEV-307 health routes, so no endpoint carries an `/api` prefix and nothing else is mapped. A separate pure test is not worth its cost: an empty group cannot be observed through HTTP, and the route-table assertion is what stops DEV-308 from smuggling in a route. DEV-309 and DEV-310 will update this one assertion when they add routes, which is intended friction. The test's comment says so.
+
+## Basis
+- Ticket scope 4: the convention is named and extended by DEV-309/310. Ticket overview: DEV-309 and DEV-310 own the endpoints.
+- constitution.md:463: per-feature `MapXxxEndpoints`, no versioning.
+- recon-DEV-308:9 (empty `Endpoints/` with `.gitkeep`), :29-30 (convention decided; DEV-309 names `LibraryEndpoints.cs`), :43 (this ticket's route table is empty).
+- Q1 (`MapDefaultEndpoints` consumed once), Q3 (`DevSpa` applied before endpoint execution), Q4 (host harness).
+
+## Rationale
+- **Convention, not routes.** Shipping the root group, the aggregator and the two ticket-named mappers gives DEV-309 and DEV-310 a fixed place to put routes with no edit to `Program.cs`. Pre-creating the "..." features or sub-prefixes would freeze route shape that the endpoint tickets own (care item 4).
+- **Executable proof.** The exact-route-table assertion turns "no routes of its own" into a checked fact.
+
+## Cost
+- Two near-empty mapper methods exist until DEV-309 and DEV-310 fill them. ReSharper may flag the returned value as unused, or the class as trivially small. If InspectCode raises a WARNING+ finding, it is fixed by shape (for example `MapApiEndpoints` uses the return), never by suppression. I expect the Roslyn gates to stay clean, because the parameter is used.
+- `/api` is committed one ticket early, from the DEV-309 title.
+- The route-table assertion needs a one-line update in each endpoint ticket.
+
+## Alternatives rejected
+- Mapping per-feature sub-prefixes (`/api/movies`, ...) now: decides DEV-309/310 route shape.
+- Mapping only the `/api` group with no named mappers: under-delivers the ticket parenthetical (`MapLibraryEndpoints`, `MapImportEndpoints`).
+- Public extension methods: no external caller, and they widen the public surface for nothing.
+- `MapGroup` per feature directly in `Program.cs`: spreads composition, and DEV-309/310 would then edit `Program.cs`.
+
+## Asks of Patron in this ruling
+- (a) Accept the file set, the signatures, the `/api` root and the zero-route mappers.
+- (b) Rule the deletion of `Endpoints/.gitkeep` under care item 6.
+- (c) Accept the exact-route-table proof and its intended friction for DEV-309/310.
+
+## Note on pending recon
+The Conductor filed recon-DEV-308-handlers while Q5 was being written: 12 concrete handlers, not 14 (the other 2 files are the pipeline interfaces); G0-G3 findings. Q5 does not depend on it. I will use it in Q6 to freeze the exact Api handler manifest, including G2 (IMediaLibraryScanner has no DI registration). Under the Q4 ruling, G2 is a boot blocker for any manifest entry that needs that scanner. Note: the stored note body appears cut off at line 44 (mid-sentence in the DEV-309 ownership section, and the G0-G3 detail is missing), so Q6 may first need the rest of it re-filed.
+
+
+Patron verdict: ACCEPT internal /api aggregation and the two ticket-named zero-route feature mappers; CHANGE explanatory comments and the health-only exact-route assumption; delete Endpoints/.gitkeep when populated.
+
+- Basis: DEV-308 Scope 4 names MapLibraryEndpoints/MapImportEndpoints and assigns business endpoints to DEV-309/310. Constitution:463 fixes per-feature mapping and no P1 versioning; DEV-309's named /api/movies routes justify the /api root. Approve ApiEndpoints.cs, LibraryEndpoints.cs and ImportEndpoints.cs in the existing Endpoints directory, with internal extensions using the shared RouteGroupBuilder and no sub-prefix/route/status/DTO declaration. No new layer, public assembly contract, glossary term or ADR is introduced.
+- Project non-negotiables forbid explanatory comments, including the proposed XML convention comment and test explanation. Record the convention in brief.md; method/class names express it in code. Endpoints/.gitkeep is a disposable placeholder and can be deleted once real files occupy the ticket-named folder. Preserve inherited OpenAPI wiring/contract work without redesigning DEV-307's accepted scope or its existing owner decisions.
+- Host proof checks both required /health routes and absence of business /api endpoints; do not assume all inherited DEV-307 routes are health routes, since prerequisite pickup may include approved docs routes. Record the inherited route surface at pickup and preserve it. This proof belongs in the existing host coverage, not a new standalone mirror test for empty methods. Follow-up endpoint tickets extend the route surface; no owner checkbox is required.
