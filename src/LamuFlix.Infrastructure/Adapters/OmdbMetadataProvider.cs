@@ -43,6 +43,7 @@ public sealed partial class OmdbMetadataProvider(
     {
         ArgumentNullException.ThrowIfNull(lookup);
 
+        // ReSharper disable once ExplicitCallerInfoArgument - the span name is a stable telemetry contract, not the caller method name.
         using var activity = Source.StartActivity(TelemetryConstants.MetadataLookup, ActivityKind.Client);
         var result = await ExecuteAsync(lookup, ct);
         Record(activity, result);

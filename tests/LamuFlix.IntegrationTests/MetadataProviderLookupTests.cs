@@ -86,10 +86,10 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         var metadata = Metadata(result);
         metadata.Title.ShouldBe("Blade Runner");
         metadata.Synopsis.ShouldBe("A blade runner must pursue and terminate four replicants.");
-        metadata.ReleaseYear!.Value.ShouldBe(1982);
-        metadata.Runtime!.Minutes.ShouldBe(117);
-        metadata.ImdbRating!.Value.ShouldBe(8.1m);
-        metadata.ImdbId!.Value.ShouldBe("tt0083658");
+        metadata.ReleaseYear.ShouldNotBeNull().Value.ShouldBe(1982);
+        metadata.Runtime.ShouldNotBeNull().Minutes.ShouldBe(117);
+        metadata.ImdbRating.ShouldNotBeNull().Value.ShouldBe(8.1m);
+        metadata.ImdbId.ShouldNotBeNull().Value.ShouldBe("tt0083658");
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         var result = await FindAsync(services, "The Social Network", TestContext.Current.CancellationToken);
 
         // assert
-        Metadata(result).ReleaseYear!.Value.ShouldBe(2010);
+        Metadata(result).ReleaseYear.ShouldNotBeNull().Value.ShouldBe(2010);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
             var result = await FindAsync(services, "Blade Runner", TestContext.Current.CancellationToken);
 
             // assert
-            Metadata(result).ImdbRating!.Value.ShouldBe(8.1m);
+            Metadata(result).ImdbRating.ShouldNotBeNull().Value.ShouldBe(8.1m);
         }
         finally
         {
@@ -307,10 +307,11 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         StubBody(200, FullBody);
         var services = probe.BuildServices();
         using var cancelled = new CancellationTokenSource();
-        cancelled.Cancel();
+        await cancelled.CancelAsync();
+        var token = cancelled.Token;
 
         // act
-        var act = () => FindAsync(services, "Solaris", cancelled.Token);
+        var act = () => FindAsync(services, "Solaris", token);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
@@ -531,11 +532,14 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
             listener = new ActivityListener
             {
                 ShouldListenTo = source => Array.IndexOf(sourceNames, source.Name) >= 0,
-                Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+                Sample = AlwaysSample,
                 ActivityStopped = activity => activities.Add(activity),
             };
             ActivitySource.AddActivityListener(listener);
         }
+
+        private static ActivitySamplingResult AlwaysSample(ref ActivityCreationOptions<ActivityContext> _) =>
+            ActivitySamplingResult.AllData;
 
         public IReadOnlyList<Activity> Activities
         {

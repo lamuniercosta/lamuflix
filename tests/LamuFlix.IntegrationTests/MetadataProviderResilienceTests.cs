@@ -189,9 +189,10 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
         StubStatus(500, RetryAfterDelay);
         var services = probe.BuildServices();
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        var token = cancellation.Token;
 
         // act
-        var act = () => FindAsync(services, cancellation.Token);
+        var act = () => FindAsync(services, token);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);

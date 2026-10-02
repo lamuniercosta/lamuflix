@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
-using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.RabbitMq;
@@ -137,7 +136,7 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
     }
 
     [Fact]
-    public async Task AddMetadataProvider_RegistersTheReadyTaggedHealthCheck()
+    public void AddMetadataProvider_RegistersTheReadyTaggedHealthCheck()
     {
         // arrange
         var services = probe.BuildServices();
@@ -303,8 +302,8 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
                 TestContext.Current.CancellationToken))
             .Entries[MetadataProviderProbe.CheckName];
 
-    private static async Task<MetadataLookupResult> FindAsync(IServiceProvider services) =>
-        await services
+    private static Task FindAsync(IServiceProvider services) =>
+        services
             .GetRequiredService<IMetadataProvider>()
             .FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
 
