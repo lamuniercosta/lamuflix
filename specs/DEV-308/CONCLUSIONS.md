@@ -295,3 +295,94 @@ Patron verdict: ACCEPT the file envelope and M review recommendation pending the
 - Basis: DEV-308 Scope 1-4/AC1-AC3 and Q1-Q5/Q7 justify Program.cs, HandlerRegistration.cs, the three Endpoints files, disposable .gitkeep removal, two integration test files and only the conditional inherited-factory extraction/Q6 forced DI fix. Do not impose an arbitrary one-file maximum on a required blocker fix; freeze its actual minimum file set from Q6 evidence. No speculative package/project/config/route/schema/web change is approved. Rigger confirms the live size tag; if absent, record size:M; an existing non-M tag comes back for adjudication rather than silently changing it.
 - Required applicable gates must pass. Exit 1 or Could not run blocks; exit 2 scope-empty SKIPPED blocks an applicable gate, and only an actual disabled gate is non-blocking SKIP. Never call all gates green merely because failures were reported. Analyzer/complexity/InspectCode scope and thresholds come from harness.yml and each script's Help; do not invent -Threshold or hardcode thresholds. Include property/vulnerability/format/full test checks and the stage-appropriate mutation gate; every surviving mutant is a missing test, not a reason to waive it. Property tests may be documented as opt-out for composition with no domain invariant, according to the pipeline, but otherwise their gate remains required. Compare actual failures/coverage at pickup, not a rigid test-count rule forbidding legitimate replacement of obsolete tests.
 - Standing DEV-307 CONCLUSIONS closing terms and task-pipeline section 2.2 remain in force: Critical/High concrete failures block; two review rounds, at most two fix commits per round. Frozen scope is DEV-308's complete ticket deliverables and the minimum wiring/verification required by them; anything else is a follow-up issue, not a finding in this round. A deferred blocking failure does not become clean. Pickup recon records merged DEV-307 code, factory/references and inherited route surface; Keel adjudicates meaningful drift and invokes analysis only at its proper pipeline stage/within the existing cap. No owner checkbox is required by Q8.
+
+---
+
+# DEV-308 grill Q6/12 - Frozen Api handler manifest and minimum adapter bindings (Keel)
+
+## Question
+Which handler rows go into `HandlerRegistration.cs`? Which existing adapter bindings must DEV-308 add so that every row resolves under ValidateOnBuild + ValidateScopes (Q4)? And what does DEV-308 leave alone?
+
+## Recommendation
+
+### A. Manifest: exactly seven rows, one explicit AddHandler each (Q2)
+| # | Handler | Contract | Request -> Response | Endpoint owner |
+|---|---|---|---|---|
+| 5 | RequestEnrichmentCommandHandler | ICommandHandler | RequestEnrichmentCommand -> MovieId | DEV-310 POST /api/movies/{id}/enrichment |
+| 7 | ImportMovieFolderCommandHandler | ICommandHandler | ImportMovieFolderCommand -> MovieId | DEV-310 POST /api/movies/import |
+| 8 | BrowseMoviesQueryHandler | IQueryHandler | BrowseMoviesQuery -> PagedResult<MovieSummary> | DEV-309 GET /api/movies |
+| 9 | GetMovieDetailsQueryHandler | IQueryHandler | GetMovieDetailsQuery -> MovieDetails | DEV-309 GET /api/movies/{id} |
+| 10 | PlayMovieCommandHandler | ICommandHandler | PlayMovieCommand -> Unit | DEV-310 POST /api/movies/{id}/play |
+| 11 | AddToWatchlistCommandHandler | ICommandHandler | AddToWatchlistCommand -> Unit | DEV-310 POST /api/movies/{id}/watchlist |
+| 12 | RemoveFromWatchlistCommandHandler | ICommandHandler | RemoveFromWatchlistCommand -> Unit | DEV-310 DELETE /api/movies/{id}/watchlist |
+
+Source: recon-DEV-308-handlers sections 1 and 5. The ticket mapping is verbatim from the DEV-309 and DEV-310 text.
+
+- **Excluded.** The four enrichment-internal rows (#1 Apply, #2 Claim, #4 RecordFailure, #6 RequeueStranded) are excluded: no API ticket names them and no production caller exists (section 4).
+- **#3 ProcessEnrichment** stays exactly as inherited: the conditional registration at RabbitMqServiceCollectionExtensions.cs:42-46 and its validator inside the same block (G0/G1). DEV-308 adds no duplicate line. The Api still resolves #3 through that registration as long as the adapter call order in Program.cs is preserved. AC2 does not assert on #3, because it is not a DEV-308 manifest row. Its inherited registration has its own tests (RabbitMqServiceCollectionExtensionsTests).
+- **Facets.** GET /api/genres and GET /api/people have no handler today (G3). They stay with DEV-310. DEV-308 adds no row, port or placeholder for them.
+
+### B. Minimum existing-adapter bindings (G2), no new type of any kind
+1. **IMovieCatalog (rows 8, 9, 10).** Call the existing `AddMovieCatalog` (Persistence/MovieCatalogServiceCollectionExtensions.cs:8-12) from Program.cs, immediately after `AddLamuFlixPersistence`, because the catalog depends on what persistence registers. Program.cs is already a named file, so no unnamed file is touched.
+2. **IMediaLibraryScanner (row 7).** Register the existing `DirectoryMediaLibraryScanner` (Infrastructure/FileSystem/DirectoryMediaLibraryScanner.cs:14) as `IMediaLibraryScanner`. Where the line goes depends on the facts in section D:
+   - If its constructor needs only framework services or already-registered options (for example `IOptions<LibraryOptions>`, `ILogger<>`, `TimeProvider`), it is one line in the internal `HandlerRegistration.cs`, placed before the AddHandler rows. It is the Api-composition prerequisite for row 7, so no public extension is added for a single binding.
+   - If its constructor needs Infrastructure-internal types not visible to Api, or the type itself is `internal`, the binding goes into the established Infrastructure extension pattern next to it (an existing `Add...` method if one already covers FileSystem). Only if none exists does a minimal `AddLamuFlixFileSystem`-style extension in Infrastructure get added, called from Program.cs. The Q4 rule (AC-forced minimum fix, even in an unnamed file) authorises it, and the brief records the exact file.
+   - **Lifetime.** Match the lifetime the scanner's dependencies allow, so ValidateScopes passes. Choose singleton if it is stateless with singleton-safe dependencies, otherwise scoped. Never transient-by-default without a reason. The choice is frozen from the constructor fact, not guessed.
+3. **No other binding is added on speculation.** Rows 5, 7, 11 and 12 need `IMovieRepository` and `IEnrichmentQueue`, and row 10 needs `IMediaPlayerLauncher`. These are expected to come from the existing AddLamuFlixPersistence, AddLamuFlixRabbitMq and AddLamuFlixPlayback calls, but that is unconfirmed (section D). Any gap found there falls under the Q4 boot-blocker rule: minimum fix, cited to AC2, files frozen in the brief.
+
+### C. Ordering and claims
+- **Program.cs order:**
+  1. AddServiceDefaults (inherited)
+  2. AddLamuFlixPersistence
+  3. AddMovieCatalog (new)
+  4. AddMetadataProvider
+  5. AddLamuFlixRabbitMq
+  6. AddLamuFlixPlayback
+  7. the HandlerRegistration extension (new; scanner binding + 7 rows)
+  8. AddCors(DevSpa) (new)
+  9. AddProblemDetails / AddExceptionHandler (inherited)
+
+  The inherited relative order of every existing call is unchanged, so the conditional #3 branch stays active exactly as today. New calls are only inserted.
+- **AC2 claim limit.** AC2 proves that each of the seven rows resolves through Tracing -> Logging -> Validation. The validator sequence is optional today, and none of the seven rows has a registered validator (only ProcessEnrichmentCommandValidator exists). So no test, spec line or PR text may claim input-validation coverage for these rows. No constitution exception is needed: DEV-308 adds no input endpoint, and validation stays mandatory for the DEV-309/310 endpoints.
+
+### D. Facts still needed before the brief closes (from recon-DEV-308-handlers-2, which Patron can read and Keel cannot)
+- F1. The DirectoryMediaLibraryScanner constructor dependencies, its visibility (public or internal), and its file:line.
+- F2. Whether IMediaPlayerLauncher is registered unconditionally by AddLamuFlixPlayback, or only when `Features:LocalPlay` is on (PlaybackServiceCollectionExtensions.cs:19). If it is conditional, row 10 fails ValidateOnBuild in a LocalPlay-off host. That would be a care item 5 (LocalPlay) ruling, not a DEV-308 guess. My recommendation for that case: the Q4 factory sets `Features:LocalPlay` explicitly, and the brief records which value AC2 runs under. DEV-308 does not change the LocalPlay gate.
+- F3. Whether IEnrichmentQueue and IMovieRepository are registered unconditionally, or (like #3) only inside the RabbitMq IsConsumerActive block. If only inside it, rows 5 and 7 have the same exposure as F2.
+- F4. The lifetimes of IMovieCatalog, IMovieRepository and IEnrichmentQueue, to freeze the scanner lifetime and confirm that ValidateScopes passes.
+
+If recon-DEV-308-handlers-2 already answers F1-F4, please quote the lines in your ruling and I will freeze them into brief.md. Any fact it lacks is routed once as needs recon to Bernstein; I will not guess it.
+
+## Basis
+- recon-DEV-308-handlers sections 1, 4 and 5 (inventory, constructors, callers, verbatim ticket text).
+- Patron G2 evidence summary (recon-DEV-308-handlers-2:48-70): the scanner implementation exists and is unregistered; AddMovieCatalog exists and is uncalled.
+- G0/G1 (inherited #3 descriptor and validator), G3 (facets have no handler).
+- Rulings Q2 (explicit rows, internal HandlerRegistration.cs, Worker-only registrations untouched), Q4 (ValidateOnBuild/ValidateScopes; an AC-forced minimum fix even in an unnamed file), Q7 (no 422 or validation claim), Q8 (no file cap on an AC-forced DI fix).
+- Care items 2 and 6: no new port, adapter or validator.
+
+## Rationale
+Seven rows are exactly the handlers the two endpoint tickets dispatch, so DEV-309/310 only map routes. The two bindings wire existing adapters that already have implementations, which is composition rather than new behaviour. Without them, AC2 cannot pass under ValidateOnBuild for rows 7-10. Keeping the binding in the internal registration file avoids a public extension that exists only for one line.
+
+## Cost
+- The scanner placement and lifetime stay conditional until F1 and F4 arrive.
+- F2 and F3 may surface a LocalPlay or consumer-gate interaction. That needs one more Patron ruling, but no owner checkbox: it is a test-configuration choice, not a gate change.
+- Excluding rows 1, 2, 4 and 6 means a future API need for them is a new ticket.
+
+## Alternatives rejected
+- **Registering all 12 rows:** registers four internal handlers with no caller, and duplicates #3.
+- **Excluding row 7 to dodge G2:** under-delivers DEV-310's prerequisite and the "every handler resolves" intent of scope 1.
+- **A new IMediaLibraryScanner adapter or a stub:** the implementation already exists; care item 2.
+- **Narrowing ValidateOnBuild to skip the scanner:** forbidden by the Q4 ruling.
+
+## Asks of Patron in this ruling
+- (a) Accept the seven rows and the four exclusions.
+- (b) Accept the AddMovieCatalog placement and the scanner-binding decision rule.
+- (c) Supply F1-F4 from recon-DEV-308-handlers-2, or authorise one needs-recon request.
+- (d) Rule the F2/F3 contingency in advance: set the test config explicitly and do not change the gates.
+
+
+Patron verdict: ACCEPT the exact seven-row manifest, exclusions, existing AddMovieCatalog call and preserving inherited order; final scanner binding recipe remains needs recon, not an owner checkbox.
+
+- Basis: repaired recon-DEV-308-handlers:52-56 maps DEV-309/310 to RequestEnrichment, ImportMovieFolder, BrowseMovies, GetMovieDetails, PlayMovie, AddToWatchlist and RemoveFromWatchlist; part2:78-87 identifies the four unused enrichment-internal handlers. Exclude those four and do not duplicate the inherited ProcessEnrichment row/validator (part2:24-36). Preserve persistence -> metadata -> RabbitMq order, which makes the existing consumer registration active. Facets belong to DEV-310; no placeholder query/port/handler is added here (part2:72-76).
+- DEV-308 Scope 2 authorizes wiring existing Infrastructure adapters. Call AddMovieCatalog immediately after AddLamuFlixPersistence: part2:48-64 proves this existing scoped adapter and the missing scanner binding cause four Api-facing rows to fail resolution. Approve registration of existing DirectoryMediaLibraryScanner rather than a new adapter or test stub. The exact constructor dependencies and minimum binding/file recipe remain unverified; one bounded Wisp request was sent through Bernstein for F1-F4. Repository/catalog are scoped (part2:26,50); queue registration precedes the :40 conditional (part2:42). No speculative API/helper/dependency change or test-configuration-only workaround is approved while those facts remain incomplete.
+- Host proof must retain LocalPlay off and resolve the play handler without executing media; any unconditional-resolution defect gets the Q4 minimum forced fix, rather than enabling execution merely to hide it. Preserve the gate and single mapper. The seven ValidationDecorators have an empty validator sequence today (part2:10-18); graph resolution is not evidence that invalid input was rejected. Future endpoint validation remains mandatory under constitution V. Complete the binding recipe before declaring shared understanding or writing a settled brief.
