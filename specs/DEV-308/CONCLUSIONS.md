@@ -161,3 +161,57 @@ Patron verdict: ACCEPT internal /api aggregation and the two ticket-named zero-r
 - Basis: DEV-308 Scope 4 names MapLibraryEndpoints/MapImportEndpoints and assigns business endpoints to DEV-309/310. Constitution:463 fixes per-feature mapping and no P1 versioning; DEV-309's named /api/movies routes justify the /api root. Approve ApiEndpoints.cs, LibraryEndpoints.cs and ImportEndpoints.cs in the existing Endpoints directory, with internal extensions using the shared RouteGroupBuilder and no sub-prefix/route/status/DTO declaration. No new layer, public assembly contract, glossary term or ADR is introduced.
 - Project non-negotiables forbid explanatory comments, including the proposed XML convention comment and test explanation. Record the convention in brief.md; method/class names express it in code. Endpoints/.gitkeep is a disposable placeholder and can be deleted once real files occupy the ticket-named folder. Preserve inherited OpenAPI wiring/contract work without redesigning DEV-307's accepted scope or its existing owner decisions.
 - Host proof checks both required /health routes and absence of business /api endpoints; do not assume all inherited DEV-307 routes are health routes, since prerequisite pickup may include approved docs routes. Record the inherited route surface at pickup and preserve it. This proof belongs in the existing host coverage, not a new standalone mirror test for empty methods. Follow-up endpoint tickets extend the route surface; no owner checkbox is required.
+
+---
+
+# DEV-308 grill Q7/12 - DEV-376 overlap and error-mapper ownership (Keel)
+
+## Question
+Ticket scope 1 says the decorators come "from DEV-376". DEV-376 also asks that each dispatching host reference Infrastructure, call AddHandler, and use the single IExceptionHandler/ProblemDetails contract for 422. What does DEV-308 own, what does it leave to DEV-376, and what must DEV-308 never claim?
+
+## Recommendation
+1. **The error mapper is inherited unchanged and owned by nobody in DEV-308.** `AddProblemDetails()` (Program.cs:16), `AddExceptionHandler<ValidationExceptionHandler>()` (:17) and `UseExceptionHandler()` (:19) stay exactly as they are. `ExceptionHandling/ValidationExceptionHandler.cs` is not edited: it already maps ValidationException -> 422 with errors (:24-27, :46-56) and NotFoundException -> 404 (:28-31) (recon-DEV-308:48). DEV-308 adds no second handler, no status-code mapping, no ProblemDetails customisation, and no `Results.Problem` helper.
+2. **Middleware order is preserved, not redesigned.** Exception handling stays outermost. Per the Q3 ruling, `UseCors(DevSpa)` sits after it and before endpoint execution. Then `MapDefaultEndpoints()` and `MapApiEndpoints()` (Q1, Q5). DEV-308 does not reorder or add other middleware: no auth, no HTTPS redirection, no `UseRouting` unless the CORS placement ruled in Q3 needs it explicitly.
+3. **DEV-308 delivers only the Api-host half of the DEV-376 composition clause.** The Api references Infrastructure (already true, recon-DEV-308:10) and registers the frozen manifest through AddHandler (Q2 and Q6). That satisfies the "dispatching host references Infrastructure and calls AddHandler" clause for the Api host only. The Worker side, MoviesController/IMovieService migration, and endpoint migration stay with DEV-376 or DEV-388 as their ticket text says (recon-DEV-308:48).
+4. **Never claimed by DEV-308:**
+   - live-endpoint 422 acceptance, because there is no endpoint in this ticket and so no request can reach a validator;
+   - any DEV-376 acceptance criterion as complete;
+   - "decorators added by DEV-308". The decorators and the Compose order pre-exist (ServiceCollectionExtensions.cs:14, :50-65); DEV-308 only consumes them.
+
+   The spec, plan, PR body and final report must say "DEV-376: Api-host registration prerequisite supplied; 422 live proof not delivered here".
+5. **There is no 422 test in DEV-308.** The decorated graph is proven by AC2 (TracingDecorator outermost, one full walk, Q4). Mapper behaviour is already unit-covered where it lives. The first live 422 proof belongs to the first endpoint that accepts input and has a validator: DEV-309 query validation or DEV-310 commands, whichever registers a validator first. That is a ticket-ownership fact for Rigger to record, not a DEV-308 deliverable.
+6. **YouTrack record (Rigger, Patron-decided, recording rather than escalation).** Add one comment on DEV-376 stating that DEV-308 supplies Api-host AddHandler registration for the frozen manifest and does not deliver the live 422 acceptance. No change to the DEV-376 summary or acceptance criteria. A follow-up ticket is filed only if the brief later finds a DEV-376 clause that no ticket owns.
+
+## Basis
+- DEV-308 ticket scope 1 ("from DEV-376") and AC1-AC3: none of them mentions 422.
+- recon-DEV-308:10, :14, :48 (DEV-376 text, existing mapper, and Program.cs lines).
+- Q1 (DEV-307 build base), Q2/Q6 (manifest), Q3 (`DevSpa` placement with the exception handler preserved), Q4 (host harness, AC2 proof), Q5 (endpoint mapping).
+- Care item 6: `ValidationExceptionHandler.cs` is not named by the ticket, so rewriting it is out.
+- Care item 4: status-code mapping is public API shape that DEV-309/310 inherit and that DEV-308 does not change.
+- Patron start instruction: "DEV-376 ownership without claiming its live endpoint 422 acceptance completed".
+
+## Rationale
+The mapper already exists and works. Touching it in a ticket with no endpoints would be untested churn. Saying exactly which half of DEV-376 DEV-308 supplies stops DEV-376 being closed by implication, and stops reviewers flagging the missing 422 proof as a DEV-308 defect.
+
+## Cost
+- The 422 contract stays unproven end-to-end until the first validating endpoint lands.
+- Rigger writes one YouTrack comment.
+- The wording discipline in item 4 is checked at review: a PR body or report claiming DEV-376 completion is a finding.
+
+## Alternatives rejected
+- Adding a test-only endpoint to prove 422 now: it is a route DEV-308 must not own (Q5 zero-route ruling), and it is test scaffolding in production `Program.cs`.
+- Moving ValidationExceptionHandler into ServiceDefaults or Infrastructure: care items 2 and 6, and no ticket text asks for it.
+- Declaring DEV-376 done for the Api: DEV-376 acceptance includes live-endpoint behaviour that does not exist yet.
+
+## Asks of Patron in this ruling
+- (a) Accept "inherited unchanged" for the mapper and middleware order.
+- (b) Accept the exact never-claim wording.
+- (c) Decide the DEV-376 YouTrack comment for Rigger.
+- (d) Confirm the first live 422 proof is owned by whichever of DEV-309 or DEV-310 first registers a validator. If you prefer a fixed ticket, name it.
+
+
+Patron verdict: ACCEPT preserving the inherited mapper and exception middleware; DEV-308 supplies only the planned Api registration prerequisite, while DEV-376 retains its live migrated-endpoint 422 acceptance.
+
+- Basis: DEV-308 Scope 1/AC1-AC3 require decorated host registration, not endpoint behavior; Overview assigns business endpoints to DEV-309/310. Trusted recon-DEV-308:48 and repaired recon-DEV-308-handlers:56 identify the existing single mapper and DEV-376's live-host criterion. No second mapper, new error shape or production test route is needed. A boot-blocking defect still follows Q4's minimum forced-fix rule, rather than an absolute ban on an initially unnamed file.
+- The first migrated validating endpoint in DEV-309 or DEV-310 must carry the constitution-required host integration proof of its real input/error path (constitution:198-213,359-362), and can furnish evidence to DEV-376. DEV-376 stays open until its own acceptance is verified; no completion, migration ownership transfer, ticket change or constitution departure is implied by this grill. Use the brief wording: DEV-376: Api-host registration prerequisite supplied by DEV-308 implementation; 422 live proof not delivered here.
+- Approve one recording-only comment on DEV-376 through Rigger, describing this planned division and preserving the current acceptance criterion. No follow-up ticket is needed for already-owned migration work. No owner checkbox is required.
