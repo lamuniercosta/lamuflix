@@ -13,11 +13,16 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>
+[Collection(nameof(RabbitMqCollection))]
+public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifetime
 {
     private const int MaxAttempts = 3;
 
     private readonly RabbitMqProbe probe = new(fixture);
+
+    public async ValueTask InitializeAsync() => await fixture.DeleteTopologyAsync(TestContext.Current.CancellationToken);
+
+    public async ValueTask DisposeAsync() => await fixture.ResetTopologyAsync(CancellationToken.None);
 
     [Fact]
     public async Task EnsureDeclaredAsync_DeclaresADurableDirectExchange()

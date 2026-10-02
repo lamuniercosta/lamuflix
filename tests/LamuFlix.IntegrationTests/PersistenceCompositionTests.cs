@@ -16,8 +16,13 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
+[Collection(nameof(PostgresCollection))]
+public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyncLifetime
 {
+    public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     [Fact]
     public async Task ComposedRegistration_ResolvesScopedRepositoryAndOneContextPerScope()
     {
@@ -89,8 +94,7 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IClas
 
     private async Task<ServiceCollection> ComposeAsync()
     {
-        await using var context = fixture.CreateContext();
-        await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var connectionString = context.Database.GetConnectionString();
         connectionString.ShouldNotBeNullOrWhiteSpace();
 

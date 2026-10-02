@@ -11,16 +11,19 @@ using SortDirection = LamuFlix.Core.Library.SortDirection;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection("MovieCatalog")]
-public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture)
+[Collection(nameof(PostgresCollection))]
+public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture) : IAsyncLifetime
 {
+    public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     [Theory]
     [MemberData(nameof(SortCases))]
     public async Task OrderByMovieSort_SortAndDirection_ReturnsNullsLastAndExpectedOrder(MovieSort sort, SortDirection direction, string[] expected)
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var alpha = MovieCatalogSeed.Create("Alpha", "sort-alpha");
         var beta = MovieCatalogSeed.Create("Beta", "sort-beta");
         var nullKey = MovieCatalogSeed.Create("Zulu", "sort-null");
@@ -58,8 +61,7 @@ public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture)
     public async Task OrderByMovieSort_EqualYearAndTitle_UsesIdAsAscendingTieBreaker()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var first = MovieCatalogSeed.Create("Same", "tie-first");
         first.ReleaseYear = new ReleaseYear(2000, MovieCatalogSeed.FixedTime);
         var second = MovieCatalogSeed.Create("Same", "tie-second");
@@ -83,8 +85,7 @@ public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture)
     public async Task OrderByMovieSort_EqualYear_UsesTitleAsSecondaryTieBreaker()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var bravo = MovieCatalogSeed.Create("Bravo", "tie-title-bravo");
         bravo.ReleaseYear = new ReleaseYear(2000, MovieCatalogSeed.FixedTime);
         var alpha = MovieCatalogSeed.Create("Alpha", "tie-title-alpha");

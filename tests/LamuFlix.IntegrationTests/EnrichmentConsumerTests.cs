@@ -25,12 +25,17 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>
+[Collection(nameof(RabbitMqCollection))]
+public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLifetime
 {
     private static readonly TimeSpan ClaimLease = TimeSpan.FromMilliseconds(500);
     private const int DefaultMaxAttempts = 3;
 
     private readonly RabbitMqProbe probe = new(fixture);
+
+    public async ValueTask InitializeAsync() => await fixture.ResetTopologyAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
     public async Task Consumer_ARetryableOutcome_ReclaimsAndCallsTheProviderAgain()

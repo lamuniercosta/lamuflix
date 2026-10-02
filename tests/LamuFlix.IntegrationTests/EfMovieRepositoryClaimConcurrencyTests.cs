@@ -13,16 +13,20 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-public sealed class EfMovieRepositoryClaimConcurrencyTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
+[Collection(nameof(PostgresCollection))]
+public sealed class EfMovieRepositoryClaimConcurrencyTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private const int ClaimIterations = 50;
     private static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
 
+    public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     [Fact]
     public async Task TryClaim_ConcurrentWorkersHaveOneWinnerAndOnePredicateUpdateEachIteration()
     {
-        await using var seed = fixture.CreateContext();
-        await seed.Database.MigrateAsync(TestContext.Current.CancellationToken);
+        await using var seed = fixture.CreateMigratedContext();
         var connectionString = seed.Database.GetConnectionString();
         connectionString.ShouldNotBeNullOrWhiteSpace();
         var capture = new ClaimCommandCaptureInterceptor();

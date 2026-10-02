@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
@@ -18,14 +18,20 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>
+[Collection(nameof(RabbitMqCollection))]
+public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLifetime
 {
 
     private readonly RabbitMqProbe probe = new(fixture);
 
+    public async ValueTask InitializeAsync() => await fixture.ResetTopologyAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     [Fact]
     public async Task EnqueueAsync_ARoutablePublish_ReachesTheRequestedQueue()
     {
+        TestContext.Current.TestOutputHelper?.WriteLine($"[rabbitmq-container-id] {fixture.Container.Id}");
         var ct = TestContext.Current.CancellationToken;
         await using var host = NewHost();
         await host.Topology.EnsureDeclaredAsync(ct);

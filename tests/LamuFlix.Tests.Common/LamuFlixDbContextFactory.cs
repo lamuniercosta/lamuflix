@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using LamuFlix.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.PostgreSql;
@@ -30,6 +32,16 @@ public static class LamuFlixDbContextFactory
         return new LamuFlixDbContext(options);
     }
 
+    public static async Task<LamuFlixDbContext> CreateEmptyDatabaseContextAsync(
+        string adminConnectionString,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(adminConnectionString);
+        var dbName = $"lamuflix_test_{Guid.NewGuid():N}";
+        await CreateDatabaseAsync(adminConnectionString, dbName, cancellationToken);
+        return OpenContext(WithDatabase(adminConnectionString, dbName));
+    }
+
     private static void CreateDatabase(string adminConnectionString, string dbName)
     {
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
@@ -47,6 +59,29 @@ public static class LamuFlixDbContextFactory
         finally
         {
             connection.Close();
+        }
+    }
+
+    private static async Task CreateDatabaseAsync(
+        string adminConnectionString,
+        string dbName,
+        CancellationToken cancellationToken)
+    {
+        var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
+            .UseNpgsql(adminConnectionString)
+            .Options;
+        await using var context = new LamuFlixDbContext(options);
+        var connection = context.Database.GetDbConnection();
+        await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"CREATE DATABASE \"{dbName}\" ";
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        finally
+        {
+            await connection.CloseAsync();
         }
     }
 
