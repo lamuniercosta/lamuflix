@@ -2,7 +2,7 @@
 
 **Status: SETTLED (2026-10-02).** Patron accepted the final Q6 ruling and confirmed shared understanding. The grill stopped at eight numbered questions; Q9-Q12 were not needed. There are no owner checkboxes, no ticket changes, no constitution departure, no new domain term and no ADR. One receipt is still pending, and it does not block: Rigger's live `size:` tag read (section 9). Quill drafts spec, plan and tasks from this file.
 
-Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Taste: `specs/DEV-308/ASSUMPTIONS.md`. Recon: notes `recon-DEV-308`, `recon-DEV-308-handlers` (part 1), `recon-DEV-308-handlers-2` (validators, G0, G1), `recon-DEV-308-handlers-3` (G2 in full). Worktree `F:/Dev/LamuFlix.worktrees/feature-308-spec` @ `feature/308-spec`.
+Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Taste: `specs/DEV-308/ASSUMPTIONS.md`. Recon: notes `recon-DEV-308` and `recon-DEV-308-handlers`; the completed handler findings and source citations are recorded in the Q6 rulings in `CONCLUSIONS.md`. Worktree `F:/Dev/LamuFlix.worktrees/feature-308-spec` @ `feature/308-spec`.
 
 ## 1. Ticket (decided text, read live 2026-10-02)
 - **Overview.** Compose the existing minimal Api host for DEV-309 and DEV-310, which own the endpoints. Deleting LamuFlix.Web belongs to DEV-388.
@@ -21,7 +21,7 @@ Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Tast
   - The PR body carries the DEV-376 wording from section 5 (Q7).
   - No DEV-376 acceptance criterion is claimed.
   - No owner checkbox is pending (none has arisen).
-- **Frozen scope:** sections 3-6. Anything else is a follow-up issue that Rigger files on Patron's decision, not a finding in this round.
+- **Frozen scope:** sections 3-6; anything else is a follow-up issue, not a finding in this round.
 
 ## 3. Grill answers (rulings in CONCLUSIONS.md; Keel's full exchanges are kept in TEMP `DEV-308-keel-q3.md` .. `-q8.md` and `-q6.md`)
 
@@ -77,10 +77,10 @@ Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Tast
 | 11 | AddToWatchlistCommandHandler | ICommandHandler | AddToWatchlistCommand -> Unit | DEV-310 |
 | 12 | RemoveFromWatchlistCommandHandler | ICommandHandler | RemoveFromWatchlistCommand -> Unit | DEV-310 |
 
-- **Excluded handlers.** Four enrichment-internal handlers are excluded: #1 Apply, #2 Claim, #4 RecordFailure and #6 RequeueStranded. No ticket names them and nothing calls them (part 2:78-87).
-- **ProcessEnrichment (#3).** It keeps its inherited conditional Infrastructure registration and validator (RabbitMqServiceCollectionExtensions.cs:40-51). There is no duplicate row: AddHandler uses plain `AddScoped`, so a duplicate would silently swap the consumer's graph (part 2:32-36).
+- **Excluded handlers.** Four enrichment-internal handlers are excluded: #1 Apply, #2 Claim, #4 RecordFailure and #6 RequeueStranded. No ticket names them and nothing calls them (CONCLUSIONS.md:392).
+- **ProcessEnrichment (#3).** It keeps its inherited conditional Infrastructure registration and validator (RabbitMqServiceCollectionExtensions.cs:40-51). There is no duplicate row: AddHandler uses plain `AddScoped`, so a duplicate would silently swap the consumer's graph (CONCLUSIONS.md:392).
 - **Facets.** GET /api/genres and GET /api/people stay with DEV-310 (no handler or port exists, G3). No placeholder is added.
-- **G2 gap (recon-DEV-308-handlers-3).** In the Api host as composed today, rows #7, #8, #9 and #10 fail ValidateOnBuild:
+- **G2 gap (CONCLUSIONS.md Q6 cited sources).** In the Api host as composed today, rows #7, #8, #9 and #10 fail ValidateOnBuild:
   - `IMovieCatalog` is unregistered. `AddMovieCatalog` exists at Persistence/MovieCatalogServiceCollectionExtensions.cs:8-12 (scoped), but no host calls it.
   - `IMediaLibraryScanner` is registered nowhere. The only implementation is Infrastructure/FileSystem/DirectoryMediaLibraryScanner.cs:14.
   - Under the Q4 rule both are forced minimum fixes.
@@ -92,13 +92,13 @@ Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Tast
   - TimeProvider is the inherited ServiceDefaults singleton and is consumed, not re-registered.
   - The System.IO.Abstractions pin already exists, so there is no new csproj change, pin, type, port, stub, validator or public extension.
   - Scoped lifetime is ValidateScopes-safe: a scoped scanner consumes singleton FileSystem and TimeProvider, and it matches the scoped import graph (repository and catalog are scoped).
-- **Facts already established (part 2 and part 3):**
+- **Facts already established (Q6 cited sources):**
   - IMovieRepository is scoped and unconditional (Persistence:37).
   - IMovieCatalog is scoped (MovieCatalog:10).
   - IEnrichmentQueue is unconditional (RabbitMq:35, before the :40 conditional).
   - IMediaPlayerLauncher is always registered as a singleton (Playback:16-27). With `Features:LocalPlay` false it returns DisabledMediaPlayerLauncher (:19-21), so row #10 resolves in a LocalPlay-off host with no extra binding.
 - **LocalPlay.** The host proof runs with `Features:LocalPlay` OFF and resolves row #10 without executing any media. Enabling LocalPlay as a test-only workaround is forbidden. A missing disabled-mode binding is a Q4 forced fix.
-- **AC2 claim limit.** All seven ValidationDecorators have an empty validator sequence today (part 2:10-18). Graph resolution is not evidence that invalid input is rejected, and no text may claim validation coverage. Endpoint validation stays mandatory for DEV-309/310 (constitution V).
+- **AC2 claim limit.** All seven ValidationDecorators have an empty validator sequence today (CONCLUSIONS.md:392). Graph resolution is not evidence that invalid input is rejected, and no text may claim validation coverage. Endpoint validation stays mandatory for DEV-309/310 (constitution V).
 
 **Q7: DEV-376 and the error mapper.**
 - `AddProblemDetails`, `AddExceptionHandler<ValidationExceptionHandler>`, `UseExceptionHandler` and the middleware order stay unchanged.
@@ -128,7 +128,7 @@ Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Tast
 14. **MapApiEndpoints**
 15. Run
 
-Persistence -> metadata -> RabbitMq order must hold, because it keeps the inherited ProcessEnrichment branch active (part 2:26-28).
+Persistence -> metadata -> RabbitMq order must hold, because it keeps the inherited ProcessEnrichment branch active (CONCLUSIONS.md:392).
 
 **Production files**
 - `src/LamuFlix.Api/Program.cs`: edit.
@@ -161,7 +161,7 @@ Persistence -> metadata -> RabbitMq order must hold, because it keeps the inheri
   - GET `/health/live` from 5173 returns allow-origin and Expose-Headers `Location`.
   - Preflight from 5173 asserts allow-origin, allow-method and allow-headers only.
   - A request from `http://localhost:3000` gets no allow-origin header (absence, not a status code).
-- **No comments in tests.**
+- **No explanatory comments in tests.** The project's stated AAA, empty-block and narrowly scoped warning exemptions remain permitted.
 - **Accepted noise, not asserted.** EnrichmentConsumer broker retries. A disposal hang is reported, never hidden by a longer timeout.
 - **Property tests** may take the documented no-domain-invariant opt-out under pipeline rules.
 
@@ -185,7 +185,7 @@ Persistence -> metadata -> RabbitMq order must hold, because it keeps the inheri
   - The IntegrationTests csproj has the Api ProjectReference and Mvc.Testing.
   - The factory type is identified, along with whether extraction is needed.
   - The drift check against main is done.
-- **Size.** **M** is recommended, and ruled while the tag is absent: three axis reports from Sentry, Ledger and Compass. Rigger's live `size:` tag read is pending (section 9). If it is L, the L process applies, with an ADR only if a real architectural decision emerges (none has).
+- **Size.** **M** is recommended for this composition change, with three axis reports from Sentry, Ledger and Compass. The live tag is unknown pending Rigger's receipt. If absent, Patron authorizes size:M; an existing non-M tag is reported to Patron for adjudication without silently changing the tag or process.
 - **Loop terms.** The standing DEV-307 CONCLUSIONS closing terms are cited once and not reopened:
   - Critical or High findings with a concrete failure scenario block.
   - At most two rounds, with two fix commits per round.
@@ -194,6 +194,6 @@ Persistence -> metadata -> RabbitMq order must hold, because it keeps the inheri
 - **Owner checkboxes:** none.
 
 ## 9. Pending receipts (non-blocking)
-- **Size tag.** Rigger has the request to read and record the live YouTrack `size:` tag. Until that receipt lands, M is both the recommendation and the ruling (Q8, and the Q6 final ruling). No verified tag is claimed here.
+- **Size tag.** Rigger has the request to read the live YouTrack `size:` tag. M is recommended; if the tag is absent, Patron authorizes size:M. An existing non-M tag returns to Patron for adjudication. No verified or absent tag is claimed here.
 - **Pickup receipt (Phase B).** The section 8 prerequisites, plus the decision on the factory extraction.
 - **Open owner questions:** none.
