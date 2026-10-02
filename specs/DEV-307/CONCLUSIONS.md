@@ -65,3 +65,10 @@ Patron verdict: [assumed] use `exception.GetType().FullName` for `error.type` on
 - Basis: DEV-307 Decision (2026-09-28) and Acceptance addition already require every non-validation exception to set Error and `error.type`, without prescribing its spelling. PRODUCT section 4 permits a logged taste assumption; ValidationException retains the ticket's Unset/outcome behaviour.
 - OpenTelemetry's current [error.type registry](https://github.com/open-telemetry/semantic-conventions/blob/main/model/error/registry.yaml), queried via Context7 on 2026-10-02, recommends the canonical class name when the value identifies an exception type, with predictable low cardinality. FQN is the selected .NET representation and distinguishes equally named exception classes in different namespaces.
 - Trusted recon: DEV-307 canvas note line 28 (`recon-307-3-decorator`) reports the existing short `GetType().Name`. Constitution VI (`.specify/memory/constitution.md:225-229`) retains the existing TelemetryConstants attribute key; this ruling changes its value spelling only.
+
+## Decision D4 - Meter identity ratification
+
+Patron verdict: ratify and keep ASSUMPTIONS.md line 9; the [assumed] tag stands. Use TelemetryConstants.ActivitySourceName for the application's meter identity; no second identity constant is added. Patron adopts the plan-pass entry as its own ruling; its historical Keel may overrule attribution does not delegate Patron authority.
+
+- Basis: DEV-307 Scope 2, carried in brief.md:23, requires the application's ActivitySource and meter names to come from TelemetryConstants; spec.md:176 (FR-008) preserves that requirement.
+- Constitution VI (.specify/memory/constitution.md:225-229) centralises telemetry names; src/LamuFlix.Core/Pipeline/TelemetryConstants.cs:5 supplies the existing LamuFlix identity. Sharing this value is the selected naming assumption, not a ticket change or constitution departure. No owner checkbox is closed.
