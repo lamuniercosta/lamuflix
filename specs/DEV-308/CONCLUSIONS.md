@@ -38,3 +38,17 @@ Patron verdict: ACCEPT; Phase A proceeds, Phase B requires DEV-307 implementatio
 - Basis: DEV-308 Scope 2 and 4 expressly reference DEV-307; .specify/memory/constitution.md:235-236 assigns TimeProvider and health wiring to ServiceDefaults and forbids host duplication. Trusted recon-DEV-308:20,28 cites specs/DEV-307/plan.md:172,225-231 and T013 at :87; chain:5-6 already records the dependency.
 - Preserve scope 4 in full: retain a single app.MapDefaultEndpoints() call and establish the MapXxxEndpoints convention. Host integration assertions prove the consumed services and mapping, rather than treating a merged spec as implemented code. No owner checkbox or schedule change is required.
 - Existing Infrastructure fallback registrations at src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs:31 and Adapters/MetadataProviderServiceCollectionExtensions.cs:30 remain outside this edit. No cleanup is forced by the ticket; noted, no ticket. This ruling neither closes DEV-307 owner checkboxes nor authorizes implementation.
+
+---
+
+## Q2 - Api handler ownership and explicit registrations
+
+Question (Keel): which handlers does the Api host register?
+
+Recommendation (Keel): register every handler called by the DEV-309/DEV-310 endpoints through one explicit AddHandler line per handler in one Api registration file, called by Program.cs. Worker-only handlers such as ProcessEnrichmentCommandHandler remain with the Worker. A host integration test resolves each Api handler and checks its tracing outer decorator. The recon supplies counts rather than exact names; Keel requested the full handler names, current callers, ticket ownership and validators from Bernstein before freezing the manifest.
+
+Patron verdict: ACCEPT the Api-facing ownership principle; freeze the exact manifest only from the requested recon, before the brief closes.
+
+- Basis: DEV-308 Overview composes the Api for DEV-309/DEV-310; Scope 1 requires every registered handler to resolve through AddHandler. DEV-309 Scope 1-2 names BrowseMoviesQuery and GetMovieDetailsQuery; DEV-310 Scope 1 names the remaining dispatching endpoint families. Constitution:133-136 requires explicit registration and Tracing -> Logging -> Validation -> handler; reflection scanning is forbidden. Worker-only dispatch is outside this Api ticket (recon-DEV-308:14-16).
+- Approve one internal registration helper in src/LamuFlix.Api/HandlerRegistration.cs called from Program.cs. This is composition in the existing host, not a new project or architectural layer (PRODUCT.md section 2 and section 5 care item 2). Preserve the RabbitMQ-owned ProcessEnrichmentCommandHandler registration; do not duplicate it in the Api inventory merely because the adapter is registered there.
+- Host integration coverage resolves every frozen Api service contract through the real AddHandler registrations, using the existing helper's decorator-order tests as supporting evidence (recon-DEV-308:14). Missing concrete names/callers/validator or constructor dependencies remain needs recon, not a silent assumption or owner checkbox. No inventory is declared complete by this principle ruling.
