@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Adapters;
@@ -25,6 +26,7 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
     public const string CheckName = "metadata-provider";
 
     private static readonly DateTimeOffset Now = new(2026, 3, 4, 5, 6, 7, TimeSpan.Zero);
+    private static readonly HttpClient WarmUpClient = new();
     private readonly List<IDisposable> disposables = [];
 
     public static DateTimeOffset FixedNow => Now;
@@ -38,10 +40,14 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
 
     public int RequestCount => Server.LogEntries.Count();
 
-    public ValueTask InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         Server = WireMockServer.Start();
-        return ValueTask.CompletedTask;
+
+        // The first request in a process pays ~1s of one-time JIT across WireMock and the HTTP stack, which
+        // overruns the 500ms loopback AttemptTimeout, so the first test would see a retried, double-counted request.
+        using var warmUp = await WarmUpClient.GetAsync(new Uri(BaseUrl), TestContext.Current.CancellationToken);
+        Server.Reset();
     }
 
     public ValueTask DisposeAsync()
