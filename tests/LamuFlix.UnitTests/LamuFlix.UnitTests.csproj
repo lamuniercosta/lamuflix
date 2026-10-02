@@ -21,6 +21,11 @@
     <PackageReference Include="Ardalis.SmartEnum.SystemTextJson" />
     <PackageReference Include="AutoFixture" />
     <PackageReference Include="Faker.Net" />
+    <PackageReference Include="System.IO.Abstractions.TestingHelpers" />
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>

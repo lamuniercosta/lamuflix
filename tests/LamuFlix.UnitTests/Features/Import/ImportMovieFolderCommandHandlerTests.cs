@@ -29,7 +29,7 @@ public sealed class ImportMovieFolderCommandHandlerTests
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
         var id = NewId();
-        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"));
+        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"), null, 1024L);
         var ct = CancellationToken.None;
         scanner.Scan(folder).Returns(scanned);
         movies.NextIdentityAsync(ct).Returns(id);
@@ -55,7 +55,7 @@ public sealed class ImportMovieFolderCommandHandlerTests
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
         var id = NewId();
-        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"));
+        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"), null, 1024L);
         var ct = CancellationToken.None;
         scanner.Scan(folder).Returns(scanned);
         movies.NextIdentityAsync(ct).Returns(id);
@@ -76,7 +76,7 @@ public sealed class ImportMovieFolderCommandHandlerTests
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
         var id = NewId();
-        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"));
+        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"), null, 1024L);
         var ct = CancellationToken.None;
         scanner.Scan(folder).Returns(scanned);
         movies.NextIdentityAsync(ct).Returns(id);
@@ -97,7 +97,7 @@ public sealed class ImportMovieFolderCommandHandlerTests
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
         var id = NewId();
-        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"));
+        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"), null, 1024L);
         var ct = CancellationToken.None;
         scanner.Scan(folder).Returns(scanned);
         movies.NextIdentityAsync(ct).Returns(id);
