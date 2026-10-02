@@ -16,15 +16,18 @@ using SortDirection = LamuFlix.Core.Library.SortDirection;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection("MovieCatalog")]
-public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture)
+[Collection(nameof(PostgresCollection))]
+public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture) : IAsyncLifetime
 {
+    public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     [Fact]
     public async Task BrowseAsync_PagesAndPastEnd_ReturnsCorrectCountWithoutGaps()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         context.Movies.AddRange(
             MovieCatalogSeed.Create("Tie", "page-1"),
             MovieCatalogSeed.Create("Tie", "page-2"),
@@ -63,18 +66,15 @@ public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture)
         // arrange
         var interceptor = new CommandCaptureInterceptor();
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(fixture.Container.GetConnectionString())
+            .UseNpgsql(fixture.ConnectionString)
             .AddInterceptors(interceptor)
             .Options;
         await using var context = new LamuFlixDbContext(options);
-        await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
         var movie = MovieCatalogSeed.Create("Projection", "projection");
         movie.Genres.Add(new GenreRecord { Name = "Drama" });
         context.Movies.Add(movie);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         await using var browseContext = new LamuFlixDbContext(options);
-        await browseContext.Database.MigrateAsync(TestContext.Current.CancellationToken);
         interceptor.Commands.Clear();
         var catalog = new EfMovieCatalog(browseContext);
 
@@ -95,8 +95,7 @@ public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture)
     public async Task BrowseAsync_PreCancelledToken_ThrowsOperationCanceledException()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
         var catalog = new EfMovieCatalog(context);

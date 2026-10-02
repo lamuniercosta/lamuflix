@@ -14,6 +14,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
+[Collection(nameof(PostgresCollection))]
 public sealed class MigrationTests(PostgresFixture fixture)
 {
     private static readonly string[] ApplicationTables =
@@ -50,7 +51,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
     [Fact]
     public async Task MigrateAsync_EmptyDatabase_AppliesInitialAndHasNoPendingModelChanges()
     {
-        await using var context = fixture.CreateContext();
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(TestContext.Current.CancellationToken);
 
         await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
 
@@ -64,7 +65,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
     [Fact]
     public async Task MigrateAsync_EmptyDatabase_MatchesPostgresCatalogContract()
     {
-        await using var context = fixture.CreateContext();
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(TestContext.Current.CancellationToken);
         await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
         var catalog = new PostgresCatalog(context);
         var cancellationToken = TestContext.Current.CancellationToken;

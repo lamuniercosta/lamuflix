@@ -12,7 +12,8 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-public sealed class PersistenceRoundTripTests(PostgresFixture fixture)
+[Collection(nameof(PostgresCollection))]
+public sealed class PersistenceRoundTripTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private static readonly DateTimeOffset EnrichedAtUtc =
         new(2026, 3, 15, 12, 30, 0, TimeSpan.Zero);
@@ -20,10 +21,14 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture)
     private static readonly DateTimeOffset LastAttemptAtUtc =
         new(2026, 3, 16, 8, 0, 0, TimeSpan.Zero);
 
+    public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     [Fact]
     public async Task SaveChanges_MovieWithRelatedSets_AssignsStoreIdAndRoundTrips()
     {
-        await using var write = await MigratedContextAsync();
+        await using var write = fixture.CreateMigratedContext();
         var movie = FullyPopulatedMovie("C:/library/incoming/round-trip.mkv");
         write.Movies.Add(movie);
 
@@ -71,7 +76,7 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture)
     [Fact]
     public async Task SaveChanges_UtcTimestamps_RoundTripWithZeroOffset()
     {
-        await using var write = await MigratedContextAsync();
+        await using var write = fixture.CreateMigratedContext();
         var movie = TitleOnlyMovie("C:/library/incoming/utc.mkv");
         movie.EnrichedAt = EnrichedAtUtc;
         movie.LastAttemptAt = LastAttemptAtUtc;
@@ -97,7 +102,7 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture)
     [Fact]
     public async Task SaveChanges_AllNullMetadata_RoundTripsAsNull()
     {
-        await using var write = await MigratedContextAsync();
+        await using var write = fixture.CreateMigratedContext();
         var movie = BaseMovie("C:/library/incoming/null-meta.mkv");
         write.Movies.Add(movie);
         await write.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -125,7 +130,7 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture)
     [Fact]
     public async Task SaveChanges_TitleOnlyMetadata_RoundTrips()
     {
-        await using var write = await MigratedContextAsync();
+        await using var write = fixture.CreateMigratedContext();
         var movie = TitleOnlyMovie("C:/library/incoming/title-only.mkv");
         write.Movies.Add(movie);
         await write.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -150,20 +155,13 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture)
     [Fact]
     public async Task SaveChanges_SecondMovieWithNullImdbId_Succeeds()
     {
-        await using var write = await MigratedContextAsync();
+        await using var write = fixture.CreateMigratedContext();
         write.Movies.Add(BaseMovie("C:/library/incoming/first-null-imdb.mkv"));
         write.Movies.Add(BaseMovie("C:/library/incoming/second-null-imdb.mkv"));
 
         await write.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         write.Movies.Count(movie => movie.ImdbId == null).ShouldBe(2);
-    }
-
-    private async Task<LamuFlixDbContext> MigratedContextAsync()
-    {
-        var context = fixture.CreateContext();
-        await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
-        return context;
     }
 
     private static LamuFlixDbContext OpenSibling(LamuFlixDbContext source)

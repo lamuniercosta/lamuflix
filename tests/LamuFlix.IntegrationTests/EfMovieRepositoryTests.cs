@@ -12,14 +12,20 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
+[Collection(nameof(PostgresCollection))]
+public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
+
+    public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
     public async Task AddAndGet_RoundTripAggregateAndReturnIdentityMappedInstance()
     {
-        await using var db = await MigratedContextAsync();
+        TestContext.Current.TestOutputHelper?.WriteLine($"[postgres-container-id] {fixture.Container.Id}");
+        await using var db = fixture.CreateMigratedContext();
         var repository = Repository(db);
         var id = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
         var metadata = new MovieMetadata(
@@ -53,7 +59,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixt
     [Fact]
     public async Task GetAsync_AbsentId_ReturnsNull()
     {
-        await using var db = await MigratedContextAsync();
+        await using var db = fixture.CreateMigratedContext();
         var repository = Repository(db);
         var id = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
         (await repository.GetAsync(id, TestContext.Current.CancellationToken)).ShouldBeNull();
@@ -62,7 +68,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixt
     [Fact]
     public async Task AddAsync_DuplicateId_ThrowsInvalidOperationException()
     {
-        await using var db = await MigratedContextAsync();
+        await using var db = fixture.CreateMigratedContext();
         var repository = Repository(db);
         var id = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
         var movie = Movie.Create(id, "Movie", new LibraryPath("C:/library/movie.mkv"), new MediaFormat("mkv"));
@@ -74,7 +80,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixt
     [Fact]
     public async Task SaveChanges_PreservesRecordOnlyData_AndPersistsDomainTransitions()
     {
-        await using var db = await MigratedContextAsync();
+        await using var db = fixture.CreateMigratedContext();
         var id = await Repository(db).NextIdentityAsync(TestContext.Current.CancellationToken);
         var record = new MovieRecord
         {
@@ -118,7 +124,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixt
     [Fact]
     public async Task TryClaim_ExpiredLeasePersistsAndSequentialDoubleClaimDoesNotIncrementTwice()
     {
-        await using var db = await MigratedContextAsync();
+        await using var db = fixture.CreateMigratedContext();
         var repository = Repository(db, Now);
         var movie = Movie.Create(
             await repository.NextIdentityAsync(TestContext.Current.CancellationToken),
@@ -138,7 +144,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixt
     [Fact]
     public async Task TryClaim_RejectsMissingTerminalUnexpiredAndBoundaryCases()
     {
-        await using var db = await MigratedContextAsync();
+        await using var db = fixture.CreateMigratedContext();
         var repository = Repository(db, Now);
         var absentId = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
         var enrichedId = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
@@ -173,7 +179,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixt
     [Fact]
     public async Task TryClaim_ClaimStateSurvivesWatchlistAndMarkSaves()
     {
-        await using var db = await MigratedContextAsync();
+        await using var db = fixture.CreateMigratedContext();
         var repository = Repository(db, Now);
         var movie = Movie.Create(
             await repository.NextIdentityAsync(TestContext.Current.CancellationToken),
@@ -204,13 +210,6 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IClassFixt
         record.LastAttemptAt.ShouldBe(Now.AddMinutes(1));
         record.IsInWatchlist.ShouldBeTrue();
         record.Status.ShouldBe(EnrichmentStatus.Enriched);
-    }
-
-    private async Task<LamuFlixDbContext> MigratedContextAsync()
-    {
-        var context = fixture.CreateContext();
-        await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
-        return context;
     }
 
     private static LamuFlixDbContext OpenSibling(LamuFlixDbContext source)

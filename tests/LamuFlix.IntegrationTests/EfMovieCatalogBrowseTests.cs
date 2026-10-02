@@ -12,16 +12,19 @@ using SortDirection = LamuFlix.Core.Library.SortDirection;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection("MovieCatalog")]
-public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
+[Collection(nameof(PostgresCollection))]
+public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture) : IAsyncLifetime
 {
+    public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     [Theory]
     [MemberData(nameof(TextCases))]
     public async Task WhereText_TextCondition_ReturnsLiteralCaseInsensitiveMatches(string? text, string[] titles)
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var movies = new[]
         {
             MovieCatalogSeed.Create("Movie", "text-movie"),
@@ -62,8 +65,7 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
     public async Task WhereGenres_MultipleAndRepeatedIds_ReturnsEachMatchingMovieOnce()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var firstGenre = new GenreRecord { Name = "Drama" };
         var secondGenre = new GenreRecord { Name = "Comedy" };
         var both = MovieCatalogSeed.Create("Both", "genres-both");
@@ -91,8 +93,7 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
     public async Task WhereActors_MultipleAndRepeatedIds_ReturnsEachMatchingMovieOnce()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var firstActor = new ActorRecord { Name = "Ada" };
         var secondActor = new ActorRecord { Name = "Bert" };
         var both = MovieCatalogSeed.Create("Both", "actors-both");
@@ -120,8 +121,7 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
     public async Task WhereRuntime_RangeCondition_ReturnsInclusiveBoundMatches(int? min, int? max, bool includeUnknown, string[] expected)
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var unknown = MovieCatalogSeed.Create("Unknown", "runtime-unknown");
         var low = MovieCatalogSeed.Create("Low", "runtime-low");
         low.RuntimeMinutes = new Runtime(99);
@@ -158,8 +158,7 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
     public async Task WhereYear_RangeCondition_ReturnsInclusiveBoundMatches(int? min, int? max, string[] expected)
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var unknown = MovieCatalogSeed.Create("Unknown", "year-unknown");
         var low = MovieCatalogSeed.Create("Low", "year-low");
         low.ReleaseYear = new ReleaseYear(1999, MovieCatalogSeed.FixedTime);
@@ -192,8 +191,7 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
     public async Task WhereStatuses_StatusCondition_ReturnsAnyStatusAndLeavesEmptyUnfiltered()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var pending = MovieCatalogSeed.Create("Pending", "status-pending");
         var enriched = MovieCatalogSeed.Create("Enriched", "status-enriched");
         enriched.Status = EnrichmentStatus.Enriched;
@@ -219,8 +217,7 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
     public async Task WhereInWatchlist_WatchlistCondition_ReturnsExpectedMovies(bool? filter, int expectedCount)
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var watchlisted = MovieCatalogSeed.Create("Yes", "watchlist-yes");
         watchlisted.IsInWatchlist = true;
         context.Movies.AddRange(watchlisted, MovieCatalogSeed.Create("No", "watchlist-no"));
@@ -237,8 +234,7 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
     public async Task BrowseAsync_MultipleFilters_AppliesAndAcrossFilters()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var genre = new GenreRecord { Name = "Drama" };
         var actor = new ActorRecord { Name = "Actor" };
         var match = MovieCatalogSeed.Create("Matching Film", "combine-match");
@@ -279,8 +275,7 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture)
     public async Task BrowseAsync_TextGenreYearOnly_AppliesAndAcrossActiveFilters()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var genre = new GenreRecord { Name = "Drama" };
         var match = MovieCatalogSeed.Create("Matching Film", "combine2-match");
         match.Genres.Add(genre);

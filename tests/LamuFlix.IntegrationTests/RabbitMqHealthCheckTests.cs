@@ -9,8 +9,13 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-public sealed class RabbitMqHealthCheckTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>
+[Collection(nameof(RabbitMqCollection))]
+public sealed class RabbitMqHealthCheckTests(RabbitMqFixture fixture) : IAsyncLifetime
 {
+    public async ValueTask InitializeAsync() => await fixture.ResetTopologyAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     [Fact]
     public async Task CheckHealthAsync_TheBrokerIsUp_IsHealthy()
     {

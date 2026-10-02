@@ -10,15 +10,18 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection("MovieCatalog")]
-public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
+[Collection(nameof(PostgresCollection))]
+public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture) : IAsyncLifetime
 {
+    public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
     [Fact]
     public async Task GetDetailsAsync_FullMetadata_ReturnsAllPersistedMetadata()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var movie = MovieCatalogSeed.Create("File title", "details-full");
         movie.MetadataTitle = "Metadata title";
         movie.Plot = "Plot";
@@ -50,8 +53,7 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
     public async Task GetDetailsAsync_NoMetadata_ReturnsNullMetadata()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var movie = await MovieCatalogSeed.AddAsync(context, MovieCatalogSeed.Create("No metadata", "details-none"), TestContext.Current.CancellationToken);
         var id = movie.Id;
         id.ShouldNotBeNull();
@@ -68,8 +70,7 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
     public async Task GetDetailsAsync_TitleOnlyMetadata_ReturnsTitleOnlyMetadata()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var movie = MovieCatalogSeed.Create("File", "details-title-only");
         movie.MetadataTitle = "Metadata";
         await MovieCatalogSeed.AddAsync(context, movie, TestContext.Current.CancellationToken);
@@ -88,8 +89,7 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
     public async Task GetDetailsAsync_PartialMetadata_FallsBackToFileTitle()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         var movie = MovieCatalogSeed.Create("File fallback", "details-partial");
         movie.Plot = "Plot only";
         await MovieCatalogSeed.AddAsync(context, movie, TestContext.Current.CancellationToken);
@@ -108,8 +108,7 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
     public async Task GetDetailsAsync_MissingId_ReturnsNull()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
 
         // act
         var details = await new EfMovieCatalog(context).GetDetailsAsync(new MovieId(1), TestContext.Current.CancellationToken);
@@ -122,8 +121,7 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture)
     public async Task GetDetailsAsync_PreCancelledToken_ThrowsOperationCanceledException()
     {
         // arrange
-        await using var context = fixture.CreateContext();
-        await MovieCatalogSeed.ResetAsync(context, TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
         var catalog = new EfMovieCatalog(context);

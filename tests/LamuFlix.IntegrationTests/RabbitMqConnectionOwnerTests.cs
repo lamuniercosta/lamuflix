@@ -14,7 +14,8 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-public sealed class RabbitMqConnectionOwnerTests : IClassFixture<RabbitMqFixture>
+[Collection(nameof(RabbitMqCollection))]
+public sealed class RabbitMqConnectionOwnerTests : IAsyncLifetime
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(10);
 
@@ -24,6 +25,10 @@ public sealed class RabbitMqConnectionOwnerTests : IClassFixture<RabbitMqFixture
     {
         this.fixture = fixture;
     }
+
+    public async ValueTask InitializeAsync() => await fixture.ResetTopologyAsync(TestContext.Current.CancellationToken);
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
     public async Task GetAsync_CalledTwice_ReturnsTheSameOpenConnection()

@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
-using Microsoft.EntityFrameworkCore;
 
 namespace LamuFlix.IntegrationTests;
 
@@ -20,15 +19,6 @@ internal static class MovieCatalogSeed
             Format = new MediaFormat("mkv"),
             Status = EnrichmentStatus.Pending
         };
-
-    internal static async Task ResetAsync(LamuFlixDbContext context, CancellationToken ct)
-    {
-        await context.Database.MigrateAsync(ct);
-        await context.Movies.ExecuteDeleteAsync(ct);
-        await context.Actors.ExecuteDeleteAsync(ct);
-        await context.Directors.ExecuteDeleteAsync(ct);
-        await context.Genres.ExecuteDeleteAsync(ct);
-    }
 
     internal static async Task<MovieRecord> AddAsync(LamuFlixDbContext context, MovieRecord movie, CancellationToken ct)
     {
