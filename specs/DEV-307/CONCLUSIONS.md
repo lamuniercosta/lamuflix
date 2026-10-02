@@ -49,3 +49,19 @@ Patron verdict: retain every live ticket requirement; close the grill after two 
 Before drafting the implementation plan, the Conductor routes Keel's five needs-recon items: compatible package pins; RabbitMQ.Client version and ActivitySource names; TracingDecorator current behaviour; metadata-check status/tags; and ProblemDetails service availability. The package/transitive claims and exporter-provider semantics have not been independently verified by Patron. Exporter registration alone is not evidence that telemetry exports via OTLP. Patron does not run those checks or write brief.md.
 
 Gate 1 remains closed pending the owner answers and the subsequent clean analysis/plan-challenge requirements. This grill close does not grant implementation authorization. No project-specific glossary term or irreversible architectural decision arose; no CONTEXT or ADR edit is needed.
+
+## Decision A - Metadata-provider readiness membership
+
+Patron verdict: untag `MetadataProviderHealthCheck` from `ready`; keep it registered and available to unfiltered health checks. This conforms to decided ticket scope; no new owner checkbox.
+
+- Basis: live DEV-307 Scope & Technical Design 3 names PostgreSQL connection and RabbitMQ channel for readiness; `brief.md:14` (AC2) and `brief.md:26` (frozen scope 3) express that same boundary. Constitution VI (`.specify/memory/constitution.md:232-234`) names Postgres/RabbitMQ for readiness and separately requires external dependency health-check registration. Removing only the tag satisfies both requirements.
+- Trusted recon: DEV-307 canvas note lines 28-31 (`recon-307-4-metacheck`) confirms both metadata-provider and RabbitMQ are currently tagged ready. Including metadata-provider would let a bad/missing OMDb key alone return 503 with healthy PostgreSQL/RabbitMQ. Under the proposed Q2c mapping an OMDb outage would instead return 200 Degraded; neither outcome belongs to the ticket's readiness dependency set.
+- Infrastructure DI is already listed in `brief.md:86`; this registration adjustment is forced by Scope 3/AC2, not an unrelated file rewrite. This ruling does not approve Q2c or close the existing Q1/Q2 owner checkboxes.
+
+## Decision B - Exception error.type spelling
+
+Patron verdict: [assumed] use `exception.GetType().FullName` for `error.type` on non-validation exceptions in `TracingDecorator`; record this taste choice in ASSUMPTIONS.md.
+
+- Basis: DEV-307 Decision (2026-09-28) and Acceptance addition already require every non-validation exception to set Error and `error.type`, without prescribing its spelling. PRODUCT section 4 permits a logged taste assumption; ValidationException retains the ticket's Unset/outcome behaviour.
+- OpenTelemetry's current [error.type registry](https://github.com/open-telemetry/semantic-conventions/blob/main/model/error/registry.yaml), queried via Context7 on 2026-10-02, recommends the canonical class name when the value identifies an exception type, with predictable low cardinality. FQN is the selected .NET representation and distinguishes equally named exception classes in different namespaces.
+- Trusted recon: DEV-307 canvas note line 28 (`recon-307-3-decorator`) reports the existing short `GetType().Name`. Constitution VI (`.specify/memory/constitution.md:225-229`) retains the existing TelemetryConstants attribute key; this ruling changes its value spelling only.
