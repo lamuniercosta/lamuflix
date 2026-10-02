@@ -194,7 +194,8 @@ public sealed class DirectoryMediaLibraryScannerTests
     public void Scan_EmptyFolder_ThrowsInvalidOperation()
     {
         // arrange
-        var fileSystem = FileSystemWith(("C:/library/Inception (2010)/Inception.mkv", 1024));
+        var fileSystem = FileSystemWith();
+        fileSystem.AddDirectory("C:/library");
         var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
 
         // act
