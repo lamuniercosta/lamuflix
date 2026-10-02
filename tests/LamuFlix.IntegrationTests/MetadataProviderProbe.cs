@@ -31,6 +31,7 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
 
     public RecordingLoggerFactory Logs { get; } = new();
 
+    // ReSharper disable once NullableWarningSuppressionIsUsed - xUnit constructs the fixture; the server starts in InitializeAsync before any test reads it.
     public WireMockServer Server { get; private set; } = null!;
 
     public string BaseUrl => Server.Urls[0];
@@ -43,7 +44,7 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
         return ValueTask.CompletedTask;
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         Server.Stop();
         Server.Dispose();
@@ -51,6 +52,8 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
         {
             disposable.Dispose();
         }
+
+        return ValueTask.CompletedTask;
     }
 
     public void Reset() => Server.Reset();
@@ -63,6 +66,7 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
         [.. Server.LogEntries
             .Select(entry => entry.RequestMessage?.Query)
             .Where(query => query is not null)
+            // ReSharper disable once NullableWarningSuppressionIsUsed - Where(is not null) above guarantees non-null; the compiler cannot narrow through Enumerable.Where.
             .SelectMany(query => query!)
             .Where(pair => string.Equals(pair.Key, name, StringComparison.Ordinal))
             .SelectMany(pair => pair.Value)
@@ -129,7 +133,6 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
         $"{MetadataProviderResilienceOptions.SectionName}:{member}";
 
     public sealed record CapturedLog(
-        LogLevel Level,
         string Message,
         IReadOnlyList<KeyValuePair<string, object?>> State,
         string ExceptionText);
@@ -187,7 +190,6 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
                 }
 
                 owner.Add(new CapturedLog(
-                    logLevel,
                     formatter(state, exception),
                     state is IEnumerable<KeyValuePair<string, object?>> pairs ? [.. pairs] : [],
                     exception?.ToString() ?? string.Empty));
