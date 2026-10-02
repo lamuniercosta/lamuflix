@@ -44,10 +44,7 @@ public static class LamuFlixDbContextFactory
 
     private static void CreateDatabase(string adminConnectionString, string dbName)
     {
-        var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(adminConnectionString)
-            .Options;
-        using var context = new LamuFlixDbContext(options);
+        using var context = CreateAdminContext(adminConnectionString);
         var connection = context.Database.GetDbConnection();
         connection.Open();
         try
@@ -67,10 +64,7 @@ public static class LamuFlixDbContextFactory
         string dbName,
         CancellationToken cancellationToken)
     {
-        var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(adminConnectionString)
-            .Options;
-        await using var context = new LamuFlixDbContext(options);
+        await using var context = CreateAdminContext(adminConnectionString);
         var connection = context.Database.GetDbConnection();
         await connection.OpenAsync(cancellationToken);
         try
@@ -83,6 +77,14 @@ public static class LamuFlixDbContextFactory
         {
             await connection.CloseAsync();
         }
+    }
+
+    private static LamuFlixDbContext CreateAdminContext(string connectionString)
+    {
+        var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
+            .UseNpgsql(connectionString)
+            .Options;
+        return new LamuFlixDbContext(options);
     }
 
     private static string WithDatabase(string connectionString, string database)
