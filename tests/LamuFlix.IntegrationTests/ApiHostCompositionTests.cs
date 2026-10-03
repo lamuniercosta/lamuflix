@@ -29,6 +29,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string LivenessRoute = "/health/live";
     private const string BusinessPrefix = "/api";
     private const string BrowseMoviesRoute = "/api/movies";
+    private const string GetMovieDetailsRoute = "/api/movies/{id:int}";
 
     public static TheoryData<Type, Type, Type> ManifestContracts =>
         new()
@@ -127,7 +128,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     }
 
     [Fact]
-    public void Routes_StartedComposition_ExposeTheLivenessRouteAndOnlyTheBrowseMoviesBusinessRoute()
+    public void Routes_StartedComposition_ExposeTheLivenessRouteAndBothLibraryBusinessRoutes()
     {
         // arrange
         var dataSource = factory.Services.GetRequiredService<EndpointDataSource>();
@@ -142,7 +143,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
         routes.Where(route => string.Equals(route, LivenessRoute, StringComparison.Ordinal))
             .ShouldHaveSingleItem();
         routes.Where(route => route.StartsWith(BusinessPrefix, StringComparison.Ordinal))
-            .ShouldBe([BrowseMoviesRoute]);
+            .ShouldBe([BrowseMoviesRoute, GetMovieDetailsRoute]);
     }
 
     [Theory]

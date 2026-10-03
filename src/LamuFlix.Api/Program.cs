@@ -27,6 +27,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 var app = builder.Build();
 app.UseExceptionHandler();
+app.UseStatusCodePages();
 app.UseCors(CorsPolicyName);
 app.MapDefaultEndpoints();
 app.MapApiEndpoints();

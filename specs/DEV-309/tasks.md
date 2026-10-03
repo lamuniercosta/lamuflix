@@ -31,11 +31,11 @@
 
 ## Phase 3: User Story 2 - Retrieve movie details and share error handling (Priority: P1)
 
-- [ ] T013 Add the `{id:int}` details route. Parse `MovieId` with `TryCreate`; throw `NotFoundException` for non-positive ids; dispatch the existing `GetMovieDetailsQuery`; allow the handler's unknown-id `NotFoundException` to bubble. Add `WithName`, `WithSummary`, success metadata and `ProducesProblem(404)`. Do not catch or construct endpoint NotFound results.
-- [ ] T014 Add `UseStatusCodePages()` immediately after `UseExceptionHandler()` in `Program.cs`, before CORS and endpoint execution. Preserve existing problem-details service registrations and the single exception mapper. Only if an exercised response lacks a non-empty trace id, add the minimum shared `AddProblemDetails` customization required and cite the failed acceptance.
-- [ ] T015 Extend host integration tests for known details dispatch/mapping, unknown positive id, zero id, non-integer route id and unknown route. For each error assert expected status, `application/problem+json`, and non-empty `traceId`; ensure field errors are present for validation cases.
-- [ ] T016 Verify browse and details endpoint metadata from `EndpointDataSource`: names, summaries, success response types and their matching ProblemDetails 422/404 metadata. Assert the emitted 422 body is ProblemDetails with an `errors` extension, not an assumed `HttpValidationProblemDetails` document.
-- [ ] T017 Run applicable changed-file analysis/format checks and focused integration tests. Record exit codes and fix failures before moving to the next story.
+- [x] T013 Add the `{id:int}` details route. Parse `MovieId` with `TryCreate`; throw `NotFoundException` for non-positive ids; dispatch the existing `GetMovieDetailsQuery`; allow the handler's unknown-id `NotFoundException` to bubble. Add `WithName`, `WithSummary`, success metadata and `ProducesProblem(404)`. Do not catch or construct endpoint NotFound results.
+- [x] T014 Add `UseStatusCodePages()` immediately after `UseExceptionHandler()` in `Program.cs`, before CORS and endpoint execution. Preserve existing problem-details service registrations and the single exception mapper. Only if an exercised response lacks a non-empty trace id, add the minimum shared `AddProblemDetails` customization required and cite the failed acceptance.
+- [x] T015 Extend host integration tests for known details dispatch/mapping, unknown positive id, zero id, non-integer route id and unknown route. For each error assert expected status, `application/problem+json`, and non-empty `traceId`; ensure field errors are present for validation cases.
+- [x] T016 Verify browse and details endpoint metadata from `EndpointDataSource`: names, summaries, success response types and their matching ProblemDetails 422/404 metadata. Assert the emitted 422 body is ProblemDetails with an `errors` extension, not an assumed `HttpValidationProblemDetails` document.
+- [x] T017 Run applicable changed-file analysis/format checks and focused integration tests. Record exit codes and fix failures before moving to the next story.
 
 **Checkpoint**: handler exceptions use the one exception mapper; routing misses receive a body through status-code pages; all tested errors carry the required content type and trace id.
 
