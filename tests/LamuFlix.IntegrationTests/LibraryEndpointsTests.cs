@@ -86,18 +86,16 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         using var catalogFactory = WithCatalog();
         var cancellationToken = TestContext.Current.CancellationToken;
 
-        // act
-        var property = RoundTripsProperty(catalogFactory, catalog, cancellationToken);
-
         // assert
-        property.QuickCheckThrowOnFailure();
+        AssertRoundTrips(catalogFactory, catalog, cancellationToken);
     }
 
-    private static Property RoundTripsProperty(
+    private static void AssertRoundTrips(
         WebApplicationFactory<Program> catalogFactory,
         RecordingMovieCatalog catalog,
-        CancellationToken cancellationToken) =>
-        Prop.ForAll(MovieQueryFixture.Queries(), query =>
+        CancellationToken cancellationToken)
+    {
+        var property = Prop.ForAll(MovieQueryFixture.Queries(), query =>
         {
             using var client = catalogFactory.CreateClient();
             catalog.Queries.Clear();
@@ -107,6 +105,9 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
             return response.IsSuccessStatusCode && catalog.Queries.Single().Equals(query);
         });
+
+        property.QuickCheckThrowOnFailure();
+    }
 
     [Theory]
     [InlineData("text=&", "")]

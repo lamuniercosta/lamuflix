@@ -90,6 +90,19 @@ internal static class LibraryEndpoints
     private static MovieQuery ToMovieQuery(BrowseMoviesRequest request, IQueryCollection rawQuery)
     {
         var state = new MappingState();
+        ReadTextAndLists(request, rawQuery, state);
+        ReadRangeAndFlags(request, rawQuery, state);
+        ReadOrderingAndPagination(request, rawQuery, state);
+        state.ApplyRanges();
+        state.ThrowIfInvalid();
+        return state.ToQuery();
+    }
+
+    private static void ReadTextAndLists(
+        BrowseMoviesRequest request,
+        IQueryCollection rawQuery,
+        MappingState state)
+    {
         ReadText(rawQuery, request.Text, state);
         ReadRepeated(request.GenreIds, GenreIdsKey, IntegerMessage(GenreIdsKey), TryParseId, state.GenreIds, state);
         ReadRepeated(request.ActorIds, ActorIdsKey, IntegerMessage(ActorIdsKey), TryParseId, state.ActorIds, state);
@@ -100,19 +113,30 @@ internal static class LibraryEndpoints
             TryParseStatus,
             state.Statuses,
             state);
+    }
+
+    private static void ReadRangeAndFlags(
+        BrowseMoviesRequest request,
+        IQueryCollection rawQuery,
+        MappingState state)
+    {
         ReadNumber(rawQuery, RuntimeMinKey, request.RuntimeMin, EmptyMeansNull, state);
         ReadNumber(rawQuery, RuntimeMaxKey, request.RuntimeMax, EmptyMeansNull, state);
         ReadNumber(rawQuery, YearMinKey, request.YearMin, EmptyMeansNull, state);
         ReadNumber(rawQuery, YearMaxKey, request.YearMax, EmptyMeansNull, state);
         ReadBoolean(rawQuery, RuntimeIncludeUnknownKey, request.RuntimeIncludeUnknown, state);
         ReadBoolean(rawQuery, InWatchlistKey, request.InWatchlist, state);
+    }
+
+    private static void ReadOrderingAndPagination(
+        BrowseMoviesRequest request,
+        IQueryCollection rawQuery,
+        MappingState state)
+    {
         ReadSort(rawQuery, request.Sort, state);
         ReadDirection(rawQuery, request.Direction, state);
         ReadNumber(rawQuery, PageKey, request.Page, EmptyMeansInvalid, state);
         ReadNumber(rawQuery, PageSizeKey, request.PageSize, EmptyMeansInvalid, state);
-        state.ApplyRanges();
-        state.ThrowIfInvalid();
-        return state.ToQuery();
     }
 
     private static void ReadText(IQueryCollection rawQuery, string? raw, MappingState state)
@@ -201,35 +225,46 @@ internal static class LibraryEndpoints
     }
 
     private static void ReadSort(IQueryCollection rawQuery, string? raw, MappingState state)
-    {
-        if (raw is null || !MarkSeenOnce(rawQuery, SortKey, state))
-        {
-            return;
-        }
-
-        if (MovieSort.TryFromName(raw, false, out var sort))
-        {
-            state.Sort = sort;
-            return;
-        }
-
-        state.Fail(SortKey, NamesMessage(SortKey, MovieSort.List.Select(item => item.Name)));
-    }
+        => ReadNamed<MovieSort>(
+            rawQuery,
+            SortKey,
+            raw,
+            TryParseSort,
+            MovieSort.List.Select(item => item.Name),
+            value => state.Sort = value,
+            state);
 
     private static void ReadDirection(IQueryCollection rawQuery, string? raw, MappingState state)
+        => ReadNamed<SortDirection>(
+            rawQuery,
+            DirectionKey,
+            raw,
+            TryParseDirection,
+            SortDirection.List.Select(item => item.Name),
+            value => state.Direction = value,
+            state);
+
+    private static void ReadNamed<T>(
+        IQueryCollection rawQuery,
+        string key,
+        string? raw,
+        TryParseValue<T> parse,
+        IEnumerable<string> names,
+        Action<T> set,
+        MappingState state)
     {
-        if (raw is null || !MarkSeenOnce(rawQuery, DirectionKey, state))
+        if (raw is null || !MarkSeenOnce(rawQuery, key, state))
         {
             return;
         }
 
-        if (SortDirection.TryFromName(raw, false, out var direction))
+        if (parse(raw, out var value))
         {
-            state.Direction = direction;
+            set(value);
             return;
         }
 
-        state.Fail(DirectionKey, NamesMessage(DirectionKey, SortDirection.List.Select(item => item.Name)));
+        state.Fail(key, NamesMessage(key, names));
     }
 
     private static bool MarkSeenOnce(IQueryCollection rawQuery, string key, MappingState state)
@@ -249,6 +284,12 @@ internal static class LibraryEndpoints
 
     private static bool TryParseStatus(string raw, out EnrichmentStatus value) =>
         EnrichmentStatus.TryFromName(raw, false, out value);
+
+    private static bool TryParseSort(string raw, out MovieSort value) =>
+        MovieSort.TryFromName(raw, false, out value);
+
+    private static bool TryParseDirection(string raw, out SortDirection value) =>
+        SortDirection.TryFromName(raw, false, out value);
 
     private static string IntegerMessage(string key) => $"'{key}' must be an integer.";
 
