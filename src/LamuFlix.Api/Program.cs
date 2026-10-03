@@ -1,4 +1,5 @@
 using LamuFlix.Api;
+using LamuFlix.Api.Endpoints;
 using LamuFlix.Api.ExceptionHandling;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Persistence;
@@ -28,4 +29,5 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseCors(CorsPolicyName);
 app.MapDefaultEndpoints();
+app.MapApiEndpoints();
 app.Run();
