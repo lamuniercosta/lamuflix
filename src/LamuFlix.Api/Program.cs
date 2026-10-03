@@ -8,6 +8,9 @@ using LamuFlix.ServiceDefaults;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
+const string CorsPolicyName = "DevSpa";
+const string DevServerOrigin = "http://localhost:5173";
+
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddLamuFlixPersistence(builder.Configuration);
@@ -16,8 +19,13 @@ builder.Services.AddMetadataProvider();
 builder.Services.AddLamuFlixRabbitMq();
 builder.Services.AddLamuFlixPlayback();
 builder.Services.AddLamuFlixHandlers();
+builder.Services.AddCors(options => options.AddPolicy(
+    CorsPolicyName,
+    policy => policy.WithOrigins(DevServerOrigin).AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location")));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 var app = builder.Build();
 app.UseExceptionHandler();
+app.UseCors(CorsPolicyName);
+app.MapDefaultEndpoints();
 app.Run();
