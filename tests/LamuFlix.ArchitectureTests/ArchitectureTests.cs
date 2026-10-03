@@ -272,7 +272,8 @@ public sealed class ArchitectureTests
                 .Should()
                 .OnlyHaveDependenciesOn(ownNamespace, portsNamespace, domainNamespace, pipelineNamespace,
                     "LamuFlix.Core.Library", "LamuFlix.Core.Options", "System",
-                    "Microsoft.Extensions.Logging", "Microsoft.Extensions.Logging.Abstractions")
+                    "Microsoft.Extensions.Logging", "Microsoft.Extensions.Logging.Abstractions",
+                    "Microsoft.Extensions.Options")
                 .GetResult()
             where !result.IsSuccessful
             select featureType.FullName ?? featureType.Name
