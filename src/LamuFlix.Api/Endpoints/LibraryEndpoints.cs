@@ -46,7 +46,27 @@ internal static class LibraryEndpoints
             .Produces<PagedResult<MovieSummary>>()
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        api.MapGet("/movies/{id:int}", GetMovieDetailsAsync)
+            .WithName("GetMovieDetails")
+            .WithSummary("Retrieve the details of a single movie by its identifier.")
+            .Produces<MovieDetails>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return api;
+    }
+
+    private static async Task<Ok<MovieDetails>> GetMovieDetailsAsync(
+        int id,
+        IQueryHandler<GetMovieDetailsQuery, MovieDetails> handler,
+        CancellationToken cancellationToken)
+    {
+        if (!MovieId.TryCreate(id, out var movieId))
+        {
+            throw new NotFoundException();
+        }
+
+        var details = await handler.HandleAsync(new GetMovieDetailsQuery(movieId), cancellationToken);
+        return TypedResults.Ok(details);
     }
 
     private static async Task<Ok<PagedResult<MovieSummary>>> BrowseMoviesAsync(
