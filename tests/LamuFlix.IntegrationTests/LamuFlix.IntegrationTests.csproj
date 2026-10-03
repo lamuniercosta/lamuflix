@@ -13,6 +13,7 @@
     <PackageReference Include="xunit.v3.extensibility.core" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Shouldly" />
+    <PackageReference Include="FsCheck" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="WireMock.Net" />
@@ -22,6 +23,7 @@
     <ProjectReference Include="..\..\src\LamuFlix.Api\LamuFlix.Api.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Infrastructure\LamuFlix.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.ServiceDefaults\LamuFlix.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\LamuFlix.UnitTests\LamuFlix.UnitTests.csproj" />
     <ProjectReference Include="..\..\tests\LamuFlix.Tests.Common\LamuFlix.Tests.Common.csproj" />
   </ItemGroup>
 
