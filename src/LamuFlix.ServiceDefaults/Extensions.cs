@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using LamuFlix.Core.Options;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,12 @@ public static class ServiceDefaultsExtensions
     public static WebApplicationBuilder AddServiceDefaults(this WebApplicationBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
+        if (builder.Services.Any(static descriptor => descriptor.ServiceType == typeof(ServiceDefaultsMarker)))
+        {
+            return builder;
+        }
+
+        builder.Services.AddSingleton<ServiceDefaultsMarker>();
         builder.Services.AddLamuFlixOptions();
         builder.Services.TryAddSingleton(TimeProvider.System);
         builder.Host.UseSerilog(
@@ -43,5 +50,9 @@ public static class ServiceDefaultsExtensions
             .BindConfiguration(sectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
+    }
+
+    private sealed class ServiceDefaultsMarker
+    {
     }
 }
