@@ -6,13 +6,14 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Core.Pipeline;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Core.Features.Enrichment;
 
 public sealed class ProcessEnrichmentCommandHandler(
     IMovieRepository movies,
     IMetadataProvider provider,
-    EnrichmentOptions options,
+    IOptions<EnrichmentOptions> options,
     TimeProvider time,
     ILogger<ProcessEnrichmentCommandHandler> logger)
     : ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>
@@ -63,7 +64,7 @@ public sealed class ProcessEnrichmentCommandHandler(
         Movie movie,
         CancellationToken cancellationToken)
     {
-        if (EnrichmentRetryPolicy.Decide(category, command.Attempt, options.MaxAttempts) is { } retry)
+        if (EnrichmentRetryPolicy.Decide(category, command.Attempt, options.Value.MaxAttempts) is { } retry)
         {
             LogOutcome(command, category);
             return new ProcessEnrichmentOutcome.Failed(retry);

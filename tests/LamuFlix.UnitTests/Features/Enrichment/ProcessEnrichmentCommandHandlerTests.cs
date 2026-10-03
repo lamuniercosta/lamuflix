@@ -28,7 +28,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         handler = new ProcessEnrichmentCommandHandler(
             movies,
             provider,
-            new EnrichmentOptions { MaxAttempts = MaxAttempts },
+            Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { MaxAttempts = MaxAttempts }),
             new FixedTimeProvider(Now),
             logger);
     }
