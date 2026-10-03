@@ -38,6 +38,13 @@ internal static class LibraryEndpoints
     private static readonly string[] RuntimeKeys = [RuntimeMinKey, RuntimeMaxKey, RuntimeIncludeUnknownKey];
     private static readonly string[] YearKeys = [YearMinKey, YearMaxKey];
 
+    // DEV-20 owns the committed OpenAPI document. Its inputs from DEV-309 are the two routes
+    // mapped below, GET /api/movies and GET /api/movies/{id}, the BrowseMoviesResponse and
+    // MovieDetailsResponse DTOs in LibraryResponses.cs, and the WithName, WithSummary, Produces
+    // and ProducesProblem metadata attached here. Document generation, the committed
+    // web/src/api/openapi.json, its Verify snapshot and the drift check are deferred to DEV-20
+    // under Q11 and remain pending there. Nothing is generated in DEV-309, and the generated
+    // client stays with DEV-320.
     internal static RouteGroupBuilder MapLibraryEndpoints(this RouteGroupBuilder api)
     {
         api.MapGet("/movies", BrowseMoviesAsync)
