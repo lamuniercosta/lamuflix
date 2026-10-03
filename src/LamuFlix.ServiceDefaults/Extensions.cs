@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using LamuFlix.Core.Options;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -30,6 +31,16 @@ public static class ServiceDefaultsExtensions
         // The matching AddCheck registrations live in Infrastructure; the Api must not duplicate either call.
         builder.Services.AddHealthChecks();
         return builder;
+    }
+
+    public static WebApplication MapDefaultEndpoints(this WebApplication app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false })
+            .AllowAnonymous();
+
+        return app;
     }
 
     public static IServiceCollection AddLamuFlixOptions(this IServiceCollection services)
