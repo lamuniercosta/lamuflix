@@ -43,19 +43,19 @@ internal static class LibraryEndpoints
         api.MapGet("/movies", BrowseMoviesAsync)
             .WithName("BrowseMovies")
             .WithSummary("Browse movies using the canonical library query string keys.")
-            .Produces<PagedResult<MovieSummary>>()
+            .Produces<BrowseMoviesResponse>()
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         api.MapGet("/movies/{id:int}", GetMovieDetailsAsync)
             .WithName("GetMovieDetails")
             .WithSummary("Retrieve the details of a single movie by its identifier.")
-            .Produces<MovieDetails>()
+            .Produces<MovieDetailsResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return api;
     }
 
-    private static async Task<Ok<MovieDetails>> GetMovieDetailsAsync(
+    private static async Task<Ok<MovieDetailsResponse>> GetMovieDetailsAsync(
         int id,
         IQueryHandler<GetMovieDetailsQuery, MovieDetails> handler,
         CancellationToken cancellationToken)
@@ -66,10 +66,10 @@ internal static class LibraryEndpoints
         }
 
         var details = await handler.HandleAsync(new GetMovieDetailsQuery(movieId), cancellationToken);
-        return TypedResults.Ok(details);
+        return TypedResults.Ok(MovieDetailsResponse.From(details));
     }
 
-    private static async Task<Ok<PagedResult<MovieSummary>>> BrowseMoviesAsync(
+    private static async Task<Ok<BrowseMoviesResponse>> BrowseMoviesAsync(
         [AsParameters] BrowseMoviesRequest request,
         HttpRequest httpRequest,
         IQueryHandler<BrowseMoviesQuery, PagedResult<MovieSummary>> handler,
@@ -77,7 +77,7 @@ internal static class LibraryEndpoints
     {
         var query = ToMovieQuery(request, httpRequest.Query);
         var page = await handler.HandleAsync(new BrowseMoviesQuery(query), cancellationToken);
-        return TypedResults.Ok(page);
+        return TypedResults.Ok(BrowseMoviesResponse.From(page));
     }
 
     private static MovieQuery ToMovieQuery(BrowseMoviesRequest request, IQueryCollection rawQuery)

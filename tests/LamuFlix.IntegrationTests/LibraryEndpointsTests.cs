@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -25,6 +26,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
+using SortDirection = LamuFlix.Core.Library.SortDirection;
 
 namespace LamuFlix.IntegrationTests;
 
@@ -33,6 +35,10 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     private const string BrowseRoute = "/api/movies";
     private const string ProblemDetailsJson = "application/problem+json";
     private const string RequiredQuery = "sort=Title&direction=Ascending&page=1&pageSize=20";
+    private const string BrowseResponseType = "LamuFlix.Api.Endpoints.BrowseMoviesResponse";
+    private const string DetailsResponseType = "LamuFlix.Api.Endpoints.MovieDetailsResponse";
+
+    private static readonly DateTimeOffset Clock = new(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     private readonly RecordingMovieCatalog catalog = new();
 
@@ -56,7 +62,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     {
         // arrange
         var query = Accepted();
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -78,12 +84,22 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     {
         // arrange
         using var catalogFactory = WithCatalog();
-        using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
         // act
-        var property = Prop.ForAll(MovieQueryFixture.Queries(), query =>
+        var property = RoundTripsProperty(catalogFactory, catalog, cancellationToken);
+
+        // assert
+        property.QuickCheckThrowOnFailure();
+    }
+
+    private static Property RoundTripsProperty(
+        WebApplicationFactory<Program> catalogFactory,
+        RecordingMovieCatalog catalog,
+        CancellationToken cancellationToken) =>
+        Prop.ForAll(MovieQueryFixture.Queries(), query =>
         {
+            using var client = catalogFactory.CreateClient();
             catalog.Queries.Clear();
             var response = client.GetAsync($"{BrowseRoute}?{MovieQueryString.Format(query)}", cancellationToken)
                 .GetAwaiter()
@@ -92,17 +108,13 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             return response.IsSuccessStatusCode && catalog.Queries.Single().Equals(query);
         });
 
-        // assert
-        property.QuickCheckThrowOnFailure();
-    }
-
     [Theory]
     [InlineData("text=&", "")]
     [InlineData("", null)]
     public async Task BrowseMovies_TextKey_PreservesEmptyVersusAbsent(string prefix, string? expected)
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -120,7 +132,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     public async Task BrowseMovies_RepeatedArrayKeys_PreserveRequestOrder()
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -140,7 +152,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     public async Task BrowseMovies_EmptyBounds_StayDistinctFromAbsentBounds()
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -160,7 +172,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     public async Task BrowseMovies_AbsentBounds_StayNull()
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -190,7 +202,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         string field)
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -213,7 +225,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         string field)
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -230,7 +242,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     public async Task BrowseMovies_MissingRequiredKeys_ReportsFourFieldFailuresWithoutReachingTheCatalog()
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -249,7 +261,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     public async Task BrowseMovies_PageSizeAboveTheLimit_IsRejectedByTheDecoratedValidator()
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -268,7 +280,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     public async Task BrowseMovies_InvertedBounds_ReachTheDecoratedValidator()
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -287,7 +299,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     public async Task BrowseMovies_ValidationFailure_EmitsProblemDetailsCarryingTheFieldErrors()
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -313,7 +325,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     {
         // arrange
         catalog.Details = KnownDetails();
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -329,11 +341,119 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task BrowseMovies_SuccessBody_MatchesTheFrozenScalarShape()
+    {
+        // arrange
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{BrowseRoute}?{RequiredQuery}", cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
+        ShouldCarryExactly(body, "items", "totalCount");
+        var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
+        ShouldCarryExactly(item, "id", "title");
+        item.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
+        item.GetProperty("id").GetInt32().ShouldBe(1);
+        item.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
+        item.GetProperty("title").GetString().ShouldBe("Heat");
+        body.GetProperty("totalCount").ValueKind.ShouldBe(JsonValueKind.Number);
+        body.GetProperty("totalCount").GetInt32().ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetMovieDetails_PopulatedMetadata_MapsEveryFrozenScalarMember()
+    {
+        // arrange
+        catalog.Details = DetailsWithFullMetadata();
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata");
+        body.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
+        body.GetProperty("id").GetInt32().ShouldBe(7);
+        body.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
+        body.GetProperty("title").GetString().ShouldBe("Heat");
+        body.GetProperty("path").ValueKind.ShouldBe(JsonValueKind.String);
+        body.GetProperty("path").GetString().ShouldBe("C:/library/Heat/Heat.mkv");
+        body.GetProperty("format").ValueKind.ShouldBe(JsonValueKind.String);
+        body.GetProperty("format").GetString().ShouldBe("mkv");
+        var metadata = body.GetProperty("metadata");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId");
+        metadata.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
+        metadata.GetProperty("title").GetString().ShouldBe("Heat");
+        metadata.GetProperty("synopsis").ValueKind.ShouldBe(JsonValueKind.String);
+        metadata.GetProperty("synopsis").GetString().ShouldBe("A thief steals the negatives.");
+        metadata.GetProperty("releaseYear").ValueKind.ShouldBe(JsonValueKind.Number);
+        metadata.GetProperty("releaseYear").GetInt32().ShouldBe(1995);
+        metadata.GetProperty("runtime").ValueKind.ShouldBe(JsonValueKind.Number);
+        metadata.GetProperty("runtime").GetInt32().ShouldBe(131);
+        metadata.GetProperty("imdbRating").ValueKind.ShouldBe(JsonValueKind.Number);
+        metadata.GetProperty("imdbRating").GetDecimal().ShouldBe(8.3m);
+        metadata.GetProperty("imdbId").ValueKind.ShouldBe(JsonValueKind.String);
+        metadata.GetProperty("imdbId").GetString().ShouldBe("tt0113277");
+    }
+
+    [Fact]
+    public async Task GetMovieDetails_AbsentMetadata_KeepsMetadataPresentAsJsonNull()
+    {
+        // arrange
+        catalog.Details = KnownDetails();
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata");
+        body.GetProperty("format").GetString().ShouldBe("mkv");
+        ShouldCarryJsonNull(body, "metadata");
+    }
+
+    [Fact]
+    public async Task GetMovieDetails_NullableMetadataMembers_StayPresentAsJsonNull()
+    {
+        // arrange
+        catalog.Details = DetailsWithSparseMetadata();
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DetailsUrl("7"), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var metadata = body.GetProperty("metadata");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId");
+        metadata.GetProperty("title").GetString().ShouldBe("Heat");
+        ShouldCarryJsonNull(metadata, "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId");
+    }
+
+    [Fact]
     public async Task GetMovieDetails_UnknownPositiveId_BubblesTheHandlerNotFound()
     {
         // arrange
         catalog.Details = null;
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -350,7 +470,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     {
         // arrange
         catalog.Details = KnownDetails();
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -367,7 +487,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     {
         // arrange
         catalog.Details = KnownDetails();
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -383,7 +503,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     public async Task UnknownRoute_ReceivesAProblemBodyFromStatusCodePages()
     {
         // arrange
-        using var catalogFactory = WithCatalog();
+        await using var catalogFactory = WithCatalog();
         using var client = catalogFactory.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
@@ -409,14 +529,18 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
         // assert
         endpoints.Keys.ShouldBe(["BrowseMovies", "GetMovieDetails"], ignoreOrder: true);
-        ShouldDescribe(endpoints["BrowseMovies"], typeof(PagedResult<MovieSummary>), StatusCodes.Status422UnprocessableEntity);
-        ShouldDescribe(endpoints["GetMovieDetails"], typeof(MovieDetails), StatusCodes.Status404NotFound);
+        ShouldDescribe(endpoints["BrowseMovies"], BrowseResponseType, StatusCodes.Status422UnprocessableEntity);
+        ShouldDescribe(endpoints["GetMovieDetails"], DetailsResponseType, StatusCodes.Status404NotFound);
     }
 
-    private static void ShouldDescribe(RouteEndpoint endpoint, Type successType, int problemStatus)
+    private static void ShouldDescribe(RouteEndpoint endpoint, string successTypeName, int problemStatus)
     {
         // arrange
         var responses = endpoint.Metadata.OfType<IProducesResponseTypeMetadata>().ToList();
+        var successTypes = responses
+            .Where(item => item.StatusCode == StatusCodes.Status200OK)
+            .Select(item => item.Type?.FullName ?? string.Empty)
+            .ToList();
 
         // act
         var summary = endpoint.Metadata.GetMetadata<IEndpointSummaryMetadata>();
@@ -424,9 +548,15 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         // assert
         summary.ShouldNotBeNull();
         summary.Summary.ShouldNotBeNullOrWhiteSpace();
-        responses.ShouldContain(item => item.StatusCode == StatusCodes.Status200OK && item.Type == successType);
+        successTypes.ShouldContain(successTypeName, Declared(responses));
         responses.ShouldContain(item => item.StatusCode == problemStatus && item.Type == typeof(ProblemDetails));
     }
+
+    private static string Declared(List<IProducesResponseTypeMetadata> responses) =>
+        "declared responses: " + string.Join(
+            " | ",
+            responses.Select(item =>
+                $"{item.StatusCode.ToString(CultureInfo.InvariantCulture)}={item.Type?.FullName ?? "none"}"));
 
     private static string DetailsUrl(string id) => $"{BrowseRoute}/{id}";
 
@@ -458,6 +588,21 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     private static string? TraceId(JsonElement problem) =>
         problem.TryGetProperty("traceId", out var traceId) ? traceId.GetString() : null;
 
+    private static void ShouldCarryExactly(JsonElement element, params string[] names) =>
+        PropertyNames(element).ShouldBe(names, ignoreOrder: true);
+
+    private static void ShouldCarryJsonNull(JsonElement element, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            element.TryGetProperty(name, out var value).ShouldBeTrue($"'{name}' must stay present in the frozen shape.");
+            value.ValueKind.ShouldBe(JsonValueKind.Null, $"'{name}' must be JSON null.");
+        }
+    }
+
+    private static IEnumerable<string> PropertyNames(JsonElement element) =>
+        element.EnumerateObject().Select(property => property.Name);
+
     private static void ShouldFailField(JsonElement problem, string field) =>
         Fields(problem).ShouldContain(field);
 
@@ -478,10 +623,32 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             new MediaFormat(".MKV"),
             null);
 
+    private static MovieDetails DetailsWithFullMetadata() =>
+        new(
+            new MovieId(7),
+            "Heat",
+            new LibraryPath("C:/library/Heat/Heat.mkv"),
+            new MediaFormat(".MKV"),
+            new MovieMetadata(
+                "Heat",
+                "A thief steals the negatives.",
+                new ReleaseYear(1995, Clock),
+                new Runtime(131),
+                new ImdbRating(8.3m),
+                new ImdbId("tt0113277")));
+
+    private static MovieDetails DetailsWithSparseMetadata() =>
+        new(
+            new MovieId(7),
+            "Heat",
+            new LibraryPath("C:/library/Heat/Heat.mkv"),
+            new MediaFormat(".MKV"),
+            new MovieMetadata("Heat"));
+
     private static MovieQuery Accepted() => new()
     {
         Sort = MovieSort.Title,
-        Direction = LamuFlix.Core.Library.SortDirection.Ascending,
+        Direction = SortDirection.Ascending,
         Page = new Page(1, 20),
     };
 
