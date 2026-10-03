@@ -17,6 +17,7 @@ using LamuFlix.Infrastructure.FileSystem;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Pipeline;
 using LamuFlix.Infrastructure.Playback;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
@@ -25,6 +26,9 @@ namespace LamuFlix.IntegrationTests;
 
 public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixture<ApiHostFactory>
 {
+    private const string LivenessRoute = "/health/live";
+    private const string BusinessPrefix = "/api";
+
     public static TheoryData<Type, Type, Type> ManifestContracts =>
         new()
         {
@@ -119,6 +123,24 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
 
         // assert
         forbidden.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Routes_StartedComposition_ExposeTheLivenessRouteAndNoBusinessPrefix()
+    {
+        // arrange
+        var dataSource = factory.Services.GetRequiredService<EndpointDataSource>();
+
+        // act
+        var routes = dataSource.Endpoints
+            .OfType<RouteEndpoint>()
+            .Select(endpoint => endpoint.RoutePattern.RawText ?? string.Empty)
+            .ToList();
+
+        // assert
+        routes.Where(route => string.Equals(route, LivenessRoute, StringComparison.Ordinal))
+            .ShouldHaveSingleItem();
+        routes.Where(route => route.StartsWith(BusinessPrefix, StringComparison.Ordinal)).ShouldBeEmpty();
     }
 
     [Theory]
