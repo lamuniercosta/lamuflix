@@ -5,8 +5,7 @@ using LamuFlix.Core.Ports;
 
 namespace LamuFlix.Api.Endpoints;
 
-// ReSharper disable NotAccessedPositionalProperty.Global
-// Serialized by System.Text.Json as the frozen wire shapes, never read in code
+// ReSharper disable NotAccessedPositionalProperty.Global // Serialized by System.Text.Json as the frozen wire shapes, never read in code
 internal sealed record BrowseMoviesResponse(IReadOnlyList<MovieSummaryResponse> Items, int TotalCount)
 {
     public static BrowseMoviesResponse From(PagedResult<MovieSummary> page) =>
