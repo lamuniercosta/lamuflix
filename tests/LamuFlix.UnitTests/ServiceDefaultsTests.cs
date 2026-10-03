@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -82,6 +83,21 @@ public sealed class ServiceDefaultsTests
 
         // assert
         app.Services.GetRequiredService<ILoggerFactory>().ShouldBeOfType<SerilogLoggerFactory>();
+    }
+
+    [Fact]
+    public void AddServiceDefaults_SingleComposition_DoesNotRegisterConsoleLoggerProvider()
+    {
+        // arrange
+        var builder = BuilderWithConnectionString();
+
+        // act
+        builder.AddServiceDefaults();
+        using var app = builder.Build();
+        var providers = app.Services.GetServices<ILoggerProvider>();
+
+        // assert
+        providers.ShouldNotContain(static provider => provider is ConsoleLoggerProvider);
     }
 
     [Fact]

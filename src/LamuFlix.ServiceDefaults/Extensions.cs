@@ -4,6 +4,7 @@ using LamuFlix.Core.Options;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Formatting.Json;
 
@@ -22,8 +23,9 @@ public static class ServiceDefaultsExtensions
         builder.Services.AddSingleton<ServiceDefaultsMarker>();
         builder.Services.AddLamuFlixOptions();
         builder.Services.TryAddSingleton(TimeProvider.System);
+        builder.Logging.ClearProviders();
         builder.Host.UseSerilog(
-            (_, loggerConfiguration) => loggerConfiguration.WriteTo.Console(new JsonFormatter(renderMessage: true)),
+            (_, loggerConfiguration) => loggerConfiguration.WriteTo.Console(new JsonFormatter(renderMessage: false)),
             writeToProviders: true);
         // The matching AddCheck registrations live in Infrastructure; the Api must not duplicate either call.
         builder.Services.AddHealthChecks();
