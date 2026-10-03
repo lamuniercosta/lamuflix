@@ -2,14 +2,16 @@
 
 **Status: SETTLED (2026-10-02).** Patron accepted the final Q6 ruling and confirmed shared understanding. The grill stopped at eight numbered questions; Q9-Q12 were not needed. There are no owner checkboxes, no ticket changes, no constitution departure, no new domain term and no ADR. One receipt is still pending, and it does not block: Rigger's live `size:` tag read (section 9). Quill drafts spec, plan and tasks from this file.
 
-Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Taste: `specs/DEV-308/ASSUMPTIONS.md`. Recon: notes `recon-DEV-308` and `recon-DEV-308-handlers`; the completed handler findings and source citations are recorded in the Q6 rulings in `CONCLUSIONS.md`. Worktree `F:/Dev/LamuFlix.worktrees/feature-308-spec` @ `feature/308-spec`.
+**Re-frozen 2026-10-03 (owner decision, charter 2.3(a), CONCLUSIONS.md commit b19e883).** DEV-307 delivery PR #82 did not supply the WAF harness or `MapDefaultEndpoints` (its N2/N3 stayed unchecked; origin/main 122c502 has neither). The owner ruled that DEV-308 absorbs them. b19e883 supersedes FR-033 and every prior assumption here that DEV-308 reuses a DEV-307 harness or `MapDefaultEndpoints`; Q1, Q4 and sections 4, 6 and 8 now say DEV-308 creates them. Status stays SETTLED; the owner has already decided, so no owner checkbox is open.
+
+Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Taste: `specs/DEV-308/ASSUMPTIONS.md`. Recon: notes `recon-DEV-308` and `recon-DEV-308-handlers`; the completed handler findings and source citations are recorded in the Q6 rulings in `CONCLUSIONS.md`. Worktree `F:/Dev/LamuFlix.worktrees/DEV-308` @ `feature/DEV-308`.
 
 ## 1. Ticket (decided text, read live 2026-10-02)
 - **Overview.** Compose the existing minimal Api host for DEV-309 and DEV-310, which own the endpoints. Deleting LamuFlix.Web belongs to DEV-388.
 - **Scope 1.** Api references Infrastructure and registers handlers through AddHandler, so each one resolves with its Validation, Logging and Tracing decorators.
 - **Scope 2.** Register the Infrastructure adapters, and TimeProvider through host DI (DEV-307).
 - **Scope 3.** CORS for `http://localhost:5173`.
-- **Scope 4.** `app.MapDefaultEndpoints()` (DEV-307), plus the endpoint-group convention (`MapLibraryEndpoints`, `MapImportEndpoints`, ...).
+- **Scope 4.** `app.MapDefaultEndpoints()` (ticket text names DEV-307; created by DEV-308 per the owner ruling in b19e883), plus the endpoint-group convention (`MapLibraryEndpoints`, `MapImportEndpoints`, ...).
 - **AC1.** Api starts cleanly as a Minimal API host with no MVC or Razor.
 - **AC2.** A test resolves a registered handler from the Api host provider and gets the decorated pipeline.
 - **AC3.** CORS allows the React dev server origin.
@@ -26,11 +28,13 @@ Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Tast
 ## 3. Grill answers (rulings in CONCLUSIONS.md; Keel's full exchanges are kept in TEMP `DEV-308-keel-q3.md` .. `-q8.md` and `-q6.md`)
 
 **Q1: prerequisite.**
-- Phase B starts only when DEV-307 **code** is merged on the build base.
-- DEV-308 uses the ServiceDefaults `TryAddSingleton(TimeProvider.System)` and `MapDefaultEndpoints` exactly once. It adds no provisional copy.
+- Phase B builds on the merged DEV-307 ServiceDefaults observability (PR #82). It does not wait for any further DEV-307 delivery.
+- DEV-308 consumes the ServiceDefaults `TryAddSingleton(TimeProvider.System)`; it adds no host copy.
+- **DEV-308 creates `MapDefaultEndpoints`** (superseding the prior reuse assumption, b19e883): one `public static WebApplication MapDefaultEndpoints(this WebApplication app)` on the existing static class in `src/LamuFlix.ServiceDefaults/Extensions.cs`, following DEV-307 plan.md section 5 for the liveness route: `/health/live` with `Predicate = _ => false`, `.AllowAnonymous()`. Api calls it exactly once (section 4).
+- **Readiness is not absorbed.** `/health/ready`, its readiness-tag constant and the ProblemDetails response writer (DEV-307 plan.md sections 4-5, Q2-gated there) are outside the ruling's named items and outside the Q4 proof, which covers `/health/live`, not readiness. Keel plan decision; Patron is asked to confirm and to file the follow-up.
 - Scope 4's convention half stays in DEV-308.
 - The two Infrastructure `TryAddSingleton(TimeProvider.System)` calls stay untouched.
-- Basis: constitution:235-236; recon-DEV-308:20,28.
+- Basis: constitution:235-236; recon-DEV-308:20,28; CONCLUSIONS.md owner decision 2026-10-03 (b19e883).
 
 **Q2: handler ownership.**
 - One explicit AddHandler per service contract, in internal `src/LamuFlix.Api/HandlerRegistration.cs`, called from Program.cs.
@@ -49,11 +53,15 @@ Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Tast
 - The policy name and origin are local `const` values in Program.cs.
 
 **Q4: harness.**
-- Reuse the `WebApplicationFactory<Program>` and the IntegrationTests references that DEV-307 adds. DEV-308 makes no csproj, pin or `partial class Program` change.
-- Conditional: a same-project, move-only extraction of the DEV-307 factory (care item 6). The actual files are named in the pickup receipt.
+- **DEV-308 creates the harness** (reversing the prior reuse ruling, b19e883). The earlier sentence "DEV-308 makes no csproj, pin or `partial class Program` change" is withdrawn.
+- `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` gains a `ProjectReference` to `LamuFlix.Api` and a `PackageReference` to `Microsoft.AspNetCore.Mvc.Testing`.
+- `Directory.Packages.props` carries the `Microsoft.AspNetCore.Mvc.Testing` central pin on the repository's existing .NET 10.0.x line, without moving any other version. If the pin already exists on the build base, it is reused, not duplicated; the pickup receipt states which.
+- DEV-308 creates one `WebApplicationFactory<Program>` host type in `tests/LamuFlix.IntegrationTests`, used by both test classes in section 4.
+- No `partial class Program` line is added: .NET 10 source-generates the public `Program` (DEV-307 plan.md:323). If pickup shows `Program` is not reachable, the minimum fix is a Q4 forced fix, cited.
+- The former conditional move-only extraction of a DEV-307 factory is dropped; there is no inherited factory to move.
 - ValidateOnBuild and ValidateScopes are on.
 - **Boot-blocker rule:** a defect that stops AC1 startup or the resolution of a Scope 1 manifest entry forces its minimum fix in this ticket, even in a file the ticket did not name, cited to the AC or failing gate. Validation is never narrowed, the blocker is never deferred, and green is never claimed early. Unrelated non-blockers follow the follow-up policy.
-- **Config:** runtime config is supplied early enough for the production registrations, using the inherited .NET 10 factory recipe (ConfigureAppConfiguration can be too late).
+- **Config:** runtime config is supplied early enough for the production registrations, using the .NET 10 factory recipe the new host implements (ConfigureAppConfiguration can be too late).
 - No real credentials, connection strings or machine paths are committed.
 - **No containers.** The proof covers DI and `/health/live`, not driver behaviour or readiness.
 
@@ -62,7 +70,7 @@ Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Tast
 - `Endpoints/LibraryEndpoints.cs` (`MapLibraryEndpoints`) and `Endpoints/ImportEndpoints.cs` (`MapImportEndpoints`) are internal extensions on the shared `RouteGroupBuilder`. They map zero routes and declare no sub-prefix, status or DTO.
 - Delete `Endpoints/.gitkeep`.
 - **No explanatory comments** anywhere, in code or tests (project rule). The convention lives in this brief only: one static class per feature in `Endpoints/`, a `MapXxxEndpoints(this RouteGroupBuilder api)` extension, a call added in `MapApiEndpoints`, no P1 versioning (constitution:463).
-- **Host proof:** required health routes are present and there is no `/api` business route. Doc routes inherited from DEV-307 are preserved. Do not assert an exact health-only set.
+- **Host proof:** required health routes are present and there is no `/api` business route. Any doc routes present on the build base are preserved. Do not assert an exact health-only set.
 - No test that mirrors the empty methods.
 
 **Q6: manifest and binding recipe (final ACCEPT).**
@@ -124,7 +132,7 @@ Owner: Keel. Rulings: `specs/DEV-308/CONCLUSIONS.md` (Patron, append-only). Tast
 10. Build
 11. UseExceptionHandler
 12. **UseCors(DevSpa)** (per Q3 placement)
-13. MapDefaultEndpoints (DEV-307, once)
+13. **MapDefaultEndpoints** (created by DEV-308 in ServiceDefaults, called once)
 14. **MapApiEndpoints**
 15. Run
 
@@ -135,16 +143,22 @@ Persistence -> metadata -> RabbitMq order must hold, because it keeps the inheri
 - `src/LamuFlix.Api/HandlerRegistration.cs`: new, internal.
 - `src/LamuFlix.Api/Endpoints/ApiEndpoints.cs`, `LibraryEndpoints.cs`, `ImportEndpoints.cs`: new, internal.
 - `src/LamuFlix.Api/Endpoints/.gitkeep`: delete.
-- **Total:** five production .cs files (Program.cs plus four new), plus the disposable `.gitkeep` deletion. The scanner binding lives inside `HandlerRegistration.cs`, so it adds no file and no Infrastructure edit.
+- `src/LamuFlix.ServiceDefaults/Extensions.cs`: edit, adds `MapDefaultEndpoints` (liveness route only, Q1).
+- **Total:** six production .cs files (Program.cs and ServiceDefaults Extensions.cs edited, four new), plus the disposable `.gitkeep` deletion. The scanner binding lives inside `HandlerRegistration.cs`, so it adds no file and no Infrastructure edit.
 - **Q4 rule still applies.** A boot-blocker that surfaces only at implementation still forces its minimum fix, cited and named in the receipt.
 
-**Test files** (`tests/LamuFlix.IntegrationTests`, inherited factory)
+**Test project files** (`tests/LamuFlix.IntegrationTests`, b19e883)
+- `LamuFlix.IntegrationTests.csproj`: edit, adds the `LamuFlix.Api` ProjectReference and the `Microsoft.AspNetCore.Mvc.Testing` PackageReference.
+- `Directory.Packages.props`: the `Microsoft.AspNetCore.Mvc.Testing` central pin, added only if absent on the build base (Q4).
+- The `WebApplicationFactory<Program>` host type: new, in this project; Quill names the file in plan.md.
+
+**Test files** (`tests/LamuFlix.IntegrationTests`, using the new host)
 - `ApiHostCompositionTests.cs`: AC1 start, the AC2 seven-row theory (TracingDecorator outermost, plus one full Tracing -> Logging -> Validation -> handler walk), and the route check from Q5.
 - `ApiCorsTests.cs`: AC3 per the Q3 ruling.
-- Conditional, decided at pickup: the Q4 move-only factory extraction. This is the only conditional entry in the file set.
+- The only conditional entry in the file set is the `Directory.Packages.props` pin (add if absent).
 
 **Unchanged**
-- csproj, Directory.Packages.props, appsettings, ServiceDefaults.
+- `src/` csproj files, other pins in Directory.Packages.props, appsettings, and ServiceDefaults apart from the `MapDefaultEndpoints` addition.
 - Infrastructure, unless a Q4 boot-blocker appears.
 - `web/`, OpenAPI, migrations.
 
@@ -154,8 +168,8 @@ Persistence -> metadata -> RabbitMq order must hold, because it keeps the inheri
 - Never claim validation coverage for the seven rows.
 
 ## 6. Test strategy
-- **Host.** Host integration tests through the inherited WAF, with the real Program.cs composition and DEV-307 health-check stubs only. No Testcontainers.
-- **Config.** In-memory config per DEV-307 plan.md:270-273 (Library:RootPath, Omdb:ApiKey, Omdb:BaseUrl, RabbitMq:HostName, placeholder ConnectionStrings:DefaultConnection, Enrichment:ClaimLease below RabbitMq:RetryDelay), with `Features:LocalPlay` explicitly false. This config must reach the host before the production registrations read it, via the inherited .NET 10 factory recipe; ConfigureAppConfiguration alone can be too late (Q4). The test resolves row #10 to the DisabledMediaPlayerLauncher graph, and no media is executed.
+- **Host.** Host integration tests through the `WebApplicationFactory<Program>` host DEV-308 creates (not reused), with the real Program.cs composition. Health checks registered on the build base are replaced by stubs only where they would need a live dependency. No Testcontainers.
+- **Config.** In-memory config per the key list in DEV-307 plan.md:270-273 (Library:RootPath, Omdb:ApiKey, Omdb:BaseUrl, RabbitMq:HostName, placeholder ConnectionStrings:DefaultConnection, Enrichment:ClaimLease below RabbitMq:RetryDelay), with `Features:LocalPlay` explicitly false. This config must reach the host before the production registrations read it, via the .NET 10 factory recipe the new host implements; ConfigureAppConfiguration alone can be too late (Q4). The test resolves row #10 to the DisabledMediaPlayerLauncher graph, and no media is executed.
 - **AC2.** A data-driven theory over the seven rows.
 - **AC3.**
   - GET `/health/live` from 5173 returns allow-origin and Expose-Headers `Location`.
@@ -181,10 +195,10 @@ Persistence -> metadata -> RabbitMq order must hold, because it keeps the inheri
 
 ## 8. Prerequisites, size, loop terms
 - **Pickup prerequisites (receipt):**
-  - DEV-307 code is merged: AddServiceDefaults registers TimeProvider and MapDefaultEndpoints exists.
-  - The IntegrationTests csproj has the Api ProjectReference and Mvc.Testing.
-  - The factory type is identified, along with whether extraction is needed.
+  - AddServiceDefaults registers TimeProvider on the build base (PR #82). If it does not, that is a Q4 forced fix, cited.
+  - Whether the `Microsoft.AspNetCore.Mvc.Testing` central pin already exists on the build base (decides the conditional file).
   - The drift check against main is done.
+  - The DEV-307 harness, the IntegrationTests Api ProjectReference/Mvc.Testing reference and an existing `MapDefaultEndpoints` are **no longer pickup prerequisites**: DEV-308 creates them (b19e883).
 - **Size.** **M** is recommended for this composition change, with three axis reports from Sentry, Ledger and Compass. The live tag is unknown pending Rigger's receipt. If absent, Patron authorizes size:M; an existing non-M tag is reported to Patron for adjudication without silently changing the tag or process.
 - **Loop terms.** The standing DEV-307 CONCLUSIONS closing terms are cited once and not reopened:
   - Critical or High findings with a concrete failure scenario block.
@@ -195,5 +209,6 @@ Persistence -> metadata -> RabbitMq order must hold, because it keeps the inheri
 
 ## 9. Pending receipts (non-blocking)
 - **Size tag.** Rigger has the request to read the live YouTrack `size:` tag. M is recommended; if the tag is absent, Patron authorizes size:M. An existing non-M tag returns to Patron for adjudication. No verified or absent tag is claimed here.
-- **Pickup receipt (Phase B).** The section 8 prerequisites, plus the decision on the factory extraction.
+- **Pickup receipt (Phase B).** The section 8 prerequisites, including the Mvc.Testing pin presence.
+- **Readiness follow-up.** Patron confirmation that `/health/ready` and its response writer stay out of DEV-308 (Q1), and a follow-up ticket via Rigger.
 - **Open owner questions:** none.
