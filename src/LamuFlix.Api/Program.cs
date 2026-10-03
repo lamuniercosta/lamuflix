@@ -1,3 +1,4 @@
+using LamuFlix.Api;
 using LamuFlix.Api.ExceptionHandling;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Persistence;
@@ -10,9 +11,11 @@ using Microsoft.Extensions.DependencyInjection;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddLamuFlixPersistence(builder.Configuration);
+builder.Services.AddMovieCatalog();
 builder.Services.AddMetadataProvider();
 builder.Services.AddLamuFlixRabbitMq();
 builder.Services.AddLamuFlixPlayback();
+builder.Services.AddLamuFlixHandlers();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 var app = builder.Build();
