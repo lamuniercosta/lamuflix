@@ -1,5 +1,6 @@
 namespace LamuFlix.Api.Endpoints;
 
+// ReSharper disable UnusedAutoPropertyAccessor.Global // [AsParameters] binding sets these properties reflectively.
 internal sealed record BrowseMoviesRequest
 {
     public string? Text { get; set; }
@@ -29,4 +30,5 @@ internal sealed record BrowseMoviesRequest
     public string? Page { get; set; }
 
     public string? PageSize { get; set; }
+    // ReSharper restore UnusedAutoPropertyAccessor.Global
 }

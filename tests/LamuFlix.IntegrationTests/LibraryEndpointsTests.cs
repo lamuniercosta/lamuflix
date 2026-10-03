@@ -189,7 +189,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     }
 
     [Theory]
-    [InlineData("sort=Title&sort=Year&direction=Ascending&page=1&pageSize=20", "sort")]
+    [InlineData("page=1&page=2&sort=Title&direction=Ascending&pageSize=20", "page")]
     [InlineData("sort=title&direction=Ascending&page=1&pageSize=20", "sort")]
     [InlineData("sort=Title&direction=ascending&page=1&pageSize=20", "direction")]
     [InlineData("statuses=pending&sort=Title&direction=Ascending&page=1&pageSize=20", "statuses")]
@@ -197,6 +197,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     [InlineData("pageSize=1.5&sort=Title&direction=Ascending&page=1", "pageSize")]
     [InlineData("genreIds=x&sort=Title&direction=Ascending&page=1&pageSize=20", "genreIds")]
     [InlineData("inWatchlist=yes&sort=Title&direction=Ascending&page=1&pageSize=20", "inWatchlist")]
+    [InlineData("sort=Title&sort=Year&direction=Ascending&page=1&pageSize=20", "sort")]
+    [InlineData("inWatchlist=true&inWatchlist=false&sort=Title&direction=Ascending&page=1&pageSize=20", "inWatchlist")]
     [InlineData("runtimeIncludeUnknown=&sort=Title&direction=Ascending&page=1&pageSize=20", "runtimeIncludeUnknown")]
     public async Task BrowseMovies_MalformedValues_FailFieldKeyedWithoutReachingTheCatalog(
         string rawQuery,
@@ -277,8 +279,10 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         catalog.Queries.ShouldBeEmpty();
     }
 
-    [Fact]
-    public async Task BrowseMovies_InvertedBounds_ReachTheDecoratedValidator()
+    [Theory]
+    [InlineData("yearMin=2000&yearMax=1990", "Query.Year")]
+    [InlineData("runtimeMin=20&runtimeMax=10&runtimeIncludeUnknown=false", "Query.Runtime")]
+    public async Task BrowseMovies_InvertedBounds_ReachTheDecoratedValidator(string range, string field)
     {
         // arrange
         await using var catalogFactory = WithCatalog();
@@ -287,12 +291,12 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
         // act
         var response = await client.GetAsync(
-            $"{BrowseRoute}?yearMin=2000&yearMax=1990&{RequiredQuery}",
+            $"{BrowseRoute}?{range}&{RequiredQuery}",
             cancellationToken);
         var problem = await ReadProblemAsync(response, cancellationToken);
 
         // assert
-        ShouldFailField(problem, "Query.Year");
+        ShouldFailField(problem, field);
         catalog.Queries.ShouldBeEmpty();
     }
 
@@ -466,8 +470,10 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         catalog.DetailsIds.ShouldHaveSingleItem().ShouldBe(new MovieId(999));
     }
 
-    [Fact]
-    public async Task GetMovieDetails_NonPositiveId_ReturnsNotFoundWithoutDispatching()
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    public async Task GetMovieDetails_NonPositiveId_ReturnsNotFoundWithoutDispatching(string id)
     {
         // arrange
         catalog.Details = KnownDetails();
@@ -476,7 +482,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         var cancellationToken = TestContext.Current.CancellationToken;
 
         // act
-        var response = await client.GetAsync(DetailsUrl("0"), cancellationToken);
+        var response = await client.GetAsync(DetailsUrl(id), cancellationToken);
 
         // assert
         await ReadNotFoundAsync(response, cancellationToken);
