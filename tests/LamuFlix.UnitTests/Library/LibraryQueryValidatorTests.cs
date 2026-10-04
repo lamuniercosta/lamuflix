@@ -85,7 +85,13 @@ public sealed class LibraryQueryValidatorTests
     [Fact]
     public void GetMovieDetailsValidator_ConstructedId_IsValid()
     {
-        detailsValidator.Validate(new GetMovieDetailsQuery(new MovieId(1))).IsValid.ShouldBeTrue();
+        // Arrange
+
+        // Act
+        var result = detailsValidator.Validate(new GetMovieDetailsQuery(new MovieId(1)));
+
+        // Assert
+        result.IsValid.ShouldBeTrue();
     }
 
     private static MovieQuery Accepted() => new()
