@@ -2,18 +2,18 @@
 
 ## Six ordering notes. None is taken silently.
 
-1. **The owner gate comes first.** Q1, Q2, Q8 and Q11 are all unchecked in `spec.md`. Do not start Phase B until the owner answers all four, the normal Gate 1 approval is recorded, and the DEV-308 implementation is merged on the build base (`brief.md` §§2-3, 8; `CONCLUSIONS.md` Q1, Q2, Q8, Q11).
+1. **The owner decisions are settled.** Q1, Q2, Q8 and Q11 are approved in merged spec PR #81 and recorded as decided in `spec.md`. Do not start Phase B until the normal Gate 1 approval is recorded and the DEV-308 implementation is merged on the build base (`PR #81`; `brief.md` §§2-3, 8; `CONCLUSIONS.md` Q1, Q2, Q8, Q11).
 2. **The branch-local mapper is inherited.** DEV-308 creates `LibraryEndpoints.cs` empty. DEV-309 fills it and adds no `Program.cs` route call (`recon-DEV-309.md:13-18`; DEV-308 spec FR-027).
 3. **Keep one exception mapper.** Endpoint code throws or bubbles the existing exceptions. `UseStatusCodePages()` fills bodyless routing responses; it does not add an exception handler (`CONCLUSIONS.md` Q2/Q9; recon R5).
 4. **Parse first, validate through the decorator.** Codec syntax errors become field-keyed `ValidationException`; representable values proceed through the real `BrowseMoviesQueryValidator` wrapper and the existing handler decorator. Do not add endpoint-side domain validation or server defaults (`CONCLUSIONS.md` Q1/Q3/Q4/Q9).
-5. **Q8 is a public contract choice.** Do not substitute response DTOs or begin implementation until the owner answers. If approved, preserve every frozen scalar field and null rule; do not quietly choose converters or nested objects instead (`CONCLUSIONS.md` Q8).
-6. **Q11 is a separate constitutional departure.** Endpoint metadata is not the committed OpenAPI document. Do not call the deferral approved, create web/OpenAPI work, or mark the checkbox closed before its answer (`CONCLUSIONS.md` Q11; recon R4).
+5. **Q8 is an approved public contract choice.** PR #81 approves scalar response DTOs; preserve every frozen scalar field and null rule, without converters or nested objects (`PR #81`; `CONCLUSIONS.md` Q8).
+6. **Q11 is an approved OpenAPI deferral.** PR #81 approves DEV-20 ownership of the committed OpenAPI document, Verify snapshot and drift check for these routes. Endpoint metadata is not that document; do not create web/OpenAPI work here (`PR #81`; `CONCLUSIONS.md` Q11; recon R4).
 
 ## Phase 1: Setup — the pickup receipt and owner gate (T001-T005)
 
 - [x] T001 Confirm the working tree is `F:/Dev/LamuFlix.worktrees/feature-309-spec`, branch `feature/309-spec`, and the DEV-308 implementation commit is present on the build base before implementation. Record the exact base/head and `git status`; stop Phase B if the prerequisite is absent.
-- [x] T002 Read the live answers to Q1, Q2, Q8 and Q11 from the spec PR and reconcile `spec.md`, `plan.md` and `tasks.md` to those answers. Keep the checkboxes open until actual owner replies exist. If an answer rejects a recommendation, stop and reconcile the artifacts before code; do not decide for the owner.
-- [x] T003 Obtain the normal Gate 1 approval after all four owner questions are answered. Record the approval evidence in the task note. A spec PR merge by itself does not supply Gate 1 approval or DEV-308 code.
+- [x] T002 Read the live answers to Q1, Q2, Q8 and Q11 from merged spec PR #81 and reconcile `spec.md`, `plan.md` and `tasks.md` to those owner-approved decisions (`PR #81`).
+- [x] T003 Obtain the normal Gate 1 approval after all four owner decisions are recorded. Record the approval evidence in the task note. PR #81 supplies the owner answers but does not by itself supply normal Gate 1 approval or DEV-308 code (`PR #81`).
 - [x] T004 At pickup, confirm the inherited route mapper, `HandlerRegistration.cs`, `WebApplicationFactory<Program>`, handler registrations, `AddMovieCatalog`, problem-details service and test fixture are present on the implementation base. Record any mismatch and stop if the DEV-308 prerequisite is incomplete.
 - [x] T005 Record the inherited route surface and test host recipe needed for the real host, including configuration supplied before production registration, `Features:LocalPlay=false`, the catalog fake seam, and the exact frozen file envelope. No secret or real connection string is copied into the note.
 
@@ -41,7 +41,7 @@
 
 ## Phase 4: User Story 3 - Freeze the scalar success contract (Priority: P1)
 
-- [ ] T018 Only after Q8 is answered affirmatively, create `LibraryResponses.cs` with the four internal sealed response records exactly as approved. Map value objects to scalars, use `Runtime.Minutes`, keep null metadata and nullable members present as JSON null, and preserve the frozen camelCase browse/details shapes. If Q8 is answered differently, stop and reconcile before writing this file.
+- [ ] T018 With Q8 approved in merged spec PR #81, create `LibraryResponses.cs` with the four internal sealed response records exactly as approved. Map value objects to scalars, use `Runtime.Minutes`, keep null metadata and nullable members present as JSON null, and preserve the frozen camelCase browse/details shapes (`PR #81`).
 - [ ] T019 Extend success integration tests for browse and details JSON with populated metadata, absent metadata and nullable metadata members. Compare fields/types/nulls without depending on JSON property order. Assert normalized format extension and runtime minutes.
 - [ ] T020 Check the response mapping contains no converter, JSON-options registration, enrichment field, Contracts folder, generic response abstraction, new package or dependency. Record any required divergence for owner review; do not silently widen scope.
 - [ ] T021 Run applicable changed-file analysis/format checks and focused tests. Keep implementation complexity at or below the harness implementation ceiling and extract helpers as needed to satisfy the later refactor ceiling of 6.
@@ -50,30 +50,30 @@
 
 ## Phase 5: User Story 4 - Handoff the OpenAPI inputs to DEV-20 (Priority: P2)
 
-- [ ] T022 Only after Q11 is answered affirmatively, verify the DEV-20 ownership comment/receipt identifies both routes, their DTO and endpoint metadata inputs, and the pending deferral. Its receipt does not itself close the checkbox; only the owner answer does. If Q11 is rejected or unanswered, stop and reconcile the contract-chain work before implementation proceeds.
+- [ ] T022 With Q11 approved in merged spec PR #81, verify the DEV-20 ownership comment/receipt identifies both routes, their DTO and endpoint metadata inputs, and the approved deferral (`PR #81`). The receipt documents the handoff; the owner decision is already settled.
 - [ ] T023 Confirm the DEV-309 diff adds no OpenAPI package, document generation, `web/` folder, committed `openapi.json`, Verify snapshot, drift check or TypeScript file. Verify that the handoff names DEV-20 as document owner and DEV-320's separate generated-client ownership is not claimed as completed.
 
-**Checkpoint**: Q11's owner answer is recorded, ownership boundaries are explicit, and no deferred artifact is claimed or produced in DEV-309.
+**Checkpoint**: Q11's approval in merged spec PR #81 is recorded, ownership boundaries are explicit, and no deferred artifact is claimed or produced in DEV-309 (`PR #81`).
 
 ## Phase 6: User Story 5 - Evidence, scope and close-out (Priority: P2)
 
 - [ ] T024 Run the complete error matrix: parameter-less browse with its four failures, invalid Enumeration, `pageSize=101`, inverted range, unknown positive id, zero id, non-integer id and unknown route. Every error asserts status, `application/problem+json` and non-empty `traceId`; browse failures assert field-keyed `errors`; invalid browse never calls the catalog.
 - [ ] T025 Run all applicable gates in harness order: changed-file Roslyn, cyclomatic complexity at implementation and refactor ceilings, InspectCode, format, full tests, property tests and vulnerable packages; mutation at its proper stage. Use `harness.yml` and each script's `-Help`. Record each result and exit code. Exit 1 or Could not run blocks; exit 2 for empty scope is blocking SKIPPED; only harness-disabled is non-blocking SKIP; surviving mutant routes to a missing test.
 - [ ] T026 Inspect `git diff <base>...HEAD` and confirm only the approved implementation/test files plus any minimum acceptance-forced fix changed. Confirm no Core query rewrite, duplicate registration, project/package/threshold/schema/migration change, secret, machine path, local-play change, OpenAPI or web artifact. Name any forced extra edit with the concrete failed AC/gate it fixes.
-- [ ] T027 Re-read all four owner checkboxes and compare the spec/plan/tasks against their actual answers. Confirm the PR body carries the gate results, diff boundary and error/contract evidence, and does not claim DEV-376 acceptance. Leave merge to the user.
-- [ ] T028 Report the actual implementation head, merge readiness or blocking findings, applicable gate outcomes, and any limits. Do not describe any unrunnable or skipped-blocking gate as green.
+- [ ] T027 Verify the four owner decisions recorded in `spec.md` match merged spec PR #81 and confirm the spec/plan/tasks preserve the approved contract evidence.
+- [ ] T028 Record the actual implementation head, applicable gate outcomes and exit codes, blocking findings, and verification limits. Do not describe any unrunnable or skipped-blocking gate as green.
 
-**Checkpoint**: the complete error and success contracts are proved, applicable gates and scope are reported honestly, owner answers and prerequisites are recorded, and no DEV-376 acceptance is claimed.
+**Checkpoint**: the complete error and success contracts are proved, applicable gates and scope are reported honestly, the owner decisions and remaining prerequisites are recorded, and no DEV-376 acceptance is claimed.
 
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
 
-- **Phase 1**: starts only after this spec is approved, all four owner questions have answers, Gate 1 is approved, and DEV-308 implementation is merged. T001/T004 can end the work if those prerequisites are absent.
+- **Phase 1**: starts only after this spec is approved, the four owner decisions from merged spec PR #81 are recorded, Gate 1 is approved, and DEV-308 implementation is merged. T001/T004 can end the work if those prerequisites are absent (`PR #81`).
 - **Phase 2**: depends on Phase 1. The request mapper and validators establish the browse binding/validation seam.
 - **Phase 3**: depends on Phase 2's handler/test host and shares `Program.cs` only for status-code pages; endpoint and error flow are proved together.
-- **Phase 4**: depends on the Q8 owner answer and the approved scalar contract; success mapping and JSON assertions proceed together.
-- **Phase 5**: depends on Q11 answer and DEV-20 ownership receipt; it changes no API behavior.
+- **Phase 4**: depends on the Q8 approval recorded in merged spec PR #81 and the approved scalar contract; success mapping and JSON assertions proceed together (`PR #81`).
+- **Phase 5**: depends on the Q11 approval recorded in merged spec PR #81 and DEV-20 ownership receipt; it changes no API behavior (`PR #81`).
 - **Phase 6**: depends on all implementation phases; it is verification and handoff only.
 
 ### User Story Dependencies

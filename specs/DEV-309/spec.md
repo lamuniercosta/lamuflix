@@ -4,20 +4,20 @@
 
 **Created**: 2026-10-02
 
-**Status**: draft for Gate 1. Four owner decisions remain open and unchecked below; Gate 1 stays closed until answered on the spec PR. The brief is settled, but its recommendations do not decide those owner questions. Phase B also requires the DEV-308 implementation to be merged, owner answers, and normal Gate 1 approval (`brief.md` §§2-3, 8; `CONCLUSIONS.md` Q1, Q2, Q8, Q11).
+**Status**: the four owner decisions Q1, Q2, Q8 and Q11 are decided and approved in merged spec PR #81. Phase B also requires the DEV-308 implementation to be merged and normal Gate 1 approval (`PR #81`; `brief.md` §§2-3, 8; `CONCLUSIONS.md` Q1, Q2, Q8, Q11).
 
 **Input**: DEV-309 — implement `GET /api/movies` and `GET /api/movies/{id}` in `src/LamuFlix.Api/Endpoints/LibraryEndpoints.cs`. Ticket Scope 1 binds query string directly to `MovieQuery` via `[AsParameters]`, dispatches `BrowseMoviesQuery`, and returns `Results<Ok<PagedResult<MovieSummary>>, ValidationProblem>`. Scope 2 parses an `int` id as `MovieId`, dispatches `GetMovieDetailsQuery`, and returns `Results<Ok<MovieDetails>, NotFound<ProblemDetails>>`. Scope 3 requires `WithName`, `Produces` and `WithSummary`. AC1 requires query binding to `MovieQuery`; AC2 requires strongly typed TypedResults with OpenAPI metadata. The settled brief is `specs/DEV-309/brief.md`; cited Patron rulings are in `CONCLUSIONS.md`, and taste choices are in `ASSUMPTIONS.md`.
 
 **Short name**: `movie-browse-details-api`
 
-## Owner Decisions — Required Before Gate 1
+## Owner Decisions — Decided in Merged Spec PR #81
 
-Each checkbox is deliberately open. Carry each question and recommendation to the spec PR verbatim in substance; do not mark any answer here.
+PR #81 records the owner approval of each decision below; these are decided, not open checkboxes (`PR #81`).
 
-- [ ] **Q1 — Binding (2.3a):** Approve a flat, all-string Api `[AsParameters]` request mapped to `MovieQuery` instead of the ticket's direct `[AsParameters] MovieQuery` binding? Recommended: yes. Direct binding is not supported for the nested/domain shapes, and does not preserve the established query codec (`CONCLUSIONS.md` Q1, Q9; recon-DEV-309-2 §§8-9, R7).
-- [ ] **Q2 — Error arms (2.3a):** Approve `Ok<T>` success results with 422/404 error metadata, with errors produced only by the single `IExceptionHandler`, instead of the ticket's literal `ValidationProblem`/`NotFound<ProblemDetails>` union arms? Recommended: yes. The exception handler owns 422 and 404 and keeps the `traceId` problem response contract (`CONCLUSIONS.md` Q2, Q9; recon R5).
-- [ ] **Q8 — Response DTOs (2.3a):** Approve scalar Api response DTOs replacing the ticket's named Core success types, using the frozen field/type contract in FR-009? Recommended: yes. This exposes stable scalar values without converter or serializer-specific schema transformations (`CONCLUSIONS.md` Q8; recon R2, R3).
-- [ ] **Q11 — OpenAPI deferral (2.3b):** Approve deferring the committed OpenAPI document, Verify snapshot, and drift check for these two routes to DEV-20? Recommended: yes. DEV-20 owns the existing document chain; this remains a constitution-departure checkbox until explicitly answered (`CONCLUSIONS.md` Q11; recon R4; DEV-307 FR-034).
+- **Q1 — Binding (2.3a): Approved.** Use a flat, all-string Api `[AsParameters]` request mapped to `MovieQuery` instead of the ticket's direct `[AsParameters] MovieQuery` binding. Direct binding is not supported for the nested/domain shapes and does not preserve the established query codec (`PR #81`; `CONCLUSIONS.md` Q1, Q9; recon-DEV-309-2 §§8-9, R7).
+- **Q2 — Error arms (2.3a): Approved.** Use `Ok<T>` success results with 422/404 error metadata; errors are produced only by the single `IExceptionHandler`, instead of the ticket's literal `ValidationProblem`/`NotFound<ProblemDetails>` union arms. The exception handler owns 422 and 404 and keeps the `traceId` problem response contract (`PR #81`; `CONCLUSIONS.md` Q2, Q9; recon R5).
+- **Q8 — Response DTOs (2.3a): Approved.** Use scalar Api response DTOs instead of the ticket's named Core success types, with the frozen field/type contract in FR-009. This exposes stable scalar values without converter or serializer-specific schema transformations (`PR #81`; `CONCLUSIONS.md` Q8; recon R2, R3).
+- **Q11 — OpenAPI deferral (2.3b): Approved.** Defer the committed OpenAPI document, Verify snapshot, and drift check for these two routes to DEV-20, which owns the existing document chain (`PR #81`; `CONCLUSIONS.md` Q11; recon R4; DEV-307 FR-034).
 
 No other grill question is open. Forced status-code-pages/traceId and validator work does not create a fifth checkbox (`CONCLUSIONS.md` Q9, Q10).
 
@@ -93,15 +93,15 @@ As a client author, I need successful browse and details responses to expose sta
 
 ### User Story 5 - The contract handoff is explicit and scoped (Priority: P2)
 
-As a maintainer, I need the OpenAPI work and generated client chain assigned to its existing owners, while this endpoint ticket leaves its four owner decisions visible, so no one mistakes metadata annotations for a committed contract document.
+As a maintainer, I need the OpenAPI work and generated client chain assigned to its existing owners, with the four owner decisions recorded, so no one mistakes metadata annotations for a committed contract document.
 
-**Why this priority**: The C# DTO and route metadata provide inputs to DEV-20, but neither DEV-307 nor DEV-308 supplies document generation. Deferral itself needs the explicit Q11 owner answer (`CONCLUSIONS.md` Q11; recon R4).
+**Why this priority**: The C# DTO and route metadata provide inputs to DEV-20, but neither DEV-307 nor DEV-308 supplies document generation. Merged spec PR #81 approves the Q11 deferral (`PR #81`; `CONCLUSIONS.md` Q11; recon R4).
 
 **Acceptance Scenarios**:
 
-1. **Given** the DEV-20 ownership handoff, **When** this ticket is reviewed, **Then** both movie routes, DTO fields and endpoint metadata are identified as inputs, and the pending Q11 deferral is not represented as approved until an owner answers it.
+1. **Given** the DEV-20 ownership handoff, **When** this ticket is reviewed, **Then** both movie routes, DTO fields and endpoint metadata are identified as inputs, and the Q11 deferral is represented as approved by merged spec PR #81 (`PR #81`).
 2. **Given** the DEV-309 diff, **When** it is checked, **Then** it contains no OpenAPI package or document generation, no committed `web/src/api/openapi.json`, no Verify snapshot, no drift check, no web folder work and no handwritten TypeScript.
-3. **Given** the implementation prerequisites, **When** Phase B starts, **Then** DEV-308 implementation is merged, all four owner decisions are answered and Gate 1 is approved.
+3. **Given** the implementation prerequisites, **When** Phase B starts, **Then** DEV-308 implementation is merged, the four owner decisions recorded in merged spec PR #81 are present in the spec, and Gate 1 is approved (`PR #81`).
 4. **Given** test and gate reports, **When** this ticket is closed, **Then** no DEV-376 acceptance is claimed; its live-error proof remains a handoff only.
 
 ### Edge Cases
@@ -128,9 +128,9 @@ As a maintainer, I need the OpenAPI work and generated client chain assigned to 
 - **FR-006** (Q10, US1/US2): Both validators are explicitly registered unconditionally in DEV-308's internal Api `HandlerRegistration.cs`, concrete scoped type plus scoped `IValidator<TQuery>` factory resolving that concrete instance, before the corresponding `AddHandler` rows. No scan/helper/duplicate handler or catalog registration is added.
 - **FR-007** (Ticket Scope 2, Q2, US2): The details route is `GET /api/movies/{id:int}` and takes an `int`, constructs `MovieId` with `TryCreate`, and dispatches `GetMovieDetailsQuery` through the existing decorated handler. A non-positive id throws `NotFoundException`; an unknown id's existing handler exception bubbles. No endpoint catch or second mapper is used.
 - **FR-008** (Q2, Q9, US2/US3): `UseStatusCodePages()` is added immediately after `UseExceptionHandler()`, before CORS and endpoint execution, preserving inherited registration order. It uses the existing `IProblemDetailsService` for bodyless routing/status errors. The sole `IExceptionHandler` maps validation to 422 and not-found to 404.
-- **FR-009** (Q8, US1/US2/US4): If the owner approves Q8, use internal sealed Api response records in `Endpoints/LibraryResponses.cs`: `BrowseMoviesResponse` (`items`, `totalCount`), `MovieSummaryResponse` (`id`, `title`), `MovieDetailsResponse` (`id`, `title`, `path`, `format`, nullable `metadata`), and `MovieMetadataResponse` (`title`, nullable `synopsis`, nullable scalar `releaseYear`, nullable `runtime` minutes, nullable decimal `imdbRating`, nullable string `imdbId`). JSON is camelCase, and null fields remain present as JSON null. Frozen wire shapes: browse `{items:[{id:int,title:string}],totalCount:int}`; details `{id:int,title:string,path:string,format:string,metadata:null|{title:string,synopsis:string|null,releaseYear:int|null,runtime:int|null,imdbRating:decimal|null,imdbId:string|null}}`.
-- **FR-010** (Ticket Scope 3, Q2, Q8, Q9): Both endpoints use `WithName`, `WithSummary`, and success response metadata. Browse declares `ProducesProblem(422)` for the actual ProblemDetails plus `errors` extension; details declares `ProducesProblem(404)`. Success metadata describes the selected response DTO contract if Q8 is approved.
-- **FR-011** (Q11, US5): OpenAPI document generation, the committed `web/src/api/openapi.json`, its Verify snapshot, drift check, OpenAPI packages and TypeScript work are deferred to DEV-20 only if the owner approves Q11. The deferral is a still-open constitution departure; no document or generated types are produced in this ticket.
+- **FR-009** (Q8, US1/US2/US4): As approved in merged spec PR #81, use internal sealed Api response records in `Endpoints/LibraryResponses.cs`: `BrowseMoviesResponse` (`items`, `totalCount`), `MovieSummaryResponse` (`id`, `title`), `MovieDetailsResponse` (`id`, `title`, `path`, `format`, nullable `metadata`), and `MovieMetadataResponse` (`title`, nullable `synopsis`, nullable scalar `releaseYear`, nullable `runtime` minutes, nullable decimal `imdbRating`, nullable string `imdbId`). JSON is camelCase, and null fields remain present as JSON null. Frozen wire shapes: browse `{items:[{id:int,title:string}],totalCount:int}`; details `{id:int,title:string,path:string,format:string,metadata:null|{title:string,synopsis:string|null,releaseYear:int|null,runtime:int|null,imdbRating:decimal|null,imdbId:string|null}}` (`PR #81`).
+- **FR-010** (Ticket Scope 3, Q2, Q8, Q9): Both endpoints use `WithName`, `WithSummary`, and success response metadata. Browse declares `ProducesProblem(422)` for the actual ProblemDetails plus `errors` extension; details declares `ProducesProblem(404)`. Success metadata describes the scalar response DTO contract approved in merged spec PR #81 (`PR #81`).
+- **FR-011** (Q11, US5): As approved in merged spec PR #81, OpenAPI document generation, the committed `web/src/api/openapi.json`, its Verify snapshot, drift check, OpenAPI packages and TypeScript work are deferred to DEV-20. The constitution departure is owner-approved; no document or generated types are produced in this ticket (`PR #81`).
 - **FR-012** (Q6, Q12): DEV-309 consumes the single `IMovieCatalog` registration and handlers supplied by DEV-308. It does not add a second catalog binding or handler row. Genre and people facets remain DEV-310 scope.
 - **FR-013** (Q7, Q12): Integration tests use the real DEV-308 Api host and decorated handlers, replacing only `IMovieCatalog` with a recording fake. Browse binding round-trip uses the complete existing validator-accepted `MovieQuery` generator; codec edge cases and errors, validator registration, metadata and response JSON are asserted. No container is used for this HTTP binding seam.
 - **FR-014** (Q7, Q12): Unit tests cover browse-validator delegation and details-validator null-Id rejection/valid acceptance. Existing assertion, substitute and FsCheck libraries are used; no package is added.
@@ -143,7 +143,7 @@ As a maintainer, I need the OpenAPI work and generated client chain assigned to 
 - **MovieQuery**: Existing Core query with filters, sorting and page; validated through the existing decorated handler pipeline.
 - **MovieDetails**: Existing handler response, projected to a scalar Api DTO before serialization.
 - **ProblemDetails**: Shared exception and bodyless status error representation, carrying a non-empty `traceId`.
-- **Movie response DTOs**: Internal Api records defining frozen camelCase scalar response shapes, conditional on Q8 approval.
+- **Movie response DTOs**: Internal Api records defining the Q8-approved frozen camelCase scalar response shapes (`PR #81`).
 
 ## Success Criteria
 
@@ -154,10 +154,10 @@ As a maintainer, I need the OpenAPI work and generated client chain assigned to 
 - **SC-003**: Known details requests return the frozen scalar JSON contract; unknown and invalid ids follow the specified 404 error contract.
 - **SC-004**: All error matrix paths return `application/problem+json` with non-empty `traceId`.
 - **SC-005**: Endpoint metadata includes both names and summaries, success DTO types and matching ProblemDetails status metadata.
-- **SC-006**: The DEV-309 diff stays within the approved file envelope and contains no OpenAPI/web/generated-client work; the four owner answers remain visible until answered.
+- **SC-006**: The DEV-309 diff stays within the approved file envelope and contains no OpenAPI/web/generated-client work; the four owner decisions remain recorded and attributable to merged spec PR #81 (`PR #81`).
 
 ## Assumptions
 
-- Taste-only names `BrowseMoviesRequest`, `LibraryResponses.cs` and the four DTO record names are `[assumed]` as recorded in `ASSUMPTIONS.md`; none resolves its associated owner decision.
+- Taste-only names `BrowseMoviesRequest`, `LibraryResponses.cs` and the four DTO record names are `[assumed]` as recorded in `ASSUMPTIONS.md`; they do not alter the owner-approved decisions in merged spec PR #81 (`PR #81`).
 - CamelCase follows the existing ASP.NET Core JSON convention; null members are emitted as null.
-- Ticket and brief are the scope source. The four owner questions must be answered before Gate 1 and Phase B.
+- Ticket and brief are the scope source. The four owner decisions were approved in merged spec PR #81; normal Gate 1 approval and the DEV-308 implementation prerequisite still apply (`PR #81`).
