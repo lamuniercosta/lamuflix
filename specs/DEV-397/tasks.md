@@ -50,10 +50,10 @@
 
 **Independent Test**: Inspect script help and `AGENTS.md` for verbatim table consistency; run all five fixture cases.
 
-- [ ] T012 [US3] Update header and failure message in `scripts/run-mutation.ps1` to name both `*.ArchitectureTests` and `*.IntegrationTests`; the failure message also names `gates.mutation.exclusions` and matches behavior.
-- [ ] T013 [US3] Document in script help that exclusion reasons must not contain ` #`; do not add validation or a sixth fixture case.
-- [ ] T014 [US3] Add the verbatim exit table from `spec.md` to script help and `AGENTS.md`; identical header and row text after trimming leading whitespace on each line, with the table inside the `<# ... #>` comment-help block. Reconcile `AGENTS.md:124-125` so mutation exit 2 `NOT APPLICABLE` is mutation-only and non-blocking, while exit 2 `SKIPPED` stays scope-empty, blocking, and never green. Copy the `AGENTS.md` table from the help text after F1 so they match.
-- [ ] T015 [US3] Bernstein applies the exact Phase 3 step 5 mutation-gate replacement from `brief.md` §6 to the `task-pipeline` note and reads it back into the PR body. Leave step 4's L-only `/architect` unchanged.
+- [x] T012 [US3] Update header and failure message in `scripts/run-mutation.ps1` to name both `*.ArchitectureTests` and `*.IntegrationTests`; the failure message also names `gates.mutation.exclusions` and matches behavior.
+- [x] T013 [US3] Document in script help that exclusion reasons must not contain ` #`; do not add validation or a sixth fixture case.
+- [x] T014 [US3] Add the verbatim exit table from `spec.md` to script help and `AGENTS.md`; identical header and row text after trimming leading whitespace on each line, with the table inside the `<# ... #>` comment-help block. Reconcile `AGENTS.md:124-125` so mutation exit 2 `NOT APPLICABLE` is mutation-only and non-blocking, while exit 2 `SKIPPED` stays scope-empty, blocking, and never green. Copy the `AGENTS.md` table from the help text after F1 so they match.
+- [x] T015 [US3] Bernstein applies the exact Phase 3 step 5 mutation-gate replacement from `brief.md` §6 to the `task-pipeline` note and reads it back into the PR body. Leave step 4's L-only `/architect` unchanged.
 
 ## Phase 6: Refactor
 

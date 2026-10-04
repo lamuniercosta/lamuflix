@@ -121,8 +121,17 @@ files changed against the base branch. The rest take their own parameters
 `run-property-tests.ps1`: `-Project`, `-Category`) and **error out on `-All`**.
 Every script accepts `-Help`; ask it rather than assuming a flag.
 
-**Exit 0 = pass, 1 = fail, 2 = SKIPPED or OPT-OUT.**
-SKIPPED (scope-empty) is blocking and never green; OPT-OUT (gate disabled in harness.yml) is non-blocking `SKIP`, reported as `SKIP` not PASS.
+**Exit 0 = pass, 1 = fail, 2 = SKIPPED, NOT APPLICABLE, or OPT-OUT.**
+SKIPPED (scope-empty) is blocking and never green; OPT-OUT (gate disabled in harness.yml) is non-blocking `SKIP`, reported as `SKIP` not PASS. `NOT APPLICABLE` is mutation-only: `scripts/run-mutation.ps1` returns it when every changed project is listed in `harness.yml` `gates.mutation.exclusions`, and it is non-blocking, reported as N/A and never as PASS.
+
+The mutation gate reports these exits:
+
+| Exit | Verdict | Meaning | Blocking |
+|---|---|---|---|
+| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
+| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration, or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
+| 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | Yes; never green |
+| 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
 
 **A gate that could not run has not passed.** The scripts enforce this themselves:
 if the analyzer they depend on is not wired, they exit 1 with remediation rather
