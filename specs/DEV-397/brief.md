@@ -81,6 +81,7 @@ gates:
 4. A valid entry that matches no changed project produces no output.
 5. Run Stryker on every eligible project and report each score, even when an unlisted ineligible project exists (Scope 2).
 6. Then compute the verdict per §4.3. Under `-DryRun`: no Stryker; return 1 if any unlisted ineligible project exists or config is invalid. A DryRun success is a classification check, never mutation proof (Q3).
+7. DryRun exits (analyze clarification, from Q3, Q4 and Q6 fixture case 2): 1 for invalid config or any unlisted ineligible project; 2 `SKIPPED` when no production C# under `src/` changed (unchanged behaviour); 2 `NOT APPLICABLE` when every changed project is listed; otherwise 0, which means classification passed and is never mutation proof. The fixture cases (§5) assert these DryRun exits; only the real `-BaseRef 9f92ad1` run is mutation evidence.
 
 ### 4.3 Exit-code table (Q3) — goes verbatim into the script help and `AGENTS.md`
 
