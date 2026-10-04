@@ -207,4 +207,4 @@ Sources: `findings-DEV-397-Sentry` (9), `findings-DEV-397-Compass` (5 + 1 minor)
 | L4 | L | Accept in part. "Verbatim" is defined in §4.3 as identical row text after trimming. It is not loosened to "content-identical", because a `<# #>` help block needs no comment prefix. | §4.3; FR-011; T014 |
 | L5 | L | Accept. T006 option (b): "amend before Phase 2 implementation". | T006 |
 
-Status: plan **not frozen**. Quill's round-2 fix list is pending. The plan freezes when the fixes land and `/speckit-analyze` is clean against this brief.
+Status: plan **FROZEN** at `1c1b554` (round 2). Quill landed all 10 fixes in `298e3a3`. The `/speckit-analyze` re-run against the pin-resolved `specs/DEV-397` is clean: 18/18 FRs covered, 26 tasks, 0 critical/high/medium, constitution clean. Two LOW notes are left as they are and need no round: the `AGENTS.md:124-125` reconciliation (§3 F4) and the ` #` reason limitation (§4.1) live in the plan and in T013/T014 but have no FR of their own. The brief is authoritative for both. Patron ruled the gate-runner N/A label "noted, no ticket" (`CONCLUSIONS.md`, `1c1b554`). Gate 1 stays closed until OD-1 and OD-2 are answered.
