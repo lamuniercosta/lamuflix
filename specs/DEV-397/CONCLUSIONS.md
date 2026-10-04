@@ -88,3 +88,13 @@ RULING: ACCEPT the recommended frozen box, contingent on Q1/Q9 owner decisions: 
 
 - Basis: DEV-397 Scope 1-5 and AC1-AC7 establish this delivery; Q2/Q6 authorize its required parser and test-harness seams. §2.3 leaves unrelated findings outside this ticket unless the user changes scope.
 - Static compatibility check: scripts/new-mutation-receipt.ps1:337-351 captures the raw gate exit and the final `Mutation testing:` verdict, and separately parses `Stryker native exit for <project>.csproj:`. Preserve those output seams. Its :353-359 requires an actual report/config and fails without them, so excluded projects remain unmeasured rather than successful receipts. No helper edit is required; runtime compatibility remains Phase B verification.
+
+---
+
+## Follow-up candidate — gate-runner mutation N/A label
+
+RULING: noted, no ticket. Log the missing gate-runner NOT APPLICABLE bucket here; Rigger need not file a follow-up on the evidence supplied. No incorrect gate report or Critical/High finding was supplied, so this terminology gap does not establish broken behaviour.
+
+- Basis: assigned Patron role, tracker follow-up rule, permits out-of-scope tickets for Critical/High findings, broken behaviour, or an explicit user request; other findings are recorded as noted, no ticket. Conductor requested adjudication, not mandatory filing.
+- .cursor/rules/delegation.mdc:32-33 lists Pass, Failure, Skipped, Opt-out and Could not run; specs/DEV-397/spec.md:116-117 distinguishes blocking exit-2 SKIPPED from non-blocking exit-2 NOT APPLICABLE, never PASS. That contract remains authoritative for the parent interpreting a gate-runner report.
+- specs/DEV-397/spec.md:119-121 and brief.md section 3 freeze the implementation box and exclude Codex agent edits. This ruling adds no implementation work and answers neither OD-1 nor OD-2.
