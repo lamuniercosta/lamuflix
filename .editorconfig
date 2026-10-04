@@ -77,6 +77,11 @@ resharper_condition_is_always_true_or_false_according_to_nullable_api_contract_h
 
 resharper_switch_expression_handles_some_known_enum_values_with_exception_in_default_highlighting = warning
 
+# "Field/Method 'X' can be made private" (ReSharper ids MemberCanBePrivate.Global / .Local).
+# Default is suggestion, so the gate skips it; Rider shows it as the green-tick hints.
+resharper_member_can_be_private_global_highlighting = warning
+resharper_member_can_be_private_local_highlighting = warning
+
 # --- UNVERIFIED: id-to-key conversion is mechanical but was not confirmed,
 # because no probe managed to trigger these rules. A wrong key is IGNORED
 # SILENTLY - it does not error - so treat these as aspirational until seen

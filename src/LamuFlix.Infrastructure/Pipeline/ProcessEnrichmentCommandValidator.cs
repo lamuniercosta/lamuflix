@@ -5,7 +5,7 @@ namespace LamuFlix.Infrastructure.Pipeline;
 
 public sealed class ProcessEnrichmentCommandValidator : AbstractValidator<ProcessEnrichmentCommand>
 {
-    public const int AttemptFloor = 1;
+    private const int AttemptFloor = 1;
 
     public ProcessEnrichmentCommandValidator()
     {

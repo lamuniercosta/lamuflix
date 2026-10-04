@@ -7,9 +7,9 @@ namespace LamuFlix.Infrastructure.Adapters;
 
 internal sealed class MetadataProviderHealthCheck(MetadataProviderHealthState state) : IHealthCheck
 {
-    public const string HealthyDescription = "The last metadata provider lookup succeeded.";
-    public const string DegradedDescription = "The last metadata provider lookup did not succeed.";
-    public const string UnhealthyDescription = "Check the OMDb API key configuration.";
+    private const string HealthyDescription = "The last metadata provider lookup succeeded.";
+    private const string DegradedDescription = "The last metadata provider lookup did not succeed.";
+    private const string UnhealthyDescription = "Check the OMDb API key configuration.";
 
     public Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
