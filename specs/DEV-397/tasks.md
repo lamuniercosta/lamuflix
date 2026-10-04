@@ -41,8 +41,8 @@
 
 **Independent Test**: Run fixture cases and ensure DryRun output covers every changed project, including unlisted Api, and exit behavior matches the spec.
 
-- [ ] T010 [US2] Ensure `-DryRun` prints all classifications and implements all branches: exit 1 for invalid configuration or any unlisted ineligible project; exit 2 `SKIPPED` for scope-empty; exit 2 `NOT APPLICABLE` when every changed project is listed; otherwise exit 0 for classification only. Add classifications to the existing banner and generated-config output, preserving that output; do not invoke Stryker.
-- [ ] T011 [US2] Ensure a listed project with eligible tests remains excluded and emits a stale-exclusion WARNING; unmatched valid entries remain silent.
+- [x] T010 [US2] Ensure `-DryRun` prints all classifications and implements all branches: exit 1 for invalid configuration or any unlisted ineligible project; exit 2 `SKIPPED` for scope-empty; exit 2 `NOT APPLICABLE` when every changed project is listed; otherwise exit 0 for classification only. Add classifications to the existing banner and generated-config output, preserving that output; do not invoke Stryker.
+- [x] T011 [US2] Ensure a listed project with eligible tests remains excluded and emits a stale-exclusion WARNING; unmatched valid entries remain silent.
 
 ## Phase 5: User Story 3 - Document and Validate Gate Outcomes (Priority: P1)
 
