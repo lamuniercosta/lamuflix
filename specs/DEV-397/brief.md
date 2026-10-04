@@ -40,7 +40,7 @@ In scope (only these):
 | F1 | `scripts/run-mutation.ps1` | classify-all, exclusion policy, run eligible, exit table, `:564` message, `:12-17` header, help block with exit table |
 | F2 | `scripts/_harness-config.ps1` | one map type for `gates.mutation.exclusions` (edit, not rewrite; Q2) |
 | F3 | `harness.yml` | `gates.mutation.exclusions` with the `LamuFlix.Api` entry (pending OD-1) |
-| F4 | `AGENTS.md` | mutation exit-code table next to `:124-131` |
+| F4 | `AGENTS.md` | mutation exit-code table next to `:124-131`, and the global exit-2 sentence at `:124-125` reconciled with `NOT APPLICABLE` (§11 S6) |
 | F5 | `scripts/Test-RunMutation.ps1` (new) | dependency-free harness, 5 cases (§5) |
 | F6 | `tests/LamuFlix.UnitTests/...` | survivor-killing tests for the two DEV-309 validators only (Q8) |
 | F7 | `task-pipeline` maestri note | replacement text from §6, applied by Bernstein in Phase B (not in the PR diff) |
@@ -69,10 +69,16 @@ gates:
 - Validation: every entry is checked before any classification. A reason that is empty or whitespace after trim is a configuration error, exit 1, before any Stryker run.
 - Default (no `exclusions` key): empty map.
 - Only `LamuFlix.Api` is listed (pending OD-1).
+- Parser mechanism (§11 S1-S3), all inside F2:
+  - The key grammar is widened to allow dots **only** for a direct child line under the exact `gates.mutation.exclusions` path; every other line keeps the `:137` grammar.
+  - The prefix match is anchored on the exact segments `gates` / `mutation` / `exclusions`. A child key is taken verbatim as the project name. Nesting below a child, a scalar value on `exclusions` itself, and near-miss neighbours (`gates.mutation.exclusion.*`, `gates.mutations.exclusions.*`) stay hard errors (`:166-172` intent, header `:9-11`).
+  - The schema gains one prefix entry for the map. `Get-HarnessDefaults` gains an empty-map default. One accessor returns every entry with its reason; `Get-HarnessValue` keeps its scalar contract.
+- Matching (§11 S8): exclusion keys match changed project names ordinal-ignore-case. A key written with a `.csproj` suffix is a configuration error, exit 1.
+- Reason text (§11 S4): the existing comment rule at `:128` is unchanged, so a reason must not contain ` #`. This is a documented limitation in the help text. It is not validated and has no fixture case.
 
 ### 4.2 Classification and run (Q4, Q5)
 
-1. Validate config (§4.1). Invalid → exit 1 before execution.
+1. Validate config (§4.1). Invalid → exit 1 before execution. Validation runs **before** the scope-empty check (`run-mutation.ps1:463-466`), so an invalid policy is exit 1 even on a diff with no `src/` C# and never hides behind `SKIPPED` (§11 S9).
 2. For every changed project, compute eligible test projects with the existing `Get-EligibleTestProjects` rule (`:91-115`, both exclusions unchanged), then classify:
    - **listed** in exclusions → `NOT APPLICABLE` with reason. If it also has eligible tests, print a `WARNING` that the exclusion may be stale; still excluded; the warning does not change the exit (Q5).
    - **eligible** → mutated.
@@ -81,9 +87,12 @@ gates:
 4. A valid entry that matches no changed project produces no output.
 5. Run Stryker on every eligible project and report each score, even when an unlisted ineligible project exists (Scope 2).
 6. Then compute the verdict per §4.3. Under `-DryRun`: no Stryker; return 1 if any unlisted ineligible project exists or config is invalid. A DryRun success is a classification check, never mutation proof (Q3).
-7. DryRun exits (analyze clarification, from Q3, Q4 and Q6 fixture case 2): 1 for invalid config or any unlisted ineligible project; 2 `SKIPPED` when no production C# under `src/` changed (unchanged behaviour); 2 `NOT APPLICABLE` when every changed project is listed; otherwise 0, which means classification passed and is never mutation proof. The fixture cases (§5) assert these DryRun exits; only the real `-BaseRef 9f92ad1` run is mutation evidence.
+7. DryRun exits (analyze clarification, from Q3, Q4 and Q6 fixture case 2): 1 for invalid config or any unlisted ineligible project; 2 `SKIPPED` when no production C# under `src/` changed (unchanged behaviour); 2 `NOT APPLICABLE` when every changed project is listed; otherwise 0, which means classification passed and is never mutation proof. The fixture cases (§5) assert these DryRun exits; only the real `-BaseRef 9f92ad1` run is mutation evidence. The classification lines are added to the existing DryRun output (banner and generated configs). The existing output stays; only the unconditional exit 0 at `:629-642` is replaced by these four branches (§11 S5).
+8. `-Project` naming a listed project (§11 S7): print its `NOT APPLICABLE` line with the reason, start no Stryker run, and exit 2 `NOT APPLICABLE`. `new-mutation-receipt.ps1` then fails that receipt with no report. That is the intended disposition, because an excluded project is unmeasured and never a successful receipt (§4.5). The helper is not edited.
 
 ### 4.3 Exit-code table (Q3) — goes verbatim into the script help and `AGENTS.md`
+
+"Verbatim" (§11 L4) means the header and row text are identical in both files after the leading whitespace on each line is trimmed. The help carries the markdown table inside its `<# ... #>` comment-help block, so no per-line comment prefix is needed.
 
 | Exit | Verdict | Meaning | Blocking |
 |---|---|---|---|
@@ -105,9 +114,11 @@ Preserve the output seams `scripts/new-mutation-receipt.ps1:337-351` reads: the 
 ## 5. Test strategy (Q6)
 
 - `scripts/Test-RunMutation.ps1`, plain PowerShell in the style of `scripts/hooks/Test-*.ps1`, no Pester. It creates a temporary checkout, overlays the gate files under test (the pattern of `scripts/new-mutation-receipt.ps1`), writes a temporary `harness.yml`, and drives `run-mutation.ps1 -DryRun`. It cleans up after itself and exits non-zero on any failed case.
-- Five cases, each asserting exit code and the classification lines:
-  1. Api + Infrastructure changed, Api listed → Infrastructure lists `tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj`; Api NOT APPLICABLE with reason.
-  2. Api only changed, Api listed → exit 2, `NOT APPLICABLE`.
+- Overlay set (§11 S9): the gate files under test, the `.config/dotnet-tools.json` manifest, `stryker-config.json`, the solution with its test projects, and git history that reaches the merge-base. The harness drives them through `HARNESS_REPO_ROOT`, the same way as `new-mutation-receipt.ps1`. Without the overlay, every case exits 1 GATE NOT WIRED for the wrong reason.
+- Each case asserts the exit code **and** the verdict or classification text. Exit 1 alone cannot tell a blank reason, GATE NOT WIRED, and an unlisted ineligible project apart.
+- Five cases:
+  1. Api + Infrastructure changed, Api listed → exit 0. Infrastructure lists `tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj`; Api is NOT APPLICABLE with its reason (§11 C2).
+  2. Api only changed, Api listed → exit 2, `NOT APPLICABLE`, asserted **both** with `-DryRun` and without it. The non-DryRun invocation has nothing eligible, so it never starts Stryker. It is the check on the real-run N/A branch (§11 C3).
   3. Api + Infrastructure changed, Api unlisted → exit 1, both classification lines printed.
   4. Empty reason → exit 1, configuration error.
   5. Listed project that has eligible tests → WARNING line, still excluded.
@@ -168,3 +179,32 @@ Gauge records every command with its exit code:
 | Q8 | Retrospective `-Project LamuFlix.Infrastructure` against the verified pre-merge base; Anvil kills survivors in the two validators; others become follow-ups via Rigger. |
 | Q9 | AC7 replacement is owner checkbox OD-2; record own-diff run verbatim; analyzers `-Files`/`-All`, InspectCode never `-All`. |
 | Q10 | Frozen scope §3 accepted, contingent on OD-1/OD-2. |
+
+## 11. Plan-challenge rulings (Keel, round 1)
+
+Sources: `findings-DEV-397-Sentry` (9), `findings-DEV-397-Compass` (5 + 1 minor), `findings-DEV-397-Ledger` (5). Cited lines verified in the worktree at `2d46086`. No finding contradicts the ticket text or needs an owner checkbox. OD-1 and OD-2 are unchanged.
+
+| ID | Sev | Ruling | Lands in |
+|---|---|---|---|
+| S1 | M | Accept. Dotted child keys need a widened key grammar, only under the exclusions prefix. | §4.1; T004 |
+| S2 | M | Accept. Prefix schema entry, empty-map default, one accessor that lists the entries. `Get-HarnessValue` stays scalar. | §4.1; T004 |
+| S3 | M | Accept. Anchored prefix rule; nesting, a scalar on `exclusions`, and near-miss neighbours stay hard errors. | §4.1; T004 |
+| S4 | L | Accept as a documented limitation only: no ` #` in a reason. No validation and no sixth fixture case (Q6 fixes five). | §4.1; T013/T014 help text |
+| S5 | M | Accept in part. T011 names all four DryRun exit branches. The existing banner and config dump stay, and the classification lines are added to them. | §4.2.7; T011 |
+| S6 | M | Accept. Reconcile `AGENTS.md:124-125` so exit 2 also carries the mutation-only, non-blocking `NOT APPLICABLE`. The gate-runner agent definition is outside the frozen scope, so any missing N/A mapping there is a follow-up candidate for Patron/Rigger, not a task. | §3 F4; T014 |
+| S7 | M | Accept. `-Project` on a listed project → N/A line, exit 2; the receipt helper failing that receipt is the intended disposition, recorded in T021. | §4.2.8; T021 |
+| S8 | L | Accept. Keys match ordinal-ignore-case; a `.csproj` suffix in a key is a configuration error. | §4.1; T004 |
+| S9 | M | Accept. Validation runs before the scope-empty check; the fixture asserts verdict text and lists its overlay. | §4.2.1, §5; T004, T005 |
+| C1 | H | Accept as a worktree-state fix, not an artifact change. The Conductor restores the local, uncommitted `.specify/feature.json` = `{"feature_directory":"specs/DEV-397"}` per `task-pipeline:57` before the drift re-analyze and Gate 1. It is not committed and not in the PR diff. | Conductor |
+| C2 | M | Accept. Case 1 = exit 0. | §5; spec US1/FR-012; T005 |
+| C3 | M | Accept. Case 2 also runs without `-DryRun`, and both runs must exit 2 N/A. That covers spec US3 AS-2 without a new case. | §5; T005 |
+| C4 | L | Accept, merged with L2/L3. Renumber tasks in execution order; final runs sit in one post-refactor phase, each tagged with its story. | tasks.md |
+| C5 | L | Accept, same as L1. T022 lists all nine §7 commands. | T022 |
+| C-min | — | Accept. SC-006 cites `brief.md` §7. | spec SC-006 |
+| L1 | M | Accept (= C5). | T022 |
+| L2 | L | Accept. The final fixture run (T016) moves after the refactor. | tasks.md |
+| L3 | L | Accept (C4). | tasks.md |
+| L4 | L | Accept in part. "Verbatim" is defined in §4.3 as identical row text after trimming. It is not loosened to "content-identical", because a `<# #>` help block needs no comment prefix. | §4.3; FR-011; T014 |
+| L5 | L | Accept. T006 option (b): "amend before Phase 2 implementation". | T006 |
+
+Status: plan **not frozen**. Quill's round-2 fix list is pending. The plan freezes when the fixes land and `/speckit-analyze` is clean against this brief.
