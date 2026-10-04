@@ -26,7 +26,7 @@ As a maintainer running the mutation gate on a change that touches Api and Infra
 **Acceptance Scenarios**:
 
 1. **Given** Api and Infrastructure changed and Api is listed in `gates.mutation.exclusions`, **When** the real mutation gate runs, **Then** Infrastructure is mutated and scored and Api is reported NOT APPLICABLE with its reason.
-2. **Given** Api is listed and Api is the only changed project, **When** the DryRun fixture runs, **Then** no project is mutated and the result is exit 2 NOT APPLICABLE.
+2. **Given** Api is listed and Api is the only changed project, **When** the fixture runs with and without `-DryRun`, **Then** no project is mutated and both invocations return exit 2 NOT APPLICABLE.
 3. **Given** Api and Infrastructure changed and Api is not listed, **When** the DryRun fixture runs, **Then** it prints both classification lines and exits 1 naming the unlisted ineligible Api project.
 
 ### User Story 2 - Understand every changed project's classification (Priority: P1)
@@ -81,15 +81,16 @@ As a maintainer reviewing the earlier DEV-309 Infrastructure validators, I need 
 - A valid exclusion that matches no changed project remains silent.
 - If eligible and unlisted ineligible projects coexist, run all eligible projects and report their scores before returning FAILED.
 - DryRun must print every classification and does not invoke Stryker; a clean DryRun is not mutation proof.
+- When `-Project` names a listed project, print its NOT APPLICABLE classification and reason, run no Stryker, and exit 2 NOT APPLICABLE. The receipt helper then fails that receipt because no report exists; this is the intended disposition and the helper is not changed.
 - Preserve receipt-parser seams: raw gate exit, final `Mutation testing:` verdict, and `Stryker native exit for <project>.csproj: <n>`. Excluded projects have no report and remain unmeasured.
 
 ## Requirements
 
 ### Functional Requirements
 
-- **FR-001**: The runner MUST accept `gates.mutation.exclusions` as a map from project names without `.csproj` to reason strings; keys follow the `-Project` naming form.
-- **FR-002**: The harness configuration reader MUST support this map only at that prefix; dots in direct child keys are part of project names. Unknown keys elsewhere remain errors.
-- **FR-003**: The runner MUST validate all exclusion reasons before classification; empty or whitespace reasons MUST produce a configuration error and exit 1 before Stryker. If exclusions are absent, the map is empty.
+- **FR-001**: The runner MUST accept `gates.mutation.exclusions` as a map from project names without `.csproj` to reason strings; keys follow the `-Project` naming form and match ordinal-ignore-case. A key ending in `.csproj` is a configuration error, exit 1.
+- **FR-002**: The harness configuration reader MUST widen the key grammar to allow dotted keys only as direct children of the exact `gates.mutation.exclusions` prefix. The prefix match is anchored on those exact path segments; nesting below a child, a scalar on `exclusions`, and near-miss neighbours such as `gates.mutation.exclusion.*` and `gates.mutations.exclusions.*` remain hard errors. Add one prefix schema entry and an empty-map default in `Get-HarnessDefaults`; provide one accessor that lists all map entries while `Get-HarnessValue` retains its scalar contract. Unknown keys elsewhere remain errors.
+- **FR-003**: The runner MUST validate every exclusion entry before classification and before the scope-empty check; empty or whitespace reasons MUST produce a configuration error and exit 1 before Stryker. If exclusions are absent, the map is empty.
 - **FR-004**: Planning proceeds with only `LamuFlix.Api` listed, reason `host proof lives in IntegrationTests per Constitution IX`, pending OD-1. Worker and Web remain unlisted and fail closed.
 - **FR-005**: For every changed project the runner MUST compute eligible tests using the existing direct-reference rule and continue excluding both `*.ArchitectureTests` and `*.IntegrationTests`.
 - **FR-006**: Each changed project MUST be classified as configured exclusion (NOT APPLICABLE plus reason), eligible (test-project list), or unlisted ineligible (`no eligible test project, not in policy`). A listed project with eligible tests remains excluded and emits a stale-policy WARNING.
@@ -97,8 +98,8 @@ As a maintainer reviewing the earlier DEV-309 Infrastructure validators, I need 
 - **FR-008**: In real runs, the runner MUST run every eligible changed project, report every eligible score, and only then compute the verdict, even if another changed project is unlisted and ineligible.
 - **FR-009**: The runner MUST follow the exit table below, using `gates.mutation.threshold` from `harness.yml` without lowering or hardcoding it.
 - **FR-010**: The `:564` failure message and `:12-17` header comment MUST name both `*.ArchitectureTests` and `*.IntegrationTests`; the failure message MUST name `gates.mutation.exclusions` and match code behavior.
-- **FR-011**: Script help and `AGENTS.md` MUST carry the exit-code table verbatim.
-- **FR-012**: A dependency-free `scripts/Test-RunMutation.ps1` harness MUST cover: listed Api + eligible Infrastructure; listed Api only (exit 2 N/A); unlisted Api + Infrastructure (exit 1 and both classifications); blank reason (exit 1); and listed-but-eligible warning while excluded.
+- **FR-011**: Script help and `AGENTS.md` MUST carry the exit-code table verbatim: identical header and row text after trimming the leading whitespace on each line. In script help, place the table inside the `<# ... #>` comment-help block.
+- **FR-012**: A dependency-free `scripts/Test-RunMutation.ps1` harness MUST overlay the gate files under test, `.config/dotnet-tools.json`, `stryker-config.json`, the solution with its test projects, and git history reaching the merge-base through `HARNESS_REPO_ROOT`. Every case MUST assert both exit code and verdict/classification text. Cover: (1) listed Api + eligible Infrastructure (exit 0); (2) listed Api only (exit 2 NOT APPLICABLE with and without `-DryRun`); (3) unlisted Api + Infrastructure (exit 1 and both classifications); (4) blank reason (exit 1); and (5) listed-but-eligible warning while excluded.
 - **FR-013**: The PR body MUST contain the real non-DryRun Api-plus-Infrastructure run against `9f92ad1`, including verdict lines and exit code.
 - **FR-014**: The PR body MUST contain the DEV-309 retrospective base SHA, Infrastructure score, per-validator findings, survivor disposition, and rerun evidence after in-scope survivor tests.
 - **FR-015**: Preserve the receipt output seams read by `scripts/new-mutation-receipt.ps1`: raw gate exit, final `Mutation testing:` verdict line, and `Stryker native exit for <project>.csproj: <n>`. Excluded projects produce no report and stay unmeasured. Do not modify the receipt helper.
@@ -134,7 +135,7 @@ Only files/responsibilities F1-F8 from `brief.md` §3 are authorized. In particu
 - **SC-003**: Every changed project is classified once in DryRun; invalid exclusions fail before Stryker.
 - **SC-004**: Script help and `AGENTS.md` contain the same exit-code table; the specified failure and header text name both exclusions.
 - **SC-005**: DEV-309 retrospective validator results, score, survivor dispositions, and post-test rerun are recorded in the PR body.
-- **SC-006**: Applicable gates and the own-diff mutation outcome are recorded with exit codes according to §7; the unresolved AC7 conflict remains explicit until OD-2 is checked.
+- **SC-006**: Applicable gates and the own-diff mutation outcome are recorded with exit codes according to brief.md §7; the unresolved AC7 conflict remains explicit until OD-2 is checked.
 
 ## Assumptions
 
