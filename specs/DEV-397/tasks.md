@@ -31,9 +31,9 @@
 
 **Independent Test**: Fixture listed Api + Infrastructure classification; then the real non-DryRun run against `9f92ad1` with per-project output, Infrastructure score, Api N/A, and exit code captured.
 
-- [ ] T007 [US1] Replace fail-fast classification in `scripts/run-mutation.ps1` with classify-all behavior and per-project lines for eligible, excluded, and unlisted ineligible changed projects.
-- [ ] T008 [US1] Ensure all eligible projects run and scores are reported before an unlisted ineligible project makes the overall real-run result exit 1.
-- [ ] T009 [US1] Implement the specified exit-code table, keeping threshold sourced from `harness.yml`; preserve receipt-consumed verdict/native-exit output seams in `scripts/run-mutation.ps1`.
+- [x] T007 [US1] Replace fail-fast classification in `scripts/run-mutation.ps1` with classify-all behavior and per-project lines for eligible, excluded, and unlisted ineligible changed projects.
+- [x] T008 [US1] Ensure all eligible projects run and scores are reported before an unlisted ineligible project makes the overall real-run result exit 1.
+- [x] T009 [US1] Implement the specified exit-code table, keeping threshold sourced from `harness.yml`; preserve receipt-consumed verdict/native-exit output seams in `scripts/run-mutation.ps1`.
 
 ## Phase 4: User Story 2 - Complete DryRun Classification (Priority: P1)
 
