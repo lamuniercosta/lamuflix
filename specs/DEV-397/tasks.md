@@ -59,7 +59,7 @@
 
 **Purpose**: Refactor the completed implementation before final runs and evidence collection.
 
-- [ ] T016 Cog runs `/refactor` over the build.
+- [x] T016 Cog runs `/refactor` over the build.
 
 ## Phase 7: Final Runs
 
