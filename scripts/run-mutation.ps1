@@ -376,6 +376,20 @@ if ($threshold -eq $null) {
     $threshold = 80
 }
 
+# Exclusion policy, keyed the way -Project names projects and matched ordinal-ignore-case.
+# Read and validated here, above the scope-empty check, so an entry with a blank reason or
+# a .csproj name is a configuration error even when the diff carries no production C#.
+try {
+    $exclusionReasons = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($entry in @(Get-HarnessMap -Key 'gates.mutation.exclusions' -RepoRoot $repoRoot)) {
+        $exclusionReasons[[string]$entry.Project] = [string]$entry.Reason
+    }
+}
+catch {
+    Write-Host "Mutation testing: FAILED - invalid mutation configuration in harness.yml gates.mutation.exclusions: $($_.Exception.Message)"
+    exit 1
+}
+
 # Direct report evaluation mode (e.g. fail-safe verification / regression check)
 if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
     $evalPath = if ([System.IO.Path]::IsPathRooted($EvaluateReport)) {
@@ -546,23 +560,38 @@ if ($Project.Count -gt 0) {
     $sortedProjects = @($sortedProjects | Where-Object { $requested -contains $_ })
 }
 
-# Eligible test projects per mutated project; fail closed before any Stryker run.
+# Classify every changed project before any Stryker run, so a project that is unmeasured
+# never stops a project that can be measured. Eligibility is computed for all of them so
+# the lines below say which policy applies before the verdict names what it failed on.
 $allTestProjects = @(Get-TestProjects -RepoRoot $repoRoot)
 $testProjectsByProject = @{}
-$projectsWithoutTests = [System.Collections.Generic.List[string]]::new()
+$eligibleProjects = [System.Collections.Generic.List[string]]::new()
+$unlistedIneligibleProjects = [System.Collections.Generic.List[string]]::new()
+
 foreach ($proj in $sortedProjects) {
     $eligible = @(Get-EligibleTestProjects -TestProjects $allTestProjects -MutatedProjectPath $projectPaths[$proj])
-    $testProjectsByProject[$proj] = $eligible
-    $shown = if ($eligible.Count -gt 0) {
-        ($eligible | ForEach-Object { [System.IO.Path]::GetRelativePath($repoRoot, $_).Replace('\', '/') }) -join ', '
+    $projShortName = $proj -replace '\.csproj$', ''
+
+    if ($exclusionReasons.ContainsKey($projShortName)) {
+        Write-Host "Classification for ${proj}: NOT APPLICABLE - listed in gates.mutation.exclusions: $($exclusionReasons[$projShortName])"
     }
-    else { '(none)' }
-    Write-Host "Test projects for ${proj}: $shown"
-    if ($eligible.Count -eq 0) { $projectsWithoutTests.Add($proj) }
+    elseif ($eligible.Count -gt 0) {
+        $shown = ($eligible | ForEach-Object { [System.IO.Path]::GetRelativePath($repoRoot, $_).Replace('\', '/') }) -join ', '
+        Write-Host "Test projects for ${proj}: $shown"
+        $testProjectsByProject[$proj] = $eligible
+        $eligibleProjects.Add($proj)
+    }
+    else {
+        Write-Host "Classification for ${proj}: no eligible test project, not in policy"
+        $unlistedIneligibleProjects.Add($proj)
+    }
 }
-if ($projectsWithoutTests.Count -gt 0) {
-    Write-Host "Mutation testing: FAILED - no eligible test project (a test project that directly references it, excluding *.ArchitectureTests) for: $($projectsWithoutTests -join ', ')."
-    exit 1
+
+# Every changed project listed leaves nothing to measure, so no config is written, no
+# output directory is created, and no Stryker is started.
+if ($eligibleProjects.Count -eq 0 -and $unlistedIneligibleProjects.Count -eq 0) {
+    Write-Host "`nMutation testing: NOT APPLICABLE - every changed project is listed in gates.mutation.exclusions; nothing was mutated."
+    exit 2
 }
 
 # Output root lives outside the repo so StrykerOutput never lands in the working tree.
@@ -587,7 +616,7 @@ $tempConfigs = [ordered]@{}
 $tempFilesToClean = [System.Collections.Generic.List[string]]::new()
 
 try {
-    foreach ($proj in $sortedProjects) {
+    foreach ($proj in $eligibleProjects) {
         $projShortName = $proj -replace '\.csproj$', ''
         $tempConfigPath = Join-Path ([System.IO.Path]::GetTempPath()) "stryker-$projShortName-$([System.Guid]::NewGuid().ToString('N').Substring(0, 8)).json"
         $tempFilesToClean.Add($tempConfigPath)
@@ -628,7 +657,7 @@ try {
 
     if ($DryRun) {
         Write-Host "`nMutation testing: DRY RUN - project groups:"
-        foreach ($proj in $sortedProjects) {
+        foreach ($proj in $eligibleProjects) {
             $filesList = @($projectGroups[$proj])
             Write-Host "`n  Project: $proj ($($filesList.Count) file(s))"
             foreach ($f in $filesList) {
@@ -641,10 +670,10 @@ try {
         exit 0
     }
 
-    # Run Stryker sequentially per project, from the project directory, into <output root>/<project>
+    # Run Stryker sequentially per eligible project, from the project directory, into <output root>/<project>
     $results = [System.Collections.Generic.List[PSCustomObject]]::new()
 
-    foreach ($proj in $sortedProjects) {
+    foreach ($proj in $eligibleProjects) {
         Write-Host "`n================================================================================"
         Write-Host "Running Stryker for $proj..."
         Write-Host "================================================================================"
@@ -713,6 +742,10 @@ try {
         foreach ($sm in $allSurvivingMutants) {
             Write-Host "  $($sm.File):$($sm.Line) [$($sm.Mutator)]"
         }
+    }
+
+    if ($unlistedIneligibleProjects.Count -gt 0) {
+        $runFailureReasons.Add("Changed project(s) with no eligible test project (a test project that directly references it, excluding *.ArchitectureTests and *.IntegrationTests) that are not in gates.mutation.exclusions: $($unlistedIneligibleProjects -join ', ').")
     }
 
     if ($totalTestedOverall -eq 0) {
