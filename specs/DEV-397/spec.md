@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-04
 
-**Status**: Draft
+**Status**: gate1: provisional
 
 **Input**: DEV-397 task brief, Patron rulings in `CONCLUSIONS.md`, and `recon-DEV-397`.
 

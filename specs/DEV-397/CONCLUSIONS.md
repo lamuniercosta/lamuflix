@@ -98,3 +98,11 @@ RULING: noted, no ticket. Log the missing gate-runner NOT APPLICABLE bucket here
 - Basis: assigned Patron role, tracker follow-up rule, permits out-of-scope tickets for Critical/High findings, broken behaviour, or an explicit user request; other findings are recorded as noted, no ticket. Conductor requested adjudication, not mandatory filing.
 - .cursor/rules/delegation.mdc:32-33 lists Pass, Failure, Skipped, Opt-out and Could not run; specs/DEV-397/spec.md:116-117 distinguishes blocking exit-2 SKIPPED from non-blocking exit-2 NOT APPLICABLE, never PASS. That contract remains authoritative for the parent interpreting a gate-runner report.
 - specs/DEV-397/spec.md:119-121 and brief.md section 3 freeze the implementation box and exclude Codex agent edits. This ruling adds no implementation work and answers neither OD-1 nor OD-2.
+
+## Gate 1 provisional — spec PR handoff
+
+RULING: ACCEPT setting `gate1: provisional` and opening `DEV-397: spec`; OD-1 and OD-2 remain unchecked owner decisions. Gate 1 stays closed until both owner decisions are answered and the user merges the spec PR; this marker grants no Phase B authorization.
+
+- Basis: task-pipeline:72,75-76; Conductor and task note DEV-397:23-25 confirm Quill fix commit `298e3a3`, clean re-analyze (18/18 FRs, 26 tasks, no critical/high/medium), adjudicated plan challenge and freeze recorded in brief.md section 11 at `067d65d`. Patron accepts those verified receipts without re-running another seat's checks.
+- Owner basis: spec.md:11-14, brief.md section 2 and PRODUCT.md:34-39. OD-1 retains the explicit Api policy choice; OD-2 retains the exact proposed AC7 replacement. Planning on option (a) and recording scope-empty mutation evidence answer neither checkbox.
+- Rigger PR body: copy both unchecked owner checkboxes verbatim from spec.md; cite the clean analysis and frozen-plan commits above; state provisional spec handoff only, Gate 1 closed pending owner answers and user merge, and no Phase B authorization. Do not claim AC7 amended or own-diff mutation green; if OD-1 selects (b), Keel amends the brief before implementation as brief.md section 2 requires. Limit the PR to this ticket's specs and exclude the local .specify/feature.json pin.
