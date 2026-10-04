@@ -12,7 +12,7 @@ namespace LamuFlix.Tests.Common;
 
 public sealed class RabbitMqFixture : IAsyncLifetime
 {
-    public static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
 
     private const int MaxAttempts = 3;
 
@@ -71,7 +71,7 @@ public sealed class RabbitMqFixture : IAsyncLifetime
         await DeleteTopologyAsync(connection, cancellationToken);
     }
 
-    public static RabbitMqOptions OptionsFor(Uri uri)
+    private static RabbitMqOptions OptionsFor(Uri uri)
     {
         var credentials = uri.UserInfo.Split(':', 2);
         var secret = credentials.Length > 1 ? credentials[1] : string.Empty;

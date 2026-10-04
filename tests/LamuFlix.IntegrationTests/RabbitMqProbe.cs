@@ -11,7 +11,7 @@ namespace LamuFlix.IntegrationTests;
 
 internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
 {
-    public static readonly TimeSpan Bound = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 
     private IConnection? connection;
@@ -29,7 +29,7 @@ internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
         gate.Dispose();
     }
 
-    public async Task<IChannel> OpenChannelAsync(CancellationToken cancellationToken) =>
+    private async Task<IChannel> OpenChannelAsync(CancellationToken cancellationToken) =>
         await (await RequireConnectionAsync()).CreateChannelAsync(cancellationToken: cancellationToken);
 
     public async Task DeclarePassiveExchangeAsync(string exchange, CancellationToken cancellationToken)

@@ -36,7 +36,7 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
     // ReSharper disable once NullableWarningSuppressionIsUsed - xUnit constructs the fixture; the server starts in InitializeAsync before any test reads it.
     public WireMockServer Server { get; private set; } = null!;
 
-    public string BaseUrl => Server.Urls[0];
+    private string BaseUrl => Server.Urls[0];
 
     public int RequestCount => Server.LogEntries.Count();
 
@@ -114,7 +114,7 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
         return services;
     }
 
-    public static Dictionary<string, string?> SharedSettings() =>
+    private static Dictionary<string, string?> SharedSettings() =>
         new(StringComparer.Ordinal)
         {
             [$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}"] = @"C:\library",
@@ -124,7 +124,7 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
             [$"{FeatureOptions.SectionName}:{nameof(FeatureOptions.LocalPlay)}"] = "true",
         };
 
-    public Dictionary<string, string?> LoopbackSettings() =>
+    private Dictionary<string, string?> LoopbackSettings() =>
         new(SharedSettings(), StringComparer.Ordinal)
         {
             [$"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}"] = BaseUrl,

@@ -301,7 +301,7 @@ internal static class LibraryEndpoints
 
         public HashSet<string> Seen { get; } = new(StringComparer.Ordinal);
 
-        public Dictionary<string, List<string>> Errors { get; } = new(StringComparer.Ordinal);
+        private Dictionary<string, List<string>> Errors { get; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, int> Ints { get; } = new(StringComparer.Ordinal);
 

@@ -20,9 +20,9 @@ public sealed class RabbitMqTopology(
     public const string RequestedRoutingKey = "requested";
     public const string RetryRoutingKey = "retry";
     public const string DeadLetterRoutingKey = "dead-letter";
-    public const string QuorumQueueType = "quorum";
-    public const string DeadLetterStrategyAtLeastOnce = "at-least-once";
-    public const string OverflowRejectPublish = "reject-publish";
+    private const string QuorumQueueType = "quorum";
+    private const string DeadLetterStrategyAtLeastOnce = "at-least-once";
+    private const string OverflowRejectPublish = "reject-publish";
 
     private readonly SemaphoreSlim gate = new(1, 1);
     private volatile bool declared;

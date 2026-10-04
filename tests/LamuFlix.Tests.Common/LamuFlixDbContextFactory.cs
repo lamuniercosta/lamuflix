@@ -15,7 +15,7 @@ public static class LamuFlixDbContextFactory
         return CreateContext(fixture.Container);
     }
 
-    public static LamuFlixDbContext CreateContext(PostgreSqlContainer container)
+    private static LamuFlixDbContext CreateContext(PostgreSqlContainer container)
     {
         ArgumentNullException.ThrowIfNull(container);
         var dbName = $"lamuflix_test_{Guid.NewGuid():N}";

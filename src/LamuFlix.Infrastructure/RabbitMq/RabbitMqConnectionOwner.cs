@@ -62,7 +62,7 @@ public sealed class RabbitMqConnectionOwner(IOptions<RabbitMqOptions> options) :
         }
     }
 
-    internal static ConnectionFactory CreateFactory(RabbitMqOptions value)
+    private static ConnectionFactory CreateFactory(RabbitMqOptions value)
     {
         var secret = value.Password;
         return new ConnectionFactory

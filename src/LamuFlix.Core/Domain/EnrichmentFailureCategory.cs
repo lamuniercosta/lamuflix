@@ -31,6 +31,8 @@ public sealed record EnrichmentFailureCategory
 
     public string Code { get; }
 
+    // Caller-safe contract member (ADR-0006, DEV-295); consumed by tests until an API surface reads it.
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public string SafeDescription { get; }
 
     public bool IsRetryable { get; }
