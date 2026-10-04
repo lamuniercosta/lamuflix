@@ -238,8 +238,11 @@ try {
         Copy-Item -LiteralPath $source -Destination (Join-Path $script:checkout $file) -Force
     }
     Invoke-FixtureGit (@('add', '--') + $overlayFiles) | Out-Null
+    # The overlay is empty whenever the gate files under test are already committed, which
+    # is the case whenever this runs from a clean checkout, so the commit must tolerate it:
+    # the diff base has to exist either way.
     Invoke-FixtureGit @('-c', 'user.name=mutation fixture', '-c', 'user.email=fixture@lamuflix.invalid',
-        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'fixture tooling overlay') | Out-Null
+        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '--allow-empty', '-m', 'fixture tooling overlay') | Out-Null
     $script:fixtureBase = (@(Invoke-FixtureGit @('rev-parse', 'HEAD'))[0]).Trim()
 
     Assert-FixtureWiring

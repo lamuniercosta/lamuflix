@@ -567,29 +567,52 @@ $allTestProjects = @(Get-TestProjects -RepoRoot $repoRoot)
 $testProjectsByProject = @{}
 $eligibleProjects = [System.Collections.Generic.List[string]]::new()
 $unlistedIneligibleProjects = [System.Collections.Generic.List[string]]::new()
+$classifications = [ordered]@{}
 
 foreach ($proj in $sortedProjects) {
     $eligible = @(Get-EligibleTestProjects -TestProjects $allTestProjects -MutatedProjectPath $projectPaths[$proj])
     $projShortName = $proj -replace '\.csproj$', ''
+    $lines = [System.Collections.Generic.List[string]]::new()
 
     if ($exclusionReasons.ContainsKey($projShortName)) {
-        Write-Host "Classification for ${proj}: NOT APPLICABLE - listed in gates.mutation.exclusions: $($exclusionReasons[$projShortName])"
+        $lines.Add("Classification for ${proj}: NOT APPLICABLE - listed in gates.mutation.exclusions: $($exclusionReasons[$projShortName])")
+        if ($eligible.Count -gt 0) {
+            $staleShown = ($eligible | ForEach-Object { [System.IO.Path]::GetRelativePath($repoRoot, $_).Replace('\', '/') }) -join ', '
+            $lines.Add("Classification for ${proj}: WARNING - the exclusion may be stale: eligible test project(s) exist ($staleShown), and the project stays excluded.")
+        }
     }
     elseif ($eligible.Count -gt 0) {
         $shown = ($eligible | ForEach-Object { [System.IO.Path]::GetRelativePath($repoRoot, $_).Replace('\', '/') }) -join ', '
-        Write-Host "Test projects for ${proj}: $shown"
+        $lines.Add("Test projects for ${proj}: $shown")
         $testProjectsByProject[$proj] = $eligible
         $eligibleProjects.Add($proj)
     }
     else {
-        Write-Host "Classification for ${proj}: no eligible test project, not in policy"
+        $lines.Add("Classification for ${proj}: no eligible test project, not in policy")
         $unlistedIneligibleProjects.Add($proj)
+    }
+
+    $classifications[$proj] = $lines
+}
+
+# Every changed project is now either listed, measurable, or reported; the flag only says
+# which of those three left nothing at all to measure. A configured exclusion that matches
+# no changed project never reaches this point, because it is only ever looked up above.
+$everyChangedProjectListed = $eligibleProjects.Count -eq 0 -and $unlistedIneligibleProjects.Count -eq 0
+
+# A DryRun prints these classifications inside its own report below, so a real run, and the
+# all-listed return that happens before that report exists, are what print them here.
+if (-not $DryRun -or $everyChangedProjectListed) {
+    foreach ($proj in $sortedProjects) {
+        foreach ($line in $classifications[$proj]) {
+            Write-Host $line
+        }
     }
 }
 
 # Every changed project listed leaves nothing to measure, so no config is written, no
 # output directory is created, and no Stryker is started.
-if ($eligibleProjects.Count -eq 0 -and $unlistedIneligibleProjects.Count -eq 0) {
+if ($everyChangedProjectListed) {
     Write-Host "`nMutation testing: NOT APPLICABLE - every changed project is listed in gates.mutation.exclusions; nothing was mutated."
     exit 2
 }
@@ -657,7 +680,12 @@ try {
 
     if ($DryRun) {
         Write-Host "`nMutation testing: DRY RUN - project groups:"
-        foreach ($proj in $eligibleProjects) {
+        foreach ($proj in $sortedProjects) {
+            foreach ($line in $classifications[$proj]) {
+                Write-Host "`n  $line"
+            }
+            if (-not $testProjectsByProject.ContainsKey($proj)) { continue }
+
             $filesList = @($projectGroups[$proj])
             Write-Host "`n  Project: $proj ($($filesList.Count) file(s))"
             foreach ($f in $filesList) {
@@ -666,6 +694,16 @@ try {
             Write-Host "`n  Generated config ($($tempConfigs[$proj].Path)):"
             Write-Host $tempConfigs[$proj].Json
         }
+
+        # A classification run measures no mutant, so exit 0 below is a classification
+        # verdict and never mutation proof. An unlisted project with no eligible test
+        # project is the one classification failure, and it fails here exactly as the
+        # same project fails a real run, after the eligible ones have been reported.
+        if ($unlistedIneligibleProjects.Count -gt 0) {
+            Write-Host "`nMutation testing: FAILED - changed project(s) with no eligible test project (a test project that directly references it, excluding *.ArchitectureTests and *.IntegrationTests) that are not in gates.mutation.exclusions: $($unlistedIneligibleProjects -join ', ')."
+            exit 1
+        }
+
         Write-Host "`nMutation testing: Dry run complete (0 tests executed)."
         exit 0
     }
