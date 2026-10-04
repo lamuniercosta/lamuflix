@@ -15,26 +15,26 @@ public sealed class LibraryQueryValidatorTests
     [Fact]
     public void BrowseValidator_AcceptedMovieQuery_IsValid()
     {
-        // Arrange
+        // arrange
 
-        // Act
+        // act
         var result = browseValidator.Validate(new BrowseMoviesQuery(Accepted() with { Page = new Page(1, 100) }));
 
-        // Assert
+        // assert
         result.IsValid.ShouldBeTrue();
     }
 
     [Fact]
     public void BrowseValidator_ReportsExactlyTheNestedMovieQueryFailures()
     {
-        // Arrange
+        // arrange
         var query = new MovieQuery { Page = new Page(1, 101) };
 
-        // Act
+        // act
         var inner = movieQueryValidator.Validate(query);
         var result = browseValidator.Validate(new BrowseMoviesQuery(query));
 
-        // Assert
+        // assert
 
         inner.IsValid.ShouldBeFalse();
         result.IsValid.ShouldBe(inner.IsValid);
@@ -45,25 +45,25 @@ public sealed class LibraryQueryValidatorTests
     [Fact]
     public void BrowseValidator_MissingSortAndDirection_FailsBothNestedProperties()
     {
-        // Arrange
+        // arrange
 
-        // Act
+        // act
         var result = browseValidator.Validate(new BrowseMoviesQuery(new MovieQuery { Page = new Page(1, 20) }));
 
-        // Assert
+        // assert
         result.Errors.Select(error => error.PropertyName).ShouldBe(["Query.Sort", "Query.Direction"]);
     }
 
     [Fact]
     public void BrowseValidator_InvertedYearRange_FailsTheNestedYearProperty()
     {
-        // Arrange
+        // arrange
         var query = Accepted() with { Year = new YearRange(2000, 1999) };
 
-        // Act
+        // act
         var result = browseValidator.Validate(new BrowseMoviesQuery(query));
 
-        // Assert
+        // assert
         result.Errors.ShouldContain(error => error.PropertyName == "Query.Year");
     }
 
@@ -85,12 +85,12 @@ public sealed class LibraryQueryValidatorTests
     [Fact]
     public void GetMovieDetailsValidator_ConstructedId_IsValid()
     {
-        // Arrange
+        // arrange
 
-        // Act
+        // act
         var result = detailsValidator.Validate(new GetMovieDetailsQuery(new MovieId(1)));
 
-        // Assert
+        // assert
         result.IsValid.ShouldBeTrue();
     }
 
