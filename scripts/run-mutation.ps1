@@ -1,6 +1,8 @@
 #!/usr/bin/env pwsh
 # Runs Stryker.NET mutation testing on changed production C# files under src/.
-# Exits 0 on PASS, 1 on FAIL, 2 on SKIPPED (no production files changed).
+# Exits 0 on PASS, 1 on FAIL, 2 on SKIPPED (no production files changed) or NOT
+# APPLICABLE (every changed project listed in gates.mutation.exclusions). -Help
+# prints the exit-code table, and AGENTS.md carries the same table.
 #
 # Worktree-safe replacement for `dotnet stryker --since`:
 # In Stryker 4.16.0 the built-in `since` filter resolved linked git worktrees to the
@@ -13,8 +15,9 @@
 # are executables, so under VSTest the tests run in a child of testhost that never sees
 # the active mutant and every mutant survives. The tracked config therefore selects the
 # MTP runner with coverage off, and every generated config carries both settings plus an
-# explicit test-projects list that excludes *.ArchitectureTests: those tests fail on the
-# Stryker.* types injected into every mutated assembly, which is an artifact kill.
+# explicit test-projects list that excludes *.ArchitectureTests and *.IntegrationTests:
+# the first fails on the Stryker.* types injected into every mutated assembly, which is
+# an artifact kill, and the second holds the real-database tests this run does not drive.
 #
 # Usage:
 #   ./scripts/run-mutation.ps1
@@ -38,8 +41,24 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '_gate-common.ps1')
 
+# The exit-code contract of this gate. -Help prints this table and AGENTS.md carries a
+# copy of it, so the three texts stay identical line for line after the leading
+# whitespace on each line is trimmed.
+<#
+EXIT CODES:
+| Exit | Verdict | Meaning | Blocking |
+|---|---|---|---|
+| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
+| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration, or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
+| 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | Yes; never green |
+| 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
+
+The table describes a real run. -DryRun starts no Stryker process, so its exit 0 means
+classification passed and is never the `PASSED` row above.
+#>
+
 if ($Help) {
-    Write-Output @"
+    Write-Output @'
 Usage: run-mutation.ps1 [OPTIONS]
 
 Runs Stryker.NET mutation testing on changed production C# files under src/.
@@ -47,11 +66,19 @@ The threshold is read from harness.yml at gates.mutation.threshold (default: 80)
 
 OPTIONS:
   -BaseRef <ref>          Git ref to diff against (default: origin/<baseBranch> from harness.yml)
-  -DryRun                 Discover changed files and generate temp configs without running Stryker
+  -DryRun                 Classify changed projects and generate temp configs without running Stryker; a clean exit is a classification verdict, never mutation proof
   -EvaluateReport <path>  Evaluate an existing Stryker mutation report without running Stryker (skips changed-file containment checks when run standalone)
   -Project <name[]>       Only run these changed projects (e.g. LamuFlix.Api or LamuFlix.Api.csproj); a name with no changed files is an error
   -OutputRoot <dir>       Where Stryker output goes, one <Project> folder each (default: <system temp>/LamuFlix-stryker/<UTC yyyyMMdd-HHmmss>-<6 hex>; must be outside the repo)
   -Help                   Show this help
+
+CONFIGURATION:
+  harness.yml gates.mutation.exclusions maps a changed project name (no .csproj
+  suffix, matched ordinal-ignore-case) to the reason printed with its NOT APPLICABLE
+  classification. A blank reason and a .csproj suffix are configuration errors that
+  exit 1 before any Stryker run. A reason must not contain " #": the harness.yml
+  subset treats a # that starts a token as a comment, so the rest of the line would
+  be dropped. That limitation is documented here and not validated.
 
 EXAMPLES:
   ./scripts/run-mutation.ps1
@@ -59,7 +86,18 @@ EXAMPLES:
   ./scripts/run-mutation.ps1 -DryRun
   ./scripts/run-mutation.ps1 -Project LamuFlix.Infrastructure,LamuFlix.Api
   ./scripts/run-mutation.ps1 -EvaluateReport <output root>/LamuFlix.Api/reports/mutation-report.json
-"@
+
+EXIT CODES:
+  A real run reports these outcomes; -DryRun starts no Stryker process, so its exit 0
+  means classification passed and is never the PASSED row.
+
+| Exit | Verdict | Meaning | Blocking |
+|---|---|---|---|
+| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
+| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration, or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
+| 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | Yes; never green |
+| 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
+'@
     exit 0
 }
 
