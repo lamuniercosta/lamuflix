@@ -16,6 +16,9 @@ gates:
 
   mutation:
     threshold: 80
+    exclusions:
+      # Api is the only listed project: LamuFlix.UnitTests does not reference it.
+      LamuFlix.Api: "host proof lives in IntegrationTests per Constitution IX"
 
   analyzers:
     mode: All

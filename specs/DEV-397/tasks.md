@@ -13,17 +13,17 @@
 
 **Purpose**: Reconcile the frozen scope with the implementation base and obtain required owner decisions before Gate 1/implementation proceeds.
 
-- [ ] T001 Verify drift from `origin/main` at `1e6830b` for F1-F5 files in `brief.md` §3 and record evidence in Phase B recon.
-- [ ] T002 Establish and verify the DEV-309 pre-merge base SHA for its retrospective run; record evidence in Phase B recon.
-- [ ] T003 Record owner answers for OD-1 and OD-2 in the spec PR; keep Gate 1 closed until both checkboxes are answered.
+- [x] T001 Verify drift from `origin/main` at `1e6830b` for F1-F5 files in `brief.md` §3 and record evidence in Phase B recon.
+- [x] T002 Establish and verify the DEV-309 pre-merge base SHA for its retrospective run; record evidence in Phase B recon.
+- [x] T003 Record owner answers for OD-1 and OD-2 in the spec PR; keep Gate 1 closed until both checkboxes are answered.
 
 ## Phase 2: Foundational Configuration and Fixture
 
 **Purpose**: Establish exclusion policy parsing and the behavioral fixture before changing runner classification.
 
-- [ ] T004 [US3] Add the `gates.mutation.exclusions` map value type in `scripts/_harness-config.ps1`: widen key grammar only for direct children of the exact anchored prefix; keep nested children, a scalar on `exclusions`, and near-miss neighbours as hard errors; add one prefix schema entry, an empty-map default in `Get-HarnessDefaults`, and one listing accessor while `Get-HarnessValue` stays scalar. Validate all entries before classification and before scope-empty; reasons must be nonblank, keys match ordinal-ignore-case, and `.csproj` suffix keys are configuration errors with exit 1. Preserve unknown-key rejection elsewhere.
-- [ ] T005 [P] [US2] Add the dependency-free fixture in `scripts/Test-RunMutation.ps1`. Overlay gate files, `.config/dotnet-tools.json`, `stryker-config.json`, the solution with test projects, and merge-base-reaching git history through `HARNESS_REPO_ROOT`. Every case asserts exit code and verdict/classification text. Cases: (1) listed Api + eligible Infrastructure, exit 0; (2) listed Api only, exit 2 NOT APPLICABLE both with and without `-DryRun`; (3) unlisted Api + Infrastructure, exit 1 with both classifications; (4) blank reason, exit 1 configuration error; (5) listed-but-eligible warning while excluded.
-- [ ] T006 [US3] Add the `LamuFlix.Api` exclusion and configured reason to `harness.yml` only after confirming OD-1 chose option (a). If option (b) was chosen, Keel amends the brief before Phase 2 implementation.
+- [x] T004 [US3] Add the `gates.mutation.exclusions` map value type in `scripts/_harness-config.ps1`: widen key grammar only for direct children of the exact anchored prefix; keep nested children, a scalar on `exclusions`, and near-miss neighbours as hard errors; add one prefix schema entry, an empty-map default in `Get-HarnessDefaults`, and one listing accessor while `Get-HarnessValue` stays scalar. Validate all entries before classification and before scope-empty; reasons must be nonblank, keys match ordinal-ignore-case, and `.csproj` suffix keys are configuration errors with exit 1. Preserve unknown-key rejection elsewhere.
+- [x] T005 [P] [US2] Add the dependency-free fixture in `scripts/Test-RunMutation.ps1`. Overlay gate files, `.config/dotnet-tools.json`, `stryker-config.json`, the solution with test projects, and merge-base-reaching git history through `HARNESS_REPO_ROOT`. Every case asserts exit code and verdict/classification text. Cases: (1) listed Api + eligible Infrastructure, exit 0; (2) listed Api only, exit 2 NOT APPLICABLE both with and without `-DryRun`; (3) unlisted Api + Infrastructure, exit 1 with both classifications; (4) blank reason, exit 1 configuration error; (5) listed-but-eligible warning while excluded.
+- [x] T006 [US3] Add the `LamuFlix.Api` exclusion and configured reason to `harness.yml` only after confirming OD-1 chose option (a). If option (b) was chosen, Keel amends the brief before Phase 2 implementation.
 
 ## Phase 3: User Story 1 - Run Eligible Projects in a Mixed Diff (Priority: P1)
 
