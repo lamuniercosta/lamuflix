@@ -44,7 +44,7 @@ No constitution violation or new structural decision is introduced by this plan.
 
 ### Configuration and classification
 
-Add the `gates.mutation.exclusions` map value type only for that prefix in `_harness-config.ps1`, preserving the existing allow-list behavior elsewhere. Default to an empty map. Validate all values as nonblank strings before classifying projects. The planned harness entry is `LamuFlix.Api` with the reason from the brief, contingent on OD-1.
+Add the `gates.mutation.exclusions` map value type only for that prefix in `_harness-config.ps1`, preserving the existing allow-list behavior elsewhere. Widen key parsing to permit dotted keys only as direct children of the exact, anchored `gates.mutation.exclusions` prefix; nested children, a scalar value on `exclusions`, and near-miss paths remain hard errors. Add one prefix schema entry, an empty-map default in `Get-HarnessDefaults`, and one accessor that lists map entries; `Get-HarnessValue` remains scalar. Validate every entry before classification and the scope-empty check. Exclusion keys match project names ordinal-ignore-case, and a `.csproj` suffix in a key is a configuration error (exit 1). The planned harness entry is `LamuFlix.Api` with the reason from the brief, contingent on OD-1.
 
 For each changed project, calculate eligible test projects with the existing direct-reference rule and both existing test-family exclusions. A configured exclusion takes precedence and reports NOT APPLICABLE; warn if that project also has eligible tests. Otherwise, report eligible tests or `no eligible test project, not in policy`. Do not let an unlisted ineligible project prevent other eligible projects from running. Report eligible scores, then calculate the overall verdict. DryRun emits all classifications and never starts Stryker.
 
@@ -54,7 +54,11 @@ Apply the real-run exit table from the spec. Keep scope-empty SKIPPED blocking; 
 
 ### Validation evidence
 
-The new plain PowerShell harness overlays gate files into a temporary fixture and checks five specified cases. Separately run the real non-DryRun Api-plus-Infrastructure case against `9f92ad1`. Establish the DEV-309 pre-merge base SHA during Phase B recon, run Infrastructure retrospectively, add tests only for survivors in the two named validators, and rerun. Out-of-scope survivors are follow-up dispositions, not gate waivers.
+The new plain PowerShell harness overlays gate files, `.config/dotnet-tools.json`, `stryker-config.json`, the solution with its test projects, and git history reaching the merge-base into a temporary fixture through `HARNESS_REPO_ROOT`; each of its five cases asserts exit code and verdict/classification text. Separately run the real non-DryRun Api-plus-Infrastructure case against `9f92ad1`. Establish the DEV-309 pre-merge base SHA during Phase B recon, run Infrastructure retrospectively, add tests only for survivors in the two named validators, and rerun. Out-of-scope survivors are follow-up dispositions, not gate waivers.
+
+DryRun exit branches are: 1 for invalid configuration or an unlisted ineligible project; 2 `SKIPPED` for scope-empty; 2 `NOT APPLICABLE` when all changed projects are listed; otherwise 0 for successful classification only. Add classification lines to the existing banner and generated-config output, which remains. If `-Project` names a listed project, report NOT APPLICABLE and exit 2 without running Stryker; the receipt helper then fails that receipt because no report exists, as intended, and is not edited.
+
+For script help and `AGENTS.md`, the exit table is verbatim when its header and row text are identical after trimming leading whitespace from each line; keep the table inside the script's comment-help block. Document that reasons must not contain ` #` (an unvalidated parser limitation). Reconcile the global `AGENTS.md` exit-2 wording so mutation exit 2 `NOT APPLICABLE` is non-blocking while `SKIPPED` remains blocking. Record the full gate command set from brief.md §7.
 
 ### Repository Structure
 
