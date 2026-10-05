@@ -1,5 +1,6 @@
 using System;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -28,6 +29,7 @@ public static class PersistenceServiceCollectionExtensions
         }
 
         services.AddDbContext<LamuFlixDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddHealthChecks().AddDbContextCheck<LamuFlixDbContext>("postgres", tags: [HealthCheckTags.Ready]);
         services.TryAddSingleton(TimeProvider.System);
         services.AddOptions<EnrichmentOptions>()
             .Validate(
