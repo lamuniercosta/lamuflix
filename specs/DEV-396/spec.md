@@ -108,7 +108,7 @@ As the reviewer of the spec PR, I need each inherited DEV-307 task ID to end as 
 - The unstaged `harness.yml` deletion of mutation exclusions: the committed file is authoritative; Rigger restores it before any gate run and each gate receipt shows `git diff --quiet HEAD -- harness.yml` exiting 0.
 - The standalone legacy test project cannot build (NU1010): recorded separately as Could not run, never as proof or as a waiver of active gates.
 - The collector is unreachable: composition proof never claims delivery to a collector.
-- A gate exits 2: scope-empty is SKIPPED (never PASS), a disabled gate is SKIP, mutation NOT APPLICABLE only on the actual script verdict, property exit 2 needs a recorded opt-out reason.
+- A gate exits 2: scope-empty is blocking SKIPPED (never PASS), a disabled gate is SKIP, mutation NOT APPLICABLE only on the actual script verdict, property exit 2 needs a recorded opt-out reason.
 - The current-head reproduction shows an accepted finding already resolved: no fix; evidence recorded.
 
 ## Requirements

@@ -109,7 +109,7 @@ Conductor coordinates Rigger to create a disposable detached worktree at the ful
 
 ### 7. Evidence, gates and publication (US7, FR-014..FR-016)
 
-Rigger restores committed `harness.yml` before gate runs; each receipt includes `git diff --quiet HEAD -- harness.yml` exit 0. Gauge runs every required gate with command, exit and verdict. Gate exit classification follows the current task pipeline: scope-empty exit 2 SKIPPED (never PASS), disabled gate SKIP, mutation NOT APPLICABLE only from the actual script verdict, property exit 2 with a recorded opt-out reason, exit 1 and Could not run never green. Per-task evidence reconciliation updates `specs/DEV-307/tasks.md` boxes only on cited receipts.
+Rigger restores committed `harness.yml` before gate runs; each receipt includes `git diff --quiet HEAD -- harness.yml` exit 0. Gauge runs every required gate with command, exit and verdict. Gate exit classification follows the current task pipeline: scope-empty exit 2 blocking SKIPPED (never PASS), disabled gate SKIP, mutation NOT APPLICABLE only from the actual script verdict, property exit 2 with a recorded opt-out reason, exit 1 and Could not run never green. Per-task evidence reconciliation updates `specs/DEV-307/tasks.md` boxes only on cited receipts.
 
 ### Test and gate expectations
 
