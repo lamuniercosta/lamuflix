@@ -43,3 +43,21 @@ Verdict: **ACCEPT** (Keel recommendation), with checkout coordination fixed: fre
 - Basis, ticket text (`DEV-396` note:3): "retrospective diff 122c502..7a35e77 with Gauge artifact, Sentry/Ledger/Compass axes, Keel adjudication, Medium+ fixes and lower findings as follow-ups; corrective comments on PR #82 and DEV-307". Recon `:196-199,304`: no Gauge artifact exists, so the pass starts cold. The recommendation adds and drops nothing (2.3a not triggered).
 - Checkout: run the pre-pass and axes in a disposable detached worktree at the full head SHA `7a35e77...` (for example `F:\Dev\LamuFlix.worktrees\review-308-7a35e77`), never in the main checkout or `feature/396-spec`. Every artifact names its base and head SHAs. A fix applied in DEV-396 cites both the historical finding and a reproduction at the current DEV-396 head. Delete the worktree once the artifacts exist (disposable, no ruling needed).
 - No rewriting of PR history and no borrowed artifacts: the one existing `pre-pass-0c9c052` belongs to another run (recon `:199`). Current-head applicability is a fact for the reproduction pass to establish, not one to infer here. Lower findings get YouTrack tickets only if Critical/High or broken behaviour; anything else is a `noted, no ticket` line, per Patron's role rules.
+
+---
+
+### Q3 complete exchange - Keel record
+
+Keel question: What is the retrospective execution/proof boundary? Recommendation: fresh Gauge pre-pass pinned to 122c502b03b0eaffe18b79b0fd26183466d8f0d0..7a35e7727241c3afd92ac9ba21fa9d13da37cdd5, full-SHA checkout/artifact handshake, all three axes before adjudication, separate historical and delivery receipts, current-head reproduction of accepted Medium+ findings before narrow fixes, and evidence for already-resolved findings. Lower findings become follow-up records. No rewriting PR #83 history or borrowed artifacts. Cost: historical analysis and current applicability are separate passes.
+
+Patron answer: ACCEPT. Run the fresh Gauge pre-pass and Sentry/Ledger/Compass axes in a disposable detached worktree at full SHA 7a35e77, with every artifact naming its base and head SHAs. Keel adjudicates, then reproduces accepted Medium+ findings at the DEV-396 head before any narrow fix; resolved findings get recorded with evidence. Lower findings become follow-up records (ticket only if Critical/High or broken, otherwise noted, no ticket). No borrowed artifacts. Ruling reported at c2bd797.
+
+Implication: Conductor coordinates the isolated historical checkout; no active-head report can impersonate the historical head. Rigger alone records any Patron-decided tracker change.
+
+## Q4 - Pre-existing unstaged harness.yml mutation-exclusion deletion
+
+Verdict: **AMEND** - this does not block Phase A drafting; it blocks only the Phase B gate runs. The committed `harness.yml` at the branch base (`5033c9b`, which carries `gates.mutation.exclusions` / `LamuFlix.Api`) is the sole authoritative configuration. DEV-396 never commits the working-copy deletion and never changes thresholds or adds waivers.
+
+- Provenance is already recorded; no ownership hunt is needed. Rigger's Phase 1 intake (`DEV-396` note:3) says worktree setup "copied ignored harness.yml" into the new worktree, and recon `:125-127` measures the result: a 3-line deletion against committed `main:harness.yml`. It is a setup artifact of this worktree, not authored work on this branch.
+- Disposition: before any Phase B gate runs, Rigger restores `harness.yml` in this worktree to the committed version (`git restore harness.yml`), and every gate receipt shows `git diff --quiet HEAD -- harness.yml` exiting 0. If the copied content reflects an intended change somewhere else, it lands through its own ticket, not DEV-396. Restoring a working copy to its committed content rewrites nothing that is tracked (2.3 item 6 not triggered).
+- Proof: neither the recon-time exit 2 (scope-empty) nor an assumed Api exclusion proves anything about mutation eligibility. Gauge records the actual `run-mutation.ps1` verdict and exit code on the delivery diff, against the committed config (ACCEPT on Keel's point).
