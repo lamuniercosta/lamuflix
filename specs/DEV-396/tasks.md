@@ -11,7 +11,9 @@
 - **[P]**: Can run in parallel because it touches distinct files and has no dependency on another task.
 - **[Story]**: User story from `spec.md`.
 - **Inherits**: the `specs/DEV-307/tasks.md` task ID this task completes or reconciles. The Inheritance Map at the end proves every inherited ID is covered.
-- Shared `Extensions.cs` and `TelemetryConstants.cs` edits are sequential, never concurrent.
+- Shared `Extensions.cs` and `TelemetryConstants.cs` edits are sequential, never concurrent, with one exclusive owner at a time.
+- Ownership: Cog alters existing files (including `MetadataProviderProbe.cs`); Anvil creates new files and tests. Phase order, scope and caps are unchanged.
+- IDs written "inherited Txxx" refer to `specs/DEV-307/tasks.md`; local IDs are DEV-396 tasks. Local T041 carries inherited T048.
 - After every `.cs` task, run the incremental Roslyn, complexity, InspectCode and format pass with `-Files` passed as a real array. The close-out pass is T037.
 - A red run is re-run at most once and only to record that it did not reproduce; never retried until green.
 - No task ticks OD-1 or T020A by inference. A BLOCKED task is reported and waited on, never started provisionally.
@@ -52,12 +54,12 @@
 
 **Independent Test**: Providers resolve with exporters; each instrumentation removal fails its own check; sentinel absent from spans and logs.
 
-- [ ] T015 [US1] Add `RabbitMqPublisherActivitySourceName` ("RabbitMQ.Client.Publisher") and `RabbitMqSubscriberActivitySourceName` ("RabbitMQ.Client.Subscriber") to `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs`; no rename or removal; copy strings exactly. (inherits T027)
-- [ ] T016 [US1] In `src/LamuFlix.ServiceDefaults/Extensions.cs`, add tracing (ASP.NET Core, HttpClient, Npgsql, three `AddSource` names) with argument-free `AddOtlpExporter()`; no `Endpoint`, `Protocol`, delegate or `AddService`. Same commit as T018 proof for the HttpClient instrumentation. (inherits T028)
-- [ ] T017 [US1] On the same `AddOpenTelemetry()` call add metrics (ASP.NET Core, HttpClient, `AddMeter` on the existing identity) and logging with argument-free exporters; no invented identity or Npgsql metric. (inherits T029)
-- [ ] T018 [US2] Extend `tests/LamuFlix.IntegrationTests/MetadataProviderProbe.cs` for category propagation and Debug-and-above capture only; create `tests/LamuFlix.IntegrationTests/MetadataProviderTelemetryTests.cs`: real lookup with the sentinel key, assert an actual outbound span and HttpClient-category entries exist, then assert the sentinel is absent from span tags and rendered, structured and exception log content. No URI-redaction opt-out, no credential literal. Committed with T016. (inherits T033A)
-- [ ] T019 [US1] Extend `tests/LamuFlix.UnitTests/ServiceDefaultsTests.cs`: tracer, meter and log providers resolve and each carries an OTLP exporter; test names say "exporter is composed", never "exported"; application and both RabbitMQ source names are collected; one theory with three rows (ASP.NET Core via a real in-process request, HttpClient, Npgsql) proves each instrumentation reaches a recording processor; removal of each registration fails its own row. (inherits T030)
-- [ ] T020 [US1] Create `tests/LamuFlix.UnitTests/OtlpEndpointEnvironmentTests.cs` in a non-parallel collection: default endpoint, shared options across all three providers, and the standard environment variable winning; mutate process environment and restore in `finally`. (inherits T031)
+- [ ] T015 [US1] (Cog) Add `RabbitMqPublisherActivitySourceName` ("RabbitMQ.Client.Publisher") and `RabbitMqSubscriberActivitySourceName` ("RabbitMQ.Client.Subscriber") to `src/LamuFlix.Core/Pipeline/TelemetryConstants.cs`; no rename or removal; copy strings exactly. (inherits T027)
+- [ ] T016 [US1] (Cog) In `src/LamuFlix.ServiceDefaults/Extensions.cs`, add tracing (ASP.NET Core, HttpClient, Npgsql, three `AddSource` names) with argument-free `AddOtlpExporter()`; no `Endpoint`, `Protocol`, delegate or `AddService`. Same commit as T018 proof for the HttpClient instrumentation. (inherits T028)
+- [ ] T017 [US1] (Cog) On the same `AddOpenTelemetry()` call add metrics (ASP.NET Core, HttpClient, `AddMeter` on the existing identity) and logging with argument-free exporters; no invented identity or Npgsql metric. (inherits T029)
+- [ ] T018 [US2] (Cog edits the probe; Anvil creates the telemetry test) Extend `tests/LamuFlix.IntegrationTests/MetadataProviderProbe.cs` for category propagation and Debug-and-above capture only; create `tests/LamuFlix.IntegrationTests/MetadataProviderTelemetryTests.cs`: real lookup with the sentinel key, assert an actual outbound span and HttpClient-category entries exist, then assert the sentinel is absent from span tags and rendered, structured and exception log content. No URI-redaction opt-out, no credential literal. Committed in the same commit as T016, coordinated between Cog and Anvil. (inherits T033A)
+- [ ] T019 [US1] (Cog edits existing file) Extend `tests/LamuFlix.UnitTests/ServiceDefaultsTests.cs`: tracer, meter and log providers resolve and each carries an OTLP exporter; test names say "exporter is composed", never "exported"; application and both RabbitMQ source names are collected; one theory with three rows (ASP.NET Core via a real in-process request, HttpClient, Npgsql) proves each instrumentation reaches a recording processor; removal of each registration fails its own row. (inherits T030)
+- [ ] T020 [US1] (Anvil) Create `tests/LamuFlix.UnitTests/OtlpEndpointEnvironmentTests.cs` in a non-parallel collection: default endpoint, shared options across all three providers, and the standard environment variable winning; mutate process environment and restore in `finally`. (inherits T031)
 - [ ] T021 [US1] Gates on `TelemetryConstants.cs`, `Extensions.cs`, `ServiceDefaultsTests.cs`, `OtlpEndpointEnvironmentTests.cs`, `MetadataProviderProbe.cs`, `MetadataProviderTelemetryTests.cs`, then `dotnet test` for UnitTests and IntegrationTests; record exits. (inherits T032)
 - [ ] T022 [US1] Boundary checks: `rg -n "Endpoint\s*=" src/LamuFlix.ServiceDefaults` returns nothing; `rg -n "DisableUriRedaction|DISABLE_URL_QUERY_REDACTION" src tests` returns nothing; double composition does not double Serilog or OpenTelemetry registrations. (inherits T033)
 
@@ -65,20 +67,20 @@
 
 ## Phase 4: Health Membership (User Story 3, Priority P1)
 
-- [ ] T023 [P] [US3] Create `src/LamuFlix.Core/Pipeline/HealthCheckTags.cs` with `Ready = "ready"` beside `TelemetryConstants`. (inherits T034)
-- [ ] T024 [US3] In `PersistenceServiceCollectionExtensions.cs` register the PostgreSQL check over `LamuFlixDbContext` tagged with the constant; in `RabbitMqServiceCollectionExtensions.cs` replace the literal with the constant; no schema or migration, no driver mock. (inherits T035)
-- [ ] T025 [US3] In `MetadataProviderServiceCollectionExtensions.cs` remove the readiness tag and leave the check registered. (inherits T036)
-- [ ] T026 [US3] Create `tests/LamuFlix.UnitTests/HealthCheckRegistrationTests.cs` reading the real registrations (independent of endpoint stubs): exactly two ready-tagged checks (postgres, rabbitmq), metadata-provider registered and untagged. (inherits T036A)
+- [ ] T023 [P] [US3] (Cog) Create `src/LamuFlix.Core/Pipeline/HealthCheckTags.cs` with `Ready = "ready"` beside `TelemetryConstants`. (inherits T034)
+- [ ] T024 [US3] (Cog) In `PersistenceServiceCollectionExtensions.cs` register the PostgreSQL check over `LamuFlixDbContext` tagged with the constant; in `RabbitMqServiceCollectionExtensions.cs` replace the literal with the constant; no schema or migration, no driver mock. (inherits T035)
+- [ ] T025 [US3] (Cog) In `MetadataProviderServiceCollectionExtensions.cs` remove the readiness tag and leave the check registered. (inherits T036)
+- [ ] T026 [US3] (Anvil) Create `tests/LamuFlix.UnitTests/HealthCheckRegistrationTests.cs` reading the real registrations (independent of endpoint stubs): exactly two ready-tagged checks (postgres, rabbitmq), metadata-provider registered and untagged. (inherits T036A)
 - [ ] T027 [US3] Gates on the four production files and the new test; `rg -n 'tags:\s*\[\"ready\"\]' src` returns nothing; boundary check on `MapHealthChecks|MapDefaultEndpoints` sites unchanged. (inherits T036B, T041 non-readiness half)
 
 **Checkpoint**: readiness group membership proven; no readiness route yet.
 
 ## Phase 5: Handler Outcome Decorator (User Story 4, Priority P1)
 
-- [ ] T028 [P] [US4] Add the handler-outcome key and validation-failed value constants to `TelemetryConstants.cs` after T015 (sequential, same file). (inherits T005)
-- [ ] T029 [US4] In `TracingDecorator.cs` separate validation failures (status unset, outcome validation-failed) from other exceptions (error status, full type name, `error.type`), rethrowing both unchanged; leave the consumer `MarkError` untouched. (inherits T007)
-- [ ] T030 [US4] Create `tests/LamuFlix.UnitTests/Pipeline/TracingDecoratorTests.cs`: two `[Fact]` cases with an `ActivityListener` covering status, attributes and propagation; the unexpected-exception case asserts the full type name and executes in the active project. (inherits T009)
-- [ ] T031 [US4] Edit the one assertion at `tests/LamuFlix.Test/TracingDecoratorTests.cs:65` to the full-name value; record the standalone legacy check as `Could not run` (project not in `LamuFlix.sln`, NU1010); never present it as proof. (inherits T010)
+- [ ] T028 [P] [US4] (Cog) Add the handler-outcome key and validation-failed value constants to `TelemetryConstants.cs` after T015 (sequential, same file). (inherits T005)
+- [ ] T029 [US4] (Cog) In `TracingDecorator.cs` separate validation failures (status unset, outcome validation-failed) from other exceptions (error status, full type name, `error.type`), rethrowing both unchanged; leave the consumer `MarkError` untouched. (inherits T007)
+- [ ] T030 [US4] (Anvil) Create `tests/LamuFlix.UnitTests/Pipeline/TracingDecoratorTests.cs`: two `[Fact]` cases with an `ActivityListener` covering status, attributes and propagation; the unexpected-exception case asserts the full type name and executes in the active project. (inherits T009)
+- [ ] T031 [US4] (Cog) Edit the one assertion at `tests/LamuFlix.Test/TracingDecoratorTests.cs:65` to the full-name value; record the standalone legacy check as `Could not run` (project not in `LamuFlix.sln`, NU1010); never present it as proof. (inherits T010)
 - [ ] T032 [US4] Gates on the changed files and `dotnet test`; boundary diff shows only plan files. (inherits T011, T012)
 
 **Checkpoint**: both span paths proven by an executing active test.
@@ -124,6 +126,6 @@
 | T020A | stays open; not ticked by inference | Open Items in `plan.md`, T039 |
 | T027-T033, T033A | delivered with receipts | T015-T022 |
 | T034-T036B | delivered with receipts | T023-T027 |
-| T037-T041 | BLOCKED on OD-1; not counted delivered or deferred | T033-T036 |
+| Inherited DEV-307 T037-T041 | BLOCKED on OD-1; not counted delivered or deferred | local T033-T036 |
 | T042-T047 | delivered with receipts | T037, T038, T040 |
-| T048 | BLOCKED until owner answers OD-1 | T041 |
+| Inherited DEV-307 T048 | BLOCKED until owner answers OD-1 | local T041 |

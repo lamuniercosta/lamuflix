@@ -12,13 +12,13 @@
 
 - [ ] **OD-1 (inherited DEV-307 Q2)** - `blocked: structural - DEV-307 Q2: health routes return JSON {status, checks[name,status,durationMs]}; /health/ready Unhealthy -> 503 ProblemDetails with traceId and checks extension (no exception text); Degraded -> 200; FR-034 (both health routes in the committed web/src/api/openapi.json, with the generated TS) is deferred to the Epic 6 web scaffold ticket DEV-20, which owns the C# to OpenAPI to TypeScript chain for both routes, with DEV-320 (generate the TypeScript API client from the committed openapi.json and configure the MSW handlers) owning the generated TS client afterwards - a 2.3b departure from constitution.md:359-360 for this ticket only?`
   - Copied verbatim from `specs/DEV-307/brief.md:76`. **Ticking this checkbox without its deferral clause is not an answer** (`specs/DEV-307/brief.md:78`): without the clause Q2 can be ticked while FR-034 stays unsatisfiable and the C# to OpenAPI to TypeScript chain for the two health routes has no owner. With it, the owner either accepts the deferral (FR-034 rides DEV-20, with DEV-320 after it) or declines it (this ticket is then `blocked: structural`, because building the OpenAPI document here needs a new package and a new top-level folder, `PRODUCT.md:43-44`).
-  - No Patron ruling closes it. Until it is answered, readiness tasks T037-T041 are BLOCKED, are not counted as delivered and are not reported as deferred. The conditional DEV-20/DEV-320 ownership is never described as already accepted.
+  - No Patron ruling closes it. Until it is answered, inherited DEV-307 readiness tasks T037-T041 (carried by local T033-T036, with inherited T048 carried by local T041) are BLOCKED, are not counted as delivered and are not reported as deferred. The conditional DEV-20/DEV-320 ownership is never described as already accepted.
 
 ## User Scenarios & Testing
 
-### User Story 1 - One trace, one metric set and one log stream leave the host (Priority: P1)
+### User Story 1 - Trace, metric and log providers are composed with OTLP exporters (Priority: P1)
 
-As the operator of the platform, I need every request, outbound call, database call and message hand-off to be traceable, and metrics and logs to reach the collector, so that a slow or failing movie import can be followed end to end.
+As the operator of the platform, I need every request, outbound call, database call and message hand-off to be traceable, and metrics and logs to be composed with OTLP exporters (delivery to a collector is not proven here), so that a slow or failing movie import can be followed end to end.
 
 **Why this priority**: This is the largest piece of DEV-307 that never reached main (`recon:139-151`: no OpenTelemetry composition exists in `src` or `tests`).
 
@@ -117,14 +117,14 @@ As the reviewer of the spec PR, I need each inherited DEV-307 task ID to end as 
 
 - **FR-001**: The shared defaults MUST compose traces for ASP.NET Core, HttpClient, Npgsql, the application source and the RabbitMQ client publisher and subscriber sources; the two RabbitMQ source names live in the existing telemetry constants (DEV-307 FR-007, T027-T028).
 - **FR-002**: The shared defaults MUST compose metrics for ASP.NET Core, HttpClient and the existing application meter identity, with no additional metric identity (FR-008, T029).
-- **FR-003**: Logs MUST reach OTLP alongside the console pipeline; the console pipeline, injected clock, options validation and idempotent composition MUST be preserved (FR-003, FR-018, FR-033).
+- **FR-003**: Logs MUST be composed with an OTLP exporter alongside the console pipeline (composition only, no collector delivery claim); the console pipeline, injected clock, options validation and idempotent composition MUST be preserved (FR-003, FR-018, FR-033).
 - **FR-004**: Exporters MUST be configured without an explicit endpoint or protocol so the standard environment variable keeps precedence; no service name is invented (FR-006).
 - **FR-005**: A same-commit proof MUST show the OMDb sentinel absent from span tags and rendered, structured and exception log content, after proving an actual outbound span and HttpClient-category entries exist; no redaction opt-out and no credential literal (FR-035, T033A).
 - **FR-006**: A shared readiness tag constant MUST exist beside the existing pipeline constants; the PostgreSQL and RabbitMQ checks MUST use it; the metadata-provider check MUST stay registered and untagged (FR-011..FR-013, T034-T036).
 - **FR-007**: Health registration proof MUST read the real registrations, independently of endpoint stubs.
 - **FR-008**: The tracing decorator MUST leave validation failures with unset status and the validation-failed outcome attribute, and mark all other exceptions as errors with the full type name, rethrowing both unchanged (FR-020..FR-024, T005-T012).
 - **FR-009**: The one-assertion legacy test edit (T010) MUST be made, and an equivalent unexpected-exception full-name proof MUST execute in the active unit-test project.
-- **FR-010**: Readiness route, response writer and tests (T037-T041) MUST NOT be built until the owner answers OD-1; no provisional body or default writer; the answer or explicit deferral is recorded at the DEV-396 equivalent of DEV-307 T048.
+- **FR-010**: Readiness route, response writer and tests (inherited DEV-307 T037-T041, local T033-T036) MUST NOT be built until the owner answers OD-1; no provisional body or default writer; the answer or explicit deferral is recorded at local T041 (inherited DEV-307 T048).
 - **FR-011**: The DEV-308 range MUST be reviewed cold in a disposable detached checkout at the full historical head, with base and head SHAs named in every artifact, before adjudication; historical and delivery receipts MUST stay separate and no artifact may be borrowed from another run.
 - **FR-012**: Accepted Medium+ findings MUST be reproduced at the delivery head before a narrow fix; any file not already in the plan MUST be recorded in the plan before editing.
 - **FR-013**: Medium+ findings block closure for both the retrospective and the delivery review; at most two review/remediation rounds of at most two fix commits each; Sentry, Ledger and Compass are all mandatory.
@@ -150,7 +150,7 @@ As the reviewer of the spec PR, I need each inherited DEV-307 task ID to end as 
 - **SC-003**: For one real OMDb lookup, at least 1 outbound span and at least 1 HttpClient-category log entry are captured, and 0 span tags and 0 log records contain the sentinel.
 - **SC-004**: The readiness group contains exactly 2 checks (PostgreSQL, RabbitMQ), the metadata-provider check is registered with 0 readiness tags, and 0 bare readiness literals remain in `src`.
 - **SC-005**: The validation path and the unexpected-exception path each have an executing test in the active unit-test project, and both rethrow the original exception.
-- **SC-006**: Readiness tasks T037-T041 show as BLOCKED with 0 counted as delivered until OD-1 is answered; OD-1 stays unticked in this spec.
+- **SC-006**: Inherited DEV-307 readiness tasks T037-T041 (local T033-T036, plus local T041 for inherited T048) show as BLOCKED with 0 counted as delivered until OD-1 is answered; OD-1 stays unticked in this spec.
 - **SC-007**: The historical artifacts include 1 pre-pass and 3 axis reports, each naming both full SHAs; 0 axes are waived; every accepted Medium+ finding has a recorded current-head reproduction result.
 - **SC-008**: 100% of inherited task IDs map to a receipt, BLOCKED status or owner deferral; 0 boxes are ticked by inference.
 - **SC-009**: Every required gate has a receipt with command, exit and verdict, preceded by a clean-harness receipt (`git diff --quiet HEAD -- harness.yml` exit 0); 0 thresholds changed.
