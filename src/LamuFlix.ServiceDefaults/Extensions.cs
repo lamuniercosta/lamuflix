@@ -1,11 +1,16 @@
 using System;
 using System.Linq;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Npgsql;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Formatting.Json;
 
@@ -28,6 +33,22 @@ public static class ServiceDefaultsExtensions
         builder.Host.UseSerilog(
             (_, loggerConfiguration) => loggerConfiguration.WriteTo.Console(new JsonFormatter(renderMessage: false)),
             writeToProviders: true);
+        builder.Services.AddOpenTelemetry()
+            .WithTracing(tracing => tracing
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddNpgsql()
+                .AddSource(
+                    TelemetryConstants.ActivitySourceName,
+                    TelemetryConstants.RabbitMqPublisherActivitySourceName,
+                    TelemetryConstants.RabbitMqSubscriberActivitySourceName)
+                .AddOtlpExporter())
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddMeter(TelemetryConstants.ActivitySourceName)
+                .AddOtlpExporter())
+            .WithLogging(logging => logging.AddOtlpExporter());
         // The matching AddCheck registrations live in Infrastructure; the Api must not duplicate either call.
         builder.Services.AddHealthChecks();
         return builder;
