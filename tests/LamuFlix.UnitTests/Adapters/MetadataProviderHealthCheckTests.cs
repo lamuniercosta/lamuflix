@@ -11,12 +11,16 @@ namespace LamuFlix.UnitTests.Adapters;
 public sealed class MetadataProviderHealthCheckTests
 {
     [Fact]
-    public async Task CheckHealthAsync_WithNullContext_ThrowsArgumentNullException()
+    public void CheckHealthAsync_WithNullContext_ThrowsArgumentNullException()
     {
         var healthCheck = CreateHealthCheck();
+        var checkHealthAsync = typeof(IHealthCheck).GetMethod(nameof(IHealthCheck.CheckHealthAsync))
+            ?? throw new InvalidOperationException("IHealthCheck CheckHealthAsync method was not found.");
 
-        await Should.ThrowAsync<ArgumentNullException>(
-            () => healthCheck.CheckHealthAsync(null!, CancellationToken.None));
+        var exception = Should.Throw<TargetInvocationException>(
+            () => checkHealthAsync.Invoke(healthCheck, [null, CancellationToken.None]));
+
+        exception.InnerException.ShouldBeOfType<ArgumentNullException>();
     }
 
     [Fact]
@@ -95,20 +99,24 @@ public sealed class MetadataProviderHealthCheckTests
         bool hasSnapshot = false)
     {
         var assembly = typeof(MetadataProviderServiceCollectionExtensions).Assembly;
-        var stateType = assembly.GetType("LamuFlix.Infrastructure.Adapters.MetadataProviderHealthState", throwOnError: true)!;
-        var state = Activator.CreateInstance(stateType, nonPublic: true)!;
+        var stateType = assembly.GetType("LamuFlix.Infrastructure.Adapters.MetadataProviderHealthState", throwOnError: true)
+            ?? throw new InvalidOperationException("Metadata provider health state type was not found.");
+        var state = Activator.CreateInstance(stateType, nonPublic: true)
+            ?? throw new InvalidOperationException("Metadata provider health state could not be created.");
         if (hasSnapshot || category is not null || wasUnauthorized)
         {
-            stateType.GetMethod("Record", BindingFlags.Instance | BindingFlags.NonPublic)!
+            (stateType.GetMethod("Record", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("Metadata provider health state Record method was not found."))
                 .Invoke(state, [category, wasUnauthorized]);
         }
 
-        var healthCheckType = assembly.GetType("LamuFlix.Infrastructure.Adapters.MetadataProviderHealthCheck", throwOnError: true)!;
-        return (IHealthCheck)Activator.CreateInstance(
+        var healthCheckType = assembly.GetType("LamuFlix.Infrastructure.Adapters.MetadataProviderHealthCheck", throwOnError: true)
+            ?? throw new InvalidOperationException("Metadata provider health check type was not found.");
+        return (IHealthCheck)(Activator.CreateInstance(
             healthCheckType,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             null,
             [state],
-            null)!;
+            null) ?? throw new InvalidOperationException("Metadata provider health check could not be created."));
     }
 }
