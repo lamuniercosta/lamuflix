@@ -70,6 +70,7 @@ Test completion:
 - `tests/LamuFlix.UnitTests/Pipeline/TracingDecoratorTests.cs` (new)
 - `tests/LamuFlix.IntegrationTests/ServiceDefaultsTelemetryTests.cs` (new)
 - `tests/LamuFlix.IntegrationTests/TelemetryCompositionCollection.cs` (new)
+- `tests/LamuFlix.IntegrationTests/ApiHostFactory.cs` (edit: test-only OTLP timeout bound per CONCLUSIONS Q10; no other change in this file)
 - `tests/LamuFlix.Test/TracingDecoratorTests.cs` (edit: T010 assertion only)
 
 The two `ServiceDefaultsTelemetryTests.cs` and `TelemetryCompositionCollection.cs` entries are the only additions to `brief.md`'s list. They are test-only, authorized by `CONCLUSIONS.md` Q8 P2 as the proof placement for exporter composition, the six recorded sources and the three removal receipts, and they need no csproj, package or solution change.
