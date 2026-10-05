@@ -2145,7 +2145,7 @@ try {
         return [string]$receipt.launch
     }
 
-    # Test A1: Lowest safe tier selection (tiers 1, 2, 4 -> anchors FLOOR to tier-1 launch)
+    # Test A1: A capable declared floor wins over a lower-tier rung (tier-1 second loses to tier-2 floor)
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
     & $mutateSeat $dev234MapPath 'Anvil' {
         param($s)
@@ -2159,7 +2159,7 @@ try {
     $swapA1 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'floor', '-SeatMapPath', $dev234MapPath)
     Assert-True 'A1 target swap: exit 0' ($swapA1.ExitCode -eq 0) '0' ([string]$swapA1.ExitCode)
     $a1Launch = & $receiptLaunch $swapA1
-    Assert-True 'A1 runtime FLOOR uses tier-1 launch' ($a1Launch -eq 'THENCMD') 'THENCMD' $a1Launch
+    Assert-True 'A1 runtime FLOOR keeps the capable declared floor' ($a1Launch -eq 'FLOORCMD') 'FLOORCMD' $a1Launch
 
     # Test A2: Ignore ineligible evidence (probed, unmeasured, blank)
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
@@ -2177,7 +2177,7 @@ try {
     $a2Launch = & $receiptLaunch $swapA2
     Assert-True 'A2 runtime FLOOR ignores probed tier 1 and uses measured tier 2' ($a2Launch -eq 'FLOORCMD') 'FLOORCMD' $a2Launch
 
-    # TW3: Lowest-tier cleared evidence candidate selects CLEAREDCMD
+    # TW3: A capable declared floor wins over a lower-tier cleared candidate
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
     & $mutateSeat $dev234MapPath 'Anvil' {
         param($s)
@@ -2192,7 +2192,7 @@ try {
     $swapTw3 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'floor', '-SeatMapPath', $dev234MapPath)
     Assert-True 'TW3 cleared evidence target swap: exit 0' ($swapTw3.ExitCode -eq 0) '0' ([string]$swapTw3.ExitCode)
     $tw3Launch = & $receiptLaunch $swapTw3
-    Assert-True 'TW3 runtime FLOOR uses lowest-tier cleared launch' ($tw3Launch -eq 'CLEAREDCMD') 'CLEAREDCMD' $tw3Launch
+    Assert-True 'TW3 runtime FLOOR keeps the capable declared floor over cleared tier 1' ($tw3Launch -eq 'FLOORCMD') 'FLOORCMD' $tw3Launch
 
     # Test A3: ZEN disallowed pool exclusion for non-exception seat (Anvil)
     Copy-Item -LiteralPath $examplePath -Destination $dev234MapPath
@@ -2302,11 +2302,11 @@ try {
     Write-MatchingWorkspaceVerifyJson -WsDir $dev234WsDir -RepoRootHint $repoRoot -SeatMapPath $dev234MapPath
     $swapA8 = Invoke-IsolatedPwsh -HomeDir $dev234Home -File $syncScript -ArgumentList @('-Seat', 'Anvil', '-Rung', 'floor', '-All', '-SeatMapPath', $dev234MapPath)
     Assert-True 'A8 target swap on activeRung=floor exit 0' ($swapA8.ExitCode -eq 0) '0' ([string]$swapA8.ExitCode)
-    Assert-True 'A8 recruit command uses resolved runtime floor launch' (Test-TextContains $swapA8.StdOut 'THENCMD') 'THENCMD' $swapA8.StdOut
+    Assert-True 'A8 recruit command uses resolved runtime floor launch' (Test-TextContains $swapA8.StdOut 'FLOORCMD') 'FLOORCMD' $swapA8.StdOut
     $charterTxt = Get-Content -LiteralPath (Join-Path $dev234WsDir 'notes' 'lamuflix-team-charter.md') -Raw
-    Assert-True 'A8 lamuflix-team-charter uses resolved runtime floor launch' (Test-TextContains $charterTxt 'THENCMD') 'THENCMD' $charterTxt
+    Assert-True 'A8 lamuflix-team-charter uses resolved runtime floor launch' (Test-TextContains $charterTxt 'FLOORCMD') 'FLOORCMD' $charterTxt
     $restartTxt = Get-Content -LiteralPath (Join-Path $dev234WsDir 'notes' 'team-restart.md') -Raw
-    Assert-True 'A8 team-restart uses resolved runtime floor launch' (Test-TextContains $restartTxt 'THENCMD') 'THENCMD' $restartTxt
+    Assert-True 'A8 team-restart uses resolved runtime floor launch' (Test-TextContains $restartTxt 'FLOORCMD') 'FLOORCMD' $restartTxt
 
     # TW5: Non-swap commands tolerate unrelated incapable seat
     $tw5Home = Join-Path $isoHome 'tw5-non-swap'

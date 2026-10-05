@@ -841,7 +841,10 @@ function Resolve-SeatRuntimeFloor {
         }
     }
 
-    $chosen = @($candidates | Sort-Object Tier, Order)[0]
+    # A capable declared floor is the floor; the lowest-tier search only covers
+    # a seat whose declared floor is not eligible.
+    $chosen = $candidates | Where-Object { $_.Order -eq 0 } | Select-Object -First 1
+    if ($null -eq $chosen) { $chosen = @($candidates | Sort-Object Tier, Order)[0] }
     return [pscustomobject]@{
         Ok       = $true
         Error    = $null
