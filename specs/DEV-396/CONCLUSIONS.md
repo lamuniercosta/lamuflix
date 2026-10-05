@@ -61,3 +61,21 @@ Verdict: **AMEND** - this does not block Phase A drafting; it blocks only the Ph
 - Provenance is already recorded; no ownership hunt is needed. Rigger's Phase 1 intake (`DEV-396` note:3) says worktree setup "copied ignored harness.yml" into the new worktree, and recon `:125-127` measures the result: a 3-line deletion against committed `main:harness.yml`. It is a setup artifact of this worktree, not authored work on this branch.
 - Disposition: before any Phase B gate runs, Rigger restores `harness.yml` in this worktree to the committed version (`git restore harness.yml`), and every gate receipt shows `git diff --quiet HEAD -- harness.yml` exiting 0. If the copied content reflects an intended change somewhere else, it lands through its own ticket, not DEV-396. Restoring a working copy to its committed content rewrites nothing that is tracked (2.3 item 6 not triggered).
 - Proof: neither the recon-time exit 2 (scope-empty) nor an assumed Api exclusion proves anything about mutation eligibility. Gauge records the actual `run-mutation.ps1` verdict and exit code on the delivery diff, against the committed config (ACCEPT on Keel's point).
+
+---
+
+### Q4 complete exchange - Keel record
+
+Keel question: How should DEV-396 handle the pre-existing unstaged harness.yml mutation-exclusion deletion? Recommendation: preserve it untouched, exclude it from commits, and have Conductor/Rigger identify and isolate prior ownership before Phase B gates. The committed configuration defines policy; no threshold change or waiver, and the scope-empty baseline is not proof of delivery eligibility. Gauge records the actual delivery verdict. Does it block drafting or later gates?
+
+Patron answer: AMEND. This does not block Phase A, only the Phase B gates. The committed harness.yml at 5033c9b, with the Api exclusion, is authoritative. Provenance is already known: Rigger copied harness.yml in during worktree setup (DEV-396 note:3), so no ownership hunt is needed. Before Phase B, Rigger runs git restore harness.yml, and every gate receipt shows git diff --quiet HEAD -- harness.yml exiting 0. Never commit the deletion; no threshold changes or waivers; Gauge records the real run-mutation verdict.
+
+Implication: Keel preserves this evidence and performs no harness edit. Rigger performs the explicit restoration before delivery gates; recon baseline receipts remain historical receipts, never rewritten.
+
+## Q5 - Implementation approach, boundary and order
+
+Verdict: **ACCEPT** (Keel's plan as proposed); no recon fact is missing. Readiness writer, routes and tests are built only once the owner ticks the Q2 checkbox carried under Q1; until then T037-T041 stay `BLOCKED`, are not counted as delivered, and are not reported as deferred.
+
+- Care items cleared from recon: no new dependency, because every OTel, Npgsql, health-check and Mvc.Testing package is already pinned and referenced (`recon-DEV-396:141-146,219`). No schema change: `AddDbContextCheck` reads an existing context (`:220`). No new project or layer: `HealthCheckTags` sits beside `TelemetryConstants` in the existing `Core/Pipeline` (`:148,164`). No API shape beyond `specs/DEV-307/spec.md` (`:221`). No CPM or project edits.
+- ACs held as written: T033A's same-commit redaction proof travels with the HttpClient instrumentation (ticket "same-commit OMDb span-key redaction"). Composition tests are never labelled as export delivery. Liveness/WAF from DEV-308 gets evidence reconciliation, and each box is ticked only on cited evidence. T020A stays open until its owner-answer text is found, never inferred from installed pins.
+- Order (retrospective first, then OTel + redaction, health membership, decorator, conditional readiness, evidence/gates/delivery review) is sequencing taste, logged `[assumed]` in ASSUMPTIONS.md.
