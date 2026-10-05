@@ -30,7 +30,7 @@ Two pieces of work travel together. First, finish the omitted DEV-307 scope in t
 
 - Principle I (architectural and reference boundaries): no new dependency, project, top-level folder, layer, schema, public API shape, `Features:LocalPlay` change, secret or `Process.Start` (`recon:219-224`); `HealthCheckTags` stays in the existing Core pipeline folder.
 - Principle IX (testing): tests use the existing xUnit/Shouldly conventions; integration proof of real query or host behaviour stays in `LamuFlix.IntegrationTests`; no mocked data-access driver.
-- Principle II (decorator pipeline): `TracingDecorator` keeps its position; only outcome handling changes. Principle VII (secrets, time, configuration): `TimeProvider` kept, no secret or endpoint literal, argument-free exporters. Principle VIII (observability): traces, metrics and logs composed as specified.
+- Principle II (decorator pipeline): `TracingDecorator` keeps its position; only outcome handling changes. Principle VII (secrets, time, configuration): `TimeProvider` kept, no secret or endpoint literal, argument-free exporters. Principle VI (observability): traces, metrics and logs composed as specified.
 - API/Contract Rules (`constitution.md:359-360`): OD-1 is an unresolved proposed constitution departure (2.3b), never an accepted exception; it stays open and Gate 1 stays closed. A provisional spec PR does not approve implementation.
 
 No additional departure beyond OD-1 is proposed; OD-1 remains unresolved and is not an accepted exception.
@@ -120,7 +120,7 @@ Provider and exporter composition is never labelled export delivery. Each instru
 1. Phase B pickup drift and evidence recon (Wisp); Rigger restores harness before gates.
 2. Cold retrospective (Conductor, Rigger, Gauge, Sentry, Ledger, Compass, Keel); then current-head reproduction and Cog remediation.
 3. OpenTelemetry composition and redaction proof (Cog alters existing files, including the `MetadataProviderProbe.cs` change; Anvil creates new tests; T016 and T018 land in one coordinated commit; each shared file has one exclusive owner at a time).
-4. Health membership and real-registration tests (Cog alters existing production files; Anvil creates the new test).
+4. Health membership and real-registration tests (Cog owns edits to existing production files; Anvil creates the new file `HealthCheckTags.cs` and the new test).
 5. Decorator, legacy assertion, active proof (Cog alters, Anvil creates new files).
 6. Conditional readiness, only after OD-1.
 7. Evidence reconciliation, gates, refactor, architect, delivery review, corrective records, Keel merge-bar comment (Rigger writes tracker and PR records).

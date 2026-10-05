@@ -67,7 +67,7 @@
 
 ## Phase 4: Health Membership (User Story 3, Priority P1)
 
-- [ ] T023 [P] [US3] (Cog) Create `src/LamuFlix.Core/Pipeline/HealthCheckTags.cs` with `Ready = "ready"` beside `TelemetryConstants`. (inherits T034)
+- [ ] T023 [P] [US3] (Anvil) Create `src/LamuFlix.Core/Pipeline/HealthCheckTags.cs` with `Ready = "ready"` beside `TelemetryConstants`. (inherits T034)
 - [ ] T024 [US3] (Cog) In `PersistenceServiceCollectionExtensions.cs` register the PostgreSQL check over `LamuFlixDbContext` tagged with the constant; in `RabbitMqServiceCollectionExtensions.cs` replace the literal with the constant; no schema or migration, no driver mock. (inherits T035)
 - [ ] T025 [US3] (Cog) In `MetadataProviderServiceCollectionExtensions.cs` remove the readiness tag and leave the check registered. (inherits T036)
 - [ ] T026 [US3] (Anvil) Create `tests/LamuFlix.UnitTests/HealthCheckRegistrationTests.cs` reading the real registrations (independent of endpoint stubs): exactly two ready-tagged checks (postgres, rabbitmq), metadata-provider registered and untagged. (inherits T036A)
