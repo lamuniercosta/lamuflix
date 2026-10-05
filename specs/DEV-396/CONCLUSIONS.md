@@ -93,3 +93,13 @@ Implication: existing installed packages are reused without asserting an unverif
 ## Q6 - Loop and close-out terms, grill closure
 
 Verdict: **CONFIRM** Keel's terms as stated: Medium+ closing bar for both retrospective and delivery; at most 2 review/remediation rounds of at most 2 fix commits each; no axis waived; scope frozen to Q1-Q5; per-task-ID final evidence (delivered with receipts / BLOCKED / owner-deferred, with T020A and Q2 never ticked by inference); gate exits classified per current task-pipeline. Grill closed. The Q2 owner checkbox stays open and Gate 1 stays closed. The YouTrack comment on DEV-307 goes through Rigger only; no merge authorization.
+
+---
+
+### Q6 complete exchange - Keel record
+
+Keel question: Confirm shared understanding and loop/close-out terms? Recommendation: Medium+ closes both retrospective and delivery, maximum two review/remediation rounds and two fix commits per round, with every Sentry/Ledger/Compass report required. Frozen scope is omitted DEV-307 observability/redaction/health membership/HandlerOutcome, conditional blocked readiness, existing-task evidence reconciliation, fixed DEV-308 retrospective and still-live Medium+ corrections, required gates and corrective records; anything else is a follow-up issue, not a finding in this round. Lower findings follow Q3, no unnecessary abstraction fix. Final evidence distinguishes each task as delivered with receipts, BLOCKED or explicitly owner-deferred; T020A and Q2 never ticked by inference. Retain composition and standalone NU1010 proof limits. Gates follow current task-pipeline: scope-empty SKIPPED is nonblocking but never PASS; mutation NOT APPLICABLE requires actual script verdict; disabled SKIP remains SKIP; property exit 2 requires recorded opt-out. Exit 1/Could not run is never green. Publish retrospective findings/adjudication and corrective PR summary, corrective PR #82/DEV-307 records through proper seats, and Keel merge-bar comment. No merge authorization. Next Quill L specify/plan/tasks with clarify/checklist; Keel read-only analyze, L ADR and three-axis plan challenge. Close grill with owner Q2 open and Gate 1 closed?
+
+Patron answer: CONFIRM loop and close-out terms as stated. Grill closed; the Q2 owner checkbox stays open and Gate 1 stays closed; the DEV-307 YouTrack comment goes through Rigger only.
+
+Implication: drafting is authorized; implementation, owner deferral, Gate 1 approval and merge authorization are not supplied by this grill.
