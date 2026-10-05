@@ -8,3 +8,4 @@
 - [assumed] P3 measurement bound: disposal over 12 s, or IntegrationTests suite growth over 25%, comes back as a Medium finding. Basis: CONCLUSIONS Q8 P3; no recon measurement exists.
 - [assumed] P1 positive redaction check asserts that the `Uri` value lacks `apikey` and the sentinel, not the exact `?*` rendering. Basis: CONCLUSIONS Q8 P1; the 10.0.12 format is unread.
 - [assumed] P4 cap accounting is written as two explicitly separate budgets in spec, plan and tasks, in that order, so that no reader can read the historical and delivery caps as one shared pool. The numbers (2 rounds, 2 fix commits each) are unchanged. Basis: CONCLUSIONS Q8 P4; Keel S8 finding `DEV-396:294-297`.
+- [assumed] Q10 test-host OTLP export timeout value is `1000` ms: enough for the local WireMock flush in T019A, short enough to bound shutdown against an absent collector. Basis: CONCLUSIONS Q10; value is taste, not measured.
