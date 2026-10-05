@@ -6,12 +6,14 @@
 
 **Status**: gate1: provisional (closed - owner Q2 open)
 
-**Input**: Ticket DEV-396 (Size L; started after DEV-309 merged as PR #84), `brief.md` (owns the plan decisions), `CONCLUSIONS.md` Q1-Q6, `ASSUMPTIONS.md`, note `recon-DEV-396` (Phase A recon, `:108-339`) and `specs/PRODUCT.md`. Inherited contract: `specs/DEV-307/spec.md` (FR-001..FR-035, SC-001..SC-014) and `specs/DEV-307/tasks.md`.
+**Input**: Ticket DEV-396 (Size L; started after DEV-309 merged as PR #84), `brief.md` (owns the plan decisions), `CONCLUSIONS.md` Q1-Q6, `ASSUMPTIONS.md`, note `recon-DEV-396` (Phase A recon, `:108-339`) and `specs/PRODUCT.md`. Inherited contract: `specs/DEV-307/spec.md` (DEV-307 FR-001..FR-035, DEV-307 SC-001..SC-014) and `specs/DEV-307/tasks.md`.
+
+**Requirement ID namespace (stated once, applied everywhere)**: a bare `FR-nnn`, `SC-nnn` or `Txxx` is a local DEV-396 ID from this feature's own artifacts. An inherited ID is always qualified: `DEV-307 FR-nnn`, `DEV-307 SC-nnn` or `inherited DEV-307 Txxx`. Local IDs are never renamed and no local number is reused for an inherited requirement.
 
 ## Owner Decisions (Gate 1 remains closed)
 
 - [ ] **OD-1 (inherited DEV-307 Q2)** - `blocked: structural - DEV-307 Q2: health routes return JSON {status, checks[name,status,durationMs]}; /health/ready Unhealthy -> 503 ProblemDetails with traceId and checks extension (no exception text); Degraded -> 200; FR-034 (both health routes in the committed web/src/api/openapi.json, with the generated TS) is deferred to the Epic 6 web scaffold ticket DEV-20, which owns the C# to OpenAPI to TypeScript chain for both routes, with DEV-320 (generate the TypeScript API client from the committed openapi.json and configure the MSW handlers) owning the generated TS client afterwards - a 2.3b departure from constitution.md:359-360 for this ticket only?`
-  - Copied verbatim from `specs/DEV-307/brief.md:76`. **Ticking this checkbox without its deferral clause is not an answer** (`specs/DEV-307/brief.md:78`): without the clause Q2 can be ticked while FR-034 stays unsatisfiable and the C# to OpenAPI to TypeScript chain for the two health routes has no owner. With it, the owner either accepts the deferral (FR-034 rides DEV-20, with DEV-320 after it) or declines it (this ticket is then `blocked: structural`, because building the OpenAPI document here needs a new package and a new top-level folder, `PRODUCT.md:43-44`).
+  - Copied verbatim from `specs/DEV-307/brief.md:76`. **Ticking this checkbox without its deferral clause is not an answer** (`specs/DEV-307/brief.md:78`): without the clause Q2 can be ticked while inherited DEV-307 FR-034 stays unsatisfiable and the C# to OpenAPI to TypeScript chain for the two health routes has no owner. With it, the owner either accepts the deferral (FR-034 rides DEV-20, with DEV-320 after it) or declines it (this ticket is then `blocked: structural`, because building the OpenAPI document here needs a new package and a new top-level folder, `PRODUCT.md:43-44`).
   - No Patron ruling closes it. Until it is answered, inherited DEV-307 readiness tasks T037-T041 (carried by local T033-T036, with inherited T048 carried by local T041) are BLOCKED, are not counted as delivered and are not reported as deferred. The conditional DEV-20/DEV-320 ownership is never described as already accepted.
 
 ## User Scenarios & Testing
@@ -78,7 +80,7 @@ As an orchestrator, I need `/health/ready` to answer 200 or 503 with the approve
 **Acceptance Scenarios** (runnable only after OD-1 is answered):
 
 1. **Given** PostgreSQL and RabbitMQ are healthy, **Then** readiness answers 200; **Given** either is unhealthy, **Then** 503 as a problem document carrying the trace identifier and no exception text; **Given** only the metadata provider fails, **Then** 200.
-2. **Given** the owner declines the FR-034 deferral, **Then** this ticket is `blocked: structural` and Gate 1 stays closed.
+2. **Given** the owner declines the inherited DEV-307 FR-034 deferral, **Then** this ticket is `blocked: structural` and Gate 1 stays closed.
 
 ### User Story 6 - The missing DEV-308 review is done and its findings are acted on (Priority: P1)
 
@@ -110,29 +112,57 @@ As the reviewer of the spec PR, I need each inherited DEV-307 task ID to end as 
 - The collector is unreachable: composition proof never claims delivery to a collector.
 - A gate exits 2: scope-empty exit 2 is non-blocking SKIPPED (scope-empty), never PASS, a disabled gate is SKIP, mutation NOT APPLICABLE only on the actual script verdict, property exit 2 needs a recorded opt-out reason.
 - The current-head reproduction shows an accepted finding already resolved: no fix; evidence recorded.
+- A review/remediation budget is exhausted, meaning a Medium+ finding is still open after round 2's closure check or a third fix commit is needed inside a round: the work stops. No further commit, no third round, no additional immutable review, no severity downgrade, no waiver and no merge-bar sign-off. The task stays not delivered, only the owner can extend a cap, and the single report to the Conductor is `blocked: review cap exhausted - DEV-396 <historical|delivery> <finding ids>`.
 
 ## Requirements
 
 ### Functional Requirements
 
 - **FR-001**: The shared defaults MUST compose traces for ASP.NET Core, HttpClient, Npgsql, the application source and the RabbitMQ client publisher and subscriber sources; the two RabbitMQ source names live in the existing telemetry constants (DEV-307 FR-007, T027-T028).
-- **FR-002**: The shared defaults MUST compose metrics for ASP.NET Core, HttpClient and the existing application meter identity, with no additional metric identity (FR-008, T029).
-- **FR-003**: Logs MUST be composed with an OTLP exporter alongside the console pipeline (composition only, no collector delivery claim); the console pipeline, injected clock, options validation and idempotent composition MUST be preserved (FR-003, FR-018, FR-033).
-- **FR-004**: Exporters MUST be configured without an explicit endpoint or protocol so the standard environment variable keeps precedence; no service name is invented (FR-006).
-- **FR-005**: A same-commit proof MUST show the OMDb sentinel absent from span tags and rendered, structured and exception log content, after proving an actual outbound span and HttpClient-category entries exist; no redaction opt-out and no credential literal (FR-035, T033A).
-- **FR-006**: A shared readiness tag constant MUST exist beside the existing pipeline constants; the PostgreSQL and RabbitMQ checks MUST use it; the metadata-provider check MUST stay registered and untagged (FR-011..FR-013, T034-T036).
+- **FR-002**: The shared defaults MUST compose metrics for ASP.NET Core, HttpClient and the existing application meter identity, with no additional metric identity (DEV-307 FR-008, T029).
+- **FR-003**: Logs MUST be composed with an OTLP exporter alongside the console pipeline (composition only, no collector delivery claim); the console pipeline, injected clock, options validation and idempotent composition MUST be preserved (DEV-307 FR-003, FR-018, DEV-307 FR-033).
+- **FR-004**: Exporters MUST be configured without an explicit endpoint or protocol so the standard environment variable keeps precedence; no service name is invented (DEV-307 FR-006).
+- **FR-005**: A same-commit proof MUST show the OMDb sentinel absent from span tags and rendered, structured and exception log content, after proving an actual outbound span and HttpClient-category entries exist; no redaction opt-out and no credential literal (DEV-307 FR-035, T033A).
+- **FR-006**: A shared readiness tag constant MUST exist beside the existing pipeline constants; the PostgreSQL and RabbitMQ checks MUST use it; the metadata-provider check MUST stay registered and untagged (DEV-307 FR-011..FR-013, T034-T036).
 - **FR-007**: Health registration proof MUST read the real registrations, independently of endpoint stubs.
-- **FR-008**: The tracing decorator MUST leave validation failures with unset status and the validation-failed outcome attribute, and mark all other exceptions as errors with the full type name, rethrowing both unchanged (FR-020..FR-024, T005-T012).
+- **FR-008**: The tracing decorator MUST leave validation failures with unset status and the validation-failed outcome attribute, and mark all other exceptions as errors with the full type name, rethrowing both unchanged (DEV-307 FR-020..FR-024, T005-T012).
 - **FR-009**: The one-assertion legacy test edit (T010) MUST be made, and an equivalent unexpected-exception full-name proof MUST execute in the active unit-test project.
 - **FR-010**: Readiness route, response writer and tests (inherited DEV-307 T037-T041, local T033-T036) MUST NOT be built until the owner answers OD-1; no provisional body or default writer; the answer or explicit deferral is recorded at local T041 (inherited DEV-307 T048).
 - **FR-011**: The DEV-308 range MUST be reviewed cold in a disposable detached checkout at the full historical head, with base and head SHAs named in every artifact, before adjudication; historical and delivery receipts MUST stay separate and no artifact may be borrowed from another run.
 - **FR-012**: Accepted Medium+ findings MUST be reproduced at the delivery head before a narrow fix; any file not already in the plan MUST be recorded in the plan before editing.
-- **FR-013**: Medium+ findings block closure for both the retrospective and the delivery review; at most two review/remediation rounds of at most two fix commits each; Sentry, Ledger and Compass are all mandatory.
+- **FR-013**: Medium+ findings block closure for both the retrospective and the delivery review, and the review cap is two independent budgets of the same size - one for the DEV-308 historical retrospective and one for the delivery review - each at most two review/remediation rounds of at most two fix commits each, with neither budget lending to the other; a round is one three-axis review of a pinned HEAD plus its adjudication and remediation, and its own closure check is part of that round and is scoped to that round's finding IDs; record-only commits, a rebase on main and pre-review gate fixes consume neither a round nor a fix commit; exhausting either budget is terminal (see Edge Cases); Sentry, Ledger and Compass are all mandatory.
 - **FR-014**: All required current task-pipeline gates MUST run on the delivery diff and be recorded with command, exit and full verdict: Roslyn, complexity (configured normal and refactor ceilings), InspectCode, mutation, property tests, vulnerability scan, format, `dotnet test` and the web gate where applicable. Exit 1 or Could not run never passes; no threshold is lowered; surviving mutants require tests.
 - **FR-015**: Every inherited DEV-307 task ID MUST map to a test, gate or inspection receipt, a BLOCKED status or an explicit owner deferral; T020A and OD-1 are never ticked by inference.
 - **FR-016**: Corrective records MUST be published: retrospective findings and adjudication summary in the corrective PR, a corrective comment on PR #82 and on DEV-307 through the authorized seats, and the Keel merge-bar PR comment. No merge is authorized; awaiting the user's merge is the terminal state.
 - **FR-017**: The work MUST introduce no new dependency, project, top-level folder, architectural layer, database schema, public API shape beyond `specs/DEV-307/spec.md`, `Features:LocalPlay` change, secret, `Process.Start`, threshold change, CPM/csproj/sln edit, Worker/Pomelo repair or unrelated consumer edit.
-- **FR-018**: FR-034 (health routes in the committed OpenAPI document and generated TypeScript) is NOT delivered by this branch; no web scaffold, OpenAPI package or generated TypeScript change is made here.
+- **FR-018**: Inherited DEV-307 FR-034 (health routes in the committed OpenAPI document and generated TypeScript) is NOT delivered by this branch; no web scaffold, OpenAPI package or generated TypeScript change is made here.
+
+### FR to Story and Success-Criterion Crosswalk
+
+Every local requirement below maps to at least one user story and at least one success criterion; the IDs are the ones defined in this document.
+
+| Local requirement | Story | Success criterion |
+|-------------------|-------|--------------------|
+| FR-001 traces composed, six sources | US1 | SC-001, SC-002 |
+| FR-002 metrics composed | US1 | SC-001 |
+| FR-003 logs composed, pipeline preserved | US1 | SC-001 |
+| FR-004 argument-free exporters, env precedence | US1 | SC-001 |
+| FR-005 same-commit OMDb sentinel proof | US2 | SC-003 |
+| FR-006 shared readiness tag and membership | US3 | SC-004 |
+| FR-007 proof reads real registrations | US3 | SC-004 |
+| FR-008 decorator outcome split | US4 | SC-005 |
+| FR-009 legacy edit plus active proof | US4 | SC-005 |
+| FR-010 readiness held BLOCKED on OD-1 | US5 | SC-006 |
+| FR-011 cold retrospective with both SHAs | US6 | SC-007 |
+| FR-012 reproduce before a narrow fix | US6 | SC-007 |
+| FR-013 two independent review budgets | US6, US7 | SC-007 |
+| FR-014 every required gate recorded | US7 | SC-009 |
+| FR-015 every inherited task ID has an end state | US7 | SC-008 |
+| FR-016 corrective records published | US7 | SC-011 |
+| FR-017 no new dependency, project, layer, schema or secret | cross-cutting: all stories | SC-010 |
+| FR-018 inherited FR-034 not delivered here | US5, conditional on OD-1 | SC-006 |
+
+FR-017 is a cross-cutting boundary rather than a story deliverable: it is checked against SC-010 (0 files outside the plan boundary, 0 schema or dependency changes, 0 secrets) and against every story, because each story is delivered inside the existing architecture. FR-018 is the conditional contract exclusion behind US5's OD-1 guard and SC-006, not an extra deliverable and not a fourth boundary.
 
 ### Key Entities
 

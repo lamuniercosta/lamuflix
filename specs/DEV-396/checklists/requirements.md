@@ -23,7 +23,7 @@
 
 ## Feature Readiness
 
-- [x] Every functional requirement maps to a story and a success criterion
+- [x] Every functional requirement maps to a story and a success criterion (checked against the explicit FR to story to SC crosswalk in `spec.md`: FR-001..FR-018 each name a US and an SC; FR-017 is the cross-cutting boundary checked against SC-010 and every story; FR-018 is the conditional US5/OD-1 contract exclusion checked against SC-006, not an extra deliverable)
 - [x] User scenarios cover primary flows (US1-US7)
 - [x] Every inherited DEV-307 task ID maps to evidence, BLOCKED or deferral (`tasks.md` Inheritance Map)
 
