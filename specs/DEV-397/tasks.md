@@ -65,12 +65,12 @@
 
 **Purpose**: Collect post-refactor fixture, real mixed-diff, and retrospective evidence in the required order.
 
-- [ ] T017 [US2] Run `pwsh -NoProfile -File ./scripts/Test-RunMutation.ps1`; record the command and exit code.
-- [ ] T018 [US1] Gauge runs `pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef 9f92ad1` without `-DryRun`; records exact verdict lines and exit code for the PR body.
-- [ ] T019 [US4] Gauge runs `scripts/run-mutation.ps1 -Project LamuFlix.Infrastructure -BaseRef <verified DEV-309 pre-merge SHA>` and records score plus `BrowseMoviesQueryValidator` and `GetMovieDetailsQueryValidator` mutant results.
-- [ ] T020 [US4] Anvil adds `LamuFlix.UnitTests` survivor-killing tests only for surviving mutants in the two named validators; record each outcome.
-- [ ] T021 [US4] Rigger handles every other survivor, or any survivor requiring out-of-box changes, as a duplicate-checked follow-up with explicit disposition; do not treat follow-up creation as a passing gate.
-- [ ] T022 [US4] Gauge reruns the DEV-309 retrospective after survivor tests and records score, per-validator results, and survivor dispositions in the PR body.
+- [x] T017 [US2] Run `pwsh -NoProfile -File ./scripts/Test-RunMutation.ps1`; record the command and exit code.
+- [x] T018 [US1] Gauge runs `pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef 9f92ad1` without `-DryRun`; records exact verdict lines and exit code for the PR body.
+- [x] T019 [US4] Gauge runs `scripts/run-mutation.ps1 -Project LamuFlix.Infrastructure -BaseRef <verified DEV-309 pre-merge SHA>` and records score plus `BrowseMoviesQueryValidator` and `GetMovieDetailsQueryValidator` mutant results.
+- [x] T020 [US4] Anvil adds `LamuFlix.UnitTests` survivor-killing tests only for surviving mutants in the two named validators; record each outcome.
+- [x] T021 [US4] Rigger handles every other survivor, or any survivor requiring out-of-box changes, as a duplicate-checked follow-up with explicit disposition; do not treat follow-up creation as a passing gate.
+- [x] T022 [US4] Gauge reruns the DEV-309 retrospective after survivor tests and records score, per-validator results, and survivor dispositions in the PR body. no rerun needed: T020 added no tests, T019 stands (Keel D2).
 
 ## Phase 8: Polish, Scope, and Gates
 
