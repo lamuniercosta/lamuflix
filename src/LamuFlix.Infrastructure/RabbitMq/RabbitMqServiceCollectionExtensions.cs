@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using FluentValidation;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +36,7 @@ public static class RabbitMqServiceCollectionExtensions
         services.AddSingleton<IEnrichmentQueue>(provider => provider.GetRequiredService<RabbitMqEnrichmentQueuePublisher>());
 
         // The matching AddCheck lives in RabbitMqServiceCollectionExtensions; AddHealthChecks() is in ServiceDefaults.
-        services.AddHealthChecks().AddCheck<RabbitMqHealthCheck>("rabbitmq", tags: ["ready"]);
+        services.AddHealthChecks().AddCheck<RabbitMqHealthCheck>("rabbitmq", tags: [HealthCheckTags.Ready]);
 
         if (IsConsumerActive(services))
         {
