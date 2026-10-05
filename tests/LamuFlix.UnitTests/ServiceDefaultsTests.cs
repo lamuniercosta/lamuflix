@@ -130,6 +130,48 @@ public sealed class ServiceDefaultsTests
         OpenTelemetryProviderRegistrations(dual).ShouldBe(OpenTelemetryProviderRegistrations(single));
     }
 
+    [Fact]
+    public void AddServiceDefaults_TracerExporterIsComposed()
+    {
+        // arrange
+        var builder = BuilderWithConnectionString();
+
+        // act
+        builder.AddServiceDefaults();
+        using var app = builder.Build();
+
+        // assert
+        app.Services.GetService<TracerProvider>().ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void AddServiceDefaults_MeterExporterIsComposed()
+    {
+        // arrange
+        var builder = BuilderWithConnectionString();
+
+        // act
+        builder.AddServiceDefaults();
+        using var app = builder.Build();
+
+        // assert
+        app.Services.GetService<MeterProvider>().ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void AddServiceDefaults_LoggerExporterIsComposed()
+    {
+        // arrange
+        var builder = BuilderWithConnectionString();
+
+        // act
+        builder.AddServiceDefaults();
+        using var app = builder.Build();
+
+        // assert
+        app.Services.GetService<LoggerProvider>().ShouldNotBeNull();
+    }
+
     private static int SerilogLoggerFactoryRegistrations(WebApplicationBuilder builder) =>
         builder.Services.Count(descriptor =>
             descriptor.ServiceType == typeof(ILoggerFactory) && descriptor.ImplementationFactory is not null);
