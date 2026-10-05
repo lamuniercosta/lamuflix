@@ -101,8 +101,8 @@ As the reviewer of the spec PR, I need each inherited DEV-307 task ID to end as 
 
 **Acceptance Scenarios**:
 
-1. **Given** the DEV-307 boxes disagree with `main` for the liveness and WAF harness (T013-T017, delivered through DEV-308 `2ce1e39`), **Then** each box is ticked only on a cited receipt.
-2. **Given** T020A's owner-answer text has not been found, **Then** T020A stays open and is not ticked from installed pins.
+1. **Given** the DEV-307 boxes disagree with `main` for the liveness and WAF harness (inherited DEV-307 T013-T017, delivered through DEV-308 `2ce1e39`), **Then** each box is ticked only on a cited receipt.
+2. **Given** inherited DEV-307 T020A's owner-answer text has not been found, **Then** inherited DEV-307 T020A stays open and is not ticked from installed pins.
 3. **Given** the harness gates run, **Then** each receipt records the command, exit code and full verdict.
 
 ### Edge Cases
