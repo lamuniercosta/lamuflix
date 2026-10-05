@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Adapters;
@@ -139,13 +140,16 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
         $"{MetadataProviderResilienceOptions.SectionName}:{member}";
 
     public sealed record CapturedLog(
+        string CategoryName,
         string Message,
         IReadOnlyList<KeyValuePair<string, object?>> State,
+        IReadOnlyList<object> Scopes,
         string ExceptionText);
 
     public sealed class RecordingLoggerFactory : ILoggerFactory
     {
         private readonly List<CapturedLog> entries = [];
+        private readonly AsyncLocal<Scope?> ambientScope = new();
 
         public IReadOnlyList<CapturedLog> Entries
         {
@@ -162,7 +166,7 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
         {
         }
 
-        public ILogger CreateLogger(string categoryName) => new RecordingLogger(this);
+        public ILogger CreateLogger(string categoryName) => new RecordingLogger(this, categoryName);
 
         public void Dispose()
         {
@@ -176,12 +180,60 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
             }
         }
 
-        private sealed class RecordingLogger(RecordingLoggerFactory owner) : ILogger
+        private Scope Push(object state)
         {
-            public IDisposable? BeginScope<TState>(TState state)
-                where TState : notnull => null;
+            var scope = new Scope(this, state, ambientScope.Value);
+            ambientScope.Value = scope;
+            return scope;
+        }
 
-            public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning;
+        private void Pop(Scope scope)
+        {
+            if (!ReferenceEquals(ambientScope.Value, scope))
+            {
+                return;
+            }
+
+            ambientScope.Value = scope.Parent;
+        }
+
+        private IReadOnlyList<object> ActiveScopes()
+        {
+            var payloads = new List<object>();
+            for (var scope = ambientScope.Value; scope is not null; scope = scope.Parent)
+            {
+                payloads.Add(scope.State);
+            }
+
+            return payloads;
+        }
+
+        private sealed class Scope(RecordingLoggerFactory owner, object state, Scope? parent) : IDisposable
+        {
+            private bool disposed;
+
+            public object State { get; } = state;
+
+            public Scope? Parent { get; } = parent;
+
+            public void Dispose()
+            {
+                if (disposed)
+                {
+                    return;
+                }
+
+                disposed = true;
+                owner.Pop(this);
+            }
+        }
+
+        private sealed class RecordingLogger(RecordingLoggerFactory owner, string categoryName) : ILogger
+        {
+            public IDisposable BeginScope<TState>(TState state)
+                where TState : notnull => owner.Push(state);
+
+            public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Debug;
 
             public void Log<TState>(
                 LogLevel logLevel,
@@ -196,8 +248,10 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
                 }
 
                 owner.Add(new CapturedLog(
+                    categoryName,
                     formatter(state, exception),
                     state is IEnumerable<KeyValuePair<string, object?>> pairs ? [.. pairs] : [],
+                    owner.ActiveScopes(),
                     exception?.ToString() ?? string.Empty));
             }
         }

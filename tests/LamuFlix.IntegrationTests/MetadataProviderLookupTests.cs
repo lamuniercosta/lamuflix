@@ -374,11 +374,13 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         // assert
         var corpus = string.Join(
             "\n",
-            probe.Logs.Entries.SelectMany(entry => new[]
+            probe.Logs.Entries.SelectMany(static entry => new[]
             {
+                entry.CategoryName,
                 entry.Message,
                 entry.ExceptionText,
-                string.Join("\n", entry.State.Select(pair => $"{pair.Key}={pair.Value}")),
+                string.Join("\n", entry.State.Select(static pair => $"{pair.Key}={pair.Value}")),
+                string.Join("\n", entry.Scopes.Select(static scope => scope.ToString() ?? string.Empty)),
             }));
         corpus.ShouldNotContain(MetadataProviderProbe.SentinelApiKey);
     }

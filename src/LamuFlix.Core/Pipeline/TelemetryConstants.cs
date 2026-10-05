@@ -4,6 +4,10 @@ public static class TelemetryConstants
 {
     public const string ActivitySourceName = "LamuFlix";
 
+    public const string RabbitMqPublisherActivitySourceName = "RabbitMQ.Client.Publisher";
+
+    public const string RabbitMqSubscriberActivitySourceName = "RabbitMQ.Client.Subscriber";
+
     public const string HandlerRequest = "lamuflix.handler.request";
 
     public const string ErrorType = "error.type";
