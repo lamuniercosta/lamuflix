@@ -182,3 +182,8 @@ The harness installs `.codex/hooks.json` with four protections:
 Project-local hooks run only after the project is trusted and each hook definition has been reviewed. Open `/hooks` when Codex reports unreviewed hooks.
 
 Codex currently exposes no file-read lifecycle event. Never ask Codex to read a file containing a live credential. `gitleaks` in CI covers the commit-time half.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->
