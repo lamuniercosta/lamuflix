@@ -14,7 +14,7 @@ Patron P4: Medium+ findings block closure for retrospective and delivery. Two in
 2. Q2 ACCEPT: retain the exact T010 FullName assertion edit in the legacy test file; add equivalent unexpected-exception FullName proof to the active UnitTests decorator fixture. Standalone legacy check is Could not run (NU1010), not active proof. No Worker/Pomelo repair, package addition or solution registration. Ticket AC does not require each edited task file independently gated.
 3. Q3 ACCEPT: fresh historical pre-pass and all axes in a disposable detached checkout at full historical head; adjudicate only after all reports. Reproduce accepted Medium+ findings at delivery head before a narrow fix; record resolved findings with evidence. Keep historical and delivery receipts separate; no borrowed artifacts or rewritten PR history.
 4. Q4 AMEND: existing harness deletion does not block drafting. Rigger restores committed harness.yml before Phase B gate runs; each gate receipt includes git diff --quiet HEAD -- harness.yml exit 0. Committed base policy is authoritative. Never commit deletion, change thresholds or invent waivers; Gauge records real mutation verdict.
-5. Q5 ACCEPT: completion approach, file boundary, tests and phase order below. Reuse current installed pins without claiming an unverified historical owner answer. T020A stays open until owner-answer text is found. No new dependency/schema/project/layer/API shape. Phase order is [assumed] in ASSUMPTIONS.md.
+5. Q5 ACCEPT: completion approach, file boundary, tests and phase order below. Reuse current installed pins without claiming an unverified historical owner answer. The historical 2026-10-03 Patron receipt approves N2 first half only under charter 2.3(6); inherited Q1 and delivery receipts remain unproved, and T020A stays unticked (see the evidence-state correction below). No new dependency/schema/project/layer/API shape. Phase order is [assumed] in ASSUMPTIONS.md.
 6. Q6 CONFIRM: loop, evidence, publication and handoff terms; shared understanding reached and grill closed. Owner Q2 remains open; Gate 1 remains closed. Rigger alone writes the DEV-307 tracker comment. No merge authorization.
 
 Full exchanges, rationale and cited Patron rulings are append-only in CONCLUSIONS.md. These are not owner answers.
@@ -28,6 +28,18 @@ Full exchanges, rationale and cited Patron rulings are append-only in CONCLUSION
 - [ ] Owner supplies the complete inherited Q2 answer including acceptance or rejection of the deferral clause above. This checkbox is open; no Patron ruling closes it.
 
 Readiness writer, mapping and tests run only after the owner answers Q2; T037-T041 remain BLOCKED meanwhile. Record the exact eventual answer at the DEV-396 equivalent of T048. An explicit owner deferral must be recorded as such; it is not implementation approval or an inferred answer. FR-034 is not delivered by this branch; conditional DEV-20/DEV-320 ownership must never be described as already accepted. No web scaffold, AddOpenApi, OpenAPI package or generated TypeScript change here.
+
+## T020A evidence-state correction and separate inherited N2 owner question - 2026-10-05
+
+The 2026-10-03 Patron ruling approves **N2 first half only**, under charter 2.3(6): the Api ProjectReference and versionless Microsoft.AspNetCore.Mvc.Testing PackageReference in tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj. Basis: recon-DEV-396-T020A-owner-answer:7-17 (exact ruling and chronology, citing inherited brief.md:103, D1:119 and plan.md:284); DEV-396:418-423. This corrects the earlier missing-approval claim. It does not resolve inherited DEV-307 Q1, prove implementation or approve Kestrel. Inherited DEV-307/tasks.md:58 requires Q1 plus Patron approval; T020A remains unticked pending its Q1 and delivery receipts. Installed references, package pins and the earlier PR #79 tick are not those receipts (DEV-396:419,423).
+
+OD-1 is the retained health-body and FR-034 OpenAPI/TypeScript deferral question above only. It does not cover the inherited N2 second half or a real Kestrel test host. Basis: DEV-396:425; inherited DEV-307/brief.md:7,74,119 reserves that separate constitution departure under charter 2.3b. The earlier conclusion that OD-1 was the only owner question is corrected by this record.
+
+- [ ] **OD-2 - distinct user decision:** blocked: structural - Inherited DEV-307 N2 second half: approve a test-composed real Kestrel host in place of default WebApplicationFactory for the inherited host proof, as the constitution departure reserved in DEV-307/brief.md:7,74,119 under charter 2.3b, or retain default WebApplicationFactory?
+
+Patron recommendation: **retain default WebApplicationFactory**. Perform no Kestrel work without explicit user approval. The unchecked OD-2 question is separate from OD-1; neither a Patron answer nor N2 first-half approval closes either user checkbox. Record the exact user disposition before changing the host approach; no Kestrel scope is authorized by this record.
+
+This is a decision-record correction only. spec.md, plan.md and tasks.md still need the bounded amendment identified in DEV-396:424,426. No artifact freeze, checkbox completion, Gate 1 or PR-state change, implementation proof, gate or test receipt is supplied here.
 
 ## Four evidence constraints
 
@@ -44,7 +56,7 @@ Patron P1: default URI redaction on the installed pins, with no opt-out, is suff
 
 HealthCheckTags.Ready lives beside existing Core/Pipeline constants. Infrastructure registers the existing DbContext postgres check, tags postgres/RabbitMQ with the shared constant and leaves metadata-provider registered but untagged. Registration proof reads real registrations, independently of endpoint stubs. No schema/migration or driver mock.
 
-TracingDecorator retains validation Unset with lamuflix.handler.outcome=validation_failed; all other exceptions set Error and error.type FullName, preserving rethrow. Keep inherited Decision B spelling, T010 correction and active behavioral proof. Preserve delivered liveness/WAF; reconcile boxes against receipts rather than reimplementing or blanket marking them. T020A stays open pending owner-answer evidence.
+TracingDecorator retains validation Unset with lamuflix.handler.outcome=validation_failed; all other exceptions set Error and error.type FullName, preserving rethrow. Keep inherited Decision B spelling, T010 correction and active behavioral proof. Preserve delivered liveness/WAF; reconcile boxes against receipts rather than reimplementing or blanket marking them. T020A stays unticked pending inherited Q1 evidence and delivery receipts; the found Patron approval covers N2 first half only and authorizes no Kestrel work.
 
 ## File boundary
 

@@ -194,3 +194,15 @@ Verdict: **two independent budgets of the same size, one for the DEV-308 histori
 - One fact is unverified and is for Conductor to check: whether the DEV-307/DEV-396 ticket text names `ServiceDefaultsTests.cs`/UnitTests as the home of the instrumentation theory (inherited T030). If it does, the P2 move to IntegrationTests contradicts a ticket line and goes to the owner as `blocked: structural`.
 
 Next: Keel records P1-P4 in the brief, and Quill applies fix list items 1, 2, 3 and 5 (`DEV-396:329-333`) to match.
+
+## Q9 - Inherited T020A receipt, N2 first-half approval and separate Kestrel owner decision - 2026-10-05
+
+Verdict: **ACCEPT the historical approval receipt; AMEND the evidence states; REJECT OD-1 as Kestrel coverage.** This corrects Q5's missing-owner-answer condition and Q8's statement that OD-1 was the only owner question; the earlier exchanges remain historical records.
+
+- **Approval:** the 2026-10-03 Patron ruling approves N2 first half under charter 2.3(6) only: the Api ProjectReference and versionless Microsoft.AspNetCore.Mvc.Testing PackageReference in tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj. Cited basis: recon-DEV-396-T020A-owner-answer:7-17 preserves the exact ruling and chronology, with inherited brief.md:103, D1:119 and plan.md:284; DEV-396:418-423 records its reconciliation and adjudication.
+- **Prerequisites and delivery:** approval does not resolve inherited DEV-307 Q1, prove implementation or approve Kestrel. Inherited DEV-307/tasks.md:58 defines T020A with Q1 and Patron-approval prerequisites; T020A remains unticked pending Q1 evidence and its delivery receipts (DEV-396:423). The earlier no-answer record predates the ruling; the PR #79 N2 tick also predates it and is not its source (DEV-396:419; recon-DEV-396-T020A-owner-answer:27-29). No inference from installed references or package pins.
+- **OD-1 boundary:** OD-1 covers the retained health body and FR-034 OpenAPI/TypeScript deferral only. It cannot answer inherited N2 second half, the default WebApplicationFactory versus test-composed real Kestrel host constitution departure (DEV-396:425; inherited DEV-307/brief.md:7,74,119; charter 2.3b).
+- **Separate user checkbox, OD-2:** blocked: structural - Inherited DEV-307 N2 second half: approve a test-composed real Kestrel host in place of default WebApplicationFactory for the inherited host proof, as the constitution departure reserved in DEV-307/brief.md:7,74,119 under charter 2.3b, or retain default WebApplicationFactory? This is recorded as a distinct unchecked checkbox in brief.md, separate from OD-1.
+- **Patron recommendation:** retain default WebApplicationFactory and perform no Kestrel work without explicit user approval (DEV-396:425). N2 first-half approval and Patron answers never close the user checkbox; the question authorizes no host change or added delivery scope.
+
+Disposition: decision records only, as directed in DEV-396:426. spec.md, plan.md and tasks.md remain untouched pending Quill's bounded amendment of the evidence states identified in DEV-396:424. No freeze, checkbox completion, Gate 1/PR-state change, gates, tests or implementation proof.
