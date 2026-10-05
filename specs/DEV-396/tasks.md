@@ -105,6 +105,7 @@
 - [ ] T041 [US7] Record the eventual OD-1 answer, or an explicit owner deferral recorded as such, at the DEV-396 equivalent of DEV-307 T048; an explicit deferral is not implementation approval or an inferred answer. BLOCKED until the owner answers. (inherits T048)
 - [ ] T042 [US7] Full delivery review (Sentry, Ledger, Compass) with Medium+ closing bar, within the 2-round, 2-fix-commit cap; refactor and architect passes per pipeline.
 - [ ] T043 [US7] Publish corrective records: retrospective findings and adjudication summary in the corrective PR; corrective comment on PR #82; DEV-307 tracker comment through Rigger only; Keel merge-bar PR comment. No merge; the terminal state is awaiting the user's merge.
+- [ ] T044 [US7] (Rigger) ADR-R4 close-out in the DEV-396 delivery PR before review closes: change `docs/adr/0018-observability-composition-in-service-defaults.md` Status from `Proposed` to `Accepted` with the date, and re-word any BLOCKED readiness sentence to match the owner's Q2 answer; an absent answer stays BLOCKED and is never inferred, and no earlier ADR is edited (CONCLUSIONS.md ADR-R4; task-pipeline:74).
 
 ## Dependencies & Execution Order
 
