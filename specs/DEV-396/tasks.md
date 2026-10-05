@@ -23,7 +23,7 @@
 **Purpose**: Establish current facts and a clean gate baseline before any change.
 
 - [ ] T001 Pickup drift check of every file in `plan.md` File Boundary against `origin/main`, the range head `7a35e77` ancestry, and `recon-DEV-396`; record deltas and the delivery-base HEAD SHA (Wisp). Drift that invalidates a recon citation goes to Keel. (inherits T001, T003, T004)
-- [ ] T002 [P] Record the Q2 and T020A state as open in the task note, verbatim from `spec.md` OD-1; record that no owner-answer text for DEV-307 Q1 or T020A has been located. (inherits T002)
+- [ ] T002 [P] Record the Q2 state as open in the task note, verbatim from `spec.md` OD-1; record the inherited DEV-307 T020A states separately rather than as one missing answer: the recorded 2026-10-03 Patron approval of N2 first half under charter 2.3(6) (`spec.md` Owner Decisions, `CONCLUSIONS.md` Q9), inherited DEV-307 Q1 evidence still unproved, T020A implementation and delivery receipts still unproved, and the inherited N2 second half open as the separate unchecked OD-2 question. The approval is never recorded as an implementation or delivery receipt, and nothing here ticks inherited DEV-307 T020A, OD-1 or OD-2. (inherits T002)
 - [ ] T003 Rigger restores committed `harness.yml` (`git restore harness.yml`) and records `git diff --quiet HEAD -- harness.yml` exit 0; never commit the deletion, change a threshold or add a waiver (Q4).
 - [ ] T004 Record the delivery baseline at the delivery head: `dotnet test` per-project counts, 16 property tests, scoped analyzers, format, vulnerable packages, mutation verdict and web gate verdict; recon values are historical only. (inherits T001 baseline)
 
@@ -101,7 +101,7 @@
 
 - [ ] T037 [US7] Close-out gates over every changed `.cs` file with real-array `-Files`: Roslyn, complexity at the normal and refactor ceilings, InspectCode on the delivery diff, `dotnet format --verify-no-changes`; each receipt includes the clean-harness line from T003. (inherits T043)
 - [ ] T038 [US7] Gauge records the real mutation verdict and exit, property-test exit (exit 2 needs a recorded `propertyTests` opt-out reason), vulnerable-package scan and exit, and the web gate result; full `dotnet test` per-project counts against T004; no threshold lowered; surviving mutants get tests. (inherits T042, T044, T045)
-- [ ] T039 [US7] Per-task evidence reconciliation in `specs/DEV-307/tasks.md`: tick or note each box only on a cited receipt, including T013-T017 (liveness and WAF delivered through DEV-308 `2ce1e39`) and T001-T004, T006, T008, T018-T026; T020A stays open pending owner-answer text. (inherits T013-T017 and the delivered set)
+- [ ] T039 [US7] Per-task evidence reconciliation in `specs/DEV-307/tasks.md`: tick or note each box only on a cited receipt, including T013-T017 (liveness and WAF delivered through DEV-308 `2ce1e39`) and T001-T004, T006, T008, T018-T026; inherited DEV-307 T020A stays unticked, because the recorded N2 first-half approval is not an implementation or delivery receipt and inherited DEV-307 Q1 evidence plus the T020A implementation and delivery receipts remain unproved; its inherited N2 second half stays an open and separate owner decision (OD-2), which no Patron answer and no first-half approval closes, and no Kestrel work is done without explicit user approval. (inherits T013-T017 and the delivered set)
 - [ ] T040 [US7] Final boundary diff `git diff --stat <base>...HEAD` limited to the plan file boundary; evidence table one row per spec success criterion. (inherits T046, T047)
 - [ ] T041 [US7] Record the eventual OD-1 answer, or an explicit owner deferral recorded as such, at the DEV-396 equivalent of DEV-307 T048; an explicit deferral is not implementation approval or an inferred answer. BLOCKED until the owner answers. (inherits T048)
 - [ ] T042 [US7] Full delivery review (Sentry, Ledger, Compass) with Medium+ closing bar, inside the delivery review budget: at most 2 rounds of at most 2 fix commits each, which never lends to and is never borrowed from the historical budget in T012; the round, fix-commit and exhaustion rules are T012's and are applied here unchanged, with the report naming `delivery`. Refactor and architect passes per pipeline.
@@ -115,7 +115,7 @@
 - Phases 3, 4, 5 are sequential where they share `TelemetryConstants.cs` or `Extensions.cs` (T015 before T028; T016 before T017 before Phase 6).
 - T019A runs after the shared T016 and T018 commit lands, inside its own non-parallel collection, and never runs while the UnitTests provider-resolution collection is alive; the three uncommitted removals in T019A(c) are restored before the phase gate in T021 runs.
 - Phase 6 is gated on OD-1 alone; Phases 3-5 and 7 do not wait for it except T041.
-- T020A is outside every phase: it stays open and gates nothing planned here.
+- Inherited DEV-307 T020A is outside every phase and gates nothing planned here. It stays unticked: its N2 first-half approval is recorded, inherited DEV-307 Q1 evidence and its implementation and delivery receipts are unproved, and its N2 second half is the open unchecked OD-2 question with the default `WebApplicationFactory` retained meanwhile.
 
 ## Inheritance Map (every DEV-307 task ID)
 
@@ -126,7 +126,7 @@
 | T006, T008, T022-T026 | already ticked; confirm receipts | T039 |
 | T013-T017 | delivered via DEV-308; tick only on receipts | T039 |
 | T018-T021 | already ticked; confirm receipts | T039 |
-| T020A | stays open; not ticked by inference | Open Items in `plan.md`, T039 |
+| T020A | unticked, never by inference: N2 first-half approval recorded; inherited DEV-307 Q1 evidence, implementation and delivery receipts unproved; N2 second half open as OD-2 | Open Items in `plan.md`, OD-2 in `spec.md`, T039 |
 | T027-T033, T033A | delivered with receipts | T015-T022 |
 | T034-T036B | delivered with receipts | T023-T027 |
 | Inherited DEV-307 T037-T041 | BLOCKED on OD-1; not counted delivered or deferred | local T033-T036 |
