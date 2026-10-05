@@ -25,3 +25,21 @@ Verdict: **ACCEPT** (Keel recommendation) - a permissible proof placement inside
 - Basis, ticket text: DEV-396 AC asks for "task boxes ticked or owner deferrals in PR body" and "harness gates with exits" (`DEV-396` note:3). T010 is ticked because its stated edit is made; the AC does not require each task's file be gated, and gate exits are reported truthfully. Nothing the ticket delivers is added or dropped, so 2.3a does not trigger.
 - Proof claim: behavioral proof is the active UnitTests assertion only; close-out must say the legacy edit is unverified by any build (`recon-DEV-396:186`). Claiming it as gated would be false evidence.
 - Out of scope: no Worker/Pomelo repair, `PackageVersion`, or solution registration in DEV-396 - those would be a new dependency and a change to a tracked file the ticket does not name, with no AC or gate forcing them (2.3 items 1 and 6).
+
+---
+
+### Q2 complete exchange - Keel record
+
+Keel question: How do we keep inherited T010 without claiming ungated proof? Recommendation: retain the exact FullName assertion edit in tests/LamuFlix.Test/TracingDecoratorTests.cs and require equivalent unexpected-exception FullName proof in active tests/LamuFlix.UnitTests/Pipeline/TracingDecoratorTests.cs alongside validation/outcome tests. Record the orphan project NU1010 standalone check as Could not run; root dotnet test proves only active projects. Exclude Worker/Pomelo repair, package additions and solution registration. Cost: the legacy file remains independently ungated. Is this permissible proof placement within the ticket, or does its acceptance criterion require owner disposition?
+
+Patron answer: ACCEPT, this placement is allowed within the ticket and needs no owner disposition. The AC asks for ticked boxes or owner deferrals plus gate exits; it does not require each task file to be gated. Keep the T010 edit, add the active UnitTests FullName assertion, and record the legacy standalone check as Could not run (NU1010). No Worker/Pomelo/sln work. Ruling reported at ae00e57.
+
+Implication: never report standalone legacy coverage as passing or substitute its assertion edit for executing the active behavioral test.
+
+## Q3 - Retrospective execution and proof boundary
+
+Verdict: **ACCEPT** (Keel recommendation), with checkout coordination fixed: fresh Gauge pre-pass pinned to `122c502b03b0eaffe18b79b0fd26183466d8f0d0..7a35e7727241c3afd92ac9ba21fa9d13da37cdd5`, then all three axis reports (Sentry/Ledger/Compass), then Keel adjudication. Retrospective findings and receipts stay separate from DEV-396 delivery review. Accepted Medium+ findings are reproduced against the current DEV-396 head before any narrow fix; findings that are already resolved are recorded with evidence. Lower findings become follow-up records.
+
+- Basis, ticket text (`DEV-396` note:3): "retrospective diff 122c502..7a35e77 with Gauge artifact, Sentry/Ledger/Compass axes, Keel adjudication, Medium+ fixes and lower findings as follow-ups; corrective comments on PR #82 and DEV-307". Recon `:196-199,304`: no Gauge artifact exists, so the pass starts cold. The recommendation adds and drops nothing (2.3a not triggered).
+- Checkout: run the pre-pass and axes in a disposable detached worktree at the full head SHA `7a35e77...` (for example `F:\Dev\LamuFlix.worktrees\review-308-7a35e77`), never in the main checkout or `feature/396-spec`. Every artifact names its base and head SHAs. A fix applied in DEV-396 cites both the historical finding and a reproduction at the current DEV-396 head. Delete the worktree once the artifacts exist (disposable, no ruling needed).
+- No rewriting of PR history and no borrowed artifacts: the one existing `pre-pass-0c9c052` belongs to another run (recon `:199`). Current-head applicability is a fact for the reproduction pass to establish, not one to infer here. Lower findings get YouTrack tickets only if Critical/High or broken behaviour; anything else is a `noted, no ticket` line, per Patron's role rules.
