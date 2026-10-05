@@ -64,7 +64,7 @@ Test completion:
 
 - `tests/LamuFlix.UnitTests/ServiceDefaultsTests.cs` (edit)
 - `tests/LamuFlix.UnitTests/OtlpEndpointEnvironmentTests.cs` (new)
-- `tests/LamuFlix.IntegrationTests/MetadataProviderProbe.cs` (edit: category and capture level only)
+- `tests/LamuFlix.IntegrationTests/MetadataProviderProbe.cs` (edit: under Patron P1, the captured-record logger category, the Debug-and-above capture level, and captured scope state with active scope payloads attached to each record; no other change in this file)
 - `tests/LamuFlix.IntegrationTests/MetadataProviderTelemetryTests.cs` (new)
 - `tests/LamuFlix.UnitTests/HealthCheckRegistrationTests.cs` (new)
 - `tests/LamuFlix.UnitTests/Pipeline/TracingDecoratorTests.cs` (new)
