@@ -103,3 +103,38 @@ Keel question: Confirm shared understanding and loop/close-out terms? Recommenda
 Patron answer: CONFIRM loop and close-out terms as stated. Grill closed; the Q2 owner checkbox stays open and Gate 1 stays closed; the DEV-307 YouTrack comment goes through Rigger only.
 
 Implication: drafting is authorized; implementation, owner deferral, Gate 1 approval and merge authorization are not supplied by this grill.
+
+## Q7 - L ADR rulings (number, reserved range, stale records, status, CONTEXT.md)
+
+Asked by Conductor after Wisp recon `recon-DEV-396:340-451`. Rulings only; no ADR drafted, OD-1 and T020A untouched, Gate 1 closed. None needs a constitution departure or an owner answer, so no new checkbox.
+
+### ADR-R1 - Number and filename: `docs/adr/0018-<slug>.md`, title `# 0018. <title>`
+
+- Number: ADR-FORMAT.md:27 (highest + 1) gives 0018 on this tree (`recon-DEV-396:378,385`); 0018 is outside the 0001-0012 range the constitution reserves (`constitution.md:85-86,477-478`), as with the DEV-290 precedent (`specs/DEV-290/CONCLUSIONS.md:29-30`).
+- Convention: the bare-slug form of ADR-FORMAT.md:3 and the five newest records (0013-0017, `recon-DEV-396:367-371`). Only ADR-0001..0010 use `ADR-NNNN.md`, and every number they hold sits inside the reserved range, so the bare-slug form is the convention for numbers past it.
+- No renaming of existing records in DEV-396. The ticket does not name them and no AC or gate forces it (2.3 item 6); `specs/DEV-295/brief.md:241-242` left the mixed convention alone on purpose. Cite older records by their filed names (ADR-0004, ADR-0006, 0015). Noted, no ticket.
+
+### ADR-R2 - Absent architecture plan and unfiled 0007/0008/0011/0012: do not reference, fill or reuse them
+
+- The reservation is attested only by `constitution.md:85-86,477-479` and the DEV-290 ruling (`recon-DEV-396:384,446`). DEV-396 treats it as binding and does not try to verify it any further.
+- The 0018 record does not create, describe, cite or depend on 0007, 0008, 0011, 0012 or the plan, and nobody writes their contents from the constitution's one-line mentions (`constitution.md:473,500,503`). Inventing them would mean recording decisions without their evidence.
+- The unfiled reserved records and the missing README ADR links (`constitution.md:483`, `recon-DEV-396:394`) are documentation gaps, not broken behaviour and not Critical/High: noted, no ticket.
+
+### ADR-R3 - 0018 amends; it supersedes nothing, and the earlier files are not edited
+
+- The earlier decisions still stand: the ActivitySource placement in 0015, the propagator and spans in ADR-0004, and the category/raw-error split in ADR-0006. The only stale parts are their not-yet-wired follow-up sentences (`0015:53-57`, `ADR-0004:76,86-88`, `ADR-0006:15,24`; `recon-DEV-396:400-403,448`). ADR-FORMAT.md:21 reserves `superseded by` for a decision that is replaced. These decisions are being completed, so supersede is wrong.
+- 0018 carries a short `Relationship to earlier records` section. It cites each of those lines and says which part of the 0018 decision completes it. Constitution:479 (`add or supersede an ADR`) is met by adding 0018.
+- No edits to `0015`, `ADR-0004` or `ADR-0006`: they are tracked files the ticket does not name, and no AC or gate forces a change (2.3 item 6). ADRs are point-in-time records.
+- Readiness guard: 0018 must not say `/health/ready` exists or that `ADR-0004:88` is resolved while Q2/OD-1 is unticked. It records health membership and tags as delivered and readiness routes as BLOCKED on the owner answer (CONCLUSIONS Q1, Q5).
+
+### ADR-R4 - Status line: `Proposed (Gate 1 closed; OD-1 open; becomes Accepted in the DEV-396 delivery PR)`; the delivery PR changes it to `Accepted`
+
+- Follows the 0003, 0014-0017 precedent of naming a flip condition (`recon-DEV-396:361,368-371`). Until Gate 1 opens and the plan is frozen, the decision is not accepted.
+- `constitution.md:477` requires a merged record to read `Accepted`. Records 0014-0017 still read Proposed after their PRs merged (`recon-DEV-396:392`), and this record will not repeat that. Keel has Quill add one close-out line to tasks.md: change 0018 to `Accepted` (with date) in the delivery PR before review closes, and re-word any BLOCKED readiness sentence to match the owner's Q2 answer. This line falls under the L ADR step (task-pipeline:74) and adds nothing to what the ticket delivers, so 2.3a does not trigger. The stale `Proposed` text on 0014-0017 is noted, no ticket.
+
+### ADR-R5 - CONTEXT.md: no term needed
+
+- `CONTEXT.md` holds domain ubiquitous language (`constitution.md:480-481`). Words like span, exporter, instrumentation, health tag and `HandlerOutcome` are implementation vocabulary, already named in code and in 0015 and ADR-0004. `traceparent` is already defined (`CONTEXT.md:62-64`, `recon-DEV-396:415`). brief.md:103 and plan.md:136 record no CONTEXT.md change.
+- If Keel's draft brings in a new domain term, Keel stops and asks Patron before adding it. Keel does not add it without asking.
+
+Next: Keel drafts 0018 under ADR-R1..R5, and Quill adds the ADR-R4 close-out task line. Conductor then dispatches the Sentry/Ledger/Compass plan+ADR challenge, and Keel adjudicates and freezes. OD-1 unticked, T020A open, Gate 1 closed.
