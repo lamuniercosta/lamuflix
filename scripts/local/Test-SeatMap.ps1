@@ -92,11 +92,11 @@ Test-NegativeFixture -Name "missing head role" -Mutator { param($m) $m.seats[0].
 # 7. Head role not first element
 Test-NegativeFixture -Name "head role not first" -Mutator { param($m) $m.seats[0].rungs[0].psobject.properties.remove('role'); Add-Member -InputObject $m.seats[0].rungs[1] -NotePropertyName "role" -NotePropertyValue "head" -Force } -ExpectedErrorSubstring "must be the first rung"
 
-# 8. Missing floor role
-Test-NegativeFixture -Name "missing floor role" -Mutator { param($m) $m.seats[0].rungs[3].psobject.properties.remove('role') } -ExpectedErrorSubstring "missing a rung with role 'floor'"
+# 8. Missing floor role. Fixtures 8 and 9 index from the end: the live map's seats carry more than four rungs.
+Test-NegativeFixture -Name "missing floor role" -Mutator { param($m) $m.seats[0].rungs[-1].psobject.properties.remove('role') } -ExpectedErrorSubstring "missing a rung with role 'floor'"
 
 # 9. Floor role not last element
-Test-NegativeFixture -Name "floor role not last" -Mutator { param($m) $m.seats[0].rungs[3].psobject.properties.remove('role'); Add-Member -InputObject $m.seats[0].rungs[2] -NotePropertyName "role" -NotePropertyValue "floor" -Force } -ExpectedErrorSubstring "must be the last rung"
+Test-NegativeFixture -Name "floor role not last" -Mutator { param($m) $m.seats[0].rungs[-1].psobject.properties.remove('role'); Add-Member -InputObject $m.seats[0].rungs[-2] -NotePropertyName "role" -NotePropertyValue "floor" -Force } -ExpectedErrorSubstring "must be the last rung"
 
 # 10. Duplicate pool violation across declared rungs when distinctPoolsPerSeat=true.
 # The fixture opts the rule in itself: the example map now ships distinctPoolsPerSeat=false
@@ -144,7 +144,8 @@ Test-PositiveFixture -Name "extra rung reusing a pool before floor" -Mutator {
     $m.invariants.distinctPoolsPerSeat = $false
     $s = $m.seats[0]
     $extra = ($s.rungs[0] | ConvertTo-Json -Depth 100) | ConvertFrom-Json
-    $extra.name = 'fourth'
+    # A name no seat declares: live seats already carry 'fourth' and beyond.
+    $extra.name = 'extra-pool-reuse'
     $extra.psobject.properties.remove('role')
     $s.rungs = @($s.rungs[0..($s.rungs.Count - 2)]) + @($extra) + @($s.rungs[-1])
 }
