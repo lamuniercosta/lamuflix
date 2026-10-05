@@ -24,6 +24,7 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
         new("ConnectionStrings:DefaultConnection", "Host=localhost;Port=5432;Database=lamuflix"),
         new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:10"),
         new($"{FeatureOptions.SectionName}:{nameof(FeatureOptions.LocalPlay)}", "false"),
+        new("OTEL_EXPORTER_OTLP_TIMEOUT", "1000"),
     ];
 
     protected override IHost CreateHost(IHostBuilder builder)
