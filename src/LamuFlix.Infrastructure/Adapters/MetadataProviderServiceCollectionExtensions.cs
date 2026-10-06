@@ -31,7 +31,7 @@ public static class MetadataProviderServiceCollectionExtensions
         services.TryAddSingleton<MetadataProviderHealthState>();
 
         // The matching AddCheck lives in MetadataProviderServiceCollectionExtensions; AddHealthChecks() is in ServiceDefaults.
-        services.AddHealthChecks().AddCheck<MetadataProviderHealthCheck>("metadata-provider", tags: ["ready"]);
+        services.AddHealthChecks().AddCheck<MetadataProviderHealthCheck>("metadata-provider");
 
         return services;
     }
