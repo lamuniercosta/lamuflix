@@ -136,7 +136,7 @@ The mutation gate reports these exits:
 **A gate that could not run has not passed.** The scripts enforce this themselves:
 if the analyzer they depend on is not wired, they exit 1 with remediation rather
 than reporting a pass they did not earn. Report an unrunnable gate as `Could not
-run`; reserve `SKIPPED`/`SKIP` on exit 2 — `SKIPPED` is blocking and never green; `SKIP` is a non-blocking opt-out. Never fold `SKIPPED`, `SKIP`, or `Could not run` into a green verdict, and
+run`; reserve `SKIPPED`/`SKIP` on exit 2 — `SKIPPED (scope-empty)` is non-blocking and never PASS; `SKIP` is a non-blocking opt-out. Never fold `SKIPPED`, `SKIP`, or `Could not run` into a green verdict, and
 never substitute plain `dotnet build`.
 
 ## Vendor rules (Aaronontheweb C# / .NET standards)
