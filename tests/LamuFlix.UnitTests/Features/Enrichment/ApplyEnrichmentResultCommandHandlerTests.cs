@@ -31,6 +31,7 @@ public sealed class ApplyEnrichmentResultCommandHandlerTests
         var metadata = new MovieMetadata("Enriched Title");
         var ct = CancellationToken.None;
         movies.GetAsync(movie.Id, ct).Returns(movie);
+        var attempts = movie.EnrichmentAttempts;
 
         // act
         var status = await handler.HandleAsync(
@@ -41,6 +42,7 @@ public sealed class ApplyEnrichmentResultCommandHandlerTests
         status.ShouldBe(EnrichmentStatus.Enriched);
         movie.LastAttemptAt.ShouldBe(Now);
         movie.Metadata.ShouldBe(metadata);
+        movie.EnrichmentAttempts.ShouldBe(attempts);
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
@@ -51,6 +53,7 @@ public sealed class ApplyEnrichmentResultCommandHandlerTests
         var movie = PendingMovie();
         var ct = CancellationToken.None;
         movies.GetAsync(movie.Id, ct).Returns(movie);
+        var attempts = movie.EnrichmentAttempts;
 
         // act
         var status = await handler.HandleAsync(
@@ -60,6 +63,7 @@ public sealed class ApplyEnrichmentResultCommandHandlerTests
         // assert
         status.ShouldBe(EnrichmentStatus.NotFound);
         movie.LastAttemptAt.ShouldBe(Now);
+        movie.EnrichmentAttempts.ShouldBe(attempts);
         await movies.Received(1).SaveChangesAsync(ct);
     }
 

@@ -49,7 +49,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         await host.WaitForProviderCallsAsync(ct, 2);
         await host.StopAsync(CancellationToken.None);
 
-        host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBeGreaterThanOrEqualTo(2);
+        host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(2);
         (await probe.PollGetAsync(RabbitMqTopology.DeadLetterQueue, ct)).ShouldBeNull();
     }
 
@@ -65,7 +65,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         await host.WaitForProviderCallsAsync(ct, 2);
         await host.StopAsync(CancellationToken.None);
 
-        host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBeGreaterThanOrEqualTo(2);
+        host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(2);
     }
 
     [Fact]
