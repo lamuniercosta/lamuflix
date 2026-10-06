@@ -25,15 +25,21 @@ public sealed class TracingDecorator<TReq, TRes>(
         }
         catch (Exception exception)
         {
-            MarkError(activity, exception);
+            MarkFailure(activity, exception);
             throw;
         }
     }
 
-    private static void MarkError(Activity? activity, Exception exception)
+    private static void MarkFailure(Activity? activity, Exception exception)
     {
+        if (exception is ValidationException)
+        {
+            activity?.SetTag(TelemetryConstants.HandlerOutcome, TelemetryConstants.HandlerOutcomeValidationFailed);
+            return;
+        }
+
         activity?.SetStatus(ActivityStatusCode.Error);
-        activity?.SetTag(TelemetryConstants.ErrorType, exception.GetType().Name);
+        activity?.SetTag(TelemetryConstants.ErrorType, exception.GetType().FullName);
     }
 }
 
