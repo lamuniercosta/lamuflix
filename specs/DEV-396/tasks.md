@@ -80,7 +80,7 @@
 
 - [X] T028 [P] [US4] (Cog) Add the handler-outcome key and validation-failed value constants to `TelemetryConstants.cs` after T015 (sequential, same file). (inherits T005)
 - [X] T029 [US4] (Cog) In `TracingDecorator.cs` separate validation failures (status unset, outcome validation-failed) from other exceptions (error status, full type name, `error.type`), rethrowing both unchanged; leave the consumer `MarkError` untouched. (inherits T007)
-- [ ] T030 [US4] (Anvil) Create `tests/LamuFlix.UnitTests/Pipeline/TracingDecoratorTests.cs`: two `[Fact]` cases with an `ActivityListener` covering status, attributes and propagation; the unexpected-exception case asserts the full type name and executes in the active project. (inherits T009)
+- [X] T030 [US4] (Anvil) Create `tests/LamuFlix.UnitTests/Pipeline/TracingDecoratorTests.cs`: two `[Fact]` cases with an `ActivityListener` covering status, attributes and propagation; the unexpected-exception case asserts the full type name and executes in the active project. (inherits T009)
 - [ ] T031 [US4] (Cog) Edit the one assertion at `tests/LamuFlix.Test/TracingDecoratorTests.cs:65` to the full-name value; record the standalone legacy check as `Could not run` (project not in `LamuFlix.sln`, NU1010); never present it as proof. (inherits T010)
 - [ ] T032 [US4] Gates on the changed files and `dotnet test`; boundary diff shows only plan files. (inherits T011, T012)
 
