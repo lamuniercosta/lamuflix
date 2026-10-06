@@ -27,7 +27,9 @@ function Assert-True {
 # is invisible to every list and search (an index that lags) but readable by id.
 # Options (State.options): throw, dropTag, mangleComment, postFails, lag, race,
 # ignoreFields, wrongType, wrongRepository, dropEstimate, dropOrder, dropSprint,
-# failStep = parent | tags | order | sprint.
+# dropParent, dropType, failStep = parent | tags | order | sprint, failOrderAfter = N (the
+# (N+1)th Order POST fails, so a renumber stops half way).
+# The board is field-linked (sprint ids 218-10 and 218-11); the sprint POST still adds a member.
 $fake = @'
 function ConvertTo-Response { param($Value) ConvertTo-Json -InputObject $Value -Depth 10 | ConvertFrom-Json }
 
@@ -97,7 +99,7 @@ function Invoke-FakeYouTrack {
         if ($fail -eq 'parent') { throw 'HTTP 400 perm-test bad command' }
         if ($b.query -match '[{}]') { throw 'HTTP 400 braces are taken literally' }
         $issue = $State.issues[$b.issues[0].idReadable]
-        if ($b.query -match '^subtask of (\S+)$') { $issue.parent = $Matches[1] }
+        if ($b.query -match '^subtask of (\S+)$') { if (-not (Get-FakeOption $State 'dropParent')) { $issue.parent = $Matches[1] } }
         else { throw "HTTP 400 unexpected command: $($b.query)" }
         return ConvertTo-Response @{}
     }
@@ -145,9 +147,26 @@ function Invoke-FakeYouTrack {
         # YouTrack may echo a trailing newline; the script must tolerate it.
         if ($b.ContainsKey('description')) { $issue.description = $b.description + "`n" }
         if ($b.ContainsKey('customFields')) {
-            if ($fail -eq 'order') { throw 'HTTP 500 perm-test on order' }
             foreach ($field in $b.customFields) {
-                if ($field.name -eq 'Order' -and -not (Get-FakeOption $State 'dropOrder')) { $issue.order = [int]$field.value }
+                if ($field.name -eq 'Order') {
+                    if ($fail -eq 'order') { throw 'HTTP 500 perm-test on order' }
+                    $limit = Get-FakeOption $State 'failOrderAfter'
+                    if ($null -ne $limit) {
+                        $sent = if ($State.ContainsKey('orderPosts')) { [int]$State.orderPosts } else { 0 }
+                        if ($sent -ge [int]$limit) { throw 'HTTP 500 perm-test on a renumber write' }
+                        $State.orderPosts = $sent + 1
+                    }
+                    if (-not (Get-FakeOption $State 'dropOrder')) { $issue.order = [int]$field.value }
+                }
+                elseif ($field.name -eq 'Estimated Time') {
+                    if ($field.'$type' -ne 'PeriodIssueCustomField') { throw 'fake: bad $type for Estimated Time' }
+                    if (-not (Get-FakeOption $State 'dropEstimate')) { $issue.estimate = [int]$field.value.minutes }
+                }
+                elseif ($field.name -eq 'Type') {
+                    if ($field.'$type' -ne 'SingleEnumIssueCustomField') { throw 'fake: bad $type for Type' }
+                    if (-not (Get-FakeOption $State 'dropType')) { $issue.type = $field.value.name }
+                }
+                else { throw "fake: cannot set custom field $($field.name)" }
             }
         }
         return ConvertTo-Response @{ idReadable = $id }
@@ -227,11 +246,11 @@ function New-State {
         options       = $options
         comments      = @{}
         members       = @{}
-        currentSprint = @{ id = '218-8'; name = 'Sprint 1' }
+        currentSprint = @{ id = '218-10'; name = 'Sprint 1' }
         sprints       = @(
             @{ id = '218-4'; name = 'First sprint'; start = $null; finish = $null; archived = $true }
-            @{ id = '218-8'; name = 'Sprint 1'; start = $now - 3 * $day; finish = $now + 5 * $day; archived = $false }
-            @{ id = '218-9'; name = 'Sprint 2'; start = $now + 6 * $day; finish = $now + 16 * $day; archived = $false }
+            @{ id = '218-10'; name = 'Sprint 1'; start = $now - 3 * $day; finish = $now + 5 * $day; archived = $false }
+            @{ id = '218-11'; name = 'Sprint 2'; start = $now + 6 * $day; finish = $now + 16 * $day; archived = $false }
         )
         tags          = @(
             @{ name = 'size:S'; id = '10-2' }
@@ -257,7 +276,7 @@ function New-TextFile {
 function Invoke-Edit {
     param([string]$Arguments, [hashtable]$State = (New-State), [switch]$NoUrl)
 
-    if ($Arguments -match '-Create' -and $Arguments -notmatch '-LockName') { $Arguments += " -LockName '$testLock'" }
+    if ($Arguments -match '-(Create|Order)\b' -and $Arguments -notmatch '-LockName') { $Arguments += " -LockName '$testLock'" }
     $log = Join-Path $work ([guid]::NewGuid().ToString('N') + '.log')
     $stateFile = Join-Path $work ([guid]::NewGuid().ToString('N') + '.json')
     Set-Content -LiteralPath $stateFile -Value (ConvertTo-Json -InputObject $State -Depth 10)
@@ -423,22 +442,22 @@ try {
 
     $other = Invoke-Edit "-Create $createArguments -Repository essay-reviewer"
     Assert-True 'order: a non-lamuflix ticket gets no Order and no renumber' ($other.ExitCode -eq 0 -and $null -eq $other.State.issues['DEV-900'].order -and @($other.Calls | Where-Object { $_ -match 'Order' }).Count -eq 0 -and $other.Output -notmatch 'renumber|order DEV-900' -and $other.State.issues['DEV-370'].order -eq 13)
-    Assert-True 'order: the other repository is set, read back, and still joins the sprint' ($other.State.issues['DEV-900'].repository -ceq 'essay-reviewer' -and $other.State.members['218-8'] -contains 'DEV-900')
+    Assert-True 'order: the other repository is set, read back, and still joins the sprint' ($other.State.issues['DEV-900'].repository -ceq 'essay-reviewer' -and $other.State.members['218-10'] -contains 'DEV-900')
 
     # ---- Sprint ----
     Assert-True 'sprint: added to the board''s current sprint with the internal id' (
-        @(Get-CallBody $create '^Post https://yt\.example/api/agiles/204-3/sprints/218-8/issues' | Where-Object { $_.id -ceq '3-900' -and $_.'$type' -ceq 'Issue' }).Count -eq 1 -and
+        @(Get-CallBody $create '^Post https://yt\.example/api/agiles/204-3/sprints/218-10/issues' | Where-Object { $_.id -ceq '3-900' -and $_.'$type' -ceq 'Issue' }).Count -eq 1 -and
         @($create.Calls | Where-Object { $_ -match '^Get https://yt\.example/api/agiles/204-3\?fields=currentSprint\(id,name\) ' }).Count -eq 1)
-    Assert-True 'sprint: membership is read back and printed' ($create.State.members['218-8'] -contains 'DEV-900' -and $create.Output -match 'Sprint: Sprint 1' -and @($create.Calls | Where-Object { $_ -match '^Get https://yt\.example/api/agiles/204-3/sprints/218-8/issues' }).Count -ge 1)
+    Assert-True 'sprint: membership is read back and printed' ($create.State.members['218-10'] -contains 'DEV-900' -and $create.Output -match 'Sprint: Sprint 1' -and @($create.Calls | Where-Object { $_ -match '^Get https://yt\.example/api/agiles/204-3/sprints/218-10/issues' }).Count -ge 1)
 
     $byDate = New-State
     $byDate.currentSprint = $null
     $byDateRun = Invoke-Edit "-Create $createArguments" -State $byDate
-    Assert-True 'sprint: with no currentSprint it picks the sprint whose dates contain now' ($byDateRun.ExitCode -eq 0 -and $byDateRun.State.members['218-8'] -contains 'DEV-900' -and -not $byDateRun.State.members.ContainsKey('218-9'))
+    Assert-True 'sprint: with no currentSprint it picks the sprint whose dates contain now' ($byDateRun.ExitCode -eq 0 -and $byDateRun.State.members['218-10'] -contains 'DEV-900' -and -not $byDateRun.State.members.ContainsKey('218-11'))
 
     $none = New-State
     $none.currentSprint = $null
-    $none.sprints = @($none.sprints | Where-Object { $_.id -ne '218-8' })   # only an archived and a future sprint left
+    $none.sprints = @($none.sprints | Where-Object { $_.id -ne '218-10' })   # only an archived and a future sprint left
     $noSprint = Invoke-Edit "-Create $createArguments" -State $none
     Assert-True 'sprint: no current sprint warns and still creates (exit 0)' ($noSprint.ExitCode -eq 0 -and $noSprint.Output -match 'no current sprint' -and $noSprint.State.issues.ContainsKey('DEV-900'))
     Assert-True 'sprint: no current sprint posts no sprint write' (@($noSprint.Calls | Where-Object { $_ -match '^Post .*/sprints/' }).Count -eq 0)
@@ -538,7 +557,7 @@ try {
     $held = [Threading.Mutex]::new($true, $testLock + '-held')
     try {
         $locked = Invoke-Edit "-Create $createArguments -LockName '$($testLock + '-held')' -LockTimeoutSeconds 1"
-        Assert-True 'lock: a held lock times out with exit 2 and writes nothing' ($locked.ExitCode -eq 2 -and $locked.Output -match 'another -Create on this machine holds' -and (Get-NonGetCall $locked).Count -eq 0)
+        Assert-True 'lock: a held lock times out with exit 2 and writes nothing' ($locked.ExitCode -eq 2 -and $locked.Output -match 'another -Create or -Ticket -Order on this machine holds' -and $locked.Output -match 'Nothing was written' -and (Get-NonGetCall $locked).Count -eq 0)
         $dryLocked = Invoke-Edit "-Create -DryRun $createArguments -LockName '$($testLock + '-held')' -LockTimeoutSeconds 1"
         Assert-True 'lock: -DryRun does not need the lock' ($dryLocked.ExitCode -eq 0)
     }
@@ -576,6 +595,236 @@ try {
     Assert-True 'edit: a summary/description edit exits 0 and reads back' ($edited.ExitCode -eq 0 -and $edited.Output -match 'updated \(verified\): description, summary')
     Assert-True 'edit: YouTrack has the new summary and description' ($edited.State.issues['DEV-290'].summary -ceq 'New summary' -and $edited.State.issues['DEV-290'].description -match '^Line one .*\nLine two')
     Assert-True 'edit: prints no plan line' ($edited.Output -notmatch '(?m)^plan:')
+
+    # ---- -Ticket repair parameters (DEV-405) ----
+    # DEV-290 is the repair target: Task, lamuflix, Parent DEV-93, no Order, no estimate, no sprint.
+    function New-RepairState {
+        param([hashtable]$Option = @{}, $Parent = 'DEV-93', $Estimate = $null, [string]$Repository = 'lamuflix', [string]$Type = 'Task', [switch]$BrokenOrder)
+        $state = New-State -Option $Option -BrokenOrder:$BrokenOrder
+        $state.issues['DEV-290'].parent = $Parent
+        $state.issues['DEV-290'].estimate = $Estimate
+        $state.issues['DEV-290'].repository = $Repository
+        $state.issues['DEV-290'].type = $Type
+        return $state
+    }
+    $edit = 'F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1'
+    $unchanged = {
+        param($Run, $Before)
+        (ConvertTo-Json -InputObject $Run.State.issues -Depth 10 -Compress) -ceq (ConvertTo-Json -InputObject $Before.issues -Depth 10 -Compress)
+    }
+
+    # -Parent
+    $parentless = New-RepairState -Parent $null
+    $addParent = Invoke-Edit "-Ticket DEV-290 -Parent DEV-284" -State $parentless
+    $parentCommands = @(Get-CallBody $addParent '^Post https://yt\.example/api/commands ')
+    Assert-True 'parent: exit 0, read back, and named in the summary' ($addParent.ExitCode -eq 0 -and $addParent.Output -match 'updated \(verified\): parent' -and $addParent.State.issues['DEV-290'].parent -ceq 'DEV-284')
+    Assert-True 'parent: one brace-free "subtask of" command on the ticket, and no other write' (
+        $parentCommands.Count -eq 1 -and $parentCommands[0].query -ceq 'subtask of DEV-284' -and $parentCommands[0].issues[0].idReadable -ceq 'DEV-290' -and
+        (Get-NonGetCall $addParent).Count -eq 1)
+    $sameParent = Invoke-Edit "-Ticket DEV-290 -Parent DEV-93" -State (New-RepairState)
+    Assert-True 'parent: the parent it already has is a no-op (exit 0, zero writes)' ($sameParent.ExitCode -eq 0 -and (Get-NonGetCall $sameParent).Count -eq 0 -and $sameParent.Output -match 'nothing written' -and $sameParent.Output -match 'already as requested')
+    $otherParentState = New-RepairState
+    $otherParent = Invoke-Edit "-Ticket DEV-290 -Parent DEV-284" -State $otherParentState
+    Assert-True 'parent: a different parent is refused (exit 2), names the current one, writes nothing' ($otherParent.ExitCode -eq 2 -and $otherParent.Output -match 'already a subtask of DEV-93' -and $otherParent.Output -match 'never removes a link' -and (Get-NonGetCall $otherParent).Count -eq 0 -and $otherParent.State.issues['DEV-290'].parent -ceq 'DEV-93')
+    $selfParent = Invoke-Edit "-Ticket DEV-290 -Parent DEV-290" -State (New-RepairState -Parent $null)
+    Assert-True 'parent: a ticket cannot be its own parent (exit 2, zero writes)' ($selfParent.ExitCode -eq 2 -and $selfParent.Output -match 'its own parent' -and (Get-NonGetCall $selfParent).Count -eq 0)
+    $ghostParent = Invoke-Edit "-Ticket DEV-290 -Parent DEV-999" -State (New-RepairState -Parent $null)
+    Assert-True 'parent: a parent that does not exist is exit 2 before any write' ($ghostParent.ExitCode -eq 2 -and (Get-NonGetCall $ghostParent).Count -eq 0)
+    $droppedParent = Invoke-Edit "-Ticket DEV-290 -Parent DEV-284" -State (New-RepairState -Parent $null -Option @{ dropParent = $true })
+    Assert-True 'parent: exit 1 when the link did not stick' ($droppedParent.ExitCode -eq 1 -and $droppedParent.Output -match 'not a subtask of DEV-284')
+    Assert-True 'parent: a bad id is rejected by the parameter, nothing sent' ((Invoke-Edit "-Ticket DEV-290 -Parent 'dev 284'").ExitCode -eq 9)
+
+    # -Estimate
+    $estimateState = New-RepairState
+    $setEstimate = Invoke-Edit "-Ticket DEV-290 -Estimate '2h 30m'" -State $estimateState
+    $estimateBodies = @(Get-CallBody $setEstimate '^Post https://yt\.example/api/issues/DEV-290\?fields=idReadable ')
+    Assert-True 'estimate: exit 0 and read back as minutes (2h 30m = 150)' ($setEstimate.ExitCode -eq 0 -and $setEstimate.Output -match 'updated \(verified\): estimate' -and $setEstimate.State.issues['DEV-290'].estimate -eq 150)
+    Assert-True 'estimate: one period custom field POST in minutes, nothing else written' ($estimateBodies.Count -eq 1 -and $estimateBodies[0].customFields[0].name -ceq 'Estimated Time' -and $estimateBodies[0].customFields[0].'$type' -ceq 'PeriodIssueCustomField' -and $estimateBodies[0].customFields[0].value.minutes -eq 150 -and (Get-NonGetCall $setEstimate).Count -eq 1)
+    $sameEstimate = Invoke-Edit "-Ticket DEV-290 -Estimate 4h" -State (New-RepairState -Estimate 240)
+    Assert-True 'estimate: the value it already has is a no-op (exit 0, zero writes)' ($sameEstimate.ExitCode -eq 0 -and (Get-NonGetCall $sameEstimate).Count -eq 0 -and $sameEstimate.Output -match 'already as requested')
+    $droppedEstimate = Invoke-Edit "-Ticket DEV-290 -Estimate 1d" -State (New-RepairState -Option @{ dropEstimate = $true })
+    Assert-True 'estimate: exit 1 when it did not stick' ($droppedEstimate.ExitCode -eq 1 -and $droppedEstimate.Output -match "Estimated Time is '<empty>', expected '1d' \(480 min\)")
+    Assert-True 'estimate: a malformed period is rejected by the parameter, nothing sent' ((Invoke-Edit "-Ticket DEV-290 -Estimate 4x").ExitCode -eq 9)
+
+    # -Type
+    $setType = Invoke-Edit "-Ticket DEV-290 -Type Bug" -State (New-RepairState)
+    $typeBodies = @(Get-CallBody $setType '^Post https://yt\.example/api/issues/DEV-290\?fields=idReadable ')
+    Assert-True 'type: exit 0 and read back' ($setType.ExitCode -eq 0 -and $setType.Output -match 'updated \(verified\): type' -and $setType.State.issues['DEV-290'].type -ceq 'Bug')
+    Assert-True 'type: one enum custom field POST by name, nothing else written' ($typeBodies.Count -eq 1 -and $typeBodies[0].customFields[0].name -ceq 'Type' -and $typeBodies[0].customFields[0].'$type' -ceq 'SingleEnumIssueCustomField' -and $typeBodies[0].customFields[0].value.name -ceq 'Bug' -and (Get-NonGetCall $setType).Count -eq 1)
+    $sameType = Invoke-Edit "-Ticket DEV-290 -Type Task" -State (New-RepairState)
+    Assert-True 'type: the Type it already has is a no-op (exit 0, zero writes)' ($sameType.ExitCode -eq 0 -and (Get-NonGetCall $sameType).Count -eq 0)
+    $droppedType = Invoke-Edit "-Ticket DEV-290 -Type Bug" -State (New-RepairState -Option @{ dropType = $true })
+    Assert-True 'type: exit 1 when it did not stick' ($droppedType.ExitCode -eq 1 -and $droppedType.Output -match "Type is 'Task', expected 'Bug'")
+    Assert-True 'type: Epic is not accepted (same ValidateSet as -Create)' ((Invoke-Edit "-Ticket DEV-290 -Type Epic").ExitCode -eq 9)
+    $epicState = New-State
+    $epic = Invoke-Edit "-Ticket DEV-283 -Type Task" -State $epicState
+    Assert-True 'type: an Epic is not retyped (exit 2, zero writes)' ($epic.ExitCode -eq 2 -and $epic.Output -match 'is an Epic' -and (Get-NonGetCall $epic).Count -eq 0)
+    $noType = Invoke-Edit "-Ticket DEV-290 -Estimate 1d" -State (New-RepairState -Type Bug)
+    Assert-True 'type: without -Type the edit never touches Type (no default Task leaks in)' ($noType.ExitCode -eq 0 -and $noType.State.issues['DEV-290'].type -ceq 'Bug' -and @($noType.Calls | Where-Object { $_ -match '"name":"Type"' }).Count -eq 0)
+
+    # -Order
+    $orderState = New-RepairState -Parent 'DEV-284'
+    $orderRun = Invoke-Edit "-Ticket DEV-290 -Order" -State $orderState
+    Assert-True 'order: exit 0, verified, slot right after the parent''s last Done child (DEV-308 = 10, so 11)' ($orderRun.ExitCode -eq 0 -and $orderRun.Output -match 'updated \(verified\): order' -and $orderRun.State.issues['DEV-290'].order -eq 11 -and $orderRun.Output -match 'order DEV-290: 11 \(directly after DEV-308')
+    Assert-True 'order: every renumber is printed, highest first' (@($expectedShifts | Where-Object { $orderRun.Output -match [regex]::Escape("renumber $_") }).Count -eq 3 -and $orderRun.Output.IndexOf('renumber DEV-370') -lt $orderRun.Output.IndexOf('renumber DEV-285') -and $orderRun.Output.IndexOf('renumber DEV-285') -lt $orderRun.Output.IndexOf('renumber DEV-310'))
+    $editOrderWrites = @($orderRun.Calls | Where-Object { $_ -match '^Post https://yt\.example/api/issues/(DEV-\d+)\?fields=idReadable \{"customFields"' } | ForEach-Object { ($_ -split ' ')[1] -replace '^.*/issues/(DEV-\d+).*$', '$1' })
+    Assert-True 'order: the POSTs go highest first and the ticket last, and nothing else is written' (($editOrderWrites -join ',') -ceq 'DEV-370,DEV-285,DEV-310,DEV-290' -and (Get-NonGetCall $orderRun).Count -eq 4)
+    Assert-True 'order: afterwards 1..14 is contiguous and the shifted tickets hold their values' ((Test-Contiguous (Get-OrderOf $orderRun)) -and (Get-OrderOf $orderRun).Count -eq 14 -and $orderRun.State.issues['DEV-310'].order -eq 12 -and $orderRun.State.issues['DEV-370'].order -eq 14)
+    $withParent = Invoke-Edit "-Ticket DEV-290 -Parent DEV-284 -Order" -State (New-RepairState -Parent $null)
+    Assert-True 'order: -Parent and -Order in one call: the parent the call adds is used for the slot' ($withParent.ExitCode -eq 0 -and $withParent.State.issues['DEV-290'].parent -ceq 'DEV-284' -and $withParent.State.issues['DEV-290'].order -eq 11 -and $withParent.Output -match 'updated \(verified\): order, parent|updated \(verified\): parent, order')
+    $lastSlot = Invoke-Edit "-Ticket DEV-290 -Order" -State (New-RepairState)
+    Assert-True 'order: a parent without an Order puts the ticket last (14), no renumber' ($lastSlot.ExitCode -eq 0 -and $lastSlot.State.issues['DEV-290'].order -eq 14 -and @([regex]::Matches($lastSlot.Output, 'renumber DEV-')).Count -eq 0)
+    $hasOrder = Invoke-Edit "-Ticket DEV-390 -Order" -State (New-State)
+    Assert-True 'order: refused (exit 2, zero writes) when the ticket already has an Order' ($hasOrder.ExitCode -eq 2 -and $hasOrder.Output -match 'already has Order 7' -and (Get-NonGetCall $hasOrder).Count -eq 0 -and $hasOrder.State.issues['DEV-390'].order -eq 7)
+    $otherRepo = Invoke-Edit "-Ticket DEV-290 -Order" -State (New-RepairState -Parent 'DEV-284' -Repository 'essay-reviewer')
+    Assert-True 'order: refused (exit 2, zero writes) when the Repository is not lamuflix' ($otherRepo.ExitCode -eq 2 -and $otherRepo.Output -match "Repository 'essay-reviewer'" -and (Get-NonGetCall $otherRepo).Count -eq 0 -and $null -eq $otherRepo.State.issues['DEV-290'].order)
+    $orphan = Invoke-Edit "-Ticket DEV-290 -Order" -State (New-RepairState -Parent $null)
+    Assert-True 'order: refused (exit 2, zero writes) when the ticket has no parent, pointing at -Parent' ($orphan.ExitCode -eq 2 -and $orphan.Output -match 'has no parent' -and $orphan.Output -match '-Parent' -and (Get-NonGetCall $orphan).Count -eq 0)
+    $gap = Invoke-Edit "-Ticket DEV-290 -Order" -State (New-RepairState -Parent 'DEV-284' -BrokenOrder)
+    Assert-True 'order: refused (exit 2, zero writes) when the existing sequence is not 1..N' ($gap.ExitCode -eq 2 -and $gap.Output -match 'not 1\.\.N' -and (Get-NonGetCall $gap).Count -eq 0)
+    $refusedWithOthers = Invoke-Edit "-Ticket DEV-390 -Order -Estimate 4h -Type Bug -Tag size:S -Sprint" -State (New-State)
+    Assert-True 'order: a refusal stops the whole call before any write, even for the other parameters' ($refusedWithOthers.ExitCode -eq 2 -and (Get-NonGetCall $refusedWithOthers).Count -eq 0)
+    $droppedOrder = Invoke-Edit "-Ticket DEV-290 -Order" -State (New-RepairState -Parent 'DEV-284' -Option @{ dropOrder = $true })
+    Assert-True 'order: exit 1 when the Order did not stick' ($droppedOrder.ExitCode -eq 1 -and $droppedOrder.Output -match 'Order is')
+
+    # -Sprint
+    $sprintRun = Invoke-Edit "-Ticket DEV-290 -Sprint" -State (New-RepairState)
+    Assert-True 'sprint: exit 0, verified, the board''s current sprint is read live and the ticket is a member' (
+        $sprintRun.ExitCode -eq 0 -and $sprintRun.Output -match 'updated \(verified\): sprint' -and $sprintRun.Output -match 'Sprint: Sprint 1' -and $sprintRun.State.members['218-10'] -contains 'DEV-290' -and
+        @($sprintRun.Calls | Where-Object { $_ -match '^Get https://yt\.example/api/agiles/204-3\?fields=currentSprint\(id,name\) ' }).Count -eq 1)
+    Assert-True 'sprint: one POST with the internal id, and nothing else is written' (
+        @(Get-CallBody $sprintRun '^Post https://yt\.example/api/agiles/204-3/sprints/218-10/issues' | Where-Object { $_.id -ceq '3-290' -and $_.'$type' -ceq 'Issue' }).Count -eq 1 -and (Get-NonGetCall $sprintRun).Count -eq 1)
+    $memberState = New-RepairState
+    $memberState.members['218-10'] = @('DEV-290')
+    $already = Invoke-Edit "-Ticket DEV-290 -Sprint" -State $memberState
+    Assert-True 'sprint: already a member is idempotent (exit 0, zero writes)' ($already.ExitCode -eq 0 -and (Get-NonGetCall $already).Count -eq 0 -and $already.Output -match 'already as requested' -and $already.State.members['218-10'].Count -eq 1)
+    $noCurrent = New-RepairState
+    $noCurrent.currentSprint = $null
+    $noCurrent.sprints = @($noCurrent.sprints | Where-Object { $_.id -ne '218-10' })
+    $noSprint = Invoke-Edit "-Ticket DEV-290 -Sprint -Estimate 4h" -State $noCurrent
+    Assert-True 'sprint: no current sprint is refused (exit 2, zero writes, even with other parameters)' ($noSprint.ExitCode -eq 2 -and $noSprint.Output -match 'no current sprint' -and (Get-NonGetCall $noSprint).Count -eq 0)
+    $droppedMember = Invoke-Edit "-Ticket DEV-290 -Sprint" -State (New-RepairState -Option @{ dropSprint = $true })
+    Assert-True 'sprint: exit 1 when membership did not read back' ($droppedMember.ExitCode -eq 1 -and $droppedMember.Output -match "not a member of sprint 'Sprint 1'")
+
+    # everything in one call, plus a text edit and a tag
+    $everything = Invoke-Edit "-Ticket DEV-290 -Parent DEV-284 -Estimate 4h -Type Bug -Order -Sprint -Tag size:S" -State (New-RepairState -Parent $null)
+    Assert-True 'all: every repair parameter in one call lands and reads back (exit 0)' (
+        $everything.ExitCode -eq 0 -and $everything.State.issues['DEV-290'].parent -ceq 'DEV-284' -and $everything.State.issues['DEV-290'].estimate -eq 240 -and $everything.State.issues['DEV-290'].type -ceq 'Bug' -and
+        $everything.State.issues['DEV-290'].order -eq 11 -and $everything.State.members['218-10'] -contains 'DEV-290' -and $everything.State.issues['DEV-290'].tags -contains 'size:S' -and (Test-Contiguous (Get-OrderOf $everything)))
+
+    # ---- -Ticket -Order takes -Create's lock; a failure after the first write is exit 3 ----
+    $heldOrder = [Threading.Mutex]::new($true, $testLock + '-order')
+    try {
+        $orderLock = "-LockName '$($testLock + '-order')' -LockTimeoutSeconds 1"
+        $lockedOrder = Invoke-Edit "-Ticket DEV-290 -Order $orderLock" -State (New-RepairState -Parent 'DEV-284')
+        Assert-True 'order lock: a held lock times out with exit 2 and zero non-GET calls' (
+            $lockedOrder.ExitCode -eq 2 -and $lockedOrder.Output -match 'another -Create or -Ticket -Order on this machine holds' -and $lockedOrder.Output -match 'Nothing was written' -and (Get-NonGetCall $lockedOrder).Count -eq 0)
+        Assert-True 'order lock: it is taken before the Order reads (the project list is never fetched)' (@($lockedOrder.Calls | Where-Object { $_ -match '/api/issues\?' }).Count -eq 0)
+        $dryOrderHeld = Invoke-Edit "-Ticket DEV-290 -DryRun -Order $orderLock" -State (New-RepairState -Parent 'DEV-284')
+        Assert-True 'order lock: -DryRun -Order never takes the lock (exit 0 while it is held)' ($dryOrderHeld.ExitCode -eq 0 -and $dryOrderHeld.Output -match 'DRY RUN' -and (Get-NonGetCall $dryOrderHeld).Count -eq 0)
+        $noOrderHeld = Invoke-Edit "-Ticket DEV-290 -Estimate 4h $orderLock" -State (New-RepairState)
+        Assert-True 'order lock: a repair without -Order does not need the lock (exit 0 while it is held)' ($noOrderHeld.ExitCode -eq 0 -and $noOrderHeld.State.issues['DEV-290'].estimate -eq 240)
+        $refusedHeld = Invoke-Edit "-Ticket DEV-390 -Order $orderLock" -State (New-State)
+        Assert-True 'order lock: a refusal that needs the Order reads waits for the lock too (exit 2, zero writes)' ($refusedHeld.ExitCode -eq 2 -and $refusedHeld.Output -match 'another -Create or -Ticket -Order' -and (Get-NonGetCall $refusedHeld).Count -eq 0)
+    }
+    finally { $heldOrder.ReleaseMutex(); $heldOrder.Dispose() }
+    $freeOrder = Invoke-Edit "-Ticket DEV-290 -Order -LockName '$($testLock + '-order')' -LockTimeoutSeconds 1" -State (New-RepairState -Parent 'DEV-284')
+    Assert-True 'order lock: released afterwards (the same name is takeable again)' ($freeOrder.ExitCode -eq 0 -and $freeOrder.State.issues['DEV-290'].order -eq 11)
+
+    # Exit 3 after a partial write: a refusal or a failed FIRST write stays exit 2.
+    $half = Invoke-Edit "-Ticket DEV-290 -Order" -State (New-RepairState -Parent 'DEV-284' -Option @{ failOrderAfter = 2 })
+    Assert-True 'exit 3: a renumber that stops partway names the renumber as half done' (
+        $half.ExitCode -eq 3 -and $half.Output -match 'PARTLY UPDATED' -and $half.Output -match 'order failed' -and $half.Output -match 'HALF DONE' -and $half.Output -match 'PARTLY: 2 Order write' -and $half.Output -match 'report to Patron' -and $half.Output -match 'do not re-run -Order')
+    Assert-True 'exit 3: the half-done state is what the two completed writes left (DEV-370 and DEV-285 moved, DEV-310 and the ticket not)' (
+        $half.State.issues['DEV-370'].order -eq 14 -and $half.State.issues['DEV-285'].order -eq 13 -and $half.State.issues['DEV-310'].order -eq 11 -and $null -eq $half.State.issues['DEV-290'].order)
+    $firstFails = Invoke-Edit "-Ticket DEV-290 -Order" -State (New-RepairState -Parent 'DEV-284' -Option @{ failOrderAfter = 0 })
+    Assert-True 'exit 2: the first write failing is still "nothing was written" (no PARTLY UPDATED)' ($firstFails.ExitCode -eq 2 -and $firstFails.Output -notmatch 'PARTLY UPDATED' -and $firstFails.State.issues['DEV-370'].order -eq 13)
+    $parentThenSprint = Invoke-Edit "-Ticket DEV-290 -Parent DEV-284 -Sprint" -State (New-RepairState -Parent $null -Option @{ failStep = 'sprint' })
+    Assert-True 'exit 3: a sprint failure after -Parent succeeded lists parent as written and sprint as failed' (
+        $parentThenSprint.ExitCode -eq 3 -and $parentThenSprint.Output -match 'sprint failed' -and $parentThenSprint.Output -match 'Written: parent' -and $parentThenSprint.Output -match 'Failed: sprint' -and
+        $parentThenSprint.State.issues['DEV-290'].parent -ceq 'DEV-284' -and $parentThenSprint.Output -match '-Show')
+    $textThenTag = Invoke-Edit "-Ticket DEV-290 -Summary 'Renamed' -Tag size:S" -State (New-State -Option @{ failStep = 'tags' })
+    Assert-True 'exit 3: a tag failure after the text POST lists the text as written and the tag as failed' (
+        $textThenTag.ExitCode -eq 3 -and $textThenTag.Output -match 'Written: summary/description' -and $textThenTag.Output -match 'Failed: tags' -and $textThenTag.Output -match 'Not attempted: read-back verification' -and
+        $textThenTag.Output -notmatch 'youtrack-plan' -and $textThenTag.State.issues['DEV-290'].summary -ceq 'Renamed')
+    $firstTagFails = Invoke-Edit "-Ticket DEV-290 -Tag size:S" -State (New-State -Option @{ failStep = 'tags' })
+    Assert-True 'exit 2: a first write that fails (a lone tag) stays "nothing was written"' ($firstTagFails.ExitCode -eq 2 -and $firstTagFails.Output -notmatch 'PARTLY UPDATED')
+    $refusedLate = Invoke-Edit "-Ticket DEV-390 -Parent DEV-284 -Order" -State (New-State)
+    Assert-True 'exit 2: a refusal decided from reads stays exit 2 with zero writes' ($refusedLate.ExitCode -eq 2 -and $refusedLate.Output -notmatch 'PARTLY UPDATED' -and (Get-NonGetCall $refusedLate).Count -eq 0)
+
+    # ---- -Ticket -DryRun: every planned write, zero non-GET ----
+    $repairState = New-RepairState -Parent $null
+    $editDry = Invoke-Edit "-Ticket DEV-290 -DryRun -Parent DEV-284 -Estimate 4h -Type Bug -Order -Sprint -Tag size:S -Summary 'Planned only'" -State $repairState
+    Assert-True 'edit dryrun: exit 0 with zero non-GET calls through the seam' ($editDry.ExitCode -eq 0 -and $editDry.Output -match 'DRY RUN' -and (Get-NonGetCall $editDry).Count -eq 0 -and $editDry.Calls.Count -gt 0)
+    Assert-True 'edit dryrun: changes nothing in the fake' (& $unchanged $editDry $repairState)
+    Assert-True 'edit dryrun: prints the text POST, tag, parent command, estimate, Type and sprint' (
+        $editDry.Output -match '"summary":"Planned only"' -and $editDry.Output -match '"id":"10-2"' -and $editDry.Output -match 'query: subtask of DEV-284' -and $editDry.Output -match '"minutes":240' -and
+        $editDry.Output -match '"name":"Bug"' -and $editDry.Output -match 'Sprint: Sprint 1' -and $editDry.Output -match 'sprints/218-10/issues' -and $editDry.Output -match '"id":"3-290"')
+    Assert-True 'edit dryrun: prints the slot and every renumber, highest first' (
+        $editDry.Output -match 'slot 11' -and @($expectedShifts | Where-Object { $editDry.Output -match [regex]::Escape($_) }).Count -eq 3 -and
+        $editDry.Output.IndexOf('DEV-370: 13 -> 14') -lt $editDry.Output.IndexOf('DEV-285: 12 -> 13') -and $editDry.Output.IndexOf('DEV-285: 12 -> 13') -lt $editDry.Output.IndexOf('DEV-310: 11 -> 12') -and $editDry.Output -match '(?m)^    DEV-290: Order 11')
+    Assert-True 'edit dryrun: touches neither the text nor the comment store' ($editDry.State.issues['DEV-290'].summary -ceq 'Old summary' -and $editDry.State.comments.Count -eq 0)
+    $dryRefused = Invoke-Edit "-Ticket DEV-390 -DryRun -Order" -State (New-State)
+    Assert-True 'edit dryrun: refuses exactly like a real run (exit 2, zero writes)' ($dryRefused.ExitCode -eq 2 -and $dryRefused.Output -match 'already has Order 7' -and (Get-NonGetCall $dryRefused).Count -eq 0)
+    $dryDifferent = Invoke-Edit "-Ticket DEV-290 -DryRun -Parent DEV-284" -State (New-RepairState)
+    Assert-True 'edit dryrun: a different parent is refused too' ($dryDifferent.ExitCode -eq 2 -and $dryDifferent.Output -match 'already a subtask of DEV-93' -and (Get-NonGetCall $dryDifferent).Count -eq 0)
+    $heldState = New-RepairState -Parent 'DEV-284' -Estimate 240
+    $heldState.members['218-10'] = @('DEV-290')
+    $dryHeld = Invoke-Edit "-Ticket DEV-290 -DryRun -Parent DEV-284 -Estimate 4h -Type Task -Sprint" -State $heldState
+    Assert-True 'edit dryrun: everything already held prints that nothing needs writing (exit 0, zero writes)' ($dryHeld.ExitCode -eq 0 -and $dryHeld.Output -match 'nothing would be written' -and $dryHeld.Output -match 'already as requested, nothing to write: parent, estimate, type, sprint' -and (Get-NonGetCall $dryHeld).Count -eq 0)
+    $dryText = Invoke-Edit "-Ticket DEV-290 -DryRun -Summary 'Renamed' -Tag size:S" -State (New-State)
+    Assert-True 'edit dryrun: a plain text and tag edit is planned, not made' ($dryText.ExitCode -eq 0 -and (Get-NonGetCall $dryText).Count -eq 0 -and $dryText.State.issues['DEV-290'].summary -ceq 'Old summary' -and $dryText.Output -match 'planned POST /api/issues/DEV-290/tags')
+    $dryNoTag = Invoke-Edit "-Ticket DEV-290 -DryRun -Tag nope" -State (New-State)
+    Assert-True 'edit dryrun: an unknown tag is exit 2 with zero writes' ($dryNoTag.ExitCode -eq 2 -and (Get-NonGetCall $dryNoTag).Count -eq 0)
+    Assert-True 'edit dryrun: with nothing to change is still exit 2' ((Invoke-Edit "-Ticket DEV-290 -DryRun").ExitCode -eq 2)
+
+    # ---- the exit-3 banner: the exact runnable repair command per step not done ----
+    $repairPattern = { param($Output, [string]$Tail) $Output -match ('(?m)^\s+pwsh ' + [regex]::Escape($edit) + ' -Ticket DEV-900 ' + [regex]::Escape($Tail) + '\s*$') }
+    $bannerParent = Invoke-Edit "-Create $createArguments" -State (New-State -Option @{ failStep = 'parent' })
+    Assert-True 'banner: a failed parent step names -Parent, -Tag, -Order and -Sprint repair commands, in that order' (
+        $bannerParent.ExitCode -eq 3 -and (& $repairPattern $bannerParent.Output '-Parent DEV-284') -and (& $repairPattern $bannerParent.Output '-Tag size:M') -and (& $repairPattern $bannerParent.Output '-Order') -and (& $repairPattern $bannerParent.Output '-Sprint') -and
+        $bannerParent.Output.IndexOf('-Parent DEV-284') -lt $bannerParent.Output.IndexOf('-Tag size:M') -and $bannerParent.Output.IndexOf('-Tag size:M') -lt $bannerParent.Output.IndexOf('-Order') -and $bannerParent.Output.IndexOf('-Order', $bannerParent.Output.IndexOf('-Tag size:M')) -lt $bannerParent.Output.IndexOf('-Sprint'))
+    Assert-True 'banner: no longer tells the caller to hand parent, estimate, Order or sprint to Patron' ($bannerParent.Output -notmatch 'tell Patron\.' -and $bannerParent.Output -notmatch 'For parent, estimate')
+    $bannerTags = Invoke-Edit "-Create $createArguments" -State (New-State -Option @{ failStep = 'tags' })
+    Assert-True 'banner: a failed tags step lists -Tag, -Order and -Sprint, and not the parent link that is done' ($bannerTags.ExitCode -eq 3 -and (& $repairPattern $bannerTags.Output '-Tag size:M') -and (& $repairPattern $bannerTags.Output '-Order') -and (& $repairPattern $bannerTags.Output '-Sprint') -and -not (& $repairPattern $bannerTags.Output '-Parent DEV-284'))
+    $bannerOrder = Invoke-Edit "-Create $createArguments" -State (New-State -Option @{ failStep = 'order' })
+    Assert-True 'banner: a failed order step lists -Order and -Sprint only, and warns about a half-done renumber' ($bannerOrder.ExitCode -eq 3 -and (& $repairPattern $bannerOrder.Output '-Order') -and (& $repairPattern $bannerOrder.Output '-Sprint') -and -not (& $repairPattern $bannerOrder.Output '-Tag size:M') -and $bannerOrder.Output -match 'renumber stopped half way')
+    $bannerSprint = Invoke-Edit "-Create $createArguments" -State (New-State -Option @{ failStep = 'sprint' })
+    Assert-True 'banner: a failed sprint step lists -Sprint only' ($bannerSprint.ExitCode -eq 3 -and (& $repairPattern $bannerSprint.Output '-Sprint') -and -not (& $repairPattern $bannerSprint.Output '-Order') -and -not (& $repairPattern $bannerSprint.Output '-Parent DEV-284'))
+    $bannerOther = Invoke-Edit "-Create $createArguments -Repository essay-reviewer" -State (New-State -Option @{ failStep = 'parent' })
+    Assert-True 'banner: a repository with no Order gets no -Order command' ($bannerOther.ExitCode -eq 3 -and (& $repairPattern $bannerOther.Output '-Parent DEV-284') -and -not (& $repairPattern $bannerOther.Output '-Order'))
+    $bannerNoTag = Invoke-Edit "-Create -Summary 'No tags here' -DescriptionFile '$description' -Parent DEV-284 -Estimate 1d" -State (New-State -Option @{ failStep = 'parent' })
+    Assert-True 'banner: no -Tag command when no tag was asked for' ($bannerNoTag.ExitCode -eq 3 -and -not (& $repairPattern $bannerNoTag.Output '-Tag size:M') -and $bannerNoTag.Output -notmatch '(?m)^\s+pwsh .* -Tag')
+    foreach ($case in @(
+            @{ Option = 'wrongType'; Tail = '-Type Task' }
+            @{ Option = 'dropEstimate'; Tail = '-Estimate 1d' }
+            @{ Option = 'dropSprint'; Tail = '-Sprint' }
+            @{ Option = 'dropTag'; Tail = '-Tag size:M' })) {
+        $readBack = Invoke-Edit "-Create $createArguments" -State (New-State -Option @{ $case.Option = $true })
+        Assert-True "banner: a read-back mismatch ($($case.Option)) prints its repair command $($case.Tail)" ($readBack.ExitCode -eq 3 -and (& $repairPattern $readBack.Output $case.Tail))
+    }
+    $bannerQuoted = Invoke-Edit "-Create -Summary 'Two parts' -DescriptionFile '$description' -Parent DEV-284 -Estimate '2h 30m'" -State (New-State -Option @{ dropEstimate = $true })
+    Assert-True 'banner: an estimate with a space is single-quoted so the command runs as printed' ($bannerQuoted.ExitCode -eq 3 -and (& $repairPattern $bannerQuoted.Output "-Estimate '2h 30m'"))
+    $bannerOrderMismatch = Invoke-Edit "-Create $createArguments" -State (New-State -Option @{ dropOrder = $true })
+    Assert-True 'banner: an Order read-back mismatch has no command and is left to Patron' ($bannerOrderMismatch.ExitCode -eq 3 -and $bannerOrderMismatch.Output -match 'has no repair command: tell Patron' -and -not (& $repairPattern $bannerOrderMismatch.Output '-Order'))
+
+    # The printed commands are runnable: feed them back, in order, and the ticket ends up as a clean -Create would leave it.
+    $broken = Invoke-Edit "-Create $createArguments" -State (New-State -Option @{ failStep = 'parent' })
+    $repairState = $broken.State
+    $null = $repairState.options.Remove('failStep')
+    $commands = @($broken.Output -split "`n" | ForEach-Object { if ($_ -match ('^\s+pwsh ' + [regex]::Escape($edit) + ' (-Ticket DEV-900 .+?)\s*$')) { $Matches[1] } })
+    $repairExit = @()
+    foreach ($command in $commands) {
+        $step = Invoke-Edit $command -State $repairState
+        $repairExit += $step.ExitCode
+        $repairState = $step.State
+    }
+    Assert-True 'repair chain: the printed commands are four, and each exits 0' ($commands.Count -eq 4 -and (@($repairExit | Where-Object { $_ -ne 0 }).Count -eq 0))
+    $clean = $create.State.issues['DEV-900']
+    $mended = $repairState.issues['DEV-900']
+    Assert-True 'repair chain: parent, tag, Order and sprint end up exactly as after a clean -Create' (
+        $mended.parent -ceq $clean.parent -and $mended.tags -contains 'size:M' -and $mended.order -eq $clean.order -and $repairState.members['218-10'] -contains 'DEV-900' -and
+        (Test-Contiguous @($repairState.issues.Values | Where-Object { $null -ne $_.order } | ForEach-Object { [int]$_.order } | Sort-Object)) -and $repairState.issues['DEV-310'].order -eq 12)
 
     $nothing = Invoke-Edit "-Ticket DEV-290"
     Assert-True 'edit: exit 2 with nothing to change' ($nothing.ExitCode -eq 2 -and $nothing.Calls.Count -eq 0)
