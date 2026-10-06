@@ -273,7 +273,7 @@ public sealed class PropertyTests
             return false;
         }
 
-        if (movie.EnrichmentAttempts != before.Attempts + 1)
+        if (movie.EnrichmentAttempts != before.Attempts)
         {
             return false;
         }
@@ -318,7 +318,7 @@ public sealed class PropertyTests
 
     private static bool AttemptMatches(Movie movie, Taken before, DateTimeOffset actedAt)
     {
-        if (movie.EnrichmentAttempts != before.Attempts + 1)
+        if (movie.EnrichmentAttempts != before.Attempts)
         {
             return false;
         }

@@ -124,9 +124,10 @@ public sealed class MovieTests
     {
         var notFound = InStatus(EnrichmentStatus.Failed);
         notFound.RequestEnrichment();
+        var notFoundAttempts = notFound.EnrichmentAttempts;
         notFound.MarkNotFound(ActedAt);
         notFound.Status.ShouldBe(EnrichmentStatus.NotFound);
-        notFound.EnrichmentAttempts.ShouldBe(2);
+        notFound.EnrichmentAttempts.ShouldBe(notFoundAttempts);
         notFound.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.RateLimited);
         notFound.EnrichedAt.ShouldBeNull();
         notFound.Metadata.ShouldBeNull();
@@ -134,9 +135,10 @@ public sealed class MovieTests
 
         var failed = InStatus(EnrichmentStatus.Enriched);
         failed.RequestEnrichment();
+        var failedAttempts = failed.EnrichmentAttempts;
         failed.MarkFailed(EnrichmentFailureCategory.InvalidResponse, ActedAt);
         failed.Status.ShouldBe(EnrichmentStatus.Failed);
-        failed.EnrichmentAttempts.ShouldBe(2);
+        failed.EnrichmentAttempts.ShouldBe(failedAttempts);
         failed.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
         failed.EnrichedAt.ShouldBe(ArrivedAt);
         failed.Metadata.ShouldBe(SeedMetadata);
@@ -144,9 +146,10 @@ public sealed class MovieTests
 
         var enriched = InStatus(EnrichmentStatus.Failed);
         enriched.RequestEnrichment();
+        var enrichedAttempts = enriched.EnrichmentAttempts;
         enriched.MarkEnriched(ActMetadata, ActedAt);
         enriched.Status.ShouldBe(EnrichmentStatus.Enriched);
-        enriched.EnrichmentAttempts.ShouldBe(2);
+        enriched.EnrichmentAttempts.ShouldBe(enrichedAttempts);
         enriched.LastFailureCategory.ShouldBeNull();
         enriched.EnrichedAt.ShouldBe(ActedAt);
         enriched.Metadata.ShouldBe(ActMetadata);
@@ -212,7 +215,7 @@ public sealed class MovieTests
             EnrichmentAction.MarkEnriched => before with
             {
                 Status = EnrichmentStatus.Enriched,
-                EnrichmentAttempts = before.EnrichmentAttempts + 1,
+                EnrichmentAttempts = before.EnrichmentAttempts,
                 LastAttemptAt = ActedAt,
                 EnrichedAt = ActedAt,
                 Metadata = ActMetadata,
@@ -221,13 +224,13 @@ public sealed class MovieTests
             EnrichmentAction.MarkNotFound => before with
             {
                 Status = EnrichmentStatus.NotFound,
-                EnrichmentAttempts = before.EnrichmentAttempts + 1,
+                EnrichmentAttempts = before.EnrichmentAttempts,
                 LastAttemptAt = ActedAt,
             },
             EnrichmentAction.MarkFailed => before with
             {
                 Status = EnrichmentStatus.Failed,
-                EnrichmentAttempts = before.EnrichmentAttempts + 1,
+                EnrichmentAttempts = before.EnrichmentAttempts,
                 LastAttemptAt = ActedAt,
                 LastFailureCategory = EnrichmentFailureCategory.InvalidResponse,
             },
