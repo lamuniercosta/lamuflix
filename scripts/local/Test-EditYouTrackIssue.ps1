@@ -51,6 +51,19 @@ function Invoke-FakeYouTrack {
         elseif ($b.query -match '^Type (\S+) .* subtask of (\S+)$') { $issue.type = $Matches[1]; $issue.parent = $Matches[2] }
         return ConvertTo-Response @{}
     }
+    if ($path -eq '/api/tags' -and $Method -eq 'Get') {
+        $rawQuery = [uri]::UnescapeDataString(([uri]$Uri).Query)
+        $name = if ($rawQuery -match '(?:^|\?|&)query=([^&]*)') { $Matches[1] } else { '' }
+        $hits = @($State.tags | Where-Object { $_.name -like "*$name*" })
+        return @($hits | ForEach-Object { ConvertTo-Response @{ id = $_.id; name = $_.name } })
+    }
+    if ($path -match '^/api/issues/([^/]+)/tags$' -and $Method -eq 'Post') {
+        $issue = $State.issues[$Matches[1]]
+        $tag = @($State.tags | Where-Object { $_.id -eq $b.id })[0]
+        if (-not $tag) { throw 'fake: unknown tag id' }
+        if (-not $State.options.dropTag) { $issue.tags = @(@($issue.tags) + $tag.name) }
+        return ConvertTo-Response @{ id = $tag.id; name = $tag.name }
+    }
     if ("$Method $path" -eq 'Get /api/issues') { return @($State.search | ForEach-Object { ConvertTo-Response $_ }) }
     if ($path -match '^/api/issues/([^/]+)/comments/(.+)$') {
         $text = if ($State.options.mangleComment) { 'mangled' } else { $State.comments[$Matches[2]] }
@@ -81,6 +94,14 @@ function New-State {
         options  = @{ dropTag = [bool]$DropTag; mangleComment = [bool]$MangleComment; throw = [bool]$Throw }
         search   = $Search
         comments = @{}
+        tags     = @(
+            @{ name = 'size:S'; id = '10-2' }
+            @{ name = 'size:M'; id = '10-3' }
+            @{ name = 'size:L'; id = '10-4' }
+            @{ name = '{size:S}'; id = '10-6' }
+            @{ name = '{size:M}'; id = '10-7' }
+            @{ name = '{size:L}'; id = '10-9' }
+        )
         issues   = @{
             'DEV-93'  = @{ summary = 'Epic'; description = 'e'; tags = @(); type = 'Epic'; parent = $null; state = 'Open' }
             'DEV-290' = @{ summary = 'Old summary'; description = 'Old text'; tags = @('size:M'); type = 'Task'; parent = 'DEV-93'; state = 'Open' }
@@ -162,7 +183,8 @@ try {
     Assert-True 'create: reports verified id' ($create.Output -match 'DEV-900 created \(verified\)')
     Assert-True 'create: uses the parent''s project id' (@($create.Calls -match '^Post https://yt\.example/api/issues\?fields=idReadable .*"project":\{"id":"0-1"\}').Count -gt 0)
     Assert-True 'create: sets type, estimate, and parent' (@($create.Calls -match '"query":"Type Task Repository \{lamuflix\} Priority \{Major\} Estimated Time 1d subtask of DEV-93"').Count -gt 0)
-    Assert-True 'create: adds the tag' (@($create.Calls -match '"query":"tag \{size:M\}"').Count -gt 0)
+    Assert-True 'create: attaches the existing tag by id' ((@($create.Calls | Where-Object { $_ -match 'Get https://yt\.example/api/tags\?fields=id,name&\$top=42&query=size%3AM ' }).Count -eq 1) -and (@($create.Calls | Where-Object { $_ -match 'Post https://yt\.example/api/issues/DEV-900/tags \{"id":"10-3"\}' }).Count -eq 1))
+    Assert-True 'create: does not issue a tag command' (@($create.Calls | Where-Object { $_ -match 'tag \{' }).Count -eq 0)
     Assert-True 'create: stores LF text without trailing whitespace' ($create.State.issues['DEV-900'].description -ceq "### Overview`nFollow-up text.")
     Assert-True 'create: sends the token as Bearer' ($create.Calls[0] -match 'auth=Bearer perm-test$')
     Assert-True 'create: leaves the plan alone' ((Read-Plan $create.PlanDirectory) -ceq (Get-PlanText 'Old summary' 'Old — text'))
@@ -186,6 +208,22 @@ try {
 
     $dropped = Invoke-Edit "-Ticket DEV-290 -Tag size:S" -State (New-State -DropTag)
     Assert-True 'tag: exit 1 when the tag did not stick' ($dropped.ExitCode -eq 1 -and $dropped.Output -match "tag 'size:S' is missing")
+
+    $tagged = Invoke-Edit "-Ticket DEV-290 -Tag size:S"
+    Assert-True 'tag: exit 0 and read back' ($tagged.ExitCode -eq 0 -and $tagged.Output -match 'updated \(verified\): tags')
+    Assert-True 'tag: looks up the name and posts its id' ((@($tagged.Calls | Where-Object { $_ -match 'Get https://yt\.example/api/tags\?fields=id,name&\$top=42&query=size%3AS ' }).Count -eq 1) -and (@($tagged.Calls | Where-Object { $_ -match 'Post https://yt\.example/api/issues/DEV-290/tags \{"id":"10-2"\}' }).Count -eq 1))
+    Assert-True 'tag: ignores the brace-named decoy and skips commands' (@($tagged.Calls | Where-Object { $_ -match '"id":"10-6"' -or $_ -match 'tag \{' }).Count -eq 0)
+    Assert-True 'tag: stores size:S beside the existing tag' (($tagged.State.issues['DEV-290'].tags -contains 'size:S') -and ($tagged.State.issues['DEV-290'].tags -contains 'size:M'))
+
+    $missingTag = Invoke-Edit "-Ticket DEV-290 -Tag nope"
+    Assert-True 'tag: exit 2 when the name does not exist' ($missingTag.ExitCode -eq 2 -and $missingTag.Output -match "no existing tag named 'nope'")
+    Assert-True 'tag: a missing name is not created' (@($missingTag.Calls | Where-Object { $_ -match 'Post .*/tags' }).Count -eq 0)
+
+    $duplicate = New-State
+    $duplicate.tags = @($duplicate.tags) + @{ name = 'size:M'; id = '10-8' }
+    $ambiguous = Invoke-Edit "-Ticket DEV-290 -Tag size:M" -State $duplicate
+    Assert-True 'tag: exit 2 when two tags share the name' ($ambiguous.ExitCode -eq 2 -and $ambiguous.Output -match "more than one tag is named 'size:M'")
+    Assert-True 'tag: an ambiguous name is not attached' (@($ambiguous.Calls | Where-Object { $_ -match 'Post .*/api/issues/.*/tags' }).Count -eq 0)
 
     $newText = New-TextFile "Line one — ü`nLine two"
     $planned = Invoke-Edit "-Ticket DEV-290 -Summary 'New summary' -DescriptionFile '$newText'"
