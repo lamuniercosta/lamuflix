@@ -86,16 +86,16 @@
 
 **Checkpoint**: both span paths proven by an executing active test.
 
-## Phase 6: Conditional Readiness (User Story 5, Priority P2) - BLOCKED on OD-1
+## Phase 6: Conditional Readiness (User Story 5, Priority P2)
 
 **Do not start until the owner answers OD-1 including the FR-034 deferral clause. Not counted as delivered; not reported as deferred.**
 
-- [ ] T033 [US5] BLOCKED (OD-1): map `/health/ready` filtered by the shared tag in `src/LamuFlix.ServiceDefaults/Extensions.cs`. (inherits T037)
-- [ ] T034 [US5] BLOCKED (OD-1): create `src/LamuFlix.ServiceDefaults/HealthCheckResponseWriter.cs` with the approved body; no provisional body or default writer. (inherits T038)
-- [ ] T035 [US5] BLOCKED (OD-1): create `tests/LamuFlix.IntegrationTests/HealthEndpointTests.cs` and `HealthCheckStubs.cs`, narrowly adjusting `ApiHostFactory.cs` and `ApiHostCompositionTests.cs` only if required; four readiness states plus the 503 body inspection (trace identifier, no exception text). (inherits T039)
-- [ ] T036 [US5] BLOCKED (OD-1): gates and boundary checks for the readiness files. (inherits T040, T041)
+- [ ] T033 [US5] map `/health/ready` filtered by the shared tag in `src/LamuFlix.ServiceDefaults/Extensions.cs`. (inherits T037)
+- [ ] T034 [US5] create `src/LamuFlix.ServiceDefaults/HealthCheckResponseWriter.cs` with the approved body; no provisional body or default writer. (inherits T038)
+- [ ] T035 [US5] create `tests/LamuFlix.IntegrationTests/HealthEndpointTests.cs` and `HealthCheckStubs.cs`, narrowly adjusting `ApiHostFactory.cs` and `ApiHostCompositionTests.cs` only if required; four readiness states plus the 503 body inspection (trace identifier, no exception text). (inherits T039)
+- [ ] T036 [US5] gates and boundary checks for the readiness files. (inherits T040, T041)
 
-**Checkpoint**: if the owner declines the FR-034 deferral, the ticket is `blocked: structural` and Gate 1 stays closed.
+**Checkpoint**: the owner accepted the FR-034 deferral (comment 7-269).
 
 ## Phase 7: Evidence, Gates and Publication (User Story 7, Priority P2)
 
@@ -103,7 +103,7 @@
 - [ ] T038 [US7] Gauge records the real mutation verdict and exit, property-test exit (exit 2 needs a recorded `propertyTests` opt-out reason), vulnerable-package scan and exit, and the web gate result; full `dotnet test` per-project counts against T004; no threshold lowered; surviving mutants get tests. (inherits T042, T044, T045)
 - [ ] T039 [US7] Per-task evidence reconciliation in `specs/DEV-307/tasks.md`: tick or note each box only on a cited receipt, including T013-T017 (liveness and WAF delivered through DEV-308 `2ce1e39`) and T001-T004, T006, T008, T018-T026; inherited DEV-307 T020A stays unticked, because the recorded N2 first-half approval is not an implementation or delivery receipt and inherited DEV-307 Q1 evidence plus the T020A implementation and delivery receipts remain unproved; its inherited N2 second half stays an open and separate owner decision (OD-2), which no Patron answer and no first-half approval closes, and no Kestrel work is done without explicit user approval. (inherits T013-T017 and the delivered set)
 - [ ] T040 [US7] Final boundary diff `git diff --stat <base>...HEAD` limited to the plan file boundary; evidence table one row per spec success criterion. (inherits T046, T047)
-- [ ] T041 [US7] Record the eventual OD-1 answer, or an explicit owner deferral recorded as such, at the DEV-396 equivalent of DEV-307 T048; an explicit deferral is not implementation approval or an inferred answer. BLOCKED until the owner answers. (inherits T048)
+- [ ] T041 [US7] Record the OD-1 owner answer (YouTrack comment 7-269: approved as worded including the deferral clause; OD-2: retain default WebApplicationFactory, no Kestrel), at the DEV-396 equivalent of DEV-307 T048; an explicit deferral is not implementation approval or an inferred answer. (inherits T048)
 - [ ] T042 [US7] Full delivery review (Sentry, Ledger, Compass) with Medium+ closing bar, inside the delivery review budget: at most 2 rounds of at most 2 fix commits each, which never lends to and is never borrowed from the historical budget in T012; the round, fix-commit and exhaustion rules are T012's and are applied here unchanged, with the report naming `delivery`. Refactor and architect passes per pipeline.
 - [ ] T043 [US7] Publish corrective records: retrospective findings and adjudication summary in the corrective PR; corrective comment on PR #82; DEV-307 tracker comment through Rigger only; Keel merge-bar PR comment. No merge; the terminal state is awaiting the user's merge.
 - [ ] T044 [US7] (Rigger) ADR-R4 close-out in the DEV-396 delivery PR before review closes: change `docs/adr/0018-observability-composition-in-service-defaults.md` Status from `Proposed` to `Accepted` with the date, and re-word any BLOCKED readiness sentence to match the owner's Q2 answer; an absent answer stays BLOCKED and is never inferred, and no earlier ADR is edited (CONCLUSIONS.md ADR-R4; task-pipeline:74). Quill authors this task line; Rigger executes it in the delivery PR. Nothing is reassigned and the `Proposed` status and owner guards stand until the PR.
@@ -129,6 +129,6 @@
 | T020A | unticked, never by inference: N2 first-half approval recorded; inherited DEV-307 Q1 evidence, implementation and delivery receipts unproved; N2 second half open as OD-2 | Open Items in `plan.md`, OD-2 in `spec.md`, T039 |
 | T027-T033, T033A | delivered with receipts | T015-T022 |
 | T034-T036B | delivered with receipts | T023-T027 |
-| Inherited DEV-307 T037-T041 | BLOCKED on OD-1; not counted delivered or deferred | local T033-T036 |
+| Inherited DEV-307 T037-T041 | OD-1 approved (7-269); scheduled | local T033-T036 |
 | T042-T047 | delivered with receipts | T037, T038, T040 |
-| Inherited DEV-307 T048 | BLOCKED until owner answers OD-1 | local T041 |
+| Inherited DEV-307 T048 | OD-1 approved (7-269); scheduled | local T041 |
