@@ -21,9 +21,13 @@
   Run the tool from the worktree whose PR will carry that plan change, and
   commit the plan with it. Comments and tags are never touched by the sync.
 
+  -Tag resolves an existing tag and posts its id to /api/issues/{id}/tags.
+  It does not create a tag.
+
   Exit 0: every requested change read back as written. Exit 1: a change did
   not stick, a duplicate blocked -Create, or the plan could not be updated.
-  Exit 2: configuration or HTTP error.
+  Exit 2: configuration or HTTP error, or -Tag does not name exactly one
+  existing tag.
 
   Credentials resolve as documented in _youtrack.ps1 (same order as
   scripts/get-task.ps1). The token is sent only as Authorization: Bearer and
@@ -146,9 +150,27 @@ function Send-IssueCommand {
     $null = Send-YouTrack Post '/api/commands' @{ query = $Query; issues = @(@{ idReadable = $Id }) }
 }
 
+function Get-ExistingTagId {
+    param([string]$Name)
+    $query = [uri]::EscapeDataString($Name)
+    $hits = @(Send-YouTrack Get "/api/tags?fields=id,name&`$top=42&query=$query")
+    $ids = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($hit in $hits) {
+        if (-not $hit) { continue }
+        if (([string](Get-JsonPath -Object $hit -Path 'name')) -cne $Name) { continue }
+        $id = [string](Get-JsonPath -Object $hit -Path 'id')
+        if ($id) { $null = $ids.Add($id) }
+    }
+    if ($ids.Count -eq 1) { return @($ids)[0] }
+    if ($ids.Count -eq 0) { Stop-WithError "no existing tag named '$Name'." }
+    Stop-WithError "more than one tag is named '$Name'."
+}
+
 function Add-Tag {
     param([string]$Id)
-    foreach ($name in @($Tag | Where-Object { $_ })) { Send-IssueCommand $Id "tag {$name}" }
+    foreach ($name in @($Tag | Where-Object { $_ })) {
+        $null = Send-YouTrack Post (Get-IssuePath $Id '/tags') @{ id = (Get-ExistingTagId $name) }
+    }
 }
 
 function Assert-Same {
