@@ -8,6 +8,10 @@ public static class TelemetryConstants
 
     public const string RabbitMqSubscriberActivitySourceName = "RabbitMQ.Client.Subscriber";
 
+    public const string HandlerOutcome = "lamuflix.handler.outcome";
+
+    public const string HandlerOutcomeValidationFailed = "validation_failed";
+
     public const string HandlerRequest = "lamuflix.handler.request";
 
     public const string ErrorType = "error.type";
