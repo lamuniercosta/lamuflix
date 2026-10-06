@@ -113,6 +113,7 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddLamuFlixOptions();
+        services.AddLogging();
         services.AddLamuFlixPersistence(configuration);
         return services;
     }

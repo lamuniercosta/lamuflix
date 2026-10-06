@@ -136,7 +136,7 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
     }
 
     [Fact]
-    public void AddMetadataProvider_RegistersTheReadyTaggedHealthCheck()
+    public void AddMetadataProvider_RegistersTheUntaggedHealthCheck()
     {
         // arrange
         var services = probe.BuildServices();
@@ -146,7 +146,7 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
 
         // assert
         var check = registrations.Single(registration => registration.Name == MetadataProviderProbe.CheckName);
-        check.Tags.ShouldContain("ready");
+        check.Tags.ShouldBeEmpty();
     }
 
     [Fact]
