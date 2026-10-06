@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
@@ -206,10 +210,284 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
 
         await using var verify = OpenSibling(db);
         var record = await verify.Movies.SingleAsync(item => item.Id == movie.Id, TestContext.Current.CancellationToken);
-        record.EnrichmentAttempts.ShouldBe(2);
+        record.EnrichmentAttempts.ShouldBe(1);
         record.LastAttemptAt.ShouldBe(Now.AddMinutes(1));
         record.IsInWatchlist.ShouldBeTrue();
         record.Status.ShouldBe(EnrichmentStatus.Enriched);
+    }
+
+    [Fact]
+    public async Task TryClaim_FromPersistedNonZeroCount_IncrementsExactlyOnce()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db, Now);
+        var id = await repository.NextIdentityAsync(ct);
+        await SeedAsync(id, EnrichmentStatus.Pending, 3, null);
+
+        (await repository.TryClaimForEnrichmentAsync(id, ct)).ShouldBeTrue();
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.SingleAsync(item => item.Id == id, ct);
+        record.EnrichmentAttempts.ShouldBe(4);
+        record.LastAttemptAt.ShouldBe(Now);
+    }
+
+    [Fact]
+    public async Task TryClaimThenOutcome_FreshAggregateSuccess_PersistsClaimedCountOnly() =>
+        await AssertFreshAggregateOutcomePersistsClaimedCount(Outcome.Success);
+
+    [Fact]
+    public async Task TryClaimThenOutcome_FreshAggregateNotFound_PersistsClaimedCountOnly() =>
+        await AssertFreshAggregateOutcomePersistsClaimedCount(Outcome.NotFound);
+
+    [Fact]
+    public async Task TryClaimThenOutcome_FreshAggregateTerminalFailure_PersistsClaimedCountOnly() =>
+        await AssertFreshAggregateOutcomePersistsClaimedCount(Outcome.TerminalFailure);
+
+    [Fact]
+    public async Task TryClaimThenOutcome_PreloadedAggregateSuccess_PersistsClaimedCountOnly() =>
+        await AssertPreloadedAggregateOutcomePersistsClaimedCount(Outcome.Success);
+
+    [Fact]
+    public async Task TryClaimThenOutcome_PreloadedAggregateNotFound_PersistsClaimedCountOnly() =>
+        await AssertPreloadedAggregateOutcomePersistsClaimedCount(Outcome.NotFound);
+
+    [Fact]
+    public async Task TryClaimThenOutcome_PreloadedAggregateTerminalFailure_PersistsClaimedCountOnly() =>
+        await AssertPreloadedAggregateOutcomePersistsClaimedCount(Outcome.TerminalFailure);
+
+    private async Task AssertFreshAggregateOutcomePersistsClaimedCount(Outcome outcome)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db, Now);
+        var id = await repository.NextIdentityAsync(ct);
+        await SeedAsync(id, EnrichmentStatus.Pending, 3, null);
+
+        (await repository.TryClaimForEnrichmentAsync(id, ct)).ShouldBeTrue();
+
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.EnrichmentAttempts.ShouldBe(4);
+        ApplyOutcome(movie, outcome);
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.SingleAsync(item => item.Id == id, ct);
+        record.EnrichmentAttempts.ShouldBe(4);
+        record.Status.ShouldBe(StatusOf(outcome));
+        record.LastAttemptAt.ShouldBe(Now.AddMinutes(1));
+    }
+
+    private async Task AssertPreloadedAggregateOutcomePersistsClaimedCount(Outcome outcome)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db, Now);
+        var id = await repository.NextIdentityAsync(ct);
+        await SeedAsync(id, EnrichmentStatus.Pending, 3, null);
+
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.EnrichmentAttempts.ShouldBe(3);
+
+        (await repository.TryClaimForEnrichmentAsync(id, ct)).ShouldBeTrue();
+
+        ApplyOutcome(movie, outcome);
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.SingleAsync(item => item.Id == id, ct);
+        record.EnrichmentAttempts.ShouldBe(4);
+        record.Status.ShouldBe(StatusOf(outcome));
+    }
+
+    [Fact]
+    public async Task TryClaimThenWatchlistSave_PreservesClaimedCountExactly()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db, Now);
+        var id = await repository.NextIdentityAsync(ct);
+        await SeedAsync(id, EnrichmentStatus.Pending, 3, null);
+
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        (await repository.TryClaimForEnrichmentAsync(id, ct)).ShouldBeTrue();
+        movie.AddToWatchlist();
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.SingleAsync(item => item.Id == id, ct);
+        record.EnrichmentAttempts.ShouldBe(4);
+        record.IsInWatchlist.ShouldBeTrue();
+        record.Status.ShouldBe(EnrichmentStatus.Pending);
+        record.LastAttemptAt.ShouldBe(Now);
+    }
+
+    [Fact]
+    public async Task TryClaim_RefusedDoubleAndLosingClaims_AddZeroBeyondTheWinningClaim()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db, Now);
+        var claimableId = await repository.NextIdentityAsync(ct);
+        var terminalId = await repository.NextIdentityAsync(ct);
+        var absentId = await repository.NextIdentityAsync(ct);
+        await SeedAsync(claimableId, EnrichmentStatus.Pending, 3, null);
+        await SeedAsync(terminalId, EnrichmentStatus.Enriched, 5, Now.AddDays(-1));
+
+        (await repository.TryClaimForEnrichmentAsync(claimableId, ct)).ShouldBeTrue();
+        (await repository.TryClaimForEnrichmentAsync(claimableId, ct)).ShouldBeFalse();
+        (await repository.TryClaimForEnrichmentAsync(terminalId, ct)).ShouldBeFalse();
+        (await repository.TryClaimForEnrichmentAsync(absentId, ct)).ShouldBeFalse();
+
+        await using (var secondClaimer = OpenSibling(db))
+        {
+            var other = Repository(secondClaimer, Now);
+            (await other.TryClaimForEnrichmentAsync(claimableId, ct)).ShouldBeFalse();
+        }
+
+        await using var verify = OpenSibling(db);
+        var winner = await verify.Movies.SingleAsync(item => item.Id == claimableId, ct);
+        winner.EnrichmentAttempts.ShouldBe(4);
+        var terminal = await verify.Movies.SingleAsync(item => item.Id == terminalId, ct);
+        terminal.EnrichmentAttempts.ShouldBe(5);
+    }
+
+    [Fact]
+    public async Task RetryDecision_WithoutOutcomeLeavesCountNextClaimAddsOneFinalOutcomeAddsNothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var clock = new LeaseClock(Now);
+        var repository = RepositoryAt(db, clock);
+        var id = await repository.NextIdentityAsync(ct);
+        await SeedAsync(id, EnrichmentStatus.Pending, 2, null);
+
+        (await repository.TryClaimForEnrichmentAsync(id, ct)).ShouldBeTrue();
+
+        await using (var afterFirstClaim = OpenSibling(db))
+        {
+            var firstClaim = await afterFirstClaim.Movies.SingleAsync(item => item.Id == id, ct);
+            firstClaim.EnrichmentAttempts.ShouldBe(3);
+        }
+
+        clock.Advance(TimeSpan.FromMinutes(10));
+        (await repository.TryClaimForEnrichmentAsync(id, ct)).ShouldBeTrue();
+
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.EnrichmentAttempts.ShouldBe(4);
+        movie.MarkNotFound(Now.AddMinutes(20));
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.SingleAsync(item => item.Id == id, ct);
+        record.EnrichmentAttempts.ShouldBe(4);
+        record.Status.ShouldBe(EnrichmentStatus.NotFound);
+    }
+
+    [Fact]
+    public async Task ManualRetry_SavesAndEnqueuesWireOneAtSameCountNextClaimAddsOneFinalOutcomeAddsNothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db, Now);
+        var id = await repository.NextIdentityAsync(ct);
+        await SeedAsync(id, EnrichmentStatus.Failed, 3, Now.AddDays(-1));
+
+        var queue = new RecordingQueue();
+        var handler = new RequestEnrichmentCommandHandler(repository, queue);
+        await handler.HandleAsync(new RequestEnrichmentCommand(id), ct);
+
+        queue.Messages.Count.ShouldBe(1);
+        queue.Messages[0].ShouldBe(new EnrichmentRequested(id, 1));
+
+        await using (var afterRequest = OpenSibling(db))
+        {
+            var requested = await afterRequest.Movies.SingleAsync(item => item.Id == id, ct);
+            requested.EnrichmentAttempts.ShouldBe(3);
+            requested.Status.ShouldBe(EnrichmentStatus.Pending);
+        }
+
+        (await repository.TryClaimForEnrichmentAsync(id, ct)).ShouldBeTrue();
+
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.MarkEnriched(new MovieMetadata("Recovered"), Now.AddMinutes(1));
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.SingleAsync(item => item.Id == id, ct);
+        record.EnrichmentAttempts.ShouldBe(4);
+        record.Status.ShouldBe(EnrichmentStatus.Enriched);
+    }
+
+    [Fact]
+    public async Task RequeueAlone_EnqueuesWireOneWithoutChangingPersistedCount()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db, Now);
+        var id = await repository.NextIdentityAsync(ct);
+        await SeedAsync(id, EnrichmentStatus.Pending, 3, null);
+
+        var queue = new RecordingQueue();
+        var handler = new RequeueStrandedMoviesCommandHandler(queue);
+        (await handler.HandleAsync(new RequeueStrandedMoviesCommand([id]), ct)).ShouldBe(1);
+
+        queue.Messages.Count.ShouldBe(1);
+        queue.Messages[0].ShouldBe(new EnrichmentRequested(id, 1));
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.SingleAsync(item => item.Id == id, ct);
+        record.EnrichmentAttempts.ShouldBe(3);
+        record.LastAttemptAt.ShouldBeNull();
+    }
+
+    private async Task SeedAsync(
+        MovieId id, EnrichmentStatus status, int enrichmentAttempts, DateTimeOffset? lastAttemptAt)
+    {
+        await using var seed = fixture.CreateMigratedContext();
+        seed.Movies.Add(CreateRecord(id, status, lastAttemptAt, enrichmentAttempts));
+        await seed.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    private static void ApplyOutcome(Movie movie, Outcome outcome)
+    {
+        var at = Now.AddMinutes(1);
+        switch (outcome)
+        {
+            case Outcome.Success:
+                movie.MarkEnriched(new MovieMetadata("Seam outcome"), at);
+                return;
+            case Outcome.NotFound:
+                movie.MarkNotFound(at);
+                return;
+            case Outcome.TerminalFailure:
+                movie.MarkFailed(EnrichmentFailureCategory.InvalidResponse, at);
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unknown outcome.");
+        }
+    }
+
+    private static EnrichmentStatus StatusOf(Outcome outcome) =>
+        outcome switch
+        {
+            Outcome.Success => EnrichmentStatus.Enriched,
+            Outcome.NotFound => EnrichmentStatus.NotFound,
+            Outcome.TerminalFailure => EnrichmentStatus.Failed,
+            _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unknown outcome."),
+        };
+
+    private enum Outcome
+    {
+        Success,
+        NotFound,
+        TerminalFailure,
     }
 
     private static LamuFlixDbContext OpenSibling(LamuFlixDbContext source)
@@ -222,7 +500,11 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     private static EfMovieRepository Repository(LamuFlixDbContext db, DateTimeOffset? now = null) =>
         new(db, new FixedTimeProvider(now ?? Now), Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
 
-    private static MovieRecord CreateRecord(MovieId id, EnrichmentStatus status, DateTimeOffset? lastAttemptAt) =>
+    private static EfMovieRepository RepositoryAt(LamuFlixDbContext db, LeaseClock clock) =>
+        new(db, clock, Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+
+    private static MovieRecord CreateRecord(
+        MovieId id, EnrichmentStatus status, DateTimeOffset? lastAttemptAt, int enrichmentAttempts = 0) =>
         new()
         {
             Id = id,
@@ -230,7 +512,28 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
             LibraryPath = new LibraryPath($"C:/library/movie-{id.Value}.mkv"),
             Format = new MediaFormat("mkv"),
             Status = status,
+            EnrichmentAttempts = enrichmentAttempts,
             LastAttemptAt = lastAttemptAt,
         };
+
+    private sealed class LeaseClock(DateTimeOffset start) : TimeProvider
+    {
+        private DateTimeOffset utcNow = start;
+
+        public override DateTimeOffset GetUtcNow() => utcNow;
+
+        public void Advance(TimeSpan elapsed) => utcNow += elapsed;
+    }
+
+    private sealed class RecordingQueue : IEnrichmentQueue
+    {
+        public List<EnrichmentRequested> Messages { get; } = [];
+
+        public Task EnqueueAsync(EnrichmentRequested message, CancellationToken ct)
+        {
+            Messages.Add(message);
+            return Task.CompletedTask;
+        }
+    }
 
 }
