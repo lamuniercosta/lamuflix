@@ -40,8 +40,12 @@ The in-memory domain root for one library movie and its enrichment workflow. Cre
 _Avoid_: Data.Models.Movie, EF entity
 
 **Enrichment Attempt**
-The monotonic count of completed enrichment outcomes on a Movie aggregate. `MarkEnriched`, `MarkNotFound`, and `MarkFailed` increment it. `RequestEnrichment` keeps the count.
-_Avoid_: a retry counter that resets
+`EnrichmentAttempts` / `enrichment_attempts`: the monotonic cumulative count of successful atomic claims (processing attempts started) on a Movie aggregate. It starts at 0 and adds exactly one per successful claim; refused claims, `MarkEnriched`, `MarkNotFound`, `MarkFailed`, and `RequestEnrichment` add zero. It is preserved across manual retries and never reset. Values stored before DEV-390 can overcount historical attempts and cannot be retroactively corrected.
+_Avoid_: a completed-outcome count, a retry counter that resets
+
+**Transport Retry Attempt**
+`EnrichmentRequested.Attempt`: the message sequence ordinal carried on the wire. Manual retry and stranded requeue restart it at 1; the retry policy advances it by one per retry decision. It is never copied into or used to reset the persisted counter.
+_Avoid_: the persisted counter, enrichment attempts
 
 **Stranded Movie**
 A Pending movie whose enrichment claim lease has aged out, or a Pending movie left without a queued `EnrichmentRequested` message. The sweeper re-enqueues `EnrichmentRequested` without claiming.

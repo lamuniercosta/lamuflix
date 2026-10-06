@@ -73,7 +73,7 @@
 
 **Independent Test**: `CONTEXT.md` entries read as specified in spec User Story 3.
 
-- [ ] T016 [US3] Narrow the `EnrichmentAttempts` glossary entry in `CONTEXT.md` to cumulative successful claims plus the pre-DEV-390 overcount caveat, and add the separate transport retry Attempt term; no other `CONTEXT.md` edits.
+- [X] T016 [US3] Narrow the `EnrichmentAttempts` glossary entry in `CONTEXT.md` to cumulative successful claims plus the pre-DEV-390 overcount caveat, and add the separate transport retry Attempt term; no other `CONTEXT.md` edits.
 
 **Checkpoint**: All user stories independently functional; docs match behavior.
 
