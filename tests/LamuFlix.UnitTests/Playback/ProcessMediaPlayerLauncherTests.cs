@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
@@ -63,8 +64,14 @@ public sealed class ProcessMediaPlayerLauncherTests
             && psi.ArgumentList[0] == file.Value));
     }
 
-    [Fact]
-    public void Launch_UnmappedFormat_FallsBackToOsAssociation()
+    [Theory]
+    [InlineData("lnk")]
+    [InlineData("bat")]
+    [InlineData("cmd")]
+    [InlineData("msi")]
+    [InlineData("scr")]
+    [InlineData("avi")]
+    public void Launch_UnmappedFormat_ThrowsWithoutStartingProcess(string extension)
     {
         // arrange
         var launcher = NewLauncher(
@@ -76,17 +83,15 @@ public sealed class ProcessMediaPlayerLauncherTests
                 Formats = ["mkv"],
             },
         ]);
-        var file = new LibraryPath(@"C:\library\film.avi");
-        var format = new MediaFormat("avi");
+        var file = new LibraryPath($@"C:\library\film.{extension}");
+        var format = new MediaFormat(extension);
 
         // act
-        launcher.Launch(file, format);
+        var exception = Should.Throw<InvalidOperationException>(() => launcher.Launch(file, format));
 
         // assert
-        starter.Received(1).Start(Arg.Is<ProcessStartInfo>(psi =>
-            psi.FileName == file.Value
-            && psi.ArgumentList.Count == 0
-            && psi.UseShellExecute));
+        exception.Message.ShouldContain(extension);
+        starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
     }
 
     [Fact]
