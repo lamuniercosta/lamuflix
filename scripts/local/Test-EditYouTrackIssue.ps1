@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 # Offline self-test for Edit-YouTrackIssue.ps1. No network, no real credentials.
 # A stateful fake YouTrack (a JSON file) makes every read-back reflect what the
-# script actually wrote. Needs python on PATH for the plan-sync cases.
+# script actually wrote.
 #
 #   pwsh ./scripts/local/Test-EditYouTrackIssue.ps1
 
@@ -245,21 +245,6 @@ function New-State {
     }
 }
 
-# Mirrors json.dumps(indent=2, ensure_ascii=False) with CRLF and no trailing newline.
-function Get-PlanText {
-    param([string]$Summary, [string]$Description)
-    return (@('{', '  "epics": [],', '  "tasks": [', '    {', '      "key": "task-1.2",', '      "action": "create",',
-        "      `"summary`": `"$Summary`",", "      `"description`": `"$Description`"", '    }', '  ]', '}') -join "`r`n")
-}
-
-function New-PlanDirectory {
-    $dir = Join-Path $work ('plan-' + [guid]::NewGuid().ToString('N'))
-    $null = New-Item -ItemType Directory -Path $dir
-    [IO.File]::WriteAllText((Join-Path $dir 'youtrack-plan.json'), (Get-PlanText 'Old summary' 'Old — text'), [Text.UTF8Encoding]::new($false))
-    [IO.File]::WriteAllText((Join-Path $dir 'created-tasks.json'), '{ "task-1.2": "DEV-290" }')
-    return $dir
-}
-
 function New-TextFile {
     param([string]$Text)
     $path = Join-Path $work ([guid]::NewGuid().ToString('N') + '.md')
@@ -270,7 +255,7 @@ function New-TextFile {
 # Runs the script in a child pwsh so its `exit` codes are observable.
 # $Arguments is PowerShell source for the script's own parameters.
 function Invoke-Edit {
-    param([string]$Arguments, [hashtable]$State = (New-State), [string]$PlanDirectory = (New-PlanDirectory), [switch]$NoUrl)
+    param([string]$Arguments, [hashtable]$State = (New-State), [switch]$NoUrl)
 
     if ($Arguments -match '-Create' -and $Arguments -notmatch '-LockName') { $Arguments += " -LockName '$testLock'" }
     $log = Join-Path $work ([guid]::NewGuid().ToString('N') + '.log')
@@ -292,7 +277,7 @@ function Invoke-Edit {
     finally { Set-Content -LiteralPath `$env:YT_TEST_STATE -Value (ConvertTo-Json -InputObject `$state -Depth 10) }
 }
 # A parameter-validation failure never reaches the script's own exit codes (3 is the script's).
-try { & '$script' $Arguments -PlanDirectory '$PlanDirectory' -EnvironmentReader `$envReader -RestMethodInvoker `$invoker -DpapiFileReader { `$null } }
+try { & '$script' $Arguments -EnvironmentReader `$envReader -RestMethodInvoker `$invoker -DpapiFileReader { `$null } }
 catch { Write-Output "binding: `$(`$_.Exception.Message)"; exit 9 }
 exit `$LASTEXITCODE
 "@
@@ -300,10 +285,8 @@ exit `$LASTEXITCODE
     $code = $LASTEXITCODE
     $calls = @(if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log })
     $after = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json -AsHashtable
-    return [pscustomobject]@{ ExitCode = $code; Output = ($output -join "`n"); Calls = $calls; State = $after; PlanDirectory = $PlanDirectory }
+    return [pscustomobject]@{ ExitCode = $code; Output = ($output -join "`n"); Calls = $calls; State = $after }
 }
-
-function Read-Plan { param([string]$Directory) [IO.File]::ReadAllText((Join-Path $Directory 'youtrack-plan.json')) }
 
 function Get-NonGetCall { param($Result) return , @($Result.Calls | Where-Object { $_ -notmatch '^Get ' }) }
 
@@ -406,7 +389,6 @@ try {
     Assert-True 'create: attaches the existing tag by id' ((@($create.Calls | Where-Object { $_ -match 'Get https://yt\.example/api/tags\?fields=id,name&\$top=42&query=size%3AM ' }).Count -eq 1) -and (@($create.Calls | Where-Object { $_ -match 'Post https://yt\.example/api/issues/DEV-900/tags \{"id":"10-3"\}' }).Count -eq 1))
     Assert-True 'create: stores LF text without trailing whitespace' ($create.State.issues['DEV-900'].description -ceq "### Overview`nFollow-up text.")
     Assert-True 'create: sends the token as Bearer' ($create.Calls[0] -match 'auth=Bearer perm-test$')
-    Assert-True 'create: leaves the plan alone' ((Read-Plan $create.PlanDirectory) -ceq (Get-PlanText 'Old summary' 'Old — text'))
     Assert-True 'create: the issue reads back with Type, Priority, Repository, estimate, parent, tag' (
         $create.State.issues['DEV-900'].type -ceq 'Task' -and $create.State.issues['DEV-900'].priority -ceq 'Normal' -and
         $create.State.issues['DEV-900'].repository -ceq 'lamuflix' -and $create.State.issues['DEV-900'].estimate -eq 480 -and
@@ -566,7 +548,6 @@ try {
     $comment = New-TextFile "Patron ruling: keep ADR 0001.`n"
     $commented = Invoke-Edit "-Ticket DEV-290 -CommentFile '$comment'"
     Assert-True 'comment: exit 0 and read back' ($commented.ExitCode -eq 0 -and $commented.Output -match 'updated \(verified\): comment')
-    Assert-True 'comment: plan untouched' ((Read-Plan $commented.PlanDirectory) -ceq (Get-PlanText 'Old summary' 'Old — text'))
 
     $mangled = Invoke-Edit "-Ticket DEV-290 -CommentFile '$comment'" -State (New-State -MangleComment)
     Assert-True 'comment: exit 1 when the stored text differs' ($mangled.ExitCode -eq 1 -and $mangled.Output -match 'comment did not read back')
@@ -591,21 +572,10 @@ try {
     Assert-True 'tag: an ambiguous name is not attached' (@($ambiguous.Calls | Where-Object { $_ -match 'Post .*/api/issues/.*/tags' }).Count -eq 0)
 
     $newText = New-TextFile "Line one — ü`nLine two"
-    $hasPlanText = Test-Path -LiteralPath (Join-Path $PSScriptRoot '_plan_text.py')
-    $planned = Invoke-Edit "-Ticket DEV-290 -Summary 'New summary' -DescriptionFile '$newText'"
-    Assert-True 'plan: YouTrack has the new summary' ($planned.State.issues['DEV-290'].summary -ceq 'New summary')
-    if ($hasPlanText) {
-        Assert-True 'plan: exit 0 on a planned ticket' ($planned.ExitCode -eq 0 -and $planned.Output -match 'entry task-1.2 updated for DEV-290')
-        Assert-True 'plan: rewrites only the edited fields, keeping CRLF' ((Read-Plan $planned.PlanDirectory) -ceq (Get-PlanText 'New summary' 'Line one — ü
-Line two'))
-        $unplanned = Invoke-Edit "-Ticket DEV-700 -Summary 'Renamed'"
-        Assert-True 'plan: a ticket outside the plan is reported and left alone' ($unplanned.ExitCode -eq 0 -and $unplanned.Output -match 'DEV-700 is not in youtrack-plan.json' -and (Read-Plan $unplanned.PlanDirectory) -ceq (Get-PlanText 'Old summary' 'Old — text'))
-    }
-    else {
-        Write-Host '  note     _plan_text.py is not in this checkout (removed in dd79fc6): the plan-rewrite cases are skipped'
-        Assert-True 'plan: with no plan machinery a summary/description edit still succeeds (exit 0) and says so' ($planned.ExitCode -eq 0 -and $planned.Output -match 'nothing to sync' -and $planned.Output -match 'updated \(verified\)')
-        Assert-True 'plan: the plan file is left untouched' ((Read-Plan $planned.PlanDirectory) -ceq (Get-PlanText 'Old summary' 'Old — text'))
-    }
+    $edited = Invoke-Edit "-Ticket DEV-290 -Summary 'New summary' -DescriptionFile '$newText'"
+    Assert-True 'edit: a summary/description edit exits 0 and reads back' ($edited.ExitCode -eq 0 -and $edited.Output -match 'updated \(verified\): description, summary')
+    Assert-True 'edit: YouTrack has the new summary and description' ($edited.State.issues['DEV-290'].summary -ceq 'New summary' -and $edited.State.issues['DEV-290'].description -match '^Line one .*\nLine two')
+    Assert-True 'edit: prints no plan line' ($edited.Output -notmatch '(?m)^plan:')
 
     $nothing = Invoke-Edit "-Ticket DEV-290"
     Assert-True 'edit: exit 2 with nothing to change' ($nothing.ExitCode -eq 2 -and $nothing.Calls.Count -eq 0)

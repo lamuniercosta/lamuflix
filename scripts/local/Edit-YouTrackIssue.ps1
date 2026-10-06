@@ -13,9 +13,6 @@
   Run -Create and -Show from the MAIN checkout, by absolute path, never from a
   task worktree (a worktree branched earlier carries an old copy of this script):
     pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Create ...
-  -Create and -Show never read or write scripts/youtrack-plan.json, so this is
-  safe. Only an -Ticket summary/description edit syncs the plan, and that must
-  run from the worktree whose PR carries the plan change.
 
     # New ticket under an epic:
     pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Create -Summary '<text>' `
@@ -81,21 +78,13 @@
     7. Reads everything back (text, Type, Priority, Repository, Estimated Time, parent,
        tags, Order sequence 1..N with no gaps or duplicates, sprint membership).
 
-  (Checkouts from before commit dd79fc6 only; later ones have no plan and skip this.)
-  scripts/sync_youtrack_board.py rewrites the summary and description of every
-  ticket scripts/youtrack-plan.json manages. A summary or description edit on
-  such a ticket is therefore written into the plan too (via _plan_text.py).
-  Run the tool from the worktree whose PR will carry that plan change, and
-  commit the plan with it. Comments and tags are never touched by the sync.
-
   -Tag resolves an existing tag and posts its id to /api/issues/{id}/tags.
   It does not create a tag.
 
   Exit 0: every requested change read back as written (or -DryRun finished).
   Exit 1: a same-summary issue, open or resolved, blocked -Create (or was detected
           right after it): use the existing ticket (or pick a different summary if
-          the work is genuinely new) and do not retry; or an edit did not stick; or
-          the plan could not be updated.
+          the work is genuinely new) and do not retry; or an edit did not stick.
   Exit 2: nothing was created: configuration or HTTP error, the lock could not be
           taken, an invalid Type/Priority/Repository, a non-contiguous Order
           sequence, or -Tag does not name exactly one existing tag.
@@ -110,8 +99,8 @@
   is never printed.
 
   Offline-test seams (production callers omit them): -EnvironmentReader,
-  -RestMethodInvoker, -DpapiFileReader (see _youtrack.ps1), -PlanDirectory
-  (the folder holding youtrack-plan.json), -LockName and -LockTimeoutSeconds.
+  -RestMethodInvoker, -DpapiFileReader (see _youtrack.ps1), -LockName and
+  -LockTimeoutSeconds.
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Edit')]
@@ -176,7 +165,6 @@ param(
     [ValidateRange(1, 3600)]
     [int]$LockTimeoutSeconds = 120,
 
-    [string]$PlanDirectory = (Split-Path -Parent $PSScriptRoot),
     [scriptblock]$EnvironmentReader,
     [scriptblock]$RestMethodInvoker,
     [scriptblock]$DpapiFileReader
@@ -401,36 +389,6 @@ function Stop-OnMismatch {
     if ($mismatches.Count -eq 0) { return }
     foreach ($problem in $mismatches) { [Console]::Error.WriteLine("${YouTrackTool}: ${Id}: $problem") }
     exit 1
-}
-
-function Sync-PlanText {
-    # Ok is $false when the plan manages the ticket but could not be updated.
-    param([string]$Id)
-    $summaryFile = $null
-    $tool = Join-Path $PSScriptRoot '_plan_text.py'
-    if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) {
-        # The plan and its sync were removed from the repository (commit dd79fc6); a checkout
-        # without them has nothing to keep in step, so the edit must not fail over it.
-        return [pscustomobject]@{ Ok = $true; Lines = @('plan: _plan_text.py is not in this checkout (the YouTrack plan was retired); nothing to sync') }
-    }
-    $arguments = @($tool, $Id, '--scripts-dir', $PlanDirectory)
-    try {
-        if ($Summary) {
-            $summaryFile = [IO.Path]::GetTempFileName()
-            [IO.File]::WriteAllText($summaryFile, $Summary.Trim(), [Text.UTF8Encoding]::new($false))
-            $arguments += '--summary-file', $summaryFile
-        }
-        if ($DescriptionFile) { $arguments += '--description-file', (Resolve-Path -LiteralPath $DescriptionFile).ProviderPath }
-        $env:PYTHONUTF8 = '1'
-        $lines = @(& python @arguments 2>&1 | ForEach-Object { [string]$_ })
-        return [pscustomobject]@{ Ok = $LASTEXITCODE -in 0, 3; Lines = $lines }
-    }
-    catch {
-        return [pscustomobject]@{ Ok = $false; Lines = @("could not run _plan_text.py: $($_.Exception.Message)") }
-    }
-    finally {
-        if ($summaryFile) { [IO.File]::Delete($summaryFile) }
-    }
 }
 
 # ---- -Create: reads -------------------------------------------------------
@@ -796,7 +754,6 @@ function Invoke-PostCreate {
         Write-Output "$Id created (verified)"
         Write-Issue $issue
         if ($Sprint) { Write-Output "  Sprint: $($Sprint.Name)" }
-        Write-Output "plan: $Id is not in youtrack-plan.json; the sync leaves it alone"
     }
 }
 
@@ -879,14 +836,6 @@ function Invoke-Edit {
     Stop-OnMismatch $Ticket
     Write-Output "$Ticket updated (verified): $(@($text.Keys | Sort-Object) + @(if ($Tag) { 'tags' }) + @(if ($comment) { 'comment' }) -join ', ')"
     Write-Issue $issue
-
-    if ($text.Count -eq 0) { return }
-    $plan = Sync-PlanText $Ticket
-    $plan.Lines | Write-Output
-    if (-not $plan.Ok) {
-        [Console]::Error.WriteLine("${YouTrackTool}: $Ticket was updated in YouTrack but youtrack-plan.json was not; the next sync_youtrack_board.py run will revert it.")
-        exit 1
-    }
 }
 
 Connect-YouTrack
