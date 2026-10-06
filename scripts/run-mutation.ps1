@@ -50,7 +50,7 @@ EXIT CODES:
 |---|---|---|---|
 | 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
 | 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration, or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
-| 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | Yes; never green |
+| 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
 | 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
 
 The table describes a real run. -DryRun starts no Stryker process, so its exit 0 means
@@ -95,7 +95,7 @@ EXIT CODES:
 |---|---|---|---|
 | 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
 | 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration, or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
-| 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | Yes; never green |
+| 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
 | 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
 '@
     exit 0
