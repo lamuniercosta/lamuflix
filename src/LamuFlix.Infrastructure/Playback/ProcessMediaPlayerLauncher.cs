@@ -17,17 +17,12 @@ public sealed class ProcessMediaPlayerLauncher(IOptions<PlaybackOptions> options
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(starter);
 
-        var startInfo = new ProcessStartInfo { UseShellExecute = true };
-        var executable = ResolveExecutable(format);
-        if (executable is null)
-        {
-            startInfo.FileName = file.Value;
-        }
-        else
-        {
-            startInfo.FileName = executable;
-            startInfo.ArgumentList.Add(file.Value);
-        }
+        var executable = ResolveExecutable(format)
+            ?? throw new InvalidOperationException(
+                $"No configured player supports format '{format.Extension}'. Configure Playback:Players for this format.");
+
+        var startInfo = new ProcessStartInfo { UseShellExecute = true, FileName = executable };
+        startInfo.ArgumentList.Add(file.Value);
 
         starter.Start(startInfo);
     }
