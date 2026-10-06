@@ -84,7 +84,10 @@ function Invoke-YouTrack {
         $request.Body = [Text.Encoding]::UTF8.GetBytes($Body)
         $request.ContentType = 'application/json; charset=utf-8'
     }
-    return Invoke-RestMethod @request
+    # Assign, then return: a JSON array comes back as one Object[] from the cmdlet and
+    # only unrolls into the caller's @() / foreach when it is returned from a variable.
+    $response = Invoke-RestMethod @request
+    return $response
 }
 
 function Send-YouTrack {
