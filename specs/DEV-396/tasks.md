@@ -71,7 +71,7 @@
 - [X] T023 [P] [US3] (Anvil) Create `src/LamuFlix.Core/Pipeline/HealthCheckTags.cs` with `Ready = "ready"` beside `TelemetryConstants`. (inherits T034)
 - [X] T024 [US3] (Cog) In `PersistenceServiceCollectionExtensions.cs` register the PostgreSQL check over `LamuFlixDbContext` tagged with the constant; in `RabbitMqServiceCollectionExtensions.cs` replace the literal with the constant; no schema or migration, no driver mock. (inherits T035)
 - [X] T025 [US3] (Cog) In `MetadataProviderServiceCollectionExtensions.cs` remove the readiness tag and leave the check registered. (inherits T036)
-- [ ] T026 [US3] (Anvil) Create `tests/LamuFlix.UnitTests/HealthCheckRegistrationTests.cs` reading the real registrations (independent of endpoint stubs): exactly two ready-tagged checks (postgres, rabbitmq), metadata-provider registered and untagged. (inherits T036A)
+- [X] T026 [US3] (Anvil) Create `tests/LamuFlix.UnitTests/HealthCheckRegistrationTests.cs` reading the real registrations (independent of endpoint stubs): exactly two ready-tagged checks (postgres, rabbitmq), metadata-provider registered and untagged. (inherits T036A)
 - [ ] T027 [US3] Gates on the four production files and the new test; `rg -n 'tags:\s*\[\"ready\"\]' src` returns nothing; boundary check on `MapHealthChecks|MapDefaultEndpoints` sites unchanged. (inherits T036B, T041 non-readiness half)
 
 **Checkpoint**: readiness group membership proven; no readiness route yet.
