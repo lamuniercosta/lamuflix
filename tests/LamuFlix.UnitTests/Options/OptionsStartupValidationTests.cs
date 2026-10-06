@@ -43,6 +43,69 @@ public sealed class OptionsStartupValidationTests
     }
 
     [Fact]
+    public void AbsoluteHttpsBaseUrl_PassesValidation()
+    {
+        using var provider = Build(ValidRequired());
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        provider.GetRequiredService<IOptions<OmdbOptions>>().Value.BaseUrl.ShouldBe("https://www.omdbapi.com/");
+    }
+
+    [Fact]
+    public void NonLoopbackHttpBaseUrl_FailsWithoutRevealingCredentials()
+    {
+        const string secret = "super-secret";
+        const string baseUrl = "http://example.com/?apikey=super-secret";
+        var exception = Validate(ValidRequired(apiKey: secret, baseUrl: baseUrl));
+
+        exception.Message.ShouldContain(nameof(OmdbOptions.BaseUrl));
+        exception.Message.ShouldNotContain(secret);
+        exception.Message.ShouldNotContain(baseUrl);
+    }
+
+    [Fact]
+    public void LoopbackHttpBaseUrl_PassesValidation()
+    {
+        const string baseUrl = "http://localhost:8080";
+        using var provider = Build(ValidRequired(baseUrl: baseUrl));
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        provider.GetRequiredService<IOptions<OmdbOptions>>().Value.BaseUrl.ShouldBe(baseUrl);
+    }
+
+    [Fact]
+    public void LoopbackIpHttpBaseUrl_PassesValidation()
+    {
+        const string baseUrl = "http://127.0.0.1:8080";
+        using var provider = Build(ValidRequired(baseUrl: baseUrl));
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        provider.GetRequiredService<IOptions<OmdbOptions>>().Value.BaseUrl.ShouldBe(baseUrl);
+    }
+
+    [Fact]
+    public void UnsupportedSchemeBaseUrl_FailsWithoutRevealingTheUrl()
+    {
+        const string baseUrl = "ftp://localhost/metadata";
+        var exception = Validate(ValidRequired(baseUrl: baseUrl));
+
+        exception.Message.ShouldContain(nameof(OmdbOptions.BaseUrl));
+        exception.Message.ShouldNotContain(baseUrl);
+    }
+
+    [Fact]
     public void MissingHostName_FailsValidation()
     {
         var exception = Validate(ValidRequired(hostName: ""));
