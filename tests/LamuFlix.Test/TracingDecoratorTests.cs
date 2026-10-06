@@ -62,7 +62,7 @@ public sealed class TracingDecoratorTests
         exception.Message.ShouldBe("boom");
         observed.ShouldNotBeNull();
         observed.Status.ShouldBe(ActivityStatusCode.Error);
-        observed.GetTagItem(TelemetryConstants.ErrorType).ShouldBe(nameof(InvalidOperationException));
+        observed.GetTagItem(TelemetryConstants.ErrorType).ShouldBe(typeof(InvalidOperationException).FullName);
     }
 
     [Fact]
