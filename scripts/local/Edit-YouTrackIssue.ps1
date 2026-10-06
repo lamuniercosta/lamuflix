@@ -26,6 +26,14 @@
     pwsh scripts/local/Edit-YouTrackIssue.ps1 -Ticket DEV-290 `
         [-Summary '<text>'] [-DescriptionFile <md>] [-CommentFile <md>] [-Tag size:S]
 
+    # Repair a ticket a -Create left half done (exit 3); one step or several in one call:
+    pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Ticket DEV-123 -Parent DEV-284
+    pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Ticket DEV-123 -Estimate 4h -Type Task
+    pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Ticket DEV-123 -Order -Sprint
+
+    # Same, but only read and print every planned write (zero non-GET calls):
+    pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Ticket DEV-123 -DryRun -Parent DEV-284 -Order -Sprint
+
     # Read-only: summary, State, Type, parent, tags, estimate, Order (get-task.ps1 omits tags):
     pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Ticket DEV-290 -Show
 
@@ -81,18 +89,48 @@
   -Tag resolves an existing tag and posts its id to /api/issues/{id}/tags.
   It does not create a tag.
 
+  -Ticket repair parameters (each is read back; a value the ticket already has is a no-op)
+    -Parent DEV-x   Adds the "subtask of DEV-x" link (command string without braces, as -Create
+                    does). Already a subtask of DEV-x: no write. A DIFFERENT parent already
+                    there is refused (exit 2): this tool never removes a link, so a parent is
+                    only ever added to a ticket that has none. A ticket is never its own parent.
+    -Estimate <p>   Sets Estimated Time by REST, same format as -Create (1h, 4h, 1d, '2h 30m').
+    -Type <value>   Sets Type by REST, same values as -Create. An Epic is refused (exit 2).
+    -Order          Slots a ticket that has NO Order into the 1..N sequence: directly after its
+                    parent's last Done child, then renumbers (highest first, every renumber
+                    printed), exactly as -Create does. Refused (exit 2, nothing written) when the
+                    ticket already has an Order (it is never moved), its Repository is not
+                    lamuflix, it is an Epic, or it has no parent. A parent that -Parent adds in
+                    the same call counts, so "-Parent DEV-284 -Order" repairs both in one go.
+                    A real run takes -Create's machine-wide lock before it reads the sequence
+                    (no concurrent -Create can interleave); a lock timeout is exit 2, nothing
+                    written. -DryRun does not take it.
+    -Sprint         Adds the ticket to the board's CURRENT sprint (read live, never hardcoded).
+                    Already a member: no write, still exit 0. No current sprint: exit 2.
+    -DryRun         Also valid with -Ticket: reads everything, prints each planned write
+                    (including the renumber list), refuses exactly as a real run would, and exits
+                    0 without a single non-GET.
+  Every refusal is decided from reads alone, before the first write of the call.
+
   Exit 0: every requested change read back as written (or -DryRun finished).
   Exit 1: a same-summary issue, open or resolved, blocked -Create (or was detected
           right after it): use the existing ticket (or pick a different summary if
           the work is genuinely new) and do not retry; or an edit did not stick.
-  Exit 2: nothing was created: configuration or HTTP error, the lock could not be
-          taken, an invalid Type/Priority/Repository, a non-contiguous Order
-          sequence, or -Tag does not name exactly one existing tag.
+  Exit 2: NOTHING was created or written: configuration or HTTP error, the lock could
+          not be taken, an invalid Type/Priority/Repository, a non-contiguous Order
+          sequence, or -Tag does not name exactly one existing tag. With -Ticket: a
+          refused repair (different parent, existing Order, wrong Repository, no parent,
+          no current sprint, an Epic), decided before the first write.
   Exit 3: -Create made the ticket, then a later step failed or did not read back.
-          stderr starts with "CREATED <id> but <step> failed" and lists the steps
-          done and not done. The ticket EXISTS: never re-run -Create. Read it with
-          -Show, fix text or tags with -Ticket <id>, and hand any other field
-          (parent, estimate, Order, sprint) to Patron.
+          stderr starts with "CREATED <id> but <step> failed", lists the steps done and
+          not done, and prints the exact runnable -Ticket repair command for every step
+          not done (-Parent, -Tag, -Order, -Sprint, or -Type / -Estimate for a read-back
+          mismatch). The ticket EXISTS: never re-run -Create. Run the printed commands in
+          the order given and read the result with -Show.
+          -Ticket also exits 3: some of its writes went through, then one failed (or the
+          read-back call failed). stderr starts with "<id> PARTLY UPDATED" and lists what is
+          Written, Failed and Not attempted. Re-run -Show first; a half-done Order renumber
+          (it says so) is Patron's: do not re-run -Order, report it.
 
   Credentials resolve as documented in _youtrack.ps1 (same order as
   scripts/get-task.ps1). The token is sent only as Authorization: Bearer and
@@ -109,6 +147,7 @@ param(
     [switch]$Create,
 
     [Parameter(ParameterSetName = 'Create')]
+    [Parameter(ParameterSetName = 'Edit')]
     [switch]$DryRun,
 
     [Parameter(Mandatory, ParameterSetName = 'Edit')]
@@ -139,16 +178,25 @@ param(
     [string[]]$Tag,
 
     [Parameter(Mandatory, ParameterSetName = 'Create')]
+    [Parameter(ParameterSetName = 'Edit')]
     [ValidatePattern('^[A-Z][A-Z0-9]*-\d+$')]
     [string]$Parent,
 
     [Parameter(Mandatory, ParameterSetName = 'Create')]
+    [Parameter(ParameterSetName = 'Edit')]
     [ValidatePattern('^\d+[wdhm]( \d+[wdhm])*$')]
     [string]$Estimate,
 
     [Parameter(ParameterSetName = 'Create')]
+    [Parameter(ParameterSetName = 'Edit')]
     [ValidateSet('Task', 'Bug', 'Feature', 'Cosmetics', 'Exception', 'Usability Problem', 'Performance Problem')]
     [string]$Type = 'Task',
+
+    [Parameter(ParameterSetName = 'Edit')]
+    [switch]$Order,
+
+    [Parameter(ParameterSetName = 'Edit')]
+    [switch]$Sprint,
 
     [Parameter(ParameterSetName = 'Create')]
     [ValidateNotNullOrEmpty()]
@@ -159,9 +207,11 @@ param(
     [string]$Repository = 'lamuflix',
 
     [Parameter(ParameterSetName = 'Create')]
+    [Parameter(ParameterSetName = 'Edit')]
     [string]$LockName = 'Global\LamuFlix-YouTrack-Create',
 
     [Parameter(ParameterSetName = 'Create')]
+    [Parameter(ParameterSetName = 'Edit')]
     [ValidateRange(1, 3600)]
     [int]$LockTimeoutSeconds = 120,
 
@@ -174,6 +224,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $YouTrackTool = 'Edit-YouTrackIssue'
+$TypeRequested = $PSBoundParameters.ContainsKey('Type')   # -Type defaults to Task for -Create only
 . (Join-Path $PSScriptRoot '_youtrack.ps1')
 
 # A dry run must never write, whatever the caller below does: refuse any non-GET.
@@ -191,6 +242,58 @@ $script:PostingIssue = $false
 $script:CurrentStep = 'creating the issue'
 $script:PlannedSteps = @('set parent link', 'add tags', 'renumber and set Order', 'add to sprint', 'read-back verification')
 $script:CompletedSteps = [Collections.Generic.List[string]]::new()
+# -Ticket: the writes that went through, the ones planned, and the Order POSTs sent. Once any
+# write has gone through, a later failure is exit 3 (Stop-AfterEditWrite), never exit 2.
+$script:EditWritten = [Collections.Generic.List[string]]::new()
+$script:EditPlanned = @()
+$script:OrderWrites = 0
+
+function ConvertTo-ShellArgument {
+    # A value as it must be typed in pwsh: bare when it is plain, single-quoted otherwise.
+    param([string]$Value)
+    if ($Value -match '^[A-Za-z0-9:._-]+$') { return $Value }
+    return "'" + $Value.Replace("'", "''") + "'"
+}
+
+function Get-StepRepair {
+    # The runnable -Ticket command that finishes one step -Create did not do; nothing when
+    # the step needs none (no tags asked for, or a Repository that has no Order).
+    param([string]$Step, [string]$Tool)
+    switch ($Step) {
+        'set parent link' { "$Tool -Parent $Parent" }
+        'add tags' { if ($Tag) { "$Tool -Tag $((@($Tag | Where-Object { $_ } | ForEach-Object { ConvertTo-ShellArgument $_ })) -join ',')" } }
+        'renumber and set Order' { if ($Repository -ceq $OrderRepository) { "$Tool -Order" } }
+        'add to sprint' { "$Tool -Sprint" }
+    }
+}
+
+function Get-ReadBackRepair {
+    # A read-back mismatch names the field; Type, Estimate, parent, tag and sprint each have a
+    # command. Order, Priority, Repository and text do not: those are Patron's.
+    param([string]$Detail, [string]$Tool)
+    if ($Detail -match 'Type is') { "$Tool -Type $(ConvertTo-ShellArgument $Type)" }
+    if ($Detail -match 'Estimated Time is') { "$Tool -Estimate $(ConvertTo-ShellArgument $Estimate)" }
+    if ($Detail -match 'not a subtask of') { "$Tool -Parent $Parent" }
+    if ($Detail -match "tag '.*' is missing") { "$Tool -Tag $((@($Tag | Where-Object { $_ } | ForEach-Object { ConvertTo-ShellArgument $_ })) -join ',')" }
+    if ($Detail -match 'not a member of sprint') { "$Tool -Sprint" }
+}
+
+function Get-RepairLine {
+    param([string]$Id, [string[]]$NotDone, [string]$Detail)
+    $tool = "pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Ticket $Id"
+    $commands = @(foreach ($step in $NotDone) {
+            if ($step -ne 'read-back verification') { Get-StepRepair $step $tool }
+            elseif ($script:CurrentStep -eq $step) { Get-ReadBackRepair $Detail $tool }
+        })
+    $lines = @("Repair, in this order (each is read back; one that already holds is a no-op):")
+    $lines += @($commands | ForEach-Object { "  $_" })
+    if ($script:CurrentStep -eq 'read-back verification' -and $Detail -match 'Order|Priority|Repository|summary|description') {
+        $lines += "  (an Order, Priority, Repository or text mismatch has no repair command: tell Patron)"
+    }
+    if ($commands -match ' -Order$') { $lines += "  (if -Order refuses on a gap in the Order sequence, a renumber stopped half way: tell Patron)" }
+    $lines += "Then check it: pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Ticket $Id -Show"
+    return $lines
+}
 
 function Stop-AfterCreate {
     param([string]$Detail)
@@ -203,19 +306,47 @@ function Stop-AfterCreate {
         "CREATED $id but $($script:CurrentStep) failed: $Detail"
         "$id EXISTS in YouTrack. Do NOT re-run -Create: it would file a second ticket."
         "Read it:  pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Ticket $id -Show"
-        "Fix text or tags with -Ticket $id. For parent, estimate, Order or sprint, tell Patron."
         "Never hand-roll /api/commands, raw REST, or a script that dot-sources _youtrack.ps1."
         "Steps done: $(if ($done) { $done -join ', ' } else { 'none (the issue POST itself succeeded)' })"
         "Steps NOT done: $(if ($notDone) { $notDone -join ', ' } else { 'none' })"
+        (Get-RepairLine $id $notDone $Detail)
         $rule)
     foreach ($line in $text) { [Console]::Error.WriteLine($line) }
     [Console]::Out.WriteLine("CREATED $id but $($script:CurrentStep) failed (exit 3); do NOT re-run -Create.")
     exit 3
 }
 
+function Stop-AfterEditWrite {
+    # A -Ticket call failed after its first write: say what is written, what is not, and exit 3.
+    param([string]$Detail)
+    $failed = $script:CurrentStep
+    $written = @($script:EditWritten)
+    $half = $failed -eq 'order' -and $script:OrderWrites -gt 0
+    if ($half) { $written += "order (PARTLY: $($script:OrderWrites) Order write(s))" }
+    $notDone = @($script:EditPlanned | Where-Object { $script:EditWritten -notcontains $_ -and $_ -ne $failed })
+    $rule = '!' * 78
+    $failedNote = if ($failed -eq 'read-back verification') { ' (every write went through; none was confirmed)' } else { ' (a step that writes several things may have written part of them)' }
+    $closing = @(if ($half) { 'The Order renumber is HALF DONE: do not re-run -Order or fix it by hand; report to Patron.' }
+        else { 'Report to Patron what is Written, Failed and Not attempted; a comment is not idempotent, so never repeat -CommentFile.' })
+    $text = @(
+        $rule
+        "$Ticket PARTLY UPDATED: $failed failed: $Detail"
+        "Written: $(if ($written) { $written -join ', ' } else { 'none' })"
+        "Failed: $failed$failedNote"
+        "Not attempted: $(if ($notDone) { $notDone -join ', ' } else { 'none' })"
+        "Read it before anything else:  pwsh F:\Dev\LamuFlix\scripts\local\Edit-YouTrackIssue.ps1 -Ticket $Ticket -Show"
+        'Never hand-roll /api/commands, raw REST, or a script that dot-sources _youtrack.ps1.'
+        $closing
+        $rule)
+    foreach ($line in $text) { [Console]::Error.WriteLine($line) }
+    [Console]::Out.WriteLine("$Ticket PARTLY UPDATED but $failed failed (exit 3); run -Show and report to Patron.")
+    exit 3
+}
+
 function Stop-WithError {
     param([string]$Message)
     if ($script:CreatedId) { Stop-AfterCreate $Message }
+    if ($script:EditWritten.Count -gt 0 -or $script:OrderWrites -gt 0) { Stop-AfterEditWrite $Message }
     [Console]::Error.WriteLine("${YouTrackTool}: $Message")
     if ($script:PostingIssue) {
         [Console]::Error.WriteLine("${YouTrackTool}: the create request failed, so nothing is known to exist. If the error was a timeout the ticket may exist: run the same command with -DryRun first (it exits 1 naming the ticket if it does) before any real retry.")
@@ -330,11 +461,14 @@ function Get-ExistingTagId {
     Stop-WithError "more than one tag is named '$Name'."
 }
 
+function Get-TagId {
+    # Every -Tag resolved to its id, reads only, so a bad name stops a run before its first write.
+    foreach ($name in @($Tag | Where-Object { $_ })) { Get-ExistingTagId $name }
+}
+
 function Add-Tag {
-    param([string]$Id)
-    foreach ($name in @($Tag | Where-Object { $_ })) {
-        $null = Send-YouTrack Post (Get-IssuePath $Id '/tags') @{ id = (Get-ExistingTagId $name) }
-    }
+    param([string]$Id, [string[]]$TagId)
+    foreach ($one in @($TagId)) { $null = Send-YouTrack Post (Get-IssuePath $Id '/tags') @{ id = $one } }
 }
 
 function Assert-Same {
@@ -357,19 +491,34 @@ function Assert-Tag {
     }
 }
 
-function Assert-Created {
+function Assert-TypeSet {
     param($Issue)
     $actualType = Get-CustomFieldName $Issue 'Type'
     if ($actualType -ne $Type) { $mismatches.Add("Type is '$actualType', expected '$Type'") }
-    $actualPriority = Get-CustomFieldName $Issue 'Priority'
-    if ($actualPriority -ne $Priority) { $mismatches.Add("Priority is '$actualPriority', expected '$Priority'") }
-    $actualRepository = Get-CustomFieldName $Issue 'Repository'
-    if ($actualRepository -ne $Repository) { $mismatches.Add("Repository is '$actualRepository', expected '$Repository'") }
+}
+
+function Assert-EstimateSet {
+    param($Issue)
     $actualMinutes = Get-CustomFieldMinutes $Issue 'Estimated Time'
     if ($actualMinutes -ne (ConvertTo-Minutes $Estimate)) {
         $mismatches.Add("Estimated Time is '$(if ($null -eq $actualMinutes) { '<empty>' } else { "$actualMinutes min" })', expected '$Estimate' ($(ConvertTo-Minutes $Estimate) min)")
     }
+}
+
+function Assert-ParentSet {
+    param($Issue)
     if (@(Get-ParentId $Issue) -notcontains $Parent) { $mismatches.Add("not a subtask of $Parent") }
+}
+
+function Assert-Created {
+    param($Issue)
+    Assert-TypeSet $Issue
+    $actualPriority = Get-CustomFieldName $Issue 'Priority'
+    if ($actualPriority -ne $Priority) { $mismatches.Add("Priority is '$actualPriority', expected '$Priority'") }
+    $actualRepository = Get-CustomFieldName $Issue 'Repository'
+    if ($actualRepository -ne $Repository) { $mismatches.Add("Repository is '$actualRepository', expected '$Repository'") }
+    Assert-EstimateSet $Issue
+    Assert-ParentSet $Issue
 }
 
 function Write-Issue {
@@ -590,6 +739,7 @@ function Set-IssueOrder {
     $null = Send-YouTrack Post (Get-IssuePath $Id '?fields=idReadable') @{
         customFields = @(@{ name = 'Order'; '$type' = 'SimpleIssueCustomField'; value = $Order })
     }
+    $script:OrderWrites++
 }
 
 function Add-ToSprint {
@@ -628,11 +778,15 @@ function Assert-Order {
     elseif ($orders.Count -ne $Plan.Total + 1) { $mismatches.Add("Order sequence has $($orders.Count) issues, expected $($Plan.Total + 1)") }
 }
 
+function Get-SprintMember {
+    param($Sprint)
+    return @(Send-YouTrack Get "/api/agiles/$BoardAgileId/sprints/$($Sprint.Id)/issues?fields=idReadable&`$top=1000" | Where-Object { $_ } |
+            ForEach-Object { [string](Get-JsonPath -Object $_ -Path 'idReadable') })
+}
+
 function Assert-Sprint {
     param($Sprint, [string]$NewId)
-    $members = @(Send-YouTrack Get "/api/agiles/$BoardAgileId/sprints/$($Sprint.Id)/issues?fields=idReadable&`$top=1000" | Where-Object { $_ } |
-            ForEach-Object { [string](Get-JsonPath -Object $_ -Path 'idReadable') })
-    if ($members -notcontains $NewId) { $mismatches.Add("not a member of sprint '$($Sprint.Name)' ($($Sprint.Id))") }
+    if ((Get-SprintMember $Sprint) -notcontains $NewId) { $mismatches.Add("not a member of sprint '$($Sprint.Name)' ($($Sprint.Id))") }
 }
 
 function Enter-CreateLock {
@@ -642,7 +796,7 @@ function Enter-CreateLock {
     catch [Threading.AbandonedMutexException] { $held = $true }   # a crashed creator; the lock is ours
     if (-not $held) {
         $mutex.Dispose()
-        Stop-WithError "another -Create on this machine holds $LockName (waited ${LockTimeoutSeconds}s). Nothing was created; check YouTrack for the other ticket before running again."
+        Stop-WithError "another -Create or -Ticket -Order on this machine holds $LockName (waited ${LockTimeoutSeconds}s). Nothing was written; check YouTrack for what the other run did before running again."
     }
     return $mutex
 }
@@ -681,8 +835,15 @@ function Get-CreateBody {
     }
 }
 
-function Get-CreateCommand {
+function Get-ParentCommand {
     return "subtask of $Parent"
+}
+
+function Write-OrderPlan {
+    param($Plan, [string]$Label, [string]$Noun)
+    Write-Output "  Order: slot $($Plan.Slot), $($Plan.Why); $($Plan.Total) ordered issues become $($Plan.Total + 1)"
+    foreach ($shift in $Plan.Shifts) { Write-Output "    $($shift.Id): $($shift.From) -> $($shift.To)" }
+    Write-Output "    ${Label}: Order $($Plan.Slot)   (each a POST /api/issues/<id>, highest Order first, $Noun last)"
 }
 
 function Write-CreatePlan {
@@ -694,18 +855,12 @@ function Write-CreatePlan {
     Write-Output "    $(ConvertTo-Json -InputObject $Body -Compress -Depth 8)"
     Write-Output "  then the post-create duplicate re-check (reads only; a lower-id duplicate exits 1, nothing deleted)"
     Write-Output "  planned POST /api/commands on the new issue"
-    Write-Output "    query: $(Get-CreateCommand)"
+    Write-Output "    query: $(Get-ParentCommand)"
     foreach ($name in @($Tag | Where-Object { $_ })) {
         Write-Output "  planned POST /api/issues/<new>/tags  {`"id`":`"$(Get-ExistingTagId $name)`"}  (tag '$name')"
     }
-    if (-not $Plan) {
-        Write-Output "  Order: none (Repository '$Repository' is not '$OrderRepository')"
-    }
-    else {
-        Write-Output "  Order: slot $($Plan.Slot), $($Plan.Why); $($Plan.Total) ordered issues become $($Plan.Total + 1)"
-        foreach ($shift in $Plan.Shifts) { Write-Output "    $($shift.Id): $($shift.From) -> $($shift.To)" }
-        Write-Output "    <new>: Order $($Plan.Slot)   (each a POST /api/issues/<id>, highest Order first, the new issue last)"
-    }
+    if (-not $Plan) { Write-Output "  Order: none (Repository '$Repository' is not '$OrderRepository')" }
+    else { Write-OrderPlan $Plan '<new>' 'the new issue' }
     if ($Sprint) {
         Write-Output "  Sprint: $($Sprint.Name) (id $($Sprint.Id), via $($Sprint.Source))"
         Write-Output "    planned POST /api/agiles/$BoardAgileId/sprints/$($Sprint.Id)/issues  {`"id`":`"<new issue id>`",`"`$type`":`"Issue`"}"
@@ -735,8 +890,8 @@ function Invoke-PostCreate {
         exit 1
     }
 
-    Invoke-Step 'set parent link' { Send-IssueCommand $Id (Get-CreateCommand) }
-    Invoke-Step 'add tags' { Add-Tag $Id }
+    Invoke-Step 'set parent link' { Send-IssueCommand $Id (Get-ParentCommand) }
+    Invoke-Step 'add tags' { Add-Tag $Id @(Get-TagId) }
     Invoke-Step 'renumber and set Order' { if ($Plan) { Write-Renumber $Plan $Id } }
     Invoke-Step 'add to sprint' {
         if (-not $Sprint) { return }
@@ -807,6 +962,178 @@ function Invoke-Create {
     finally { Exit-CreateLock $lock }
 }
 
+# ---- -Ticket: repair parameters --------------------------------------------
+# Every refusal is decided from reads, before the first write of the call, so a refused
+# repair leaves the ticket exactly as it was.
+
+function Get-ParentRepair {
+    # The parent to link, or $null when the ticket already has it. A DIFFERENT parent is
+    # refused: this tool only adds links, it never removes one.
+    param($Issue)
+    if (-not $Parent) { return $null }
+    $current = @(Get-ParentId $Issue)
+    if ($current -contains $Parent) { return $null }
+    if ($Parent -ceq $Ticket) { Stop-WithError "$Ticket cannot be its own parent." }
+    if ($current) { Stop-WithError "$Ticket is already a subtask of $($current -join ', '); refusing to add $Parent. This tool never removes a link: Patron changes a parent by hand." }
+    $null = Get-Issue $Parent   # exits 2 when it does not exist
+    return $Parent
+}
+
+function Get-EstimateRepair {
+    # The minutes to write, or $null when Estimated Time already holds them.
+    param($Issue)
+    if (-not $Estimate) { return $null }
+    $minutes = ConvertTo-Minutes $Estimate
+    if ((Get-CustomFieldMinutes $Issue 'Estimated Time') -eq $minutes) { return $null }
+    return $minutes
+}
+
+function Get-TypeRepair {
+    # The Type to write, or $null when it is already set. An Epic is not retyped: the
+    # Order plan treats Epics as block boundaries.
+    param($Issue)
+    if (-not $TypeRequested) { return $null }
+    $current = Get-CustomFieldName $Issue 'Type'
+    if ($current -ceq 'Epic') { Stop-WithError "$Ticket is an Epic; -Type does not retype an Epic." }
+    if ($current -ceq $Type) { return $null }
+    return $Type
+}
+
+function Get-OrderRepair {
+    # The Order plan for a ticket that has none, or $null when -Order was not given. Get-OrderPlan
+    # reads $Repository, whose default is the Order repository; the ticket's own is checked here.
+    param($Issue, [string]$ParentId)
+    if (-not $Order) { return $null }
+    $current = Get-CustomFieldValue $Issue 'Order'
+    if ($null -ne $current) { Stop-WithError "$Ticket already has Order $current; -Order only slots a ticket that has none and never moves one." }
+    $ticketRepository = Get-CustomFieldName $Issue 'Repository'
+    if ($ticketRepository -cne $OrderRepository) { Stop-WithError "$Ticket has Repository '$ticketRepository'; only '$OrderRepository' tickets have an Order." }
+    if ((Get-CustomFieldName $Issue 'Type') -ceq 'Epic') { Stop-WithError "$Ticket is an Epic; -Order slots a child under its parent." }
+    if (-not $ParentId) { Stop-WithError "$Ticket has no parent, so there is no slot for it; pass -Parent DEV-x with -Order." }
+    $shortName = [string](Get-JsonPath -Object $Issue -Path 'project', 'shortName')
+    $records = @(Get-ProjectIssue $shortName | ForEach-Object { ConvertTo-IssueRecord $_ })
+    return Get-OrderPlan $records $ParentId
+}
+
+function Get-SprintRepair {
+    # The current sprint and whether the ticket is already in it; $null when -Sprint was not given.
+    param($Issue)
+    if (-not $Sprint) { return $null }
+    $target = Get-TargetSprint
+    if (-not $target) { Stop-WithError "board $BoardAgileId has no current sprint; there is nothing to add $Ticket to." }
+    $member = (Get-SprintMember $target) -contains $Ticket
+    if (-not $member -and -not (Get-JsonPath -Object $Issue -Path 'id')) { Stop-WithError "YouTrack returned no internal id for $Ticket; cannot add it to a sprint." }
+    return [pscustomobject]@{ Sprint = $target; Member = $member }
+}
+
+function Get-EditRepair {
+    param($Issue)
+    $addedParent = Get-ParentRepair $Issue
+    # -Order needs a parent: the one this call adds counts, so "-Parent X -Order" works in one go.
+    $parentForOrder = if ($addedParent) { $addedParent } else { @(Get-ParentId $Issue) | Select-Object -First 1 }
+    return [pscustomobject]@{
+        Parent  = $addedParent
+        Minutes = Get-EstimateRepair $Issue
+        Type    = Get-TypeRepair $Issue
+        Order   = Get-OrderRepair $Issue $parentForOrder
+        Sprint  = Get-SprintRepair $Issue
+    }
+}
+
+function Get-CustomFieldBody {
+    param([string]$Name, [string]$FieldType, $Value)
+    return @{ customFields = @(@{ name = $Name; '$type' = $FieldType; value = $Value }) }
+}
+
+function Set-IssueCustomField {
+    param([string]$Id, [string]$Name, [string]$FieldType, $Value)
+    $null = Send-YouTrack Post (Get-IssuePath $Id '?fields=idReadable') (Get-CustomFieldBody $Name $FieldType $Value)
+}
+
+function Invoke-EditStep {
+    # A -Ticket write: its name is what Stop-AfterEditWrite reports as written or failed.
+    param([string]$Name, [scriptblock]$Action)
+    $script:CurrentStep = $Name
+    & $Action
+    $script:EditWritten.Add($Name)
+}
+
+function Write-Repair {
+    param($Repairs, [string]$Id, [string]$DbId)
+    if ($Repairs.Parent) { Invoke-EditStep 'parent' { Send-IssueCommand $Id (Get-ParentCommand) } }
+    if ($null -ne $Repairs.Minutes) { Invoke-EditStep 'estimate' { Set-IssueCustomField $Id 'Estimated Time' 'PeriodIssueCustomField' @{ minutes = $Repairs.Minutes } } }
+    if ($Repairs.Type) { Invoke-EditStep 'type' { Set-IssueCustomField $Id 'Type' 'SingleEnumIssueCustomField' @{ name = $Repairs.Type } } }
+    if ($Repairs.Order) { Invoke-EditStep 'order' { Write-Renumber $Repairs.Order $Id } }
+    if ($Repairs.Sprint -and -not $Repairs.Sprint.Member) { Invoke-EditStep 'sprint' { Add-ToSprint $DbId $Repairs.Sprint.Sprint } }
+}
+
+function Assert-Repair {
+    param($Issue, $Repairs)
+    if ($Parent) { Assert-ParentSet $Issue }
+    if ($Estimate) { Assert-EstimateSet $Issue }
+    if ($TypeRequested) { Assert-TypeSet $Issue }
+    if ($Repairs.Order) { Assert-Order $Repairs.Order $Issue $Ticket ([string](Get-JsonPath -Object $Issue -Path 'project', 'shortName')) }
+    if ($Repairs.Sprint) { Assert-Sprint $Repairs.Sprint.Sprint $Ticket }
+}
+
+function Get-RepairSummary {
+    # Which repair parameters wrote something (Changed) and which already held (Held).
+    param($Repairs)
+    $changed = @(
+        if ($Repairs.Parent) { 'parent' }
+        if ($null -ne $Repairs.Minutes) { 'estimate' }
+        if ($Repairs.Type) { 'type' }
+        if ($Repairs.Order) { 'order' }
+        if ($Repairs.Sprint -and -not $Repairs.Sprint.Member) { 'sprint' })
+    $held = @(
+        if ($Parent -and -not $Repairs.Parent) { 'parent' }
+        if ($Estimate -and $null -eq $Repairs.Minutes) { 'estimate' }
+        if ($TypeRequested -and -not $Repairs.Type) { 'type' }
+        if ($Repairs.Sprint -and $Repairs.Sprint.Member) { 'sprint' })
+    return [pscustomobject]@{ Changed = $changed; Held = $held }
+}
+
+function Write-EditPlan {
+    # -DryRun on -Ticket: every planned write, from the reads already made. Nothing is sent.
+    param([hashtable]$TextBody, $Comment, [string[]]$TagId, $Repairs, [string]$DbId)
+    $outcome = Get-RepairSummary $Repairs
+    $fieldPost = "planned POST $(Get-IssuePath $Ticket '?fields=idReadable')"
+    $planned = 0
+    Write-Output "DRY RUN: every read ran; no write was sent."
+    if ($TextBody.Count -gt 0) {
+        $planned++
+        Write-Output "  $fieldPost   ($(@($TextBody.Keys | Sort-Object) -join ', '))"
+        Write-Output "    $(ConvertTo-Json -InputObject $TextBody -Compress -Depth 8)"
+    }
+    $names = @($Tag | Where-Object { $_ })
+    for ($i = 0; $i -lt $names.Count; $i++) {
+        $planned++
+        Write-Output "  planned POST $(Get-IssuePath $Ticket '/tags')  {`"id`":`"$($TagId[$i])`"}  (tag '$($names[$i])')"
+    }
+    if ($Comment) { $planned++; Write-Output "  planned POST $(Get-IssuePath $Ticket '/comments?fields=id')  ($($Comment.Length) characters of comment text)" }
+    if ($Repairs.Parent) { $planned++; Write-Output "  planned POST /api/commands on $Ticket`n    query: $(Get-ParentCommand)" }
+    if ($null -ne $Repairs.Minutes) {
+        $planned++
+        Write-Output "  $fieldPost   (Estimated Time $Estimate)"
+        Write-Output "    $(ConvertTo-Json -InputObject (Get-CustomFieldBody 'Estimated Time' 'PeriodIssueCustomField' @{ minutes = $Repairs.Minutes }) -Compress -Depth 8)"
+    }
+    if ($Repairs.Type) {
+        $planned++
+        Write-Output "  $fieldPost   (Type $Type)"
+        Write-Output "    $(ConvertTo-Json -InputObject (Get-CustomFieldBody 'Type' 'SingleEnumIssueCustomField' @{ name = $Type }) -Compress -Depth 8)"
+    }
+    if ($Repairs.Order) { $planned++; Write-OrderPlan $Repairs.Order $Ticket 'the ticket' }
+    if ($Repairs.Sprint -and -not $Repairs.Sprint.Member) {
+        $planned++
+        $target = $Repairs.Sprint.Sprint
+        Write-Output "  Sprint: $($target.Name) (id $($target.Id), via $($target.Source))"
+        Write-Output "    planned POST /api/agiles/$BoardAgileId/sprints/$($target.Id)/issues  {`"id`":`"$DbId`",`"`$type`":`"Issue`"}"
+    }
+    if ($outcome.Held) { Write-Output "  already as requested, nothing to write: $($outcome.Held -join ', ')" }
+    if ($planned -eq 0) { Write-Output "  nothing would be written: $Ticket already has everything asked for" }
+    else { Write-Output "  then GET read-back of every changed field (Order 1..N and sprint membership included)" }
+}
+
 function Add-Comment {
     param([string]$Id, [string]$Text)
     $created = Send-YouTrack Post (Get-IssuePath $Id '/comments?fields=id') @{ text = $Text }
@@ -816,26 +1143,56 @@ function Add-Comment {
     Assert-Same 'comment' $Text (Get-JsonPath -Object $stored -Path 'text')
 }
 
+function Invoke-EditLocked {
+    param([string]$Description, [string]$Comment)
+    # All reads and refusals first: nothing is written until every requested change is known to be possible.
+    $before = Get-Issue $Ticket
+    $dbId = [string](Get-JsonPath -Object $before -Path 'id')
+    $repairs = Get-EditRepair $before
+    $tagIds = @(Get-TagId)
+    $text = @{}
+    if ($Summary) { $text.summary = $Summary.Trim() }
+    if ($Description) { $text.description = $Description }
+    if ($DryRun) { Write-EditPlan $text $Comment $tagIds $repairs $dbId; return }
+
+    $script:EditPlanned = @(
+        if ($text.Count -gt 0) { 'summary/description' }
+        if ($tagIds.Count -gt 0) { 'tags' }
+        if ($Comment) { 'comment' }
+        @((Get-RepairSummary $repairs).Changed)
+        'read-back verification')
+    if ($text.Count -gt 0) { Invoke-EditStep 'summary/description' { $null = Send-YouTrack Post (Get-IssuePath $Ticket '?fields=idReadable') $text } }
+    if ($tagIds.Count -gt 0) { Invoke-EditStep 'tags' { Add-Tag $Ticket $tagIds } }
+    if ($Comment) { Invoke-EditStep 'comment' { Add-Comment $Ticket $Comment } }
+    Write-Repair $repairs $Ticket $dbId
+
+    $script:CurrentStep = 'read-back verification'
+    $issue = Get-Issue $Ticket
+    Assert-IssueText $issue $Description
+    Assert-Tag $issue
+    Assert-Repair $issue $repairs
+    Stop-OnMismatch $Ticket
+    $outcome = Get-RepairSummary $repairs
+    $changed = @($text.Keys | Sort-Object) + @(if ($Tag) { 'tags' }) + @(if ($Comment) { 'comment' }) + @($outcome.Changed)
+    if ($changed) { Write-Output "$Ticket updated (verified): $($changed -join ', ')" }
+    else { Write-Output "$Ticket already as requested (verified): nothing written" }
+    if ($outcome.Held) { Write-Output "  already as requested, nothing written: $($outcome.Held -join ', ')" }
+    Write-Issue $issue
+    if ($repairs.Sprint) { Write-Output "  Sprint: $($repairs.Sprint.Sprint.Name)" }
+}
+
 function Invoke-Edit {
-    if (-not ($Summary -or $DescriptionFile -or $CommentFile -or $Tag)) {
-        Stop-WithError 'nothing to change: pass -Summary, -DescriptionFile, -CommentFile, or -Tag (or -Show to read).'
+    if (-not ($Summary -or $DescriptionFile -or $CommentFile -or $Tag -or $Parent -or $Estimate -or $TypeRequested -or $Order -or $Sprint)) {
+        Stop-WithError 'nothing to change: pass -Summary, -DescriptionFile, -CommentFile, -Tag, -Parent, -Estimate, -Type, -Order or -Sprint (or -Show to read).'
     }
     $description = if ($DescriptionFile) { Read-TextFile $DescriptionFile 'Description' } else { $null }
     $comment = if ($CommentFile) { Read-TextFile $CommentFile 'Comment' } else { $null }
 
-    $text = @{}
-    if ($Summary) { $text.summary = $Summary.Trim() }
-    if ($description) { $text.description = $description }
-    if ($text.Count -gt 0) { $null = Send-YouTrack Post (Get-IssuePath $Ticket '?fields=idReadable') $text }
-    Add-Tag $Ticket
-    if ($comment) { Add-Comment $Ticket $comment }
-
-    $issue = Get-Issue $Ticket
-    Assert-IssueText $issue $description
-    Assert-Tag $issue
-    Stop-OnMismatch $Ticket
-    Write-Output "$Ticket updated (verified): $(@($text.Keys | Sort-Object) + @(if ($Tag) { 'tags' }) + @(if ($comment) { 'comment' }) -join ', ')"
-    Write-Issue $issue
+    # -Order renumbers the whole sequence, so it takes -Create's lock before it reads the sequence;
+    # a lock timeout is exit 2 with nothing written. -DryRun writes nothing and never waits.
+    $lock = if ($Order -and -not $DryRun) { Enter-CreateLock } else { $null }
+    try { Invoke-EditLocked $description $comment }
+    finally { Exit-CreateLock $lock }
 }
 
 Connect-YouTrack
