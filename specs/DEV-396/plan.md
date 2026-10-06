@@ -31,9 +31,9 @@ Two pieces of work travel together. First, finish the omitted DEV-307 scope in t
 - Principle I (architectural and reference boundaries): no new dependency, project, top-level folder, layer, schema, public API shape, `Features:LocalPlay` change, secret or `Process.Start` (`recon:219-224`); `HealthCheckTags` stays in the existing Core pipeline folder.
 - Principle IX (testing): tests use the existing xUnit/Shouldly conventions; integration proof of real query or host behaviour stays in `LamuFlix.IntegrationTests`; no mocked data-access driver.
 - Principle II (decorator pipeline): `TracingDecorator` keeps its position; only outcome handling changes. Principle VII (secrets, time, configuration): `TimeProvider` kept, no secret or endpoint literal, argument-free exporters. Principle VI (observability): traces, metrics and logs composed as specified.
-- API/Contract Rules (`constitution.md:359-360`): OD-1 is an unresolved proposed constitution departure (2.3b), never an accepted exception; it stays open and Gate 1 stays closed. A provisional spec PR does not approve implementation.
+- API/Contract Rules (`constitution.md:359-360`): OD-1 is a 2.3b constitution departure for this ticket only, approved by the owner (YouTrack comment 7-269); Gate 1 is open. A provisional spec PR does not approve implementation.
 
-No additional departure beyond OD-1 is proposed; OD-1 remains unresolved and is not an accepted exception.
+No additional departure beyond OD-1 is proposed; OD-1 is approved (comment 7-269).
 
 ## Project Structure
 
@@ -75,7 +75,7 @@ Test completion:
 
 The two `ServiceDefaultsTelemetryTests.cs` and `TelemetryCompositionCollection.cs` entries are the only additions to `brief.md`'s list. They are test-only, authorized by `CONCLUSIONS.md` Q8 P2 as the proof placement for exporter composition, the six recorded sources and the three removal receipts, and they need no csproj, package or solution change.
 
-Conditional readiness, only after OD-1 is answered:
+Readiness (OD-1 approved, comment 7-269):
 
 - `src/LamuFlix.ServiceDefaults/HealthCheckResponseWriter.cs` (new)
 - `tests/LamuFlix.IntegrationTests/HealthEndpointTests.cs` (new)
@@ -106,9 +106,9 @@ The HttpClient instrumentation registration and the sentinel proof land in one c
 
 `TracingDecorator` splits validation failures from other exceptions: validation leaves status unset and sets the validation-failed outcome; all others set error status and the full type name; both rethrow. Two outcome constants are added to `TelemetryConstants` (sequential after section 1). `Pipeline/TracingDecoratorTests` covers both paths with an `ActivityListener`, including the full-name assertion. The legacy `tests/LamuFlix.Test` one-assertion edit is retained and recorded as ungated.
 
-### 5. Conditional readiness (US5, local FR-010) - BLOCKED on OD-1
+### 5. Conditional readiness (US5, local FR-010)
 
-`/health/ready`, `HealthCheckResponseWriter` and the four-state endpoint tests are specified but not scheduled for execution. They start only after the owner answers OD-1, with no provisional body or default writer. The existing live harness clears all registrations (`ApiHostFactory.cs:48-52`), so readiness tests will need real-registration-aware stubs, to be planned only after the answer.
+`/health/ready`, `HealthCheckResponseWriter` and the four-state endpoint tests are scheduled for execution; the owner approved OD-1 (comment 7-269), so the health body is built here with no default writer. The existing live harness clears all registrations (`ApiHostFactory.cs:48-52`), so readiness tests will need real-registration-aware stubs, to be planned only after the answer.
 
 ### 6. Retrospective (US6, local FR-011..FR-013)
 
@@ -149,16 +149,16 @@ In tests, every assertion about exporter output follows an explicit `ForceFlush(
 3. OpenTelemetry composition and redaction proof (Cog alters existing files, including the `MetadataProviderProbe.cs` change; Anvil creates new tests; T016 and T018 land in one coordinated commit; each shared file has one exclusive owner at a time).
 4. Health membership and real-registration tests (Cog owns edits to existing production files; Anvil creates the new file `HealthCheckTags.cs` and the new test).
 5. Decorator, legacy assertion, active proof (Cog alters, Anvil creates new files).
-6. Conditional readiness, only after OD-1.
+6. Readiness (OD-1 approved, comment 7-269).
 7. Evidence reconciliation, gates, refactor, architect, delivery review, corrective records, Keel merge-bar comment (Rigger writes tracker and PR records).
 
 ## Complexity Tracking
 
-No additional departure beyond the unresolved OD-1 is proposed; OD-1 is not an accepted exception.
+No additional departure beyond OD-1 is proposed; OD-1 is approved (comment 7-269).
 
 ## Open Items
 
-- OD-1 owner checkbox: open; Gate 1 closed.
+- OD-1 owner checkbox: ticked, basis YouTrack comment 7-269; Gate 1 open.
 - Inherited DEV-307 T020A: unticked. Recorded: the 2026-10-03 Patron approval of N2 first half under charter 2.3(6) (`CONCLUSIONS.md` Q9, `recon-DEV-396-T020A-owner-answer:7-17`), which approves only the Api `ProjectReference` and the versionless `Microsoft.AspNetCore.Mvc.Testing` `PackageReference` in the IntegrationTests csproj. Unproved: inherited DEV-307 Q1 evidence, and T020A implementation and delivery receipts. Its N2 second half is OD-2 below, and it stays outside every phase and gates nothing planned here.
-- OD-2 owner checkbox, unchecked: `blocked: structural - Inherited DEV-307 N2 second half: approve a test-composed real Kestrel host in place of default WebApplicationFactory for the inherited host proof, as the constitution departure reserved in DEV-307/brief.md:7,74,119 under charter 2.3b, or retain default WebApplicationFactory?` Separate from OD-1, which covers the retained health body and the inherited DEV-307 FR-034 OpenAPI/TypeScript deferral only. **Patron recommendation: retain the default `WebApplicationFactory`** (inherited `specs/DEV-307/brief.md:119`, D1). No Kestrel work is performed without explicit user approval; the question authorizes no host change, adds no delivery scope and gates nothing planned here, and neither a Patron answer nor the recorded first-half approval closes it. The default `WebApplicationFactory` harness and the File Boundary file and pin lists therefore stand unchanged.
+- OD-2 owner checkbox, ticked (comment 7-269: retain default WebApplicationFactory, no Kestrel): `blocked: structural - Inherited DEV-307 N2 second half: approve a test-composed real Kestrel host in place of default WebApplicationFactory for the inherited host proof, as the constitution departure reserved in DEV-307/brief.md:7,74,119 under charter 2.3b, or retain default WebApplicationFactory?` Separate from OD-1, which covers the retained health body and the inherited DEV-307 FR-034 OpenAPI/TypeScript deferral only. **Patron recommendation: retain the default `WebApplicationFactory`** (inherited `specs/DEV-307/brief.md:119`, D1). No Kestrel work is performed without explicit user approval; the question authorizes no host change, adds no delivery scope and gates nothing planned here, and neither a Patron answer nor the recorded first-half approval closes it. The default `WebApplicationFactory` harness and the File Boundary file and pin lists therefore stand unchanged.
 - ADR step (L): Keel, per task-pipeline Phase 2; any ADR number comes from Wisp facts, not from this plan. No CONTEXT.md change decided.
