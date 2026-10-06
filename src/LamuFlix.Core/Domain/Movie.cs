@@ -129,7 +129,6 @@ public sealed class Movie
     private void BeginPendingAttempt(string action, DateTimeOffset now)
     {
         RequirePending(action);
-        EnrichmentAttempts++;
         LastAttemptAt = now;
     }
 

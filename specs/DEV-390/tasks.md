@@ -42,12 +42,12 @@
 
 **Independent Test**: T002 cases pass: every claim-plus-outcome path reloads N+1 for fresh and preloaded aggregates.
 
-- [ ] T007 [US1] Remove only `EnrichmentAttempts++` from `BeginPendingAttempt` in `src/LamuFlix.Core/Domain/Movie.cs`; keep `RequirePending`, `LastAttemptAt = now`, and all `Mark*` effects.
-- [ ] T008 [P] [US1] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/ApplyEnrichmentResultCommandHandlerTests.cs`.
-- [ ] T009 [P] [US1] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/ProcessEnrichmentCommandHandlerTests.cs`.
-- [ ] T010 [P] [US1] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/RecordEnrichmentFailureCommandHandlerTests.cs`.
-- [ ] T011 [US1] Keep refused/double/concurrent-claim proof green in `tests/LamuFlix.IntegrationTests/EfMovieRepositoryClaimConcurrencyTests.cs`; retain (do not weaken) the concurrency coverage.
-- [ ] T012 [US1] Tighten deterministic consumer assertions to exact counts in `tests/LamuFlix.IntegrationTests/EnrichmentConsumerTests.cs` (secondary to the real seam).
+- [X] T007 [US1] Remove only `EnrichmentAttempts++` from `BeginPendingAttempt` in `src/LamuFlix.Core/Domain/Movie.cs`; keep `RequirePending`, `LastAttemptAt = now`, and all `Mark*` effects.
+- [X] T008 [P] [US1] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/ApplyEnrichmentResultCommandHandlerTests.cs`.
+- [X] T009 [P] [US1] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/ProcessEnrichmentCommandHandlerTests.cs`.
+- [X] T010 [P] [US1] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/RecordEnrichmentFailureCommandHandlerTests.cs`.
+- [X] T011 [US1] Keep refused/double/concurrent-claim proof green in `tests/LamuFlix.IntegrationTests/EfMovieRepositoryClaimConcurrencyTests.cs`; retain (do not weaken) the concurrency coverage.
+- [X] T012 [US1] Tighten deterministic consumer assertions to exact counts in `tests/LamuFlix.IntegrationTests/EnrichmentConsumerTests.cs` (secondary to the real seam).
 
 **Checkpoint**: User Story 1 fully functional and testable independently; claim-plus-any-outcome reloads N+1.
 

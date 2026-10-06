@@ -46,6 +46,7 @@ public sealed class RecordEnrichmentFailureCommandHandlerTests
         var ct = CancellationToken.None;
         movies.GetAsync(movie.Id, ct).Returns(movie);
         var command = new RecordEnrichmentFailureCommand(movie.Id, attempt, category);
+        var attempts = movie.EnrichmentAttempts;
 
         // act
         var decision = await handler.HandleAsync(command, ct);
@@ -58,6 +59,7 @@ public sealed class RecordEnrichmentFailureCommandHandlerTests
         {
             movie.Status.ShouldBe(EnrichmentStatus.Failed);
             movie.LastFailureCategory.ShouldBe(category);
+            movie.EnrichmentAttempts.ShouldBe(attempts);
             await movies.Received(1).GetAsync(movie.Id, ct);
             await movies.Received(1).SaveChangesAsync(ct);
         }

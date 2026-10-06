@@ -60,6 +60,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         var ct = CancellationToken.None;
         Claimed(movie, true);
         provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns(new MetadataLookupResult.Found(metadata));
+        var attempts = movie.EnrichmentAttempts;
 
         // act
         var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
@@ -68,6 +69,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Completed(true));
         movie.Status.ShouldBe(EnrichmentStatus.Enriched);
         movie.Metadata.ShouldBe(metadata);
+        movie.EnrichmentAttempts.ShouldBe(attempts);
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
@@ -79,6 +81,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         var ct = CancellationToken.None;
         Claimed(movie, true);
         provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns(new MetadataLookupResult.NotFound());
+        var attempts = movie.EnrichmentAttempts;
 
         // act
         var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
@@ -86,6 +89,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         // assert
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Completed(true));
         movie.Status.ShouldBe(EnrichmentStatus.NotFound);
+        movie.EnrichmentAttempts.ShouldBe(attempts);
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
@@ -97,11 +101,13 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         var ct = CancellationToken.None;
         Claimed(movie, true);
         provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns(new MetadataLookupResult.NotFound());
+        var attempts = movie.EnrichmentAttempts;
 
         // act
         await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
 
         // assert
+        movie.EnrichmentAttempts.ShouldBe(attempts);
         await provider.Received(1).FindAsync(new MetadataLookup(movie.Title, null), ct);
     }
 
@@ -114,11 +120,13 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         var ct = CancellationToken.None;
         Claimed(movie, true);
         provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns(new MetadataLookupResult.NotFound());
+        var attempts = movie.EnrichmentAttempts;
 
         // act
         await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
 
         // assert
+        movie.EnrichmentAttempts.ShouldBe(attempts);
         await provider.Received(1).FindAsync(new MetadataLookup(movie.Title, releaseYear), ct);
     }
 
@@ -187,6 +195,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         Claimed(movie, true);
         provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
             .Returns(new MetadataLookupResult.Failed(EnrichmentFailureCategory.InvalidResponse));
+        var attempts = movie.EnrichmentAttempts;
 
         // act
         var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, MaxAttempts), ct);
@@ -196,6 +205,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
             new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null)));
         movie.Status.ShouldBe(EnrichmentStatus.Failed);
         movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        movie.EnrichmentAttempts.ShouldBe(attempts);
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
@@ -227,6 +237,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         Claimed(movie, true);
         provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns<Task<MetadataLookupResult>>(
             _ => throw new System.Text.Json.JsonException("bad"));
+        var attempts = movie.EnrichmentAttempts;
 
         // act
         var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, MaxAttempts), ct);
@@ -236,6 +247,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
             new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null)));
         movie.Status.ShouldBe(EnrichmentStatus.Failed);
         movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        movie.EnrichmentAttempts.ShouldBe(attempts);
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
