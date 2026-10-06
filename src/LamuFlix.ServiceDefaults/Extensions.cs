@@ -60,6 +60,14 @@ public static class ServiceDefaultsExtensions
 
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false })
             .AllowAnonymous();
+        app.MapHealthChecks(
+                "/health/ready",
+                new HealthCheckOptions
+                {
+                    Predicate = registration => registration.Tags.Contains(HealthCheckTags.Ready),
+                    ResponseWriter = HealthCheckResponseWriter.WriteAsync,
+                })
+            .AllowAnonymous();
 
         return app;
     }

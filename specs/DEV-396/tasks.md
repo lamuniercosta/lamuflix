@@ -90,7 +90,7 @@
 
 **Do not start until the owner answers OD-1 including the FR-034 deferral clause. Not counted as delivered; not reported as deferred.**
 
-- [ ] T033 [US5] map `/health/ready` filtered by the shared tag in `src/LamuFlix.ServiceDefaults/Extensions.cs`. (inherits T037)
+- [X] T033 [US5] map `/health/ready` filtered by the shared tag in `src/LamuFlix.ServiceDefaults/Extensions.cs`. (inherits T037)
 - [X] T034 [US5] create `src/LamuFlix.ServiceDefaults/HealthCheckResponseWriter.cs` with the approved body; no provisional body or default writer. (inherits T038)
 - [ ] T035 [US5] create `tests/LamuFlix.IntegrationTests/HealthEndpointTests.cs` and `HealthCheckStubs.cs`, narrowly adjusting `ApiHostFactory.cs` and `ApiHostCompositionTests.cs` only if required; four readiness states plus the 503 body inspection (trace identifier, no exception text). (inherits T039)
 - [ ] T036 [US5] gates and boundary checks for the readiness files. (inherits T040, T041)
