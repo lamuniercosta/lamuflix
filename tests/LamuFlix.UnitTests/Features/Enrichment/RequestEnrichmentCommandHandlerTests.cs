@@ -14,6 +14,7 @@ namespace LamuFlix.UnitTests.Features.Enrichment;
 public sealed class RequestEnrichmentCommandHandlerTests
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
+    private const int PriorAttempts = 3;
 
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IEnrichmentQueue queue = Substitute.For<IEnrichmentQueue>();
@@ -45,6 +46,7 @@ public sealed class RequestEnrichmentCommandHandlerTests
             thrown.Action.ShouldBe(nameof(Movie.RequestEnrichment));
             thrown.State.ShouldBe(status.ToString());
             movie.Status.ShouldBe(status);
+            movie.EnrichmentAttempts.ShouldBe(PriorAttempts);
             await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
             await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
             return;
@@ -55,6 +57,7 @@ public sealed class RequestEnrichmentCommandHandlerTests
         // assert
         result.ShouldBe(movie.Id);
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
+        movie.EnrichmentAttempts.ShouldBe(PriorAttempts);
         await movies.Received(1).SaveChangesAsync(ct);
         await queue.Received(1).EnqueueAsync(
             Arg.Is<EnrichmentRequested>(message => message.MovieId == movie.Id && message.Attempt == 1),
@@ -81,6 +84,7 @@ public sealed class RequestEnrichmentCommandHandlerTests
             () => handler.HandleAsync(new RequestEnrichmentCommand(movie.Id), ct));
 
         // assert
+        movie.EnrichmentAttempts.ShouldBe(PriorAttempts);
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
@@ -109,33 +113,19 @@ public sealed class RequestEnrichmentCommandHandlerTests
         EnrichmentStatus.Enriched,
     ];
 
-    private Movie MovieIn(EnrichmentStatus status)
-    {
-        var movie = Movie.Create(
+    private Movie MovieIn(EnrichmentStatus status) =>
+        Movie.Rehydrate(
             NewId(),
             "Title",
             new LibraryPath("C:/library/a"),
-            new MediaFormat("mkv"));
-        if (status == EnrichmentStatus.Pending)
-        {
-            return movie;
-        }
-
-        if (status == EnrichmentStatus.NotFound)
-        {
-            movie.MarkNotFound(Now);
-            return movie;
-        }
-
-        if (status == EnrichmentStatus.Failed)
-        {
-            movie.MarkFailed(EnrichmentFailureCategory.Unknown, Now);
-            return movie;
-        }
-
-        movie.MarkEnriched(new MovieMetadata("Enriched"), Now);
-        return movie;
-    }
+            new MediaFormat("mkv"),
+            false,
+            status == EnrichmentStatus.Enriched ? new MovieMetadata("Enriched") : null,
+            status,
+            status == EnrichmentStatus.Enriched ? Now : null,
+            PriorAttempts,
+            status == EnrichmentStatus.Failed ? EnrichmentFailureCategory.Unknown : null,
+            status == EnrichmentStatus.Pending ? null : Now);
 
     private MovieId NewId() => new(Math.Abs(fixture.Create<int>()) + 1);
 }

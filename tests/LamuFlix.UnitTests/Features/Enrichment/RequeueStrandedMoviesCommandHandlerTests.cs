@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoFixture;
@@ -40,6 +41,10 @@ public sealed class RequeueStrandedMoviesCommandHandlerTests
         await queue.Received(1).EnqueueAsync(
             Arg.Is<EnrichmentRequested>(message => message.MovieId == second && message.Attempt == 1),
             ct);
+        queue.ReceivedCalls()
+            .Select(call => call.GetArguments()[0])
+            .Cast<EnrichmentRequested>()
+            .ShouldBe([new EnrichmentRequested(first, 1), new EnrichmentRequested(second, 1)]);
     }
 
     [Fact]

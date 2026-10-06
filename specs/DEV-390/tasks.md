@@ -59,9 +59,9 @@
 
 **Independent Test**: T003 cases pass with exact N/N+1/N+2 values on the real seam.
 
-- [ ] T013 [P] [US2] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/RequestEnrichmentCommandHandlerTests.cs`; keep invalid-state rejection and save-before-enqueue ordering.
-- [ ] T014 [P] [US2] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/RequeueStrandedMoviesCommandHandlerTests.cs`.
-- [ ] T015 [US2] Verify no wire-to-counter coupling: `EnrichmentRequested.Attempt` is never written to `EnrichmentAttempts` on any handler path (code inspection against the frozen file set; no new assertion file).
+- [X] T013 [P] [US2] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/RequestEnrichmentCommandHandlerTests.cs`; keep invalid-state rejection and save-before-enqueue ordering.
+- [X] T014 [P] [US2] Update counter assertions to the accepted contract in `tests/LamuFlix.UnitTests/Features/Enrichment/RequeueStrandedMoviesCommandHandlerTests.cs`.
+- [X] T015 [US2] Verify no wire-to-counter coupling: `EnrichmentRequested.Attempt` is never written to `EnrichmentAttempts` on any handler path (code inspection against the frozen file set; no new assertion file).
 
 **Checkpoint**: User Stories 1 AND 2 both work independently with exact counter semantics.
 
