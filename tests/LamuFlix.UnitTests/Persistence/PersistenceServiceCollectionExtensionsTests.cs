@@ -96,6 +96,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         services.AddSingleton<TimeProvider>(clock);
         services.AddSingleton(configuration);
         services.AddLamuFlixOptions();
+        services.AddLogging();
 
         // act
         services.AddLamuFlixPersistence(configuration);
@@ -134,6 +135,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         var services = new ServiceCollection();
         services.AddSingleton(configuration);
         services.AddLamuFlixOptions();
+        services.AddLogging();
         services.AddLamuFlixPersistence(configuration);
         return services;
     }

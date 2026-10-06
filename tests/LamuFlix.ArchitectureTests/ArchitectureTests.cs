@@ -46,7 +46,9 @@ public sealed class ArchitectureTests
     [Fact]
     public void Core_must_not_reference_rabbitmq()
     {
-        AssertNoDependency(Core, "RabbitMQ");
+        AssertActivitySourceNamesStayInCore();
+        AssertNoAssemblyReference(Core, "RabbitMQ");
+        AssertNoDependencyExcept(Core, "RabbitMQ", nameof(TelemetryConstants));
     }
 
     [Fact]
@@ -212,9 +214,35 @@ public sealed class ArchitectureTests
     private static bool IsHttpClientType(Type type) =>
         typeof(HttpMessageInvoker).IsAssignableFrom(type) || typeof(HttpMessageHandler).IsAssignableFrom(type);
 
+    private static void AssertActivitySourceNamesStayInCore()
+    {
+        Assert.Equal("RabbitMQ.Client.Publisher", TelemetryConstants.RabbitMqPublisherActivitySourceName);
+        Assert.Equal("RabbitMQ.Client.Subscriber", TelemetryConstants.RabbitMqSubscriberActivitySourceName);
+    }
+
+    private static void AssertNoAssemblyReference(Assembly assembly, string dependency)
+    {
+        var match = assembly.GetReferencedAssemblies()
+            .Select(static reference => reference.Name)
+            .FirstOrDefault(name => name?.StartsWith(dependency, StringComparison.Ordinal) == true);
+        Assert.Null(match);
+    }
+
     private static void AssertNoDependency(Assembly assembly, string dependency)
     {
         var result = Types.InAssembly(assembly)
+            .ShouldNot()
+            .HaveDependencyOn(dependency)
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
+    private static void AssertNoDependencyExcept(Assembly assembly, string dependency, string excludedTypeName)
+    {
+        var result = Types.InAssembly(assembly)
+            .That()
+            .DoNotHaveName(excludedTypeName)
             .ShouldNot()
             .HaveDependencyOn(dependency)
             .GetResult();
