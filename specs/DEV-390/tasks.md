@@ -83,9 +83,9 @@
 
 **Purpose**: Verification and PR readiness within the frozen scope.
 
-- [ ] T017 Run the static-analysis gates on changed `.cs` files: `./scripts/run-roslyn-analyzers.ps1`, `./scripts/run-cyclomatic-complexity.ps1` (then `-Threshold 6` refactor gate), `./scripts/run-jetbrains-inspectcode.ps1`; then `dotnet format --verify-no-changes`.
-- [ ] T018 Run `./scripts/run-property-tests.ps1`, `./scripts/run-vulnerable-packages.ps1`, `dotnet test`, and `pwsh -NoProfile -File ./scripts/run-mutation.ps1` (never `--since` from a worktree); record each verdict from the script itself. FAILED or Could not run blocks; scope-empty exit 2 is non-blocking SKIPPED (scope-empty), never PASS; gate-disabled opt-out is SKIP; mutation N/A only on the script's exit-2 verdict; unaccepted property-test exit 2 blocks.
-- [ ] T019 Confirm `git diff origin/main...HEAD --stat` shows only the frozen-scope files; confirm no migration, backfill, new dependency, project, schema, API, LocalPlay, secret, or `Process.Start` change.
+- [X] T017 Run the static-analysis gates on changed `.cs` files: `./scripts/run-roslyn-analyzers.ps1`, `./scripts/run-cyclomatic-complexity.ps1` (then `-Threshold 6` refactor gate), `./scripts/run-jetbrains-inspectcode.ps1`; then `dotnet format --verify-no-changes`.
+- [X] T018 Run `./scripts/run-property-tests.ps1`, `./scripts/run-vulnerable-packages.ps1`, `dotnet test`, and `pwsh -NoProfile -File ./scripts/run-mutation.ps1` (never `--since` from a worktree); record each verdict from the script itself. FAILED or Could not run blocks; scope-empty exit 2 is non-blocking SKIPPED (scope-empty), never PASS; gate-disabled opt-out is SKIP; mutation N/A only on the script's exit-2 verdict; unaccepted property-test exit 2 blocks.
+- [X] T019 Confirm `git diff origin/main...HEAD --stat` shows only the frozen-scope files; confirm no migration, backfill, new dependency, project, schema, API, LocalPlay, secret, or `Process.Start` change.
 
 ---
 
