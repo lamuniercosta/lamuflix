@@ -34,6 +34,8 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string RequestEnrichmentRoute = "/api/movies/{id}/enrichment";
     private const string WatchlistRoute = "/api/movies/{id}/watchlist";
     private const string PlayMovieRoute = "/api/movies/{id}/play";
+    private const string GetGenresRoute = "/api/genres";
+    private const string GetPeopleRoute = "/api/people";
 
     public static TheoryData<Type, Type, Type> ManifestContracts =>
         new()
@@ -156,6 +158,8 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     WatchlistRoute,
                     WatchlistRoute,
                     PlayMovieRoute,
+                    GetGenresRoute,
+                    GetPeopleRoute,
                 ]);
     }
 
