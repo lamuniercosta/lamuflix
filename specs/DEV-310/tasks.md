@@ -134,7 +134,7 @@
 
 **Purpose**: Whole-diff refactor after all implementation phases are committed (brief ordering step 5, first half)
 
-- [ ] T025 [Cog] Refactor the complete delivery diff; no worker redesign or OpenAPI infrastructure implementation
+- [X] T025 [Cog] Refactor the complete delivery diff; no worker redesign or OpenAPI infrastructure implementation
 
 ---
 
