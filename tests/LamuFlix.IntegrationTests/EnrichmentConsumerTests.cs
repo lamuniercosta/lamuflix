@@ -281,6 +281,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         listener.Sample = sample;
         listener.ActivityStopped = activity => observed.Enqueue(activity);
         ActivitySource.AddActivityListener(listener);
+        using var traceParent = PreserveExistingTraceParent();
 
         await using var host = NewHost(_ => new MetadataLookupResult.NotFound());
         var movie = host.AddPendingMovie(109);
@@ -330,6 +331,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         listener.Sample = sample;
         listener.ActivityStopped = activity => observed.Enqueue(activity);
         ActivitySource.AddActivityListener(listener);
+        using var traceParent = PreserveExistingTraceParent();
 
         var calls = 0;
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -445,6 +447,31 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         JsonSerializer.Deserialize<EnrichmentRequested>(
             Encoding.UTF8.GetString(message.Body.Span),
             new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
+
+    private static TraceParentGuard PreserveExistingTraceParent() => new();
+
+    private sealed class TraceParentGuard : IDisposable
+    {
+        private readonly Action<Activity, IDictionary<string, object?>> previous;
+
+        public TraceParentGuard()
+        {
+            previous = RabbitMQActivitySource.ContextInjector;
+            RabbitMQActivitySource.ContextInjector = KeepExistingTraceParent;
+        }
+
+        public void Dispose() => RabbitMQActivitySource.ContextInjector = previous;
+
+        private void KeepExistingTraceParent(Activity activity, IDictionary<string, object?> headers)
+        {
+            if (headers.ContainsKey(TraceContextCarrier.TraceParentHeader))
+            {
+                return;
+            }
+
+            previous(activity, headers);
+        }
+    }
 
     private static bool IsProducerActivity(Activity activity, ActivityTraceId traceId) =>
         activity.Source.Name == TelemetryConstants.ActivitySourceName
