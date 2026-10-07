@@ -275,3 +275,13 @@ Full cited closure:
 - One additional recording follows from brief.md line 81: the propertyTests: opt-out line with its reason must be recorded on the DEV-310 task note for pipeline acceptance of a no-tests-tagged exit 2. Also pending the same channel.
 - I will dispatch both once the channel is free, or report to Bernstein if Rigger proves unreachable.
 
+---
+
+## Phase B §2.3 #6 — ApiHostCompositionTests.cs route-set update
+
+**Verdict: Approved.** Update tests/LamuFlix.IntegrationTests/ApiHostCompositionTests.cs:131-147 route assertion to the seven ticket routes and ManifestContracts lines 34-72 to add the two facet contracts. No owner checkbox.
+
+- Not ticket-named and outside the frozen envelope: recon-DEV-310 §14.3 names only the seven endpoints, §15.4 records this test file as NOT named by the ticket, ticket ACs are the two route-conformance lines (§14.1); spec/plan/tasks/brief contain no ApiHostCompositionTests reference, and Q7 (CONCLUSIONS:192) requires a fresh ruling for any file outside the envelope.
+- Forced consequential edit: the exact two-route ShouldBe would fail the dotnet test gate (task-pipeline Phase 3) once the seven ticket-decided routes land; Q8/brief proof matrix requires seven-route host proof, implemented by T024 after T023 wiring.
+- No escalation: the edit implements the ticket's seven routes (no ticket-text change) and departs from no constitution clause; under the role rule the §2.3 #6 item is Patron-decided. It adds no deliverable and reorders no frozen work — it sits inside Q8/T024 proof within the brief:92 frozen scope — so no task-chain §4 owner checkbox.
+
