@@ -108,7 +108,7 @@
 
 ### Implementation for User Story 5
 
-- [ ] T022 [US5] Create `FacetEndpoints` file under `src/LamuFlix.Api/Endpoints/` with TypedResults and complete metadata
+- [X] T022 [US5] Create `FacetEndpoints` file under `src/LamuFlix.Api/Endpoints/` with TypedResults and complete metadata
 
 **Checkpoint**: All story slices are written and each handoff passes with no new failing host tests; full-host proof waits for Phase 8 after T023 wiring
 

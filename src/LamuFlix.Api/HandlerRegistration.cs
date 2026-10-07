@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO.Abstractions;
 using FluentValidation;
 using LamuFlix.Core.Domain;
@@ -35,6 +36,8 @@ internal static class HandlerRegistration
         services.AddScoped<IValidator<GetMovieDetailsQuery>>(
             serviceProvider => serviceProvider.GetRequiredService<GetMovieDetailsQueryValidator>());
         services.AddHandler<GetMovieDetailsQueryHandler, GetMovieDetailsQuery, MovieDetails>();
+        services.AddHandler<GetGenresQueryHandler, GetGenresQuery, IReadOnlyList<GenreFacet>>();
+        services.AddHandler<GetPeopleQueryHandler, GetPeopleQuery, IReadOnlyList<PersonFacet>>();
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();
