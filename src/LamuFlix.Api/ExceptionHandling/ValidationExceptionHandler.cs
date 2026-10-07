@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
 using LamuFlix.Core.Pipeline;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
@@ -29,6 +30,10 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
                 httpContext,
                 StatusCodes.Status404NotFound,
                 CreateNotFoundProblem()),
+            InvalidTransitionException => await WriteAsync(
+                httpContext,
+                StatusCodes.Status409Conflict,
+                CreateConflictProblem()),
             _ => false,
         };
     }
@@ -61,5 +66,13 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
             Status = StatusCodes.Status404NotFound,
             Title = "Not Found",
             Type = "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+        };
+
+    private static ProblemDetails CreateConflictProblem() =>
+        new()
+        {
+            Status = StatusCodes.Status409Conflict,
+            Title = "Conflict",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
         };
 }

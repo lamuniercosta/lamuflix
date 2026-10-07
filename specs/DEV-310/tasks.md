@@ -78,8 +78,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Create `WatchlistEndpoints` file under `src/LamuFlix.Api/Endpoints/` with TypedResults and complete metadata
-- [ ] T017 [US3] Add exactly the `InvalidTransitionException` to 409 arm in `src/LamuFlix.Api/ExceptionHandling/ValidationExceptionHandler.cs`
+- [X] T016 [US3] Create `WatchlistEndpoints` file under `src/LamuFlix.Api/Endpoints/` with TypedResults and complete metadata
+- [X] T017 [US3] Add exactly the `InvalidTransitionException` to 409 arm in `src/LamuFlix.Api/ExceptionHandling/ValidationExceptionHandler.cs`
 
 **Checkpoint**: Watchlist slice is written with 409 on repeats and the handoff passes with no new failing host tests; host proof waits for Phase 8 after T023 wiring
 

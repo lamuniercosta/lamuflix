@@ -536,7 +536,14 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
         // assert
         endpoints.Keys.ShouldBe(
-            ["BrowseMovies", "GetMovieDetails", "ImportMovie", "RequestEnrichment"],
+            [
+                "BrowseMovies",
+                "GetMovieDetails",
+                "ImportMovie",
+                "RequestEnrichment",
+                "AddToWatchlist",
+                "RemoveFromWatchlist",
+            ],
             ignoreOrder: true);
         ShouldDescribe(endpoints["BrowseMovies"], BrowseResponseType, StatusCodes.Status422UnprocessableEntity);
         ShouldDescribe(endpoints["GetMovieDetails"], DetailsResponseType, StatusCodes.Status404NotFound);
