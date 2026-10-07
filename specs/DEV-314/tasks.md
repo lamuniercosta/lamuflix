@@ -4,7 +4,7 @@
 
 **Prerequisites**: plan.md, spec.md. Gate 1 (user spec-PR merge) opens before any Phase B task.
 
-**Tests**: Required — this delivery is test-dominant proof (Q2/Q5). Tests are written FIRST and MUST fail against a broken obligation before any source fix.
+**Tests**: Required — this delivery is test-dominant proof (Q2/Q5). Tests are written FIRST and MUST fail against a broken obligation before any source fix. Structural rows S1-a/S1-c are verified by documented review in T020, not by behavioral assertions; the FIRST/fail-first rule does not demand nonexistent behavioral assertions for those rows.
 
 **Organization**: Ordered phases per Q9 (brief:96-109); small coherent test tasks may share a phase (brief:109). Gate-only tasks stay with Gauge; existing-source alterations belong to Cog; new M/L test work to Anvil.
 
@@ -30,8 +30,8 @@
 
 ## Phase 3: User Story 1 — Async consumer + prefetch (P1)
 
-- [ ] T020 [US1] Verify `Consumer_APrefetchOfOne_LeavesTheSecondMessageReady` pins async non-blocking + prefetch; strengthen only if an assertion is missing (Anvil; sequential owner of `EnrichmentConsumerTests.cs` in Phase 3).
-- [ ] T021 [US1] Temporary negative controls for async/prefetch obligations: break, observe failure, restore, record (Anvil; never committed).
+- [X] T020 [US1] Verify `Consumer_APrefetchOfOne_LeavesTheSecondMessageReady` pins prefetch with actual broker evidence; strengthen only missing observable prefetch assertions (Anvil; sequential owner of `EnrichmentConsumerTests.cs` in Phase 3). Record mandatory structural review receipts for S1-a (type/queue/autoAck: EnrichmentConsumer.cs:47/:49/:51) and S1-c (`ReceivedAsync` to `HandleAsync` :50 to :119 with transitive awaits, no synchronous waits); state the limitation that the second-ready assertion (mapped L177) cannot prove non-blocking dispatch, with no async assertion or negative-control PASS.
+- [X] T021 [US1] Temporary prefetch negative control only: break, observe failure, restore, record (Anvil; never committed). Record explicitly that S1-c has no separate behavioral negative-control surface.
 
 ## Phase 4: User Story 2 — Trace proof initial + redelivery (P1)
 
@@ -51,7 +51,7 @@
 - [ ] T051 `TraceContextCarrier.cs` fix ONLY where a T030-T033 test exposes a trace-extraction defect; cite the failing test (Cog).
 - [ ] T052 Focused-test rerun after each fix; negative controls restored and re-verified (Cog).
 
-**Checkpoint**: All obligations pinned by passing named tests; production diff empty only if every row has evidence.
+**Checkpoint**: All behaviorally observable obligations pinned by passing named tests, plus structural review receipts for S1-a/S1-c; production diff empty only if every row has evidence.
 
 ## Phase 7: Refactor + gates
 
