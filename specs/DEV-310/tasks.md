@@ -93,8 +93,8 @@
 
 ### Implementation for User Story 4
 
-- [ ] T019 [US4] Create `PlaybackEndpoints` file under `src/LamuFlix.Api/Endpoints/` with TypedResults and complete metadata
-- [ ] T020 [US4] Add exactly the `FeatureDisabledException` to 403 arm in `src/LamuFlix.Api/ExceptionHandling/ValidationExceptionHandler.cs`
+- [X] T019 [US4] Create `PlaybackEndpoints` file under `src/LamuFlix.Api/Endpoints/` with TypedResults and complete metadata
+- [X] T020 [US4] Add exactly the `FeatureDisabledException` to 403 arm in `src/LamuFlix.Api/ExceptionHandling/ValidationExceptionHandler.cs`
 
 **Checkpoint**: Playback slice is written with flag-off 403 and fail-closed 500 and the handoff passes with no new failing host tests; host proof waits for Phase 8 after T023 wiring
 
