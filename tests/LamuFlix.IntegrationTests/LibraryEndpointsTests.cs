@@ -543,6 +543,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "RequestEnrichment",
                 "AddToWatchlist",
                 "RemoveFromWatchlist",
+                "PlayMovie",
             ],
             ignoreOrder: true);
         ShouldDescribe(endpoints["BrowseMovies"], BrowseResponseType, StatusCodes.Status422UnprocessableEntity);

@@ -34,6 +34,10 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
                 httpContext,
                 StatusCodes.Status409Conflict,
                 CreateConflictProblem()),
+            FeatureDisabledException => await WriteAsync(
+                httpContext,
+                StatusCodes.Status403Forbidden,
+                CreateForbiddenProblem()),
             _ => false,
         };
     }
@@ -74,5 +78,13 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
             Status = StatusCodes.Status409Conflict,
             Title = "Conflict",
             Type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+        };
+
+    private static ProblemDetails CreateForbiddenProblem() =>
+        new()
+        {
+            Status = StatusCodes.Status403Forbidden,
+            Title = "Forbidden",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4",
         };
 }
