@@ -201,3 +201,19 @@ Plan challenge (Sentry, Ledger, Compass) adjudicated. Accept Sentry F1 Medium: t
 - F1/F3 refine how the Q3 contract is proven; they do not change it. TraceId-based selection is needed because the movie id tag lands after ActivityStarted (recon 4.1/4.3). The Q3 assertions stay complete, listener disposal stays per test, the absent-header fallback is preserved, and there is no new malformed-header obligation.
 - F2/F4 harden the Q4 real-broker redelivery proof and the Q5 scoped-disposal proof inside the Q6 envelope. That means existing test-file options and helpers only, with no fixture, config, topology or source expansion (Q6, Q7). If the envelope cannot establish the prerequisites, the work stops for recon or a Patron ruling and does not expand. There is no cumulative-count or exhaustion scope (Q10 frozen scope).
 - Ledger's zero findings and the Consumer_/AAA naming are existing convention. Compass L1 (serialization) stays as it is, and L2 ADR cross-links are optional with no edit. No owner checkbox; the Gate 1 status is unchanged by this ruling.
+
+---
+
+## Phase 3 T020 S1-c — async-dispatch evidence method
+
+**Keel question and recommendation:**
+
+Anvil reports the prefetch-1 test keeps the second message ready (L177) while the synchronous provider barrier holds the dispatch prefix; returning the HandleAsync task (consumer L50) and blocking on GetResult give identical permitted observations. Q6 allows only test-file handlers and helpers, with no dispatcher instrumentation or source seam without a failing obligation test. Proposal: keep AC1 async dispatch as a mandatory structural obligation and do not claim L177 proves absence of sync-over-async. T020 records a source-structure review of ReceivedAsync to HandleAsync and its transitive awaits plus the real-broker prefetch evidence. T021 runs the prefetch negative control only and records that no behavioral async negative-control surface exists. S1-c is marked structural verification with an explicit limitation. No thread-id, timing or ThreadPool heuristics, reflection or new seam. Spec US1, FR-009 and the empty-production-diff sentence get explicit evidence-method wording.
+
+**Patron answer:**
+
+[from Patron] DEV-314 S1-c ruling: APPROVED — structural verification with a stated limitation; AC1 and the constitution are preserved.
+
+- AC1 (brief:24, spec:15) fixes what is delivered (async, non-blocking consumption), not the evidence method. Naming S1-c as a reviewed structural obligation narrows only my own Q2/Q5 evidence rule (brief:31/34, spec:64), so it changes no ticket text and needs no owner checkbox. The constitution has no behavioral-proof clause for async dispatch.
+- No sanctioned stronger mechanism exists inside Q6/Q7. Instrumentation or a seam needs a failing obligation test (Q6). A sync-over-async analyzer package is a new dependency (Q7). Timing, thread-id and reflection probes are non-deterministic or out of envelope (Q4/Q5). So no recon is needed. S1-c must never be reported as assertion-proven or as an async negative-control PASS, and spec:24 (US1 scenario 2) must say it is verified by review, not asserted.
+- Authorized: brief-first, then one Quill documentation fix list reconciling spec (US1 Independent Test and scenario 2, FR-009, the empty-production-diff sentence), plan, tasks T020/T021 and the checklist to this evidence language for S1-a/S1-c. All behavioral negative controls (prefetch, scope/disposal, trace, redelivery) stay mandatory. Gate 1 status is unchanged.
