@@ -1,5 +1,17 @@
 # DEV-314 — Phase A closing brief
 
+## Phase B evidence-method refinement — T020 S1-c (2026-10-07)
+
+Patron approved the ruling in CONCLUSIONS.md §Phase 3 T020 S1-c; commit 80c46bfc886eb3b620843f0dbee2d56cdbfc8009 is ratified as the current documentation baseline. This section refines Q2/Q5 evidence language below; corrected ticket Scope 1-3, AC1-2, constitution, Q6 envelope and behavioral contracts are unchanged.
+
+S1-a (consumer type, requested quorum queue and autoAck false) and S1-c (async, non-blocking dispatch) remain mandatory structural obligations. T020 records source-structure review with exact file:line evidence for these properties, including ReceivedAsync dispatch to HandleAsync and its transitive awaits without introduced synchronous waits. The review receipt must state its limitation: it is structural verification, not a behavioral assertion or an async negative-control PASS. Existing provider-barrier blocking is not evidence of consumer sync-over-async.
+
+Consumer_APrefetchOfOne_LeavesTheSecondMessageReady supplies real-broker prefetch evidence only; the second-ready-message assertion at the mapped L177 cannot distinguish task-returning dispatch from sync-over-async in the permitted observation envelope. T021 performs the prefetch break/failure/restore control and records that S1-c has no separate behavioral negative-control surface. No dispatcher instrumentation, source seam, reflection, thread-id, timing or ThreadPool heuristic is authorized.
+
+The obligation matrix, SC-001 and empty-production-diff condition require explicit structural review receipts for S1-a/S1-c alongside named passing tests and restored negative-control receipts for all behaviorally observable obligations. No obligation is dropped or credited solely from test presence. Prefetch, initial trace, broker-redelivery trace/settlement and per-message scope/disposal behavioral controls remain mandatory. Actual review/test/control receipts are still required; this ruling supplies none of them.
+
+Quill reconciles spec US1 evidence wording, FR-009, SC-001 and the empty-production-diff condition; plan proof language; tasks T020/T021 and proof checkpoint; and requirements checklist CHK001/CHK004/CHK008 in one bounded documentation fix round. No production/test/config/fixture edit, gate run, task completion claim or new owner checkbox follows from this refinement.
+
 - Decision owner: Patron; recorder: Keel.
 - Grill: Q1-Q12 approved; shared understanding closed on 2026-10-07.
 - Size: L. No ui: tag. No Gherkin/Reqnroll stage requested.

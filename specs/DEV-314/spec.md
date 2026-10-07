@@ -16,12 +16,12 @@ The enrichment consumer processes `enrichment.requested` quorum-queue messages a
 
 **Why this priority**: Scope 1 and AC1; without async non-blocking consumption nothing else is observable.
 
-**Independent Test**: `Consumer_APrefetchOfOne_LeavesTheSecondMessageReady` — block the first handler at a synchronization barrier and observe via the broker that the second message stays ready; assert the handler was invoked asynchronously with no synchronous wait.
+**Independent Test**: `Consumer_APrefetchOfOne_LeavesTheSecondMessageReady` — block the first handler at a synchronization barrier and observe via the broker that the second message stays ready; this named real-broker test proves prefetch only. Async non-blocking dispatch (S1-c) is a mandatory structural obligation verified by source-structure review: `ReceivedAsync` dispatch to `HandleAsync` (EnrichmentConsumer.cs:50 to :119) with transitive awaits (DispatchAsync :137, handler `HandleAsync` await :167, settlement awaits :130/:138/:146/:156) and no synchronous waits introduced. S1-a is likewise structural: `AsyncEventingBasicConsumer` (:49), `RabbitMqTopology.RequestedQueue` with `autoAck: false` (:51), prefetch `BasicQosAsync` from `options.Value.Prefetch` (:47). The second-ready assertion (mapped L177) cannot prove non-blocking dispatch, and there is no async assertion or negative-control PASS. AC1 behavior is unchanged.
 
 **Acceptance Scenarios**:
 
 1. **Given** two queued enrichment messages and prefetch 1, **When** the first handler blocks at a barrier, **Then** the broker still reports the second message ready.
-2. **Given** a running consumer, **When** a message is delivered, **Then** `ReceivedAsync` dispatches via `HandleAsync` without blocking the worker thread.
+2. **Given** a running consumer, **When** a message is delivered, **Then** `ReceivedAsync` dispatches via `HandleAsync` without blocking the worker thread (mandatory structural review, EnrichmentConsumer.cs:50 to :119 with transitive awaits; verified by review, not asserted).
 
 ---
 
@@ -61,7 +61,7 @@ Each message is dispatched inside its own `AsyncServiceScope`, resolving the fea
 - Host stopping mid-dispatch requeues via `BasicNackAsync(requeue: true)` without marking the movie failed.
 - Dropped connection resumes consumption after reconnect; broker unreachable at boot starts and stops without throwing.
 - `tracestate` absent from headers: parent still extracted from `traceparent`; carrier roundtrip extended only where no named test pins it.
-- Empty production diff is acceptable only when every obligation above has deliberate named-test evidence that fails against a broken implementation.
+- Empty production diff is acceptable only when every behaviorally observable obligation above has deliberate named-test evidence that fails against a broken implementation, plus explicit structural review receipts for S1-a/S1-c.
 
 ## Requirements *(mandatory)*
 
@@ -75,7 +75,7 @@ Each message is dispatched inside its own `AsyncServiceScope`, resolving the fea
 - **FR-006**: All 12 existing `EnrichmentConsumerTests` MUST be preserved and credited only for assertions they actually pin; new/strengthened tests MUST cover the redelivery link/count gap and the two-message scope/disposal proof.
 - **FR-007**: Redelivery proof MUST use real broker redelivery in the existing `RabbitMqCollection` with synchronized unacked interruption; bounded signal waits only, no arbitrary sleeps; per-test disposed `ActivityListener` filtered to the test correlation.
 - **FR-008**: Source edits to `EnrichmentConsumer.cs` / `TraceContextCarrier.cs` are conditional on a failing in-scope obligation test that cites the defect; carrier test extension only where tracestate roundtrip is unpinned.
-- **FR-009**: Negative controls MUST be temporary and local: break each acceptance obligation, demonstrate the assertion failure, restore, record evidence; never commit broken production behavior.
+- **FR-009**: Negative controls MUST be temporary and local: break each behaviorally observable acceptance obligation, demonstrate the assertion failure, restore, record evidence; never commit broken production behavior. Prefetch, trace/redelivery/settlement and scope/disposal controls stay mandatory. S1-a (consumer type, queue, autoAck) and S1-c (async dispatch) require explicit structural review receipts instead (EnrichmentConsumer.cs:47/:49/:50/:51/:119/:167 with transitive awaits, no synchronous waits); S1-c has no behavioral negative-control surface and MUST never be reported as assertion-proven or as an async negative-control PASS.
 
 Out of scope: Worker resurrection/deletion, broker/topology redesign, retry/claim-count redesign (no tightening of DEV-390 assertions), new dependencies/projects/layers, schema, public API, LocalPlay/secrets/`Process.Start`, glossary changes.
 
@@ -90,7 +90,7 @@ Out of scope: Worker resurrection/deletion, broker/topology redesign, retry/clai
 
 ### Measurable Outcomes
 
-- **SC-001**: Every Scope 1-3 obligation and both acceptance criteria map to at least one named test whose failure breaks exactly that obligation (negative-control evidence recorded).
+- **SC-001**: Every Scope 1-3 obligation and both acceptance criteria MUST map to evidence: explicit structural review receipts for S1-a/S1-c (US1 Independent Test), and named passing tests with recorded break/failure/restore negative controls for every behaviorally observable obligation. S1-c has no behavioral negative-control surface and MUST NOT be reported as assertion-proven or as an async negative-control PASS.
 - **SC-002**: Initial-delivery assertions pin kind, TraceId, ParentSpanId, TraceStateString, zero links and count 0; redelivery assertions pin the same parent plus one original-context link and count 1.
 - **SC-003**: Two-message test proves distinct scoped handler instances with async disposal after each invocation.
 - **SC-004**: Phase B delivery passes the standing pipeline on diff/head with no lowered threshold and no unanswered structural checkbox before the delivery merge bar.

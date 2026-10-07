@@ -93,6 +93,10 @@ Ordered Phase B delivery; task IDs live in `tasks.md`:
 - Headers: trace proof uses valid publisher-injected traceparent/tracestate; the existing missing-header fallback is unchanged and no new malformed-header obligation is added.
 - Isolation: T031 proves completion/settlement separately from span capture and cleans up interrupted delivery/consumer/listener state so no unacked message pollutes shared-queue tests. No new exhaustion test or cumulative delivery-count scope. The ActivityListener is disposed per test.
 
+## S1-a/S1-c evidence method (CONCLUSIONS.md Phase 3 T020 S1-c; brief:3-13)
+
+S1-a (consumer type, requested quorum queue, autoAck false) and S1-c (async non-blocking dispatch) are mandatory structural obligations verified by source-structure review with exact file:line receipts, not by behavioral assertion. The review pins `AsyncEventingBasicConsumer` (EnrichmentConsumer.cs:49), `RabbitMqTopology.RequestedQueue` with `autoAck: false` (:51), prefetch `BasicQosAsync` from `options.Value.Prefetch` (:47), and `ReceivedAsync` dispatch to `HandleAsync` (:50 to :119) with transitive awaits and no synchronous waits introduced. `Consumer_APrefetchOfOne_LeavesTheSecondMessageReady` proves prefetch only; its second-ready assertion (mapped L177) cannot prove non-blocking dispatch, and S1-c has no behavioral negative-control surface — it is never reported as assertion-proven or as an async negative-control PASS. No dispatcher instrumentation, source seam, reflection, thread-id/timing/ThreadPool heuristic, or new dependency is authorized; the Q6 envelope is unchanged.
+
 ## Closing Bar and Merge Bar (brief:113-119)
 
 - Closing bar: verified in-scope Critical, High and Medium findings block; Low findings are documented nonblocking. Gate failures, Could not run, missing Sentry/Ledger/Compass axis, missing handshake evidence, unmet corrected-ticket obligation, unanswered structural owner checkbox and unpublished review round always block regardless of severity label. At most two review/remediation rounds, two fix commits per round; exhausted blockers stay visible for owner disposition.
