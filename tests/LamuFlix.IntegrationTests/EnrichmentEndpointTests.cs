@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
@@ -7,7 +8,11 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
@@ -80,6 +85,44 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task RequestEnrichment_PendingMovie_ReturnsConflictProblemAndDoesNotEnqueue()
+    {
+        // arrange
+        var pending = Movie.Rehydrate(
+            new MovieId(KnownId),
+            "Heat",
+            new LibraryPath("C:/library/Heat"),
+            new MediaFormat(".mkv"),
+            false,
+            null,
+            EnrichmentStatus.Pending,
+            null,
+            0,
+            null,
+            null);
+        movies.GetAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(pending);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsync($"/api/movies/{KnownId}/enrichment", null, cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status409Conflict);
+        problem.GetProperty("title").GetString().ShouldBe("Conflict");
+        problem.GetRawText().ShouldNotContain(nameof(InvalidTransitionException));
+        pending.Status.ShouldBe(EnrichmentStatus.Pending);
+        await queue.DidNotReceive()
+            .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
+        ConflictMetadata(host).ShouldContain(item =>
+            item.StatusCode == StatusCodes.Status409Conflict && item.Type == typeof(ProblemDetails));
+    }
+
+    [Fact]
     public async Task RequestEnrichment_UnknownId_ReturnsNotFoundProblem()
     {
         // arrange
@@ -127,4 +170,12 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
             services.AddSingleton(movies);
             services.AddSingleton(queue);
         }));
+
+    private static IEnumerable<IProducesResponseTypeMetadata> ConflictMetadata(WebApplicationFactory<Program> host) =>
+        host.Services.GetRequiredService<EndpointDataSource>()
+            .Endpoints
+            .OfType<RouteEndpoint>()
+            .Single(endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "RequestEnrichment")
+            .Metadata
+            .OfType<IProducesResponseTypeMetadata>();
 }
