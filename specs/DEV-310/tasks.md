@@ -49,8 +49,8 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [P] [US1] Create `ImportMovieRequest` file under `src/LamuFlix.Api/Endpoints/` with `folderPath`
-- [ ] T012 [US1] Fill `src/LamuFlix.Api/Endpoints/ImportEndpoints.cs` with the import route, TypedResults, and complete response and error metadata
+- [X] T011 [P] [US1] Create `ImportMovieRequest` file under `src/LamuFlix.Api/Endpoints/` with `folderPath`
+- [X] T012 [US1] Fill `src/LamuFlix.Api/Endpoints/ImportEndpoints.cs` with the import route, TypedResults, and complete response and error metadata
 
 **Checkpoint**: User Story 1 slice is written and the handoff passes with no new failing host tests; host proof waits for Phase 8 after T023 wiring
 
