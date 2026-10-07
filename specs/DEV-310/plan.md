@@ -6,7 +6,7 @@
 
 ## Summary
 
-Expose the seven ticket routes as Minimal API endpoints over the existing Core handlers and a facet-read extension of the existing `IMovieCatalog`, following the brief ordering: facet contract and reads first, then command endpoints with exactly two error-mapping arms, then feature-group wiring, then real-host proof, then Cog whole-diff refactor and Gauge gates. Each Anvil implementation handoff passes tests independently: foundational focused tests pass in Phase 2, story slices add implementation only with no new failing host tests, and all full-host assertions are written post-wiring in the proof phase where they pass. OpenAPI document, snapshot, and drift work stay deferred to DEV-20 per the Q6 owner approval.
+Expose the seven ticket routes as Minimal API endpoints over the existing Core handlers and a facet-read extension of the existing `IMovieCatalog`, following the brief ordering: facet contract and reads first, then command endpoints with exactly two error-mapping arms, then feature-group wiring, then real-host proof, then Cog whole-diff refactor and Gauge gates. Each Anvil implementation handoff passes tests independently: foundational focused tests pass in Phase 2 with both-concrete-implementation parity complete (T002 port plus RecordingMovieCatalog parity in tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs:662-686 with T005 EfMovieCatalog adapter parity; recon sections 14-16; Patron CONCLUSIONS.md:290-296; Keel I1 DEV-310:277-281), story slices add implementation only with no new failing host tests, and all full-host assertions are written post-wiring in the proof phase where they pass, including additive nine-business-route/nine-handler-contract composition proof in tests/LamuFlix.IntegrationTests/ApiHostCompositionTests.cs after T023 wiring (Patron CONCLUSIONS.md:280-286; Keel I2 DEV-310:283-285). OpenAPI document, snapshot, and drift work stay deferred to DEV-20 per the Q6 owner approval.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@ Expose the seven ticket routes as Minimal API endpoints over the existing Core h
 
 **Constraints**: Exact ticket statuses, headers, empty command bodies, scalar facet arrays, and ProblemDetails error shape; DEV-394 fail-closed playback baseline preserved; `TimeProvider` for time and injected seeded `Random` for randomness
 
-**Scale/Scope**: Seven routes; file envelope per brief.md Q7
+**Scale/Scope**: Seven routes; file envelope per brief.md Q7 plus Phase B addendum existing-test edits (LibraryEndpointsTests.cs RecordingMovieCatalog parity in Phase 2; ApiHostCompositionTests.cs route/manifest additions in Phase 8; Patron CONCLUSIONS.md:280-286 and :290-296; Keel I1/I2 DEV-310:277-285)
 
 ## Constitution Check
 
@@ -78,17 +78,17 @@ src/
 │           ├── GetPeopleQuery.cs
 │           └── handlers
 └── LamuFlix.Infrastructure/
-    └── existing catalog adapter (facet read projections)
+    └── Persistence/EfMovieCatalog.cs (evidenced adapter; recon sections 15.1 and 16.3; both production facet methods under T005)
 
 tests/
 ├── LamuFlix.IntegrationTests/
-│   └── new matching endpoint host tests
+│   └── new matching endpoint host tests; LibraryEndpointsTests.cs restricted to RecordingMovieCatalog parity in Phase 2 (lines 662-686); ApiHostCompositionTests.cs restricted to route/manifest additions in Phase 8 (lines 131-147 and 34-72)
 ├── LamuFlix.UnitTests/
 │   └── Features/Library/ facet handler tests
 └── existing command, worker, facet persistence, and DEV-394 playback tests retained
 ```
 
-**Structure Decision**: Existing vertical-slice layout is kept; new endpoint, DTO, query, and handler files land in the slices named above, with the catalog adapter identified by `IMovieCatalog` ownership rather than a guessed filename.
+**Structure Decision**: Existing vertical-slice layout is kept; new endpoint, DTO, query, and handler files land in the slices named above, with the evidenced adapter src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs (recon sections 15.1 and 16.3; no new adapter or layer). Both-concrete-implementation completion (T002 port plus RecordingMovieCatalog parity with T005 adapter parity) precedes the Phase 2 handoff; after T023, the two existing library routes and seven existing manifest rows are preserved while the seven ticket routes and two facet query rows are added. Citations: Patron CONCLUSIONS.md:280-286 and :290-296; Keel I1/I2 DEV-310:277-285.
 
 ## Complexity Tracking
 

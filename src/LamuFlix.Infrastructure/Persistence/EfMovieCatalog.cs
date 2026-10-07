@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -69,6 +70,26 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 record.ImdbId)
             : null;
         return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata);
+    }
+
+    public async Task<IReadOnlyList<GenreFacet>> GetGenresAsync(CancellationToken ct)
+    {
+        var facets = await dbContext.Genres.AsNoTracking()
+            .OrderBy(genre => genre.Name)
+            .ThenBy(genre => genre.Id)
+            .Select(genre => new GenreFacet(genre.Id, genre.Name))
+            .ToArrayAsync(ct);
+        return facets;
+    }
+
+    public async Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct)
+    {
+        var facets = await dbContext.Actors.AsNoTracking()
+            .OrderBy(actor => actor.Name)
+            .ThenBy(actor => actor.Id)
+            .Select(actor => new PersonFacet(actor.Id, actor.Name))
+            .ToArrayAsync(ct);
+        return facets;
     }
 
     private static bool HasMetadata(MovieDetailsRecord record) =>

@@ -683,5 +683,17 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             DetailsIds.Add(id);
             return Task.FromResult(Details);
         }
+
+        public Task<IReadOnlyList<GenreFacet>> GetGenresAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult<IReadOnlyList<GenreFacet>>([]);
+        }
+
+        public Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult<IReadOnlyList<PersonFacet>>([]);
+        }
     }
 }

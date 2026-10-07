@@ -61,14 +61,16 @@ New matching endpoint host tests in tests/LamuFlix.IntegrationTests/, facet hand
 
 Preserve DEV-309 LibraryEndpoints/LibraryResponses, existing command handlers, Program.cs, architecture whitelist, migrations, playback adapters/config, web/dependencies and unrelated scripts. No deletion or wholesale rewriting. Anything outside this envelope needs recon or a fresh Patron ruling.
 
+Phase B addendum (2026-10-06; recon sections 14-16; Patron CONCLUSIONS.md:280-286 and :290-296; Keel DEV-310:273-293 I1/I2): existing-test envelope extends to tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs restricted to RecordingMovieCatalog member parity (current lines 662-686) and tests/LamuFlix.IntegrationTests/ApiHostCompositionTests.cs restricted to additive business-route and ManifestContracts updates (current lines 131-147 and 34-72). Frozen seven-route deliverable and all other envelope exclusions unchanged. This addendum supplements, and does not rewrite, the Phase A identity/owner-pending wording above.
+
 Keel writes only prescribed spec decision artifacts. Quill owns spec.md, plan.md and tasks.md after closure. No production implementation is authorized in Phase A.
 
 ## Task ordering
 
-1. Freeze scalar facet contract, extend existing catalog reads, implement facet queries/handlers/projections and focused tests.
+1. Freeze scalar facet contract, extend existing catalog reads, implement facet queries/handlers/projections and focused tests; port/concrete-implementation parity (T002 port plus RecordingMovieCatalog parity with T005 adapter) completes together before the Phase 2 passing handoff.
 2. Add command endpoint request validation/dispatch and exactly two error-mapping arms, preserving established handler semantics.
 3. Wire feature groups and explicit decorated registrations; complete endpoint response/error metadata.
-4. Prove all seven routes at the real host, and infrastructure-dependent behavior with real database/broker tests and safe process seams.
+4. Prove all seven routes at the real host, and infrastructure-dependent behavior with real database/broker tests and safe process seams, including additive nine-business-route/nine-handler-contract composition proof in ApiHostCompositionTests.cs after T023 wiring.
 5. Refactor the complete delivery diff then run full Phase B gates; no worker redesign or OpenAPI infrastructure implementation.
 
 Quill splits implementation tasks into independently verifiable phases/checkpoints using this ordering. Phase B starts only after Gate 1 approval and performs pickup drift check against main; facts come from Wisp.

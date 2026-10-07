@@ -18,7 +18,7 @@
 
 **Purpose**: Phase A draft and analyze context only; no code setup runs here
 
-- [ ] T001 Confirm `specs/DEV-310/brief.md`, `CONCLUSIONS.md`, `ASSUMPTIONS.md`, `spec.md`, `plan.md` are present as Phase A decision inputs. Implementation prerequisites before any code task: Gate 1 merged, Conductor and Rigger-provisioned Phase B worktree `F:/Dev/LamuFlix.worktrees/DEV-310` on branch `feature/DEV-310`, completed Wisp pickup drift check, and Keel re-analysis. No delivery worktree receipt is claimed here; Anvil never performs recon.
+- [x] T001 Confirm `specs/DEV-310/brief.md`, `CONCLUSIONS.md`, `ASSUMPTIONS.md`, `spec.md`, `plan.md` are present as Phase A decision inputs. Implementation prerequisites before any code task: Gate 1 merged, Conductor and Rigger-provisioned Phase B worktree `F:/Dev/LamuFlix.worktrees/DEV-310` on branch `feature/DEV-310`, completed Wisp pickup drift check, and Keel re-analysis. No delivery worktree receipt is claimed here; Anvil never performs recon. Phase B receipt (2026-10-06): identity F:/Dev/LamuFlix.worktrees/DEV-310, branch feature/DEV-310, HEAD 0badbad05f17959d004401f8664603fee499268a; provenance recon-DEV-310 sections 14-16 and Patron rulings CONCLUSIONS.md:280-286 and :290-296 with Keel I1/I2 DEV-310:273-293. Historical Phase A context above is preserved. Leave T001 unchecked until Quill corrections are read back and Keel confirms consistency. Keel verification (2026-10-07): T001 satisfied; five decision inputs present, Gate 1 PR #103 merged with Q6 ticked (DEV-310:218-222), Phase B provisioning recorded (DEV-310:225-227), Wisp pickup drift complete (DEV-310:232,304-309; recon-DEV-310:227,266), and Quill corrections 1-3 read back consistent (DEV-310:300-302). Prior unchecked/hold instructions are historical and superseded by this receipt. Phase 2 is eligible for Conductor handoff; no implementation completion or gate PASS is claimed.
 
 ---
 
@@ -28,16 +28,16 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T002 [Foundation] Extend `src/LamuFlix.Core/Ports/IMovieCatalog.cs` with two read-only facet operations
-- [ ] T003 [P] [Foundation] Create sealed `GetGenresQuery` record and sealed handler under `src/LamuFlix.Core/Features/Library/`
-- [ ] T004 [P] [Foundation] Create sealed `GetPeopleQuery` record and sealed handler under `src/LamuFlix.Core/Features/Library/`
-- [ ] T005 [Foundation] Add read-only facet projections to the existing Infrastructure catalog adapter owning `IMovieCatalog`
-- [ ] T006 [P] [Foundation] Add `GenreDto` file under `src/LamuFlix.Api/Endpoints/` with `int Id, string Name`
-- [ ] T007 [P] [Foundation] Add `PersonDto` file under `src/LamuFlix.Api/Endpoints/` with `int Id, string Name`
-- [ ] T008 [P] [Foundation] Add facet handler unit tests under `tests/LamuFlix.UnitTests/Features/Library/`
-- [ ] T009 [Foundation] Add real Postgres Testcontainers facet tests under `tests/LamuFlix.IntegrationTests/` covering translation, distinct Id, same-name preservation, Name-then-Id ordering, empty tables
+- [X] T002 [Foundation] Add both required facet port members to `src/LamuFlix.Core/Ports/IMovieCatalog.cs` and matching minimal RecordingMovieCatalog members in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs:662-686` only (minimal recording/stub parity with cancellation handling consistent with the existing double and typed empty facet results; preserve Queries, DetailsIds, Details, BrowseAsync, GetDetailsAsync, registration and all existing assertions; no EF queries in the double, no unrelated test-logic change, no default interface bodies; double implements the signatures actually introduced by T002; Patron CONCLUSIONS.md:290-296; Keel I1 DEV-310:277-281)
+- [X] T003 [P] [Foundation] Create sealed `GetGenresQuery` record and sealed handler under `src/LamuFlix.Core/Features/Library/`
+- [X] T004 [P] [Foundation] Create sealed `GetPeopleQuery` record and sealed handler under `src/LamuFlix.Core/Features/Library/`
+- [X] T005 [Foundation] Add both production read-only facet methods to the evidenced adapter `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` (recon sections 15.1 and 16.3; Keel I1 DEV-310:277-281)
+- [X] T006 [P] [Foundation] Add `GenreDto` file under `src/LamuFlix.Api/Endpoints/` with `int Id, string Name`
+- [X] T007 [P] [Foundation] Add `PersonDto` file under `src/LamuFlix.Api/Endpoints/` with `int Id, string Name`
+- [X] T008 [P] [Foundation] Add facet handler unit tests under `tests/LamuFlix.UnitTests/Features/Library/`
+- [X] T009 [Foundation] Add real Postgres Testcontainers facet tests under `tests/LamuFlix.IntegrationTests/` covering translation, distinct Id, same-name preservation, Name-then-Id ordering, empty tables
 
-**Checkpoint**: Foundation ready - story slices are written sequentially in priority order
+**Checkpoint**: Foundation ready - T002 port/double parity and T005 adapter parity complete together before this passing handoff (an intermediate interface edit is not a passing checkpoint; T008/T009 behavior proof unchanged); story slices are written sequentially in priority order
 
 ---
 
@@ -124,7 +124,7 @@
 - [ ] T015 [US3] Host test for watchlist matrix in `tests/LamuFlix.IntegrationTests/` (written here after T023 wiring; passes here)
 - [ ] T018 [US4] Host test for playback matrix in `tests/LamuFlix.IntegrationTests/` using the real flag registration with a recording process seam and never a real process (written here after T023 wiring; passes here)
 - [ ] T021 [US5] Host test for facet matrix in `tests/LamuFlix.IntegrationTests/` (written here after T023 wiring; passes here)
-- [ ] T024 Prove all seven routes at the real host plus infrastructure-dependent behavior with real database and broker tests and safe process seams. Passing checkpoint for every story host test (T010, T013, T015, T018, T021) lands here, after T023 wiring and facet registrations.
+- [ ] T024 Prove all seven routes at the real host plus infrastructure-dependent behavior with real database and broker tests and safe process seams, including the approved `tests/LamuFlix.IntegrationTests/ApiHostCompositionTests.cs` edit after T023 group wiring and explicit facet registrations: retain both existing library routes (/api/movies and /api/movies/{id:int}) and add the seven ticket routes (nine business routes total; role=actor is a query contract, not a route), retain all seven existing ManifestContracts handler rows and add GetGenresQuery and GetPeopleQuery (nine handler contracts), preserve the liveness assertion and existing route/HTTP-method conventions and all other composition checks (no subset-assertion relaxation, no dropped rows; Patron CONCLUSIONS.md:280-286; Keel I2 DEV-310:283-285). Passing checkpoint for every story host test (T010, T013, T015, T018, T021) lands here, after T023 wiring and facet registrations. T023 stays wiring/registration only; no new task IDs or phase reorder.
 
 **Checkpoint**: All seven routes proven passing at the real host after wiring
 
@@ -151,7 +151,7 @@
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies - can start immediately
-- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
+- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories; T002 port/double parity and T005 adapter parity complete together before the passing foundation checkpoint
 - **User Stories (Phases 3-7)**: All depend on Foundational phase completion
   - Slices are written sequentially in priority order (P1 to P2); each slice handoff passes with no new failing host tests
   - Full-host assertions for all stories are written and pass in Phase 8 after T023
@@ -174,6 +174,6 @@
 
 ## Notes
 
-- Phase B starts only after Gate 1 is merged, in the Conductor and Rigger-provisioned Phase B worktree `F:/Dev/LamuFlix.worktrees/DEV-310` on branch `feature/DEV-310`, with a completed Wisp pickup drift check and Keel re-analysis before code tasks. No delivery worktree receipt is claimed here.
+- Phase B starts only after Gate 1 is merged, in the Conductor and Rigger-provisioned Phase B worktree `F:/Dev/LamuFlix.worktrees/DEV-310` on branch `feature/DEV-310`, with a completed Wisp pickup drift check and Keel re-analysis before code tasks. No delivery worktree receipt is claimed here. Phase B receipt (2026-10-06): HEAD 0badbad05f17959d004401f8664603fee499268a; provenance recon-DEV-310 sections 14-16 and Patron rulings CONCLUSIONS.md:280-286 and :290-296 with Keel I1/I2 DEV-310:273-293; historical Phase A context preserved.
 - `propertyTests: opt-out` - HTTP adapters and read projections introduce no new domain invariant; the existing property suite is retained
 - Gate dispositions stay honest: SKIPPED (scope-empty), SKIP (configured opt-out), NOT APPLICABLE (script-emitted) are never PASS; Could not run and gate failures block
