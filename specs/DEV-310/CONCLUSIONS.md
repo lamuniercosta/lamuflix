@@ -285,3 +285,13 @@ Full cited closure:
 - Forced consequential edit: the exact two-route ShouldBe would fail the dotnet test gate (task-pipeline Phase 3) once the seven ticket-decided routes land; Q8/brief proof matrix requires seven-route host proof, implemented by T024 after T023 wiring.
 - No escalation: the edit implements the ticket's seven routes (no ticket-text change) and departs from no constitution clause; under the role rule the §2.3 #6 item is Patron-decided. It adds no deliverable and reorders no frozen work — it sits inside Q8/T024 proof within the brief:92 frozen scope — so no task-chain §4 owner checkbox.
 
+---
+
+## Phase B §2.3 #6 — RecordingMovieCatalog facet-member update (T001 I1)
+
+**Verdict: Approved.** Add both T002 facet members to RecordingMovieCatalog in tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs:662-686 only, minimal recording/stub parity with the new port members; no other test-logic change. No owner checkbox.
+
+- Not ticket-named and outside the frozen envelope: recon-DEV-310 §16.9 records zero matches for LibraryEndpointsTests, RecordingMovieCatalog, and the EfMovieCatalog filename across spec/plan/tasks/brief/CONCLUSIONS/ASSUMPTIONS; T002 (tasks.md:31) names only IMovieCatalog.cs and T005 (tasks.md:34) names only the existing Infrastructure adapter; Q7 (CONCLUSIONS:192) requires a fresh ruling for any off-envelope file.
+- Forced consequential edit: IMovieCatalog.cs:10,12 has no default members, so C# requires every concrete implementation to add both T002 members; T005 covers EfMovieCatalog only, leaving RecordingMovieCatalog (LibraryEndpointsTests.cs:662-686, registered at :570-572) non-compiling; NSubstitute proxies need no source edit (recon §16.7). Quill binds this compatibility work to Phase 2; empty default interface methods stay prohibited per Keel I1.
+- No escalation: the edit implements the ticket-decided Q2 facet reads (brief.md:38,58; spec.md:118; plan.md:74) with no ticket-text change and no constitution departure; under the role rule the §2.3 #6 item is Patron-decided. It adds no deliverable and reorders no frozen work — test-only fixture parity inside the brief:92 frozen scope — so no task-chain §4 owner checkbox.
+
