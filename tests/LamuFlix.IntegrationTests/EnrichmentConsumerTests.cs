@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -272,31 +274,133 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
     public async Task Consumer_TheConsumerActivity_SharesTheProducerTraceId()
     {
         var ct = TestContext.Current.CancellationToken;
-        var observed = new List<Activity>();
+        var observed = new ConcurrentQueue<Activity>();
         using var listener = new ActivityListener();
         listener.ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName;
         SampleActivity<ActivityContext> sample = (ref _) => ActivitySamplingResult.AllData;
         listener.Sample = sample;
-        listener.ActivityStopped = activity => observed.Add(activity);
+        listener.ActivityStopped = activity => observed.Enqueue(activity);
         ActivitySource.AddActivityListener(listener);
 
         await using var host = NewHost(_ => new MetadataLookupResult.NotFound());
         var movie = host.AddPendingMovie(109);
         var traceId = ActivityTraceId.CreateRandom();
         var spanId = ActivitySpanId.CreateRandom();
+        const string traceState = "lamu=initial";
         using (var ambient = new Activity("publish")
                    .SetIdFormat(ActivityIdFormat.W3C)
                    .SetParentId($"00-{traceId}-{spanId}-01"))
         {
+            ambient.TraceStateString = traceState;
             ambient.Start();
             await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
         }
 
+        var producer = observed.Single(activity => IsProducerActivity(activity, traceId));
+
         await host.StartAsync(ct);
         await host.WaitForStatusAsync(ct, movie, EnrichmentStatus.NotFound);
+        var consumer = (await WaitForActivitiesAsync(
+            observed,
+            activity => IsConsumerActivity(activity, traceId),
+            1,
+            ct))[0];
         await host.StopAsync(CancellationToken.None);
 
-        observed.ShouldContain(activity => activity.TraceId.ToString() == traceId.ToString());
+        producer.TraceStateString.ShouldBe(traceState);
+        consumer.Kind.ShouldBe(ActivityKind.Consumer);
+        consumer.TraceId.ShouldBe(traceId);
+        consumer.ParentSpanId.ShouldBe(producer.SpanId);
+        consumer.TraceStateString.ShouldBe(traceState);
+        consumer.Links.ShouldBeEmpty();
+        consumer.GetTagItem(TelemetryConstants.MessagingDeliveryCount).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Consumer_ABrokerRedelivery_KeepsTheProducerParentAndCarriesOneOriginalContextLink()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        Convert.ToInt32(RabbitMqTopology.RequestedArguments(DefaultMaxAttempts)["x-delivery-limit"])
+            .ShouldBeGreaterThanOrEqualTo(2);
+
+        var observed = new ConcurrentQueue<Activity>();
+        using var listener = new ActivityListener();
+        listener.ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName;
+        SampleActivity<ActivityContext> sample = (ref _) => ActivitySamplingResult.AllData;
+        listener.Sample = sample;
+        listener.ActivityStopped = activity => observed.Enqueue(activity);
+        ActivitySource.AddActivityListener(listener);
+
+        var calls = 0;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var host = NewHost(_ =>
+        {
+            if (Interlocked.Increment(ref calls) == 1)
+            {
+                entered.TrySetResult();
+                release.Task.Wait(ct);
+            }
+
+            return new MetadataLookupResult.Found(new MovieMetadata("Enriched"));
+        });
+        await using var restarted = NewHost(_ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")));
+        var movie = host.AddPendingMovie(110);
+        restarted.AddPendingMovie(110);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await probe.DrainAsync(RabbitMqTopology.RetryQueue, ct);
+
+        var traceId = ActivityTraceId.CreateRandom();
+        var spanId = ActivitySpanId.CreateRandom();
+        const string traceState = "lamu=redelivery";
+        using (var ambient = new Activity("publish")
+                   .SetIdFormat(ActivityIdFormat.W3C)
+                   .SetParentId($"00-{traceId}-{spanId}-01"))
+        {
+            ambient.TraceStateString = traceState;
+            ambient.Start();
+            await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        }
+
+        var producer = observed.Single(activity => IsProducerActivity(activity, traceId));
+
+        await host.StartAsync(ct);
+        await entered.Task.WaitAsync(ct);
+        var stopped = host.StopAsync(CancellationToken.None);
+        try
+        {
+            (await probe.PollMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(1U);
+
+            await restarted.StartAsync(ct);
+            var deliveries = await WaitForActivitiesAsync(
+                observed,
+                activity => IsConsumerActivity(activity, traceId),
+                1,
+                ct);
+            var redelivered = deliveries.MaxBy(activity => activity.StartTimeUtc).ShouldNotBeNull();
+
+            redelivered.Kind.ShouldBe(ActivityKind.Consumer);
+            redelivered.TraceId.ShouldBe(traceId);
+            redelivered.ParentSpanId.ShouldBe(producer.SpanId);
+            redelivered.TraceStateString.ShouldBe(traceState);
+            var link = redelivered.Links.ShouldHaveSingleItem();
+            link.Context.TraceId.ShouldBe(traceId);
+            link.Context.SpanId.ShouldBe(producer.SpanId);
+            link.Context.TraceState.ShouldBe(traceState);
+            redelivered.GetTagItem(TelemetryConstants.MessagingDeliveryCount).ShouldBe(1);
+
+            producer.TraceStateString.ShouldBe(traceState);
+            restarted.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+
+        await stopped;
+        await restarted.StopAsync(CancellationToken.None);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).MessageCount.ShouldBe(0U);
     }
 
     private static int ClosedPort()
@@ -312,6 +416,39 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         JsonSerializer.Deserialize<EnrichmentRequested>(
             Encoding.UTF8.GetString(message.Body.Span),
             new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
+
+    private static bool IsProducerActivity(Activity activity, ActivityTraceId traceId) =>
+        activity.Source.Name == TelemetryConstants.ActivitySourceName
+        && activity.OperationName == TelemetryConstants.EnrichmentEnqueue
+        && activity.TraceId == traceId;
+
+    private static bool IsConsumerActivity(Activity activity, ActivityTraceId traceId) =>
+        activity.Source.Name == TelemetryConstants.ActivitySourceName
+        && activity.OperationName == TelemetryConstants.EnrichmentProcess
+        && activity.TraceId == traceId;
+
+    private static async Task<IReadOnlyList<Activity>> WaitForActivitiesAsync(
+        ConcurrentQueue<Activity> observed,
+        Func<Activity, bool> match,
+        int count,
+        CancellationToken cancellationToken)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(30);
+        IReadOnlyList<Activity> found = [];
+        while (TimeProvider.System.GetUtcNow() < deadline)
+        {
+            found = [.. observed.Where(match)];
+            if (found.Count >= count)
+            {
+                return found;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+        }
+
+        found.Count.ShouldBeGreaterThanOrEqualTo(count);
+        return found;
+    }
 
     private ConsumerHost NewHost(
         Func<MetadataLookup, MetadataLookupResult> script,
