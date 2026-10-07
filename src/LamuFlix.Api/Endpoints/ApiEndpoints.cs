@@ -9,6 +9,6 @@ internal static class ApiEndpoints
     {
         var api = endpoints.MapGroup("/api");
 
-        return api.MapLibraryEndpoints().MapImportEndpoints();
+        return api.MapLibraryEndpoints().MapImportEndpoints().MapEnrichmentEndpoints();
     }
 }

@@ -64,7 +64,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Create `EnrichmentEndpoints` file under `src/LamuFlix.Api/Endpoints/` with TypedResults and complete metadata
+- [X] T014 [US2] Create `EnrichmentEndpoints` file under `src/LamuFlix.Api/Endpoints/` with TypedResults and complete metadata
 
 **Checkpoint**: User Story 2 slice is written and the handoff passes with no new failing host tests; host proof waits for Phase 8 after T023 wiring
 

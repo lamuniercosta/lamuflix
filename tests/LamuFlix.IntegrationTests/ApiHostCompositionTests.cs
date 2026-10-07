@@ -31,6 +31,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string BrowseMoviesRoute = "/api/movies";
     private const string GetMovieDetailsRoute = "/api/movies/{id:int}";
     private const string ImportMovieRoute = "/api/movies/import";
+    private const string RequestEnrichmentRoute = "/api/movies/{id}/enrichment";
 
     public static TheoryData<Type, Type, Type> ManifestContracts =>
         new()
@@ -144,7 +145,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
         routes.Where(route => string.Equals(route, LivenessRoute, StringComparison.Ordinal))
             .ShouldHaveSingleItem();
         routes.Where(route => route.StartsWith(BusinessPrefix, StringComparison.Ordinal))
-            .ShouldBe([BrowseMoviesRoute, GetMovieDetailsRoute, ImportMovieRoute]);
+            .ShouldBe([BrowseMoviesRoute, GetMovieDetailsRoute, ImportMovieRoute, RequestEnrichmentRoute]);
     }
 
     [Theory]
