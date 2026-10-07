@@ -535,7 +535,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             .ToDictionary(pair => pair.Name.ShouldNotBeNull(), pair => pair.Endpoint, StringComparer.Ordinal);
 
         // assert
-        endpoints.Keys.ShouldBe(["BrowseMovies", "GetMovieDetails"], ignoreOrder: true);
+        endpoints.Keys.ShouldBe(["BrowseMovies", "GetMovieDetails", "ImportMovie"], ignoreOrder: true);
         ShouldDescribe(endpoints["BrowseMovies"], BrowseResponseType, StatusCodes.Status422UnprocessableEntity);
         ShouldDescribe(endpoints["GetMovieDetails"], DetailsResponseType, StatusCodes.Status404NotFound);
     }
