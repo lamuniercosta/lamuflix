@@ -403,6 +403,35 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).MessageCount.ShouldBe(0U);
     }
 
+    [Fact]
+    public async Task Consumer_TwoMessages_ResolveDistinctScopedHandlersAndDisposeThemAsynchronouslyPerInvocation()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var log = new DispatchScopeLog();
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")),
+            scopeLog: log);
+        var first = host.AddPendingMovie(111);
+        var second = host.AddPendingMovie(112);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await probe.DrainAsync(RabbitMqTopology.RetryQueue, ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(first, 1), ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(second, 1), ct);
+
+        await host.StartAsync(ct);
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(30);
+        while (TimeProvider.System.GetUtcNow() < deadline
+               && log.Events.Count(dispatch => dispatch.Kind == DispatchScopeLog.Disposed) < 2)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50), ct);
+        }
+
+        await host.StopAsync(CancellationToken.None);
+
+        string.Join("; ", CollectScopeViolations(host, log)).ShouldBe(string.Empty);
+    }
+
     private static int ClosedPort()
     {
         var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -450,11 +479,57 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         return found;
     }
 
+    private static IReadOnlyList<string> CollectScopeViolations(ConsumerHost host, DispatchScopeLog log)
+    {
+        var violations = new List<string>();
+        var events = log.Events.ToList();
+        var dispatched = events.Count(dispatch => dispatch.Kind == DispatchScopeLog.Invoked);
+        if (dispatched != 2)
+        {
+            violations.Add($"expected 2 dispatches but recorded {dispatched}");
+        }
+
+        var handlers = events
+            .Where(dispatch => dispatch.Kind == DispatchScopeLog.Invoked)
+            .Select(dispatch => dispatch.Handler)
+            .Distinct()
+            .ToList();
+        if (handlers.Count != 2)
+        {
+            violations.Add($"dispatches resolved {handlers.Count} distinct scoped handler instances instead of 2");
+        }
+
+        if (log.Resolutions.Any(resolution => ReferenceEquals(resolution, host.Services)))
+        {
+            violations.Add("the scoped handler was resolved from the root provider");
+        }
+
+        for (var index = 0; index < handlers.Count; index++)
+        {
+            var handler = handlers[index];
+            var returned = events.FindIndex(dispatch =>
+                dispatch.Kind == DispatchScopeLog.Returned && ReferenceEquals(dispatch.Handler, handler));
+            var disposed = events.FindIndex(dispatch =>
+                dispatch.Kind == DispatchScopeLog.Disposed && ReferenceEquals(dispatch.Handler, handler));
+            if (disposed < 0)
+            {
+                violations.Add($"handler {index + 1} was never disposed asynchronously");
+            }
+            else if (returned >= 0 && disposed < returned)
+            {
+                violations.Add($"handler {index + 1} was disposed before its invocation returned");
+            }
+        }
+
+        return violations;
+    }
+
     private ConsumerHost NewHost(
         Func<MetadataLookup, MetadataLookupResult> script,
         int maxAttempts = DefaultMaxAttempts,
         ushort prefetch = 1,
-        RabbitMqOptions? rabbitOptions = null)
+        RabbitMqOptions? rabbitOptions = null,
+        DispatchScopeLog? scopeLog = null)
     {
         var clock = new AdjustableTimeProvider(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
         var provider = new ScriptedMetadataProvider(script);
@@ -480,6 +555,17 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         services.AddScoped<IValidator<ProcessEnrichmentCommand>>(p =>
             p.GetRequiredService<ProcessEnrichmentCommandValidator>());
         services.AddHandler<ProcessEnrichmentCommandHandler, ProcessEnrichmentCommand, ProcessEnrichmentOutcome>();
+        if (scopeLog is { } observed)
+        {
+            services.AddScoped<ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>>(scopeProvider =>
+            {
+                observed.RecordResolution(scopeProvider);
+                return new ScopeProbeHandler(
+                    observed,
+                    scopeProvider.GetRequiredService<ProcessEnrichmentCommandHandler>());
+            });
+        }
+
         var built = services.BuildServiceProvider();
         var consumer = new EnrichmentConsumer(
             owner,
@@ -512,6 +598,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         public ScriptedMetadataProvider Provider { get; } = provider;
 
         public AdjustableTimeProvider Time { get; } = time;
+
+        public IServiceProvider Services => services;
 
         public Task StartAsync(CancellationToken cancellationToken) => consumer.StartAsync(cancellationToken);
 
@@ -566,6 +654,53 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         {
             services.Dispose();
             return owner.DisposeAsync();
+        }
+    }
+
+    private sealed class DispatchScopeLog
+    {
+        public const string Invoked = "invoked";
+        public const string Returned = "returned";
+        public const string Disposed = "disposed";
+
+        private readonly ConcurrentQueue<DispatchEvent> dispatches = new();
+        private readonly ConcurrentQueue<IServiceProvider> resolutions = new();
+
+        public IReadOnlyList<DispatchEvent> Events => [.. dispatches];
+
+        public IReadOnlyList<IServiceProvider> Resolutions => [.. resolutions];
+
+        public void Record(
+            string kind,
+            ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome> handler) =>
+            dispatches.Enqueue(new DispatchEvent(kind, handler));
+
+        public void RecordResolution(IServiceProvider provider) => resolutions.Enqueue(provider);
+    }
+
+    private readonly record struct DispatchEvent(
+        string Kind,
+        ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome> Handler);
+
+    private sealed class ScopeProbeHandler(
+        DispatchScopeLog log,
+        ProcessEnrichmentCommandHandler inner)
+        : ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>, IAsyncDisposable
+    {
+        public async Task<ProcessEnrichmentOutcome> HandleAsync(
+            ProcessEnrichmentCommand command,
+            CancellationToken cancellationToken)
+        {
+            log.Record(DispatchScopeLog.Invoked, this);
+            var outcome = await inner.HandleAsync(command, cancellationToken);
+            log.Record(DispatchScopeLog.Returned, this);
+            return outcome;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            log.Record(DispatchScopeLog.Disposed, this);
+            return ValueTask.CompletedTask;
         }
     }
 

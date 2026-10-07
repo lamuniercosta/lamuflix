@@ -42,8 +42,8 @@
 
 ## Phase 5: User Story 3 — Per-message scope + disposal (P2)
 
-- [ ] T040 [US3] New two-message test with nested scoped handler: distinct instances, async disposal per invocation, no root reuse (Anvil; sequential edit of `EnrichmentConsumerTests.cs` after Phase 4).
-- [ ] T041 [US3] Temporary negative controls for scope/disposal obligations (Anvil; never committed).
+- [X] T040 [US3] New two-message test with nested scoped handler: distinct instances, async disposal per invocation, no root reuse (Anvil; sequential edit of `EnrichmentConsumerTests.cs` after Phase 4).
+- [X] T041 [US3] Temporary negative controls for scope/disposal obligations (Anvil; never committed).
 
 ## Phase 6: Conditional behavior fixes (Cog only, cited trigger each)
 
