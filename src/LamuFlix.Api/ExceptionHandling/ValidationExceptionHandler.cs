@@ -26,6 +26,10 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
                 httpContext,
                 StatusCodes.Status422UnprocessableEntity,
                 CreateValidationProblem(validationException)),
+            BadHttpRequestException => await WriteAsync(
+                httpContext,
+                StatusCodes.Status400BadRequest,
+                CreateBadRequestProblem()),
             NotFoundException => await WriteAsync(
                 httpContext,
                 StatusCodes.Status404NotFound,
@@ -63,6 +67,14 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
         problem.Extensions["errors"] = validationException.Errors;
         return problem;
     }
+
+    private static ProblemDetails CreateBadRequestProblem() =>
+        new()
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Bad Request",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+        };
 
     private static ProblemDetails CreateNotFoundProblem() =>
         new()
