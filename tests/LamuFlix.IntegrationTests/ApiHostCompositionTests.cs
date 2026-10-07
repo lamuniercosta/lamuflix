@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO.Abstractions;
 using System.Linq;
 using System.Net;
@@ -74,6 +75,16 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                 typeof(ICommandHandler<RemoveFromWatchlistCommand, Unit>),
                 typeof(RemoveFromWatchlistCommand),
                 typeof(Unit)
+            },
+            {
+                typeof(IQueryHandler<GetGenresQuery, IReadOnlyList<GenreFacet>>),
+                typeof(GetGenresQuery),
+                typeof(IReadOnlyList<GenreFacet>)
+            },
+            {
+                typeof(IQueryHandler<GetPeopleQuery, IReadOnlyList<PersonFacet>>),
+                typeof(GetPeopleQuery),
+                typeof(IReadOnlyList<PersonFacet>)
             },
         };
 
