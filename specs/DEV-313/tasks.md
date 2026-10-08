@@ -35,7 +35,7 @@
 
 **Independent Test**: Temp `<Title> (<Year>)` folder with one tiny .mkv/.mp4 file; POST import returns 202, relative Location, empty body; poll persisted status to Enriched; GET details plus WireMock request log match
 
-- [ ] T008 [US3] Implement ApiEndToEndImportTests.cs success path: real temp <Title> (<Year>) folder with one tiny .mkv/.mp4 file, 202 with relative Location using the generated persisted movie ID and an empty body, persisted movie, bounded fresh-DB poll to Enriched, GET details confirmation, and matching measured WireMock OMDb request evidence. Register cleanup as soon as the folder is created; on success, host-start failure or assertion failure, stop/dispose any created or partially started host before deleting the owned temp folder in failure-safe teardown/finally cleanup. No playable media or process execution.
+- [X] T008 [US3] Implement ApiEndToEndImportTests.cs success path: real temp <Title> (<Year>) folder with one tiny .mkv/.mp4 file, 202 with relative Location using the generated persisted movie ID and an empty body, persisted movie, bounded fresh-DB poll to Enriched, GET details confirmation, and matching measured WireMock OMDb request evidence. Register cleanup as soon as the folder is created; on success, host-start failure or assertion failure, stop/dispose any created or partially started host before deleting the owned temp folder in failure-safe teardown/finally cleanup. No playable media or process execution.
 
 **Checkpoint**: Import-to-OMDb causal chain proven; no hand-invoked handler/provider/consumer counted as evidence
 
