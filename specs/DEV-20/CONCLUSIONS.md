@@ -116,3 +116,19 @@ Shared understanding reached after five questions; no open decision or owner che
 
 Persist as you proposed; no PR or gate writes from me.
 
+
+## Phase 2 questions (Anvil via Conductor)
+
+[from Conductor] DEV-20 Q-impl-1: spec FR-006, contracts/msw-harness.md, T011 say onUnhandledRequest: error; frozen msw 3.0.2 uses onUnhandledFrame: error (implemented in 367f53d). Sync spec wording?
+
+Ruling: ACCEPT. Sync the wording to `onUnhandledFrame: 'error'`; this is an API-name correction, not a scope or dependency change.
+- Intent is unchanged: unhandled traffic fails the test (spec.md US line 31, FR-006, Q3 test contract). msw is ticket-named and frozen under Q2; the option name follows the frozen version.
+- Sync every occurrence: spec.md (story + FR-006), contracts/msw-harness.md, tasks.md T011, plan.md, research.md, data-model.md, brief.md. Pure wording edit on this branch, owned by Keel; no gate re-open.
+- Not ticket text (DEV-20 names msw, not the option), so no structural escalation.
+
+[from Conductor] DEV-20 Q-impl-2: core.autocrlf rewrites web files to CRLF on Windows checkout, failing prettier --check (endOfLine lf). Set endOfLine: auto in web/.prettierrc.json before T023?
+
+Ruling: REJECT endOfLine: auto. Fix the cause in git: add `web/.gitattributes` containing `* text=auto eol=lf`; keep Prettier default endOfLine lf.
+- auto makes prettier --check accept whichever ending is on disk, so mixed endings pass lint and the check stops guarding anything; the fault is checkout conversion, not formatting.
+- §2.3 item 6 / Q5 frozen file set: the new file is forced by a gate (lint, and run-web-gates.ps1 must exit 0 locally on Windows per Q5 verification), so it is in scope. Scoped to web/ so backend line endings are untouched; no root .gitattributes, no repo-wide renormalize. .editorconfig stays untouched (plan Constraints).
+- Anvil adds it with the next code phase commit and runs `git add --renormalize web`; Gauge confirms prettier --check passes on a fresh Windows checkout.
