@@ -57,8 +57,8 @@
 
 - [X] T060 Refactor changed code only, frozen scope preserved, stricter refactor gate met (Cog; must complete before T061).
 - [ ] T061 Delivery gates on diff/head (after T060; Gauge): Roslyn, complexity, InspectCode (default scope, never `-All`), property tests, vulnerable packages, format verification, full `dotnet test` (all 12 consumer tests plus T030/T031/T040 additions), web applicability, mutation script (no `--since`). Acceptable statuses per brief:90-94 only: exit 0 is pass; scope-empty exit 2 is nonblocking SKIPPED (scope-empty), harness-disabled web is nonblocking SKIP, mutation all-configured-excluded is N/A — none is PASS. Exit 1 and Could not run block; property-test exit 2 blocks unless a valid opt-out is recorded in the task note.
-- [ ] T062 Verified reruns for any gate failure routed via Cog; initial failures vs permitted reruns recorded distinctly (Gauge).
-- [ ] T063 Run existing composition, service-collection, options, publisher and topology regression tests as applicable without rewriting their files, alongside all 12 consumer tests (brief:80) (Gauge).
+- [X] T062 Verified reruns for any gate failure routed via Cog; initial failures vs permitted reruns recorded distinctly (Gauge).
+- [X] T063 Run existing composition, service-collection, options, publisher and topology regression tests as applicable without rewriting their files, alongside all 12 consumer tests (brief:80) (Gauge).
 
 ## Phase 8: Review + merge bar
 
