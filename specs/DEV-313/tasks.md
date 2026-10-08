@@ -47,8 +47,8 @@
 
 **Independent Test**: Seeded eligible movie retried over HTTP reaches Enriched with WireMock evidence; ineligible and missing rows return 409/404
 
-- [ ] T010 [US4] Implement ApiEndToEndEnrichmentTests.cs: persist a retry-eligible movie with LastAttemptAt=null before POST so the first Pending claim is eligible without waiting for lease expiry; use the existing rehydration/seed patterns without production changes. Assert 202, relative Location using the generated movie ID and an empty body, then bounded fresh-DB poll to Enriched, GET details confirmation and matching measured WireMock request evidence. Never rely on clock advancement after a refused claim has been ACKed. Include the existing 409 ineligible and 404 missing contracts.
-- [ ] T009 [US3] Implement ApiEndToEndValidationTests.cs: invalid import and browse inputs assert 422 application/problem+json with field-keyed errors
+- [X] T010 [US4] Implement ApiEndToEndEnrichmentTests.cs: persist a retry-eligible movie with LastAttemptAt=null before POST so the first Pending claim is eligible without waiting for lease expiry; use the existing rehydration/seed patterns without production changes. Assert 202, relative Location using the generated movie ID and an empty body, then bounded fresh-DB poll to Enriched, GET details confirmation and matching measured WireMock request evidence. Never rely on clock advancement after a refused claim has been ACKed. Include the existing 409 ineligible and 404 missing contracts.
+- [X] T009 [US3] Implement ApiEndToEndValidationTests.cs: invalid import and browse inputs assert 422 application/problem+json with field-keyed errors
 
 **Checkpoint**: Retry-to-OMDb causal chain proven alongside 409/404 and validation contracts
 
