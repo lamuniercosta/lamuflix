@@ -76,7 +76,7 @@
 
 **Goal**: Prove the test blocks silent drift.
 
-- [ ] T017 [US2] Mutate one contract field in the generated document, run the drift test, and confirm failure with no baseline writes and no auto-accept; then restore (depends on T010)
+- [X] T017 [US2] Mutate one contract field in the generated document, run the drift test, and confirm failure with no baseline writes and no auto-accept; then restore (depends on T010)
 
 **Checkpoint**: Silent drift demonstrably fails the build.
 
