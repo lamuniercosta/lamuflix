@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shouldly;
+using VerifyXunit;
 using Xunit;
 
 namespace LamuFlix.IntegrationTests;
@@ -30,6 +31,8 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     private const string CommittedBaselineRelativePath = "web/src/api/openapi.json";
     private const string DerivedSnapshotRelativePath =
         "tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json";
+    private const string SnapshotDirectory = "Snapshots";
+    private const string SnapshotFileName = "OpenApiContractTests.DriftMatchesCommittedBaseline";
 
     private static readonly string[] ExpectedOperations =
     [
@@ -135,6 +138,45 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         IsWithinRoot(snapshot, root).ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task DriftMatchesCommittedBaseline()
+    {
+        // arrange
+        using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = NormalizeLineEndings(await GenerateDocumentAsync(client));
+
+        // assert
+        File.Exists(CommittedBaselinePath).ShouldBeTrue($"Missing committed baseline '{CommittedBaselineRelativePath}'.");
+        File.Exists(DerivedSnapshotPath).ShouldBeTrue($"Missing derived snapshot '{DerivedSnapshotRelativePath}'.");
+        NormalizeLineEndings(File.ReadAllText(CommittedBaselinePath)).ShouldBe(document);
+        NormalizeLineEndings(File.ReadAllText(DerivedSnapshotPath)).ShouldBe(document);
+
+        await Verifier.Verify(target: document, extension: "json")
+            .UseDirectory(SnapshotDirectory)
+            .UseFileName(SnapshotFileName);
+    }
+
+    [Fact]
+    public async Task Document_RepeatedGeneration_IsIdenticalAfterNormalization()
+    {
+        // arrange
+        using var firstHost = CreateDevelopmentHost();
+        using var secondHost = CreateDevelopmentHost();
+        using var firstClient = firstHost.CreateClient();
+        using var secondClient = secondHost.CreateClient();
+
+        // act
+        var firstDocument = NormalizeLineEndings(await GenerateDocumentAsync(firstClient));
+        var secondDocument = NormalizeLineEndings(await GenerateDocumentAsync(secondClient));
+
+        // assert
+        firstDocument.ShouldNotBeNullOrWhiteSpace();
+        secondDocument.ShouldBe(firstDocument);
+    }
+
     private WebApplicationFactory<Program> CreateDevelopmentHost() =>
         factory.WithWebHostBuilder(builder => builder.UseEnvironment(Environments.Development));
 
@@ -144,6 +186,9 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         return await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
     }
+
+    private static string NormalizeLineEndings(string text) =>
+        text.Replace("\r\n", "\n", StringComparison.Ordinal);
 
     private static string RepositoryRoot()
     {

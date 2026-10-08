@@ -498,3 +498,6 @@ secrets.json
 web/node_modules/
 web/dist/
 web/coverage/
+
+# Verify received files stay untracked
+*.received.*
