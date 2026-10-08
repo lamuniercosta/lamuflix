@@ -7,15 +7,15 @@
 ## Initial delivery
 
 - [ ] CHK101 ActivityKind is Consumer.
-- [ ] CHK102 Parent equals the extracted producer context (ParentSpanId pinned, not just TraceId).
+- [ ] CHK102 Parent equals the extracted wire context (consumer ParentSpanId equals client-publish SpanId; client-publish ParentSpanId equals LamuFlix producer span id; TraceId pinned, not just TraceId match).
 - [ ] CHK103 TraceStateString preserved from propagated tracestate.
 - [ ] CHK104 Zero ActivityLinks.
 - [ ] CHK105 `messaging.rabbitmq.delivery_count` is 0.
 
 ## Broker redelivery
 
-- [ ] CHK106 Same producer parent and tracestate as initial delivery.
-- [ ] CHK107 Exactly one ActivityLink whose context equals the extracted original context.
+- [ ] CHK106 Same wire parent and tracestate as initial delivery.
+- [ ] CHK107 Exactly one ActivityLink whose context equals the extracted original wire context.
 - [ ] CHK108 `messaging.rabbitmq.delivery_count` is 1.
 - [ ] CHK109 Redelivery produced by genuine broker redelivery of an unacked message, not a republished retry.
 - [ ] CHK110 Completion/settlement asserted separately from span capture.

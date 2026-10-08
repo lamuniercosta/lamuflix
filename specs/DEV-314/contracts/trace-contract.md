@@ -5,8 +5,8 @@ Binding assertion set for US2/FR-003/FR-004. Every assertion below is message-co
 ## Initial delivery
 
 - `Activity.Kind == ActivityKind.Consumer`
-- `Activity.TraceId == producer TraceId`
-- `Activity.ParentSpanId == producer span id`
+- `Activity.TraceId == LamuFlix producer TraceId`
+- `Activity.ParentSpanId == SpanId of the extracted wire context` (the RabbitMQ.Client.Publisher client-publish span whose `ParentSpanId == LamuFlix producer span id`)
 - `Activity.TraceStateString == propagated tracestate`
 - `Activity.Links` is empty
 - Tag `messaging.rabbitmq.delivery_count == 0`
@@ -14,7 +14,7 @@ Binding assertion set for US2/FR-003/FR-004. Every assertion below is message-co
 ## Broker redelivery (genuine, unacked interruption)
 
 - Same parent identity and tracestate as initial delivery
-- `Activity.Links` has exactly one entry whose `Context == extracted original producer context`
+- `Activity.Links` has exactly one entry whose `Context == extracted original wire context`
 - Tag `messaging.rabbitmq.delivery_count == 1`
 - Completion/settlement asserted separately from span capture
 
