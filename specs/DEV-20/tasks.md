@@ -67,12 +67,12 @@
 
 ### Tests for User Story 2 (write FIRST, ensure FAIL)
 
-- [ ] T016 [US2] Write `web/src/test/msw.test.ts` with explicit `vitest` imports for all used test/lifecycle APIs: fetch synthetic URL returns default handler; per-test override applies once; next test observes reset defaults; suite wires server lifecycle (spec FR-006/FR-007, contracts/msw-harness.md); run the suite and confirm the interception/isolation assertions FAIL while `server.ts` is still the handler-free T011 shell, before T017 adds any handler.
+- [X] T016 [US2] Write `web/src/test/msw.test.ts` with explicit `vitest` imports for all used test/lifecycle APIs: fetch synthetic URL returns default handler; per-test override applies once; next test observes reset defaults; suite wires server lifecycle (spec FR-006/FR-007, contracts/msw-harness.md); run the suite and confirm the interception/isolation assertions FAIL while `server.ts` is still the handler-free T011 shell, before T017 adds any handler.
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Implement synthetic handlers in `web/src/test/server.ts` (default + overridable, test-only URLs; no product handlers, no browser worker) (spec FR-006/FR-011).
-- [ ] T018 [US2] Re-run `npm test`; record receipt; confirm App test unaffected by MSW (spec SC-001 subset).
+- [X] T017 [US2] Implement synthetic handlers in `web/src/test/server.ts` (default + overridable, test-only URLs; no product handlers, no browser worker) (spec FR-006/FR-011).
+- [X] T018 [US2] Re-run `npm test`; record receipt; confirm App test unaffected by MSW (spec SC-001 subset).
 
 **Checkpoint**: US1 and US2 both work independently.
 
