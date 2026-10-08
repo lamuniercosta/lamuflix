@@ -153,3 +153,8 @@ The earlier Q4 continuation receipt summarized the ask. Preserve its complete se
 - I4 contradicts a NON-NEGOTIABLE principle verbatim: constitution:93-95 (I. Ports and Adapters with a Feature-Organised Core; It is NOT vertical-slice architecture). Quill replaces vertical-slice at plan.md:23 and :98 with ports and adapters with a feature-organised Core.
 - C1: Quill re-cites plan.md:37-38 so command-result/decorators cite II (constitution:128), MovieId/no-duplicate-DTO naming cites VIII (constitution:262), and the no LocalPlay/secret clause adds VII (constitution:241). No other plan.md, spec.md, or tasks.md edit.
 - Verification: Keel confirms the plan.md diff touches only those lines (diff read, not analyze rerun); Plan Challenge then reviews the corrected plan.md.
+
+## Gate 1 (Phase 2 Step 7)
+
+Ruling: gate1: provisional. Basis: Round 2 analyze 0 Critical with capped-loop editorial patch confirmed (DEV-316 note); Keel plan adjudication PASS, 8/8 findings dispositioned as Phase 3 guardrails/notes, Ledger clean (adjudication-DEV-316-plan); no owner structural checkbox. Rigger cleared to commit and open the spec PR; user retains merge authority.
+
