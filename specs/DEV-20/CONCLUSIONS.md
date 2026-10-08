@@ -132,3 +132,12 @@ Ruling: REJECT endOfLine: auto. Fix the cause in git: add `web/.gitattributes` c
 - auto makes prettier --check accept whichever ending is on disk, so mixed endings pass lint and the check stops guarding anything; the fault is checkout conversion, not formatting.
 - §2.3 item 6 / Q5 frozen file set: the new file is forced by a gate (lint, and run-web-gates.ps1 must exit 0 locally on Windows per Q5 verification), so it is in scope. Scoped to web/ so backend line endings are untouched; no root .gitattributes, no repo-wide renormalize. .editorconfig stays untouched (plan Constraints).
 - Anvil adds it with the next code phase commit and runs `git add --renormalize web`; Gauge confirms prettier --check passes on a fresh Windows checkout.
+
+## Phase 4 procedure (Keel)
+
+[from Keel] DEV-20 Phase 4 step 1: code-review declined (zero .cs in 30-file diff at b40c68a); how to satisfy the M/L pre-pass + three-axis mandate?
+
+Ruling: ACCEPT option 3. Gauge writes a standalone task-pipeline web pre-pass at `<temp>/pr-review/F-Dev-LamuFlix-worktrees-DEV-20/web-review/pre-pass-b40c68a66a891cffdf801091b7f03795ea999351.md`; Sentry/Ledger/Compass handshake it and review the full pinned diff; Keel adjudicates all three reports.
+- task-pipeline Phase 4 steps 1-3 (lines 113-118) mandate a pre-pass carrying repository, full head_sha, fixed_point, diff_range, a tier for every changed file, and gate results, plus all three axes on M/L; code-review Classify (SKILL.md lines 26-30) lawfully declines zero-.cs diffs, so the pipeline's artifact contract is met outside the skill, not by forcing or editing it. The declined JSON stays as the C# classification receipt.
+- Separate `web-review/` path so the artifact is never mistaken for a code-review execution; header adds `producer: task-pipeline web pre-pass (code-review declined: zero .cs)`. Same identity, freshness, and atomic-write safeguards; gate receipts from DEV-20 note (web gates exit 0, CI frontend job); C# checks recorded as actual status or `SKIPPED (scope-empty)`, never PASS by inference (task-pipeline line 107).
+- Axes use the applicable briefs (risk/standards/spec) plus frontend standards over origin/main...HEAD; no C# fan-out invocation, no skill/standing-pipeline/generated edits, no scope change, so no §2.3 escalation. Caps, bar, and adjudication rules unchanged.
