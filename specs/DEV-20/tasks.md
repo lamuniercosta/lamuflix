@@ -47,13 +47,13 @@
 
 ### Tests for User Story 1 (write FIRST, ensure FAIL)
 
-- [ ] T012 [US1] Write `web/src/App.test.tsx` with explicit `vitest` imports for all used test APIs: render through accessible roles (`main`, `heading`/`LamuFlix`, paragraph `Web client is ready.`); assert Tailwind utility classes present; confirm FAIL with no `App.tsx` (spec FR-007).
+- [X] T012 [US1] Write `web/src/App.test.tsx` with explicit `vitest` imports for all used test APIs: render through accessible roles (`main`, `heading`/`LamuFlix`, paragraph `Web client is ready.`); assert Tailwind utility classes present; confirm FAIL with no `App.tsx` (spec FR-007).
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Create `web/src/App.tsx` (single `main`, `h1 LamuFlix`, `p Web client is ready.`, Tailwind utilities; no fetch/routes/links/buttons) (spec FR-002).
-- [ ] T014 [US1] Create `web/src/index.css` (Tailwind import) and `web/src/main.tsx` (plain React DOM entrypoint rendering `App`) (spec FR-003).
-- [ ] T015 [US1] Re-run `npm test` and `npm run build`; record receipts including an emitted CSS selector for a Tailwind utility actually used by the readiness screen (DOM classes/build exit alone do not satisfy this) (spec SC-001 subset).
+- [X] T013 [US1] Create `web/src/App.tsx` (single `main`, `h1 LamuFlix`, `p Web client is ready.`, Tailwind utilities; no fetch/routes/links/buttons) (spec FR-002).
+- [X] T014 [US1] Create `web/src/index.css` (Tailwind import) and `web/src/main.tsx` (plain React DOM entrypoint rendering `App`) (spec FR-003).
+- [X] T015 [US1] Re-run `npm test` and `npm run build`; record receipts including an emitted CSS selector for a Tailwind utility actually used by the readiness screen (DOM classes/build exit alone do not satisfy this) (spec SC-001 subset).
 
 **Checkpoint**: US1 fully functional and testable independently.
 
