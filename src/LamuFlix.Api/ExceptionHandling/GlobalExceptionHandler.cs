@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace LamuFlix.Api.ExceptionHandling;
 
-public sealed class ValidationExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
+public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
@@ -42,7 +42,10 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
                 httpContext,
                 StatusCodes.Status403Forbidden,
                 CreateForbiddenProblem()),
-            _ => false,
+            _ => await WriteAsync(
+                httpContext,
+                StatusCodes.Status500InternalServerError,
+                CreateServerErrorProblem()),
         };
     }
 
@@ -98,5 +101,13 @@ public sealed class ValidationExceptionHandler(IProblemDetailsService problemDet
             Status = StatusCodes.Status403Forbidden,
             Title = "Forbidden",
             Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4",
+        };
+
+    private static ProblemDetails CreateServerErrorProblem() =>
+        new()
+        {
+            Status = StatusCodes.Status500InternalServerError,
+            Title = "Internal Server Error",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
         };
 }

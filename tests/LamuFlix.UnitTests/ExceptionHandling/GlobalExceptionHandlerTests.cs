@@ -1,23 +1,18 @@
-extern alias api;
-
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using api::LamuFlix.Api;
-using api::LamuFlix.Api.ExceptionHandling;
+using LamuFlix.Api;
+using LamuFlix.Api.ExceptionHandling;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Pipeline;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using Shouldly;
-using Xunit;
 
-namespace LamuFlix.Test;
+namespace LamuFlix.UnitTests.ExceptionHandling;
 
 public sealed class GlobalExceptionHandlerTests
 {
@@ -221,8 +216,8 @@ public sealed class GlobalExceptionHandlerTests
     private static GlobalExceptionHandler CreateHandler(out DefaultHttpContext context)
     {
         var services = new ServiceCollection();
-        services.AddSingleton(Options.Create(new ProblemDetailsOptions()));
-        services.AddSingleton(Options.Create(new JsonOptions()));
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new ProblemDetailsOptions()));
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new JsonOptions()));
         services.AddProblemDetails();
         var provider = services.BuildServiceProvider();
         context = new DefaultHttpContext
