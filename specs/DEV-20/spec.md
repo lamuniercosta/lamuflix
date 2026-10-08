@@ -28,7 +28,7 @@ A developer opening the scaffolded web client sees a `LamuFlix` heading and `Web
 
 ### User Story 2 - Synthetic MSW harness proves interception and isolation (Priority: P2)
 
-A developer running tests gets an MSW node server lifecycle (listen with `onUnhandledRequest: error`, reset after each, close after all) that intercepts a fetch to a synthetic test-only URL and proves handler reset/isolation between tests.
+A developer running tests gets an MSW node server lifecycle (listen with `onUnhandledFrame: error`, reset after each, close after all) that intercepts a fetch to a synthetic test-only URL and proves handler reset/isolation between tests.
 
 **Why this priority**: Proves the ticket-named MSW tooling runs without mocking any product API contract (brief Test strategy; CONCLUSIONS Q3).
 
@@ -73,7 +73,7 @@ A developer or CI agent checks out the branch, runs `npm ci`, and executes lint,
 - **FR-003**: `src/main.tsx` MUST be a plain React DOM entrypoint rendering `App`; no router, state, or form library.
 - **FR-004**: Scripts MUST define `test`/`test:run` as `vitest run`, `test:watch` as `vitest`, `build` as `tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build`, `lint` as `eslint . --max-warnings 0 && prettier --check .`, `format` as Prettier write, `dev` as Vite dev.
 - **FR-005**: Root `tsconfig.json` MUST strictly check `src` app and tests directly (`strict: true`), including setup/app/tests; `tsconfig.node.json` MUST cover `vite.config.ts`; `vite/client` via `types`, no generated `vite-env.d.ts`.
-- **FR-006**: Vitest MUST use jsdom with `globals: false`, shared setup (`src/test/setup.ts` imports `@testing-library/jest-dom/vitest`, retains explicit RTL cleanup), and explicit `vitest` imports for all used test/lifecycle APIs in app tests, harness, and lifecycle modules; MSW node server (`src/test/server.ts`) with `onUnhandledRequest: error`, reset/close lifecycle.
+- **FR-006**: Vitest MUST use jsdom with `globals: false`, shared setup (`src/test/setup.ts` imports `@testing-library/jest-dom/vitest`, retains explicit RTL cleanup), and explicit `vitest` imports for all used test/lifecycle APIs in app tests, harness, and lifecycle modules; MSW node server (`src/test/server.ts`) with `onUnhandledFrame: error`, reset/close lifecycle.
 - **FR-007**: Tests MUST include role-based readiness test (`src/App.test.tsx`) and synthetic-URL interception/reset test (`src/test/msw.test.ts`); no snapshot-only tests, no coverage/mutation thresholds.
 - **FR-008**: Toolchain MUST pin Node 24 in `web/.node-version`, `engines.node >=24 <25`; MUST commit `web/package-lock.json` with the 24 frozen direct packages at exact stable versions.
 - **FR-009**: Delivery MUST add an independent frontend CI job (checkout, `setup-node@v4`, node-version-file, npm cache, ordered commands from `web/`); existing .NET job and `contents: read` unchanged.

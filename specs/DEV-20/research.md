@@ -18,7 +18,7 @@ All facts below are decided in `brief.md` / `CONCLUSIONS.md`; no new decisions t
 
 ## R3 — Test/command contract (Q3)
 
-- Decision: `test`/`test:run` = `vitest run`; `build` = `tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build`; `lint` = `eslint . --max-warnings 0 && prettier --check .`; root tsconfig strictly covers `src` directly (bare `npx tsc --noEmit` must check app+tests); `vite/client` via `types`; jsdom + shared setup; MSW node lifecycle with `onUnhandledRequest: error`; role-based screen test + synthetic-URL reset test; no browser worker, snapshot-only tests, or coverage thresholds; temporary type-error fail/restore probe removed before commit.
+- Decision: `test`/`test:run` = `vitest run`; `build` = `tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build`; `lint` = `eslint . --max-warnings 0 && prettier --check .`; root tsconfig strictly covers `src` directly (bare `npx tsc --noEmit` must check app+tests); `vite/client` via `types`; jsdom + shared setup; MSW node lifecycle with `onUnhandledFrame: error`; role-based screen test + synthetic-URL reset test; no browser worker, snapshot-only tests, or coverage thresholds; temporary type-error fail/restore probe removed before commit.
 - Basis: DEV-20:28,32; recon-DEV-20:48 (gate runs bare tsc), :73 (gate calls `test:run`), :76 (single-shot avoids watch hangs).
 - Open: none.
 
