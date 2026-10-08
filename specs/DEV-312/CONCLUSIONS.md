@@ -261,3 +261,10 @@ Only this append to CONCLUSIONS.md was authored. Existing harness.yml and .speci
 - Basis: read-only /speckit-analyze clean and plan challenge adjudicated, FROZEN at CONCLUSIONS.md:254 (20 requirements, 18 tasks, 100 percent, zero Critical/High/Medium); all nine challenger findings disposed.
 - Verified on feature/312-spec at HEAD 01caa4d1b3e4e4ba7674abfd91bb6af2f3be21bc; pre-existing harness.yml and .specify/feature.json changes untouched.
 - Gate 1 stays CLOSED until the user merges the spec PR; no owner checkbox open; no YouTrack change. Next: Rigger commits the Phase A package (specs/DEV-312/*, docs/adr/ADR-0007.md) as `DEV-312 - ...` and opens the spec PR; never merges.
+
+## Patron ruling — OpenAPI package pin and csproj mitigation (Phase B, T001-T004) — 2026-10-08
+
+**Option A: pin `Microsoft.AspNetCore.OpenApi` 10.0.12; no direct `Microsoft.OpenApi` pin. csproj mitigation confirmed.** Supersedes the 10.0.0 pin at plan.md:15.
+- Basis (§2.3 item 1): 10.0.0 resolves transitive `Microsoft.OpenApi` 2.0.0 (GHSA-v5pm-xwqc-g5wc / CVE-2026-49451, High), failing restore under NU1903 and run-vulnerable-packages. 10.0.12 floors `Microsoft.OpenApi` to [2.12.0, 3.0.0), matching the repository 10.0.12 patch family (Directory.Packages.props: EF Core, Extensions, Mvc.Testing). Option B rejected: a direct transitive pin adds a second package to maintain and leaves the host on an unpatched framework-package build; same package, patch bump only, no new dependency.
+- csproj: `GenerateMvcApplicationPartsAssemblyAttributes=false` and the `RemoveOpenApiXmlCommentSourceGenerator` target are confirmed — they implement the plan's no-MVC-reference ruling (plan.md:9, :77), and no FR depends on XML-comment descriptions; the baseline is generated after the change, so it reflects this composition. Condition: Phase B restore, build, and the drift/Production-404 tests must pass with it; no `NoWarn`/suppression substitutes.
+- No ticket-text change, no owner checkbox, no YouTrack change. plan.md:15 is stale text; this ruling is authoritative and Keel may reconcile the line at the next spec touch.
