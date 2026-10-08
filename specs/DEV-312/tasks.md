@@ -64,9 +64,9 @@
 
 **Goal**: Accepted ADR plus the documented explicit regeneration command.
 
-- [ ] T014 [US4] Keel authors `docs/adr/ADR-0007.md` (Status Accepted; house shape per recon:66 — Context, Decision, Consequences, ticket/date/status; records dependency/runtime-generation choice, Development exposure, drift authority, regeneration reference). NOT Quill; NOT implementation.
-- [ ] T015 [US4] Add the opt-in-gated regeneration entry in `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs`: skipped unless `LAMUFLIX_REGENERATE_OPENAPI=true`, filter identity `FullyQualifiedName~OpenApiRegeneration` matching quickstart.md, same host/base-URI/path/anchor as T007, writes those same normalized bytes to `web/src/api/openapi.json` plus `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` together (creation of missing output files is allowed only on this explicit opt-in path); CI never sets the switch (depends on T010)
-- [ ] T016 [US4] Write `specs/DEV-312/quickstart.md` with the exact local regeneration command referenced from ADR-0007 (depends on T015)
+- [X] T014 [US4] Keel authors `docs/adr/ADR-0007.md` (Status Accepted; house shape per recon:66 — Context, Decision, Consequences, ticket/date/status; records dependency/runtime-generation choice, Development exposure, drift authority, regeneration reference). NOT Quill; NOT implementation.
+- [X] T015 [US4] Add the opt-in-gated regeneration entry in `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs`: skipped unless `LAMUFLIX_REGENERATE_OPENAPI=true`, filter identity `FullyQualifiedName~OpenApiRegeneration` matching quickstart.md, same host/base-URI/path/anchor as T007, writes those same normalized bytes to `web/src/api/openapi.json` plus `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` together (creation of missing output files is allowed only on this explicit opt-in path); CI never sets the switch (depends on T010)
+- [X] T016 [US4] Write `specs/DEV-312/quickstart.md` with the exact local regeneration command referenced from ADR-0007 (depends on T015)
 
 **Checkpoint**: Every deliverable exists; regeneration is documented and CI-safe.
 
