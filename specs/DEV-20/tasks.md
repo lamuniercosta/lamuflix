@@ -15,14 +15,14 @@
 
 **Purpose**: Package manifest, Node pin, TS/bundler/lint configs, committed lockfile.
 
-- [ ] T001 [US3] Create `web/package.json` with frozen 24 direct packages at exact stable versions (React 19.x, Tailwind 4.x), `engines.node >=24 <25`, and scripts `dev`/`build`/`lint`/`format`/`test`/`test:run`/`test:watch` per spec FR-004/FR-008.
-- [ ] T002 [US3] Create `web/.node-version` containing `24` (spec FR-008).
-- [ ] T003 [P] [US3] Create `web/tsconfig.json` with `strict: true` directly covering `src` app and tests including setup/app/tests; `vite/client` via `types`, no generated `vite-env.d.ts` (spec FR-005).
-- [ ] T004 [P] [US3] Create `web/tsconfig.node.json` covering `vite.config.ts` tooling (spec FR-005).
-- [ ] T005 [P] [US3] Create `web/vite.config.ts` with React plugin, Tailwind Vite integration, Vitest jsdom + shared setup reference and `globals: false` (spec FR-001/FR-006).
-- [ ] T006 [P] [US3] Create `web/index.html` entrypoint host (no template logos/counters).
-- [ ] T007 [P] [US3] Create `web/eslint.config.js` (flat TS/React rules + `eslint-config-prettier`), `web/.prettierrc.json`, `web/.prettierignore` (ignore install/build/coverage outputs + lockfile) (brief Commands).
-- [ ] T008 [US3] Run `npm install` in `web/` to generate committed `web/package-lock.json`; verify `npm ci` resolves without `--force`/`--legacy-peer-deps` (spec SC-003).
+- [X] T001 [US3] Create `web/package.json` with frozen 24 direct packages at exact stable versions (React 19.x, Tailwind 4.x), `engines.node >=24 <25`, and scripts `dev`/`build`/`lint`/`format`/`test`/`test:run`/`test:watch` per spec FR-004/FR-008.
+- [X] T002 [US3] Create `web/.node-version` containing `24` (spec FR-008).
+- [X] T003 [P] [US3] Create `web/tsconfig.json` with `strict: true` directly covering `src` app and tests including setup/app/tests; `vite/client` via `types`, no generated `vite-env.d.ts` (spec FR-005).
+- [X] T004 [P] [US3] Create `web/tsconfig.node.json` covering `vite.config.ts` tooling (spec FR-005).
+- [X] T005 [P] [US3] Create `web/vite.config.ts` with React plugin, Tailwind Vite integration, Vitest jsdom + shared setup reference and `globals: false` (spec FR-001/FR-006).
+- [X] T006 [P] [US3] Create `web/index.html` entrypoint host (no template logos/counters).
+- [X] T007 [P] [US3] Create `web/eslint.config.js` (flat TS/React rules + `eslint-config-prettier`), `web/.prettierrc.json`, `web/.prettierignore` (ignore install/build/coverage outputs + lockfile) (brief Commands).
+- [X] T008 [US3] Run `npm install` in `web/` to generate committed `web/package-lock.json`; verify `npm ci` resolves without `--force`/`--legacy-peer-deps` (spec SC-003).
 
 **Checkpoint**: Toolchain installs reproducibly. Strict `src` coverage is proven later by the T009 fail/restore probe (Phase 5), not by this checkpoint: a bare check passing here with no `src` sources present proves nothing.
 
