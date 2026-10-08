@@ -68,7 +68,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public async Task Document_DevelopmentHost_ServesOpenApi31WithTheNineBusinessOperations()
     {
         // arrange
-        using var development = CreateDevelopmentHost();
+        await using var development = CreateDevelopmentHost();
         using var client = development.CreateClient();
 
         // act
@@ -78,7 +78,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         // assert
         var version = parsed.RootElement.GetProperty("openapi").GetString();
         version.ShouldNotBeNull();
-        version!.ShouldStartWith(OpenApiVersionPrefix);
+        version.ShouldStartWith(OpenApiVersionPrefix);
         Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
         OperationsWithResponses(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
         ResponseStatuses(parsed.RootElement).Where(status => !IsStatusCode(status)).ShouldBeEmpty();
@@ -90,7 +90,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public async Task Scalar_DevelopmentHost_ServesTheReferenceUiWiredToTheDocument()
     {
         // arrange
-        using var development = CreateDevelopmentHost();
+        await using var development = CreateDevelopmentHost();
         using var client = development.CreateClient();
 
         // act
@@ -99,8 +99,9 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        response.Content.Headers.ContentType.ShouldNotBeNull();
-        response.Content.Headers.ContentType!.MediaType.ShouldBe(HtmlMediaType);
+        var contentType = response.Content.Headers.ContentType;
+        contentType.ShouldNotBeNull();
+        contentType.MediaType.ShouldBe(HtmlMediaType);
         body.ShouldContain(ScalarTitle);
         body.ShouldContain(DocumentRoute);
     }
@@ -110,7 +111,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public async Task DocumentationRoute_ProductionHost_ReturnsNotFound(string route)
     {
         // arrange
-        using var production = factory.WithWebHostBuilder(builder => builder.UseEnvironment(Environments.Production));
+        await using var production = factory.WithWebHostBuilder(builder => builder.UseEnvironment(Environments.Production));
         using var client = production.CreateClient();
 
         // act
@@ -125,7 +126,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public async Task Export_DevelopmentHost_GeneratesTheSharedDocumentAndResolvesTheCheckoutPaths()
     {
         // arrange
-        using var development = CreateDevelopmentHost();
+        await using var development = CreateDevelopmentHost();
         using var client = development.CreateClient();
         var root = RepositoryRoot();
         var baseline = CommittedBaselinePath;
@@ -146,7 +147,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public async Task DriftMatchesCommittedBaseline()
     {
         // arrange
-        using var development = CreateDevelopmentHost();
+        await using var development = CreateDevelopmentHost();
         using var client = development.CreateClient();
 
         // act
@@ -155,8 +156,8 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         // assert
         File.Exists(CommittedBaselinePath).ShouldBeTrue($"Missing committed baseline '{CommittedBaselineRelativePath}'.");
         File.Exists(DerivedSnapshotPath).ShouldBeTrue($"Missing derived snapshot '{DerivedSnapshotRelativePath}'.");
-        NormalizeLineEndings(File.ReadAllText(CommittedBaselinePath)).ShouldBe(document);
-        NormalizeLineEndings(File.ReadAllText(DerivedSnapshotPath)).ShouldBe(document);
+        NormalizeLineEndings(await File.ReadAllTextAsync(CommittedBaselinePath, TestContext.Current.CancellationToken)).ShouldBe(document);
+        NormalizeLineEndings(await File.ReadAllTextAsync(DerivedSnapshotPath, TestContext.Current.CancellationToken)).ShouldBe(document);
 
         await Verifier.Verify(target: document, extension: "json")
             .UseDirectory(SnapshotDirectory)
@@ -167,8 +168,8 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public async Task Document_RepeatedGeneration_IsIdenticalAfterNormalization()
     {
         // arrange
-        using var firstHost = CreateDevelopmentHost();
-        using var secondHost = CreateDevelopmentHost();
+        await using var firstHost = CreateDevelopmentHost();
+        await using var secondHost = CreateDevelopmentHost();
         using var firstClient = firstHost.CreateClient();
         using var secondClient = secondHost.CreateClient();
 
@@ -186,7 +187,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     {
         // arrange
         Assert.SkipUnless(RegenerationEnabled, RegenerationSkipReason);
-        using var development = CreateDevelopmentHost();
+        await using var development = CreateDevelopmentHost();
         using var client = development.CreateClient();
         var root = RepositoryRoot();
         var baseline = CommittedBaselinePath;
@@ -203,8 +204,8 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         client.BaseAddress.ShouldBe(new Uri("http://localhost/"));
         File.Exists(baseline).ShouldBeTrue();
         File.Exists(snapshot).ShouldBeTrue();
-        NormalizeLineEndings(File.ReadAllText(baseline)).ShouldBe(document);
-        NormalizeLineEndings(File.ReadAllText(snapshot)).ShouldBe(document);
+        NormalizeLineEndings(await File.ReadAllTextAsync(baseline, TestContext.Current.CancellationToken)).ShouldBe(document);
+        NormalizeLineEndings(await File.ReadAllTextAsync(snapshot, TestContext.Current.CancellationToken)).ShouldBe(document);
     }
 
     private static bool RegenerationEnabled =>
@@ -215,7 +216,13 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
 
     private static void WriteRegeneratedOutput(string path, string contents)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var directory = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(directory))
+        {
+            throw new InvalidOperationException($"Regeneration path '{path}' has no directory.");
+        }
+
+        Directory.CreateDirectory(directory);
         File.WriteAllText(path, contents);
     }
 
