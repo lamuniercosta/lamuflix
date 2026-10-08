@@ -14,7 +14,7 @@ Basis: recon-DEV-314 sections 2, 4.1, 4.3 and 4.6; constitution I and VI; [DEV-3
 
 Complete delivery by proving the existing Infrastructure consumer, preserving its async adapter, Api host wiring and RabbitMqOptions.Prefetch ownership. Change the consumer or trace carrier only when an in-scope obligation test exposes a defect.
 
-Every consumer Activity uses the producer context extracted from traceparent/tracestate as its parent, preserving TraceId, ParentSpanId and tracestate. Broker redelivery additionally links exactly once to that original context; initial delivery has no link. Keep messaging.rabbitmq.delivery_count encoded as 0 for initial delivery and 1 for redelivery.
+Every consumer Activity uses the wire context extracted from traceparent/tracestate as its parent: consumer ParentSpanId equals the RabbitMQ.Client.Publisher client-publish SpanId, whose ParentSpanId equals the LamuFlix producer span id, preserving the producer TraceId and tracestate. Broker redelivery additionally links exactly once to that original wire context; initial delivery has no link. Keep messaging.rabbitmq.delivery_count encoded as 0 for initial delivery and 1 for redelivery.
 
 Reject Worker resurrection: it would duplicate an established adapter and contradict the approved location correction. Reject link-only tracing: it would drop the producer-parent continuity required for the single distributed trace.
 

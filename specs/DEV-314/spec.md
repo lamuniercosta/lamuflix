@@ -91,7 +91,7 @@ Out of scope: Worker resurrection/deletion, broker/topology redesign, retry/clai
 ### Measurable Outcomes
 
 - **SC-001**: Every Scope 1-3 obligation and both acceptance criteria MUST map to evidence: explicit structural review receipts for S1-a/S1-c (US1 Independent Test), and named passing tests with recorded break/failure/restore negative controls for every behaviorally observable obligation. S1-c has no behavioral negative-control surface and MUST NOT be reported as assertion-proven or as an async negative-control PASS.
-- **SC-002**: Initial-delivery assertions pin kind, TraceId, ParentSpanId, TraceStateString, zero links and count 0; redelivery assertions pin the same parent plus one original-context link and count 1.
+- **SC-002**: Initial-delivery assertions pin kind Consumer, TraceId equal to the LamuFlix producer TraceId, ParentSpanId equal to the SpanId of the extracted wire context (the RabbitMQ.Client.Publisher client-publish span whose ParentSpanId equals the LamuFlix producer span id), TraceStateString equal to the propagated tracestate, zero links and count 0; redelivery assertions pin the same wire parent plus exactly one link whose context equals the extracted original wire context and count 1.
 - **SC-003**: Two-message test proves distinct scoped handler instances with async disposal after each invocation.
 - **SC-004**: Phase B delivery passes the standing pipeline on diff/head with no lowered threshold and no unanswered structural checkbox before the delivery merge bar.
 
