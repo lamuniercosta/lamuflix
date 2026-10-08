@@ -27,7 +27,10 @@ builder.Services.ConfigureHttpJsonOptions(options => HttpJsonConfiguration.Apply
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 var app = builder.Build();
-app.UseExceptionHandler();
+app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    SuppressDiagnosticsCallback = static _ => false,
+});
 app.UseStatusCodePages();
 app.UseCors(CorsPolicyName);
 app.MapDefaultEndpoints();
