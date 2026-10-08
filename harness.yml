@@ -42,7 +42,7 @@ gates:
     # run-web-gates.ps1 exits 2 with "SKIPPED - disabled in harness.yml",
     # which every gate rule treats as a non-blocking SKIP. Turn it on in the
     # same PR that adds web/package.json.
-    enabled: false
+    enabled: true
 
 agents:
   tiers:
