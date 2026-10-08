@@ -33,6 +33,10 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json";
     private const string SnapshotDirectory = "Snapshots";
     private const string SnapshotFileName = "OpenApiContractTests.DriftMatchesCommittedBaseline";
+    private const string RegenerationSwitchName = "LAMUFLIX_REGENERATE_OPENAPI";
+    private const string RegenerationSwitchValue = "true";
+    private const string RegenerationSkipReason =
+        "Regeneration writes tracked baseline files; set LAMUFLIX_REGENERATE_OPENAPI=true locally to enable it. CI never sets it.";
 
     private static readonly string[] ExpectedOperations =
     [
@@ -175,6 +179,44 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         // assert
         firstDocument.ShouldNotBeNullOrWhiteSpace();
         secondDocument.ShouldBe(firstDocument);
+    }
+
+    [Fact]
+    public async Task OpenApiRegeneration_OptInEnabled_WritesTheBaselineAndDerivedSnapshotTogether()
+    {
+        // arrange
+        Assert.SkipUnless(RegenerationEnabled, RegenerationSkipReason);
+        using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+        var root = RepositoryRoot();
+        var baseline = CommittedBaselinePath;
+        var snapshot = DerivedSnapshotPath;
+        IsWithinRoot(baseline, root).ShouldBeTrue();
+        IsWithinRoot(snapshot, root).ShouldBeTrue();
+        var document = NormalizeLineEndings(await GenerateDocumentAsync(client));
+
+        // act
+        WriteRegeneratedOutput(baseline, document);
+        WriteRegeneratedOutput(snapshot, document);
+
+        // assert
+        client.BaseAddress.ShouldBe(new Uri("http://localhost/"));
+        File.Exists(baseline).ShouldBeTrue();
+        File.Exists(snapshot).ShouldBeTrue();
+        NormalizeLineEndings(File.ReadAllText(baseline)).ShouldBe(document);
+        NormalizeLineEndings(File.ReadAllText(snapshot)).ShouldBe(document);
+    }
+
+    private static bool RegenerationEnabled =>
+        string.Equals(
+            Environment.GetEnvironmentVariable(RegenerationSwitchName),
+            RegenerationSwitchValue,
+            StringComparison.OrdinalIgnoreCase);
+
+    private static void WriteRegeneratedOutput(string path, string contents)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, contents);
     }
 
     private WebApplicationFactory<Program> CreateDevelopmentHost() =>
