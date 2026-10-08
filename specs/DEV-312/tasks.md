@@ -20,10 +20,10 @@
 
 **Purpose**: Dependencies and Development-only document/Scalar wiring; blocks everything else.
 
-- [ ] T001 [P] [US1] Pin `Microsoft.AspNetCore.OpenApi` 10.0.0, `Scalar.AspNetCore` 2.0.15, and `Verify.XunitV3` 30.3.0 in `Directory.Packages.props` (evidence: research.md D3; implementation restores and reports the real verdict, choosing no versions)
-- [ ] T002 [US1] Add the required package references in `src/LamuFlix.Api/LamuFlix.Api.csproj`
-- [ ] T003 [US1] Wire `AddOpenApi("v1")` with an `/api`-path document transformer on `OpenApiOptions` (remove non-business path items; exact path-boundary matching; no MVC reference), plus Development-only `MapOpenApi` and `MapScalarApiReference`, in `src/LamuFlix.Api/Program.cs` (depends on T002; first environment branch; health mappings untouched; `ApiHostCompositionTests.cs` unchanged)
-- [ ] T004 [P] [US1] Add Verify integration wiring in `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj`
+- [X] T001 [P] [US1] Pin `Microsoft.AspNetCore.OpenApi` 10.0.0, `Scalar.AspNetCore` 2.0.15, and `Verify.XunitV3` 30.3.0 in `Directory.Packages.props` (evidence: research.md D3; implementation restores and reports the real verdict, choosing no versions)
+- [X] T002 [US1] Add the required package references in `src/LamuFlix.Api/LamuFlix.Api.csproj`
+- [X] T003 [US1] Wire `AddOpenApi("v1")` with an `/api`-path document transformer on `OpenApiOptions` (remove non-business path items; exact path-boundary matching; no MVC reference), plus Development-only `MapOpenApi` and `MapScalarApiReference`, in `src/LamuFlix.Api/Program.cs` (depends on T002; first environment branch; health mappings untouched; `ApiHostCompositionTests.cs` unchanged)
+- [X] T004 [P] [US1] Add Verify integration wiring in `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj`
 
 **Checkpoint**: Packages restore; API starts in Development with document and Scalar; Production 404s pending test proof.
 

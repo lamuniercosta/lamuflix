@@ -3,7 +3,19 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <UserSecretsId>fa573ff3-1b02-4f5b-95b9-f718a4ce2b67</UserSecretsId>
+    <GenerateMvcApplicationPartsAssemblyAttributes>false</GenerateMvcApplicationPartsAssemblyAttributes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+
+  <Target Name="RemoveOpenApiXmlCommentSourceGenerator" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <Analyzer Remove="$(NuGetPackageRoot)microsoft.aspnetcore.openapi\**\Microsoft.AspNetCore.OpenApi.SourceGenerators.dll" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <ProjectReference Include="..\LamuFlix.Core\LamuFlix.Core.csproj" />
