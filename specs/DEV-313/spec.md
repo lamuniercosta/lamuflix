@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-08
 
-**Status**: Draft
+**Status**: Draft - gate1: provisional
 
 **Input**: brief.md, CONCLUSIONS.md (Q1-Q8), recon-DEV-313 sections 10-11, specs/PRODUCT.md
 
