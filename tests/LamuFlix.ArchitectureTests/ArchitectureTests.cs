@@ -118,7 +118,7 @@ public sealed class ArchitectureTests
     {
         AssertNoHandlerShapeViolations(Core);
         AssertNoHandlerShapeViolations(typeof(TracingDecorator<,>).Assembly);
-        AssertNoHandlerShapeViolations(typeof(ValidationExceptionHandler).Assembly);
+        AssertNoHandlerShapeViolations(typeof(GlobalExceptionHandler).Assembly);
 
         var violations = FindHandlerShapeViolations(typeof(SealedRecordRequestCommandHandler).Assembly);
         Assert.Contains(

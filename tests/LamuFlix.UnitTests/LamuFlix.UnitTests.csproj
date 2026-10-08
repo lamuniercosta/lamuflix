@@ -33,6 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\LamuFlix.Api\LamuFlix.Api.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Core\LamuFlix.Core.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Infrastructure\LamuFlix.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.ServiceDefaults\LamuFlix.ServiceDefaults.csproj" />

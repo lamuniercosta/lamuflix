@@ -23,8 +23,9 @@ builder.Services.AddLamuFlixHandlers();
 builder.Services.AddCors(options => options.AddPolicy(
     CorsPolicyName,
     policy => policy.WithOrigins(DevServerOrigin).AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location")));
+builder.Services.ConfigureHttpJsonOptions(options => HttpJsonConfiguration.Apply(options.SerializerOptions));
 builder.Services.AddProblemDetails();
-builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
