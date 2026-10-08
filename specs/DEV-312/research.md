@@ -1,0 +1,43 @@
+# Research: DEV-312 OpenAPI Contract and Scalar Delivery
+
+**Date**: 2026-10-08
+
+**Sources**: `brief.md` Q1–Q5, `CONCLUSIONS.md` Q1–Q5, `recon-DEV-312` sections 2–7, `specs/PRODUCT.md` sections 3–5, constitution Technology Stack Constraints, IX, API and Contract Rules, Documentation Rules. The key-based Context7 lookup failed (invalid key); an invalid key does not establish that anonymous Context7 is unavailable, so no unavailability is claimed. Third-party package version facts below come from NuGet Gallery pages with Microsoft Learn for the Microsoft-owned package, per the permitted lanes.
+
+## D1 — /api-only document selection: `/api`-path document transformer
+
+**Decision**: Restrict document inclusion with an `/api`-path document transformer registered on `OpenApiOptions` in `Program.cs` (remove every non-business path item; keep only `/api` business paths with exact path-boundary matching). No `Microsoft.AspNetCore.Mvc` assembly reference; `ApiHostCompositionTests.cs` remains unchanged and green per the Patron ruling (DEV-312:110; CONCLUSIONS.md plan-challenge amendment).
+
+**Basis**: [Microsoft.AspNetCore.OpenApi documentation](https://learn.microsoft.com/aspnet/core/fundamentals/openapi/aspnetcore-openapi?view=aspnetcore-10.0) — `OpenApiOptions` supports document transformers that post-process the generated `OpenApiDocument` (paths, operations, components) before it is served. Default document name `v1` served at `/openapi/v1.json`; .NET 10 default OpenAPI 3.1 settable via `OpenApiOptions.OpenApiVersion` (no override per brief Q2; inherited recon:119-120).
+
+**Alternatives rejected**: `OpenApiOptions.ShouldInclude` with an `ApiDescription.RelativePath` predicate (rejected by Patron ruling: binding the predicate pulls a `Microsoft.AspNetCore.Mvc.Abstractions` assembly reference into `LamuFlix.Api.dll`, failing the mandated-green `ApiAssembly_HasNoMvcOrRazorReference` test, which the frozen file envelope forbids editing; findings-DEV-312-Sentry F1; the `RelativePath` spelling is additionally moot per Sentry F2). Group-name mechanism (requires touching every business endpoint with `WithGroupName`; larger diff against the frozen file set).
+
+## D2 — Scalar wiring: `Scalar.AspNetCore` + `MapScalarApiReference`, Development only
+
+**Decision**: Install `Scalar.AspNetCore`, call `app.MapScalarApiReference()`, wrap it and `MapOpenApi` in `if (app.Environment.IsDevelopment())`.
+
+**Basis**: Inherited recon:121 citing [Use Scalar for interactive API documentation](https://learn.microsoft.com/aspnet/core/fundamentals/openapi/using-openapi-documents?view=aspnetcore-10.0) — package install plus `MapScalarApiReference()` serving `/scalar`, with the documented sample wrapping both mappings in the Development check. First environment branch in `Program.cs` (recon:71 records none exists); ADR-0007 records it (Keel-owned).
+
+## D3 — Verify baseline branch: derived snapshot + same-run equality
+
+**Decision**: Use the derived-snapshot branch of brief Q3(2): a committed `*.verified.json` supporting snapshot plus an assertion in the same test run that the generated document equals the committed `web/src/api/openapi.json` after one fixed normalization.
+
+**Basis**: [Verify file naming](https://raw.githubusercontent.com/VerifyTests/Verify/main/docs/naming.md) — the name format is fixed as `{Directory}/{TestClass}.{TestMethod}_….verified.{extension}`; `UseDirectory` and `UseFileName` control only the directory and the `{TestClass}.{TestMethod}` portions, so the `.verified.` infix cannot be removed and the exact consumer path `web/src/api/openapi.json` cannot be a Verify target. Hence the exact-path branch is unavailable and the equality-enforced derived branch applies with no further ruling (brief Q3). Exact pins with version-specific evidence: `Microsoft.AspNetCore.OpenApi` 10.0.0 ([API reference lists Package v10.0.0](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.openapi.openapioptions.-ctor?view=aspnetcore-10.0)); `Verify.XunitV3` 30.3.0 ([exact-version Gallery page](https://www.nuget.org/packages/Verify.XunitV3/30.3.0), the xUnit v3 integration line per constitution IX "Verify"): the page lists a `net10.0` target group and the Gallery compatibility table marks `net10.0` compatible, with the open-ended dependency `xunit.v3.extensibility.core (>= 2.0.2)` — so the repository `4.0.1` family satisfies the floor by NuGet resolution. This floor-plus-asset record is package-range evidence, not a publisher tested-matrix claim, and no `TypeLoadException`/`MissingMethodException` is claimed; `Microsoft.AspNetCore.OpenApi` 10.0.0 sitting below a reported 10.0.12 patch family is noted, not a mandatory upgrade without evidence. `Scalar.AspNetCore` 2.0.15 ([exact-version Gallery page](https://www.nuget.org/packages/Scalar.AspNetCore/2.0.15)): the page lists included TFMs `net8.0` and `net9.0` only, with `net10.0` computed-compatible — so no publisher `net10` support statement is claimed; `net10` support rests on .NET forward TFM roll-forward and is proven by the Phase B restore and test verdict. No existing xUnit/framework dependency is downgraded. The Context7 lane for Scalar/Verify facts failed again in this session (resolve call rejected: invalid key) and exact-version NuGet Gallery pages were used as the primary-source fallback instead; no Context7 use is claimed. Implementation restores these pins and reports the real restore verdict; it chooses no versions. No API beyond the documented `UseDirectory`/`UseFileName`/`.verified.{extension}` scheme plus the `extension` parameter is assumed here. Per [Verify file naming — Extension](https://raw.githubusercontent.com/VerifyTests/Verify/main/docs/naming.md), the default extension is `.txt` and `extension: "xml"` in the XunitV3 sample yields `.verified.xml`; hence the chosen invocation `Verify(target: <normalized document string>, extension: "json")` with `UseDirectory("Snapshots")` and `UseFileName("OpenApiContractTests.DriftMatchesCommittedBaseline")` targets `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json`. The drift verdict does not depend on Verify serialization behavior: the test first asserts same-run normalized full-text equality between all three of generated document, committed `web/src/api/openapi.json`, and the derived verified file content, and regeneration writes those same normalized bytes to both files.
+
+## D4 — Rejected: `Microsoft.Extensions.ApiDescription.Server`
+
+**Decision**: No build-time generation package.
+
+**Basis**: Brief Q1 (ticket approves runtime/test-host generation only); inherited recon:122 (build-time generation launches the entrypoint against a mock server and executes DI/configuration — unnecessary machinery for a test-host-compared document).
+
+## D5 — Rejected: regeneration script and CI edits
+
+**Decision**: No `scripts/local/Generate-OpenApi.ps1`, no CI job/step/workflow edit; regeneration is a test-project opt-in path skipped unless a documented local switch is set, invoked explicitly per `quickstart.md`.
+
+**Basis**: Brief Q4 (a script adds a tracked file and a second entry path with no added proof); brief Q1 (existing `ci.yml` Test step runs the drift test; recon:102 records no OpenAPI step in CI).
+
+## D6 — Normalization and received-file handling
+
+**Decision**: One fixed normalization only (line endings); a `.gitattributes` eol line only if needed for it; a `.gitignore` `*.received.*` exclusion only if existing rules do not already cover received files. No contract-field scrubbing ever.
+
+**Basis**: Brief Q3 requirements (4)–(5) and Q4 conditionals (b)–(c); plan.md names the exact scrub list (empty beyond line endings) and cites the activating force for each conditional file. Generation uses the one shared mechanism named in plan.md: HTTP GET of `/openapi/v1.json` from the explicit Development host with the default factory client base URI `http://localhost/` ([TestServer.BaseAddress default](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.testhost.testserver.baseaddress?view=aspnetcore-10.0); [WebApplicationFactoryClientOptions.BaseAddress default](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.mvc.testing.webapplicationfactoryclientoptions.baseaddress?view=aspnetcore-10.0)), used identically by drift, export, and regeneration with no custom `BaseAddress` or port override. The `servers` entry derives from the incoming request (scheme/host/PathBase per [OpenAPI server URL behavior](https://learn.microsoft.com/aspnet/core/breaking-changes/11/openapi-server-url-trailing-slash?view=aspnetcore-10.0)), so it is stable on that fixed-base-URI path and is compared whole with no scrubbing.
