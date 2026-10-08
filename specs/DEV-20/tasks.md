@@ -33,7 +33,7 @@
 **Purpose**: Setup/servers every story test depends on. No user-story assertion work starts until complete.
 
 - [X] T010 [P] Create `web/src/test/setup.ts` importing `@testing-library/jest-dom/vitest` with explicit RTL cleanup (spec FR-006).
-- [X] T011 Create `web/src/test/server.ts` as a shell/lifecycle module only: MSW node server with `onUnhandledRequest: error`, listen/reset/close lifecycle with explicit `vitest` lifecycle imports, and no handlers (not even defaults); synthetic default + override handlers arrive in T017 (contracts/msw-harness.md describes that final state).
+- [X] T011 Create `web/src/test/server.ts` as a shell/lifecycle module only: MSW node server with `onUnhandledFrame: error`, listen/reset/close lifecycle with explicit `vitest` lifecycle imports, and no handlers (not even defaults); synthetic default + override handlers arrive in T017 (contracts/msw-harness.md describes that final state).
 
 **Checkpoint**: Harness shell ready; US1/US2 tests can now be written against it.
 

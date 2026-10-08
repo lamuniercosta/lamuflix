@@ -42,7 +42,7 @@ Node 24 is in web/.node-version; package engines.node is >=24 <25. npm is not pi
 - format: developer-only prettier --write .; dev: Vite development command.
 - Root tsconfig.json has strict checking and directly includes src app/tests, not an empty references-only check. tsconfig.node.json covers vite.config.ts tooling. Use vite/client through tsconfig types rather than generating a vite-env declaration.
 - Vitest uses jsdom and the shared setup; RTL cleanup and jest-dom matchers are active.
-- MSW node server starts beforeAll with onUnhandledRequest: error, resets afterEach and closes afterAll. Only synthetic non-product test URLs; no runtime App fetch or generated browser worker.
+- MSW node server starts beforeAll with onUnhandledFrame: error, resets afterEach and closes afterAll. Only synthetic non-product test URLs; no runtime App fetch or generated browser worker.
 - ESLint and Prettier ignore install/build/coverage outputs; Prettier also excludes lockfile. Existing .editorconfig is not changed.
 
 ## Planned delivery file set

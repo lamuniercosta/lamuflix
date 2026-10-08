@@ -16,7 +16,7 @@ Scaffold root `web/` with React 19 + Vite + strict TypeScript + Tailwind 4 + ESL
 
 **Storage**: N/A (no database, entity, or migration work).
 
-**Testing**: Vitest (`vitest run` for `test`/`test:run`; bare `vitest` for `test:watch`), jsdom, `globals: false` with explicit `vitest` imports for all used test/lifecycle APIs, shared setup (`src/test/setup.ts` imports `@testing-library/jest-dom/vitest`, retains explicit RTL cleanup), MSW node server (`onUnhandledRequest: error`, reset/close lifecycle), synthetic test-only URLs. Non-gating `npm audit --audit-level=high` receipt recorded at verification (no CI/gate change; runtime High/Critical adjudicated under Q5 bar, dev-only/unrunnable recorded honestly nonblocking, never PASS).
+**Testing**: Vitest (`vitest run` for `test`/`test:run`; bare `vitest` for `test:watch`), jsdom, `globals: false` with explicit `vitest` imports for all used test/lifecycle APIs, shared setup (`src/test/setup.ts` imports `@testing-library/jest-dom/vitest`, retains explicit RTL cleanup), MSW node server (`onUnhandledFrame: error`, reset/close lifecycle), synthetic test-only URLs. Non-gating `npm audit --audit-level=high` receipt recorded at verification (no CI/gate change; runtime High/Critical adjudicated under Q5 bar, dev-only/unrunnable recorded honestly nonblocking, never PASS).
 
 **Target Platform**: Local dev + GitHub Actions (`actions/setup-node@v4`, npm cache, `node-version-file web/.node-version`).
 
