@@ -26,6 +26,7 @@ public sealed class HealthCheckResponseWriterTests
             TimeSpan.Zero);
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => HealthCheckResponseWriter.WriteAsync(null!, report);
 
         // assert
@@ -39,6 +40,7 @@ public sealed class HealthCheckResponseWriterTests
         var context = new DefaultHttpContext();
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => HealthCheckResponseWriter.WriteAsync(context, null!);
 
         // assert

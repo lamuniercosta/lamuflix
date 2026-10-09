@@ -12,7 +12,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging.Console;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -124,6 +123,7 @@ public sealed class ServiceDefaultsTests
         WebApplicationBuilder? builder = null;
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => builder!.AddServiceDefaults();
 
         // assert
@@ -183,6 +183,7 @@ public sealed class ServiceDefaultsTests
         WebApplication? app = null;
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => app!.MapDefaultEndpoints();
 
         // assert
@@ -202,7 +203,8 @@ public sealed class ServiceDefaultsTests
         var routes = ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(source => source.Endpoints)
             .OfType<RouteEndpoint>()
-            .Select(endpoint => endpoint.RoutePattern.RawText);
+            .Select(endpoint => endpoint.RoutePattern.RawText)
+            .ToList();
 
         // assert
         routes.ShouldContain("/health/live");
