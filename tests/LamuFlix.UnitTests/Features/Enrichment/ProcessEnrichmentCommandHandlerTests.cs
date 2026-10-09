@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace LamuFlix.UnitTests.Features.Enrichment;
@@ -158,7 +160,8 @@ public sealed class ProcessEnrichmentCommandHandlerTests
             .Returns(new MetadataLookupResult.Failed(EnrichmentFailureCategory.ProviderUnavailable));
 
         // act
-        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+        var command = new ProcessEnrichmentCommand(movie.Id, 1);
+        var outcome = await handler.HandleAsync(command, ct);
 
         // assert
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
@@ -166,6 +169,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
             EnrichmentFailureCategory.ProviderUnavailable));
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        AssertFailureLogged(command, EnrichmentFailureCategory.ProviderUnavailable);
     }
 
     [Fact]
@@ -200,7 +204,8 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         var attempts = movie.EnrichmentAttempts;
 
         // act
-        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, MaxAttempts), ct);
+        var command = new ProcessEnrichmentCommand(movie.Id, MaxAttempts);
+        var outcome = await handler.HandleAsync(command, ct);
 
         // assert
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
@@ -210,6 +215,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
         movie.EnrichmentAttempts.ShouldBe(attempts);
         await movies.Received(1).SaveChangesAsync(ct);
+        AssertFailureLogged(command, EnrichmentFailureCategory.InvalidResponse);
     }
 
     [Fact]
@@ -318,6 +324,24 @@ public sealed class ProcessEnrichmentCommandHandlerTests
             new EnrichmentFailureDecision(EnrichmentFailureAction.Retry, 2),
             EnrichmentFailureCategory.ProviderUnavailable));
     }
+
+    private void AssertFailureLogged(ProcessEnrichmentCommand command, EnrichmentFailureCategory category)
+    {
+        logger.Entries.Count.ShouldBe(1);
+        var entry = logger.Entries[0];
+        entry.Level.ShouldBe(LogLevel.Information);
+        entry.Exception.ShouldBeNull();
+        StateValue(entry, "{OriginalFormat}").ShouldBe(
+            "Enrichment failed for {MovieId} attempt {Attempt} category {Category}");
+        StateValue(entry, "MovieId").ShouldBe(command.MovieId.Value);
+        StateValue(entry, "Attempt").ShouldBe(command.Attempt);
+        StateValue(entry, "Category").ShouldBe(category.Code);
+    }
+
+    private static object? StateValue(
+        RecordingLogger<ProcessEnrichmentCommandHandler>.LogEntry entry,
+        string name) =>
+        entry.State.Single(pair => pair.Key == name).Value;
 
     private void Claimed(Movie movie, bool claimed)
     {
