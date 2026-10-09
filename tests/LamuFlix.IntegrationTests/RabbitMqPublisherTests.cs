@@ -147,6 +147,130 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLife
         Read(message).Attempt.ShouldBe(4);
     }
 
+    [Fact]
+    public async Task PublishAsync_WithTerminalFailureHeaders_CarriesTheClosedCodeHeadersAndTelemetry()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        await host.Topology.EnsureDeclaredAsync(ct);
+
+        await host.Publisher.PublishAsync(
+            new EnrichmentRequested(new MovieId(41), 3),
+            RabbitMqTopology.DeadLetterRoutingKey,
+            new Dictionary<string, object?>
+            {
+                ["x-lamuflix-failure-category"] = "provider_unavailable",
+                ["x-lamuflix-failure-reason"] = "max_attempts_exhausted",
+                ["x-lamuflix-failure-attempt"] = 3,
+            },
+            ct);
+
+        var message = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.DeadLetterQueue,
+            candidate => Read(candidate).MovieId.Value == 41,
+            ct);
+        message.ShouldNotBeNull();
+        Header(message, "x-lamuflix-failure-category").ShouldBe("provider_unavailable");
+        Header(message, "x-lamuflix-failure-reason").ShouldBe("max_attempts_exhausted");
+        RawHeader(message, "x-lamuflix-failure-attempt").ShouldBeOfType<int>().ShouldBe(3);
+        Header(message, TraceContextCarrier.TraceParentHeader).ShouldStartWith("00-");
+    }
+
+    [Theory]
+    [InlineData(RabbitMqTopology.RequestedRoutingKey, RabbitMqTopology.RequestedQueue)]
+    [InlineData(RabbitMqTopology.RetryRoutingKey, RabbitMqTopology.RetryQueue)]
+    public async Task PublishAsync_WithoutAdditions_LeavesTheClosedCodeHeadersOff(string routingKey, string queue)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        await host.Topology.EnsureDeclaredAsync(ct);
+
+        await host.Publisher.PublishAsync(new EnrichmentRequested(new MovieId(42), 1), routingKey, ct);
+
+        var message = await probe.PollGetMatchingAsync(
+            queue,
+            candidate => Read(candidate).MovieId.Value == 42,
+            ct);
+        message.ShouldNotBeNull();
+        RawHeader(message, "x-lamuflix-failure-category").ShouldBeNull();
+        RawHeader(message, "x-lamuflix-failure-reason").ShouldBeNull();
+        RawHeader(message, "x-lamuflix-failure-attempt").ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("traceparent")]
+    [InlineData("tracestate")]
+    [InlineData("x-death")]
+    [InlineData("x-first-death-reason")]
+    public async Task PublishAsync_WithAReservedHeader_Throws(string key)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        var additions = new Dictionary<string, object?> { [key] = "reserved" };
+
+        await Should.ThrowAsync<ArgumentException>(
+            () => host.Publisher.PublishAsync(
+                new EnrichmentRequested(new MovieId(43), 1),
+                RabbitMqTopology.RequestedRoutingKey,
+                additions,
+                ct));
+    }
+
+    [Fact]
+    public async Task PublishAsync_WithANullHeaderValue_Throws()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        var additions = new Dictionary<string, object?> { ["x-lamuflix-failure-category"] = null };
+
+        await Should.ThrowAsync<ArgumentException>(
+            () => host.Publisher.PublishAsync(
+                new EnrichmentRequested(new MovieId(44), 1),
+                RabbitMqTopology.RequestedRoutingKey,
+                additions,
+                ct));
+    }
+
+    [Fact]
+    public async Task PublishAsync_WithANullHeaderDictionary_Throws()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+
+        await Should.ThrowAsync<ArgumentNullException>(
+            () => host.Publisher.PublishAsync(
+                new EnrichmentRequested(new MovieId(45), 1),
+                RabbitMqTopology.RequestedRoutingKey,
+                // ReSharper disable once NullableWarningSuppressionIsUsed - the null dictionary is the subject of this guard test.
+                null!,
+                ct));
+    }
+
+    [Fact]
+    public async Task PublishAsync_WithCallerHeaders_LeavesTheCallerDictionaryUnchanged()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        await host.Topology.EnsureDeclaredAsync(ct);
+        var additions = new Dictionary<string, object?> { ["x-lamuflix-failure-category"] = "unknown" };
+
+        await host.Publisher.PublishAsync(
+            new EnrichmentRequested(new MovieId(46), 2),
+            RabbitMqTopology.DeadLetterRoutingKey,
+            additions,
+            ct);
+
+        additions.Count.ShouldBe(1);
+        additions["x-lamuflix-failure-category"].ShouldBe("unknown");
+
+        var message = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.DeadLetterQueue,
+            candidate => Read(candidate).MovieId.Value == 46,
+            ct);
+        message.ShouldNotBeNull();
+        Header(message, "x-lamuflix-failure-category").ShouldBe("unknown");
+    }
+
     private Task<BasicGetResult?> Await(CancellationToken cancellationToken, int movieId) =>
         probe.PollGetMatchingAsync(
             RabbitMqTopology.RequestedQueue,
@@ -160,6 +284,11 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLife
 
     private static string? Header(BasicGetResult message, string name) =>
         TraceContextCarrier.TryReadHeader(message.BasicProperties.Headers, name, out var value) ? value : null;
+
+    private static object? RawHeader(BasicGetResult message, string name) =>
+        message.BasicProperties.Headers is { } headers && headers.TryGetValue(name, out var value)
+            ? value
+            : null;
 
     private PublisherHost NewHost()
     {

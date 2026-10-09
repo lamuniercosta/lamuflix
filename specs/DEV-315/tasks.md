@@ -28,9 +28,9 @@
 
 **Purpose**: Guarded `additionalHeaders` overload; terminal-only closed-code headers in consumer
 
-- [ ] T005 [US3] Retain `PublishAsync(EnrichmentRequested, string, CancellationToken)` and add overload with `IReadOnlyDictionary<string, object?> additionalHeaders` before `CancellationToken`, with fresh-dictionary merge, telemetry ownership, collision/null `ArgumentException` guards, and no caller mutation in `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqEnrichmentQueuePublisher.cs`
-- [ ] T006 [US1/US2/US3] Emit terminal-only closed-code headers and keep publish-before-ack in `src/LamuFlix.Infrastructure/RabbitMq/EnrichmentConsumer.cs`; retry and out-of-table paths get no failure headers
-- [ ] T007 [P] [US3] Add terminal header/telemetry, requested/retry absence-of-failure-header, collision/reserved/null rejection, and caller-dictionary preservation cases in `tests/LamuFlix.IntegrationTests/RabbitMqPublisherTests.cs`
+- [X] T005 [US3] Retain `PublishAsync(EnrichmentRequested, string, CancellationToken)` and add overload with `IReadOnlyDictionary<string, object?> additionalHeaders` before `CancellationToken`, with fresh-dictionary merge, telemetry ownership, collision/null `ArgumentException` guards, and no caller mutation in `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqEnrichmentQueuePublisher.cs`
+- [X] T006 [US1/US2/US3] Emit terminal-only closed-code headers and keep publish-before-ack in `src/LamuFlix.Infrastructure/RabbitMq/EnrichmentConsumer.cs`; retry and out-of-table paths get no failure headers
+- [X] T007 [P] [US3] Add terminal header/telemetry, requested/retry absence-of-failure-header, collision/reserved/null rejection, and caller-dictionary preservation cases in `tests/LamuFlix.IntegrationTests/RabbitMqPublisherTests.cs`
 
 **Checkpoint**: Publisher guard cases and consumer wiring compile; unit tests still green.
 

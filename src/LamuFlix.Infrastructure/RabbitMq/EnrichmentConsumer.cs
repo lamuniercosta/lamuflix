@@ -25,9 +25,17 @@ public sealed class EnrichmentConsumer(
     IOptions<RabbitMqOptions> options,
     ILogger<EnrichmentConsumer> logger) : BackgroundService
 {
+    private const string FailureCategoryHeader = "x-lamuflix-failure-category";
+    private const string FailureReasonHeader = "x-lamuflix-failure-reason";
+    private const string FailureAttemptHeader = "x-lamuflix-failure-attempt";
+    private const string NonRetryableReason = "non_retryable";
+    private const string MaxAttemptsExhaustedReason = "max_attempts_exhausted";
+
     private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
     private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(5);
+    private static readonly IReadOnlyDictionary<string, object?> NoHeaders =
+        new Dictionary<string, object?>(StringComparer.Ordinal);
 
     private IChannel? channel;
 
@@ -188,9 +196,25 @@ public sealed class EnrichmentConsumer(
         var next = new EnrichmentRequested(
             request.MovieId,
             disposition.NextAttempt ?? request.Attempt);
-        await publisher.PublishAsync(next, disposition.RoutingKey, CancellationToken.None);
+        var headers = disposition.Action == RabbitMqTopology.DeadLetterRoutingKey
+                      && outcome is ProcessEnrichmentOutcome.Failed failed
+            ? FailureHeaders(failed, request)
+            : NoHeaders;
+        await publisher.PublishAsync(next, disposition.RoutingKey, headers, CancellationToken.None);
         await AckAsync(consumerChannel, delivery);
     }
+
+    private static IReadOnlyDictionary<string, object?> FailureHeaders(
+        ProcessEnrichmentOutcome.Failed failed,
+        EnrichmentRequested request) =>
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            [FailureCategoryHeader] = failed.Category.Code,
+            [FailureReasonHeader] = failed.Category.IsRetryable
+                ? MaxAttemptsExhaustedReason
+                : NonRetryableReason,
+            [FailureAttemptHeader] = request.Attempt,
+        };
 
     private static ValueTask AckAsync(IChannel consumerChannel, BasicDeliverEventArgs delivery) =>
             consumerChannel.BasicAckAsync(delivery.DeliveryTag, multiple: false, CancellationToken.None);
