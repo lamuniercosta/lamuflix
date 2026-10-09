@@ -88,10 +88,13 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         await fixture.DeleteTopologyAsync(ct);
         await using var host = NewHost(
             lookup => lookup.Title == gateTitle
-                ? HoldTheGate(gateEntered, releaseGate, ct)
+                ? new MetadataLookupResult.Found(new MovieMetadata("Enriched"))
                 : new MetadataLookupResult.Failed(category),
             maxAttempts: SmallMaxAttempts,
-            rabbitOptions: fixture.Options with { RetryDelay = ShortRetryTtl });
+            rabbitOptions: fixture.Options with { RetryDelay = ShortRetryTtl },
+            beforeLookup: (lookup, _) => lookup.Title == gateTitle
+                ? HoldTheGate(gateEntered, releaseGate, ct)
+                : Task.CompletedTask);
         await host.Topology.EnsureDeclaredAsync(ct);
         var ingress = host.AddPendingMovie(401);
         var subject = host.AddPendingMovie(402);
@@ -687,14 +690,13 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         (await ReadyMessageCountAsync(RabbitMqTopology.DeadLetterQueue, ct)).ShouldBe(0U);
     }
 
-    private static MetadataLookupResult HoldTheGate(
+    private static async Task HoldTheGate(
         TaskCompletionSource entered,
         TaskCompletionSource release,
         CancellationToken ct)
     {
         entered.TrySetResult();
-        release.Task.Wait(ct);
-        return new MetadataLookupResult.Found(new MovieMetadata("Enriched"));
+        await release.Task.WaitAsync(ct);
     }
 
     private static string? Header(BasicGetResult message, string name) =>
@@ -810,10 +812,14 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         int maxAttempts = DefaultMaxAttempts,
         ushort prefetch = 1,
         RabbitMqOptions? rabbitOptions = null,
-        DispatchScopeLog? scopeLog = null)
+        DispatchScopeLog? scopeLog = null,
+        Func<MetadataLookup, CancellationToken, Task>? beforeLookup = null)
     {
         var clock = new AdjustableTimeProvider(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
         var provider = new ScriptedMetadataProvider(script);
+        IMetadataProvider metadata = beforeLookup is null
+            ? provider
+            : new PausingMetadataProvider(provider, beforeLookup);
         var repository = new LeaseAwareMovieRepository(clock, ClaimLease);
         var options = (rabbitOptions ?? fixture.Options) with { Prefetch = prefetch };
         var owner = new RabbitMqConnectionOwner(Options.Create(options));
@@ -825,7 +831,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         services.AddSingleton(enrichment.Value);
         services.AddSingleton<TimeProvider>(clock);
         services.AddSingleton(enrichment);
-        services.AddSingleton<IMetadataProvider>(provider);
+        services.AddSingleton(metadata);
         services.AddSingleton<IMovieRepository>(repository);
         services.AddLogging();
         services.AddSingleton<RabbitMqConnectionOwner>(_ => owner);
@@ -935,6 +941,17 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         {
             services.Dispose();
             return owner.DisposeAsync();
+        }
+    }
+
+    private sealed class PausingMetadataProvider(
+        ScriptedMetadataProvider inner,
+        Func<MetadataLookup, CancellationToken, Task> pause) : IMetadataProvider
+    {
+        public async Task<MetadataLookupResult> FindAsync(MetadataLookup lookup, CancellationToken ct)
+        {
+            await pause(lookup, ct);
+            return await inner.FindAsync(lookup, ct);
         }
     }
 
