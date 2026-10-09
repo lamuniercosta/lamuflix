@@ -7,6 +7,8 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
+using LamuFlix.Infrastructure.Enrichment;
+using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -58,6 +60,20 @@ public sealed class HealthEndpointTests
         // assert
         response.StatusCode.ShouldBe(expected);
         body.ShouldNotContain(MetadataCheck);
+    }
+
+    [Fact]
+    public void ReadyHost_RemovesOnlyTheSweeper()
+    {
+        // arrange
+        using var host = CreateHost(null);
+
+        // act
+        var hostedServices = host.Services.GetServices<IHostedService>().ToArray();
+
+        // assert
+        hostedServices.ShouldNotContain(service => service is StrandedMovieSweeper);
+        hostedServices.ShouldContain(service => service is EnrichmentConsumer);
     }
 
     [Fact]
@@ -179,6 +195,18 @@ public sealed class HealthEndpointTests
                 .AddCheck(PostgresCheck, new StubHealthCheck(postgres), tags: [HealthCheckTags.Ready])
                 .AddCheck(RabbitMqCheck, new StubHealthCheck(rabbitMq), tags: [HealthCheckTags.Ready])
                 .AddCheck(MetadataCheck, new StubHealthCheck(metadataProvider));
+            RemoveSweeper(services);
+        }
+
+        private static void RemoveSweeper(IServiceCollection services)
+        {
+            var registration = services.FirstOrDefault(descriptor =>
+                descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(StrandedMovieSweeper));
+            if (registration is not null)
+            {
+                services.Remove(registration);
+            }
         }
     }
 }
