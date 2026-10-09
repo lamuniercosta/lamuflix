@@ -1,12 +1,20 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
+using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
 using Xunit;
 
 namespace LamuFlix.IntegrationTests;
@@ -58,4 +66,135 @@ public sealed class StrandedMovieSweeperTests(PostgresFixture fixture) : IAsyncL
             Assert.All(persisted, movie => Assert.Equal(originalStatuses[movie.Id!], movie.Status));
         }
     }
+}
+
+[Collection(nameof(PostgresCollection))]
+public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitMqFixture rabbitMq)
+    : IClassFixture<RabbitMqFixture>, IAsyncLifetime
+{
+    private readonly RabbitMqProbe probe = new(rabbitMq);
+
+    public async ValueTask InitializeAsync()
+    {
+        await postgres.ResetAsync(TestContext.Current.CancellationToken);
+        await rabbitMq.ResetTopologyAsync(TestContext.Current.CancellationToken);
+        await probe.InitializeAsync();
+    }
+
+    public async ValueTask DisposeAsync() => await probe.DisposeAsync();
+
+    [Fact]
+    public async Task LostDualWriteGap_ActualSweeperPublishesAttemptOneWithoutMutatingBeforeClaim()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new ManualTimeProvider(MovieCatalogSeed.FixedTime);
+        var movie = MovieCatalogSeed.Create("lost enqueue", "sweeper-lost-gap");
+        await using (var context = postgres.CreateMigratedContext())
+        {
+            context.Movies.Add(movie);
+            await context.SaveChangesAsync(ct);
+        }
+
+        var beforeSweep = await SnapshotAsync(movie.Id!, ct);
+        using var factory = new ApiHostFactory(
+            retainSweeper: true,
+            additionalSettings: RealInfrastructureSettings(rabbitMq.Options, postgres.ConnectionString),
+            timeProvider: clock,
+            disableEnrichmentConsumer: true);
+
+        _ = factory.Services;
+
+        var message = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.RequestedQueue,
+            candidate => Read(candidate).MovieId == movie.Id!,
+            ct);
+        Assert.NotNull(message);
+        Assert.Equal(1, Read(message).Attempt);
+        Assert.Equal(beforeSweep, await SnapshotAsync(movie.Id!, ct));
+
+        await using var claimContext = postgres.CreateMigratedContext();
+        var repository = new EfMovieRepository(
+            claimContext,
+            clock,
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }));
+        Assert.True(await repository.TryClaimForEnrichmentAsync(movie.Id!, ct));
+    }
+
+    [Fact]
+    public async Task StaleClaim_ActualSweeperPublishesAttemptOneWithoutAdditionalMutationBeforeClaim()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new ManualTimeProvider(MovieCatalogSeed.FixedTime);
+        var movie = MovieCatalogSeed.Create("stale claim", "sweeper-stale-claim");
+        await using (var context = postgres.CreateMigratedContext())
+        {
+            context.Movies.Add(movie);
+            await context.SaveChangesAsync(ct);
+        }
+
+        await using (var claimContext = postgres.CreateMigratedContext())
+        {
+            var repository = new EfMovieRepository(
+                claimContext,
+                clock,
+                Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }));
+            Assert.True(await repository.TryClaimForEnrichmentAsync(movie.Id!, ct));
+        }
+
+        clock.Advance(TimeSpan.FromSeconds(11));
+        var beforeSweep = await SnapshotAsync(movie.Id!, ct);
+        using var factory = new ApiHostFactory(
+            retainSweeper: true,
+            additionalSettings: RealInfrastructureSettings(rabbitMq.Options, postgres.ConnectionString),
+            timeProvider: clock,
+            disableEnrichmentConsumer: true);
+
+        _ = factory.Services;
+
+        var message = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.RequestedQueue,
+            candidate => Read(candidate).MovieId == movie.Id!,
+            ct);
+        Assert.NotNull(message);
+        Assert.Equal(1, Read(message).Attempt);
+        Assert.Equal(beforeSweep, await SnapshotAsync(movie.Id!, ct));
+
+        await using var nextClaimContext = postgres.CreateMigratedContext();
+        var nextClaim = new EfMovieRepository(
+            nextClaimContext,
+            clock,
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }));
+        Assert.True(await nextClaim.TryClaimForEnrichmentAsync(movie.Id!, ct));
+    }
+
+    private async Task<(EnrichmentStatus Status, DateTimeOffset? LastAttemptAt, int Attempts)> SnapshotAsync(
+        MovieId id,
+        CancellationToken cancellationToken)
+    {
+        await using var context = postgres.CreateMigratedContext();
+        return await context.Movies.AsNoTracking()
+            .Where(movie => movie.Id == id)
+            .Select(movie => new ValueTuple<EnrichmentStatus, DateTimeOffset?, int>(
+                movie.Status, movie.LastAttemptAt, movie.EnrichmentAttempts))
+            .SingleAsync(cancellationToken);
+    }
+
+    private static EnrichmentRequested Read(BasicGetResult message) =>
+        JsonSerializer.Deserialize<EnrichmentRequested>(
+            Encoding.UTF8.GetString(message.Body.Span),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+    private static IEnumerable<KeyValuePair<string, string?>> RealInfrastructureSettings(
+        RabbitMqOptions rabbit,
+        string connectionString) =>
+    [
+        new("ConnectionStrings:DefaultConnection", connectionString),
+        new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}", rabbit.HostName),
+        new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.Port)}", rabbit.Port.ToString()),
+        new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.UserName)}", rabbit.UserName),
+        new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.Password)}", rabbit.Password),
+        new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.RetryDelay)}", rabbit.RetryDelay.ToString("c")),
+        new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:10"),
+        new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}", "00:01:00"),
+    ];
 }

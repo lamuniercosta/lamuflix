@@ -14,12 +14,16 @@ using LamuFlix.Core.Features.Playback;
 using LamuFlix.Core.Features.Watchlist;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using LamuFlix.Core.Options;
+using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.FileSystem;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Pipeline;
 using LamuFlix.Infrastructure.Playback;
+using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Shouldly;
 using Xunit;
 
@@ -209,6 +213,56 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
         logging.ShouldBeOfType<LoggingDecorator<BrowseMoviesQuery, PagedResult<MovieSummary>>>();
         validation.ShouldBeOfType<ValidationDecorator<BrowseMoviesQuery, PagedResult<MovieSummary>>>();
         composed.ShouldBeSameAs(scope.ServiceProvider.GetRequiredService<BrowseMoviesQueryHandler>());
+    }
+
+    [Fact]
+    public void Handlers_RecoveryComposition_ResolvesDecoratedSweepAndRequeueHandlersAndRetainsSweeper()
+    {
+        // arrange
+        using var recoveryFactory = new ApiHostFactory(retainSweeper: true);
+        using var scope = recoveryFactory.Services.CreateScope();
+
+        // act
+        var sweep = scope.ServiceProvider
+            .GetRequiredService<ICommandHandler<SweepStrandedMoviesCommand, int>>();
+        var requeue = scope.ServiceProvider
+            .GetRequiredService<ICommandHandler<RequeueStrandedMoviesCommand, int>>();
+        var registrations = recoveryFactory.Services.GetServices<IHostedService>();
+
+        // assert
+        sweep.ShouldBeOfType<TracingDecorator<SweepStrandedMoviesCommand, int>>();
+        requeue.ShouldBeOfType<TracingDecorator<RequeueStrandedMoviesCommand, int>>();
+        registrations.ShouldContain(service => service is StrandedMovieSweeper);
+    }
+
+    [Fact]
+    public void UnrelatedHost_RemovesOnlyTheSweeper()
+    {
+        // arrange
+        var hostedServices = factory.Services.GetServices<IHostedService>();
+
+        // assert
+        hostedServices.ShouldNotContain(service => service is StrandedMovieSweeper);
+        hostedServices.ShouldContain(service => service is EnrichmentConsumer);
+    }
+
+    [Theory]
+    [InlineData(nameof(EnrichmentOptions.ClaimLease))]
+    [InlineData(nameof(EnrichmentOptions.SweepInterval))]
+    public void Startup_NonpositiveSweeperDuration_FailsWithTheConfigurationKey(string key)
+    {
+        // arrange
+        var overrides = new Dictionary<string, string?>
+        {
+            [$"{EnrichmentOptions.SectionName}:{key}"] = "00:00:00",
+        };
+        using var invalidFactory = new ApiHostFactory(retainSweeper: false, additionalSettings: overrides);
+
+        // act
+        var failure = Should.Throw<Exception>(() => invalidFactory.CreateClient());
+
+        // assert
+        failure.ToString().ShouldContain($"{EnrichmentOptions.SectionName}:{key}");
     }
 
     [Fact]

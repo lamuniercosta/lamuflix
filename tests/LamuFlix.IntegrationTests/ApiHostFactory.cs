@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Enrichment;
+using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -10,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LamuFlix.IntegrationTests;
 
@@ -18,14 +20,24 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
     private const string StubCheckName = "host-harness-stub";
 
     private readonly bool retainSweeper;
+    private readonly IEnumerable<KeyValuePair<string, string?>> additionalSettings;
+    private readonly TimeProvider? timeProvider;
+    private readonly bool disableEnrichmentConsumer;
 
     public ApiHostFactory() : this(false)
     {
     }
 
-    internal ApiHostFactory(bool retainSweeper)
+    internal ApiHostFactory(
+        bool retainSweeper,
+        IEnumerable<KeyValuePair<string, string?>>? additionalSettings = null,
+        TimeProvider? timeProvider = null,
+        bool disableEnrichmentConsumer = false)
     {
         this.retainSweeper = retainSweeper;
+        this.additionalSettings = additionalSettings ?? [];
+        this.timeProvider = timeProvider;
+        this.disableEnrichmentConsumer = disableEnrichmentConsumer;
     }
 
     private static readonly KeyValuePair<string, string?>[] HostSettings =
@@ -44,7 +56,10 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
     protected override IHost CreateHost(IHostBuilder builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        builder.ConfigureHostConfiguration(static configuration => configuration.AddInMemoryCollection(HostSettings));
+        builder.ConfigureHostConfiguration(configuration =>
+            configuration.AddInMemoryCollection(HostSettings.Concat(additionalSettings)
+                .GroupBy(setting => setting.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.Last())));
         return base.CreateHost(builder);
     }
 
@@ -52,15 +67,32 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
     {
         ArgumentNullException.ThrowIfNull(builder);
         base.ConfigureWebHost(builder);
+        builder.ConfigureAppConfiguration((_, configuration) =>
+            configuration.AddInMemoryCollection(HostSettings.Concat(additionalSettings)
+                .GroupBy(setting => setting.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.Last())));
         builder.UseDefaultServiceProvider(static options =>
         {
             options.ValidateOnBuild = true;
             options.ValidateScopes = true;
         });
         builder.ConfigureTestServices(ReplaceHealthChecksWithStub);
+        if (timeProvider is not null)
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<TimeProvider>();
+                services.AddSingleton(timeProvider);
+            });
+        }
         if (!retainSweeper)
         {
             builder.ConfigureTestServices(RemoveSweeper);
+        }
+
+        if (disableEnrichmentConsumer)
+        {
+            builder.ConfigureTestServices(RemoveEnrichmentConsumer);
         }
     }
 
@@ -75,6 +107,17 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
         var registration = services.FirstOrDefault(descriptor =>
             descriptor.ServiceType == typeof(IHostedService)
             && descriptor.ImplementationType == typeof(StrandedMovieSweeper));
+        if (registration is not null)
+        {
+            services.Remove(registration);
+        }
+    }
+
+    private static void RemoveEnrichmentConsumer(IServiceCollection services)
+    {
+        var registration = services.FirstOrDefault(descriptor =>
+            descriptor.ServiceType == typeof(IHostedService)
+            && descriptor.ImplementationType == typeof(EnrichmentConsumer));
         if (registration is not null)
         {
             services.Remove(registration);
