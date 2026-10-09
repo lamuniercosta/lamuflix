@@ -35,12 +35,12 @@
 
 **Independent Test**: Lifecycle unit tests + wiring/isolation edits (recovery hosts retain sweeper, unrelated hosts remove only it).
 
-- [ ] T014 [US3] Implement thin `StrandedMovieSweeper` in `src/LamuFlix.Infrastructure/Enrichment/StrandedMovieSweeper.cs` (immediate first pass, scope per pass, resolve decorated sweep handler, full `SweepInterval` delay via `TimeProvider` after success/failure, serial, Error-with-exception log, `stoppingToken` into query/enqueue, clean shutdown).
-- [ ] T015 [US3] Lifecycle tests in `tests/LamuFlix.UnitTests/Enrichment/StrandedMovieSweeperTests.cs` (immediate pass, interval after success/failure, serial execution, scope disposal, Error logging, later recovery, query/enqueue cancellation, clean shutdown; bounded synchronization, no wall-clock sleeps).
-- [ ] T016 [US3] Register sweep + requeue handlers via `AddHandler` in `src/LamuFlix.Api/HandlerRegistration.cs` (decorators preserved; sweep injects decorated requeue abstraction).
-- [ ] T017 [US3] Unconditional `AddHostedService<StrandedMovieSweeper>` in `src/LamuFlix.Api/Program.cs` (no gate/flag changes).
-- [ ] T018 [US3] Isolation edit in `tests/LamuFlix.IntegrationTests/ApiHostFactory.cs` (unrelated hosts remove only sweeper; recovery hosts opt in and assert registration).
-- [ ] T019 [US3] Bounded status note in `docs/adr/ADR-0004.md` lines 92-96 (design-only/open-handoff wording now stale; cite ADR-0017:69-83 and DEV-316; preserve earlier decision history; no new ADR).
+- [X] T014 [US3] Implement thin `StrandedMovieSweeper` in `src/LamuFlix.Infrastructure/Enrichment/StrandedMovieSweeper.cs` (immediate first pass, scope per pass, resolve decorated sweep handler, full `SweepInterval` delay via `TimeProvider` after success/failure, serial, Error-with-exception log, `stoppingToken` into query/enqueue, clean shutdown).
+- [X] T015 [US3] Lifecycle tests in `tests/LamuFlix.UnitTests/Enrichment/StrandedMovieSweeperTests.cs` (immediate pass, interval after success/failure, serial execution, scope disposal, Error logging, later recovery, query/enqueue cancellation, clean shutdown; bounded synchronization, no wall-clock sleeps).
+- [X] T016 [US3] Register sweep + requeue handlers via `AddHandler` in `src/LamuFlix.Api/HandlerRegistration.cs` (decorators preserved; sweep injects decorated requeue abstraction).
+- [X] T017 [US3] Unconditional `AddHostedService<StrandedMovieSweeper>` in `src/LamuFlix.Api/Program.cs` (no gate/flag changes).
+- [X] T018 [US3] Isolation edit in `tests/LamuFlix.IntegrationTests/ApiHostFactory.cs` (unrelated hosts remove only sweeper; recovery hosts opt in and assert registration).
+- [X] T019 [US3] Bounded status note in `docs/adr/ADR-0004.md` lines 92-96 (design-only/open-handoff wording now stale; cite ADR-0017:69-83 and DEV-316; preserve earlier decision history; no new ADR).
 
 ## Phase 4: Real recovery + composition/startup validation (US1/US2 acceptance)
 
