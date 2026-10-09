@@ -14,6 +14,8 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
 {
     private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    private static readonly IReadOnlyDictionary<string, object?> NoAdditions =
+        new Dictionary<string, object?>(StringComparer.Ordinal);
 
     private readonly RabbitMqTopology topology;
     private readonly RabbitMqConnectionOwner owner;
@@ -27,10 +29,19 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
     public Task EnqueueAsync(EnrichmentRequested message, CancellationToken ct) =>
         PublishAsync(message, RabbitMqTopology.RequestedRoutingKey, ct);
 
-    public async Task PublishAsync(EnrichmentRequested message, string routingKey, CancellationToken ct)
+    public Task PublishAsync(EnrichmentRequested message, string routingKey, CancellationToken ct) =>
+        PublishAsync(message, routingKey, NoAdditions, ct);
+
+    public async Task PublishAsync(
+        EnrichmentRequested message,
+        string routingKey,
+        IReadOnlyDictionary<string, object?> additionalHeaders,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(message);
         ArgumentException.ThrowIfNullOrEmpty(routingKey);
+        ArgumentNullException.ThrowIfNull(additionalHeaders);
+        EnsureUsableHeaders(additionalHeaders);
 
         await topology.EnsureDeclaredAsync(ct);
 
@@ -42,6 +53,11 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
 
         var headers = new Dictionary<string, object?>(StringComparer.Ordinal);
         TraceContextCarrier.Inject(headers, activity?.Context);
+        foreach (var (key, value) in additionalHeaders)
+        {
+            headers[key] = value;
+        }
+
         var properties = new BasicProperties { Persistent = true, Headers = headers };
 
         var connection = await owner.GetAsync(ct);
@@ -58,6 +74,31 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
             body: Serialize(message),
             cancellationToken: ct);
     }
+
+    private static void EnsureUsableHeaders(IReadOnlyDictionary<string, object?> additionalHeaders)
+    {
+        foreach (var (key, value) in additionalHeaders)
+        {
+            if (value is null)
+            {
+                throw new ArgumentException(
+                    $"Header '{key}' must not carry a null value.",
+                    nameof(additionalHeaders));
+            }
+
+            if (IsReservedHeader(key))
+            {
+                throw new ArgumentException(
+                    $"Header '{key}' is owned by the publisher or the broker and cannot be supplied.",
+                    nameof(additionalHeaders));
+            }
+        }
+    }
+
+    private static bool IsReservedHeader(string key) =>
+        key is TraceContextCarrier.TraceParentHeader or TraceContextCarrier.TraceStateHeader
+        || key.Equals("x-death", StringComparison.Ordinal)
+        || key.StartsWith("x-first-death-", StringComparison.Ordinal);
 
     private static ReadOnlyMemory<byte> Serialize(EnrichmentRequested message) =>
         JsonSerializer.SerializeToUtf8Bytes(message, SerializerOptions);
