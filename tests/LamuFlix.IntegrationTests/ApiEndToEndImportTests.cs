@@ -159,7 +159,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         var root = Directory.GetParent(folder).ShouldNotBeNull().FullName;
         var lockedFile = Path.Combine(folder, "locked.bin");
         File.WriteAllBytes(lockedFile, [0x01]);
-        var stream = new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.None);
+        var block = OwnedFolderDeleteBlock.Hold(folder, lockedFile);
         try
         {
             // act
@@ -173,7 +173,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         }
         finally
         {
-            await stream.DisposeAsync();
+            await block.DisposeAsync();
             if (Directory.Exists(root))
             {
                 Directory.Delete(root, recursive: true);
@@ -283,4 +283,46 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
     }
 
     private sealed record PersistedImport(string Title, string Path, string Format);
+
+    private sealed class OwnedFolderDeleteBlock : IAsyncDisposable
+    {
+        private const UnixFileMode UnixDirectoryWithoutWrite = UnixFileMode.UserRead | UnixFileMode.UserExecute;
+        private const UnixFileMode UnixDirectoryWritable =
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+
+        private readonly FileStream? stream;
+        private readonly string? unixFolder;
+
+        private OwnedFolderDeleteBlock(FileStream? stream, string? unixFolder)
+        {
+            this.stream = stream;
+            this.unixFolder = unixFolder;
+        }
+
+        public static OwnedFolderDeleteBlock Hold(string folder, string lockedFile)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                return new OwnedFolderDeleteBlock(
+                    new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.None),
+                    unixFolder: null);
+            }
+
+            new DirectoryInfo(folder).UnixFileMode = UnixDirectoryWithoutWrite;
+            return new OwnedFolderDeleteBlock(stream: null, folder);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (stream is not null)
+            {
+                await stream.DisposeAsync();
+            }
+
+            if (unixFolder is not null)
+            {
+                new DirectoryInfo(unixFolder).UnixFileMode = UnixDirectoryWritable;
+            }
+        }
+    }
 }
