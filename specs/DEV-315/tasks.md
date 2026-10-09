@@ -38,11 +38,11 @@
 
 **Purpose**: Q4 Theory matrix and Q1 regression proofs over a real broker
 
-- [ ] T008 [US1] Real-broker rows in `tests/LamuFlix.IntegrationTests/EnrichmentConsumerTests.cs`: Enriched / NotFound / refused claim settle requested with no retry or DLQ (ready/in-flight + lifecycle ack evidence)
-- [ ] T009 [US2] Real-broker rows: transient / rate-limited below Max show independent retry ingress (same MovieId, Attempt+1, intact telemetry, no failure headers) plus actual TTL return and provider reinvocation
-- [ ] T010 [US3] Real-broker rows: non-retryable below Max, retryable at Max, retryable above Max reach DLQ with unchanged failed Attempt and all three headers, terminally with no further loop
-- [ ] T011 [US2/US3] Real-broker row: Max-1 retry crossing to Max proves bounded poison handling
-- [ ] T012 [US4] Keep Q1 regression proofs: failed retry republish never success-acks proved by the existing retry-republish failure test (mandatory/confirmed publication failure → original terminal nack `requeue:false` via the existing broker DLQ route, movie stays Pending); add no terminal-publish-failure injection and no client-nack test; failed DLQ republish is a shared catch-path expectation only (never success-acked, terminal nack `requeue:false`, already-recorded Failed movie state unchanged); malformed body, unexpected exception, and stopping-token cancellation settlement behaviour preserved separately
+- [X] T008 [US1] Real-broker rows in `tests/LamuFlix.IntegrationTests/EnrichmentConsumerTests.cs`: Enriched / NotFound / refused claim settle requested with no retry or DLQ (ready/in-flight + lifecycle ack evidence)
+- [X] T009 [US2] Real-broker rows: transient / rate-limited below Max show independent retry ingress (same MovieId, Attempt+1, intact telemetry, no failure headers) plus actual TTL return and provider reinvocation
+- [X] T010 [US3] Real-broker rows: non-retryable below Max, retryable at Max, retryable above Max reach DLQ with unchanged failed Attempt and all three headers, terminally with no further loop
+- [X] T011 [US2/US3] Real-broker row: Max-1 retry crossing to Max proves bounded poison handling
+- [X] T012 [US4] Keep Q1 regression proofs: failed retry republish never success-acks proved by the existing retry-republish failure test (mandatory/confirmed publication failure → original terminal nack `requeue:false` via the existing broker DLQ route, movie stays Pending); add no terminal-publish-failure injection and no client-nack test; failed DLQ republish is a shared catch-path expectation only (never success-acked, terminal nack `requeue:false`, already-recorded Failed movie state unchanged); malformed body, unexpected exception, and stopping-token cancellation settlement behaviour preserved separately
 
 **Checkpoint**: Full `dotnet test` green; broker matrix uses bounded polling/handshakes only (no sleep-only evidence, no exact-ms timing). Broker state isolated per test; small MaxAttempts; short positive integer-ms TTL.
 
