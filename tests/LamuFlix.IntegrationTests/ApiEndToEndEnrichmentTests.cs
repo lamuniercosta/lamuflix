@@ -62,19 +62,19 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         var response = await client.PostAsync(RetryRoute(id), null, cancellationToken);
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        // assert - 202 accepted with relative Location carrying the movie id and an empty body
+        // assert
         response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         responseBody.ShouldBe(string.Empty);
         var location = response.Headers.Location.ShouldNotBeNull();
         location.IsAbsoluteUri.ShouldBeFalse();
         location.ToString().ShouldBe(DetailsRoute(id));
 
-        // act - the live consumer retries the seeded row through the real OMDb path
+        // act
         await WaitForStatusAsync(new MovieId(id), EnrichmentStatus.Enriched);
         var details = await client.GetAsync(DetailsRoute(id), cancellationToken);
         var detailsBody = await details.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
-        // assert - GET details confirms the enrichment written back over HTTP
+        // assert
         details.StatusCode.ShouldBe(HttpStatusCode.OK);
         details.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
         ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata");
@@ -91,7 +91,7 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         metadata.GetProperty("imdbRating").GetDecimal().ShouldBe(ExpectedImdbRating);
         metadata.GetProperty("imdbId").GetString().ShouldBe(ExpectedImdbId);
 
-        // assert - the measured WireMock log proves the exact OMDb lookup that produced the retry enrichment
+        // assert
         var measured = Fixture.Server.LogEntries.ShouldHaveSingleItem().RequestMessage.ShouldNotBeNull();
         measured.Method.ShouldBe("GET");
         measured.AbsolutePath.ShouldBe("/");
