@@ -48,9 +48,9 @@
 
 **Independent Test**: Real PostgreSQL + RabbitMQ recovery tests (lost gap + stale claim, each observing `EnrichmentRequested(id,1)` with no sweep mutation before the intentional later claim) plus composition/startup assertions.
 
-- [ ] T020 [US1] Lost-dual-write-gap recovery test in `tests/LamuFlix.IntegrationTests/StrandedMovieSweeperTests.cs` (after hosting and composition): retain the actual registered sweeper; persist `Pending` row with null `LastAttemptAt` and publish no message with broker prepared before the immediate pass; observe `EnrichmentRequested(id,1)` on the real queue; verify no sweep mutation of status/`LastAttemptAt`/`EnrichmentAttempts`; then verify a subsequent real claim succeeds.
-- [ ] T021 [US2] Stale-claim recovery test in `tests/LamuFlix.IntegrationTests/StrandedMovieSweeperTests.cs` (real claim + deterministic advancement; observe `EnrichmentRequested(id,1)` on real queue; prove subsequent real claim; assert no sweep mutation of status/`LastAttemptAt`/`EnrichmentAttempts`).
-- [ ] T022 [US3] Composition and startup assertions after Api wiring: both decorated `ICommandHandler` registrations (sweep + requeue) resolve in scope; recovery hosts retain the unconditional sweeper; unrelated hosts remove only the sweeper; nonpositive `ClaimLease`/`SweepInterval` fail startup with key-specific messages.
+- [X] T020 [US1] Lost-dual-write-gap recovery test in `tests/LamuFlix.IntegrationTests/StrandedMovieSweeperTests.cs` (after hosting and composition): retain the actual registered sweeper; persist `Pending` row with null `LastAttemptAt` and publish no message with broker prepared before the immediate pass; observe `EnrichmentRequested(id,1)` on the real queue; verify no sweep mutation of status/`LastAttemptAt`/`EnrichmentAttempts`; then verify a subsequent real claim succeeds.
+- [X] T021 [US2] Stale-claim recovery test in `tests/LamuFlix.IntegrationTests/StrandedMovieSweeperTests.cs` (real claim + deterministic advancement; observe `EnrichmentRequested(id,1)` on real queue; prove subsequent real claim; assert no sweep mutation of status/`LastAttemptAt`/`EnrichmentAttempts`).
+- [X] T022 [US3] Composition and startup assertions after Api wiring: both decorated `ICommandHandler` registrations (sweep + requeue) resolve in scope; recovery hosts retain the unconditional sweeper; unrelated hosts remove only the sweeper; nonpositive `ClaimLease`/`SweepInterval` fail startup with key-specific messages.
 
 ## Phase 5: Gates, review, handoff
 
