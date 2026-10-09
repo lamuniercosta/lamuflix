@@ -25,9 +25,9 @@
 
 **Independent Test**: Handler unit tests (empty selection, captured cutoff, requeue-path dispatch, cancellation forwarding, failure propagation).
 
-- [ ] T011 [US1] Create `SweepStrandedMoviesCommand` in `src/LamuFlix.Core/Features/Enrichment/SweepStrandedMoviesCommand.cs` (existing `MovieId`/result conventions).
-- [ ] T012 [US1] Implement `SweepStrandedMoviesCommandHandler` in `src/LamuFlix.Core/Features/Enrichment/SweepStrandedMoviesCommandHandler.cs` (one `TimeProvider` now per pass, cutoff = now - ClaimLease, read-only selection, dispatch existing requeue handler via decorated abstraction, Attempt=1 retained, cancellation forwarded, failure propagated; no attempt filter/mutation).
-- [ ] T013 [US1] Unit tests in `tests/LamuFlix.UnitTests/Features/Enrichment/SweepStrandedMoviesCommandHandlerTests.cs` (empty selection, captured cutoff, requeue-path dispatch, cancellation forwarding, failure propagation).
+- [X] T011 [US1] Create `SweepStrandedMoviesCommand` in `src/LamuFlix.Core/Features/Enrichment/SweepStrandedMoviesCommand.cs` (existing `MovieId`/result conventions).
+- [X] T012 [US1] Implement `SweepStrandedMoviesCommandHandler` in `src/LamuFlix.Core/Features/Enrichment/SweepStrandedMoviesCommandHandler.cs` (one `TimeProvider` now per pass, cutoff = now - ClaimLease, read-only selection, dispatch existing requeue handler via decorated abstraction, Attempt=1 retained, cancellation forwarded, failure propagated; no attempt filter/mutation).
+- [X] T013 [US1] Unit tests in `tests/LamuFlix.UnitTests/Features/Enrichment/SweepStrandedMoviesCommandHandlerTests.cs` (empty selection, captured cutoff, requeue-path dispatch, cancellation forwarding, failure propagation).
 
 ## Phase 3: User Story 3 - Hosted loop, wiring, isolation (P3)
 
