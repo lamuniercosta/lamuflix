@@ -127,6 +127,7 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
             services.ShouldContain(
                 descriptor => descriptor.ServiceType == typeof(ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>));
             services.ShouldContain(descriptor => descriptor.ServiceType == typeof(IValidateOptions<RabbitMqOptions>));
+            services.ShouldContain(descriptor => descriptor.ServiceType == typeof(IWorkerLiveness));
             return;
         }
 
@@ -134,6 +135,7 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
         services.ShouldNotContain(
             descriptor => descriptor.ServiceType == typeof(ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>));
         services.ShouldNotContain(descriptor => descriptor.ServiceType == typeof(IValidateOptions<RabbitMqOptions>));
+        services.ShouldNotContain(descriptor => descriptor.ServiceType == typeof(IWorkerLiveness));
     }
 
     private static ServiceCollection NewServices(bool providerPort, bool repositoryPort)

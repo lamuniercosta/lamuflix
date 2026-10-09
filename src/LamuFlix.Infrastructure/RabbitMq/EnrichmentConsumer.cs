@@ -23,7 +23,8 @@ public sealed class EnrichmentConsumer(
     RabbitMqEnrichmentQueuePublisher publisher,
     IServiceScopeFactory scopes,
     IOptions<RabbitMqOptions> options,
-    ILogger<EnrichmentConsumer> logger) : BackgroundService
+    ILogger<EnrichmentConsumer> logger,
+    IWorkerLiveness liveness) : BackgroundService
 {
     private const string FailureCategoryHeader = "x-lamuflix-failure-category";
     private const string FailureReasonHeader = "x-lamuflix-failure-reason";
@@ -37,7 +38,9 @@ public sealed class EnrichmentConsumer(
     private static readonly IReadOnlyDictionary<string, object?> NoHeaders =
         new Dictionary<string, object?>(StringComparer.Ordinal);
 
+    private readonly ConsumerDrain drain = new();
     private IChannel? channel;
+    private string? consumerTag;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -55,13 +58,20 @@ public sealed class EnrichmentConsumer(
                     await active.BasicQosAsync(0, options.Value.Prefetch, global: false, stoppingToken);
 
                     var consumer = new AsyncEventingBasicConsumer(active);
-                    consumer.ReceivedAsync += (_, delivery) => HandleAsync(active, delivery, stoppingToken);
-                    await active.BasicConsumeAsync(RabbitMqTopology.RequestedQueue, autoAck: false, consumer, stoppingToken);
+                    consumer.ReceivedAsync += (_, delivery) => drain.Track(HandleAsync(active, delivery, stoppingToken));
+                    consumerTag = await active.BasicConsumeAsync(
+                        RabbitMqTopology.RequestedQueue,
+                        autoAck: false,
+                        consumer,
+                        stoppingToken);
+                    liveness.MarkListening();
 
                     await WaitForShutdownAsync(connection, active, stoppingToken);
                 }
                 finally
                 {
+                    liveness.MarkStopped();
+                    await ReleaseConsumerAsync(active);
                     channel = null;
                     await active.DisposeAsync();
                 }
@@ -113,6 +123,26 @@ public sealed class EnrichmentConsumer(
         }
 
         stoppingToken.ThrowIfCancellationRequested();
+    }
+
+    private async Task ReleaseConsumerAsync(IChannel active)
+    {
+        var tag = consumerTag;
+        consumerTag = null;
+        if (tag is null)
+        {
+            await drain.WhenIdleAsync(CancellationToken.None);
+            return;
+        }
+
+        try
+        {
+            await drain.PauseAndDrainAsync(active, tag, CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "The enrichment consumer could not be paused during shutdown");
+        }
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

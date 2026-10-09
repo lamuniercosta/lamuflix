@@ -425,6 +425,39 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
     }
 
     [Fact]
+    public async Task Consumer_StopDuringLookup_RequeuesTheMessageAndClearsLiveness()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var liveness = new RecordingLiveness();
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")),
+            beforeLookup: async (_, token) =>
+            {
+                entered.TrySetResult();
+                await Task.Delay(Timeout.Infinite, token);
+            },
+            liveness: liveness);
+        var movie = host.AddPendingMovie(317);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+
+        await host.StartAsync(ct);
+        await entered.Task.WaitAsync(ct);
+        liveness.Listening.ShouldBeGreaterThan(0);
+
+        await host.StopAsync(CancellationToken.None);
+
+        liveness.Stopped.ShouldBeGreaterThan(0);
+        (await probe.PollGetMatchingAsync(
+            RabbitMqTopology.RequestedQueue,
+            candidate => Read(candidate).MovieId.Value == 317,
+            ct)).ShouldNotBeNull();
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
+    }
+
+    [Fact]
     public async Task Consumer_CancellationRequeues_AndDoesNotMarkTheMovieFailed()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -813,7 +846,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         ushort prefetch = 1,
         RabbitMqOptions? rabbitOptions = null,
         DispatchScopeLog? scopeLog = null,
-        Func<MetadataLookup, CancellationToken, Task>? beforeLookup = null)
+        Func<MetadataLookup, CancellationToken, Task>? beforeLookup = null,
+        IWorkerLiveness? liveness = null)
     {
         var clock = new AdjustableTimeProvider(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
         var provider = new ScriptedMetadataProvider(script);
@@ -860,7 +894,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
             publisher,
             built.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(options),
-            NullLogger<EnrichmentConsumer>.Instance);
+            NullLogger<EnrichmentConsumer>.Instance,
+            liveness ?? NoOpLiveness.Instance);
         return new ConsumerHost(owner, topology, publisher, repository, provider, clock, consumer, built);
     }
 
@@ -941,6 +976,32 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         {
             services.Dispose();
             return owner.DisposeAsync();
+        }
+    }
+
+    private sealed class RecordingLiveness : IWorkerLiveness
+    {
+        public int Listening { get; private set; }
+
+        public int Stopped { get; private set; }
+
+        public void MarkListening() => Listening++;
+
+        public void MarkStopped() => Stopped++;
+    }
+
+    private sealed class NoOpLiveness : IWorkerLiveness
+    {
+        public static readonly NoOpLiveness Instance = new();
+
+        public void MarkListening()
+        {
+            // tests that do not observe liveness still construct a consumer
+        }
+
+        public void MarkStopped()
+        {
+            // tests that do not observe liveness still construct a consumer
         }
     }
 
