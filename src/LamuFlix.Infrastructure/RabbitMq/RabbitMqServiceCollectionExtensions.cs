@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO.Abstractions;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -47,6 +49,12 @@ public static class RabbitMqServiceCollectionExtensions
             services.AddHandler<ProcessEnrichmentCommandHandler, ProcessEnrichmentCommand, ProcessEnrichmentOutcome>();
             services.AddSingleton<IValidateOptions<RabbitMqOptions>, RabbitMqConsumerOptionsValidator>();
             services.AddOptions<RabbitMqOptions>().ValidateOnStart();
+            services.TryAddSingleton<IFileSystem, System.IO.Abstractions.FileSystem>();
+            services.TryAddSingleton(TimeProvider.System);
+            services.AddSingleton<IWorkerLiveness>(provider => new WorkerLivenessSignal(
+                provider.GetRequiredService<IFileSystem>(),
+                provider.GetRequiredService<TimeProvider>(),
+                AppContext.BaseDirectory));
             services.AddHostedService<EnrichmentConsumer>();
             return services;
         }
