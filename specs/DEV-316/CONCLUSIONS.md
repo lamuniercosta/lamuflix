@@ -171,3 +171,15 @@ Ruling: gate1: provisional. Basis: Round 2 analyze 0 Critical with capped-loop e
 5. ACCEPT: drop Sentry CR5 as already decided. Basis: Q5 (defaults unchanged, positive durations via dedicated validator with unconditional startup validation).
 
 **Implications:** No delivery-scope or constitution change; no owner structural checkbox. Builder reverts the gate edit and the out-of-set ServiceDefaults files, removes the sweeper from the two unrelated hosts, then gates rerun on the diff.
+
+---
+
+## Review reconcile: ServiceDefaults tests and friend access (HEAD 34c26cc, post DEV-406 rebase)
+
+**Conductor asked:** retain or remove the added ServiceDefaults test files and friend access now that Phase 3 gates pass after the harness fix.
+
+**Patron ruled:** PARTIAL KEEP.
+1. REMOVE the `InternalsVisibleTo(LamuFlix.UnitTests)` block from `LamuFlix.ServiceDefaults.csproj`. Basis: its only consumer, HealthCheckResponseWriterTests, was already dropped; no added test touches an internal member (only internal is HealthCheckResponseWriter), so it is orphaned dead config; section 2.3 item 6 with no AC or gate forcing it.
+2. KEEP `AddServiceDefaults_DoubleComposition_RegistersEnrichmentValidatorOnce` in `ServiceDefaultsTests.cs`: a corollary of named scope (Q7 Extensions.cs validator registration, T008, FR-007), per the earlier ruling-2 KEEP for corollaries.
+3. REMOVE the other added ServiceDefaultsTests cases (NullBuilder, ResolvesHealthCheckService, ForwardsLogsToProviders, MapDefaultEndpoints NullApp/LiveRoute) and their added helpers if orphaned. Basis: outside the Q7 file set and FR-011; a passing gate with them present does not show a gate fails without them (earlier ruling 2 exception).
+4. Exception stands: after removal Gauge reruns ServiceDefaults mutation on the diff; if it falls below 80, restore only the tests that output shows are needed and cite it.
