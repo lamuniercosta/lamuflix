@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using LamuFlix.Core.Options;
+using LamuFlix.Infrastructure.Enrichment;
+using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -10,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using Shouldly;
 
 namespace LamuFlix.IntegrationTests;
 
@@ -41,7 +45,11 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.ConfigureHostConfiguration(configuration => configuration.AddInMemoryCollection(HostSettings()));
-        return base.CreateHost(builder);
+        var host = base.CreateHost(builder);
+        var hostedServices = host.Services.GetServices<IHostedService>().ToArray();
+        hostedServices.ShouldNotContain(service => service is StrandedMovieSweeper);
+        hostedServices.ShouldContain(service => service is EnrichmentConsumer);
+        return host;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -63,6 +71,18 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         services.RemoveAll<TimeProvider>();
         services.AddSingleton(settings.TimeProvider);
         configureTestServices?.Invoke(services);
+        RemoveSweeper(services);
+    }
+
+    private static void RemoveSweeper(IServiceCollection services)
+    {
+        var registration = services.FirstOrDefault(descriptor =>
+            descriptor.ServiceType == typeof(IHostedService)
+            && descriptor.ImplementationType == typeof(StrandedMovieSweeper));
+        if (registration is not null)
+        {
+            services.Remove(registration);
+        }
     }
 
     private KeyValuePair<string, string?>[] HostSettings() =>
