@@ -5,6 +5,7 @@ using LamuFlix.Api;
 using LamuFlix.Api.Endpoints;
 using LamuFlix.Api.ExceptionHandling;
 using LamuFlix.Infrastructure.Adapters;
+using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Playback;
 using LamuFlix.Infrastructure.RabbitMq;
@@ -26,6 +27,7 @@ builder.Services.AddMetadataProvider();
 builder.Services.AddLamuFlixRabbitMq();
 builder.Services.AddLamuFlixPlayback();
 builder.Services.AddLamuFlixHandlers();
+builder.Services.AddHostedService<StrandedMovieSweeper>();
 builder.Services.AddCors(options => options.AddPolicy(
     CorsPolicyName,
     policy => policy.WithOrigins(DevServerOrigin).AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location")));

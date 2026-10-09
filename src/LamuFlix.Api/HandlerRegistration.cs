@@ -12,6 +12,7 @@ using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.FileSystem;
 using LamuFlix.Infrastructure.Library;
+using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -27,6 +28,8 @@ internal static class HandlerRegistration
         services.TryAddSingleton<IFileSystem, FileSystem>();
         services.AddScoped<IMediaLibraryScanner, DirectoryMediaLibraryScanner>();
         services.AddHandler<RequestEnrichmentCommandHandler, RequestEnrichmentCommand, MovieId>();
+        services.AddHandler<RequeueStrandedMoviesCommandHandler, RequeueStrandedMoviesCommand, int>();
+        services.AddHandler<SweepStrandedMoviesCommandHandler, SweepStrandedMoviesCommand, int>();
         services.AddHandler<ImportMovieFolderCommandHandler, ImportMovieFolderCommand, MovieId>();
         services.AddScoped<BrowseMoviesQueryValidator>();
         services.AddScoped<IValidator<BrowseMoviesQuery>>(
