@@ -75,6 +75,6 @@ public sealed class ConsumerDrainTests
         // assert
         finished.ShouldBe(pausing);
         await Should.ThrowAsync<OperationCanceledException>(async () => await pausing);
-        await channel.Received(1).BasicCancelAsync("ctag", false, Arg.Any<CancellationToken>());
+        await channel.Received(1).BasicCancelAsync("ctag", false, shutdown.Token);
     }
 }

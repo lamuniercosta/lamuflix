@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -19,6 +20,7 @@ using LamuFlix.Infrastructure.Pipeline;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
@@ -458,6 +460,87 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
     }
 
     [Fact]
+    public async Task Consumer_LivenessDeleteFailure_StillRemovesTheBrokerConsumer()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var liveness = new ThrowingLiveness { ThrowOnStop = true };
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")),
+            liveness: liveness);
+
+        await host.StartAsync(ct);
+        await WaitForListeningAsync(liveness, ct);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).ConsumerCount.ShouldBeGreaterThan(0U);
+
+        await host.StopAsync(CancellationToken.None);
+
+        liveness.Stopped.ShouldBe(1);
+        await WaitForConsumerCountAsync(0U, ct);
+        host.ExecuteTask.ShouldNotBeNull().IsCompleted.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Consumer_LivenessWriteFailure_StopsWithoutReconnecting()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var liveness = new ThrowingLiveness { ThrowOnListen = true };
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")),
+            liveness: liveness);
+
+        await host.StartAsync(ct);
+        await WaitForListeningAsync(liveness, ct);
+        await WaitForExecuteTaskAsync(host, ct);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(200), ct);
+        liveness.Listening.ShouldBe(1);
+        await WaitForConsumerCountAsync(0U, ct);
+        await host.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Consumer_ShutdownToken_BoundsTheDrainWhileAHandlerIgnoresCancellation()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var logs = new RecordingLogger<EnrichmentConsumer>();
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")),
+            beforeLookup: (_, _) =>
+            {
+                entered.TrySetResult();
+                return hold.Task;
+            },
+            logger: logs);
+        var movie = host.AddPendingMovie(318);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+
+        await host.StartAsync(ct);
+        await entered.Task.WaitAsync(ct);
+        using var shutdown = new CancellationTokenSource();
+        Task? stopping = null;
+        try
+        {
+            stopping = host.StopAsync(shutdown.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(200), ct);
+            await shutdown.CancelAsync();
+            await WaitForLogAsync(logs, "could not be paused during shutdown", ct);
+            hold.Task.IsCompleted.ShouldBeFalse();
+        }
+        finally
+        {
+            hold.TrySetResult();
+            if (stopping is not null)
+            {
+                await stopping.WaitAsync(TimeSpan.FromSeconds(10), ct);
+            }
+        }
+    }
+
+    [Fact]
     public async Task Consumer_CancellationRequeues_AndDoesNotMarkTheMovieFailed()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -847,7 +930,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         RabbitMqOptions? rabbitOptions = null,
         DispatchScopeLog? scopeLog = null,
         Func<MetadataLookup, CancellationToken, Task>? beforeLookup = null,
-        IWorkerLiveness? liveness = null)
+        IWorkerLiveness? liveness = null,
+        ILogger<EnrichmentConsumer>? logger = null)
     {
         var clock = new AdjustableTimeProvider(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
         var provider = new ScriptedMetadataProvider(script);
@@ -894,7 +978,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
             publisher,
             built.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(options),
-            NullLogger<EnrichmentConsumer>.Instance,
+            logger ?? NullLogger<EnrichmentConsumer>.Instance,
             liveness ?? NoOpLiveness.Instance);
         return new ConsumerHost(owner, topology, publisher, repository, provider, clock, consumer, built);
     }
@@ -922,6 +1006,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         public AdjustableTimeProvider Time { get; } = time;
 
         public IServiceProvider Services => services;
+
+        public Task? ExecuteTask => consumer.ExecuteTask;
 
         public Task StartAsync(CancellationToken cancellationToken) => consumer.StartAsync(cancellationToken);
 
@@ -988,6 +1074,117 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         public void MarkListening() => Listening++;
 
         public void MarkStopped() => Stopped++;
+    }
+
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        private readonly ConcurrentQueue<string> messages = new();
+
+        public IReadOnlyCollection<string> Messages => messages;
+
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull =>
+            NullLogger<T>.Instance.BeginScope(state);
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            _ = logLevel;
+            _ = eventId;
+            messages.Enqueue(formatter(state, exception));
+        }
+    }
+
+    private sealed class ThrowingLiveness : IWorkerLiveness
+    {
+        public int Listening { get; private set; }
+
+        public int Stopped { get; private set; }
+
+        public bool ThrowOnListen { get; init; }
+
+        public bool ThrowOnStop { get; init; }
+
+        public void MarkListening()
+        {
+            Listening++;
+            if (ThrowOnListen)
+            {
+                throw new IOException("liveness write failed");
+            }
+        }
+
+        public void MarkStopped()
+        {
+            Stopped++;
+            if (ThrowOnStop)
+            {
+                throw new IOException("liveness delete failed");
+            }
+        }
+    }
+
+    private static async Task WaitForListeningAsync(ThrowingLiveness liveness, CancellationToken ct)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(30);
+        while (liveness.Listening < 1 && TimeProvider.System.GetUtcNow() < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50), ct);
+        }
+
+        liveness.Listening.ShouldBeGreaterThan(0);
+    }
+
+    private async Task WaitForConsumerCountAsync(uint expected, CancellationToken ct)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(30);
+        uint count = uint.MaxValue;
+        while (TimeProvider.System.GetUtcNow() < deadline)
+        {
+            count = (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).ConsumerCount;
+            if (count == expected)
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(50), ct);
+        }
+
+        count.ShouldBe(expected);
+    }
+
+    private static async Task WaitForLogAsync(RecordingLogger<EnrichmentConsumer> logs, string text, CancellationToken ct)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(5);
+        while (TimeProvider.System.GetUtcNow() < deadline)
+        {
+            if (logs.Messages.Any(message => message.Contains(text, StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(50), ct);
+        }
+
+        logs.Messages.ShouldContain(message => message.Contains(text, StringComparison.Ordinal));
+    }
+
+    private static async Task WaitForExecuteTaskAsync(ConsumerHost host, CancellationToken ct)
+    {
+        var execute = host.ExecuteTask.ShouldNotBeNull();
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(5);
+        while (!execute.IsCompleted && TimeProvider.System.GetUtcNow() < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50), ct);
+        }
+
+        execute.IsCompleted.ShouldBeTrue();
     }
 
     private sealed class NoOpLiveness : IWorkerLiveness

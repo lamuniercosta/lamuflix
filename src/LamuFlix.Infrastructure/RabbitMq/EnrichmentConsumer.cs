@@ -41,6 +41,7 @@ public sealed class EnrichmentConsumer(
     private readonly ConsumerDrain drain = new();
     private IChannel? channel;
     private string? consumerTag;
+    private CancellationToken hostShutdown;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -64,13 +65,16 @@ public sealed class EnrichmentConsumer(
                         autoAck: false,
                         consumer,
                         stoppingToken);
-                    liveness.MarkListening();
+                    if (!TryMarkListening())
+                    {
+                        return;
+                    }
 
                     await WaitForShutdownAsync(connection, active, stoppingToken);
                 }
                 finally
                 {
-                    liveness.MarkStopped();
+                    ClearLiveness();
                     await ReleaseConsumerAsync(active);
                     channel = null;
                     await active.DisposeAsync();
@@ -125,19 +129,47 @@ public sealed class EnrichmentConsumer(
         stoppingToken.ThrowIfCancellationRequested();
     }
 
+    private bool TryMarkListening()
+    {
+        try
+        {
+            liveness.MarkListening();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                exception,
+                "The enrichment consumer could not record worker liveness and will stop");
+            return false;
+        }
+    }
+
+    private void ClearLiveness()
+    {
+        try
+        {
+            liveness.MarkStopped();
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "The enrichment consumer could not clear worker liveness");
+        }
+    }
+
     private async Task ReleaseConsumerAsync(IChannel active)
     {
         var tag = consumerTag;
         consumerTag = null;
-        if (tag is null)
-        {
-            await drain.WhenIdleAsync(CancellationToken.None);
-            return;
-        }
-
         try
         {
-            await drain.PauseAndDrainAsync(active, tag, CancellationToken.None);
+            if (tag is null)
+            {
+                await drain.WhenIdleAsync(hostShutdown);
+                return;
+            }
+
+            await drain.PauseAndDrainAsync(active, tag, hostShutdown);
         }
         catch (Exception exception)
         {
@@ -147,8 +179,9 @@ public sealed class EnrichmentConsumer(
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
+        hostShutdown = cancellationToken;
         await base.StopAsync(cancellationToken);
-        if (channel is { IsOpen: true })
+        if (ExecuteTask is { IsCompleted: true } && channel is { IsOpen: true })
         {
             await channel.CloseAsync(cancellationToken: CancellationToken.None);
         }
