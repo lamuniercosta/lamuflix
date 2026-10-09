@@ -3,7 +3,6 @@ using LamuFlix.Core.Options;
 using LamuFlix.ServiceDefaults;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Options;
 

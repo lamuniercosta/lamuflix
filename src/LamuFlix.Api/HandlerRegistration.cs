@@ -12,7 +12,6 @@ using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.FileSystem;
 using LamuFlix.Infrastructure.Library;
-using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

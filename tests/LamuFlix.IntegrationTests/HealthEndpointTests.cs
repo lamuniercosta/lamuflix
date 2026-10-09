@@ -148,6 +148,7 @@ public sealed class HealthEndpointTests
             new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}", "localhost"),
             new("ConnectionStrings:DefaultConnection", "Host=localhost;Port=5432;Database=lamuflix"),
             new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:10"),
+            new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}", "00:01:00"),
             new($"{FeatureOptions.SectionName}:{nameof(FeatureOptions.LocalPlay)}", "false"),
             new("OTEL_EXPORTER_OTLP_TIMEOUT", "1000"),
         ];

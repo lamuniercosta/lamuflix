@@ -239,7 +239,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     public void UnrelatedHost_RemovesOnlyTheSweeper()
     {
         // arrange
-        var hostedServices = factory.Services.GetServices<IHostedService>();
+        var hostedServices = factory.Services.GetServices<IHostedService>().ToArray();
 
         // assert
         hostedServices.ShouldNotContain(service => service is StrandedMovieSweeper);

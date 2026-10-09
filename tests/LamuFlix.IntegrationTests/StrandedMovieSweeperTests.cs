@@ -6,10 +6,10 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
-using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
+using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
@@ -48,10 +48,10 @@ public sealed class StrandedMovieSweeperTests(PostgresFixture fixture) : IAsyncL
             context.Movies.AddRange(strandedNull, strandedExpired, fresh, boundary, failed, enriched);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-            var expected = new[] { strandedNull.Id!, strandedExpired.Id! };
-            var originalAttempts = context.Movies.AsNoTracking().ToDictionary(movie => movie.Id!, movie => movie.EnrichmentAttempts);
-            var originalTimes = context.Movies.AsNoTracking().ToDictionary(movie => movie.Id!, movie => movie.LastAttemptAt);
-            var originalStatuses = context.Movies.AsNoTracking().ToDictionary(movie => movie.Id!, movie => movie.Status);
+            var expected = new[] { RequiredMovieId.From(strandedNull), RequiredMovieId.From(strandedExpired) };
+            var originalAttempts = context.Movies.AsNoTracking().ToDictionary(movie => RequiredMovieId.From(movie), movie => movie.EnrichmentAttempts);
+            var originalTimes = context.Movies.AsNoTracking().ToDictionary(movie => RequiredMovieId.From(movie), movie => movie.LastAttemptAt);
+            var originalStatuses = context.Movies.AsNoTracking().ToDictionary(movie => RequiredMovieId.From(movie), movie => movie.Status);
             var repository = new EfMovieRepository(
                 context,
                 new FixedTimeProvider(now),
@@ -61,9 +61,9 @@ public sealed class StrandedMovieSweeperTests(PostgresFixture fixture) : IAsyncL
 
             Assert.Equal(expected.OrderBy(id => id.Value), actual.OrderBy(id => id.Value));
             var persisted = await context.Movies.AsNoTracking().ToArrayAsync(TestContext.Current.CancellationToken);
-            Assert.All(persisted, movie => Assert.Equal(originalAttempts[movie.Id!], movie.EnrichmentAttempts));
-            Assert.All(persisted, movie => Assert.Equal(originalTimes[movie.Id!], movie.LastAttemptAt));
-            Assert.All(persisted, movie => Assert.Equal(originalStatuses[movie.Id!], movie.Status));
+            Assert.All(persisted, movie => Assert.Equal(originalAttempts[RequiredMovieId.From(movie)], movie.EnrichmentAttempts));
+            Assert.All(persisted, movie => Assert.Equal(originalTimes[RequiredMovieId.From(movie)], movie.LastAttemptAt));
+            Assert.All(persisted, movie => Assert.Equal(originalStatuses[RequiredMovieId.From(movie)], movie.Status));
         }
     }
 }
@@ -95,8 +95,8 @@ public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitM
             await context.SaveChangesAsync(ct);
         }
 
-        var beforeSweep = await SnapshotAsync(movie.Id!, ct);
-        using var factory = new ApiHostFactory(
+        var beforeSweep = await SnapshotAsync(RequiredMovieId.From(movie), ct);
+        await using var factory = new ApiHostFactory(
             retainSweeper: true,
             additionalSettings: RealInfrastructureSettings(rabbitMq.Options, postgres.ConnectionString),
             timeProvider: clock,
@@ -106,18 +106,18 @@ public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitM
 
         var message = await probe.PollGetMatchingAsync(
             RabbitMqTopology.RequestedQueue,
-            candidate => Read(candidate).MovieId == movie.Id!,
+            candidate => Read(candidate).MovieId == RequiredMovieId.From(movie),
             ct);
         Assert.NotNull(message);
         Assert.Equal(1, Read(message).Attempt);
-        Assert.Equal(beforeSweep, await SnapshotAsync(movie.Id!, ct));
+        Assert.Equal(beforeSweep, await SnapshotAsync(RequiredMovieId.From(movie), ct));
 
         await using var claimContext = postgres.CreateMigratedContext();
         var repository = new EfMovieRepository(
             claimContext,
             clock,
             Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }));
-        Assert.True(await repository.TryClaimForEnrichmentAsync(movie.Id!, ct));
+        Assert.True(await repository.TryClaimForEnrichmentAsync(RequiredMovieId.From(movie), ct));
     }
 
     [Fact]
@@ -138,12 +138,12 @@ public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitM
                 claimContext,
                 clock,
                 Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }));
-            Assert.True(await repository.TryClaimForEnrichmentAsync(movie.Id!, ct));
+            Assert.True(await repository.TryClaimForEnrichmentAsync(RequiredMovieId.From(movie), ct));
         }
 
         clock.Advance(TimeSpan.FromSeconds(11));
-        var beforeSweep = await SnapshotAsync(movie.Id!, ct);
-        using var factory = new ApiHostFactory(
+        var beforeSweep = await SnapshotAsync(RequiredMovieId.From(movie), ct);
+        await using var factory = new ApiHostFactory(
             retainSweeper: true,
             additionalSettings: RealInfrastructureSettings(rabbitMq.Options, postgres.ConnectionString),
             timeProvider: clock,
@@ -153,18 +153,18 @@ public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitM
 
         var message = await probe.PollGetMatchingAsync(
             RabbitMqTopology.RequestedQueue,
-            candidate => Read(candidate).MovieId == movie.Id!,
+            candidate => Read(candidate).MovieId == RequiredMovieId.From(movie),
             ct);
         Assert.NotNull(message);
         Assert.Equal(1, Read(message).Attempt);
-        Assert.Equal(beforeSweep, await SnapshotAsync(movie.Id!, ct));
+        Assert.Equal(beforeSweep, await SnapshotAsync(RequiredMovieId.From(movie), ct));
 
         await using var nextClaimContext = postgres.CreateMigratedContext();
         var nextClaim = new EfMovieRepository(
             nextClaimContext,
             clock,
             Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }));
-        Assert.True(await nextClaim.TryClaimForEnrichmentAsync(movie.Id!, ct));
+        Assert.True(await nextClaim.TryClaimForEnrichmentAsync(RequiredMovieId.From(movie), ct));
     }
 
     private async Task<(EnrichmentStatus Status, DateTimeOffset? LastAttemptAt, int Attempts)> SnapshotAsync(
@@ -182,7 +182,8 @@ public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitM
     private static EnrichmentRequested Read(BasicGetResult message) =>
         JsonSerializer.Deserialize<EnrichmentRequested>(
             Encoding.UTF8.GetString(message.Body.Span),
-            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))
+        ?? throw new InvalidOperationException("Enrichment request payload was empty.");
 
     private static IEnumerable<KeyValuePair<string, string?>> RealInfrastructureSettings(
         RabbitMqOptions rabbit,
@@ -194,7 +195,13 @@ public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitM
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.UserName)}", rabbit.UserName),
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.Password)}", rabbit.Password),
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.RetryDelay)}", rabbit.RetryDelay.ToString("c")),
-        new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:10"),
+        new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:01"),
         new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}", "00:01:00"),
     ];
+}
+
+file static class RequiredMovieId
+{
+    public static MovieId From(MovieRecord movie) =>
+        movie.Id ?? throw new InvalidOperationException("Persisted movie is missing an id.");
 }

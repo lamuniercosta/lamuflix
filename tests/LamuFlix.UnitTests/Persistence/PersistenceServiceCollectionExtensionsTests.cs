@@ -65,7 +65,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
 
         // assert
         failures.ShouldContain(ClaimLeaseFailureMessage);
-        failures.ShouldContain("ClaimLease must be greater than zero.");
+        failures.ShouldContain("Enrichment:ClaimLease must be greater than zero.");
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         return services;
     }
 
-    private static IEnumerable<string> StartupValidationFailures(IConfiguration configuration)
+    private static string[] StartupValidationFailures(IConfiguration configuration)
     {
         using var provider = Compose(configuration).BuildServiceProvider();
         var exception = Should.Throw<OptionsValidationException>(() =>
@@ -152,7 +152,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
             }
         });
 
-        return exception.Failures;
+        return [.. exception.Failures];
     }
 
     private static ServiceProviderOptions Validating() =>

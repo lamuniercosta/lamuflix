@@ -76,6 +76,7 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", settings.OmdbBaseUrl),
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}", MetadataProviderProbe.SentinelApiKey),
         new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", ClaimLease),
+        new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}", "00:01:00"),
         new($"{FeatureOptions.SectionName}:{nameof(FeatureOptions.LocalPlay)}", LocalPlay),
         new($"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}", RootPath),
         new("OTEL_EXPORTER_OTLP_TIMEOUT", OtlpTimeout),

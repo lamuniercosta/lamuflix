@@ -12,12 +12,12 @@ public sealed class EnrichmentOptionsValidator : IValidateOptions<EnrichmentOpti
         var failures = new List<string>();
         if (options.ClaimLease <= TimeSpan.Zero)
         {
-            failures.Add($"{nameof(EnrichmentOptions.ClaimLease)} must be greater than zero.");
+            failures.Add($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)} must be greater than zero.");
         }
 
         if (options.SweepInterval <= TimeSpan.Zero)
         {
-            failures.Add($"{nameof(EnrichmentOptions.SweepInterval)} must be greater than zero.");
+            failures.Add($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)} must be greater than zero.");
         }
 
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
