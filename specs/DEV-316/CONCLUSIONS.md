@@ -158,3 +158,16 @@ The earlier Q4 continuation receipt summarized the ask. Preserve its complete se
 
 Ruling: gate1: provisional. Basis: Round 2 analyze 0 Critical with capped-loop editorial patch confirmed (DEV-316 note); Keel plan adjudication PASS, 8/8 findings dispositioned as Phase 3 guardrails/notes, Ledger clean (adjudication-DEV-316-plan); no owner structural checkbox. Rigger cleared to commit and open the spec PR; user retains merge authority.
 
+
+## Phase 4 Steps 7-8 - bounded adjudication (round 1)
+
+**Keel asked:** dispositions for five findings at d88aea22 (gate edit at scripts/run-mutation.ps1:307; extra test files and ServiceDefaults.csproj InternalsVisibleTo; unconditional sweeper in ApiEndToEndFactory.cs:59-65 and HealthEndpointTests.cs:138-180; three Low duplicate-code proposals; Sentry CR5 missing positive defaults). Ruled on Keel-verified evidence only.
+
+**Patron ruled:**
+1. REVERT the run-mutation.ps1:307 `fileTested > 0` guard; keep the Medium scope deviation finding. Basis: FR-011 (spec.md:82) forbids gate/project changes; brief Q9 rejected unnamed gate edits; section 2.3 item 6 (unnamed tracked file, not forced by an AC or gate). A gate that suppresses Ignored/CompileError without checking statusReason is a relaxation, not a fix. A shared harness correction, if the unmodified gate is shown to misfire on unchanged files (broken behaviour), is a separate follow-up filed through Rigger on that evidence; not part of this delivery.
+2. KEEP the extra fixture config/startup/composition/property tests as corollaries that exercise named scope. DROP HealthCheckResponseWriterTests, ServiceDefaultsTests and the ServiceDefaults.csproj InternalsVisibleTo: outside the Q7 bounded file set and FR-011, and friend access to an unnamed project is a section 2.3 item 6 edit no AC or gate forces. Exception only if a named gate demonstrably fails without them; then cite that gate output and keep.
+3. ACCEPT: remove only the sweeper registration from ApiEndToEndFactory and the HealthEndpointTests host, with bounded assertions; no generic abstraction. Basis: standing Q-ruling (unrelated Api factories remove only sweeper while recovery hosts retain it); the finding is caused by this ticket's own change, so the edit is forced.
+4. ACCEPT: three Low duplicate-code proposals go to Follow-ups; current loop/factory shapes stay. Basis: no unnecessary abstraction (constitution); Low, not broken behaviour: noted, no ticket.
+5. ACCEPT: drop Sentry CR5 as already decided. Basis: Q5 (defaults unchanged, positive durations via dedicated validator with unconditional startup validation).
+
+**Implications:** No delivery-scope or constitution change; no owner structural checkbox. Builder reverts the gate edit and the out-of-set ServiceDefaults files, removes the sweeper from the two unrelated hosts, then gates rerun on the diff.
