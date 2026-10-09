@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -19,4 +21,6 @@ public interface IMovieRepository
     /// and false when the movie is absent or already claimed.
     /// </summary>
     Task<bool> TryClaimForEnrichmentAsync(MovieId id, CancellationToken ct);
+
+    Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct);
 }

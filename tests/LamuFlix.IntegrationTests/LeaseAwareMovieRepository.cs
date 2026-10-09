@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -58,6 +59,12 @@ public sealed class LeaseAwareMovieRepository(TimeProvider time, TimeSpan claimL
             now);
         return Task.FromResult(true);
     }
+
+    public Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<MovieId>>([.. movies.Values
+            .Where(movie => movie.Status == EnrichmentStatus.Pending
+                && (movie.LastAttemptAt is null || movie.LastAttemptAt < leaseCutoff))
+            .Select(movie => movie.Id)]);
 
     private bool LeaseExpired(Movie movie) =>
         movie.LastAttemptAt is null || movie.LastAttemptAt < time.GetUtcNow() - claimLease;

@@ -64,7 +64,8 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         var failures = StartupValidationFailures(Configuration(WithClaimLease(lease)));
 
         // assert
-        failures.ShouldBe([ClaimLeaseFailureMessage]);
+        failures.ShouldContain(ClaimLeaseFailureMessage);
+        failures.ShouldContain("ClaimLease must be greater than zero.");
     }
 
     [Fact]
@@ -198,5 +199,6 @@ public sealed class PersistenceServiceCollectionExtensionsTests
             [$"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}"] = "https://example.invalid/",
             [$"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}"] = "localhost",
             [ClaimLeaseKey] = "00:05:00",
+            ["Enrichment:SweepInterval"] = "00:01:00",
         };
 }

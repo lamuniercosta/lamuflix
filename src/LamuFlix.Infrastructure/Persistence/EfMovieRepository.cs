@@ -169,6 +169,14 @@ public sealed class EfMovieRepository : IMovieRepository
         return true;
     }
 
+    public async Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct) =>
+        await db.Movies
+            .AsNoTracking()
+            .Where(movie => movie.Status == EnrichmentStatus.Pending
+                && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseCutoff))
+            .Select(movie => movie.Id!)
+            .ToArrayAsync(ct);
+
     private static void Apply(Movie movie, MovieRecord record, Baseline baseline)
     {
         ApplyCore(movie, record);

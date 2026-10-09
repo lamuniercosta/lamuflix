@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -81,6 +82,7 @@ public static class ServiceDefaultsExtensions
         BindAndValidate<MetadataProviderResilienceOptions>(services, MetadataProviderResilienceOptions.SectionName);
         BindAndValidate<RabbitMqOptions>(services, RabbitMqOptions.SectionName);
         BindAndValidate<EnrichmentOptions>(services, EnrichmentOptions.SectionName);
+        services.AddSingleton<IValidateOptions<EnrichmentOptions>, EnrichmentOptionsValidator>();
         BindAndValidate<FeatureOptions>(services, FeatureOptions.SectionName);
         return services;
     }
