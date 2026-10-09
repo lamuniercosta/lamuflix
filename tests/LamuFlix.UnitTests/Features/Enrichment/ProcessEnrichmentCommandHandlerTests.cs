@@ -162,7 +162,8 @@ public sealed class ProcessEnrichmentCommandHandlerTests
 
         // assert
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
-            new EnrichmentFailureDecision(EnrichmentFailureAction.Retry, 2)));
+            new EnrichmentFailureDecision(EnrichmentFailureAction.Retry, 2),
+            EnrichmentFailureCategory.ProviderUnavailable));
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -182,7 +183,8 @@ public sealed class ProcessEnrichmentCommandHandlerTests
 
         // assert
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
-            new EnrichmentFailureDecision(EnrichmentFailureAction.RetryDelayed, 2)));
+            new EnrichmentFailureDecision(EnrichmentFailureAction.RetryDelayed, 2),
+            EnrichmentFailureCategory.RateLimited));
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -202,7 +204,8 @@ public sealed class ProcessEnrichmentCommandHandlerTests
 
         // assert
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
-            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null)));
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            EnrichmentFailureCategory.InvalidResponse));
         movie.Status.ShouldBe(EnrichmentStatus.Failed);
         movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
         movie.EnrichmentAttempts.ShouldBe(attempts);
@@ -224,7 +227,8 @@ public sealed class ProcessEnrichmentCommandHandlerTests
 
         // assert
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
-            new EnrichmentFailureDecision(EnrichmentFailureAction.Retry, 2)));
+            new EnrichmentFailureDecision(EnrichmentFailureAction.Retry, 2),
+            EnrichmentFailureCategory.ProviderUnavailable));
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -244,10 +248,33 @@ public sealed class ProcessEnrichmentCommandHandlerTests
 
         // assert
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
-            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null)));
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            EnrichmentFailureCategory.InvalidResponse));
         movie.Status.ShouldBe(EnrichmentStatus.Failed);
         movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
         movie.EnrichmentAttempts.ShouldBe(attempts);
+        await movies.Received(1).SaveChangesAsync(ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_RetryableCategoryAtMaxAttempts_DeadLettersCarryingTheActualCategory()
+    {
+        // arrange
+        var movie = PendingMovie();
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Failed(EnrichmentFailureCategory.ProviderUnavailable));
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, MaxAttempts), ct);
+
+        // assert
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            EnrichmentFailureCategory.ProviderUnavailable));
+        movie.Status.ShouldBe(EnrichmentStatus.Failed);
+        movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
@@ -288,7 +315,8 @@ public sealed class ProcessEnrichmentCommandHandlerTests
 
         // assert
         outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
-            new EnrichmentFailureDecision(EnrichmentFailureAction.Retry, 2)));
+            new EnrichmentFailureDecision(EnrichmentFailureAction.Retry, 2),
+            EnrichmentFailureCategory.ProviderUnavailable));
     }
 
     private void Claimed(Movie movie, bool claimed)

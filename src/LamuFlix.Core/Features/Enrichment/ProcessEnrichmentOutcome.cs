@@ -14,6 +14,6 @@ public abstract record ProcessEnrichmentOutcome
     // ReSharper restore NotAccessedPositionalProperty.Global
 
     // ReSharper disable NotAccessedPositionalProperty.Global
-    public sealed record Failed(EnrichmentFailureDecision Decision) : ProcessEnrichmentOutcome;
+    public sealed record Failed(EnrichmentFailureDecision Decision, EnrichmentFailureCategory Category) : ProcessEnrichmentOutcome;
     // ReSharper restore NotAccessedPositionalProperty.Global
 }
