@@ -67,14 +67,14 @@ public sealed class ProcessEnrichmentCommandHandler(
         if (EnrichmentRetryPolicy.Decide(category, command.Attempt, options.Value.MaxAttempts) is { } retry)
         {
             LogOutcome(command, category);
-            return new ProcessEnrichmentOutcome.Failed(retry);
+            return new ProcessEnrichmentOutcome.Failed(retry, category);
         }
 
         movie.MarkFailed(category, time.GetUtcNow());
         await movies.SaveChangesAsync(cancellationToken);
         var deadLetter = new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null);
         LogOutcome(command, category);
-        return new ProcessEnrichmentOutcome.Failed(deadLetter);
+        return new ProcessEnrichmentOutcome.Failed(deadLetter, category);
     }
 
     private static void Apply(Movie movie, MetadataLookupResult result, DateTimeOffset now)

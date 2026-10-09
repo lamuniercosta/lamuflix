@@ -43,7 +43,9 @@ public sealed class EnrichmentRoutingTests
     {
         // arrange
         var action = delayed ? EnrichmentFailureAction.RetryDelayed : EnrichmentFailureAction.Retry;
-        var outcome = new ProcessEnrichmentOutcome.Failed(new EnrichmentFailureDecision(action, 3));
+        var outcome = new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(action, 3),
+            EnrichmentFailureCategory.ProviderUnavailable);
 
         // act
         var disposition = EnrichmentRouting.Decide(outcome);
@@ -59,7 +61,8 @@ public sealed class EnrichmentRoutingTests
     {
         // arrange
         var outcome = new ProcessEnrichmentOutcome.Failed(
-            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null));
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            EnrichmentFailureCategory.InvalidResponse);
 
         // act
         var disposition = EnrichmentRouting.Decide(outcome);

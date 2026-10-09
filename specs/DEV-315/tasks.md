@@ -17,10 +17,10 @@
 
 **Purpose**: Core `Failed` carries the actual category; handler and routing unit tests updated
 
-- [ ] T001 [US1/US2/US3] Extend `ProcessEnrichmentOutcome.Failed` with actual `EnrichmentFailureCategory` alongside `Decision` in `src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentOutcome.cs`
-- [ ] T002 [US2/US3] Supply the category at both Failed returns in `src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs`
-- [ ] T003 [P] [US2/US3] Update six construction sites and add category propagation proof in `tests/LamuFlix.UnitTests/Features/Enrichment/ProcessEnrichmentCommandHandlerTests.cs`
-- [ ] T004 [P] [US1/US2/US3] Update two construction sites and keep retained routing proof in `tests/LamuFlix.UnitTests/RabbitMq/EnrichmentRoutingTests.cs`
+- [X] T001 [US1/US2/US3] Extend `ProcessEnrichmentOutcome.Failed` with actual `EnrichmentFailureCategory` alongside `Decision` in `src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentOutcome.cs`
+- [X] T002 [US2/US3] Supply the category at both Failed returns in `src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs`
+- [X] T003 [P] [US2/US3] Update six construction sites and add category propagation proof in `tests/LamuFlix.UnitTests/Features/Enrichment/ProcessEnrichmentCommandHandlerTests.cs`
+- [X] T004 [P] [US1/US2/US3] Update two construction sites and keep retained routing proof in `tests/LamuFlix.UnitTests/RabbitMq/EnrichmentRoutingTests.cs`
 
 **Checkpoint**: `dotnet test` on unit projects passes with the new `Failed` shape.
 
