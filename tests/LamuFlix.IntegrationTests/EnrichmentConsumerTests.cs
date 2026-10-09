@@ -31,7 +31,9 @@ namespace LamuFlix.IntegrationTests;
 public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLifetime
 {
     private static readonly TimeSpan ClaimLease = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan ShortRetryTtl = TimeSpan.FromMilliseconds(1500);
     private const int DefaultMaxAttempts = 3;
+    private const int SmallMaxAttempts = 2;
 
     private readonly RabbitMqProbe probe = new(fixture);
 
@@ -70,19 +72,112 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(2);
     }
 
+    public static TheoryData<EnrichmentFailureCategory> RetryableCategories() =>
+        new() { EnrichmentFailureCategory.ProviderUnavailable, EnrichmentFailureCategory.RateLimited };
+
+    [Theory]
+    [MemberData(nameof(RetryableCategories))]
+    public async Task Consumer_ARetryableFailureBelowMax_RepublishesToRetryAndReturnsThroughTheTtl(
+        EnrichmentFailureCategory category)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gateEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var gate = new MovieId(403);
+        var gateTitle = $"Movie {gate.Value}";
+        await fixture.DeleteTopologyAsync(ct);
+        await using var host = NewHost(
+            lookup => lookup.Title == gateTitle
+                ? HoldTheGate(gateEntered, releaseGate, ct)
+                : new MetadataLookupResult.Failed(category),
+            maxAttempts: SmallMaxAttempts,
+            rabbitOptions: fixture.Options with { RetryDelay = ShortRetryTtl });
+        await host.Topology.EnsureDeclaredAsync(ct);
+        var ingress = host.AddPendingMovie(401);
+        var subject = host.AddPendingMovie(402);
+        host.AddPendingMovie(gate.Value);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(ingress, 1), ct);
+        var republished = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.RetryQueue,
+            candidate => Read(candidate).MovieId.Value == ingress.Value,
+            ct);
+        republished.ShouldNotBeNull();
+        Read(republished).Attempt.ShouldBe(2);
+        RawHeader(republished, "x-lamuflix-failure-category").ShouldBeNull();
+        RawHeader(republished, "x-lamuflix-failure-reason").ShouldBeNull();
+        RawHeader(republished, "x-lamuflix-failure-attempt").ShouldBeNull();
+        Header(republished, TraceContextCarrier.TraceParentHeader).ShouldStartWith("00-");
+
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(subject, 1), ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(gate, 1), ct);
+        try
+        {
+            await gateEntered.Task.WaitAsync(TimeSpan.FromSeconds(30), ct);
+            (await probe.PollMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBeGreaterThan(0U);
+        }
+        finally
+        {
+            host.Time.Advance(ClaimLease + TimeSpan.FromMilliseconds(250));
+            releaseGate.TrySetResult();
+        }
+
+        await host.WaitForProviderCallsAsync(ct, 4);
+        var dead = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.DeadLetterQueue,
+            candidate => Read(candidate).MovieId.Value == subject.Value,
+            ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+        host.Repository.Find(ingress).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(1);
+        host.Repository.Find(subject).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Failed);
+        host.Repository.Find(subject).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(2);
+        host.Repository.Find(gate).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+        host.Provider.Calls.ShouldBe(4);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RetryQueue, ct)).ShouldBe(0U);
+    }
+
     [Fact]
     public async Task Consumer_ASuccessfulOutcome_IsAckedAndTheMovieIsEnriched()
     {
         var ct = TestContext.Current.CancellationToken;
+        var delivered = new ConcurrentQueue<Activity>();
+        using var listener = ObserveConsumerDeliveries(delivered);
         await using var host = NewHost(_ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")));
         var movie = host.AddPendingMovie(103);
 
         await host.StartAsync(ct);
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
-        await host.WaitForStatusAsync(ct, movie, EnrichmentStatus.Enriched);
+        await WaitForDeliveryAsync(delivered, movie, ct);
+        var readyWhileConsuming = await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct);
         await host.StopAsync(CancellationToken.None);
 
         host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+        readyWhileConsuming.ShouldBe(0U);
+        await ShouldHaveEmptyQueuesAsync(ct);
+    }
+
+    [Fact]
+    public async Task Consumer_ANotFoundOutcome_IsAckedWithoutRetryOrDeadLetterEntry()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var delivered = new ConcurrentQueue<Activity>();
+        using var listener = ObserveConsumerDeliveries(delivered);
+        await using var host = NewHost(_ => new MetadataLookupResult.NotFound());
+        var movie = host.AddPendingMovie(301);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await WaitForDeliveryAsync(delivered, movie, ct);
+        var readyWhileConsuming = await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.NotFound);
+        readyWhileConsuming.ShouldBe(0U);
+        await ShouldHaveEmptyQueuesAsync(ct);
     }
 
     [Fact]
@@ -104,6 +199,93 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Failed);
     }
 
+    public static TheoryData<EnrichmentFailureCategory, int, string, string> TerminalRoutes() =>
+        new()
+        {
+            { EnrichmentFailureCategory.InvalidResponse, 1, "invalid_response", "non_retryable" },
+            {
+                EnrichmentFailureCategory.ProviderUnavailable,
+                SmallMaxAttempts,
+                "provider_unavailable",
+                "max_attempts_exhausted"
+            },
+            {
+                EnrichmentFailureCategory.ProviderUnavailable,
+                SmallMaxAttempts + 1,
+                "provider_unavailable",
+                "max_attempts_exhausted"
+            },
+        };
+
+    [Theory]
+    [MemberData(nameof(TerminalRoutes))]
+    public async Task Consumer_ATerminalFailure_ReachesTheDeadLetterQueueWithClosedCodeHeaders(
+        EnrichmentFailureCategory category,
+        int attempt,
+        string expectedCategory,
+        string expectedReason)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.DeleteTopologyAsync(ct);
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Failed(category),
+            maxAttempts: SmallMaxAttempts);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        var movie = host.AddPendingMovie(501);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, attempt), ct);
+        var dead = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.DeadLetterQueue,
+            candidate => Read(candidate).MovieId.Value == movie.Value,
+            ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+        Read(dead).Attempt.ShouldBe(attempt);
+        Header(dead, "x-lamuflix-failure-category").ShouldBe(expectedCategory);
+        Header(dead, "x-lamuflix-failure-reason").ShouldBe(expectedReason);
+        RawHeader(dead, "x-lamuflix-failure-attempt").ShouldBeOfType<int>().ShouldBe(attempt);
+        Header(dead, TraceContextCarrier.TraceParentHeader).ShouldStartWith("00-");
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Failed);
+        host.Provider.Calls.ShouldBe(1);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RetryQueue, ct)).ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_ARetryableFailureAtMaxMinusOne_RetriesOnceAndThenTerminatesInTheDeadLetterQueue()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.DeleteTopologyAsync(ct);
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Failed(EnrichmentFailureCategory.ProviderUnavailable),
+            maxAttempts: SmallMaxAttempts);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        var movie = host.AddPendingMovie(601);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+
+        (await probe.PollMessageCountAsync(RabbitMqTopology.RetryQueue, ct)).ShouldBeGreaterThan(0U);
+        await host.WaitForProviderCallsAsync(ct, 2);
+        var dead = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.DeadLetterQueue,
+            candidate => Read(candidate).MovieId.Value == movie.Value,
+            ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+        Read(dead).Attempt.ShouldBe(SmallMaxAttempts);
+        Header(dead, "x-lamuflix-failure-category").ShouldBe("provider_unavailable");
+        Header(dead, "x-lamuflix-failure-reason").ShouldBe("max_attempts_exhausted");
+        RawHeader(dead, "x-lamuflix-failure-attempt").ShouldBeOfType<int>().ShouldBe(SmallMaxAttempts);
+        host.Provider.Calls.ShouldBe(2);
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Failed);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RetryQueue, ct)).ShouldBe(0U);
+    }
+
     [Fact]
     public async Task Consumer_AMalformedBody_ReachesTheDeadLetterQueue()
     {
@@ -120,9 +302,38 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
     }
 
     [Fact]
+    public async Task Consumer_ADispatchThatThrows_ReachesTheDeadLetterQueueAndLeavesTheMoviePending()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost(_ => new MetadataLookupResult.Failed(EnrichmentFailureCategory.ProviderUnavailable));
+        var movie = host.AddPendingMovie(701);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 0), ct);
+
+        await host.StartAsync(ct);
+        var dead = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.DeadLetterQueue,
+            candidate => Read(candidate).MovieId.Value == movie.Value,
+            ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+        RawHeader(dead, "x-lamuflix-failure-category").ShouldBeNull();
+        RawHeader(dead, "x-lamuflix-failure-reason").ShouldBeNull();
+        RawHeader(dead, "x-lamuflix-failure-attempt").ShouldBeNull();
+        host.Provider.Calls.ShouldBe(0);
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
+        host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(0);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RetryQueue, ct)).ShouldBe(0U);
+    }
+
+    [Fact]
     public async Task Consumer_ARefusedClaim_IsAckedAndNeverEnriched()
     {
         var ct = TestContext.Current.CancellationToken;
+        var delivered = new ConcurrentQueue<Activity>();
+        using var listener = ObserveConsumerDeliveries(delivered);
         await using var host = NewHost(_ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")));
         var movie = new MovieId(105);
         await host.Repository.AddAsync(
@@ -142,13 +353,15 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
 
         await host.StartAsync(ct);
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
-        await host.WaitForProviderCallsAsync(ct, 0);
-        await Task.Delay(TimeSpan.FromMilliseconds(500), ct);
+        await WaitForDeliveryAsync(delivered, movie, ct);
+        var readyWhileConsuming = await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct);
         await host.StopAsync(CancellationToken.None);
 
         host.Provider.Calls.ShouldBe(0);
         host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
         host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(0);
+        readyWhileConsuming.ShouldBe(0U);
+        await ShouldHaveEmptyQueuesAsync(ct);
     }
 
     [Fact]
@@ -439,6 +652,58 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
 
         string.Join("; ", CollectScopeViolations(host, log)).ShouldBe(string.Empty);
     }
+
+    private static ActivityListener ObserveConsumerDeliveries(ConcurrentQueue<Activity> observed)
+    {
+        var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName,
+            ActivityStopped = observed.Enqueue,
+        };
+        SampleActivity<ActivityContext> sample = (ref _) => ActivitySamplingResult.AllData;
+        listener.Sample = sample;
+        ActivitySource.AddActivityListener(listener);
+        return listener;
+    }
+
+    private static Task WaitForDeliveryAsync(
+        ConcurrentQueue<Activity> observed,
+        MovieId movie,
+        CancellationToken ct) =>
+        WaitForActivitiesAsync(
+            observed,
+            activity => activity.OperationName == TelemetryConstants.EnrichmentProcess
+                        && Equals(activity.GetTagItem(TelemetryConstants.MovieId), movie.Value),
+            1,
+            ct);
+
+    private async Task<uint> ReadyMessageCountAsync(string queue, CancellationToken ct) =>
+        (await probe.DeclarePassiveAsync(queue, ct)).MessageCount;
+
+    private async Task ShouldHaveEmptyQueuesAsync(CancellationToken ct)
+    {
+        (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RetryQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.DeadLetterQueue, ct)).ShouldBe(0U);
+    }
+
+    private static MetadataLookupResult HoldTheGate(
+        TaskCompletionSource entered,
+        TaskCompletionSource release,
+        CancellationToken ct)
+    {
+        entered.TrySetResult();
+        release.Task.Wait(ct);
+        return new MetadataLookupResult.Found(new MovieMetadata("Enriched"));
+    }
+
+    private static string? Header(BasicGetResult message, string name) =>
+        TraceContextCarrier.TryReadHeader(message.BasicProperties.Headers, name, out var value) ? value : null;
+
+    private static object? RawHeader(BasicGetResult message, string name) =>
+        message.BasicProperties.Headers is { } headers && headers.TryGetValue(name, out var value)
+            ? value
+            : null;
 
     private static int ClosedPort()
     {
