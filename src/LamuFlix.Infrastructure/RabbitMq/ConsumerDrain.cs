@@ -53,7 +53,7 @@ public sealed class ConsumerDrain
         {
             if (channel.IsOpen)
             {
-                await channel.BasicCancelAsync(consumerTag, false, CancellationToken.None);
+                await channel.BasicCancelAsync(consumerTag, false, cancellationToken);
             }
         }
         finally
