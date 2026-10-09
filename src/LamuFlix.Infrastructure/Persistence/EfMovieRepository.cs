@@ -169,13 +169,30 @@ public sealed class EfMovieRepository : IMovieRepository
         return true;
     }
 
-    public async Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct) =>
-        await db.Movies
+    public async Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct)
+    {
+        var ids = await db.Movies
             .AsNoTracking()
             .Where(movie => movie.Status == EnrichmentStatus.Pending
                 && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseCutoff))
-            .Select(movie => movie.Id!)
+            .Select(movie => movie.Id)
             .ToArrayAsync(ct);
+        return PresentIds(ids);
+    }
+
+    private static MovieId[] PresentIds(MovieId?[] ids)
+    {
+        var present = new List<MovieId>(ids.Length);
+        foreach (var id in ids)
+        {
+            if (id is not null)
+            {
+                present.Add(id);
+            }
+        }
+
+        return [.. present];
+    }
 
     private static void Apply(Movie movie, MovieRecord record, Baseline baseline)
     {

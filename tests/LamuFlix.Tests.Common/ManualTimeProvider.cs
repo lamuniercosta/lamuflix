@@ -33,29 +33,54 @@ public sealed class ManualTimeProvider(DateTimeOffset initialUtcNow) : TimeProvi
         }
 
         var target = utcNow + amount;
-        while (true)
-        {
-            ManualTimer? next = null;
-            foreach (var timer in timers)
-            {
-                if (!timer.Disposed && timer.DueAt is { } dueAt && dueAt <= target
-                    && (next is null || dueAt < next.DueAt))
-                {
-                    next = timer;
-                }
-            }
-
-            if (next is null)
-            {
-                break;
-            }
-
-            utcNow = next.DueAt!.Value;
-            next.Fire();
-        }
-
+        FireDueTimers(target);
         utcNow = target;
     }
+
+    private void FireDueTimers(DateTimeOffset target)
+    {
+        while (FindNextDue(target) is { } next)
+        {
+            utcNow = next.DueAt;
+            next.Timer.Fire();
+        }
+    }
+
+    private DueTimer? FindNextDue(DateTimeOffset target)
+    {
+        DueTimer? next = null;
+        foreach (var timer in timers)
+        {
+            if (DueAtBy(timer, target) is not { } dueAt)
+            {
+                continue;
+            }
+
+            if (next is null || dueAt < next.Value.DueAt)
+            {
+                next = new DueTimer(timer, dueAt);
+            }
+        }
+
+        return next;
+    }
+
+    private static DateTimeOffset? DueAtBy(ManualTimer timer, DateTimeOffset target)
+    {
+        if (timer.Disposed || timer.DueAt is not { } dueAt)
+        {
+            return null;
+        }
+
+        if (dueAt > target)
+        {
+            return null;
+        }
+
+        return dueAt;
+    }
+
+    private readonly record struct DueTimer(ManualTimer Timer, DateTimeOffset DueAt);
 
     private sealed class ManualTimer(ManualTimeProvider owner, TimerCallback callback, object? state) : ITimer
     {
