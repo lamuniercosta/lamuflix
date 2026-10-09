@@ -6,16 +6,16 @@
 
 ## Phase 1: Foundational - validator, port, production EF selection, compile-compatible doubles
 
-- [ ] T001 [US1] Create sealed `EnrichmentOptionsValidator : IValidateOptions<EnrichmentOptions>` in `src/LamuFlix.Core/Options/EnrichmentOptionsValidator.cs` (ClaimLease/SweepInterval > zero, key-naming messages; preserve defaults, MaxAttempts Range, EF lease guard).
-- [ ] T002 [US1] Add `FindStrandedMovieIdsAsync(leaseCutoff, ct)` to `src/LamuFlix.Core/Ports/IMovieRepository.cs` (read-only ID selection).
-- [ ] T003 [US1] Implement IDs-only no-tracking selection in `src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs` (`Pending AND (LastAttemptAt == null OR < cutoff)`, strict `<`, no mutation).
-- [ ] T004 [P] [US1] Implement new member in `tests/LamuFlix.IntegrationTests/LeaseAwareMovieRepository.cs`.
-- [ ] T005 [P] [US1] Implement new member in `UnusedMovieRepository` in `tests/LamuFlix.IntegrationTests/MetadataProviderCompositionTests.cs`.
-- [ ] T006 [P] [US1] Implement new member in `NoMovieRepository` in `tests/LamuFlix.UnitTests/RabbitMq/RabbitMqServiceCollectionExtensionsTests.cs`.
-- [ ] T007 [P] [US1] Create timer-capable `ManualTimeProvider` in `tests/LamuFlix.Tests.Common/ManualTimeProvider.cs`.
-- [ ] T008 [US1] Register validator alongside existing binding in `src/LamuFlix.ServiceDefaults/Extensions.cs` (existing `ValidateOnStart` runs it).
-- [ ] T009 [US1] Dedicated validator tests in `tests/LamuFlix.UnitTests/Options/EnrichmentOptionsValidatorTests.cs` (zero/negative per duration, valid defaults, key-specific failures, startup wiring); MaxAttempts tests untouched.
-- [ ] T010 [US1] EF selection coverage in `tests/LamuFlix.IntegrationTests/StrandedMovieSweeperTests.cs`: null last attempt selected; strictly expired selected; fresh excluded; exact boundary excluded; non-`Pending` excluded; no persistence mutation (real database; never a mocked driver).
+- [X] T001 [US1] Create sealed `EnrichmentOptionsValidator : IValidateOptions<EnrichmentOptions>` in `src/LamuFlix.Core/Options/EnrichmentOptionsValidator.cs` (ClaimLease/SweepInterval > zero, key-naming messages; preserve defaults, MaxAttempts Range, EF lease guard).
+- [X] T002 [US1] Add `FindStrandedMovieIdsAsync(leaseCutoff, ct)` to `src/LamuFlix.Core/Ports/IMovieRepository.cs` (read-only ID selection).
+- [X] T003 [US1] Implement IDs-only no-tracking selection in `src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs` (`Pending AND (LastAttemptAt == null OR < cutoff)`, strict `<`, no mutation).
+- [X] T004 [P] [US1] Implement new member in `tests/LamuFlix.IntegrationTests/LeaseAwareMovieRepository.cs`.
+- [X] T005 [P] [US1] Implement new member in `UnusedMovieRepository` in `tests/LamuFlix.IntegrationTests/MetadataProviderCompositionTests.cs`.
+- [X] T006 [P] [US1] Implement new member in `NoMovieRepository` in `tests/LamuFlix.UnitTests/RabbitMq/RabbitMqServiceCollectionExtensionsTests.cs`.
+- [X] T007 [P] [US1] Create timer-capable `ManualTimeProvider` in `tests/LamuFlix.Tests.Common/ManualTimeProvider.cs`.
+- [X] T008 [US1] Register validator alongside existing binding in `src/LamuFlix.ServiceDefaults/Extensions.cs` (existing `ValidateOnStart` runs it).
+- [X] T009 [US1] Dedicated validator tests in `tests/LamuFlix.UnitTests/Options/EnrichmentOptionsValidatorTests.cs` (zero/negative per duration, valid defaults, key-specific failures, startup wiring); MaxAttempts tests untouched.
+- [X] T010 [US1] EF selection coverage in `tests/LamuFlix.IntegrationTests/StrandedMovieSweeperTests.cs`: null last attempt selected; strictly expired selected; fresh excluded; exact boundary excluded; non-`Pending` excluded; no persistence mutation (real database; never a mocked driver).
 
 **Checkpoint**: Port + production EF selection + validator + all doubles compile; each later step builds clean.
 

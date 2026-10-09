@@ -172,6 +172,8 @@ public sealed class OptionsStartupValidationTests
             [$"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}"] = apiKey,
             [$"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}"] = baseUrl,
             [$"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}"] = hostName,
+            [$"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}"] = "00:05:00",
+            [$"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}"] = "00:01:00",
             [$"{FeatureOptions.SectionName}:{nameof(FeatureOptions.LocalPlay)}"] = "true",
         };
 }

@@ -323,5 +323,8 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
         public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
 
         public Task<bool> TryClaimForEnrichmentAsync(MovieId id, CancellationToken ct) => Task.FromResult(false);
+
+        public Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MovieId>>([]);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -180,6 +181,9 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
         public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
 
         public Task<bool> TryClaimForEnrichmentAsync(MovieId id, CancellationToken ct) => Task.FromResult(false);
+
+        public Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MovieId>>([]);
     }
 
     private sealed class SingleLoggerFactory(RecordingLogger<EnrichmentConsumer> logger) : ILoggerFactory
