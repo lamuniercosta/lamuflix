@@ -1,14 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.ServiceDefaults;
 using LamuFlix.UnitTests.Features;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging.Console;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -114,6 +118,98 @@ public sealed class ServiceDefaultsTests
     }
 
     [Fact]
+    public void AddServiceDefaults_NullBuilder_Throws()
+    {
+        // arrange
+        WebApplicationBuilder? builder = null;
+
+        // act
+        var act = () => builder!.AddServiceDefaults();
+
+        // assert
+        act.ShouldThrow<ArgumentNullException>().ParamName.ShouldBe("builder");
+    }
+
+    [Fact]
+    public void AddServiceDefaults_DoubleComposition_RegistersEnrichmentValidatorOnce()
+    {
+        // arrange
+        var builder = BuilderWithConnectionString();
+
+        // act
+        builder.AddServiceDefaults();
+        builder.AddServiceDefaults();
+
+        // assert
+        builder.Services.Count(static descriptor => descriptor.ImplementationType == typeof(EnrichmentOptionsValidator))
+            .ShouldBe(1);
+    }
+
+    [Fact]
+    public void AddServiceDefaults_SingleComposition_ResolvesHealthCheckService()
+    {
+        // arrange
+        var builder = BuilderWithConnectionString();
+
+        // act
+        builder.AddServiceDefaults();
+        using var app = builder.Build();
+
+        // assert
+        app.Services.GetRequiredService<HealthCheckService>().ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void AddServiceDefaults_SingleComposition_ForwardsLogsToProviders()
+    {
+        // arrange
+        var builder = BuilderWithConnectionString();
+        var capturing = new CapturingLoggerProvider();
+
+        // act
+        builder.AddServiceDefaults();
+        builder.Logging.AddProvider(capturing);
+        using var app = builder.Build();
+        app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("probe").LogInformation("provider-probe-token");
+
+        // assert
+        capturing.Messages.ShouldContain("provider-probe-token");
+    }
+
+    [Fact]
+    public void MapDefaultEndpoints_NullApp_Throws()
+    {
+        // arrange
+        WebApplication? app = null;
+
+        // act
+        var act = () => app!.MapDefaultEndpoints();
+
+        // assert
+        act.ShouldThrow<ArgumentNullException>().ParamName.ShouldBe("app");
+    }
+
+    [Fact]
+    public void MapDefaultEndpoints_LiveRoute_IsMapped()
+    {
+        // arrange
+        var builder = BuilderWithConnectionString();
+        builder.AddServiceDefaults();
+        using var app = builder.Build();
+
+        // act
+        app.MapDefaultEndpoints();
+        var routes = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Select(endpoint => endpoint.RoutePattern.RawText);
+
+        // assert
+        routes.ShouldContain("/health/live");
+        routes.ShouldContain("/health/ready");
+    }
+
+    [Fact]
     public void AddServiceDefaults_DoubleComposition_DoesNotDuplicateProviderRegistrations()
     {
         // arrange
@@ -181,6 +277,44 @@ public sealed class ServiceDefaultsTests
             descriptor.ServiceType == typeof(TracerProvider)
             || descriptor.ServiceType == typeof(MeterProvider)
             || descriptor.ServiceType == typeof(LoggerProvider));
+
+    private sealed class CapturingLoggerProvider : ILoggerProvider
+    {
+        public List<string> Messages { get; } = [];
+
+        public ILogger CreateLogger(string categoryName) => new CapturingLogger(Messages);
+
+        public void Dispose()
+        {
+            // Messages outlive the provider; the capture owns no disposable resource.
+        }
+
+        private sealed class CapturingLogger(List<string> messages) : ILogger
+        {
+            public IDisposable BeginScope<TState>(TState state)
+                where TState : notnull => NullScope.Instance;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception? exception,
+                Func<TState, Exception?, string> formatter) =>
+                messages.Add(formatter(state, exception));
+
+            private sealed class NullScope : IDisposable
+            {
+                public static readonly NullScope Instance = new();
+
+                public void Dispose()
+                {
+                    // Scope is a no-op; the logger records formatted messages only.
+                }
+            }
+        }
+    }
 
     private static WebApplicationBuilder BuilderWithConnectionString()
     {
