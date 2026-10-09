@@ -32,8 +32,10 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
     private const int ExpectedRuntime = 117;
     private const int ExpectedYear = 1982;
     private const decimal ExpectedImdbRating = 8.1m;
+    private const int TeardownDeleteAttempts = 5;
 
     private static readonly byte[] VideoBytes = [0x1A, 0x45, 0xDF, 0xA3];
+    private static readonly TimeSpan TeardownRetryBaseDelay = TimeSpan.FromMilliseconds(40);
 
     private static readonly string OmdbBody = $$"""
         {
@@ -52,7 +54,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
-        DeleteOwnedTempRoot();
+        await DeleteOwnedTempRootAsync();
     }
 
     [Fact]
@@ -67,26 +69,26 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         var response = await client.PostAsJsonAsync(ImportRoute, new { folderPath }, cancellationToken);
         var importBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        // assert - 202 accepted with relative Location carrying the generated id and an empty body
+        // assert
         response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         importBody.ShouldBe(string.Empty);
         var location = response.Headers.Location.ShouldNotBeNull();
         location.IsAbsoluteUri.ShouldBeFalse();
         var id = ParseImportedId(location.OriginalString);
 
-        // assert - the imported movie is persisted under the generated id
+        // assert
         var persisted = await ReadPersistedMovieAsync(id, cancellationToken);
         persisted.ShouldNotBeNull();
         persisted.Title.ShouldBe(FolderTitle);
         persisted.Path.ShouldBe(folderPath);
         persisted.Format.ShouldBe(ExpectedFormat);
 
-        // act - the live consumer enriches the imported row through the real OMDb path
+        // act
         await WaitForStatusAsync(new MovieId(id), EnrichmentStatus.Enriched);
         var details = await client.GetAsync($"{DetailsRoutePrefix}{id}", cancellationToken);
         var detailsBody = await details.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
-        // assert - GET details confirms the enrichment written back over HTTP
+        // assert
         details.StatusCode.ShouldBe(HttpStatusCode.OK);
         details.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
         ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata");
@@ -103,7 +105,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         metadata.GetProperty("imdbRating").GetDecimal().ShouldBe(ExpectedImdbRating);
         metadata.GetProperty("imdbId").GetString().ShouldBe(ExpectedImdbId);
 
-        // assert - the measured WireMock log proves the exact OMDb lookup that produced the enrichment
+        // assert
         var measured = Fixture.Server.LogEntries.ShouldHaveSingleItem().RequestMessage.ShouldNotBeNull();
         measured.Method.ShouldBe("GET");
         measured.AbsolutePath.ShouldBe("/");
@@ -112,6 +114,71 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
         query["t"].ShouldContain(FolderTitle);
         query["type"].ShouldContain("movie");
+    }
+
+    [Fact]
+    public async Task DisposeAsync_TransientFileLock_DeletesOwnedFolderAfterRetry()
+    {
+        // arrange
+        var folder = CreateOwnedImportFolder();
+        var root = Directory.GetParent(folder).ShouldNotBeNull().FullName;
+        var lockedFile = Path.Combine(folder, "locked.bin");
+        File.WriteAllBytes(lockedFile, [0x01]);
+        var stream = new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.None);
+        var deleting = Task.Run(() => DisposeAsync().AsTask(), TestContext.Current.CancellationToken);
+        try
+        {
+            // act
+            await Task.Delay(TimeSpan.FromMilliseconds(150), TestContext.Current.CancellationToken);
+            await stream.DisposeAsync();
+            await deleting.WaitAsync(TestContext.Current.CancellationToken);
+
+            // assert
+            Directory.Exists(root).ShouldBeFalse();
+        }
+        finally
+        {
+            await stream.DisposeAsync();
+            if (!deleting.IsCompleted)
+            {
+                await deleting.WaitAsync(TestContext.Current.CancellationToken);
+            }
+
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task DisposeAsync_FileLockedForEveryAttempt_ReportsFailureAndLeavesTheOwnedFolder()
+    {
+        // arrange
+        var folder = CreateOwnedImportFolder();
+        var root = Directory.GetParent(folder).ShouldNotBeNull().FullName;
+        var lockedFile = Path.Combine(folder, "locked.bin");
+        File.WriteAllBytes(lockedFile, [0x01]);
+        var stream = new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.None);
+        try
+        {
+            // act
+            var error = await Should.ThrowAsync<IOException>(() => DisposeAsync().AsTask());
+
+            // assert
+            var failure = error.InnerException.ShouldNotBeNull();
+            error.Message.ShouldBe(DescribeImportTeardownFailure(TeardownDeleteAttempts, failure));
+            error.Message.ShouldNotContain(root);
+            Directory.Exists(root).ShouldBeTrue();
+        }
+        finally
+        {
+            await stream.DisposeAsync();
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
     }
 
     private static void InstallOmdbStub(WireMockServer server) =>
@@ -142,7 +209,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         return folder;
     }
 
-    private void DeleteOwnedTempRoot()
+    private async Task DeleteOwnedTempRootAsync()
     {
         if (ownedTempRoot is not { } root)
         {
@@ -150,14 +217,51 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         }
 
         ownedTempRoot = null;
+        Exception? lastFailure = null;
+        for (var attempt = 1; attempt <= TeardownDeleteAttempts; attempt++)
+        {
+            lastFailure = DeleteOwnedFolderOnce(root);
+            if (lastFailure is null)
+            {
+                return;
+            }
+
+            WriteImportTeardownDiagnostic(attempt, lastFailure);
+            if (attempt < TeardownDeleteAttempts)
+            {
+                await Task.Delay(TeardownRetryBaseDelay * attempt);
+            }
+        }
+
+        if (lastFailure is null)
+        {
+            return;
+        }
+
+        throw new IOException(DescribeImportTeardownFailure(TeardownDeleteAttempts, lastFailure), lastFailure);
+    }
+
+    private static Exception? DeleteOwnedFolderOnce(string root)
+    {
         try
         {
             Directory.Delete(root, recursive: true);
+            return null;
         }
-        catch (DirectoryNotFoundException)
+        catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException)
         {
+            return ex is DirectoryNotFoundException ? null : ex;
         }
     }
+
+    private static void WriteImportTeardownDiagnostic(int attempt, Exception failure) =>
+        TestContext.Current.TestOutputHelper?.WriteLine(DescribeImportTeardownAttempt(attempt, failure));
+
+    private static string DescribeImportTeardownFailure(int attempts, Exception failure) =>
+        $"Import teardown left the owned temporary folder in place after {attempts} attempts. {DescribeImportTeardownAttempt(attempts, failure)}";
+
+    private static string DescribeImportTeardownAttempt(int attempt, Exception failure) =>
+        $"attempt {attempt} failed: {failure.GetType().Name} HResult=0x{failure.HResult:X8}";
 
     private async Task<PersistedImport?> ReadPersistedMovieAsync(int id, CancellationToken cancellationToken)
     {
