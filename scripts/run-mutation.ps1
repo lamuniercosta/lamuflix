@@ -31,6 +31,7 @@ param(
     [string]$BaseRef = '',
     [switch]$DryRun,
     [string]$EvaluateReport = '',
+    [string[]]$ScopeFile = @(),
     [string[]]$Project = @(),
     [string]$OutputRoot = '',
     [switch]$Help
@@ -67,7 +68,8 @@ The threshold is read from harness.yml at gates.mutation.threshold (default: 80)
 OPTIONS:
   -BaseRef <ref>          Git ref to diff against (default: origin/<baseBranch> from harness.yml)
   -DryRun                 Classify changed projects and generate temp configs without running Stryker; a clean exit is a classification verdict, never mutation proof
-  -EvaluateReport <path>  Evaluate an existing Stryker mutation report without running Stryker (skips changed-file containment checks when run standalone)
+  -EvaluateReport <path>  Evaluate an existing Stryker mutation report without running Stryker (skips changed-file containment checks unless -ScopeFile is set)
+  -ScopeFile <path[]>     With -EvaluateReport, repo-relative files that form the diff. Omit it and containment checks stay skipped
   -Project <name[]>       Only run these changed projects (e.g. LamuFlix.Api or LamuFlix.Api.csproj); a name with no changed files is an error
   -OutputRoot <dir>       Where Stryker output goes, one <Project> folder each (default: <system temp>/LamuFlix-stryker/<UTC yyyyMMdd-HHmmss>-<6 hex>; must be outside the repo)
   -Help                   Show this help
@@ -239,11 +241,9 @@ function Evaluate-MutationReport {
                     }
                 }
 
-                if (-not $isChanged -and $ChangedFiles.Count -gt 0) {
-                    $outsideFiles.Add($fileRel)
-                }
-
                 $fileTested = 0
+                $mutateFilterRemoved = 0
+                $filterResidue = 0
                 foreach ($m in $mutants) {
                     $status = [string]$m.status
                     $hasReason = ($m.PSObject.Properties.Match('statusReason').Count -gt 0)
@@ -252,6 +252,13 @@ function Evaluate-MutationReport {
                     if ($reason -match 'Removed by since filter') {
                         $sinceFilterIgnoredCount++
                     }
+
+                    # "Removed by mutate filter" marks a file the mutate glob left out.
+                    # A CompileError beside those is Stryker compiling that filtered
+                    # mutant and rolling it back, so it stays out of the diff scope.
+                    $removedByMutateFilter = $reason -match 'Removed by mutate filter'
+                    if ($removedByMutateFilter) { $mutateFilterRemoved++ }
+                    if ($removedByMutateFilter -or $status -eq 'CompileError') { $filterResidue++ }
 
                     switch ($status) {
                         'Killed' {
@@ -301,6 +308,11 @@ function Evaluate-MutationReport {
                             $compileError++
                         }
                     }
+                }
+
+                $fileRemovedByMutateFilter = ($mutateFilterRemoved -gt 0) -and ($filterResidue -eq $mutantCount)
+                if (-not $isChanged -and $ChangedFiles.Count -gt 0 -and -not $fileRemovedByMutateFilter) {
+                    $outsideFiles.Add($fileRel)
                 }
 
                 if ($isChanged -and $fileTested -eq 0) {
@@ -443,11 +455,16 @@ if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
     }
 
     Write-Host "Evaluating Stryker mutation report: $evalPath"
+    $reportScope = @(
+        $ScopeFile |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { $_.Trim().Replace('\', '/') }
+    )
     $eval = Evaluate-MutationReport `
         -ReportPath $evalPath `
         -NativeExitCode 0 `
         -ProjectName (Split-Path $evalPath -Leaf) `
-        -ChangedFiles @() `
+        -ChangedFiles $reportScope `
         -Threshold $threshold `
         -RepoRoot $repoRoot
 

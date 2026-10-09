@@ -184,6 +184,28 @@ function Assert-MutationCase {
     }
 }
 
+function Write-ScopeReport {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$FilesJson
+    )
+
+    $json = @"
+{
+  "schemaVersion": "2",
+  "files": {
+$FilesJson
+  },
+  "testFiles": {
+    "tests/LamuFlix.UnitTests/ScopeGuardTests.cs": {
+      "tests": [ { "id": "t1", "name": "LamuFlix.UnitTests.ScopeGuardTests.Holds" } ]
+    }
+  }
+}
+"@
+    [System.IO.File]::WriteAllText($Path, $json, [System.Text.UTF8Encoding]::new($false))
+}
+
 function Assert-FixtureWiring {
     $manifest = Join-Path $script:checkout '.config/dotnet-tools.json'
     if (-not (Test-Path -LiteralPath $manifest)) { throw "overlay missing: $manifest" }
@@ -212,8 +234,8 @@ function Assert-FixtureWiring {
     if ($unitTestsText -notmatch 'LamuFlix\.Infrastructure\.csproj') {
         throw 'LamuFlix.UnitTests no longer references LamuFlix.Infrastructure, so no case has an eligible project'
     }
-    if ($unitTestsText -match 'LamuFlix\.Api\.csproj') {
-        throw 'LamuFlix.UnitTests now references LamuFlix.Api, so Api would be eligible and every Api case would be wrong'
+    if ($unitTestsText -notmatch 'LamuFlix\.Api\.csproj') {
+        throw 'LamuFlix.UnitTests no longer references LamuFlix.Api, so the listed-Api cases would not warn'
     }
 }
 
@@ -268,23 +290,35 @@ try {
     }
     Assert-MutationCase -Name '2 listed Api only, -DryRun, exits 2 NOT APPLICABLE' -Setup $listedApiOnly `
         -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 2 `
-        -MustContain @('NOT APPLICABLE', $apiReason) -MustNotContain @('LamuFlix.UnitTests')
+        -MustContain @('NOT APPLICABLE', $apiReason, 'WARNING', 'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj') `
+        -MustNotContain @('no eligible test project')
 
-    # Nothing here is eligible, so the real run has no Stryker invocation to make
-    # and is the check on the real-run NOT APPLICABLE branch.
+    # Api stays listed, so the real run measures nothing and must not start Stryker.
     Assert-MutationCase -Name '2 listed Api only, real run, exits 2 NOT APPLICABLE' -Setup $listedApiOnly `
         -Arguments @('-BaseRef', $script:fixtureBase) -ExpectedExit 2 `
         -MustContain @('NOT APPLICABLE', $apiReason) -MustNotContain @('Stryker native exit')
 
-    Assert-MutationCase -Name '3 unlisted Api plus eligible Infrastructure exits 1 with both classifications' -Setup {
+    $ineligibleProject = 'src/FixtureIneligible/FixtureIneligible.csproj'
+    $ineligibleMarker = 'src/FixtureIneligible/FixtureMarker.cs'
+    Assert-MutationCase -Name '3 unlisted project with no eligible test project exits 1' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        $projectPath = Join-Path $script:checkout $ineligibleProject
+        New-Item -ItemType Directory -Path (Split-Path $projectPath -Parent) -Force | Out-Null
+        Set-Content -LiteralPath $projectPath -Value '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>'
+        Add-ChangedPaths -Paths @($ineligibleMarker)
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 1 -MustContain @(
+        'FixtureIneligible.csproj',
+        'no eligible test project, not in policy'
+    )
+
+    Assert-MutationCase -Name '3 unlisted Api plus eligible Infrastructure classifies both and exits 0' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null
         Add-ChangedPaths -Paths @($apiMarker, $infraMarker)
-    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 1 -MustContain @(
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 0 -MustContain @(
         'LamuFlix.Api.csproj',
-        'no eligible test project, not in policy',
         'LamuFlix.Infrastructure.csproj',
         'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj'
-    )
+    ) -MustNotContain @('no eligible test project')
 
     # The diff touches no production C#, so an invalid policy has to be caught
     # before the scope-empty check instead of hiding behind SKIPPED.
@@ -299,6 +333,70 @@ try {
         Add-ChangedPaths -Paths @($infraMarker)
     } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 2 `
         -MustContain @('WARNING', 'NOT APPLICABLE', $infraReason)
+
+    # Scope guard. The changed file is the diff; HealthCheckResponseWriter.cs is
+    # the file the diff does not touch. -ScopeFile is what makes containment run
+    # under -EvaluateReport, which otherwise skips it.
+    $scopeChanged = 'src/LamuFlix.ServiceDefaults/Extensions.cs'
+    $scopeUnchanged = 'src/LamuFlix.ServiceDefaults/HealthCheckResponseWriter.cs'
+    $scopeReport = Join-Path $script:checkout 'scope-guard-report.json'
+    $killedInChangedFile = @"
+    "$scopeChanged": {
+      "mutants": [
+        { "id": "1", "status": "Killed", "killedBy": ["t1"], "mutatorName": "Statement", "location": { "start": { "line": 10 } } }
+      ]
+    }
+"@
+
+    Write-Host ''
+    Write-Host 'Scope guard cases:'
+
+    Assert-MutationCase -Name '6 Ignored and CompileError in an unchanged file the mutate filter removed do not fail' -Setup {
+        Write-ScopeReport -Path $scopeReport -FilesJson @"
+$killedInChangedFile,
+    "$scopeUnchanged": {
+      "mutants": [
+        { "id": "2", "status": "Ignored", "statusReason": "Removed by mutate filter" },
+        { "id": "3", "status": "CompileError", "statusReason": "Mutant caused compile errors" }
+      ]
+    }
+"@
+    } -Arguments @('-EvaluateReport', $scopeReport, '-ScopeFile', $scopeChanged) -ExpectedExit 0 `
+        -MustContain @('PASSED') -MustNotContain @('outside changed files', 'FAILED')
+
+    Assert-MutationCase -Name '7 a survivor in a changed file still fails' -Setup {
+        Write-ScopeReport -Path $scopeReport -FilesJson @"
+    "$scopeChanged": {
+      "mutants": [
+        { "id": "1", "status": "Survived", "mutatorName": "Statement", "location": { "start": { "line": 12 } } }
+      ]
+    }
+"@
+    } -Arguments @('-EvaluateReport', $scopeReport, '-ScopeFile', $scopeChanged) -ExpectedExit 1 `
+        -MustContain @('below threshold', $scopeChanged)
+
+    Assert-MutationCase -Name '8 a CompileError in a changed file still fails' -Setup {
+        Write-ScopeReport -Path $scopeReport -FilesJson @"
+    "$scopeChanged": {
+      "mutants": [
+        { "id": "1", "status": "CompileError", "statusReason": "Mutant caused compile errors" }
+      ]
+    }
+"@
+    } -Arguments @('-EvaluateReport', $scopeReport, '-ScopeFile', $scopeChanged) -ExpectedExit 1 `
+        -MustContain @('none were tested', $scopeChanged)
+
+    Assert-MutationCase -Name '9 an unchanged file ignored for another reason still fails' -Setup {
+        Write-ScopeReport -Path $scopeReport -FilesJson @"
+$killedInChangedFile,
+    "$scopeUnchanged": {
+      "mutants": [
+        { "id": "2", "status": "Ignored", "statusReason": "Removed by block already covered filter" }
+      ]
+    }
+"@
+    } -Arguments @('-EvaluateReport', $scopeReport, '-ScopeFile', $scopeChanged) -ExpectedExit 1 `
+        -MustContain @('outside changed files', $scopeUnchanged)
 }
 catch {
     Write-Host "Mutation fixture: FAILED - $($_.Exception.Message)" -ForegroundColor Red
