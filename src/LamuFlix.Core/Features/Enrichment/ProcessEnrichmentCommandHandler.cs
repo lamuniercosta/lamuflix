@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -53,6 +54,7 @@ public sealed class ProcessEnrichmentCommandHandler(
             return await FailAsync(command, failed.Category, movie, cancellationToken);
         }
 
+        RecordLookupOutcome(result);
         Apply(movie, result, time.GetUtcNow());
         await movies.SaveChangesAsync(cancellationToken);
         return new ProcessEnrichmentOutcome.Completed(Claimed: true);
@@ -64,6 +66,10 @@ public sealed class ProcessEnrichmentCommandHandler(
         Movie movie,
         CancellationToken cancellationToken)
     {
+        EnrichmentMetrics.EnrichmentOutcome.Add(
+            1,
+            new KeyValuePair<string, object?>(TelemetryConstants.OutcomeTagName, TelemetryConstants.FailedOutcome),
+            new KeyValuePair<string, object?>(TelemetryConstants.FailureCategoryTagName, category.Code));
         if (EnrichmentRetryPolicy.Decide(category, command.Attempt, options.Value.MaxAttempts) is { } retry)
         {
             LogOutcome(command, category);
@@ -76,6 +82,15 @@ public sealed class ProcessEnrichmentCommandHandler(
         LogOutcome(command, category);
         return new ProcessEnrichmentOutcome.Failed(deadLetter, category);
     }
+
+    private static void RecordLookupOutcome(MetadataLookupResult result) =>
+        EnrichmentMetrics.EnrichmentOutcome.Add(
+            1,
+            new KeyValuePair<string, object?>(
+                TelemetryConstants.OutcomeTagName,
+                result is MetadataLookupResult.NotFound
+                    ? TelemetryConstants.NotFoundOutcome
+                    : TelemetryConstants.EnrichedOutcome));
 
     private static void Apply(Movie movie, MetadataLookupResult result, DateTimeOffset now)
     {
