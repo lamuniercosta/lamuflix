@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -36,6 +37,14 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
     private static readonly TimeSpan ShortRetryTtl = TimeSpan.FromMilliseconds(1500);
     private const int DefaultMaxAttempts = 3;
     private const int SmallMaxAttempts = 2;
+    private const string OutcomeMeterName = "LamuFlix";
+    private const string OutcomeInstrumentName = "lamuflix.enrichment.outcome";
+    private const string OutcomeTagKey = "outcome";
+    private const string FailureCategoryTagKey = "failure_category";
+    private const string EnrichedOutcomeValue = "enriched";
+    private const string NotFoundOutcomeValue = "not_found";
+    private const string FailedOutcomeValue = "failed";
+    private const string ProviderUnavailableCode = "provider_unavailable";
 
     private readonly RabbitMqProbe probe = new(fixture);
 
@@ -772,6 +781,155 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         string.Join("; ", CollectScopeViolations(host, log)).ShouldBe(string.Empty);
     }
 
+    [Fact]
+    public async Task Consumer_AFoundLookup_RecordsOneEnrichedOutcomeMeasurement()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var capture = new OutcomeCapture();
+        await using var host = NewHost(_ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")));
+        var movie = host.AddPendingMovie(319);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await host.WaitForStatusAsync(ct, movie, EnrichmentStatus.Enriched);
+        await WaitForMeasurementsAsync(capture, 1, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        var measured = capture.Measurements.ShouldHaveSingleItem();
+        measured.InstrumentName.ShouldBe(OutcomeInstrumentName);
+        measured.Value.ShouldBe(1L);
+        var tag = measured.Tags.ShouldHaveSingleItem();
+        tag.Key.ShouldBe(OutcomeTagKey);
+        tag.Value.ShouldBe(EnrichedOutcomeValue);
+    }
+
+    [Fact]
+    public async Task Consumer_ANotFoundLookup_RecordsOneNotFoundOutcomeMeasurement()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var capture = new OutcomeCapture();
+        await using var host = NewHost(_ => new MetadataLookupResult.NotFound());
+        var movie = host.AddPendingMovie(320);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await host.WaitForStatusAsync(ct, movie, EnrichmentStatus.NotFound);
+        await WaitForMeasurementsAsync(capture, 1, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        var measured = capture.Measurements.ShouldHaveSingleItem();
+        measured.InstrumentName.ShouldBe(OutcomeInstrumentName);
+        measured.Value.ShouldBe(1L);
+        var tag = measured.Tags.ShouldHaveSingleItem();
+        tag.Key.ShouldBe(OutcomeTagKey);
+        tag.Value.ShouldBe(NotFoundOutcomeValue);
+    }
+
+    [Fact]
+    public async Task Consumer_ARetryableLookup_RecordsOneFailedMeasurementPerAttempt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var capture = new OutcomeCapture();
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Failed(EnrichmentFailureCategory.ProviderUnavailable));
+        var movie = host.AddPendingMovie(321);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await host.WaitForProviderCallsAsync(ct, 2);
+        await WaitForMeasurementsAsync(capture, 2, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(2);
+        capture.Measurements.Count.ShouldBe(2);
+        capture.Measurements.ShouldAllBe(
+            measurement => measurement.InstrumentName == OutcomeInstrumentName && measurement.Value == 1L);
+        capture.Measurements.ShouldAllBe(
+            measurement => measurement.Tags.Length == 2
+                           && Equals(measurement.Tags[0].Key, OutcomeTagKey)
+                           && Equals(measurement.Tags[0].Value, FailedOutcomeValue)
+                           && Equals(measurement.Tags[1].Key, FailureCategoryTagKey)
+                           && Equals(measurement.Tags[1].Value, ProviderUnavailableCode));
+    }
+
+    [Fact]
+    public async Task Consumer_ARefusedClaim_RecordsNoOutcomeMeasurement()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var delivered = new ConcurrentQueue<Activity>();
+        using var deliveryListener = ObserveConsumerDeliveries(delivered);
+        using var capture = new OutcomeCapture();
+        await using var host = NewHost(_ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")));
+        var movie = new MovieId(322);
+        await host.Repository.AddAsync(
+            Movie.Rehydrate(
+                movie,
+                "Held",
+                new LibraryPath("C:/library/a"),
+                new MediaFormat("mkv"),
+                false,
+                null,
+                EnrichmentStatus.Pending,
+                null,
+                0,
+                null,
+                host.Time.GetUtcNow()),
+            ct);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await WaitForDeliveryAsync(delivered, movie, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        host.Provider.Calls.ShouldBe(0);
+        capture.Measurements.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Consumer_ACancellationDuringLookup_RecordsNoOutcomeMeasurement()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var capture = new OutcomeCapture();
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")),
+            beforeLookup: async (_, token) =>
+            {
+                entered.TrySetResult();
+                await Task.Delay(Timeout.Infinite, token);
+            });
+        var movie = host.AddPendingMovie(323);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await probe.DrainAsync(RabbitMqTopology.RetryQueue, ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+
+        await host.StartAsync(ct);
+        await entered.Task.WaitAsync(ct);
+        await host.StopAsync(CancellationToken.None);
+
+        (await probe.PollGetMatchingAsync(
+            RabbitMqTopology.RequestedQueue,
+            candidate => Read(candidate).MovieId.Value == 323,
+            ct)).ShouldNotBeNull();
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
+        capture.Measurements.ShouldBeEmpty();
+    }
+
+    private static async Task WaitForMeasurementsAsync(
+        OutcomeCapture capture,
+        int expected,
+        CancellationToken ct)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(30);
+        while (TimeProvider.System.GetUtcNow() < deadline && capture.Measurements.Count < expected)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50), ct);
+        }
+
+        capture.Measurements.Count.ShouldBeGreaterThanOrEqualTo(expected);
+    }
+
     private static ActivityListener ObserveConsumerDeliveries(ConcurrentQueue<Activity> observed)
     {
         var listener = new ActivityListener
@@ -1259,6 +1417,33 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
             return ValueTask.CompletedTask;
         }
     }
+
+    private sealed class OutcomeCapture : IDisposable
+    {
+        private readonly ConcurrentQueue<CapturedOutcome> measurements = [];
+        private readonly MeterListener listener = new();
+
+        public OutcomeCapture()
+        {
+            listener.SetMeasurementEventCallback<long>(
+                (instrument, value, tags, _) => measurements.Enqueue(new(instrument.Name, value, tags.ToArray())));
+            listener.InstrumentPublished = (instrument, publishedListener) =>
+            {
+                if (string.Equals(instrument.Meter.Name, OutcomeMeterName, StringComparison.Ordinal)
+                    && string.Equals(instrument.Name, OutcomeInstrumentName, StringComparison.Ordinal))
+                {
+                    publishedListener.EnableMeasurementEvents(instrument);
+                }
+            };
+            listener.Start();
+        }
+
+        public IReadOnlyList<CapturedOutcome> Measurements => [.. measurements];
+
+        public void Dispose() => listener.Dispose();
+    }
+
+    private sealed record CapturedOutcome(string InstrumentName, long Value, KeyValuePair<string, object?>[] Tags);
 
     private sealed class AdjustableTimeProvider(DateTimeOffset now) : TimeProvider
     {
