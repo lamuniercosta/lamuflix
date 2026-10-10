@@ -18,12 +18,12 @@ public sealed class ApiImportEnrichmentGate
 
     public void Release() => release.TrySetResult();
 
-    public void SignalArrival(ProcessEnrichmentCommand command) => arrival.TrySetResult(command);
+    private void SignalArrival(ProcessEnrichmentCommand command) => arrival.TrySetResult(command);
 
     public Task WaitForArrivalAsync(CancellationToken cancellationToken) =>
         arrival.Task.WaitAsync(cancellationToken);
 
-    public Task WaitForReleaseAsync(CancellationToken cancellationToken) =>
+    private Task WaitForReleaseAsync(CancellationToken cancellationToken) =>
         release.Task.WaitAsync(cancellationToken);
 
     public void InstallInto(IServiceCollection services)
