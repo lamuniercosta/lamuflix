@@ -147,55 +147,40 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             metadata.GetProperty("imdbRating").GetDecimal().ShouldBe(ExpectedImdbRating);
             metadata.GetProperty("imdbId").GetString().ShouldBe(ExpectedImdbId);
 
-            // assert
-            var measuredCandidates = Fixture.Server.LogEntries
-                .Where(entry => entry.RequestMessage?.Query?.Any(pair =>
-                    string.Equals(pair.Key, "apikey", StringComparison.Ordinal) &&
-                    pair.Value.Contains(MetadataProviderProbe.SentinelApiKey)) == true &&
-                    entry.RequestMessage?.Query?.Any(pair =>
-                    string.Equals(pair.Key, "t", StringComparison.Ordinal) &&
-                    pair.Value.Contains(FolderTitle)) == true &&
-                    entry.RequestMessage?.Query?.Any(pair =>
-                    string.Equals(pair.Key, "type", StringComparison.Ordinal) &&
-                    pair.Value.Contains("movie")) == true)
-                .ToArray();
-            var measuredEntry = measuredCandidates.ShouldHaveSingleItem("Expected exactly one measured OMDb GET filtered by the scenario sentinel apikey and selected t/type values; a duplicate matching request fails this positive-path count.");
-            var measured = measuredEntry.RequestMessage.ShouldNotBeNull();
-            measured.Method.ShouldBe("GET");
-            measured.AbsolutePath.ShouldBe("/");
-            var query = measured.Query.ShouldNotBeNull();
-            query.Keys.ShouldBe(["apikey", "t", "type"], ignoreOrder: true);
-            query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
-            query["t"].ShouldContain(FolderTitle);
-            query["type"].ShouldContain("movie");
+            ShouldHaveSingleMeasuredProviderRequest();
             // assert
             var ancestry = await WaitForTraceAncestryAsync(capture, requestTraceId, cancellationToken);
-            ancestry.Server.TraceId.ShouldBe(requestTraceId);
-            ancestry.Enqueue.TraceId.ShouldBe(requestTraceId);
-            ancestry.Publish.TraceId.ShouldBe(requestTraceId);
-            ancestry.Consumer.TraceId.ShouldBe(requestTraceId);
-            ancestry.ProcessingHandler.TraceId.ShouldBe(requestTraceId);
-            ancestry.Lookup.TraceId.ShouldBe(requestTraceId);
-            foreach (var import in ancestry.ImportAncestry)
-            {
-                import.TraceId.ShouldBe(requestTraceId);
-                ShouldDescendFrom(import, ancestry.Server, ancestry.BySpanId);
-            }
-
-            ShouldDescendFrom(ancestry.Enqueue, ancestry.Server, ancestry.BySpanId);
-            ancestry.Publish.ParentSpanId.ShouldBe(ancestry.Enqueue.SpanId);
-            ancestry.Consumer.ParentSpanId.ShouldBe(ancestry.Publish.SpanId);
-            ShouldDescendFrom(ancestry.ProcessingHandler, ancestry.Consumer, ancestry.BySpanId);
-            ShouldDescendFrom(ancestry.Lookup, ancestry.ProcessingHandler, ancestry.BySpanId);
-            ancestry.Consumer.Kind.ShouldBe(ActivityKind.Consumer);
-            ancestry.Enqueue.TraceStateString.ShouldBe(tracestate);
-            ancestry.Consumer.TraceStateString.ShouldBe(tracestate);
-            ancestry.Consumer.Links.ShouldBeEmpty();
+            ShouldProveTraceAncestry(ancestry, requestTraceId, tracestate);
         }
         finally
         {
             gate.Release();
         }
+    }
+
+    private static void ShouldProveTraceAncestry(TraceAncestry ancestry, ActivityTraceId requestTraceId, string tracestate)
+    {
+        ancestry.Server.TraceId.ShouldBe(requestTraceId);
+        ancestry.Enqueue.TraceId.ShouldBe(requestTraceId);
+        ancestry.Publish.TraceId.ShouldBe(requestTraceId);
+        ancestry.Consumer.TraceId.ShouldBe(requestTraceId);
+        ancestry.ProcessingHandler.TraceId.ShouldBe(requestTraceId);
+        ancestry.Lookup.TraceId.ShouldBe(requestTraceId);
+        foreach (var import in ancestry.ImportAncestry)
+        {
+            import.TraceId.ShouldBe(requestTraceId);
+            ShouldDescendFrom(import, ancestry.Server, ancestry.BySpanId);
+        }
+
+        ShouldDescendFrom(ancestry.Enqueue, ancestry.Server, ancestry.BySpanId);
+        ancestry.Publish.ParentSpanId.ShouldBe(ancestry.Enqueue.SpanId);
+        ancestry.Consumer.ParentSpanId.ShouldBe(ancestry.Publish.SpanId);
+        ShouldDescendFrom(ancestry.ProcessingHandler, ancestry.Consumer, ancestry.BySpanId);
+        ShouldDescendFrom(ancestry.Lookup, ancestry.ProcessingHandler, ancestry.BySpanId);
+        ancestry.Consumer.Kind.ShouldBe(ActivityKind.Consumer);
+        ancestry.Enqueue.TraceStateString.ShouldBe(tracestate);
+        ancestry.Consumer.TraceStateString.ShouldBe(tracestate);
+        ancestry.Consumer.Links.ShouldBeEmpty();
     }
 
     [Fact]
@@ -262,6 +247,27 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             }
         }
     }
+
+    private void ShouldHaveSingleMeasuredProviderRequest()
+    {
+        var measuredEntry = Fixture.Server.LogEntries
+            .Where(entry => HasQueryValue(entry, "apikey", MetadataProviderProbe.SentinelApiKey)
+                && HasQueryValue(entry, "t", FolderTitle)
+                && HasQueryValue(entry, "type", "movie"))
+            .ShouldHaveSingleItem("Expected exactly one measured OMDb GET filtered by the scenario sentinel apikey and selected t/type values; a duplicate matching request fails this positive-path count.");
+        var measured = measuredEntry.RequestMessage.ShouldNotBeNull();
+        measured.Method.ShouldBe("GET");
+        measured.AbsolutePath.ShouldBe("/");
+        var query = measured.Query.ShouldNotBeNull();
+        query.Keys.ShouldBe(["apikey", "t", "type"], ignoreOrder: true);
+        query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
+        query["t"].ShouldContain(FolderTitle);
+        query["type"].ShouldContain("movie");
+    }
+
+    private static bool HasQueryValue(WireMock.Logging.ILogEntry entry, string key, string value) =>
+        entry.RequestMessage?.Query?.Any(pair =>
+            string.Equals(pair.Key, key, StringComparison.Ordinal) && pair.Value.Contains(value)) == true;
 
     private static void InstallOmdbStub(WireMockServer server) =>
         server
