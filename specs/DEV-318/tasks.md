@@ -94,7 +94,7 @@ code tasks may proceed to exercise only after this checkpoint.
 **Independent Test**: Not standalone; verified inside the same scenario run, failing with the
 missing span named.
 
-- [ ] T008 [US2] Await stopped spans boundedly after Enriched and assert shared request
+- [X] T008 [US2] Await stopped spans boundedly after Enriched and assert shared request
   TraceId across API server span, import ancestry, Enrichment.Enqueue, publisher publish span,
   Enrichment.Process consumer, processing handler, and Metadata.Lookup; assert import
   ancestry and Enrichment.Enqueue descend from the API server span, publish.ParentSpanId

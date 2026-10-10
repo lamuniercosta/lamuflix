@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -11,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
@@ -41,6 +43,8 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
     private static readonly byte[] VideoBytes = [0x1A, 0x45, 0xDF, 0xA3];
     private static readonly TimeSpan TeardownRetryBaseDelay = TimeSpan.FromMilliseconds(40);
     private static readonly TimeSpan GateArrivalTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan TraceAncestryTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan TracePollInterval = TimeSpan.FromMilliseconds(50);
 
     private static readonly string OmdbBody = $$"""
         {
@@ -79,7 +83,8 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         {
             // arrange
             var client = await StartHostAsync(InstallOmdbStub, gate.InstallInto);
-            var traceparent = $"00-{ActivityTraceId.CreateRandom().ToHexString()}-{ActivitySpanId.CreateRandom().ToHexString()}-01";
+            var requestTraceId = ActivityTraceId.CreateRandom();
+            var traceparent = $"00-{requestTraceId.ToHexString()}-{ActivitySpanId.CreateRandom().ToHexString()}-01";
             var tracestate = $"lamuflix-dev318={ActivitySpanId.CreateRandom().ToHexString()}";
             using var request = new HttpRequestMessage(HttpMethod.Post, ImportRoute);
             request.Content = JsonContent.Create(new { folderPath });
@@ -163,7 +168,29 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
             query["t"].ShouldContain(FolderTitle);
             query["type"].ShouldContain("movie");
-            _ = capture.Stopped;
+            // assert
+            var ancestry = await WaitForTraceAncestryAsync(capture, requestTraceId, cancellationToken);
+            ancestry.Server.TraceId.ShouldBe(requestTraceId);
+            ancestry.Enqueue.TraceId.ShouldBe(requestTraceId);
+            ancestry.Publish.TraceId.ShouldBe(requestTraceId);
+            ancestry.Consumer.TraceId.ShouldBe(requestTraceId);
+            ancestry.ProcessingHandler.TraceId.ShouldBe(requestTraceId);
+            ancestry.Lookup.TraceId.ShouldBe(requestTraceId);
+            foreach (var import in ancestry.ImportAncestry)
+            {
+                import.TraceId.ShouldBe(requestTraceId);
+                ShouldDescendFrom(import, ancestry.Server, ancestry.BySpanId);
+            }
+
+            ShouldDescendFrom(ancestry.Enqueue, ancestry.Server, ancestry.BySpanId);
+            ancestry.Publish.ParentSpanId.ShouldBe(ancestry.Enqueue.SpanId);
+            ancestry.Consumer.ParentSpanId.ShouldBe(ancestry.Publish.SpanId);
+            ShouldDescendFrom(ancestry.ProcessingHandler, ancestry.Consumer, ancestry.BySpanId);
+            ShouldDescendFrom(ancestry.Lookup, ancestry.ProcessingHandler, ancestry.BySpanId);
+            ancestry.Consumer.Kind.ShouldBe(ActivityKind.Consumer);
+            ancestry.Enqueue.TraceStateString.ShouldBe(tracestate);
+            ancestry.Consumer.TraceStateString.ShouldBe(tracestate);
+            ancestry.Consumer.Links.ShouldBeEmpty();
         }
         finally
         {
@@ -252,6 +279,173 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
 
     private static void ShouldCarryExactly(JsonElement element, params string[] names) =>
         element.EnumerateObject().Select(property => property.Name).ShouldBe(names, ignoreOrder: true);
+
+    private static readonly (string Name, Func<Activity, bool> Predicate)[] RequiredTraceSpans =
+    [
+        ("Enrichment.Enqueue span", IsEnqueueSpan),
+        ("publisher publish span", IsPublishSpan),
+        ("Enrichment.Process consumer span", IsConsumerSpan),
+        ("processing handler span", IsProcessingHandlerSpan),
+        ("Metadata.Lookup span", IsLookupSpan),
+    ];
+
+    private static bool IsEnqueueSpan(Activity activity) =>
+        activity.Source.Name == TelemetryConstants.ActivitySourceName
+        && activity.OperationName == TelemetryConstants.EnrichmentEnqueue;
+
+    private static bool IsPublishSpan(Activity activity) =>
+        activity.Source.Name == TelemetryConstants.RabbitMqPublisherActivitySourceName;
+
+    private static bool IsConsumerSpan(Activity activity) =>
+        activity.Source.Name == TelemetryConstants.ActivitySourceName
+        && activity.OperationName == TelemetryConstants.EnrichmentProcess;
+
+    private static bool IsProcessingHandlerSpan(Activity activity) =>
+        activity.Source.Name == TelemetryConstants.ActivitySourceName
+        && activity.OperationName == nameof(ProcessEnrichmentCommand);
+
+    private static bool IsLookupSpan(Activity activity) =>
+        activity.Source.Name == TelemetryConstants.ActivitySourceName
+        && activity.OperationName == TelemetryConstants.MetadataLookup;
+
+    private static bool IsImportAncestrySpan(Activity activity) =>
+        activity.Source.Name == TelemetryConstants.ActivitySourceName
+        && activity.OperationName != TelemetryConstants.EnrichmentEnqueue
+        && activity.OperationName != TelemetryConstants.EnrichmentProcess
+        && activity.OperationName != nameof(ProcessEnrichmentCommand)
+        && activity.OperationName != TelemetryConstants.MetadataLookup;
+
+    private static async Task<TraceAncestry> WaitForTraceAncestryAsync(
+        ApiImportTraceCapture capture,
+        ActivityTraceId requestTraceId,
+        CancellationToken cancellationToken)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + TraceAncestryTimeout;
+        while (TimeProvider.System.GetUtcNow() < deadline)
+        {
+            var ancestry = FindTraceAncestry(capture.Stopped, requestTraceId);
+            if (ancestry is not null)
+            {
+                return ancestry;
+            }
+
+            await Task.Delay(TracePollInterval, cancellationToken);
+        }
+
+        var final = FindTraceAncestry(capture.Stopped, requestTraceId);
+        if (final is not null)
+        {
+            return final;
+        }
+
+        throw new InvalidOperationException(
+            $"The request trace {requestTraceId} did not produce the full span ancestry within {(int)TraceAncestryTimeout.TotalSeconds} seconds. " +
+            DescribeTraceShortfall(capture.Stopped, requestTraceId));
+    }
+
+    private static TraceAncestry? FindTraceAncestry(IReadOnlyList<Activity> stopped, ActivityTraceId requestTraceId)
+    {
+        var trace = stopped.Where(activity => activity.TraceId == requestTraceId).ToArray();
+        var matches = new Activity[RequiredTraceSpans.Length];
+        for (var index = 0; index < RequiredTraceSpans.Length; index++)
+        {
+            var count = 0;
+            foreach (var activity in trace)
+            {
+                if (RequiredTraceSpans[index].Predicate(activity))
+                {
+                    count++;
+                    matches[index] = activity;
+                }
+            }
+
+            if (count != 1)
+            {
+                return null;
+            }
+        }
+
+        var importAncestry = trace.Where(IsImportAncestrySpan).ToArray();
+        if (importAncestry.Length == 0)
+        {
+            return null;
+        }
+
+        var bySpanId = trace.ToDictionary(activity => activity.SpanId.ToHexString());
+        var server = FindServerAncestor(matches[0], bySpanId);
+        if (server is null)
+        {
+            return null;
+        }
+
+        return new TraceAncestry(
+            server,
+            matches[0],
+            matches[1],
+            matches[2],
+            matches[3],
+            matches[4],
+            importAncestry,
+            bySpanId);
+    }
+
+    private static Activity? FindServerAncestor(Activity enqueue, IReadOnlyDictionary<string, Activity> bySpanId)
+    {
+        var current = enqueue;
+        for (var hops = 0; hops <= bySpanId.Count; hops++)
+        {
+            if (!bySpanId.TryGetValue(current.ParentSpanId.ToHexString(), out var parent))
+            {
+                return null;
+            }
+
+            if (parent.Source.Name == ApiImportTraceCapture.AspNetCoreSourceName)
+            {
+                return parent;
+            }
+
+            current = parent;
+        }
+
+        return null;
+    }
+
+    private static string DescribeTraceShortfall(IReadOnlyList<Activity> stopped, ActivityTraceId requestTraceId)
+    {
+        var trace = stopped.Where(activity => activity.TraceId == requestTraceId).ToArray();
+        var counts = RequiredTraceSpans
+            .Select(span => $"{span.Name}={trace.Count(span.Predicate)}")
+            .Append($"import ancestry spans={trace.Count(IsImportAncestrySpan)}")
+            .Append($"API server spans={trace.Count(activity => activity.Source.Name == ApiImportTraceCapture.AspNetCoreSourceName)}");
+        var observed = trace.Select(activity => $"{activity.Source.Name}:{activity.OperationName}");
+        return $"Expected one of each required span: {string.Join(", ", counts)}. " +
+            $"Observed {trace.Length} stopped spans with the request trace id: {string.Join(", ", observed)}.";
+    }
+
+    private static void ShouldDescendFrom(
+        Activity activity,
+        Activity ancestor,
+        IReadOnlyDictionary<string, Activity> bySpanId)
+    {
+        var current = activity;
+        for (var hops = 0; hops <= bySpanId.Count; hops++)
+        {
+            if (!bySpanId.TryGetValue(current.ParentSpanId.ToHexString(), out var parent))
+            {
+                break;
+            }
+
+            if (parent.SpanId == ancestor.SpanId)
+            {
+                return;
+            }
+
+            current = parent;
+        }
+
+        throw new InvalidOperationException(
+            $"'{activity.OperationName}' ({activity.SpanId}) does not descend from '{ancestor.OperationName}' ({ancestor.SpanId}).");
+    }
 
     private string CreateOwnedImportFolder()
     {
@@ -349,6 +543,16 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
     }
 
     private sealed record PersistedImport(string Title, string Path, string Format);
+
+    private sealed record TraceAncestry(
+        Activity Server,
+        Activity Enqueue,
+        Activity Publish,
+        Activity Consumer,
+        Activity ProcessingHandler,
+        Activity Lookup,
+        IReadOnlyList<Activity> ImportAncestry,
+        IReadOnlyDictionary<string, Activity> BySpanId);
 
     private sealed class OwnedFolderDeleteBlock : IAsyncDisposable
     {

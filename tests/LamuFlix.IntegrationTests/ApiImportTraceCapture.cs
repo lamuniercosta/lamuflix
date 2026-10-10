@@ -8,8 +8,11 @@ namespace LamuFlix.IntegrationTests;
 
 public sealed class ApiImportTraceCapture : IDisposable
 {
+    internal const string AspNetCoreSourceName = "Microsoft.AspNetCore";
+
     private static readonly string[] SourceNames =
     [
+        AspNetCoreSourceName,
         TelemetryConstants.ActivitySourceName,
         TelemetryConstants.RabbitMqPublisherActivitySourceName,
         TelemetryConstants.RabbitMqSubscriberActivitySourceName,
