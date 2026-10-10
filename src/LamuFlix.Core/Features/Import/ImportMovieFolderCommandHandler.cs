@@ -19,6 +19,7 @@ public sealed class ImportMovieFolderCommandHandler(
         var movie = Movie.Create(id, scanned.Title, scanned.Path, scanned.Format);
         await movies.AddAsync(movie, cancellationToken);
         await movies.SaveChangesAsync(cancellationToken);
+        EnrichmentMetrics.ImportCount.Add(1);
         await queue.EnqueueAsync(new EnrichmentRequested(id, 1), cancellationToken);
         return id;
     }
