@@ -59,23 +59,23 @@ not the builder)
 202/Location id, Pending-before-release, Enriched-after, GET 200 with full metadata, one
 measured OMDb request.
 
-- [ ] T005 [US1] Extend `ImportMovieFolder_RealScannerThroughOmdb_PersistsEnrichedMovieWithMeasuredProviderEvidence`
+- [X] T005 [US1] Extend `ImportMovieFolder_RealScannerThroughOmdb_PersistsEnrichedMovieWithMeasuredProviderEvidence`
   in `tests/LamuFlix.IntegrationTests/ApiEndToEndImportTests.cs`: install capture before
   host/import, send unique trace headers without ambient Activity, assert Activity.Current
   is null after request preparation immediately before sending the POST with no propagation
   suppression, use the owned real-scanner folder and production API-host consumer
   (brief.md Q7 step 3).
-- [ ] T006 [US1] Await POST 202 and real consumer arrival at the gate with bounded waits;
+- [X] T006 [US1] Await POST 202 and real consumer arrival at the gate with bounded waits;
   parse Location id, match delivery MovieId, assert Pending from a fresh Postgres context
   before releasing enrichment (brief.md Q7 step 4).
-- [ ] T007 [US1] Release the gate, await persisted Enriched via the existing status seam, and
+- [X] T007 [US1] Release the gate, await persisted Enriched via the existing status seam, and
   assert GET 200 with unchanged response geometry, all metadata fields, and exactly one
   measured OMDb GET filtered by the scenario sentinel apikey and selected t/type values
   after the existing fixture warm-up then WireMock Reset, with method/path/query evidence
   plus preserved parameter and secret-scrub assertions; retries are outside this proof and a
   duplicate matching request fails the count (brief.md Q7 step 5). No added Reset, fixture
   change, or resilience change.
-- [ ] T009 [US1] Bind cleanup to the scenario-level try/finally as part of this scenario
+- [X] T009 [US1] Bind cleanup to the scenario-level try/finally as part of this scenario
   implementation: finally releases the gate before host disposal and guarantees
   capture/listener disposal, with release-before-host-disposal and capture/listener disposal
   verified on success and failure exits; retain owned-folder cleanup; diagnose stuck gate or
