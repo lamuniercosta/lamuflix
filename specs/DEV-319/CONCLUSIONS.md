@@ -64,3 +64,56 @@ Basis sources: ticket text (recon-DEV-319:24-39, from YouTrack get-task, DEV-319
 ## Grill log
 
 (Keel questions and Patron answers are appended below; cap 12, then accepted `[assumed]`.)
+
+### Keel batch 1 (HEAD 21be958): K1-K6 settled by Keel, Q1-Q4 for Patron. 4 of 12 questions used.
+
+Keel's technical answers (summary; Keel's brief.md is the full record):
+- K1: The outcome counter is emitted in ProcessEnrichmentCommandHandler from the actual lookup result.
+  Found -> enriched, NotFound -> not_found, provider Failed or a classified exception -> failed. There is one
+  increment per lookup attempt, retries included. Refused claims and cancellation emit nothing. Persistence,
+  republish and malformed-body errors are not lookup outcomes.
+- K2: The span key `enrichment.outcome` and its `completed`/`skipped` values are preserved. The new constants use
+  distinct member names, and every ticket literal stays exact.
+- K3: `Histogram<double>` with unit `s`. It measures the whole OmdbMetadataProvider lookup through `TimeProvider`
+  and records once, in `finally`. The tag is `provider=omdb`.
+- K4: `import.count` is a `Counter<long>` with no tags. It does Add(1) after SaveChangesAsync succeeds and before
+  EnqueueAsync. `failure_category` appears only when the outcome is `failed` and takes the closed Category.Code set
+  `provider_unavailable|rate_limited|invalid_response|unknown`.
+- K5: One static BCL `Meter` named `ActivitySourceName` holds the three instruments, in a concrete static class at
+  `src/LamuFlix.Core/Pipeline/EnrichmentMetrics.cs`. There is no interface, port, package, project, DI registration or
+  factory.
+- K6: Tests use a test-only `MeterListener` and run in non-parallel collections. They follow the existing real
+  Postgres/RabbitMQ/WireMock conventions and extend the host OTLP composition proof. The existing span and attribute
+  assertions are kept.
+
+Patron rulings:
+- Q1. **Ratified.** The outcome counter counts lookup attempts. No-op claims and cancellation emit no outcome.
+  - Basis P1: the value set is frozen at three. A `skipped` value would be a fourth value, which is structural.
+  - Translating `completed` to `enriched` would be wrong. AC1 asks for consistent dimensions, so the metric is
+    emitted where the result is actually known.
+  - No fabricated `failure_category` for non-lookup errors. P1 freezes the dimensions.
+- Q2. **Ratified.** `import.count` counts persisted movies, including the case where the enqueue fails after the save.
+  - Basis: the ticket names only `lamuflix.import.count (Counter)` (recon-DEV-319:32) and no unit of count, so the
+    meaning is a technical call (K4).
+  - Sound practice: the counter reflects durable state. A retried command cannot re-insert, so counting commands would
+    misstate imports.
+  - The cost Keel names (a 500 response can still increment the count) is accepted. Noted, no ticket.
+- Q3. **Ratified.** The span semantics are preserved and the static holder at `Core/Pipeline/EnrichmentMetrics.cs` is
+  approved.
+  - P2 and P8: the existing span keys and values are unchanged. P3 is satisfied by emitting from the handler, so no
+    consumer edit is needed.
+  - P4 and P5: a concrete static class inside an existing folder is file organization, not a new layer, port or
+    abstraction. The BCL `System.Diagnostics.Metrics` needs no PackageReference, and ArchitectureTests.cs:65 (no
+    OpenTelemetry in Core) still holds.
+  - Condition: `TimeProvider` (K3) is BCL. If OmdbMetadataProvider needs a new constructor parameter, that is a forced
+    AC1 edit. Any new package or port still comes back under P4 and P5.
+- Q4. **Ratified as the closing bar for this chain.** Critical, High and unmet ticket AC block. Lower findings are
+  disposed of or filed as follow-ups. The frozen scope is P1-P6. Out-of-scope work becomes a follow-up issue, not a
+  finding. The caps: review at most 2 rounds, at most 2 fix commits per round, grill at most 12 questions. Property
+  tests opt out (pure instrumentation of existing behaviour, no new domain invariant). Phase A runs no executable
+  gates. Phase B runs every applicable gate, mutation included, with no threshold changes.
+  - Basis: charter §2.3 (scope); task-pipeline caps as Keel cited them. Patron did not re-read task-pipeline, so that
+    citation rests on Keel's read.
+  - Standing for this chain; cited once, not re-ruled per ticket.
+
+No structural blocks. The remaining questions go to `brief.md`, and Keel closes the grill when the brief is written.
