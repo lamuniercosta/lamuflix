@@ -2,15 +2,20 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Adapters;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
@@ -49,6 +54,11 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
     private const string OtherErrorBody = """
         { "Response": "False", "Error": "Invalid API key!" }
         """;
+
+    private const string ApplicationMeterName = "LamuFlix";
+    private const string DurationInstrumentName = "lamuflix.enrichment.duration";
+    private const string ProviderTagKey = "provider";
+    private const string OmdbProviderValue = "omdb";
 
     public static TheoryData<string, string> DomainInvalidBodies =>
         new()
@@ -441,6 +451,77 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         spans[0].Status.ShouldBe(ActivityStatusCode.Error);
     }
 
+    [Fact]
+    public async Task FindAsync_AFindingLookup_RecordsExactlyOneDurationMeasurementWithOnlyTheProviderTag()
+    {
+        // arrange
+        StubBody(200, FullBody);
+        using var lookup = new ControlledLookup(probe, TimeSpan.FromSeconds(1.5), cancelAtBoundary: false);
+        using var capture = new ApplicationMetricCapture(DurationInstrumentName);
+
+        // act
+        var result = await lookup.FindAsync("Blade Runner", TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        AssertExactlyOneProviderDuration(capture.Measurements, 1.5);
+    }
+
+    [Fact]
+    public async Task FindAsync_AFailingLookup_RecordsExactlyOneDurationMeasurementWithOnlyTheProviderTag()
+    {
+        // arrange
+        StubBody(400, string.Empty);
+        using var lookup = new ControlledLookup(probe, TimeSpan.FromSeconds(2.5), cancelAtBoundary: false);
+        using var capture = new ApplicationMetricCapture(DurationInstrumentName);
+
+        // act
+        var result = await lookup.FindAsync("Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        Category(result).ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        AssertExactlyOneProviderDuration(capture.Measurements, 2.5);
+    }
+
+    [Fact]
+    public async Task FindAsync_ACancellationDuringTheLookup_RecordsExactlyOneDurationMeasurementWithOnlyTheProviderTag()
+    {
+        // arrange
+        StubBody(200, FullBody);
+        using var lookup = new ControlledLookup(probe, TimeSpan.FromSeconds(0.75), cancelAtBoundary: true);
+        using var capture = new ApplicationMetricCapture(DurationInstrumentName);
+
+        // act
+        var act = () => lookup.FindAsync("Blade Runner", TestContext.Current.CancellationToken);
+
+        // assert
+        await Should.ThrowAsync<OperationCanceledException>(act);
+        AssertExactlyOneProviderDuration(capture.Measurements, 0.75);
+    }
+
+    [Fact]
+    public async Task FindAsync_AFailingLookup_TagsTheSpanWithTheCategoryCodeAndRecordsExactlyOneDurationMeasurement()
+    {
+        // arrange
+        StubBody(500, string.Empty);
+        using var lookup = new ControlledLookup(probe, TimeSpan.FromSeconds(1.25), cancelAtBoundary: false);
+        using var capture = new ActivityCapture(TelemetryConstants.ActivitySourceName);
+        using var metrics = new ApplicationMetricCapture(DurationInstrumentName);
+        using var ambient = new Activity("test.ambient").Start();
+
+        // act
+        var result = await lookup.FindAsync("Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        Category(result).ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
+        var spans = LookupSpans(capture, ambient.TraceId);
+        spans.Count.ShouldBe(1);
+        spans[0].GetTagItem(TelemetryConstants.ErrorType)
+            .ShouldBe(EnrichmentFailureCategory.ProviderUnavailable.Code);
+        spans[0].Status.ShouldBe(ActivityStatusCode.Error);
+        AssertExactlyOneProviderDuration(metrics.Measurements, 1.25);
+    }
+
     private async Task ExerciseEveryOutcomeAsync(IServiceProvider services)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -523,6 +604,128 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
              activity.OperationName,
              activity.StatusDescription,
              .. activity.Tags.Select(tag => $"{tag.Key}={tag.Value}")]);
+
+    private static void AssertExactlyOneProviderDuration(IReadOnlyList<CapturedMetric> measurements, double expectedSeconds)
+    {
+        var measured = measurements.ShouldHaveSingleItem();
+        measured.Instrument.Name.ShouldBe(DurationInstrumentName);
+        measured.Value.ShouldBe(expectedSeconds);
+        var tag = measured.Tags.ShouldHaveSingleItem();
+        tag.Key.ShouldBe(ProviderTagKey);
+        tag.Value.ShouldBe(OmdbProviderValue);
+    }
+
+    private sealed class ControlledLookup : IDisposable
+    {
+        private readonly TimeSpan elapsedAtBoundary;
+        private readonly bool cancelAtBoundary;
+        private readonly ControlledTimeProvider clock = new(MetadataProviderProbe.FixedNow);
+        private readonly CancellationTokenSource boundaryCancellation = new();
+        private readonly HttpClient httpClient;
+        private int boundaryReached;
+
+        public ControlledLookup(MetadataProviderProbe probe, TimeSpan elapsedAtBoundary, bool cancelAtBoundary)
+        {
+            this.elapsedAtBoundary = elapsedAtBoundary;
+            this.cancelAtBoundary = cancelAtBoundary;
+            httpClient = new HttpClient(new TransportBoundary(AdvanceAtBoundary)
+            {
+                InnerHandler = new SocketsHttpHandler(),
+            });
+            Provider = new OmdbMetadataProvider(
+                httpClient,
+                Options.Create(new OmdbOptions
+                {
+                    ApiKey = MetadataProviderProbe.SentinelApiKey,
+                    BaseUrl = probe.Server.Urls[0],
+                }),
+                clock,
+                NullLogger<OmdbMetadataProvider>.Instance,
+                new MetadataProviderHealthState());
+        }
+
+        public OmdbMetadataProvider Provider { get; }
+
+        public Task<MetadataLookupResult> FindAsync(string title, CancellationToken ct) =>
+            Provider.FindAsync(
+                new MetadataLookup(title, null),
+                cancelAtBoundary ? boundaryCancellation.Token : ct);
+
+        public void Dispose()
+        {
+            httpClient.Dispose();
+            boundaryCancellation.Dispose();
+        }
+
+        private void AdvanceAtBoundary()
+        {
+            if (Interlocked.Exchange(ref boundaryReached, 1) != 0)
+            {
+                return;
+            }
+
+            clock.Advance(elapsedAtBoundary);
+            if (cancelAtBoundary)
+            {
+                boundaryCancellation.Cancel();
+            }
+        }
+    }
+
+    private sealed class TransportBoundary(Action onBoundary) : DelegatingHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            onBoundary();
+            cancellationToken.ThrowIfCancellationRequested();
+            return base.SendAsync(request, cancellationToken);
+        }
+    }
+
+    private sealed class ControlledTimeProvider : TimeProvider
+    {
+        private readonly DateTimeOffset utcNow;
+        private long timestamp;
+
+        public ControlledTimeProvider(DateTimeOffset utcNow) => this.utcNow = utcNow;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => Interlocked.Read(ref timestamp);
+
+        public override DateTimeOffset GetUtcNow() => utcNow;
+
+        public void Advance(TimeSpan elapsed) => Interlocked.Add(ref timestamp, elapsed.Ticks);
+    }
+
+    private sealed class ApplicationMetricCapture : IDisposable
+    {
+        private readonly ConcurrentQueue<CapturedMetric> measurements = [];
+        private readonly MeterListener listener = new();
+
+        public ApplicationMetricCapture(params string[] instrumentNames)
+        {
+            listener.SetMeasurementEventCallback<double>(
+                (instrument, value, tags, _) => measurements.Enqueue(new(instrument, value, tags.ToArray())));
+            listener.SetMeasurementEventCallback<long>(
+                (instrument, value, tags, _) => measurements.Enqueue(new(instrument, value, tags.ToArray())));
+            listener.InstrumentPublished = (instrument, publishedListener) =>
+            {
+                if (string.Equals(instrument.Meter.Name, ApplicationMeterName, StringComparison.Ordinal)
+                    && instrumentNames.Contains(instrument.Name, StringComparer.Ordinal))
+                {
+                    publishedListener.EnableMeasurementEvents(instrument);
+                }
+            };
+            listener.Start();
+        }
+
+        public IReadOnlyList<CapturedMetric> Measurements => [.. measurements];
+
+        public void Dispose() => listener.Dispose();
+    }
+
+    private sealed record CapturedMetric(Instrument Instrument, object Value, KeyValuePair<string, object?>[] Tags);
 
     private sealed class ActivityCapture : IDisposable
     {

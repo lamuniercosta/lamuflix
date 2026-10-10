@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -43,11 +44,22 @@ public sealed partial class OmdbMetadataProvider(
     {
         ArgumentNullException.ThrowIfNull(lookup);
 
+        var started = timeProvider.GetTimestamp();
+
         // ReSharper disable once ExplicitCallerInfoArgument - the span name is a stable telemetry contract, not the caller method name.
         using var activity = Source.StartActivity(TelemetryConstants.MetadataLookup, ActivityKind.Client);
-        var result = await ExecuteAsync(lookup, ct);
-        Record(activity, result);
-        return result;
+        try
+        {
+            var result = await ExecuteAsync(lookup, ct);
+            Record(activity, result);
+            return result;
+        }
+        finally
+        {
+            EnrichmentMetrics.EnrichmentDuration.Record(
+                timeProvider.GetElapsedTime(started).TotalSeconds,
+                new KeyValuePair<string, object?>(TelemetryConstants.ProviderTagName, TelemetryConstants.OmdbProviderName));
+        }
     }
 
     private async Task<MetadataLookupResult> ExecuteAsync(MetadataLookup lookup, CancellationToken ct)
