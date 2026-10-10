@@ -117,3 +117,23 @@ Patron rulings:
   - Standing for this chain; cited once, not re-ruled per ticket.
 
 No structural blocks. The remaining questions go to `brief.md`, and Keel closes the grill when the brief is written.
+
+---
+
+### Full decision questions and confirmation - Keel batch 1
+
+The full settled K1-K6 technical answers are preserved in brief.md, sections K1-K6, together with every seeded and ratified answer. The questions sent by Keel were:
+
+Q1: Ratify lookup-attempt counting and omission of no-op/cancellation outcomes above? I recommend it because the frozen three values cannot faithfully represent skipped delivery; adding a fourth value would be structural. It also avoids pretending completed means enriched.
+
+Q2: Ratify import.count as persisted movies, including an enqueue failure after save, rather than successful commands? I recommend it because the movie already exists and a retry may fail uniqueness; cost is that a 500 response can still increment imports.
+
+Q3: Ratify preservation of existing span outcome semantics and the concrete Core static instrument holder? I recommend this to honor P2/P4/P5 without a new dependency, port or change to ProcessEnrichmentOutcome public shape. Instrumentation belongs in the handler where result distinctions exist, so no consumer emission edit is needed.
+
+Q4: Ratify closing terms: Critical/High and unmet ticket AC block; lower findings are explicitly disposed/follow-up. Frozen scope is the three metrics and literal constants, emission/tests required by AC1, preservation/verification of named spans and attributes, Accepted docs/adr/ADR-0008.md only; anything else is a follow-up issue, not a finding in this round. Review cap two rounds; remediation max two fix commits per round; grill cap twelve per task-pipeline. propertyTests: opt-out because these additions instrument existing behavior and introduce no new domain invariants; existing property tests still run. Phase A no executable gates; Phase B all applicable pipeline gates, including mutation, retain script verdicts with no threshold changes.
+
+Patron confirmation received by Keel:
+
+> DEV-319 Q1-Q4 all ratified with no structural block; 4 of 12 questions used. Recorded at specs/DEV-319/CONCLUSIONS.md (Grill log, commit c63ef06). The Q3 condition: TimeProvider is a forced AC1 edit, and any new package or port still comes back to me. Proceed to brief.md, and send me grill-closed when it is written.
+
+Rationale, cited basis and implications for every answer are the preceding Patron rulings and the complete frozen brief. The conclusions and brief now persist the exchange; the resolved grill may be summarized without losing its decisions. No further product or scope question remains. Next owner is Quill through Bernstein; plan challenge and Gate 1 remain pending.
