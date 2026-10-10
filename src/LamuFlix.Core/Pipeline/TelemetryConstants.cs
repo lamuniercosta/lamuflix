@@ -27,4 +27,24 @@ public static class TelemetryConstants
     public const string EnrichmentOutcome = "enrichment.outcome";
 
     public const string MessagingDeliveryCount = "messaging.rabbitmq.delivery_count";
+
+    public const string EnrichmentDurationMetricName = "lamuflix.enrichment.duration";
+
+    public const string EnrichmentOutcomeMetricName = "lamuflix.enrichment.outcome";
+
+    public const string ImportCountMetricName = "lamuflix.import.count";
+
+    public const string ProviderTagName = "provider";
+
+    public const string OutcomeTagName = "outcome";
+
+    public const string FailureCategoryTagName = "failure_category";
+
+    public const string EnrichedOutcome = "enriched";
+
+    public const string NotFoundOutcome = "not_found";
+
+    public const string FailedOutcome = "failed";
+
+    public const string OmdbProviderName = "omdb";
 }
