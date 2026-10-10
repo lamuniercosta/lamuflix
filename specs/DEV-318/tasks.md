@@ -34,13 +34,13 @@ not the builder)
 
 **Purpose**: Test-local gate and capture support in the bounded file set (brief.md Q7 step 2)
 
-- [ ] T002 [US1] Add cancellation-aware asynchronous gate wrapping the captured scoped
+- [X] T002 [US1] Add cancellation-aware asynchronous gate wrapping the captured scoped
   production factory in `tests/LamuFlix.IntegrationTests/ApiEndToEndImportTests.cs` (default
   nested helpers), preserving the decorator chain, per-test state, async continuations, and
   ValidateScopes/ValidateOnBuild.
-- [ ] T003 [US2] Add disposable ActivityListener capture support (AllData sampling,
+- [X] T003 [US2] Add disposable ActivityListener capture support (AllData sampling,
   thread-safe stopped-span collection, TelemetryConstants names) beside the gate, after T002.
-- [ ] T004 [US1] Capture the original scoped descriptor: assert exactly one descriptor
+- [X] T004 [US1] Capture the original scoped descriptor: assert exactly one descriptor
   matching `ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>`, assert its
   scoped lifetime and non-null ImplementationFactory, capture that exact factory, then replace
   only that descriptor. Extract `tests/LamuFlix.IntegrationTests/ApiImportEnrichmentGate.cs`
