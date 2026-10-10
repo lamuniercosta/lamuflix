@@ -109,3 +109,33 @@ Phase A: documentation planning only, no build/test/analyzer/format/mutation exe
 Keep configured thresholds unchanged. PASS requires actual script success; retain SKIPPED (scope-empty), configured-disabled SKIP, mutation N/A, accepted property opt-out and Could not run distinctly. Scope-empty is nonblocking, never PASS; exit 1 and Could not run block. Never use Stryker since in a worktree. Owner merges all PRs; completion stops at awaiting-merge.
 
 Grill closed after Patron Q1-Q4 ratification. Next owner: Quill, via Bernstein, for speckit-specify/plan/tasks. No code, gates, tests, analyzers or format work has occurred.
+
+## Phase A three-axis plan adjudication - 2026-10-10
+
+Reviewed draft identity: feature/319-spec at HEAD 4df0104479d3169c2ae1b8f81449730f71f8891f. All three connected reports are present: Ledger CLEAN (0), Compass CLEAN (0), Sentry R1 MEDIUM and R2 LOW. This is partial adjudication, not plan freeze or Gate 1 clearance. Existing uncommitted draft files and the intake spec pin are preserved. No implementation or gates are authorized here.
+
+### R1 MEDIUM - pending bounded recon; feasibility allegation unproven
+
+Location: tasks.md:46 T006; spec.md:55,60; this brief:54,75,80,90. Retain the real duplicate-import persistence and zero-count requirement. The file-map entry at :75 does not prohibit a real-persistence case in that file; feasibility within that map remains a factual question.
+
+Sentry note:9 infers no UnitTests Postgres support from recon:300,319,337-342. Those citations establish mocked existing import cases, IntegrationTests references and collection examples; they do not establish absence of UnitTests references to Tests.Common or reusable Postgres support. Compass note:6 claims Tests.Common PostgresFixture/ContainerFixture, a Testcontainers dependency and existing EfMovieCatalogSurvivorTests usage at :12,89, but these source facts are not in the supplied recon. Neither absence nor feasibility is verified by the supplied factual record. Findings conflict explicitly remains unresolved; CLEAN on another axis does not override it.
+
+Reject Sentry note:10 proposed substitution as insufficient: recon:304 describes an already-tracked duplicate-ID AddAsync guard, not the database unique LibraryPath constraint rejecting a second imported row at save. That proof plus a mocked generic SaveChangesAsync failure does not prove real duplicate-import uniqueness and absence of an extra measurement. No coverage weakening or new test-file allocation is approved.
+
+Next owner: Bernstein routes the following needs recon questions to Wisp, read-only at the pinned worktree/HEAD, then Keel adjudicates the returned facts:
+
+1. In tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj and tests/LamuFlix.Tests.Common/LamuFlix.Tests.Common.csproj, cite exact existing ProjectReference/PackageReference lines establishing or excluding UnitTests access to Tests.Common, Infrastructure persistence types and Testcontainers. Record missing paths as not found; do not add references.
+2. Locate only EfMovieCatalogSurvivorTests.cs under tests/LamuFlix.UnitTests and PostgresFixture/ContainerFixture definitions under tests/LamuFlix.Tests.Common. Cite exact declarations, fixture ownership/lifecycle, context/database creation and reset/migration APIs, and existing real persistence usage corresponding to Compass :12,89. Can these existing public APIs be reused without editing any of those files? Supply facts, not a scope ruling.
+3. In tests/LamuFlix.UnitTests/Features/Import/ImportMovieFolderCommandHandlerTests.cs, the above existing fixture APIs, src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs, and src/LamuFlix.Infrastructure/Persistence/Configurations/MovieConfiguration.cs, cite the concrete constructor/setup and unique LibraryPath save-failure path needed to exercise two handler imports against real Postgres with a MeterListener baseline around the rejected import. Identify whether existing references/lifecycle allow this inside only the approved import test file and MetricsCollection.cs, preserving nonparallel observation; list any additional file/reference actually required. Distinguish a tracked duplicate-ID guard from a database uniqueness violation.
+
+If Wisp confirms existing support, Quill clarifies T006 setup/isolation within the current map and Keel disposes R1. If an extra file/reference is required, stop at needs decision for Patron, with evidence; amend this brief only after that ruling. No silent map expansion or product-scope change.
+
+### R2 LOW - accepted bounded drafting fix; Quill action pending
+
+Location: plan.md:21 and tasks.md:73 T011. Basis: this brief K3 (:50), approved duration-test files (:77), nested-helper boundary (:80), controlled timestamps (:88); CONCLUSIONS.md P4/P5 and Q3 (:29-37,101-109). recon:294 describes FixedNow and resilience boundary values, not a controllable monotonic timestamp. It does not prove that the existing probe supplies the required elapsed-time control.
+
+Technical clarification of the settled K3/K6 strategy: duration cases use a test-only BCL TimeProvider subclass nested in MetadataProviderLookupTests.cs and/or MetadataProviderTelemetryTests.cs, with explicitly controlled GetTimestamp and a matching known TimestampFrequency. Keep GetUtcNow deterministic where mapping needs it. Supply this instance to the existing provider constructor in a focused test setup inside those named files; construct the provider/client there as needed rather than editing MetadataProviderProbe.cs. Advance timestamps explicitly at an awaited transport/test boundary for Found, Failed and requested cancellation; assert a known elapsed TotalSeconds value and exactly one duration measurement with only provider=omdb. No real-clock sleep, base Stopwatch timing assertion, fake-time package, shared helper file, probe edit or production seam is approved. Preserve the existing MetadataProvider nonparallel collection and span assertions.
+
+Next owner: Quill updates plan.md:21 and T011/T013 to spell out this nested clock, injection/setup path, matching frequency and controlled advancement for the three paths; report the exact documentation delta to Keel via Bernstein. Keel checks the bounded delta before closing R2. If implementing that setup actually requires a file/package/port outside the settled boundary, return needs recon for the precise obstacle and then needs decision to Patron; do not widen the map. This clarification changes neither frozen product behavior nor the approved file/package map.
+
+Overall: R1 pending recon; R2 accepted with bounded documentation remediation pending. No plan freeze, challenge clearance or Gate 1 clearance until both are closed on cited evidence. No new review round requested.
