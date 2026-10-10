@@ -1,13 +1,17 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Enrichment;
+using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -36,6 +40,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
 
     private static readonly byte[] VideoBytes = [0x1A, 0x45, 0xDF, 0xA3];
     private static readonly TimeSpan TeardownRetryBaseDelay = TimeSpan.FromMilliseconds(40);
+    private static readonly TimeSpan GateArrivalTimeout = TimeSpan.FromSeconds(30);
 
     private static readonly string OmdbBody = $$"""
         {
@@ -62,58 +67,108 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
     {
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
+        while (Activity.Current is not null)
+        {
+            Activity.Current.Stop();
+        }
+
+        var gate = new ApiImportEnrichmentGate();
+        using var capture = new ApiImportTraceCapture();
         var folderPath = CreateOwnedImportFolder();
-        var client = await StartHostAsync(InstallOmdbStub);
+        try
+        {
+            // arrange
+            var client = await StartHostAsync(InstallOmdbStub, gate.InstallInto);
+            var traceparent = $"00-{ActivityTraceId.CreateRandom().ToHexString()}-{ActivitySpanId.CreateRandom().ToHexString()}-01";
+            var tracestate = $"lamuflix-dev318={ActivitySpanId.CreateRandom().ToHexString()}";
+            using var request = new HttpRequestMessage(HttpMethod.Post, ImportRoute);
+            request.Content = JsonContent.Create(new { folderPath });
+            request.Headers.Add(TraceContextCarrier.TraceParentHeader, traceparent);
+            request.Headers.Add(TraceContextCarrier.TraceStateHeader, tracestate);
+            Activity.Current.ShouldBeNull("The import POST must carry only its unique traceparent with no ambient test Activity.");
 
-        // act
-        var response = await client.PostAsJsonAsync(ImportRoute, new { folderPath }, cancellationToken);
-        var importBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            // act
+            using var response = await client.SendAsync(request, cancellationToken);
+            var importBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        // assert
-        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
-        importBody.ShouldBe(string.Empty);
-        var location = response.Headers.Location.ShouldNotBeNull();
-        location.IsAbsoluteUri.ShouldBeFalse();
-        var id = ParseImportedId(location.OriginalString);
+            // assert
+            response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+            importBody.ShouldBe(string.Empty);
+            var location = response.Headers.Location.ShouldNotBeNull();
+            location.IsAbsoluteUri.ShouldBeFalse();
+            var id = ParseImportedId(location.OriginalString);
 
-        // assert
-        var persisted = await ReadPersistedMovieAsync(id, cancellationToken);
-        persisted.ShouldNotBeNull();
-        persisted.Title.ShouldBe(FolderTitle);
-        persisted.Path.ShouldBe(folderPath);
-        persisted.Format.ShouldBe(ExpectedFormat);
+            // act
+            ProcessEnrichmentCommand arrival;
+            try
+            {
+                arrival = await gate.Arrival.WaitAsync(GateArrivalTimeout, cancellationToken);
+            }
+            catch (TimeoutException exception)
+            {
+                throw new InvalidOperationException($"The enrichment gate never observed a consumer arrival within {(int)GateArrivalTimeout.TotalSeconds} seconds; the production EnrichmentConsumer did not reach the gate.", exception);
+            }
 
-        // act
-        await WaitForStatusAsync(new MovieId(id), EnrichmentStatus.Enriched);
-        var details = await client.GetAsync($"{DetailsRoutePrefix}{id}", cancellationToken);
-        var detailsBody = await details.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            // assert
+            arrival.MovieId.ShouldBe(new MovieId(id));
+            var persisted = await ReadPersistedMovieAsync(id, cancellationToken);
+            persisted.ShouldNotBeNull();
+            persisted.Title.ShouldBe(FolderTitle);
+            persisted.Path.ShouldBe(folderPath);
+            persisted.Format.ShouldBe(ExpectedFormat);
+            var pending = await ReadFreshStatusAsync(id, cancellationToken);
+            pending.ShouldBe(EnrichmentStatus.Pending);
+            gate.Release();
 
-        // assert
-        details.StatusCode.ShouldBe(HttpStatusCode.OK);
-        details.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
-        ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata");
-        detailsBody.GetProperty("id").GetInt32().ShouldBe(id);
-        detailsBody.GetProperty("title").GetString().ShouldBe(FolderTitle);
-        detailsBody.GetProperty("path").GetString().ShouldBe(folderPath);
-        detailsBody.GetProperty("format").GetString().ShouldBe(ExpectedFormat);
-        var metadata = detailsBody.GetProperty("metadata");
-        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId");
-        metadata.GetProperty("title").GetString().ShouldBe(FolderTitle);
-        metadata.GetProperty("synopsis").GetString().ShouldBe(ExpectedSynopsis);
-        metadata.GetProperty("releaseYear").GetInt32().ShouldBe(ExpectedYear);
-        metadata.GetProperty("runtime").GetInt32().ShouldBe(ExpectedRuntime);
-        metadata.GetProperty("imdbRating").GetDecimal().ShouldBe(ExpectedImdbRating);
-        metadata.GetProperty("imdbId").GetString().ShouldBe(ExpectedImdbId);
+            // act
+            await WaitForStatusAsync(new MovieId(id), EnrichmentStatus.Enriched);
+            var details = await client.GetAsync($"{DetailsRoutePrefix}{id}", cancellationToken);
+            var detailsBody = await details.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
-        // assert
-        var measured = Fixture.Server.LogEntries.ShouldHaveSingleItem().RequestMessage.ShouldNotBeNull();
-        measured.Method.ShouldBe("GET");
-        measured.AbsolutePath.ShouldBe("/");
-        var query = measured.Query.ShouldNotBeNull();
-        query.Keys.ShouldBe(["apikey", "t", "type"], ignoreOrder: true);
-        query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
-        query["t"].ShouldContain(FolderTitle);
-        query["type"].ShouldContain("movie");
+            // assert
+            details.StatusCode.ShouldBe(HttpStatusCode.OK);
+            details.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
+            ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata");
+            detailsBody.GetProperty("id").GetInt32().ShouldBe(id);
+            detailsBody.GetProperty("title").GetString().ShouldBe(FolderTitle);
+            detailsBody.GetProperty("path").GetString().ShouldBe(folderPath);
+            detailsBody.GetProperty("format").GetString().ShouldBe(ExpectedFormat);
+            var metadata = detailsBody.GetProperty("metadata");
+            ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId");
+            metadata.GetProperty("title").GetString().ShouldBe(FolderTitle);
+            metadata.GetProperty("synopsis").GetString().ShouldBe(ExpectedSynopsis);
+            metadata.GetProperty("releaseYear").GetInt32().ShouldBe(ExpectedYear);
+            metadata.GetProperty("runtime").GetInt32().ShouldBe(ExpectedRuntime);
+            metadata.GetProperty("imdbRating").GetDecimal().ShouldBe(ExpectedImdbRating);
+            metadata.GetProperty("imdbId").GetString().ShouldBe(ExpectedImdbId);
+
+            // assert
+            var measuredCandidates = Fixture.Server.LogEntries
+                .Where(entry => entry.RequestMessage?.Query?.Any(pair =>
+                    string.Equals(pair.Key, "apikey", StringComparison.Ordinal) &&
+                    pair.Value.Contains(MetadataProviderProbe.SentinelApiKey)) == true &&
+                    entry.RequestMessage?.Query?.Any(pair =>
+                    string.Equals(pair.Key, "t", StringComparison.Ordinal) &&
+                    pair.Value.Contains(FolderTitle)) == true &&
+                    entry.RequestMessage?.Query?.Any(pair =>
+                    string.Equals(pair.Key, "type", StringComparison.Ordinal) &&
+                    pair.Value.Contains("movie")) == true)
+                .ToArray();
+            var measuredEntry = measuredCandidates.ShouldHaveSingleItem("Expected exactly one measured OMDb GET filtered by the scenario sentinel apikey and selected t/type values; a duplicate matching request fails this positive-path count.");
+            var measured = measuredEntry.RequestMessage.ShouldNotBeNull();
+            measured.Method.ShouldBe("GET");
+            measured.AbsolutePath.ShouldBe("/");
+            var query = measured.Query.ShouldNotBeNull();
+            query.Keys.ShouldBe(["apikey", "t", "type"], ignoreOrder: true);
+            query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
+            query["t"].ShouldContain(FolderTitle);
+            query["type"].ShouldContain("movie");
+            _ = capture.Stopped;
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     [Fact]
@@ -280,6 +335,17 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         return record is null
             ? null
             : new PersistedImport(record.Title, record.Path, record.Format);
+    }
+
+    private async Task<EnrichmentStatus?> ReadFreshStatusAsync(int id, CancellationToken cancellationToken)
+    {
+        var movieId = new MovieId(id);
+        await using var context = Fixture.Postgres.CreateMigratedContext();
+        return await context.Movies
+            .AsNoTracking()
+            .Where(movie => movie.Id == movieId)
+            .Select(movie => (EnrichmentStatus?)movie.Status)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     private sealed record PersistedImport(string Title, string Path, string Format);
