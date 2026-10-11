@@ -9,7 +9,6 @@ using AutoFixture;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
-using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.UnitTests.Pipeline;
 using NSubstitute;
