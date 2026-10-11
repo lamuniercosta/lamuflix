@@ -4,10 +4,15 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Enrichment;
+using LamuFlix.Core.Features.Import;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
@@ -45,6 +50,13 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
     private const string MetricsPath = "/v1/metrics";
     private const string LogsPath = "/v1/logs";
     private const int FlushTimeoutMilliseconds = 5_000;
+    private const string MeterScopeName = "LamuFlix";
+    private const string DurationMetricName = "lamuflix.enrichment.duration";
+    private const string OutcomeMetricName = "lamuflix.enrichment.outcome";
+    private const string ImportMetricName = "lamuflix.import.count";
+    private const string ImportFolderName = "Blade Runner (1982)";
+    private const string ImportVideoFileName = "blade runner.mkv";
+    private static readonly byte[] ImportVideoBytes = [0x1A, 0x45, 0xDF, 0xA3];
     private static readonly HttpClient ProbeClient = new();
     private const string FoundBody = """
         {
@@ -101,7 +113,68 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
         {
             if (host is not null)
             {
-                await host.DisposeAsync();
+                await DisposeHostAsync(host);
+            }
+
+            env?.Dispose();
+            stub?.Dispose();
+            ClearAmbientActivity();
+        }
+    }
+
+    [Fact]
+    public async Task ProductionHost_FlushAfterRealImportAndEnrichment_ReceiveTheThreeRuledInstrumentIdentitiesTypesUnitsAndDimensions()
+    {
+        // arrange
+        WireMockServer? stub = null;
+        WebApplicationFactory<Program>? host = null;
+        EnvironmentOverride? env = null;
+        string? importRoot = null;
+        try
+        {
+            stub = StartStub();
+            env = new EnvironmentOverride(OtlpEndpoint(stub));
+            host = CreateCompositionHost(stub);
+            importRoot = CreateImportRoot();
+            var cancellationToken = TestContext.Current.CancellationToken;
+
+            // act
+            ProcessEnrichmentOutcome outcome;
+            using (var scope = host.Services.CreateScope())
+            {
+                var import = scope.ServiceProvider
+                    .GetRequiredService<ICommandHandler<ImportMovieFolderCommand, MovieId>>();
+                var movieId = await import.HandleAsync(
+                    new ImportMovieFolderCommand(new LibraryPath(Path.Combine(importRoot, ImportFolderName))),
+                    cancellationToken);
+                var enrichment = scope.ServiceProvider
+                    .GetRequiredService<ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>>();
+                outcome = await enrichment.HandleAsync(new ProcessEnrichmentCommand(movieId, 1), cancellationToken);
+            }
+
+            var meterProvider = host.Services.GetRequiredService<MeterProvider>();
+            var flushed = meterProvider.ForceFlush(FlushTimeoutMilliseconds);
+
+            // assert
+            flushed.ShouldBeTrue();
+            outcome.ShouldBe(new ProcessEnrichmentOutcome.Completed(Claimed: true));
+            var payloads = MetricsPayloads(stub);
+            payloads.ShouldNotBeEmpty("the composed host exported no OTLP metrics payload");
+            var metrics = payloads.SelectMany(payload => OtlpProtobuf.Read(payload)).ToList();
+            AssertInstrument(metrics, DurationMetricName, MetricKind.Histogram, "s", "provider", "omdb");
+            AssertInstrument(metrics, OutcomeMetricName, MetricKind.Sum, string.Empty, "outcome", "enriched");
+            AssertInstrument(metrics, ImportMetricName, MetricKind.Sum, string.Empty, null, null);
+        }
+        finally
+        {
+            if (host is not null)
+            {
+                await DisposeHostAsync(host);
+            }
+
+            if (importRoot is not null && Directory.Exists(importRoot))
+            {
+                Directory.Delete(importRoot, recursive: true);
             }
 
             env?.Dispose();
@@ -115,7 +188,8 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
         AssertSourceAsync(
             AspNetCoreSourceName,
             static (_, _) => Task.CompletedTask,
-            static (host, _, cancellationToken) => RequestInProcessAsync(host, cancellationToken));
+            static (host, _, cancellationToken) => RequestInProcessAsync(host, cancellationToken),
+            nameof(Observer_InProcessRequest_RecordsMicrosoftAspNetCore));
 
     [Fact]
     public Task Observer_OutboundRequest_RecordsSystemNetHttp() =>
@@ -177,7 +251,8 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
     private async Task AssertSourceAsync(
         string sourceName,
         Func<WireMockServer, CancellationToken, Task> negative,
-        Func<WebApplicationFactory<Program>, WireMockServer, CancellationToken, Task> positive)
+        Func<WebApplicationFactory<Program>, WireMockServer, CancellationToken, Task> positive,
+        string? observerCompletionIdentity = null)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         WireMockServer? stub = null;
@@ -198,6 +273,15 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             _ = host.Services.GetRequiredService<TracerProvider>();
 
             await positive(host, stub, cancellationToken);
+            if (observerCompletionIdentity is not null)
+            {
+                await observer.AwaitStoppedAsync(
+                    sourceName,
+                    observerCompletionIdentity,
+                    FlushTimeoutMilliseconds,
+                    cancellationToken);
+            }
+
             observer.Recorded.ShouldNotBeEmpty(observer.Describe());
         }
         finally
@@ -205,13 +289,24 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             observer?.Dispose();
             if (host is not null)
             {
-                await host.DisposeAsync();
+                await DisposeHostAsync(host);
             }
 
             env?.Dispose();
             stub?.Dispose();
             ClearAmbientActivity();
         }
+    }
+
+    private static async Task DisposeHostAsync(WebApplicationFactory<Program> host)
+    {
+        // WebApplicationFactory.DisposeAsync returns before the minimal-hosting RunAsync continuation
+        // disposes the inner host's container, so the providers' ActivityListener/MeterListener would
+        // outlive this call by the OTLP export timeout. Dispose them here, on the awaited path; the
+        // container's later Dispose is a no-op.
+        host.Services.GetService<TracerProvider>()?.Dispose();
+        host.Services.GetService<MeterProvider>()?.Dispose();
+        await host.DisposeAsync();
     }
 
     private static void ClearAmbientActivity()
@@ -237,6 +332,27 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             builder.UseSetting(EndpointVariable, otlpEndpoint);
             builder.UseSetting(ProtocolVariable, HttpProtobuf);
         });
+
+    private WebApplicationFactory<Program> CreateCompositionHost(WireMockServer stub) =>
+        new ApiHostFactory(
+            retainSweeper: false,
+            additionalSettings:
+            [
+                new("ConnectionStrings:DefaultConnection", postgres.ConnectionString),
+                new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", stub.Urls[0]),
+                new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}", "telemetry-key"),
+                new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}", rabbitMq.Options.HostName),
+                new(
+                    $"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.Port)}",
+                    rabbitMq.Options.Port.ToString(CultureInfo.InvariantCulture)),
+                new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.UserName)}", rabbitMq.Options.UserName),
+                new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.Password)}", rabbitMq.Options.Password),
+                new(
+                    $"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.RetryDelay)}",
+                    rabbitMq.Options.RetryDelay.ToString("c", CultureInfo.InvariantCulture)),
+                new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:01"),
+            ],
+            disableEnrichmentConsumer: true);
 
     private static void EmitSignals(WebApplicationFactory<Program> host)
     {
@@ -340,6 +456,74 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
                 || request.AbsoluteUrl.Contains(path, StringComparison.Ordinal);
         });
 
+    private static string CreateImportRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"lamuflix-dev319-composition-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(root, ImportFolderName));
+        File.WriteAllBytes(Path.Combine(root, ImportFolderName, ImportVideoFileName), ImportVideoBytes);
+        return root;
+    }
+
+    private static List<byte[]> MetricsPayloads(WireMockServer stub)
+    {
+        var payloads = new List<byte[]>();
+        foreach (var entry in stub.LogEntries)
+        {
+            var request = entry.RequestMessage;
+            if (request is not null
+                && request.BodyAsBytes is { Length: > 0 } body
+                && (request.Path.Contains(MetricsPath, StringComparison.Ordinal)
+                    || request.AbsoluteUrl.Contains(MetricsPath, StringComparison.Ordinal)))
+            {
+                payloads.Add(body);
+            }
+        }
+
+        return payloads;
+    }
+
+    private static List<ExportedMetric> InstrumentsNamed(IEnumerable<ExportedMetric> metrics, string name) =>
+        [.. metrics.Where(metric => metric.Name == name)];
+
+    private static void AssertInstrument(
+        IReadOnlyList<ExportedMetric> metrics,
+        string name,
+        MetricKind kind,
+        string unit,
+        string? tagKey,
+        string? tagValue)
+    {
+        var exported = InstrumentsNamed(metrics, name);
+        exported.ShouldNotBeEmpty($"no metric named {name} reached the composed export");
+        foreach (var metric in exported)
+        {
+            metric.Scope.ShouldBe(MeterScopeName, $"metric {name} was exported from an unexpected meter scope");
+            metric.Kind.ShouldBe(kind, $"metric {name} was exported with an unexpected instrument type");
+            metric.Unit.ShouldBe(unit, $"metric {name} was exported with an unexpected unit");
+            if (kind == MetricKind.Sum)
+            {
+                metric.IsMonotonic.ShouldBeTrue($"metric {name} was exported as a non-monotonic sum");
+            }
+        }
+
+        var points = exported.SelectMany(metric => metric.Points).ToList();
+        points.ShouldNotBeEmpty($"metric {name} was exported without any data point");
+        foreach (var point in points)
+        {
+            if (tagKey is null)
+            {
+                point.Tags.ShouldBeEmpty($"metric {name} was exported with tags but carries none");
+            }
+            else
+            {
+                point.Tags.Count.ShouldBe(1, $"metric {name} was not exported with exactly one tag");
+                point.Tags.TryGetValue(tagKey, out var actual)
+                    .ShouldBeTrue($"metric {name} was exported without the {tagKey} tag");
+                actual.ShouldBe(tagValue, $"metric {name} was exported with an unexpected {tagKey} value");
+            }
+        }
+    }
+
     private sealed class EnvironmentOverride : IDisposable
     {
         private readonly string? previousEndpoint;
@@ -364,6 +548,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
     {
         private readonly ConcurrentBag<Activity> recorded = [];
         private readonly ConcurrentBag<string> stopped = [];
+        private readonly TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly ActivityListener listener;
 
         public PassiveObserver(string sourceName)
@@ -383,6 +568,8 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
                     {
                         recorded.Add(activity);
                     }
+
+                    completion.TrySetResult();
                 },
             };
             ActivitySource.AddActivityListener(listener);
@@ -394,6 +581,283 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             ? "no stopped activities"
             : string.Join("; ", stopped);
 
+        public async Task AwaitStoppedAsync(
+            string sourceName,
+            string testIdentity,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            budget.CancelAfter(timeoutMilliseconds);
+            var signaled = false;
+            try
+            {
+                await completion.Task.WaitAsync(budget.Token);
+                signaled = true;
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Intentionally empty: only the finite wait budget elapsed; the assertion below fails with source, test identity and Describe output.
+            }
+
+            signaled.ShouldBeTrue(
+                $"timed out after {timeoutMilliseconds} ms waiting for a stopped activity from source {sourceName} in {testIdentity}; {Describe()}");
+        }
+
         public void Dispose() => listener.Dispose();
+    }
+
+    private enum MetricKind
+    {
+        Other,
+        Sum,
+        Histogram,
+    }
+
+    private sealed record ExportedPoint(IReadOnlyDictionary<string, string> Tags);
+
+    private sealed record ExportedMetric(
+        string Scope,
+        string Name,
+        string Unit,
+        MetricKind Kind,
+        bool IsMonotonic,
+        IReadOnlyList<ExportedPoint> Points);
+
+    private readonly record struct ProtoField(int Number, ReadOnlyMemory<byte> Payload);
+
+    private static class OtlpProtobuf
+    {
+        private const int NumberDataPointAttributesField = 7;
+        private const int HistogramDataPointAttributesField = 9;
+
+        public static List<ExportedMetric> Read(ReadOnlyMemory<byte> payload)
+        {
+            var metrics = new List<ExportedMetric>();
+            foreach (var field in ReadFields(payload))
+            {
+                if (field.Number == 1)
+                {
+                    ReadResourceMetrics(field.Payload, metrics);
+                }
+            }
+
+            return metrics;
+        }
+
+        private static void ReadResourceMetrics(ReadOnlyMemory<byte> payload, List<ExportedMetric> metrics)
+        {
+            foreach (var field in ReadFields(payload))
+            {
+                if (field.Number == 2)
+                {
+                    ReadScopeMetrics(field.Payload, metrics);
+                }
+            }
+        }
+
+        private static void ReadScopeMetrics(ReadOnlyMemory<byte> payload, List<ExportedMetric> metrics)
+        {
+            var fields = ReadFields(payload);
+            var scope = ReadScopeName(fields
+                .Where(field => field.Number == 1)
+                .Select(field => field.Payload)
+                .FirstOrDefault());
+            foreach (var field in fields)
+            {
+                if (field.Number == 2)
+                {
+                    metrics.Add(ReadMetric(scope, field.Payload));
+                }
+            }
+        }
+
+        private static string ReadScopeName(ReadOnlyMemory<byte> scopePayload) =>
+            ReadString(ReadFields(scopePayload)
+                .Where(field => field.Number == 1)
+                .Select(field => field.Payload)
+                .FirstOrDefault());
+
+        private static ExportedMetric ReadMetric(string scope, ReadOnlyMemory<byte> payload)
+        {
+            var name = string.Empty;
+            var unit = string.Empty;
+            var kind = MetricKind.Other;
+            var isMonotonic = false;
+            var points = new List<ExportedPoint>();
+            foreach (var field in ReadFields(payload))
+            {
+                switch (field.Number)
+                {
+                    case 1:
+                        name = ReadString(field.Payload);
+                        break;
+                    case 3:
+                        unit = ReadString(field.Payload);
+                        break;
+                    case 7:
+                        kind = MetricKind.Sum;
+                        isMonotonic = ReadSum(field.Payload, points);
+                        break;
+                    case 9:
+                        kind = MetricKind.Histogram;
+                        ReadHistogram(field.Payload, points);
+                        break;
+                }
+            }
+
+            return new ExportedMetric(scope, name, unit, kind, isMonotonic, points);
+        }
+
+        private static bool ReadSum(ReadOnlyMemory<byte> payload, List<ExportedPoint> points)
+        {
+            var isMonotonic = false;
+            foreach (var field in ReadFields(payload))
+            {
+                if (field.Number == 1)
+                {
+                    points.Add(ReadDataPoint(field.Payload, NumberDataPointAttributesField));
+                }
+                else if (field.Number == 3)
+                {
+                    isMonotonic = ReadBool(field.Payload);
+                }
+            }
+
+            return isMonotonic;
+        }
+
+        private static void ReadHistogram(ReadOnlyMemory<byte> payload, List<ExportedPoint> points)
+        {
+            foreach (var field in ReadFields(payload))
+            {
+                if (field.Number == 1)
+                {
+                    points.Add(ReadDataPoint(field.Payload, HistogramDataPointAttributesField));
+                }
+            }
+        }
+
+        private static ExportedPoint ReadDataPoint(ReadOnlyMemory<byte> payload, int attributesField)
+        {
+            var tags = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var field in ReadFields(payload))
+            {
+                if (field.Number == attributesField)
+                {
+                    ReadKeyValue(field.Payload, tags);
+                }
+            }
+
+            return new ExportedPoint(tags);
+        }
+
+        private static void ReadKeyValue(ReadOnlyMemory<byte> payload, Dictionary<string, string> tags)
+        {
+            var key = string.Empty;
+            string? value = null;
+            foreach (var field in ReadFields(payload))
+            {
+                if (field.Number == 1)
+                {
+                    key = ReadString(field.Payload);
+                }
+                else if (field.Number == 2)
+                {
+                    value = ReadStringOrNull(field.Payload);
+                }
+            }
+
+            if (value is not null)
+            {
+                tags[key] = value;
+            }
+        }
+
+        private static string? ReadStringOrNull(ReadOnlyMemory<byte> payload)
+        {
+            foreach (var field in ReadFields(payload))
+            {
+                if (field.Number == 1)
+                {
+                    return ReadString(field.Payload);
+                }
+            }
+
+            return null;
+        }
+
+        private static bool ReadBool(ReadOnlyMemory<byte> payload)
+        {
+            var offset = 0;
+            return ReadVarint(payload, ref offset) != 0;
+        }
+
+        private static string ReadString(ReadOnlyMemory<byte> payload) =>
+            Encoding.UTF8.GetString(payload.Span);
+
+        private static List<ProtoField> ReadFields(ReadOnlyMemory<byte> payload)
+        {
+            var fields = new List<ProtoField>();
+            var offset = 0;
+            while (offset < payload.Length)
+            {
+                var tag = ReadVarint(payload, ref offset);
+                var number = (int)(tag >> 3);
+                switch ((int)(tag & 0x07))
+                {
+                    case 0:
+                        {
+                            var start = offset;
+                            _ = ReadVarint(payload, ref offset);
+                            fields.Add(new ProtoField(number, payload.Slice(start, offset - start)));
+                            break;
+                        }
+
+                    case 1:
+                        fields.Add(new ProtoField(number, payload.Slice(offset, 8)));
+                        offset += 8;
+                        break;
+
+                    case 2:
+                        {
+                            var length = checked((int)ReadVarint(payload, ref offset));
+                            fields.Add(new ProtoField(number, payload.Slice(offset, length)));
+                            offset += length;
+                            break;
+                        }
+
+                    case 5:
+                        fields.Add(new ProtoField(number, payload.Slice(offset, 4)));
+                        offset += 4;
+                        break;
+
+                    default:
+                        throw new InvalidOperationException("Unsupported protobuf wire type.");
+                }
+            }
+
+            return fields;
+        }
+
+        private static ulong ReadVarint(ReadOnlyMemory<byte> payload, ref int offset)
+        {
+            ulong value = 0;
+            var shift = 0;
+            while (offset < payload.Length)
+            {
+                var current = payload.Span[offset];
+                offset++;
+                value |= (ulong)(current & 0x7F) << shift;
+                if ((current & 0x80) == 0)
+                {
+                    return value;
+                }
+
+                shift += 7;
+            }
+
+            throw new InvalidOperationException("Truncated protobuf varint.");
+        }
     }
 }
