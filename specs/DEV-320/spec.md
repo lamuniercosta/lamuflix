@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-11
 
-**Status**: Draft
+**Status**: Draft — gate1: provisional
 
 **Input**: Closed grill brief `specs/DEV-320/brief.md` (Q1-Q12 ACCEPT/amended), shared note `recon-DEV-320`, task note `DEV-320`, `specs/PRODUCT.md`. No new decisions taken here; gaps are recorded in `DRAFTING_RECEIPT.md`.
 

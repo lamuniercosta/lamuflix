@@ -267,3 +267,10 @@ Freeze disposition: BLOCKED; not permitted now. Three accepted Medium findings r
 - DEV-320:58 scoped its limits to the correction round it authorized (brief record, Quill list, commit). That round closed with Keel CLEAR (DEV-320:61) and commit e8c1d99 (DEV-320:62).
 - The Keel freeze disposition above (BLOCKED section) set the route: read back corrected artifacts, then a separate freeze decision. DEV-320:63 is that step.
 - Bounds: read-only adjudication at e8c1d99 against Sentry F1/F2, Compass F1, Decisions A/B; Keel appends the result here. No Gate 1 line, implementation, gates, production edits or PR. The `gate1: provisional` line stays Patron's, after a clean freeze and `/speckit-analyze`. `.specify/feature.json` stays uncommitted.
+
+## Patron Gate 1 ruling (2026-10-11)
+
+**Patron ruling: `gate1: provisional` SET on spec.md. Phase A may advance; no blocker, no owner checkbox.**
+- Freeze CLEAR at e8c1d99 with all accepted Mediums closed (DEV-320:64); `/speckit-analyze` CLEAR of Critical/High/Medium, 20/20 tasks mapped (DEV-320:65). Plan challenge fully adjudicated: Decisions A/B above, Sentry F1/F2 and Compass F1 closed (DEV-320:61).
+- The four analyze Lows are already-noted Lows (Sentry F3, Compass F2, Compass F3 above; brief.md:10 historical wording): noted, no ticket, nonblocking, per the Q11 closing bar.
+- Provisional only: not implementation authorization and not a verification PASS. Gate 1 closes when the owner merges the spec PR; implementation starts only after that. No ticket contradiction, no constitution departure.
