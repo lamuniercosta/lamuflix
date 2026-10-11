@@ -206,3 +206,33 @@ Palette later.
   shown, not rewritten, consistent with Q2 (server owns range rules; the URL is source of truth).
 - Accessibility and announcements: approved; consistent with Q6. No numeric performance target: the AC
   says "smoothly" and names no metric.
+
+## Q8 (Keel, Phase A grill 8/12) — bounded implementation and test envelope
+
+**Question.** Approve the envelope. Production: `src/LamuFlix.Core/Ports/MovieSummary.cs`,
+`src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs`, `src/LamuFlix.Api/Endpoints/LibraryResponses.cs`;
+OpenAPI schema-generation config only if Q1's string status enum needs it; no manual edits to generated files.
+Web: existing `App.tsx`, `main.tsx`, `index.css`, `App.test.tsx`, `package.json` + lockfile; generated
+`api/openapi.json` and `api/types.ts` via the existing pipeline; new feature-local `web/src/library/`
+(LibraryView, MovieGrid, MovieCard, LibraryFilters, Pagination, LibraryErrorBoundary, useBrowseMovies,
+libraryUrl, useLibraryUrl + adjacent tests); no generic services/state layer. Reuse existing MSW server/setup,
+feature handlers/fixtures inside tests, synthetic harness behaviour intact. Backend tests extend existing API
+serialization and real-DB catalog test files (four statuses, populated/null metadata and poster, no
+migration/join, DTO wire and generated schema chain). RTL/Vitest covers the full Q1-Q7 behaviour list. Existing
+assertion/mocking conventions, no new test package. Exact backend test-file identity and schema-generator
+customization surface are absent from recon. Decide whether exact-file recon is needed now.
+
+**Ruling: APPROVED, with one amendment; exact-file recon needed now (backend only).**
+
+- Envelope approved. `web/src/library/` is a feature folder under the existing `web/src`, not a new
+  top-level folder or layer (§2.3 item 2 not triggered). No new test or runtime package (§2.3 item 1, Q5).
+- **Amendment:** existing call sites that construct `MovieSummary` or `MovieSummaryResponse` (other catalog
+  implementations, fakes, tests) are in scope as compile-forced edits of the record change; no other
+  unnamed file is.
+- Schema config: allowed only if generated OpenAPI does not already describe `enrichmentStatus` as a string
+  with the four names; change limited to that schema, no global serializer change (Q1).
+- **Recon now (Wisp, Phase A, before `/speckit-tasks`):** (a) every `MovieSummary`/`MovieSummaryResponse`
+  construction site; (b) the exact existing API serialization/OpenAPI test file(s) and real-DB catalog test
+  file(s) to extend; (c) how the current OpenAPI generator would emit an `EnrichmentStatus` property and
+  whether a transformer already exists. These are backend facts on `main` and do not depend on #124.
+  Generated web types/client recon stays with the Q5 Phase B prerequisite.
