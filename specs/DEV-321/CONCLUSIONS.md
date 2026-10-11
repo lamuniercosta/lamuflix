@@ -294,3 +294,22 @@ ticket. Keel writes a decision-complete brief; Quill drafts only after it. Confi
 - Out-of-scope items: poster persistence → DEV-408 (Q4); genre/actor picker → `noted, no ticket` (Q7).
 - Open prerequisites carried into the brief, not new questions: Phase B waits on the user merge of #124 and
   Wisp recon of the generated client, including abort-signal support (Q5, Q6).
+
+## Correction (Conductor relay of Keel, post-grill) — invalid-filter status 400 → 422
+
+**Ruling: APPROVED as a factual correction; no ticket change, no constitution departure, no API change.**
+Every `400` in Q2, Q3 and Q6 above (and in brief lines 52 and 86 derived from them) reads `422`.
+
+- Basis: constitution §V (`ValidationException` → 422); recon-DEV-321 §16a–16f: `GET /api/movies`
+  declares `.ProducesProblem(422)` only, and malformed, out-of-range and cross-field-invalid filters all
+  return 422 ProblemDetails with field-keyed `errors`. The 400 was a Patron misstatement, not ticket
+  text (DEV-321:29 names an error boundary, no status code), so correcting it re-opens nothing.
+- Unchanged: server-owned validation (`MovieQueryValidator` single authority, no SPA duplication),
+  the endpoint's status codes and contract, Retry semantics (same canonical URL, no history entry),
+  retries off, and history behaviour.
+- Boundary mapping: a 422 is the invalid-filter state and is never retried; every other failure,
+  including a 400 from `BadHttpRequestException` (recon §16b/16f, unexercised by browse), is the
+  recoverable fetch-error state. The SPA must not depend on the field-key vocabulary (raw codec key vs
+  `Query.*`, recon §16f) to choose the state.
+- Follow-up (Keel): correct brief lines 52 and 86, and spec/plan/tasks and the planned tests that
+  assert 400, to 422; then resume `/speckit-analyze`.
