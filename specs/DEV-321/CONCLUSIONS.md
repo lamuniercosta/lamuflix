@@ -98,3 +98,28 @@ is no usable Core browse default (recon:82-96, 117). Defaults are SPA product de
 - Case: enum names (sort, direction, statuses) exact-case per codec (recon:114); the only exceptions are
   the Q2 read-only aliases `Asc`/`Desc`. Booleans are read case-insensitively (as `bool.TryParse`, recon:111)
   and emitted lowercase `true`/`false` (recon:101).
+
+## Q4 (Keel, Phase A grill 4/12) — poster runtime-population boundary
+
+**Question.** recon-DEV-321:70-75 verifies nullable `poster_url` storage/mapping, but no populated
+shipped-stack write path is established. Keel recommends: DEV-321 displays every supplied `posterUrl`;
+null or broken image gets an accessible, reserved-aspect-ratio placeholder; populated and null/broken paths
+are proven with a seeded real-DB browse test and RTL fixtures; no claim that live enrichment produces posters;
+no enrichment/worker repair in this ticket. Decide follow-up (Rigger) vs noted-no-ticket.
+
+**Q3 condition closed.** recon:119-124 shows `Page.Number >= 1` (1-based) and `1 <= Page.Size <= 100`, so
+page 1 / pageSize 24 are valid as ruled.
+
+**Ruling: APPROVED; out-of-scope follow-up ticket required.**
+
+- Scope: DEV-321 delivers the grid showing the poster it receives (DEV-321:27) through the Q1 nullable
+  `posterUrl` passthrough. Making enrichment persist posters is not in the ticket's Scope & Technical Design,
+  so it is not added; nothing the ticket delivers is dropped or changed, so no `blocked: structural`.
+- Proof: seeded real-DB browse test with one populated and one null `poster_url`, plus RTL fixtures for
+  populated, null and image-load-error tiles. The spec must not claim live enrichment produces posters.
+- Placeholder: same reserved aspect ratio as a poster (no layout shift, AC DEV-321:34 "renders smoothly"),
+  with the movie title as accessible text; taste details logged `[assumed]`.
+- Follow-up: **ticket, not noted.** recon:75 shows no shipped Infrastructure code writes `PosterUrl` and the
+  only assignment sits in an orphaned project outside LamuFlix.sln, so posters cannot appear in the shipped
+  stack: broken behaviour under the charter follow-up rule. Handed to Rigger: check open tickets and fold in
+  if one exists; otherwise create under parent DEV-286, Type Bug, estimate 1d, `size:M`.
