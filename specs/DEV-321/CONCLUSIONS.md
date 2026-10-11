@@ -149,3 +149,31 @@ browse query parameters. No copying unmerged branch code; DEV-320 generator/clie
   user's merge of #124 plus Wisp recon of the merged client; Conductor records it as a code prerequisite,
   not a scope change. If #124 merges with a client shape that conflicts with this ruling, re-ask Patron.
 - Taste (`index.css` owns styling; single provider in `main.tsx`) logged `[assumed]`.
+
+## Q6 (Keel, Phase A grill 6/12) — fetching, errors and history ownership
+
+**Question.** Keel recommends: one browse query keyed by the complete normalized filter/page state, via the
+existing generated client, cancellation propagated, no per-tile fetch or prefetch. Initial load and page change
+show reserved-size skeletons; background refetch keeps current-query content with a loading announcement and
+never shows previous-page data as current. A hand-written Library error boundary catches render and query
+failures with a retry action; it resets on normalized query change; retry resets the boundary and refetches the
+same URL; automatic retries disabled for this ticket (400 never retried; other failures show a recoverable
+error, no retry loop). The URL adapter owns the initial bookmark read and a `popstate` listener with cleanup;
+`pushState` updates adapter state immediately; `popstate` restores all filters/page and the fetch key without
+pushing. App composes `QueryClientProvider` and the boundary; the Library view owns controls, grid and
+pagination. Approve/amend stale-result and reset semantics.
+
+**Ruling: APPROVED as recommended.**
+
+- Stale results: any change of the normalized key (filters or page) shows skeletons, never the previous key's
+  data (no `keepPreviousData`/placeholder data). Same-key background refetch keeps current content, with a
+  polite live-region announcement. Basis: DEV-321:29 (loading skeletons) and AC DEV-321:34 (smooth, no layout
+  shift: skeletons reserve tile size).
+- Errors/reset: approved. Boundary resets when the normalized key changes and on Retry, which refetches the
+  same canonical URL without a history entry. Retries off is a ticket-local taste (logged `[assumed]`); a 400
+  is shown as an invalid-filter error, consistent with Q2's server-owned range validation.
+- History: approved; the adapter is the only owner of `pushState`/`replaceState`/`popstate`, with listener
+  cleanup tested. Basis DEV-321:28 and recon:38 (no existing router or owner).
+- Cancellation: the query passes its abort signal to the generated client. Whether the DEV-320 client accepts
+  a signal is part of the Q5 Phase B recon; if it does not, re-ask Patron rather than hand-rolling a client.
+- No new dependency (§2.3 item 1).
