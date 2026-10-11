@@ -65,3 +65,36 @@ state with a fixed UI value, no size selector. Rule on alias policy, pageSize/de
   `MovieQueryValidator` stays the single authority, and its 400 surfaces through the ticket's error
   boundary (DEV-321:29). Basis: one validation owner, contract chain.
 - Taste items (page reset to 1, push vs replace semantics) logged `[assumed]` in ASSUMPTIONS.md.
+
+## Q3 (Keel, Phase A grill 3/12) — SPA initialization defaults; Q2 default clarification
+
+**Question.** recon-DEV-321:79-117 shows Core construction defaults are null sort/direction and Page 0/0,
+which the codec cannot format (RequiredName throws, recon:103) or parse (sort/direction/page/pageSize
+required, recon:108). Set usable SPA initialization defaults and reconcile Q2? Keel recommends Title,
+Ascending, page 1, pageSize 24; null text/watchlist/ranges and empty lists, as deliberate SPA product
+defaults, not server-default claims; Q2 always-emitted keys and server range authority preserved. Incomplete
+bound groups: absent bounds materialize as empty (unbounded), absent runtimeIncludeUnknown as false when a
+runtime group exists; malformed/repeated scalar drops that scalar/group to its SPA default; list values repeat
+in the canonical URL; enum names exact-case; booleans canonical true/false.
+
+**Factual clarification of Q2.** Q2's "defaults are the Core MovieQuery/Page defaults" is superseded: there
+is no usable Core browse default (recon:82-96, 117). Defaults are SPA product defaults set here.
+
+**Ruling: APPROVED, with one condition.**
+
+- Defaults: `sort=Title`, `direction=Ascending`, `page=1`, `pageSize=24`; `text`, `inWatchlist`, runtime
+  group and year group absent; `genreIds`/`actorIds`/`statuses` empty. These are the SPA's product defaults
+  (taste, logged `[assumed]`). Basis: AC DEV-321:33 and the codec requirement that the four keys are always
+  present (recon:103,108); a ruling under charter §2.3 that changes nothing the ticket delivers.
+- **Condition (needs recon, non-blocking for the grill, blocking for gate1):** the spec must cite the
+  `MovieQueryValidator` page-number base and pageSize bounds (not in recon). If page is 0-based or 24 is out of
+  range, the spec uses the first valid page and the largest permitted size not above 24, without re-asking.
+- Incomplete groups: approved. The SPA reads leniently (absent bound = unbounded; absent
+  `runtimeIncludeUnknown` = false when any runtime key is present) and always emits complete groups, so its
+  canonical URL satisfies codec completeness (recon:113).
+- Malformed/repeated: approved; a malformed or repeated scalar falls back to its SPA default, and for a
+  range key the whole group falls back (absent). Lists accumulate and are emitted as repeated keys, matching
+  codec Format/Parse (recon:100,110). Consistent with Q2's malformed-key rule.
+- Case: enum names (sort, direction, statuses) exact-case per codec (recon:114); the only exceptions are
+  the Q2 read-only aliases `Asc`/`Desc`. Booleans are read case-insensitively (as `bool.TryParse`, recon:111)
+  and emitted lowercase `true`/`false` (recon:101).
