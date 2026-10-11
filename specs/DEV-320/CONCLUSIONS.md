@@ -260,3 +260,10 @@ Freeze disposition: BLOCKED; not permitted now. Three accepted Medium findings r
 **Decision B (Compass F1, Node strict unhandled-/api proof): RATIFIED as an owner assignment within the existing decision and file set. No product or scope ruling needed.** T012 owns the Node rejection test in `web/src/mocks/handlers.test.ts` and runs after T011 sets up the single lifecycle.
 - The requirement is already decided in spec.md:43 (US2 scenario 3), spec.md FR-009 and brief:60,75 ("server test proves unhandled API failure"). handlers.test.ts is an approved T012 file. Naming the task that owns the proof is not a new decision.
 - Conditions: no new test file, no edit to msw.test.ts, no duplicated lifecycle hooks, no test logic in server.ts. The test uses the exported server under the configured setup.ts lifecycle and proves an unhandled `/api` request fails without reaching the network. tasks.md:55 Independent Test, SC-005 and the Phase 2/3 proof references cite T012.
+
+## Patron ruling: freeze scope after correction commit (2026-10-11)
+
+**The no-freeze limit at DEV-320:58 has ended; Keel may now run the separate plan-freeze adjudication on e8c1d99.**
+- DEV-320:58 scoped its limits to the correction round it authorized (brief record, Quill list, commit). That round closed with Keel CLEAR (DEV-320:61) and commit e8c1d99 (DEV-320:62).
+- The Keel freeze disposition above (BLOCKED section) set the route: read back corrected artifacts, then a separate freeze decision. DEV-320:63 is that step.
+- Bounds: read-only adjudication at e8c1d99 against Sentry F1/F2, Compass F1, Decisions A/B; Keel appends the result here. No Gate 1 line, implementation, gates, production edits or PR. The `gate1: provisional` line stays Patron's, after a clean freeze and `/speckit-analyze`. `.specify/feature.json` stays uncommitted.
