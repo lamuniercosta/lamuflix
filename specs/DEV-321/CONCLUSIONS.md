@@ -236,3 +236,37 @@ customization surface are absent from recon. Decide whether exact-file recon is 
   file(s) to extend; (c) how the current OpenAPI generator would emit an `EnrichmentStatus` property and
   whether a transformer already exists. These are backend facts on `main` and do not depend on #124.
   Generated web types/client recon stays with the Q5 Phase B prerequisite.
+
+## Q9 (Keel, Phase A grill 9/12) — gates, task order and file binding
+
+**Question.** Approve gates, task order and evidence-driven file binding: extend `LibraryEndpointsTests`,
+`ApiEndToEndBrowseTests`, `EfMovieCatalogBrowseTests`, `EfMovieCatalogPagingTests`, `OpenApiContractTests` and
+compile-forced `BrowseMoviesQueryHandlerTests` (recon:132-145). The paging SQL assertion changes from
+id/title-only to the exact grid columns, keeping no JOIN and an empty ChangeTracker; add four-status,
+populated/null projection and wire proof. `Program.cs` `AddOpenApi` schema transformer only if regeneration
+lacks the four string names, scoped to EnrichmentStatus; regenerate web OpenAPI and the derived verified
+snapshot via the existing opt-in path; generated TS after DEV-320; no global serializer change. Phase A order:
+brief → Quill artifacts → Keel analyze → Palette design before plan challenge → L ADR later → three axes →
+merged spec PR (Gate 1). Phase B: user merge #124 + Wisp types/client/signal recon → drift analyze → baseline
+Gauge → C# projection/DTO/forced constructors with real-DB and wire tests → conditional schema/regeneration →
+generated TS → URL adapter tests → query/boundary composition → grid/controls/pagination integration → Cog
+refactor → Gauge gates → three-axis review → ship gates/PR/user merge. Gates per task-pipeline Phase 3 step 5
+(Roslyn, complexity, InspectCode scoped to diff; mutation since production C# changed; property tests;
+vulnerable packages; format; dotnet test; web gates; contract drift). URL round-trip invariants: existing
+property framework on canonical C# fixture queries; Vitest table/generated cases without a new package.
+Thresholds only from harness.yml; missing/failed applicable gate blocks; scope-empty exit 2 is SKIPPED, never
+PASS; mutation exclusions only script N/A; property opt-out only recorded if no domain invariant.
+
+**Ruling: APPROVED, with one amendment.**
+
+- File binding: approved exactly as recon:132-145 lists it. `ApiEndToEndLibraryTests` is a template, not an
+  edit target. `Program.cs` is the one conditional production addition, already allowed by Q8's schema-config
+  condition and limited to the EnrichmentStatus schema (recon:150-154).
+- Paging SQL assertion change: forced by the Q1 projection widening (§2.3 item 6 forced-edit rule); the no-JOIN
+  and empty-ChangeTracker assertions stay (recon:145, section 11).
+- Task order and gate list: approved as stated; Phase B prerequisite as ruled in Q5; gate rules quoted from the
+  charter/task-pipeline stand unchanged.
+- **Amendment (property tests):** the C# URL codec (`MovieQueryString`) is not changed by this ticket, so no
+  new C# property tests are required for URL round-trips. URL round-trip invariants are owned by the SPA
+  adapter and proved in Vitest with table and generated cases, no new package (Q5). The C# property gate
+  applies to C# invariants this ticket changes; if none, record the opt-out with that reason.
