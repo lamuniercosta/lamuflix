@@ -270,3 +270,27 @@ PASS; mutation exclusions only script N/A; property opt-out only recorded if no 
   new C# property tests are required for URL round-trips. URL round-trip invariants are owned by the SPA
   adapter and proved in Vitest with table and generated cases, no new package (Q5). The C# property gate
   applies to C# invariants this ticket changes; if none, record the opt-out with that reason.
+
+## Q10 (Keel, Phase A grill 10/12) — closing bar, frozen scope, round caps
+
+**Question.** Approve shared understanding and loop discipline: Critical/High findings block code-review and
+ship-review; Medium/Low recorded and followed up only per the charter, never fixed with a new abstraction; any
+failed or could-not-run applicable gate blocks regardless of severity, as does a missing Sentry/Ledger/Compass
+report or a contract mismatch. Frozen scope: the ticket's main responsive browse grid with poster/metadata/status;
+URL sync of all existing canonical filter/page keys with the approved aliases/defaults; TanStack
+loading/error/retry/history; the additive same-row browse contract and generated chain; the bounded tests and
+forced edits from Q8/Q9; anything else is a follow-up issue, not a finding. Caps: 2 plan/draft correction rounds,
+2 formal review/remediation rounds, at most 2 fix commits per remediation round; at cap, unresolved blockers go
+to the user on the PR, with no waiver or third round. No owner structural checkbox and no constitution
+departure. Poster persistence tracked as DEV-408 (Rigger receipt in the task note); genre/actor picker noted, no
+ticket. Keel writes a decision-complete brief; Quill drafts only after it. Confirm grill closed at Q10/12.
+
+**Ruling: APPROVED; grill CLOSED at Q10/12.**
+
+- Closing bar, frozen scope and round caps approved as stated; this is the standing ruling for this chain
+  (cited once, not re-ruled per round). Basis: charter §2.3 and task-pipeline caps as Keel cites them.
+- No `blocked: structural` item: every ruling Q1-Q9 delivers the ticket text (DEV-321 Scope items 1-4 and both
+  AC) without adding to or dropping from it, and none departs from the constitution.
+- Out-of-scope items: poster persistence → DEV-408 (Q4); genre/actor picker → `noted, no ticket` (Q7).
+- Open prerequisites carried into the brief, not new questions: Phase B waits on the user merge of #124 and
+  Wisp recon of the generated client, including abort-signal support (Q5, Q6).
