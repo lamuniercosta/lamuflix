@@ -7,3 +7,5 @@
 - [assumed] Q3: SPA default `pageSize` is 24, subject to the validator bound condition in CONCLUSIONS Q3 (Keel recommendation).
 - [assumed] Q4: poster placeholder keeps the poster aspect ratio and uses the movie title as its accessible text; the same placeholder covers null and image-load-error (Keel recommendation).
 - [assumed] Q5: responsive grid styling lives in `web/src/index.css`; one `QueryClientProvider` is installed in `main.tsx` (Keel recommendation).
+- [assumed] Q6: automatic query retries are disabled for this ticket; recovery is the user's Retry action (Keel recommendation).
+- [assumed] Q6: same-key background refetch keeps current tiles and announces loading through a polite live region (Keel recommendation).
