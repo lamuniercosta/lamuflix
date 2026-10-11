@@ -50,6 +50,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
     private const string MetricsPath = "/v1/metrics";
     private const string LogsPath = "/v1/logs";
     private const int FlushTimeoutMilliseconds = 5_000;
+    private const int MetricsFlushAttempts = 3;
     private const string MeterScopeName = "LamuFlix";
     private const string DurationMetricName = "lamuflix.enrichment.duration";
     private const string OutcomeMetricName = "lamuflix.enrichment.outcome";
@@ -98,7 +99,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             // act
             EmitSignals(host);
             var tracesFlushed = tracer.ForceFlush(FlushTimeoutMilliseconds);
-            var metricsFlushed = meterProvider.ForceFlush(FlushTimeoutMilliseconds);
+            var metricsFlushed = FlushMetricsWithRetry(meterProvider);
             var logsFlushed = loggerProvider.ForceFlush(FlushTimeoutMilliseconds);
 
             // assert
@@ -353,6 +354,19 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
                 new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:01"),
             ],
             disableEnrichmentConsumer: true);
+
+    private static bool FlushMetricsWithRetry(MeterProvider meterProvider)
+    {
+        for (int attempt = 0; attempt < MetricsFlushAttempts; attempt++)
+        {
+            if (meterProvider.ForceFlush(FlushTimeoutMilliseconds))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static void EmitSignals(WebApplicationFactory<Program> host)
     {
