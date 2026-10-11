@@ -123,3 +123,29 @@ page 1 / pageSize 24 are valid as ruled.
   only assignment sits in an orphaned project outside LamuFlix.sln, so posters cannot appear in the shipped
   stack: broken behaviour under the charter follow-up rule. Handed to Rigger: check open tickets and fold in
   if one exists; otherwise create under parent DEV-286, Type Bug, estimate 1d, `size:M`.
+
+## Q5 (Keel, Phase A grill 5/12) — composition and dependency timing
+
+**Question.** Approve composition and dependency timing? Keel recommends: replace the readiness `App.tsx` with
+the main Library view at the current SPA entry; `main.tsx` installs a single `QueryClientProvider`;
+`index.css` owns responsive styling; existing `App.test.tsx` becomes Library integration tests (charter §2.3
+item 6 explicit ruling). TanStack Query is ticket-approved (DEV-321:29); no other runtime dependencies. Phase
+A can finish without DEV-320, but Phase B waits for the user merge of #124 and a Wisp current-head recon of the
+generated types/client, then consumes that client and generated request/response types. C# is extended first,
+OpenAPI and types are regenerated with the DEV-320 pipeline, generated files are never hand-edited, DTOs are
+never duplicated; lowercase URL keys map to PascalCase API parameters in an adapter typed by the generated
+browse query parameters. No copying unmerged branch code; DEV-320 generator/client dependencies are inherited.
+
+**Ruling: APPROVED as recommended.**
+
+- §2.3 item 6: replacing `App.tsx` (recon:38) and its readiness `App.test.tsx` is a forced edit. The ticket
+  Overview (DEV-321:24) makes the browse view "the main" view, and the readiness test is orphaned by that
+  change, so it is replaced in the same PR (charter dead-code rule).
+- Dependencies (§2.3 item 1): `@tanstack/react-query` only, ticket-named (DEV-321:29). The ticket's error
+  boundaries are hand-written React error boundaries; no `react-error-boundary` or other runtime package.
+  Generator/client packages arrive with DEV-320 and are not re-added here.
+- Contract chain (charter): C# DTO → regenerated `openapi.json` → generated `types.ts`, never hand-edited;
+  the URL-to-API adapter is typed by the generated browse parameters (recon:35). Phase B is blocked on the
+  user's merge of #124 plus Wisp recon of the merged client; Conductor records it as a code prerequisite,
+  not a scope change. If #124 merges with a client shape that conflicts with this ruling, re-ask Patron.
+- Taste (`index.css` owns styling; single provider in `main.tsx`) logged `[assumed]`.
