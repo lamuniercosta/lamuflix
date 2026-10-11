@@ -177,3 +177,32 @@ pagination. Approve/amend stale-result and reset semantics.
 - Cancellation: the query passes its abort signal to the generated client. Whether the DEV-320 client accepts
   a signal is part of the Q5 Phase B recon; if it does not, re-ask Patron rather than hand-rolling a client.
 - No new dependency (§2.3 item 1).
+
+## Q7 (Keel, Phase A grill 7/12) — Library UI behaviour and filter-control surface
+
+**Question.** Freeze the UI: browse at the SPA root; responsive CSS poster grid with reserved 2:3 media slots;
+title, year, runtime minutes, IMDb one-decimal badge and status chip with exact enum labels; em dash for a
+missing scalar; no detail/play/watchlist-mutation controls. Text search submits on Enter or Search, not per
+keystroke; sort and direction selects; statuses multiselect; watchlist tri-state; optional year/runtime bounds
+plus include-unknown; genreIds/actorIds as repeated numeric-ID controls (no new facet endpoints, no unverified
+facet API). Every supported query value restores into its control; filters apply together with page reset.
+Previous/Next pagination with page and result count from totalCount/pageSize, disabled past known bounds;
+empty-library and filtered-empty states with clear-filters; a valid out-of-range page stays in the URL and
+shows an empty state with a return-to-first-page action, no silent history rewrite. Labelled, keyboard
+accessible, focus-visible, polite announcements; no measured performance target; visual layout checked by
+Palette later.
+
+**Ruling: APPROVED as recommended.**
+
+- Grid and tile fields: DEV-321:27 (poster, title, year, runtime, IMDb badge, EnrichmentStatus chip with the
+  four exact labels); 2:3 reserved slot and skeleton parity serve AC DEV-321:34. Formatting (em dash, `min`
+  suffix, one decimal) logged `[assumed]`.
+- No play, detail or mutation controls: nothing in DEV-321:26-30 asks for them, and play would touch
+  `Features:LocalPlay` (§2.3 item 5), which this ticket must not.
+- Filter controls: every codec key (recon:33) gets a control so AC DEV-321:33 holds for every supported
+  value. Genre/actor as numeric-ID entry is accepted because a named picker would need a facet endpoint, a
+  public API shape not in this ticket (§2.3 item 4); a better picker is future work, `noted, no ticket`.
+- Pagination and out-of-range page: approved. Total pages = ceil(totalCount/pageSize); out-of-range is
+  shown, not rewritten, consistent with Q2 (server owns range rules; the URL is source of truth).
+- Accessibility and announcements: approved; consistent with Q6. No numeric performance target: the AC
+  says "smoothly" and names no metric.
