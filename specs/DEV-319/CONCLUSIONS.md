@@ -137,3 +137,9 @@ Patron confirmation received by Keel:
 > DEV-319 Q1-Q4 all ratified with no structural block; 4 of 12 questions used. Recorded at specs/DEV-319/CONCLUSIONS.md (Grill log, commit c63ef06). The Q3 condition: TimeProvider is a forced AC1 edit, and any new package or port still comes back to me. Proceed to brief.md, and send me grill-closed when it is written.
 
 Rationale, cited basis and implications for every answer are the preceding Patron rulings and the complete frozen brief. The conclusions and brief now persist the exchange; the resolved grill may be summarized without losing its decisions. No further product or scope question remains. Next owner is Quill through Bernstein; plan challenge and Gate 1 remain pending.
+
+## S4 follow-up ruling (Patron, 2026-10-11)
+- Verdict: no YouTrack follow-up for S4 (Low, CONFIRMED) - noted, no ticket.
+  - Follow-up bar (Patron rules): a ticket is filed only for an out-of-scope finding that is Critical/High, broken behaviour, or user-requested; S4 is Low, cosmetic, no behaviour impact, not user-requested (findings-DEV-319-Ledger:18-19).
+  - Keel adjudication (DEV-319:538) holds S4 below the closing bar with no blocking fix requirement; severity and source preserved as recorded there.
+  - The two /// summary blocks (MetricsCollection.cs:3-9, ImportMovieFolderCommandHandlerTests.cs:22-28) are new in this ticket's own diff, so the implementation owner may delete them in an already-scheduled F1 fix commit within the existing caps; this is optional and never a reason for an extra round.
