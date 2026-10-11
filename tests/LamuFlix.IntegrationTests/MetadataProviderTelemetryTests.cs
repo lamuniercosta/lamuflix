@@ -141,10 +141,10 @@ public sealed class MetadataProviderTelemetryTests(MetadataProviderProbe probe)
         using var metrics = new ApplicationMetricCapture(DurationInstrumentName, OutcomeInstrumentName);
 
         // act
-        var act = () => lookup.FindAsync("Blade Runner", TestContext.Current.CancellationToken);
+        var pending = lookup.FindAsync("Blade Runner", TestContext.Current.CancellationToken);
 
         // assert
-        await Should.ThrowAsync<OperationCanceledException>(act);
+        await Should.ThrowAsync<OperationCanceledException>(() => pending);
         capture.Activities.Count(activity =>
             string.Equals(activity.DisplayName, TelemetryConstants.MetadataLookup, StringComparison.Ordinal)).ShouldBe(1);
         var measured = TheOnlyProviderDuration(metrics.MeasurementsOf(DurationInstrumentName), 4.25);
@@ -306,7 +306,7 @@ public sealed class MetadataProviderTelemetryTests(MetadataProviderProbe probe)
                 new MetadataProviderHealthState());
         }
 
-        public OmdbMetadataProvider Provider { get; }
+        private OmdbMetadataProvider Provider { get; }
 
         public Task<MetadataLookupResult> FindAsync(string title, CancellationToken ct) =>
             Provider.FindAsync(

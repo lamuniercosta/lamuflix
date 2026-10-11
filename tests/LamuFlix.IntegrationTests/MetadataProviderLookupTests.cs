@@ -492,10 +492,10 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         using var capture = new ApplicationMetricCapture(DurationInstrumentName);
 
         // act
-        var act = () => lookup.FindAsync("Blade Runner", TestContext.Current.CancellationToken);
+        var pending = lookup.FindAsync("Blade Runner", TestContext.Current.CancellationToken);
 
         // assert
-        await Should.ThrowAsync<OperationCanceledException>(act);
+        await Should.ThrowAsync<OperationCanceledException>(() => pending);
         AssertExactlyOneProviderDuration(capture.Measurements, 0.75);
     }
 
@@ -644,7 +644,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
                 new MetadataProviderHealthState());
         }
 
-        public OmdbMetadataProvider Provider { get; }
+        private OmdbMetadataProvider Provider { get; }
 
         public Task<MetadataLookupResult> FindAsync(string title, CancellationToken ct) =>
             Provider.FindAsync(

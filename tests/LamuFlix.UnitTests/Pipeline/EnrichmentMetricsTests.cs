@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
-using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Pipeline;
 
