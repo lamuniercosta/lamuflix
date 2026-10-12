@@ -31,6 +31,8 @@ Grill outcome: **no `blocked: structural`**. One conditional escalation trigger 
   - Basis: ticket Scope items 1–3; charter §2.3 escalation a; PRODUCT.md §2 (Epic 8 by pick).
 - C10. Care items 3 (schema) and 4 (API shape): not touched. Contract chain (OpenAPI → TS) unaffected; the Web image builds the existing SPA as-is.
   - Basis: recon §6.3–6.4.
+- C11. S-M1 (ratified): the ticket-fixed .NET tags (`sdk:10.0`, `aspnet:10.0`, `runtime:10.0`) are exempt from the FR-007/DD-1 minor-pin wording; pinned means no `latest` plus the ticket-fixed line for .NET images, with concrete pinned tags for Node and Nginx. `global.json` joins the copy-first set; if `sdk:10.0` cannot satisfy it, Phase B stops and returns to Keel and Patron with no tag change. Spec-internal reconciliation, not a ticket change, not `blocked: structural`.
+  - Basis: ticket Scope items 1–2 (C2); brief.md S-M1.
 
 ## Unverified (outside the read scope of this ask)
 
