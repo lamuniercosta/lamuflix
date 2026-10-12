@@ -97,3 +97,9 @@ Verdict: **no `blocked: structural`**. No escalation to the owner. No YouTrack c
 ## Noted, no ticket
 - The MVC watchlist UI has no tests (recon-DEV-324-2:12). This is legacy surface outside Epic 6 and is not broken behaviour.
 - The MVC app uses a star icon while the ticket says bookmark. The SPA follows the ticket, and the MVC app is left alone.
+
+## Q3 addendum: details-hero host (2026-10-12, Conductor ask; not a 13th grill question)
+**Ruling: DEV-323 is the prerequisite for the details hero. The host is the hero region of its `MovieDetailsView` (mounted via `App.tsx`): the block that shows the backdrop, poster and title. DEV-324 puts the toggle there. It builds no separate hero component, and no ticket or YouTrack change is needed.**
+- In UI terms, a details hero is the top band of a details page: backdrop, poster and title. DEV-323 delivers that band. Its description lists poster, backdrop, title and tagline (note `DEV-323:8`), and its planned surface is `MovieDetailsView` via `App.tsx` (`DEV-323:45,49`). It is the only details-page ticket under DEV-286 (Q3; `recon-DEV-324-6:10-12,19-20`). Because the word "hero" names a region of that view and not a separate deliverable, finding no hero assignment (`recon-DEV-324-6:23-25`) does not mean a ticket is missing.
+- This keeps Q3: DEV-324 adds a toggle to a host that DEV-323 delivered and constructs nothing. It also keeps the ticket text (`DEV-324:8`, "card and details hero") unchanged, so there is no §2.3 a escalation.
+- Phase B rule: Phase B waits for the DEV-323 delivery merge, as Q3 requires. Pickup drift recon records the actual `MovieDetailsView` path and its title/backdrop block. If DEV-323 delivers no distinct hero block, the toggle goes next to the title in `MovieDetailsView`. That placement is a taste matter, and extracting a hero component is still out of scope. If DEV-323 delivers no details view at all, it is reported as `needs decision:` and not built.
