@@ -120,3 +120,9 @@ Verdict: **no `blocked: structural`**. No escalation to the owner. No YouTrack c
   - Everything is keyed per `movieId`: the overlay, the pending flag, the in-flight guard and the error. Toggling, a request in flight, or a failure on movie A never changes movie B (accepted F-isolation, FR-006).
   - The in-flight guard is shared by every surface for that movie. A hero click made while the card's request for the same movie is still pending is ignored, and `aria-busy` clears when the request settles (Q10).
   - How the list reconciles when the filter is on stays with the pickup seam work (accepted F5); this ruling does not settle it.
+
+## Gate 1 provisional ruling (2026-10-12, Conductor ask, task-pipeline Phase 2 step 7)
+**Ruling: `gate1: provisional` is set on the `spec.md` `**Status**:` line. This is not Gate 1 completion, not Phase A completion, and not Phase B authorization. Gate 1 opens only when the user merges the spec PR.**
+- Analysis is clean: Keel's corrected-design `/speckit-analyze` is CLEAN, with 15/15 requirements and criteria covered across 31 tasks and zero remaining fixes (note `DEV-324:170-174`).
+- Plan challenge is adjudicated and the plan is frozen: all six accepted fixes are satisfied, and Sentry/Ledger/Compass findings are closed or bounded as pickup stops (note `DEV-324:181-187`). This matches the step order in task-pipeline:68-82 (`recon-DEV-324:46-47`).
+- No open `blocked: structural` item or owner checkbox is recorded in these roots. Phase B still waits on the prerequisite delivery merges, DEV-323 included (brief:33,63; Q3 addendum).
