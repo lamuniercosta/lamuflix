@@ -51,3 +51,19 @@ Real-Postgres tests use the existing `PostgresFixture`/`PostgresCollection` (`re
 - It covers every AC clause: populated `poster_url`, `posterUrl` on browse, and clearing, each proven against a real database (`recon-DEV-408:19`). It uses only the existing real-Postgres and WireMock infrastructure (`recon-DEV-408:60-62,84-104`), so no §2.3 dependency or project change is involved.
 - Forbidding raw DbContext poster writes and reflection as the sole proof closes the gap recon found, where today's only non-null poster proofs bypass the repository (`recon-DEV-408:118-120`). The forced test edits are limited to poster expectations and exact-shape lists (Q1, Q3).
 - The ordering follows the compile dependency (Core -> Infrastructure -> Api -> contract -> end-to-end), and running shared-file tasks in sequence avoids conflicting writes. Unverified: the location of the `PostgresCollection` definition (`recon-DEV-408:105`); it is referenced, so it is reused, not redefined.
+
+## Q6 — Loop discipline and gate expectations (grill Q6/12)
+
+**Keel asked:** Approve these terms:
+- **Closing bar:** zero unresolved Critical, High or Medium findings within the frozen ticket scope. Low findings get a recorded disposition and are never silently upgraded or used to demand an unsolicited cleanup commit.
+- **Review:** an M review runs all three Risk/Standards/Spec axes regardless of the blast-radius pre-pass; at most 2 review rounds and 2 fix commits per round; third-round findings go to the owner with the PR, never a cap extension.
+- **Frozen scope:** OMDB `Poster` -> optional Core metadata -> existing `poster_url` persistence and the `ClearMetadata` operation -> `GET /api/movies` `posterUrl`, plus the generated contract and the necessary tests; the orphan Worker is retained with an explanation. Anything else is a follow-up, not a finding in this round, filed only if it passes charter eligibility, otherwise noted, no ticket.
+- **Phase B gates (pipeline Phase 3 step 5):** Roslyn, complexity, InspectCode at default diff scope, mutation without `since`, property tests (no opt-out, because Q5 adds domain properties), vulnerable packages, format, `dotnet test`, and web gates if web artifacts change. Thresholds are never lowered. Exit 1 or `Could not run` blocks. A scope-empty exit 2 is recorded `SKIPPED (scope-empty)`. A configured-disabled SKIP and mutation N/A are accepted only on the script's own evidence.
+- **Phase A:** this ask runs no gates and grants no Gate 1, review or merge clearance.
+
+Cost: Medium correctness/spec findings block, and the owner handoff at the cap is bounded.
+
+**Ruling: APPROVED as recommended.**
+- The round caps, M fan-out and gate rules restate standing rulings and are not re-ruled here: `task-pipeline` review and remediation caps (:26-27), axis fan-out always on M (:114), the gate list and `Could not run`/exit 1 blocking (:100-107, :132), scope-empty SKIPPED never blocks (:107), mutation never uses `since` (`lamuflix-team-charter`:68), and property-test opt-out only by a recorded line (:102). No opt-out is recorded for DEV-408, so property-test exit 2 fails.
+- The closing bar of zero C/H/M within frozen scope is approved as this ticket's bar. The frozen scope is exactly what Q1-Q4 decided.
+- Follow-up eligibility follows the charter (:31): an out-of-scope finding is ticketed only if it is Critical or High, is broken behaviour, or the user asked for it, after checking open tickets. Everything else is noted, no ticket.
