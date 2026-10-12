@@ -35,3 +35,19 @@
 - Ticket Scope 3 offers the choice "delete it or record why it stays" (`recon-DEV-408:18`). The code is outside the build (`recon-DEV-408:27-29,48`), so it neither breaks nor serves the shipped path. Deleting the poster lines alone would leave a non-compiling project equally dead. Deleting the whole project goes beyond the poster code the ticket names, under §2.3 item 6.
 - The dead-code-deletion rule covers code orphaned by the ticket's own change. This code was already orphaned before DEV-408, so the rule does not reach it. The `?? movie.Poster` fallback is not ported; Q2 governs.
 - The legacy Worker, Web and `tests/LamuFlix.Test` projects outside the sln (`recon-DEV-408:69`), and `specs/PRODUCT.md:10` still describing a Worker, are noted, no ticket: not Critical or High and not broken shipped behaviour. No ADR or glossary change; the terms are as Keel listed.
+
+## Q5 — Verification plan and task ordering (grill Q5/12)
+
+**Keel asked:** Approve this ordering:
+1. Core optional `PosterUrl` in `State`, plus an idempotent `ClearMetadata` that preserves unrelated state, with unit/property tests for poster-sensitive equality and clear idempotence.
+2. OMDB mapping cases (present, trimmed, missing, null, whitespace, `N/A`), with lookup success unaffected.
+3. Repository insert, update, rehydration and clear, plus the direct browse projection.
+4. The API field and the regenerated OpenAPI file and snapshot.
+5. A shipped enrichment-to-browse end-to-end test.
+
+Real-Postgres tests use the existing `PostgresFixture`/`PostgresCollection` (`recon-DEV-408` 10.1). Fresh sibling contexts prove, in order: a non-null enriched poster, a poster-only replacement, a replacement with null, then public `ClearMetadata` clearing all seven fields with browse returning an explicit null. A WireMock OMDB plus real-Postgres end-to-end test proves that a supplied poster appears in `GET /api/movies`. A raw DbContext poster write may not be the sole persistence proof, and no private-method or reflection bypass is allowed. Update the record-only preservation expectation for the poster only and keep the unrelated-field assertions. Use the existing integration files `EfMovieRepositoryTests`, `MetadataProviderLookupTests`, `ApiEndToEndEnrichmentTests`, `ApiEndToEndBrowseTests`, `ApiEndToEndImportTests`, `ApiEndToEndLibraryTests` and `OpenApiContractTests`, and add focused domain tests in the existing UnitTests project if needed. Tasks on shared files run in sequence, and the dependency chain is Core -> adapter/repository -> browse contract -> regeneration -> end-to-end. No parallel writes to one file, and no test framework or package change.
+
+**Ruling: APPROVED as recommended.**
+- It covers every AC clause: populated `poster_url`, `posterUrl` on browse, and clearing, each proven against a real database (`recon-DEV-408:19`). It uses only the existing real-Postgres and WireMock infrastructure (`recon-DEV-408:60-62,84-104`), so no §2.3 dependency or project change is involved.
+- Forbidding raw DbContext poster writes and reflection as the sole proof closes the gap recon found, where today's only non-null poster proofs bypass the repository (`recon-DEV-408:118-120`). The forced test edits are limited to poster expectations and exact-shape lists (Q1, Q3).
+- The ordering follows the compile dependency (Core -> Infrastructure -> Api -> contract -> end-to-end), and running shared-file tasks in sequence avoids conflicting writes. Unverified: the location of the `PostgresCollection` definition (`recon-DEV-408:105`); it is referenced, so it is reused, not redefined.
