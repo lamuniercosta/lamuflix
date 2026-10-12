@@ -1,0 +1,33 @@
+# 0021. Library browse contract and URL ownership
+
+- Status: Proposed - drafted in Phase A; decision approval depends on Gate 1 spec merge; canonical docs/adr publication occurs in the DEV-321 Phase B delivery PR.
+- Date: 2026-10-11
+- Ticket: DEV-321
+
+DEV-321 requires a responsive poster grid, all-filter URL restoration and TanStack Query fetching, while the existing browse summary carries only id and title. Use an additive same-row browse projection through the generated contract chain, with a feature-local adapter owning URL/history state and one normalized-state browse query. This avoids per-tile requests and competing state owners while retaining the existing backend architecture, query codec and validation authority.
+
+## Decision
+
+Widen the existing Core `MovieSummary` port record, Infrastructure `EfMovieCatalog` projection and API `MovieSummaryResponse` on `GET /api/movies`; retain id/title/items/totalCount, route, query parameters and status codes. Add nullable `posterUrl` (stored string passthrough), `releaseYear` (int, calendar year), `runtime` (int, minutes), `imdbRating` (decimal, existing details semantics), and required `enrichmentStatus` with the exact wire names Pending, Enriched, NotFound and Failed. Nullable members remain present as JSON null. All added scalars come from the existing movies row: no new port, join or migration; if implementation needs a new join or migration, stop and re-ask Patron.
+
+Generate C# DTO -> OpenAPI baseline and derived snapshot -> TypeScript using the existing regeneration paths and the merged DEV-320 tooling. Consume generated response and request-parameter types through the generated client. Keep the existing runtime status converter; only if regeneration lacks the four-name string schema may `Program.cs` add an EnrichmentStatus-scoped schema transformer. No handwritten DTO duplicate, generated-file edit or global serializer change is authorized.
+
+The feature-local URL adapter is the sole owner of native URLSearchParams, pushState, replaceState and popstate. Use every existing canonical codec key, repeated list keys and complete emitted range groups; read only the approved genres and Asc/Desc aliases, emitting canonical names. SPA defaults are Title/Ascending/page 1/pageSize 24, not Core construction defaults; honor supplied pageSize. Push user changes and update state immediately; replace initialization/normalization; restore back/forward without a push and remove the listener on cleanup. Filter/sort changes reset page to 1; pagination changes page alone. Preserve valid out-of-range values for server validation and past-end pages for explicit recovery, following the frozen Q2/Q3 normalization rules.
+
+Use ticket-named TanStack Query with one provider and one browse query keyed by the complete normalized filter/page state, propagating cancellation through the merged client. Key changes show reserved-size skeletons without previous-key data; same-key refetch retains current content. A hand-written boundary resets on key change; automatic retries are off, 422 is invalid-filter and never retried, and other failures including 400 are recoverable. Retry resets/refetches the same canonical URL without a history entry; classification uses HTTP status rather than error-key vocabulary. Add no router, generic state layer, validation library or error-boundary package.
+
+Display supplied posters with title-labelled placeholders for null/broken images and reserved 2:3 geometry shared with skeletons. Seed poster values in real-DB tests; live enrichment poster population is not claimed or repaired here (follow-up DEV-408). Keep the full frozen filter-control surface, pagination and accessible responsive grid; no detail, play or mutation controls are added.
+
+## Considered Options
+
+Per-tile details fetching was rejected because it creates N+1 requests and the details contract supplies neither poster nor status. A router/state dependency or parallel URL owner was rejected as unnecessary for this single view. Copying Core construction defaults would yield null sort/direction and page 0/0, which cannot form a usable canonical browse URL. Handwritten consumer contracts or a replacement client would break the established generated contract chain.
+
+## Consequences and preservation
+
+This records the settled public-contract and ownership trade-offs, whose later reversal would affect bookmarks, history, request identity and generated consumers. It does not introduce a new backend port or layer; the L-ticket ADR requirement applies independently of the frozen plan statement that no new port requires an ADR. Existing C# codec round-trip proof is identified in recon section 18; preserve it and prove the new SPA adapter with Vitest table/generated cases, alongside the frozen real-Postgres projection/wire/schema and RTL tests. No test or gate result is established here.
+
+Preserve this complete draft byte-for-byte at `specs/DEV-321/adr-0021-library-browse-contract-and-url-ownership.md` for the specs-only Gate 1 PR. Following DEV-318 ADR-0020, Rigger must include and commit the complete specs copy in that PR and verify/read back its merged full contents before spec-worktree removal. Phase B restores that exact approved text unchanged at `docs/adr/0021-library-browse-contract-and-url-ownership.md`, verifies full-text identity, and commits it in the delivery PR with a persisted/read-back receipt before handoff. A failed preservation receipt is a process blocker; a summary or deleted-worktree draft is insufficient.
+
+This draft grants no plan-plus-ADR clearance, Gate 1 or build authorization. Existing spec/plan challenge clearance does not cover this later draft. Phase B still requires the user-merged DEV-321 spec PR, user merge of DEV-320 #124, and current generated-types/client/abort-signal recon; incompatible client shape or missing signal support returns to Patron. Frozen Q10 closing bar and caps remain unchanged.
+
+Basis: DEV-321 ticket Scope items 1-4 and both acceptance criteria; [frozen brief](../../specs/DEV-321/brief.md) Q1-Q10; [Patron conclusions](../../specs/DEV-321/CONCLUSIONS.md), including the superseding 422 correction; [spec](../../specs/DEV-321/spec.md), [plan](../../specs/DEV-321/plan.md), [tasks](../../specs/DEV-321/tasks.md), [design](../../specs/DEV-321/design.md), [clarifications](../../specs/DEV-321/clarify.md) and [requirements checklist](../../specs/DEV-321/checklists/requirements.md); recon-DEV-321 sections 9-19; [ADR-0007](../../docs/adr/ADR-0007.md), [ADR-0009](../../docs/adr/ADR-0009.md) and [ADR-0020 preservation precedent](../../specs/DEV-318/adr-0020-request-correlated-import-enrichment-proof.md).
