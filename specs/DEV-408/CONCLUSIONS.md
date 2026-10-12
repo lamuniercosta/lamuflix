@@ -67,3 +67,20 @@ Cost: Medium correctness/spec findings block, and the owner handoff at the cap i
 - The round caps, M fan-out and gate rules restate standing rulings and are not re-ruled here: `task-pipeline` review and remediation caps (:26-27), axis fan-out always on M (:114), the gate list and `Could not run`/exit 1 blocking (:100-107, :132), scope-empty SKIPPED never blocks (:107), mutation never uses `since` (`lamuflix-team-charter`:68), and property-test opt-out only by a recorded line (:102). No opt-out is recorded for DEV-408, so property-test exit 2 fails.
 - The closing bar of zero C/H/M within frozen scope is approved as this ticket's bar. The frozen scope is exactly what Q1-Q4 decided.
 - Follow-up eligibility follows the charter (:31): an out-of-scope finding is ticketed only if it is Critical or High, is broken behaviour, or the user asked for it, after checking open tickets. Everything else is noted, no ticket.
+
+## Q7 — Shared understanding, file boundary and grill close (grill Q7/12)
+
+**Keel asked:** Confirm the shared understanding and the file boundary for the brief.
+- **Production edits:** limited to `src/LamuFlix.Core/Domain/MovieMetadata.cs` and `Movie.cs`, `Core/Ports/MovieSummary.cs`, `Infrastructure/Adapters/OmdbMetadataProvider.Mapping.cs`, `Infrastructure/Persistence/EfMovieRepository.cs` and `EfMovieCatalog.cs`, and `Api/Endpoints/LibraryResponses.cs`. Existing projection callers and tests get only compile-forced or AC-forced adjustments; no handler behaviour changes.
+- **Tests:** the Q5 files, focused new domain unit/property tests in the existing UnitTests project, and the shape/composition call sites named by recon (`BrowseMoviesQueryHandlerTests`, `LibraryEndpointsTests`, `ApiHostCompositionTests`).
+- **Generated artifacts:** `web/src/api/openapi.json` and the snapshot owned by `OpenApiContractTests`. `types.ts` only if existing approved generation tooling exists; never introduce tooling or dependencies or hand-edit generated artifacts.
+- **Excluded:** no schema or migration, no legacy Worker/Web/test projects, no package or project, feature flag, secret, process or UI change, and no ADR or global glossary edit.
+- **ClearMetadata:** preserves status and state as decided in Q2; if later evidence establishes a contrary invariant, stop for recon or a decision rather than alter the semantics.
+- **Evidence limits:** missing generator, snapshot and fixture locations are not guessed; implementation pickup uses bounded recon when it needs concrete paths.
+
+Recommend closing at 7/12 with no taste assumptions and no owner checkbox; Keel writes the brief with the Q1-Q7 receipts, the explicit test, gate and ordering plan, the loop terms and these evidence limits. Authorize the close?
+
+**Ruling: CONFIRMED. The grill closes at 7/12 and Keel writes `brief.md`.**
+- The production file set is exactly the recon-located surfaces of Q1-Q3: the domain (`recon-DEV-408:33,43`), the adapter (:34), the repository (:23) and the browse projection chain (:54-55). The Worker stays as Q4 decided, and the test set is what Q5 decided. Nothing is added to or dropped from the ticket's Scope or AC (`recon-DEV-408:18-19`), so there is no `blocked: structural` and no owner checkbox.
+- §2.3 review: no dependency, project, layer, schema, LocalPlay, secret or `Process.Start` change. The one public API change, `posterUrl` on browse, is decided by the AC (Q3). Deleting or rewriting a tracked file: only the named or AC-forced files. The ruling contains no taste decision, so `ASSUMPTIONS.md` stays empty.
+- The evidence limits are approved as stated: unknown paths go to bounded recon, never guesses, and a contrary Enriched-metadata invariant reopens Q2 rather than altering it silently.
