@@ -1,6 +1,6 @@
 # DEV-322 - Patron grill conclusions
 
-Grill seeded 2026-10-12 by Patron on the Bernstein ask. Base: feature/322-spec @ cb6fe48. Sources: note DEV-322:8 (ticket text), recon-DEV-322:11-63, specs/PRODUCT.md, .specify/memory/constitution.md:335, lamuflix-team-charter §2.3. 10 of the 12-question budget used. No `blocked: structural` item: nothing below changes ticket text or departs from the constitution.
+Grill seeded 2026-10-12 by Patron on the Bernstein ask. Base: feature/322-spec @ cb6fe48. Sources: note DEV-322:8 (ticket text), recon-DEV-322:11-63, specs/PRODUCT.md, .specify/memory/constitution.md:335, lamuflix-team-charter §2.3. 11 of the 12-question budget used. No `blocked: structural` item: nothing below changes ticket text or departs from the constitution.
 
 ## Q1 - Genre count badges have no data source (API shape, care item 4)
 **Ruling: extend `GenreDto` additively with `movieCount` (int, required) on `GET /api/genres`; no new route, no status code change.**
@@ -32,12 +32,18 @@ Grill seeded 2026-10-12 by Patron on the Bernstein ask. Base: feature/322-spec @
 ## Q6 - URL query contract
 **Ruling: URL keys mirror the API query keys 1:1 (`text, genreIds, actorIds, runtimeMin, runtimeMax, runtimeIncludeUnknown, yearMin, yearMax, statuses, sort, direction`); arrays as repeated keys; defaults are omitted from the URL.**
 - Keys from LibraryEndpoints.cs:21-34 / MovieQueryString.cs:12-25 (recon-DEV-322:26); repeated keys preserve order (LibraryEndpointsTests BrowseMovies_RepeatedArrayKeys_PreserveRequestOrder).
-- A range at its full extent sends neither bound (avoids the partial-range 400 path, recon-DEV-322:38); a moved range always sends both bounds.
+- Range keys follow the Q11 reconciliation below (all-or-nothing groups; an end at its extent is sent as an empty value = open bound).
 - `inWatchlist`, `page`, `pageSize` are not panel controls; a filter change resets `page`. Unknown/foreign keys in the URL are preserved untouched.
 - URL is the single source of truth: panel state derives from it, so back/forward and reload restore filters. Text writes `replaceState` after debounce; discrete controls also `replaceState` (no history spam).
 
 ## Q7 - Range bounds without a range facet (API shape)
-**Ruling: static slider extents, no new endpoint.** Year 1900..current year, step 1; runtime 0..240 min, step 5, top stop meaning "240+" sends no `runtimeMax`. Logged `[assumed]`.
+**Ruling: static slider extents, no new endpoint.** Year 1900..current year, step 1; runtime 0..240 min, step 5, top stop meaning "240+" = no upper bound, encoded per Q11 as `runtimeMax=` (empty), never by dropping the key. Logged `[assumed]`.
+
+## Q11 - Reconciling Q6 (both bounds) with Q7 (240+ omits runtimeMax)
+**Ruling: Q6 and Q7 as first written conflicted (runtimeMin moved + 240+ would send `runtimeMin` alone -> partial-range 400); superseded by one rule: each range is an all-or-nothing key group, and an end left at its slider extent is sent as an empty value, which the API reads as an open bound.**
+- The API requires the whole group: runtime needs `runtimeMin`, `runtimeMax` and `runtimeIncludeUnknown` all present (MovieQueryString.cs:288-296, 240-243), year needs `yearMin` and `yearMax` (MovieQueryString.cs:301-302); a missing member is the partial-range 400 (LibraryEndpointsTests BrowseMovies_PartialRange_FailsFieldKeyedOnTheMissingMembers).
+- An empty value is accepted and means null (LibraryEndpoints.cs:116-117 `EmptyMeansNull`; BrowseMovies_EmptyBounds_StayDistinctFromAbsentBounds), and a null bound is one-sided (MovieRecordQueryExtensions.cs:126-138). So `runtimeMin=60&runtimeMax=&runtimeIncludeUnknown=false` = 60 min and up. The same applies to year ends at 1900 / current year, so the extents never silently exclude pre-1900 or next-year titles.
+- Runtime group is sent when either end is off its extent or the include-unknown box is checked, and then always carries `runtimeIncludeUnknown` (true/false); otherwise no runtime key. Year group is sent when either end is off its extent; otherwise no year key. Basis: API contract above + Q6 defaults-omitted rule; no API change.
 
 ## Q8 - Status chips
 **Ruling: four toggle chips for EnrichmentStatus Pending, Enriched, NotFound, Failed (EnrichmentStatus.cs:7-10); none selected = no `statuses` param = all.** Labels in ASSUMPTIONS.md.
