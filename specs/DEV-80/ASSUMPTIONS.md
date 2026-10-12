@@ -5,3 +5,4 @@
 - A3 [assumed] Status badge text is the enum name as received (`Pending`, `Enriched`, `NotFound` shown as 'Not found', `Failed`).
 - A4 [assumed] Empty library copy: 'No movies yet. Import a folder to get started.'
 - A5 [assumed] List order is the server browse order; the client does not re-sort after a poll.
+- A6 [assumed] First-page browse request is `sort=Title&direction=Ascending&page=1&pageSize=20` (ND-02; Keel recommendation, recon-DEV-80:123-125). The client sends it as fixed constants. There are no sort or paging controls (brief.md:17), and A5 server order is kept.
