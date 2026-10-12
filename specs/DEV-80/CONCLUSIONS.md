@@ -50,3 +50,13 @@ Unattended-owner run: no user question in chat; no `blocked: structural` item ar
 
 - DEV-80:8 verbatim; existing endpoint contracts: import 202+Location (recon-DEV-80:23), enrichment 202/404/409/422 with Pending-guard (recon-DEV-80:34-37).
 - Optimistic title source is a taste call - see ASSUMPTIONS.md A1.
+
+## Q7/12 - Brief closure terms (Keel)
+
+**Ruling:** Approved as Keel proposed. Blocking bar: in-scope Critical/High/Medium findings block; two review rounds; scope frozen at Q1-Q6, and anything outside it becomes a follow-up issue, not a finding in this round. Test strategy and ordering are accepted unchanged:
+- Tests: generated status contract and projection (DTO, `EfMovieCatalog`, OpenAPI baseline/Verify snapshot, `OpenApiContractTests`); import 202 + Location and 422/400 errors; 2s polling starts with a Pending row and stops when none remain; retry shown only for NotFound/Failed, plus the 202/404/409 paths; MSW handlers typed through `openapi-msw`; existing web gates (`run-web-gates.ps1`) plus the backend gates for the touched `.cs` files.
+- Order: status contract, then generated client and provider, then list/dialog/poll/retry, then tests and gates.
+
+- Each test item traces to a Q1-Q6 ruling or DEV-80:8. Ordering follows the contract chain (C# DTO, then OpenAPI, then `types.ts`, then web).
+- The frozen scope enforces Q5's out-of-scope list. Follow-up handling follows the role rule: a ticket only for Critical/High or broken behaviour; anything else gets one line here.
+- Basis is Keel's recommendation (taste/process). It changes no ticket text and does not clear Gate 1.
