@@ -59,6 +59,11 @@ Grill seeded 2026-10-12 by Patron on the Bernstein ask. Base: feature/322-spec @
 - AC: a filter change updates `window.location.search` and MSW sees one request with matching params; reload from a URL hydrates controls.
 - Backend: GenreDto `movieCount` integration + handler unit tests; mutation gate applies to the changed `src` files.
 
+## Taste - Results count and error copy
+**Ruling: accept Palette's design.md §8 proposals as taste, logged `[assumed]` in ASSUMPTIONS.md.**
+- Pure presentation copy; no ticket text, AC, or PRODUCT.md line speaks to it (role §2.3: taste accepts the recommendation).
+- No API shape, dependency, or behavior change; consistent with frozen strings and Q5/Q9 state handling.
+
 ## Noted, no ticket
 - Faceted (filter-narrowed) genre counts: noted, no ticket.
 - Server-provided year/runtime extents: noted, no ticket.
