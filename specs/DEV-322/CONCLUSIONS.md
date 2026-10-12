@@ -1,6 +1,6 @@
 # DEV-322 - Patron grill conclusions
 
-Grill seeded 2026-10-12 by Patron on the Bernstein ask. Base: feature/322-spec @ cb6fe48. Sources: note DEV-322:8 (ticket text), recon-DEV-322:11-63, specs/PRODUCT.md, .specify/memory/constitution.md:335, lamuflix-team-charter §2.3. 11 of the 12-question budget used. No `blocked: structural` item: nothing below changes ticket text or departs from the constitution.
+Grill seeded 2026-10-12 by Patron on the Bernstein ask. Base: feature/322-spec @ cb6fe48. Sources: note DEV-322:8 (ticket text), recon-DEV-322:11-63, specs/PRODUCT.md, .specify/memory/constitution.md:335, lamuflix-team-charter §2.3. 12 of the 12-question budget used (Q12 added 2026-10-12 on Sentry F1). No `blocked: structural` item: nothing below changes ticket text or departs from the constitution.
 
 ## Q1 - Genre count badges have no data source (API shape, care item 4)
 **Ruling: extend `GenreDto` additively with `movieCount` (int, required) on `GET /api/genres`; no new route, no status code change.**
@@ -39,12 +39,23 @@ Grill seeded 2026-10-12 by Patron on the Bernstein ask. Base: feature/322-spec @
 ## Q7 - Range bounds without a range facet (API shape)
 **Ruling: static slider extents, no new endpoint.** Year 1900..current year, step 1; runtime 0..240 min, step 5, top stop meaning "240+" = no upper bound, encoded per Q11 as `runtimeMax=` (empty), never by dropping the key. Logged `[assumed]`.
 
+## Q7 clarification - frontend current year (Sentry F5)
+**Ruling: the year maximum is the viewer's local current year from the browser clock, captured once at panel mount; no live rollover.**
+- Basis: DEV-322:140-141; existing extent Q7 above and ASSUMPTIONS.md:8. A fresh mount captures the then-current local year; no timer, clock package, backend request or new file.
+- Seam: pure `currentYearExtent(now)` inside the already planned FilterPanel.tsx; T040 tests drive it with `vi.setSystemTime` (local-year derivation, unchanged extent across a year boundary while mounted, new extent on remount), T042 implements the mount-time snapshot (brief.md:182-188). Backend TimeProvider conventions stay backend-only.
+
 ## Q11 - Reconciling Q6 (both bounds) with Q7 (240+ omits runtimeMax)
 **Ruling: Q6 and Q7 as first written conflicted (runtimeMin moved + 240+ would send `runtimeMin` alone -> partial-range 422 Unprocessable Entity); superseded by one rule: each range is an all-or-nothing key group, and an end left at its slider extent is sent as an empty value, which the API reads as an open bound.**
 - The API requires the whole group: runtime needs `runtimeMin`, `runtimeMax` and `runtimeIncludeUnknown` all present (MovieQueryString.cs:288-296, 240-243), year needs `yearMin` and `yearMax` (MovieQueryString.cs:301-302); a missing member is the partial-range 422 Unprocessable Entity (LibraryEndpointsTests.cs:226-242 BrowseMovies_PartialRange_FailsFieldKeyedOnTheMissingMembers, asserted via ReadProblemAsync `HttpStatusCode.UnprocessableEntity` at :590; constitution V :199, :207).
 - An empty value is accepted and means null (LibraryEndpoints.cs:116-117 `EmptyMeansNull`; BrowseMovies_EmptyBounds_StayDistinctFromAbsentBounds), and a null bound is one-sided (MovieRecordQueryExtensions.cs:126-138). So `runtimeMin=60&runtimeMax=&runtimeIncludeUnknown=false` = 60 min and up. The same applies to year ends at 1900 / current year, so the extents never silently exclude pre-1900 or next-year titles.
 - Runtime group is sent when either end is off its extent or the include-unknown box is checked, and then always carries `runtimeIncludeUnknown` (true/false); otherwise no runtime key. Year group is sent when either end is off its extent; otherwise no year key. Basis: API contract above + Q6 defaults-omitted rule; no API change.
 - Source-receipt correction (2026-10-11): the earlier `400` here was a citation error; the cited test and constitution V say 422 (recon-DEV-322:146-148). Status code only; the all-or-nothing range-group behavior above is unchanged, and no API or status-code change is ruled.
+
+## Q12 - Q6 transport defaults, canonical equality and query key (Sentry F1)
+**Ruling: web-only defaults `sort=Title`, `direction=Ascending`, `page=1`, `pageSize=20`; the URL omits them, every movie API request carries all four after normalization; equality and the query key are the canonical API query string. No API change.**
+- Basis: DEV-322:147-148; Q6/Q9/Q10 above; default `Title (A-Z)` (ASSUMPTIONS.md:5); recon-DEV-322:192-219: absent ordering maps to null and absent paging to Page(0,0) with no endpoint defaults, so validation returns 422 (:203-214); the empty panel URL requests `sort=Title&direction=Ascending&page=1&pageSize=20` (:217-218).
+- Supplied `pageSize`/`inWatchlist` are kept, defaults only fill absent values; a filter change drops `page` from the URL and sends `page=1`; unknown URL keys stay in the URL but never enter the API query or key. Canonicalization covers recognized keys only, keeps repeated-array order and Q11 empty bounds; direction uses generated enum spellings (`Ascending`), not `Asc`/`Desc` literals. Detail: brief.md:170-180.
+- Q11, explicit `runtimeIncludeUnknown`, replaceState/popstate and the contract chain stay in force; no endpoint, parser, validator, DTO field or status-code change; existing 422 preserved.
 
 ## Q8 - Status chips
 **Ruling: four toggle chips for EnrichmentStatus Pending, Enriched, NotFound, Failed (EnrichmentStatus.cs:7-10); none selected = no `statuses` param = all.** Labels in ASSUMPTIONS.md.
