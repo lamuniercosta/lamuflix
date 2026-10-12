@@ -313,3 +313,11 @@ Every `400` in Q2, Q3 and Q6 above (and in brief lines 52 and 86 derived from th
   `Query.*`, recon §16f) to choose the state.
 - Follow-up (Keel): correct brief lines 52 and 86, and spec/plan/tasks and the planned tests that
   assert 400, to 422; then resume `/speckit-analyze`.
+
+## Phase 2 step 7 (Conductor relay) — gate1: provisional
+
+**Ruling: gate1: provisional set at feature/321-spec frozen HEAD 8d5ab9bc554e4cee7df0cb37c26f3566f3de6310.**
+
+- Bar met: Keel `/speckit-analyze` CLEAR after correction round 2 (DEV-321 note:27); Keel plan-plus-ADR adjudication CLEAR, all three axis reports present, zero Critical/High, no contract mismatch or constitution departure (note:43-52).
+- Frozen scope and caps per the Q10 standing ruling; Medium/Low findings stay Q10 follow-ups; no scope change, owner checkbox or `blocked: structural` item.
+- Gate 1 stays closed until the user merges the spec PR; no build work authorized. Phase B prerequisites unchanged (Q5/Q6: DEV-320 #124 merge plus generated-client/types/abort-signal recon).
