@@ -213,7 +213,7 @@ function Get-SeatMapViolations {
 
     $knownHosts = @('claude', 'cursor', 'agy', 'junie', 'gemini', 'opencode', 'codex', 'muse')
     $validEvidence = @('measured', 'cleared', 'probed', 'unmeasured')
-    $validPools = @('CLAUDE', 'CODEX', 'CURSOR', 'AGY-G', 'AGY-C', 'JETBRAINS', 'GEMINI', 'OPENROUTER', 'DEEPSEEK', 'ZEN', 'MUSE', 'OPENCODE-GO')
+    $validPools = @('CLAUDE', 'CODEX', 'CURSOR', 'AGY-G', 'AGY-C', 'JETBRAINS', 'GEMINI', 'OPENROUTER', 'DEEPSEEK', 'ZEN', 'MUSE', 'OPENCODE-GO', 'XIAOMI')
     $validCostSources = @('actual', 'estimated', 'unknown')
     $validRoles = @('head', 'floor')
 
