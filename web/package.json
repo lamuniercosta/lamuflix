@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build",
-    "lint": "npm run check:api && eslint . --max-warnings 0 && prettier --check . ",
+    "lint": "npm run check:api && eslint . --max-warnings 0 && prettier --check .",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:run": "vitest run",
