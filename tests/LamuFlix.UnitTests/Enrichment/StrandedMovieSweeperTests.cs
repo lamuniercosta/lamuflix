@@ -41,11 +41,11 @@ public sealed class StrandedMovieSweeperTests
         var execution = sweeper.StartAsync(TestContext.Current.CancellationToken);
         await firstPass.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         await scopeDisposed.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
-        await Task.Yield();
+        await WaitForIntervalDelayAsync(timeProvider);
         await handler.Received(1).HandleAsync(Arg.Any<SweepStrandedMoviesCommand>(), Arg.Any<CancellationToken>());
 
         timeProvider.Advance(SweepInterval - TimeSpan.FromTicks(1));
-        await Task.Yield();
+        Assert.True(timeProvider.HasPendingTimer, "The interval delay fired before the full interval elapsed.");
         await handler.Received(1).HandleAsync(Arg.Any<SweepStrandedMoviesCommand>(), Arg.Any<CancellationToken>());
         timeProvider.Advance(TimeSpan.FromTicks(1));
         await secondPass.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
@@ -80,6 +80,7 @@ public sealed class StrandedMovieSweeperTests
         await logger.ErrorLogged.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         logger.Entries.ShouldContain(entry =>
             entry.Level == LogLevel.Error && entry.Exception is InvalidOperationException);
+        await WaitForIntervalDelayAsync(timeProvider);
         timeProvider.Advance(SweepInterval);
         await laterPass.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         await sweeper.StopAsync(TestContext.Current.CancellationToken);
@@ -122,6 +123,12 @@ public sealed class StrandedMovieSweeperTests
     }
 
     private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    // The sweeper arms its interval delay after the pass returns; advancing the clock before that
+    // would schedule the delay a full interval past the advanced time and the next pass would never run.
+    private static Task WaitForIntervalDelayAsync(ManualTimeProvider timeProvider) =>
+        timeProvider.WaitForPendingTimerAsync(TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
     private static Task<int> FailAfterSignal(TaskCompletionSource signal, Exception exception)
     {

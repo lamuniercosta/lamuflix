@@ -5,24 +5,66 @@ using System.Threading.Tasks;
 
 namespace LamuFlix.Tests.Common;
 
+// Thread-safe: code under test creates and changes timers on its own threads while the test thread
+// advances the clock. Timer callbacks run outside the lock so they may create or change timers.
 public sealed class ManualTimeProvider(DateTimeOffset initialUtcNow) : TimeProvider
 {
+    private readonly Lock gate = new();
     private readonly List<ManualTimer> timers = [];
+    private readonly List<TaskCompletionSource> pendingTimerWaiters = [];
     private DateTimeOffset utcNow = initialUtcNow;
 
-    public override DateTimeOffset GetUtcNow() => utcNow;
+    public override DateTimeOffset GetUtcNow()
+    {
+        lock (gate)
+        {
+            return utcNow;
+        }
+    }
 
-    public override long GetTimestamp() => utcNow.UtcTicks;
+    public override long GetTimestamp() => GetUtcNow().UtcTicks;
 
     public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+    public bool HasPendingTimer
+    {
+        get
+        {
+            lock (gate)
+            {
+                return HasPendingTimerCore();
+            }
+        }
+    }
 
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
         ArgumentNullException.ThrowIfNull(callback);
         var timer = new ManualTimer(this, callback, state);
-        timers.Add(timer);
+        lock (gate)
+        {
+            timers.Add(timer);
+        }
+
         timer.Change(dueTime, period);
         return timer;
+    }
+
+    // Completes once a timer is scheduled to fire, so a test can advance the clock knowing the
+    // code under test has already armed its delay rather than racing it.
+    public Task WaitForPendingTimerAsync(CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            if (HasPendingTimerCore())
+            {
+                return Task.CompletedTask;
+            }
+
+            var waiter = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            pendingTimerWaiters.Add(waiter);
+            return waiter.Task.WaitAsync(cancellationToken);
+        }
     }
 
     public void Advance(TimeSpan amount)
@@ -32,31 +74,49 @@ public sealed class ManualTimeProvider(DateTimeOffset initialUtcNow) : TimeProvi
             throw new ArgumentOutOfRangeException(nameof(amount));
         }
 
-        var target = utcNow + amount;
+        DateTimeOffset target;
+        lock (gate)
+        {
+            target = utcNow + amount;
+        }
+
         FireDueTimers(target);
-        utcNow = target;
+        lock (gate)
+        {
+            utcNow = target;
+        }
     }
 
     private void FireDueTimers(DateTimeOffset target)
     {
-        while (FindNextDue(target) is { } next)
+        while (TakeNextDue(target) is { } next)
         {
-            utcNow = next.DueAt;
-            next.Timer.Fire();
+            next.Fire();
         }
     }
 
-    private DueTimer? FindNextDue(DateTimeOffset target)
+    private ManualTimer? TakeNextDue(DateTimeOffset target)
+    {
+        lock (gate)
+        {
+            timers.RemoveAll(timer => timer.Disposed);
+            if (FindEarliestDue(target) is not { } next)
+            {
+                return null;
+            }
+
+            utcNow = next.DueAt;
+            next.Timer.Reschedule();
+            return next.Timer;
+        }
+    }
+
+    private DueTimer? FindEarliestDue(DateTimeOffset target)
     {
         DueTimer? next = null;
         foreach (var timer in timers)
         {
-            if (DueAtBy(timer, target) is not { } dueAt)
-            {
-                continue;
-            }
-
-            if (next is null || dueAt < next.Value.DueAt)
+            if (timer.DueAt is { } dueAt && dueAt <= target && (next is null || dueAt < next.Value.DueAt))
             {
                 next = new DueTimer(timer, dueAt);
             }
@@ -65,19 +125,25 @@ public sealed class ManualTimeProvider(DateTimeOffset initialUtcNow) : TimeProvi
         return next;
     }
 
-    private static DateTimeOffset? DueAtBy(ManualTimer timer, DateTimeOffset target)
+    private bool HasPendingTimerCore() => timers.Exists(timer => timer.DueAt is not null);
+
+    private void Schedule(ManualTimer timer, DateTimeOffset? dueAt)
     {
-        if (timer.Disposed || timer.DueAt is not { } dueAt)
+        lock (gate)
         {
-            return null;
-        }
+            timer.DueAt = timer.Disposed ? null : dueAt;
+            if (timer.DueAt is null)
+            {
+                return;
+            }
 
-        if (dueAt > target)
-        {
-            return null;
-        }
+            foreach (var waiter in pendingTimerWaiters)
+            {
+                waiter.TrySetResult();
+            }
 
-        return dueAt;
+            pendingTimerWaiters.Clear();
+        }
     }
 
     private readonly record struct DueTimer(ManualTimer Timer, DateTimeOffset DueAt);
@@ -86,26 +152,33 @@ public sealed class ManualTimeProvider(DateTimeOffset initialUtcNow) : TimeProvi
     {
         private TimeSpan period = Timeout.InfiniteTimeSpan;
 
-        public DateTimeOffset? DueAt { get; private set; }
+        // Guarded by owner.gate.
+        public DateTimeOffset? DueAt { get; set; }
 
         public bool Disposed { get; private set; }
 
         public bool Change(TimeSpan dueTime, TimeSpan newPeriod)
         {
-            if (Disposed)
+            lock (owner.gate)
             {
-                return false;
-            }
+                if (Disposed)
+                {
+                    return false;
+                }
 
-            period = newPeriod;
-            DueAt = dueTime == Timeout.InfiniteTimeSpan ? null : owner.utcNow + dueTime;
-            return true;
+                period = newPeriod;
+                owner.Schedule(this, dueTime == Timeout.InfiniteTimeSpan ? null : owner.utcNow + dueTime);
+                return true;
+            }
         }
 
         public void Dispose()
         {
-            Disposed = true;
-            DueAt = null;
+            lock (owner.gate)
+            {
+                Disposed = true;
+                DueAt = null;
+            }
         }
 
         public ValueTask DisposeAsync()
@@ -114,18 +187,13 @@ public sealed class ManualTimeProvider(DateTimeOffset initialUtcNow) : TimeProvi
             return ValueTask.CompletedTask;
         }
 
-        public void Fire()
+        // Called under owner.gate with owner.utcNow set to this timer's due time.
+        public void Reschedule()
         {
-            if (period == Timeout.InfiniteTimeSpan || period == TimeSpan.Zero)
-            {
-                DueAt = null;
-            }
-            else
-            {
-                DueAt = owner.utcNow + period;
-            }
-
-            callback(state);
+            var oneShot = period == Timeout.InfiniteTimeSpan || period == TimeSpan.Zero;
+            owner.Schedule(this, oneShot ? null : owner.utcNow + period);
         }
+
+        public void Fire() => callback(state);
     }
 }
