@@ -49,11 +49,11 @@ A maintainer sees CI invoking `scripts/run-property-tests.ps1` once per enumerat
 
 **Why this priority**: Ticket names the script verbatim; exit-2-on-vanished-tests closes the silent-skip hole (Q6).
 
-**Independent Test**: Push the branch and observe the property-test job green only when each of the three enumerated invocations exits 0.
+**Independent Test**: Push the branch and observe the property-test job green only when each of the two enumerated invocations exits 0.
 
 **Acceptance Scenarios**:
 
-1. **Given** CI runs, **When** the property-test job runs, **Then** it invokes `pwsh scripts/run-property-tests.ps1 -Project <project>` once per enumerated project: `tests/LamuFlix.Test/LamuFlix.Test.csproj`, `tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj`, `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` (Q6).
+1. **Given** CI runs, **When** the property-test job runs, **Then** it invokes `pwsh scripts/run-property-tests.ps1 -Project <project>` once per enumerated project: `tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj`, `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` (Q6).
 2. **Given** any one invocation exits 1, **When** the job finishes, **Then** the job fails.
 3. **Given** any one invocation exits 2, **When** the job finishes, **Then** the job fails (tagged tests vanished or all skipped) (Q6).
 
@@ -78,7 +78,7 @@ A maintainer sees CI invoking `scripts/run-property-tests.ps1` once per enumerat
 - **FR-004**: Stryker job MUST mutate the whole of `src/LamuFlix.Core/LamuFlix.Core.csproj` on every run with break = `harness.yml` `gates.mutation.threshold` (80), never enabling `since` (Q3).
 - **FR-005**: Stryker job MUST pass only on whole-project-mode exit 0 (score at or above 80 with all standing FAIL criteria clear); exit 1 or exit 2 MUST fail the job (Q3, brief Plan decisions).
 - **FR-006**: Stryker job MUST run `dotnet tool restore` against the tracked `.config/dotnet-tools.json` before invoking the whole-project mode (the manifest check in `run-mutation.ps1` does not install `dotnet-stryker`), MUST invoke that mode with an explicit deterministic output root of `${{ runner.temp }}/stryker-core` (never the default temporary timestamped root `%TEMP%/LamuFlix-stryker/<UTC yyyyMMdd-HHmmss>-<6 hex>`, recon section 7), and MUST upload the exact derived artifact path — `${{ runner.temp }}/stryker-core/LamuFlix.Core/reports/mutation-report.html` (plus `mutation-report.json` from the same `reports/` directory) — with `actions/upload-artifact@v4` named `stryker-report-core`, default retention, `if: always()`, and `if-no-files-found: error` so a run that dies before writing a report fails visibly instead of warning (Q8, Q9, A1).
-- **FR-007**: Property-test job MUST invoke `scripts/run-property-tests.ps1` once per enumerated project (the three csproj paths in US3); every invocation MUST exit 0 or the job fails (Q6).
+- **FR-007**: Property-test job MUST invoke `scripts/run-property-tests.ps1` once per enumerated project (the two csproj paths in US3); every invocation MUST exit 0 or the job fails (Q6).
 - **FR-008**: All three new jobs MUST run on `ubuntu-latest` with the existing triggers (push to main, pull_request to main) and no path filters (A2, brief Plan decisions).
 - **FR-009**: `scripts/run-mutation.ps1` MUST gain an explicit whole-project mode for `LamuFlix.Core` reusing the tracked `stryker-config.json` reporters and the existing threshold/test-project/FAIL-evaluation guardrails, with existing diff-scoped behaviour and the 0/1/2 exit contract unchanged (Q3, Q4). The mode MUST branch above the base-ref/merge-base resolution and diff discovery (no `origin/<base>` resolution, no scope-empty exit 2 for a zero-diff run), MUST select `LamuFlix.Core` directly, and MUST pass the enumerated files under the `LamuFlix.Core` mutate scope as the changed-file set to the FAIL evaluation so the outside-changed-files and changed-files-none-tested guards (run-mutation.ps1:314–345) stay meaningful instead of tripping on every file or silently never firing. The mode MUST accept an explicit output root and write to the deterministic whole-project location `<output-root>/LamuFlix.Core/` (report at `<output-root>/LamuFlix.Core/reports/mutation-report.json`, HTML at `<output-root>/LamuFlix.Core/reports/mutation-report.html`), NOT the default temporary timestamped root (recon section 7).
 - **FR-010**: `scripts/Test-RunMutation.ps1` MUST cover the new whole-project mode (classification via the whole-project dry-run, invocation via a stub `dotnet stryker` placed first on PATH in the fixture that writes a minimal `mutation-report.json` under the `-O` directory and exits 0 without a real Stryker run, the no-diff case, and both changed-file guards above) and assert the existing diff-scoped behaviour and 0/1/2 contract unchanged (Q4).
@@ -91,13 +91,13 @@ A maintainer sees CI invoking `scripts/run-property-tests.ps1` once per enumerat
 - **CI workflow (`ci.yml`)**: five jobs after this ticket — `build-test-format`, `web`, container build, Stryker Core, property tests; green on the DEV-327 PR means all five green (Q7).
 - **Stryker whole-project mode**: new explicit mode in `scripts/run-mutation.ps1` for `LamuFlix.Core`; score = (killed + timeout) / tested x 100 (recon section 7).
 - **Stryker report artifact**: HTML report from the Stryker output tree, artifact name `stryker-report-core` (Q9, A1).
-- **Property-test enumeration**: the three csproj paths holding `Category=Property` tests at HEAD (35 Trait lines across 14 files at HEAD per recon-DEV-327-3; Phase A count was 33 lines, historical).
+- **Property-test enumeration**: the two csproj paths holding `Category=Property` tests at HEAD (35 Trait lines across 14 files at HEAD per recon-DEV-327-3; Phase A count was 33 lines, historical).
 
 ## Success Criteria
 
 ### Measurable Outcomes
 
-- **SC-001**: The DEV-327 PR shows all five ci.yml jobs green: `build-test-format`, `web`, container build, Stryker Core (exit 0 at break 80), property tests (exit 0 x 3) (Q7).
+- **SC-001**: The DEV-327 PR shows all five ci.yml jobs green: `build-test-format`, `web`, container build, Stryker Core (exit 0 at break 80), property tests (exit 0 x 2) (Q7, Q10).
 - **SC-002**: Stryker HTML artifact `stryker-report-core` is downloadable from both a passing and a failing Stryker run (Q9).
 - **SC-003**: A below-80 whole-Core score fails the Stryker job; a vanished-tag property-test project (exit 2) fails the property-test job (Q3, Q6).
 - **SC-004**: `scripts/Test-RunMutation.ps1` passes, covering the new whole-project mode with the diff-scoped 0/1/2 contract unchanged (Q4).
