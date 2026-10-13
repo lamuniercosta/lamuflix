@@ -35,6 +35,23 @@ dotnet build LamuFlix.sln
 dotnet test
 ```
 
+## Observability
+
+Traces, metrics, and logs from the Api (including its background workers) export over OTLP. For local viewing, start the Aspire Dashboard:
+
+```bash
+docker compose -f docker-compose.observability.yml up -d
+```
+
+- Dashboard UI: http://localhost:18888
+- OTLP gRPC: `localhost:4317`, OTLP HTTP: `localhost:4318`
+
+The Api exports to `http://localhost:4317` by default. To send telemetry elsewhere, set `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
+The dashboard runs unsecured for local use only. Do not expose ports 18888, 4317, or 4318 beyond localhost.
+
+![Aspire Dashboard showing traces from LamuFlix.Api](docs/observability/aspire-dashboard-traces.jpg)
+
 ## Local .NET tools
 
 The repository pins three local tools in `.config/dotnet-tools.json` (`isRoot: true`). The manifest version pins each tool to the exact release listed; each entry also sets `rollForward: false`.
