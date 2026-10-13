@@ -35,7 +35,7 @@ Technical plan choices (job layout, script vs direct `dotnet stryker`, project e
 **Ruling: Keel measures the Core baseline score in the plan. Raising tests to reach 80 is in scope (forced by AC "all quality gates pass in CI"); if closing the gap exceeds size:M, Keel returns it to Patron before tasks are cut.**
 
 ## Q6. Property tests: which projects, and what counts as pass?
-**Ruling: CI runs `scripts/run-property-tests.ps1` once per test project that holds `Category=Property` tests (at HEAD: `LamuFlix.Test`, `LamuFlix.UnitTests`, `LamuFlix.IntegrationTests` — recon §14). Exit 0 required; exit 2 on any of those projects fails CI (it would mean tagged tests vanished or were all skipped).**
+**Ruling: CI runs `scripts/run-property-tests.ps1` exactly twice, once each for `LamuFlix.UnitTests` and `LamuFlix.IntegrationTests` (recon §14; enumeration per Q10, which drops retired `LamuFlix.Test`). Exit 0 required on both; exit 2 on either fails CI (it would mean tagged tests vanished or were all skipped).**
 - Ticket names the script verbatim; script exit contract recon §6.
 
 ## Q7. Meaning of "all quality gates pass in CI"

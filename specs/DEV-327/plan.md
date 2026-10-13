@@ -80,7 +80,7 @@ Pass bar: exit 0 only (score >= 80 whole-Core, score = (killed + timeout) / test
 
 ### Property-test job
 
-Three explicit steps (not runtime-discovered): `pwsh scripts/run-property-tests.ps1 -Project tests/LamuFlix.Test/LamuFlix.Test.csproj`, `.../LamuFlix.UnitTests/LamuFlix.UnitTests.csproj`, `.../LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` — one `-Project` per invocation (recon section 6). Every invocation must exit 0; exit 1 or 2 on any one fails the job (Q6). The script itself is not edited (Q4).
+Two explicit steps (not runtime-discovered): `pwsh scripts/run-property-tests.ps1 -Project tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj`, `.../LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` — one `-Project` per invocation (recon section 6). Every invocation must exit 0; exit 1 or 2 on any one fails the job (Q6). The script itself is not edited (Q4).
 
 ### Q5 baseline measurement (before tasks are cut)
 
