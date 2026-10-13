@@ -45,3 +45,6 @@ Technical plan choices (job layout, script vs direct `dotnet stryker`, project e
 
 ## Structural escalations
 None. No `blocked: structural` items.
+
+## Gate 1
+**Ruling: gate1: provisional.** speckit-analyze clean after rerun; plan challenge adjudicated (Keel receipt, note DEV-327:3-6: 12 accepted, Sentry R5 partial, one Compass sub-clause rejected); spec/plan/tasks conform to Q1-Q9 (FR-003 no push/login/secret, FR-004/FR-009 whole-Core break 80 no since, FR-006 upload-artifact@v4 if: always(), FR-011 Q5 STOP to Patron, FR-013 frozen files). No structural escalation. The Status line edit in spec.md is left to the artifact owner per the Conductor ask.
