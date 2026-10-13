@@ -9,11 +9,17 @@ Technical plan choices (job layout, script vs direct `dotnet stryker`, project e
 - No registry or deploy target exists in `specs/PRODUCT.md` (Epic 8 is "by pick", line 16) or the constitution (Containers row, line 336); a push needs credentials (§2.3 item 5) with no source authorising them.
 - The title word "push" is a summary error, not scope: Rigger corrects the summary (see YouTrack requests). Push is `noted, no ticket` until the owner asks for a registry.
 
-## Q2. Which Dockerfiles, and what if they are absent?
+## Q2. Which Dockerfiles, and what if they are absent? (historical, Phase A — superseded by Q2a)
 **Ruling: the job builds the three DEV-21 Dockerfiles (`docker/Dockerfile.api`, `docker/Dockerfile.worker`, `docker/Dockerfile.web`) from repo root. DEV-327 implementation of the container job depends on DEV-21 implementation being merged first.**
 - recon-DEV-327 §12: no Dockerfile, `docker/` or `.dockerignore` exists at origin/main `cb55fc0`; DEV-21 tasks.md T003/T005/T008 create them, and DEV-21 tasks.md:5 bars CI changes from DEV-21, so CI wiring belongs here.
 - Bar is "build cleanly" = `docker build` exit 0 per file (ticket text). DEV-21's non-root / runtimeconfig checks stay DEV-21 evidence, not CI.
 - Sequencing is Bernstein's; Rigger records the dependency as a comment.
+
+## Q2a. Container file set at Phase B pickup (supersedes Q2)
+**Ruling: the container job validates only `docker/Dockerfile.api` and `docker/Dockerfile.web` (`docker build` exit 0 each, from repo root). `docker/Dockerfile.worker` is out: the owner dropped it permanently in DEV-21 PR #136 (option c). No restoration wait and no owner checkbox. The DEV-21 gate is satisfied; T009 is ungated.**
+- recon-DEV-327-3:25-33: both selected files are tracked at pickup HEAD `42b7ec1`; the worker file does not exist and never will (`specs/DEV-21/tasks.md:5`: "dropped permanently ... not deferred").
+- Not escalation (a): the ticket text names no Dockerfile set (note DEV-327:15); the three-file list was only Patron Q2, so Patron amends it. Recon line 32's escalation classification is superseded by this ruling (receipt note DEV-327:55-56; brief.md Q2a).
+- Missing selected file or nonzero build fails its named step; Q7's five-job green bar is unchanged.
 
 ## Q3. Stryker scope: whole `LamuFlix.Core` or changed files only?
 **Ruling: whole-project mutation of `LamuFlix.Core` on every CI run; break threshold = `harness.yml` `gates.mutation.threshold` (80); below 80 fails CI.**
