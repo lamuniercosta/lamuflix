@@ -501,3 +501,6 @@ web/coverage/
 
 # Verify received files stay untracked
 *.received.*
+
+# Spec Kit feature pointer - changes per task
+.specify/feature.json
