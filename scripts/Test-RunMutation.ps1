@@ -16,6 +16,12 @@
 # Without that overlay every case exits 1 GATE NOT WIRED for the wrong reason,
 # so the wiring is asserted before any case runs.
 #
+# The whole-project cases (Q3/Q4) additionally put a stub `dotnet` first on the
+# child's PATH. The stub answers `dotnet stryker` by copying a fixture-authored
+# mutation-report.json into the -O directory and exits 0 - no real Stryker run
+# happens in the fixture - and forwards every other `dotnet` call (the solution
+# listing Get-TestProjects needs) to the real dotnet recorded at setup.
+#
 # Exits 0 when every case holds, 1 when any case fails.
 #
 # Usage:
@@ -109,7 +115,10 @@ function Add-ChangedPaths {
 }
 
 function Invoke-MutationGate {
-    param([Parameter(Mandatory)][string[]]$Arguments)
+    param(
+        [Parameter(Mandatory)][string[]]$Arguments,
+        [hashtable]$Environment = @{}
+    )
 
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
     $psi.FileName = (Get-Command pwsh).Source
@@ -121,6 +130,11 @@ function Invoke-MutationGate {
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
     $psi.Environment['HARNESS_REPO_ROOT'] = $script:checkout
+    # The whole-project cases prepend a stub `dotnet` to PATH here; every other
+    # variable (the stub's report source and output directory) rides along.
+    foreach ($key in $Environment.Keys) {
+        $psi.Environment[$key] = [string]$Environment[$key]
+    }
 
     $proc = [System.Diagnostics.Process]::Start($psi)
     # Both streams are drained concurrently: a full pipe buffer on either one
@@ -145,14 +159,15 @@ function Assert-MutationCase {
         [Parameter(Mandatory)][string[]]$Arguments,
         [Parameter(Mandatory)][int]$ExpectedExit,
         [string[]]$MustContain = @(),
-        [string[]]$MustNotContain = @()
+        [string[]]$MustNotContain = @(),
+        [hashtable]$Environment = @{}
     )
 
     $script:checks++
     Reset-Fixture
     & $Setup
 
-    $run = Invoke-MutationGate -Arguments $Arguments
+    $run = Invoke-MutationGate -Arguments $Arguments -Environment $Environment
     $problems = [System.Collections.Generic.List[string]]::new()
 
     if ($run.Exit -ne $ExpectedExit) {
@@ -204,6 +219,28 @@ $FilesJson
 }
 "@
     [System.IO.File]::WriteAllText($Path, $json, [System.Text.UTF8Encoding]::new($false))
+}
+
+function New-StrykerStubEnvironment {
+    <#
+      Child environment for a whole-project invocation whose `dotnet stryker` call
+      is answered by the fixture stub. PATH puts the stub first; STRYKER_STUB_REAL_DOTNET
+      forwards the solution listing Get-TestProjects needs, STRYKER_STUB_REPORT_SRC is the
+      report the stub copies, and STRYKER_STUB_REPORT_DIR is the -O reports directory the
+      script reads back.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$OutputRoot,
+        [Parameter(Mandatory)][string]$ReportSource
+    )
+
+    $separator = [System.IO.Path]::PathSeparator
+    return @{
+        PATH                     = "$($script:stubDir)$separator$($env:PATH)"
+        STRYKER_STUB_REAL_DOTNET = $script:realDotnet
+        STRYKER_STUB_REPORT_SRC  = $ReportSource
+        STRYKER_STUB_REPORT_DIR  = Join-Path (Join-Path $OutputRoot 'LamuFlix.Core') 'reports'
+    }
 }
 
 function Assert-FixtureWiring {
@@ -266,6 +303,40 @@ try {
     Invoke-FixtureGit @('-c', 'user.name=mutation fixture', '-c', 'user.email=fixture@lamuflix.invalid',
         '-c', 'commit.gpgsign=false', 'commit', '--quiet', '--allow-empty', '-m', 'fixture tooling overlay') | Out-Null
     $script:fixtureBase = (@(Invoke-FixtureGit @('rev-parse', 'HEAD'))[0]).Trim()
+
+    # The stub `dotnet` the whole-project cases put first on the child's PATH. It
+    # answers a `stryker` call by copying the fixture report into the -O reports
+    # directory and any other call (the solution listing Get-TestProjects needs) by
+    # forwarding to the real dotnet recorded here, so project discovery stays real.
+    $script:realDotnet = (Get-Command dotnet -CommandType Application | Select-Object -First 1).Source
+    if (-not $script:realDotnet) { throw 'no dotnet application on PATH, so the stryker stub cannot forward solution discovery' }
+    $script:stubDir = Join-Path $script:work 'stub-bin'
+    New-Item -ItemType Directory -Path $script:stubDir -Force | Out-Null
+
+    $stubCmd = @'
+@echo off
+if /i "%~1"=="stryker" (
+  if not exist "%STRYKER_STUB_REPORT_DIR%" mkdir "%STRYKER_STUB_REPORT_DIR%" >nul 2>&1
+  copy /y "%STRYKER_STUB_REPORT_SRC%" "%STRYKER_STUB_REPORT_DIR%\mutation-report.json" >nul
+  exit /b 0
+)
+"%STRYKER_STUB_REAL_DOTNET%" %*
+exit /b %ERRORLEVEL%
+'@
+    $stubSh = @'
+#!/bin/sh
+if [ "$1" = "stryker" ]; then
+  mkdir -p "$STRYKER_STUB_REPORT_DIR"
+  cp "$STRYKER_STUB_REPORT_SRC" "$STRYKER_STUB_REPORT_DIR/mutation-report.json"
+  exit 0
+fi
+exec "$STRYKER_STUB_REAL_DOTNET" "$@"
+'@
+    [System.IO.File]::WriteAllText((Join-Path $script:stubDir 'dotnet.cmd'),
+        ($stubCmd -replace "`r?`n", "`r`n"), [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText((Join-Path $script:stubDir 'dotnet'),
+        ($stubSh -replace "`r?`n", "`n"), [System.Text.UTF8Encoding]::new($false))
+    try { & chmod +x (Join-Path $script:stubDir 'dotnet') *> $null } catch { }
 
     Assert-FixtureWiring
 
@@ -397,6 +468,77 @@ $killedInChangedFile,
 "@
     } -Arguments @('-EvaluateReport', $scopeReport, '-ScopeFile', $scopeChanged) -ExpectedExit 1 `
         -MustContain @('outside changed files', $scopeUnchanged)
+
+    # Whole-project mode (Q3/Q4). Classification and the zero-diff contrast run
+    # without the stub; the invocation and both changed-file guards drive a stub
+    # `dotnet stryker` so no real Stryker run happens in the fixture.
+    $coreFileItem = @(
+        Get-ChildItem -LiteralPath (Join-Path $script:checkout 'src/LamuFlix.Core') -Recurse -File -Filter '*.cs' |
+            Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' } |
+            Sort-Object FullName |
+            Select-Object -First 1
+    )[0]
+    if (-not $coreFileItem) { throw 'the fixture checkout carries no C# file under src/LamuFlix.Core' }
+    $coreChangedFile = [System.IO.Path]::GetRelativePath($script:checkout, $coreFileItem.FullName).Replace('\', '/')
+
+    Write-Host ''
+    Write-Host 'Whole-project mode cases:'
+
+    Assert-MutationCase -Name '10 whole-project mode classifies whole Core on a zero diff and never exits scope-empty' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 0 -MustContain @(
+        'Whole-project mode: LamuFlix.Core',
+        'LamuFlix.Core.csproj',
+        'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj'
+    ) -MustNotContain @('SKIPPED')
+
+    Assert-MutationCase -Name '10b diff-scoped mode on the same zero diff still exits 2 SKIPPED' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 2 -MustContain @('SKIPPED')
+
+    $wpPassOut = Join-Path $script:work 'wp-pass-out'
+    $wpPassReport = Join-Path $script:work 'wp-pass-report.json'
+    Write-ScopeReport -Path $wpPassReport -FilesJson @"
+    "$coreChangedFile": {
+      "mutants": [
+        { "id": "1", "status": "Killed", "killedBy": ["t1"], "mutatorName": "Statement", "location": { "start": { "line": 1 } } }
+      ]
+    }
+"@
+    Assert-MutationCase -Name '11 whole-project invocation via the stub dotnet writes the report and passes' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+    } -Arguments @('-WholeProject', '-OutputRoot', $wpPassOut) -ExpectedExit 0 -MustContain @('PASSED') `
+        -Environment (New-StrykerStubEnvironment -OutputRoot $wpPassOut -ReportSource $wpPassReport)
+
+    $wpOutsideOut = Join-Path $script:work 'wp-outside-out'
+    $wpOutsideReport = Join-Path $script:work 'wp-outside-report.json'
+    Write-ScopeReport -Path $wpOutsideReport -FilesJson @"
+    "src/LamuFlix.Api/Program.cs": {
+      "mutants": [
+        { "id": "1", "status": "Killed", "killedBy": ["t1"], "mutatorName": "Statement", "location": { "start": { "line": 1 } } }
+      ]
+    }
+"@
+    Assert-MutationCase -Name '12 a mutated file outside the whole-project changed set fails the run' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+    } -Arguments @('-WholeProject', '-OutputRoot', $wpOutsideOut) -ExpectedExit 1 `
+        -MustContain @('outside changed files', 'src/LamuFlix.Api/Program.cs') `
+        -Environment (New-StrykerStubEnvironment -OutputRoot $wpOutsideOut -ReportSource $wpOutsideReport)
+
+    $wpNoneOut = Join-Path $script:work 'wp-nonetested-out'
+    $wpNoneReport = Join-Path $script:work 'wp-nonetested-report.json'
+    Write-ScopeReport -Path $wpNoneReport -FilesJson @"
+    "$coreChangedFile": {
+      "mutants": [
+        { "id": "1", "status": "CompileError", "statusReason": "Mutant caused compile errors" }
+      ]
+    }
+"@
+    Assert-MutationCase -Name '13 a changed Core file with mutants but none tested fails the run' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+    } -Arguments @('-WholeProject', '-OutputRoot', $wpNoneOut) -ExpectedExit 1 `
+        -MustContain @('none were tested', $coreChangedFile) `
+        -Environment (New-StrykerStubEnvironment -OutputRoot $wpNoneOut -ReportSource $wpNoneReport)
 }
 catch {
     Write-Host "Mutation fixture: FAILED - $($_.Exception.Message)" -ForegroundColor Red
