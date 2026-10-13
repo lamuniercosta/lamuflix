@@ -1,26 +1,26 @@
 # Feature Specification: DEV-327 — CI container build validation, Stryker Core gate, property-test gate
 
-**Feature Branch**: `feature/327-spec`
+**Feature Branch**: `feature/DEV-327` (Phase B)
 
 **Created**: 2026-10-13
 
 **Status**: Draft
 
-**Input**: `specs/DEV-327/brief.md`, recon note `recon-DEV-327`, note `DEV-327`, `specs/PRODUCT.md`, `specs/DEV-327/CONCLUSIONS.md` (Q1–Q9), `specs/DEV-327/ASSUMPTIONS.md`
+**Input**: `specs/DEV-327/brief.md`, recon note `recon-DEV-327`, note `DEV-327`, `specs/PRODUCT.md`, `specs/DEV-327/CONCLUSIONS.md` (Q1–Q9), `specs/DEV-327/ASSUMPTIONS.md`, recon note `recon-DEV-327-3`, Q2a (brief.md Plan decisions)
 
 ## User Scenarios & Testing
 
 ### User Story 1 - Container images build cleanly in CI (Priority: P1)
 
-A maintainer opening the DEV-327 PR sees a dedicated CI job proving the three DEV-21 Dockerfiles build cleanly from the repo root.
+A maintainer opening the DEV-327 PR sees a dedicated CI job proving the two selected DEV-21 Dockerfiles (API and Web) build cleanly from the repo root.
 
 **Why this priority**: Ticket acceptance "Dockerfiles build cleanly"; build-only validation with no push (Q1).
 
-**Independent Test**: With DEV-21's three Dockerfiles on the branch, push the branch and observe the container job green; each of `docker/Dockerfile.api`, `docker/Dockerfile.worker`, `docker/Dockerfile.web` builds with `docker build -f <file> .` exit 0 from the repo root.
+**Independent Test**: Push the branch and observe the container job green; each of `docker/Dockerfile.api` and `docker/Dockerfile.web` builds with `docker build -f <file> .` exit 0 from the repo root.
 
 **Acceptance Scenarios**:
 
-1. **Given** DEV-21's three Dockerfiles merged and the branch rebased, **When** CI runs, **Then** the container job builds all three files from the repo root and passes on exit 0 per file (Q2).
+1. **Given** the selected API and Web Dockerfiles on the branch, **When** CI runs, **Then** the container job builds exactly `docker/Dockerfile.api` and `docker/Dockerfile.web` from the repo root and passes on exit 0 per file (Q2a).
 2. **Given** any Dockerfile fails to build, **When** CI runs, **Then** the container job fails and names the failing file.
 3. **Given** a green or red run, **When** the job finishes, **Then** no registry login step ran, no secret beyond `GITHUB_TOKEN` was used, and nothing was pushed (Q1).
 
@@ -61,7 +61,7 @@ A maintainer sees CI invoking `scripts/run-property-tests.ps1` once per enumerat
 
 ### Edge Cases
 
-- DEV-21 Dockerfiles absent (branch not yet rebased onto merged DEV-21): container job cannot pass; container-job verification waits while Stryker and property-test work proceeds (brief Task-ordering constraint 1).
+- A selected Dockerfile (`docker/Dockerfile.api` or `docker/Dockerfile.web`) is missing: the container job fails (Q2a); no DEV-21 wait.
 - Whole-Core baseline below 80 at plan stage: Phase 3 waits — test-raising is in scope only if the gap fits size M (concrete T005a test tasks plus T005b re-measure before T006); if closing the gap exceeds size M, STOP before Phase 3 and return to Patron — no silent oversized task list (Q5).
 - A failing Phase B Stryker run still makes its report diagnosable with break 80 unchanged: a post-T006 CI failure uploads `stryker-report-core` (`if: always()`), while a pre-T006 below-80 baseline run (T004/T005b, before the workflow exists) leaves the local report files at the T001 deterministic location; each case records report presence and the failure in the task note.
 - `scripts/run-mutation.ps1` invoked in whole-project mode on a repo with zero `src/` changes still runs the full Core mutation (never scope-empty exit 2 by lack of diff).
@@ -73,7 +73,7 @@ A maintainer sees CI invoking `scripts/run-property-tests.ps1` once per enumerat
 ### Functional Requirements
 
 - **FR-001**: CI MUST add exactly three new jobs to `.github/workflows/ci.yml` alongside the untouched `build-test-format` and `web` jobs: container build, Stryker Core, property tests (Q4, Q7).
-- **FR-002**: Container job MUST build `docker/Dockerfile.api`, `docker/Dockerfile.worker`, `docker/Dockerfile.web` each as `docker build -f <file> .` from the repo root with local tags only, exit 0 per file (Q2, A3).
+- **FR-002**: Container job MUST build exactly `docker/Dockerfile.api` and `docker/Dockerfile.web`, each as `docker build -f <file> .` from the repo root with local tags only, exit 0 per file; a missing selected file or nonzero build fails the job (Q2a, A3).
 - **FR-003**: Container job MUST NOT include a registry push, registry login, new secret, `docker/*` action, Dockerfile creation, or non-root/runtimeconfig/image-content check (Q1, Q2, Q8).
 - **FR-004**: Stryker job MUST mutate the whole of `src/LamuFlix.Core/LamuFlix.Core.csproj` on every run with break = `harness.yml` `gates.mutation.threshold` (80), never enabling `since` (Q3).
 - **FR-005**: Stryker job MUST pass only on whole-project-mode exit 0 (score at or above 80 with all standing FAIL criteria clear); exit 1 or exit 2 MUST fail the job (Q3, brief Plan decisions).
@@ -91,7 +91,7 @@ A maintainer sees CI invoking `scripts/run-property-tests.ps1` once per enumerat
 - **CI workflow (`ci.yml`)**: five jobs after this ticket — `build-test-format`, `web`, container build, Stryker Core, property tests; green on the DEV-327 PR means all five green (Q7).
 - **Stryker whole-project mode**: new explicit mode in `scripts/run-mutation.ps1` for `LamuFlix.Core`; score = (killed + timeout) / tested x 100 (recon section 7).
 - **Stryker report artifact**: HTML report from the Stryker output tree, artifact name `stryker-report-core` (Q9, A1).
-- **Property-test enumeration**: the three csproj paths holding `Category=Property` tests at HEAD (33 lines, recon section 14).
+- **Property-test enumeration**: the three csproj paths holding `Category=Property` tests at HEAD (35 Trait lines across 14 files at HEAD per recon-DEV-327-3; Phase A count was 33 lines, historical).
 
 ## Success Criteria
 
@@ -107,5 +107,5 @@ A maintainer sees CI invoking `scripts/run-property-tests.ps1` once per enumerat
 - Stryker artifact name `stryker-report-core`; GitHub default retention, no override (ASSUMPTIONS.md A1, Q9).
 - New CI checks use the same triggers as ci.yml (push to main, pull_request to main); no path filters (ASSUMPTIONS.md A2 as decided in brief Plan decisions).
 - Container job builds images without tagging for any registry; local tags only (ASSUMPTIONS.md A3, Q1).
-- DEV-21's three Dockerfiles exist on main before container-job verification (brief Task-ordering constraint 1; DEPENDENCY, not a scope change).
+- Pickup prerequisite satisfied: the selected DEV-21 API and Web Dockerfiles exist on main (brief Task-ordering constraint 1, Q2a, recon-DEV-327-3); no owner checkbox or restoration wait.
 - Whole-Core baseline score is a plan-stage measurement, not a recon fact (recon section 16 contains no score).

@@ -24,12 +24,14 @@
 #   ./scripts/run-mutation.ps1 -BaseRef origin/main
 #   ./scripts/run-mutation.ps1 -DryRun
 #   ./scripts/run-mutation.ps1 -Project LamuFlix.Api -OutputRoot <dir outside the repo>
+#   ./scripts/run-mutation.ps1 -WholeProject -OutputRoot <dir outside the repo>
 #   ./scripts/run-mutation.ps1 -EvaluateReport <path/to/mutation-report.json>
 
 [CmdletBinding()]
 param(
     [string]$BaseRef = '',
     [switch]$DryRun,
+    [switch]$WholeProject,
     [string]$EvaluateReport = '',
     [string[]]$ScopeFile = @(),
     [string[]]$Project = @(),
@@ -71,7 +73,8 @@ OPTIONS:
   -EvaluateReport <path>  Evaluate an existing Stryker mutation report without running Stryker (skips changed-file containment checks unless -ScopeFile is set)
   -ScopeFile <path[]>     With -EvaluateReport, repo-relative files that form the diff. Omit it and containment checks stay skipped
   -Project <name[]>       Only run these changed projects (e.g. LamuFlix.Api or LamuFlix.Api.csproj); a name with no changed files is an error
-  -OutputRoot <dir>       Where Stryker output goes, one <Project> folder each (default: <system temp>/LamuFlix-stryker/<UTC yyyyMMdd-HHmmss>-<6 hex>; must be outside the repo)
+  -WholeProject           Mutate the whole of src/LamuFlix.Core/LamuFlix.Core.csproj on every run, ignoring the diff scope (never scope-empty; since never enabled); writes to <output root>/LamuFlix.Core/
+  -OutputRoot <dir>       Where Stryker output goes, one <Project> folder each (default: <system temp>/LamuFlix-stryker/<UTC yyyyMMdd-HHmmss>-<6 hex>, or <system temp>/stryker-core in -WholeProject mode; must be outside the repo)
   -Help                   Show this help
 
 CONFIGURATION:
@@ -495,43 +498,76 @@ if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
     }
 }
 
-# Resolve base ref and merge-base
-$baseBranch = Get-HarnessValue -Key 'baseBranch' -RepoRoot $repoRoot
-if ([string]::IsNullOrWhiteSpace($baseBranch)) {
-    $baseBranch = 'main'
-}
+# Whole-project mode (Q3): mutate the whole of one named project on every run. It
+# branches above the base-ref/merge-base resolution and diff discovery below, so a
+# zero-diff run is never scope-empty and no origin/<base> lookup happens (the shallow
+# checkout needs no fetch-depth change). The enumerated files under the project's
+# mutate scope become the changed-file set, so the outside-changed-files and
+# changed-files-none-tested guards in Evaluate-MutationReport still mean something
+# instead of tripping on every file or silently never firing.
+$wholeProjectName = 'LamuFlix.Core'
+if ($WholeProject) {
+    $wholeProjectPath = Join-Path $repoRoot ("src/$wholeProjectName/$wholeProjectName.csproj")
+    if (-not (Test-Path -LiteralPath $wholeProjectPath)) {
+        Write-Host "GATE NOT WIRED: whole-project target is missing at '$wholeProjectPath'."
+        exit 1
+    }
 
-$targetRef = if (-not [string]::IsNullOrWhiteSpace($BaseRef)) {
-    $BaseRef
+    $wholeProjectDir = Split-Path $wholeProjectPath -Parent
+    $changedFiles = @(
+        Get-ChildItem -LiteralPath $wholeProjectDir -Recurse -File -Filter '*.cs' |
+            Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' } |
+            Where-Object { $_.FullName -notmatch 'Persistence[\\/]Migrations[\\/]' } |
+            ForEach-Object { [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName).Replace('\', '/') } |
+            Sort-Object
+    )
+
+    if ($changedFiles.Count -eq 0) {
+        Write-Host "GATE NOT WIRED: whole-project target '$wholeProjectDir' contains no C# files."
+        exit 1
+    }
+
+    Write-Host "Whole-project mode: $wholeProjectName ($($changedFiles.Count) source file(s)); diff scope not consulted, since disabled."
 }
 else {
-    "origin/$baseBranch"
-}
-
-$mergeBase = git -C $repoRoot merge-base HEAD $targetRef 2>$null
-
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($mergeBase)) {
-    Write-Host "Mutation testing: FAILED - could not resolve git merge-base between HEAD and '$targetRef'."
-    if ([string]::IsNullOrWhiteSpace($BaseRef)) {
-        Write-Host "  Fetch the remote branch with 'git fetch origin' or pass -BaseRef explicitly."
+    # Resolve base ref and merge-base
+    $baseBranch = Get-HarnessValue -Key 'baseBranch' -RepoRoot $repoRoot
+    if ([string]::IsNullOrWhiteSpace($baseBranch)) {
+        $baseBranch = 'main'
     }
-    exit 1
-}
 
-$mergeBase = $mergeBase.Trim()
+    $targetRef = if (-not [string]::IsNullOrWhiteSpace($BaseRef)) {
+        $BaseRef
+    }
+    else {
+        "origin/$baseBranch"
+    }
 
-# Discover changed production C# files under src/
-$changedFiles = @(
-    git -C $repoRoot diff --name-only --diff-filter=AMR $mergeBase HEAD -- 'src/*.cs' 'src/**/*.cs' |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-        ForEach-Object { $_.Trim().Replace('\', '/') } |
-        Where-Object { $_ -notmatch 'Persistence[\\/]Migrations[\\/]' } |
-        Select-Object -Unique
-)
+    $mergeBase = git -C $repoRoot merge-base HEAD $targetRef 2>$null
 
-if ($changedFiles.Count -eq 0) {
-    Write-Host 'Mutation testing: SKIPPED - no production C# files modified under src/.'
-    exit 2
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($mergeBase)) {
+        Write-Host "Mutation testing: FAILED - could not resolve git merge-base between HEAD and '$targetRef'."
+        if ([string]::IsNullOrWhiteSpace($BaseRef)) {
+            Write-Host "  Fetch the remote branch with 'git fetch origin' or pass -BaseRef explicitly."
+        }
+        exit 1
+    }
+
+    $mergeBase = $mergeBase.Trim()
+
+    # Discover changed production C# files under src/
+    $changedFiles = @(
+        git -C $repoRoot diff --name-only --diff-filter=AMR $mergeBase HEAD -- 'src/*.cs' 'src/**/*.cs' |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { $_.Trim().Replace('\', '/') } |
+            Where-Object { $_ -notmatch 'Persistence[\\/]Migrations[\\/]' } |
+            Select-Object -Unique
+    )
+
+    if ($changedFiles.Count -eq 0) {
+        Write-Host 'Mutation testing: SKIPPED - no production C# files modified under src/.'
+        exit 2
+    }
 }
 
 # Group changed files by nearest ancestor *.csproj
@@ -675,6 +711,11 @@ if ($everyChangedProjectListed) {
 # Output root lives outside the repo so StrykerOutput never lands in the working tree.
 $outputRootPath = if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) {
     [System.IO.Path]::GetFullPath($OutputRoot)
+}
+elseif ($WholeProject) {
+    # Deterministic location so CI and local runs write to one stable path under
+    # <output root>/LamuFlix.Core/ instead of a timestamped folder (Q9, recon section 7).
+    Join-Path ([System.IO.Path]::GetTempPath()) 'stryker-core'
 }
 else {
     # The GUID suffix keeps two runs started in the same second out of one folder.

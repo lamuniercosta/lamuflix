@@ -1,12 +1,12 @@
 # Implementation Plan: DEV-327 — CI container build validation, Stryker Core gate, property-test gate
 
-**Branch**: `feature/327-spec` | **Date**: 2026-10-13 | **Spec**: `specs/DEV-327/spec.md`
+**Branch**: `feature/DEV-327` (Phase B) | **Date**: 2026-10-13 | **Spec**: `specs/DEV-327/spec.md`
 
-**Input**: `specs/DEV-327/spec.md`, `specs/DEV-327/brief.md` (frozen scope, Q1–Q9, Plan decisions, ordering constraints), recon `recon-DEV-327`, `specs/PRODUCT.md`
+**Input**: `specs/DEV-327/spec.md`, `specs/DEV-327/brief.md` (frozen scope, Q1–Q9, Plan decisions, ordering constraints), recon `recon-DEV-327`, `recon-DEV-327-3`, Q2a (brief.md Plan decisions), `specs/PRODUCT.md`
 
 ## Summary
 
-Extend `.github/workflows/ci.yml` with three separate jobs (container `docker build` validation, whole-Core Stryker at break 80, per-project property tests), backed by a new explicit whole-project mode in `scripts/run-mutation.ps1` plus `scripts/Test-RunMutation.ps1` coverage. Build-only containers gated on merged DEV-21 Dockerfiles; Q5 baseline measured before test-raising tasks are cut.
+Extend `.github/workflows/ci.yml` with three separate jobs (container `docker build` validation, whole-Core Stryker at break 80, per-project property tests), backed by a new explicit whole-project mode in `scripts/run-mutation.ps1` plus `scripts/Test-RunMutation.ps1` coverage. Build-only containers for exactly the API and Web Dockerfiles (Q2a; DEV-21 prerequisite satisfied, recon-DEV-327-3); Q5 baseline measured before test-raising tasks are cut.
 
 ## Technical Context
 
@@ -30,11 +30,11 @@ Extend `.github/workflows/ci.yml` with three separate jobs (container `docker bu
 
 ## Constitution Check
 
-- TimeProvider / seeded Random: unaffected (no production C# in this ticket except conditional Q5 test-raising, which follows existing conventions).
-- No threshold lowered (break 80 frozen); no generated file edited; no `dotnet build` / direct `dotnet stryker` substitute for a gate script (Gate expectations).
-- No second assertion/mocking library; no data-access driver mocking change; no new dependency, project, folder, schema, or API shape (FR-013).
-- No `Features:LocalPlay`, secrets, or `Process.Start` touch (recon section 15: 0 hits; new jobs introduce none).
-- PASS — no violations to justify.
+- TimeProvider / seeded Random (Principle VII; seeded Random per existing harness rule): unaffected (no production C# in this ticket except conditional Q5 test-raising, which follows existing conventions).
+- No threshold lowered (Principle IX, constitution line 290; break 80 frozen); no generated file edited; no `dotnet build` / direct `dotnet stryker` substitute for a gate script (existing harness rules; Gate expectations; brief C1 decision).
+- No second assertion/mocking library; no data-access driver mocking change (Principle IX); no new dependency, project, folder, schema, or API shape (Principles I and V; Technology Stack Constraints; FR-013; brief C1 decision).
+- No `Features:LocalPlay`, secrets, or `Process.Start` touch (Principle VII) (recon section 15: 0 hits; new jobs introduce none).
+- PASS — no violations to justify for the evaluated gates (Principles I, V, VII, IX; brief C1 decision).
 
 ## Project Structure
 
@@ -70,7 +70,7 @@ Three new separate jobs in `ci.yml` after the existing `build-test-format` and `
 
 ### Container job
 
-One step per Dockerfile — `docker build -f docker/Dockerfile.api .`, `docker build -f docker/Dockerfile.worker .`, `docker build -f docker/Dockerfile.web .` — each step named for its file so a failure names the failing file in the job summary without log parsing (US1 acceptance 2); exit 0 per file (Q2). Local tags only (A3); no login, no push, no `docker/*` action (Q1, Q8); no non-root/runtimeconfig/content checks (DEV-21 evidence, Q2). Gated on DEV-21 merge + rebase (ordering constraint 1).
+Exactly two explicit steps after checkout, one per Dockerfile — `docker build -f docker/Dockerfile.api .` and `docker build -f docker/Dockerfile.web .` — each step named for its file so a failure names the failing file in the job summary without log parsing (US1 acceptance 2); exit 0 per file; a missing selected file or nonzero build fails the job (Q2a, recon-DEV-327-3). Local tags only (A3); no login, no push, no `docker/*` action (Q1, Q8); no non-root/runtimeconfig/content checks (DEV-21 evidence, Q2).
 
 ### Stryker job — mechanism (Q4 choice, brief Plan decisions)
 
