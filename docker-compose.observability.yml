@@ -1,0 +1,14 @@
+# Local observability target: the Aspire Dashboard receives OTLP from the Api.
+# Start with: docker compose -f docker-compose.observability.yml up -d
+# The Api exports to http://localhost:4317 (see README, "Observability").
+services:
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6
+    ports:
+      - "18888:18888" # dashboard UI
+      - "4317:18889" # OTLP gRPC
+      - "4318:18890" # OTLP HTTP
+    environment:
+      # Local-only: no login and no OTLP key. Do not expose these ports beyond localhost.
+      - DASHBOARD__FRONTEND__AUTHMODE=Unsecured
+      - DASHBOARD__OTLP__AUTHMODE=Unsecured
