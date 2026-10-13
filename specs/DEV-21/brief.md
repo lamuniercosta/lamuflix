@@ -26,6 +26,15 @@ Sources: YouTrack DEV-21 via scripts/get-task.ps1; specs/PRODUCT.md; specs/DEV-2
 - Effect: this amendment supersedes every Worker-delivery clause below wherever it conflicts, including C1 and C2 as applied to `Dockerfile.worker`, C3, the C8 three-image acceptance wording, the Dockerfile.worker plan decision, and ordering constraints 2 and 4 as applied to Worker tasks. The Worker project itself is not deleted, rewritten, made buildable, or otherwise touched.
 - Keel has amended brief.md, plan.md, and tasks.md for this decision change, and Quill has amended spec.md (US2, FR-002, and Key Entity cite C13 closing C12; SC-001/SC-002 cover Api and Web only; Worker evidence SC-004 is moot). No pre-answer Worker wording remains; nothing here restores Worker scope.
 
+## Owner-answer resume decision (2026-10-13)
+
+- Scope remains C13: Worker is dropped permanently; Api, Web, Nginx config and root `.dockerignore` are the only deliverables. Basis: PR #136 owner option (c) and test-plan option (c) checked as reported in DEV-21:452-454; this resumption is explicitly directed by Conductor.
+- Preserve T001-T007 completion as historical work, not current-context acceptance. Recon-DEV-21 section 14 verifies the historical C8 pack at da3866cd3601b142fb3e9b3967b2ac4d3a4dea7b. Recon-DEV-21-3:46-73 proves the four delivered files and build manifests unchanged but records changed Api sources and `web/src/api/openapi.json` from main. Unchanged Dockerfile bytes do not prove builds with those changed inputs.
+- Add **Phase 5: Owner-answer resume - current-context acceptance**, owned by Anvil: T009 repeats Api acceptance (T003), T010 repeats Web acceptance (T006), T011 collects the resulting current-context C8 evidence (T007). T009 and T010 follow the already-completed T001/T002/T004/T005; T011 follows both acceptance tasks. No implementation file rewrite is needed to start. A failing build stops with its command, exit and failure evidence; it does not authorize dependency, source, tag or scope changes.
+- Preserve the historical pack and transcripts. T011 records new raw output paths separately under the existing `artifacts/DEV-21/` evidence location, plus branch, source HEAD, documentation working-tree delta, image IDs, command exits and per-image checks. This is evidence recording, not a new delivery folder or architectural layer. Each image is inspected/probed by its newly built ID, avoiding reuse of a historical tag as evidence.
+- T008 remains Gauge-owned. Existing current-head gate receipts in DEV-21:442-450 are retained with their actual verdicts; the resume phase does not order Anvil to duplicate gates or mark T008 complete. After acceptance, Conductor routes any necessary gate refresh to Gauge for the resulting diff.
+- Review and merge boundaries remain separate: recon-DEV-21-3:94-106 maps review coverage of the unchanged four files only. Spec amendments, feature-pin removal, rebased SHA coverage and main drift have no named current review receipt in those roots. This task amendment and new acceptance evidence do not establish a current-head merge bar, close review coverage, change the PR checkboxes, or authorize a merge.
+
 ## Frozen scope
 
 In scope (implementation, Phase B):
@@ -137,12 +146,12 @@ Task-ordering constraints (for Quill to encode in tasks.md):
 
 ## Next owner and action
 
-- Next owner: Keel — rerun /speckit-analyze read-only against this brief (post-amendment rerun).
-- That rerun checks in particular the pinned image tags and the frozen four-file set; no C3 build-time check remains.
-- After a clean rerun, Anvil resumes Phase B implementation from tasks.md T002. Nobody merges; the user merges every PR.
+- Current next owner: Anvil — **Phase 5: Owner-answer resume - current-context acceptance**, T009 then T010 then T011, under the resume decision above. T002 is already complete and is not restarted.
+- Scope/task consistency is checked against this brief, plan DD-1/DD-6 and spec FR-001-FR-009/SC-001-SC-004; no Worker task or C3 build-time check remains.
+- Gauge owns T008; Conductor routes later gates and outstanding review coverage separately. Nobody merges; the user merges every PR.
 
 ## Plan challenge adjudication (Phase 2 step 4, Keel)
-Historical record: task IDs and Worker dispositions in this section use the pre-amendment numbering and scope. The Owner answer amendment above supersedes them; current numbering is tasks.md T001–T008 with no Worker task.
+Historical record: task IDs and Worker dispositions in this section use the pre-amendment numbering and scope. The Owner answer amendment above supersedes them; current numbering is tasks.md T001-T011 with no Worker task; T009-T011 are the owner-answer resume phase.
 
 Read at HEAD 56afcf8fdc901a18b4235b7cc894e01d40db7150 on feature/021-spec: note DEV-21, findings-DEV-21-Ledger (F1-F6), findings-DEV-21-Compass (F1-F4), findings-DEV-21-Sentry (M1-M3, L1-L4), this brief, spec.md, plan.md, tasks.md, recon-DEV-21, specs/PRODUCT.md. Verified in-worktree: Directory.Build.props AdditionalFiles (CodeMetricsConfig.txt, BannedSymbols.txt via $(MSBuildThisFileDirectory), TreatWarningsAsErrors), global.json SDK 10.0.400 rollForward latestPatch. No finding contradicts ticket text (C1-C10) or departs from the constitution; no `blocked: structural` and no owner checkbox arises. The C3 Phase B stop-and-escalate trigger is unchanged. Quill applies the accepted text fixes below to spec.md, plan.md, and tasks.md only; Keel does not edit those files in this adjudication.
 

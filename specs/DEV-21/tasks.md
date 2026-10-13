@@ -4,6 +4,10 @@
 
 **Scope guard**: Only these 4 new files may be created: `docker/Dockerfile.api`, `docker/Dockerfile.web`, one Nginx config under `docker/`, root `.dockerignore`. `docker/Dockerfile.worker` is dropped permanently by the owner answer on PR #136 (option c); it is not deferred, no DEV-21 follow-up creates it, and no Worker publish, C3 runtimeconfig check, or Worker acceptance task remains. No task may add a dependency, compose file, `HEALTHCHECK`, CI change, registry step, tracked-file rewrite, secret, or LocalPlay change. Such a task is a brief violation.
 
+**Resume status (2026-10-13)**: T001-T007 remain completed historical work. The C8 pack was verified at da3866cd (recon-DEV-21 section 14); four delivered file blobs remain unchanged at 764d2eac, but main changed Api sources and the generated Web contract (recon-DEV-21-3:46-73). Current-context acceptance is therefore pending in T009-T011. C13 is already reflected in this task list; no Worker obligation is restored. T008 remains Gauge-owned and is not a task for Anvil.
+
+**Next Anvil phase**: **Phase 5: Owner-answer resume - current-context acceptance**. Execute T009, T010, T011 in that order; no completed write task is restarted. On failure, report the command, exit and failure evidence to Conductor before any implementation or scope change.
+
 ## Phase 1: Setup (shared)
 
 **Purpose**: Common build-context foundation every story needs.
@@ -50,13 +54,24 @@
 
 ---
 
+## Phase 5: Owner-answer resume - current-context acceptance
+
+**Owner**: Anvil. **Purpose**: Complete the owner-approved Api/Web test plan against the rebased build context; preserve historical receipts and the frozen four-file scope (brief Owner-answer resume decision).
+
+- [X] T009 [US1] Repeat all T003 Api acceptance checks from `F:/Dev/LamuFlix.worktrees/DEV-21`: `docker build -f docker/Dockerfile.api .` must exit 0, with raw output and the actual exit recorded. Record branch, source HEAD and documentation working-tree delta; obtain the new image ID and use that ID for `docker inspect` and `docker run ... id` (uid must not be 0). Record runtime SDK absence, pinned tags, restore-before-source, and every T003 negative check. Depends on completed T001, T002, T004 and T005. Historical image IDs/tags and unchanged Dockerfile bytes alone are not current-context build evidence.
+- [X] T010 [US3] Repeat all T006 Web acceptance checks from the same context after T009: `docker build -f docker/Dockerfile.web .` must exit 0, with raw output and the actual exit recorded. Record the new image ID; inspect/probe that ID for non-root uid, runtime Node absence and development-appsettings absence. Record every T006 structural/negative check and the Nginx-config inspection (`listen 8080`, SPA fallback, `location /api/` preserving the prefix to `api:8080`, required proxy headers). Use the existing configuration; the runtime `api` alias caveat remains, and no live compose-stack run is added. Depends on completed T001/T002/T004/T005 and T009 for resume execution order.
+- [X] T011 Collect a separate current-context C8 evidence pack under the existing `artifacts/DEV-21/` location, preserving the historical pack/transcripts. Include all T007 collection items for the T009/T010 images: raw build outputs and command exits, new image IDs, inspect/run transcripts and non-root checks, runtime tooling checks, structural/negative results, Nginx-config note, explicit `.dockerignore` excluded/kept-visible coverage and no development appsettings in either runtime image. State branch, source HEAD, documentation working-tree delta and exact raw-output paths; report the readback in DEV-21. No Worker artifact, publish or runtimeconfig check. Depends on T009 and T010. This acceptance pack does not assert current review coverage or a merge bar; T008 gate completion remains with Gauge.
+
+---
+
 ## Dependencies & Execution Order
 
 - T001 first: no `docker build` evidence before `.dockerignore` exists.
 - No Worker phase: the former Worker publish C3 check, Dockerfile.worker write, and Worker acceptance tasks are deleted permanently, not parked or deferred.
 - T004 + T005 together: Nginx config and `Dockerfile.web` land together; T006 depends on both.
 - T002/T004-T005 (writes) precede T003/T006 (build evidence): both Dockerfiles are written before the acceptance runs (ordering constraint 4).
-- T007–T008 last: evidence pack and gates after both stories.
+- T007-T008 describe the original evidence/gate sequence. T007 completion is historical; T008 stays with Gauge.
+- Resume sequence: T009 then T010 then T011; both existing Dockerfiles and Nginx config are prerequisites already completed. Conductor routes any resulting gate refresh to Gauge, separately from Anvil acceptance.
 - Api and Web lines are otherwise independent of each other once T001 exists.
 - Parallel opportunities: T002, T004, T005 touch different files and can proceed in parallel; T003, T006 are sequential per image but parallel across images once writes land.
 

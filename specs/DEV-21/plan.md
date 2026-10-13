@@ -94,6 +94,12 @@ Must exclude these literal patterns: `.git/`, `.agents/`, `.claude/`, `.codex/`,
 
 From the repo root, `docker build -f docker/Dockerfile.api .` and `docker build -f docker/Dockerfile.web .` each exit 0 (raw output recorded). Per image: `docker inspect` / `docker run … id` shows non-root (uid not 0). Structural pass: no SDK/Node in runtime stages; restore layer precedes source copy; `.dockerignore` covers `bin/`, `obj/`, tests, `node_modules`; no `latest` tag. No Worker build, runtimeconfig check, or stop-and-escalate branch remains. Web proxy/SPA behavior is proven by Nginx-config inspection (C9 keeps a live compose run out of scope).
 
+### DD-7 Owner-answer resume at the rebased context (brief resume decision, 2026-10-13)
+
+C13 scope is unchanged. Existing write tasks T001/T002/T004/T005 are complete, and T003/T006/T007 are historical acceptance completions verified at da3866cd (recon-DEV-21 section 14). Recon-DEV-21-3:46-73 establishes byte identity of the delivered four files and build manifests at 764d2eac, while Api sources and the generated Web contract changed through main. Anvil therefore resumes **Phase 5: Owner-answer resume - current-context acceptance**, T009 (Api), T010 (Web), T011 (new C8 pack), following DD-6 and all original acceptance checks. Preserve historical artifacts, record actual command exits and new image IDs, inspect/probe those IDs, and bind the new evidence to branch/source HEAD plus the documentation working-tree delta. No production rewrite or Worker task is needed or authorized by this resumption; a failing build returns to Conductor with evidence before any scope or implementation decision.
+
+Gauge retains T008 and the existing actual gate verdicts (DEV-21:442-450); Anvil does not duplicate that gate pass. Current acceptance, gates and review coverage are separate claims. The coverage map at recon-DEV-21-3:94-106 does not establish review coverage of later spec amendments, feature-pin removal, new SHAs or main drift. Neither this amendment nor successful acceptance supplies a current-head merge bar.
+
 ## Complexity Tracking
 
 No constitution violations to justify. No new project, layer, dependency, or abstraction.
