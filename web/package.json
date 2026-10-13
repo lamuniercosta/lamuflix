@@ -16,6 +16,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "openapi-fetch": "0.9.8",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
@@ -36,6 +37,7 @@
     "globals": "17.13.0",
     "jsdom": "30.1.2",
     "msw": "3.0.2",
+    "openapi-typescript": "6.7.6",
     "prettier": "3.9.9",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
