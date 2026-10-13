@@ -1,0 +1,21 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY global.json ./
+COPY CodeMetricsConfig.txt ./
+COPY BannedSymbols.txt ./
+COPY Directory.Packages.props ./
+COPY Directory.Build.props ./
+COPY src/LamuFlix.Api/LamuFlix.Api.csproj src/LamuFlix.Api/
+COPY src/LamuFlix.Core/LamuFlix.Core.csproj src/LamuFlix.Core/
+COPY src/LamuFlix.Infrastructure/LamuFlix.Infrastructure.csproj src/LamuFlix.Infrastructure/
+COPY src/LamuFlix.ServiceDefaults/LamuFlix.ServiceDefaults.csproj src/LamuFlix.ServiceDefaults/
+RUN dotnet restore src/LamuFlix.Api/LamuFlix.Api.csproj
+COPY src/ src/
+RUN dotnet publish src/LamuFlix.Api/LamuFlix.Api.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish ./
+USER app
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "LamuFlix.Api.dll"]
