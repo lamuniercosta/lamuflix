@@ -25,7 +25,8 @@ public sealed partial class OmdbMetadataProvider
                     MapReleaseYear(response.Year, now),
                     MapRuntime(response.Runtime),
                     MapRating(response.Rating),
-                    MapIdentifier(response.Identifier))
+                    MapIdentifier(response.Identifier),
+                    MapPoster(response.Poster))
                 : null;
 
         private static bool TryTitle(string? value, [NotNullWhen(true)] out string? title)
@@ -35,6 +36,12 @@ public sealed partial class OmdbMetadataProvider
         }
 
         private static string? MapSynopsis(string? plot) => IsMissing(plot) ? null : plot;
+
+        private static string? MapPoster(string? poster)
+        {
+            var trimmed = poster?.Trim();
+            return IsMissing(trimmed) ? null : trimmed;
+        }
 
         private static ReleaseYear? MapReleaseYear(string? year, DateTimeOffset now)
         {
@@ -122,5 +129,8 @@ public sealed partial class OmdbMetadataProvider
 
         [JsonPropertyName("imdbID")]
         public string? Identifier { get; set; }
+
+        [JsonPropertyName("Poster")]
+        public string? Poster { get; set; }
     }
 }

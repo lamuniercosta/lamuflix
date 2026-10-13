@@ -99,6 +99,7 @@ public sealed class EfMovieRepository : IMovieRepository
         record.RuntimeMinutes = metadata.Runtime;
         record.ImdbRating = metadata.ImdbRating;
         record.ImdbId = metadata.ImdbId;
+        record.PosterUrl = metadata.PosterUrl;
     }
 
     private static void ClearMetadata(MovieRecord record)
@@ -109,6 +110,7 @@ public sealed class EfMovieRepository : IMovieRepository
         record.RuntimeMinutes = null;
         record.ImdbRating = null;
         record.ImdbId = null;
+        record.PosterUrl = null;
     }
 
     public async Task<MovieId> NextIdentityAsync(CancellationToken ct)
@@ -268,7 +270,8 @@ public sealed class EfMovieRepository : IMovieRepository
                 record.ReleaseYear,
                 record.RuntimeMinutes,
                 record.ImdbRating,
-                record.ImdbId);
+                record.ImdbId,
+                record.PosterUrl);
 
         return Movie.Rehydrate(
             id: record.Id,

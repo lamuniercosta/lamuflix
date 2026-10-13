@@ -10,7 +10,8 @@ public sealed record MovieMetadata
         ReleaseYear? releaseYear = null,
         Runtime? runtime = null,
         ImdbRating? imdbRating = null,
-        ImdbId? imdbId = null)
+        ImdbId? imdbId = null,
+        string? posterUrl = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -23,6 +24,7 @@ public sealed record MovieMetadata
         Runtime = runtime;
         ImdbRating = imdbRating;
         ImdbId = imdbId;
+        PosterUrl = posterUrl;
     }
 
     public string Title { get; }
@@ -37,10 +39,12 @@ public sealed record MovieMetadata
 
     public ImdbId? ImdbId { get; }
 
+    public string? PosterUrl { get; }
+
     public bool Equals(MovieMetadata? other) => other is not null && State() == other.State();
 
     public override int GetHashCode() => State().GetHashCode();
 
-    private (string Title, string? Synopsis, ReleaseYear? ReleaseYear, Runtime? Runtime, ImdbRating? ImdbRating, ImdbId? ImdbId) State() =>
-        (Title, Synopsis, ReleaseYear, Runtime, ImdbRating, ImdbId);
+    private (string Title, string? Synopsis, ReleaseYear? ReleaseYear, Runtime? Runtime, ImdbRating? ImdbRating, ImdbId? ImdbId, string? PosterUrl) State() =>
+        (Title, Synopsis, ReleaseYear, Runtime, ImdbRating, ImdbId, PosterUrl);
 }

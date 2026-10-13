@@ -35,7 +35,8 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
           "Runtime": "117 min",
           "Plot": "A blade runner must pursue and terminate four replicants.",
           "imdbRating": "8.1",
-          "imdbID": "tt0083658"
+          "imdbID": "tt0083658",
+          "Poster": "https://example.test/blade-runner.jpg"
         }
         """;
 
@@ -100,6 +101,27 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         metadata.Runtime.ShouldNotBeNull().Minutes.ShouldBe(117);
         metadata.ImdbRating.ShouldNotBeNull().Value.ShouldBe(8.1m);
         metadata.ImdbId.ShouldNotBeNull().Value.ShouldBe("tt0083658");
+        metadata.PosterUrl.ShouldBe("https://example.test/blade-runner.jpg");
+    }
+
+    [Theory]
+    [InlineData("\"Poster\": \"https://example.test/poster.jpg\"", "https://example.test/poster.jpg")]
+    [InlineData("\"Poster\": \"  https://example.test/poster.jpg  \"", "https://example.test/poster.jpg")]
+    [InlineData("\"Poster\": null", null)]
+    [InlineData("\"Poster\": \"\"", null)]
+    [InlineData("\"Poster\": \"   \"", null)]
+    [InlineData("\"Poster\": \"N/A\"", null)]
+    public async Task FindAsync_PosterVariant_MapsToExpectedValue(string posterFragment, string? expected)
+    {
+        // arrange
+        StubBody(200, $$"""{ "Response": "True", "Title": "Solaris", {{posterFragment}} }""");
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).PosterUrl.ShouldBe(expected);
     }
 
     [Fact]
@@ -115,6 +137,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         // assert
         var metadata = Metadata(result);
         metadata.Title.ShouldBe("Solaris");
+        metadata.PosterUrl.ShouldBeNull();
         NullFields(metadata).ShouldBe(
         [
             nameof(MovieMetadata.Synopsis),
