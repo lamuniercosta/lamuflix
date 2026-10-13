@@ -160,17 +160,13 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     {
         var ct = TestContext.Current.CancellationToken;
         await using var db = fixture.CreateMigratedContext();
-        var repository = Repository(db);
-        var id = await repository.NextIdentityAsync(ct);
-        var movie = Movie.Create(id, "Poster update", new LibraryPath("C:/library/poster-update.mkv"), new MediaFormat("mkv"));
-        await repository.AddAsync(movie, ct);
-        await repository.SaveChangesAsync(ct);
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Poster update", "poster-update");
 
         movie.MarkEnriched(Metadata("Version one", "https://example.test/v1.jpg"), Now);
         await repository.SaveChangesAsync(ct);
 
         await using var verify = OpenSibling(db);
-        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == movie.Id, ct);
         record.PosterUrl.ShouldBe("https://example.test/v1.jpg");
         record.MetadataTitle.ShouldBe("Version one");
     }
@@ -180,11 +176,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     {
         var ct = TestContext.Current.CancellationToken;
         await using var db = fixture.CreateMigratedContext();
-        var repository = Repository(db);
-        var id = await repository.NextIdentityAsync(ct);
-        var movie = Movie.Create(id, "Poster replacement", new LibraryPath("C:/library/poster-replacement.mkv"), new MediaFormat("mkv"));
-        await repository.AddAsync(movie, ct);
-        await repository.SaveChangesAsync(ct);
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Poster replacement", "poster-replacement");
         movie.MarkEnriched(Metadata("Shared title", "https://example.test/old.jpg"), Now);
         await repository.SaveChangesAsync(ct);
 
@@ -193,7 +185,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         await repository.SaveChangesAsync(ct);
 
         await using var verify = OpenSibling(db);
-        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == movie.Id, ct);
         record.PosterUrl.ShouldBe("https://example.test/new.jpg");
     }
 
@@ -202,11 +194,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     {
         var ct = TestContext.Current.CancellationToken;
         await using var db = fixture.CreateMigratedContext();
-        var repository = Repository(db);
-        var id = await repository.NextIdentityAsync(ct);
-        var movie = Movie.Create(id, "Null replacement", new LibraryPath("C:/library/null-replacement.mkv"), new MediaFormat("mkv"));
-        await repository.AddAsync(movie, ct);
-        await repository.SaveChangesAsync(ct);
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Null replacement", "null-replacement");
         movie.MarkEnriched(Metadata("Shared title", "https://example.test/old.jpg"), Now);
         await repository.SaveChangesAsync(ct);
 
@@ -215,7 +203,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         await repository.SaveChangesAsync(ct);
 
         await using var verify = OpenSibling(db);
-        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == movie.Id, ct);
         record.PosterUrl.ShouldBeNull();
     }
 
@@ -224,21 +212,17 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     {
         var ct = TestContext.Current.CancellationToken;
         await using var db = fixture.CreateMigratedContext();
-        var repository = Repository(db);
-        var id = await repository.NextIdentityAsync(ct);
-        var movie = Movie.Create(id, "Poster preserved", new LibraryPath("C:/library/poster-preserved.mkv"), new MediaFormat("mkv"));
-        await repository.AddAsync(movie, ct);
-        await repository.SaveChangesAsync(ct);
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Poster preserved", "poster-preserved");
         movie.MarkEnriched(Metadata("Shared title", "https://example.test/kept.jpg"), Now);
         await repository.SaveChangesAsync(ct);
 
-        var loaded = await repository.GetAsync(id, ct);
+        var loaded = await repository.GetAsync(movie.Id, ct);
         loaded.ShouldNotBeNull();
         loaded.AddToWatchlist();
         await repository.SaveChangesAsync(ct);
 
         await using var verify = OpenSibling(db);
-        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == movie.Id, ct);
         record.PosterUrl.ShouldBe("https://example.test/kept.jpg");
         record.IsInWatchlist.ShouldBeTrue();
     }
@@ -248,28 +232,24 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     {
         var ct = TestContext.Current.CancellationToken;
         await using var db = fixture.CreateMigratedContext();
-        var repository = Repository(db);
-        var id = await repository.NextIdentityAsync(ct);
-        var movie = Movie.Create(id, "Clearable", new LibraryPath("C:/library/clearable.mkv"), new MediaFormat("mkv"));
-        await repository.AddAsync(movie, ct);
-        await repository.SaveChangesAsync(ct);
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Clearable", "clearable");
         movie.MarkEnriched(Metadata("Clearable metadata", "https://example.test/clear.jpg"), Now);
         await repository.SaveChangesAsync(ct);
 
         await using (var seeded = OpenSibling(db))
         {
-            var record = await seeded.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+            var record = await seeded.Movies.AsNoTracking().SingleAsync(item => item.Id == movie.Id, ct);
             record.PosterUrl.ShouldBe("https://example.test/clear.jpg");
             record.MetadataTitle.ShouldBe("Clearable metadata");
         }
 
-        var loaded = await repository.GetAsync(id, ct);
+        var loaded = await repository.GetAsync(movie.Id, ct);
         loaded.ShouldNotBeNull();
         loaded.ClearMetadata();
         await repository.SaveChangesAsync(ct);
 
         await using var verify = OpenSibling(db);
-        var cleared = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        var cleared = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == movie.Id, ct);
         cleared.MetadataTitle.ShouldBeNull();
         cleared.Plot.ShouldBeNull();
         cleared.ReleaseYear.ShouldBeNull();
@@ -663,6 +643,18 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
 
     private static EfMovieRepository RepositoryAt(LamuFlixDbContext db, LeaseClock clock) =>
         new(db, clock, Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+
+    private static async Task<(EfMovieRepository Repository, Movie Movie)> SeedPendingMovieAsync(
+        LamuFlixDbContext db, string title, string pathSuffix)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = Movie.Create(id, title, new LibraryPath($"C:/library/{pathSuffix}.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+        return (repository, movie);
+    }
 
     private static MovieMetadata Metadata(string title, string? posterUrl) =>
         new(

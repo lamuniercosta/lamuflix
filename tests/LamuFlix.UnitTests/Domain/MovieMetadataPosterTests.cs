@@ -1,18 +1,17 @@
 using System;
 using FsCheck.Xunit;
-using LamuFlix.Core.Domain;
 
 namespace LamuFlix.UnitTests.Domain;
 
 public sealed class MovieMetadataPosterTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
+    private const string SharedTitle = "Shared title";
 
     [Fact]
     public void Equals_PosterOnlyDifference_IsNotEqual()
     {
-        var withoutPoster = Metadata(null);
-        var withPoster = Metadata("https://example.test/poster.jpg");
+        var withoutPoster = MovieMetadataFixture.Create(SharedTitle, posterUrl: null);
+        var withPoster = MovieMetadataFixture.Create(SharedTitle, "https://example.test/poster.jpg");
 
         withPoster.Equals(withoutPoster).ShouldBeFalse();
         withoutPoster.Equals(withPoster).ShouldBeFalse();
@@ -22,13 +21,15 @@ public sealed class MovieMetadataPosterTests
     [Fact]
     public void Equals_SameFieldsAndPoster_IsEqual()
     {
-        Metadata("https://example.test/poster.jpg").ShouldBe(Metadata("https://example.test/poster.jpg"));
+        MovieMetadataFixture.Create(SharedTitle, "https://example.test/poster.jpg")
+            .ShouldBe(MovieMetadataFixture.Create(SharedTitle, "https://example.test/poster.jpg"));
     }
 
     [Fact]
     public void Equals_DifferingWhitespaceOnly_IsNotEqual()
     {
-        Metadata("poster.jpg").ShouldNotBe(Metadata(" poster.jpg "));
+        MovieMetadataFixture.Create(SharedTitle, "poster.jpg")
+            .ShouldNotBe(MovieMetadataFixture.Create(SharedTitle, " poster.jpg "));
     }
 
     [Property(MaxTest = 100)]
@@ -38,19 +39,10 @@ public sealed class MovieMetadataPosterTests
         var leftPoster = Poster(left);
         var rightPoster = Poster(right);
 
-        return Metadata(leftPoster).Equals(Metadata(rightPoster))
+        return MovieMetadataFixture.Create(SharedTitle, leftPoster)
+                .Equals(MovieMetadataFixture.Create(SharedTitle, rightPoster))
             == string.Equals(leftPoster, rightPoster, StringComparison.Ordinal);
     }
 
     private static string? Poster(int value) => value % 3 == 0 ? null : $"poster-{value}.jpg";
-
-    private static MovieMetadata Metadata(string? posterUrl) =>
-        new(
-            "Shared title",
-            "Shared synopsis",
-            new ReleaseYear(2000, Now),
-            new Runtime(100),
-            new ImdbRating(7.5m),
-            new ImdbId("tt0000001"),
-            posterUrl);
 }
