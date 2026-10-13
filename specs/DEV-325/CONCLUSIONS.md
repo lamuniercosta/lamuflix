@@ -3,7 +3,9 @@
 Sources: ticket DEV-325 (recon-DEV-325 §1), recon-DEV-325 §0-11, specs/DEV-21 (merged at d668cbd), `.specify/memory/constitution.md`, chain note, team charter §2.3.
 Ticket text is decided: postgres 17 + `pg_isready`, rabbitmq 4 + `rabbitmq-diagnostics -q ping`, api/worker `depends_on` both `service_healthy`, web depends on api, `Features:LocalPlay=false`, sample library mount, AC1, AC2.
 
-## C1. Worker service — `blocked: structural`
+## C1. Worker service — resolved: (A) no worker
+**Resolved (owner):** the owner approved (A): no `worker` service; the enrichment consumer stays in the api (DEV-325:32,36, verified by Keel). The owner's word is final; this closes the C1 owner block only. Gate 1 and the plan freeze remain incomplete. Record-only closure; Keel updates the matching `brief.md` lines. Original ruling kept below for history.
+
 blocked: structural — The ticket names a `worker` service, but no runnable worker host exists. Drop it from DEV-325 (enrichment consumer stays in the api service), or hold DEV-325 until a new worker-host ticket ships?
 - Facts: the consumer runs in the Api (recon §5, RabbitMqServiceCollectionExtensions.cs:43-58). `src/LamuFlix.Worker` is retired: it is not in the sln, it uses MySQL/Pomelo, and it references a `LamuFlix.Data` that does not exist, so it cannot build (recon §5, commit 46b1d9b). DEV-21 `docker/Dockerfile.worker` publishes exactly that project (specs/DEV-21/plan.md:83), so its image cannot exist.
 - Running the Api image a second time as a fake `worker` would run a second HTTP host and sweeper and pass that off as a worker. Rejected on engineering grounds.
@@ -56,3 +58,8 @@ blocked: structural — The ticket names a `worker` service, but no runnable wor
 
 ## C14. api port: not published to the host
 - AC2 needs only web on 3000. The proxy reaches `api:8080` on the compose network. CORS allows only 5173 (Program.cs:19), and publishing 8080 would collide with the host-run Api daily-driver setup (constitution :506-507).
+
+## C15. Postgres database name: fixed `lamuflix`
+- postgres service sets `POSTGRES_DB=lamuflix`; the api `ConnectionStrings__DefaultConnection` uses `Database=lamuflix` with host `postgres`. User and password interpolation stays exactly as C8 (`${VAR:?message}`, no default).
+- The database name is non-secret configuration, so it is a literal, not a `.env` variable (C8, recon-DEV-325:43). Resolves the T009 / plan.md:78 `needs decision`.
+- Not a schema change (charter §2.3 item 3: C3 applies existing migrations unchanged into this database) and not API shape (item 4).
