@@ -6,6 +6,7 @@ namespace LamuFlix.UnitTests.Domain;
 
 public sealed class MovieClearMetadataTests
 {
+    private const string PosterUrl = "https://example.test/poster.jpg";
     private static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
     private static readonly EnrichmentStatus[] Statuses =
     [
@@ -19,17 +20,18 @@ public sealed class MovieClearMetadataTests
     public void ClearMetadata_NullsMetadataAndPreservesEveryUnrelatedField()
     {
         var id = new MovieId(11);
+        var title = Faker.Lorem.GetFirstWord();
         var path = new LibraryPath("C:/library/clear.mkv");
         var format = new MediaFormat("mkv");
         var enrichedAt = Now.AddHours(-2);
         var lastAttemptAt = Now.AddHours(-1);
         var movie = Movie.Rehydrate(
             id,
-            "Clear me",
+            title,
             path,
             format,
             true,
-            Metadata("Clear me"),
+            MovieMetadataFixture.Create(title, PosterUrl),
             EnrichmentStatus.Enriched,
             enrichedAt,
             3,
@@ -39,19 +41,20 @@ public sealed class MovieClearMetadataTests
         movie.ClearMetadata();
 
         movie.Metadata.ShouldBeNull();
-        State(movie).ShouldBe(new StateSnapshot(id, "Clear me", path, format, true, EnrichmentStatus.Enriched, enrichedAt, 3, EnrichmentFailureCategory.Unknown, lastAttemptAt));
+        State(movie).ShouldBe(new StateSnapshot(id, title, path, format, true, EnrichmentStatus.Enriched, enrichedAt, 3, EnrichmentFailureCategory.Unknown, lastAttemptAt));
     }
 
     [Fact]
     public void ClearMetadata_Repeated_IsIdempotent()
     {
+        var title = Faker.Lorem.GetFirstWord();
         var movie = Movie.Rehydrate(
             new MovieId(12),
-            "Idempotent",
+            title,
             new LibraryPath("C:/library/idempotent.mkv"),
             new MediaFormat("mkv"),
             false,
-            Metadata("Idempotent"),
+            MovieMetadataFixture.Create(title, PosterUrl),
             EnrichmentStatus.Enriched,
             Now,
             1,
@@ -69,7 +72,7 @@ public sealed class MovieClearMetadataTests
     [Fact]
     public void ClearMetadata_WithoutMetadata_DoesNotThrowAndKeepsState()
     {
-        var movie = Movie.Create(new MovieId(13), "Fresh", new LibraryPath("C:/library/fresh.mkv"), new MediaFormat("mkv"));
+        var movie = Movie.Create(new MovieId(13), Faker.Lorem.GetFirstWord(), new LibraryPath("C:/library/fresh.mkv"), new MediaFormat("mkv"));
 
         Should.NotThrow(movie.ClearMetadata);
         Should.NotThrow(movie.ClearMetadata);
@@ -86,6 +89,7 @@ public sealed class MovieClearMetadataTests
     {
         var magnitude = Math.Abs((long)value);
         var id = new MovieId((int)(magnitude % int.MaxValue) + 1);
+        var title = $"Movie {value}";
         var path = new LibraryPath($"C:/library/{value}.mkv");
         var format = new MediaFormat("mkv");
         var enrichedAt = Now.AddSeconds(magnitude % 10000);
@@ -95,11 +99,11 @@ public sealed class MovieClearMetadataTests
         var status = Statuses[(int)(magnitude % Statuses.Length)];
         var movie = Movie.Rehydrate(
             id,
-            $"Movie {value}",
+            title,
             path,
             format,
             value % 2 == 0,
-            Metadata($"Movie {value}"),
+            MovieMetadataFixture.Create(title, PosterUrl),
             status,
             enrichedAt,
             attempts,
@@ -113,16 +117,6 @@ public sealed class MovieClearMetadataTests
 
         return afterFirst && movie.Metadata is null && State(movie) == before;
     }
-
-    private static MovieMetadata Metadata(string title) =>
-        new(
-            title,
-            "Synopsis",
-            new ReleaseYear(2000, Now),
-            new Runtime(100),
-            new ImdbRating(7.5m),
-            new ImdbId("tt0000001"),
-            "https://example.test/poster.jpg");
 
     private static StateSnapshot State(Movie movie) =>
         new(
