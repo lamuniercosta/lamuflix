@@ -98,6 +98,11 @@ public sealed class Movie
         Status = EnrichmentStatus.Pending;
     }
 
+    public void ClearMetadata()
+    {
+        Metadata = null;
+    }
+
     public void AddToWatchlist()
     {
         if (IsInWatchlist)

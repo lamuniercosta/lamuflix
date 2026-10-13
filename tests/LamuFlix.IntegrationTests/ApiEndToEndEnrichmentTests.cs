@@ -20,6 +20,7 @@ namespace LamuFlix.IntegrationTests;
 public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture)
 {
     private const string DetailsRoutePrefix = "/api/movies/";
+    private const string BrowseRoute = "/api/movies";
     private const string RetryRouteSuffix = "/enrichment";
     private const string ApplicationJson = "application/json";
     private const string ProblemDetailsJson = "application/problem+json";
@@ -31,6 +32,7 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
     private const int ExpectedRuntime = 93;
     private const int ExpectedYear = 1958;
     private const decimal ExpectedImdbRating = 7.8m;
+    private const string ExpectedPoster = "https://example.test/run-silent-run-deep.jpg";
 
     private static readonly string OmdbBody = $$"""
         {
@@ -40,7 +42,8 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
           "Runtime": "{{ExpectedRuntime}} min",
           "Plot": "{{ExpectedSynopsis}}",
           "imdbRating": "{{ExpectedImdbRating.ToString(CultureInfo.InvariantCulture)}}",
-          "imdbID": "{{ExpectedImdbId}}"
+          "imdbID": "{{ExpectedImdbId}}",
+          "Poster": "{{ExpectedPoster}}"
         }
         """;
 
@@ -100,6 +103,27 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
         query["t"].ShouldContain(SeedTitle);
         query["type"].ShouldContain("movie");
+
+        // assert
+        await using (var persisted = Fixture.Postgres.CreateMigratedContext())
+        {
+            var stored = await persisted.Movies.AsNoTracking()
+                .SingleAsync(item => item.Id == new MovieId(id), cancellationToken);
+            stored.PosterUrl.ShouldBe(ExpectedPoster);
+        }
+
+        // act
+        var browse = await client.GetAsync(
+            $"{BrowseRoute}?sort=Title&direction=Ascending&page=1&pageSize=20",
+            cancellationToken);
+        var browseBody = await browse.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        browse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var enrichedItem = browseBody.GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("id").GetInt32() == id);
+        ShouldCarryExactly(enrichedItem, "id", "title", "posterUrl");
+        enrichedItem.GetProperty("posterUrl").GetString().ShouldBe(ExpectedPoster);
     }
 
     [Fact]

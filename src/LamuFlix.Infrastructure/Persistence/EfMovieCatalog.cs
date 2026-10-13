@@ -28,7 +28,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .Skip((query.Page.Number - 1) * query.Page.Size)
             .Take(query.Page.Size)
             // ReSharper disable once NullableWarningSuppressionIsUsed
-            .Select(movie => new MovieSummary(movie.Id!, movie.Title))
+            .Select(movie => new MovieSummary(movie.Id!, movie.Title, movie.PosterUrl))
             .ToArrayAsync(ct);
         return new PagedResult<MovieSummary>([.. items], totalCount);
     }

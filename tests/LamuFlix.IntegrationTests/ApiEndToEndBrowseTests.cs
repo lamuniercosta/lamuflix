@@ -69,9 +69,37 @@ public sealed class ApiEndToEndBrowseTests(ApiEndToEndFixture fixture) : ApiEndT
         ShouldCarryExactly(body, "items", "totalCount");
         body.GetProperty("totalCount").GetInt32().ShouldBe(1);
         var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
-        ShouldCarryExactly(item, "id", "title");
+        ShouldCarryExactly(item, "id", "title", "posterUrl");
         item.GetProperty("id").GetInt32().ShouldBe(matching.Id.ShouldNotBeNull().Value);
         item.GetProperty("title").GetString().ShouldBe("Matching Film");
+        item.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task BrowseMovies_StoredPoster_ReturnsTheStoredPosterUrl()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var withPoster = MovieCatalogSeed.Create("Poster Film", "browse-poster");
+        withPoster.PosterUrl = "https://example.test/poster.jpg";
+        var withoutPoster = MovieCatalogSeed.Create("Plain Film", "browse-plain");
+        await SeedManyAsync(withPoster, withoutPoster);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(
+            $"{BrowseRoute}?sort=Title&direction=Ascending&page=1&pageSize=20",
+            cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var items = body.GetProperty("items").EnumerateArray().ToList();
+        var posterItem = items.Single(item => item.GetProperty("title").GetString() == "Poster Film");
+        ShouldCarryExactly(posterItem, "id", "title", "posterUrl");
+        posterItem.GetProperty("posterUrl").GetString().ShouldBe("https://example.test/poster.jpg");
+        var plainItem = items.Single(item => item.GetProperty("title").GetString() == "Plain Film");
+        plainItem.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
     }
 
     [Fact]

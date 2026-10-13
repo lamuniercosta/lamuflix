@@ -118,11 +118,172 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         loaded.IsInWatchlist.ShouldBeTrue();
         loaded.RottenTomatoesRating.ShouldBe((short)91);
         loaded.MetaScore.ShouldBe((short)82);
-        loaded.PosterUrl.ShouldBe("https://example.test/poster.jpg");
+        loaded.PosterUrl.ShouldBeNull();
         loaded.Plot.ShouldBe("Plot");
         loaded.Actors.ShouldContain(actor => actor.Name == "Ada Actor");
         loaded.Directors.ShouldContain(director => director.Name == "Dana Director");
         loaded.Genres.ShouldContain(genre => genre.Name == "Drama");
+    }
+
+    [Fact]
+    public async Task AddAndGet_EnrichedMetadataWithPoster_PersistsEveryMetadataField()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(ct);
+        var metadata = Metadata("Full metadata", "https://example.test/full.jpg");
+        var movie = Movie.Rehydrate(
+            id, "Library title", new LibraryPath("C:/library/full.mkv"), new MediaFormat("mkv"),
+            false, metadata, EnrichmentStatus.Enriched, Now.AddDays(-1), 1, null, Now.AddHours(-1));
+
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+
+        await using var read = OpenSibling(db);
+        var loaded = await Repository(read).GetAsync(id, ct);
+        loaded.ShouldNotBeNull();
+        loaded.Metadata.ShouldBe(metadata);
+
+        var record = await read.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.MetadataTitle.ShouldBe("Full metadata");
+        record.Plot.ShouldBe("Synopsis");
+        record.ReleaseYear.ShouldNotBeNull().Value.ShouldBe(2024);
+        record.RuntimeMinutes.ShouldNotBeNull().Minutes.ShouldBe(121);
+        record.ImdbRating.ShouldNotBeNull().Value.ShouldBe(8.1m);
+        record.ImdbId.ShouldNotBeNull().Value.ShouldBe("tt1234567");
+        record.PosterUrl.ShouldBe("https://example.test/full.jpg");
+    }
+
+    [Fact]
+    public async Task SaveChanges_MetadataPosterUpdate_PersistsTheStoredPoster()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = Movie.Create(id, "Poster update", new LibraryPath("C:/library/poster-update.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+
+        movie.MarkEnriched(Metadata("Version one", "https://example.test/v1.jpg"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.PosterUrl.ShouldBe("https://example.test/v1.jpg");
+        record.MetadataTitle.ShouldBe("Version one");
+    }
+
+    [Fact]
+    public async Task SaveChanges_PosterOnlyReplacement_PersistsTheNewPoster()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = Movie.Create(id, "Poster replacement", new LibraryPath("C:/library/poster-replacement.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+        movie.MarkEnriched(Metadata("Shared title", "https://example.test/old.jpg"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        movie.RequestEnrichment();
+        movie.MarkEnriched(Metadata("Shared title", "https://example.test/new.jpg"), Now.AddMinutes(1));
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.PosterUrl.ShouldBe("https://example.test/new.jpg");
+    }
+
+    [Fact]
+    public async Task SaveChanges_ReEnrichmentWithoutPoster_ReplacesStoredPosterWithNull()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = Movie.Create(id, "Null replacement", new LibraryPath("C:/library/null-replacement.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+        movie.MarkEnriched(Metadata("Shared title", "https://example.test/old.jpg"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        movie.RequestEnrichment();
+        movie.MarkEnriched(Metadata("Shared title", null), Now.AddMinutes(1));
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.PosterUrl.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SaveChanges_UnrelatedUpdate_KeepsTheStoredPoster()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = Movie.Create(id, "Poster preserved", new LibraryPath("C:/library/poster-preserved.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+        movie.MarkEnriched(Metadata("Shared title", "https://example.test/kept.jpg"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        var loaded = await repository.GetAsync(id, ct);
+        loaded.ShouldNotBeNull();
+        loaded.AddToWatchlist();
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.PosterUrl.ShouldBe("https://example.test/kept.jpg");
+        record.IsInWatchlist.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ClearMetadata_PersistedPoster_ClearsEveryMetadataFieldAndPreservesUnrelatedState()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = Movie.Create(id, "Clearable", new LibraryPath("C:/library/clearable.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+        movie.MarkEnriched(Metadata("Clearable metadata", "https://example.test/clear.jpg"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        await using (var seeded = OpenSibling(db))
+        {
+            var record = await seeded.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+            record.PosterUrl.ShouldBe("https://example.test/clear.jpg");
+            record.MetadataTitle.ShouldBe("Clearable metadata");
+        }
+
+        var loaded = await repository.GetAsync(id, ct);
+        loaded.ShouldNotBeNull();
+        loaded.ClearMetadata();
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var cleared = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        cleared.MetadataTitle.ShouldBeNull();
+        cleared.Plot.ShouldBeNull();
+        cleared.ReleaseYear.ShouldBeNull();
+        cleared.RuntimeMinutes.ShouldBeNull();
+        cleared.ImdbRating.ShouldBeNull();
+        cleared.ImdbId.ShouldBeNull();
+        cleared.PosterUrl.ShouldBeNull();
+        cleared.Status.ShouldBe(EnrichmentStatus.Enriched);
+        cleared.EnrichedAt.ShouldBe(Now);
+        cleared.EnrichmentAttempts.ShouldBe(0);
+        cleared.LastAttemptAt.ShouldBe(Now);
+        cleared.IsInWatchlist.ShouldBeFalse();
+        cleared.Title.ShouldBe("Clearable");
+        cleared.LibraryPath.Value.ShouldBe("C:/library/clearable.mkv");
     }
 
     [Fact]
@@ -502,6 +663,16 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
 
     private static EfMovieRepository RepositoryAt(LamuFlixDbContext db, LeaseClock clock) =>
         new(db, clock, Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+
+    private static MovieMetadata Metadata(string title, string? posterUrl) =>
+        new(
+            title,
+            "Synopsis",
+            new ReleaseYear(2024, Now),
+            new Runtime(121),
+            new ImdbRating(8.1m),
+            new ImdbId("tt1234567"),
+            posterUrl);
 
     private static MovieRecord CreateRecord(
         MovieId id, EnrichmentStatus status, DateTimeOffset? lastAttemptAt, int enrichmentAttempts = 0) =>

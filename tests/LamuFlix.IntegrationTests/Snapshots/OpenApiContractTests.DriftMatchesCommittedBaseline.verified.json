@@ -723,7 +723,8 @@
       "MovieSummaryResponse": {
         "required": [
           "id",
-          "title"
+          "title",
+          "posterUrl"
         ],
         "type": "object",
         "properties": {
@@ -737,6 +738,12 @@
           },
           "title": {
             "type": "string"
+          },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

@@ -10,11 +10,11 @@ internal sealed record BrowseMoviesResponse(IReadOnlyList<MovieSummaryResponse> 
 {
     public static BrowseMoviesResponse From(PagedResult<MovieSummary> page) =>
         new(
-            [.. page.Items.Select(summary => new MovieSummaryResponse(summary.Id.Value, summary.Title))],
+            [.. page.Items.Select(summary => new MovieSummaryResponse(summary.Id.Value, summary.Title, summary.PosterUrl))],
             page.TotalCount);
 }
 
-internal sealed record MovieSummaryResponse(int Id, string Title);
+internal sealed record MovieSummaryResponse(int Id, string Title, string? PosterUrl);
 
 internal sealed record MovieDetailsResponse(int Id, string Title, string Path, string Format, MovieMetadataResponse? Metadata)
 {
