@@ -9,11 +9,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build",
-    "lint": "eslint . --max-warnings 0 && prettier --check .",
+    "lint": "npm run check:api && eslint . --max-warnings 0 && prettier --check . ",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:run": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "generate:api": "node scripts/generate-api.mjs",
+    "check:api": "node scripts/check-api.mjs"
   },
   "dependencies": {
     "openapi-fetch": "0.9.8",

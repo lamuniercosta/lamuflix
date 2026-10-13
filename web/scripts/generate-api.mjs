@@ -2,8 +2,8 @@ import openapiTS from 'openapi-typescript';
 import { writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
+export const DEFAULT_OUTPUT = new URL('../src/api/types.ts', import.meta.url);
 const SOURCE = new URL('../src/api/openapi.json', import.meta.url);
-const DEFAULT_OUTPUT = new URL('../src/api/types.ts', import.meta.url);
 const HEADER = `/**
  * AUTO-GENERATED FILE — DO NOT EDIT DIRECTLY.
  *
