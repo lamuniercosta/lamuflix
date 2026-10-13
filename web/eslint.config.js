@@ -7,7 +7,13 @@ import tseslint from 'typescript-eslint';
 
 export default [
   {
-    ignores: ['dist/', 'coverage/', 'src/api/types.ts'],
+    ignores: [
+      'dist/',
+      'coverage/',
+      'public/mockServiceWorker.js',
+      'src/api/types.ts',
+      'src/mocks/handlers.ts',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
