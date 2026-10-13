@@ -63,3 +63,75 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  container-build:
+    name: container-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build docker/Dockerfile.api
+        run: docker build -f docker/Dockerfile.api .
+
+      - name: Build docker/Dockerfile.web
+        run: docker build -f docker/Dockerfile.web .
+
+  stryker-core:
+    name: stryker-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Run whole-Core Stryker
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ./scripts/run-mutation.ps1 -WholeProject -OutputRoot "${{ runner.temp }}/stryker-core"
+          exit $LASTEXITCODE
+
+      - name: Upload Stryker report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stryker-report-core
+          path: |
+            ${{ runner.temp }}/stryker-core/LamuFlix.Core/reports/mutation-report.html
+            ${{ runner.temp }}/stryker-core/LamuFlix.Core/reports/mutation-report.json
+          if-no-files-found: error
+
+  property-tests:
+    name: property-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Property tests (LamuFlix.Test)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ./scripts/run-property-tests.ps1 -Project tests/LamuFlix.Test/LamuFlix.Test.csproj
+          exit $LASTEXITCODE
+
+      - name: Property tests (LamuFlix.UnitTests)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ./scripts/run-property-tests.ps1 -Project tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj
+          exit $LASTEXITCODE
+
+      - name: Property tests (LamuFlix.IntegrationTests)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ./scripts/run-property-tests.ps1 -Project tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj
+          exit $LASTEXITCODE
