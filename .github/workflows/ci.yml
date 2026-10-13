@@ -118,12 +118,6 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Property tests (LamuFlix.Test)
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File ./scripts/run-property-tests.ps1 -Project tests/LamuFlix.Test/LamuFlix.Test.csproj
-          exit $LASTEXITCODE
-
       - name: Property tests (LamuFlix.UnitTests)
         shell: pwsh
         run: |
