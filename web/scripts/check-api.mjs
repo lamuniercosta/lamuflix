@@ -1,9 +1,22 @@
-import { generateTypes, DEFAULT_OUTPUT } from './generate-api.mjs';
+import {
+  DEFAULT_HANDLERS_OUTPUT,
+  DEFAULT_TYPES_OUTPUT,
+  generateHandlers,
+  generateTypes,
+} from './generate-api.mjs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const COMMITTED_FILE = 'src/api/types.ts';
+/**
+ * @param {Uint8Array | null} committed
+ * @param {Uint8Array} fresh
+ * @returns {boolean}
+ */
+export function filesMatch(committed, fresh) {
+  return committed !== null && Buffer.from(committed).equals(Buffer.from(fresh));
+}
 
 /**
  * @param {string | URL} filePath
@@ -20,20 +33,57 @@ async function readCommitted(filePath) {
   }
 }
 
-const tempDir = await mkdtemp(join(tmpdir(), 'lamuflix-api-'));
-try {
-  const tempFile = join(tempDir, 'types.ts');
-  await generateTypes(tempFile);
+/**
+ * @param {string} label
+ * @param {(outFile: string | URL) => Promise<void>} generate
+ * @param {string | URL} committedPath
+ * @param {string} tempFile
+ * @returns {Promise<boolean>}
+ */
+export async function checkGenerated(label, generate, committedPath, tempFile) {
+  await generate(tempFile);
   const fresh = await readFile(tempFile);
-  const committed = await readCommitted(DEFAULT_OUTPUT);
+  const committed = await readCommitted(committedPath);
 
   if (committed === null) {
-    console.error(`Error: ${COMMITTED_FILE} is missing; run npm run generate:api`);
-    process.exitCode = 1;
-  } else if (!fresh.equals(committed)) {
-    console.error(`Error: ${COMMITTED_FILE} is out of date; run npm run generate:api`);
-    process.exitCode = 1;
+    console.error(`Error: ${label} is missing; run npm run generate:api`);
+    return false;
   }
-} finally {
-  await rm(tempDir, { recursive: true, force: true });
+
+  if (!filesMatch(committed, fresh)) {
+    console.error(`Error: ${label} is out of date; run npm run generate:api`);
+    return false;
+  }
+
+  return true;
+}
+
+export async function main() {
+  const tempDir = await mkdtemp(join(tmpdir(), 'lamuflix-api-'));
+  try {
+    const results = [
+      await checkGenerated(
+        'src/api/types.ts',
+        generateTypes,
+        DEFAULT_TYPES_OUTPUT,
+        join(tempDir, 'types.ts'),
+      ),
+      await checkGenerated(
+        'src/mocks/handlers.ts',
+        generateHandlers,
+        DEFAULT_HANDLERS_OUTPUT,
+        join(tempDir, 'handlers.ts'),
+      ),
+    ];
+
+    if (results.includes(false)) {
+      process.exitCode = 1;
+    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
 }
