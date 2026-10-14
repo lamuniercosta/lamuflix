@@ -66,10 +66,10 @@ Keep shared FilterPanel.test.tsx and FilterPanel.tsx edits serial. Tests precede
 
 Write failing host acceptance tests before LibraryView implementation. Integrate the complete panel, then verify matching URL/request state and retained results.
 
-- [ ] T020 [US1] Write failing host acceptance tests in `web/src/features/library/LibraryView.test.tsx`: independently expected canonical API queries (never the encoder output) equal the canonicalized MSW-observed generated-client requests, including all four Q12 transport defaults on an empty URL; pending refetch preserves old titles and mounted controls; MSW never supplies missing defaults (depends on T042, T043; FR-008, FR-010, Q9/Q10/Q12; before host implementation)
-- [ ] T022 [US1] Implement `web/src/features/library/LibraryView.tsx` owning the generated-client movies/genres/actors queries, compact-URL commit/hydration plus complete canonical API requests (Q12 transport defaults), and controlled FilterPanel props/callbacks; actor query uses role=actor; render `totalCount`/title results with `placeholderData: keepPreviousData`, the canonical API query string as the movie query key, and a fixed-dimension results area (depends on T011, T013, T020, T037, T042, T043; DEV-320 client prerequisite; design.md:216-218,232)
-- [ ] T023 [US1] Mount the panel with minimal count/title host in `web/src/App.tsx` (or the reconfirmed library page per T002, leaving `App.tsx` alone) and update `web/src/App.test.tsx` to host AC coverage (depends on T022, T021; Q5 conditional)
-- [ ] T024 [US1] Verify one fetch per committed effective API query change (canonical query key; equivalent omitted/explicit Q12 defaults share one key) and `replaceState` (no history spam) for text and discrete controls in `LibraryView.test.tsx`/`FilterPanel.test.tsx` (depends on T022, T023)
+- [X] T020 [US1] Write failing host acceptance tests in `web/src/features/library/LibraryView.test.tsx`: independently expected canonical API queries (never the encoder output) equal the canonicalized MSW-observed generated-client requests, including all four Q12 transport defaults on an empty URL; pending refetch preserves old titles and mounted controls; MSW never supplies missing defaults (depends on T042, T043; FR-008, FR-010, Q9/Q10/Q12; before host implementation)
+- [X] T022 [US1] Implement `web/src/features/library/LibraryView.tsx` owning the generated-client movies/genres/actors queries, compact-URL commit/hydration plus complete canonical API requests (Q12 transport defaults), and controlled FilterPanel props/callbacks; actor query uses role=actor; render `totalCount`/title results with `placeholderData: keepPreviousData`, the canonical API query string as the movie query key, and a fixed-dimension results area (depends on T011, T013, T020, T037, T042, T043; DEV-320 client prerequisite; design.md:216-218,232)
+- [X] T023 [US1] Mount the panel with minimal count/title host in `web/src/App.tsx` (or the reconfirmed library page per T002, leaving `App.tsx` alone) and update `web/src/App.test.tsx` to host AC coverage (depends on T022, T021; Q5 conditional)
+- [X] T024 [US1] Verify one fetch per committed effective API query change (canonical query key; equivalent omitted/explicit Q12 defaults share one key) and `replaceState` (no history spam) for text and discrete controls in `LibraryView.test.tsx`/`FilterPanel.test.tsx` (depends on T022, T023)
 
 **Checkpoint**: All three stories can now be exercised through the host; every ticket control participates in URL/refetch acceptance.
 
@@ -120,3 +120,4 @@ Visual confirmation and applicable gates run only at their pipeline stages, not 
 - Q10 test scope: T010, T012, T020, T021, T030-T033, T040, T041.
 - Q11 range reconciliation (authoritative over original Q6/Q7): T010, T011, T040, T041.
 - Q12 transport defaults, canonical equality and query key: T010, T011, T020, T022, T024.
+
