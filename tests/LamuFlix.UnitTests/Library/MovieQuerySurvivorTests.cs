@@ -12,7 +12,7 @@ public sealed class MovieQuerySurvivorTests
         var query = BaseQuery();
 
         // act
-        var equal = query.Equals((MovieQuery?)null);
+        var equal = query.Equals(null);
 
         // assert
         equal.ShouldBeFalse();

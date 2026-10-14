@@ -42,6 +42,7 @@ public sealed class OmdbOptionsTests
     public void AllowedBaseUrlAttribute_ContextNamesAnotherMember_ReportsThatMember()
     {
         // arrange
+        // ReSharper disable once NullableWarningSuppressionIsUsed BaseUrl is a public property, so the lookup cannot return null
         var attribute = typeof(OmdbOptions)
             .GetProperty(nameof(OmdbOptions.BaseUrl))!
             .GetCustomAttributes<ValidationAttribute>()
