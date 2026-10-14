@@ -49,6 +49,22 @@ builder.Services.AddOpenApi("v1", static options => options.AddDocumentTransform
             document.Paths.Remove(path);
         }
 
+        if (document.Components?.Schemas is { } schemas
+            && schemas.TryGetValue("EnrichmentStatus", out var schema))
+        {
+            if (schema is Microsoft.OpenApi.OpenApiSchema concrete)
+            {
+                concrete.Type = Microsoft.OpenApi.JsonSchemaType.String;
+                concrete.Enum =
+                [
+                    System.Text.Json.Nodes.JsonValue.Create("Pending"),
+                    System.Text.Json.Nodes.JsonValue.Create("Enriched"),
+                    System.Text.Json.Nodes.JsonValue.Create("NotFound"),
+                    System.Text.Json.Nodes.JsonValue.Create("Failed"),
+                ];
+            }
+        }
+
         return Task.CompletedTask;
     }));
 var app = builder.Build();

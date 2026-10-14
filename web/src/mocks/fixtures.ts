@@ -4,8 +4,24 @@ type Schemas = components['schemas'];
 
 const browseMoviesData = {
   items: [
-    { id: 1, title: 'Dune', posterUrl: '/posters/dune.jpg' },
-    { id: 2, title: 'Arrival', posterUrl: null },
+    {
+      id: 1,
+      title: 'Dune',
+      posterUrl: '/posters/dune.jpg',
+      releaseYear: 2021,
+      runtime: 155,
+      imdbRating: 8.0,
+      enrichmentStatus: 'Enriched',
+    },
+    {
+      id: 2,
+      title: 'Arrival',
+      posterUrl: null,
+      releaseYear: null,
+      runtime: null,
+      imdbRating: null,
+      enrichmentStatus: 'Pending',
+    },
   ],
   totalCount: 2,
 } satisfies Schemas['BrowseMoviesResponse'];

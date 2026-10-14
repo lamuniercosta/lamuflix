@@ -595,6 +595,15 @@
           }
         }
       },
+      "EnrichmentStatus": {
+        "enum": [
+          "Pending",
+          "Enriched",
+          "NotFound",
+          "Failed"
+        ],
+        "type": "string"
+      },
       "GenreDto": {
         "required": [
           "id",
@@ -724,7 +733,11 @@
         "required": [
           "id",
           "title",
-          "posterUrl"
+          "posterUrl",
+          "releaseYear",
+          "runtime",
+          "imdbRating",
+          "enrichmentStatus"
         ],
         "type": "object",
         "properties": {
@@ -744,6 +757,36 @@
               "null",
               "string"
             ]
+          },
+          "releaseYear": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "runtime": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "imdbRating": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "enrichmentStatus": {
+            "$ref": "#/components/schemas/EnrichmentStatus"
           }
         }
       },
