@@ -398,7 +398,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         body.GetProperty("format").ValueKind.ShouldBe(JsonValueKind.String);
         body.GetProperty("format").GetString().ShouldBe("mkv");
         var metadata = body.GetProperty("metadata");
-        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors");
         metadata.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
         metadata.GetProperty("title").GetString().ShouldBe("Heat");
         metadata.GetProperty("synopsis").ValueKind.ShouldBe(JsonValueKind.String);
@@ -449,7 +449,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var metadata = body.GetProperty("metadata");
-        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors");
         metadata.GetProperty("title").GetString().ShouldBe("Heat");
         ShouldCarryJsonNull(metadata, "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId");
     }

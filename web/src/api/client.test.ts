@@ -34,6 +34,11 @@ const movieDetails = {
     runtime: 155,
     imdbRating: 8.1,
     imdbId: 'tt1160419',
+    posterUrl: null,
+    rottenTomatoesRating: null,
+    metaScore: null,
+    directors: [],
+    actors: [],
   },
 } satisfies components['schemas']['MovieDetailsResponse'];
 

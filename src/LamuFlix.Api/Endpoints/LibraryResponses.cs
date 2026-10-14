@@ -33,7 +33,12 @@ internal sealed record MovieMetadataResponse(
     int? ReleaseYear,
     int? Runtime,
     decimal? ImdbRating,
-    string? ImdbId)
+    string? ImdbId,
+    string? PosterUrl,
+    short? RottenTomatoesRating,
+    short? MetaScore,
+    IReadOnlyList<string> Directors,
+    IReadOnlyList<string> Actors)
 {
     public static MovieMetadataResponse From(MovieMetadata metadata) =>
         new(
@@ -42,6 +47,11 @@ internal sealed record MovieMetadataResponse(
             metadata.ReleaseYear?.Value,
             metadata.Runtime?.Minutes,
             metadata.ImdbRating?.Value,
-            metadata.ImdbId?.Value);
+            metadata.ImdbId?.Value,
+            metadata.PosterUrl,
+            metadata.RottenTomatoesRating,
+            metadata.MetaScore,
+            [.. metadata.Directors],
+            [.. metadata.Actors]);
 }
 // ReSharper restore NotAccessedPositionalProperty.Global

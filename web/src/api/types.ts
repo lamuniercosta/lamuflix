@@ -83,6 +83,13 @@ export interface components {
       /** Format: double */
       imdbRating: null | number | string;
       imdbId: null | string;
+      posterUrl: null | string;
+      /** Format: int16 */
+      rottenTomatoesRating: null | number | string;
+      /** Format: int16 */
+      metaScore: null | number | string;
+      directors: string[];
+      actors: string[];
     };
     MovieSummaryResponse: {
       /** Format: int32 */
