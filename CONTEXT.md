@@ -96,6 +96,7 @@ _Avoid_: "tests are weak" for a 0-kill run before linkage is proven
 
 **Artifact kill**
 A mutant reported Killed by a test that fails because of Stryker's instrumentation itself (e.g. ArchitectureTests rejecting injected `Stryker.*` types), not because of the mutation. The mutation gate fails on any artifact kill.
+A test whose kills exceed `gates.mutation.maxKillShare` percent (default 50) of tested mutants is a suspected artifact kill, usually one that carries state across mutant runs; the gate fails on it, unless fewer than 20 mutants were tested.
 _Avoid_: counting it as a kill
 
 **Mutation receipt**

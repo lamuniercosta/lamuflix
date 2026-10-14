@@ -37,6 +37,7 @@ $script:HarnessSchema = @{
     'gates.complexity.implement'                 = 'int'
     'gates.complexity.refactor'                  = 'int'
     'gates.mutation.threshold'                   = 'int'
+    'gates.mutation.maxKillShare'                = 'int'
     'gates.mutation.exclusions'                  = 'map'
     'gates.analyzers.mode'                       = 'scalar'
     'gates.analyzers.warningsAsErrors'           = 'bool'
@@ -79,6 +80,7 @@ function Get-HarnessDefaults {
         'gates.complexity.implement'                 = 15
         'gates.complexity.refactor'                  = 6
         'gates.mutation.threshold'                   = 80
+        'gates.mutation.maxKillShare'                = 50
         'gates.mutation.exclusions'                  = @{}
         'gates.analyzers.mode'                       = 'All'
         'gates.analyzers.warningsAsErrors'           = $false

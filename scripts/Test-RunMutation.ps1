@@ -81,12 +81,19 @@ function Set-FixtureHarnessConfig {
       Writes the harness.yml the case is about. $Exclusions of $null leaves the
       key out entirely, which must read as an empty map, not as a missing gate.
     #>
-    param([AllowNull()][hashtable]$Exclusions)
+    param(
+        [AllowNull()][hashtable]$Exclusions,
+        # $null leaves maxKillShare out entirely, so the gate reads its default of 50.
+        [AllowNull()][string]$MaxKillShare = '50'
+    )
 
     $lines = [System.Collections.Generic.List[string]]::new()
     foreach ($line in @('harnessVersion: 0.7.1', 'pack: dotnet', 'baseBranch: main', 'tracker: youtrack',
             'solution: null', '', 'gates:', '  mutation:', '    threshold: 80')) {
         $lines.Add($line)
+    }
+    if ($null -ne $MaxKillShare) {
+        $lines.Add("    maxKillShare: $MaxKillShare")
     }
     if ($null -ne $Exclusions) {
         $lines.Add('    exclusions:')
@@ -219,6 +226,41 @@ $FilesJson
 }
 "@
     [System.IO.File]::WriteAllText($Path, $json, [System.Text.UTF8Encoding]::new($false))
+}
+
+function Write-KillShareReport {
+    <#
+      Writes a schema-2 report whose mutants all sit in $FileKey, one mutant per entry of
+      $KillerSets. An entry is the test ids that killed that mutant, joined by '|', so
+      't1|t2' is one mutant killed by two tests. Every id is declared under testFiles so
+      each killer resolves to a name, as a real report does.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$FileKey,
+        [Parameter(Mandatory)][string[]]$KillerSets
+    )
+
+    $mutants = [System.Collections.Generic.List[object]]::new()
+    $testIds = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
+    for ($i = 0; $i -lt $KillerSets.Count; $i++) {
+        $ids = @($KillerSets[$i] -split '\|')
+        foreach ($id in $ids) { [void]$testIds.Add($id) }
+        $mutants.Add([ordered]@{
+                id           = [string]($i + 1)
+                status       = 'Killed'
+                killedBy     = $ids
+                mutatorName  = 'Statement'
+                location     = [ordered]@{ start = [ordered]@{ line = $i + 1 } }
+            })
+    }
+    $tests = @($testIds | ForEach-Object { [ordered]@{ id = $_; name = "LamuFlix.UnitTests.ScopeGuardTests.$_" } })
+    $report = [ordered]@{
+        schemaVersion = '2'
+        files         = [ordered]@{ $FileKey = [ordered]@{ mutants = @($mutants) } }
+        testFiles     = [ordered]@{ 'tests/LamuFlix.UnitTests/ScopeGuardTests.cs' = [ordered]@{ tests = $tests } }
+    }
+    [System.IO.File]::WriteAllText($Path, ($report | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
 }
 
 function New-StrykerStubEnvironment {
@@ -468,6 +510,80 @@ $killedInChangedFile,
 "@
     } -Arguments @('-EvaluateReport', $scopeReport, '-ScopeFile', $scopeChanged) -ExpectedExit 1 `
         -MustContain @('outside changed files', $scopeUnchanged)
+
+    # Artifact-kill share rule (maxKillShare, default 50; exempt below 20 tested). Each
+    # case writes a report with the kill counts it needs and evaluates it through -EvaluateReport.
+    $shareReport = Join-Path $script:checkout 'share-report.json'
+    $shareArgs = @('-EvaluateReport', $shareReport, '-ScopeFile', $scopeChanged)
+
+    Write-Host ''
+    Write-Host 'Artifact-kill share cases:'
+
+    Assert-MutationCase -Name '14 one test killing 60 of 100 tested mutants fails as a suspected artifact kill' -Setup {
+        Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets ((@('t1') * 60) + (@('t2') * 40))
+    } -Arguments $shareArgs -ExpectedExit 1 -MustContain @(
+        'Suspected artifact kill',
+        'LamuFlix.UnitTests.ScopeGuardTests.t1 killed 60 of 100 tested mutants (60.0%), above the 50% limit',
+        'FAILED'
+    ) -MustNotContain @('Kill share: not applied')
+
+    Assert-MutationCase -Name '15 largest share 49 of 100 is just under the limit and passes' -Setup {
+        Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets ((@('t1') * 49) + (@('t2') * 49) + (@('t3') * 2))
+    } -Arguments $shareArgs -ExpectedExit 0 -MustContain @(
+        'PASSED',
+        'largest single-test share 49.00% of 100 tested (limit 50%)'
+    ) -MustNotContain @('Suspected artifact kill')
+
+    Assert-MutationCase -Name '15b largest share exactly 50 of 100 is at the limit and passes' -Setup {
+        Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets ((@('t1') * 50) + (@('t2') * 50))
+    } -Arguments $shareArgs -ExpectedExit 0 -MustContain @(
+        'PASSED',
+        'largest single-test share 50.00% of 100 tested (limit 50%)'
+    ) -MustNotContain @('Suspected artifact kill')
+
+    Assert-MutationCase -Name '16 a 9 of 10 share below 20 tested is exempt and says so' -Setup {
+        Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets ((@('t1') * 9) + @('t2'))
+    } -Arguments $shareArgs -ExpectedExit 0 -MustContain @(
+        'PASSED',
+        'Kill share: not applied (10 tested is below the 20-mutant minimum)'
+    ) -MustNotContain @('Suspected artifact kill')
+
+    Assert-MutationCase -Name '17 four tests each killing every mutant report three and +1 more' -Setup {
+        Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets (@('t1|t2|t3|t4') * 100)
+    } -Arguments $shareArgs -ExpectedExit 1 -MustContain @(
+        'LamuFlix.UnitTests.ScopeGuardTests.t1 killed 100 of 100 tested mutants (100.0%), above the 50% limit',
+        'LamuFlix.UnitTests.ScopeGuardTests.t3 killed 100 of 100',
+        '; +1 more.'
+    ) -MustNotContain @('ScopeGuardTests.t4 killed')
+
+    Assert-MutationCase -Name '18 maxKillShare 0 is a configuration error that exits 1 before evaluation' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -MaxKillShare '0'
+        Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets ((@('t1') * 60) + (@('t2') * 40))
+    } -Arguments $shareArgs -ExpectedExit 1 -MustContain @(
+        'invalid mutation configuration in harness.yml gates.mutation.maxKillShare',
+        'must be an integer from 1 to 100, got ''0'''
+    ) -MustNotContain @('Suspected artifact kill')
+
+    Assert-MutationCase -Name '19 maxKillShare 101 is a configuration error that exits 1 before evaluation' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -MaxKillShare '101'
+        Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets ((@('t1') * 60) + (@('t2') * 40))
+    } -Arguments $shareArgs -ExpectedExit 1 -MustContain @(
+        'invalid mutation configuration in harness.yml gates.mutation.maxKillShare',
+        'must be an integer from 1 to 100, got ''101'''
+    ) -MustNotContain @('Suspected artifact kill')
+
+    Assert-MutationCase -Name '20 a non-integer maxKillShare is a configuration error that exits 1' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -MaxKillShare 'fifty'
+        Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets ((@('t1') * 60) + (@('t2') * 40))
+    } -Arguments $shareArgs -ExpectedExit 1 -MustContain @('maxKillShare') -MustNotContain @('Suspected artifact kill')
+
+    Assert-MutationCase -Name '21 an absent maxKillShare key reads the default 50 and fails a 60 percent share' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -MaxKillShare $null
+        Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets ((@('t1') * 60) + (@('t2') * 40))
+    } -Arguments $shareArgs -ExpectedExit 1 -MustContain @(
+        'Suspected artifact kill',
+        'above the 50% limit'
+    )
 
     # Whole-project mode (Q3/Q4). Classification and the zero-diff contrast run
     # without the stub; the invocation and both changed-file guards drive a stub
