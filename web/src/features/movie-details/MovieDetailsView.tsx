@@ -92,10 +92,12 @@ function MovieDetailsViewInner({ movieId }: MovieDetailsViewProps) {
   const playButtonRef = useRef<HTMLButtonElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+  const playInFlightRef = useRef(false);
 
   useEffect(() => {
     if (dialogOpen && closeBtnRef.current) {
-      previousFocus.current = document.activeElement as HTMLElement | null;
+      previousFocus.current =
+        playButtonRef.current ?? (document.activeElement as HTMLElement | null);
       closeBtnRef.current.focus();
     } else if (!dialogOpen && previousFocus.current) {
       previousFocus.current.focus();
@@ -108,6 +110,11 @@ function MovieDetailsViewInner({ movieId }: MovieDetailsViewProps) {
     const handler = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setDialogOpen(false);
+        return;
+      }
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        closeBtnRef.current?.focus();
       }
     };
     window.addEventListener('keydown', handler);
@@ -115,6 +122,8 @@ function MovieDetailsViewInner({ movieId }: MovieDetailsViewProps) {
   }, [dialogOpen]);
 
   const handlePlay = () => {
+    if (playInFlightRef.current) return;
+    playInFlightRef.current = true;
     setPlayState('idle');
     playMutation.mutate(undefined, {
       onSuccess: () => {
@@ -129,6 +138,9 @@ function MovieDetailsViewInner({ movieId }: MovieDetailsViewProps) {
         } else {
           setPlayState('error');
         }
+      },
+      onSettled: () => {
+        playInFlightRef.current = false;
       },
     });
   };

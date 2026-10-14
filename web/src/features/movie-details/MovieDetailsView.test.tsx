@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { server } from '../../test/server';
 import { movieDetails, movieDetailsNullMetadata } from '../../mocks/fixtures';
@@ -72,5 +72,121 @@ describe('MovieDetailsView', () => {
 
     await screen.findByRole('heading', { name: 'Dune' });
     expect(screen.queryByText('Dune poster')).not.toBeInTheDocument();
+  });
+
+  it('reports playback started on 204', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 204 })),
+    );
+    render(<MovieDetailsView movieId={1} />);
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+
+    expect(await screen.findByText('Playback started.')).toBeInTheDocument();
+  });
+
+  it('reports removal on play 404', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 404 })),
+    );
+    render(<MovieDetailsView movieId={1} />);
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+
+    expect(await screen.findByText('This movie is no longer in the library.')).toBeInTheDocument();
+  });
+
+  it('reports generic error on play failure', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 500 })),
+    );
+    render(<MovieDetailsView movieId={1} />);
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+
+    expect(
+      await screen.findByText("Couldn't start playback. Try again later."),
+    ).toBeInTheDocument();
+  });
+
+  it('does not send a second play request while in flight', async () => {
+    let calls = 0;
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/play', async () => {
+        calls += 1;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(<MovieDetailsView movieId={1} />);
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    const playButton = screen.getByRole('button', { name: 'Play' });
+    fireEvent.click(playButton);
+    await screen.findByText('Starting...');
+    fireEvent.click(playButton);
+    await waitFor(() => expect(screen.getByText('Playback started.')).toBeInTheDocument());
+    expect(calls).toBe(1);
+  });
+});
+
+describe('MovieDetailsView Play 403 dialog', () => {
+  it('opens dialog with focus, escapes and closes, returns focus', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 403 })),
+    );
+    render(<MovieDetailsView movieId={1} />);
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    const playButton = screen.getByRole('button', { name: 'Play' });
+    fireEvent.click(playButton);
+
+    await screen.findByRole('dialog');
+    expect(screen.getByText('Playback unavailable')).toBeInTheDocument();
+    expect(screen.getByText('Local playback is disabled on this server.')).toBeInTheDocument();
+    const closeButton = screen.getByRole('button', { name: 'Close' });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(playButton).toHaveFocus());
+  });
+
+  it('closes the 403 dialog with Close button', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 403 })),
+    );
+    render(<MovieDetailsView movieId={1} />);
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    const closeButton = await screen.findByRole('button', { name: 'Close' });
+    fireEvent.click(closeButton);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('keeps focus inside the 403 dialog on Tab', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 403 })),
+    );
+    render(<MovieDetailsView movieId={1} />);
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    const closeButton = await screen.findByRole('button', { name: 'Close' });
+    closeButton.focus();
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(closeButton).toHaveFocus();
   });
 });

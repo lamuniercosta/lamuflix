@@ -58,9 +58,9 @@
 
 **Independent Test**: Generated MSW handlers with 204/403/404/500 Play responses; assert inline texts, modal open/close/focus, in-flight guard.
 
-- [ ] T030 [US2] RTL tests for 204 success, 404 removal, generic error, and in-flight double-press guard in `MovieDetailsView.test.tsx` (after T021; same file, no parallel work).
-- [ ] T031 [US2] RTL tests for 403 dialog (title/body, focus to Close, Escape/Close dismissal, focus return, focus kept inside) in `MovieDetailsView.test.tsx` (after T030; same file, no parallel work).
-- [ ] T032 [US2] Implement Play control plus hand-built accessible dialog in `MovieDetailsView.tsx` (always rendered, enabled except in flight; `role="dialog"`, `aria-modal`; no `<dialog>` showModal).
+- [X] T030 [US2] RTL tests for 204 success, 404 removal, generic error, and in-flight double-press guard in `MovieDetailsView.test.tsx` (after T021; same file, no parallel work).
+- [X] T031 [US2] RTL tests for 403 dialog (title/body, focus to Close, Escape/Close dismissal, focus return, focus kept inside) in `MovieDetailsView.test.tsx` (after T030; same file, no parallel work).
+- [X] T032 [US2] Implement Play control plus hand-built accessible dialog in `MovieDetailsView.tsx` (always rendered, enabled except in flight; `role="dialog"`, `aria-modal`; no `<dialog>` showModal).
 
 **Checkpoint**: User Stories 1 AND 2 both work independently.
 
