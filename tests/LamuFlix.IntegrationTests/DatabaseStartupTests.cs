@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Common;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,16 +30,16 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
         var before = await ListPublicBaseTablesAsync(empty, cancellationToken);
         before.ShouldBeEmpty();
 
-        using var factory = new ApiHostFactory(
+        await using var factory = new ApiHostFactory(
             retainSweeper: false,
-            additionalSettings: ConnectionOverride(connectionString!),
+            additionalSettings: ConnectionOverride(connectionString),
             disableEnrichmentConsumer: true);
         using var client = factory.CreateClient();
         var liveness = await client.GetAsync("/health/live", cancellationToken);
 
         liveness.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString!);
+        await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString);
         var after = await ListPublicBaseTablesAsync(observed, cancellationToken);
         after.ShouldBeEmpty();
         after.ShouldNotContain(MigrationsHistoryTable);
@@ -58,11 +56,11 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
         var before = await ListPublicBaseTablesAsync(empty, cancellationToken);
         before.ShouldBeEmpty();
 
-        var settings = new List<KeyValuePair<string, string?>>(ConnectionOverride(connectionString!))
+        var settings = new List<KeyValuePair<string, string?>>(ConnectionOverride(connectionString))
         {
             new(DatabaseSettingKey, "false"),
         };
-        using var factory = new ApiHostFactory(
+        await using var factory = new ApiHostFactory(
             retainSweeper: false,
             additionalSettings: settings,
             disableEnrichmentConsumer: true);
@@ -71,7 +69,7 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
 
         liveness.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString!);
+        await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString);
         var after = await ListPublicBaseTablesAsync(observed, cancellationToken);
         after.ShouldBeEmpty();
         after.ShouldNotContain(MigrationsHistoryTable);
@@ -88,11 +86,11 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
         var before = await ListPublicBaseTablesAsync(empty, cancellationToken);
         before.ShouldBeEmpty();
 
-        var settings = new List<KeyValuePair<string, string?>>(ConnectionOverride(connectionString!))
+        var settings = new List<KeyValuePair<string, string?>>(ConnectionOverride(connectionString))
         {
             new(DatabaseSettingKey, "true"),
         };
-        using var factory = new ApiHostFactory(
+        await using var factory = new ApiHostFactory(
             retainSweeper: false,
             additionalSettings: settings,
             disableEnrichmentConsumer: true);
@@ -101,7 +99,7 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
 
         liveness.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString!);
+        await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString);
         var after = await ListPublicBaseTablesAsync(observed, cancellationToken);
         after.ShouldContain(MigrationsHistoryTable);
         after.ShouldContain("movies");
