@@ -21,6 +21,8 @@ public sealed class OtlpEndpointEnvironmentTests
     private const string PlaceholderConnectionString =
         "Host=localhost;Database=unused;Username=unused;Password=unused";
 
+    private const int DeadEndpointExportTimeoutMilliseconds = 100;
+
     private const string EndpointVariable = "OTEL_EXPORTER_OTLP_ENDPOINT";
     private static readonly Uri DefaultGrpcEndpoint = new("http://localhost:4317");
     private static readonly Uri DefaultHttpEndpoint = new("http://localhost:4318");
@@ -137,6 +139,11 @@ public sealed class OtlpEndpointEnvironmentTests
         {
             ["ConnectionStrings:DefaultConnection"] = PlaceholderConnectionString,
         });
+
+        // Disposing the app flushes the metric reader to the dead localhost endpoint; a short export timeout
+        // bounds that flush so the test does not wait on exporter retries (see ServiceDefaultsTests).
+        builder.Services.PostConfigure<OtlpExporterOptions>(static options =>
+            options.TimeoutMilliseconds = DeadEndpointExportTimeoutMilliseconds);
         builder.AddServiceDefaults();
         return builder.Build();
     }
