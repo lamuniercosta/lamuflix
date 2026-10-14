@@ -1,1 +1,11 @@
 @import 'tailwindcss';
+
+:root {
+  --library-grid-min: 9rem;
+}
+
+.library-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(var(--library-grid-min), 1fr));
+}
