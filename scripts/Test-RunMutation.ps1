@@ -84,7 +84,9 @@ function Set-FixtureHarnessConfig {
     param(
         [AllowNull()][hashtable]$Exclusions,
         # $null leaves maxKillShare out entirely, so the gate reads its default of 50.
-        [AllowNull()][string]$MaxKillShare = '50'
+        [AllowNull()][string]$MaxKillShare = '50',
+        # $null (the default) leaves maxKillFileSpan out, so the gate reads its default of 15.
+        [AllowNull()][string]$MaxKillFileSpan = $null
     )
 
     $lines = [System.Collections.Generic.List[string]]::new()
@@ -94,6 +96,9 @@ function Set-FixtureHarnessConfig {
     }
     if ($null -ne $MaxKillShare) {
         $lines.Add("    maxKillShare: $MaxKillShare")
+    }
+    if ($null -ne $MaxKillFileSpan) {
+        $lines.Add("    maxKillFileSpan: $MaxKillFileSpan")
     }
     if ($null -ne $Exclusions) {
         $lines.Add('    exclusions:')
@@ -263,6 +268,61 @@ function Write-KillShareReport {
     [System.IO.File]::WriteAllText($Path, ($report | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
 }
 
+function Write-KillSpanReport {
+    <#
+      Writes a schema-2 report spread over $FileCount files, src/LamuFlix.Core/Span<i>.cs.
+      Each file holds one mutant killed by the wide test 'wide' and two killed by a test
+      local to that file, so 'wide' spans every file while its kill share stays at a third
+      and the share rule never fires.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][int]$FileCount
+    )
+
+    $files = [ordered]@{}
+    $tests = [System.Collections.Generic.List[object]]::new()
+    $tests.Add([ordered]@{ id = 'wide'; name = 'LamuFlix.UnitTests.ScopeGuardTests.wide' })
+    $nextId = 1
+    for ($i = 1; $i -le $FileCount; $i++) {
+        $local = "f$i"
+        $tests.Add([ordered]@{ id = $local; name = "LamuFlix.UnitTests.ScopeGuardTests.$local" })
+        $mutants = foreach ($killer in @('wide', $local, $local)) {
+            [ordered]@{
+                id          = [string]$nextId
+                status      = 'Killed'
+                killedBy    = @($killer)
+                mutatorName = 'Statement'
+                location    = [ordered]@{ start = [ordered]@{ line = $nextId } }
+            }
+            $nextId++
+        }
+        $files["src/LamuFlix.Core/Span$i.cs"] = [ordered]@{ mutants = @($mutants) }
+    }
+    $report = [ordered]@{
+        schemaVersion = '2'
+        files         = $files
+        testFiles     = [ordered]@{ 'tests/LamuFlix.UnitTests/ScopeGuardTests.cs' = [ordered]@{ tests = @($tests) } }
+    }
+    [System.IO.File]::WriteAllText($Path, ($report | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
+}
+
+function Set-FixtureAdditionalTimeout {
+    <#
+      Rewrites the overlaid stryker-config.json with additional-timeout set to $Value,
+      or removed when $Value is $null. Reset-Fixture restores the committed copy.
+    #>
+    param([AllowNull()][object]$Value)
+
+    $path = Join-Path $script:checkout 'stryker-config.json'
+    $config = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    $config.'stryker-config'.PSObject.Properties.Remove('additional-timeout')
+    if ($null -ne $Value) {
+        $config.'stryker-config' | Add-Member -NotePropertyName 'additional-timeout' -NotePropertyValue $Value
+    }
+    [System.IO.File]::WriteAllText($path, ($config | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
+}
+
 function New-StrykerStubEnvironment {
     <#
       Child environment for a whole-project invocation whose `dotnet stryker` call
@@ -299,6 +359,9 @@ function Assert-FixtureWiring {
         if ([string]$baseStryker.($required[0]) -ne $required[1]) {
             throw "stryker-config.json does not set $($required[0])=$($required[1])"
         }
+    }
+    if ([long]$baseStryker.'additional-timeout' -lt 30000) {
+        throw 'stryker-config.json does not set additional-timeout to at least 30000'
     }
 
     if (-not (Test-Path -LiteralPath (Join-Path $script:checkout 'LamuFlix.sln'))) {
@@ -585,6 +648,50 @@ $killedInChangedFile,
         'above the 50% limit'
     )
 
+    # Artifact-kill file-span rule (maxKillFileSpan, default 15; no sample minimum). The
+    # span reports cover files outside any diff, so they are evaluated without -ScopeFile.
+    $spanReport = Join-Path $script:checkout 'span-report.json'
+    $spanArgs = @('-EvaluateReport', $spanReport)
+
+    Write-Host ''
+    Write-Host 'Artifact-kill file-span cases:'
+
+    Assert-MutationCase -Name '22 one test killing mutants in 16 files fails as a suspected artifact kill' -Setup {
+        Write-KillSpanReport -Path $spanReport -FileCount 16
+    } -Arguments $spanArgs -ExpectedExit 1 -MustContain @(
+        'Suspected artifact kill',
+        'LamuFlix.UnitTests.ScopeGuardTests.wide killed mutants in 16 files, above the 15-file limit',
+        'FAILED'
+    ) -MustNotContain @('of 48 tested mutants')
+
+    Assert-MutationCase -Name '23 a span of exactly 15 files is at the limit and passes' -Setup {
+        Write-KillSpanReport -Path $spanReport -FileCount 15
+    } -Arguments $spanArgs -ExpectedExit 0 -MustContain @(
+        'PASSED',
+        'largest single-test file span 15 file(s) (limit 15)'
+    ) -MustNotContain @('Suspected artifact kill')
+
+    Assert-MutationCase -Name '24 maxKillFileSpan 0 is a configuration error that exits 1 before evaluation' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -MaxKillFileSpan '0'
+        Write-KillSpanReport -Path $spanReport -FileCount 16
+    } -Arguments $spanArgs -ExpectedExit 1 -MustContain @(
+        'invalid mutation configuration in harness.yml gates.mutation.maxKillFileSpan',
+        'must be an integer of at least 1, got ''0'''
+    ) -MustNotContain @('Suspected artifact kill')
+
+    Assert-MutationCase -Name '25 a non-integer maxKillFileSpan is a configuration error that exits 1' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -MaxKillFileSpan 'wide'
+        Write-KillSpanReport -Path $spanReport -FileCount 2
+    } -Arguments $spanArgs -ExpectedExit 1 -MustContain @('maxKillFileSpan') -MustNotContain @('Suspected artifact kill', 'PASSED')
+
+    Assert-MutationCase -Name '26 a configured maxKillFileSpan of 5 fails a 6-file span below the share minimum' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -MaxKillFileSpan '5'
+        Write-KillSpanReport -Path $spanReport -FileCount 6
+    } -Arguments $spanArgs -ExpectedExit 1 -MustContain @(
+        'killed mutants in 6 files, above the 5-file limit',
+        'Kill share: not applied (18 tested is below the 20-mutant minimum)'
+    )
+
     # Whole-project mode (Q3/Q4). Classification and the zero-diff contrast run
     # without the stub; the invocation and both changed-file guards drive a stub
     # `dotnet stryker` so no real Stryker run happens in the fixture.
@@ -605,8 +712,25 @@ $killedInChangedFile,
     } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 0 -MustContain @(
         'Whole-project mode: LamuFlix.Core',
         'LamuFlix.Core.csproj',
-        'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj'
+        'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj',
+        '"additional-timeout": 30000'
     ) -MustNotContain @('SKIPPED')
+
+    Assert-MutationCase -Name '10c a stryker-config.json without additional-timeout is GATE NOT WIRED' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Set-FixtureAdditionalTimeout -Value $null
+    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 1 -MustContain @(
+        'GATE NOT WIRED',
+        'does not set ''additional-timeout'' to an integer'
+    ) -MustNotContain @('Generated config')
+
+    Assert-MutationCase -Name '10d an additional-timeout below 30000 is GATE NOT WIRED' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Set-FixtureAdditionalTimeout -Value 5000
+    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 1 -MustContain @(
+        'GATE NOT WIRED',
+        'sets ''additional-timeout'' to 5000 (expected at least 30000'
+    ) -MustNotContain @('Generated config')
 
     Assert-MutationCase -Name '10b diff-scoped mode on the same zero diff still exits 2 SKIPPED' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null

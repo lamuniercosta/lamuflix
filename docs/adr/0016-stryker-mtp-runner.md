@@ -43,3 +43,18 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
   re-measurement in a follow-up issue.
 - The csproj files need no MTP opt-in (`TestingPlatformDotnetTestSupport`): the MTP runner
   drives the test DLL directly.
+
+## Amendment: honest timeouts and artifact-kill detection (DEV-410)
+
+- `stryker-config.json` sets `"additional-timeout": 30000`, and the gate refuses to run
+  (GATE NOT WIRED) when it is missing or below 30000. It closes the repeat-run follow-up above.
+  With the default 5000 ms on top of the ~22 s suite, a busy machine turned survivors into
+  timeouts, which Stryker counts as detected. The clean whole-Core run at 30000 ms tested 518
+  mutants with 0 timeouts in 23 minutes, so no Core mutant really hangs and the larger
+  allowance costs nothing on a normal run.
+- Two rules catch a test that fails for a reason outside the mutation, usually state leaking
+  across mutant runs in the shared test server. The first is `gates.mutation.maxKillShare`
+  (default 50): no test may kill more than that percent of tested mutants once 20 are tested.
+  The second is `gates.mutation.maxKillFileSpan` (default 15): no test may kill mutants in more
+  than that many source files. Clean whole-Core runs peak at 9 files per test. A run
+  contaminated by a mutated static initializer reached 26.

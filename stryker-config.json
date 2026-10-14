@@ -3,6 +3,7 @@
     "mutation-level": "Standard",
     "test-runner": "mtp",
     "coverage-analysis": "off",
+    "additional-timeout": 30000,
     "thresholds": {
       "high": 90,
       "low": 80,
