@@ -86,8 +86,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         var facets = await dbContext.Genres.AsNoTracking()
             .OrderBy(genre => genre.Name)
             .ThenBy(genre => genre.Id)
-            .Select(genre => new GenreFacet(genre.Id, genre.Name))
-            .ToArrayAsync(ct);
+            .Select(genre => new GenreFacet(genre.Id, genre.Name, genre.Movies.Count)).ToArrayAsync(ct);
         return facets;
     }
 

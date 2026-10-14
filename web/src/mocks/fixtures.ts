@@ -50,8 +50,8 @@ const movieDetailsNullMetadataData = {
 } satisfies Schemas['MovieDetailsResponse'];
 
 const genresData = [
-  { id: 1, name: 'Action' },
-  { id: 2, name: 'Sci-Fi' },
+  { id: 1, name: 'Action', movieCount: 10 },
+  { id: 2, name: 'Sci-Fi', movieCount: 5 },
 ] satisfies Schemas['GenreDto'][];
 
 const peopleData = [

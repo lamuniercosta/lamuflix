@@ -100,8 +100,8 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
-        AssertIdNameShape(body);
-        Facets(body).ShouldBe(persisted, ignoreOrder: true);
+        AssertGenreShape(body);
+        GenreFacets(body).ShouldBe(persisted, ignoreOrder: true);
     }
 
     [Fact]
@@ -164,10 +164,19 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
     private static List<(int Id, string Name)> Facets(JsonElement body) =>
         [.. body.EnumerateArray().Select(Facet)];
 
+    private static List<(int Id, string Name, int MovieCount)> GenreFacets(JsonElement body) =>
+        [.. body.EnumerateArray().Select(GenreFacet)];
+
     private static (int Id, string Name) Facet(JsonElement element)
     {
         var name = element.GetProperty("name").GetString().ShouldNotBeNull();
         return (element.GetProperty("id").GetInt32(), name);
+    }
+
+    private static (int Id, string Name, int MovieCount) GenreFacet(JsonElement element)
+    {
+        var name = element.GetProperty("name").GetString().ShouldNotBeNull();
+        return (element.GetProperty("id").GetInt32(), name, element.GetProperty("movieCount").GetInt32());
     }
 
     private static void AssertIdNameShape(JsonElement body)
@@ -181,17 +190,30 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         }
     }
 
+    private static void AssertGenreShape(JsonElement body)
+    {
+        body.ValueKind.ShouldBe(JsonValueKind.Array);
+        foreach (var item in body.EnumerateArray())
+        {
+            ShouldCarryExactly(item, "id", "name", "movieCount");
+            item.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
+            item.GetProperty("name").ValueKind.ShouldBe(JsonValueKind.String);
+            item.GetProperty("movieCount").ValueKind.ShouldBe(JsonValueKind.Number);
+        }
+    }
+
     private static void ShouldCarryExactly(JsonElement element, params string[] names) =>
         element.EnumerateObject().Select(property => property.Name).ShouldBe(names, ignoreOrder: true);
 
-    private async Task<List<(int Id, string Name)>> ReadPersistedGenresAsync()
+    private async Task<List<(int Id, string Name, int MovieCount)>> ReadPersistedGenresAsync()
     {
         await using var context = Fixture.Postgres.CreateMigratedContext();
         var genres = await context.Genres.AsNoTracking()
+            .Include(genre => genre.Movies)
             .OrderBy(genre => genre.Name)
             .ThenBy(genre => genre.Id)
             .ToListAsync(TestContext.Current.CancellationToken);
-        return [.. genres.Select(genre => (genre.Id, genre.Name))];
+        return [.. genres.Select(genre => (genre.Id, genre.Name, genre.Movies.Count))];
     }
 
     private async Task<List<(int Id, string Name)>> ReadPersistedPeopleAsync()

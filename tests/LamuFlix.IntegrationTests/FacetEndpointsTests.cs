@@ -27,8 +27,7 @@ public sealed class FacetEndpointsTests(ApiHostFactory factory) : IClassFixture<
     public async Task GetGenres_WithStoredGenres_ReturnsScalarArrayOfIdAndName()
     {
         // arrange
-        IReadOnlyList<GenreFacet> genres = [new GenreFacet(1, "Drama"), new GenreFacet(2, "Thriller")];
-        catalog.GetGenresAsync(Arg.Any<CancellationToken>()).Returns(genres);
+        IReadOnlyList<GenreFacet> genres = [new GenreFacet(1, "Drama", 3), new GenreFacet(2, "Thriller", 0)]; catalog.GetGenresAsync(Arg.Any<CancellationToken>()).Returns(genres);
         await using var host = CreateHost();
         using var client = host.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -44,9 +43,11 @@ public sealed class FacetEndpointsTests(ApiHostFactory factory) : IClassFixture<
         items.Count.ShouldBe(2);
         items[0].GetProperty("id").GetInt32().ShouldBe(1);
         items[0].GetProperty("name").GetString().ShouldBe("Drama");
+        items[0].GetProperty("movieCount").GetInt32().ShouldBe(3);
         items[1].GetProperty("id").GetInt32().ShouldBe(2);
         items[1].GetProperty("name").GetString().ShouldBe("Thriller");
-        PropertyNames(items[0]).ShouldBe(["id", "name"], ignoreOrder: true);
+        items[1].GetProperty("movieCount").GetInt32().ShouldBe(0);
+        PropertyNames(items[0]).ShouldBe(["id", "name", "movieCount"], ignoreOrder: true);
         await catalog.Received(1).GetGenresAsync(Arg.Any<CancellationToken>());
     }
 
