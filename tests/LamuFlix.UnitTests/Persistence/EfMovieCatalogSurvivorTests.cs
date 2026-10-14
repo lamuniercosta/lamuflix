@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -75,6 +76,244 @@ public sealed class EfMovieCatalogSurvivorTests(PostgresFixture fixture)
         Direction = SortDirection.Ascending,
         Page = new Page(number, size)
     };
+
+    [Fact]
+    public async Task BrowseAsync_Projection_ReturnsPopulatedAndNullGridScalars()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var populated = Movie("Populated", "unit-projection-populated");
+        populated.PosterUrl = "https://example.test/poster.jpg";
+        populated.RuntimeMinutes = new Runtime(110);
+        populated.ReleaseYear = new ReleaseYear(2000, new DateTimeOffset(2026, 9, 30, 0, 0, 0, TimeSpan.Zero));
+        populated.ImdbRating = new ImdbRating(8.3m);
+        populated.Status = EnrichmentStatus.Failed;
+        var empty = Movie("Empty", "unit-projection-empty");
+        empty.Status = EnrichmentStatus.Pending;
+        context.Movies.AddRange(populated, empty);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+        var request = new MovieQuery
+        {
+            Sort = MovieSort.Title,
+            Direction = SortDirection.Ascending,
+            Page = new Page(1, 10)
+        };
+
+        // act
+        var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
+
+        // assert
+        result.TotalCount.ShouldBe(2);
+        var pop = result.Items.Single(item => item.Title == "Populated");
+        pop.PosterUrl.ShouldBe("https://example.test/poster.jpg");
+        pop.ReleaseYear.ShouldBe(2000);
+        pop.Runtime.ShouldBe(110);
+        pop.ImdbRating.ShouldBe(8.3m);
+        pop.EnrichmentStatus.ShouldBe(EnrichmentStatus.Failed);
+        var emptyItem = result.Items.Single(item => item.Title == "Empty");
+        emptyItem.PosterUrl.ShouldBeNull();
+        emptyItem.ReleaseYear.ShouldBeNull();
+        emptyItem.Runtime.ShouldBeNull();
+        emptyItem.ImdbRating.ShouldBeNull();
+        emptyItem.EnrichmentStatus.ShouldBe(EnrichmentStatus.Pending);
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_NoMetadata_ReturnsNullMetadata()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("No metadata", "unit-details-none");
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_MetadataTitleOnly_ReturnsMetadataTitle()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("File", "unit-details-title-only");
+        movie.MetadataTitle = "Metadata";
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBe(new MovieMetadata("Metadata"));
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_PlotOnly_FallsBackToFileTitle()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("File", "unit-details-plot-only");
+        movie.Plot = "Plot only";
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBe(new MovieMetadata("File", "Plot only"));
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_ReleaseYearOnly_ReturnsMetadata()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("File", "unit-details-year-only");
+        movie.ReleaseYear = new ReleaseYear(2020, new DateTimeOffset(2026, 9, 30, 0, 0, 0, TimeSpan.Zero));
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBe(new MovieMetadata("File", null, movie.ReleaseYear));
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_RuntimeOnly_ReturnsMetadata()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("File", "unit-details-runtime-only");
+        movie.RuntimeMinutes = new Runtime(120);
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBe(new MovieMetadata("File", null, null, new Runtime(120)));
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_ImdbRatingOnly_ReturnsMetadata()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("File", "unit-details-rating-only");
+        movie.ImdbRating = new ImdbRating(8.2m);
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBe(new MovieMetadata("File", null, null, null, new ImdbRating(8.2m)));
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_ImdbIdOnly_ReturnsMetadata()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("File", "unit-details-imdbid-only");
+        movie.ImdbId = new ImdbId("tt1234567");
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldBe(new MovieMetadata("File", null, null, null, null, new ImdbId("tt1234567")));
+    }
+
+    [Fact]
+    public async Task GetGenresAsync_StoredGenres_ReturnsAllRowsSortedNameThenId()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var zoe = new GenreRecord { Name = "Zoe" };
+        var drama = new GenreRecord { Name = "Drama" };
+        var dramaAgain = new GenreRecord { Name = "Drama" };
+        context.Genres.AddRange(zoe, drama, dramaAgain);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetGenresAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.Select(facet => facet.Name).ShouldBe(["Drama", "Drama", "Zoe"]);
+        facets.Select(facet => facet.Id).ShouldBe([drama.Id, dramaAgain.Id, zoe.Id]);
+    }
+
+    [Fact]
+    public async Task GetPeopleAsync_StoredActors_ReturnsActorRowsSortedNameThenId()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var zoe = new ActorRecord { Name = "Zoe" };
+        var ada = new ActorRecord { Name = "Ada" };
+        var adaAgain = new ActorRecord { Name = "Ada" };
+        context.Actors.AddRange(zoe, ada, adaAgain);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetPeopleAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.Select(facet => facet.Name).ShouldBe(["Ada", "Ada", "Zoe"]);
+        facets.Select(facet => facet.Id).ShouldBe([ada.Id, adaAgain.Id, zoe.Id]);
+    }
 
     private static MovieRecord Movie(string title, string suffix) => new()
     {
