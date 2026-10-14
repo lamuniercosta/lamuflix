@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
@@ -63,9 +64,9 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
         var movie = new MovieRecord
         {
             Title = "Shared",
-            LibraryPath = new LamuFlix.Core.Domain.LibraryPath("C:/library/shared.mkv"),
-            Format = new LamuFlix.Core.Domain.MediaFormat("mkv"),
-            Status = LamuFlix.Core.Domain.EnrichmentStatus.Pending
+            LibraryPath = new LibraryPath("C:/library/shared.mkv"),
+            Format = new MediaFormat("mkv"),
+            Status = EnrichmentStatus.Pending
         };
         movie.Genres.Add(drama);
         movie.Genres.Add(comedy);
@@ -95,18 +96,18 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
         var first = new MovieRecord
         {
             Title = "One",
-            LibraryPath = new LamuFlix.Core.Domain.LibraryPath("C:/library/one.mkv"),
-            Format = new LamuFlix.Core.Domain.MediaFormat("mkv"),
-            Status = LamuFlix.Core.Domain.EnrichmentStatus.Pending
+            LibraryPath = new LibraryPath("C:/library/one.mkv"),
+            Format = new MediaFormat("mkv"),
+            Status = EnrichmentStatus.Pending
         };
         first.Genres.Add(drama);
         first.Genres.Add(comedy);
         var second = new MovieRecord
         {
             Title = "Two",
-            LibraryPath = new LamuFlix.Core.Domain.LibraryPath("C:/library/two.mkv"),
-            Format = new LamuFlix.Core.Domain.MediaFormat("mkv"),
-            Status = LamuFlix.Core.Domain.EnrichmentStatus.Pending
+            LibraryPath = new LibraryPath("C:/library/two.mkv"),
+            Format = new MediaFormat("mkv"),
+            Status = EnrichmentStatus.Pending
         };
         second.Genres.Add(drama);
         context.Movies.AddRange(first, second);
