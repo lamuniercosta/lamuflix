@@ -19,6 +19,9 @@ gates:
     # Largest share of tested mutants one test may kill (percent, 1..100). Above it the gate
     # fails as a suspected artifact kill: a test that fails on every run inflates the score.
     maxKillShare: 50
+    # Most distinct source files one test may kill mutants in (integer >= 1). A unit test
+    # spanning more is failing outside the mutation; clean whole-Core runs peak at 9 (DEV-410).
+    maxKillFileSpan: 15
     exclusions:
       # Api is the only listed project: LamuFlix.UnitTests does not reference it.
       LamuFlix.Api: "host proof lives in IntegrationTests per Constitution IX"

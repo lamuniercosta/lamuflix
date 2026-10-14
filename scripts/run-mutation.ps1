@@ -14,7 +14,8 @@
 # Test runner (DEV-382, docs/adr/0016-stryker-mtp-runner.md): the xUnit v3 test projects
 # are executables, so under VSTest the tests run in a child of testhost that never sees
 # the active mutant and every mutant survives. The tracked config therefore selects the
-# MTP runner with coverage off, and every generated config carries both settings plus an
+# MTP runner with coverage off, and every generated config carries both settings, the
+# additional-timeout allowance (DEV-410), and an
 # explicit test-projects list that excludes *.ArchitectureTests and *.IntegrationTests:
 # the first fails on the Stryker.* types injected into every mutated assembly, which is
 # an artifact kill, and the second holds the real-database tests this run does not drive.
@@ -51,8 +52,8 @@ $ErrorActionPreference = 'Stop'
 EXIT CODES:
 | Exit | Verdict | Meaning | Blocking |
 |---|---|---|---|
-| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, no test kills more than `gates.mutation.maxKillShare` percent of tested mutants (or the run tested fewer than 20), each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
-| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration (including `gates.mutation.maxKillShare` outside 1 to 100 or not an integer), a suspected artifact kill (one test killed more than `gates.mutation.maxKillShare` percent of tested mutants), or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
+| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, no test kills more than `gates.mutation.maxKillShare` percent of tested mutants (or the run tested fewer than 20), no test kills mutants in more than `gates.mutation.maxKillFileSpan` source files, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
+| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration (including `gates.mutation.maxKillShare` outside 1 to 100 or not an integer, or `gates.mutation.maxKillFileSpan` below 1 or not an integer), a suspected artifact kill (one test killed more than `gates.mutation.maxKillShare` percent of tested mutants, or killed mutants in more than `gates.mutation.maxKillFileSpan` source files), or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
 | 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
 | 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
 
@@ -67,6 +68,7 @@ Usage: run-mutation.ps1 [OPTIONS]
 Runs Stryker.NET mutation testing on changed production C# files under src/.
 The threshold is read from harness.yml at gates.mutation.threshold (default: 80).
 The artifact-kill share limit is read from gates.mutation.maxKillShare (default: 50).
+The artifact-kill file-span limit is read from gates.mutation.maxKillFileSpan (default: 15).
 
 OPTIONS:
   -BaseRef <ref>          Git ref to diff against (default: origin/<baseBranch> from harness.yml)
@@ -95,6 +97,19 @@ CONFIGURATION:
   legitimately hold most of a small sample; the output says when it was skipped. Any other
   value, or a non-integer, is a configuration error that exits 1 before any Stryker run.
 
+  gates.mutation.maxKillFileSpan is an integer of at least 1 (default 15): the most
+  distinct source files one test may kill mutants in. A unit test exercises a few related
+  types, so a test above it fails the gate as a suspected artifact kill. It catches a
+  state-leaking test that fails for a run of consecutive mutants spread across unrelated
+  files, which can stay under the share limit. A value below 1, or a non-integer, is a
+  configuration error that exits 1 before any Stryker run.
+
+  stryker-config.json must set test-runner=mtp, coverage-analysis=off and an integer
+  additional-timeout of at least 30000 (milliseconds); the gate copies all three into the
+  config it generates. A smaller allowance lets a slow machine turn survivors into
+  timeouts, which Stryker counts as detected, so the score rises without any test
+  catching the mutant (DEV-410).
+
 EXAMPLES:
   ./scripts/run-mutation.ps1
   ./scripts/run-mutation.ps1 -BaseRef origin/main
@@ -108,8 +123,8 @@ EXIT CODES:
 
 | Exit | Verdict | Meaning | Blocking |
 |---|---|---|---|
-| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, no test kills more than `gates.mutation.maxKillShare` percent of tested mutants (or the run tested fewer than 20), each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
-| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration (including `gates.mutation.maxKillShare` outside 1 to 100 or not an integer), a suspected artifact kill (one test killed more than `gates.mutation.maxKillShare` percent of tested mutants), or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
+| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, no test kills more than `gates.mutation.maxKillShare` percent of tested mutants (or the run tested fewer than 20), no test kills mutants in more than `gates.mutation.maxKillFileSpan` source files, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
+| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration (including `gates.mutation.maxKillShare` outside 1 to 100 or not an integer, or `gates.mutation.maxKillFileSpan` below 1 or not an integer), a suspected artifact kill (one test killed more than `gates.mutation.maxKillShare` percent of tested mutants, or killed mutants in more than `gates.mutation.maxKillFileSpan` source files), or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
 | 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
 | 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
 '@
@@ -175,7 +190,8 @@ function Evaluate-MutationReport {
         [string[]]$ChangedFiles,
         [int]$Threshold,
         [string]$RepoRoot,
-        [int]$MaxKillShare = 50
+        [int]$MaxKillShare = 50,
+        [int]$MaxKillFileSpan = 15
     )
 
     $failureReasons = [System.Collections.Generic.List[string]]::new()
@@ -210,6 +226,7 @@ function Evaluate-MutationReport {
             ArtifactKills              = 0
             UnattributedKills          = 0
             KillShareNote              = 'not applied (no report)'
+            KillFileSpanNote           = 'not applied (no report)'
             MutatedFiles               = @()
             OutsideMutatedFiles        = @()
             FilesWithMutantsNoneTested = @()
@@ -231,6 +248,8 @@ function Evaluate-MutationReport {
     $sinceFilterIgnoredCount = 0
     # Killed mutants per test id, for the artifact-kill share rule below.
     $killsByTest = @{}
+    # Distinct source files each test id killed a mutant in, for the file-span rule below.
+    $killFilesByTest = @{}
 
     if ($report.PSObject.Properties.Match('files').Count -gt 0 -and $report.files) {
         foreach ($fileProp in $report.files.PSObject.Properties) {
@@ -299,6 +318,10 @@ function Evaluate-MutationReport {
                             # One kill per test per mutant, even if killedBy names it twice.
                             foreach ($kid in @($killerIds | Select-Object -Unique)) {
                                 $killsByTest[[string]$kid] = 1 + [int]$killsByTest[[string]$kid]
+                                if (-not $killFilesByTest.ContainsKey([string]$kid)) {
+                                    $killFilesByTest[[string]$kid] = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                                }
+                                [void]$killFilesByTest[[string]$kid].Add($fileRel)
                             }
                         }
                         'Survived' {
@@ -420,6 +443,33 @@ function Evaluate-MutationReport {
         }
     }
 
+    # File-span rule: a unit test exercises a few related types, so one test killing mutants
+    # in more than MaxKillFileSpan distinct source files is a suspected artifact kill. It
+    # catches a contaminating mutant that the share rule misses: a test that fails for a
+    # stride of consecutive mutant runs spread across unrelated files (DEV-410: clean whole-Core
+    # runs peaked at 9 files per test, a contaminated run at 26). Unlike the share rule it
+    # needs no sample minimum, because a small run cannot reach the span limit.
+    $topSpan = 0
+    $overSpan = [System.Collections.Generic.List[PSCustomObject]]::new()
+    foreach ($testId in $killFilesByTest.Keys) {
+        $span = $killFilesByTest[$testId].Count
+        if ($span -gt $topSpan) { $topSpan = $span }
+        if ($span -gt $MaxKillFileSpan) {
+            $killer = $testIndex[[string]$testId]
+            $killerName = if ($null -ne $killer) { $killer.Name } else { [string]$testId }
+            $overSpan.Add([PSCustomObject]@{ Name = $killerName; Span = $span })
+        }
+    }
+    $killFileSpanNote = "largest single-test file span $topSpan file(s) (limit $MaxKillFileSpan)"
+    if ($overSpan.Count -gt 0) {
+        $ranked = @($overSpan | Sort-Object -Property @{ Expression = { $_.Span }; Descending = $true }, Name)
+        $shown = @($ranked | Select-Object -First 3 | ForEach-Object {
+                "$($_.Name) killed mutants in $($_.Span) files, above the $MaxKillFileSpan-file limit"
+            })
+        $more = if ($ranked.Count -gt $shown.Count) { "; +$($ranked.Count - $shown.Count) more" } else { '' }
+        $failureReasons.Add("Suspected artifact kill: $($shown -join '; ')$more. A unit test reaching that many unrelated files is failing for a reason outside the mutation; check for state shared across mutant runs.")
+    }
+
     if ($score -ne $null -and $score -lt $Threshold) {
         $scoreStr = "{0:N2}%" -f $score
         $failureReasons.Add("Score $scoreStr is below threshold $Threshold%.")
@@ -444,6 +494,7 @@ function Evaluate-MutationReport {
         ArtifactKills              = $artifactKills
         UnattributedKills          = $unattributedKills
         KillShareNote              = $killShareNote
+        KillFileSpanNote           = $killFileSpanNote
         MutatedFiles               = @($mutatedFiles)
         OutsideMutatedFiles        = @($outsideFiles)
         FilesWithMutantsNoneTested = @($filesWithMutantsNoneTested)
@@ -514,6 +565,20 @@ catch {
     exit 1
 }
 
+# Artifact-kill file-span limit (distinct source files one test may kill mutants in).
+try {
+    $maxKillFileSpan = Get-HarnessValue -Key 'gates.mutation.maxKillFileSpan' -RepoRoot $repoRoot
+    if ($null -eq $maxKillFileSpan) { $maxKillFileSpan = 15 }
+    $maxKillFileSpan = [int]$maxKillFileSpan
+    if ($maxKillFileSpan -lt 1) {
+        throw "must be an integer of at least 1, got '$maxKillFileSpan'"
+    }
+}
+catch {
+    Write-Host "Mutation testing: FAILED - invalid mutation configuration in harness.yml gates.mutation.maxKillFileSpan: $($_.Exception.Message)"
+    exit 1
+}
+
 # Direct report evaluation mode (e.g. fail-safe verification / regression check)
 if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
     $evalPath = if ([System.IO.Path]::IsPathRooted($EvaluateReport)) {
@@ -541,7 +606,8 @@ if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
         -ChangedFiles $reportScope `
         -Threshold $threshold `
         -RepoRoot $repoRoot `
-        -MaxKillShare $maxKillShare
+        -MaxKillShare $maxKillShare `
+        -MaxKillFileSpan $maxKillFileSpan
 
     Write-Host "`nProject: $($eval.ProjectName)"
     Write-Host "  Report: $($eval.ReportPath)"
@@ -550,6 +616,7 @@ if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
     $scoreText = if ($eval.Score -ne $null) { ("{0:N2}%" -f $eval.Score) } else { 'N/A (0 tested)' }
     Write-Host ("  Tested:  {0} | Score: {1} (Threshold: {2}%, {3} timeout)" -f $eval.Tested, $scoreText, $threshold, $eval.Timeout)
     Write-Host "  Kill share: $($eval.KillShareNote)"
+    Write-Host "  Kill file span: $($eval.KillFileSpanNote)"
 
     if ($eval.SurvivingMutants.Count -gt 0) {
         Write-Host "`nSurviving mutants ($($eval.SurvivingMutants.Count)):"
@@ -710,6 +777,21 @@ foreach ($requiredKey in $requiredSettings.Keys) {
     }
 }
 
+# A timeout counts as detected, so with a tight allowance a slow or busy machine turns
+# survivors into timeouts and inflates the score. No Core mutant really hangs, so a large
+# allowance costs nothing on a normal run (DEV-410). Require at least 30 s on top of the
+# measured test time.
+$minAdditionalTimeout = 30000
+$additionalTimeoutValue = if ($baseStryker.PSObject.Properties.Match('additional-timeout').Count -gt 0) { $baseStryker.'additional-timeout' } else { $null }
+if ($additionalTimeoutValue -isnot [long] -and $additionalTimeoutValue -isnot [int]) {
+    Write-Host "GATE NOT WIRED: stryker-config.json does not set 'additional-timeout' to an integer (expected at least $minAdditionalTimeout; see docs/adr/0016-stryker-mtp-runner.md)."
+    exit 1
+}
+if ([long]$additionalTimeoutValue -lt $minAdditionalTimeout) {
+    Write-Host "GATE NOT WIRED: stryker-config.json sets 'additional-timeout' to $additionalTimeoutValue (expected at least $minAdditionalTimeout; see docs/adr/0016-stryker-mtp-runner.md)."
+    exit 1
+}
+
 $sortedProjects = @($projectGroups.Keys | Sort-Object)
 
 if ($Project.Count -gt 0) {
@@ -821,6 +903,7 @@ try {
                 'mutation-level'    = $baseStryker.'mutation-level'
                 'test-runner'       = $baseStryker.'test-runner'
                 'coverage-analysis' = $baseStryker.'coverage-analysis'
+                'additional-timeout' = [long]$additionalTimeoutValue
                 'test-projects'     = @($testProjectsByProject[$proj])
                 'since'             = [ordered]@{ 'enabled' = $false }
                 'mutate'         = @($projectGroups[$proj])
@@ -910,7 +993,8 @@ try {
             -ChangedFiles $changedFiles `
             -Threshold $threshold `
             -RepoRoot $repoRoot `
-            -MaxKillShare $maxKillShare
+            -MaxKillShare $maxKillShare `
+            -MaxKillFileSpan $maxKillFileSpan
 
         $results.Add($projEval)
     }
@@ -938,6 +1022,7 @@ try {
         $statusText = if ($r.Passed) { 'PASS' } else { 'FAIL' }
         Write-Host ("  Tested:  {0} | Score: {1} (Threshold: {2}%, {3} timeout) -> {4}" -f $r.Tested, $scoreText, $threshold, $r.Timeout, $statusText)
         Write-Host "  Kill share: $($r.KillShareNote)"
+        Write-Host "  Kill file span: $($r.KillFileSpanNote)"
 
         if (-not $r.Passed) {
             foreach ($fr in $r.FailureReasons) {
