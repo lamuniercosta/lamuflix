@@ -7,7 +7,9 @@ public static class EnrichmentMetrics
     private static readonly Meter ApplicationMeter = new(TelemetryConstants.ActivitySourceName);
 
     public static readonly Histogram<double> EnrichmentDuration =
-        ApplicationMeter.CreateHistogram<double>(TelemetryConstants.EnrichmentDurationMetricName, unit: "s");
+        ApplicationMeter.CreateHistogram<double>(
+            TelemetryConstants.EnrichmentDurationMetricName,
+            unit: TelemetryConstants.EnrichmentDurationUnit);
 
     public static readonly Counter<long> EnrichmentOutcome =
         ApplicationMeter.CreateCounter<long>(TelemetryConstants.EnrichmentOutcomeMetricName);

@@ -16,6 +16,9 @@ gates:
 
   mutation:
     threshold: 80
+    # Largest share of tested mutants one test may kill (percent, 1..100). Above it the gate
+    # fails as a suspected artifact kill: a test that fails on every run inflates the score.
+    maxKillShare: 50
     exclusions:
       # Api is the only listed project: LamuFlix.UnitTests does not reference it.
       LamuFlix.Api: "host proof lives in IntegrationTests per Constitution IX"

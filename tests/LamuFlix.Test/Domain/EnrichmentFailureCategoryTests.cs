@@ -64,7 +64,7 @@ public class EnrichmentFailureCategoryTests
             typeof(EnrichmentFailureCategory),
             BindingFlags.Instance | BindingFlags.NonPublic,
             binder: null,
-            args: ["provider_unavailable", "The metadata provider is temporarily unavailable.", true],
+            args: ["provider_unavailable"],
             culture: null);
 
         // act

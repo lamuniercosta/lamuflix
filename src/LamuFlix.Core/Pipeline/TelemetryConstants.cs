@@ -30,6 +30,8 @@ public static class TelemetryConstants
 
     public const string EnrichmentDurationMetricName = "lamuflix.enrichment.duration";
 
+    public const string EnrichmentDurationUnit = "s";
+
     public const string EnrichmentOutcomeMetricName = "lamuflix.enrichment.outcome";
 
     public const string ImportCountMetricName = "lamuflix.import.count";

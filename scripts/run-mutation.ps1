@@ -51,8 +51,8 @@ $ErrorActionPreference = 'Stop'
 EXIT CODES:
 | Exit | Verdict | Meaning | Blocking |
 |---|---|---|---|
-| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
-| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration, or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
+| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, no test kills more than `gates.mutation.maxKillShare` percent of tested mutants (or the run tested fewer than 20), each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
+| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration (including `gates.mutation.maxKillShare` outside 1 to 100 or not an integer), a suspected artifact kill (one test killed more than `gates.mutation.maxKillShare` percent of tested mutants), or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
 | 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
 | 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
 
@@ -66,6 +66,7 @@ Usage: run-mutation.ps1 [OPTIONS]
 
 Runs Stryker.NET mutation testing on changed production C# files under src/.
 The threshold is read from harness.yml at gates.mutation.threshold (default: 80).
+The artifact-kill share limit is read from gates.mutation.maxKillShare (default: 50).
 
 OPTIONS:
   -BaseRef <ref>          Git ref to diff against (default: origin/<baseBranch> from harness.yml)
@@ -85,6 +86,15 @@ CONFIGURATION:
   subset treats a # that starts a token as a comment, so the rest of the line would
   be dropped. That limitation is documented here and not validated.
 
+  gates.mutation.maxKillShare is an integer from 1 to 100 (default 50): the largest
+  percentage of tested mutants one test may kill. A test above it fails the gate as a
+  suspected artifact kill, because a test that fails on every run (state leaking across
+  mutant runs) inflates the score. The share is killed mutants per test over tested
+  mutants (killed, timeout, survived and no-coverage), and a value above the limit fails.
+  The rule is not applied when fewer than 20 mutants were tested, since one test can then
+  legitimately hold most of a small sample; the output says when it was skipped. Any other
+  value, or a non-integer, is a configuration error that exits 1 before any Stryker run.
+
 EXAMPLES:
   ./scripts/run-mutation.ps1
   ./scripts/run-mutation.ps1 -BaseRef origin/main
@@ -98,8 +108,8 @@ EXIT CODES:
 
 | Exit | Verdict | Meaning | Blocking |
 |---|---|---|---|
-| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
-| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration, or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
+| 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, no test kills more than `gates.mutation.maxKillShare` percent of tested mutants (or the run tested fewer than 20), each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
+| 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration (including `gates.mutation.maxKillShare` outside 1 to 100 or not an integer), a suspected artifact kill (one test killed more than `gates.mutation.maxKillShare` percent of tested mutants), or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
 | 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
 | 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
 '@
@@ -164,7 +174,8 @@ function Evaluate-MutationReport {
         [string]$ProjectName,
         [string[]]$ChangedFiles,
         [int]$Threshold,
-        [string]$RepoRoot
+        [string]$RepoRoot,
+        [int]$MaxKillShare = 50
     )
 
     $failureReasons = [System.Collections.Generic.List[string]]::new()
@@ -198,6 +209,7 @@ function Evaluate-MutationReport {
             SinceFilterIgnoredCount    = 0
             ArtifactKills              = 0
             UnattributedKills          = 0
+            KillShareNote              = 'not applied (no report)'
             MutatedFiles               = @()
             OutsideMutatedFiles        = @()
             FilesWithMutantsNoneTested = @()
@@ -217,6 +229,8 @@ function Evaluate-MutationReport {
     $ignored = 0
     $compileError = 0
     $sinceFilterIgnoredCount = 0
+    # Killed mutants per test id, for the artifact-kill share rule below.
+    $killsByTest = @{}
 
     if ($report.PSObject.Properties.Match('files').Count -gt 0 -and $report.files) {
         foreach ($fileProp in $report.files.PSObject.Properties) {
@@ -282,6 +296,10 @@ function Evaluate-MutationReport {
                             }
                             if ($unresolved) { $unattributedKills++ }
                             if ($isArtifact) { $artifactKills++ }
+                            # One kill per test per mutant, even if killedBy names it twice.
+                            foreach ($kid in @($killerIds | Select-Object -Unique)) {
+                                $killsByTest[[string]$kid] = 1 + [int]$killsByTest[[string]$kid]
+                            }
                         }
                         'Survived' {
                             $survived++
@@ -365,6 +383,43 @@ function Evaluate-MutationReport {
         $failureReasons.Add("$unattributedKills killed mutant(s) have no killedBy test names resolvable through testFiles; artifact kills cannot be ruled out.")
     }
 
+    # Share rule: one test killing more than MaxKillShare percent of tested mutants is a
+    # suspected artifact kill (a state-leaking test fails on every run and inflates the
+    # score). Below 20 tested mutants one test can legitimately hold most of a small sample,
+    # so the rule is not applied there and the output says so. The comparison is exact
+    # integer arithmetic (kills * 100 > limit * tested), so a share exactly at the limit passes.
+    $killShareMinTested = 20
+    $killShareNote = ''
+    if ($tested -lt $killShareMinTested) {
+        $killShareNote = "not applied ($tested tested is below the $killShareMinTested-mutant minimum)"
+    }
+    else {
+        $topSharePct = 0.0
+        $overShare = [System.Collections.Generic.List[PSCustomObject]]::new()
+        foreach ($testId in $killsByTest.Keys) {
+            $count = [int]$killsByTest[$testId]
+            $sharePct = [double]$count / [double]$tested * 100.0
+            if ($sharePct -gt $topSharePct) { $topSharePct = $sharePct }
+            if (($count * 100) -gt ($MaxKillShare * $tested)) {
+                $killer = $testIndex[[string]$testId]
+                $killerName = if ($null -ne $killer) { $killer.Name } else { [string]$testId }
+                $overShare.Add([PSCustomObject]@{ Name = $killerName; Count = $count; Pct = $sharePct })
+            }
+        }
+        # Invariant culture so the wording and decimal point do not change with the machine locale.
+        $invariant = [System.Globalization.CultureInfo]::InvariantCulture
+        $killShareNote = "largest single-test share $($topSharePct.ToString('N2', $invariant))% of $tested tested (limit $MaxKillShare%)"
+
+        if ($overShare.Count -gt 0) {
+            $ranked = @($overShare | Sort-Object -Property @{ Expression = { $_.Count }; Descending = $true }, Name)
+            $shown = @($ranked | Select-Object -First 3 | ForEach-Object {
+                    "$($_.Name) killed $($_.Count) of $tested tested mutants ($($_.Pct.ToString('N1', $invariant))%), above the $MaxKillShare% limit"
+                })
+            $more = if ($ranked.Count -gt $shown.Count) { "; +$($ranked.Count - $shown.Count) more" } else { '' }
+            $failureReasons.Add("Suspected artifact kill: $($shown -join '; ')$more. A test that fails on every run inflates the score; check it for state shared across mutant runs.")
+        }
+    }
+
     if ($score -ne $null -and $score -lt $Threshold) {
         $scoreStr = "{0:N2}%" -f $score
         $failureReasons.Add("Score $scoreStr is below threshold $Threshold%.")
@@ -388,6 +443,7 @@ function Evaluate-MutationReport {
         SinceFilterIgnoredCount    = $sinceFilterIgnoredCount
         ArtifactKills              = $artifactKills
         UnattributedKills          = $unattributedKills
+        KillShareNote              = $killShareNote
         MutatedFiles               = @($mutatedFiles)
         OutsideMutatedFiles        = @($outsideFiles)
         FilesWithMutantsNoneTested = @($filesWithMutantsNoneTested)
@@ -443,6 +499,21 @@ catch {
     exit 1
 }
 
+# Artifact-kill share limit (percent of tested mutants). Validated before the scope-empty
+# check, like the exclusions, so a bad value fails the same way on every diff.
+try {
+    $maxKillShare = Get-HarnessValue -Key 'gates.mutation.maxKillShare' -RepoRoot $repoRoot
+    if ($null -eq $maxKillShare) { $maxKillShare = 50 }
+    $maxKillShare = [int]$maxKillShare
+    if ($maxKillShare -lt 1 -or $maxKillShare -gt 100) {
+        throw "must be an integer from 1 to 100, got '$maxKillShare'"
+    }
+}
+catch {
+    Write-Host "Mutation testing: FAILED - invalid mutation configuration in harness.yml gates.mutation.maxKillShare: $($_.Exception.Message)"
+    exit 1
+}
+
 # Direct report evaluation mode (e.g. fail-safe verification / regression check)
 if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
     $evalPath = if ([System.IO.Path]::IsPathRooted($EvaluateReport)) {
@@ -469,7 +540,8 @@ if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
         -ProjectName (Split-Path $evalPath -Leaf) `
         -ChangedFiles $reportScope `
         -Threshold $threshold `
-        -RepoRoot $repoRoot
+        -RepoRoot $repoRoot `
+        -MaxKillShare $maxKillShare
 
     Write-Host "`nProject: $($eval.ProjectName)"
     Write-Host "  Report: $($eval.ReportPath)"
@@ -477,6 +549,7 @@ if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
         $eval.TotalMutants, $eval.Killed, $eval.Survived, $eval.Timeout, $eval.NoCoverage, $eval.Ignored, $eval.CompileError)
     $scoreText = if ($eval.Score -ne $null) { ("{0:N2}%" -f $eval.Score) } else { 'N/A (0 tested)' }
     Write-Host ("  Tested:  {0} | Score: {1} (Threshold: {2}%, {3} timeout)" -f $eval.Tested, $scoreText, $threshold, $eval.Timeout)
+    Write-Host "  Kill share: $($eval.KillShareNote)"
 
     if ($eval.SurvivingMutants.Count -gt 0) {
         Write-Host "`nSurviving mutants ($($eval.SurvivingMutants.Count)):"
@@ -836,7 +909,8 @@ try {
             -ProjectName $proj `
             -ChangedFiles $changedFiles `
             -Threshold $threshold `
-            -RepoRoot $repoRoot
+            -RepoRoot $repoRoot `
+            -MaxKillShare $maxKillShare
 
         $results.Add($projEval)
     }
@@ -863,6 +937,7 @@ try {
         $scoreText = if ($r.Score -ne $null) { ("{0:N2}%" -f $r.Score) } else { 'N/A (0 tested)' }
         $statusText = if ($r.Passed) { 'PASS' } else { 'FAIL' }
         Write-Host ("  Tested:  {0} | Score: {1} (Threshold: {2}%, {3} timeout) -> {4}" -f $r.Tested, $scoreText, $threshold, $r.Timeout, $statusText)
+        Write-Host "  Kill share: $($r.KillShareNote)"
 
         if (-not $r.Passed) {
             foreach ($fr in $r.FailureReasons) {

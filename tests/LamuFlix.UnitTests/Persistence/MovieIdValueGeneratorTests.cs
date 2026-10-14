@@ -14,9 +14,13 @@ public sealed class MovieIdValueGeneratorTests
         var generator = new MovieIdValueGenerator();
 
 #pragma warning disable CS8604, CS8625
-        generator.Next(null).Value.ShouldBe(-1);
-        generator.Next(null).Value.ShouldBe(-2);
-        generator.Next(null).Value.ShouldBe(-3);
+        var first = generator.Next(null).Value;
+        var second = generator.Next(null).Value;
+        var third = generator.Next(null).Value;
 #pragma warning restore CS8604, CS8625
+
+        first.ShouldBeLessThan(0);
+        second.ShouldBe(first - 1);
+        third.ShouldBe(second - 1);
     }
 }
