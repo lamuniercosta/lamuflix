@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import type { UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { client } from '../api/client';
-import type { components } from '../api/types';
+import type { components, paths } from '../api/types';
 import { toApiParams } from './libraryUrl';
 import type { LibraryUrlState } from './libraryUrl';
 
 type ProblemDetails = components['schemas']['ProblemDetails'];
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
-type BrowseMoviesQuery = Record<string, unknown>;
+type BrowseMoviesParams = NonNullable<paths['/api/movies']['get']['parameters']['query']>;
+type BrowseMoviesQuery = BrowseMoviesParams;
 
 export class BrowseMoviesError extends Error {
   status: number;
@@ -82,10 +83,7 @@ export function useBrowseMovies(
   return useQuery<BrowseMoviesResponse, BrowseMoviesError>({
     queryKey: ['browseMovies', params],
     queryFn: async ({ signal }) => {
-      const apiClient = client as unknown as {
-        GET: (path: string, init?: unknown) => Promise<unknown>;
-      };
-      const result = (await apiClient.GET('/api/movies', {
+      const result = (await client.GET('/api/movies', {
         params: { query: params },
         signal,
       })) as {

@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import type { components } from '../api/types';
 
-type MovieLike = Record<string, unknown>;
+export type MovieSummaryResponse = components['schemas']['MovieSummaryResponse'];
+
+type MovieLike = MovieSummaryResponse & Record<string, unknown>;
 
 export interface MovieCardProps {
   movie?: MovieLike;
@@ -15,7 +18,7 @@ function isRecord(value: unknown): value is MovieLike {
 
 function extractMovie(props: MovieCardProps): MovieLike {
   const source = props.movie ?? props.item ?? props.data ?? props;
-  const base = isRecord(source) ? { ...source } : {};
+  const base: MovieLike = isRecord(source) ? ({ ...source } as MovieLike) : ({} as MovieLike);
   const keys = [
     'id',
     'title',
@@ -34,9 +37,10 @@ function extractMovie(props: MovieCardProps): MovieLike {
     'enrichment_status',
     'status',
   ];
+  const propsRecord = props as Record<string, unknown>;
   for (const key of keys) {
-    if (props[key] !== undefined) {
-      base[key] = props[key];
+    if (propsRecord[key] !== undefined) {
+      base[key] = propsRecord[key];
     }
   }
   return base;

@@ -144,6 +144,32 @@ function LibraryView(props: LibraryViewProps) {
 
   const query = useBrowseMovies(extractedState);
 
+  const asCallback = (value: unknown): ((...args: unknown[]) => void) | null =>
+    typeof value === 'function' ? (value as (...args: unknown[]) => void) : null;
+
+  const resetKeyHandler = asCallback(pick(record, ['onResetKeyChange']));
+  if (resetKeyHandler) {
+    try {
+      resetKeyHandler(JSON.stringify(extractedState));
+    } catch {
+      // ignore
+    }
+  }
+  const refetchHandler = asCallback(pick(record, ['onRefetchReady']));
+  if (refetchHandler) {
+    refetchHandler(() => {
+      void query.refetch();
+    });
+  }
+  const clearReadyHandler = asCallback(pick(record, ['onClearReady']));
+  if (clearReadyHandler) {
+    clearReadyHandler(clearFilters);
+  }
+
+  if (query.isError && query.error) {
+    throw query.error;
+  }
+
   const dataProp = pick(record, [
     'data',
     'result',
@@ -197,7 +223,6 @@ function LibraryView(props: LibraryViewProps) {
 
   const loading = Boolean(
     pick(record, ['isLoading', 'loading', 'isFetching', 'fetching', 'pending']) ??
-    query.isFetching ??
     query.isLoading ??
     false,
   );
