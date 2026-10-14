@@ -11,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
+using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -22,6 +23,8 @@ public sealed class ServiceDefaultsTests
 {
     private const string PlaceholderConnectionString =
         "Host=localhost;Database=unused;Username=unused;Password=unused";
+
+    private const int DeadEndpointExportTimeoutMilliseconds = 100;
 
     private static readonly DateTimeOffset FixedNow = new(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
 
@@ -205,6 +208,12 @@ public sealed class ServiceDefaultsTests
         {
             ["ConnectionStrings:DefaultConnection"] = PlaceholderConnectionString,
         });
+
+        // The OTLP exporters target localhost defaults with no collector listening. Disposing a host that
+        // resolved MeterProvider flushes the metric reader to that dead endpoint, and with the default export
+        // timeout the exporter's retries stall the test for seconds. A short timeout bounds that flush.
+        builder.Services.PostConfigure<OtlpExporterOptions>(static options =>
+            options.TimeoutMilliseconds = DeadEndpointExportTimeoutMilliseconds);
         return builder;
     }
 }
