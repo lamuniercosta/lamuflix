@@ -70,10 +70,10 @@
 
 **Independent Test**: MSW success/422/400/error fixtures prove skeletons, 422 invalid-filter without retry, other-error (including 400) retry/reset, status-based classification, and cancellation behavior.
 
-- [ ] T033 [US1] Add only `@tanstack/react-query` to `web/package.json` + lockfile; install one `QueryClientProvider` in `web/src/main.tsx`; responsive styling in `web/src/index.css` (TanStack install + provider land here so they precede all consumers; `App.tsx` replacement stays with T053 composition).
-- [ ] T050 [US3] Create `web/src/library/useBrowseMovies.ts` (one query keyed by complete normalized filter/page state; merged generated client; signal propagated; no per-tile fetch/prefetch; key change → skeletons, same-key refetch retains content + polite announcement; retries off).
-- [ ] T051 [US3] Create `web/src/library/LibraryErrorBoundary.tsx` (hand-written; render/query failures; resets on query-key change; Retry resets/refetches the same canonical URL without history entry; 422 invalid-filter never retried vs recoverable fetch error including 400, classified by HTTP status not error-key vocabulary).
-- [ ] T052 [P] [US3] RTL tests: skeletons + same-key refetch; 422-no-retry / other-error (including 400) retry/reset with status-based classification; cancellation/stale-response protection.
+- [X] T033 [US1] Add only `@tanstack/react-query` to `web/package.json` + lockfile; install one `QueryClientProvider` in `web/src/main.tsx`; responsive styling in `web/src/index.css` (TanStack install + provider land here so they precede all consumers; `App.tsx` replacement stays with T053 composition).
+- [X] T050 [US3] Create `web/src/library/useBrowseMovies.ts` (one query keyed by complete normalized filter/page state; merged generated client; signal propagated; no per-tile fetch/prefetch; key change → skeletons, same-key refetch retains content + polite announcement; retries off).
+- [X] T051 [US3] Create `web/src/library/LibraryErrorBoundary.tsx` (hand-written; render/query failures; resets on query-key change; Retry resets/refetches the same canonical URL without history entry; 422 invalid-filter never retried vs recoverable fetch error including 400, classified by HTTP status not error-key vocabulary).
+- [X] T052 [P] [US3] RTL tests: skeletons + same-key refetch; 422-no-retry / other-error (including 400) retry/reset with status-based classification; cancellation/stale-response protection.
 
 **Checkpoint**: Loading/error/recovery behavior independently verified (tests carry their own provider; app wiring waits for Phase 6 composition).
 
