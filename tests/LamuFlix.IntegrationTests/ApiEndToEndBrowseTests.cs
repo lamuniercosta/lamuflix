@@ -73,6 +73,10 @@ public sealed class ApiEndToEndBrowseTests(ApiEndToEndFixture fixture) : ApiEndT
         item.GetProperty("id").GetInt32().ShouldBe(matching.Id.ShouldNotBeNull().Value);
         item.GetProperty("title").GetString().ShouldBe("Matching Film");
         item.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
+        item.GetProperty("releaseYear").GetInt32().ShouldBe(2000);
+        item.GetProperty("runtime").GetInt32().ShouldBe(110);
+        item.GetProperty("imdbRating").ValueKind.ShouldBe(JsonValueKind.Null);
+        item.GetProperty("enrichmentStatus").GetString().ShouldBe("Enriched");
     }
 
     [Fact]
