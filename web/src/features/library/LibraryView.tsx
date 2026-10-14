@@ -6,7 +6,7 @@ import {
   useQuery,
 } from '@tanstack/react-query';
 import { client } from '../../api/client';
-import type { components } from '../../api/types';
+import type { components, paths } from '../../api/types';
 import FilterPanel from './FilterPanel';
 import {
   parseFilterQuery,
@@ -147,8 +147,12 @@ function LibraryViewInner() {
     queryFn: async () => {
       const movieParams = buildMovieParams(query, currentYear);
       const { data, error } = await client.GET('/api/movies', {
-        params: { query: movieParams },
-      } as unknown as Parameters<typeof client.GET<'/api/movies'>>[1]);
+        params: {
+          query: movieParams as unknown as NonNullable<
+            paths['/api/movies']['get']['parameters']['query']
+          >,
+        },
+      });
       if (error) {
         throw new Error('Movies could not be refreshed.');
       }
@@ -172,8 +176,8 @@ function LibraryViewInner() {
     queryKey: ['people', 'actor'],
     queryFn: async () => {
       const { data, error } = await client.GET('/api/people', {
-        params: { query: { role: 'actor' } },
-      } as unknown as Parameters<typeof client.GET<'/api/people'>>[1]);
+        params: { query: { role: 'actor' } as unknown as Record<string, unknown> },
+      });
       if (error) {
         throw new Error('Cast could not be loaded.');
       }
