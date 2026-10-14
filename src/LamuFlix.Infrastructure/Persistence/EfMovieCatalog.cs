@@ -34,9 +34,9 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.Id!,
                 movie.Title,
                 movie.PosterUrl,
-                movie.ReleaseYear != null ? movie.ReleaseYear.Value : null,
-                movie.RuntimeMinutes != null ? movie.RuntimeMinutes.Minutes : null,
-                movie.ImdbRating != null ? movie.ImdbRating.Value : null,
+                movie.ReleaseYear!.Value,
+                movie.RuntimeMinutes!.Minutes,
+                movie.ImdbRating!.Value,
                 movie.Status))
             .ToArrayAsync(ct);
         return new PagedResult<MovieSummary>([.. items], totalCount);
@@ -63,11 +63,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             return null;
         }
 
-        var movieId = record.Id;
-        if (movieId is null)
-        {
-            return null;
-        }
+        var movieId = record.Id!;
 
         var metadata = HasMetadata(record)
             ? new MovieMetadata(
