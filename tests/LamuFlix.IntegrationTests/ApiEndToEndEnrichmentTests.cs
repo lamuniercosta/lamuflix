@@ -122,7 +122,7 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         browse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var enrichedItem = browseBody.GetProperty("items").EnumerateArray()
             .Single(item => item.GetProperty("id").GetInt32() == id);
-        ShouldCarryExactly(enrichedItem, "id", "title", "posterUrl");
+        ShouldCarryExactly(enrichedItem, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus");
         enrichedItem.GetProperty("posterUrl").GetString().ShouldBe(ExpectedPoster);
     }
 
