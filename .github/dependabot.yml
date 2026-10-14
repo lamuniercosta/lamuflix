@@ -51,12 +51,12 @@ updates:
         patterns:
           - "*"
         update-types:
-          - "version-update:semver-patch"
+          - "patch"
       minor:
         patterns:
           - "*"
         update-types:
-          - "version-update:semver-minor"
+          - "minor"
       microsoft-dotnet-major:
         patterns:
           - "Microsoft.Extensions.*"
@@ -64,14 +64,13 @@ updates:
           - "Microsoft.EntityFrameworkCore*"
           - "Microsoft.NET.Test.Sdk"
         update-types:
-          - "version-update:semver-major"
+          - "major"
 
   # -------------------------------------------------------------- .NET SDK ---
   - package-ecosystem: "dotnet-sdk"
     directory: "/"
     schedule:
       interval: "monthly"
-      day: "first"
     open-pull-requests-limit: 2
     labels:
       - "dependencies"
@@ -98,12 +97,12 @@ updates:
         patterns:
           - "*"
         update-types:
-          - "version-update:semver-patch"
+          - "patch"
       minor:
         patterns:
           - "*"
         update-types:
-          - "version-update:semver-minor"
+          - "minor"
 
   # ------------------------------------------------------- GitHub Actions ---
   - package-ecosystem: "github-actions"
@@ -122,7 +121,7 @@ updates:
         patterns:
           - "*"
         update-types:
-          - "version-update:semver-patch"
+          - "patch"
 
   # ----------------------------------------------------------------- Docker ---
   - package-ecosystem: "docker"
@@ -146,7 +145,6 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
-      day: "first"
     open-pull-requests-limit: 2
     labels:
       - "dependencies"
