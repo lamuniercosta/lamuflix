@@ -59,7 +59,7 @@
 
 ## Phase 5: README (Anvil, last authored implementation file)
 
-- [ ] T016 [US1] Add to `README.md` one section `Run with Docker Compose`: copy `.env.example` to `.env` and replace placeholders with local supplied values, `docker compose up -d`, open http://localhost:3000, `LIBRARY_PATH` override. No other README change.
+- [X] T016 [US1] Add to `README.md` one section `Run with Docker Compose`: copy `.env.example` to `.env` and replace placeholders with local supplied values, `docker compose up -d`, open http://localhost:3000, `LIBRARY_PATH` override. No other README change.
 
 **Checkpoint (Phase 5)**: only `README.md` changed with one added section describing what the compose file supports; T016 marked [X]; commit `DEV-325 - README compose section`, report the SHA, stop.
 
