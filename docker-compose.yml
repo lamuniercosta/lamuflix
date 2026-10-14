@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?message}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?message}
+      POSTGRES_DB: lamuflix
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  rabbitmq:
+    image: rabbitmq:4-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?message}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?message}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    environment:
+      Features__LocalPlay: "false"
+      Database__ApplyMigrationsOnStartup: "true"
+      ConnectionStrings__DefaultConnection: 'Host=postgres;Database=lamuflix'
+      PGUSER: ${POSTGRES_USER:?message}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?message}
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__UserName: ${RABBITMQ_USER:?message}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:?message}
+      Omdb__ApiKey: ${OMDB_API_KEY:?message}
+      Enrichment__SweepInterval: "00:01:00"
+      Enrichment__ClaimLease: "00:00:10"
+      RabbitMq__RetryDelay: "00:00:30"
+      Library__RootPath: /media/library
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'bash', '-c', 'exec 3<>/dev/tcp/127.0.0.1/8080 || exit 1; printf ''GET /health/ready HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n'' >&3 || exit 1; IFS= read -r -t 5 line <&3 || exit 1; exec 3<&- 3>&-; case $$line in ''HTTP/1.1 200 ''*|''HTTP/1.0 200 ''*) exit 0;; *) exit 1;; esac']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ${LIBRARY_PATH:-./docker/sample-library}:/media/library:ro
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
