@@ -19,8 +19,13 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
     private const string DatabaseSettingKey =
         $"{DatabaseOptions.SectionName}:{nameof(DatabaseOptions.ApplyMigrationsOnStartup)}";
 
-    [Fact]
-    public async Task AbsentDatabaseSetting_DoesNotApplyMigrations()
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("false", false)]
+    [InlineData("true", true)]
+    public async Task ApplyMigrationsOnStartupSetting_DeterminesStartupMigrationOutcome(
+        string? configuredValue,
+        bool expectMigrationsApplied)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var empty = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
@@ -30,36 +35,12 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
         var before = await ListPublicBaseTablesAsync(empty, cancellationToken);
         before.ShouldBeEmpty();
 
-        await using var factory = new ApiHostFactory(
-            retainSweeper: false,
-            additionalSettings: ConnectionOverride(connectionString),
-            disableEnrichmentConsumer: true);
-        using var client = factory.CreateClient();
-        var liveness = await client.GetAsync("/health/live", cancellationToken);
-
-        liveness.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString);
-        var after = await ListPublicBaseTablesAsync(observed, cancellationToken);
-        after.ShouldBeEmpty();
-        after.ShouldNotContain(MigrationsHistoryTable);
-    }
-
-    [Fact]
-    public async Task FalseDatabaseSetting_DoesNotApplyMigrations()
-    {
-        var cancellationToken = TestContext.Current.CancellationToken;
-        await using var empty = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
-        var connectionString = empty.Database.GetConnectionString();
-        connectionString.ShouldNotBeNullOrWhiteSpace();
-
-        var before = await ListPublicBaseTablesAsync(empty, cancellationToken);
-        before.ShouldBeEmpty();
-
-        var settings = new List<KeyValuePair<string, string?>>(ConnectionOverride(connectionString))
+        var settings = new List<KeyValuePair<string, string?>>(ConnectionOverride(connectionString));
+        if (configuredValue is not null)
         {
-            new(DatabaseSettingKey, "false"),
-        };
+            settings.Add(new(DatabaseSettingKey, configuredValue));
+        }
+
         await using var factory = new ApiHostFactory(
             retainSweeper: false,
             additionalSettings: settings,
@@ -71,38 +52,15 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
 
         await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString);
         var after = await ListPublicBaseTablesAsync(observed, cancellationToken);
+        if (expectMigrationsApplied)
+        {
+            after.ShouldContain(MigrationsHistoryTable);
+            after.ShouldContain("movies");
+            return;
+        }
+
         after.ShouldBeEmpty();
         after.ShouldNotContain(MigrationsHistoryTable);
-    }
-
-    [Fact]
-    public async Task TrueDatabaseSetting_AppliesMigrations()
-    {
-        var cancellationToken = TestContext.Current.CancellationToken;
-        await using var empty = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
-        var connectionString = empty.Database.GetConnectionString();
-        connectionString.ShouldNotBeNullOrWhiteSpace();
-
-        var before = await ListPublicBaseTablesAsync(empty, cancellationToken);
-        before.ShouldBeEmpty();
-
-        var settings = new List<KeyValuePair<string, string?>>(ConnectionOverride(connectionString))
-        {
-            new(DatabaseSettingKey, "true"),
-        };
-        await using var factory = new ApiHostFactory(
-            retainSweeper: false,
-            additionalSettings: settings,
-            disableEnrichmentConsumer: true);
-        using var client = factory.CreateClient();
-        var liveness = await client.GetAsync("/health/live", cancellationToken);
-
-        liveness.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString);
-        var after = await ListPublicBaseTablesAsync(observed, cancellationToken);
-        after.ShouldContain(MigrationsHistoryTable);
-        after.ShouldContain("movies");
     }
 
     private static IEnumerable<KeyValuePair<string, string?>> ConnectionOverride(string connectionString) =>
