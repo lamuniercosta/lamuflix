@@ -43,10 +43,10 @@
 
 **Independent Test**: Generated MSW handlers serving full/partial/null GET fixtures with generated contract types and Zod validation; assert per spec US1 scenarios.
 
-- [ ] T020 [US1] RTL tests for full render in `web/src/features/movie-details/MovieDetailsView.test.tsx` (title, poster alt, badges, directors, cast).
-- [ ] T021 [US1] RTL tests for partial/null metadata, placeholder poster, title/format fallback in `MovieDetailsView.test.tsx` (after T020; same file, no parallel work).
-- [ ] T022 [US1] Implement typed feature API module `web/src/features/movie-details/movieDetailsApi.ts` consuming the delivered DEV-320 openapi-fetch client and generated types through TanStack Query with Zod validation (relative `/api/...` URLs; no duplicate DTOs, competing client, or invented pins/paths).
-- [ ] T023 [US1] Implement `web/src/features/movie-details/MovieDetailsView.tsx` loaded/metadata states plus `MovieDetailsView.css` (conditional fields/badges, placeholder, notices; copy from ASSUMPTIONS.md).
+- [X] T020 [US1] RTL tests for full render in `web/src/features/movie-details/MovieDetailsView.test.tsx` (title, poster alt, badges, directors, cast).
+- [X] T021 [US1] RTL tests for partial/null metadata, placeholder poster, title/format fallback in `MovieDetailsView.test.tsx` (after T020; same file, no parallel work).
+- [X] T022 [US1] Implement typed feature API module `web/src/features/movie-details/movieDetailsApi.ts` consuming the delivered DEV-320 openapi-fetch client and generated types through TanStack Query with Zod validation (relative `/api/...` URLs; no duplicate DTOs, competing client, or invented pins/paths).
+- [X] T023 [US1] Implement `web/src/features/movie-details/MovieDetailsView.tsx` loaded/metadata states plus `MovieDetailsView.css` (conditional fields/badges, placeholder, notices; copy from ASSUMPTIONS.md).
 
 **Checkpoint**: User Story 1 fully functional and testable independently.
 
