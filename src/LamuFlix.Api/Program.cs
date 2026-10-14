@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using LamuFlix.Api;
 using LamuFlix.Api.Endpoints;
 using LamuFlix.Api.ExceptionHandling;
+using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.Persistence;
@@ -11,8 +12,10 @@ using LamuFlix.Infrastructure.Playback;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.ServiceDefaults;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 
 const string CorsPolicyName = "DevSpa";
@@ -21,6 +24,10 @@ const string ApiRoutePrefix = "/api";
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
+builder.Services.AddOptions<DatabaseOptions>()
+    .BindConfiguration(DatabaseOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 builder.Services.AddLamuFlixPersistence(builder.Configuration);
 builder.Services.AddMovieCatalog();
 builder.Services.AddMetadataProvider();
@@ -45,6 +52,12 @@ builder.Services.AddOpenApi("v1", static options => options.AddDocumentTransform
         return Task.CompletedTask;
     }));
 var app = builder.Build();
+if (app.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.ApplyMigrationsOnStartup)
+{
+    using var migrationScope = app.Services.CreateScope();
+    migrationScope.ServiceProvider.GetRequiredService<LamuFlixDbContext>().Database.Migrate();
+}
+
 app.UseExceptionHandler(new ExceptionHandlerOptions
 {
     SuppressDiagnosticsCallback = static _ => false,
