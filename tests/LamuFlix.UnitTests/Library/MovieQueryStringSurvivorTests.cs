@@ -21,6 +21,47 @@ public sealed class MovieQueryStringSurvivorTests
     }
 
     [Fact]
+    public void Format_MissingSort_ThrowsNamingTheSortKey()
+    {
+        // arrange
+        var query = new MovieQuery { Direction = SortDirection.Ascending, Page = new Page(1, 20) };
+
+        // act
+        var thrown = Should.Throw<ArgumentException>(() => MovieQueryString.Format(query));
+
+        // assert
+        thrown.Message.ShouldStartWith("'sort' is required to format a query.");
+    }
+
+    [Fact]
+    public void TryParse_StatusInDifferentCase_ReturnsFalse()
+    {
+        // arrange
+        var raw = $"statuses=failed&{Required}";
+
+        // act
+        var parsed = MovieQueryString.TryParse(raw, out var query);
+
+        // assert
+        parsed.ShouldBeFalse();
+        query.ShouldBeNull();
+    }
+
+    [Fact]
+    public void TryParse_DirectionInDifferentCase_ReturnsFalse()
+    {
+        // arrange
+        var raw = "sort=Title&direction=descending&page=1&pageSize=20";
+
+        // act
+        var parsed = MovieQueryString.TryParse(raw, out var query);
+
+        // assert
+        parsed.ShouldBeFalse();
+        query.ShouldBeNull();
+    }
+
+    [Fact]
     public void TryParse_NullString_ReturnsFalse()
     {
         // arrange
