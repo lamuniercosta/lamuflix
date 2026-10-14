@@ -18,9 +18,9 @@
 
 Resolve the DEV-320 prerequisite and Q5/Q3 pickup conditionals before editing.
 
-- [ ] T001 [Pickup] Stop unless bounded recon on the actual inherited Phase B base identifies DEV-320 generated `web/src/api/types.ts` and client facilities, the exact inherited codegen command and prerequisites, and a repeatable regeneration path after an OpenAPI delta (presence of `types.ts` alone is insufficient); if DEV-320 is unmerged or the path is missing, order DEV-322 build after DEV-320 and report the missing prerequisite; DEV-322 must not implement substitute tooling or handwritten DTOs (Q4/F3, brief.md:212-217, no code)
-- [ ] T002 [Pickup] Bounded recon: record whether a library page exists (Q5 mount target) and whether TanStack Query is present (Q3 conditional); recheck contract drift against main (no code)
-- [ ] T003 [Pickup] Pin constitution-chosen TanStack Query in `web/package.json`, `web/package-lock.json` only if absent at pickup (depends on T001, T002; Q3; skip otherwise, no code if present)
+- [X] T001 [Pickup] Stop unless bounded recon on the actual inherited Phase B base identifies DEV-320 generated `web/src/api/types.ts` and client facilities, the exact inherited codegen command and prerequisites, and a repeatable regeneration path after an OpenAPI delta (presence of `types.ts` alone is insufficient); if DEV-320 is unmerged or the path is missing, order DEV-322 build after DEV-320 and report the missing prerequisite; DEV-322 must not implement substitute tooling or handwritten DTOs (Q4/F3, brief.md:212-217, no code)
+- [X] T002 [Pickup] Bounded recon: record whether a library page exists (Q5 mount target) and whether TanStack Query is present (Q3 conditional); recheck contract drift against main (no code)
+- [X] T003 [Pickup] Pin constitution-chosen TanStack Query in `web/package.json`, `web/package-lock.json` only if absent at pickup (depends on T001, T002; Q3; skip otherwise, no code if present)
 
 **Checkpoint**: Pickup evidence precedes any conditional package edit.
 
