@@ -34,8 +34,11 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.Id!,
                 movie.Title,
                 movie.PosterUrl,
+                // ReSharper disable once NullableWarningSuppressionIsUsed
                 movie.ReleaseYear!.Value,
+                // ReSharper disable once NullableWarningSuppressionIsUsed
                 movie.RuntimeMinutes!.Minutes,
+                // ReSharper disable once NullableWarningSuppressionIsUsed
                 movie.ImdbRating!.Value,
                 movie.Status))
             .ToArrayAsync(ct);
@@ -63,6 +66,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             return null;
         }
 
+        // ReSharper disable once NullableWarningSuppressionIsUsed
         var movieId = record.Id!;
 
         var metadata = HasMetadata(record)
