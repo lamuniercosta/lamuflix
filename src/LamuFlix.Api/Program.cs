@@ -1,6 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using LamuFlix.Api;
 using LamuFlix.Api.Endpoints;
 using LamuFlix.Api.ExceptionHandling;
@@ -20,7 +17,6 @@ using Scalar.AspNetCore;
 
 const string CorsPolicyName = "DevSpa";
 const string DevServerOrigin = "http://localhost:5173";
-const string ApiRoutePrefix = "/api";
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
@@ -42,31 +38,7 @@ builder.Services.ConfigureHttpJsonOptions(options => HttpJsonConfiguration.Apply
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi("v1", static options => options.AddDocumentTransformer(
-    static (document, _, _) =>
-    {
-        foreach (var path in document.Paths.Keys.Where(static path => !IsApiBusinessPath(path)).ToList())
-        {
-            document.Paths.Remove(path);
-        }
-
-        if (document.Components?.Schemas is { } schemas
-            && schemas.TryGetValue("EnrichmentStatus", out var schema))
-        {
-            if (schema is Microsoft.OpenApi.OpenApiSchema concrete)
-            {
-                concrete.Type = Microsoft.OpenApi.JsonSchemaType.String;
-                concrete.Enum =
-                [
-                    System.Text.Json.Nodes.JsonValue.Create("Pending"),
-                    System.Text.Json.Nodes.JsonValue.Create("Enriched"),
-                    System.Text.Json.Nodes.JsonValue.Create("NotFound"),
-                    System.Text.Json.Nodes.JsonValue.Create("Failed"),
-                ];
-            }
-        }
-
-        return Task.CompletedTask;
-    }));
+    static (document, _, _) => OpenApiDocumentNormalizer.NormalizeAsync(document)));
 var app = builder.Build();
 if (app.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.ApplyMigrationsOnStartup)
 {
@@ -90,7 +62,3 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
-
-static bool IsApiBusinessPath(string path) =>
-    string.Equals(path, ApiRoutePrefix, StringComparison.Ordinal)
-    || path.StartsWith(ApiRoutePrefix + "/", StringComparison.Ordinal);
