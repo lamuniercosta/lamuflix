@@ -308,4 +308,47 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture) : IAsyncL
         result.Items.Select(item => item.Title).ShouldBe(["Matching Film"]);
         result.TotalCount.ShouldBe(1);
     }
+
+    [Fact]
+    public async Task BrowseAsync_Projection_ReturnsPopulatedAndNullGridScalars()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var populated = MovieCatalogSeed.Create("Populated", "browse-projection-populated");
+        populated.PosterUrl = "https://example.test/poster.jpg";
+        populated.RuntimeMinutes = new Runtime(110);
+        populated.ReleaseYear = new ReleaseYear(2000, MovieCatalogSeed.FixedTime);
+        populated.ImdbRating = new ImdbRating(8.3m);
+        populated.Status = EnrichmentStatus.Failed;
+        var empty = MovieCatalogSeed.Create("Empty", "browse-projection-empty");
+        empty.Status = EnrichmentStatus.Pending;
+        context.Movies.AddRange(populated, empty);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+        var request = new MovieQuery
+        {
+            Sort = MovieSort.Title,
+            Direction = SortDirection.Ascending,
+            Page = new Page(1, 10)
+        };
+
+        // act
+        var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
+
+        // assert
+        result.TotalCount.ShouldBe(2);
+        var pop = result.Items.Single(item => item.Title == "Populated");
+        pop.Id.ShouldBe(populated.Id);
+        pop.PosterUrl.ShouldBe("https://example.test/poster.jpg");
+        pop.ReleaseYear.ShouldBe(2000);
+        pop.Runtime.ShouldBe(110);
+        pop.ImdbRating.ShouldBe(8.3m);
+        pop.EnrichmentStatus.ShouldBe(EnrichmentStatus.Failed);
+        var emptyItem = result.Items.Single(item => item.Title == "Empty");
+        emptyItem.PosterUrl.ShouldBeNull();
+        emptyItem.ReleaseYear.ShouldBeNull();
+        emptyItem.Runtime.ShouldBeNull();
+        emptyItem.ImdbRating.ShouldBeNull();
+        emptyItem.EnrichmentStatus.ShouldBe(EnrichmentStatus.Pending);
+    }
 }
