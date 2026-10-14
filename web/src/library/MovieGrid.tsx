@@ -1,12 +1,16 @@
 import MovieCard from './MovieCard';
+import type { components } from '../api/types';
 
-type MovieLike = Record<string, unknown>;
+export type MovieSummaryResponse = components['schemas']['MovieSummaryResponse'];
+
+type MovieLike = MovieSummaryResponse & Record<string, unknown>;
 
 function isRecord(value: unknown): value is MovieLike {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
 export interface MovieGridProps {
+  items?: unknown[];
   [key: string]: unknown;
 }
 
@@ -199,7 +203,10 @@ export default function MovieGrid(props: MovieGridProps) {
   return (
     <div className="library-grid">
       {items.map((movie, index) => (
-        <MovieCard key={String(movie.id ?? index)} movie={movie as MovieLike} />
+        <MovieCard
+          key={String((movie as Record<string, unknown>).id ?? index)}
+          movie={movie as unknown as MovieLike}
+        />
       ))}
     </div>
   );

@@ -12,6 +12,12 @@ export interface LibraryErrorBoundaryProps {
   refetch?: () => void;
   onReset?: () => void;
   reset?: () => void;
+  clearFilters?: () => void;
+  clear?: () => void;
+  onClearFilters?: () => void;
+  onClear?: () => void;
+  onResetFilters?: () => void;
+  resetFilters?: () => void;
   className?: string;
 }
 
@@ -108,11 +114,35 @@ export class LibraryErrorBoundary extends Component<
 
     const invalid = isInvalidFilterError(error);
 
+    const clearCallbacks = [
+      this.props.clearFilters,
+      this.props.clear,
+      this.props.onClearFilters,
+      this.props.onClear,
+      this.props.onResetFilters,
+      this.props.resetFilters,
+    ].filter((cb): cb is () => void => typeof cb === 'function');
+
+    const clearFilters = () => {
+      for (const cb of clearCallbacks) {
+        try {
+          cb();
+        } catch {
+          // ignore
+        }
+      }
+    };
+
     if (invalid) {
       return (
         <section role="alert" aria-live="polite" className={className}>
           <h2>Invalid filters</h2>
           <p>The current filters are invalid and cannot be applied.</p>
+          {clearCallbacks.length > 0 ? (
+            <button type="button" onClick={clearFilters}>
+              Clear filters
+            </button>
+          ) : null}
         </section>
       );
     }
@@ -124,6 +154,11 @@ export class LibraryErrorBoundary extends Component<
         <button type="button" onClick={this.reset}>
           Retry
         </button>
+        {clearCallbacks.length > 0 ? (
+          <button type="button" onClick={clearFilters}>
+            Clear filters
+          </button>
+        ) : null}
       </section>
     );
   }

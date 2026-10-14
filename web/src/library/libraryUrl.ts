@@ -1,3 +1,5 @@
+import type { paths } from '../api/types';
+
 export type LibrarySort = 'Title' | 'Year' | 'Rating' | 'Runtime';
 
 export type LibraryDirection = 'Ascending' | 'Descending';
@@ -405,22 +407,9 @@ export function stateToUrl(state: Partial<LibraryUrlState> | LibraryUrlState): s
   return q ? `?${q}` : '';
 }
 
-export function toApiParams(state: Partial<LibraryUrlState> | LibraryUrlState): {
-  Text?: string | null;
-  GenreIds?: string[];
-  ActorIds?: string[];
-  RuntimeMin?: string;
-  RuntimeMax?: string;
-  RuntimeIncludeUnknown?: string;
-  YearMin?: string;
-  YearMax?: string;
-  Statuses?: string[];
-  InWatchlist?: string;
-  Sort?: string;
-  Direction?: string;
-  Page?: string;
-  PageSize?: string;
-} {
+export function toApiParams(
+  state: Partial<LibraryUrlState> | LibraryUrlState,
+): NonNullable<paths['/api/movies']['get']['parameters']['query']> {
   const s: LibraryUrlState = { ...LIBRARY_DEFAULTS, ...(state as Partial<LibraryUrlState>) };
   const out: Record<string, unknown> = {};
   if (s.text !== null) out.Text = s.text;
@@ -444,7 +433,7 @@ export function toApiParams(state: Partial<LibraryUrlState> | LibraryUrlState): 
   for (const k of Object.keys(out)) {
     if (out[k] === undefined) delete out[k];
   }
-  return out;
+  return out as NonNullable<paths['/api/movies']['get']['parameters']['query']>;
 }
 
 export function stateToApiQuery(state: unknown) {
