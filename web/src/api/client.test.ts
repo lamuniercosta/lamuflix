@@ -8,7 +8,17 @@ const BASE_URL = 'https://test.local';
 const client = createApiClient(BASE_URL);
 
 const browseResponse = {
-  items: [{ id: '1', title: 'Dune', posterUrl: '/dune.jpg' }],
+  items: [
+    {
+      id: '1',
+      title: 'Dune',
+      posterUrl: '/dune.jpg',
+      releaseYear: null,
+      runtime: null,
+      imdbRating: null,
+      enrichmentStatus: 'Pending',
+    },
+  ],
   totalCount: '1',
 } satisfies components['schemas']['BrowseMoviesResponse'];
 

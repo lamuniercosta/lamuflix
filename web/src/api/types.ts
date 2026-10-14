@@ -53,6 +53,8 @@ export interface components {
       /** Format: int32 */
       totalCount: number | string;
     };
+    /** @enum {string} */
+    EnrichmentStatus: "Pending" | "Enriched" | "NotFound" | "Failed";
     GenreDto: {
       /** Format: int32 */
       id: number | string;
@@ -85,6 +87,13 @@ export interface components {
       id: number | string;
       title: string;
       posterUrl: null | string;
+      /** Format: int32 */
+      releaseYear: null | number | string;
+      /** Format: int32 */
+      runtime: null | number | string;
+      /** Format: double */
+      imdbRating: null | number | string;
+      enrichmentStatus: components["schemas"]["EnrichmentStatus"];
     };
     PersonDto: {
       /** Format: int32 */

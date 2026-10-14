@@ -362,7 +362,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
         ShouldCarryExactly(body, "items", "totalCount");
         var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
-        ShouldCarryExactly(item, "id", "title", "posterUrl");
+        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus");
         item.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
         item.GetProperty("id").GetInt32().ShouldBe(1);
         item.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
@@ -686,7 +686,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             ct.ThrowIfCancellationRequested();
             Queries.Add(query);
             return Task.FromResult(
-                new PagedResult<MovieSummary>([new MovieSummary(new MovieId(1), "Heat", null)], 1));
+                new PagedResult<MovieSummary>([new MovieSummary(new MovieId(1), "Heat", null, null, null, null, EnrichmentStatus.Pending)], 1));
         }
 
         public Task<MovieDetails?> GetDetailsAsync(MovieId id, CancellationToken ct)

@@ -26,7 +26,7 @@ public sealed class BrowseMoviesQueryHandlerTests
         // arrange
         var query = new MovieQuery { Text = Faker.Lorem.GetFirstWord(), Page = new Page(1, 20) };
         var expected = new PagedResult<MovieSummary>(
-            [new MovieSummary(NewId(), "One", null)],
+            [new MovieSummary(NewId(), "One", null, null, null, null, EnrichmentStatus.Pending)],
             1);
         var ct = CancellationToken.None;
         catalog.BrowseAsync(query, ct).Returns(expected);

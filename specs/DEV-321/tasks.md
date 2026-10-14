@@ -29,21 +29,21 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T010 [US1] Widen port record in `src/LamuFlix.Core/Ports/MovieSummary.cs` (add nullable `posterUrl`/`releaseYear`/`runtime`/`imdbRating` + required `enrichmentStatus`; names/types/units per brief Q1).
-- [ ] T011 [US1] Widen same-row projection in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` (`BrowseAsync` projects existing row columns; still no JOIN; owns the production `new MovieSummary(` construction update at `EfMovieCatalog.cs:31`).
-- [ ] T012 [US1] Widen browse DTO + mapping in `src/LamuFlix.Api/Endpoints/LibraryResponses.cs` (`MovieSummaryResponse` + `From` mapping, nulls stay present as JSON null).
-- [ ] T013 [US1] Apply the remaining compile-forced construction updates in test files: `BrowseMoviesQueryHandlerTests.cs:29` (within T016) and `RecordingMovieCatalog` in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs:688` (within T017); production site stays with T011 (brief Q8 amendment).
-- [ ] T014 [US1] Regenerate `web/src/api/openapi.json` + `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` together via `LAMUFLIX_REGENERATE_OPENAPI=true` (OpenAPI + derived snapshot only; generated TS waits for T015); never hand-edit generated files.
-- [ ] T015 [US1] Inspect the regenerated schema: add the `Program.cs` EnrichmentStatus-scoped OpenAPI schema transformer ONLY if the four names are still missing (scoped to that one schema, no global serializer change); if added, regenerate OpenAPI + derived snapshot again; then verify the exact four-name string schema and generate `web/src/api/types.ts` via DEV-320 merged tooling.
+- [X] T010 [US1] Widen port record in `src/LamuFlix.Core/Ports/MovieSummary.cs` (add nullable `posterUrl`/`releaseYear`/`runtime`/`imdbRating` + required `enrichmentStatus`; names/types/units per brief Q1).
+- [X] T011 [US1] Widen same-row projection in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` (`BrowseAsync` projects existing row columns; still no JOIN; owns the production `new MovieSummary(` construction update at `EfMovieCatalog.cs:31`).
+- [X] T012 [US1] Widen browse DTO + mapping in `src/LamuFlix.Api/Endpoints/LibraryResponses.cs` (`MovieSummaryResponse` + `From` mapping, nulls stay present as JSON null).
+- [X] T013 [US1] Apply the remaining compile-forced construction updates in test files: `BrowseMoviesQueryHandlerTests.cs:29` (within T016) and `RecordingMovieCatalog` in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs:688` (within T017); production site stays with T011 (brief Q8 amendment).
+- [X] T014 [US1] Regenerate `web/src/api/openapi.json` + `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` together via `LAMUFLIX_REGENERATE_OPENAPI=true` (OpenAPI + derived snapshot only; generated TS waits for T015); never hand-edit generated files.
+- [X] T015 [US1] Inspect the regenerated schema: add the `Program.cs` EnrichmentStatus-scoped OpenAPI schema transformer ONLY if the four names are still missing (scoped to that one schema, no global serializer change); if added, regenerate OpenAPI + derived snapshot again; then verify the exact four-name string schema and generate `web/src/api/types.ts` via DEV-320 merged tooling.
 
 ### Backend tests for the contract (extend FIRST with failing assertions before T010–T015; construction updates compile them green after widening)
 
-- [ ] T016 [US1] Extend `BrowseMoviesQueryHandlerTests.cs` (new wire-shape assertions FIRST, red before widening; then its compile-forced construction update per T013; preserve unchanged-query/returned-page proof).
-- [ ] T017 [US1] Extend `LibraryEndpointsTests.cs` (`BrowseMovies_SuccessBody_MatchesTheFrozenScalarShape` widened to exact new wire shape FIRST, red before widening; then its `RecordingMovieCatalog` construction update per T013; populated/null + status-string assertions; reuse nullable-stays-present patterns).
-- [ ] T018 [P] [US1] Extend `ApiEndToEndBrowseTests.cs` (exact item assertions widened; seeded full-stack grid scalar/status proof with populated/null poster and metadata; seed `PosterUrl` directly — never rely on enrichment).
-- [ ] T019 [P] [US1] Extend `EfMovieCatalogBrowseTests.cs` (real Postgres projection proof: all four statuses; populated/null grid scalars).
-- [ ] T020 [P] [US1] Update `EfMovieCatalogPagingTests.cs` (`BrowseAsync_PageQuery_SelectsOnlySummaryColumns`: grid summary columns replace id/title-only expectation; retain no-JOIN + empty ChangeTracker assertions).
-- [ ] T021 [P] [US1] Extend `OpenApiContractTests.cs` (generated browse schema/status/nullability proof + baseline/snapshot drift). `ApiEndToEndLibraryTests.cs` stays a read-only pattern, not an edit target.
+- [X] T016 [US1] Extend `BrowseMoviesQueryHandlerTests.cs` (new wire-shape assertions FIRST, red before widening; then its compile-forced construction update per T013; preserve unchanged-query/returned-page proof).
+- [X] T017 [US1] Extend `LibraryEndpointsTests.cs` (`BrowseMovies_SuccessBody_MatchesTheFrozenScalarShape` widened to exact new wire shape FIRST, red before widening; then its `RecordingMovieCatalog` construction update per T013; populated/null + status-string assertions; reuse nullable-stays-present patterns).
+- [X] T018 [P] [US1] Extend `ApiEndToEndBrowseTests.cs` (exact item assertions widened; seeded full-stack grid scalar/status proof with populated/null poster and metadata; seed `PosterUrl` directly — never rely on enrichment).
+- [X] T019 [P] [US1] Extend `EfMovieCatalogBrowseTests.cs` (real Postgres projection proof: all four statuses; populated/null grid scalars).
+- [X] T020 [P] [US1] Update `EfMovieCatalogPagingTests.cs` (`BrowseAsync_PageQuery_SelectsOnlySummaryColumns`: grid summary columns replace id/title-only expectation; retain no-JOIN + empty ChangeTracker assertions).
+- [X] T021 [P] [US1] Extend `OpenApiContractTests.cs` (generated browse schema/status/nullability proof + baseline/snapshot drift). `ApiEndToEndLibraryTests.cs` stays a read-only pattern, not an edit target.
 
 **Checkpoint**: Contract widened, regenerated chain green, backend tests proving wire + projection + schema.
 
@@ -177,3 +177,5 @@
 - Seed `PosterUrl` directly in tests; never claim live enrichment produces posters (DEV-408 is the follow-up).
 - Existing fixtures/seeds reused; `web/src/test/server.ts` + `setup.ts` reused with feature fixtures/handlers added in tests; synthetic harness behavior preserved.
 - No `since` flag on mutation from worktrees; no threshold waiver; scope-empty exit 2 is SKIPPED, never PASS.
+
+
