@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { components } from '../../api/types';
 import {
   parseFilterQuery,
@@ -24,6 +24,13 @@ interface FilterPanelBaseProps {
   cast?: PersonDto[];
   isLoadingGenres?: boolean;
   isLoadingActors?: boolean;
+  genreError?: unknown;
+  genresError?: unknown;
+  genreQueryError?: unknown;
+  castError?: unknown;
+  actorsError?: unknown;
+  peopleError?: unknown;
+  personError?: unknown;
   disabled?: boolean;
   onClear?: () => void;
 }
@@ -150,7 +157,8 @@ export function FilterPanel(props: FilterPanelProps) {
         setInternalQuery(next);
       }
       try {
-        const search = toUrlQuery(next);
+        next.page = 1;
+        const search = toUrlQuery(next, currentYear);
         const path = window.location.pathname || '/';
         window.history.replaceState(null, '', search ? `${path}?${search}` : path);
       } catch {
@@ -164,7 +172,7 @@ export function FilterPanel(props: FilterPanelProps) {
         }
       });
     },
-    [controlledKey, callbacks],
+    [controlledKey, callbacks, currentYear],
   );
 
   useEffect(() => {
@@ -193,6 +201,11 @@ export function FilterPanel(props: FilterPanelProps) {
     return () => window.removeEventListener('popstate', handler);
   }, [controlledInput, onHydrate, onPopstate]);
 
+  const queryRef = useRef(query);
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+
   const [searchText, setSearchText] = useState(String(query.text ?? ''));
   const [prevQueryText, setPrevQueryText] = useState(query.text);
   if (query.text !== prevQueryText) {
@@ -200,7 +213,7 @@ export function FilterPanel(props: FilterPanelProps) {
     setSearchText(String(query.text ?? ''));
   }
   const commitSearchText = useDebouncedSearch((value: string) => {
-    const next = parseFilterQuery(query);
+    const next = parseFilterQuery(queryRef.current);
     next.text = value;
     commit(next);
   });
@@ -347,24 +360,31 @@ export function FilterPanel(props: FilterPanelProps) {
 
       <fieldset>
         <legend>Genres</legend>
-        <ul>
-          {sortedGenres.map((genre) => {
-            const checked = (query.genreIds ?? []).map(String).includes(String(genre.id));
-            return (
-              <li key={String(genre.id)}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(event) => handleGenreToggle(genre.id, event.target.checked)}
-                  />
-                  <span>{genre.name}</span>
-                  <span aria-hidden="true">{genre.movieCount}</span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
+        {props.genreError || props.genresError || props.genreQueryError ? (
+          <p role="alert">Genres could not be loaded.</p>
+        ) : (
+          <ul>
+            {sortedGenres.map((genre) => {
+              const checked = (query.genreIds ?? []).map(String).includes(String(genre.id));
+              return (
+                <li key={String(genre.id)}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => handleGenreToggle(genre.id, event.target.checked)}
+                    />
+                    <span>{genre.name}</span>
+                    <span className="inline-block w-10 tabular-nums text-right" aria-hidden="true">
+                      {genre.movieCount}
+                    </span>
+                    <span className="sr-only">, {genre.movieCount} movies</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </fieldset>
 
       <fieldset>
@@ -379,23 +399,27 @@ export function FilterPanel(props: FilterPanelProps) {
             onChange={(event) => setCastFilter(event.target.value)}
           />
         </label>
-        <ul>
-          {filteredActors.map((actor) => {
-            const checked = (query.actorIds ?? []).map(String).includes(String(actor.id));
-            return (
-              <li key={String(actor.id)}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(event) => handleActorToggle(actor.id, event.target.checked)}
-                  />
-                  <span>{actor.name}</span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
+        {props.castError || props.actorsError || props.peopleError || props.personError ? (
+          <p role="alert">Cast could not be loaded.</p>
+        ) : (
+          <ul>
+            {filteredActors.map((actor) => {
+              const checked = (query.actorIds ?? []).map(String).includes(String(actor.id));
+              return (
+                <li key={String(actor.id)}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => handleActorToggle(actor.id, event.target.checked)}
+                    />
+                    <span>{actor.name}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </fieldset>
 
       <fieldset>
