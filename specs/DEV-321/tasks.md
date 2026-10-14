@@ -55,10 +55,10 @@
 
 **Independent Test**: Bookmark URLs (canonical + alias forms) restore adapter normalized state; adapter push/replace/popstate semantics hold without push on restore; Vitest table/generated round-trip cases.
 
-- [ ] T040 [P] [US2] Create `web/src/library/libraryUrl.ts` (canonical keys; `genres`/`Asc`/`Desc` read-only aliases with `replaceState` canonicalization, `genreIds` precedence, aliases never emitted; always emit `sort`/`direction`/`page`/`pageSize`; honor supplied pageSize; SPA defaults Title/Ascending/1/24; lenient group reads; malformed/repeated fallback; exact-case enums; lowercase booleans; ampersand join + encoding).
-- [ ] T041 [US2] Create `web/src/library/useLibraryUrl.ts` (adapter as sole history/URL owner: initial bookmark read, push on user change, replace on normalization, popstate restore without push, listener cleanup; filter/sort edits reset page to 1, pagination changes page alone; typed mapping of lowercase keys to generated PascalCase API params).
-- [ ] T042 [P] [US2] Vitest round-trip tests for `libraryUrl` (every canonical key; aliases/precedence/defaults/groups/malformed/repeated/encoding; reserved characters; server-codec parity; text empty-string vs null) — table + generated cases, no new package.
-- [ ] T043 [US2] History/bookmark/back-forward integration tests (push vs replace semantics, popstate restores adapter normalized state without push, listener cleanup; actual control/query restoration proof stays with T063 in Phase 6).
+- [X] T040 [P] [US2] Create `web/src/library/libraryUrl.ts` (canonical keys; `genres`/`Asc`/`Desc` read-only aliases with `replaceState` canonicalization, `genreIds` precedence, aliases never emitted; always emit `sort`/`direction`/`page`/`pageSize`; honor supplied pageSize; SPA defaults Title/Ascending/1/24; lenient group reads; malformed/repeated fallback; exact-case enums; lowercase booleans; ampersand join + encoding).
+- [X] T041 [US2] Create `web/src/library/useLibraryUrl.ts` (adapter as sole history/URL owner: initial bookmark read, push on user change, replace on normalization, popstate restore without push, listener cleanup; filter/sort edits reset page to 1, pagination changes page alone; typed mapping of lowercase keys to generated PascalCase API params).
+- [X] T042 [P] [US2] Vitest round-trip tests for `libraryUrl` (every canonical key; aliases/precedence/defaults/groups/malformed/repeated/encoding; reserved characters; server-codec parity; text empty-string vs null) — table + generated cases, no new package.
+- [X] T043 [US2] History/bookmark/back-forward integration tests (push vs replace semantics, popstate restores adapter normalized state without push, listener cleanup; actual control/query restoration proof stays with T063 in Phase 6).
 
 **Checkpoint**: URL/history adapter proof complete (adapter normalized-state + history/listener behavior only); no consumers yet.
 
