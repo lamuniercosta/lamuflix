@@ -85,9 +85,9 @@
 
 **Independent Test**: Seeded real-DB rows (populated/null poster + metadata) render exact tiles; RTL covers populated/null/broken images, responsive structure, empty-library/filtered-empty states with clear-filters.
 
-- [ ] T030 [P] [US1] Create `web/src/library/MovieCard.tsx` (poster/placeholder at reserved 2:3 slot, title, year, `<n> min` runtime, one-decimal IMDb badge, exact-label status chip, em dash for missing scalars).
-- [ ] T031 [P] [US1] Create `web/src/library/MovieGrid.tsx` (responsive CSS grid; skeleton parity; empty/filtered-empty states with clear-filters + return-to-first-page action for past-end pages).
-- [ ] T034 [P] [US1] RTL tests: populated/null/broken poster, tile fields, em-dash fallbacks, responsive structure, empty states (adjacent `MovieCard.test.tsx` / `MovieGrid.test.tsx`; isolated card tests are independent).
+- [X] T030 [P] [US1] Create `web/src/library/MovieCard.tsx` (poster/placeholder at reserved 2:3 slot, title, year, `<n> min` runtime, one-decimal IMDb badge, exact-label status chip, em dash for missing scalars).
+- [X] T031 [P] [US1] Create `web/src/library/MovieGrid.tsx` (responsive CSS grid; skeleton parity; empty/filtered-empty states with clear-filters + return-to-first-page action for past-end pages).
+- [X] T034 [P] [US1] RTL tests: populated/null/broken poster, tile fields, em-dash fallbacks, responsive structure, empty states (adjacent `MovieCard.test.tsx` / `MovieGrid.test.tsx`; isolated card tests are independent).
 
 **Checkpoint**: Isolated tile proof only from the widened contract; live browse acceptance waits for Phase 6 composition (Phase 4 provider/query proven, integration in Phase 6).
 
