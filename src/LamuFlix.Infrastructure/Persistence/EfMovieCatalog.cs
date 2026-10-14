@@ -30,6 +30,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             // ReSharper disable once NullableWarningSuppressionIsUsed
             // ReSharper disable once NullableWarningSuppressionIsUsed
             .Select(movie => new MovieSummary(
+            // ReSharper disable once NullableWarningSuppressionIsUsed
                 movie.Id!,
                 movie.Title,
                 movie.PosterUrl,
