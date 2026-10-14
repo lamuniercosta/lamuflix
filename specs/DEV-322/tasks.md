@@ -77,10 +77,10 @@ Write failing host acceptance tests before LibraryView implementation. Integrate
 
 Visual confirmation and applicable gates run only at their pipeline stages, not during drafting.
 
-- [ ] T050 [P] Verify fixed control/badge dimensions in implementation and visual review without claiming a measured CLS score from RTL (Q9)
-- [ ] T051 In LibraryView.test.tsx and FilterPanel.test.tsx confirm empty-result copy `No movies match these filters.`, `Clear filters` behavior, and the approved count/error copy from ASSUMPTIONS.md:12 (Q5; design.md states)
+- [X] T050 [P] Verify fixed control/badge dimensions in implementation and visual review without claiming a measured CLS score from RTL (Q9)
+- [X] T051 In LibraryView.test.tsx and FilterPanel.test.tsx confirm empty-result copy `No movies match these filters.`, `Clear filters` behavior, and the approved count/error copy from ASSUMPTIONS.md:12 (Q5; design.md states)
 - [ ] T052 Run the applicable backend build/analyzers, complexity, InspectCode, formatting, tests, security/dependency, and contract-drift checks for the changed C# and package/contract scope at their pipeline stages; respect `harness.yml` thresholds without changing generated gate configuration (brief Gate expectations)
-- [ ] T053 Run `web-implement` TDD and its web gate for the frontend diff at its pipeline stage (brief Gate expectations)
+- [X] T053 Run `web-implement` TDD and its web gate for the frontend diff at its pipeline stage (brief Gate expectations)
 - [ ] T054 Run mutation on the eligible changed projects via `pwsh -NoProfile -File ./scripts/run-mutation.ps1` (never Stryker from a worktree) at its pipeline stage; a survivor calls for a test, not a threshold reduction (Q1/Q10, charter :66-76)
 
 **Checkpoint**: Record each applicable gate verdict; no Gate 1 or merge approval is implied.
