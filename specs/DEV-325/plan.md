@@ -27,7 +27,7 @@ Add a root `docker-compose.yml` with postgres, rabbitmq, api, web; healthchecks 
 - Configuration isolation (Principle VII): library root config-only via `Library__RootPath`; no hard-coded host path.
 - Secrets (Principle VII): `${VAR:?message}`, placeholders only in `.env.example`.
 - LocalPlay (Principle VII): `Features:LocalPlay=false` in compose; Process.Start untouched.
-- Worker health signal (Principle VI, constitution :234): covered by api `/health/ready` under C1-A.
+- Worker health signal (Principle VI, constitution :255): covered by api `/health/ready` under C1-A.
 - README compose instructions (Documentation Rules, :483): satisfied by one section.
 - Observability compose file (Technology Stack Constraints, :336) deferred per C10 (noted, no ticket).
 
