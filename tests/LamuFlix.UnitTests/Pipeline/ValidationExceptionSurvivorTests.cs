@@ -27,6 +27,7 @@ public sealed class ValidationExceptionSurvivorTests
     public void Constructor_NullErrors_ThrowsArgumentNullExceptionWithParamName()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var thrown = Should.Throw<ArgumentNullException>(() => new ValidationException(null!));
 
         // assert

@@ -13,6 +13,7 @@ public sealed class MovieQueryStringSurvivorTests
     {
         // arrange
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var thrown = Should.Throw<ArgumentNullException>(() => MovieQueryString.Format(null!));
 
         // assert
