@@ -72,9 +72,9 @@
 
 **Independent Test**: Explicit location set/restore; assert id prop on the details path and readiness elsewhere.
 
-- [ ] T040 [US3] RTL tests for loading, GET 404, and GET error states in `MovieDetailsView.test.tsx` (after T031; same file, no parallel work).
-- [ ] T041 [US3] App entry tests in `web/src/App.test.tsx` (initial `/movies/<id>` mounts view with id; other paths keep readiness).
-- [ ] T042 [US3] Q5 fallback mount in `web/src/App.tsx` (initial-pathname parse only; no router, no `main.tsx` rewiring beyond existing mount).
+- [X] T040 [US3] RTL tests for loading, GET 404, and GET error states in `MovieDetailsView.test.tsx` (after T031; same file, no parallel work).
+- [X] T041 [US3] App entry tests in `web/src/App.test.tsx` (initial `/movies/<id>` mounts view with id; other paths keep readiness).
+- [X] T042 [US3] Q5 fallback mount in `web/src/App.tsx` (initial-pathname parse only; no router, no `main.tsx` rewiring beyond existing mount).
 
 **Checkpoint**: All user stories independently functional.
 
