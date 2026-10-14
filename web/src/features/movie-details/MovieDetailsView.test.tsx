@@ -137,6 +137,41 @@ describe('MovieDetailsView', () => {
   });
 });
 
+describe('MovieDetailsView load states', () => {
+  it('shows loading state while GET is pending', async () => {
+    server.use(
+      http.get('*/api/movies/:id', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return HttpResponse.json(fullMovie);
+      }),
+    );
+    render(<MovieDetailsView movieId={1} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading movie…');
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+  });
+
+  it('shows Movie not found. on GET 404', async () => {
+    server.use(http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 404 })));
+    render(<MovieDetailsView movieId={1} />);
+
+    expect(await screen.findByText('Movie not found.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Movie not found.');
+  });
+
+  it('shows generic error on GET failure', async () => {
+    server.use(http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 500 })));
+    render(<MovieDetailsView movieId={1} />);
+
+    expect(
+      await screen.findByText("Couldn't load this movie. Try again later."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "Couldn't load this movie. Try again later.",
+    );
+  });
+});
+
 describe('MovieDetailsView Play 403 dialog', () => {
   it('opens dialog with focus, escapes and closes, returns focus', async () => {
     server.use(
