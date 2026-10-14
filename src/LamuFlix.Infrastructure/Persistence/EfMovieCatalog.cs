@@ -59,7 +59,12 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.ReleaseYear,
                 movie.RuntimeMinutes,
                 movie.ImdbRating,
-                movie.ImdbId))
+                movie.ImdbId,
+                movie.PosterUrl,
+                movie.RottenTomatoesRating,
+                movie.MetaScore,
+                movie.Directors.Select(director => director.Name).ToList(),
+                movie.Actors.Select(actor => actor.Name).ToList()))
             .FirstOrDefaultAsync(ct);
         if (record is null)
         {
@@ -76,7 +81,12 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 record.ReleaseYear,
                 record.RuntimeMinutes,
                 record.ImdbRating,
-                record.ImdbId)
+                record.ImdbId,
+                record.PosterUrl,
+                record.RottenTomatoesRating,
+                record.MetaScore,
+                record.Directors,
+                record.Actors)
             : null;
         return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata);
     }
@@ -102,7 +112,9 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
 
     private static bool HasMetadata(MovieDetailsRecord record) =>
         record.MetadataTitle is not null || record.Plot is not null || record.ReleaseYear is not null
-        || record.RuntimeMinutes is not null || record.ImdbRating is not null || record.ImdbId is not null;
+        || record.RuntimeMinutes is not null || record.ImdbRating is not null || record.ImdbId is not null
+        || record.PosterUrl is not null || record.RottenTomatoesRating is not null || record.MetaScore is not null
+        || record.Directors.Count > 0 || record.Actors.Count > 0;
 
     private sealed record MovieDetailsRecord(
         MovieId? Id,
@@ -114,5 +126,10 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         ReleaseYear? ReleaseYear,
         Runtime? RuntimeMinutes,
         ImdbRating? ImdbRating,
-        ImdbId? ImdbId);
+        ImdbId? ImdbId,
+        string? PosterUrl,
+        short? RottenTomatoesRating,
+        short? MetaScore,
+        List<string> Directors,
+        List<string> Actors);
 }

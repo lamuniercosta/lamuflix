@@ -690,7 +690,12 @@
           "releaseYear",
           "runtime",
           "imdbRating",
-          "imdbId"
+          "imdbId",
+          "posterUrl",
+          "rottenTomatoesRating",
+          "metaScore",
+          "directors",
+          "actors"
         ],
         "type": "object",
         "properties": {
@@ -735,6 +740,42 @@
               "null",
               "string"
             ]
+          },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "rottenTomatoesRating": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int16"
+          },
+          "metaScore": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int16"
+          },
+          "directors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "actors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

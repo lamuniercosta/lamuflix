@@ -26,12 +26,12 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete. Tasks run strictly in order (no parallel markers): Core, then EF, then API/tests, then OpenAPI, then generated outputs, then web.
 
-- [ ] T010 Extend Core `MovieMetadata` additively per data-model.md in `src/LamuFlix.Core/Domain/MovieMetadata.cs` (keep existing fields and behavior).
-- [ ] T011 Extend `EfMovieCatalog.GetDetailsAsync` projection over stored fields/joins in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` (no schema/migration); preserve missing/partial behavior.
-- [ ] T012 Extend `MovieMetadataResponse` and mapping in `src/LamuFlix.Api/Endpoints/LibraryResponses.cs` (nullable scalars, people arrays; outer response, route, codes unchanged).
-- [ ] T013 [US1] Extend backend proofs in order: `EfMovieCatalogDetailsTests.cs`, then `LibraryEndpointsTests.cs`, then `ApiEndToEndLibraryTests.cs` (new fields, null scalars, empty collections, exact frozen shape).
-- [ ] T014 Regenerate `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` through the existing `OpenApiContractTests` regeneration facility only; prove drift equality (no hand edits; source modification of `OpenApiContractTests.cs` is not preauthorized).
-- [ ] T015 Generate `web/src/api/types.ts` with delivered DEV-320 tooling only (never hand-edit; no substitute types). BLOCKED if tooling absent: report needs recon and stop. Any Core constructor/test caller adjustments beyond the named files are deferred to Wisp recon; do not invent paths.
+- [X] T010 Extend Core `MovieMetadata` additively per data-model.md in `src/LamuFlix.Core/Domain/MovieMetadata.cs` (keep existing fields and behavior).
+- [X] T011 Extend `EfMovieCatalog.GetDetailsAsync` projection over stored fields/joins in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` (no schema/migration); preserve missing/partial behavior.
+- [X] T012 Extend `MovieMetadataResponse` and mapping in `src/LamuFlix.Api/Endpoints/LibraryResponses.cs` (nullable scalars, people arrays; outer response, route, codes unchanged).
+- [X] T013 [US1] Extend backend proofs in order: `EfMovieCatalogDetailsTests.cs`, then `LibraryEndpointsTests.cs`, then `ApiEndToEndLibraryTests.cs` (new fields, null scalars, empty collections, exact frozen shape).
+- [X] T014 Regenerate `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` through the existing `OpenApiContractTests` regeneration facility only; prove drift equality (no hand edits; source modification of `OpenApiContractTests.cs` is not preauthorized).
+- [X] T015 Generate `web/src/api/types.ts` with delivered DEV-320 tooling only (never hand-edit; no substitute types). BLOCKED if tooling absent: report needs recon and stop. Any Core constructor/test caller adjustments beyond the named files are deferred to Wisp recon; do not invent paths.
 
 **Checkpoint**: Foundation ready - user story implementation can now begin.
 
@@ -108,3 +108,4 @@
 ### Parallel Opportunities
 
 - No parallel markers in Phase 2 or in `MovieDetailsView.test.tsx` work. The only parallel-safe task is T002 (different file, no dependency).
+

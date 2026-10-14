@@ -38,6 +38,11 @@ const movieDetailsData = {
     runtime: 155,
     imdbRating: 8.0,
     imdbId: 'tt1160419',
+    posterUrl: null,
+    rottenTomatoesRating: null,
+    metaScore: null,
+    directors: [],
+    actors: [],
   },
 } satisfies Schemas['MovieDetailsResponse'];
 
