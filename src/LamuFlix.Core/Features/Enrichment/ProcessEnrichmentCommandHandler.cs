@@ -30,7 +30,9 @@ public sealed class ProcessEnrichmentCommandHandler(
 
         var movie = await movies.GetAsync(command.MovieId, cancellationToken)
                     ?? throw new NotFoundException();
-        MetadataLookupResult result;
+
+        // ReSharper disable once RedundantAssignment - the seed keeps the lookup result assigned when Stryker removes a try or catch body, so those mutants compile instead of tripping CS0165.
+        MetadataLookupResult result = new MetadataLookupResult.Failed(EnrichmentFailureCategory.Unknown);
         try
         {
             var lookup = new MetadataLookup(movie.Title, movie.Metadata?.ReleaseYear);
@@ -42,11 +44,7 @@ public sealed class ProcessEnrichmentCommandHandler(
         }
         catch (Exception exception)
         {
-            return await FailAsync(
-                command,
-                EnrichmentFailureClassifier.Classify(exception),
-                movie,
-                cancellationToken);
+            result = new MetadataLookupResult.Failed(EnrichmentFailureClassifier.Classify(exception));
         }
 
         if (result is MetadataLookupResult.Failed failed)
