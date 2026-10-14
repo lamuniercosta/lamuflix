@@ -33,8 +33,8 @@
 
 ## Phase 2: Compose inputs (Anvil)
 
-- [ ] T005 [P] [US4] Create `.env.example` with placeholders only for `OMDB_API_KEY`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`, plus an optional `LIBRARY_PATH` note. Note in the file that the example must be copied to `.env` and every placeholder replaced with local supplied values; no literal secret. Every placeholder value is shorter than 8 characters (for example `change`) so the pre-commit secret scan passes; no scanner exclusion.
-- [ ] T006 [P] [US3] Create `docker/sample-library/` with 3-5 `Title (Year).ext` placeholder files, total under 100 KB, no real media. If a scanner check fails, stop with `needs recon`.
+- [X] T005 [P] [US4] Create `.env.example` with placeholders only for `OMDB_API_KEY`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`, plus an optional `LIBRARY_PATH` note. Note in the file that the example must be copied to `.env` and every placeholder replaced with local supplied values; no literal secret. Every placeholder value is shorter than 8 characters (for example `change`) so the pre-commit secret scan passes; no scanner exclusion.
+- [X] T006 [P] [US3] Create `docker/sample-library/` with 3-5 `Title (Year).ext` placeholder files, total under 100 KB, no real media. If a scanner check fails, stop with `needs recon`.
 
 **Checkpoint (Phase 2)**: `.env.example` contains exactly the listed names with placeholder values; `docker/sample-library/` has 3-5 files under 100 KB total; no `.env` tracked; T005-T006 marked [X]; commit `DEV-325 - Compose inputs`, report the SHA, stop.
 
