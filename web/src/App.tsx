@@ -1,8 +1,17 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import LibraryErrorBoundary from './library/LibraryErrorBoundary';
+import LibraryView from './library/LibraryView';
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
 export default function App() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 text-slate-50">
-      <h1 className="text-4xl font-bold tracking-tight">LamuFlix</h1>
-      <p className="mt-4 text-lg text-slate-300">Web client is ready.</p>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <LibraryErrorBoundary>
+        <LibraryView />
+      </LibraryErrorBoundary>
+    </QueryClientProvider>
   );
 }
