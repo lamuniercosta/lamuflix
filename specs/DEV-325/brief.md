@@ -111,7 +111,7 @@ Approach:
 - api and web build from the DEV-21 Dockerfiles with repository-root context (C2). No `image:` registry reference, no Dockerfile edit, no HEALTHCHECK added anywhere by this ticket.
 - Healthchecks per C7: api `/health/ready` probe with in-image tooling only, web busybox wget spider. Postgres/rabbitmq keep the ticket commands. AC1 healthy means every service in the file reports healthy.
 - Environment: `Features__LocalPlay=false` explicitly on api (ticket Scope item 2; also the code default). All secrets via `${VAR:?message}` from `.env`; `.env.example` carries placeholders only (C8). Non-secret required options mapped per C8 so the Api passes ValidateOnStart.
-- `Database__ApplyMigrationsOnStartup=true` is set only in the compose api environment (C3). The code default stays `false`, so the host-run daily-driver path (constitution :506-507) is unchanged.
+- `Database__ApplyMigrationsOnStartup=true` is set only in the compose api environment (C3). The code default stays `false`, so the host-run daily-driver path (constitution :528-529) is unchanged.
 - Sample library mounted read-only at `/media/library` with `Library__RootPath=/media/library` and the `LIBRARY_PATH` host override (C4). Placeholders are committed dummy files, not real media.
 - Web publishes `3000:8080` only; api publishes no host port (C5, C14). No OTLP endpoint is set and no collector service is added (C12).
 - README gains exactly one section per C11/A3.

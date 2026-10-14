@@ -9,7 +9,7 @@ Ticket text is decided: postgres 17 + `pg_isready`, rabbitmq 4 + `rabbitmq-diagn
 blocked: structural — The ticket names a `worker` service, but no runnable worker host exists. Drop it from DEV-325 (enrichment consumer stays in the api service), or hold DEV-325 until a new worker-host ticket ships?
 - Facts: the consumer runs in the Api (recon §5, RabbitMqServiceCollectionExtensions.cs:43-58). `src/LamuFlix.Worker` is retired: it is not in the sln, it uses MySQL/Pomelo, and it references a `LamuFlix.Data` that does not exist, so it cannot build (recon §5, commit 46b1d9b). DEV-21 `docker/Dockerfile.worker` publishes exactly that project (specs/DEV-21/plan.md:83), so its image cannot exist.
 - Running the Api image a second time as a fake `worker` would run a second HTTP host and sweeper and pass that off as a worker. Rejected on engineering grounds.
-- **Recommended for the owner: (A) drop `worker` from DEV-325's compose.** The api service carries the consumer, and its `/health/ready` healthcheck covers the worker health signal (constitution :234). The alternative, (B) a new modern worker host project, adds to what the ticket delivers and needs its own ticket. Gate 1 stays closed until the owner ticks one on the spec PR. Brief and plan proceed on (A) provisionally.
+- **Recommended for the owner: (A) drop `worker` from DEV-325's compose.** The api service carries the consumer, and its `/health/ready` healthcheck covers the worker health signal (constitution :255). The alternative, (B) a new modern worker host project, adds to what the ticket delivers and needs its own ticket. Gate 1 stays closed until the owner ticks one on the spec PR. Brief and plan proceed on (A) provisionally.
 - Side effect on DEV-21: `Dockerfile.worker` will fail its SC-001 build. The recon fact goes to DEV-21 as a YouTrack comment through Rigger.
 
 ## C2. Image source: `build:` from the DEV-21 Dockerfiles
@@ -33,7 +33,7 @@ blocked: structural — The ticket names a `worker` service, but no runnable wor
 - `curl -fsS http://localhost:3000/` returns 200 with the SPA index, and `curl -fsS http://localhost:3000/api/genres` returns 200 with a JSON array. Raw output is recorded. The SPA makes no API calls (recon §6), so the HTTP proof stands in for UI interaction.
 
 ## C7. Healthchecks: api, web (worker per C1)
-- api: probe `GET /health/ready`, which checks Postgres and RabbitMQ (constitution :234, recon §4). Use only tooling already in the DEV-21 image. If `aspnet:10.0` has no curl/wget, a bash `/dev/tcp` probe expecting `200` is acceptable. No Dockerfile edits.
+- api: probe `GET /health/ready`, which checks Postgres and RabbitMQ (constitution :255, recon §4). Use only tooling already in the DEV-21 image. If `aspnet:10.0` has no curl/wget, a bash `/dev/tcp` probe expecting `200` is acceptable. No Dockerfile edits.
 - web: busybox `wget -q --spider http://127.0.0.1:8080/` on nginx alpine.
 - worker: none under C1 (A). Under (B), the new host defines its own health signal.
 
@@ -57,7 +57,7 @@ blocked: structural — The ticket names a `worker` service, but no runnable wor
 - Major-pinned per ticket text, never `latest` (specs/DEV-21/plan.md:95). Postgres matches the test fixture (PostgresFixture.cs:34). The variant is a taste call; see ASSUMPTIONS A1.
 
 ## C14. api port: not published to the host
-- AC2 needs only web on 3000. The proxy reaches `api:8080` on the compose network. CORS allows only 5173 (Program.cs:19), and publishing 8080 would collide with the host-run Api daily-driver setup (constitution :506-507).
+- AC2 needs only web on 3000. The proxy reaches `api:8080` on the compose network. CORS allows only 5173 (Program.cs:19), and publishing 8080 would collide with the host-run Api daily-driver setup (constitution :528-529).
 
 ## C15. Postgres database name: fixed `lamuflix`
 - postgres service sets `POSTGRES_DB=lamuflix`; the api `ConnectionStrings__DefaultConnection` uses `Database=lamuflix` with host `postgres`. User and password interpolation stays exactly as C8 (`${VAR:?message}`, no default).
