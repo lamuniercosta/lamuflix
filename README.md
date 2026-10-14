@@ -35,6 +35,17 @@ dotnet build LamuFlix.sln
 dotnet test
 ```
 
+## Run with Docker Compose
+
+Copy `.env.example` to `.env` and replace all placeholders with local supplied values, then start the stack:
+
+```bash
+cp .env.example .env
+docker compose up -d
+```
+
+Open http://localhost:3000. To mount a different library directory, set `LIBRARY_PATH` in `.env` before starting (defaults to `./docker/sample-library`).
+
 ## Observability
 
 Traces, metrics, and logs from the Api (including its background workers) export over OTLP. For local viewing, start the Aspire Dashboard:
