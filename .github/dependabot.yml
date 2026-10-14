@@ -1,0 +1,155 @@
+# Dependabot version updates for LamuFlix.
+#
+# The set of ecosystems below is derived from the tracked build inputs, not from
+# what happens to be convenient:
+#
+#   Directory.Packages.props          -> nuget (central package management)
+#   global.json                       -> dotnet-sdk
+#   web/package.json, web/package-lock.json -> npm
+#   .github/workflows/*.yml            -> github-actions
+#   docker/Dockerfile.api, docker/Dockerfile.web -> docker
+#   docker-compose.observability.yml   -> docker-compose
+#
+# Two behaviours here are deliberate. Read them before editing.
+#
+#   1. Patch and minor bumps are bundled into one PR per ecosystem. Major bumps
+#      stay one-PR-per-dependency, except the .NET/EF family which is version
+#      coupled and therefore has to move as one unit.
+#
+#   2. The two Roslyn analyzer packages are ignored. Directory.Packages.props
+#      pins them on purpose -- the analyzer gates are rendered against those
+#      versions, so a silent analyzer bump changes what CI enforces. Caveat:
+#      `ignore` suppresses *security* updates too, so a vulnerability in either
+#      package needs a manual bump rather than an incoming PR.
+#
+# Security updates need no configuration here; they are always on and always
+# ignore the schedule, groups, and versioning-strategy below.
+#
+# Note: web/.node-version has no Dependabot ecosystem. Node is bumped by hand.
+
+version: 2
+
+updates:
+  # ------------------------------------------------------------------ NuGet ---
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    versioning-strategy: "increase-if-necessary"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "nuget"
+    commit-message:
+      prefix: "deps(nuget)"
+    ignore:
+      - dependency-name: "Microsoft.CodeAnalysis.NetAnalyzers"
+      - dependency-name: "Microsoft.CodeAnalysis.BannedApiAnalyzers"
+    groups:
+      patches:
+        patterns:
+          - "*"
+        update-types:
+          - "version-update:semver-patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "version-update:semver-minor"
+      microsoft-dotnet-major:
+        patterns:
+          - "Microsoft.Extensions.*"
+          - "Microsoft.AspNetCore.*"
+          - "Microsoft.EntityFrameworkCore*"
+          - "Microsoft.NET.Test.Sdk"
+        update-types:
+          - "version-update:semver-major"
+
+  # -------------------------------------------------------------- .NET SDK ---
+  - package-ecosystem: "dotnet-sdk"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "first"
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(sdk)"
+
+  # -------------------------------------------------------------------- npm ---
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    versioning-strategy: "increase-if-necessary"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+    commit-message:
+      prefix: "deps(web)"
+      prefix-development: "deps(web-dev)"
+      include: "scope"
+    groups:
+      patches:
+        patterns:
+          - "*"
+        update-types:
+          - "version-update:semver-patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "version-update:semver-minor"
+
+  # ------------------------------------------------------- GitHub Actions ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "deps(ci)"
+    groups:
+      actions-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "version-update:semver-patch"
+
+  # ----------------------------------------------------------------- Docker ---
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "deps(docker)"
+    groups:
+      base-images:
+        patterns:
+          - "*"
+
+  # --------------------------------------------------------- Docker Compose ---
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "first"
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "deps(observability)"
