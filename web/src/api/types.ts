@@ -59,6 +59,8 @@ export interface components {
       /** Format: int32 */
       id: number | string;
       name: string;
+      /** Format: int32 */
+      movieCount: number | string;
     };
     ImportMovieRequest: {
       folderPath: string;

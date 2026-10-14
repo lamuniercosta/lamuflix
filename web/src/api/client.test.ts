@@ -37,7 +37,9 @@ const movieDetails = {
   },
 } satisfies components['schemas']['MovieDetailsResponse'];
 
-const genres = [{ id: 1, name: 'Action' }] satisfies components['schemas']['GenreDto'][];
+const genres = [
+  { id: 1, name: 'Action', movieCount: 1 },
+] satisfies components['schemas']['GenreDto'][];
 const people = [
   { id: 1, name: 'Timothée Chalamet' },
 ] satisfies components['schemas']['PersonDto'][];

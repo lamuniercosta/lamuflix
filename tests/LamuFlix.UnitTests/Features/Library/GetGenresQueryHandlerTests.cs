@@ -21,8 +21,7 @@ public sealed class GetGenresQueryHandlerTests
     public async Task HandleAsync_StoredGenres_ReturnsFacetsFromCatalog()
     {
         // arrange
-        IReadOnlyList<GenreFacet> expected = [new GenreFacet(1, "Drama"), new GenreFacet(2, "Comedy")];
-        var ct = CancellationToken.None;
+        IReadOnlyList<GenreFacet> expected = [new GenreFacet(1, "Drama", 2), new GenreFacet(2, "Comedy", 1)]; var ct = CancellationToken.None;
         catalog.GetGenresAsync(ct).Returns(expected);
 
         // act

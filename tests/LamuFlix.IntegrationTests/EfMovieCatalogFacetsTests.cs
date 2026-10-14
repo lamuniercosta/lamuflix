@@ -33,6 +33,7 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
         // assert
         facets.Select(facet => facet.Name).ShouldBe(["Drama", "Drama", "Zoe"]);
         facets.Select(facet => facet.Id).ShouldBe([drama.Id, dramaAgain.Id, zoe.Id]);
+        facets.Select(facet => facet.MovieCount).ShouldBe([0, 0, 0]);
         facets.Select(facet => facet.Id).Distinct().Count().ShouldBe(facets.Count);
     }
 
@@ -48,6 +49,78 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
 
         // assert
         facets.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetGenresAsync_SharedMovie_CountsOncePerGenre()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var drama = new GenreRecord { Name = "Drama" };
+        var comedy = new GenreRecord { Name = "Comedy" };
+        context.Genres.AddRange(drama, comedy);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var movie = new MovieRecord
+        {
+            Title = "Shared",
+            LibraryPath = new LamuFlix.Core.Domain.LibraryPath("C:/library/shared.mkv"),
+            Format = new LamuFlix.Core.Domain.MediaFormat("mkv"),
+            Status = LamuFlix.Core.Domain.EnrichmentStatus.Pending
+        };
+        movie.Genres.Add(drama);
+        movie.Genres.Add(comedy);
+        context.Movies.Add(movie);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetGenresAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.ShouldContain(f => f.Name == "Drama" && f.MovieCount == 1);
+        facets.ShouldContain(f => f.Name == "Comedy" && f.MovieCount == 1);
+    }
+
+    [Fact]
+    public async Task GetGenresAsync_DistinctTotals_ReturnsPerGenreCounts()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var drama = new GenreRecord { Name = "Drama" };
+        var comedy = new GenreRecord { Name = "Comedy" };
+        var unused = new GenreRecord { Name = "Unused" };
+        context.Genres.AddRange(drama, comedy, unused);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var first = new MovieRecord
+        {
+            Title = "One",
+            LibraryPath = new LamuFlix.Core.Domain.LibraryPath("C:/library/one.mkv"),
+            Format = new LamuFlix.Core.Domain.MediaFormat("mkv"),
+            Status = LamuFlix.Core.Domain.EnrichmentStatus.Pending
+        };
+        first.Genres.Add(drama);
+        first.Genres.Add(comedy);
+        var second = new MovieRecord
+        {
+            Title = "Two",
+            LibraryPath = new LamuFlix.Core.Domain.LibraryPath("C:/library/two.mkv"),
+            Format = new LamuFlix.Core.Domain.MediaFormat("mkv"),
+            Status = LamuFlix.Core.Domain.EnrichmentStatus.Pending
+        };
+        second.Genres.Add(drama);
+        context.Movies.AddRange(first, second);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetGenresAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.Single(f => f.Name == "Drama").MovieCount.ShouldBe(2);
+        facets.Single(f => f.Name == "Comedy").MovieCount.ShouldBe(1);
+        facets.Single(f => f.Name == "Unused").MovieCount.ShouldBe(0);
     }
 
     [Fact]

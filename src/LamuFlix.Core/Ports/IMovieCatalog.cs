@@ -17,6 +17,5 @@ public interface IMovieCatalog
     Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct);
 }
 
-public sealed record GenreFacet(int Id, string Name);
-
+public sealed record GenreFacet(int Id, string Name, int MovieCount);
 public sealed record PersonFacet(int Id, string Name);

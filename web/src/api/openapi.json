@@ -607,7 +607,8 @@
       "GenreDto": {
         "required": [
           "id",
-          "name"
+          "name",
+          "movieCount"
         ],
         "type": "object",
         "properties": {
@@ -621,6 +622,14 @@
           },
           "name": {
             "type": "string"
+          },
+          "movieCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

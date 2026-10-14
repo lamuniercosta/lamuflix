@@ -39,7 +39,7 @@ internal static class FacetEndpoints
         CancellationToken cancellationToken)
     {
         var genres = await handler.HandleAsync(new GetGenresQuery(), cancellationToken);
-        return TypedResults.Ok(genres.Select(genre => new GenreDto(genre.Id, genre.Name)).ToArray());
+        return TypedResults.Ok(genres.Select(genre => new GenreDto(genre.Id, genre.Name, genre.MovieCount)).ToArray());
     }
 
     private static async Task<Ok<PersonDto[]>> GetPeopleAsync(
