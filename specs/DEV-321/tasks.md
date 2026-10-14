@@ -99,13 +99,13 @@
 
 **Independent Test**: Every control restores from URL and applies together with page reset; pagination honors `ceil(totalCount/pageSize)` bounds; integrated bookmark/back-forward passes through controls + grid + pagination.
 
-- [ ] T032 [US1] Create `web/src/library/LibraryView.tsx` (composes controls/grid/pagination; owns controls/grid/pagination per brief Q6; at current SPA root).
-- [ ] T060 [P] [US4] Create `web/src/library/LibraryFilters.tsx` (text Enter/Search; sort/direction selects; status multiselect; watchlist tri-state; runtime/year bounds + include-unknown; genre/actor numeric-ID entry; apply together with page reset).
-- [ ] T061 [P] [US4] Create `web/src/library/Pagination.tsx` (Previous/Next; current page + result count; disabled past known bounds; past-end empty state with return-to-first-page).
-- [ ] T062 [P] [US4] RTL tests: every URL key restorable in its control; apply-together + page-reset; first/last/empty/past-end pagination; labels, keyboard/focus-visible, polite announcements.
-- [ ] T035 [US1] Convert `web/src/App.test.tsx` (orphaned readiness test) into Library integration tests.
-- [ ] T053 [US3] Replace readiness `web/src/App.tsx` with the main Library view; wire App composition (`QueryClientProvider` + boundary + `LibraryView`) in `web/src/App.tsx` / `main.tsx`.
-- [ ] T063 [US4] Integrated bookmark/back-forward test through controls + grid + pagination: actual control/query restoration proof (all web work via `web-implement` TDD; closes the phase).
+- [X] T032 [US1] Create `web/src/library/LibraryView.tsx` (composes controls/grid/pagination; owns controls/grid/pagination per brief Q6; at current SPA root).
+- [X] T060 [P] [US4] Create `web/src/library/LibraryFilters.tsx` (text Enter/Search; sort/direction selects; status multiselect; watchlist tri-state; runtime/year bounds + include-unknown; genre/actor numeric-ID entry; apply together with page reset).
+- [X] T061 [P] [US4] Create `web/src/library/Pagination.tsx` (Previous/Next; current page + result count; disabled past known bounds; past-end empty state with return-to-first-page).
+- [X] T062 [P] [US4] RTL tests: every URL key restorable in its control; apply-together + page-reset; first/last/empty/past-end pagination; labels, keyboard/focus-visible, polite announcements.
+- [X] T035 [US1] Convert `web/src/App.test.tsx` (orphaned readiness test) into Library integration tests.
+- [X] T053 [US3] Replace readiness `web/src/App.tsx` with the main Library view; wire App composition (`QueryClientProvider` + boundary + `LibraryView`) in `web/src/App.tsx` / `main.tsx`.
+- [X] T063 [US4] Integrated bookmark/back-forward test through controls + grid + pagination: actual control/query restoration proof (all web work via `web-implement` TDD; closes the phase).
 
 **Checkpoint**: All user stories functional and integrated (grid + URL sync + fetching + controls + history).
 
@@ -177,5 +177,6 @@
 - Seed `PosterUrl` directly in tests; never claim live enrichment produces posters (DEV-408 is the follow-up).
 - Existing fixtures/seeds reused; `web/src/test/server.ts` + `setup.ts` reused with feature fixtures/handlers added in tests; synthetic harness behavior preserved.
 - No `since` flag on mutation from worktrees; no threshold waiver; scope-empty exit 2 is SKIPPED, never PASS.
+
 
 
