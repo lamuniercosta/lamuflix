@@ -47,6 +47,28 @@ type SerializeOptions = {
   includeUnknownKeys: boolean;
 };
 
+function resolveYearExtent(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (value instanceof Date) {
+    return currentYearExtent(value);
+  }
+  if (value && typeof value === 'object' && 'currentYear' in (value as object)) {
+    const candidate = (value as Record<string, unknown>).currentYear;
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return candidate;
+    }
+  }
+  if (value && typeof value === 'object' && 'now' in (value as object)) {
+    const candidate = (value as Record<string, unknown>).now;
+    if (candidate instanceof Date) {
+      return currentYearExtent(candidate);
+    }
+  }
+  return currentYearExtent();
+}
+
 function normalizeText(value: unknown): string {
   return value == null ? '' : String(value);
 }
@@ -277,10 +299,10 @@ function numberFrom(value: unknown, fallback: number): number {
   return parsed === null ? fallback : parsed;
 }
 
-function serialize(input: unknown, options: SerializeOptions): string {
+function serialize(input: unknown, options: SerializeOptions, yearExtentInput?: unknown): string {
   const query = parseFilterQuery(input);
   const pairs: Array<[string, string]> = [];
-  const currentYear = currentYearExtent();
+  const currentYear = resolveYearExtent(yearExtentInput);
 
   if (query.text) {
     pairs.push(['text', normalizeText(query.text)]);
@@ -365,40 +387,40 @@ function serialize(input: unknown, options: SerializeOptions): string {
   return new URLSearchParams(pairs).toString();
 }
 
-export function toUrlQuery(input: unknown): string {
-  return serialize(input, { compact: true, includeUnknownKeys: true });
+export function toUrlQuery(input: unknown, currentYear?: unknown): string {
+  return serialize(input, { compact: true, includeUnknownKeys: true }, currentYear);
 }
 
-export function toUrlString(input: unknown): string {
-  return toUrlQuery(input);
+export function toUrlString(input: unknown, currentYear?: unknown): string {
+  return toUrlQuery(input, currentYear);
 }
 
-export function toQueryString(input: unknown): string {
-  return toUrlQuery(input);
+export function toQueryString(input: unknown, currentYear?: unknown): string {
+  return toUrlQuery(input, currentYear);
 }
 
-export function toUrlSearchParams(input: unknown): URLSearchParams {
-  return new URLSearchParams(toUrlQuery(input));
+export function toUrlSearchParams(input: unknown, currentYear?: unknown): URLSearchParams {
+  return new URLSearchParams(toUrlQuery(input, currentYear));
 }
 
-export function toApiQuery(input: unknown): string {
-  return serialize(input, { compact: false, includeUnknownKeys: false });
+export function toApiQuery(input: unknown, currentYear?: unknown): string {
+  return serialize(input, { compact: false, includeUnknownKeys: false }, currentYear);
 }
 
-export function toCanonicalQuery(input: unknown): string {
-  return toApiQuery(input);
+export function toCanonicalQuery(input: unknown, currentYear?: unknown): string {
+  return toApiQuery(input, currentYear);
 }
 
-export function toCanonicalApiQuery(input: unknown): string {
-  return toApiQuery(input);
+export function toCanonicalApiQuery(input: unknown, currentYear?: unknown): string {
+  return toApiQuery(input, currentYear);
 }
 
-export function toApiUrlSearchParams(input: unknown): URLSearchParams {
-  return new URLSearchParams(toApiQuery(input));
+export function toApiUrlSearchParams(input: unknown, currentYear?: unknown): URLSearchParams {
+  return new URLSearchParams(toApiQuery(input, currentYear));
 }
 
-export function normalizeFilterQuery(input: unknown): string {
-  return toApiQuery(input);
+export function normalizeFilterQuery(input: unknown, currentYear?: unknown): string {
+  return toApiQuery(input, currentYear);
 }
 
 export function normalizeToFilterQuery(input: unknown): FilterQuery {

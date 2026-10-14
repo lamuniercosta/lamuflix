@@ -45,7 +45,7 @@ function toNumberOrNull(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
-function buildMovieParams(query: FilterQuery) {
+function buildMovieParams(query: FilterQuery, currentYear: number = currentYearExtent()) {
   const params: Record<string, unknown> = {};
 
   if (query.text) {
@@ -81,7 +81,6 @@ function buildMovieParams(query: FilterQuery) {
     params.runtimeIncludeUnknown = String(toBool(query.runtimeIncludeUnknown));
   }
 
-  const currentYear = currentYearExtent();
   const yearActive =
     (toNumberOrNull(query.yearMin) !== null && toNumberOrNull(query.yearMin) !== YEAR_MIN_EXTENT) ||
     (toNumberOrNull(query.yearMax) !== null && toNumberOrNull(query.yearMax) !== currentYear);
@@ -133,6 +132,7 @@ function countLabel(total: unknown): string {
 
 function LibraryViewInner() {
   const [query, setQuery] = useState<FilterQuery>(() => readQuery());
+  const [currentYear] = useState(() => currentYearExtent(new Date()));
 
   useEffect(() => {
     const handler = () => setQuery(readQuery());
@@ -140,15 +140,15 @@ function LibraryViewInner() {
     return () => window.removeEventListener('popstate', handler);
   }, []);
 
-  const apiUrl = useMemo(() => toCanonicalApiQuery(query), [query]);
+  const apiUrl = useMemo(() => toCanonicalApiQuery(query, currentYear), [query, currentYear]);
 
   const moviesQuery = useQuery({
     queryKey: ['movies', apiUrl],
     queryFn: async () => {
-      const movieParams = buildMovieParams(query);
+      const movieParams = buildMovieParams(query, currentYear);
       const { data, error } = await client.GET('/api/movies', {
-        params: { query: movieParams as never },
-      });
+        params: { query: movieParams },
+      } as unknown as Parameters<typeof client.GET<'/api/movies'>>[1]);
       if (error) {
         throw new Error('Movies could not be refreshed.');
       }
@@ -172,8 +172,8 @@ function LibraryViewInner() {
     queryKey: ['people', 'actor'],
     queryFn: async () => {
       const { data, error } = await client.GET('/api/people', {
-        params: { query: { Role: 'actor' } as never },
-      });
+        params: { query: { role: 'actor' } },
+      } as unknown as Parameters<typeof client.GET<'/api/people'>>[1]);
       if (error) {
         throw new Error('Cast could not be loaded.');
       }
@@ -183,6 +183,8 @@ function LibraryViewInner() {
 
   const movieTitles = moviesQuery.data?.items ?? [];
   const pendingRefetch = moviesQuery.isFetching && movieTitles.length > 0;
+  const genresError = genresQuery.error;
+  const actorsError = actorsQuery.error;
 
   return (
     <main className="flex min-h-screen flex-col gap-6 bg-slate-950 px-6 py-6 text-slate-50 lg:flex-row">
@@ -192,25 +194,33 @@ function LibraryViewInner() {
           genres={GenreDtoList(genresQuery.data)}
           actors={PersonDtoList(actorsQuery.data)}
           onChange={setQuery as (value: unknown) => void}
+          genresError={genresError}
+          actorsError={actorsError}
         />
       </div>
       <section className="flex-1" aria-label="Results">
         <div aria-live="polite">
           {moviesQuery.error ? (
             <p role="alert">Movies could not be refreshed.</p>
+          ) : moviesQuery.data ? (
+            <p>{countLabel(moviesQuery.data.totalCount)}</p>
           ) : (
-            <p>{countLabel(moviesQuery.data?.totalCount)}</p>
+            <p className="h-5 w-24" aria-hidden="true" />
           )}
         </div>
         <div className={pendingRefetch ? 'opacity-60' : ''}>
           {moviesQuery.isPending ? (
-            <p>Loading movies...</p>
+            <ul aria-busy="true" className="space-y-2">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <li key={index} className="h-5 w-40 bg-slate-800" aria-hidden="true" />
+              ))}
+            </ul>
           ) : movieTitles.length === 0 ? (
             <p>No movies match these filters.</p>
           ) : (
             <ul>
-              {movieTitles.map((item) => (
-                <li key={String(item.id)}>{item.title}</li>
+              {movieTitles.map((item: { id: unknown; title: unknown }) => (
+                <li key={String(item.id)}>{String(item.title)}</li>
               ))}
             </ul>
           )}
