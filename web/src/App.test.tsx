@@ -1,18 +1,13 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import App from './App';
 
-describe('App library integration', () => {
-  it('renders the main library view', async () => {
+describe('App host', () => {
+  it('mounts the filter panel and movie results', async () => {
     render(<App />);
 
-    expect(screen.getByRole('main')).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(
-        screen.getAllByRole('article').length +
-          screen.queryAllByText('Your library is empty.').length,
-      ).toBeGreaterThanOrEqual(0);
-    });
+    expect(await screen.findByText('2 movies')).toBeInTheDocument();
+    expect(await screen.findByText('Dune')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /filters/i })).toBeInTheDocument();
   });
 });
