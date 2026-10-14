@@ -1,7 +1,29 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.0 → 1.2.0 (MINOR — closed-set types standardised on SmartEnum-style Enumerations)
+Version change: 1.2.0 → 1.3.0 (MINOR — retired `LamuFlix.Worker` host removed; the enrichment
+consumer is named as hosted in the Api)
+
+Amendment 1.3.0 (2026-10-14):
+  Modified sections:
+    ✏️ I. Ports and Adapters: `LamuFlix.Worker` row removed from the project reference table.
+       DEV-19 retired the project from the solution; ADR-0019 records that `EnrichmentConsumer`
+       (Infrastructure) runs in the Api host and rejects resurrecting the Worker.
+    ✏️ VI. Observability Across Processes: the trace spans API → RabbitMQ → `EnrichmentConsumer`
+       (hosted in the Api) → metadata provider; the worker health-signal rule becomes the Api
+       `/health/ready` check, which covers the consumer it hosts (DEV-325 C1-A: no `worker`
+       compose service)
+    ✏️ IX. Test Pyramid: integration row reads "consumer end-to-end" instead of "worker"
+    ✏️ Enrichment Reliability Rules: "A worker MUST claim" becomes "The consumer MUST claim"
+  Added / removed sections: none
+  Templates reviewed:
+    ✅ .specify/templates/*.md — no worker references; no edits required
+  Follow-up:
+    ⚠ The leftover `src/LamuFlix.Worker` folder is deleted by DEV-388.
+    ⚠ README.md still lists the `LamuFlix.Worker.csproj` upgrade in its legacy notes; the README
+      rewrite (DEV-23) owns it.
+
+Previous version change: 1.1.0 → 1.2.0 (MINOR — closed-set types standardised on SmartEnum-style Enumerations)
 
 Amendment 1.2.0 (2026-09-28):
   Modified sections:
@@ -105,7 +127,6 @@ Project reference rules are strict and unidirectional:
 | `LamuFlix.Core` | BCL, `Microsoft.Extensions.Logging.Abstractions`, `System.Collections.Immutable`, `Ardalis.SmartEnum` only |
 | `LamuFlix.Infrastructure` | Core |
 | `LamuFlix.Api` | Core, Infrastructure, ServiceDefaults |
-| `LamuFlix.Worker` | Core, Infrastructure, ServiceDefaults |
 | `LamuFlix.ServiceDefaults` | nothing application-specific |
 
 - Core MUST NOT reference EF Core, Npgsql, RabbitMQ, `System.IO` process APIs, or any HTTP client.
@@ -217,7 +238,7 @@ and prevent status-code drift between endpoints.
 
 ### VI. Observability Across Processes (NON-NEGOTIABLE)
 
-One trace MUST span API → RabbitMQ → Worker → metadata provider.
+One trace MUST span API → RabbitMQ → `EnrichmentConsumer` (hosted in the Api) → metadata provider.
 
 - Publishers inject `traceparent`/`tracestate` into message headers via
   `Propagators.DefaultTextMapPropagator`; consumers extract them and start a consumer Activity,
@@ -231,7 +252,8 @@ One trace MUST span API → RabbitMQ → Worker → metadata provider.
   and, where applicable, the attempt number and failure category.
 - Health endpoints MUST exist and be reachable without authentication: `GET /health/live`
   (no dependency checks) and `GET /health/ready` (Postgres, RabbitMQ). Every new external
-  dependency MUST register a health check. The worker MUST expose a health signal for compose.
+  dependency MUST register a health check. The Api `/health/ready` check is the compose health
+  signal for the enrichment consumer it hosts.
 - `ServiceDefaults` owns Serilog, OpenTelemetry (OTLP), health checks, options validation, and
   `TimeProvider` registration; hosts MUST NOT duplicate that wiring.
 
@@ -285,7 +307,7 @@ context legible to a reviewer and survives provider or library swaps without ren
 |---|---|---|
 | Domain, handlers, filters | `LamuFlix.UnitTests` | xUnit v3, NSubstitute, Shouldly, AutoFixture, Faker.Net |
 | Property tests | `LamuFlix.UnitTests` | FsCheck.Xunit |
-| Persistence, messaging, API, worker end-to-end | `LamuFlix.IntegrationTests` | Testcontainers (Postgres, RabbitMQ), `WebApplicationFactory`, WireMock.Net, Verify |
+| Persistence, messaging, API, consumer end-to-end | `LamuFlix.IntegrationTests` | Testcontainers (Postgres, RabbitMQ), `WebApplicationFactory`, WireMock.Net, Verify |
 | Architecture | `LamuFlix.ArchitectureTests` | NetArchTest.Rules or ArchUnitNET |
 | Mutation | `LamuFlix.UnitTests` | Stryker, break threshold 80 on `LamuFlix.Core` |
 
@@ -444,7 +466,7 @@ Code MUST follow `.claude/rules/vendor/aaron-csharp-coding-style.md` and these p
 
 - The `EnrichmentRequested` message carries `MovieId` and `Attempt` ONLY. Title, year, and IMDb
   id are read from the row at processing time so a message can never be stale.
-- A worker MUST claim (`TryClaimForEnrichmentAsync`) before calling the metadata provider; a
+- The consumer MUST claim (`TryClaimForEnrichmentAsync`) before calling the metadata provider; a
   false claim is acknowledged and ignored.
 - The consumer (`EnrichmentConsumer`) is thin: it resolves a scope per message, calls Core
   handlers, and translates outcomes to ack / nack / republish. All decisions live in Core
@@ -530,4 +552,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.2.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-09-28
+**Version**: 1.3.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-14
