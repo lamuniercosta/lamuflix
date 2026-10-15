@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import type { components, paths } from '../api/types';
 
@@ -18,6 +18,7 @@ export const standingBrowseQuery = {
 export const browseMoviesQueryKey = ['browseMovies', standingBrowseQuery] as const;
 
 export const GENERIC_IMPORT_ERROR = 'Something went wrong. Try again.';
+export const GENERIC_RETRY_ERROR = 'Something went wrong. Try again.';
 
 export class ImportFieldError extends Error {
   readonly kind = 'field' as const;
@@ -25,6 +26,10 @@ export class ImportFieldError extends Error {
 
 export class ImportGenericError extends Error {
   readonly kind = 'generic' as const;
+}
+
+export class RetryRowError extends Error {
+  readonly kind = 'row' as const;
 }
 
 export function lastFolderSegment(folderPath: string): string {
@@ -72,6 +77,22 @@ export function pendingRow(id: string, title: string): MovieSummary {
     runtime: null,
     imdbRating: null,
     enrichmentStatus: 'Pending',
+  };
+}
+
+export function markRowPending(
+  current: BrowseMoviesResponse | undefined,
+  id: number | string,
+): BrowseMoviesResponse | undefined {
+  if (!current) {
+    return current;
+  }
+
+  return {
+    ...current,
+    items: current.items.map((item) =>
+      String(item.id) === String(id) ? { ...item, enrichmentStatus: 'Pending' } : item,
+    ),
   };
 }
 
@@ -141,6 +162,40 @@ export function useImportMovieMutation() {
       }
 
       throw new ImportGenericError(GENERIC_IMPORT_ERROR);
+    },
+  });
+}
+
+export function useRetryEnrichmentMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number | string) => {
+      let response: Response;
+
+      try {
+        const result = await client.POST('/api/movies/{id}/enrichment', {
+          params: { path: { id } },
+          parseAs: 'text',
+        });
+        response = result.response;
+      } catch {
+        throw new RetryRowError(GENERIC_RETRY_ERROR);
+      }
+
+      if (response.status === 202) {
+        return { id };
+      }
+
+      throw new RetryRowError(GENERIC_RETRY_ERROR);
+    },
+    onSuccess: ({ id }) => {
+      queryClient.setQueryData<BrowseMoviesResponse>(browseMoviesQueryKey, (current) =>
+        markRowPending(current, id),
+      );
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: browseMoviesQueryKey });
     },
   });
 }

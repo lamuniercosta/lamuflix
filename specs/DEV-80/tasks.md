@@ -101,9 +101,9 @@
 
 **Independent Test**: Render each status, trigger retries, and verify visibility plus all three outcomes
 
-- [ ] T020 [US4] Add the retry mutation to `web/src/library/libraryQueries.ts`: POST `/api/movies/{id}/enrichment`; on 202 set that row to `Pending` in cache; on 404/409 show an inline row error and invalidate the browse query
-- [ ] T021 [US4] Extend `web/src/test/handlers.ts` with `openapi-msw` retry handlers covering 202, 404, and 409 (same file as T016; not parallel with T016)
-- [ ] T022 [US4] Add `web/src/library/LibraryView.retry.test.tsx` proving retry appears only for NotFound/Failed rows plus the 202/404/409 paths with observable assertions (builds on T020-T021; not parallel with T021): each row `Retry` carries the row-specific accessible name (`Retry <title>`); 404/409 inline row errors are exposed via the described alert pattern. No skeleton, list-level manual retry, or poll-error behavior is added (out of scope per the round 1 adjudication).
+- [X] T020 [US4] Add the retry mutation to `web/src/library/libraryQueries.ts`: POST `/api/movies/{id}/enrichment`; on 202 set that row to `Pending` in cache; on 404/409 show an inline row error and invalidate the browse query
+- [X] T021 [US4] Extend `web/src/test/handlers.ts` with `openapi-msw` retry handlers covering 202, 404, and 409 (same file as T016; not parallel with T016)
+- [X] T022 [US4] Add `web/src/library/LibraryView.retry.test.tsx` proving retry appears only for NotFound/Failed rows plus the 202/404/409 paths with observable assertions (builds on T020-T021; not parallel with T021): each row `Retry` carries the row-specific accessible name (`Retry <title>`); 404/409 inline row errors are exposed via the described alert pattern. No skeleton, list-level manual retry, or poll-error behavior is added (out of scope per the round 1 adjudication).
 
 **Checkpoint**: User Story 4 retries with re-armed polling or inline row error, all covered
 
