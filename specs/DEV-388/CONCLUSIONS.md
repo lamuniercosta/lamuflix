@@ -176,3 +176,25 @@ Recon-DEV-388-2 section 14 verifies constitution governance, migration constrain
 
 - Basis: `docs/adr/` numbers its files `NNNN-kebab-subject.md` and the latest is `0020-request-correlated-import-enrichment-proof.md`. Ordering the parity evidence before the Web deletion follows ticket Scope 2 ("before deleting ... confirm the Api import flow has its own replacement").
 - Rulings Q1-Q8 raise neither §2.3 escalation (a change to the ticket text, or a constitution departure), so Gate 1 needs no `blocked: structural` checkbox.
+
+---
+### Q9 full grill exchange (Keel / Patron)
+
+**Question 9/12:** Confirm final ordering: Quill drafts spec/plan/tasks from brief and ADR; Keel analyzes read-only against brief; plan challenge/freeze then owner Gate 1. Phase B fresh main drift/overlap recon and analysis precede implementation. Backend tests/slice then OpenAPI/TS generation then frontend TDD. Verify import/enrichment replacements and full P1 parity before deleting Web/MovieService/publisher. Worker may retire earlier. Approved selective test/README cleanup then final gates and PR-posted reviews. Rigger closes DEV-370/385 only post-merge with live-state checks. File set: existing Core features/ports, Infrastructure persistence, Api endpoints; Unit/Integration tests and contract snapshot; generated openapi/types; web details/cache/tests; whole legacy trees and Q4 tests/csproj; README; specs/DEV-388 and a retirement ADR. No independent unknown-fact searches; recon through Conductor. No owner checkbox under current rulings; no unrelated UI restyling. Confirm shared understanding and authorize final brief/ADR carrying Q3 provenance limit?
+
+**Answer (Patron):** Shared understanding confirmed. Ordering, file set and Q3 provenance limit approved; finalize brief.md and ADR; no owner checkbox required. Correction: use docs/adr convention, 0021-kebab-subject.md, for example 0021-retire-legacy-web-and-worker-hosts.md.
+
+**Rationale and implications:** Grill complete at 9 of 12 questions. Quill may draft from the final brief; this is not plan freeze, Gate 1 approval, implementation authority, review clearance or merge authority. ADR filename is an explicit Patron direction.
+
+## Step 6 adjudication - SPA delete 404 and ADR 0021 status
+
+**Ruling 1 (SPA DELETE 404):** A 404 from the details-view DELETE means the movie is gone. Handle it like 204: invalidate the library, watchlist and details caches and navigate to the library, with no error banner and no retry. The Q2/Q6 visible-error-plus-retry path stays for every other failure (network, 5xx, problem responses other than 404).
+
+- Basis: Q2 fixes the API contract (204 removed, 404 absent) and says nothing about how the SPA treats 404. Q6's "failure" means the user's intent was not achieved, and after a 404 the intent (movie absent) is achieved. Retrying a confirmed-absent resource can never succeed, so offering a retry would be a dead end, and keeping the stale details view would show a movie that no longer exists.
+- Within frozen scope (Q8): this is SPA behavior on the already-approved contract. It adds no API shape and no new copy.
+- Test delta: the Q7 Vitest/RTL set gains one case. DELETE 404 must produce cache invalidation plus navigation to the library, with no error shown.
+
+**Ruling 2 (ADR 0021 status):** The decision becomes Accepted when the Gate 1 spec PR merges, because that merge is the owner's approval of the decision. In the spec PR, the status line reads `Proposed (becomes Accepted when the DEV-388 Gate 1 spec PR merges)`. The delivery PR is permitted, and expected, to make a status-only edit to `Accepted`. That edit changes only the status line. Any change to the decision text needs a new Patron ruling.
+
+- Basis: repo precedent ties ADR status to Gate 1 (`0019`: "Proposed (pending Gate 1 spec PR merge)"; `0020`: "decision approval depends on Gate 1 spec merge"). A PR cannot record its own merge, so the flip falls to the next PR on the chain, which is the delivery PR.
+- This is a forced edit under Section 2.3 item 6 (it records the approved status) and is not a content rewrite.
