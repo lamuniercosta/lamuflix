@@ -540,6 +540,8 @@ describe('FilterPanel', () => {
     expect(window.location.search).toBe('?yearMin=2000&yearMax=2010');
 
     fireEvent.change(yearMin, { target: { value: String(YEAR_MIN_EXTENT) } });
+    expect(window.location.search).toBe('?yearMin=&yearMax=2010');
+
     fireEvent.change(yearMax, { target: { value: String(baseYear) } });
     expect(window.location.search).toBe('');
 
