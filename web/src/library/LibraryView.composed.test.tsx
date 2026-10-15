@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import App from '../App';
 import { browseMovies } from '../mocks/fixtures';
 import { server } from '../test/server';
 import LibraryErrorBoundary from './LibraryErrorBoundary';
@@ -23,6 +24,24 @@ function renderLibraryViewWithBoundary() {
       <LibraryView />
     </LibraryErrorBoundary>,
     { wrapper: Wrapper },
+  );
+}
+
+function renderApp() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<App />, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
+}
+
+function observeMoviesRequests(seen: string[]) {
+  server.use(
+    http.get('*/api/movies', ({ request }) => {
+      seen.push(new URL(request.url).search.slice(1));
+      return HttpResponse.json(browseMovies);
+    }),
   );
 }
 
@@ -292,6 +311,46 @@ describe('LibraryView composition', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Movies could not be refreshed.');
     });
     expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+  });
+
+  it('resets to page 1 in the request when the header watchlist toggle engages', async () => {
+    window.history.replaceState({}, '', '/?page=3');
+    const seen: string[] = [];
+    observeMoviesRequests(seen);
+
+    renderApp();
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Watchlist' }));
+
+    await waitFor(() => {
+      expect(seen.at(-1)).toBe(
+        'sort=Title&direction=Ascending&page=1&pageSize=20&InWatchlist=true',
+      );
+    });
+  });
+
+  it('keeps watchlist=true in the URL and request across subsequent filter changes', async () => {
+    const seen: string[] = [];
+    observeMoviesRequests(seen);
+
+    renderApp();
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Watchlist' }));
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get('watchlist')).toBe('true');
+    });
+
+    fireEvent.click(screen.getByLabelText(/^Pending$/i));
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get('statuses')).toBe('Pending');
+    });
+    expect(new URLSearchParams(window.location.search).get('watchlist')).toBe('true');
+    expect(seen.at(-1)).toBe(
+      'statuses=Pending&sort=Title&direction=Ascending&page=1&pageSize=20&InWatchlist=true',
+    );
   });
 
   it('shows the invalid-filter copy from the error boundary on a 422', async () => {
