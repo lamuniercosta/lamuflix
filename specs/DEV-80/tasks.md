@@ -88,8 +88,8 @@
 
 **Independent Test**: Seed cached browse data with and without Pending and verify the interval arms and disarms
 
-- [ ] T018 [US3] Set the browse query `refetchInterval` function in `web/src/library/libraryQueries.ts` to return `2000` while any current browse item has `enrichmentStatus === 'Pending'`, else `false`, keeping background refetch off
-- [ ] T019 [US3] Add `web/src/library/libraryQueries.polling.test.tsx` proving polling starts with a Pending row and stops when none remain, with observable background-refetch-off coverage (spec.md:58, FR-005) and 2-second reconciliation of the Pending row to its server state (builds on T018; not parallel with T018): assert reconciled status announces through the polite live region and focus is not stolen on reconcile
+- [X] T018 [US3] Set the browse query `refetchInterval` function in `web/src/library/libraryQueries.ts` to return `2000` while any current browse item has `enrichmentStatus === 'Pending'`, else `false`, keeping background refetch off
+- [X] T019 [US3] Add `web/src/library/libraryQueries.polling.test.tsx` proving polling starts with a Pending row and stops when none remain, with observable background-refetch-off coverage (spec.md:58, FR-005) and 2-second reconciliation of the Pending row to its server state (builds on T018; not parallel with T018): assert reconciled status announces through the polite live region and focus is not stolen on reconcile
 
 **Checkpoint**: User Story 3 polls conditionally with proof on both arms
 
