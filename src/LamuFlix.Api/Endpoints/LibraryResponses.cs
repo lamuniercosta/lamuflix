@@ -10,13 +10,13 @@ internal sealed record BrowseMoviesResponse(IReadOnlyList<MovieSummaryResponse> 
 {
     public static BrowseMoviesResponse From(PagedResult<MovieSummary> page) =>
         new(
-            [.. page.Items.Select(summary => new MovieSummaryResponse(summary.Id.Value, summary.Title, summary.PosterUrl, summary.ReleaseYear, summary.Runtime, summary.ImdbRating, summary.EnrichmentStatus))],
+            [.. page.Items.Select(summary => new MovieSummaryResponse(summary.Id.Value, summary.Title, summary.PosterUrl, summary.ReleaseYear, summary.Runtime, summary.ImdbRating, summary.EnrichmentStatus, summary.IsInWatchlist))],
             page.TotalCount);
 }
 
-internal sealed record MovieSummaryResponse(int Id, string Title, string? PosterUrl, int? ReleaseYear, int? Runtime, decimal? ImdbRating, EnrichmentStatus EnrichmentStatus);
+internal sealed record MovieSummaryResponse(int Id, string Title, string? PosterUrl, int? ReleaseYear, int? Runtime, decimal? ImdbRating, EnrichmentStatus EnrichmentStatus, bool IsInWatchlist);
 
-internal sealed record MovieDetailsResponse(int Id, string Title, string Path, string Format, MovieMetadataResponse? Metadata)
+internal sealed record MovieDetailsResponse(int Id, string Title, string Path, string Format, MovieMetadataResponse? Metadata, bool IsInWatchlist)
 {
     public static MovieDetailsResponse From(MovieDetails details) =>
         new(
@@ -24,7 +24,8 @@ internal sealed record MovieDetailsResponse(int Id, string Title, string Path, s
             details.Title,
             details.Path.Value,
             details.Format.Extension,
-            details.Metadata is null ? null : MovieMetadataResponse.From(details.Metadata));
+            details.Metadata is null ? null : MovieMetadataResponse.From(details.Metadata),
+            details.IsInWatchlist);
 }
 
 internal sealed record MovieMetadataResponse(

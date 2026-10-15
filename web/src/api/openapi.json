@@ -667,7 +667,8 @@
           "title",
           "path",
           "format",
-          "metadata"
+          "metadata",
+          "isInWatchlist"
         ],
         "type": "object",
         "properties": {
@@ -697,6 +698,9 @@
                 "$ref": "#/components/schemas/MovieMetadataResponse"
               }
             ]
+          },
+          "isInWatchlist": {
+            "type": "boolean"
           }
         }
       },
@@ -804,7 +808,8 @@
           "releaseYear",
           "runtime",
           "imdbRating",
-          "enrichmentStatus"
+          "enrichmentStatus",
+          "isInWatchlist"
         ],
         "type": "object",
         "properties": {
@@ -854,6 +859,9 @@
           },
           "enrichmentStatus": {
             "$ref": "#/components/schemas/EnrichmentStatus"
+          },
+          "isInWatchlist": {
+            "type": "boolean"
           }
         }
       },

@@ -80,7 +80,8 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         // assert
         details.StatusCode.ShouldBe(HttpStatusCode.OK);
         details.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
-        ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata");
+        ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata", "isInWatchlist");
+        detailsBody.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
         detailsBody.GetProperty("id").GetInt32().ShouldBe(id);
         detailsBody.GetProperty("title").GetString().ShouldBe(SeedTitle);
         detailsBody.GetProperty("path").GetString().ShouldBe($"C:/library/{SeedPathSuffix}.mkv");
@@ -122,8 +123,9 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         browse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var enrichedItem = browseBody.GetProperty("items").EnumerateArray()
             .Single(item => item.GetProperty("id").GetInt32() == id);
-        ShouldCarryExactly(enrichedItem, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus");
+        ShouldCarryExactly(enrichedItem, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist");
         enrichedItem.GetProperty("posterUrl").GetString().ShouldBe(ExpectedPoster);
+        enrichedItem.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
     }
 
     [Fact]
