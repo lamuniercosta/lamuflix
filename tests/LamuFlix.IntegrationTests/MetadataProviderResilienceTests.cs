@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
-using WireMock.Server;
 using Xunit;
 
 namespace LamuFlix.IntegrationTests;
@@ -125,7 +124,7 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
     public async Task FindAsync_ResponseSlowerThanTheAttemptTimeout_ReturnsFailedProviderUnavailable()
     {
         // arrange
-        using var slow = WireMockServer.Start();
+        using var slow = LoopbackWireMock.Start();
         slow.Given(Request.Create().UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200).WithDelay(TimeSpan.FromSeconds(2)).WithBody(FoundBody));
         var services = probe.BuildServices(new Dictionary<string, string?>
@@ -144,7 +143,7 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
     public async Task FindAsync_UnreachableServer_ReturnsFailedProviderUnavailable()
     {
         // arrange
-        var dead = WireMockServer.Start();
+        var dead = LoopbackWireMock.Start();
         var deadUrl = dead.Urls[0];
         dead.Stop();
         dead.Dispose();

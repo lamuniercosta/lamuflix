@@ -43,7 +43,7 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        Server = WireMockServer.Start();
+        Server = LoopbackWireMock.Start();
 
         // The first request in a process pays ~1s of one-time JIT across WireMock and the HTTP stack, which
         // overruns the 500ms loopback AttemptTimeout, so the first test would see a retried, double-counted request.

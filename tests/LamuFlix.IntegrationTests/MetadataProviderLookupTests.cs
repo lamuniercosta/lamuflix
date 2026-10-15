@@ -19,7 +19,6 @@ using Microsoft.Extensions.Options;
 using Shouldly;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
-using WireMock.Server;
 using Xunit;
 
 namespace LamuFlix.IntegrationTests;
@@ -556,7 +555,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         await FindAsync(services, "Solaris", ct);
 
         probe.Reset();
-        using var slow = WireMockServer.Start();
+        using var slow = LoopbackWireMock.Start();
         slow.Given(Request.Create().UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200).WithDelay(TimeSpan.FromSeconds(2)).WithBody(FullBody));
         var slowServices = probe.BuildServices(new Dictionary<string, string?>

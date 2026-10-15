@@ -447,7 +447,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
 
     private static WireMockServer StartStub()
     {
-        var server = WireMockServer.Start();
+        var server = LoopbackWireMock.Start();
         server.Given(Request.Create().WithPath(TracesPath)).RespondWith(Response.Create().WithStatusCode(200));
         server.Given(Request.Create().WithPath(MetricsPath)).RespondWith(Response.Create().WithStatusCode(200));
         server.Given(Request.Create().WithPath(LogsPath)).RespondWith(Response.Create().WithStatusCode(200));
