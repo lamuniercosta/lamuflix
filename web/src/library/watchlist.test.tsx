@@ -125,6 +125,65 @@ describe('WatchlistToggleButton rollback', () => {
   });
 });
 
+describe('WatchlistToggleButton rollback after a confirmed toggle', () => {
+  it('restores the confirmed on state when the reverse DELETE fails', async () => {
+    server.use(
+      http.post('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
+      http.delete('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 500 })),
+    );
+    renderToggle(1, false);
+    const button = screen.getByRole('button', { name: 'Add to watchlist' });
+
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'false'));
+    expect(button).toHaveAccessibleName('Remove from watchlist');
+
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'false'));
+    expect(button).toHaveAccessibleName('Remove from watchlist');
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(WATCHLIST_TOGGLE_ERROR)).toBeInTheDocument();
+  });
+
+  it('restores the confirmed off state when the reverse POST fails', async () => {
+    server.use(
+      http.delete('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
+      http.post('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 500 })),
+    );
+    renderToggle(1, true);
+    const button = screen.getByRole('button', { name: 'Remove from watchlist' });
+
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'false'));
+    expect(button).toHaveAccessibleName('Add to watchlist');
+
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'false'));
+    expect(button).toHaveAccessibleName('Add to watchlist');
+    expect(button).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText(WATCHLIST_TOGGLE_ERROR)).toBeInTheDocument();
+  });
+
+  it('restores the confirmed on state when the reverse DELETE request rejects', async () => {
+    server.use(
+      http.post('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
+      http.delete('*/api/movies/:id/watchlist', () => HttpResponse.error()),
+    );
+    renderToggle(1, false);
+    const button = screen.getByRole('button', { name: 'Add to watchlist' });
+
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'false'));
+    expect(button).toHaveAccessibleName('Remove from watchlist');
+
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'false'));
+    expect(button).toHaveAccessibleName('Remove from watchlist');
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(WATCHLIST_TOGGLE_ERROR)).toBeInTheDocument();
+  });
+});
+
 describe('WatchlistToggleButton in-flight guard', () => {
   it('ignores repeat clicks while in flight and clears aria-busy on success', async () => {
     let calls = 0;

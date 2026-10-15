@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { components } from '../api/types';
 import App from '../App';
 import { server } from '../test/server';
+import LibraryView from './LibraryView';
+import { pendingRow } from './libraryQueries';
 import { WATCHLIST_TOGGLE_ERROR, __resetWatchlistStore } from './watchlistStore';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
@@ -97,6 +99,26 @@ describe('watchlist filter-active removal reconciliation', () => {
     expect(screen.getByText('Arrival')).toBeInTheDocument();
   });
 
+  it('shows the watchlist empty copy after the last watchlisted card is removed', async () => {
+    window.history.replaceState({}, '', '/?watchlist=true');
+    server.use(
+      http.get('/api/movies', () =>
+        HttpResponse.json(browseBody([summary({ id: 1, title: 'Dune' })]), { status: 200 }),
+      ),
+      http.delete('/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
+    );
+
+    renderApp();
+    await screen.findByText('Dune');
+    fireEvent.click(within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }));
+
+    expect(await screen.findByText('Your watchlist is empty.')).toBeInTheDocument();
+    expect(
+      screen.queryByText('No movies yet. Import a folder to get started.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  });
+
   it('keeps the card and rolls back with the inline error when removal fails', async () => {
     window.history.replaceState({}, '', '/?watchlist=true');
     server.use(
@@ -120,5 +142,21 @@ describe('watchlist filter-active removal reconciliation', () => {
       within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText(WATCHLIST_TOGGLE_ERROR)).toBeInTheDocument();
+  });
+});
+
+describe('watchlist filter empty state with a hidden leading item', () => {
+  it('shows the watchlist empty copy for a non-watchlisted import placeholder', async () => {
+    server.use(http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={client}>
+        <LibraryView leadingItem={pendingRow('99', 'Imported')} inWatchlist />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Your watchlist is empty.')).toBeInTheDocument();
+    expect(screen.queryByText('Imported')).not.toBeInTheDocument();
   });
 });

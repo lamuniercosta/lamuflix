@@ -24,9 +24,10 @@ interface MovieRowProps {
   item: MovieSummary;
   filterActive: boolean;
   onRemoved: () => void;
+  onHiddenChange: (id: string, hidden: boolean) => void;
 }
 
-function MovieRow({ item, filterActive, onRemoved }: MovieRowProps) {
+function MovieRow({ item, filterActive, onRemoved, onHiddenChange }: MovieRowProps) {
   const errorId = useId();
   const [rowError, setRowError] = useState<string | null>(null);
   const retryEnrichment = useRetryEnrichmentMutation();
@@ -41,6 +42,10 @@ function MovieRow({ item, filterActive, onRemoved }: MovieRowProps) {
     }
     wasRemoved.current = removed;
   }, [removed, onRemoved]);
+
+  useEffect(() => {
+    onHiddenChange(String(item.id), removed);
+  }, [removed, item.id, onHiddenChange]);
 
   async function onRetry() {
     setRowError(null);
@@ -91,20 +96,49 @@ export default function LibraryView({
     leadingItem && !fetched.some((item) => String(item.id) === String(leadingItem.id))
       ? [leadingItem, ...fetched]
       : fetched;
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
   const listRef = useRef<HTMLUListElement>(null);
+  const emptyRef = useRef<HTMLParagraphElement>(null);
   const focusList = useCallback(() => {
     listRef.current?.focus();
   }, []);
+  const setRowHidden = useCallback((id: string, hidden: boolean) => {
+    setHiddenIds((prev) => {
+      if (prev.has(id) === hidden) {
+        return prev;
+      }
+      const next = new Set(prev);
+      if (hidden) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const visibleItems = items.filter((item) => !hiddenIds.has(String(item.id)));
+  const hasVisibleItems = visibleItems.length > 0;
+  const hadVisibleItems = useRef(hasVisibleItems);
+
+  useEffect(() => {
+    if (hadVisibleItems.current && !hasVisibleItems) {
+      emptyRef.current?.focus();
+    }
+    hadVisibleItems.current = hasVisibleItems;
+  }, [hasVisibleItems]);
 
   if (!query.data && !leadingItem) {
     return null;
   }
 
-  if (items.length === 0) {
-    return inWatchlist ? (
-      <p>Your watchlist is empty.</p>
-    ) : (
-      <p>No movies yet. Import a folder to get started.</p>
+  if (!hasVisibleItems) {
+    return (
+      <p ref={emptyRef} tabIndex={-1}>
+        {inWatchlist
+          ? 'Your watchlist is empty.'
+          : 'No movies yet. Import a folder to get started.'}
+      </p>
     );
   }
 
@@ -116,6 +150,7 @@ export default function LibraryView({
           item={item}
           filterActive={inWatchlist}
           onRemoved={focusList}
+          onHiddenChange={setRowHidden}
         />
       ))}
     </ul>
