@@ -4,6 +4,7 @@ import MovieDetailsView from './features/movie-details/MovieDetailsView';
 import ImportDialog from './library/ImportDialog';
 import { armImportPlaceholder, pendingRow } from './library/libraryQueries';
 import LibraryView from './library/LibraryView';
+import { useWatchlistFilter } from './library/useWatchlistFilter';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 
@@ -19,6 +20,7 @@ export default function App() {
   const [importedRow, setImportedRow] = useState<MovieSummary | null>(null);
   const importFolderButtonRef = useRef<HTMLButtonElement>(null);
   const movieId = useMemo(() => parseMovieId(window.location.pathname), []);
+  const { active: watchlistActive, toggle: toggleWatchlist } = useWatchlistFilter();
 
   function closeImport() {
     setImportOpen(false);
@@ -41,8 +43,11 @@ export default function App() {
         <button ref={importFolderButtonRef} type="button" onClick={() => setImportOpen(true)}>
           Import folder
         </button>
+        <button type="button" aria-pressed={watchlistActive} onClick={toggleWatchlist}>
+          Watchlist
+        </button>
       </header>
-      <LibraryView leadingItem={importedRow} />
+      <LibraryView leadingItem={importedRow} inWatchlist={watchlistActive} />
       <ImportDialog open={importOpen} onClose={closeImport} onImported={prependImportedMovie} />
     </div>
   );

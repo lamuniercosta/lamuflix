@@ -80,18 +80,18 @@ description: "Task list for DEV-324 watchlist toggle and filter"
 
 ### Tests for User Story 2 (write FIRST, FAIL before implementation; serialized in listed order: shared browse/filter/list files, shared MSW setup; all depend on Phase 2 host paths; T035/T036 written before T037/T038 per TDD and run serialized after T030-T034, with removal behavior verified only after T038)
 
-- [ ] T030 [US2] `watchlist=true` sends `inWatchlist=true`; absent/`false`/other sends no filter, in `web/src` browse test
-- [ ] T031 [US2] Filter toggle syncs to URL and resets page to 1 while retaining other filters, in `web/src` filter test; bounded in-flight filter-switch URL/query verification against the delivered URL/browse integration at pickup, with drift stop if unsupported
-- [ ] T032 [US2] Filter combines with other filters using AND, in `web/src` browse test
-- [ ] T033 [US2] Empty state "Your watchlist is empty." when filter is on with no matches, in `web/src` list test; when the filter is off, the delivered host empty behavior is preserved (no watchlist copy override, no host override API)
-- [ ] T034 [US2] Quick-filter label "Watchlist" with pressed state at `?watchlist=true`, in `web/src` filter test
-- [ ] T035 [US2] With watchlist filter on, successful removal removes the card through the chosen pickup reconciliation and failed removal keeps it with rollback plus inline error, in `web/src` list test (written before T037/T038 per TDD; behavior verified only after T038 using the delivered filter host per T014)
-- [ ] T036 [US2] Design §6 filter integration coverage using delivered hosts only (no router introduction, no host construction), in `web/src` integration test, written before T037-T038 per TDD and run serialized after T030-T035: native-button keyboard activation (Tab/Enter/Space) for the Watchlist filter toggle; Back/Forward and link-share restore the `?watchlist=true` filter state; grid-region focus after successful filter-active card removal (removed-card unmount only, never `body`); bounded in-flight filter-switch URL/query verification at pickup, with drift stop if unsupported
+- [X] T030 [US2] `watchlist=true` sends `inWatchlist=true`; absent/`false`/other sends no filter, in `web/src` browse test
+- [X] T031 [US2] Filter toggle syncs to URL and resets page to 1 while retaining other filters, in `web/src` filter test; bounded in-flight filter-switch URL/query verification against the delivered URL/browse integration at pickup, with drift stop if unsupported
+- [X] T032 [US2] Filter combines with other filters using AND, in `web/src` browse test
+- [X] T033 [US2] Empty state "Your watchlist is empty." when filter is on with no matches, in `web/src` list test; when the filter is off, the delivered host empty behavior is preserved (no watchlist copy override, no host override API)
+- [X] T034 [US2] Quick-filter label "Watchlist" with pressed state at `?watchlist=true`, in `web/src` filter test
+- [X] T035 [US2] With watchlist filter on, successful removal removes the card through the chosen pickup reconciliation and failed removal keeps it with rollback plus inline error, in `web/src` list test (written before T037/T038 per TDD; behavior verified only after T038 using the delivered filter host per T014)
+- [X] T036 [US2] Design §6 filter integration coverage using delivered hosts only (no router introduction, no host construction), in `web/src` integration test, written before T037-T038 per TDD and run serialized after T030-T035: native-button keyboard activation (Tab/Enter/Space) for the Watchlist filter toggle; Back/Forward and link-share restore the `?watchlist=true` filter state; grid-region focus after successful filter-active card removal (removed-card unmount only, never `body`); bounded in-flight filter-switch URL/query verification at pickup, with drift stop if unsupported
 
 ### Implementation for User Story 2
 
-- [ ] T037 [US2] Wire Watchlist quick-filter toggle into the existing `App.tsx` header beside Import folder (path per T014/F3; do not compose `FilterPanel`/`LibraryFilters`); URL `watchlist` to API `inWatchlist` translation in the browse query hook and its query key, page-1 reset, retained filters, AND combination
-- [ ] T038 [US2] Integrate filter-active removal behavior after T037 (depends on T037): successful removal removes the card; failed removal keeps the card with rollback plus inline error
+- [X] T037 [US2] Wire Watchlist quick-filter toggle into the existing `App.tsx` header beside Import folder (path per T014/F3; do not compose `FilterPanel`/`LibraryFilters`); URL `watchlist` to API `inWatchlist` translation in the browse query hook and its query key, page-1 reset, retained filters, AND combination
+- [X] T038 [US2] Integrate filter-active removal behavior after T037 (depends on T037): successful removal removes the card; failed removal keeps the card with rollback plus inline error
 
 **Checkpoint**: User Stories 1 AND 2 both work independently; filter-active removal behavior verified only after T038.
 
