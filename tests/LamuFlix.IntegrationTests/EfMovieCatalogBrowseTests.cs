@@ -268,7 +268,9 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture) : IAsyncL
         var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
 
         // assert
-        result.Items.Select(item => item.Title).ShouldBe(["Matching Film"]);
+        var item = result.Items.ShouldHaveSingleItem();
+        item.Title.ShouldBe("Matching Film");
+        item.EnrichmentStatus.ShouldBe(EnrichmentStatus.Enriched);
     }
 
     [Fact]
@@ -305,7 +307,9 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture) : IAsyncL
         var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
 
         // assert
-        result.Items.Select(item => item.Title).ShouldBe(["Matching Film"]);
+        var item = result.Items.ShouldHaveSingleItem();
+        item.Title.ShouldBe("Matching Film");
+        item.EnrichmentStatus.ShouldBe(EnrichmentStatus.Pending);
         result.TotalCount.ShouldBe(1);
     }
 
