@@ -160,3 +160,19 @@ Recon-DEV-388-2 section 14 verifies constitution governance, migration constrain
   - Existing P1 behaviour must not regress.
 - **Round cap:** two correction rounds per review loop. Blocking findings still open at the cap stop delivery, reported as `blocked` to Bernstein. M/L adjudication uses the Sentry, Ledger and Compass reports, file:line verification and PR-posted outcomes. Nobody gets merge authority.
 - **Basis:** the Patron role's follow-up-ticket rule (Critical/High/broken only, otherwise `noted, no ticket`); "A review round is not finished until it is on the PR"; "Never merge"; frozen scope taken from rulings Q1-Q7 above. This is the standing ruling for this chain and is not re-ruled per round.
+
+---
+### Q8 full grill exchange (Keel / Patron)
+
+**Question 8/12:** Approve closing bar: no unresolved Critical/High/Medium in scope; Low documented nonblocking. Failed/unrunnable required gates block; nonblocking skips preserve labels. Frozen scope covers delete backend/contract/SPA/evidence, legacy project retirement, selective tests, README dead refs, conditional post-merge tracker reconciliation, ADR/planning docs, and existing P1 parity regression protection. Exclude director/collection facets/schema, new layers/dependencies and unrelated cleanup. End frozen scope with: anything else is a follow-up issue, not a finding in this round. Two correction rounds per review loop; blockers at cap stop delivery, never round three. Require all Sentry/Ledger/Compass reports, file:line verification, PR-posted adjudication; no merge authority. Approve?
+
+**Answer (Patron):** Approve with clarification: open Low is one noted-no-ticket line in CONCLUSIONS.md, not a YouTrack follow-up. Out-of-scope items receive a follow-up ticket only for Critical, High or broken behavior under the Patron follow-up rule. Closing bar, frozen scope, two-round cap stopping blocked, all three axes with PR-posted adjudication and no merge authority approved. Standing ruling for this chain.
+
+**Rationale and implications:** Do not inflate low-priority observations into tracker work or bypass the cap. Out-of-scope follow-up disposition follows the severity/behavior rule.
+
+## Q9 - Shared understanding; finalize brief and ADR
+
+**Ruling:** I confirm the shared understanding: Keel's ordering, file set and the provenance limit on the Q3 citation are approved. Keel is authorized to finalize `brief.md` and the ADR. No owner checkbox is required. One correction: the ADR follows the existing naming, `docs/adr/0021-<kebab-subject>.md` (for example `0021-retire-legacy-web-and-worker-hosts.md`), not `DEV-388-retire-legacy-hosts.md`.
+
+- Basis: `docs/adr/` numbers its files `NNNN-kebab-subject.md` and the latest is `0020-request-correlated-import-enrichment-proof.md`. Ordering the parity evidence before the Web deletion follows ticket Scope 2 ("before deleting ... confirm the Api import flow has its own replacement").
+- Rulings Q1-Q8 raise neither §2.3 escalation (a change to the ticket text, or a constitution departure), so Gate 1 needs no `blocked: structural` checkbox.
