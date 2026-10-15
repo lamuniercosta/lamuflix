@@ -133,7 +133,8 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             // assert
             details.StatusCode.ShouldBe(HttpStatusCode.OK);
             details.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
-            ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata");
+            ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata", "isInWatchlist");
+            detailsBody.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
             detailsBody.GetProperty("id").GetInt32().ShouldBe(id);
             detailsBody.GetProperty("title").GetString().ShouldBe(FolderTitle);
             detailsBody.GetProperty("path").GetString().ShouldBe(folderPath);

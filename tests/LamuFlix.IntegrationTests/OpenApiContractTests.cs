@@ -105,6 +105,29 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task Document_MovieResponseSchemas_RequireTheIsInWatchlistBoolean()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+        var schemas = parsed.RootElement.GetProperty("components").GetProperty("schemas");
+
+        // assert
+        foreach (var name in new[] { "MovieSummaryResponse", "MovieDetailsResponse" })
+        {
+            var schema = schemas.GetProperty(name);
+            schema.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+                .ShouldContain("isInWatchlist");
+            schema.GetProperty("properties").GetProperty("isInWatchlist").GetProperty("type").GetString()
+                .ShouldBe("boolean");
+        }
+    }
+
+    [Fact]
     public async Task Document_BrowseMovies_RequiresCanonicalQueryKeysWithWireEnumsAndBounds()
     {
         // arrange

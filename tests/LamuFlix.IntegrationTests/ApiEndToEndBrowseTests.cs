@@ -69,7 +69,7 @@ public sealed class ApiEndToEndBrowseTests(ApiEndToEndFixture fixture) : ApiEndT
         ShouldCarryExactly(body, "items", "totalCount");
         body.GetProperty("totalCount").GetInt32().ShouldBe(1);
         var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
-        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus");
+        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist");
         item.GetProperty("id").GetInt32().ShouldBe(matching.Id.ShouldNotBeNull().Value);
         item.GetProperty("title").GetString().ShouldBe("Matching Film");
         item.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
@@ -77,6 +77,7 @@ public sealed class ApiEndToEndBrowseTests(ApiEndToEndFixture fixture) : ApiEndT
         item.GetProperty("runtime").GetInt32().ShouldBe(110);
         item.GetProperty("imdbRating").ValueKind.ShouldBe(JsonValueKind.Null);
         item.GetProperty("enrichmentStatus").GetString().ShouldBe("Enriched");
+        item.GetProperty("isInWatchlist").GetBoolean().ShouldBeTrue();
     }
 
     [Fact]
@@ -100,8 +101,9 @@ public sealed class ApiEndToEndBrowseTests(ApiEndToEndFixture fixture) : ApiEndT
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var items = body.GetProperty("items").EnumerateArray().ToList();
         var posterItem = items.Single(item => item.GetProperty("title").GetString() == "Poster Film");
-        ShouldCarryExactly(posterItem, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus");
+        ShouldCarryExactly(posterItem, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist");
         posterItem.GetProperty("posterUrl").GetString().ShouldBe("https://example.test/poster.jpg");
+        posterItem.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
         var plainItem = items.Single(item => item.GetProperty("title").GetString() == "Plain Film");
         plainItem.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
     }

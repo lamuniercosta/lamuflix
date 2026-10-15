@@ -72,6 +72,7 @@ export interface components {
       path: string;
       format: string;
       metadata: null | components["schemas"]["MovieMetadataResponse"];
+      isInWatchlist: boolean;
     };
     MovieMetadataResponse: {
       title: string;
@@ -103,6 +104,7 @@ export interface components {
       /** Format: double */
       imdbRating: null | number | string;
       enrichmentStatus: components["schemas"]["EnrichmentStatus"];
+      isInWatchlist: boolean;
     };
     PersonDto: {
       /** Format: int32 */

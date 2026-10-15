@@ -35,6 +35,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         movie.RuntimeMinutes = new Runtime(131);
         movie.ImdbRating = new ImdbRating(8.3m);
         movie.ImdbId = new ImdbId("tt0113277");
+        movie.IsInWatchlist = true;
         await SeedAsync(movie);
         var id = movie.Id.ShouldNotBeNull().Value;
 
@@ -45,7 +46,8 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist");
+        body.GetProperty("isInWatchlist").GetBoolean().ShouldBeTrue();
         body.GetProperty("id").GetInt32().ShouldBe(id);
         body.GetProperty("title").GetString().ShouldBe("Heat");
         body.GetProperty("path").GetString().ShouldBe("C:/library/library-details.mkv");

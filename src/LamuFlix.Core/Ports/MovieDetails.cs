@@ -9,5 +9,6 @@ public sealed record MovieDetails(
     string Title,
     LibraryPath Path,
     MediaFormat Format,
-    MovieMetadata? Metadata);
+    MovieMetadata? Metadata,
+    bool IsInWatchlist);
 // ReSharper restore NotAccessedPositionalProperty.Global

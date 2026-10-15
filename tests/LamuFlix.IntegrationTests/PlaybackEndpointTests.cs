@@ -141,7 +141,7 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     private static string PlayRoute(int id) => $"/api/movies/{id}/play";
 
     private static MovieDetails KnownDetails() =>
-        new(new MovieId(KnownId), "Heat", new LibraryPath(MoviePath), new MediaFormat(".mkv"), null);
+        new(new MovieId(KnownId), "Heat", new LibraryPath(MoviePath), new MediaFormat(".mkv"), null, false);
 
     private WebApplicationFactory<Program> CreateDisabledHost() =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(AddDoubles));
