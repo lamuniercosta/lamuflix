@@ -60,7 +60,7 @@ public sealed class ApiEndToEndFixture : IAsyncLifetime
     private void StartServer()
     {
         StopServer();
-        server = WireMockServer.Start();
+        server = LoopbackWireMock.Start();
     }
 
     private void StopServer()
