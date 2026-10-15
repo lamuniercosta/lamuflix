@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { createOpenApiHttp } from 'openapi-msw';
 import type { ReactNode } from 'react';
@@ -130,6 +130,50 @@ describe('App library host', () => {
     expect(search).toBe(
       `?sort=${standingBrowseQuery.sort}&direction=${standingBrowseQuery.direction}&page=${standingBrowseQuery.page}&pageSize=${standingBrowseQuery.pageSize}`,
     );
+  });
+
+  it('opens the import dialog with title, folder path focus, actions, and focus trap', async () => {
+    renderApp();
+    const importFolder = screen.getByRole('button', { name: 'Import folder' });
+    fireEvent.click(importFolder);
+
+    const dialog = screen.getByRole('dialog', { name: 'Import a movie folder' });
+    const folderPath = screen.getByLabelText('Folder path');
+    expect(folderPath).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Import' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(screen.getByRole('button', { name: 'Import' })).toHaveFocus();
+    fireEvent.keyDown(dialog, { key: 'Tab' });
+    expect(folderPath).toHaveFocus();
+  });
+
+  it('returns focus to Import folder on Escape, Cancel, and successful import', async () => {
+    renderApp();
+    const importFolder = screen.getByRole('button', { name: 'Import folder' });
+
+    fireEvent.click(importFolder);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(importFolder).toHaveFocus();
+
+    fireEvent.click(importFolder);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(importFolder).toHaveFocus();
+
+    fireEvent.click(importFolder);
+    fireEvent.change(screen.getByLabelText('Folder path'), {
+      target: { value: 'F:/library/NewArrival' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('NewArrival')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(importFolder).toHaveFocus();
   });
 });
 
