@@ -1,0 +1,27 @@
+{
+  "Features": {
+    "LocalPlay": false
+  },
+  "Database": {
+    "ApplyMigrationsOnStartup": true
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=postgres;Database=lamuflix;Username=change;Password=change"
+  },
+  "RabbitMq": {
+    "HostName": "rabbitmq",
+    "UserName": "change",
+    "Password": "change",
+    "RetryDelay": "00:00:30"
+  },
+  "Omdb": {
+    "ApiKey": "change"
+  },
+  "Enrichment": {
+    "SweepInterval": "00:01:00",
+    "ClaimLease": "00:00:10"
+  },
+  "Library": {
+    "RootPath": "/media/library"
+  }
+}

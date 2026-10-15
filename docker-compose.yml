@@ -28,20 +28,6 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
-    environment:
-      Features__LocalPlay: "false"
-      Database__ApplyMigrationsOnStartup: "true"
-      ConnectionStrings__DefaultConnection: 'Host=postgres;Database=lamuflix'
-      PGUSER: ${POSTGRES_USER:?message}
-      PGPASSWORD: ${POSTGRES_PASSWORD:?message}
-      RabbitMq__HostName: rabbitmq
-      RabbitMq__UserName: ${RABBITMQ_USER:?message}
-      RabbitMq__Password: ${RABBITMQ_PASSWORD:?message}
-      Omdb__ApiKey: ${OMDB_API_KEY:?message}
-      Enrichment__SweepInterval: "00:01:00"
-      Enrichment__ClaimLease: "00:00:10"
-      RabbitMq__RetryDelay: "00:00:30"
-      Library__RootPath: /media/library
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,6 +41,12 @@ services:
       start_period: 10s
     volumes:
       - ${LIBRARY_PATH:-./docker/sample-library}:/media/library:ro
+      - type: bind
+        source: ./docker/api.settings.json
+        target: /app/appsettings.Production.json
+        read_only: true
+        bind:
+          create_host_path: false
 
   web:
     build:
