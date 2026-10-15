@@ -116,7 +116,10 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         using var parsed = JsonDocument.Parse(document);
         var operation = parsed.RootElement.GetProperty("paths").GetProperty("/api/movies").GetProperty("get");
         var parameters = operation.GetProperty("parameters").EnumerateArray()
-            .ToDictionary(parameter => parameter.GetProperty("name").GetString()!, StringComparer.Ordinal);
+            .ToDictionary(
+                parameter => parameter.GetProperty("name").GetString()
+                    ?? throw new InvalidOperationException("OpenAPI parameter is missing a name."),
+                StringComparer.Ordinal);
 
         // assert
         Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
