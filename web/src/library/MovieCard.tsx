@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import type { components } from '../api/types';
 
 export type MovieSummaryResponse = components['schemas']['MovieSummaryResponse'];
@@ -9,6 +10,7 @@ export interface MovieCardProps {
   movie?: MovieLike;
   item?: MovieLike;
   data?: MovieLike;
+  actions?: ReactNode;
   [key: string]: unknown;
 }
 
@@ -59,9 +61,8 @@ export default function MovieCard(props: MovieCardProps) {
   const year = toNullableNumber(movie.releaseYear ?? movie.release_year ?? movie.year);
   const runtime = toNullableNumber(movie.runtime ?? movie.runtimeMinutes ?? movie.runtime_minutes);
   const rating = toNullableNumber(movie.imdbRating ?? movie.imdb_rating ?? movie.rating);
-  const status = String(
-    movie.enrichmentStatus ?? movie.enrichment_status ?? movie.status ?? 'Pending',
-  );
+  const rawStatus = movie.enrichmentStatus ?? movie.enrichment_status ?? movie.status ?? 'Pending';
+  const status = rawStatus === 'NotFound' ? 'Not found' : String(rawStatus);
 
   const [broken, setBroken] = useState(false);
 
@@ -74,7 +75,7 @@ export default function MovieCard(props: MovieCardProps) {
           <img src={String(poster)} alt={title} onError={() => setBroken(true)} />
         ) : (
           <div className="movie-card-placeholder" role="img" aria-label={title}>
-            <span>{title}</span>
+            <span aria-hidden="true">{title}</span>
           </div>
         )}
       </div>
@@ -91,6 +92,7 @@ export default function MovieCard(props: MovieCardProps) {
       </p>
       <div className="movie-card-status">
         <span className="movie-status-chip">{status}</span>
+        {props.actions}
       </div>
     </article>
   );

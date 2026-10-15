@@ -1,5 +1,5 @@
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { createOpenApiHttp } from 'openapi-msw';
 import type { ReactNode } from 'react';
@@ -104,20 +104,26 @@ describe('browse query polling', () => {
       const importFolder = screen.getByRole('button', { name: 'Import folder' });
       importFolder.focus();
 
-      expect(await screen.findByText('Arrival')).toBeInTheDocument();
-      expect(screen.getByText('Pending')).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Arrival' })).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('list', { name: 'Movies' })).getByText('Pending'),
+      ).toBeInTheDocument();
       expect(calls).toBe(1);
 
       await waitFor(
         () => {
-          expect(screen.getByText('Enriched')).toBeInTheDocument();
+          expect(
+            within(screen.getByRole('list', { name: 'Movies' })).getByText('Enriched'),
+          ).toBeInTheDocument();
         },
         { timeout: 4000 },
       );
-      expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+      expect(
+        within(screen.getByRole('list', { name: 'Movies' })).queryByText('Pending'),
+      ).not.toBeInTheDocument();
       expect(calls).toBe(2);
 
-      const list = screen.getByRole('list');
+      const list = screen.getByRole('list', { name: 'Movies' });
       expect(list).toHaveAttribute('aria-live', 'polite');
       expect(importFolder).toHaveFocus();
       expect(document.activeElement).not.toBe(list);
@@ -139,7 +145,7 @@ describe('browse query polling', () => {
     );
 
     renderApp();
-    expect(await screen.findByText('Dune')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(calls).toBe(1);
 
     await vi.advanceTimersByTimeAsync(4000);
@@ -156,7 +162,11 @@ describe('browse query polling', () => {
     );
 
     renderApp();
-    expect(await screen.findByText('Pending')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('list', { name: 'Movies' })).queryByText('Pending'),
+      ).toBeInTheDocument(),
+    );
     expect(calls).toBe(1);
 
     focusManager.setFocused(false);
@@ -214,16 +224,22 @@ describe('optimistic import placeholder', () => {
     );
 
     renderApp();
-    expect(await screen.findByText('Dune')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     await importFolder('F:/library/NewArrival');
-    expect(screen.getByText('NewArrival')).toBeInTheDocument();
-    expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'NewArrival' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).getByText('Pending'),
+    ).toBeInTheDocument();
 
     await vi.advanceTimersByTimeAsync(2000);
-    expect(await screen.findByText('Server Cut')).toBeInTheDocument();
-    expect(screen.queryByText('NewArrival')).not.toBeInTheDocument();
-    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Enriched')).toHaveLength(2);
+    expect(await screen.findByRole('heading', { name: 'Server Cut' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'NewArrival' })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).queryByText('Pending'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).getAllByText('Enriched'),
+    ).toHaveLength(2);
   });
 
   it('drops an off-page placeholder and disarms polling', { timeout: 15_000 }, async () => {
@@ -237,17 +253,17 @@ describe('optimistic import placeholder', () => {
     );
 
     renderApp();
-    expect(await screen.findByText('Dune')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     await importFolder('F:/library/NewArrival');
-    expect(screen.getByText('NewArrival')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'NewArrival' })).toBeInTheDocument();
 
     await waitFor(
       () => {
-        expect(screen.queryByText('NewArrival')).not.toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: 'NewArrival' })).not.toBeInTheDocument();
       },
       { timeout: 4000 },
     );
-    expect(screen.getByText('Dune')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     const callsAfterDrop = calls;
     expect(callsAfterDrop).toBeGreaterThan(1);
 
@@ -273,24 +289,28 @@ describe('optimistic import placeholder', () => {
     );
 
     renderApp();
-    expect(await screen.findByText('Dune')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(calls).toBe(1);
 
     await importFolder('F:/library/NewArrival');
-    expect(screen.getByText('NewArrival')).toBeInTheDocument();
-    expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'NewArrival' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).getByText('Pending'),
+    ).toBeInTheDocument();
     expect(calls).toBe(1);
 
     await vi.advanceTimersByTimeAsync(2000);
     await waitFor(() => {
       expect(calls).toBe(2);
     });
-    expect(screen.getByText('NewArrival')).toBeInTheDocument();
-    expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'NewArrival' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).getByText('Pending'),
+    ).toBeInTheDocument();
 
     releaseRefetch?.();
     await waitFor(() => {
-      expect(screen.queryByText('NewArrival')).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'NewArrival' })).not.toBeInTheDocument();
     });
     expect(calls).toBe(2);
   });
@@ -309,13 +329,15 @@ describe('optimistic import placeholder', () => {
     );
 
     renderApp();
-    expect(await screen.findByText('Dune')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     await importFolder('F:/library/FirstCut');
-    expect(screen.getByText('FirstCut')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'FirstCut' })).toBeInTheDocument();
 
     await importFolder('F:/library/SecondCut');
-    expect(screen.getByText('SecondCut')).toBeInTheDocument();
-    expect(screen.queryByText('FirstCut')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Pending')).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: 'SecondCut' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'FirstCut' })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).getAllByText('Pending'),
+    ).toHaveLength(1);
   });
 });

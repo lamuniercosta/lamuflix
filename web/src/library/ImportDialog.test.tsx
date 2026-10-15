@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 import App from '../App';
@@ -43,8 +43,8 @@ describe('ImportDialog', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
     expect(screen.getByRole('button', { name: 'Import folder' })).toHaveFocus();
-    expect(screen.getByText('NewArrival')).toBeInTheDocument();
-    const rows = screen.getAllByRole('listitem');
+    expect(screen.getByRole('heading', { name: 'NewArrival' })).toBeInTheDocument();
+    const rows = within(screen.getByRole('list', { name: 'Movies' })).getAllByRole('listitem');
     expect(rows[0]).toHaveTextContent('NewArrival');
     expect(rows[0]).toHaveTextContent('Pending');
   });

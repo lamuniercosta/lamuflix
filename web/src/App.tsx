@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import type { components } from './api/types';
 import MovieDetailsView from './features/movie-details/MovieDetailsView';
 import ImportDialog from './library/ImportDialog';
+import LibraryErrorBoundary from './library/LibraryErrorBoundary';
 import { armImportPlaceholder, pendingRow } from './library/libraryQueries';
 import LibraryView from './library/LibraryView';
 import { useWatchlistFilter } from './library/useWatchlistFilter';
@@ -47,7 +48,9 @@ export default function App() {
           Watchlist
         </button>
       </header>
-      <LibraryView leadingItem={importedRow} inWatchlist={watchlistActive} />
+      <LibraryErrorBoundary>
+        <LibraryView leadingItem={importedRow} inWatchlist={watchlistActive} />
+      </LibraryErrorBoundary>
       <ImportDialog open={importOpen} onClose={closeImport} onImported={prependImportedMovie} />
     </div>
   );

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { createOpenApiHttp } from 'openapi-msw';
 import type { ReactNode } from 'react';
@@ -110,7 +110,7 @@ describe('LibraryView retry', () => {
       expect(screen.queryByRole('button', { name: 'Retry Lost Film' })).not.toBeInTheDocument();
     });
 
-    const row = screen
+    const row = within(screen.getByRole('list', { name: 'Movies' }))
       .getAllByRole('listitem')
       .find((item) => item.textContent?.includes('Lost Film'));
     expect(row).toHaveTextContent('Pending');
@@ -186,7 +186,7 @@ describe('LibraryView filtered watchlist retry', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Retry Broken Cut' })).not.toBeInTheDocument(),
     );
-    const row = screen
+    const row = within(screen.getByRole('list', { name: 'Movies' }))
       .getAllByRole('listitem')
       .find((item) => item.textContent?.includes('Broken Cut'));
     expect(row).toHaveTextContent('Pending');
