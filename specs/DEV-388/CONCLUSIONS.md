@@ -115,3 +115,27 @@ Recon-DEV-388-2 section 14 verifies constitution governance, migration constrain
 - Basis: this is the §2.3 item 2 test. It adds no project or layer and stays inside existing Core, Infrastructure and Api seams (recon section 10 item 2). The contract chain rule is C# DTO → `openapi.json` → `types.ts`, and generated types are never hand-edited.
 - Cascades verified: recon-DEV-388-2 section 13.2 (`Initial.cs:94-153`, snapshot `:234-270`). Shared actor, director and genre rows survive.
 - The ADR records parity-before-retirement and why delete is metadata-only. The Q3 product-plan citation is Patron-cited, outside the recon roots.
+
+---
+### Q6 full grill exchange (Keel / Patron)
+
+**Question 6/12:** Approve a vertical movie-delete slice within existing Core feature/port, Infrastructure persistence and Api endpoint conventions, extending the existing persistence seam without a new repository/service layer. Atomically remove one movie, report absence without read-then-delete race, use verified cascades, preserve shared actors/directors/genres and files. Regenerate OpenAPI then TypeScript through tooling and update contract snapshot. SPA confirmation: cancel sends nothing, one request while pending, success invalidates cache and returns to library, failure retains usable screen with visible error. Exact names follow existing conventions at implementation. Draft L-ticket ADR under docs/adr for parity-before-retirement and metadata-only delete, labeling Q3 plan provenance. No new domain term/glossary change. Cost: backend/contract/frontend work beyond deletion.
+
+**Answer (Patron):** Approved as stated. Existing Core port, Infrastructure persistence and Api seams, no new repository/service layer (section 2.3 item 2 clear). Atomic race-free delete relies on verified cascades (recon-DEV-388-2 section 13.2). Regenerate OpenAPI/TS via tooling and update snapshot; no hand edits to generated types. Approve SPA behavior and ADR with Patron-cited Q3 provenance. No glossary change.
+
+**Rationale and implications:** Reuse architecture and authoritative contract chain; implementation must exercise actual persistence semantics.
+
+## Q7 - Test strategy and delivery gates
+
+**Ruling:** Approve Keel's verification bar as stated:
+- **Backend tests:** handler tests, plus PostgreSQL Testcontainers integration tests covering 204 then 404, an absent id, row and column removal, all three join cascades, shared principals and other movies surviving, and the media file staying on disk.
+- **Contract:** contract and snapshot tests for DELETE with no payload.
+- **SPA:** Vitest/RTL tests for the confirm/cancel/pending/error/navigation/cache flows.
+- **Evidence:** existing parity regression evidence kept, and every AC mapped to explicit evidence.
+- **Gates:** the full gate set at pre-PR with thresholds unchanged, plus the Pomelo/UseMySql/LamuFlix.Data and Web/Worker reference re-checks.
+- **Status labels:** SKIPPED, SKIP/N/A and Could not run reported as three different states.
+- **No Gherkin lane.**
+
+- Basis: the CLAUDE.md static-analysis gates are required, and "never treat a skipped gate as a passed gate". The ticket AC needs a clean build, passing tests and the zero-reference re-checks.
+- Testcontainers PostgreSQL matches the constitution's database mandate (`constitution.md:342`), and only the database proves the cascade behaviour (recon-DEV-388-2 section 13.2).
+- Gherkin stays opt-in (the `gherkin` skill), and nobody asked for it.
