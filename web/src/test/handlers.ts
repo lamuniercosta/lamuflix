@@ -47,6 +47,23 @@ export const importNetworkErrorHandler = http.post('/api/movies/import', () =>
   HttpResponse.error(),
 );
 
+export const retryAcceptedHandler = http.post(
+  '/api/movies/{id}/enrichment',
+  () =>
+    new HttpResponse(null, {
+      status: 202,
+      headers: { 'Content-Length': '0' },
+    }),
+);
+
+export const retryNotFoundHandler = http.post('/api/movies/{id}/enrichment', () =>
+  HttpResponse.json(problemDetails(404), { status: 404 }),
+);
+
+export const retryConflictHandler = http.post('/api/movies/{id}/enrichment', () =>
+  HttpResponse.json(problemDetails(409), { status: 409 }),
+);
+
 export const handlers = [
   http.get('/api/movies', () => HttpResponse.json(browseMovies, { status: 200 })),
   importAcceptedHandler,

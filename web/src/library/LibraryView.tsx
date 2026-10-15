@@ -1,5 +1,11 @@
+import { useId, useState } from 'react';
 import type { components } from '../api/types';
-import { useBrowseMoviesQuery } from './libraryQueries';
+import {
+  GENERIC_RETRY_ERROR,
+  RetryRowError,
+  useBrowseMoviesQuery,
+  useRetryEnrichmentMutation,
+} from './libraryQueries';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type EnrichmentStatus = components['schemas']['EnrichmentStatus'];
@@ -13,14 +19,37 @@ function canRetry(status: EnrichmentStatus): boolean {
 }
 
 function MovieRow({ item }: { item: MovieSummary }) {
+  const errorId = useId();
+  const [rowError, setRowError] = useState<string | null>(null);
+  const retryEnrichment = useRetryEnrichmentMutation();
   const badge = statusBadgeText(item.enrichmentStatus);
+
+  async function onRetry() {
+    setRowError(null);
+    try {
+      await retryEnrichment.mutateAsync(item.id);
+    } catch (error) {
+      setRowError(error instanceof RetryRowError ? error.message : GENERIC_RETRY_ERROR);
+    }
+  }
+
   return (
     <li>
       <span>{item.title}</span> <span aria-label={badge}>{badge}</span>
       {canRetry(item.enrichmentStatus) ? (
-        <button type="button" aria-label={`Retry ${item.title}`}>
+        <button
+          type="button"
+          aria-label={`Retry ${item.title}`}
+          aria-describedby={rowError ? errorId : undefined}
+          onClick={() => void onRetry()}
+        >
           Retry
         </button>
+      ) : null}
+      {rowError ? (
+        <p id={errorId} role="alert">
+          {rowError}
+        </p>
       ) : null}
     </li>
   );
