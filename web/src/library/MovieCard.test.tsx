@@ -10,6 +10,7 @@ const movie = {
   runtime: 170,
   imdbRating: 8.3,
   enrichmentStatus: 'Enriched',
+  isInWatchlist: false,
 } as const;
 
 describe('MovieCard', () => {

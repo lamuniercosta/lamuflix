@@ -54,19 +54,19 @@ description: "Task list for DEV-324 watchlist toggle and filter"
 
 ### Tests for User Story 1 (write FIRST, FAIL before implementation; serialized in listed order: shared toggle/integration files, shared MSW setup)
 
-- [ ] T020 [US1] Optimistic flip before response in `web/src` toggle test (MSW delayed POST/DELETE)
-- [ ] T021 [US1] 204 and 409 retain the confirmed target overlay after request settlement and across card/hero navigation in `web/src` toggle test
-- [ ] T022 [US1] 404, 422, 500, representative 400, network failure, and any other failure roll back and show "Couldn't update watchlist. Try again." in `web/src` toggle test
-- [ ] T023 [US1] In-flight clicks ignored with `aria-busy` in `web/src` toggle test; `aria-busy` clears on success and on failure; busy state shown while in flight
-- [ ] T024 [US1] Accessible name ("Add to watchlist" / "Remove from watchlist") and `aria-pressed` in `web/src` toggle test
-- [ ] T025 [US1] Shared state across card/hero navigation in `web/src` integration test (delivered card and delivered DEV-323 hero hosts only; no host construction); different-movie isolation (movie A toggle/pending/failure never affects movie B); delayed settlement across card unmount/navigation retains 204/409 and rolls back failures with the per-movie error on the mounted surface
-- [ ] T026 [US1] Design §6 bookmark integration coverage using delivered hosts only (no router introduction, no host construction), in `web/src` integration test, written before T027-T029 per TDD and run serialized after T020-T025: native-button keyboard activation (Tab/Enter/Space) for the bookmark toggle; decorative bookmark SVG `aria-hidden` with name plus `aria-pressed` carrying state; inline toggle error announced to assistive technology adjacent to the failed button; visible focus indication from the delivered host styles; focus retained on the toggle through optimistic success and rollback
+- [X] T020 [US1] Optimistic flip before response in `web/src` toggle test (MSW delayed POST/DELETE)
+- [X] T021 [US1] 204 and 409 retain the confirmed target overlay after request settlement and across card/hero navigation in `web/src` toggle test
+- [X] T022 [US1] 404, 422, 500, representative 400, network failure, and any other failure roll back and show "Couldn't update watchlist. Try again." in `web/src` toggle test
+- [X] T023 [US1] In-flight clicks ignored with `aria-busy` in `web/src` toggle test; `aria-busy` clears on success and on failure; busy state shown while in flight
+- [X] T024 [US1] Accessible name ("Add to watchlist" / "Remove from watchlist") and `aria-pressed` in `web/src` toggle test
+- [X] T025 [US1] Shared state across card/hero navigation in `web/src` integration test (delivered card and delivered DEV-323 hero hosts only; no host construction); different-movie isolation (movie A toggle/pending/failure never affects movie B); delayed settlement across card unmount/navigation retains 204/409 and rolls back failures with the per-movie error on the mounted surface
+- [X] T026 [US1] Design §6 bookmark integration coverage using delivered hosts only (no router introduction, no host construction), in `web/src` integration test, written before T027-T029 per TDD and run serialized after T020-T025: native-button keyboard activation (Tab/Enter/Space) for the bookmark toggle; decorative bookmark SVG `aria-hidden` with name plus `aria-pressed` carrying state; inline toggle error announced to assistive technology adjacent to the failed button; visible focus indication from the delivered host styles; focus retained on the toggle through optimistic success and rollback
 
 ### Implementation for User Story 1
 
-- [ ] T027 [US1] Implement shared optimistic hook in `web/src` (exact file per T015; Q7 addendum: module-scoped per-movie `Map` store read via `useSyncExternalStore` over host `isInWatchlist` baseline, or already-delivered sibling cache entry when pickup finds one; no Context/provider, state library, new layer, or dependency): per-movie optimistic write, POST/DELETE via generated client, 204/409 confirmed retention through settlement/navigation, other-failure rollback with per-movie inline error, shared per-movie in-flight guard with `aria-busy` clearing on settle, per-movie isolation
-- [ ] T028 [US1] Wire hook into `MovieRow` in `web/src/library/LibraryView.tsx` (path per T012/F2; do not compose `MovieGrid`/`MovieCard`); apply inline SVG bookmark treatment and settled copy
-- [ ] T029 [US1] Wire hook into delivered hero region of `MovieDetailsView` (path per T013); no host construction, no hero-component extraction
+- [X] T027 [US1] Implement shared optimistic hook in `web/src` (exact file per T015; Q7 addendum: module-scoped per-movie `Map` store read via `useSyncExternalStore` over host `isInWatchlist` baseline, or already-delivered sibling cache entry when pickup finds one; no Context/provider, state library, new layer, or dependency): per-movie optimistic write, POST/DELETE via generated client, 204/409 confirmed retention through settlement/navigation, other-failure rollback with per-movie inline error, shared per-movie in-flight guard with `aria-busy` clearing on settle, per-movie isolation
+- [X] T028 [US1] Wire hook into `MovieRow` in `web/src/library/LibraryView.tsx` (path per T012/F2; do not compose `MovieGrid`/`MovieCard`); apply inline SVG bookmark treatment and settled copy
+- [X] T029 [US1] Wire hook into delivered hero region of `MovieDetailsView` (path per T013); no host construction, no hero-component extraction
 
 **Checkpoint**: User Story 1 toggle fully functional and testable independently (filter-active list behavior excluded here; covered after filter integration in Phase 4).
 

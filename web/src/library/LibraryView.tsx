@@ -6,6 +6,7 @@ import {
   useBrowseMoviesQuery,
   useRetryEnrichmentMutation,
 } from './libraryQueries';
+import { WatchlistToggleButton } from './watchlist';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type EnrichmentStatus = components['schemas']['EnrichmentStatus'];
@@ -46,6 +47,7 @@ function MovieRow({ item }: { item: MovieSummary }) {
           Retry
         </button>
       ) : null}
+      <WatchlistToggleButton movieId={item.id} isInWatchlist={item.isInWatchlist} />
       {rowError ? (
         <p id={errorId} role="alert">
           {rowError}

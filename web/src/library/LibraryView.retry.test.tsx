@@ -23,6 +23,7 @@ const lostFilm: MovieSummary = {
   runtime: null,
   imdbRating: null,
   enrichmentStatus: 'NotFound',
+  isInWatchlist: false,
 };
 
 const brokenCut: MovieSummary = {
@@ -33,6 +34,7 @@ const brokenCut: MovieSummary = {
   runtime: null,
   imdbRating: null,
   enrichmentStatus: 'Failed',
+  isInWatchlist: false,
 };
 
 const dune: MovieSummary = {
@@ -43,6 +45,7 @@ const dune: MovieSummary = {
   runtime: null,
   imdbRating: null,
   enrichmentStatus: 'Enriched',
+  isInWatchlist: false,
 };
 
 const arrival: MovieSummary = {
@@ -53,6 +56,7 @@ const arrival: MovieSummary = {
   runtime: null,
   imdbRating: null,
   enrichmentStatus: 'Pending',
+  isInWatchlist: false,
 };
 
 function browseBody(items: MovieSummary[]): BrowseMoviesResponse {

@@ -8,6 +8,7 @@ import {
   type MovieDetails,
   type MovieMetadata,
 } from './movieDetailsApi';
+import { WatchlistToggleButton } from '../../library/watchlist';
 import './MovieDetailsView.css';
 
 export interface MovieDetailsViewProps {
@@ -30,6 +31,7 @@ function MetadataSection({ movie }: { movie: MovieDetails }) {
       </div>
       <section>
         <h1>{movie.title}</h1>
+        <WatchlistToggleButton movieId={movie.id} isInWatchlist={movie.isInWatchlist} />
         <p className="movie-details-format">{movie.format}</p>
         {hasYearOrRuntime && (
           <p className="movie-details-year-runtime">

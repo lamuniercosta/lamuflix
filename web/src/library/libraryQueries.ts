@@ -112,6 +112,7 @@ export function pendingRow(id: string, title: string): MovieSummary {
     runtime: null,
     imdbRating: null,
     enrichmentStatus: 'Pending',
+    isInWatchlist: false,
   };
 }
 
