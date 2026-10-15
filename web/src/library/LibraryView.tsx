@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import type { components } from '../api/types';
 import FilterPanel from '../features/library/FilterPanel';
@@ -29,6 +29,8 @@ import { useWatchlistToggle } from './watchlistStore';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
+
+const lastGoodQueryKey = ['libraryLastGoodBrowse'];
 
 function GenreDtoList(value: unknown): components['schemas']['GenreDto'][] {
   return Array.isArray(value) ? (value as components['schemas']['GenreDto'][]) : [];
@@ -243,12 +245,13 @@ function LibraryBrowseView({
     },
   });
 
-  const [lastGood, setLastGood] = useState<BrowseMoviesResponse | null>(null);
+  const queryClient = useQueryClient();
   useEffect(() => {
     if (browse.data) {
-      setLastGood(browse.data);
+      queryClient.setQueryData(lastGoodQueryKey, browse.data);
     }
-  }, [browse.data]);
+  }, [browse.data, queryClient]);
+  const lastGood = queryClient.getQueryData<BrowseMoviesResponse>(lastGoodQueryKey) ?? null;
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
   const wasWatchlistActive = useRef(watchlistActive);
   useEffect(() => {
