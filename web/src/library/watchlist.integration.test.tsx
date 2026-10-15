@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -231,5 +231,104 @@ describe('watchlist bookmark accessibility in delivered hosts', () => {
     expect(alert).toHaveTextContent(WATCHLIST_TOGGLE_ERROR);
     expect(button).toHaveAttribute('aria-describedby', alert.id);
     expect(button).toHaveFocus();
+  });
+});
+
+function rowFor(title: string): HTMLElement {
+  const row = screen.getByText(title).closest('li');
+  if (!row) throw new Error(`No row for ${title}`);
+  return row as HTMLElement;
+}
+
+describe('watchlist filter accessibility in the delivered header', () => {
+  it('renders a native, focusable button that toggles the filter', async () => {
+    server.use(
+      http.get('*/api/movies', () =>
+        HttpResponse.json(browseBody([summary({ isInWatchlist: true })])),
+      ),
+    );
+
+    renderApp();
+    const toggle = await screen.findByRole('button', { name: 'Watchlist' });
+
+    expect(toggle.tagName).toBe('BUTTON');
+    expect(toggle).toHaveAttribute('type', 'button');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    toggle.focus();
+    expect(toggle).toHaveFocus();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(new URLSearchParams(window.location.search).get('watchlist')).toBe('true');
+  });
+
+  it('restores the filter from a shared ?watchlist=true link', async () => {
+    const requests: string[] = [];
+    server.use(
+      http.get('*/api/movies', ({ request }) => {
+        requests.push(request.url);
+        return HttpResponse.json(browseBody([summary({ isInWatchlist: true })]));
+      }),
+    );
+
+    goto('/?watchlist=true');
+    renderApp();
+
+    expect(await screen.findByRole('button', { name: 'Watchlist' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await waitFor(() => expect(requests.length).toBeGreaterThan(0));
+    const params = new URL(requests[0]).searchParams;
+    const watchlist = [...params.entries()].find(([key]) => key.toLowerCase() === 'inwatchlist');
+    expect(watchlist?.[1]).toBe('true');
+  });
+
+  it('restores the filter state on Back navigation via popstate', async () => {
+    server.use(
+      http.get('*/api/movies', () =>
+        HttpResponse.json(browseBody([summary({ isInWatchlist: true })])),
+      ),
+    );
+
+    goto('/');
+    renderApp();
+    const toggle = await screen.findByRole('button', { name: 'Watchlist' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(new URLSearchParams(window.location.search).get('watchlist')).toBe('true');
+
+    goto('/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-pressed', 'false'));
+  });
+
+  it('moves focus to the grid region after a successful filter-active removal', async () => {
+    server.use(
+      http.get('*/api/movies', () =>
+        HttpResponse.json(
+          browseBody([
+            summary({ id: 1, title: 'Dune', isInWatchlist: true }),
+            summary({ id: 2, title: 'Arrival', isInWatchlist: true }),
+          ]),
+        ),
+      ),
+      http.delete('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
+    );
+
+    goto('/?watchlist=true');
+    renderApp();
+    await screen.findByText('Dune');
+    const remove = within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' });
+    remove.focus();
+    fireEvent.click(remove);
+
+    await waitFor(() => expect(screen.queryByText('Dune')).not.toBeInTheDocument());
+    expect(document.activeElement).toBe(screen.getByRole('list'));
+    expect(document.activeElement).not.toBe(document.body);
   });
 });

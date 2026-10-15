@@ -132,13 +132,17 @@ export function markRowPending(
   };
 }
 
-export function useBrowseMoviesQuery(placeholderPending = false) {
+export function useBrowseMoviesQuery(placeholderPending = false, inWatchlist = false) {
+  const browseParams = inWatchlist
+    ? { ...standingBrowseQuery, InWatchlist: 'true' as const }
+    : { ...standingBrowseQuery };
+
   return useQuery({
-    queryKey: browseMoviesQueryKey,
+    queryKey: ['browseMovies', browseParams],
     queryFn: async ({ signal }) => {
       const tokenAtStart = importPlaceholderToken;
       const { data, error, response } = await client.GET('/api/movies', {
-        params: { query: { ...standingBrowseQuery } },
+        params: { query: browseParams },
         signal,
       });
       if (error || !data) {
