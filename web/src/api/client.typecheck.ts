@@ -3,7 +3,18 @@ import { createApiClient } from './client';
 const client = createApiClient('https://test.local');
 
 export async function positiveCalls() {
-  await client.GET('/api/movies', { params: { query: { Text: 'dune', GenreIds: ['1'] } } });
+  await client.GET('/api/movies', {
+    params: {
+      query: {
+        Text: 'dune',
+        GenreIds: ['1'],
+        sort: 'Title',
+        direction: 'Ascending',
+        page: 1,
+        pageSize: 20,
+      },
+    },
+  });
   await client.GET('/api/movies/{id}', { params: { path: { id: 1 } } });
   await client.POST('/api/movies/import', { body: { folderPath: '/media' } });
   await client.POST('/api/movies/{id}/enrichment', { params: { path: { id: '1' } } });
@@ -30,6 +41,6 @@ export async function negativeCalls() {
   await client.POST('/api/movies/import');
   // @ts-expect-error the request body shape does not match ImportMovieRequest
   await client.POST('/api/movies/import', { body: { path: '/media' } });
-  // @ts-expect-error the query key is not declared by the contract
-  await client.GET('/api/movies', { params: { query: { Nope: 'x' } } });
+  // @ts-expect-error standing browse query keys are required by the generated contract
+  await client.GET('/api/movies', { params: { query: { Text: 'dune' } } });
 }

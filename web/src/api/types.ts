@@ -134,7 +134,7 @@ export interface operations {
   /** Browse movies using the canonical library query string keys. */
   BrowseMovies: {
     parameters: {
-      query?: {
+      query: {
         Text?: string;
         GenreIds?: string[];
         ActorIds?: string[];
@@ -145,10 +145,10 @@ export interface operations {
         YearMax?: string;
         Statuses?: string[];
         InWatchlist?: string;
-        Sort?: string;
-        Direction?: string;
-        Page?: string;
-        PageSize?: string;
+        sort: "Title" | "Year" | "Rating" | "Runtime";
+        direction: "Ascending" | "Descending";
+        page: number;
+        pageSize: number;
       };
     };
     responses: {
