@@ -139,3 +139,24 @@ Recon-DEV-388-2 section 14 verifies constitution governance, migration constrain
 - Basis: the CLAUDE.md static-analysis gates are required, and "never treat a skipped gate as a passed gate". The ticket AC needs a clean build, passing tests and the zero-reference re-checks.
 - Testcontainers PostgreSQL matches the constitution's database mandate (`constitution.md:342`), and only the database proves the cascade behaviour (recon-DEV-388-2 section 13.2).
 - Gherkin stays opt-in (the `gherkin` skill), and nobody asked for it.
+
+---
+### Q7 full grill exchange (Keel / Patron)
+
+**Question 7/12:** Approve handler outcome tests; PostgreSQL Testcontainers tests for successful 204 then repeat 404, absent id, movie/watchlist/metadata removal, all three join cascades, shared principals and another movie surviving, physical media preserved; DELETE contract/snapshot with no payload; Vitest/RTL tests for confirm/cancel, pending duplicate prevention, error retry, navigation/cache refresh including watchlist/stale details. Retain browse/search/details/play/import/watchlist and Api queue replacement regression evidence; map every AC to explicit evidence. Run full solution build/tests, web gates, diff-scoped Roslyn/complexity/InspectCode, property/security/package/format gates and configured pre-PR mutation without threshold reductions. Recheck no forbidden src/tests references and no Web/Worker deployment/project refs. Distinguish scope-empty SKIPPED, disabled SKIP, mutation N/A and Could not run from PASS. No opt-in Gherkin lane. Approve?
+
+**Answer (Patron):** Approve the verification bar as stated. Basis: required gates and skipped never passed; AC clean build/tests/zero-reference rechecks; PostgreSQL Testcontainers for actual cascades (recon-DEV-388-2 section 13.2). Gherkin remains opt-in and was not requested.
+
+**Rationale and implications:** Baseline counts do not prove delete behavior or delivery-head gates. Acceptance requires both behavior and retirement inventory evidence.
+
+## Q8 - Loop terms (closing bar, frozen scope, round cap)
+
+**Ruling:** Approve Keel's terms with one clarification. A Low finding left open is recorded as one `noted, no ticket` line in this file, not as a YouTrack follow-up. Anything outside the frozen scope gets a follow-up ticket only if it is Critical, High or broken behaviour.
+
+- **Closing bar:** no Critical, High or Medium finding left open in the frozen scope. A failed or unrunnable required gate blocks; a configured skip keeps its exact label.
+- **Frozen scope:**
+  - In: Q1/Q2 delete across backend, contract and SPA; full retirement of Web and Worker; Q4 tests; Q5 README; post-merge closure of DEV-370 and DEV-385; Q6 ADR.
+  - Out: director/collection facets, collection schema, new layers or dependencies, and unrelated cleanup.
+  - Existing P1 behaviour must not regress.
+- **Round cap:** two correction rounds per review loop. Blocking findings still open at the cap stop delivery, reported as `blocked` to Bernstein. M/L adjudication uses the Sentry, Ledger and Compass reports, file:line verification and PR-posted outcomes. Nobody gets merge authority.
+- **Basis:** the Patron role's follow-up-ticket rule (Critical/High/broken only, otherwise `noted, no ticket`); "A review round is not finished until it is on the PR"; "Never merge"; frozen scope taken from rulings Q1-Q7 above. This is the standing ruling for this chain and is not re-ruled per round.
