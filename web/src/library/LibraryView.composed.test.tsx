@@ -313,6 +313,24 @@ describe('LibraryView composition', () => {
     expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
   });
 
+  it('keeps prior tiles without a misleading empty state when a filter change fails', async () => {
+    renderLibraryView();
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    server.use(
+      http.get('*/api/movies', () => HttpResponse.json({ title: 'Error' }, { status: 500 })),
+    );
+
+    window.history.replaceState({}, '', '/?text=dune');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Movies could not be refreshed.');
+    });
+    expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+    expect(screen.queryByText('No titles match these filters.')).not.toBeInTheDocument();
+  });
+
   it('resets to page 1 in the request when the header watchlist toggle engages', async () => {
     window.history.replaceState({}, '', '/?page=3');
     const seen: string[] = [];
