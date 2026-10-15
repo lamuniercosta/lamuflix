@@ -1,6 +1,6 @@
 # Feature Specification: DEV-324 Watchlist Toggle and Filter (React SPA)
 
-**Feature Branch**: `feature/324-spec`
+**Feature Branch**: `feature/DEV-324-implement-watchlist-toggle-on-cards-and-dedicated-watchlist`
 
 **Created**: 2026-10-12
 
@@ -59,7 +59,7 @@ A user clicks the Watchlist quick filter and sees only watchlist movies; the sta
 
 ### Functional Requirements
 
-- **FR-001**: SPA MUST render a bookmark toggle on the delivered movie card and in the hero region (backdrop/poster/title) of the delivered DEV-323 `MovieDetailsView` (mounted via `App.tsx`); DEV-324 builds no host.
+- **FR-001**: SPA MUST render a bookmark toggle on the composed browse item `MovieRow` in `web/src/library/LibraryView.tsx` (F2) and in the hero region (backdrop/poster/title) of the delivered DEV-323 `MovieDetailsView` (mounted via `App.tsx`); DEV-324 builds no host and MUST NOT compose the orphaned `MovieGrid`/`MovieCard`.
 - **FR-002**: Toggle MUST update state optimistically before the API response, using React 19 built-ins in one shared hook (or an already-delivered sibling cache at pickup); no new dependency or state library.
 - **FR-003**: Toggle MUST call the generated client with generated types for POST/DELETE `/api/movies/{id}/watchlist`; no hand-written request or response types.
 - **FR-004**: Toggle MUST retain state on 204 and 409, and MUST roll back with a non-blocking inline error on 404, 422, 500, network failure, or any other failure.
@@ -69,8 +69,8 @@ A user clicks the Watchlist quick filter and sees only watchlist movies; the sta
 - **FR-008**: SPA MUST translate only URL value `watchlist=true` to API `inWatchlist=true`; absent, `false`, and other values leave the filter off.
 - **FR-009**: Switching the filter MUST update the URL, reset paging to page 1, retain other filters, and combine with AND.
 - **FR-010**: UI MUST apply the settled copy: bookmark icon (inline SVG, outlined off / filled on), "Add to watchlist" / "Remove from watchlist", filter label "Watchlist", error "Couldn't update watchlist. Try again.", empty state "Your watchlist is empty."
-- **FR-011**: Implementation and frontend tests MUST stay in `web/src` (delivered card, delivered hero, delivered filter host, delivered URL/browse integration, shared hook); `App.tsx` is a composition surface only, not a rewrite or router introduction.
-- **FR-012**: No change to `src/`, the MVC app, endpoint routes/statuses/DTOs, `web/src/api/openapi.json`, the verified OpenAPI snapshot, or generated `web/src/api/types.ts` by hand.
+- **FR-011**: Frontend implementation and tests MUST stay in `web/src`: toggle on `MovieRow` in `web/src/library/LibraryView.tsx`, delivered hero, Watchlist quick-filter toggle in the existing `App.tsx` header beside Import folder, delivered URL/browse integration, and shared hook. `App.tsx` is a composition surface only, not a rewrite or router introduction; MUST NOT compose `MovieGrid`/`MovieCard` or `FilterPanel`/`LibraryFilters`.
+- **FR-012**: No change to the MVC app or endpoint routes/statuses. Add the required `isInWatchlist: boolean` field to `MovieSummaryResponse` and `MovieDetailsResponse`, flowing C# DTO → OpenAPI → regenerated `web/src/api/types.ts`; update the OpenAPI verified snapshot and `OpenApiContractTests` accordingly. No generated contract artifact is hand-edited; no other backend or contract change is in scope.
 
 ### Key Entities
 
@@ -81,7 +81,7 @@ A user clicks the Watchlist quick filter and sees only watchlist movies; the sta
 
 - **SC-001**: Both ticket acceptance criteria hold in the React SPA: instant bookmark feedback and correct watchlist-only filtering of the browsed list.
 - **SC-002**: Required web tests (Vitest, React Testing Library, MSW via `web-implement` TDD) pass, covering FR-002 through FR-009 including 204/409 retention, rollback paths, in-flight ignore, URL/API mapping, page reset, and accessible states.
-- **SC-003**: Applicable web gates pass via `scripts/run-web-gates.ps1`; the committed OpenAPI baseline and verified snapshot stay byte-identical; no C# files change.
+- **SC-003**: Applicable web gates pass via `scripts/run-web-gates.ps1`; the OpenAPI baseline and verified snapshot match the regenerated contract, and applicable C# gates (Roslyn, complexity, InspectCode, Stryker) pass for the touched DTO projection files.
 
 ## Assumptions
 
@@ -89,7 +89,7 @@ Settled taste assumptions in `specs/DEV-324/ASSUMPTIONS.md` (icon, names, labels
 
 ## Dependencies and Phase B Gate
 
-- Prerequisite hosts (generated types/client, card/grid, DEV-323 `MovieDetailsView` hero region, filter host, URL-synced browse state) are delivered by sibling Epic 6 tickets, not DEV-324.
+- Prerequisite hosts (generated types/client, `MovieRow` in `web/src/library/LibraryView.tsx`, DEV-323 `MovieDetailsView` hero region, and URL-synced browse state) are delivered by sibling Epic 6 tickets, not DEV-324. The quick-filter toggle is integrated into the existing `App.tsx` header beside Import folder (F3); DEV-324 does not compose `FilterPanel`/`LibraryFilters`.
 - Phase B starts only after all prerequisite implementation/delivery merges exist, explicitly including the DEV-323 delivery merge; a merged spec PR alone does not satisfy this. Spec-PR Gate 1 is distinct from delivery evidence.
 - At Phase B pickup, bounded drift recon records actual paths (including the real `MovieDetailsView` path and its title/backdrop block) and amends tasks for drift.
 - This spec does not freeze the plan and does not authorize Phase B.
