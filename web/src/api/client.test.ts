@@ -17,6 +17,7 @@ const browseResponse = {
       runtime: null,
       imdbRating: null,
       enrichmentStatus: 'Pending',
+      isInWatchlist: false,
     },
   ],
   totalCount: '1',
@@ -27,6 +28,7 @@ const movieDetails = {
   title: 'Dune',
   path: '/media/dune.mkv',
   format: 'mkv',
+  isInWatchlist: false,
   metadata: {
     title: 'Dune',
     synopsis: 'A synopsis',

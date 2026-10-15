@@ -52,6 +52,7 @@ describe('App library host', () => {
                 runtime: null,
                 imdbRating: null,
                 enrichmentStatus: 'Enriched',
+                isInWatchlist: false,
               },
               {
                 id: 2,
@@ -61,6 +62,7 @@ describe('App library host', () => {
                 runtime: null,
                 imdbRating: null,
                 enrichmentStatus: 'Pending',
+                isInWatchlist: false,
               },
               {
                 id: 3,
@@ -70,6 +72,7 @@ describe('App library host', () => {
                 runtime: null,
                 imdbRating: null,
                 enrichmentStatus: 'NotFound',
+                isInWatchlist: false,
               },
               {
                 id: 4,
@@ -79,6 +82,7 @@ describe('App library host', () => {
                 runtime: null,
                 imdbRating: null,
                 enrichmentStatus: 'Failed',
+                isInWatchlist: false,
               },
             ],
             totalCount: 4,
