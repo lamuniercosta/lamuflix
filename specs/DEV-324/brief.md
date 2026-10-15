@@ -2,7 +2,7 @@
 
 ## Status and authority
 
-Written by Keel on 2026-10-12 at branch `feature/324-spec`, HEAD `1f2034b`, in `F:/Dev/LamuFlix.worktrees/feature-324-spec`. Updated at HEAD `be2c23c` to reflect Patron's Q3 details-hero addendum; bounded recon remains evidence from `1f2034b`. Updated at HEAD `f72ff6a0f5cb788689759cb9f8e4ddcbdb22a428` to record Patron's Q7/Q10 shared-state mechanism ruling.
+Written by Keel on 2026-10-12 at branch `feature/324-spec`, HEAD `1f2034b`, in `F:/Dev/LamuFlix.worktrees/feature-324-spec`. Updated at HEAD `be2c23c` to reflect Patron's Q3 details-hero addendum; bounded recon remains evidence from `1f2034b`. Updated at HEAD `f72ff6a0f5cb788689759cb9f8e4ddcbdb22a428` to record Patron's Q7/Q10 shared-state mechanism ruling. Amended at Phase B pickup (HEAD `ef5ed89`, rebased onto `origin/main`) to record Patron's pickup rulings F1, F2, F3 (CONCLUSIONS lines 129–155); F1 amends Q4 and Q12 and the Q7-addendum `Unverified` line below.
 
 This brief records the settled 12-question Patron grill and bounded dependency evidence. It is not plan freeze, Gate 1 approval, or Phase B authorization. Patron's Q3 addendum settles the details-hero prerequisite as the backdrop/poster/title region of DEV-323 `MovieDetailsView`, mounted via `App.tsx`. DEV-324 adds its toggle there; no new host, ticket or YouTrack change is needed. The brief is ready for Quill; no open hero-assignment decision remains. CONCLUSIONS Q3 remains in force: DEV-324 integrates the toggle into prerequisite hosts, and does not build those hosts.
 
@@ -10,9 +10,9 @@ Authority: task note `DEV-324:7-8`; `CONCLUSIONS.md` Q1–Q12, Q3 and Q7 addenda
 
 ## Closing bar, frozen scope, and round cap
 
-Closing bar: both ticket acceptance criteria hold in the React SPA: instant bookmark feedback and correct watchlist-only filtering of the browsed movie list. Required web tests and applicable web gates pass; the committed OpenAPI baseline and verified snapshot stay byte-identical; no C# files change (CONCLUSIONS Q1, Q4, Q6, Q12). All prerequisite integration hosts must be established and delivered before Phase B begins (Q3). Any unresolved blocker prevents clearance; this brief does not supply a new severity policy.
+Closing bar: both ticket acceptance criteria hold in the React SPA: instant bookmark feedback and correct watchlist-only filtering of the browsed movie list. Required web tests and applicable web gates pass. As amended by pickup ruling F1, the C# browse/details projections gain a required `isInWatchlist: boolean`, the OpenAPI verified snapshot and `OpenApiContractTests` update in this PR, and the C# gates (Roslyn, complexity, InspectCode, Stryker) apply to the touched `.cs` files; no other backend change is authorized (CONCLUSIONS Q1, Q6; Q4 and Q12 as amended by F1). All prerequisite integration hosts must be established and delivered before Phase B begins (Q3). Any unresolved blocker prevents clearance; this brief does not supply a new severity policy.
 
-Frozen scope: bookmark toggles on the existing movie card and details hero, a Watchlist quick-filter toggle in the existing header or filter panel, shared optimistic state for those toggles, and translation from SPA URL `watchlist=true` to API `inWatchlist=true`. No host construction, backend or contract change, MVC work, new dependency, state library, architectural layer, or LocalPlay work is authorized. Anything else is a follow-up issue, not a finding in this round.
+Frozen scope: bookmark toggles on the existing movie card and details hero, a Watchlist quick-filter toggle, shared optimistic state for those toggles, translation from SPA URL `watchlist=true` to API `inWatchlist=true`, and the single F1 additive DTO field (`isInWatchlist`) flowing C# DTO → `openapi.json` → regenerated `types.ts`. Pickup rulings fix the hosts: the card host is `MovieRow` in `web/src/library/LibraryView.tsx` (F2) and the quick-filter toggle sits in the existing `App.tsx` header beside Import folder (F3). No host construction beyond those placements, no other backend or contract change, no MVC work, new dependency, state library, architectural layer, or LocalPlay work is authorized. Anything else is a follow-up issue, not a finding in this round.
 
 Round cap: grill capped at 12 questions, already reached; review capped at two rounds; remediation capped at two fix commits per round (`task-pipeline:25-27`). Third-round findings go to user review with the PR. The Q3 and Q7 addenda clarify the host and shared-state mechanism within existing scope; neither is a thirteenth grill question.
 
@@ -21,9 +21,9 @@ Round cap: grill capped at 12 questions, already reached; review capped at two r
 | Surface | Bounded attribution | Recorded planned integration surface | Delivery status / limitation |
 |---|---|---|---|
 | Generated types and API client | DEV-320 (`recon-DEV-324:34`) | `web/src/api`, including generated `types.ts`; exact client module not supplied | Absent at this HEAD; delivery merge not found in the named roots |
-| Movie card and grid | DEV-321 (`recon-DEV-324:35`) | LibraryView / App composition; isolated tile proof | Exact card component file not established; no delivered card/grid at this HEAD |
+| Movie card and grid | DEV-321 (`recon-DEV-324:35`) | LibraryView / App composition; isolated tile proof | Pickup ruling F2 fixes the card host as the composed browse item `MovieRow` in `web/src/library/LibraryView.tsx` at the rebased tip; do not compose the orphaned `MovieGrid`/`MovieCard` |
 | Details hero | DEV-323 (CONCLUSIONS Q3 addendum; `DEV-324:75-77`) | Hero region (backdrop/poster/title) of `MovieDetailsView`, mounted via `App.tsx` | Phase B waits for DEV-323 delivery merge; actual path and placement require pickup drift recon; no separate hero host is built |
-| Filter quick-toggle host | DEV-322 filter panel (`recon-DEV-324:37`) | `web/src/features/library`, FilterPanel, mounted via `App.tsx` | Filter panel absent at this HEAD; header assignment not found. Q3 does not authorize constructing a header |
+| Filter quick-toggle host | DEV-322 filter panel (`recon-DEV-324:37`) | `web/src/features/library`, FilterPanel, mounted via `App.tsx` | Pickup ruling F3 places the toggle in the existing `App.tsx` header beside Import folder, reading/writing SPA URL `watchlist=true` and passing `inWatchlist=true` into the browse query and its query key; do not compose `FilterPanel`/`LibraryFilters` |
 | URL-synced browse state | DEV-321 and DEV-322, parent DEV-286 (`recon-DEV-324:38`) | Adapter state/history/listener with LibraryView / App composition; `web/src/features/library` | Exact module filenames and delivered state integration not established |
 
 Patron's Q3 addendum identifies the details hero as the top region of DEV-323 `MovieDetailsView` displaying backdrop, poster and title, mounted via `App.tsx`. Basis: DEV-323 ticket description and planned surface (`DEV-323:8,45,49`), as cited by CONCLUSIONS Q3 addendum. This closes the previous hero-assignment decision without changing DEV-324 ticket scope, creating a host or ticket, or changing YouTrack. DEV-324 only adds the toggle to that delivered region.
@@ -38,7 +38,7 @@ Use the generated API client and generated types to invoke the existing POST/DEL
 
 Restrict implementation and related frontend tests to `web/src`: the delivered card, delivered hero, delivered filter host, delivered URL/browse integration, and the small shared hook. `App.tsx` is a recorded composition surface, not permission to replace the app or introduce a router. Quill must state unresolved filenames as such rather than invent prerequisite code. Planning artifacts belong in `specs/DEV-324`; Quill writes spec, plan and tasks from this brief. The existing `.specify/feature.json` modification is preserved.
 
-Do not edit `src/`, the MVC app, endpoint routes/statuses/DTOs, `web/src/api/openapi.json`, the verified OpenAPI snapshot, or generated `web/src/api/types.ts` by hand. No new dependency, schema, project, top-level folder, architectural layer, or L-ticket ADR is selected here.
+Do not edit the MVC app, endpoint routes/statuses, or unrelated DTOs. The sole `src/` exception is the F1 additive `isInWatchlist` projection on `MovieSummaryResponse` and `MovieDetailsResponse`; `web/src/api/openapi.json`, the verified OpenAPI snapshot, and generated `web/src/api/types.ts` change only by regeneration from that DTO change, never by hand edit. No new dependency, schema, project, top-level folder, architectural layer, or L-ticket ADR is selected here.
 
 ## Test strategy and gate expectations
 
@@ -53,7 +53,7 @@ Use the existing Vitest, React Testing Library and MSW stack and the `web-implem
 - Switching the filter updates the URL, resets page to 1, retains other filters, and combines them using AND.
 - The settled labels, bookmark treatment and empty-state copy in ASSUMPTIONS are applied.
 
-Run applicable web verification through `scripts/run-web-gates.ps1` in Phase B (`task-pipeline:94`) and preserve the unchanged OpenAPI drift test. The prior candidate C# baseline counts 0/0/0 are historical measurements, not verification of this feature. Q12 anticipates no C# diff; diff-based C# applicability is reported by Gauge, with any scope-empty result explicitly SKIPPED (scope-empty), never PASS. No implementation tests or gates are run to produce this documentation brief.
+Run applicable web verification through `scripts/run-web-gates.ps1` in Phase B (`task-pipeline:94`); the OpenAPI drift test passes against the regenerated baseline, and the C# gates apply to the F1-touched `.cs` files. The prior candidate C# baseline counts 0/0/0 are historical measurements, not verification of this feature. Q12 anticipates no C# diff; diff-based C# applicability is reported by Gauge, with any scope-empty result explicitly SKIPPED (scope-empty), never PASS. No implementation tests or gates are run to produce this documentation brief.
 
 ## Task ordering and handoff constraints
 
@@ -61,7 +61,7 @@ Run applicable web verification through `scripts/run-web-gates.ps1` in Phase B (
 2. Quill drafts spec, plan and tasks from the recorded decisions and bounded evidence. Gaps return as `needs decision:`; no prerequisite construction or hero omission may be inserted.
 3. For this `ui:` ticket, await Palette's `design.md` before plan challenge. Keel performs read-only speckit-analyze and checks the plan/tasks against this brief after Quill's draft. This brief makes no claim that either step has occurred.
 4. Spec-PR Gate 1 authorization and any applicable owner checkbox stay separate from plan freeze and from implementation/delivery merges. Phase B also waits for all prerequisite implementation/delivery merges, explicitly including DEV-323; merging a spec PR does not deliver a host or authorize implementation by itself.
-5. At Phase B pickup, get bounded drift recon for delivered component/client paths, actual dependency delivery and any already-delivered shared client cache. Confirm that both delivered hosts read `isInWatchlist` from their generated DTOs; this is unverified, and absence means `needs decision:` without a contract change. List reconciliation with the filter on remains pickup seam work, not settled by Q7. Carry the Q7 addendum owner, cache alternative and no-cache module-store fallback into plan/tasks before implementation; re-run speckit-analyze against main and amend tasks for recorded drift. Serialize changes to shared hook, composition and shared test files.
+5. At Phase B pickup, get bounded drift recon for delivered component/client paths, actual dependency delivery and any already-delivered shared client cache. Confirm that both delivered hosts read `isInWatchlist` from their generated DTOs after the F1 projection and regeneration; the card host is `MovieRow` in `web/src/library/LibraryView.tsx` (F2) and the quick-filter toggle sits in the `App.tsx` header (F3). List reconciliation with the filter on remains pickup seam work, not settled by Q7. Carry the Q7 addendum owner, cache alternative and no-cache module-store fallback into plan/tasks before implementation; re-run speckit-analyze against main and amend tasks for recorded drift. Serialize changes to shared hook, composition and shared test files.
 6. Implement the shared optimistic behavior and card/hero integration after the client and both hosts exist, using the settled Q7 addendum mechanism and per-movie isolation. Wire the Watchlist URL/API mapping into the delivered browse/filter state, then verify paging, retained filters, removal behavior and accessible states through the required tests.
 7. Complete applicable web verification and the M-ticket three-axis review before clearance. This brief grants no build, review, merge or delivery clearance.
 
@@ -86,10 +86,10 @@ The following Q1–Q12 exchanges are reproduced from CONCLUSIONS without changin
 - The dependency tickets are the open Epic 6 spec PRs in the `chain` note (DEV-320–323, DEV-80; DEV-323 is the details page). **Unverified:** I did not open their specs. Keel names the exact dependency per surface in `brief.md`. Phase B drift recon confirms the components exist before build starts.
 
 ### Q4. Do any API routes, DTOs or status codes change (§2.3 item 4)?
-**Ruling: no backend or contract change. DEV-324 is frontend only.**
+**Ruling (as amended by pickup ruling F1): no backend or contract change beyond the single additive DTO field. DEV-324 adds a required `isInWatchlist: boolean` to `MovieSummaryResponse` and `MovieDetailsResponse`, flowing C# DTO → `openapi.json` → regenerated `types.ts` (CONCLUSIONS F1). No route or status code changes.**
 - POST and DELETE `/api/movies/{id}/watchlist` already exist with 204/400/404/409/422 responses, and they are frozen in `web/src/api/openapi.json:309-382` (recon-DEV-324 §1).
 - The browse filter `inWatchlist` already exists in `openapi.json:94` (recon-DEV-324-3 §2).
-- The OpenAPI baseline and its verified snapshot stay byte-identical.
+- The OpenAPI baseline and its verified snapshot change only by regeneration from the F1 DTO field; `OpenApiContractTests` and the verified snapshot update in this PR.
 
 ### Q5. The ticket says `?watchlist=true`, but the API key is `inWatchlist`. Is this a contradiction?
 **Ruling: no. `?watchlist=true` is the SPA URL. The SPA translates it to the API's `inWatchlist=true`.**
@@ -139,7 +139,7 @@ The following Q1–Q12 exchanges are reproduced from CONCLUSIONS without changin
   - `?watchlist=true` sends `inWatchlist=true`, and an absent or other value sends no filter;
   - the filter toggle syncs to the URL and resets the page;
   - the accessible name and `aria-pressed` are correct.
-- No C# file is expected to change. The C# gates (Roslyn, complexity, InspectCode, Stryker) are N/A unless the diff touches `.cs`, so the baseline of 0/0/0 stays.
+- As amended by pickup ruling F1, the C# DTO projection files change. The C# gates (Roslyn, complexity, InspectCode, Stryker) apply to the touched `.cs` files; the historical 0/0/0 baseline no longer describes this diff.
 - The OpenAPI drift test must stay green and unchanged.
 
 
@@ -162,10 +162,18 @@ The following Q1–Q12 exchanges are reproduced from CONCLUSIONS without changin
 - **When no sibling cache exists, and how movies stay isolated:**
   - If drift recon at pickup finds an already-delivered shared client cache for movie data (Q7: one that a sibling ticket has already merged), the optimistic update writes to that cache's entry for the movie, and the module store is not built.
   - Otherwise the module store is used, and the baseline comes from the `isInWatchlist` field that each delivered host already reads from its generated DTO.
-  - **Unverified:** whether the browse and details DTOs expose `isInWatchlist`. If one does not, report `needs decision:` at pickup. Do not change the contract (Q4).
+  - **Amended by pickup ruling F1:** the browse and details DTOs carry no `isInWatchlist` baseline today; F1 adds the required field to both responses (see amended Q4). The baseline for each surface is that DTO field after regeneration.
   - Everything is keyed per `movieId`: the overlay, the pending flag, the in-flight guard and the error. Toggling, a request in flight, or a failure on movie A never changes movie B (accepted F-isolation, FR-006).
   - The in-flight guard is shared by every surface for that movie. A hero click made while the card's request for the same movie is still pending is ignored, and `aria-busy` clears when the request settles (Q10).
   - How the list reconciles when the filter is on stays with the pickup seam work (accepted F5); this ruling does not settle it.
+
+## Phase B pickup rulings (2026-10-15, Conductor ask; not grill questions)
+
+Recorded here from CONCLUSIONS lines 129–155 so the brief carries every settled decision. Precondition (F8): the worktree is rebased onto current `origin/main` (tip `65528b5` or later) before any build; every path below means the rebased tree. F7 (`harness.yml` diff) is discarded before rebase or any gate run and is not part of DEV-324.
+
+- **F1. DTO baseline.** Add a required `isInWatchlist: boolean` to `MovieSummaryResponse` and `MovieDetailsResponse`, flowing C# DTO → `openapi.json` → regenerated `types.ts`. This amends Q4 and Q12 and the Q7-addendum `Unverified` line; it is an additive §2.3-4 field with no route or status change. The OpenAPI verified snapshot and `OpenApiContractTests` update in this PR, and the C# gates apply to the touched `.cs` files.
+- **F2. Card host.** The card host is the composed browse item `MovieRow` in `web/src/library/LibraryView.tsx`; the toggle goes there. Do not compose the orphaned `MovieGrid`/`MovieCard`; the orphaned DEV-321 grid and DEV-322 filter tree are out of scope (follow-up ticket via Rigger).
+- **F3. Quick-filter host.** Place the Watchlist quick-filter toggle in the existing `App.tsx` header beside Import folder. It reads/writes SPA URL `watchlist=true` and passes `inWatchlist=true` into the browse query and its query key. Do not compose `FilterPanel`/`LibraryFilters`. F4 follows Q5 (only `true` turns the filter on; translation lives in the browse query hook), F5 uses `history.pushState` with a `popstate` listener (design §6), and F6 keeps the Q7-addendum module store with `MovieDetailsView`'s nested QueryClient untouched.
 
 ## Settled taste assumptions
 

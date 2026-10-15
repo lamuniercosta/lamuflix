@@ -4,7 +4,7 @@ description: "Task list for DEV-324 watchlist toggle and filter"
 
 # Tasks: DEV-324 Watchlist Toggle and Filter
 
-**Input**: `specs/DEV-324/spec.md`, `specs/DEV-324/plan.md`, `specs/DEV-324/brief.md`, settled Palette `specs/DEV-324/design.md` (reviewed as an input prerequisite), CONCLUSIONS (Q1–Q12 plus Q3 addendum), ASSUMPTIONS.
+**Input**: `specs/DEV-324/spec.md`, `specs/DEV-324/plan.md`, `specs/DEV-324/brief.md` (including Phase B pickup rulings F1, F2, F3), settled Palette `specs/DEV-324/design.md` (reviewed as an input prerequisite), CONCLUSIONS (Q1–Q12 plus Q3 addendum, Q4/Q12 as amended by F1, Phase B pickup rulings F1–F3), ASSUMPTIONS.
 
 **Prerequisites**: plan.md, spec.md, settled design.md reviewed. Keel speckit-analyze follows this draft; this draft claims no challenge outcome and no freeze. Phase B (pickup onward) is not authorized by this draft.
 
@@ -34,11 +34,13 @@ description: "Task list for DEV-324 watchlist toggle and filter"
 
 - [ ] T010 Verify prerequisite implementation/delivery merges exist, explicitly including the DEV-323 delivery merge (spec-PR merges do not count); confirm spec-PR Gate 1 state separately
 - [ ] T011 [P] Record actual path of generated `types.ts` and generated API client under `web/src/api`
-- [ ] T012 [P] Record actual path of delivered movie card/grid and its composition via `App.tsx`; record the delivered shared-state/list-reconciliation seam and the delivered focus-on-removal behavior for filter-active removal (removed-card unmount only); missing capability or scope-changing workaround means `needs decision:` before story work
+- [ ] T012 [P] Recorded by pickup ruling F2: the card host is `MovieRow` in `web/src/library/LibraryView.tsx`; verify its composition via `App.tsx` on the rebased tree, record the delivered shared-state/list-reconciliation seam and the delivered focus-on-removal behavior for filter-active removal (removed-card unmount only); do not compose `MovieGrid`/`MovieCard`; missing capability or scope-changing workaround means `needs decision:` before story work
 - [ ] T013 [P] Record actual path of `MovieDetailsView` and its title/backdrop block (hero region); fallback: toggle next to title; no details view means stop with `needs decision:`
-- [ ] T014 [P] Record actual path of delivered filter host and delivered URL/browse-state integration; record the delivered empty-state renderer seam (watchlist empty copy vs host empty behavior when the filter is off) and the URL history/hydration seam (Back/Forward, link share); missing capability or scope-changing workaround means `needs decision:` before story work
-- [ ] T015 Amend tasks for recorded drift; resolve the chosen removal/empty integration after pickup, never speculatively; assign each test group an explicit disjoint test file (or record that groups share one file and must run serialized); serialize changes to shared hook, composition, shared test files, and shared MSW/test setup
+- [ ] T014 [P] Recorded by pickup ruling F3: the quick-filter toggle sits in the existing `App.tsx` header beside Import folder, reading/writing SPA URL `watchlist=true` and passing `inWatchlist=true` into the browse query and its query key; do not compose `FilterPanel`/`LibraryFilters`; record the delivered empty-state renderer seam (watchlist empty copy vs host empty behavior when the filter is off) and the URL history/hydration seam (`history.pushState` + `popstate` listener per F5, Back/Forward, link share); missing capability or scope-changing workaround means `needs decision:` before story work
+- [x] T015 Amend tasks for recorded drift (done in this amendment): F1 adds T017/T018 for the DTO projection, OpenAPI regeneration, and snapshot/`OpenApiContractTests` update; F2 fixes T012/T028 to `MovieRow` in `web/src/library/LibraryView.tsx`; F3 fixes T014/T037 to the `App.tsx` header; resolve the chosen removal/empty integration after pickup, never speculatively; assign each test group an explicit disjoint test file (or record that groups share one file and must run serialized); serialize changes to shared hook, composition, shared test files, and shared MSW/test setup
 - [ ] T016 Re-run read-only speckit-analyze against main after drift recon and task amendment per brief.md:64 and plan.md Phase 0; resolve reported inconsistencies before any story work begins
+- [ ] T017 [F1] Add required `isInWatchlist: boolean` to `MovieSummaryResponse` and `MovieDetailsResponse` (C# DTOs only; no route or status change), regenerate `web/src/api/openapi.json` and `web/src/api/types.ts` through the contract chain (never hand-edit generated files), and update the OpenAPI verified snapshot and `OpenApiContractTests` in this PR
+- [ ] T018 [F1] Run the C# gates (Roslyn, complexity, InspectCode, Stryker) on the T017-touched `.cs` files and the OpenAPI drift test against the regenerated baseline; both hosts read `isInWatchlist` from the regenerated DTOs before any story work begins
 
 **Checkpoint**: Hosts confirmed and paths recorded; story work may begin.
 
@@ -63,7 +65,7 @@ description: "Task list for DEV-324 watchlist toggle and filter"
 ### Implementation for User Story 1
 
 - [ ] T027 [US1] Implement shared optimistic hook in `web/src` (exact file per T015; Q7 addendum: module-scoped per-movie `Map` store read via `useSyncExternalStore` over host `isInWatchlist` baseline, or already-delivered sibling cache entry when pickup finds one; no Context/provider, state library, new layer, or dependency): per-movie optimistic write, POST/DELETE via generated client, 204/409 confirmed retention through settlement/navigation, other-failure rollback with per-movie inline error, shared per-movie in-flight guard with `aria-busy` clearing on settle, per-movie isolation
-- [ ] T028 [US1] Wire hook into delivered card (path per T012); apply inline SVG bookmark treatment and settled copy
+- [ ] T028 [US1] Wire hook into `MovieRow` in `web/src/library/LibraryView.tsx` (path per T012/F2; do not compose `MovieGrid`/`MovieCard`); apply inline SVG bookmark treatment and settled copy
 - [ ] T029 [US1] Wire hook into delivered hero region of `MovieDetailsView` (path per T013); no host construction, no hero-component extraction
 
 **Checkpoint**: User Story 1 toggle fully functional and testable independently (filter-active list behavior excluded here; covered after filter integration in Phase 4).
@@ -88,7 +90,7 @@ description: "Task list for DEV-324 watchlist toggle and filter"
 
 ### Implementation for User Story 2
 
-- [ ] T037 [US2] Wire Watchlist quick-filter toggle into delivered filter host (path per T014); URL `watchlist` to API `inWatchlist` translation, page-1 reset, retained filters, AND combination
+- [ ] T037 [US2] Wire Watchlist quick-filter toggle into the existing `App.tsx` header beside Import folder (path per T014/F3; do not compose `FilterPanel`/`LibraryFilters`); URL `watchlist` to API `inWatchlist` translation in the browse query hook and its query key, page-1 reset, retained filters, AND combination
 - [ ] T038 [US2] Integrate filter-active removal behavior after T037 (depends on T037): successful removal removes the card; failed removal keeps the card with rollback plus inline error
 
 **Checkpoint**: User Stories 1 AND 2 both work independently; filter-active removal behavior verified only after T038.
@@ -102,7 +104,7 @@ description: "Task list for DEV-324 watchlist toggle and filter"
 **Purpose**: Verification and review; no scope additions.
 
 - [ ] T040 Run `web-implement` TDD suite and applicable web verification through `scripts/run-web-gates.ps1` in Phase B
-- [ ] T041 Confirm OpenAPI drift test green with baseline and snapshot byte-identical; confirm no `.cs` changes (scope-empty reported as SKIPPED, never PASS)
+- [ ] T041 Confirm OpenAPI drift test green against the regenerated baseline and updated verified snapshot (T017); confirm the only `.cs` changes are the F1 DTO projections and run their C# gates (T018; scope-empty no longer applies to this diff)
 - [ ] T042 Complete M-ticket three-axis review before clearance (no clearance granted by this draft)
 
 ---
@@ -110,7 +112,7 @@ description: "Task list for DEV-324 watchlist toggle and filter"
 ## Dependencies & Execution Order
 
 - **Setup (Phase 1)**: Spec-kit draft; no dependencies.
-- **Foundational (Phase 2)**: Pickup drift recon (T010–T015) plus read-only speckit-analyze and inconsistency resolution (T016) BLOCKS all stories; Phase B waits on prerequisite delivery merges including DEV-323.
+- **Foundational (Phase 2)**: Pickup drift recon (T010–T015) plus read-only speckit-analyze and inconsistency resolution (T016) and the F1 contract seam (T017–T018) BLOCK all stories; Phase B waits on prerequisite delivery merges including DEV-323.
 - **User Stories (Phases 3–4)**: Depend on Phase 2; US1 toggle (T020–T026 tests, then T027–T029) before US2 filter; US1 standalone excludes the filter-active scenario (verified with US2 after T038); bookmark design test T026 written before T027–T029 and run serialized after T020–T025; filter-active removal test T035 and filter design test T036 written before T037/T038 per TDD and run serialized after T030–T035, with removal behavior verified only after T038.
 - **Polish (Phase 5)**: Depends on stories complete.
 
