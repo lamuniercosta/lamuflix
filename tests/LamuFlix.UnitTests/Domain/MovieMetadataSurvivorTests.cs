@@ -75,15 +75,27 @@ public sealed class MovieMetadataSurvivorTests
         new(
             title,
             synopsis,
-            releaseYear ?? new ReleaseYear(2000, Now),
-            runtime ?? new Runtime(100),
-            imdbRating ?? new ImdbRating(7.5m),
-            imdbId ?? new ImdbId("tt0000001"),
+            DefaultReleaseYear(releaseYear),
+            DefaultRuntime(runtime),
+            DefaultImdbRating(imdbRating),
+            DefaultImdbId(imdbId),
             posterUrl,
             rottenTomatoesRating,
             metaScore,
-            directors ?? new[] { "Director A" },
-            actors ?? new[] { "Actor A" });
+            DefaultDirectors(directors),
+            DefaultActors(actors));
+
+    private static ReleaseYear DefaultReleaseYear(ReleaseYear? value) => value ?? new ReleaseYear(2000, Now);
+
+    private static Runtime DefaultRuntime(Runtime? value) => value ?? new Runtime(100);
+
+    private static ImdbRating DefaultImdbRating(ImdbRating? value) => value ?? new ImdbRating(7.5m);
+
+    private static ImdbId DefaultImdbId(ImdbId? value) => value ?? new ImdbId("tt0000001");
+
+    private static IEnumerable<string> DefaultDirectors(IEnumerable<string>? value) => value ?? new[] { "Director A" };
+
+    private static IEnumerable<string> DefaultActors(IEnumerable<string>? value) => value ?? new[] { "Actor A" };
 
     [Fact]
     public void EqualsAndHash_DifferingTitle_AreNotEqualAndHashDiffers()
