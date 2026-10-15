@@ -57,7 +57,8 @@ export function useWatchlistToggle(
       return;
     }
 
-    const target = !(current ? current.target : baseline);
+    const previousTarget = current ? current.target : baseline;
+    const target = !previousTarget;
     write(key, { target, pending: true, error: null });
 
     const request = target
@@ -69,11 +70,11 @@ export function useWatchlistToggle(
         if (response.status === 204 || response.status === 409) {
           write(key, { target, pending: false, error: null });
         } else {
-          write(key, { target: baseline, pending: false, error: WATCHLIST_TOGGLE_ERROR });
+          write(key, { target: previousTarget, pending: false, error: WATCHLIST_TOGGLE_ERROR });
         }
       })
       .catch(() => {
-        write(key, { target: baseline, pending: false, error: WATCHLIST_TOGGLE_ERROR });
+        write(key, { target: previousTarget, pending: false, error: WATCHLIST_TOGGLE_ERROR });
       });
   }, [key, baseline, movieId]);
 

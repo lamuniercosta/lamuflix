@@ -222,7 +222,7 @@ export function useRetryEnrichmentMutation() {
       throw new RetryRowError(GENERIC_RETRY_ERROR);
     },
     onSuccess: ({ id }) => {
-      queryClient.setQueryData<BrowseMoviesResponse>(browseMoviesQueryKey, (current) =>
+      queryClient.setQueriesData<BrowseMoviesResponse>({ queryKey: ['browseMovies'] }, (current) =>
         markRowPending(current, id),
       );
     },

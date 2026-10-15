@@ -3,12 +3,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { createOpenApiHttp } from 'openapi-msw';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { components, paths } from '../api/types';
 import App from '../App';
 import { retryAcceptedHandler, retryConflictHandler, retryNotFoundHandler } from '../test/handlers';
 import { server } from '../test/server';
-import { browseMoviesQueryKey, browseRefetchInterval, GENERIC_RETRY_ERROR } from './libraryQueries';
+import {
+  browseMoviesQueryKey,
+  browseRefetchInterval,
+  GENERIC_RETRY_ERROR,
+  standingBrowseQuery,
+} from './libraryQueries';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
@@ -78,6 +83,10 @@ function useRetryableBrowse() {
     ),
   );
 }
+
+afterEach(() => {
+  window.history.replaceState({}, '', '/');
+});
 
 describe('LibraryView retry', () => {
   it('shows Retry only for NotFound and Failed rows with row-specific names', async () => {
@@ -156,5 +165,34 @@ describe('LibraryView retry', () => {
     await waitFor(() => {
       expect(browseCalls).toBeGreaterThan(1);
     });
+  });
+});
+
+describe('LibraryView filtered watchlist retry', () => {
+  const watchlistedFailed: MovieSummary = { ...brokenCut, isInWatchlist: true };
+
+  it('marks the filtered watchlist row Pending on 202', async () => {
+    window.history.replaceState({}, '', '/?watchlist=true');
+    server.use(
+      http.get('/api/movies', () =>
+        HttpResponse.json(browseBody([watchlistedFailed]), { status: 200 }),
+      ),
+      retryAcceptedHandler,
+    );
+    const { client } = renderApp();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry Broken Cut' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Retry Broken Cut' })).not.toBeInTheDocument(),
+    );
+    const row = screen
+      .getAllByRole('listitem')
+      .find((item) => item.textContent?.includes('Broken Cut'));
+    expect(row).toHaveTextContent('Pending');
+
+    const filteredKey = ['browseMovies', { ...standingBrowseQuery, InWatchlist: 'true' as const }];
+    const data = client.getQueryData<BrowseMoviesResponse>(filteredKey);
+    expect(data?.items.find((item) => item.id === 4)?.enrichmentStatus).toBe('Pending');
   });
 });
