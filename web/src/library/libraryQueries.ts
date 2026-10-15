@@ -56,6 +56,13 @@ function folderPathProblemMessage(error: unknown): string | undefined {
   return undefined;
 }
 
+export function browseRefetchInterval(query: {
+  state: { data?: BrowseMoviesResponse };
+}): number | false {
+  const items = query.state.data?.items ?? [];
+  return items.some((item) => item.enrichmentStatus === 'Pending') ? 2000 : false;
+}
+
 export function pendingRow(id: string, title: string): MovieSummary {
   return {
     id,
@@ -98,6 +105,8 @@ export function useBrowseMoviesQuery() {
     },
     retry: false,
     refetchOnWindowFocus: false,
+    refetchInterval: browseRefetchInterval,
+    refetchIntervalInBackground: false,
   });
 }
 
