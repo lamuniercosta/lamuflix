@@ -1,6 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { client } from '../../api/client';
+import type { components } from '../../api/types';
+
+type MovieMetadataResponse = components['schemas']['MovieMetadataResponse'];
+type MovieDetailsResponse = components['schemas']['MovieDetailsResponse'];
 
 const movieMetadataSchema = z.object({
   title: z.string(),
@@ -14,7 +18,7 @@ const movieMetadataSchema = z.object({
   metaScore: z.union([z.number(), z.string()]).nullable(),
   directors: z.array(z.string()),
   actors: z.array(z.string()),
-});
+}) satisfies z.ZodType<MovieMetadataResponse>;
 
 const movieDetailsSchema = z.object({
   id: z.union([z.number(), z.string()]),
@@ -22,10 +26,10 @@ const movieDetailsSchema = z.object({
   path: z.string(),
   format: z.string(),
   metadata: movieMetadataSchema.nullable(),
-});
+}) satisfies z.ZodType<MovieDetailsResponse>;
 
-export type MovieDetails = z.infer<typeof movieDetailsSchema>;
-export type MovieMetadata = z.infer<typeof movieMetadataSchema>;
+export type MovieDetails = MovieDetailsResponse;
+export type MovieMetadata = MovieMetadataResponse;
 
 export class MovieDetailsError extends Error {
   status: number;
