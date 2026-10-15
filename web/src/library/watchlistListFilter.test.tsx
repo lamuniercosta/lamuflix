@@ -147,6 +147,40 @@ describe('watchlist filter-active removal reconciliation', () => {
   });
 });
 
+describe('watchlist filter exit reconciliation', () => {
+  it('restores hidden cards when the watchlist filter turns off', async () => {
+    window.history.replaceState({}, '', '/?watchlist=true');
+    server.use(
+      http.get('/api/movies', () =>
+        HttpResponse.json(browseBody([summary({ id: 1, title: 'Dune' })]), { status: 200 }),
+      ),
+      http.delete('/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
+    );
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function LocalWrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    }
+    const view = render(<LibraryView leadingItem={null} inWatchlist={true} />, {
+      wrapper: LocalWrapper,
+    });
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Dune' })).not.toBeInTheDocument();
+    });
+
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <LibraryView leadingItem={null} inWatchlist={false} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+  });
+});
+
 describe('watchlist filter empty state with a hidden leading item', () => {
   it('shows the watchlist empty copy for a non-watchlisted import placeholder', async () => {
     server.use(http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })));
