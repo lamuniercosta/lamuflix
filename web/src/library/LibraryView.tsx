@@ -243,6 +243,13 @@ function LibraryBrowseView({
   });
 
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
+  const wasWatchlistActive = useRef(watchlistActive);
+  useEffect(() => {
+    if (wasWatchlistActive.current && !watchlistActive) {
+      setHiddenIds(new Set());
+    }
+    wasWatchlistActive.current = watchlistActive;
+  }, [watchlistActive]);
   const [focusSignal, setFocusSignal] = useState(0);
   const focusGrid = useCallback(() => {
     setFocusSignal((signal) => signal + 1);
