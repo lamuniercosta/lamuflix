@@ -6,3 +6,5 @@
 - [assumed] Error copy for a failed toggle, shown inline and non-blocking: "Couldn't update watchlist. Try again."
 - [assumed] Empty state when the filter is on and nothing matches: "Your watchlist is empty."
 - [assumed] Turning the filter on or off resets paging to page 1 and keeps the other filters (CONCLUSIONS Q11).
+
+- [assumed] Phase B F3: Watchlist quick-filter toggle sits in the App header immediately after the Import folder button; F2: row toggle sits at the end of each MovieRow after the retry button.

@@ -126,3 +126,29 @@ Verdict: **no `blocked: structural`**. No escalation to the owner. No YouTrack c
 - Analysis is clean: Keel's corrected-design `/speckit-analyze` is CLEAN, with 15/15 requirements and criteria covered across 31 tasks and zero remaining fixes (note `DEV-324:170-174`).
 - Plan challenge is adjudicated and the plan is frozen: all six accepted fixes are satisfied, and Sentry/Ledger/Compass findings are closed or bounded as pickup stops (note `DEV-324:181-187`). This matches the step order in task-pipeline:68-82 (`recon-DEV-324:46-47`).
 - No open `blocked: structural` item or owner checkbox is recorded in these roots. Phase B still waits on the prerequisite delivery merges, DEV-323 included (brief:33,63; Q3 addendum).
+## Phase B pickup rulings (2026-10-15, Conductor ask on recon-DEV-324 §6; not grill questions)
+
+Precondition (F8): rebase onto current `origin/main` (tip `65528b5` or later) before any build; every path below means the rebased tree.
+
+### F1. Browse and details DTOs carry no `isInWatchlist` baseline.
+**Ruling: add a required `isInWatchlist: boolean` to `MovieSummaryResponse` and `MovieDetailsResponse`, flowing C# DTO → `openapi.json` → regenerated `types.ts`. This amends Q4 and the Q7-addendum `Unverified` line; it is an additive §2.3-4 field, no route or status change.**
+- §2.3 item 4 is Patron's to rule; ticket text names no DTO, so no §2.3 a escalation. Domain and persistence already hold the value (`Movie.cs:27`, `is_in_watchlist`); only the projection is missing.
+- AC instant feedback needs a correct initial state; deriving it from a second `inWatchlist=true` paged query is a fragile workaround (sound engineering).
+- Consequence: the OpenAPI verified snapshot and `OpenApiContractTests` update in this PR; Q12 amended, C# gates (Roslyn, complexity, InspectCode, Stryker) apply to the touched `.cs` files.
+
+### F2. No composed card host; MovieCard/MovieGrid orphaned.
+**Ruling: the card host is the composed browse item at the rebased tip, `MovieRow` in `web/src/library/LibraryView.tsx`. Put the toggle there. Do not compose MovieGrid/MovieCard.**
+- Ticket S&TD 1 and AC1 require a toggle on the browse item; adding it to the delivered row is integration, not host construction (Q3), so the edit is AC-forced (§2.3 item 6 not triggered).
+- Composing the orphaned DEV-321 grid would rewrite DEV-80's view and add to what DEV-324 delivers (§2.3 a).
+- Orphaned DEV-321 grid and DEV-322 filter tree are broken behaviour out of scope: follow-up ticket via Rigger.
+
+### F3. No composed filter host; standing browse query has no filter params.
+**Ruling: place the Watchlist quick-filter toggle in the existing `App.tsx` header (beside Import folder). It reads/writes SPA URL `watchlist=true` and passes `inWatchlist=true` into the browse query and its query key. Do not compose FilterPanel/LibraryFilters.**
+- Ticket description says header filter `?watchlist=true`; the DEV-80 header exists at tip, so this is the existing host the brief frozen scope allows (header or filter panel).
+- F4 follows Q5: only `true` turns the filter on; translation lives in the browse query hook. F5: toggling uses `history.pushState` and a `popstate` listener restores it (design §6). F6: the Q7-addendum module store stays; `MovieDetailsView`'s nested QueryClient is not touched.
+- Adding one optional filter param to `useBrowseMoviesQuery` is AC-forced (filter to watchlisted titles).
+
+### F7. Uncommitted `harness.yml` diff removing `maxKillShare`/`maxKillFileSpan`.
+**Ruling: discard it (`git restore harness.yml`) before rebase or any gate run. It is not part of DEV-324.**
+- harness.yml is not named by the ticket and the edit weakens gates (§2.3 item 6; closing bar forbids gate weakening). Uncommitted working-tree change, disposable; git history is the archive.
+- If the owner wants those checks removed, that is its own commit/ticket on `main`.
