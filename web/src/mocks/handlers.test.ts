@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { createApiClient } from '../api/client';
+import { standingBrowseQuery } from '../test/handlers';
 import { server } from '../test/server';
 import {
   browseMovies,
@@ -24,7 +25,9 @@ function problemResponse(status: number) {
 describe('generated MSW handlers', () => {
   it('answers every operation success default', async () => {
     // act
-    const browse = await client.GET('/api/movies');
+    const browse = await client.GET('/api/movies', {
+      params: { query: { ...standingBrowseQuery } },
+    });
     const details = await client.GET('/api/movies/{id}', { params: { path: { id: 1 } } });
     const imported = await client.POST('/api/movies/import', {
       body: { folderPath: '/media/dune' },
@@ -73,7 +76,7 @@ describe('generated MSW handlers', () => {
       label: 'BrowseMovies 422',
       status: 422,
       register: () => server.use(http.get('*/api/movies', () => problemResponse(422))),
-      invoke: () => client.GET('/api/movies'),
+      invoke: () => client.GET('/api/movies', { params: { query: { ...standingBrowseQuery } } }),
     },
     {
       label: 'GetMovieDetails 404',
@@ -224,7 +227,9 @@ describe('generated MSW handlers', () => {
 
   it('restores the success defaults after an override resets', async () => {
     // act
-    const browse = await client.GET('/api/movies');
+    const browse = await client.GET('/api/movies', {
+      params: { query: { ...standingBrowseQuery } },
+    });
     const details = await client.GET('/api/movies/{id}', { params: { path: { id: 1 } } });
 
     // assert

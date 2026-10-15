@@ -79,7 +79,16 @@ describe('typed API client', () => {
 
     // act
     const { data, error, response } = await client.GET('/api/movies', {
-      params: { query: { Text: 'dune', GenreIds: ['1', '2'], Page: '2' } },
+      params: {
+        query: {
+          Text: 'dune',
+          GenreIds: ['1', '2'],
+          sort: 'Title',
+          direction: 'Ascending',
+          page: 1,
+          pageSize: 20,
+        },
+      },
     });
 
     // assert
@@ -89,7 +98,10 @@ describe('typed API client', () => {
     expect(search).toContain('Text=dune');
     expect(search).toContain('GenreIds=1');
     expect(search).toContain('GenreIds=2');
-    expect(search).toContain('Page=2');
+    expect(search).toContain('sort=Title');
+    expect(search).toContain('direction=Ascending');
+    expect(search).toContain('page=1');
+    expect(search).toContain('pageSize=20');
   });
 
   it('serializes the details path parameter and returns one movie', async () => {
