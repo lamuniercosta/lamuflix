@@ -56,7 +56,7 @@ function MovieRow({ item }: { item: MovieSummary }) {
 }
 
 export default function LibraryView({ leadingItem }: { leadingItem?: MovieSummary | null }) {
-  const query = useBrowseMoviesQuery();
+  const query = useBrowseMoviesQuery(leadingItem != null);
   const fetched = query.data?.items ?? [];
   const items =
     leadingItem && !fetched.some((item) => String(item.id) === String(leadingItem.id))

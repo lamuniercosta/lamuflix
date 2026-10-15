@@ -1,13 +1,11 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
 import type { components } from './api/types';
 import MovieDetailsView from './features/movie-details/MovieDetailsView';
 import ImportDialog from './library/ImportDialog';
-import { browseMoviesQueryKey, pendingRow, prependPendingRow } from './library/libraryQueries';
+import { armImportPlaceholder, pendingRow } from './library/libraryQueries';
 import LibraryView from './library/LibraryView';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
-type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
 
 function parseMovieId(pathname: string): number | null {
   const match = /^\/movies\/(\d+)$/.exec(pathname);
@@ -20,7 +18,6 @@ export default function App() {
   const [importOpen, setImportOpen] = useState(false);
   const [importedRow, setImportedRow] = useState<MovieSummary | null>(null);
   const importFolderButtonRef = useRef<HTMLButtonElement>(null);
-  const queryClient = useQueryClient();
   const movieId = useMemo(() => parseMovieId(window.location.pathname), []);
 
   function closeImport() {
@@ -29,11 +26,8 @@ export default function App() {
   }
 
   function prependImportedMovie(id: string, title: string) {
-    const row = pendingRow(id, title);
-    setImportedRow(row);
-    queryClient.setQueryData<BrowseMoviesResponse>(browseMoviesQueryKey, (current) =>
-      prependPendingRow(current, row),
-    );
+    setImportedRow(pendingRow(id, title));
+    armImportPlaceholder(() => setImportedRow(null));
   }
 
   if (movieId !== null) {
