@@ -1,10 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+export interface DebouncedSearch<T> {
+  schedule: (value: T) => void;
+  cancel: () => void;
+}
+
+export function useDebouncedSearch<T = string>(
+  arg: (value: T) => void,
+  delay?: number,
+): DebouncedSearch<T>;
+export function useDebouncedSearch<T = string>(
+  arg: T,
+  delay?: number,
+  onCommit?: (value: T) => void,
+): T;
 export function useDebouncedSearch<T = string>(
   arg: T | ((value: T) => void),
   delay: number = 300,
   onCommit?: (value: T) => void,
-): T | ((value: T) => void) {
+): T | DebouncedSearch<T> {
   const isCallback = typeof arg === 'function';
 
   const [debounced, setDebounced] = useState<T>(() => arg as T);
@@ -20,7 +34,14 @@ export function useDebouncedSearch<T = string>(
 
   const target = isCallback ? (arg as (value: T) => void) : onCommit;
 
-  const commit = useCallback(
+  const cancel = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const schedule = useCallback(
     (value: T) => {
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
@@ -36,6 +57,8 @@ export function useDebouncedSearch<T = string>(
     },
     [target, delay, isCallback],
   );
+
+  const commit = { schedule, cancel };
 
   useEffect(() => {
     if (isCallback) {
@@ -66,8 +89,8 @@ export function useDebouncedValue<T>(value: T, delay: number = 300): T {
   return useDebouncedSearch(value, delay) as T;
 }
 
-export const useDebounce = useDebouncedSearch;
-export const useDebouncedCallback = useDebouncedSearch;
+export { useDebouncedSearch as useDebounce };
+export { useDebouncedSearch as useDebouncedCallback };
 export const debounce = (
   fn: (value: string) => void,
   delay: number = 300,

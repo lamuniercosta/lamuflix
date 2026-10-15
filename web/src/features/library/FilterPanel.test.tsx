@@ -4,7 +4,7 @@ import { act } from '@testing-library/react';
 import type { components } from '../../api/types';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import FilterPanel from './FilterPanel';
-import { currentYearExtent, parseFilterQuery } from './filterQuery';
+import { currentYearExtent, parseFilterQuery, YEAR_MIN_EXTENT } from './filterQuery';
 
 type GenreDto = components['schemas']['GenreDto'];
 type PersonDto = components['schemas']['PersonDto'];
@@ -391,5 +391,184 @@ describe('FilterPanel', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /Action/i }));
     const last = onChange.mock.calls.at(-1)?.[0];
     expect(last.page).toBe(1);
+  });
+
+  function ControlledHost({ onChange }: { onChange: (value: unknown) => void }) {
+    const [q, setQ] = React.useState(parseFilterQuery(''));
+    React.useEffect(() => {
+      const handler = () => setQ(parseFilterQuery(window.location.search));
+      window.addEventListener('popstate', handler);
+      return () => window.removeEventListener('popstate', handler);
+    }, []);
+    return (
+      <FilterPanel
+        query={q}
+        onChange={(next) => {
+          onChange(next);
+          setQ(next as ReturnType<typeof parseFilterQuery>);
+        }}
+      />
+    );
+  }
+
+  it('cancels a pending text commit when Clear filters is clicked', () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    render(<FilterPanel onChange={onChange} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search titles'), { target: { value: 'dune' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    const callsBeforeClear = onChange.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(screen.getByPlaceholderText('Search titles')).toHaveValue('');
+    expect(window.location.search).toBe('');
+    const lateCommits = onChange.mock.calls.slice(callsBeforeClear);
+    expect(lateCommits.every((call) => (call[0] as { text?: string }).text !== 'dune')).toBe(true);
+  });
+
+  it('cancels a pending text commit on popstate navigation to a new text', () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    render(<ControlledHost onChange={onChange} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search titles'), { target: { value: 'stale' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    window.history.replaceState({}, '', '/?text=restored');
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(screen.getByPlaceholderText('Search titles')).toHaveValue('restored');
+    expect(window.location.search).toBe('?text=restored');
+    expect(
+      onChange.mock.calls.every((call) => (call[0] as { text?: string }).text !== 'stale'),
+    ).toBe(true);
+  });
+
+  it('cancels a pending text commit on popstate navigation that leaves text unchanged', () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    render(<ControlledHost onChange={onChange} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search titles'), { target: { value: 'stale' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    window.history.replaceState({}, '', '/?genreIds=1');
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(screen.getByPlaceholderText('Search titles')).toHaveValue('');
+    expect(window.location.search).toBe('?genreIds=1');
+    expect(
+      onChange.mock.calls.every((call) => (call[0] as { text?: string }).text !== 'stale'),
+    ).toBe(true);
+  });
+
+  it('sends the complete runtime group and omits it back at the default extent', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel onChange={onChange} />);
+
+    const runtimeMin = screen.getByLabelText('Runtime minimum (minutes)');
+    fireEvent.change(runtimeMin, { target: { value: '60' } });
+    let last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.runtimeMin).toBe('60');
+    expect(last.runtimeMax).toBe('');
+    expect(last.runtimeIncludeUnknown).toBe(false);
+    expect(window.location.search).toBe('?runtimeMin=60&runtimeMax=&runtimeIncludeUnknown=false');
+
+    fireEvent.change(runtimeMin, { target: { value: '0' } });
+    last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.runtimeMin).toBe('0');
+    expect(window.location.search).toBe('');
+  });
+
+  it('sends the runtime max key and omits the group back at the max extent', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel onChange={onChange} />);
+
+    const runtimeMax = screen.getByLabelText('Runtime maximum (minutes)');
+    fireEvent.change(runtimeMax, { target: { value: '180' } });
+    expect(window.location.search).toBe('?runtimeMin=&runtimeMax=180&runtimeIncludeUnknown=false');
+
+    fireEvent.change(runtimeMax, { target: { value: '240' } });
+    expect(window.location.search).toBe('');
+  });
+
+  it('omits the runtime group when include-unknown is unchecked at default extents', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText(/Include unknown runtime/i));
+    expect(window.location.search).toBe('?runtimeMin=&runtimeMax=&runtimeIncludeUnknown=true');
+
+    fireEvent.click(screen.getByLabelText(/Include unknown runtime/i));
+    expect(window.location.search).toBe('');
+  });
+
+  it('sends both year keys and omits the group back at the year extents', () => {
+    vi.setSystemTime(new Date());
+    const baseYear = currentYearExtent(new Date());
+    const onChange = vi.fn();
+    render(<FilterPanel onChange={onChange} />);
+
+    const yearMin = screen.getByLabelText('Release year minimum');
+    const yearMax = screen.getByLabelText('Release year maximum');
+
+    fireEvent.change(yearMin, { target: { value: '2000' } });
+    expect(window.location.search).toBe('?yearMin=2000&yearMax=');
+
+    fireEvent.change(yearMax, { target: { value: '2010' } });
+    expect(window.location.search).toBe('?yearMin=2000&yearMax=2010');
+
+    fireEvent.change(yearMin, { target: { value: String(YEAR_MIN_EXTENT) } });
+    fireEvent.change(yearMax, { target: { value: String(baseYear) } });
+    expect(window.location.search).toBe('');
+
+    vi.useRealTimers();
+    vi.setSystemTime(new Date());
+  });
+
+  it('tracks all four status chips as ordered statuses keys and omits them when cleared', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel onChange={onChange} />);
+
+    fireEvent.click(screen.getByLabelText(/^Not found$/i));
+    fireEvent.click(screen.getByLabelText(/^Failed$/i));
+    fireEvent.click(screen.getByLabelText(/^Pending$/i));
+    fireEvent.click(screen.getByLabelText(/^Enriched$/i));
+
+    let last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.statuses).toEqual(['NotFound', 'Failed', 'Pending', 'Enriched']);
+    expect(window.location.search).toBe(
+      '?statuses=NotFound&statuses=Failed&statuses=Pending&statuses=Enriched',
+    );
+
+    fireEvent.click(screen.getByLabelText(/^Not found$/i));
+    fireEvent.click(screen.getByLabelText(/^Failed$/i));
+    fireEvent.click(screen.getByLabelText(/^Pending$/i));
+    fireEvent.click(screen.getByLabelText(/^Enriched$/i));
+
+    last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.statuses).toEqual([]);
+    expect(window.location.search).toBe('');
   });
 });

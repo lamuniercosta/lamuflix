@@ -175,11 +175,31 @@ export function FilterPanel(props: FilterPanelProps) {
     [controlledKey, callbacks, currentYear],
   );
 
+  const queryRef = useRef(query);
   useEffect(() => {
-    if (controlledInput != null) {
-      return;
-    }
+    queryRef.current = query;
+  }, [query]);
+
+  const [searchText, setSearchText] = useState(String(query.text ?? ''));
+  const [prevQueryText, setPrevQueryText] = useState(query.text);
+  if (query.text !== prevQueryText) {
+    setPrevQueryText(query.text);
+    setSearchText(String(query.text ?? ''));
+  }
+  const commitSearchText = useDebouncedSearch((value: string) => {
+    const next = parseFilterQuery(queryRef.current);
+    next.text = value;
+    commit(next);
+  });
+  const cancelSearchText = commitSearchText.cancel;
+
+  useEffect(() => {
     const handler = () => {
+      cancelSearchText();
+      setSearchText(String(parseFilterQuery(window.location.search).text ?? ''));
+      if (controlledInput != null) {
+        return;
+      }
       const next = toQuery(window.location.search);
       setInternalQuery(next);
       if (onHydrate) {
@@ -199,24 +219,7 @@ export function FilterPanel(props: FilterPanelProps) {
     };
     window.addEventListener('popstate', handler);
     return () => window.removeEventListener('popstate', handler);
-  }, [controlledInput, onHydrate, onPopstate]);
-
-  const queryRef = useRef(query);
-  useEffect(() => {
-    queryRef.current = query;
-  }, [query]);
-
-  const [searchText, setSearchText] = useState(String(query.text ?? ''));
-  const [prevQueryText, setPrevQueryText] = useState(query.text);
-  if (query.text !== prevQueryText) {
-    setPrevQueryText(query.text);
-    setSearchText(String(query.text ?? ''));
-  }
-  const commitSearchText = useDebouncedSearch((value: string) => {
-    const next = parseFilterQuery(queryRef.current);
-    next.text = value;
-    commit(next);
-  });
+  }, [controlledInput, onHydrate, onPopstate, cancelSearchText]);
 
   const [castFilter, setCastFilter] = useState('');
 
@@ -312,6 +315,8 @@ export function FilterPanel(props: FilterPanelProps) {
   };
 
   const handleClear = () => {
+    commitSearchText.cancel();
+    setSearchText('');
     const next = parseFilterQuery(query);
     next.text = '';
     next.genreIds = [];
@@ -352,7 +357,7 @@ export function FilterPanel(props: FilterPanelProps) {
             value={searchText}
             onChange={(event) => {
               setSearchText(event.target.value);
-              (commitSearchText as (value: unknown) => void)(event.target.value);
+              commitSearchText.schedule(event.target.value);
             }}
           />
         </label>

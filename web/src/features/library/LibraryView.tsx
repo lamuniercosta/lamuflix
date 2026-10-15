@@ -185,7 +185,14 @@ function LibraryViewInner() {
     },
   });
 
-  const movieTitles = moviesQuery.data?.items ?? [];
+  const [movieData, setMovieData] = useState<
+    components['schemas']['BrowseMoviesResponse'] | undefined
+  >(undefined);
+  if (moviesQuery.data && moviesQuery.data !== movieData) {
+    setMovieData(moviesQuery.data);
+  }
+
+  const movieTitles = (moviesQuery.data ?? movieData)?.items ?? [];
   const pendingRefetch = moviesQuery.isFetching && movieTitles.length > 0;
   const genresError = genresQuery.error;
   const actorsError = actorsQuery.error;
@@ -220,7 +227,9 @@ function LibraryViewInner() {
               ))}
             </ul>
           ) : movieTitles.length === 0 ? (
-            <p>No movies match these filters.</p>
+            moviesQuery.data ? (
+              <p>No movies match these filters.</p>
+            ) : null
           ) : (
             <ul>
               {movieTitles.map((item: { id: unknown; title: unknown }) => (
@@ -234,8 +243,12 @@ function LibraryViewInner() {
   );
 }
 
-export default function LibraryView() {
-  const [queryClient] = useState(() => new QueryClient());
+interface LibraryViewProps {
+  queryClient?: QueryClient;
+}
+
+export default function LibraryView({ queryClient: injectedClient }: LibraryViewProps = {}) {
+  const [queryClient] = useState(() => injectedClient ?? new QueryClient());
   return (
     <QueryClientProvider client={queryClient}>
       <LibraryViewInner />
