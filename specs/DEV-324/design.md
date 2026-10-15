@@ -1,16 +1,16 @@
 # Design: DEV-324 Watchlist Toggle and Filter
 
-**Ticket**: DEV-324 | **Branch**: `feature/324-spec` | **Date**: 2026-10-12
+**Ticket**: DEV-324 | **Branch**: `feature/DEV-324-implement-watchlist-toggle-on-cards-and-dedicated-watchlist` | **Date**: 2026-10-12
 **Inputs**: `spec.md`, `plan.md`, `tasks.md`, `brief.md`, `CONCLUSIONS.md` (Q1–Q12 plus Q3 and Q7 addenda), `ASSUMPTIONS.md`
-**Scope**: React SPA (`web/src`) only. DEV-324 builds no host: it wires a toggle into the delivered card, the delivered DEV-323 `MovieDetailsView` hero region, and the delivered filter host. Exact host file paths are fixed at Phase B pickup drift recon. (`frontend-design` skill unavailable in this session; design derives strictly from the settled inputs above.)
+**Scope**: Integrate the toggle into `MovieRow` in `web/src/library/LibraryView.tsx` (F2), the delivered DEV-323 `MovieDetailsView` hero region, and the existing `App.tsx` header beside Import folder (F3). DEV-324 builds no host and does not compose the orphaned `MovieGrid`/`MovieCard` or `FilterPanel`/`LibraryFilters`. Add the required `isInWatchlist` field to both browse/details DTOs and regenerate the contract artifacts (F1). (`frontend-design` skill unavailable in this session; design derives strictly from the settled inputs above.)
 
 ## 1. Route map and URL structure
 
 No new routes. DEV-324 rides the delivered browse and details surfaces, both mounted via `App.tsx` (composition surface only; no rewrite, no router introduction).
 
-| Surface | Host (prerequisite, path fixed at pickup) | URL |
+| Surface | Host | URL |
 |---|---|---|
-| Browse grid | Delivered card/grid, mounted via `App.tsx` | Existing browse URL + `?watchlist=true` when filter is on |
+| Browse item | `MovieRow` in `web/src/library/LibraryView.tsx` (F2) | Existing browse URL + `?watchlist=true` when filter is on |
 | Details | DEV-323 `MovieDetailsView` hero region (backdrop/poster/title), mounted via `App.tsx` | Existing details URL for the movie; no watchlist key |
 
 URL contract (CONCLUSIONS Q5, spec FR-008/FR-009):
@@ -26,16 +26,13 @@ URL contract (CONCLUSIONS Q5, spec FR-008/FR-009):
 
 ```text
 +----------------------------------------------------------+
-| FilterBar (delivered host)                               |
-| [Search....] [Genre v] [Sort v] [Watchlist: off]         |
+| App.tsx header (existing host)                           |
+| [Import folder] [Watchlist: off]                         |
 +----------------------------------------------------------+
-| Grid (delivered)                                         |
-| +----------------+ +----------------+ +----------------+ |
-| | Poster         | | Poster         | | Poster         | |
-| | [bookmark] (*) | | [bookmark]     | | [bookmark] (*) | |
-| | Title          | | Title          | | Title          | |
-| | year · genre   | | year · genre   | | year · genre   | |
-| +----------------+ +----------------+ +----------------+ |
+| MovieRow list (delivered)                                |
+| +------------------------------------------------------+ |
+| | Poster   Title (year)   [bookmark] (*)               | |
+| +------------------------------------------------------+ |
 | (*) = filled bookmark (in watchlist); plain = outlined   |
 +----------------------------------------------------------+
 | Pager (delivered; resets to 1 on filter switch)           |
@@ -43,12 +40,12 @@ URL contract (CONCLUSIONS Q5, spec FR-008/FR-009):
 ```
 
 - The bookmark button sits on each delivered movie card (placement follows the delivered card; default: poster corner overlay).
-- The `Watchlist` quick-filter toggle sits in the delivered filter host (header or filter panel per delivered host; DEV-324 builds neither).
+- The `Watchlist` quick-filter toggle sits in the existing `App.tsx` header beside Import folder (F3); do not compose `FilterPanel`/`LibraryFilters`.
 - Empty-filter state replaces the grid body:
 
 ```text
 +----------------------------------------------------------+
-| FilterBar: [Watchlist: ON]                               |
+| App.tsx header: [Watchlist: ON]                           |
 +----------------------------------------------------------+
 | Your watchlist is empty.                                 |
 +----------------------------------------------------------+
@@ -73,14 +70,13 @@ URL contract (CONCLUSIONS Q5, spec FR-008/FR-009):
 
 ## 3. Component tree
 
-Added by DEV-324 (all under `web/src`; exact files fixed at pickup drift recon):
+Integrated by DEV-324 into delivered hosts under `web/src`; exact hook and `MovieDetailsView` path are recorded at pickup drift recon:
 
 ```text
-App.tsx (composition only; wires delivered hosts)
-+-- FilterBar (delivered host)
-|   +-- WatchlistFilterToggle [NEW: "Watchlist", toggle button]
-+-- MovieGrid (delivered host)
-|   +-- MovieCard (delivered host)
+App.tsx (existing header quick-filter; composition only)
++-- WatchlistFilterToggle [NEW: "Watchlist", beside Import folder]
++-- LibraryView.tsx
+|   +-- MovieRow (delivered browse item, F2)
 |       +-- WatchlistToggleButton [NEW: bookmark button]
 +-- MovieDetailsView (delivered DEV-323 host)
     +-- HeroRegion (delivered backdrop/poster/title block)
@@ -88,8 +84,8 @@ App.tsx (composition only; wires delivered hosts)
 ```
 
 - `WatchlistToggleButton`: presentational bookmark button; reads one movie's `isInWatchlist` from the shared hook; props: `movieId`, optional `size` (card vs hero). Inline SVG bookmark, outlined when off / filled when on. No icon-library dependency.
-- `useWatchlistToggle(movieId)` [NEW shared hook]: owns optimistic `isInWatchlist`, in-flight guard, POST on add / DELETE on remove via the generated client, 204/409 retain, other-failure rollback + inline error string. State lives in a module-scoped per-movie store (`Map` keyed by `movieId`, private to the hook module; reset helper for tests only) read through React built-in `useSyncExternalStore`, overlaid on each delivered host's fetched `isInWatchlist` baseline; if pickup drift recon finds an already-delivered shared client cache for movie data, the hook updates that cache's per-movie entry instead and the module store is not built. Component-local state alone does not own this state: it is lost on unmount/navigation and fails Q10. No Context/provider, no state library, no new layer, no new dependency. Baseline `isInWatchlist` availability on the browse/details DTOs is unverified at pickup: absence means `needs decision:`, never a contract change.
-- `WatchlistFilterToggle`: thin toggle bound to the delivered URL/browse state; translates `watchlist=true` to `inWatchlist=true` on the browse request, resets page to 1, retains other filters, combines with AND.
+- `useWatchlistToggle(movieId)` [NEW shared hook]: owns optimistic `isInWatchlist`, in-flight guard, POST on add / DELETE on remove via the generated client, 204/409 retain, other-failure rollback + inline error string. State lives in a module-scoped per-movie store (`Map` keyed by `movieId`, private to the hook module; reset helper for tests only) read through React built-in `useSyncExternalStore`, overlaid on each delivered host's fetched `isInWatchlist` baseline; if pickup drift recon finds an already-delivered shared client cache for movie data, the hook updates that cache's per-movie entry instead and the module store is not built. Component-local state alone does not own this state: it is lost on unmount/navigation and fails Q10. No Context/provider, no state library, no new layer, no new dependency. F1 adds this baseline field to both browse/details DTOs and generated types.
+- `WatchlistFilterToggle`: integrated into the existing `App.tsx` header beside Import folder (F3), bound to the delivered URL/browse state; translates `watchlist=true` to `inWatchlist=true` in the browse query and query key, resets page to 1, retains other filters, combines with AND.
 - Card and hero instances for the same movie read the same hook/cache entry, so a toggle in one surface shows in the other after navigation.
 
 ## 4. Component states
@@ -126,9 +122,10 @@ Contract chain: C# DTO → OpenAPI (`web/src/api/openapi.json`) → generated Ty
 |---|---|---|
 | Add to watchlist | `POST /api/movies/{id}/watchlist` | Path `id`; per-movie `isInWatchlist` flips to `true` optimistically; 204/409 retain, else rollback + inline error |
 | Remove from watchlist | `DELETE /api/movies/{id}/watchlist` | Path `id`; per-movie `isInWatchlist` flips to `false` optimistically; 204/409 retain, else rollback + inline error |
+| Browse/details baseline | `MovieSummaryResponse` and `MovieDetailsResponse` | Required `isInWatchlist: boolean`, added in C# DTOs and flowed through OpenAPI to regenerated TypeScript |
 | Browse watchlist-only | Existing browse request + `inWatchlist=true` (only when URL is exactly `watchlist=true`) | `inWatchlist` ANDed with other delivered filters; page reset to 1 on switch |
 
-No new endpoint, route, status code, DTO field, or query key. No `src/` or MVC change.
+No new endpoint, route, status code, or API query key. The sole DTO change is the required additive `isInWatchlist` field on both response projections; update the verified OpenAPI snapshot and `OpenApiContractTests`, with generated artifacts produced through the contract chain. No MVC change.
 
 ## 6. Keyboard navigation and accessibility (a11y)
 
