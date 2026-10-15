@@ -28,6 +28,7 @@ import { WatchlistToggleButton } from './watchlist';
 import { useWatchlistToggle } from './watchlistStore';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
+type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
 
 function GenreDtoList(value: unknown): components['schemas']['GenreDto'][] {
   return Array.isArray(value) ? (value as components['schemas']['GenreDto'][]) : [];
@@ -242,6 +243,12 @@ function LibraryBrowseView({
     },
   });
 
+  const [lastGood, setLastGood] = useState<BrowseMoviesResponse | null>(null);
+  useEffect(() => {
+    if (browse.data) {
+      setLastGood(browse.data);
+    }
+  }, [browse.data]);
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
   const wasWatchlistActive = useRef(watchlistActive);
   useEffect(() => {
@@ -273,12 +280,13 @@ function LibraryBrowseView({
     throw browseError;
   }
 
-  const fetched = browse.data?.items ?? [];
+  const data = browse.data ?? lastGood;
+  const fetched = data?.items ?? [];
   const prepended =
     leadingItem != null && !fetched.some((item) => String(item.id) === String(leadingItem.id));
   const items: MovieSummary[] = prepended && leadingItem ? [leadingItem, ...fetched] : fetched;
   const visibleItems = items.filter((item) => !hiddenIds.has(String(item.id)));
-  const totalCount = Number(browse.data?.totalCount ?? 0) + (prepended ? 1 : 0);
+  const totalCount = Number(data?.totalCount ?? 0) + (prepended ? 1 : 0);
   const totalPages = Math.max(1, Math.ceil(totalCount / filters.pageSize));
   const pastEnd = visibleItems.length === 0 && filters.page > 1 && filters.page > totalPages;
   const activeFilters = toUrlQuery({ ...query, unknown: {} }, currentYear) !== '';
