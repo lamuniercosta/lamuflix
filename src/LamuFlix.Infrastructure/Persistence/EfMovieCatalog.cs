@@ -111,10 +111,26 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
     }
 
     private static bool HasMetadata(MovieDetailsRecord record) =>
-        record.MetadataTitle is not null || record.Plot is not null || record.ReleaseYear is not null
-        || record.RuntimeMinutes is not null || record.ImdbRating is not null || record.ImdbId is not null
-        || record.PosterUrl is not null || record.RottenTomatoesRating is not null || record.MetaScore is not null
-        || record.Directors.Count > 0 || record.Actors.Count > 0;
+        HasPrimaryMetadata(record)
+        || HasExtendedMetadata(record)
+        || HasCastMetadata(record);
+
+    private static bool HasPrimaryMetadata(MovieDetailsRecord record) =>
+        record.MetadataTitle is not null
+        || record.Plot is not null
+        || record.ReleaseYear is not null
+        || record.RuntimeMinutes is not null
+        || record.ImdbRating is not null;
+
+    private static bool HasExtendedMetadata(MovieDetailsRecord record) =>
+        record.ImdbId is not null
+        || record.PosterUrl is not null
+        || record.RottenTomatoesRating is not null
+        || record.MetaScore is not null;
+
+    private static bool HasCastMetadata(MovieDetailsRecord record) =>
+        record.Directors.Count > 0
+        || record.Actors.Count > 0;
 
     private sealed record MovieDetailsRecord(
         MovieId? Id,
