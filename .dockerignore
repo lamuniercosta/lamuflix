@@ -17,6 +17,7 @@ web/node_modules/
 web/dist/
 .env
 .env.*
+/docker/api.settings.json
 **/*.user
 **/*.pfx
 **/secrets.json

@@ -37,14 +37,15 @@ dotnet test
 
 ## Run with Docker Compose
 
-Copy `.env.example` to `.env` and replace all placeholders with local supplied values, then start the stack:
+Copy both example files and replace their placeholders with local values. `.env` supplies the Postgres and RabbitMQ container initialization credentials and can set an optional host library path. `docker/api.settings.json` configures the API; its database and RabbitMQ credentials must match the corresponding values in `.env`. Put the OMDb key in the JSON file. The secret-bearing JSON file is ignored by Git and excluded from the Docker build context.
 
 ```bash
 cp .env.example .env
-docker compose up -d
+cp docker/api.settings.example.json docker/api.settings.json
+docker compose up -d --build
 ```
 
-Open http://localhost:3000. To mount a different library directory, set `LIBRARY_PATH` in `.env` before starting (defaults to `./docker/sample-library`).
+Applying changes to `docker/api.settings.json` requires restarting the API because some options are read at startup. Open http://localhost:3000. To mount a different library directory, set `LIBRARY_PATH` in `.env` before starting (defaults to `./docker/sample-library`).
 
 ## Observability
 
