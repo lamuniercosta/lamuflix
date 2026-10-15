@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import type { components, paths } from '../api/types';
 
@@ -132,21 +132,52 @@ export function markRowPending(
   };
 }
 
-export function useBrowseMoviesQuery(placeholderPending = false, inWatchlist = false) {
-  const browseParams = inWatchlist
-    ? { ...standingBrowseQuery, InWatchlist: 'true' as const }
-    : { ...standingBrowseQuery };
+export interface BrowseMoviesQueryError extends Error {
+  status?: number;
+  invalidFilter?: boolean;
+}
+
+export function useBrowseMoviesQuery(
+  placeholderPending = false,
+  inWatchlist = false,
+  filters: Record<string, unknown> = {},
+) {
+  const merged = {
+    ...standingBrowseQuery,
+    ...filters,
+  };
+  const { sort, direction, page, pageSize, ...extras } = merged;
+  const browseParams = {
+    ...extras,
+    sort,
+    direction,
+    page,
+    pageSize,
+    ...(inWatchlist ? { InWatchlist: 'true' as const } : {}),
+  };
 
   return useQuery({
     queryKey: ['browseMovies', browseParams],
     queryFn: async ({ signal }) => {
       const tokenAtStart = importPlaceholderToken;
       const { data, error, response } = await client.GET('/api/movies', {
-        params: { query: browseParams },
+        params: {
+          query: browseParams as unknown as NonNullable<
+            paths['/api/movies']['get']['parameters']['query']
+          >,
+        },
         signal,
       });
       if (error || !data) {
-        throw new Error(error?.detail ?? `Browse failed (${response.status})`);
+        const status = response?.status ?? 0;
+        const failure = new Error(
+          error?.detail ?? `Browse failed (${status})`,
+        ) as BrowseMoviesQueryError;
+        failure.status = status;
+        if (status === 422) {
+          failure.invalidFilter = true;
+        }
+        throw failure;
       }
 
       if (tokenAtStart !== 0 && tokenAtStart === importPlaceholderToken) {
@@ -155,6 +186,7 @@ export function useBrowseMoviesQuery(placeholderPending = false, inWatchlist = f
       return data;
     },
     retry: false,
+    placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
     refetchInterval: placeholderPending
       ? (query: { state: { data?: BrowseMoviesResponse } }) => browseRefetchInterval(query)

@@ -39,7 +39,7 @@ function renderApp() {
 }
 
 function rowFor(title: string): HTMLElement {
-  const row = screen.getByText(title).closest('li');
+  const row = screen.getByRole('heading', { name: title }).closest('[role="listitem"]');
   if (!row) throw new Error(`No row for ${title}`);
   return row as HTMLElement;
 }
@@ -92,11 +92,13 @@ describe('watchlist filter-active removal reconciliation', () => {
     );
 
     renderApp();
-    await screen.findByText('Dune');
+    await screen.findByRole('heading', { name: 'Dune' });
     fireEvent.click(within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }));
 
-    await waitFor(() => expect(screen.queryByText('Dune')).not.toBeInTheDocument());
-    expect(screen.getByText('Arrival')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Dune' })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('heading', { name: 'Arrival' })).toBeInTheDocument();
   });
 
   it('shows the watchlist empty copy after the last watchlisted card is removed', async () => {
@@ -109,14 +111,14 @@ describe('watchlist filter-active removal reconciliation', () => {
     );
 
     renderApp();
-    await screen.findByText('Dune');
+    await screen.findByRole('heading', { name: 'Dune' });
     fireEvent.click(within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }));
 
     expect(await screen.findByText('Your watchlist is empty.')).toBeInTheDocument();
     expect(
       screen.queryByText('No movies yet. Import a folder to get started.'),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Movies' })).not.toBeInTheDocument();
   });
 
   it('keeps the card and rolls back with the inline error when removal fails', async () => {
@@ -132,12 +134,12 @@ describe('watchlist filter-active removal reconciliation', () => {
     );
 
     renderApp();
-    await screen.findByText('Dune');
+    await screen.findByRole('heading', { name: 'Dune' });
     const remove = within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' });
     fireEvent.click(remove);
 
     await waitFor(() => expect(remove).toHaveAttribute('aria-busy', 'false'));
-    expect(screen.getByText('Dune')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(
       within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }),
     ).toHaveAttribute('aria-pressed', 'true');
@@ -157,6 +159,6 @@ describe('watchlist filter empty state with a hidden leading item', () => {
     );
 
     expect(await screen.findByText('Your watchlist is empty.')).toBeInTheDocument();
-    expect(screen.queryByText('Imported')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Imported' })).not.toBeInTheDocument();
   });
 });

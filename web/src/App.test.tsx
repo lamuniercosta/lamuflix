@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { createOpenApiHttp } from 'openapi-msw';
 import type { ReactNode } from 'react';
@@ -30,12 +30,16 @@ describe('App library host', () => {
 
     expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
     expect(await screen.findByText('Dune')).toBeInTheDocument();
-    expect(screen.getByText('Arrival')).toBeInTheDocument();
-    expect(screen.getByText('Enriched')).toBeInTheDocument();
-    expect(screen.getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Arrival' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).getByText('Enriched'),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).getByText('Pending'),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Retry / })).not.toBeInTheDocument();
-    expect(screen.getByRole('list')).toHaveAttribute('aria-live', 'polite');
-    expect(document.activeElement).not.toBe(screen.getByRole('list'));
+    expect(screen.getByRole('list', { name: 'Movies' })).toHaveAttribute('aria-live', 'polite');
+    expect(document.activeElement).not.toBe(screen.getByRole('list', { name: 'Movies' }));
   });
 
   it('shows Retry only for NotFound and Failed rows with row-specific names', async () => {
@@ -94,9 +98,13 @@ describe('App library host', () => {
 
     renderApp();
 
-    expect(await screen.findByText('Lost Film')).toBeInTheDocument();
-    expect(screen.getByText('Not found')).toBeInTheDocument();
-    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Lost Film' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).getByText('Not found'),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Movies' })).getByText('Failed'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry Lost Film' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry Broken Cut' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry Dune' })).not.toBeInTheDocument();
@@ -174,7 +182,7 @@ describe('App library host', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Import' }));
 
     await waitFor(() => {
-      expect(screen.getByText('NewArrival')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'NewArrival' })).toBeInTheDocument();
     });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(importFolder).toHaveFocus();

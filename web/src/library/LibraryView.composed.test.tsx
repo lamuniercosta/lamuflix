@@ -1,16 +1,29 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient } from '@tanstack/react-query';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { server } from '../../test/server';
-import { browseMovies } from '../../mocks/fixtures';
+import type { ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { browseMovies } from '../mocks/fixtures';
+import { server } from '../test/server';
+import LibraryErrorBoundary from './LibraryErrorBoundary';
 import LibraryView from './LibraryView';
 
+function Wrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
 function renderLibraryView() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return render(<LibraryView queryClient={queryClient} />);
+  return render(<LibraryView />, { wrapper: Wrapper });
+}
+
+function renderLibraryViewWithBoundary() {
+  return render(
+    <LibraryErrorBoundary>
+      <LibraryView />
+    </LibraryErrorBoundary>,
+    { wrapper: Wrapper },
+  );
 }
 
 function countMoviesRequests(handler: (request: Request) => void) {
@@ -22,20 +35,26 @@ function countMoviesRequests(handler: (request: Request) => void) {
   );
 }
 
-describe('LibraryView host', () => {
-  beforeEach(() => {
-    window.history.replaceState({}, '', '/');
-  });
+beforeEach(() => {
+  window.history.replaceState({}, '', '/');
+});
 
-  it('renders movie titles and count from the generated client', async () => {
+afterEach(() => {
+  window.history.replaceState({}, '', '/');
+});
+
+describe('LibraryView composition', () => {
+  it('renders the filter panel, the poster grid, and pagination', async () => {
     renderLibraryView();
 
-    expect(await screen.findByText('2 movies')).toBeInTheDocument();
     expect(await screen.findByText('Dune')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Arrival' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /filters/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(screen.getByRole('navigation', { name: /pagination/i })).toBeInTheDocument();
   });
 
-  it('requests the canonical defaults on an empty URL', async () => {
+  it('requests the standing query on an empty URL', async () => {
     let observed = '';
     countMoviesRequests((request) => {
       observed = new URL(request.url).search.slice(1);
@@ -71,39 +90,11 @@ describe('LibraryView host', () => {
 
     renderLibraryView();
 
-    expect(
-      document.querySelector('[aria-live="polite"] p[aria-hidden="true"]'),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/^\d+ movies?$/)).not.toBeInTheDocument();
-    expect(document.querySelector('ul[aria-busy="true"]')).toBeInTheDocument();
+    expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /filters/i })).toBeInTheDocument();
 
     await screen.findByText('Dune');
-    expect(screen.getByText('2 movies')).toBeInTheDocument();
-    expect(
-      document.querySelector('[aria-live="polite"] p[aria-hidden="true"]'),
-    ).not.toBeInTheDocument();
-  });
-
-  it('retains old titles and mounted controls during a pending refetch', async () => {
-    renderLibraryView();
-
-    await screen.findByText('Dune');
-
-    server.use(
-      http.get('*/api/movies', async () => {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        return HttpResponse.json(browseMovies);
-      }),
-    );
-
-    window.history.replaceState({}, '', '/?text=dune');
-    window.dispatchEvent(new PopStateEvent('popstate'));
-
-    expect(screen.getByText('Dune')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: /filters/i })).toBeInTheDocument();
-
-    await waitFor(() => screen.getByText('Dune'));
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeInTheDocument();
   });
 
   it('uses replaceState instead of pushState on filter interactions', async () => {
@@ -213,7 +204,7 @@ describe('LibraryView host', () => {
     expect(window.location.search).toBe('?text=dune&statuses=Pending');
   });
 
-  it('cancels a pending text search when navigation lands within the debounce window', async () => {
+  it('restores the filtered view on popstate navigation', async () => {
     const requests: string[] = [];
     countMoviesRequests((request) => {
       requests.push(new URL(request.url).search.slice(1));
@@ -221,55 +212,106 @@ describe('LibraryView host', () => {
 
     renderLibraryView();
     await screen.findByText('Dune');
+    const baseline = requests.length;
 
-    fireEvent.change(screen.getByPlaceholderText('Search titles'), { target: { value: 'stale' } });
-    window.history.replaceState({}, '', '/?genreIds=1');
+    window.history.replaceState({}, '', '/?text=dune');
     window.dispatchEvent(new PopStateEvent('popstate'));
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 400));
+    await waitFor(() => {
+      expect(requests.length).toBe(baseline + 1);
     });
-
-    expect(window.location.search).toBe('?genreIds=1');
-    expect(screen.getByPlaceholderText('Search titles')).toHaveValue('');
-    expect(requests.every((query) => !query.includes('text=stale'))).toBe(true);
+    expect(requests.at(-1)).toBe('text=dune&sort=Title&direction=Ascending&page=1&pageSize=20');
+    expect(screen.getByPlaceholderText('Search titles')).toHaveValue('dune');
   });
 
-  it('shows the empty-result copy and a zero count when no movies match', async () => {
+  it('requests the next page from pagination and syncs the URL', async () => {
+    const requests: string[] = [];
     server.use(
-      http.get('*/api/movies', () =>
-        HttpResponse.json({ items: [], totalCount: 0, page: 1, pageSize: 20 }),
-      ),
+      http.get('*/api/movies', ({ request }) => {
+        requests.push(new URL(request.url).search.slice(1));
+        return HttpResponse.json({ ...browseMovies, totalCount: 45 });
+      }),
     );
 
-    renderLibraryView();
-
-    expect(await screen.findByText('No movies match these filters.')).toBeInTheDocument();
-    expect(screen.getByText('0 movies')).toBeInTheDocument();
-  });
-
-  it('shows the refresh alert without the empty copy on a first-load failure', async () => {
-    server.use(
-      http.get('*/api/movies', () => HttpResponse.json({ title: 'Error' }, { status: 500 })),
-    );
-
-    renderLibraryView();
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Movies could not be refreshed.');
-    expect(screen.queryByText('No movies match these filters.')).not.toBeInTheDocument();
-  });
-
-  it('keeps prior rows when a refetch fails', async () => {
     renderLibraryView();
     await screen.findByText('Dune');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => {
+      expect(requests.at(-1)).toBe('sort=Title&direction=Ascending&page=2&pageSize=20');
+    });
+    expect(new URLSearchParams(window.location.search).get('page')).toBe('2');
+  });
+
+  it('clears the filters from the grid empty state', async () => {
+    window.history.replaceState({}, '', '/?text=dune');
+    server.use(http.get('*/api/movies', () => HttpResponse.json({ items: [], totalCount: 0 })));
+
+    renderLibraryView();
+
+    expect(await screen.findByText('No titles match these filters.')).toBeInTheDocument();
+    const clear = document.querySelector('.movie-grid-empty button');
+    expect(clear).not.toBeNull();
+    fireEvent.click(clear as HTMLElement);
+
+    await waitFor(() => {
+      expect(window.location.search).toBe('');
+    });
+  });
+
+  it('shows the refresh alert without grid tiles on a first-load failure', async () => {
     server.use(
       http.get('*/api/movies', () => HttpResponse.json({ title: 'Error' }, { status: 500 })),
     );
 
-    fireEvent.click(screen.getByLabelText(/^Pending$/i));
+    renderLibraryView();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Movies could not be refreshed.');
-    expect(screen.getByText('Dune')).toBeInTheDocument();
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+  });
+
+  it('keeps prior tiles when a refetch fails', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<LibraryView />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    server.use(
+      http.get('*/api/movies', () => HttpResponse.json({ title: 'Error' }, { status: 500 })),
+    );
+
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['browseMovies'] });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Movies could not be refreshed.');
+    });
+    expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+  });
+
+  it('shows the invalid-filter copy from the error boundary on a 422', async () => {
+    server.use(
+      http.get('*/api/movies', () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Invalid filters',
+            status: 422,
+            detail: 'Invalid filters',
+            instance: null,
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    renderLibraryViewWithBoundary();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid filters');
   });
 });

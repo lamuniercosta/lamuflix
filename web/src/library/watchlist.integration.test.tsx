@@ -235,7 +235,7 @@ describe('watchlist bookmark accessibility in delivered hosts', () => {
 });
 
 function rowFor(title: string): HTMLElement {
-  const row = screen.getByText(title).closest('li');
+  const row = screen.getByRole('heading', { name: title }).closest('[role="listitem"]');
   if (!row) throw new Error(`No row for ${title}`);
   return row as HTMLElement;
 }
@@ -322,13 +322,15 @@ describe('watchlist filter accessibility in the delivered header', () => {
 
     goto('/?watchlist=true');
     renderApp();
-    await screen.findByText('Dune');
+    await screen.findByRole('heading', { name: 'Dune' });
     const remove = within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' });
     remove.focus();
     fireEvent.click(remove);
 
-    await waitFor(() => expect(screen.queryByText('Dune')).not.toBeInTheDocument());
-    expect(document.activeElement).toBe(screen.getByRole('list'));
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Dune' })).not.toBeInTheDocument(),
+    );
+    expect(document.activeElement).toBe(screen.getByRole('list', { name: 'Movies' }));
     expect(document.activeElement).not.toBe(document.body);
   });
 });

@@ -1,9 +1,11 @@
+import { useLayoutEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import MovieCard from './MovieCard';
 import type { components } from '../api/types';
 
 export type MovieSummaryResponse = components['schemas']['MovieSummaryResponse'];
 
-type MovieLike = MovieSummaryResponse & Record<string, unknown>;
+export type MovieLike = MovieSummaryResponse & Record<string, unknown>;
 
 function isRecord(value: unknown): value is MovieLike {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -11,6 +13,8 @@ function isRecord(value: unknown): value is MovieLike {
 
 export interface MovieGridProps {
   items?: unknown[];
+  tiles?: ReactNode;
+  focusSignal?: number;
   [key: string]: unknown;
 }
 
@@ -71,6 +75,15 @@ function extractItems(props: MovieGridProps): MovieLike[] {
 }
 
 export default function MovieGrid(props: MovieGridProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const focusSignal = toNumber(pick(props, ['focusSignal']), 0);
+
+  useLayoutEffect(() => {
+    if (focusSignal !== 0) {
+      containerRef.current?.focus();
+    }
+  }, [focusSignal]);
+
   const items = extractItems(props);
   const totalCount = toNumber(
     pick(props, ['totalCount', 'total', 'totalItems', 'total_count', 'count', 'resultCount']),
@@ -118,6 +131,8 @@ export default function MovieGrid(props: MovieGridProps) {
 
   const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1;
   const isPastEnd = items.length === 0 && page > 1 && page > totalPages;
+  const tiles = props.tiles as ReactNode | undefined;
+  const hasTiles = tiles !== undefined;
 
   if (loading) {
     const skeletonCount = toNumber(
@@ -138,7 +153,7 @@ export default function MovieGrid(props: MovieGridProps) {
     );
   }
 
-  if (items.length === 0) {
+  if (!hasTiles && items.length === 0) {
     if (totalCount === 0 && !filtersActive && page <= 1) {
       return (
         <section className="movie-grid-empty">
@@ -201,13 +216,25 @@ export default function MovieGrid(props: MovieGridProps) {
   }
 
   return (
-    <div className="library-grid">
-      {items.map((movie, index) => (
-        <MovieCard
-          key={String((movie as Record<string, unknown>).id ?? index)}
-          movie={movie as unknown as MovieLike}
-        />
-      ))}
+    <div
+      className="library-grid"
+      role="list"
+      aria-label="Movies"
+      aria-live="polite"
+      tabIndex={-1}
+      ref={containerRef}
+    >
+      {hasTiles ? (
+        tiles
+      ) : (
+        <>
+          {items.map((movie, index) => (
+            <div key={String((movie as Record<string, unknown>).id ?? index)} role="listitem">
+              <MovieCard movie={movie as unknown as MovieLike} />
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }

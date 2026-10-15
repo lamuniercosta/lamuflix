@@ -234,7 +234,11 @@ export function currentYearExtent(now: Date = new Date()): number {
   return now.getFullYear();
 }
 
-function isRuntimeActive(minRaw: unknown, maxRaw: unknown, includeUnknown: unknown): boolean {
+export function isRuntimeActive(
+  minRaw: unknown,
+  maxRaw: unknown,
+  includeUnknown: unknown,
+): boolean {
   const include = toBool(includeUnknown);
   if (include) {
     return true;
@@ -250,7 +254,7 @@ function isRuntimeActive(minRaw: unknown, maxRaw: unknown, includeUnknown: unkno
   return false;
 }
 
-function isYearActive(minRaw: unknown, maxRaw: unknown, currentYear: number): boolean {
+export function isYearActive(minRaw: unknown, maxRaw: unknown, currentYear: number): boolean {
   const min = toNumberOrNull(minRaw);
   const max = toNumberOrNull(maxRaw);
   if (min !== null && min !== YEAR_MIN_EXTENT) {
