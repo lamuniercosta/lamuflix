@@ -71,3 +71,25 @@ Recon-DEV-388-2 section 14 verifies constitution governance, migration constrain
 - Basis: ticket Scope 3-4 names the Web-only tests, `WorkerTests.cs`, the Worker parts of `EnrichmentTests.cs` and the csproj reference edit. `GenericRepositoryGetByIdTests.cs` is a forced edit under the AC "no `LamuFlix.Data` ... under `src/` or `tests/`" (recon section 4).
 - `ApiDataModel.cs` (§2.3 item 6): no file references it (recon section 9) and it is DEV-385's last remaining target. Deleting this dead test code lets the ticket's own Scope 3 closure clause ("close DEV-370/DEV-385 ... if their files are gone") apply.
 - Keeping the project rather than deleting it follows Scope 4, which edits `tests/LamuFlix.Test/LamuFlix.Test.csproj`. The leftover tests running outside CI is pre-existing: noted, no ticket.
+
+---
+### Q4 full grill exchange (Keel / Patron)
+
+**Question 4/12:** Approve bounded cleanup: delete Web-only UnitTest1.cs, Library/LegacyMovieSortTests.cs, Smoke/MovieServiceEfTests.cs; WorkerTests.cs; remove retired Web/Worker/Data portions of mixed EnrichmentTests.cs; delete GenericRepositoryGetByIdTests.cs under the no-LamuFlix.Data AC; remove Web/Worker ProjectReferences but retain tests/LamuFlix.Test and unrelated Core/Infrastructure/Api tests. Delete orphan ApiDataModel.cs by explicit section 2.3 item 6 ruling. Basis recon sections 4,7,9,10 and scope 3-4. Cost: selective cleanup; remaining project stays outside sln. Approve this exact boundary and conditional DEV-370/385 closure after target removal and Rigger live-state checks?
+
+**Answer (Patron):** Approve the exact boundary. Delete UnitTest1, LegacyMovieSortTests, MovieServiceEfTests, WorkerTests, GenericRepositoryGetByIdTests (forced by the no-LamuFlix.Data AC) and ApiDataModel.cs (section 2.3 item 6: no references, recon section 9, last DEV-385 target). Strip Web/Worker/Data parts of EnrichmentTests and Web/Worker ProjectReferences. Keep tests/LamuFlix.Test outside the sln, since Scope 4 edits its csproj. Close DEV-370/385 per Scope 3 only after the DEV-388 PR merges with their files gone, and Rigger checks live state first.
+
+**Rationale and implications:** Preserve unrelated tests and ticket-implied project retention. Tracker closure is a post-merge Rigger action, not a spec-stage mutation.
+
+## Q5 - File boundaries and restrictions
+
+**Ruling:** Approve with one change: `.specify/memory/constitution.md` is **not** edited. Everything else stands as Keel proposed:
+- Delete all of `src/LamuFlix.Web` and `src/LamuFlix.Worker`, including `Library/`, `Properties/` and the `appsettings*` files.
+- Edit `README.md:10,23,26` only to remove references to the deleted projects.
+- Leave the sln, Docker, compose and CI unchanged, and re-check them at delivery.
+- Keep the pre-existing `harness.yml` diff out of DEV-388 commits.
+- No package, dependency, project, layer, migration, LocalPlay or `Process.Start` changes.
+
+- Basis: ticket Scope 1 and 4 delete both projects. The `Extensions` list there illustrates what goes, it is not a limit. Recon sections 1 and 8 show the sln, Docker and CI ACs are already met.
+- README (§2.3 item 6): these lines would point at files this ticket deletes, so they are dead references it creates. The full README rewrite stays with DEV-23, as `constitution.md:23-24` assigns it.
+- Constitution: lines 22-23 are the Follow-up list of the 1.3.0 Sync Impact Report, a historical record. Line 22 already says DEV-388 deletes the Worker folder. Editing the constitution would trigger the amendment procedure (`constitution.md:538-543`), which nothing here requires.
