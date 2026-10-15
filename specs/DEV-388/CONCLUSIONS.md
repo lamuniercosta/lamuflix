@@ -45,3 +45,29 @@ Conductor resumed the grill after Wisp filed recon-DEV-388-2 section 13. Section
 - Basis: the locked product plan `F:\Dev\lamuflix-react-pivot-plan.md:47` says "Deferred to P2: Rating range, Director facet, Collection facet", and `:94` lists Director/Collection filters as later work. `:33` says Collections start empty and are not migrated. The constitution (`.specify/memory/constitution.md:533-536`) says that plan owns WHAT is built and outranks other documents. The ticket AC lists the action (`list+filters`), not a filter set, so reading it against the plan is not a contradiction of ticket text.
 - New fact since Q1 (recon-DEV-388-2 lines 17 and 33): there is no collection storage at all. Adding it would need a second migration, which conflicts with the constitution's `single fresh Initial migration` (`constitution.md:342`) and DEV-19 SC-001's seven-table set (`specs/DEV-19/spec.md:32,111,135`). That is a departure not worth making for a P2 feature, so the constitution question is moot.
 - Q1's director/collection clause was ruled without those facts. Patron's earlier rulings are not precedent against new evidence. Director/Collection facets remain P2 product-plan work: noted, no ticket.
+
+---
+### Q3 full grill exchange (Keel / Patron)
+
+**Question 3/12 (Keel):** The recon addendum proves current schema has seven tables and no collection storage, while legacy Web uses Collections plus Movie.CollectionId. Q1 requires full collection parity; we cannot claim that parity needs no schema change. I recommend retain Q1 delivery scope and deliberately authorize the minimum collection persistence and migration needed for faithful filtering/facets under section 2.3 item 3, but first rule whether the seven-table DEV-19/constitution design is a constitutional constraint requiring an owner checkbox. Basis recon-DEV-388-2:12,17,26,32-33. Cost: schema work and migration tests; no fabricated collection values from unrelated fields. What collection approach and any structural escalation do you rule? Facts must come from the recon notes; if a necessary fact is missing, identify it so I can request recon and stop.
+
+**Answer (Patron):** Q3 amends Q1: no collection persistence, no migration, no schema change, and no director/collection filters/facets in DEV-388; no escalation. Basis: the locked product plan lamuflix-react-pivot-plan.md:47 defers the Director and Collection facets to P2 (also :94, and :33 says Collections start empty). Constitution :533-536 says the plan owns WHAT is built. The AC names the list+filters action, not a filter set, so the existing P1 filter set on GET /api/movies plus FilterPanel meets it. A collections table would also conflict with constitution :342 (single fresh Initial migration) and DEV-19 SC-001 (seven tables). Delete (Q1/Q2) stands. Q1 director/collection clause is superseded.
+
+**Rationale and implications:** Patron explicitly changed the scope interpretation; Q1 is historical, not the final scope. The locked product plan and constitution passages used to support Q3 are not present in the authorized recon notes. Request those documentary facts before treating this amendment as a supported scope freeze. No schema or implementation work authorized by this grill. Paused at question 3 of 12 pending recon; brief remains incomplete.
+
+---
+### Q3 recon disposition on resumption
+
+Recon-DEV-388-2 section 14 verifies constitution governance, migration constraints and DEV-19 SC-001 in roots. It explicitly does not verify the external locked product-plan primary text; its P2 quotations remain Patron-cited authority, not independently verified source content. Conductor instructs resumption after this addendum. Carry that provenance limitation into the brief; do not claim direct plan verification. Q3 remains the latest Patron ruling, superseding Q1 on director/collection parity.
+
+## Q4 - Test cleanup boundary; DEV-370/DEV-385 closure
+
+**Ruling:** Approve Keel's boundary exactly as proposed.
+- Delete `UnitTest1.cs`, `Library/LegacyMovieSortTests.cs`, `Smoke/MovieServiceEfTests.cs`, `WorkerTests.cs`, `GenericRepositoryGetByIdTests.cs` and `ApiDataModel.cs`.
+- Remove the Web, Worker and Data parts of `EnrichmentTests.cs`, and remove the Web/Worker `ProjectReference`s.
+- Keep `tests/LamuFlix.Test` and its other tests. It stays outside the sln, as it is today.
+- Close DEV-370 and DEV-385 only after the DEV-388 PR merges with their target files gone. Rigger checks the live state of each ticket first.
+
+- Basis: ticket Scope 3-4 names the Web-only tests, `WorkerTests.cs`, the Worker parts of `EnrichmentTests.cs` and the csproj reference edit. `GenericRepositoryGetByIdTests.cs` is a forced edit under the AC "no `LamuFlix.Data` ... under `src/` or `tests/`" (recon section 4).
+- `ApiDataModel.cs` (§2.3 item 6): no file references it (recon section 9) and it is DEV-385's last remaining target. Deleting this dead test code lets the ticket's own Scope 3 closure clause ("close DEV-370/DEV-385 ... if their files are gone") apply.
+- Keeping the project rather than deleting it follows Scope 4, which edits `tests/LamuFlix.Test/LamuFlix.Test.csproj`. The leftover tests running outside CI is pre-existing: noted, no ticket.
