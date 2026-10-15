@@ -93,3 +93,25 @@ Recon-DEV-388-2 section 14 verifies constitution governance, migration constrain
 - Basis: ticket Scope 1 and 4 delete both projects. The `Extensions` list there illustrates what goes, it is not a limit. Recon sections 1 and 8 show the sln, Docker and CI ACs are already met.
 - README (§2.3 item 6): these lines would point at files this ticket deletes, so they are dead references it creates. The full README rewrite stays with DEV-23, as `constitution.md:23-24` assigns it.
 - Constitution: lines 22-23 are the Follow-up list of the 1.3.0 Sync Impact Report, a historical record. Line 22 already says DEV-388 deletes the Worker folder. Editing the constitution would trigger the amendment procedure (`constitution.md:538-543`), which nothing here requires.
+
+---
+### Q5 full grill exchange (Keel / Patron)
+
+**Question 5/12:** Authorize only retirement-fact edits at README.md:10,23,26 and constitution.md:22-23 (recon section 2), removing obsolete legacy references without changing principles; section 2.3 item 6 ruling needed. Leave sln/Docker/compose/CI unchanged since already satisfied, reverify at delivery. Preserve/exclude pre-existing harness.yml changes. No package/version/dependency/project/layer/migration/LocalPlay/process-start changes. Delete whole Web/Worker trees including Library/Properties/config omitted from illustrative ticket enumeration. Approve?
+
+**Answer (Patron):** Approve with one change: do NOT edit constitution.md. Lines 22-23 are a historical Sync Impact Report Follow-up list; leave it intact. README.md:10,23,26: remove only references to deleted projects under section 2.3 item 6, with full rewrite left to DEV-23. Everything else approved: whole Web/Worker trees, sln/Docker/CI untouched and rechecked, harness.yml kept out of commits, no package/project/layer/migration/LocalPlay/Process.Start change.
+
+**Rationale and implications:** Conservative documentation boundary; no constitutional amendment. The historical-report explanation is Patron-cited; no additional source verification claimed. Preserve all unrelated changes.
+
+## Q6 - Implementation approach
+
+**Ruling:** Approve Keel's approach as stated:
+- A vertical movie-delete slice that extends the existing movie port and persistence. No new repository or service layer.
+- An atomic single-row delete that reports a missing movie without a read-then-delete race and relies on the DB cascades.
+- The OpenAPI and TypeScript contract regenerated through the existing tooling, with the contract snapshot updated.
+- SPA confirmation behaviour: cancel sends nothing, one request at a time, success invalidates the cache and returns to the library, and a failure shows a visible error.
+- An ADR under `docs/adr`. No glossary change.
+
+- Basis: this is the §2.3 item 2 test. It adds no project or layer and stays inside existing Core, Infrastructure and Api seams (recon section 10 item 2). The contract chain rule is C# DTO → `openapi.json` → `types.ts`, and generated types are never hand-edited.
+- Cascades verified: recon-DEV-388-2 section 13.2 (`Initial.cs:94-153`, snapshot `:234-270`). Shared actor, director and genre rows survive.
+- The ADR records parity-before-retirement and why delete is metadata-only. The Q3 product-plan citation is Patron-cited, outside the recon roots.
