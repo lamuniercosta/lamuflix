@@ -334,11 +334,22 @@ export default function LibraryView({
   const [query, setQuery] = useState<FilterQuery>(() => parseFilterQuery(window.location.search));
   const [currentYear] = useState(() => currentYearExtent(new Date()));
 
-  useEffect(() => {
-    const handler = () => setQuery(parseFilterQuery(window.location.search));
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
+  const syncFromUrl = useCallback(() => {
+    setQuery(parseFilterQuery(window.location.search));
   }, []);
+
+  useEffect(() => {
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, [syncFromUrl]);
+
+  const prevWatchlist = useRef(inWatchlist);
+  useEffect(() => {
+    if (prevWatchlist.current !== inWatchlist) {
+      prevWatchlist.current = inWatchlist;
+      syncFromUrl();
+    }
+  }, [inWatchlist, syncFromUrl]);
 
   const handleQueryChange = useCallback((value: unknown) => {
     setQuery(parseFilterQuery(value));
