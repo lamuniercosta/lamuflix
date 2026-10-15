@@ -61,9 +61,44 @@ function folderPathProblemMessage(error: unknown): string | undefined {
   return undefined;
 }
 
+let importPlaceholderPending = false;
+let importPlaceholderToken = 0;
+let onImportPlaceholderReconciled: (() => void) | null = null;
+
+export function armImportPlaceholder(onReconciled: () => void): void {
+  importPlaceholderToken += 1;
+  importPlaceholderPending = true;
+  onImportPlaceholderReconciled = onReconciled;
+}
+
+export function isImportPlaceholderPending(): boolean {
+  return importPlaceholderPending;
+}
+
+export function clearImportPlaceholder(): void {
+  importPlaceholderPending = false;
+  importPlaceholderToken = 0;
+  onImportPlaceholderReconciled = null;
+}
+
+function reconcileImportPlaceholder(): void {
+  if (!importPlaceholderPending) {
+    return;
+  }
+
+  importPlaceholderPending = false;
+  const notify = onImportPlaceholderReconciled;
+  onImportPlaceholderReconciled = null;
+  notify?.();
+}
+
 export function browseRefetchInterval(query: {
   state: { data?: BrowseMoviesResponse };
 }): number | false {
+  if (importPlaceholderPending) {
+    return 2000;
+  }
+
   const items = query.state.data?.items ?? [];
   return items.some((item) => item.enrichmentStatus === 'Pending') ? 2000 : false;
 }
@@ -96,25 +131,11 @@ export function markRowPending(
   };
 }
 
-export function prependPendingRow(
-  current: BrowseMoviesResponse | undefined,
-  row: MovieSummary,
-): BrowseMoviesResponse {
-  if (!current) {
-    return { items: [row], totalCount: 1 };
-  }
-
-  return {
-    ...current,
-    items: [row, ...current.items],
-    totalCount: Number(current.totalCount) + 1,
-  };
-}
-
-export function useBrowseMoviesQuery() {
+export function useBrowseMoviesQuery(placeholderPending = false) {
   return useQuery({
     queryKey: browseMoviesQueryKey,
     queryFn: async ({ signal }) => {
+      const tokenAtStart = importPlaceholderToken;
       const { data, error, response } = await client.GET('/api/movies', {
         params: { query: { ...standingBrowseQuery } },
         signal,
@@ -122,11 +143,17 @@ export function useBrowseMoviesQuery() {
       if (error || !data) {
         throw new Error(error?.detail ?? `Browse failed (${response.status})`);
       }
+
+      if (tokenAtStart !== 0 && tokenAtStart === importPlaceholderToken) {
+        reconcileImportPlaceholder();
+      }
       return data;
     },
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: browseRefetchInterval,
+    refetchInterval: placeholderPending
+      ? (query: { state: { data?: BrowseMoviesResponse } }) => browseRefetchInterval(query)
+      : browseRefetchInterval,
     refetchIntervalInBackground: false,
   });
 }
