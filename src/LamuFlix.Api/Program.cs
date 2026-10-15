@@ -37,8 +37,13 @@ builder.Services.AddCors(options => options.AddPolicy(
 builder.Services.ConfigureHttpJsonOptions(options => HttpJsonConfiguration.Apply(options.SerializerOptions));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-builder.Services.AddOpenApi("v1", static options => options.AddDocumentTransformer(
-    static (document, _, _) => OpenApiDocumentNormalizer.NormalizeAsync(document)));
+builder.Services.AddOpenApi("v1", static options =>
+{
+    options.AddDocumentTransformer(
+        static (document, _, _) => OpenApiDocumentNormalizer.NormalizeAsync(document));
+    options.AddSchemaTransformer<EnrichmentStatusSchemaTransformer>();
+    options.AddOperationTransformer<BrowseMoviesOperationTransformer>();
+});
 var app = builder.Build();
 if (app.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.ApplyMigrationsOnStartup)
 {

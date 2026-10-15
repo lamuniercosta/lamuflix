@@ -87,6 +87,75 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task Document_EnrichmentStatusSchema_IsStringEnumOfTheFourWireNames()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+        var schema = parsed.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("EnrichmentStatus");
+
+        // assert
+        schema.GetProperty("type").GetString().ShouldBe("string");
+        schema.GetProperty("enum").EnumerateArray().Select(item => item.GetString()).ShouldBe(
+            ["Pending", "Enriched", "NotFound", "Failed"]);
+    }
+
+    [Fact]
+    public async Task Document_BrowseMovies_RequiresCanonicalQueryKeysWithWireEnumsAndBounds()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+        var operation = parsed.RootElement.GetProperty("paths").GetProperty("/api/movies").GetProperty("get");
+        var parameters = operation.GetProperty("parameters").EnumerateArray()
+            .ToDictionary(parameter => parameter.GetProperty("name").GetString()!, StringComparer.Ordinal);
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        parameters.Keys.ShouldBe(
+            [
+                "Text",
+                "GenreIds",
+                "ActorIds",
+                "RuntimeMin",
+                "RuntimeMax",
+                "RuntimeIncludeUnknown",
+                "YearMin",
+                "YearMax",
+                "Statuses",
+                "InWatchlist",
+                "sort",
+                "direction",
+                "page",
+                "pageSize",
+            ],
+            ignoreOrder: true);
+        RequiredQuery(parameters["sort"]).ShouldBeTrue();
+        RequiredQuery(parameters["direction"]).ShouldBeTrue();
+        RequiredQuery(parameters["page"]).ShouldBeTrue();
+        RequiredQuery(parameters["pageSize"]).ShouldBeTrue();
+        parameters["sort"].GetProperty("schema").GetProperty("type").GetString().ShouldBe("string");
+        parameters["sort"].GetProperty("schema").GetProperty("enum").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["Title", "Year", "Rating", "Runtime"]);
+        parameters["direction"].GetProperty("schema").GetProperty("type").GetString().ShouldBe("string");
+        parameters["direction"].GetProperty("schema").GetProperty("enum").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["Ascending", "Descending"]);
+        parameters["page"].GetProperty("schema").GetProperty("type").GetString().ShouldBe("integer");
+        parameters["page"].GetProperty("schema").GetProperty("minimum").GetInt32().ShouldBe(1);
+        parameters["pageSize"].GetProperty("schema").GetProperty("type").GetString().ShouldBe("integer");
+        parameters["pageSize"].GetProperty("schema").GetProperty("minimum").GetInt32().ShouldBe(1);
+        parameters["pageSize"].GetProperty("schema").GetProperty("maximum").GetInt32().ShouldBe(100);
+    }
+
+    [Fact]
     public async Task Scalar_DevelopmentHost_ServesTheReferenceUiWiredToTheDocument()
     {
         // arrange
@@ -308,4 +377,10 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         document.GetProperty("paths").EnumerateObject().Select(path => path.Name);
 
     private static bool IsStatusCode(string value) => value.Length == 3 && value.All(char.IsAsciiDigit);
+
+    private static bool RequiredQuery(JsonElement parameter)
+    {
+        parameter.GetProperty("in").GetString().ShouldBe("query");
+        return parameter.TryGetProperty("required", out var required) && required.GetBoolean();
+    }
 }
