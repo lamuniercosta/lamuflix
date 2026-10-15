@@ -1,6 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { client } from '../api/client';
-import type { paths } from '../api/types';
+import type { components, paths } from '../api/types';
+
+type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
+type MovieSummary = components['schemas']['MovieSummaryResponse'];
 
 export const standingBrowseQuery = {
   sort: 'Title',
@@ -13,6 +16,72 @@ export const standingBrowseQuery = {
 >;
 
 export const browseMoviesQueryKey = ['browseMovies', standingBrowseQuery] as const;
+
+export const GENERIC_IMPORT_ERROR = 'Something went wrong. Try again.';
+
+export class ImportFieldError extends Error {
+  readonly kind = 'field' as const;
+}
+
+export class ImportGenericError extends Error {
+  readonly kind = 'generic' as const;
+}
+
+export function lastFolderSegment(folderPath: string): string {
+  const trimmed = folderPath.replace(/[\\/]+$/, '');
+  const parts = trimmed.split(/[\\/]/).filter(Boolean);
+  return parts.at(-1) ?? trimmed;
+}
+
+export function movieIdFromLocation(location: string | null): string | null {
+  if (!location) {
+    return null;
+  }
+
+  const match = location.match(/\/api\/movies\/([^/?#]+)/);
+  return match?.[1] ?? null;
+}
+
+function folderPathProblemMessage(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('errors' in error)) {
+    return undefined;
+  }
+
+  const errors = (error as { errors?: Record<string, unknown> }).errors;
+  const folderPath = errors?.folderPath;
+  if (Array.isArray(folderPath) && typeof folderPath[0] === 'string') {
+    return folderPath[0];
+  }
+
+  return undefined;
+}
+
+export function pendingRow(id: string, title: string): MovieSummary {
+  return {
+    id,
+    title,
+    posterUrl: null,
+    releaseYear: null,
+    runtime: null,
+    imdbRating: null,
+    enrichmentStatus: 'Pending',
+  };
+}
+
+export function prependPendingRow(
+  current: BrowseMoviesResponse | undefined,
+  row: MovieSummary,
+): BrowseMoviesResponse {
+  if (!current) {
+    return { items: [row], totalCount: 1 };
+  }
+
+  return {
+    ...current,
+    items: [row, ...current.items],
+    totalCount: Number(current.totalCount) + 1,
+  };
+}
 
 export function useBrowseMoviesQuery() {
   return useQuery({
@@ -29,5 +98,40 @@ export function useBrowseMoviesQuery() {
     },
     retry: false,
     refetchOnWindowFocus: false,
+  });
+}
+
+export function useImportMovieMutation() {
+  return useMutation({
+    mutationFn: async (folderPath: string) => {
+      let error: unknown;
+      let response: Response;
+
+      try {
+        const result = await client.POST('/api/movies/import', {
+          body: { folderPath },
+          parseAs: 'text',
+        });
+        error = result.error;
+        response = result.response;
+      } catch {
+        throw new ImportGenericError(GENERIC_IMPORT_ERROR);
+      }
+
+      if (response.status === 202) {
+        const id = movieIdFromLocation(response.headers.get('Location'));
+        if (id == null) {
+          throw new ImportGenericError(GENERIC_IMPORT_ERROR);
+        }
+
+        return { id, title: lastFolderSegment(folderPath) };
+      }
+
+      if (response.status === 422) {
+        throw new ImportFieldError(folderPathProblemMessage(error) ?? GENERIC_IMPORT_ERROR);
+      }
+
+      throw new ImportGenericError(GENERIC_IMPORT_ERROR);
+    },
   });
 }

@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { createApiClient } from '../api/client';
-import { standingBrowseQuery } from '../test/handlers';
+import { importAcceptedLocation, standingBrowseQuery } from '../test/handlers';
 import { server } from '../test/server';
 import {
   browseMovies,
@@ -49,7 +49,7 @@ describe('generated MSW handlers', () => {
     expect(browse.data).toEqual(browseMovies);
     expect(details.data).toEqual(movieDetails);
     expect(imported.response.status).toBe(202);
-    expect(imported.response.headers.get('location')).toBe(acceptedLocation);
+    expect(imported.response.headers.get('location')).toBe(importAcceptedLocation);
     expect(enriched.response.status).toBe(202);
     expect(enriched.response.headers.get('location')).toBe(acceptedLocation);
     expect(added.response.status).toBe(204);
