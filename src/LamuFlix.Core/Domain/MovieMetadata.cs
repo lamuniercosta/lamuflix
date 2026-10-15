@@ -61,17 +61,26 @@ public sealed record MovieMetadata
 
     public bool Equals(MovieMetadata? other) =>
         other is not null
-        && Title == other.Title
-        && Synopsis == other.Synopsis
-        && Equals(ReleaseYear, other.ReleaseYear)
-        && Equals(Runtime, other.Runtime)
-        && Equals(ImdbRating, other.ImdbRating)
-        && Equals(ImdbId, other.ImdbId)
-        && PosterUrl == other.PosterUrl
-        && RottenTomatoesRating == other.RottenTomatoesRating
-        && MetaScore == other.MetaScore
-        && Directors.SequenceEqual(other.Directors)
-        && Actors.SequenceEqual(other.Actors);
+        && SameScalars(this, other)
+        && SameOptionals(this, other)
+        && SameCollections(this, other);
+
+    private static bool SameScalars(MovieMetadata left, MovieMetadata right) =>
+        left.Title == right.Title
+        && left.Synopsis == right.Synopsis
+        && left.PosterUrl == right.PosterUrl
+        && left.RottenTomatoesRating == right.RottenTomatoesRating
+        && left.MetaScore == right.MetaScore;
+
+    private static bool SameOptionals(MovieMetadata left, MovieMetadata right) =>
+        Equals(left.ReleaseYear, right.ReleaseYear)
+        && Equals(left.Runtime, right.Runtime)
+        && Equals(left.ImdbRating, right.ImdbRating)
+        && Equals(left.ImdbId, right.ImdbId);
+
+    private static bool SameCollections(MovieMetadata left, MovieMetadata right) =>
+        left.Directors.SequenceEqual(right.Directors)
+        && left.Actors.SequenceEqual(right.Actors);
 
     public override int GetHashCode()
     {
