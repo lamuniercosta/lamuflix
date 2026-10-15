@@ -315,6 +315,52 @@ public sealed class EfMovieCatalogSurvivorTests(PostgresFixture fixture)
         facets.Select(facet => facet.Id).ShouldBe([ada.Id, adaAgain.Id, zoe.Id]);
     }
 
+    [Fact]
+    public async Task GetDetailsAsync_DirectorsOnly_ReturnsMetadataWithDirector()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("File", "unit-details-directors-only");
+        movie.Directors.Add(new DirectorRecord { Name = "Dana Director" });
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldNotBeNull();
+        details.Metadata.Directors.ShouldBe(new[] { "Dana Director" });
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_ActorsOnly_ReturnsMetadataWithActor()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("File", "unit-details-actors-only");
+        movie.Actors.Add(new ActorRecord { Name = "Ada Actor" });
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldNotBeNull();
+        details.Metadata.Actors.ShouldBe(new[] { "Ada Actor" });
+    }
+
     private static MovieRecord Movie(string title, string suffix) => new()
     {
         Title = title,
