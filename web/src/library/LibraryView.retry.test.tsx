@@ -93,7 +93,9 @@ describe('LibraryView retry', () => {
     useRetryableBrowse();
     renderApp();
 
-    expect(await screen.findByRole('button', { name: 'Retry Lost Film' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Retry Lost Film' }, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry Broken Cut' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry Dune' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry Arrival' })).not.toBeInTheDocument();

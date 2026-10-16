@@ -7,6 +7,7 @@ import {
   RUNTIME_MIN_EXTENT,
   RUNTIME_MAX_EXTENT,
   YEAR_MIN_EXTENT,
+  SORT_OPTIONS,
 } from './filterQuery';
 import { useDebouncedSearch } from './useDebouncedSearch';
 
@@ -36,6 +37,10 @@ interface FilterPanelBaseProps {
 }
 
 interface FilterPanelProps extends FilterPanelBaseProps {
+  integrated?: boolean;
+  showTitleSearch?: boolean;
+  showSort?: boolean;
+  routeKey?: number;
   query?: unknown;
   value?: unknown;
   filterQuery?: unknown;
@@ -58,17 +63,6 @@ const STATUS_WIRES = [
   { label: 'Enriched', wire: 'Enriched' },
   { label: 'Not found', wire: 'NotFound' },
   { label: 'Failed', wire: 'Failed' },
-];
-
-const SORT_OPTIONS = [
-  { label: 'Title (A-Z)', sort: 'Title', direction: 'Ascending' },
-  { label: 'Title (Z-A)', sort: 'Title', direction: 'Descending' },
-  { label: 'Year (oldest)', sort: 'Year', direction: 'Ascending' },
-  { label: 'Year (newest)', sort: 'Year', direction: 'Descending' },
-  { label: 'IMDb (lowest)', sort: 'Rating', direction: 'Ascending' },
-  { label: 'IMDb (highest)', sort: 'Rating', direction: 'Descending' },
-  { label: 'Runtime (shortest)', sort: 'Runtime', direction: 'Ascending' },
-  { label: 'Runtime (longest)', sort: 'Runtime', direction: 'Descending' },
 ];
 
 function toQuery(input: unknown): FilterQuery {
@@ -156,13 +150,15 @@ export function FilterPanel(props: FilterPanelProps) {
       if (controlledKey == null) {
         setInternalQuery(next);
       }
-      try {
-        next.page = 1;
-        const search = toUrlQuery(next, currentYear);
-        const path = window.location.pathname || '/';
-        window.history.replaceState(null, '', search ? `${path}?${search}` : path);
-      } catch {
-        // ignore in environments without history
+      next.page = 1;
+      if (!props.integrated) {
+        try {
+          const search = toUrlQuery(next, currentYear);
+          const path = window.location.pathname || '/';
+          window.history.replaceState(null, '', search ? `${path}?${search}` : path);
+        } catch {
+          // ignore in environments without history
+        }
       }
       callbacks.forEach((cb) => {
         try {
@@ -172,7 +168,7 @@ export function FilterPanel(props: FilterPanelProps) {
         }
       });
     },
-    [controlledKey, callbacks, currentYear],
+    [controlledKey, callbacks, currentYear, props.integrated],
   );
 
   const queryRef = useRef(query);
@@ -193,7 +189,15 @@ export function FilterPanel(props: FilterPanelProps) {
   });
   const cancelSearchText = commitSearchText.cancel;
 
+  const routeKey = props.routeKey;
   useEffect(() => {
+    cancelSearchText();
+  }, [routeKey, cancelSearchText]);
+
+  useEffect(() => {
+    if (props.integrated) {
+      return;
+    }
     const handler = () => {
       cancelSearchText();
       setSearchText(String(parseFilterQuery(window.location.search).text ?? ''));
@@ -219,7 +223,7 @@ export function FilterPanel(props: FilterPanelProps) {
     };
     window.addEventListener('popstate', handler);
     return () => window.removeEventListener('popstate', handler);
-  }, [controlledInput, onHydrate, onPopstate, cancelSearchText]);
+  }, [controlledInput, onHydrate, onPopstate, cancelSearchText, props.integrated]);
 
   const [castFilter, setCastFilter] = useState('');
 
@@ -344,24 +348,27 @@ export function FilterPanel(props: FilterPanelProps) {
 
   const selectedStatuses = new Set((query.statuses ?? []).map(String));
 
+  const showTitleSearch = props.showTitleSearch ?? true;
   return (
     <section aria-label="Filters">
-      <fieldset>
-        <legend>Search</legend>
-        <label className="sr-only" htmlFor="lamu-search-titles">
-          Search titles
-          <input
-            id="lamu-search-titles"
-            type="search"
-            placeholder="Search titles"
-            value={searchText}
-            onChange={(event) => {
-              setSearchText(event.target.value);
-              commitSearchText.schedule(event.target.value);
-            }}
-          />
-        </label>
-      </fieldset>
+      {showTitleSearch ? (
+        <fieldset>
+          <legend>Search</legend>
+          <label className="sr-only" htmlFor="lamu-search-titles">
+            Search titles
+            <input
+              id="lamu-search-titles"
+              type="search"
+              placeholder="Search titles"
+              value={searchText}
+              onChange={(event) => {
+                setSearchText(event.target.value);
+                commitSearchText.schedule(event.target.value);
+              }}
+            />
+          </label>
+        </fieldset>
+      ) : null}
 
       <fieldset>
         <legend>Genres</legend>
@@ -499,22 +506,24 @@ export function FilterPanel(props: FilterPanelProps) {
 
       <hr />
 
-      <fieldset>
-        <legend>Sort</legend>
-        <label>
-          Sort
-          <select
-            value={selectedSortLabel}
-            onChange={(event) => handleSortChange(event.target.value)}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.label} value={option.label}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </fieldset>
+      {(props.showSort ?? true) ? (
+        <fieldset>
+          <legend>Sort</legend>
+          <label>
+            Sort
+            <select
+              value={selectedSortLabel}
+              onChange={(event) => handleSortChange(event.target.value)}
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.label} value={option.label}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </fieldset>
+      ) : null}
 
       <fieldset>
         <legend>Enrichment status</legend>

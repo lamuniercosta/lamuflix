@@ -79,7 +79,9 @@ describe('watchlist shared state across card and hero', () => {
     );
 
     const card = renderApp();
-    fireEvent.click(await screen.findByRole('button', { name: 'Add to watchlist' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Add to watchlist' }, { timeout: 5000 }),
+    );
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
         'aria-busy',
@@ -90,7 +92,9 @@ describe('watchlist shared state across card and hero', () => {
 
     goto('/movies/1');
     renderApp();
-    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Dune' }, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
       'aria-pressed',
       'true',

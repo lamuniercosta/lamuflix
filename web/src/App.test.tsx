@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { paths } from './api/types';
 import App from './App';
-import { standingBrowseQuery } from './test/handlers';
+import { retryAcceptedHandler, standingBrowseQuery } from './test/handlers';
 import { server } from './test/server';
 
 const http = createOpenApiHttp<paths>({ baseUrl: '*' });
@@ -206,5 +206,254 @@ describe('App movie details routing', () => {
 
     expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
     expect(await screen.findByText('Dune')).toBeInTheDocument();
+  });
+});
+
+describe('App layout shell', () => {
+  it('shares the wordmark, navigation, import action, and search on library and watchlist', async () => {
+    window.history.replaceState({}, '', '/');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 5000 });
+
+    expect(screen.getByText('LamuFlix')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Library' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Watchlist' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search titles')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Watchlist' }));
+    expect(new URLSearchParams(window.location.search).get('watchlist')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Watchlist' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByText('LamuFlix')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
+  });
+
+  it('reflects a shared ?watchlist=true link in the shell toggle', async () => {
+    window.history.replaceState({}, '', '/?watchlist=true');
+    renderApp();
+    await screen.findByText('Your watchlist is empty.');
+
+    expect(screen.getByRole('button', { name: 'Watchlist' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('falls back to the library for malformed, non-positive, and non-integer detail paths', async () => {
+    for (const path of ['/movies/abc', '/movies/0', '/movies/-4', '/movies/1.5']) {
+      window.history.replaceState({}, '', path);
+      const view = renderApp();
+      expect(await screen.findByText('Dune', {}, { timeout: 5000 })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+      view.unmount();
+      cleanup();
+      window.history.replaceState({}, '', '/');
+    }
+  });
+
+  it('opens a movie client-side and restores the exact originating query from the back link', async () => {
+    window.history.replaceState({}, '', '/?statuses=Pending&sort=Title&direction=Ascending');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 5000 });
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open details for Dune' }));
+    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/movies/1');
+
+    fireEvent.click(screen.getByRole('link', { name: 'Back to library' }));
+    expect(window.location.pathname).toBe('/');
+    expect(window.location.search).toBe('?statuses=Pending&sort=Title&direction=Ascending');
+    expect(await screen.findByRole('link', { name: 'Open details for Dune' })).toBeInTheDocument();
+  });
+
+  it('sends a direct detail route back link to the default library without valid return state', async () => {
+    window.history.replaceState(null, '', '/movies/1');
+    renderApp();
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Back to library' }));
+    expect(window.location.pathname).toBe('/');
+    expect(await screen.findByRole('link', { name: 'Open details for Dune' })).toBeInTheDocument();
+  });
+
+  it('rejects untrusted return state and falls back to the default library', async () => {
+    window.history.replaceState(
+      { libraryReturnUrl: 'https://example.com/?text=x' },
+      '',
+      '/movies/1',
+    );
+    renderApp();
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Back to library' }));
+    expect(window.location.pathname).toBe('/');
+    expect(window.location.search).toBe('');
+  });
+
+  it('updates the mounted route on browser Back and Forward', async () => {
+    window.history.replaceState({}, '', '/');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 5000 });
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open details for Dune' }));
+    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+
+    window.history.replaceState({}, '', '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    expect(await screen.findByRole('link', { name: 'Open details for Dune' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+  });
+
+  it('keeps details search local until Enter, then preserves filters and replaces text', async () => {
+    window.history.replaceState({}, '', '/?statuses=Pending');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 5000 });
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open details for Dune' }));
+    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+
+    const search = screen.getByPlaceholderText('Search titles');
+    fireEvent.change(search, { target: { value: 'arrival' } });
+    expect(window.location.pathname).toBe('/movies/1');
+
+    const form = search.closest('form');
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/');
+    });
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('text')).toBe('arrival');
+    expect(params.getAll('statuses')).toContain('Pending');
+    expect(params.get('page') ?? '1').toBe('1');
+  });
+
+  it('cancels a pending shell search when browser history changes route', async () => {
+    window.history.replaceState({}, '', '/');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 5000 });
+
+    fireEvent.change(screen.getByPlaceholderText('Search titles'), {
+      target: { value: 'dune' },
+    });
+    window.history.replaceState({}, '', '/?statuses=Pending');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('text')).toBeNull();
+    expect(params.getAll('statuses')).toContain('Pending');
+  });
+
+  it('resyncs the details back link when only history state changes', async () => {
+    window.history.replaceState({ libraryReturnUrl: '/?text=a' }, '', '/movies/1');
+    renderApp();
+    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to library' })).toHaveAttribute(
+      'href',
+      '/?text=a',
+    );
+
+    window.history.replaceState({ libraryReturnUrl: '/?text=b' }, '', '/movies/1');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Back to library' })).toHaveAttribute(
+        'href',
+        '/?text=b',
+      );
+    });
+  });
+
+  it('toggles a card bookmark optimistically from the shared shell', async () => {
+    server.use(
+      http.post('/api/movies/{id}/watchlist', () => new HttpResponse(null, { status: 204 })),
+    );
+    window.history.replaceState({}, '', '/');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 5000 });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add to watchlist' })[0]);
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole('button', { name: 'Remove from watchlist' })[0],
+      ).toBeInTheDocument();
+    });
+  });
+
+  it(
+    'retries enrichment from the shared shell and marks the row Pending',
+    { timeout: 15000 },
+    async () => {
+      let calls = 0;
+      server.use(
+        http.get('/api/movies', () => {
+          calls += 1;
+          return HttpResponse.json(
+            {
+              items: [
+                {
+                  id: 3,
+                  title: 'Lost Film',
+                  posterUrl: null,
+                  releaseYear: null,
+                  runtime: null,
+                  imdbRating: null,
+                  enrichmentStatus: calls > 1 ? 'Pending' : 'NotFound',
+                  isInWatchlist: false,
+                },
+              ],
+              totalCount: 1,
+            },
+            { status: 200 },
+          );
+        }),
+        retryAcceptedHandler,
+      );
+      window.history.replaceState({}, '', '/');
+      renderApp();
+      await screen.findByRole('heading', { name: 'Lost Film' }, { timeout: 5000 });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Retry Lost Film' }));
+      await waitFor(
+        () => {
+          expect(screen.queryByRole('button', { name: 'Retry Lost Film' })).not.toBeInTheDocument();
+        },
+        { timeout: 5000 },
+      );
+    },
+  );
+
+  it('shows the Playback unavailable dialog for a 403 after client-side details navigation', async () => {
+    server.use(http.post('/api/movies/{id}/play', () => new HttpResponse(null, { status: 403 })));
+    window.history.replaceState({}, '', '/');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 5000 });
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open details for Dune' }));
+    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(await screen.findByRole('dialog', { name: 'Playback unavailable' })).toBeInTheDocument();
+  });
+
+  it('debounces shell search without discarding other active filters', async () => {
+    window.history.replaceState({}, '', '/?statuses=Pending');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 5000 });
+
+    fireEvent.change(screen.getByPlaceholderText('Search titles'), {
+      target: { value: 'dune' },
+    });
+    await waitFor(
+      () => {
+        const params = new URLSearchParams(window.location.search);
+        expect(params.get('text')).toBe('dune');
+      },
+      { timeout: 3000 },
+    );
+    expect(new URLSearchParams(window.location.search).getAll('statuses')).toContain('Pending');
   });
 });
