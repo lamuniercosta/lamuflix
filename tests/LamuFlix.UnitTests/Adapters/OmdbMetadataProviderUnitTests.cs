@@ -73,8 +73,7 @@ public sealed class OmdbMetadataProviderUnitTests
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>();
         handler.RequestUri.ShouldNotBeNull();
-        handler.RequestUri.Query.ShouldContain("plot=full");
-        handler.RequestUri.Query.ShouldNotContain("&y=");
+        handler.RequestUri.Query.ShouldBe("?apikey=key&t=Blade%20Runner&type=movie&plot=full");
     }
 
     [Fact]
@@ -200,26 +199,31 @@ public sealed class OmdbMetadataProviderUnitTests
     public async Task FindAsync_ServerError_ReturnsProviderUnavailable()
     {
         // arrange
-        var provider = Provider(new StubHandler(HttpStatusCode.InternalServerError, string.Empty));
+        var logger = new CapturingLogger();
+        var provider = Provider(new StubHandler(HttpStatusCode.InternalServerError, string.Empty), logger);
 
         // act
         var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
+        logger.Messages.ShouldContain(message => message.Contains("500", StringComparison.Ordinal)
+            && message.Contains("failure .", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task FindAsync_NotFoundStatus_ReturnsInvalidResponse()
     {
         // arrange
-        var provider = Provider(new StubHandler(HttpStatusCode.NotFound, string.Empty));
+        var logger = new CapturingLogger();
+        var provider = Provider(new StubHandler(HttpStatusCode.NotFound, string.Empty), logger);
 
         // act
         var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        logger.Messages.ShouldContain(message => message.Contains("404", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -436,13 +440,16 @@ public sealed class OmdbMetadataProviderUnitTests
     public async Task FindAsync_TimeoutException_ReturnsProviderUnavailable()
     {
         // arrange
-        var provider = Provider(new ThrowingHandler(new OperationCanceledException("timeout")));
+        var logger = new CapturingLogger();
+        var provider = Provider(new ThrowingHandler(new OperationCanceledException("timeout")), logger);
 
         // act
         var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
+        logger.Messages.ShouldContain(message => message.Contains("none", StringComparison.Ordinal)
+            && message.Contains("failure .", StringComparison.Ordinal));
     }
 
     [Fact]
