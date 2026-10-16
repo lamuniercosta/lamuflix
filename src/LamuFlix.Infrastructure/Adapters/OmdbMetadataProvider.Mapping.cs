@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json.Serialization;
@@ -26,7 +27,12 @@ public sealed partial class OmdbMetadataProvider
                     MapRuntime(response.Runtime),
                     MapRating(response.Rating),
                     MapIdentifier(response.Identifier),
-                    MapPoster(response.Poster))
+                    MapPoster(response.Poster),
+                    metaScore: MapMetaScore(response.MetaScore),
+                    directors: SplitCredits(response.Director),
+                    actors: SplitCredits(response.Actors),
+                    genres: SplitCredits(response.Genre),
+                    writers: SplitCredits(response.Writer))
                 : null;
 
         private static bool TryTitle(string? value, [NotNullWhen(true)] out string? title)
@@ -75,6 +81,35 @@ public sealed partial class OmdbMetadataProvider
 
         private static ImdbId? MapIdentifier(string? identifier) =>
             ImdbId.TryCreate(identifier, out var parsed) ? parsed : null;
+
+        private static short? MapMetaScore(string? metaScore) =>
+            int.TryParse(metaScore, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+                && value is >= 0 and <= 100
+                ? (short)value
+                : null;
+
+        private static IEnumerable<string> SplitCredits(string? credits)
+        {
+            if (credits is null)
+            {
+                return [];
+            }
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result = new List<string>();
+            foreach (var token in credits.Split(','))
+            {
+                var trimmed = token.Trim();
+                if (IsMissing(trimmed) || !seen.Add(trimmed))
+                {
+                    continue;
+                }
+
+                result.Add(trimmed);
+            }
+
+            return result;
+        }
 
         private static bool TryLeadingDigits(string? value, out int result)
         {
@@ -132,5 +167,20 @@ public sealed partial class OmdbMetadataProvider
 
         [JsonPropertyName("Poster")]
         public string? Poster { get; set; }
+
+        [JsonPropertyName("Genre")]
+        public string? Genre { get; set; }
+
+        [JsonPropertyName("Director")]
+        public string? Director { get; set; }
+
+        [JsonPropertyName("Writer")]
+        public string? Writer { get; set; }
+
+        [JsonPropertyName("Actors")]
+        public string? Actors { get; set; }
+
+        [JsonPropertyName("Metascore")]
+        public string? MetaScore { get; set; }
     }
 }
