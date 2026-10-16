@@ -18,14 +18,20 @@ public sealed class MovieMetadataCollectionsPropertyTests
         var left = new MovieMetadata("Title", genres: suppliedGenres, writers: suppliedWriters);
         var right = new MovieMetadata("Title", genres: suppliedGenres, writers: suppliedWriters);
 
-        return left.Equals(right)
-            && right.Equals(left)
-            && left.GetHashCode() == right.GetHashCode()
-            && left.Genres.SequenceEqual(suppliedGenres)
-            && left.Writers.SequenceEqual(suppliedWriters)
-            && left.Genres.Length == suppliedGenres.Length
-            && left.Writers.Length == suppliedWriters.Length;
+        return HaveSameEqualityAndHash(left, right)
+            && MatchSuppliedSnapshot(left, suppliedGenres, suppliedWriters);
     }
+
+    private static bool HaveSameEqualityAndHash(MovieMetadata left, MovieMetadata right) =>
+        left.Equals(right)
+        && right.Equals(left)
+        && left.GetHashCode() == right.GetHashCode();
+
+    private static bool MatchSuppliedSnapshot(MovieMetadata metadata, string[] suppliedGenres, string[] suppliedWriters) =>
+        metadata.Genres.SequenceEqual(suppliedGenres)
+        && metadata.Writers.SequenceEqual(suppliedWriters)
+        && metadata.Genres.Length == suppliedGenres.Length
+        && metadata.Writers.Length == suppliedWriters.Length;
 
     [Property(MaxTest = 100)]
     [Trait("Category", "Property")]

@@ -83,7 +83,7 @@
 
 **Checkpoint**: Refactor complexity is at or under the refactor threshold. Every mandatory gate has its script verdict. Scope-empty skip is not recorded as pass.
 
-- [ ] T020 Refactor the completed change across the file set in `specs/DEV-411/plan.md` until `./scripts/run-cyclomatic-complexity.ps1 -Threshold 6` passes. Extract helpers, early returns, and guard clauses. Do not suppress to pass. Do not lower a threshold.
+- [X] T020 Refactor the completed change across the file set in `specs/DEV-411/plan.md` until `./scripts/run-cyclomatic-complexity.ps1 -Threshold 6` passes. Extract helpers, early returns, and guard clauses. Do not suppress to pass. Do not lower a threshold.
 - [ ] T021 Run the configured gates and record each script verdict: `./scripts/run-roslyn-analyzers.ps1`, `./scripts/run-cyclomatic-complexity.ps1`, `./scripts/run-jetbrains-inspectcode.ps1` with no arguments, `./scripts/run-property-tests.ps1`, `./scripts/run-vulnerable-packages.ps1`, `dotnet format --verify-no-changes`, `dotnet test`, and `./scripts/run-mutation.ps1` without `--since`. Run `./scripts/run-web-gates.ps1`; an unchanged `/web` is scope-empty `SKIPPED`, not PASS. No threshold edits and no new opt-out. A mandatory failure, `Could not run`, or an unaccepted property-test exit 2 blocks.
 
 ---
