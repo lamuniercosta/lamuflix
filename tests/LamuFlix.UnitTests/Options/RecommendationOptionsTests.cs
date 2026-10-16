@@ -170,6 +170,7 @@ public sealed class RecommendationOptionsTests
     public void Validate_WeightsNull_ReturnsSingleRequiredFieldResult()
     {
         // arrange
+        // ReSharper disable once NullableWarningSuppressionIsUsed - deliberate null exercises the required-field guard.
         var options = new RecommendationOptions { Weights = null! };
 
         // act
