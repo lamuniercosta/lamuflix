@@ -1,8 +1,8 @@
 # 0016. Mutation gate runs Stryker 5 on the Microsoft Testing Platform runner
 
-- Status: Proposed (becomes Accepted when the DEV-382 PR merges)
+- Status: Accepted
 - Date: 2026-09-28
-- Ticket: DEV-382
+- Ticket: DEV-382 (delivered and merged, amended DEV-410, finalized DEV-328)
 
 ## Context
 

@@ -1,8 +1,8 @@
 # 0020. Request-correlated import enrichment proof
 
-- Status: Proposed - reviewed in Phase A; decision approval depends on Gate 1 spec merge; canonical docs/adr publication occurs in the DEV-318 Phase B delivery PR.
+- Status: Accepted
 - Date: 2026-10-09
-- Ticket: DEV-318
+- Ticket: DEV-318 (delivered and merged, finalized DEV-328)
 
 ## Context
 

@@ -51,6 +51,14 @@ _Avoid_: the persisted counter, enrichment attempts
 A Pending movie whose enrichment claim lease has aged out, or a Pending movie left without a queued `EnrichmentRequested` message. The sweeper re-enqueues `EnrichmentRequested` without claiming.
 _Avoid_: stuck job, abandoned claim
 
+**Worker**
+The `EnrichmentConsumer` hosted inside `LamuFlix.Api`. The standalone Worker project is retired.
+_Avoid_: a separate host, resurrecting LamuFlix.Worker
+
+**Sweeper**
+The `StrandedMovieSweeper` hosted service. It re-enqueues stranded movies and never claims.
+_Avoid_: claiming stranded movies, a second consumer
+
 **Retry Queue**
 `enrichment.retry`. Holds a republished attempt until `RabbitMqOptions.RetryDelay` has passed, then dead-letters it back to `enrichment.requested`. Both `Retry` and `RetryDelayed` go through it.
 _Avoid_: a fixed-delay exchange, backoff queue
