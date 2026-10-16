@@ -1,0 +1,82 @@
+{
+  "Requirements": 22,
+  "FunctionalRequirements": 15,
+  "SuccessCriteria": 7,
+  "Tasks": 22,
+  "AllUnchecked": true,
+  "Sequential": true,
+  "MappingIssues": [],
+  "PhaseLabelIssues": [],
+  "BrokenDocLinks": [],
+  "UnresolvedPlaceholders": [],
+  "OutsideScopeUntracked": [],
+  "TrackedChangedPaths": [],
+  "Branch": "feature/DEV-432-design-and-apply-the-lamuflix-app-layout-shell-filter-sideba",
+  "Head": "6f5c72cf5a7f4241b3cd0619147c0991ca4ffb91",
+  "FeaturePin": "specs/DEV-432",
+  "ArtifactHashes": [
+    {
+      "Path": "specs/DEV-432/brief.md",
+      "SHA256": "887CD10B76AADE4E6327024BB9A442996441E3B33007F3DCD591C690112C5384"
+    },
+    {
+      "Path": "specs/DEV-432/CONCLUSIONS.md",
+      "SHA256": "DEBC5721356714DF439C764A41201D6E9ED74E7122A8E0B1A3004ECCF91ECE7D"
+    },
+    {
+      "Path": "specs/DEV-432/data-model.md",
+      "SHA256": "2CF7706571AEAFBD44B1E14F8054A7AEFA9C9CFD72C94B8EC713D4774744D3B3"
+    },
+    {
+      "Path": "specs/DEV-432/design.md",
+      "SHA256": "D5F74F48D1C72F65232E2F80C7C9BCC827485F50F050964B8BD620ED85E552C8"
+    },
+    {
+      "Path": "specs/DEV-432/plan.md",
+      "SHA256": "397535CCD6248FAF44531D51DDCB436F43DF0E21F6956DD84B0B6B4339CC80A4"
+    },
+    {
+      "Path": "specs/DEV-432/quickstart.md",
+      "SHA256": "D3C89A646159996DAD0ED28DBFE777A6A942245AAA0064D3EFC5A2EBF0C78D7A"
+    },
+    {
+      "Path": "specs/DEV-432/research.md",
+      "SHA256": "5FDD0C23BEA3246590941106F4BF5260B6810B7457C180F6644951030B06558D"
+    },
+    {
+      "Path": "specs/DEV-432/spec.md",
+      "SHA256": "9F53AB55904EA9408D50DB44327BA8F833E410F418046A72564B4A999241D9D9"
+    },
+    {
+      "Path": "specs/DEV-432/tasks.md",
+      "SHA256": "D3C0A052631B3B2A1B8104896C28696EF1DDB90C288A27149EF2F1481E2410CB"
+    },
+    {
+      "Path": "specs/DEV-432/checklists/requirements.md",
+      "SHA256": "54796F870D3DAFD17D50EC57A4F33198DB10E9A94B36DD1F9B56BFD9E6B592AD"
+    },
+    {
+      "Path": "specs/DEV-432/contracts/frontend-navigation.md",
+      "SHA256": "8BEDB912993321CC2C672A884D2EC7F7AA8DBE787CFB9E0E05AAA70AF87B4832"
+    }
+  ],
+  "NativePrerequisites": {
+    "Default": {
+      "Exit": 1,
+      "Output": [
+        "ERROR: Not on a feature branch. Current branch: feature/DEV-432-design-and-apply-the-lamuflix-app-layout-shell-filter-sideba",
+        "Feature branches should be named like: 001-feature-name, 1234-feature-name, or 20260319-143022-feature-name"
+      ]
+    },
+    "SupportedSelector": {
+      "LogicalFeature": "432-app-layout",
+      "Exit": 0,
+      "FeatureDirectory": "F:\\Dev\\LamuFlix.worktrees\\feature-DEV-432-design-and-apply-the-lamuflix-app-layout-shell-filter-sideba\\specs\\DEV-432",
+      "ActualBranchRenamed": false,
+      "ActualBranchNamingValidated": false
+    },
+    "ScriptEdited": false
+  },
+  "Gate1": "Awaiting user approval",
+  "ImplementationChecks": "Not run; planning only"
+}
