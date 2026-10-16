@@ -28,6 +28,13 @@ public sealed class ModelMetadataTests
         AssertNamedEntity<GenreRecord>(context, "genres");
     }
 
+    [Fact]
+    public void Writer_MetadataMatchesDatabaseMapping()
+    {
+        using var context = CreateContext();
+        AssertNamedEntity<WriterRecord>(context, "writers");
+    }
+
     private static void AssertNamedEntity<TEntity>(LamuFlixDbContext context, string tableName)
         where TEntity : class
     {

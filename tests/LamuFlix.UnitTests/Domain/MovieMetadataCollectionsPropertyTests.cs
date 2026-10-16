@@ -9,8 +9,8 @@ public sealed class MovieMetadataCollectionsPropertyTests
     [Property(MaxTest = 100)]
     [Trait("Category", "Property")]
     public bool GenresAndWriters_SameContentDifferentInstances_AreEqualWithEqualHashAndOrder(
-        string[] genres,
-        string[] writers)
+        string[]? genres,
+        string[]? writers)
     {
         var suppliedGenres = genres ?? [];
         var suppliedWriters = writers ?? [];
@@ -36,8 +36,8 @@ public sealed class MovieMetadataCollectionsPropertyTests
     [Property(MaxTest = 100)]
     [Trait("Category", "Property")]
     public bool Constructor_CopiesSuppliedSequences_SoSourceMutationDoesNotAffectStoredCollections(
-        string[] genres,
-        string[] writers)
+        string[]? genres,
+        string[]? writers)
     {
         var suppliedGenres = genres ?? [];
         var suppliedWriters = writers ?? [];
