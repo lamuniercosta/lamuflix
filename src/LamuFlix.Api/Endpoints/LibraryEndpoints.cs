@@ -52,11 +52,10 @@ internal static class LibraryEndpoints
             .Produces<MovieDetailsResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        api.MapDelete("/movies/{id}", DeleteMovieAsync)
+        api.MapDelete("/movies/{id:int}", DeleteMovieAsync)
             .WithName("DeleteMovie")
             .WithSummary("Remove a movie from the library, leaving the file on disk.")
             .Produces(StatusCodes.Status204NoContent)
-            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return api;

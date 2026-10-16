@@ -196,19 +196,13 @@ export interface operations {
   DeleteMovie: {
     parameters: {
       path: {
-        id: number | string;
+        id: number;
       };
     };
     responses: {
       /** @description No Content */
       204: {
         content: never;
-      };
-      /** @description Bad Request */
-      400: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
       };
       /** @description Not Found */
       404: {

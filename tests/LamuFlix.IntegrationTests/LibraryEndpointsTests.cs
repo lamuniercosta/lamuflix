@@ -568,7 +568,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     }
 
     [Fact]
-    public async Task DeleteMovie_NonIntegerId_ReturnsBadRequestWithoutDispatching()
+    public async Task DeleteMovie_NonIntegerId_MissesTheRouteAndReturnsAProblemBody()
     {
         // arrange
         await using var host = WithDeleteHandler();
@@ -577,12 +577,9 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
         // act
         var response = await client.DeleteAsync(DetailsUrl("abc"), cancellationToken);
-        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         // assert
-        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
-        problem.GetProperty("status").GetInt32().ShouldBe(400);
+        await ReadNotFoundAsync(response, cancellationToken);
         deleteHandler.Ids.ShouldBeEmpty();
     }
 
