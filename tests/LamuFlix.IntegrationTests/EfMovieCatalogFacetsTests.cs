@@ -1,9 +1,13 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
 
@@ -122,6 +126,37 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
         facets.Single(f => f.Name == "Drama").MovieCount.ShouldBe(2);
         facets.Single(f => f.Name == "Comedy").MovieCount.ShouldBe(1);
         facets.Single(f => f.Name == "Unused").MovieCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetGenresAsync_GenresPersistedThroughRepository_ReturnsNewlyStoredGenres()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var repository = new EfMovieRepository(
+            context,
+            TimeProvider.System,
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+        var id = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
+        var movie = Movie.Create(id, "Facet persisted", new LibraryPath("C:/library/facet-persisted.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, TestContext.Current.CancellationToken);
+        await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
+        movie.MarkEnriched(
+            new MovieMetadata("Facet persisted", "Synopsis", genres: ["Drama", "Comedy"]),
+            TimeProvider.System.GetUtcNow());
+        await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var connectionString = context.Database.GetConnectionString();
+        connectionString.ShouldNotBeNullOrWhiteSpace();
+        await using var readContext = LamuFlixDbContextFactory.OpenContext(connectionString);
+        var catalog = new EfMovieCatalog(readContext);
+
+        // act
+        var facets = await catalog.GetGenresAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.ShouldContain(facet => facet.Name == "Drama" && facet.MovieCount == 1);
+        facets.ShouldContain(facet => facet.Name == "Comedy" && facet.MovieCount == 1);
     }
 
     [Fact]
