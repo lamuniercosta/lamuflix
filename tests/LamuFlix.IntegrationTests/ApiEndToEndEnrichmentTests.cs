@@ -100,10 +100,11 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         measured.Method.ShouldBe("GET");
         measured.AbsolutePath.ShouldBe("/");
         var query = measured.Query.ShouldNotBeNull();
-        query.Keys.ShouldBe(["apikey", "t", "type"], ignoreOrder: true);
+        query.Keys.ShouldBe(["apikey", "t", "type", "plot"], ignoreOrder: true);
         query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
         query["t"].ShouldContain(SeedTitle);
         query["type"].ShouldContain("movie");
+        query["plot"].ShouldContain("full");
 
         // assert
         await using (var persisted = Fixture.Postgres.CreateMigratedContext())

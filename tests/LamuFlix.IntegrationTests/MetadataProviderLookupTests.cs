@@ -39,6 +39,27 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         }
         """;
 
+    private const string RichPlot =
+        "A blade runner must pursue and terminate four replicants who stole a ship in space and have returned to Earth.";
+
+    private const string RichBody = $$"""
+        {
+          "Response": "True",
+          "Title": "Blade Runner",
+          "Year": "1982",
+          "Runtime": "117 min",
+          "Plot": "{{RichPlot}}",
+          "Genre": "Sci-Fi, Thriller",
+          "Director": "Ridley Scott",
+          "Writer": "Hampton Fancher, David Webb Peoples",
+          "Actors": "Harrison Ford, Rutger Hauer, Sean Young",
+          "Metascore": "89",
+          "imdbRating": "8.1",
+          "imdbID": "tt0083658",
+          "Poster": "https://example.test/blade-runner.jpg"
+        }
+        """;
+
     private const string SparseBody = """
         {
           "Response": "True",
@@ -101,6 +122,138 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         metadata.ImdbRating.ShouldNotBeNull().Value.ShouldBe(8.1m);
         metadata.ImdbId.ShouldNotBeNull().Value.ShouldBe("tt0083658");
         metadata.PosterUrl.ShouldBe("https://example.test/blade-runner.jpg");
+    }
+
+    [Fact]
+    public async Task FindAsync_FullPayload_MapsCollectionsAndMetaScore()
+    {
+        // arrange
+        StubBody(200, RichBody);
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Blade Runner", TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Blade Runner");
+        metadata.Synopsis.ShouldBe(RichPlot);
+        metadata.MetaScore.ShouldBe((short?)89);
+        metadata.Directors.ShouldBe(new[] { "Ridley Scott" });
+        metadata.Actors.ShouldBe(new[] { "Harrison Ford", "Rutger Hauer", "Sean Young" });
+        metadata.Genres.ShouldBe(new[] { "Sci-Fi", "Thriller" });
+        metadata.Writers.ShouldBe(new[] { "Hampton Fancher", "David Webb Peoples" });
+    }
+
+    [Fact]
+    public async Task FindAsync_MissingOptionalCollections_ProducesEmptyCollectionsAndSucceeds()
+    {
+        // arrange
+        StubBody(200, """{ "Response": "True", "Title": "Solaris" }""");
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Genres.ShouldBeEmpty();
+        metadata.Directors.ShouldBeEmpty();
+        metadata.Writers.ShouldBeEmpty();
+        metadata.Actors.ShouldBeEmpty();
+        metadata.MetaScore.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_BlankOrNotAvailableCollections_ProduceEmptyCollections()
+    {
+        // arrange
+        StubBody(
+            200,
+            """{ "Response": "True", "Title": "Solaris", "Genre": "", "Director": "N/A", "Writer": "   ", "Actors": "," }""");
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Genres.ShouldBeEmpty();
+        metadata.Directors.ShouldBeEmpty();
+        metadata.Writers.ShouldBeEmpty();
+        metadata.Actors.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task FindAsync_WhitespaceAndCaseDuplicateTokens_TrimmedAndKeepsFirstSeen()
+    {
+        // arrange
+        StubBody(
+            200,
+            """{ "Response": "True", "Title": "Solaris", "Genre": " Sci-Fi , thriller , SCI-FI ,  Thriller " }""");
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).Genres.ShouldBe(new[] { "Sci-Fi", "thriller" });
+    }
+
+    [Fact]
+    public async Task FindAsync_WriterParentheticalCredits_StayLiteral()
+    {
+        // arrange
+        StubBody(
+            200,
+            """{ "Response": "True", "Title": "Dune", "Writer": "Frank Herbert (novel), David Lynch (screenplay)" }""");
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Dune", TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).Writers.ShouldBe(new[] { "Frank Herbert (novel)", "David Lynch (screenplay)" });
+    }
+
+    [Theory]
+    [InlineData("0", 0)]
+    [InlineData("89", 89)]
+    [InlineData("100", 100)]
+    public async Task FindAsync_InRangeMetaScore_MapsToScore(string metaScore, int expected)
+    {
+        // arrange
+        StubBody(200, $$"""{ "Response": "True", "Title": "Solaris", "Metascore": "{{metaScore}}" }""");
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).MetaScore.ShouldBe((short?)expected);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("N/A")]
+    [InlineData("   ")]
+    [InlineData("abc")]
+    [InlineData("75.5")]
+    [InlineData("-1")]
+    [InlineData("101")]
+    public async Task FindAsync_InvalidMetaScore_NullsTheScoreWithoutFailing(string metaScore)
+    {
+        // arrange
+        StubBody(200, $$"""{ "Response": "True", "Title": "Solaris", "Metascore": "{{metaScore}}" }""");
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Solaris");
+        metadata.MetaScore.ShouldBeNull();
     }
 
     [Theory]
@@ -363,6 +516,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         probe.QueryValues("t").ShouldBe(["Blade Runner"]);
         probe.QueryValues("type").ShouldBe(["movie"]);
         probe.QueryValues("apikey").ShouldBe([MetadataProviderProbe.SentinelApiKey]);
+        probe.QueryValues("plot").ShouldBe(["full"]);
         probe.HasQuery("y").ShouldBeFalse();
     }
 
@@ -378,6 +532,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
 
         // assert
         probe.QueryValues("y").ShouldBe(["1982"]);
+        probe.QueryValues("plot").ShouldBe(["full"]);
     }
 
     [Fact]

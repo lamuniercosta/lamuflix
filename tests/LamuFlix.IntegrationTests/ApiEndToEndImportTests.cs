@@ -260,10 +260,11 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         measured.Method.ShouldBe("GET");
         measured.AbsolutePath.ShouldBe("/");
         var query = measured.Query.ShouldNotBeNull();
-        query.Keys.ShouldBe(["apikey", "t", "type"], ignoreOrder: true);
+        query.Keys.ShouldBe(["apikey", "t", "type", "plot"], ignoreOrder: true);
         query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
         query["t"].ShouldContain(FolderTitle);
         query["type"].ShouldContain("movie");
+        query["plot"].ShouldContain("full");
     }
 
     private static bool HasQueryValue(WireMock.Logging.ILogEntry entry, string key, string value) =>

@@ -229,6 +229,7 @@ public sealed partial class OmdbMetadataProvider(
             "&t=",
             Uri.EscapeDataString(lookup.Title),
             "&type=movie",
+            "&plot=full",
             year);
 
         return new Uri(new Uri(omdbOptions.BaseUrl), query);
