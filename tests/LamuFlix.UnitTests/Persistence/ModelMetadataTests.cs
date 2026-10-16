@@ -35,6 +35,17 @@ public sealed class ModelMetadataTests
         AssertNamedEntity<WriterRecord>(context, "writers");
     }
 
+    [Fact]
+    public void Writer_IdIsValueGeneratedOnAdd()
+    {
+        using var context = CreateContext();
+        var entity = context.Model.FindEntityType(typeof(WriterRecord));
+        entity.ShouldNotBeNull();
+        var id = entity.FindProperty("Id");
+        id.ShouldNotBeNull();
+        id.ValueGenerated.ShouldBe(ValueGenerated.OnAdd);
+    }
+
     private static void AssertNamedEntity<TEntity>(LamuFlixDbContext context, string tableName)
         where TEntity : class
     {

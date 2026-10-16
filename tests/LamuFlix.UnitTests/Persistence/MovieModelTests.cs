@@ -71,10 +71,36 @@ public sealed class MovieModelTests
         using var context = CreateContext();
         var movie = RequireEntity(context, typeof(MovieRecord));
 
+        movie.GetSkipNavigations().Count().ShouldBe(4);
         AssertSkipNavigation(movie, nameof(MovieRecord.Actors), "movie_actors", "actor_id");
         AssertSkipNavigation(movie, nameof(MovieRecord.Directors), "movie_directors", "director_id");
         AssertSkipNavigation(movie, nameof(MovieRecord.Genres), "movie_genres", "genre_id");
         AssertSkipNavigation(movie, nameof(MovieRecord.Writers), "movie_writers", "writer_id");
+    }
+
+    [Fact]
+    public void MoviesIndexes_HaveExactlyFive()
+    {
+        using var context = CreateContext();
+        var entity = RequireEntity(context, typeof(MovieRecord));
+
+        entity.GetIndexes().Count().ShouldBe(5);
+    }
+
+    [Fact]
+    public void MoviesScalars_HaveExpectedValueConversions()
+    {
+        using var context = CreateContext();
+        var entity = RequireEntity(context, typeof(MovieRecord));
+
+        RequireProperty(entity, nameof(MovieRecord.LibraryPath)).GetValueConverter().ShouldNotBeNull();
+        RequireProperty(entity, nameof(MovieRecord.Format)).GetValueConverter().ShouldNotBeNull();
+        RequireProperty(entity, nameof(MovieRecord.Status)).GetValueConverter().ShouldNotBeNull();
+        RequireProperty(entity, nameof(MovieRecord.EnrichmentFailureCategory)).GetValueConverter().ShouldNotBeNull();
+        RequireProperty(entity, nameof(MovieRecord.RuntimeMinutes)).GetValueConverter().ShouldNotBeNull();
+        RequireProperty(entity, nameof(MovieRecord.ReleaseYear)).GetValueConverter().ShouldNotBeNull();
+        RequireProperty(entity, nameof(MovieRecord.ImdbRating)).GetValueConverter().ShouldNotBeNull();
+        RequireProperty(entity, nameof(MovieRecord.ImdbId)).GetValueConverter().ShouldNotBeNull();
     }
 
     private static void AssertSkipNavigation(IEntityType movie, string name, string joinTable, string relatedForeignKey)
