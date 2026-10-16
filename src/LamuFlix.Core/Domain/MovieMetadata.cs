@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 namespace LamuFlix.Core.Domain;
@@ -17,7 +18,9 @@ public sealed record MovieMetadata
         short? rottenTomatoesRating = null,
         short? metaScore = null,
         IEnumerable<string>? directors = null,
-        IEnumerable<string>? actors = null)
+        IEnumerable<string>? actors = null,
+        IEnumerable<string>? genres = null,
+        IEnumerable<string>? writers = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -35,6 +38,8 @@ public sealed record MovieMetadata
         MetaScore = metaScore;
         Directors = directors?.ToArray() ?? [];
         Actors = actors?.ToArray() ?? [];
+        Genres = genres?.ToImmutableArray() ?? ImmutableArray<string>.Empty;
+        Writers = writers?.ToImmutableArray() ?? ImmutableArray<string>.Empty;
     }
 
     public string Title { get; }
@@ -59,6 +64,10 @@ public sealed record MovieMetadata
 
     public IReadOnlyList<string> Actors { get; }
 
+    public ImmutableArray<string> Genres { get; }
+
+    public ImmutableArray<string> Writers { get; }
+
     public bool Equals(MovieMetadata? other) =>
         other is not null
         && SameScalars(this, other)
@@ -80,7 +89,9 @@ public sealed record MovieMetadata
 
     private static bool SameCollections(MovieMetadata left, MovieMetadata right) =>
         left.Directors.SequenceEqual(right.Directors)
-        && left.Actors.SequenceEqual(right.Actors);
+        && left.Actors.SequenceEqual(right.Actors)
+        && left.Genres.SequenceEqual(right.Genres)
+        && left.Writers.SequenceEqual(right.Writers);
 
     public override int GetHashCode()
     {
@@ -101,6 +112,14 @@ public sealed record MovieMetadata
         foreach (var actor in Actors)
         {
             hash.Add(actor);
+        }
+        foreach (var genre in Genres)
+        {
+            hash.Add(genre);
+        }
+        foreach (var writer in Writers)
+        {
+            hash.Add(writer);
         }
         return hash.ToHashCode();
     }
