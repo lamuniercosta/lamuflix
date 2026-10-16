@@ -1,5 +1,16 @@
 export const DEFAULT_SORT = 'Title';
 export const DEFAULT_DIRECTION = 'Ascending';
+
+export const SORT_OPTIONS = [
+  { label: 'Title (A-Z)', sort: 'Title', direction: 'Ascending' },
+  { label: 'Title (Z-A)', sort: 'Title', direction: 'Descending' },
+  { label: 'Year (oldest)', sort: 'Year', direction: 'Ascending' },
+  { label: 'Year (newest)', sort: 'Year', direction: 'Descending' },
+  { label: 'IMDb (lowest)', sort: 'Rating', direction: 'Ascending' },
+  { label: 'IMDb (highest)', sort: 'Rating', direction: 'Descending' },
+  { label: 'Runtime (shortest)', sort: 'Runtime', direction: 'Ascending' },
+  { label: 'Runtime (longest)', sort: 'Runtime', direction: 'Descending' },
+];
 export const DEFAULT_PAGE = 1;
 export const DEFAULT_PAGE_SIZE = 20;
 export const RUNTIME_MIN_EXTENT = 0;
