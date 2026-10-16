@@ -66,7 +66,9 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.MetaScore,
                 movie.IsInWatchlist,
                 movie.Directors.Select(director => director.Name).ToList(),
-                movie.Actors.Select(actor => actor.Name).ToList()))
+                movie.Actors.Select(actor => actor.Name).ToList(),
+                movie.Genres.Select(genre => genre.Name).ToList(),
+                movie.Writers.Select(writer => writer.Name).ToList()))
             .FirstOrDefaultAsync(ct);
         if (record is null)
         {
@@ -88,7 +90,9 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 record.RottenTomatoesRating,
                 record.MetaScore,
                 record.Directors,
-                record.Actors)
+                record.Actors,
+                record.Genres,
+                record.Writers)
             : null;
         return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist);
     }
@@ -150,5 +154,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         short? MetaScore,
         bool IsInWatchlist,
         List<string> Directors,
-        List<string> Actors);
+        List<string> Actors,
+        List<string> Genres,
+        List<string> Writers);
 }

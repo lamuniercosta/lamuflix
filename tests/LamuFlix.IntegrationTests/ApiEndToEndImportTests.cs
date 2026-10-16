@@ -38,6 +38,10 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
     private const int ExpectedRuntime = 117;
     private const int ExpectedYear = 1982;
     private const decimal ExpectedImdbRating = 8.1m;
+    private const int ExpectedMetaScore = 89;
+    private const string ExpectedDirector = "Ridley Scott";
+    private const string ExpectedWriter = "Hampton Fancher";
+    private const string ExpectedActors = "Harrison Ford, Rutger Hauer";
     private const int TeardownDeleteAttempts = 5;
 
     private static readonly byte[] VideoBytes = [0x1A, 0x45, 0xDF, 0xA3];
@@ -53,6 +57,11 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
           "Year": "{{ExpectedYear}}",
           "Runtime": "{{ExpectedRuntime}} min",
           "Plot": "{{ExpectedSynopsis}}",
+          "Genre": "Sci-Fi, Thriller",
+          "Director": "{{ExpectedDirector}}",
+          "Writer": "{{ExpectedWriter}}",
+          "Actors": "{{ExpectedActors}}",
+          "Metascore": "{{ExpectedMetaScore}}",
           "imdbRating": "{{ExpectedImdbRating.ToString(CultureInfo.InvariantCulture)}}",
           "imdbID": "{{ExpectedImdbId}}"
         }
@@ -147,6 +156,22 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             metadata.GetProperty("runtime").GetInt32().ShouldBe(ExpectedRuntime);
             metadata.GetProperty("imdbRating").GetDecimal().ShouldBe(ExpectedImdbRating);
             metadata.GetProperty("imdbId").GetString().ShouldBe(ExpectedImdbId);
+            metadata.GetProperty("metaScore").GetInt32().ShouldBe(ExpectedMetaScore);
+            metadata.GetProperty("directors").EnumerateArray().Select(item => item.GetString())
+                .ShouldBe([ExpectedDirector], ignoreOrder: true);
+            metadata.GetProperty("actors").EnumerateArray().Select(item => item.GetString())
+                .ShouldBe(["Harrison Ford", "Rutger Hauer"], ignoreOrder: true);
+
+            await using (var associationsContext = Fixture.Postgres.CreateMigratedContext())
+            {
+                var stored = await associationsContext.Movies.AsNoTracking()
+                    .Include(item => item.Genres)
+                    .Include(item => item.Writers)
+                    .SingleAsync(item => item.Id == new MovieId(id), cancellationToken);
+                stored.MetaScore.ShouldBe((short)ExpectedMetaScore);
+                stored.Genres.Select(genre => genre.Name).ShouldBe(["Sci-Fi", "Thriller"], ignoreOrder: true);
+                stored.Writers.Select(writer => writer.Name).ShouldBe([ExpectedWriter], ignoreOrder: true);
+            }
 
             ShouldHaveSingleMeasuredProviderRequest();
             // assert

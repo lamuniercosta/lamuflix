@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Infrastructure.Persistence;
+using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
@@ -46,6 +47,46 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture) : IAsync
         details.Path.ShouldBe(movie.LibraryPath);
         details.Format.ShouldBe(movie.Format);
         details.Metadata.ShouldBe(new MovieMetadata("Metadata title", "Plot", movie.ReleaseYear, movie.RuntimeMinutes, movie.ImdbRating, movie.ImdbId));
+        detailsContext.ChangeTracker.Entries().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_CompleteSnapshot_ReturnsGenresAndWritersWithTheRestOfTheSnapshot()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var movie = MovieCatalogSeed.Create("File title", "details-complete");
+        movie.MetadataTitle = "Metadata title";
+        movie.Plot = "Full synopsis";
+        movie.MetaScore = 88;
+        movie.ReleaseYear = new ReleaseYear(2020, MovieCatalogSeed.FixedTime);
+        movie.RuntimeMinutes = new Runtime(120);
+        movie.ImdbRating = new ImdbRating(8.2m);
+        movie.ImdbId = new ImdbId("tt1234567");
+        movie.Directors.Add(new DirectorRecord { Name = "Dana Director" });
+        movie.Actors.Add(new ActorRecord { Name = "Ada Actor" });
+        movie.Genres.Add(new GenreRecord { Name = "Drama" });
+        movie.Genres.Add(new GenreRecord { Name = "War" });
+        movie.Writers.Add(new WriterRecord { Name = "Wanda Writer" });
+        await MovieCatalogSeed.AddAsync(context, movie, TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var connectionString = context.Database.GetConnectionString();
+        connectionString.ShouldNotBeNull();
+        await using var detailsContext = LamuFlixDbContextFactory.OpenContext(connectionString);
+
+        // act
+        var details = await new EfMovieCatalog(detailsContext).GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        var metadata = details.Metadata.ShouldNotBeNull();
+        metadata.Synopsis.ShouldBe("Full synopsis");
+        metadata.MetaScore.ShouldBe((short)88);
+        metadata.Directors.ShouldBe(["Dana Director"]);
+        metadata.Actors.ShouldBe(["Ada Actor"]);
+        metadata.Genres.ShouldBe(["Drama", "War"], ignoreOrder: true);
+        metadata.Writers.ShouldBe(["Wanda Writer"]);
         detailsContext.ChangeTracker.Entries().ShouldBeEmpty();
     }
 

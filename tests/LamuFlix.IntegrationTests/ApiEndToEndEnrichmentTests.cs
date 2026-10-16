@@ -33,6 +33,10 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
     private const int ExpectedYear = 1958;
     private const decimal ExpectedImdbRating = 7.8m;
     private const string ExpectedPoster = "https://example.test/run-silent-run-deep.jpg";
+    private const int ExpectedMetaScore = 89;
+    private const string ExpectedDirector = "Robert Wise";
+    private const string ExpectedWriter = "John Gay";
+    private const string ExpectedActors = "Clark Gable, Burt Lancaster";
 
     private static readonly string OmdbBody = $$"""
         {
@@ -41,6 +45,11 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
           "Year": "{{ExpectedYear}}",
           "Runtime": "{{ExpectedRuntime}} min",
           "Plot": "{{ExpectedSynopsis}}",
+          "Genre": "Drama, War",
+          "Director": "{{ExpectedDirector}}",
+          "Writer": "{{ExpectedWriter}}",
+          "Actors": "{{ExpectedActors}}",
+          "Metascore": "{{ExpectedMetaScore}}",
           "imdbRating": "{{ExpectedImdbRating.ToString(CultureInfo.InvariantCulture)}}",
           "imdbID": "{{ExpectedImdbId}}",
           "Poster": "{{ExpectedPoster}}"
@@ -94,6 +103,11 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         metadata.GetProperty("runtime").GetInt32().ShouldBe(ExpectedRuntime);
         metadata.GetProperty("imdbRating").GetDecimal().ShouldBe(ExpectedImdbRating);
         metadata.GetProperty("imdbId").GetString().ShouldBe(ExpectedImdbId);
+        metadata.GetProperty("metaScore").GetInt32().ShouldBe(ExpectedMetaScore);
+        metadata.GetProperty("directors").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe([ExpectedDirector], ignoreOrder: true);
+        metadata.GetProperty("actors").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["Clark Gable", "Burt Lancaster"], ignoreOrder: true);
 
         // assert
         var measured = Fixture.Server.LogEntries.ShouldHaveSingleItem().RequestMessage.ShouldNotBeNull();
@@ -110,8 +124,13 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         await using (var persisted = Fixture.Postgres.CreateMigratedContext())
         {
             var stored = await persisted.Movies.AsNoTracking()
+                .Include(item => item.Genres)
+                .Include(item => item.Writers)
                 .SingleAsync(item => item.Id == new MovieId(id), cancellationToken);
             stored.PosterUrl.ShouldBe(ExpectedPoster);
+            stored.MetaScore.ShouldBe((short)ExpectedMetaScore);
+            stored.Genres.Select(genre => genre.Name).ShouldBe(["Drama", "War"], ignoreOrder: true);
+            stored.Writers.Select(writer => writer.Name).ShouldBe([ExpectedWriter], ignoreOrder: true);
         }
 
         // act
