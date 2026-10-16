@@ -1147,6 +1147,94 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         (await verify.Movies.SelectMany(item => item.Actors).CountAsync(ct)).ShouldBe(2);
     }
 
+    [Fact]
+    public async Task MetadataSave_UnknownSqlState_DoesNotRetryAndRethrows()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        var interceptor = new RetryableConflictInterceptor("XX000", 5);
+        await using var db = OpenInstrumentedContext(fixture.ConnectionString, interceptor);
+        var repository = Repository(db);
+        var movie = Movie.Create(
+            await repository.NextIdentityAsync(ct),
+            "Unknown", new LibraryPath("C:/library/mutation-unknown.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, ct);
+        movie.MarkEnriched(
+            SnapshotMetadata("Unknown", "tt0000027", ["Unknown Genre"], [], ["Unknown Writer"], [], 60),
+            Now);
+
+        // act
+        var failure = await Should.ThrowAsync<Exception>(() => repository.SaveChangesAsync(ct));
+
+        // assert
+        FindPostgres(failure).ShouldNotBeNull().SqlState.ShouldBe("XX000");
+        interceptor.FailureCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task SaveChanges_DuplicateLibraryPath_RejectsSecondSave()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var first = await AddMovieAsync(repository, "First", "mutation-duplicate-path", ct);
+        first.ShouldNotBeNull();
+        var secondId = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(
+            Movie.Create(secondId, "Second", new LibraryPath("C:/library/mutation-duplicate-path.mkv"), new MediaFormat("mkv")), ct);
+
+        // act
+        await Should.ThrowAsync<Exception>(() => repository.SaveChangesAsync(ct));
+    }
+
+    [Fact]
+    public async Task SaveChanges_DuplicateImdbId_RejectsSecondSave()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var firstId = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(
+            Movie.Rehydrate(
+                firstId, "First", new LibraryPath("C:/library/mutation-imdb-a.mkv"), new MediaFormat("mkv"),
+                false, FullMetadata("https://example.test/a.jpg"), EnrichmentStatus.Enriched, Now, 0, null, null),
+            ct);
+        await repository.SaveChangesAsync(ct);
+        var secondId = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(
+            Movie.Rehydrate(
+                secondId, "Second", new LibraryPath("C:/library/mutation-imdb-b.mkv"), new MediaFormat("mkv"),
+                false, FullMetadata("https://example.test/b.jpg"), EnrichmentStatus.Enriched, Now, 0, null, null),
+            ct);
+
+        // act
+        await Should.ThrowAsync<Exception>(() => repository.SaveChangesAsync(ct));
+    }
+
+    [Fact]
+    public async Task SaveChanges_NullImdbIds_AllowsBothSaves()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var firstId = await AddMovieAsync(repository, "Null A", "mutation-null-imdb-a", ct);
+        var secondId = await AddMovieAsync(repository, "Null B", "mutation-null-imdb-b", ct);
+
+        // act
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        (await verify.Movies.CountAsync(item => item.Id == firstId || item.Id == secondId, ct)).ShouldBe(2);
+    }
+
     private static PostgresException? FindPostgres(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)
