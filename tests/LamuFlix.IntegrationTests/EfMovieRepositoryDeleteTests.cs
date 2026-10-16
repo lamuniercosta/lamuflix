@@ -125,6 +125,10 @@ public sealed class EfMovieRepositoryDeleteTests(PostgresFixture fixture) : IAsy
         var genre = await verify.Genres.Include(item => item.Movies)
             .SingleAsync(item => item.Name == "Shared Genre", ct);
         genre.Movies.Select(movie => movie.Id.ShouldNotBeNull().Value).ShouldBe([survivor.Value]);
+
+        var writer = await verify.Writers.Include(item => item.Movies)
+            .SingleAsync(item => item.Name == "Shared Writer", ct);
+        writer.Movies.Select(movie => movie.Id.ShouldNotBeNull().Value).ShouldBe([survivor.Value]);
     }
 
     private static async Task AssertOnlyAlphaPrincipalDetachedAsync(LamuFlixDbContext verify, CancellationToken ct)
@@ -136,6 +140,10 @@ public sealed class EfMovieRepositoryDeleteTests(PostgresFixture fixture) : IAsy
         var genre = await verify.Genres.Include(item => item.Movies)
             .SingleAsync(item => item.Name == "Only Alpha Genre", ct);
         genre.Movies.ShouldBeEmpty();
+
+        var writer = await verify.Writers.Include(item => item.Movies)
+            .SingleAsync(item => item.Name == "Only Alpha Writer", ct);
+        writer.Movies.ShouldBeEmpty();
     }
 
     private static async Task<(MovieId Alpha, MovieId Bravo)> SeedSharedLibraryAsync(
@@ -145,6 +153,7 @@ public sealed class EfMovieRepositoryDeleteTests(PostgresFixture fixture) : IAsy
         var sharedActor = new ActorRecord { Name = "Shared Actor" };
         var sharedDirector = new DirectorRecord { Name = "Shared Director" };
         var sharedGenre = new GenreRecord { Name = "Shared Genre" };
+        var sharedWriter = new WriterRecord { Name = "Shared Writer" };
 
         var alpha = MovieCatalogSeed.Create("Alpha", "delete-alpha");
         alpha.LibraryPath = new LibraryPath(mediaFile);
@@ -156,12 +165,15 @@ public sealed class EfMovieRepositoryDeleteTests(PostgresFixture fixture) : IAsy
         alpha.Directors.Add(new DirectorRecord { Name = "Only Alpha Director" });
         alpha.Genres.Add(sharedGenre);
         alpha.Genres.Add(new GenreRecord { Name = "Only Alpha Genre" });
+        alpha.Writers.Add(sharedWriter);
+        alpha.Writers.Add(new WriterRecord { Name = "Only Alpha Writer" });
 
         var bravo = MovieCatalogSeed.Create("Bravo", "delete-bravo");
         bravo.IsInWatchlist = true;
         bravo.Actors.Add(sharedActor);
         bravo.Directors.Add(sharedDirector);
         bravo.Genres.Add(sharedGenre);
+        bravo.Writers.Add(sharedWriter);
 
         db.Movies.AddRange(alpha, bravo);
         await db.SaveChangesAsync(ct);

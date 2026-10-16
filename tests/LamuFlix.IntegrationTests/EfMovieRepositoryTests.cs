@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -10,7 +12,9 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using Shouldly;
 using Xunit;
 
@@ -106,14 +110,19 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         var repository = Repository(db);
         var movie = await repository.GetAsync(id, TestContext.Current.CancellationToken);
         movie.ShouldNotBeNull();
-        movie.MarkEnriched(new MovieMetadata("Metadata", "Plot", runtime: new Runtime(98)), Now);
+        movie.MarkEnriched(
+            new MovieMetadata(
+                "Metadata", "Plot", runtime: new Runtime(98), metaScore: 82,
+                directors: ["Dana Director"], actors: ["Ada Actor"], genres: ["Drama"]),
+            Now);
         await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
         movie.AddToWatchlist();
         await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         await using var verify = OpenSibling(db);
         var loaded = await verify.Movies.Include(item => item.Actors).Include(item => item.Directors)
-            .Include(item => item.Genres).SingleAsync(item => item.Id == id, TestContext.Current.CancellationToken);
+            .Include(item => item.Genres).Include(item => item.Writers)
+            .SingleAsync(item => item.Id == id, TestContext.Current.CancellationToken);
         loaded.Status.ShouldBe(EnrichmentStatus.Enriched);
         loaded.IsInWatchlist.ShouldBeTrue();
         loaded.RottenTomatoesRating.ShouldBe((short)91);
@@ -123,6 +132,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         loaded.Actors.ShouldContain(actor => actor.Name == "Ada Actor");
         loaded.Directors.ShouldContain(director => director.Name == "Dana Director");
         loaded.Genres.ShouldContain(genre => genre.Name == "Drama");
+        loaded.Writers.ShouldBeEmpty();
     }
 
     [Fact]
@@ -586,6 +596,384 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         var record = await verify.Movies.SingleAsync(item => item.Id == id, ct);
         record.EnrichmentAttempts.ShouldBe(3);
         record.LastAttemptAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SaveChanges_FullSnapshot_FreshContextReloadReturnsCompleteSnapshot()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Snapshot", "snapshot");
+        var metadata = SnapshotMetadata(
+            "Snapshot title", "tt0000001", ["Drama", "Thriller"], ["Dana Director"], ["Wanda Writer"], ["Ada Actor"], 66);
+
+        movie.MarkEnriched(metadata, Now);
+        await repository.SaveChangesAsync(ct);
+
+        await using var read = OpenSibling(db);
+        var loaded = await Repository(read).GetAsync(movie.Id, ct);
+        loaded.ShouldNotBeNull();
+        var restored = loaded.Metadata;
+        restored.ShouldNotBeNull();
+        restored.Synopsis.ShouldBe("Full synopsis");
+        restored.MetaScore.ShouldBe((short)66);
+        restored.Genres.OrderBy(genre => genre, StringComparer.Ordinal).ShouldBe(["Drama", "Thriller"]);
+        restored.Directors.ShouldBe(["Dana Director"]);
+        restored.Actors.ShouldBe(["Ada Actor"]);
+        restored.Writers.ShouldBe(["Wanda Writer"]);
+
+        (await read.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Wanda Writer"]);
+        (await read.Movies.Where(item => item.Id == movie.Id).SelectMany(item => item.Writers).CountAsync(ct))
+            .ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task SaveChanges_ReEnrichment_ReplacesAssociationsAndKeepsSharedLookups()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Replace", "replace");
+        movie.MarkEnriched(
+            SnapshotMetadata("First", "tt0000002", ["Drama"], ["Old Director"], ["Old Writer"], ["Old Actor"], 50), Now);
+        await repository.SaveChangesAsync(ct);
+
+        movie.RequestEnrichment();
+        movie.MarkEnriched(
+            SnapshotMetadata("Second", "tt0000002", ["Comedy"], ["New Director"], ["New Writer"], ["New Actor"], 70),
+            Now.AddMinutes(1));
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking()
+            .Include(item => item.Actors).Include(item => item.Directors)
+            .Include(item => item.Genres).Include(item => item.Writers)
+            .SingleAsync(item => item.Id == movie.Id, ct);
+        record.MetaScore.ShouldBe((short)70);
+        record.Writers.Select(writer => writer.Name).ShouldBe(["New Writer"]);
+        record.Genres.Select(genre => genre.Name).ShouldBe(["Comedy"]);
+        record.Directors.Select(director => director.Name).ShouldBe(["New Director"]);
+        record.Actors.Select(actor => actor.Name).ShouldBe(["New Actor"]);
+
+        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Old Writer", "New Writer"], ignoreOrder: true);
+        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe(["Drama", "Comedy"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task SaveChanges_RepeatedSnapshotWithSameNames_DoesNotDuplicateRows()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Idempotent", "idempotent");
+        movie.MarkEnriched(
+            SnapshotMetadata("First", "tt0000003", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 60), Now);
+        await repository.SaveChangesAsync(ct);
+
+        movie.RequestEnrichment();
+        movie.MarkEnriched(
+            SnapshotMetadata("Second", "tt0000003", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 61),
+            Now.AddMinutes(1));
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        (await verify.Genres.CountAsync(ct)).ShouldBe(1);
+        (await verify.Directors.CountAsync(ct)).ShouldBe(1);
+        (await verify.Writers.CountAsync(ct)).ShouldBe(1);
+        (await verify.Actors.CountAsync(ct)).ShouldBe(1);
+        (await verify.Movies.SelectMany(item => item.Genres).CountAsync(ct)).ShouldBe(1);
+        (await verify.Movies.SelectMany(item => item.Writers).CountAsync(ct)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task SaveChanges_LookupReuse_KeepsStoredCasing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using (var seed = fixture.CreateMigratedContext())
+        {
+            seed.Writers.Add(new WriterRecord { Name = "WANDA WRITER" });
+            seed.Genres.Add(new GenreRecord { Name = "drama" });
+            await seed.SaveChangesAsync(ct);
+        }
+
+        await using var db = fixture.CreateMigratedContext();
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Casing", "casing");
+        movie.MarkEnriched(
+            SnapshotMetadata("Casing", "tt0000004", ["Drama"], [], ["wanda writer"], [], 60), Now);
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["WANDA WRITER"]);
+        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe(["drama"]);
+        var record = await verify.Movies.AsNoTracking().Include(item => item.Writers).Include(item => item.Genres)
+            .SingleAsync(item => item.Id == movie.Id, ct);
+        record.Writers.Select(writer => writer.Name).ShouldBe(["WANDA WRITER"]);
+        record.Genres.Select(genre => genre.Name).ShouldBe(["drama"]);
+    }
+
+    [Fact]
+    public async Task ClearMetadata_RemovesAssociationsAndKeepsSharedLookups()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var (repository, movie) = await SeedPendingMovieAsync(db, "Clearable snapshot", "clearable-snapshot");
+        movie.MarkEnriched(
+            SnapshotMetadata("Clear", "tt0000005", ["Drama"], ["Dana Director"], ["Wanda Writer"], ["Ada Actor"], 60), Now);
+        await repository.SaveChangesAsync(ct);
+
+        var loaded = await repository.GetAsync(movie.Id, ct);
+        loaded.ShouldNotBeNull();
+        loaded.ClearMetadata();
+        await repository.SaveChangesAsync(ct);
+
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking()
+            .Include(item => item.Actors).Include(item => item.Directors)
+            .Include(item => item.Genres).Include(item => item.Writers)
+            .SingleAsync(item => item.Id == movie.Id, ct);
+        record.MetadataTitle.ShouldBeNull();
+        record.Plot.ShouldBeNull();
+        record.MetaScore.ShouldBeNull();
+        record.Actors.ShouldBeEmpty();
+        record.Directors.ShouldBeEmpty();
+        record.Genres.ShouldBeEmpty();
+        record.Writers.ShouldBeEmpty();
+
+        (await verify.Writers.CountAsync(ct)).ShouldBe(1);
+        (await verify.Genres.CountAsync(ct)).ShouldBe(1);
+        (await verify.Directors.CountAsync(ct)).ShouldBe(1);
+        (await verify.Actors.CountAsync(ct)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ConcurrentEnrichment_TwoMoviesSharingNewNames_CreateSingleLookupPerRole()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var contextA = fixture.CreateMigratedContext();
+        await using var contextB = fixture.CreateMigratedContext();
+        var repositoryA = Repository(contextA);
+        var repositoryB = Repository(contextB);
+        var movieA = PendingMovie(await repositoryA.NextIdentityAsync(ct), "Alpha", "concurrent-alpha");
+        var movieB = PendingMovie(await repositoryB.NextIdentityAsync(ct), "Bravo", "concurrent-bravo");
+        await repositoryA.AddAsync(movieA, ct);
+        await repositoryB.AddAsync(movieB, ct);
+        movieA.MarkEnriched(
+            SnapshotMetadata("Alpha", "tt0000011", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 60), Now);
+        movieB.MarkEnriched(
+            SnapshotMetadata("Bravo", "tt0000012", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 61), Now);
+
+        await using var gate = fixture.CreateMigratedContext();
+        await using (var gateTransaction = await gate.Database.BeginTransactionAsync(ct))
+        {
+            await gate.Database.ExecuteSqlRawAsync(
+                "SELECT pg_advisory_xact_lock({0}, hashtext({1}))", [1, "drama"], ct);
+
+            var saveA = repositoryA.SaveChangesAsync(ct);
+            var saveB = repositoryB.SaveChangesAsync(ct);
+            await Task.Delay(300, ct);
+            saveA.IsCompleted.ShouldBeFalse();
+            saveB.IsCompleted.ShouldBeFalse();
+
+            await gateTransaction.RollbackAsync(ct);
+            await Task.WhenAll(saveA, saveB);
+        }
+
+        await using var verify = fixture.CreateMigratedContext();
+        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe(["Drama"]);
+        (await verify.Directors.Select(director => director.Name).ToArrayAsync(ct)).ShouldBe(["Shared Director"]);
+        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Shared Writer"]);
+        (await verify.Actors.Select(actor => actor.Name).ToArrayAsync(ct)).ShouldBe(["Shared Actor"]);
+        (await verify.Movies.SelectMany(item => item.Writers).CountAsync(ct)).ShouldBe(2);
+        (await verify.Movies.SelectMany(item => item.Genres).CountAsync(ct)).ShouldBe(2);
+        (await verify.Movies.SelectMany(item => item.Directors).CountAsync(ct)).ShouldBe(2);
+        (await verify.Movies.SelectMany(item => item.Actors).CountAsync(ct)).ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task MetadataSave_RetryableConflict_ReplaysAndSucceedsWithinThreeAttempts()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var interceptor = new RetryableConflictInterceptor(2);
+        await using var db = OpenInstrumentedContext(fixture.ConnectionString, interceptor);
+        var repository = Repository(db);
+        var movie = PendingMovie(await repository.NextIdentityAsync(ct), "Retry", "retry");
+        await repository.AddAsync(movie, ct);
+        movie.MarkEnriched(
+            SnapshotMetadata("Retry", "tt0000021", ["Retry Genre"], [], ["Retry Writer"], [], 60), Now);
+
+        await repository.SaveChangesAsync(ct);
+
+        interceptor.FailureCount.ShouldBe(2);
+        await using var verify = fixture.CreateMigratedContext();
+        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Retry Writer"]);
+        (await verify.Movies.SelectMany(item => item.Writers).CountAsync(ct)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task MetadataSave_RetryableConflictOnEveryAttempt_ExhaustsAndLeavesNoPartialRows()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var interceptor = new RetryableConflictInterceptor(int.MaxValue);
+        await using var db = OpenInstrumentedContext(fixture.ConnectionString, interceptor);
+        var repository = Repository(db);
+        var movie = PendingMovie(await repository.NextIdentityAsync(ct), "Exhaust", "exhaust");
+        await repository.AddAsync(movie, ct);
+        movie.MarkEnriched(
+            SnapshotMetadata("Exhaust", "tt0000022", ["Exhaust Genre"], [], ["Exhaust Writer"], [], 60), Now);
+
+        var failure = await Should.ThrowAsync<Exception>(() => repository.SaveChangesAsync(ct));
+        FindPostgres(failure).ShouldNotBeNull().SqlState.ShouldBe("40001");
+
+        interceptor.FailureCount.ShouldBe(3);
+        await using var verify = fixture.CreateMigratedContext();
+        (await verify.Writers.CountAsync(ct)).ShouldBe(0);
+        (await verify.Genres.CountAsync(ct)).ShouldBe(0);
+        (await verify.Movies.CountAsync(item => item.Id == movie.Id, ct)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task MetadataSave_AmbientTransaction_RetryableConflict_DoesNotRetryAndRethrows()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var interceptor = new RetryableConflictInterceptor(5);
+        await using var db = OpenInstrumentedContext(fixture.ConnectionString, interceptor);
+        var repository = Repository(db);
+        var movie = PendingMovie(await repository.NextIdentityAsync(ct), "Ambient", "ambient");
+        await repository.AddAsync(movie, ct);
+        movie.MarkEnriched(
+            SnapshotMetadata("Ambient", "tt0000023", ["Ambient Genre"], [], ["Ambient Writer"], [], 60), Now);
+
+        await using var ambient = await db.Database.BeginTransactionAsync(ct);
+        var failure = await Should.ThrowAsync<Exception>(() => repository.SaveChangesAsync(ct));
+        FindPostgres(failure).ShouldNotBeNull().SqlState.ShouldBe("40001");
+        interceptor.FailureCount.ShouldBe(1);
+        await ambient.RollbackAsync(ct);
+    }
+
+    private static PostgresException? FindPostgres(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException postgres)
+            {
+                return postgres;
+            }
+        }
+
+        return null;
+    }
+
+    private static Movie PendingMovie(MovieId id, string title, string pathSuffix) =>
+        Movie.Create(id, title, new LibraryPath($"C:/library/{pathSuffix}.mkv"), new MediaFormat("mkv"));
+
+    private static MovieMetadata SnapshotMetadata(
+        string title,
+        string imdbId,
+        IEnumerable<string> genres,
+        IEnumerable<string> directors,
+        IEnumerable<string> writers,
+        IEnumerable<string> actors,
+        short? metaScore) =>
+        new(
+            title,
+            "Full synopsis",
+            new ReleaseYear(2024, Now),
+            new Runtime(121),
+            new ImdbRating(8.1m),
+            new ImdbId(imdbId),
+            "https://example.test/poster.jpg",
+            null,
+            metaScore,
+            directors,
+            actors,
+            genres,
+            writers);
+
+    private static LamuFlixDbContext OpenInstrumentedContext(string connectionString, DbCommandInterceptor interceptor)
+    {
+        var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
+            .UseNpgsql(connectionString)
+            .AddInterceptors(interceptor)
+            .Options;
+        return new LamuFlixDbContext(options);
+    }
+
+    private sealed class RetryableConflictInterceptor(int allowedFailures) : DbCommandInterceptor
+    {
+        private int remaining = allowedFailures;
+
+        public int FailureCount { get; private set; }
+
+        public override ValueTask<DbDataReader> ReaderExecutedAsync(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            DbDataReader result,
+            CancellationToken cancellationToken = default)
+        {
+            if (ShouldInject(command.CommandText))
+            {
+                result.Dispose();
+                ThrowInjected();
+            }
+
+            return new ValueTask<DbDataReader>(result);
+        }
+
+        public override DbDataReader ReaderExecuted(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            DbDataReader result)
+        {
+            if (ShouldInject(command.CommandText))
+            {
+                result.Dispose();
+                ThrowInjected();
+            }
+
+            return result;
+        }
+
+        public override int NonQueryExecuted(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            int result)
+        {
+            if (ShouldInject(command.CommandText))
+            {
+                ThrowInjected();
+            }
+
+            return result;
+        }
+
+        public override ValueTask<int> NonQueryExecutedAsync(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            int result,
+            CancellationToken cancellationToken = default)
+        {
+            if (ShouldInject(command.CommandText))
+            {
+                ThrowInjected();
+            }
+
+            return new ValueTask<int>(result);
+        }
+
+        private bool ShouldInject(string commandText)
+        {
+            var isWriterInsert = commandText.Contains("INSERT INTO writers", StringComparison.Ordinal)
+                || commandText.Contains("INSERT INTO \"writers\"", StringComparison.Ordinal);
+            if (remaining <= 0 || !isWriterInsert)
+            {
+                return false;
+            }
+
+            remaining--;
+            FailureCount++;
+            return true;
+        }
+
+        private static void ThrowInjected() =>
+            throw new PostgresException("synthetic retryable conflict", "ERROR", "ERROR", "40001");
     }
 
     private async Task SeedAsync(

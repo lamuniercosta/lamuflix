@@ -6,9 +6,13 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
 using LamuFlix.Infrastructure.Persistence;
+using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Shouldly;
 using Xunit;
 
@@ -23,9 +27,11 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "actors",
         "directors",
         "genres",
+        "writers",
         "movie_actors",
         "movie_directors",
-        "movie_genres"
+        "movie_genres",
+        "movie_writers"
     ];
 
     private static readonly string[] NullableMoviesColumns =
@@ -55,11 +61,64 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
 
-        var expected = context.Database.GetMigrations().ShouldHaveSingleItem();
-        expected.ShouldEndWith("_Initial");
+        var migrations = context.Database.GetMigrations().ToArray();
+        migrations.Length.ShouldBe(2);
+        migrations[0].ShouldEndWith("_Initial");
+        migrations[1].ShouldEndWith("_AddMovieWriters");
         var applied = await context.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken);
-        applied.ShouldBe([expected]);
+        applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MigrateAsync_FromInitialWithExistingMovie_AddsWriterTablesWithoutFabricatingWriters()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync("20260930153520_Initial", cancellationToken);
+        context.Movies.Add(new MovieRecord
+        {
+            Title = "Legacy",
+            LibraryPath = new LibraryPath("C:/library/legacy.mkv"),
+            Format = new MediaFormat("mkv"),
+            Status = EnrichmentStatus.Pending
+        });
+        await context.SaveChangesAsync(cancellationToken);
+
+        await migrator.MigrateAsync(null, cancellationToken);
+
+        (await context.Movies.CountAsync(cancellationToken)).ShouldBe(1);
+        (await context.Writers.CountAsync(cancellationToken)).ShouldBe(0);
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MigrateAsync_SecondMigrationRolledBack_DropsWriterTablesAndKeepsExistingData()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync(null, cancellationToken);
+
+        var movie = new MovieRecord
+        {
+            Title = "Survivor",
+            LibraryPath = new LibraryPath("C:/library/survivor.mkv"),
+            Format = new MediaFormat("mkv"),
+            Status = EnrichmentStatus.Pending
+        };
+        movie.Writers.Add(new WriterRecord { Name = "Rollback Writer" });
+        context.Movies.Add(movie);
+        await context.SaveChangesAsync(cancellationToken);
+
+        await migrator.MigrateAsync("20260930153520_Initial", cancellationToken);
+
+        var publicTables = await new PostgresCatalog(context).ListPublicTablesAsync(cancellationToken);
+        publicTables.ShouldContain("movies");
+        publicTables.ShouldNotContain("writers");
+        publicTables.ShouldNotContain("movie_writers");
+        (await context.Movies.CountAsync(cancellationToken)).ShouldBe(1);
     }
 
     [Fact]
@@ -134,6 +193,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
             .ShouldBe(["director_id", "movie_id"], ignoreOrder: true);
         (await catalog.ListPrimaryKeyColumnsAsync("movie_genres", cancellationToken))
             .ShouldBe(["genre_id", "movie_id"], ignoreOrder: true);
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_writers", cancellationToken))
+            .ShouldBe(["writer_id", "movie_id"], ignoreOrder: true);
     }
 
     private static async Task AssertMovieIndexDefinitionsAsync(PostgresCatalog catalog, CancellationToken cancellationToken)

@@ -43,6 +43,7 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
         movie.Actors.Add(new ActorRecord { Name = "Ada Actor" });
         movie.Directors.Add(new DirectorRecord { Name = "Dana Director" });
         movie.Genres.Add(new GenreRecord { Name = "Drama" });
+        movie.Writers.Add(new WriterRecord { Name = "Wanda Writer" });
         await using (var seeding = fixture.CreateMigratedContext())
         {
             await MovieCatalogSeed.AddAsync(seeding, movie, cancellationToken);
@@ -57,9 +58,11 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
         (await context.Actors.CountAsync(cancellationToken)).ShouldBe(0);
         (await context.Directors.CountAsync(cancellationToken)).ShouldBe(0);
         (await context.Genres.CountAsync(cancellationToken)).ShouldBe(0);
+        (await context.Writers.CountAsync(cancellationToken)).ShouldBe(0);
         (await context.Movies.SelectMany(item => item.Actors).CountAsync(cancellationToken)).ShouldBe(0);
         (await context.Movies.SelectMany(item => item.Directors).CountAsync(cancellationToken)).ShouldBe(0);
         (await context.Movies.SelectMany(item => item.Genres).CountAsync(cancellationToken)).ShouldBe(0);
+        (await context.Movies.SelectMany(item => item.Writers).CountAsync(cancellationToken)).ShouldBe(0);
         (await context.Database.GetAppliedMigrationsAsync(cancellationToken))
             .ShouldBe(context.Database.GetMigrations());
     }

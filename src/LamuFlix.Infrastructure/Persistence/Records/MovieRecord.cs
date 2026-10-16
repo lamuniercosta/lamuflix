@@ -49,4 +49,6 @@ public sealed class MovieRecord
     public ICollection<DirectorRecord> Directors { get; } = new HashSet<DirectorRecord>();
 
     public ICollection<GenreRecord> Genres { get; } = new HashSet<GenreRecord>();
+
+    public ICollection<WriterRecord> Writers { get; } = new HashSet<WriterRecord>();
 }

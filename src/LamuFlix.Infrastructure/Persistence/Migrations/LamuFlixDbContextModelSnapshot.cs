@@ -17,7 +17,7 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -181,6 +181,25 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.ToTable("movies", (string)null);
                 });
 
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.WriterRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("writers", (string)null);
+                });
+
             modelBuilder.Entity("movie_actors", b =>
                 {
                     b.Property<int>("actor_id")
@@ -226,6 +245,21 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.ToTable("movie_genres");
                 });
 
+            modelBuilder.Entity("movie_writers", b =>
+                {
+                    b.Property<int>("movie_id")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("writer_id")
+                        .HasColumnType("integer");
+
+                    b.HasKey("movie_id", "writer_id");
+
+                    b.HasIndex("writer_id");
+
+                    b.ToTable("movie_writers");
+                });
+
             modelBuilder.Entity("movie_actors", b =>
                 {
                     b.HasOne("LamuFlix.Infrastructure.Persistence.Records.ActorRecord", null)
@@ -267,6 +301,21 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.HasOne("LamuFlix.Infrastructure.Persistence.Records.MovieRecord", null)
                         .WithMany()
                         .HasForeignKey("movie_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("movie_writers", b =>
+                {
+                    b.HasOne("LamuFlix.Infrastructure.Persistence.Records.MovieRecord", null)
+                        .WithMany()
+                        .HasForeignKey("movie_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LamuFlix.Infrastructure.Persistence.Records.WriterRecord", null)
+                        .WithMany()
+                        .HasForeignKey("writer_id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

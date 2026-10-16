@@ -71,6 +71,7 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture) : IAsyncL
         loaded.Actors.Select(actor => actor.Name).ShouldBe(["Ada Actor"]);
         loaded.Directors.Select(director => director.Name).ShouldBe(["Dana Director"]);
         loaded.Genres.Select(genre => genre.Name).ShouldBe(["Drama"]);
+        loaded.Writers.Select(writer => writer.Name).ShouldBe(["Wanda Writer"]);
     }
 
     [Fact]
@@ -179,6 +180,7 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture) : IAsyncL
             .Include(movie => movie.Actors)
             .Include(movie => movie.Directors)
             .Include(movie => movie.Genres)
+            .Include(movie => movie.Writers)
             .SingleAsync(movie => movie.Id == new MovieId(id), cancellationToken);
 
     private static MovieRecord FullyPopulatedMovie(string libraryPath)
@@ -202,6 +204,7 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture) : IAsyncL
         movie.Actors.Add(new ActorRecord { Name = "Ada Actor" });
         movie.Directors.Add(new DirectorRecord { Name = "Dana Director" });
         movie.Genres.Add(new GenreRecord { Name = "Drama" });
+        movie.Writers.Add(new WriterRecord { Name = "Wanda Writer" });
         return movie;
     }
 
