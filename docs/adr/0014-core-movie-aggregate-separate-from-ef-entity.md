@@ -1,8 +1,8 @@
 # 0014. Core Movie aggregate, separate from the EF entity
 
-- Status: Proposed (Gate 1 closed; becomes Accepted when the DEV-294 spec PR merges)
+- Status: Accepted
 - Date: 2026-09-26
-- Ticket: DEV-294 (parent DEV-282)
+- Ticket: DEV-294 (parent DEV-282; delivered and merged, finalized DEV-328)
 
 ## Context
 

@@ -1,9 +1,8 @@
 # 0017. Enrichment decisions in Core handlers; transport in the consumer
 
-- Status: Proposed (plan frozen after plan challenge; owner answered D1-D3 on spec PR #54; becomes
-  Accepted when the DEV-299 PR merges.)
+- Status: Accepted
 - Date: 2026-09-30
-- Ticket: DEV-299 (parent DEV-282)
+- Ticket: DEV-299 (parent DEV-282; delivered and merged, finalized DEV-328)
 
 ## Context
 

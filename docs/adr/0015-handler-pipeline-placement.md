@@ -1,8 +1,8 @@
 # 0015. Handler pipeline: contracts in Core, decorators in Infrastructure
 
-- Status: Proposed (plan frozen 2026-09-27 after plan challenge; becomes Accepted when the DEV-296 spec PR merges)
+- Status: Accepted
 - Date: 2026-09-27
-- Ticket: DEV-296
+- Ticket: DEV-296 (delivered and merged, finalized DEV-328)
 
 ## Context
 

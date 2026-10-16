@@ -1,8 +1,8 @@
 # 0019. Infrastructure consumer delivery proof
 
-- Status: Proposed (pending Gate 1 spec PR merge)
+- Status: Accepted
 - Date: 2026-10-07
-- Ticket: DEV-314
+- Ticket: DEV-314 (delivered and merged, finalized DEV-328)
 
 ## Context
 
