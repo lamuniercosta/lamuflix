@@ -361,6 +361,34 @@ public sealed class EfMovieCatalogSurvivorTests(PostgresFixture fixture)
         details.Metadata.Actors.ShouldBe(new[] { "Ada Actor" });
     }
 
+    [Fact]
+    public async Task GetDetailsAsync_GenresWritersAndScore_ReturnsFullCollectionsMetadata()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var movie = Movie("File", "unit-details-collections-score");
+        movie.MetadataTitle = "Metadata";
+        movie.MetaScore = 82;
+        movie.Genres.Add(new GenreRecord { Name = "Drama" });
+        movie.Writers.Add(new WriterRecord { Name = "Wanda Writer" });
+        await context.Movies.AddAsync(movie, TestContext.Current.CancellationToken);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var id = movie.Id;
+        id.ShouldNotBeNull();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var details = await catalog.GetDetailsAsync(id, TestContext.Current.CancellationToken);
+
+        // assert
+        details.ShouldNotBeNull();
+        details.Metadata.ShouldNotBeNull();
+        details.Metadata.MetaScore.ShouldBe((short)82);
+        details.Metadata.Genres.ShouldBe(["Drama"]);
+        details.Metadata.Writers.ShouldBe(["Wanda Writer"]);
+    }
+
     private static MovieRecord Movie(string title, string suffix) => new()
     {
         Title = title,

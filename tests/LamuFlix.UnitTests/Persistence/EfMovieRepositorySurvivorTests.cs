@@ -250,6 +250,49 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Add_WithGenreWriterAndScoreCollections_RoundTripsThroughSiblingReload()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Collections", "collections", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.MarkEnriched(
+            new MovieMetadata(
+                "Full metadata",
+                "Synopsis",
+                new ReleaseYear(2024, Now),
+                new Runtime(121),
+                new ImdbRating(8.1m),
+                new ImdbId("tt1234567"),
+                "https://example.test/full.jpg",
+                null,
+                82,
+                ["Ridley Scott"],
+                ["Harrison Ford"],
+                ["Drama", "Sci-Fi"],
+                ["Wanda Writer"]),
+            Now);
+
+        // act
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var read = OpenSibling(db);
+        var loaded = await Repository(read).GetAsync(id, ct);
+        loaded.ShouldNotBeNull();
+        loaded.Metadata.ShouldNotBeNull();
+        loaded.Metadata.MetaScore.ShouldBe((short)82);
+        loaded.Metadata.Genres.ShouldBe(["Drama", "Sci-Fi"]);
+        loaded.Metadata.Writers.ShouldBe(["Wanda Writer"]);
+        loaded.Metadata.Directors.ShouldBe(["Ridley Scott"]);
+        loaded.Metadata.Actors.ShouldBe(["Harrison Ford"]);
+    }
+
+    [Fact]
     public async Task Add_WithoutMetadata_StoresNullMetadataColumns()
     {
         // arrange

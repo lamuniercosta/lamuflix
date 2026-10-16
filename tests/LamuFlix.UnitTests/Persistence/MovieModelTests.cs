@@ -74,6 +74,7 @@ public sealed class MovieModelTests
         AssertSkipNavigation(movie, nameof(MovieRecord.Actors), "movie_actors", "actor_id");
         AssertSkipNavigation(movie, nameof(MovieRecord.Directors), "movie_directors", "director_id");
         AssertSkipNavigation(movie, nameof(MovieRecord.Genres), "movie_genres", "genre_id");
+        AssertSkipNavigation(movie, nameof(MovieRecord.Writers), "movie_writers", "writer_id");
     }
 
     private static void AssertSkipNavigation(IEntityType movie, string name, string joinTable, string relatedForeignKey)

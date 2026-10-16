@@ -105,8 +105,8 @@ public sealed class MovieMetadataCollectionsTests
         var metadata = new MovieMetadata("Arrival", genres: new[] { "Drama" });
 
         // act & assert
-        ((object)metadata.Genres).ShouldNotBeOfType<string[]>();
-        ((object)metadata.Writers).ShouldNotBeOfType<string[]>();
+        metadata.Genres.ShouldNotBeOfType<string[]>();
+        metadata.Writers.ShouldNotBeOfType<string[]>();
     }
 
     [Fact]
