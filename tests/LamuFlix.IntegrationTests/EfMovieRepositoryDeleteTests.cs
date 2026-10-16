@@ -116,15 +116,15 @@ public sealed class EfMovieRepositoryDeleteTests(PostgresFixture fixture) : IAsy
     {
         var actor = await verify.Actors.Include(item => item.Movies)
             .SingleAsync(item => item.Name == "Shared Actor", ct);
-        actor.Movies.Select(movie => movie.Id!.Value).ShouldBe([survivor.Value]);
+        actor.Movies.Select(movie => movie.Id.ShouldNotBeNull().Value).ShouldBe([survivor.Value]);
 
         var director = await verify.Directors.Include(item => item.Movies)
             .SingleAsync(item => item.Name == "Shared Director", ct);
-        director.Movies.Select(movie => movie.Id!.Value).ShouldBe([survivor.Value]);
+        director.Movies.Select(movie => movie.Id.ShouldNotBeNull().Value).ShouldBe([survivor.Value]);
 
         var genre = await verify.Genres.Include(item => item.Movies)
             .SingleAsync(item => item.Name == "Shared Genre", ct);
-        genre.Movies.Select(movie => movie.Id!.Value).ShouldBe([survivor.Value]);
+        genre.Movies.Select(movie => movie.Id.ShouldNotBeNull().Value).ShouldBe([survivor.Value]);
     }
 
     private static async Task AssertOnlyAlphaPrincipalDetachedAsync(LamuFlixDbContext verify, CancellationToken ct)
