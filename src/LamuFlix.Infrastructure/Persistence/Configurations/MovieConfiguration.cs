@@ -157,6 +157,12 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
                 "movie_genres",
                 right => right.HasOne(typeof(GenreRecord)).WithMany().HasForeignKey("genre_id"),
                 left => left.HasOne(typeof(MovieRecord)).WithMany().HasForeignKey("movie_id"));
+        builder.HasMany(movie => movie.Writers)
+            .WithMany(writer => writer.Movies)
+            .UsingEntity(
+                "movie_writers",
+                right => right.HasOne(typeof(WriterRecord)).WithMany().HasForeignKey("writer_id"),
+                left => left.HasOne(typeof(MovieRecord)).WithMany().HasForeignKey("movie_id"));
     }
 
     private static void ConvertUsing(PropertyBuilder property, ValueConverter converter) =>

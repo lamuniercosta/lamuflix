@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,11 +11,18 @@ using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Options;
+using Npgsql;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
 public sealed class EfMovieRepository : IMovieRepository
 {
+    private static readonly TimeSpan[] MetadataRetryDelays =
+    [
+        TimeSpan.FromMilliseconds(25),
+        TimeSpan.FromMilliseconds(50),
+    ];
+
     private readonly LamuFlixDbContext db;
     private readonly TimeProvider timeProvider;
     private readonly TimeSpan claimLease;
@@ -41,7 +49,7 @@ public sealed class EfMovieRepository : IMovieRepository
             return tracked.Movie;
         }
 
-        var record = await db.Movies.SingleOrDefaultAsync(movie => movie.Id == id, ct);
+        var record = await LoadTrackedRecordAsync(id, ct);
         if (record is null)
         {
             return null;
@@ -114,6 +122,7 @@ public sealed class EfMovieRepository : IMovieRepository
         record.ImdbRating = metadata.ImdbRating;
         record.ImdbId = metadata.ImdbId;
         record.PosterUrl = metadata.PosterUrl;
+        record.MetaScore = metadata.MetaScore;
     }
 
     private static void ClearMetadata(MovieRecord record)
@@ -125,6 +134,11 @@ public sealed class EfMovieRepository : IMovieRepository
         record.ImdbRating = null;
         record.ImdbId = null;
         record.PosterUrl = null;
+        record.MetaScore = null;
+        record.Actors.Clear();
+        record.Directors.Clear();
+        record.Genres.Clear();
+        record.Writers.Clear();
     }
 
     public async Task<MovieId> NextIdentityAsync(CancellationToken ct)
@@ -142,6 +156,23 @@ public sealed class EfMovieRepository : IMovieRepository
 
     public async Task SaveChangesAsync(CancellationToken ct)
     {
+        if (!HasMetadataWrites())
+        {
+            await ApplyAndPersistAsync(ct);
+            return;
+        }
+
+        if (db.Database.CurrentTransaction is not null)
+        {
+            await RunAmbientMetadataWriteAsync(ct);
+            return;
+        }
+
+        await SaveMetadataWithRetryAsync(ct);
+    }
+
+    private async Task ApplyAndPersistAsync(CancellationToken ct)
+    {
         foreach (var tracked in identityMap.Values)
         {
             Apply(tracked.Movie, tracked.Record, tracked.Baseline);
@@ -154,6 +185,269 @@ public sealed class EfMovieRepository : IMovieRepository
             tracked.Baseline = Baseline.From(tracked.Movie);
         }
     }
+
+    private bool HasMetadataWrites() =>
+        identityMap.Values.Any(tracked => tracked.Baseline.Metadata != tracked.Movie.Metadata);
+
+    private async Task SaveMetadataWithRetryAsync(CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await using var transaction = await db.Database
+                    .BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+                await RunMetadataWriteAsync(ct);
+                await transaction.CommitAsync(ct);
+                return;
+            }
+            catch (Exception exception) when (attempt <= MetadataRetryDelays.Length && IsRetryableConflict(exception))
+            {
+                db.ChangeTracker.Clear();
+                await Task.Delay(MetadataRetryDelays[attempt - 1], ct);
+            }
+            catch
+            {
+                db.ChangeTracker.Clear();
+                throw;
+            }
+        }
+    }
+
+    private async Task RunAmbientMetadataWriteAsync(CancellationToken ct)
+    {
+        try
+        {
+            await RunMetadataWriteAsync(ct);
+        }
+        catch
+        {
+            db.ChangeTracker.Clear();
+            throw;
+        }
+    }
+
+    private async Task RunMetadataWriteAsync(CancellationToken ct)
+    {
+        await RebuildTrackingAsync(ct);
+
+        var metadataTracked = identityMap.Values
+            .Where(tracked => tracked.Baseline.Metadata != tracked.Movie.Metadata)
+            .ToList();
+
+        foreach (var tracked in identityMap.Values)
+        {
+            Apply(tracked.Movie, tracked.Record, tracked.Baseline);
+        }
+
+        if (metadataTracked.Count > 0)
+        {
+            await AcquireSnapshotLocksAsync(metadataTracked, ct);
+            foreach (var tracked in metadataTracked)
+            {
+                await ReplaceAssociationsAsync(tracked.Record, tracked.Movie.Metadata, ct);
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        foreach (var tracked in identityMap.Values)
+        {
+            tracked.Baseline = Baseline.From(tracked.Movie);
+        }
+    }
+
+    private async Task RebuildTrackingAsync(CancellationToken ct)
+    {
+        db.ChangeTracker.Clear();
+        foreach (var tracked in identityMap.Values)
+        {
+            var record = await LoadTrackedRecordAsync(tracked.Movie.Id, ct);
+            if (record is null)
+            {
+                record = ToRecord(tracked.Movie);
+                db.Movies.Add(record);
+            }
+
+            tracked.Record = record;
+        }
+    }
+
+    private Task<MovieRecord?> LoadTrackedRecordAsync(MovieId id, CancellationToken ct) =>
+        db.Movies
+            .Include(movie => movie.Actors)
+            .Include(movie => movie.Directors)
+            .Include(movie => movie.Genres)
+            .Include(movie => movie.Writers)
+            .SingleOrDefaultAsync(movie => movie.Id == id, ct);
+
+    private async Task AcquireSnapshotLocksAsync(IReadOnlyList<TrackedMovie> tracked, CancellationToken ct)
+    {
+        var keys = new List<(int RoleId, string Name)>();
+        foreach (var item in tracked)
+        {
+            if (item.Movie.Metadata is { } metadata)
+            {
+                CollectKeys(keys, 1, metadata.Genres);
+                CollectKeys(keys, 2, metadata.Directors);
+                CollectKeys(keys, 3, metadata.Writers);
+                CollectKeys(keys, 4, metadata.Actors);
+            }
+        }
+
+        var ordered = keys
+            .Distinct()
+            .OrderBy(key => key.RoleId)
+            .ThenBy(key => key.Name, StringComparer.Ordinal);
+
+        foreach (var (roleId, name) in ordered)
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "SELECT pg_advisory_xact_lock({0}, hashtext({1}))",
+                [roleId, name],
+                ct);
+        }
+    }
+
+    private static void CollectKeys(List<(int RoleId, string Name)> keys, int roleId, IEnumerable<string> names)
+    {
+        foreach (var name in names)
+        {
+            var normalized = Normalize(name);
+            if (normalized.Length > 0)
+            {
+                keys.Add((roleId, normalized));
+            }
+        }
+    }
+
+    private async Task ReplaceAssociationsAsync(MovieRecord record, MovieMetadata? metadata, CancellationToken ct)
+    {
+        if (metadata is null)
+        {
+            record.Actors.Clear();
+            record.Directors.Clear();
+            record.Genres.Clear();
+            record.Writers.Clear();
+            return;
+        }
+
+        await ReplaceRoleAsync(db.Actors, record.Actors, metadata.Actors, actor => actor.Name,
+            name => new ActorRecord { Name = name }, ct);
+        await ReplaceRoleAsync(db.Directors, record.Directors, metadata.Directors, director => director.Name,
+            name => new DirectorRecord { Name = name }, ct);
+        await ReplaceRoleAsync(db.Genres, record.Genres, metadata.Genres, genre => genre.Name,
+            name => new GenreRecord { Name = name }, ct);
+        await ReplaceRoleAsync(db.Writers, record.Writers, metadata.Writers, writer => writer.Name,
+            name => new WriterRecord { Name = name }, ct);
+    }
+
+    private static async Task ReplaceRoleAsync<TEntity>(
+        DbSet<TEntity> set,
+        ICollection<TEntity> collection,
+        IEnumerable<string> names,
+        Func<TEntity, string> nameOf,
+        Func<string, TEntity> create,
+        CancellationToken ct)
+        where TEntity : class
+    {
+        var desired = NormalizeUnique(names);
+        var existing = desired.Count == 0
+            ? []
+            : await LoadMatchingAsync(set, desired, nameOf, ct);
+        var byKey = new Dictionary<string, TEntity>(StringComparer.Ordinal);
+        foreach (var entity in existing)
+        {
+            byKey[Normalize(nameOf(entity))] = entity;
+        }
+
+        collection.Clear();
+        foreach (var name in desired)
+        {
+            var key = Normalize(name);
+            if (!byKey.TryGetValue(key, out var entity))
+            {
+                entity = create(name);
+                set.Add(entity);
+                byKey[key] = entity;
+            }
+
+            collection.Add(entity);
+        }
+    }
+
+    private static async Task<List<TEntity>> LoadMatchingAsync<TEntity>(
+        DbSet<TEntity> set,
+        IReadOnlyList<string> candidateNames,
+        Func<TEntity, string> nameOf,
+        CancellationToken ct)
+        where TEntity : class
+    {
+        var wanted = new HashSet<string>(candidateNames.Select(Normalize), StringComparer.Ordinal);
+        var all = await set.ToListAsync(ct);
+        var matches = new List<TEntity>();
+        foreach (var entity in all)
+        {
+            if (wanted.Contains(Normalize(nameOf(entity))))
+            {
+                matches.Add(entity);
+            }
+        }
+
+        return matches;
+    }
+
+    private static List<string> NormalizeUnique(IEnumerable<string> names)
+    {
+        var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var raw in names)
+        {
+            var trimmed = raw.Trim();
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            if (seen.Add(Normalize(trimmed)))
+            {
+                result.Add(trimmed);
+            }
+        }
+
+        return result;
+    }
+
+    private static string Normalize(string name) => name.Trim().ToLowerInvariant();
+
+    private static bool IsRetryableConflict(Exception exception) =>
+        UnwrapPostgres(exception) is { } postgres && IsRetryableSqlState(postgres);
+
+    private static PostgresException? UnwrapPostgres(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException postgres)
+            {
+                return postgres;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsRetryableSqlState(PostgresException exception) =>
+        exception.SqlState switch
+        {
+            "40001" or "40P01" => true,
+            "23505" => IsMovieOrJoinPrimaryKey(exception.ConstraintName),
+            _ => false,
+        };
+
+    private static bool IsMovieOrJoinPrimaryKey(string? constraintName) =>
+        constraintName is not null
+        && (string.Equals(constraintName, "PK_movies", StringComparison.Ordinal)
+            || constraintName.StartsWith("PK_movie_", StringComparison.Ordinal));
 
     public async Task<bool> TryClaimForEnrichmentAsync(MovieId id, CancellationToken ct)
     {
@@ -285,7 +579,13 @@ public sealed class EfMovieRepository : IMovieRepository
                 record.RuntimeMinutes,
                 record.ImdbRating,
                 record.ImdbId,
-                record.PosterUrl);
+                record.PosterUrl,
+                record.RottenTomatoesRating,
+                record.MetaScore,
+                record.Directors.Select(director => director.Name),
+                record.Actors.Select(actor => actor.Name),
+                record.Genres.Select(genre => genre.Name),
+                record.Writers.Select(writer => writer.Name));
 
         return Movie.Rehydrate(
             id: record.Id,
@@ -310,7 +610,7 @@ public sealed class EfMovieRepository : IMovieRepository
     private sealed class TrackedMovie(Movie movie, MovieRecord record, Baseline baseline)
     {
         public Movie Movie { get; } = movie;
-        public MovieRecord Record { get; } = record;
+        public MovieRecord Record { get; set; } = record;
         public Baseline Baseline { get; set; } = baseline;
     }
 

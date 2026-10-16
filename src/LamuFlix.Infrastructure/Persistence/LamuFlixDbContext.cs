@@ -13,6 +13,8 @@ public sealed class LamuFlixDbContext(DbContextOptions<LamuFlixDbContext> option
 
     public DbSet<GenreRecord> Genres => Set<GenreRecord>();
 
+    public DbSet<WriterRecord> Writers => Set<WriterRecord>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LamuFlixDbContext).Assembly);
 }
