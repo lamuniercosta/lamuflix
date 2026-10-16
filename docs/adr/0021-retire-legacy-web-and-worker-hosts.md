@@ -1,6 +1,6 @@
 # 0021. Retire legacy Web and Worker hosts
 
-- Status: Proposed (becomes Accepted when the DEV-388 Gate 1 spec PR merges)
+- Status: Accepted
 - Date: 2026-10-15
 - Ticket: DEV-388
 
