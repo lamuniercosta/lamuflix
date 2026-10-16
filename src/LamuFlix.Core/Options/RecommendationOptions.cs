@@ -23,6 +23,7 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - configuration binder can set Weights to null via reflection.
         if (Weights is null)
         {
             yield return new ValidationResult(
