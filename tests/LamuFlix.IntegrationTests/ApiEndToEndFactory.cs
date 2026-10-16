@@ -88,6 +88,7 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
     private KeyValuePair<string, string?>[] HostSettings() =>
     [
         new("ConnectionStrings:DefaultConnection", settings.DefaultConnection),
+        new($"{DatabaseOptions.SectionName}:{nameof(DatabaseOptions.ApplyMigrationsOnStartup)}", "false"),
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}", settings.RabbitMq.HostName),
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.Port)}", settings.RabbitMq.Port.ToString(CultureInfo.InvariantCulture)),
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.UserName)}", settings.RabbitMq.UserName),
