@@ -167,6 +167,21 @@ public sealed class RecommendationOptionsTests
     }
 
     [Fact]
+    public void Validate_WeightsNull_ReturnsSingleRequiredFieldResult()
+    {
+        // arrange
+        var options = new RecommendationOptions { Weights = null! };
+
+        // act
+        var results = options.Validate(new ValidationContext(options)).ToArray();
+
+        // assert
+        results.Length.ShouldBe(1);
+        results[0].ErrorMessage.ShouldBe("The Weights field is required.");
+        results[0].MemberNames.ShouldContain(nameof(RecommendationOptions.Weights));
+    }
+
+    [Fact]
     public void StartupValidation_RecommendationsSection_BindsWithoutCodeChanges()
     {
         // arrange
