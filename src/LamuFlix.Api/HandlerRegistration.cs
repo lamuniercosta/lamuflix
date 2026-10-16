@@ -38,6 +38,7 @@ internal static class HandlerRegistration
         services.AddScoped<IValidator<GetMovieDetailsQuery>>(
             serviceProvider => serviceProvider.GetRequiredService<GetMovieDetailsQueryValidator>());
         services.AddHandler<GetMovieDetailsQueryHandler, GetMovieDetailsQuery, MovieDetails>();
+        services.AddHandler<DeleteMovieCommandHandler, DeleteMovieCommand, Unit>();
         services.AddHandler<GetGenresQueryHandler, GetGenresQuery, IReadOnlyList<GenreFacet>>();
         services.AddHandler<GetPeopleQueryHandler, GetPeopleQuery, IReadOnlyList<PersonFacet>>();
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();

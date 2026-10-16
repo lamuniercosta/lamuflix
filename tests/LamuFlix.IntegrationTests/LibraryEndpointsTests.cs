@@ -14,6 +14,7 @@ using FsCheck.Fluent;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Library;
 using LamuFlix.Core.Library;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Library;
 using LamuFlix.UnitTests.Library;
@@ -24,6 +25,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shouldly;
 using Xunit;
 using SortDirection = LamuFlix.Core.Library.SortDirection;
@@ -41,6 +43,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     private static readonly DateTimeOffset Clock = new(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     private readonly RecordingMovieCatalog catalog = new();
+
+    private readonly RecordingDeleteHandler deleteHandler = new();
 
     [Fact]
     public void Validators_StartedComposition_ResolveForBothHandlerQueries()
@@ -511,6 +515,78 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     }
 
     [Fact]
+    public async Task DeleteMovie_PresentId_ReturnsNoContentWithEmptyBodyAndNoRequestPayload()
+    {
+        // arrange
+        await using var host = WithDeleteHandler();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.DeleteAsync(DetailsUrl("7"), cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        body.ShouldBe(string.Empty);
+        deleteHandler.Ids.ShouldHaveSingleItem().ShouldBe(new MovieId(7));
+    }
+
+    [Fact]
+    public async Task DeleteMovie_AbsentId_ReturnsNotFoundProblem()
+    {
+        // arrange
+        deleteHandler.Absent = true;
+        await using var host = WithDeleteHandler();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.DeleteAsync(DetailsUrl("999"), cancellationToken);
+
+        // assert
+        await ReadNotFoundAsync(response, cancellationToken);
+        deleteHandler.Ids.ShouldHaveSingleItem().ShouldBe(new MovieId(999));
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    public async Task DeleteMovie_NonPositiveId_ReturnsNotFoundWithoutDispatching(string id)
+    {
+        // arrange
+        await using var host = WithDeleteHandler();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.DeleteAsync(DetailsUrl(id), cancellationToken);
+
+        // assert
+        await ReadNotFoundAsync(response, cancellationToken);
+        deleteHandler.Ids.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task DeleteMovie_NonIntegerId_ReturnsBadRequestWithoutDispatching()
+    {
+        // arrange
+        await using var host = WithDeleteHandler();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.DeleteAsync(DetailsUrl("abc"), cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(400);
+        deleteHandler.Ids.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task UnknownRoute_ReceivesAProblemBodyFromStatusCodePages()
     {
         // arrange
@@ -543,6 +619,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             [
                 "BrowseMovies",
                 "GetMovieDetails",
+                "DeleteMovie",
                 "ImportMovie",
                 "RequestEnrichment",
                 "AddToWatchlist",
@@ -586,6 +663,10 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     private WebApplicationFactory<Program> WithCatalog() =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(
             services => services.AddSingleton<IMovieCatalog>(catalog)));
+
+    private WebApplicationFactory<Program> WithDeleteHandler() =>
+        factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(
+            services => services.Replace(ServiceDescriptor.Singleton<ICommandHandler<DeleteMovieCommand, Unit>>(deleteHandler))));
 
     private static async Task<JsonElement> ReadProblemAsync(
         HttpResponseMessage response,
@@ -677,6 +758,21 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         Direction = SortDirection.Ascending,
         Page = new Page(1, 20),
     };
+
+    private sealed class RecordingDeleteHandler : ICommandHandler<DeleteMovieCommand, Unit>
+    {
+        public List<MovieId> Ids { get; } = [];
+
+        public bool Absent { get; set; }
+
+        public Task<Unit> HandleAsync(DeleteMovieCommand command, CancellationToken cancellationToken)
+        {
+            Ids.Add(command.Id);
+            return Absent
+                ? Task.FromException<Unit>(new NotFoundException())
+                : Task.FromResult(Unit.Value);
+        }
+    }
 
     private sealed class RecordingMovieCatalog : IMovieCatalog
     {

@@ -318,6 +318,8 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
 
         public Task AddAsync(Movie movie, CancellationToken ct) => Task.CompletedTask;
 
+        public Task<bool> TryDeleteAsync(MovieId id, CancellationToken ct) => Task.FromResult(false);
+
         public Task<MovieId> NextIdentityAsync(CancellationToken ct) => Task.FromResult(new MovieId(1));
 
         public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;

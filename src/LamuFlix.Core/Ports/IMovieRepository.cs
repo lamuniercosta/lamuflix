@@ -12,6 +12,14 @@ public interface IMovieRepository
 
     Task AddAsync(Movie movie, CancellationToken ct);
 
+    /// <summary>
+    /// An atomic removal attempt. Returns true only when the movie row was removed, and false when the
+    /// movie is absent. The movie's watchlist and metadata columns leave with the row, and its rows in
+    /// movie_actors, movie_directors, and movie_genres leave through the existing database cascades.
+    /// Never touches the physical media file.
+    /// </summary>
+    Task<bool> TryDeleteAsync(MovieId id, CancellationToken ct);
+
     Task<MovieId> NextIdentityAsync(CancellationToken ct);
 
     Task SaveChangesAsync(CancellationToken ct);

@@ -1,9 +1,19 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { server } from '../../test/server';
 import { movieDetails, movieDetailsNullMetadata } from '../../mocks/fixtures';
 import MovieDetailsView from './MovieDetailsView';
+
+function renderView() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MovieDetailsView movieId={1} />
+    </QueryClientProvider>,
+  );
+}
 
 const fullMovie = {
   ...movieDetails,
@@ -24,7 +34,7 @@ const fullMovie = {
 describe('MovieDetailsView', () => {
   it('renders full metadata', async () => {
     server.use(http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)));
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(screen.getByAltText('Dune poster')).toBeInTheDocument();
@@ -49,7 +59,7 @@ describe('MovieDetailsView', () => {
       },
     };
     server.use(http.get('*/api/movies/:id', () => HttpResponse.json(partial)));
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(screen.queryByAltText('Dune poster')).not.toBeInTheDocument();
@@ -60,7 +70,7 @@ describe('MovieDetailsView', () => {
 
   it('renders null metadata notice', async () => {
     server.use(http.get('*/api/movies/:id', () => HttpResponse.json(movieDetailsNullMetadata)));
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(screen.getByText('No metadata available yet.')).toBeInTheDocument();
@@ -68,7 +78,7 @@ describe('MovieDetailsView', () => {
 
   it('renders placeholder poster with no text when missing', async () => {
     server.use(http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)));
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
     expect(screen.queryByText('Dune poster')).not.toBeInTheDocument();
@@ -79,7 +89,7 @@ describe('MovieDetailsView', () => {
       http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
       http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 204 })),
     );
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
     fireEvent.click(screen.getByRole('button', { name: 'Play' }));
@@ -92,7 +102,7 @@ describe('MovieDetailsView', () => {
       http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
       http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 404 })),
     );
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
     fireEvent.click(screen.getByRole('button', { name: 'Play' }));
@@ -105,7 +115,7 @@ describe('MovieDetailsView', () => {
       http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
       http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 500 })),
     );
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
     fireEvent.click(screen.getByRole('button', { name: 'Play' }));
@@ -125,7 +135,7 @@ describe('MovieDetailsView', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
     const playButton = screen.getByRole('button', { name: 'Play' });
@@ -145,7 +155,7 @@ describe('MovieDetailsView load states', () => {
         return HttpResponse.json(fullMovie);
       }),
     );
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading movie…');
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
@@ -153,7 +163,7 @@ describe('MovieDetailsView load states', () => {
 
   it('shows Movie not found. on GET 404', async () => {
     server.use(http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 404 })));
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     expect(await screen.findByText('Movie not found.')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Movie not found.');
@@ -161,7 +171,7 @@ describe('MovieDetailsView load states', () => {
 
   it('shows generic error on GET failure', async () => {
     server.use(http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 500 })));
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     expect(
       await screen.findByText("Couldn't load this movie. Try again later."),
@@ -178,7 +188,7 @@ describe('MovieDetailsView Play 403 dialog', () => {
       http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
       http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 403 })),
     );
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
     const playButton = screen.getByRole('button', { name: 'Play' });
@@ -200,7 +210,7 @@ describe('MovieDetailsView Play 403 dialog', () => {
       http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
       http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 403 })),
     );
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
     fireEvent.click(screen.getByRole('button', { name: 'Play' }));
@@ -215,7 +225,7 @@ describe('MovieDetailsView Play 403 dialog', () => {
       http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
       http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 403 })),
     );
-    render(<MovieDetailsView movieId={1} />);
+    renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
     fireEvent.click(screen.getByRole('button', { name: 'Play' }));

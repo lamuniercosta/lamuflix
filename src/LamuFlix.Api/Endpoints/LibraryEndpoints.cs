@@ -52,7 +52,28 @@ internal static class LibraryEndpoints
             .Produces<MovieDetailsResponse>()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        api.MapDelete("/movies/{id}", DeleteMovieAsync)
+            .WithName("DeleteMovie")
+            .WithSummary("Remove a movie from the library, leaving the file on disk.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return api;
+    }
+
+    private static async Task<NoContent> DeleteMovieAsync(
+        int id,
+        ICommandHandler<DeleteMovieCommand, Unit> handler,
+        CancellationToken cancellationToken)
+    {
+        if (!MovieId.TryCreate(id, out var movieId))
+        {
+            throw new NotFoundException();
+        }
+
+        await handler.HandleAsync(new DeleteMovieCommand(movieId), cancellationToken);
+        return TypedResults.NoContent();
     }
 
     private static async Task<Ok<MovieDetailsResponse>> GetMovieDetailsAsync(

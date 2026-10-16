@@ -66,6 +66,20 @@ public sealed class EfMovieRepository : IMovieRepository
         return Task.CompletedTask;
     }
 
+    public async Task<bool> TryDeleteAsync(MovieId id, CancellationToken ct)
+    {
+        var rows = await db.Movies
+            .Where(movie => movie.Id == id)
+            .ExecuteDeleteAsync(ct);
+
+        if (rows == 1 && identityMap.Remove(id, out var tracked))
+        {
+            db.Entry(tracked.Record).State = EntityState.Detached;
+        }
+
+        return rows == 1;
+    }
+
     private static MovieRecord ToRecord(Movie movie)
     {
         var record = new MovieRecord

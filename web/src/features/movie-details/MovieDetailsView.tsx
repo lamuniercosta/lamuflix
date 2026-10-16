@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import {
   formatRating,
   formatRuntime,
+  useDeleteMovie,
   useMovieDetails,
   usePlayMovie,
   type MovieDetails,
   type MovieMetadata,
 } from './movieDetailsApi';
 import { WatchlistToggleButton } from '../../library/watchlist';
+import { browseMoviesQueryKey } from '../../library/libraryQueries';
 import './MovieDetailsView.css';
 
 export interface MovieDetailsViewProps {
@@ -75,18 +77,37 @@ function MetadataSection({ movie }: { movie: MovieDetails }) {
   );
 }
 
+function navigateToLibrary(): void {
+  window.history.pushState({}, '', '/');
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
 export default function MovieDetailsView({ movieId }: MovieDetailsViewProps) {
-  const [queryClient] = useState(
+  const libraryClient = useQueryClient();
+  const [detailsClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
   );
   return (
-    <QueryClientProvider client={queryClient}>
-      <MovieDetailsViewInner movieId={movieId} />
+    <QueryClientProvider client={detailsClient}>
+      <MovieDetailsViewInner
+        movieId={movieId}
+        detailsClient={detailsClient}
+        libraryClient={libraryClient}
+      />
     </QueryClientProvider>
   );
 }
 
-function MovieDetailsViewInner({ movieId }: MovieDetailsViewProps) {
+interface MovieDetailsViewInnerProps extends MovieDetailsViewProps {
+  detailsClient: QueryClient;
+  libraryClient: QueryClient;
+}
+
+function MovieDetailsViewInner({
+  movieId,
+  detailsClient,
+  libraryClient,
+}: MovieDetailsViewInnerProps) {
   const query = useMovieDetails(movieId);
   const playMutation = usePlayMovie(movieId);
   const [playState, setPlayState] = useState<'idle' | 'success' | 'notfound' | 'error'>('idle');
@@ -95,6 +116,36 @@ function MovieDetailsViewInner({ movieId }: MovieDetailsViewProps) {
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const playInFlightRef = useRef(false);
+  const deleteMutation = useDeleteMovie(movieId);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [removeState, setRemoveState] = useState<'idle' | 'error'>('idle');
+  const removeInFlightRef = useRef(false);
+  const removeButtonRef = useRef<HTMLButtonElement>(null);
+  const removeConfirmRef = useRef<HTMLButtonElement>(null);
+  const removePreviousFocus = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (removeDialogOpen && removeConfirmRef.current) {
+      removePreviousFocus.current =
+        removeButtonRef.current ?? (document.activeElement as HTMLElement | null);
+      removeConfirmRef.current.focus();
+    } else if (!removeDialogOpen && removePreviousFocus.current) {
+      removePreviousFocus.current.focus();
+      removePreviousFocus.current = null;
+    }
+  }, [removeDialogOpen]);
+
+  useEffect(() => {
+    if (!removeDialogOpen) return;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setRemoveDialogOpen(false);
+        setRemoveState('idle');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [removeDialogOpen]);
 
   useEffect(() => {
     if (dialogOpen && closeBtnRef.current) {
@@ -122,6 +173,35 @@ function MovieDetailsViewInner({ movieId }: MovieDetailsViewProps) {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [dialogOpen]);
+
+  const openRemoveDialog = () => {
+    setRemoveState('idle');
+    setRemoveDialogOpen(true);
+  };
+
+  const cancelRemove = () => {
+    setRemoveDialogOpen(false);
+    setRemoveState('idle');
+  };
+
+  const confirmRemove = () => {
+    if (removeInFlightRef.current) return;
+    removeInFlightRef.current = true;
+    setRemoveState('idle');
+    deleteMutation.mutate(undefined, {
+      onSuccess: async () => {
+        await detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
+        await libraryClient.invalidateQueries({ queryKey: browseMoviesQueryKey });
+        navigateToLibrary();
+      },
+      onError: () => {
+        setRemoveState('error');
+      },
+      onSettled: () => {
+        removeInFlightRef.current = false;
+      },
+    });
+  };
 
   const handlePlay = () => {
     if (playInFlightRef.current) return;
@@ -175,6 +255,39 @@ function MovieDetailsViewInner({ movieId }: MovieDetailsViewProps) {
       )}
       {playState === 'error' && (
         <span role="alert">Couldn&apos;t start playback. Try again later.</span>
+      )}
+      <button
+        ref={removeButtonRef}
+        type="button"
+        disabled={deleteMutation.isPending}
+        onClick={openRemoveDialog}
+      >
+        Remove from library
+      </button>
+      {removeDialogOpen && (
+        <div role="dialog" aria-modal="true" aria-labelledby="remove-movie-title">
+          <h2 id="remove-movie-title">Remove this movie from the library?</h2>
+          <p>The movie leaves the library. The file on disk stays.</p>
+          <button
+            ref={removeConfirmRef}
+            type="button"
+            disabled={deleteMutation.isPending}
+            onClick={confirmRemove}
+          >
+            Remove
+          </button>
+          <button type="button" onClick={cancelRemove}>
+            Cancel
+          </button>
+          {removeState === 'error' && (
+            <>
+              <p role="alert">Could not remove this movie.</p>
+              <button type="button" onClick={confirmRemove}>
+                Try again
+              </button>
+            </>
+          )}
+        </div>
       )}
       {dialogOpen && (
         <div role="dialog" aria-modal="true" aria-labelledby="playback-unavailable-title">

@@ -27,6 +27,9 @@ public sealed class LeaseAwareMovieRepository(TimeProvider time, TimeSpan claimL
         return Task.CompletedTask;
     }
 
+    public Task<bool> TryDeleteAsync(MovieId id, CancellationToken ct) =>
+        Task.FromResult(movies.Remove(id));
+
     public Task<MovieId> NextIdentityAsync(CancellationToken ct) =>
         Task.FromResult(new MovieId(movies.Count + 1));
 
