@@ -1,0 +1,55 @@
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+
+namespace LamuFlix.Core.Options;
+
+// ReSharper disable UnusedAutoPropertyAccessor.Global
+// Bound from configuration by ServiceDefaultsExtensions.AddLamuFlixOptions
+public sealed record RecommendationOptions : IValidatableObject
+{
+    public const string SectionName = "Recommendations";
+
+    [Range(1, int.MaxValue)]
+    public int Take { get; init; } = 10;
+
+    [Range(1, int.MaxValue)]
+    public int CandidatePoolSize { get; init; } = 50;
+
+    [Range(0.0, 1.0)]
+    public double MmrLambda { get; init; } = 0.7;
+
+    public SimilarityWeights Weights { get; init; } = new();
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (Weights is null)
+        {
+            yield return new ValidationResult(
+                $"The {nameof(Weights)} field is required.",
+                [nameof(Weights)]);
+            yield break;
+        }
+
+        var nested = new List<ValidationResult>();
+        Validator.TryValidateObject(Weights, new ValidationContext(Weights), nested, validateAllProperties: true);
+        foreach (var failure in nested)
+        {
+            yield return failure;
+        }
+
+        if (CandidatePoolSize < Take)
+        {
+            yield return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} must be greater than or equal to {1}; got {2} and {3}.",
+                    nameof(CandidatePoolSize),
+                    nameof(Take),
+                    CandidatePoolSize,
+                    Take),
+                [nameof(CandidatePoolSize), nameof(Take)]);
+        }
+    }
+}
+// ReSharper restore UnusedAutoPropertyAccessor.Global

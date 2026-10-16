@@ -83,6 +83,7 @@ public static class ServiceDefaultsExtensions
         BindAndValidate<RabbitMqOptions>(services, RabbitMqOptions.SectionName);
         BindAndValidate<EnrichmentOptions>(services, EnrichmentOptions.SectionName);
         services.AddSingleton<IValidateOptions<EnrichmentOptions>, EnrichmentOptionsValidator>();
+        BindAndValidate<RecommendationOptions>(services, RecommendationOptions.SectionName);
         BindAndValidate<FeatureOptions>(services, FeatureOptions.SectionName);
         return services;
     }
