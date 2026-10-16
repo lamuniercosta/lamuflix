@@ -13,6 +13,7 @@ import { success, acceptedLocation } from './fixtures';
 export const handlers = [
   http.get('*/api/movies', () => HttpResponse.json(success.BrowseMovies, { status: 200 })),
   http.get('*/api/movies/:id', () => HttpResponse.json(success.GetMovieDetails, { status: 200 })),
+  http.delete('*/api/movies/:id', () => new HttpResponse(null, { status: 204 })),
   http.post('*/api/movies/import', () => new HttpResponse(null, { status: 202, headers: { Location: acceptedLocation, 'Content-Length': '0' } })),
   http.post('*/api/movies/:id/enrichment', () => new HttpResponse(null, { status: 202, headers: { Location: acceptedLocation, 'Content-Length': '0' } })),
   http.post('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),

@@ -42,6 +42,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     [
         "GET /api/movies",
         "GET /api/movies/{id}",
+        "DELETE /api/movies/{id}",
         "POST /api/movies/import",
         "POST /api/movies/{id}/enrichment",
         "POST /api/movies/{id}/watchlist",
@@ -65,7 +66,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public static TheoryData<string> DocumentationRoutes => new() { DocumentRoute, ScalarRoute };
 
     [Fact]
-    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheNineBusinessOperations()
+    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheTenBusinessOperations()
     {
         // arrange
         await using var development = CreateDevelopmentHost();

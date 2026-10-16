@@ -15,6 +15,8 @@ export interface paths {
   "/api/movies/{id}": {
     /** Retrieve the details of a single movie by its identifier. */
     get: operations["GetMovieDetails"];
+    /** Remove a movie from the library, leaving the file on disk. */
+    delete: operations["DeleteMovie"];
   };
   "/api/movies/import": {
     /** Import a movie folder into the library. */
@@ -180,6 +182,32 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["MovieDetailsResponse"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Remove a movie from the library, leaving the file on disk. */
+  DeleteMovie: {
+    parameters: {
+      path: {
+        id: number | string;
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        content: never;
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
         };
       };
       /** @description Not Found */

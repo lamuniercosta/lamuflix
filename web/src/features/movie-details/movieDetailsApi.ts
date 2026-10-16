@@ -84,6 +84,24 @@ export function useMovieDetails(movieId: number | string) {
   });
 }
 
+/**
+ * Deletes a movie through the generated client. A 204 (removed) and a 404 (already absent) are both
+ * treated as a settled outcome; any other failure rejects with `MovieDetailsError`.
+ */
+export function useDeleteMovie(movieId: number | string) {
+  return useMutation<number, MovieDetailsError, void>({
+    mutationFn: async () => {
+      const { response } = await client.DELETE('/api/movies/{id}', {
+        params: { path: { id: Number(movieId) } },
+      });
+      if (response.status === 204 || response.status === 404) {
+        return response.status;
+      }
+      throw new MovieDetailsError(response.status);
+    },
+  });
+}
+
 export function usePlayMovie(movieId: number | string) {
   return useMutation<number, MovieDetailsError, void>({
     mutationFn: async () => {
