@@ -10,7 +10,6 @@ import {
   type MovieMetadata,
 } from './movieDetailsApi';
 import { WatchlistToggleButton } from '../../library/watchlist';
-import { browseMoviesQueryKey } from '../../library/libraryQueries';
 import './MovieDetailsView.css';
 
 export interface MovieDetailsViewProps {
@@ -191,7 +190,7 @@ function MovieDetailsViewInner({
     deleteMutation.mutate(undefined, {
       onSuccess: async () => {
         await detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
-        await libraryClient.invalidateQueries({ queryKey: browseMoviesQueryKey });
+        await libraryClient.invalidateQueries({ queryKey: ['browseMovies'] });
         navigateToLibrary();
       },
       onError: () => {

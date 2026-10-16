@@ -12,6 +12,13 @@ const watchlistFilteredKey = [
   { ...standingBrowseQuery, InWatchlist: 'true' },
 ] as const;
 
+const customSortKey = [
+  'browseMovies',
+  { ...standingBrowseQuery, sort: 'ReleaseYear', direction: 'Descending' },
+] as const;
+
+const paginatedKey = ['browseMovies', { ...standingBrowseQuery, page: 2 }] as const;
+
 function renderView() {
   const libraryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const rendered = render(
@@ -151,5 +158,43 @@ describe('MovieDetailsView destructive removal', () => {
       expect(libraryClient.getQueryState(browseMoviesQueryKey)?.isInvalidated).toBe(true),
     );
     await waitFor(() => expect(getCalls).toBeGreaterThan(1));
+  });
+
+  it('invalidates custom sort and paginated browse caches on 204', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)),
+      http.delete('*/api/movies/:id', () => new HttpResponse(null, { status: 204 })),
+    );
+    const { libraryClient } = renderView();
+    libraryClient.setQueryData(customSortKey, { items: [], totalCount: 0 });
+    libraryClient.setQueryData(paginatedKey, { items: [], totalCount: 0 });
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    await openAndConfirmRemoval();
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    await waitFor(() =>
+      expect(libraryClient.getQueryState(customSortKey)?.isInvalidated).toBe(true),
+    );
+    expect(libraryClient.getQueryState(paginatedKey)?.isInvalidated).toBe(true);
+  });
+
+  it('invalidates custom sort and paginated browse caches on 404', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)),
+      http.delete('*/api/movies/:id', () => new HttpResponse(null, { status: 404 })),
+    );
+    const { libraryClient } = renderView();
+    libraryClient.setQueryData(customSortKey, { items: [], totalCount: 0 });
+    libraryClient.setQueryData(paginatedKey, { items: [], totalCount: 0 });
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    await openAndConfirmRemoval();
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    await waitFor(() =>
+      expect(libraryClient.getQueryState(customSortKey)?.isInvalidated).toBe(true),
+    );
+    expect(libraryClient.getQueryState(paginatedKey)?.isInvalidated).toBe(true);
   });
 });
