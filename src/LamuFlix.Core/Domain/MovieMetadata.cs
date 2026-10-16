@@ -36,11 +36,17 @@ public sealed record MovieMetadata
         PosterUrl = posterUrl;
         RottenTomatoesRating = rottenTomatoesRating;
         MetaScore = metaScore;
-        Directors = directors?.ToArray() ?? [];
-        Actors = actors?.ToArray() ?? [];
-        Genres = genres?.ToImmutableArray() ?? ImmutableArray<string>.Empty;
-        Writers = writers?.ToImmutableArray() ?? ImmutableArray<string>.Empty;
+        Directors = CopyStrings(directors);
+        Actors = CopyStrings(actors);
+        Genres = FreezeStrings(genres);
+        Writers = FreezeStrings(writers);
     }
+
+    private static IReadOnlyList<string> CopyStrings(IEnumerable<string>? source) =>
+        source?.ToArray() ?? [];
+
+    private static ImmutableArray<string> FreezeStrings(IEnumerable<string>? source) =>
+        source?.ToImmutableArray() ?? ImmutableArray<string>.Empty;
 
     public string Title { get; }
 
