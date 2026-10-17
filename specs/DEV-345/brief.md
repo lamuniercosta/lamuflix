@@ -102,3 +102,66 @@ Quill must replace all ten open drafting placeholders with these decisions acros
 ## Handoff
 
 Patron has persisted and Keel has read back `CONCLUSIONS.md` and `ASSUMPTIONS.md`; the resolved exchanges are recorded before handoff. Quill drafts the three planning artifacts from this brief. Keel then performs read-only speckit analysis and brief-to-plan/tasks comparison; challenger adjudication and plan freeze remain later steps. No production code was written by Keel.
+
+## Phase 2 step 6 — Three-axis plan challenge adjudication
+
+Keel adjudicated all three required reports on 2026-10-17: `findings-DEV-345-Sentry:8-24`, `findings-DEV-345-Ledger:13-51`, and `findings-DEV-345-Compass:9-31`. Authority: Patron ruling at `0b72072`, `CONCLUSIONS.md:62-75`, read back by Keel. Evidence was limited to the named DEV-345 note, the three reports, and `specs/DEV-345/`, then the Conductor-authorized bounded answer `recon-DEV-345-2:7-22` to close M2; no production-code reconnaissance or new measurements were performed.
+
+The reports contain 0 Critical, 0 High, 3 Medium, and 8 Low findings. All 11 have an explicit disposition below. Seven are accepted with the bounded adjustments stated; four proposed changes are rejected, including S6 recorded as noted with no ticket. These are plan decisions, not implementation verification results.
+
+| Axis / ID | Severity | Ruling | Evidence and disposition |
+|---|---|---|---|
+| Sentry R-1 | Low | Accept | Record the statelessness rationale rather than add a concurrency test: immutable reported-dimension configuration, fresh per-item/per-call buffers, static SHA-256 operations, and no mutable shared state. This follows Q2 and `plan.md:137-140`; no cache or synchronization abstraction is added. |
+| Sentry R-2 | Low | Reject | `spec.md` FR-012/FR-013 and drafting decisions 4/8 do not promise exception precedence for an already-cancelled call with a null batch. Do not introduce a null-before-cancellation requirement. Preserve isolated exception tests and all three cancellation checkpoints. |
+| Ledger S1 | Medium | Reject | Drafting decision 9 explicitly approves both root-level test paths. `plan.md:94` and `tasks.md:20` use the matching project-root namespace. The supplied evidence does not establish a mandatory production-namespace mirror that overrides this ruling. No test relocation. |
+| Ledger S2 | Low | Reject | Q1 and drafting decision 7 explicitly place the constant/validation helper beside the approved external port in `Core/Ports`. This helper declares no additional port or layer. No relocation to Domain. |
+| Ledger S3 | Low | Accept | Make homogeneous case matrices parameterized with `[Theory]` and `[MemberData]`/`[InlineData]`, following the standard cited in the Ledger report and Patron ruling. Apply to suitable T008-T010, T017, and T019 cases; keep distinct behavioral shapes separate. |
+| Ledger S4 | Low | Accept | State `public sealed class FakeEmbeddingGenerator` in plan and T006 so the existing UnitTests project can consume it across project boundaries. No visibility workaround or new project. |
+| Ledger S5 | Low | Accept | Require one narrowly scoped intentional-empty-block justification inside no-op `Dispose`, under the existing comment exemption. Disposal behavior remains unchanged. |
+| Ledger S6 | Low | Reject follow-up ticket; noted | The older Core dependency table is already reconciled for this ticket by Q3 and `plan.md:39,98`. Patron rules noted, no ticket. Do not edit the constitution or ask Rigger to file this Low documentation observation. |
+| Compass M1 | Medium | Accept | `tasks.md:78-81` lacks an explicit instrument for asserting zero generation calls. Use existing NSubstitute interface substitutes for matching, mismatched, absent, and null metadata, and explicitly verify no `GenerateAsync` call. Keep the sealed fake unchanged. Retain fake integration in T007/T019 for SC-006. |
+| Compass M2 | Medium | Accept proof-design gap; reject contract weakening | T018 must assert observable cancellation failures and no returned partial batch, rather than directly observing calls to `ThrowIfCancellationRequested`. Preserve entry, per-item, and pre-return checkpoints from drafting decision 8 and FR-013. Use a test-local instrumented `IEnumerable<string>` as confirmed by `recon-DEV-345-2:7-22`, with the three deterministic cancellation cases in fix item 2 below. Ordinary successful-path tests alone do not prove the pre-return cancellation checkpoint. |
+| Compass L1 | Low | Accept | Annotate `plan.md:117` and T004/T022: the allowlist entry is forward-looking for DEV-412. DEV-345 checks the bounded edit and preservation of unrelated rules; it must not invent feature-folder consumers to exercise the allowance. |
+
+### Required drafting adjustments — one numbered fix list
+
+These decisions supersede conflicting proof-design wording above while preserving the frozen delivery scope, file paths, phase order, and two-round cap. Quill owns plan/tasks drafting; Keel has not edited those artifacts in this adjudication.
+
+1. **M1:** Update the plan verification section and T007-T010 to specify NSubstitute interface substitutes, configured metadata, and zero recorded generation calls. Keep a default-fake validation integration case in T007 and the overridden-fake rejection/generation integration proof in T019. Correct the task introduction, Phase 3 checkpoint, Phase 5 goal, dependency explanations, and MVP narrative wherever they say the fake is necessary to fabricate metadata cases. Preserve the approved phase order; distinguish that sequencing decision from a technical dependency of the substitute proofs.
+2. **M2:** Keep the triple checkpoint contract unchanged. T018 uses a test-local instrumented `IEnumerable<string>` and its enumerator, with a test-owned cancellation source and no timing or thread-scheduling dependency. Cover (a) a token cancelled before the call, asserting `OperationCanceledException` and that enumeration never starts; (b) cancellation during enumeration between items, when a later `MoveNext()` yields an item, asserting `OperationCanceledException` without advancing to another item or returning a partial batch; and (c) cancellation inside the final `MoveNext()` immediately before it returns false, asserting `OperationCanceledException` instead of a successful complete or partial batch. Await each `GenerateAsync` task and assert no generated batch is returned. These are observable cancellation outcomes, not direct observations of calls to `ThrowIfCancellationRequested`; retain inspection of the required checkpoint placement. No fake configuration, production hook, wrapper, dependency, or new test file is added: keep instrumentation local to `tests/LamuFlix.UnitTests/FakeEmbeddingGeneratorTests.cs`.
+3. **S3:** Add explicit parameterized-test guidance for homogeneous validation, options, and reported-dimension matrices, without combining different behavioral shapes or duplicating the generation algorithm in tests.
+4. **S4/S5:** State public sealed accessibility and the single allowed empty-block justification for no-op disposal in the plan and T006. No other explanatory comments are authorized.
+5. **R-1/L1:** Record the statelessness rationale and the forward-looking allowlist purpose in the relevant plan/task sections. Add no concurrency test requirement and no feature consumer. Retain the approved helper/test locations and existing exception contracts. S6 needs neither a constitution edit nor a follow-up ticket.
+
+### Outcome and bounded recon closure
+
+Adjudication is complete for all 11 findings, including finalized M2 proof wording; no adjudication question or recon gap remains. Drafting remediation and plan freeze are not complete. No Critical/High finding blocks under the closing bar, but accepted drafting changes must be applied and checked before claiming the adjusted plan is frozen. Gate 1 remains closed; no build, gate, review-clearance, or merge claim is made.
+
+The former bounded signature question is closed by the Conductor-authorized note `recon-DEV-345-2:7-22`. Its package-source evidence at tag `v10.11.0` gives the verbatim declaration:
+
+```csharp
+Task<GeneratedEmbeddings<TEmbedding>> GenerateAsync(
+    IEnumerable<TInput> values,
+    EmbeddingGenerationOptions? options = null,
+    CancellationToken cancellationToken = default);
+```
+
+For this fake, `TInput` is `string`, so the parameter is `IEnumerable<string> values`; there is no use-site `in` modifier. This confirms the test-local instrumented-sequence approach already conditionally approved by Patron at `CONCLUSIONS.md:74`; it changes no scope or contract. Keel read only the newly authorized note and this brief during closure, without opening package sources or other recon notes. No owner structural checkbox is introduced. Quill can now apply the complete five-item fix list above before Keel checks the resulting plan/tasks for freeze.
+
+## Phase 2 step 6 — Plan freeze receipt (2026-10-17)
+
+Status: FROZEN. Keel checked Quill's adjusted `spec.md`, `plan.md`, and `tasks.md` against all five required drafting adjustments above. All five are incorporated consistently; no further fix round or decision change is required. This receipt supersedes the earlier pending-remediation and pending-freeze status, while retaining the adjudication history.
+
+| Fix | Verified evidence | Freeze disposition |
+|---|---|---|
+| 1 — M1 | `plan.md:152,164-175`; `tasks.md:7-9,53,74-82,135-141,175-184`; `spec.md:19,23-27,78,103,106` | NSubstitute metadata cases each assert zero recorded generation calls. Default-fake validation stays in T007 and overridden-fake rejection/generation stays in T019. Technical dependencies are distinguished from approved phase sequencing. |
+| 2 — M2 | `plan.md:144,156`; `tasks.md:100` (T018); `spec.md:50,67,87,105` | Triple checkpoint contract preserved. Test-local sequence/enumerator instrumentation produces deterministic entry, between-item, and final-MoveNext cancellation outcomes. Each task is awaited, cancellation throws, and no complete or partial batch returns. Placement inspection is retained; no production hook or new file. |
+| 3 — S3 | `plan.md:154`; `tasks.md:79-82,99,101,201` | Homogeneous integer/options/override matrices use theories and data rows. Absent metadata, null dimension, and null generator remain distinct behavioral shapes. No algorithm duplication. |
+| 4 — S4/S5 | `plan.md:136,146,158`; `tasks.md:66,200`; `spec.md:89` | Fake is public sealed across project boundaries. No-op Dispose has one intentional-empty-block justification; no other explanatory comment is authorized. Disposal contract stays unchanged. |
+| 5 — R-1/L1 | `plan.md:29,117,141,160-162`; `tasks.md:51,66,113,198-202`; `spec.md:79,90,115` | Statelessness rationale and forward-looking DEV-412 allowlist purpose recorded. No concurrency-test requirement, feature consumer, constitution edit, or S6 follow-up ticket. Approved paths and exception contracts retained. |
+
+The spec retains behavior and scope; the plan and tasks carry the implementation/proof details. All 16 functional requirements and six success criteria remain represented by the 32-task sequence. No delivery scope, dependency choice, public contract, file boundary, review cap, or owner ruling changed in this check. No owner structural checkbox is introduced.
+
+Evidence boundary for this freeze check: `F:/Dev/LamuFlix.worktrees/feature-345-spec/specs/DEV-345/` and canvas note `DEV-345`. Prior challenger and recon conclusions are used only as already persisted in this brief; no challenger/recon note, production file, package source, or external project document was opened for this check. This was a bounded artifact consistency check, not a fresh full skill/script analysis or implementation verification.
+
+Gate 1 remains closed pending the user's spec approval/merge. This plan freeze authorizes no implementation, production gate PASS, review clearance, merge-bar signoff, or merge. No implementation tests were run. The planning diff whitespace check is recorded separately from implementation gates.
