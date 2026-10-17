@@ -4,6 +4,7 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace LamuFlix.UnitTests.Persistence;
@@ -151,8 +152,14 @@ public sealed class MovieModelTests
     {
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
             .UseNpgsql()
+            .ReplaceService<IModelCacheKeyFactory, UncachedModelCacheKeyFactory>()
             .Options;
         return new LamuFlixDbContext(options);
+    }
+
+    private sealed class UncachedModelCacheKeyFactory : IModelCacheKeyFactory
+    {
+        public object Create(DbContext context, bool designTime) => Guid.NewGuid();
     }
 
     private static IEntityType RequireEntity(LamuFlixDbContext context, Type clrType)
