@@ -158,3 +158,14 @@ Patron answered:
 - Basis 3 (Green-commit phasing, live gate thresholds, separate OpenAPI verdict & residuals — Compass M1/M2/L1/L3, Sentry M3/L2, Ledger L1/L3): `AGENTS.md` Non-negotiables ("Never hardcode a threshold") and `.specify/memory/constitution.md:368-420` require live `harness.yml` thresholds and distinct gate verdicts; move the `MigrationTests.cs` count/name tripwire update (`2` -> `3`) into T006, commit endpoint/read/contract work (`T017`–`T021`) only at green phase boundaries, drop literal `-Threshold 6` from T024, add a separate OpenAPI snapshot/drift verdict to T025, annotate historical `recon-DEV-352` line citations, retain Q4 retry-after-ambiguous-409 and Q2 downgrade data-loss as accepted residuals, and record Ledger L1/L3 Low doc/layout drift as `noted, no ticket` under Charter §2.3.
 
 Implications: Sentry H1 and Ledger H1 are resolved within the existing `EfMovieRepository`/`EfMovieCatalog` architecture. Q11's two `blocked: structural` owner checkboxes remain open and Gate 1 remains closed.
+
+---
+## Phase 2 step 7 — Gate 1 provisional ruling
+
+Conductor / Keel (`DEV-352:74-79,120-144`, `specs/DEV-352/plan.md:155-180`): Ratify closure of `/speckit-analyze` and Phase 2 step 6 plan challenge adjudication and set `gate1: provisional` on `specs/DEV-352/spec.md:7`, carrying the two unresolved Q11 structural owner checkboxes onto the spec PR body (Gate 1 stays closed until resolved before merge).
+
+Patron answered:
+[from Patron] DEV-352 Phase 2 step 7 ruling: `gate1: provisional` set on `specs/DEV-352/spec.md:7` with both Q11 (`blocked: structural`) owner decision checkboxes carried unresolved onto the spec PR body (Gate 1 stays closed until the owner answers both checkboxes before merging).
+- Basis 1: `/speckit-analyze` is clean (`DEV-352:74-79`, `analyze-DEV-352:60-109`, `21/21` requirement associations across `26` tasks) and all 16 Phase 2 step 6 plan-challenge findings across Sentry (`findings-DEV-352-Sentry:1-67`), Ledger (`findings-DEV-352-Ledger:1-72`), and Compass (`findings-DEV-352-Compass:1-33`) are adjudicated and closed at planning level (`DEV-352:120-144`, `specs/DEV-352/plan.md:155-180`, `CONCLUSIONS.md` Q12).
+- Basis 2: Both Q11 §2.3(b) constitution-departure checkboxes (`CONCLUSIONS.md:140-147`, `spec.md:133-141`, `plan.md:39-46`, `tasks.md:14-18` — omitting per-command FluentValidation `IValidator<TCommand>` registrations for the four `MovieId`-only feedback commands under `.specify/memory/constitution.md:219-220`, and generating a reversible additive EF migration for `movies.is_watched` and `movies.is_not_interested` without editing `20260930153520_Initial.cs` under `.specify/memory/constitution.md:335-342`) remain unresolved and unchecked for the owner to decide on the spec PR before merging (Gate 1 stays closed until then).
+
