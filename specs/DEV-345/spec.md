@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-17
 
-**Status**: Draft
+**Status**: gate1: provisional
 
 **Input**: User description: "DEV-345 — Define the embedding port at a fixed length of 384 and a deterministic test generator so tests need no model download. Runtime adapter and real-embedding check stay out of scope."
 
