@@ -1,14 +1,19 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.UnitTests.Features;
+using LamuFlix.UnitTests.Pipeline;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -336,6 +341,34 @@ public sealed class OmdbMetadataProviderUnitTests
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.ReleaseYear.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_YearMissing_ReturnsNullReleaseYear()
+    {
+        // arrange
+        var body = """{ "Response": "True", "Title": "Solaris" }""";
+        var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.ReleaseYear.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_RuntimeMissing_ReturnsNullRuntime()
+    {
+        // arrange
+        var body = """{ "Response": "True", "Title": "Solaris" }""";
+        var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.Runtime.ShouldBeNull();
     }
 
     [Fact]
@@ -762,6 +795,69 @@ public sealed class OmdbMetadataProviderUnitTests
         {
             RequestUri = request.RequestUri;
             return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
+        }
+    }
+
+    [Collection(nameof(MetricsCollection))]
+    public sealed class DurationMetricTests
+    {
+        [Fact]
+        public async Task FindAsync_Success_RecordsDurationWithOmdbProvider()
+        {
+            // arrange
+            using var capture = new DurationCapture();
+            var provider = Provider(new StubHandler(HttpStatusCode.OK, RichBody));
+
+            // act
+            await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+            // assert
+            var measured = capture.Measurements.ShouldHaveSingleItem();
+            measured.Length.ShouldBe(1);
+            measured[0].Key.ShouldBe(TelemetryConstants.ProviderTagName);
+            measured[0].Value.ShouldBe(TelemetryConstants.OmdbProviderName);
+        }
+
+        [Fact]
+        public async Task FindAsync_Failure_RecordsDurationWithOmdbProvider()
+        {
+            // arrange
+            using var capture = new DurationCapture();
+            var provider = Provider(new StubHandler(HttpStatusCode.OK, "not json"));
+
+            // act
+            await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+            // assert
+            var measured = capture.Measurements.ShouldHaveSingleItem();
+            measured.Length.ShouldBe(1);
+            measured[0].Key.ShouldBe(TelemetryConstants.ProviderTagName);
+            measured[0].Value.ShouldBe(TelemetryConstants.OmdbProviderName);
+        }
+
+        private sealed class DurationCapture : IDisposable
+        {
+            private readonly ConcurrentQueue<KeyValuePair<string, object?>[]> measurements = [];
+            private readonly MeterListener listener = new();
+
+            public DurationCapture()
+            {
+                listener.InstrumentPublished = (instrument, meterListener) =>
+                {
+                    if (string.Equals(instrument.Meter.Name, TelemetryConstants.ActivitySourceName, StringComparison.Ordinal)
+                        && string.Equals(instrument.Name, TelemetryConstants.EnrichmentDurationMetricName, StringComparison.Ordinal))
+                    {
+                        meterListener.EnableMeasurementEvents(instrument);
+                    }
+                };
+                listener.SetMeasurementEventCallback<double>(
+                    (_, _, tags, _) => measurements.Enqueue(tags.ToArray()));
+                listener.Start();
+            }
+
+            public IReadOnlyList<KeyValuePair<string, object?>[]> Measurements => [.. measurements];
+
+            public void Dispose() => listener.Dispose();
         }
     }
 }
