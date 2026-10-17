@@ -33,7 +33,7 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T002 Add the centrally managed `Microsoft.Extensions.AI.Abstractions` package reference to `src/LamuFlix.Core/LamuFlix.Core.csproj`
+- [X] T002 Add the centrally managed `Microsoft.Extensions.AI.Abstractions` package reference to `src/LamuFlix.Core/LamuFlix.Core.csproj`
 
 **Checkpoint**: Core references the abstraction. No generator is registered in Api or Work.
 
