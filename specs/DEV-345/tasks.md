@@ -23,7 +23,7 @@
 
 **Purpose**: Pin the abstractions package the port needs
 
-- [ ] T001 Pin `Microsoft.Extensions.AI.Abstractions` version `10.11.0` in `Directory.Packages.props`
+- [X] T001 Pin `Microsoft.Extensions.AI.Abstractions` version `10.11.0` in `Directory.Packages.props`
 
 ---
 
