@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using LamuFlix.Core.Ports;
 using LamuFlix.Tests.Common;
@@ -69,8 +70,20 @@ public sealed class EmbeddingDimensionsTests
     }
 
     [Fact]
+    public void Validate_ReportedDimensionMismatch_MessageNamesExpectedDimension()
+    {
+        var generator = CreateSubstituteWithMetadata(
+            new EmbeddingGeneratorMetadata(defaultModelDimensions: 768));
+
+        var exception = Should.Throw<InvalidOperationException>(() => EmbeddingDimensions.Validate(generator));
+
+        exception.Message.ShouldContain(EmbeddingDimensions.Value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
     public void Validate_GeneratorIsNull_ThrowsArgumentNullException()
     {
+        // ReSharper disable once NullableWarningSuppressionIsUsed // intentional null-passing test
         Should.Throw<ArgumentNullException>(() => EmbeddingDimensions.Validate(null!));
     }
 

@@ -142,8 +142,10 @@ public sealed class FakeEmbeddingGeneratorTests
     public async Task GenerateAsync_MissingArgument_ThrowsArgumentNullException(bool nullBatch)
     {
         var generator = new FakeEmbeddingGenerator();
+        // ReSharper disable once NullableWarningSuppressionIsUsed // intentional null-element test input
         string[]? values = nullBatch ? null : new[] { "ok", null! };
 
+        // ReSharper disable once NullableWarningSuppressionIsUsed // intentional null-passing test
         await Should.ThrowAsync<ArgumentNullException>(() => GenerateAsync(generator, values!));
     }
 
@@ -187,7 +189,7 @@ public sealed class FakeEmbeddingGeneratorTests
     public async Task GenerateAsync_TokenCancelledBeforeCall_ThrowsWithoutEnumerating()
     {
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         var probe = new ProbeEnumerable(new[] { "one" });
 
         await AssertCancellationAsync(
@@ -203,6 +205,7 @@ public sealed class FakeEmbeddingGeneratorTests
         using var cancellation = new CancellationTokenSource();
         var probe = new ProbeEnumerable(
             new[] { "one", "two", "three" },
+            // ReSharper disable once AccessToDisposedClosure // callback runs before disposal within the test
             call => CancelOnCall(cancellation, call, 1));
 
         await AssertCancellationAsync(
@@ -218,6 +221,7 @@ public sealed class FakeEmbeddingGeneratorTests
         using var cancellation = new CancellationTokenSource();
         var probe = new ProbeEnumerable(
             new[] { "only" },
+            // ReSharper disable once AccessToDisposedClosure // callback runs before disposal within the test
             call => CancelOnCall(cancellation, call, 1));
 
         await AssertCancellationAsync(
@@ -252,6 +256,7 @@ public sealed class FakeEmbeddingGeneratorTests
     {
         var generator = new FakeEmbeddingGenerator();
 
+        // ReSharper disable once NullableWarningSuppressionIsUsed // intentional null-passing test
         Should.Throw<ArgumentNullException>(() => generator.GetService(null!));
     }
 
@@ -346,6 +351,7 @@ public sealed class FakeEmbeddingGeneratorTests
     {
         MemoryMarshal.TryGetArray(embedding.Vector, out ArraySegment<float> segment).ShouldBeTrue();
         segment.Array.ShouldNotBeNull();
+        // ReSharper disable once NullableWarningSuppressionIsUsed // asserted non-null on the previous line
         return segment.Array!;
     }
 
