@@ -238,6 +238,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, RichBody));
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed - intentional null exercises the guard clause.
         var failure = await Should.ThrowAsync<ArgumentNullException>(
             () => provider.FindAsync(null!, TestContext.Current.CancellationToken));
 
@@ -695,11 +696,9 @@ public sealed class OmdbMetadataProviderUnitTests
     {
         // arrange
         string? status = null;
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == "LamuFlix",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-        };
+        using var listener = new ActivityListener();
+        listener.ShouldListenTo = source => source.Name == "LamuFlix";
+        listener.Sample = (ref _) => ActivitySamplingResult.AllData;
         ActivitySource.AddActivityListener(listener);
         listener.ActivityStopped += activity => status = activity.Status.ToString();
         var provider = Provider(new StubHandler(HttpStatusCode.OK, "not json"));
@@ -765,9 +764,9 @@ public sealed class OmdbMetadataProviderUnitTests
 
     private sealed class CapturingLogger : ILogger<OmdbMetadataProvider>
     {
-        private readonly System.Collections.Concurrent.ConcurrentBag<string> messages = [];
+        private readonly ConcurrentBag<string> messages = [];
 
-        public System.Collections.Generic.IReadOnlyCollection<string> Messages => messages;
+        public IReadOnlyCollection<string> Messages => messages;
 
         public IDisposable BeginScope<TState>(TState state)
             where TState : notnull => NullScope.Instance;
