@@ -384,9 +384,11 @@ public sealed class EfMovieRepository : IMovieRepository
         where TEntity : class
     {
         var wanted = new HashSet<string>(candidateNames.Select(Normalize), StringComparer.Ordinal);
-        var all = await set.ToListAsync(ct);
+        var candidates = await set
+            .Where(entity => wanted.Contains(EF.Property<string>(entity, "Name").Trim().ToLower()))
+            .ToListAsync(ct);
         var matches = new List<TEntity>();
-        foreach (var entity in all)
+        foreach (var entity in candidates)
         {
             if (wanted.Contains(Normalize(nameOf(entity))))
             {
