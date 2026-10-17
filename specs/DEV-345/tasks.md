@@ -47,8 +47,8 @@
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] Add `public const int Value = 384` and `public static void Validate(IEmbeddingGenerator<string, Embedding<float>> generator)` in `src/LamuFlix.Core/Ports/EmbeddingDimensions.cs` (namespace `LamuFlix.Core.Ports`). Accept only `DefaultModelDimensions == 384`. Throw `InvalidOperationException` for absent metadata, a null dimension, or any other integer. Throw `ArgumentNullException` for a null generator. Do not call generation
-- [ ] T004 [P] [US1] Add `Microsoft.Extensions.AI` to `AllowedFeatureDependencies` in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` (allowlist cited at lines 301–304). The entry is forward-looking for DEV-412. Check the bounded edit and leave every other dependency rule unchanged. Do not add a feature-folder consumer to exercise the allowance
+- [X] T003 [US1] Add `public const int Value = 384` and `public static void Validate(IEmbeddingGenerator<string, Embedding<float>> generator)` in `src/LamuFlix.Core/Ports/EmbeddingDimensions.cs` (namespace `LamuFlix.Core.Ports`). Accept only `DefaultModelDimensions == 384`. Throw `InvalidOperationException` for absent metadata, a null dimension, or any other integer. Throw `ArgumentNullException` for a null generator. Do not call generation
+- [X] T004 [P] [US1] Add `Microsoft.Extensions.AI` to `AllowedFeatureDependencies` in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` (allowlist cited at lines 301–304). The entry is forward-looking for DEV-412. Check the bounded edit and leave every other dependency rule unchanged. Do not add a feature-folder consumer to exercise the allowance
 
 **Checkpoint**: The helper and the allowlist edit are in place. Metadata proofs use NSubstitute substitutes and do not wait on the fake to fabricate a reported dimension. The approved phase order still runs those proofs after the fake. That order is sequencing, separate from the substitute proofs' technical dependency on T003. The default-fake integration case is the part that needs the fake.
 
