@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -958,10 +959,13 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
             Now);
 
         // act
+        var elapsed = Stopwatch.StartNew();
         await repository.SaveChangesAsync(ct);
+        elapsed.Stop();
 
         // assert
         interceptor.FailureCount.ShouldBe(2);
+        elapsed.Elapsed.ShouldBeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(40));
         await using var verify = fixture.CreateMigratedContext();
         (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Retry Writer"]);
         (await verify.Movies.SelectMany(item => item.Writers).CountAsync(ct)).ShouldBe(1);
@@ -985,10 +989,13 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
             Now);
 
         // act
+        var elapsed = Stopwatch.StartNew();
         await repository.SaveChangesAsync(ct);
+        elapsed.Stop();
 
         // assert
         interceptor.FailureCount.ShouldBe(1);
+        elapsed.Elapsed.ShouldBeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(10));
         await using var verify = fixture.CreateMigratedContext();
         (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Deadlock Writer"]);
     }
@@ -1016,6 +1023,7 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         // assert
         FindPostgres(failure).ShouldNotBeNull().SqlState.ShouldBe("40001");
         interceptor.FailureCount.ShouldBe(3);
+        db.ChangeTracker.Entries().ShouldBeEmpty();
         await using var verify = fixture.CreateMigratedContext();
         (await verify.Writers.CountAsync(ct)).ShouldBe(0);
         (await verify.Genres.CountAsync(ct)).ShouldBe(0);
@@ -1097,6 +1105,7 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         // assert
         FindPostgres(failure).ShouldNotBeNull().SqlState.ShouldBe("40001");
         interceptor.FailureCount.ShouldBe(1);
+        db.ChangeTracker.Entries().ShouldBeEmpty();
         await ambient.RollbackAsync(ct);
     }
 
@@ -1145,6 +1154,161 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         (await verify.Movies.SelectMany(item => item.Genres).CountAsync(ct)).ShouldBe(2);
         (await verify.Movies.SelectMany(item => item.Directors).CountAsync(ct)).ShouldBe(2);
         (await verify.Movies.SelectMany(item => item.Actors).CountAsync(ct)).ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task MetadataSave_AmbientTransaction_CommitsWithoutOwnedRetry()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Ambient Success", "ambient-success", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.MarkEnriched(
+            SnapshotMetadata("Ambient", "tt0000031", ["Ambient Genre"], ["Ambient Director"], ["Ambient Writer"], ["Ambient Actor"], 60),
+            Now);
+
+        // act
+        await using var ambient = await db.Database.BeginTransactionAsync(ct);
+        await repository.SaveChangesAsync(ct);
+        await ambient.CommitAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking()
+            .Include(item => item.Writers)
+            .SingleAsync(item => item.Id == id, ct);
+        record.MetadataTitle.ShouldBe("Ambient");
+        record.Writers.Select(writer => writer.Name).ShouldBe(["Ambient Writer"]);
+    }
+
+    [Fact]
+    public async Task SaveChanges_WatchlistToggleTwice_PersistsFinalState()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Toggle", "toggle", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.AddToWatchlist();
+        await repository.SaveChangesAsync(ct);
+
+        // act
+        movie.RemoveFromWatchlist();
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.IsInWatchlist.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MetadataSave_MixedBatchWithConflict_RetriesMetadataWrite()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        var interceptor = new RetryableConflictInterceptor("40001", 1);
+        await using var db = OpenInstrumentedContext(fixture.ConnectionString, interceptor);
+        var repository = Repository(db);
+        var plainId = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(
+            Movie.Create(plainId, "Plain", new LibraryPath("C:/library/mutation-mixed-plain.mkv"), new MediaFormat("mkv")), ct);
+        var enrichedId = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(
+            Movie.Create(enrichedId, "Enriched", new LibraryPath("C:/library/mutation-mixed-enriched.mkv"), new MediaFormat("mkv")), ct);
+        var movie = await repository.GetAsync(enrichedId, ct);
+        movie.ShouldNotBeNull();
+        movie.MarkEnriched(
+            SnapshotMetadata("Mixed", "tt0000032", ["Mixed Genre"], [], ["Mixed Writer"], [], 60),
+            Now);
+
+        // act
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        interceptor.FailureCount.ShouldBe(1);
+        await using var verify = fixture.CreateMigratedContext();
+        (await verify.Movies.CountAsync(ct)).ShouldBe(2);
+        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Mixed Writer"]);
+    }
+
+    [Fact]
+    public async Task ConcurrentEnrichment_DirectorLock_BlocksBothSavesUntilRelease()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        await AssertRoleGateBlocksBothSavesAsync(2, "shared director", ct);
+    }
+
+    [Fact]
+    public async Task ConcurrentEnrichment_WriterLock_BlocksBothSavesUntilRelease()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        await AssertRoleGateBlocksBothSavesAsync(3, "shared writer", ct);
+    }
+
+    [Fact]
+    public async Task ConcurrentEnrichment_ActorLock_BlocksBothSavesUntilRelease()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        await AssertRoleGateBlocksBothSavesAsync(4, "shared actor", ct);
+    }
+
+    private async Task AssertRoleGateBlocksBothSavesAsync(int roleId, string key, CancellationToken ct)
+    {
+        // arrange
+        await fixture.ResetAsync(ct);
+        await using var contextA = fixture.CreateMigratedContext();
+        await using var contextB = fixture.CreateMigratedContext();
+        var repositoryA = Repository(contextA);
+        var repositoryB = Repository(contextB);
+        var movieA = Movie.Create(await repositoryA.NextIdentityAsync(ct), "Alpha", new LibraryPath("C:/library/mutation-gate-alpha.mkv"), new MediaFormat("mkv"));
+        var movieB = Movie.Create(await repositoryB.NextIdentityAsync(ct), "Bravo", new LibraryPath("C:/library/mutation-gate-bravo.mkv"), new MediaFormat("mkv"));
+        await repositoryA.AddAsync(movieA, ct);
+        await repositoryB.AddAsync(movieB, ct);
+        movieA.MarkEnriched(
+            SnapshotMetadata("Alpha", "tt0000041", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 60), Now);
+        movieB.MarkEnriched(
+            SnapshotMetadata("Bravo", "tt0000042", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 61), Now);
+
+        await using var gate = fixture.CreateMigratedContext();
+        await using (var gateTransaction = await gate.Database.BeginTransactionAsync(ct))
+        {
+            await gate.Database.ExecuteSqlRawAsync(
+                "SELECT pg_advisory_xact_lock({0}, hashtext({1}))", [roleId, key], ct);
+
+            var saveA = repositoryA.SaveChangesAsync(ct);
+            var saveB = repositoryB.SaveChangesAsync(ct);
+            await Task.Delay(300, ct);
+            saveA.IsCompleted.ShouldBeFalse();
+            saveB.IsCompleted.ShouldBeFalse();
+
+            await gateTransaction.RollbackAsync(ct);
+            await Task.WhenAll(saveA, saveB);
+        }
+
+        // assert
+        await using var verify = fixture.CreateMigratedContext();
+        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe(["Drama"]);
+        (await verify.Directors.Select(director => director.Name).ToArrayAsync(ct)).ShouldBe(["Shared Director"]);
+        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Shared Writer"]);
+        (await verify.Actors.Select(actor => actor.Name).ToArrayAsync(ct)).ShouldBe(["Shared Actor"]);
     }
 
     [Fact]
