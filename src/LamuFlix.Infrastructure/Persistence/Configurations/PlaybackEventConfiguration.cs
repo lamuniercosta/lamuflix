@@ -11,7 +11,6 @@ public sealed class PlaybackEventConfiguration : IEntityTypeConfiguration<Playba
     public void Configure(EntityTypeBuilder<PlaybackEventRecord> builder)
     {
         builder.ToTable("playback_events");
-        builder.HasKey(playbackEvent => playbackEvent.Id);
         builder.Property(playbackEvent => playbackEvent.Id)
             .HasColumnName("id")
             .HasColumnType("integer")
@@ -27,7 +26,6 @@ public sealed class PlaybackEventConfiguration : IEntityTypeConfiguration<Playba
             .HasColumnName("played_at")
             .HasColumnType("timestamptz")
             .IsRequired();
-        builder.HasIndex(playbackEvent => playbackEvent.MovieId);
         builder.HasOne<MovieRecord>()
             .WithMany()
             .HasForeignKey(playbackEvent => playbackEvent.MovieId)
