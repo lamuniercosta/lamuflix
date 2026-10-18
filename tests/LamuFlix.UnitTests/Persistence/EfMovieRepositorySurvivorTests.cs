@@ -1611,9 +1611,10 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         return id;
     }
 
-    private static LamuFlixDbContext OpenSibling(LamuFlixDbContext source)
+    private LamuFlixDbContext OpenSibling(LamuFlixDbContext source)
     {
-        var connectionString = source.Database.GetConnectionString();
+        ArgumentNullException.ThrowIfNull(source);
+        var connectionString = fixture.ConnectionString;
         connectionString.ShouldNotBeNullOrWhiteSpace();
         return LamuFlixDbContextFactory.OpenContext(connectionString);
     }
