@@ -13,12 +13,10 @@ namespace LamuFlix.Tests.Common;
 
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private const string MigrationsHistoryTable = "__EFMigrationsHistory";
     private const string DefaultSchema = "public";
     private const string LockTimeoutStatement = "SET LOCAL lock_timeout = '10s'";
 
     private PostgreSqlContainer? _container;
-    private string? _truncateStatement;
 
     public PostgreSqlContainer Container =>
         _container ?? throw new InvalidOperationException(
@@ -35,7 +33,6 @@ public sealed class PostgresFixture : IAsyncLifetime
                 "pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d").Build();
             await _container.StartAsync(cancellationToken);
             await MigrateAsync(cancellationToken);
-            _truncateStatement = BuildTruncate(CreateMigratedContext());
         }
         catch
         {
@@ -63,9 +60,13 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public async Task ResetAsync(CancellationToken cancellationToken)
     {
-        var statement = _truncateStatement ?? throw new InvalidOperationException(
-            "PostgresFixture has not been initialized. InitializeAsync must run first.");
         await using var context = CreateMigratedContext();
+        var statement = await BuildTruncateAsync(context, cancellationToken);
+        if (statement is null)
+        {
+            return;
+        }
+
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         await context.Database.ExecuteSqlRawAsync(LockTimeoutStatement, cancellationToken);
         await context.Database.ExecuteSqlRawAsync(statement, cancellationToken);
@@ -78,19 +79,28 @@ public sealed class PostgresFixture : IAsyncLifetime
         await context.Database.MigrateAsync(cancellationToken);
     }
 
-    private static string BuildTruncate(LamuFlixDbContext context)
+    private static async Task<string?> BuildTruncateAsync(
+        LamuFlixDbContext context,
+        CancellationToken cancellationToken)
     {
+        const string sql = """
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name <> '__EFMigrationsHistory'
+            ORDER BY table_name
+            """;
+        var tables = await context.Database
+            .SqlQueryRaw<string>(sql)
+            .ToListAsync(cancellationToken);
+        if (tables.Count == 0)
+        {
+            return null;
+        }
+
         var delimits = context.GetService<ISqlGenerationHelper>();
         var targets = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var entityType in context.Model.GetEntityTypes())
+        foreach (var table in tables)
         {
-            var table = entityType.GetTableName();
-            if (table is null || string.Equals(table, MigrationsHistoryTable, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            targets.Add(delimits.DelimitIdentifier(table, entityType.GetSchema() ?? DefaultSchema));
+            targets.Add(delimits.DelimitIdentifier(table, DefaultSchema));
         }
 
         return $"TRUNCATE TABLE {string.Join(", ", targets)} RESTART IDENTITY CASCADE";
