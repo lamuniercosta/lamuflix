@@ -1,7 +1,7 @@
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
 using LamuFlix.Core.Ports;
 using LamuFlix.Core.Pipeline;
 
@@ -14,19 +14,13 @@ public sealed class PlayMovieCommandHandler(
     TimeProvider timeProvider)
     : ICommandHandler<PlayMovieCommand, Unit>
 {
-    [SuppressMessage("Style", "IDE0052:Remove unread private members", Justification = "Retained until the recording step uses it.")]
-    [SuppressMessage("Performance", "CA1823:Avoid unused private fields", Justification = "Retained until the recording step uses it.")]
-    private readonly IPlaybackHistory playbackHistory = playbackHistory;
-
-    [SuppressMessage("Style", "IDE0052:Remove unread private members", Justification = "Retained until the recording step uses it.")]
-    [SuppressMessage("Performance", "CA1823:Avoid unused private fields", Justification = "Retained until the recording step uses it.")]
-    private readonly TimeProvider timeProvider = timeProvider;
-
     public async Task<Unit> HandleAsync(PlayMovieCommand command, CancellationToken cancellationToken)
     {
         var details = await catalog.GetDetailsAsync(command.Id, cancellationToken)
                       ?? throw new NotFoundException();
         launcher.Launch(details.Path, details.Format);
+        var playedAt = timeProvider.GetUtcNow();
+        await playbackHistory.RecordAsync(new PlaybackEvent(command.Id, playedAt), cancellationToken);
         return Unit.Value;
     }
 }
