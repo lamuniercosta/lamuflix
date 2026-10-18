@@ -175,7 +175,9 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
         await using var command = connection.CreateCommand();
         command.CommandText =
             "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND udt_name = 'vector')";
-        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        ArgumentNullException.ThrowIfNull(result);
+        return (bool)result;
     }
 
     private async Task<int> FirstIdentityAsync(CancellationToken cancellationToken)

@@ -196,7 +196,9 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
         await using var command = connection.CreateCommand();
         command.CommandText =
             "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND udt_name = 'vector')";
-        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        ArgumentNullException.ThrowIfNull(result);
+        return (bool)result;
     }
 
     private async Task<ServiceCollection> ComposeAsync()
