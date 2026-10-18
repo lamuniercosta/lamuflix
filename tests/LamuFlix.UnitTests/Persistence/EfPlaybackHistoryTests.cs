@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -61,6 +60,7 @@ public sealed class EfPlaybackHistoryGuardTests
         var history = new EfPlaybackHistory(db);
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var failure = await Should.ThrowAsync<ArgumentNullException>(
             () => history.RecordAsync(null!, TestContext.Current.CancellationToken));
 
