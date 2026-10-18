@@ -1,4 +1,5 @@
 using System;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,6 +7,7 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Pgvector;
 using Shouldly;
 using Xunit;
 
@@ -122,6 +124,58 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
 
         // assert
         await Should.NotThrowAsync(act);
+    }
+
+    [Fact]
+    public async Task SharedFactory_RoundTripsAParameterizedVectorWithoutLeavingAVectorTable()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = LamuFlixDbContextFactory.OpenContext(fixture.ConnectionString);
+        var sent = new Vector(new float[] { 1, 2, 3 });
+
+        // act
+        var received = await RoundTripVectorAsync(context, sent, cancellationToken);
+
+        // assert
+        received.ShouldBe(sent);
+        (await HasVectorColumnAsync(context, cancellationToken)).ShouldBeFalse();
+    }
+
+    private static async Task<Vector?> RoundTripVectorAsync(
+        LamuFlixDbContext context,
+        Vector value,
+        CancellationToken cancellationToken)
+    {
+        var connection = context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT @value::vector";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "value";
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+        return (Vector?)await command.ExecuteScalarAsync(cancellationToken);
+    }
+
+    private static async Task<bool> HasVectorColumnAsync(
+        LamuFlixDbContext context,
+        CancellationToken cancellationToken)
+    {
+        var connection = context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND udt_name = 'vector')";
+        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
     }
 
     private async Task<int> FirstIdentityAsync(CancellationToken cancellationToken)

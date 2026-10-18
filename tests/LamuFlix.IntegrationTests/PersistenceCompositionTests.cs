@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
@@ -8,9 +11,15 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.ServiceDefaults;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 using Shouldly;
 using Xunit;
 
@@ -90,6 +99,104 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
         loaded.Id.ShouldBe(id);
         loaded.Title.ShouldBe(movie.Title);
         loaded.Path.ShouldBe(movie.Path);
+    }
+
+    [Fact]
+    public async Task ComposedRegistration_RoundTripsAParameterizedVectorWithoutLeavingAVectorTable()
+    {
+        // arrange
+        var services = await ComposeAsync();
+        await using var provider = services.BuildServiceProvider(Validating());
+        await using var scope = provider.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<LamuFlixDbContext>();
+        var sent = new Vector(new float[] { 1, 2, 3 });
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var received = await RoundTripVectorAsync(context, sent, cancellationToken);
+
+        // assert
+        received.ShouldBe(sent);
+        (await HasVectorColumnAsync(context, cancellationToken)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void DesignTimeFactory_EnablesVectorDeclaresTheExtensionAndGeneratesTheExpectedMigration()
+    {
+        // arrange
+        var previous = Environment.GetEnvironmentVariable(
+            LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable,
+                fixture.ConnectionString);
+            using var context = new LamuFlixDesignTimeDbContextFactory().CreateDbContext([]);
+
+            // act
+            var options = context.GetService<IDbContextOptions>();
+            var designTimeModel = context.GetService<IDesignTimeModel>().Model;
+            var script = GenerateMigrationScript(context, "_AddMovieWriters", "_EnableVector");
+
+            // assert
+            options.Extensions.OfType<VectorDbContextOptionsExtension>().ShouldNotBeEmpty();
+            PostgresExtension.FindPostgresExtension(designTimeModel, null, "vector").ShouldNotBeNull();
+            script.ShouldContain("CREATE EXTENSION IF NOT EXISTS vector");
+            script.ShouldNotContain("CREATE TABLE");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable,
+                previous);
+        }
+    }
+
+    private static string GenerateMigrationScript(
+        LamuFlixDbContext context,
+        string fromSuffix,
+        string toSuffix)
+    {
+        var migrations = context.Database.GetMigrations().ToArray();
+        var from = migrations.Single(id => id.EndsWith(fromSuffix, StringComparison.Ordinal));
+        var to = migrations.Single(id => id.EndsWith(toSuffix, StringComparison.Ordinal));
+        return context.Database.GetService<IMigrator>().GenerateScript(from, to);
+    }
+
+    private static async Task<Vector?> RoundTripVectorAsync(
+        LamuFlixDbContext context,
+        Vector value,
+        CancellationToken cancellationToken)
+    {
+        var connection = context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT @value::vector";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "value";
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+        return (Vector?)await command.ExecuteScalarAsync(cancellationToken);
+    }
+
+    private static async Task<bool> HasVectorColumnAsync(
+        LamuFlixDbContext context,
+        CancellationToken cancellationToken)
+    {
+        var connection = context.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND udt_name = 'vector')";
+        return (bool)(await command.ExecuteScalarAsync(cancellationToken))!;
     }
 
     private async Task<ServiceCollection> ComposeAsync()
