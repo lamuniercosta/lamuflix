@@ -100,18 +100,101 @@ public sealed class MigrationTests(PostgresFixture fixture)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var catalog = new PostgresCatalog(context);
         var migrator = context.Database.GetService<IMigrator>();
         await migrator.MigrateAsync("20261016195556_AddMovieWriters", cancellationToken);
-        await InsertLegacyMovieAsync(context, "Upgrade Survivor", "C:/library/upgrade-survivor.mkv", cancellationToken);
+        var seeded = new[]
+        {
+            new LegacyMovie("Upgrade Survivor", "C:/library/upgrade-survivor.mkv", "mkv", 0),
+            new LegacyMovie("Upgrade Second", "C:/library/upgrade-second.mp4", "mp4", 1),
+            new LegacyMovie("Upgrade Third", "C:/library/upgrade-third.avi", "avi", 2),
+        };
+        foreach (var movie in seeded)
+        {
+            await InsertLegacyMovieAsync(context, movie, cancellationToken);
+        }
+
+        var priorCount = await ReadLegacyMovieCountAsync(context, cancellationToken);
+        var priorTitles = await ReadLegacyMovieTitlesAsync(context, cancellationToken);
+        priorCount.ShouldBeGreaterThan(0);
+        priorTitles.ShouldBe(seeded.Select(movie => movie.Title), ignoreOrder: true);
 
         await migrator.MigrateAsync(null, cancellationToken);
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
         applied[^1].ShouldEndWith("_AddManualImdbId");
-        (await context.Movies.SingleAsync(cancellationToken)).Title.ShouldBe("Upgrade Survivor");
-        await AssertPublicTablesAsync(new PostgresCatalog(context), cancellationToken);
-        (await new PostgresCatalog(context).ListPostgresExtensionsAsync(cancellationToken)).ShouldContain("vector");
+        var rows = await context.Movies.AsNoTracking()
+            .OrderBy(movie => movie.Title)
+            .ToListAsync(cancellationToken);
+        rows.Count.ShouldBe(priorCount);
+        foreach (var movie in seeded)
+        {
+            var row = rows.Single(item => item.Title == movie.Title);
+            row.LibraryPath.Value.ShouldBe(movie.LibraryPath);
+            row.Format.Extension.ShouldBe(movie.Format);
+            row.Status.Value.ShouldBe(movie.Status);
+            row.IsWatched.ShouldBeFalse();
+            row.IsNotInterested.ShouldBeFalse();
+        }
+
+        await AssertFeedbackColumnsAsync(catalog, cancellationToken);
+        await AssertPublicTablesAsync(catalog, cancellationToken);
+        (await catalog.ListPostgresExtensionsAsync(cancellationToken)).ShouldContain("vector");
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MigrateAsync_AddMovieFeedbackMarksRolledBack_DropsOnlyTheTwoColumnsAndKeepsRows()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var catalog = new PostgresCatalog(context);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync(null, cancellationToken);
+        await AssertFeedbackColumnsAsync(catalog, cancellationToken);
+        var latestColumns = await catalog.ListColumnsAsync("movies", cancellationToken);
+        var seeded = new[]
+        {
+            new MovieRecord
+            {
+                Title = "Down Survivor",
+                LibraryPath = new LibraryPath("C:/library/down-survivor.mkv"),
+                Format = new MediaFormat("mkv"),
+                Status = EnrichmentStatus.Pending,
+                IsWatched = true,
+                IsNotInterested = true,
+                IsInWatchlist = true,
+            },
+            new MovieRecord
+            {
+                Title = "Down Second",
+                LibraryPath = new LibraryPath("C:/library/down-second.mp4"),
+                Format = new MediaFormat("mp4"),
+                Status = EnrichmentStatus.Enriched,
+            },
+        };
+        context.Movies.AddRange(seeded);
+        await context.SaveChangesAsync(cancellationToken);
+        var expected = seeded
+            .Select(movie => new LegacyMovie(movie.Title, movie.LibraryPath.Value, movie.Format.Extension, movie.Status.Value))
+            .OrderBy(movie => movie.Title)
+            .ToArray();
+
+        await migrator.MigrateAsync("20261016195556_AddMovieWriters", cancellationToken);
+
+        var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+        applied.Length.ShouldBe(2);
+        applied[0].ShouldEndWith("_Initial");
+        applied[1].ShouldEndWith("_AddMovieWriters");
+        var priorColumns = await catalog.ListColumnsAsync("movies", cancellationToken);
+        priorColumns.ShouldBe(
+            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested"),
+            ignoreOrder: true);
+        priorColumns.ShouldNotContain("is_watched");
+        priorColumns.ShouldNotContain("is_not_interested");
+        var rows = await catalog.ListLegacyMoviesAsync(cancellationToken);
+        rows.ShouldBe(expected, ignoreOrder: true);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
     }
 
@@ -230,6 +313,45 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await AssertJoinPrimaryKeysAsync(catalog, cancellationToken);
         await AssertMovieIndexDefinitionsAsync(catalog, cancellationToken);
     }
+
+    private static Task InsertLegacyMovieAsync(
+        LamuFlixDbContext context,
+        LegacyMovie movie,
+        CancellationToken cancellationToken) =>
+        context.Database.ExecuteSqlRawAsync(
+            "INSERT INTO movies (title, library_path, format, status, enrichment_attempts, is_in_watchlist) VALUES ({0}, {1}, {2}, {3}, {4}, {5})",
+            [movie.Title, movie.LibraryPath, movie.Format, movie.Status, 0, false],
+            cancellationToken);
+
+    private static Task<int> ReadLegacyMovieCountAsync(
+        LamuFlixDbContext context,
+        CancellationToken cancellationToken) =>
+        context.Database
+            .SqlQueryRaw<int>("SELECT COUNT(*)::int AS \"Value\" FROM movies")
+            .SingleAsync(cancellationToken);
+
+    private static Task<List<string>> ReadLegacyMovieTitlesAsync(
+        LamuFlixDbContext context,
+        CancellationToken cancellationToken) =>
+        context.Database
+            .SqlQueryRaw<string>("SELECT title AS \"Value\" FROM movies ORDER BY title")
+            .ToListAsync(cancellationToken);
+
+    private static async Task AssertFeedbackColumnsAsync(
+        PostgresCatalog catalog,
+        CancellationToken cancellationToken)
+    {
+        var columns = await catalog.ListMovieFeedbackColumnsAsync(cancellationToken);
+        columns.Count.ShouldBe(2);
+        columns.Select(column => column.Name).ShouldBe(["is_not_interested", "is_watched"], ignoreOrder: true);
+        foreach (var column in columns)
+        {
+            column.IsNullable.ShouldBeFalse($"Column movies.{column.Name} must be NOT NULL.");
+            column.DefaultValue.ShouldBe("false", $"Column movies.{column.Name} must default to false.");
+        }
+    }
+
+    private sealed record LegacyMovie(string Title, string LibraryPath, string Format, int Status);
 
     private static async Task AssertPublicTablesAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
     {
@@ -393,6 +515,54 @@ public sealed class MigrationTests(PostgresFixture fixture)
                 row => row.Left,
                 row => row.Right == "YES",
                 StringComparer.Ordinal);
+        }
+
+        public async Task<List<(string Name, bool IsNullable, string? DefaultValue)>> ListMovieFeedbackColumnsAsync(
+            CancellationToken cancellationToken)
+        {
+            var values = new List<(string Name, bool IsNullable, string? DefaultValue)>();
+            await using var command = await CreateCommandAsync(
+                """
+                SELECT column_name, is_nullable, column_default
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'movies'
+                  AND column_name IN ('is_watched', 'is_not_interested')
+                """,
+                cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                values.Add((
+                    reader.GetString(0),
+                    reader.GetString(1) == "YES",
+                    reader.IsDBNull(2) ? null : reader.GetString(2)));
+            }
+
+            return values;
+        }
+
+        public async Task<List<LegacyMovie>> ListLegacyMoviesAsync(CancellationToken cancellationToken)
+        {
+            var values = new List<LegacyMovie>();
+            await using var command = await CreateCommandAsync(
+                """
+                SELECT title, library_path, format, status
+                FROM movies
+                ORDER BY title
+                """,
+                cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                values.Add(new LegacyMovie(
+                    reader.GetString(0),
+                    reader.GetString(1),
+                    reader.GetString(2),
+                    reader.GetInt32(3)));
+            }
+
+            return values;
         }
 
         public Task<List<string>> ListPrimaryKeyColumnsAsync(string table, CancellationToken cancellationToken) =>
