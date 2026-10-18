@@ -10,4 +10,3 @@
       Tests  22 passed (22)
    Start at  03:34:02
    Duration  6.44s (tests 65%, environment 21%, transform 6%, setup 5%, import 3%)
-

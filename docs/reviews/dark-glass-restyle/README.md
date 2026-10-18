@@ -105,3 +105,10 @@ The user subsequently approved the lower-height variant, with the symbol matchin
 
 Final captures at [375px](screenshots/text-height-375.png), [768px](screenshots/text-height-768.png), and [1440px](screenshots/library-branded-1440.png) show the new lockup. At each width the logo loads at approximately 165-by-24px and the document scroll width equals the viewport width. The tablet layout preserves the logo's intrinsic width beside navigation. Lint, build with both TypeScript checks, and all 22 App tests pass; receipts are [lint](evidence/text-height-lint.txt), [build](evidence/text-height-build.txt), and [tests](evidence/text-height-tests.txt). All five logo/icon URLs return HTTP 200. The service worker remains unchanged. The README image shows this final version, and the local review server remains available on port 5199.
 
+## PR preparation (2026-10-18)
+
+Rebased the restyle cleanly onto `origin/main` at `38f5602c892ead971ff52f63da7558eb6de98da5`. The feature commit after rebase is `21f566aae821eea195ad8caddbfeb4da5d4a4cfa`. Removed 55 newly introduced descriptive comments from 14 source files to follow the repository convention; the cleanup checked that non-comment content was unchanged before formatting.
+
+Reran `pwsh -NoProfile -File scripts/run-web-gates.ps1 -All` on the rebased source: exit 0, lint PASS, TypeScript PASS, all 334 tests in 32 files PASS, production build PASS. See [final web gate output](evidence/pr-web-gates.txt) and [final web source hashes](evidence/pr-web-source-sha256.txt). The PR changes only the product README, visual review evidence, and frontend assets/source/tests. Backend files, the OpenAPI/generated client, mock handlers, and the MSW worker are unchanged from the rebased base. Backend gates were not run for this frontend-only change.
+
+The PR is prepared as a draft for code/security review. The user approved the visual result; this receipt does not claim formal ship-review clearance or hosted-check success.
