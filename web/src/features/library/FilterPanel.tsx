@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { components } from '../../api/types';
 import { CloseIcon } from '../../ui/icons';
 import {
@@ -60,46 +60,67 @@ function sortByName<T extends { name?: string | null }>(items: readonly T[]): T[
   return [...items].sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')));
 }
 
-interface RangeFieldProps {
+interface RangeThumb {
   id: string;
-  caption: string;
   accessibleName: string;
   valueText: string;
-  min: number;
-  max: number;
-  step: number;
   value: number;
   onValueChange: (value: string) => void;
 }
 
-function RangeField({
-  id,
-  caption,
-  accessibleName,
-  valueText,
-  min,
-  max,
-  step,
-  value,
-  onValueChange,
-}: RangeFieldProps) {
+interface DualRangeFieldProps {
+  min: number;
+  max: number;
+  step: number;
+  low: RangeThumb;
+  high: RangeThumb;
+}
+
+// Two overlapping range inputs share one track; each thumb is clamped so the
+// pair can never cross, and the amber fill spans the selected interval.
+function DualRangeField({ min, max, step, low, high }: DualRangeFieldProps) {
+  const span = max - min || 1;
+  const fill = {
+    '--range-from': (low.value - min) / span,
+    '--range-to': (high.value - min) / span,
+  } as CSSProperties;
+  // Keep the low thumb reachable when both thumbs meet near the top end.
+  const lowOnTop = low.value > min + span / 2;
   return (
     <div className="lamu-range-field">
-      <div className="lamu-range-caption">
-        <label htmlFor={id}>{caption}</label>
-        <span aria-hidden="true">{valueText}</span>
+      <div className="lamu-range-caption" aria-hidden="true">
+        <span>{low.valueText}</span>
+        <span>{high.valueText}</span>
       </div>
-      <input
-        id={id}
-        type="range"
-        className="lamu-range"
-        aria-label={accessibleName}
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(event) => onValueChange(event.target.value)}
-      />
+      <div className="lamu-dual-range" style={fill}>
+        <input
+          id={low.id}
+          type="range"
+          className="lamu-range"
+          aria-label={low.accessibleName}
+          min={min}
+          max={max}
+          step={step}
+          value={low.value}
+          style={lowOnTop ? { zIndex: 2 } : undefined}
+          onChange={(event) =>
+            low.onValueChange(String(Math.min(Number(event.target.value), high.value)))
+          }
+        />
+        <input
+          id={high.id}
+          type="range"
+          className="lamu-range"
+          aria-label={high.accessibleName}
+          min={min}
+          max={max}
+          step={step}
+          value={high.value}
+          onChange={(event) =>
+            high.onValueChange(String(Math.max(Number(event.target.value), low.value)))
+          }
+        />
+      </div>
     </div>
   );
 }
@@ -164,6 +185,7 @@ export function FilterPanel(props: FilterPanelProps) {
   };
 
   const queryRef = useRef(query);
+  const castInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     queryRef.current = query;
   }, [query]);
@@ -247,10 +269,13 @@ export function FilterPanel(props: FilterPanelProps) {
     });
   };
 
-  const removeActor = (id: string | number) =>
+  const removeActor = (id: string | number) => {
     update((next) => {
       next.actorIds = next.actorIds.filter((item) => String(item) !== String(id));
     });
+    // The focused remove button unmounts with its chip; keep focus in the cast group.
+    castInputRef.current?.focus();
+  };
 
   const toggleStatus = (wire: string, on: boolean) =>
     update((next) => {
@@ -371,6 +396,7 @@ export function FilterPanel(props: FilterPanelProps) {
               Add a cast member
             </label>
             <input
+              ref={castInputRef}
               id={castInputId}
               type="search"
               className="lamu-field-input"
@@ -405,35 +431,30 @@ export function FilterPanel(props: FilterPanelProps) {
 
       <fieldset className="lamu-filter-group">
         <legend className="lamu-filter-legend">Runtime</legend>
-        <RangeField
-          id={runtimeMinId}
-          caption="Minimum"
-          accessibleName="Runtime minimum (minutes)"
-          valueText={`${runtimeMinValue} min`}
+        <DualRangeField
           min={RUNTIME_MIN_EXTENT}
           max={RUNTIME_MAX_EXTENT}
           step={5}
-          value={runtimeMinValue}
-          onValueChange={(value) =>
-            update((next) => {
-              next.runtimeMin = value;
-            })
-          }
-        />
-        <RangeField
-          id={runtimeMaxId}
-          caption="Maximum"
-          accessibleName="Runtime maximum (minutes)"
-          valueText={`${runtimeMaxText} min`}
-          min={RUNTIME_MIN_EXTENT}
-          max={RUNTIME_MAX_EXTENT}
-          step={5}
-          value={runtimeMaxValue}
-          onValueChange={(value) =>
-            update((next) => {
-              next.runtimeMax = value;
-            })
-          }
+          low={{
+            id: runtimeMinId,
+            accessibleName: 'Runtime minimum (minutes)',
+            valueText: `${runtimeMinValue} min`,
+            value: runtimeMinValue,
+            onValueChange: (value) =>
+              update((next) => {
+                next.runtimeMin = value;
+              }),
+          }}
+          high={{
+            id: runtimeMaxId,
+            accessibleName: 'Runtime maximum (minutes)',
+            valueText: `${runtimeMaxText} min`,
+            value: runtimeMaxValue,
+            onValueChange: (value) =>
+              update((next) => {
+                next.runtimeMax = value;
+              }),
+          }}
         />
         <label htmlFor={unknownId} className="lamu-switch-row">
           <input
@@ -454,35 +475,30 @@ export function FilterPanel(props: FilterPanelProps) {
 
       <fieldset className="lamu-filter-group">
         <legend className="lamu-filter-legend">Release year</legend>
-        <RangeField
-          id={yearMinId}
-          caption="From"
-          accessibleName="Release year minimum"
-          valueText={String(yearMinValue)}
+        <DualRangeField
           min={YEAR_MIN_EXTENT}
           max={currentYear}
           step={1}
-          value={yearMinValue}
-          onValueChange={(value) =>
-            update((next) => {
-              next.yearMin = value;
-            })
-          }
-        />
-        <RangeField
-          id={yearMaxId}
-          caption="To"
-          accessibleName="Release year maximum"
-          valueText={String(yearMaxValue)}
-          min={YEAR_MIN_EXTENT}
-          max={currentYear}
-          step={1}
-          value={yearMaxValue}
-          onValueChange={(value) =>
-            update((next) => {
-              next.yearMax = value;
-            })
-          }
+          low={{
+            id: yearMinId,
+            accessibleName: 'Release year minimum',
+            valueText: String(yearMinValue),
+            value: yearMinValue,
+            onValueChange: (value) =>
+              update((next) => {
+                next.yearMin = value;
+              }),
+          }}
+          high={{
+            id: yearMaxId,
+            accessibleName: 'Release year maximum',
+            valueText: String(yearMaxValue),
+            value: yearMaxValue,
+            onValueChange: (value) =>
+              update((next) => {
+                next.yearMax = value;
+              }),
+          }}
         />
       </fieldset>
 

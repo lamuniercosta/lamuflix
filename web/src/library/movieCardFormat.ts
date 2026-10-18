@@ -1,5 +1,5 @@
 import type { components } from '../api/types';
-import { PlayMovieError } from './libraryQueries';
+import { MovieDetailsError } from '../features/movie-details/movieDetailsApi';
 
 type MovieSummaryResponse = components['schemas']['MovieSummaryResponse'];
 
@@ -7,7 +7,7 @@ export const PLAYBACK_FORBIDDEN_MESSAGE = 'Playback is not available for this ti
 export const PLAYBACK_FAILED_MESSAGE = 'Playback could not start. Try again.';
 
 export function playErrorMessage(error: unknown): string {
-  return error instanceof PlayMovieError && error.status === 403
+  return error instanceof MovieDetailsError && error.status === 403
     ? PLAYBACK_FORBIDDEN_MESSAGE
     : PLAYBACK_FAILED_MESSAGE;
 }

@@ -73,35 +73,7 @@ html {
   opacity: 0.5;
 }
 
-.lamu-ambient img:nth-child(1) {
-  top: -4%;
-  left: -4%;
-}
-
-.lamu-ambient img:nth-child(2) {
-  top: -4%;
-  right: -4%;
-}
-
-.lamu-ambient img:nth-child(3) {
-  top: 34%;
-  left: 28%;
-}
-
-.lamu-ambient img:nth-child(4) {
-  bottom: -4%;
-  left: -4%;
-}
-
-.lamu-ambient img:nth-child(5) {
-  bottom: -4%;
-  right: -4%;
-}
-
-.lamu-ambient img:nth-child(6) {
-  top: 30%;
-  right: 8%;
-}
+/* Per-poster positions live in AMBIENT_POSITIONS (src/ui/ambient.ts). */
 
 .lamu-glass {
   background-color: var(--color-reel);

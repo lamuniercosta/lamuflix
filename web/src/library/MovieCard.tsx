@@ -1,7 +1,7 @@
 import { useId, useState, type MouseEvent } from 'react';
 import type { components } from '../api/types';
 import { FilmIcon, PlayFilledIcon, RetryIcon, StarFilledIcon } from '../ui/icons';
-import { usePlayMovieMutation } from './libraryQueries';
+import { usePlayMovie } from '../features/movie-details/movieDetailsApi';
 import {
   canRetryEnrichment,
   displayValue,
@@ -37,7 +37,7 @@ export default function MovieCard({
   const [posterFailed, setPosterFailed] = useState(false);
   const [playError, setPlayError] = useState<string | null>(null);
   const playErrorId = useId();
-  const playMutation = usePlayMovieMutation();
+  const playMutation = usePlayMovie(movie.id);
   const watchlist = useWatchlistToggle(movie.id, movie.isInWatchlist);
 
   const { id, title, enrichmentStatus: status } = movie;
@@ -47,7 +47,7 @@ export default function MovieCard({
 
   const handlePlay = () => {
     setPlayError(null);
-    playMutation.mutate(id, {
+    playMutation.mutate(undefined, {
       onError: (error) => setPlayError(playErrorMessage(error)),
     });
   };

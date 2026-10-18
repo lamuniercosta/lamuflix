@@ -66,7 +66,6 @@ function replaceQuery(next: FilterQuery, currentYear: number): void {
 
 function activeFilterGroups(query: FilterQuery, currentYear: number): number {
   const groups = [
-    String(query.text ?? '').trim() !== '',
     (query.genreIds ?? []).length > 0,
     (query.actorIds ?? []).length > 0,
     isRuntimeActive(query.runtimeMin, query.runtimeMax, query.runtimeIncludeUnknown),
@@ -405,6 +404,21 @@ function LibraryBrowseView({
     [query, onQueryChange],
   );
 
+  const genreNameById = useMemo(
+    () => new Map(GenreDtoList(genresQuery.data).map((genre) => [String(genre.id), genre.name])),
+    [genresQuery.data],
+  );
+  const actorNameById = useMemo(
+    () =>
+      new Map(
+        PersonDtoList(actorsQuery.data).map((actor) => [
+          String(actor.id),
+          String(actor.name ?? ''),
+        ]),
+      ),
+    [actorsQuery.data],
+  );
+
   const chips: Chip[] = useMemo(() => {
     const list: Chip[] = [];
     if (query.text) {
@@ -417,11 +431,12 @@ function LibraryBrowseView({
     }
     for (const [index, id] of (query.genreIds ?? []).entries()) {
       const value = String(id);
+      const name = genreNameById.get(value) || value;
       pushChip(
         list,
         `genre-${value}-${index}`,
-        `Genre: ${value}`,
-        `Remove genre filter ${value}`,
+        `Genre: ${name}`,
+        `Remove genre filter ${name}`,
         () =>
           removeValue((next) => {
             const position = next.genreIds.map(String).indexOf(value);
@@ -433,18 +448,14 @@ function LibraryBrowseView({
     }
     for (const [index, id] of (query.actorIds ?? []).entries()) {
       const value = String(id);
-      pushChip(
-        list,
-        `actor-${value}-${index}`,
-        `Cast: ${value}`,
-        `Remove cast filter ${value}`,
-        () =>
-          removeValue((next) => {
-            const position = next.actorIds.map(String).indexOf(value);
-            if (position >= 0) {
-              next.actorIds = next.actorIds.filter((_, itemIndex) => itemIndex !== position);
-            }
-          }),
+      const name = actorNameById.get(value) || value;
+      pushChip(list, `actor-${value}-${index}`, `Cast: ${name}`, `Remove cast filter ${name}`, () =>
+        removeValue((next) => {
+          const position = next.actorIds.map(String).indexOf(value);
+          if (position >= 0) {
+            next.actorIds = next.actorIds.filter((_, itemIndex) => itemIndex !== position);
+          }
+        }),
       );
     }
     const runtimeMin = boundActive(query.runtimeMin, RUNTIME_MIN_EXTENT);
@@ -518,7 +529,7 @@ function LibraryBrowseView({
       );
     }
     return list;
-  }, [query, removeValue, currentYear]);
+  }, [query, removeValue, currentYear, genreNameById, actorNameById]);
 
   const prevRoutePathRef = useRef(routePath);
   useEffect(() => {

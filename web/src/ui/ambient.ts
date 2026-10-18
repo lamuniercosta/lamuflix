@@ -1,6 +1,17 @@
-import { createContext, useContext, useEffect, useId } from 'react';
+import { createContext, useContext, useEffect, useId, type CSSProperties } from 'react';
 
-export const AMBIENT_LIMIT = 6;
+// One slot per ambient poster; the limit follows the slot count so every
+// rendered poster has a position.
+export const AMBIENT_POSITIONS: readonly CSSProperties[] = [
+  { top: '-4%', left: '-4%' },
+  { top: '-4%', right: '-4%' },
+  { top: '34%', left: '28%' },
+  { bottom: '-4%', left: '-4%' },
+  { bottom: '-4%', right: '-4%' },
+  { top: '30%', right: '8%' },
+];
+
+export const AMBIENT_LIMIT = AMBIENT_POSITIONS.length;
 
 export interface AmbientRegistry {
   setOwnerPosters: (ownerId: string, urls: readonly string[]) => void;

@@ -1,5 +1,10 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { AmbientRegistryContext, normalizeAmbientUrls, type AmbientRegistry } from './ambient';
+import {
+  AMBIENT_POSITIONS,
+  AmbientRegistryContext,
+  normalizeAmbientUrls,
+  type AmbientRegistry,
+} from './ambient';
 
 type OwnerPosters = ReadonlyMap<string, readonly string[]>;
 
@@ -46,8 +51,8 @@ export function AmbientProvider({ children }: { children: ReactNode }) {
   return (
     <AmbientRegistryContext.Provider value={registry}>
       <div className="lamu-ambient" aria-hidden="true">
-        {posters.map((url) => (
-          <img key={url} src={url} alt="" decoding="async" />
+        {posters.map((url, index) => (
+          <img key={url} src={url} alt="" decoding="async" style={AMBIENT_POSITIONS[index]} />
         ))}
       </div>
       {children}
