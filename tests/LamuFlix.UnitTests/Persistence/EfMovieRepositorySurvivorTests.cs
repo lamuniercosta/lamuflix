@@ -1151,10 +1151,10 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
 
         // assert
         await using var verify = fixture.CreateMigratedContext();
-        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe([genre]);
-        (await verify.Directors.Select(director => director.Name).ToArrayAsync(ct)).ShouldBe([director]);
-        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe([writer]);
-        (await verify.Actors.Select(actor => actor.Name).ToArrayAsync(ct)).ShouldBe([actor]);
+        (await verify.Genres.Select(g => g.Name).ToArrayAsync(ct)).ShouldBe([genre]);
+        (await verify.Directors.Select(d => d.Name).ToArrayAsync(ct)).ShouldBe([director]);
+        (await verify.Writers.Select(w => w.Name).ToArrayAsync(ct)).ShouldBe([writer]);
+        (await verify.Actors.Select(a => a.Name).ToArrayAsync(ct)).ShouldBe([actor]);
         (await verify.Movies.SelectMany(item => item.Writers).CountAsync(ct)).ShouldBe(2);
         (await verify.Movies.SelectMany(item => item.Genres).CountAsync(ct)).ShouldBe(2);
         (await verify.Movies.SelectMany(item => item.Directors).CountAsync(ct)).ShouldBe(2);
@@ -1315,10 +1315,10 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
 
         // assert
         await using var verify = fixture.CreateMigratedContext();
-        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe([genre]);
-        (await verify.Directors.Select(director => director.Name).ToArrayAsync(ct)).ShouldBe([director]);
-        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe([writer]);
-        (await verify.Actors.Select(actor => actor.Name).ToArrayAsync(ct)).ShouldBe([actor]);
+        (await verify.Genres.Select(g => g.Name).ToArrayAsync(ct)).ShouldBe([genre]);
+        (await verify.Directors.Select(d => d.Name).ToArrayAsync(ct)).ShouldBe([director]);
+        (await verify.Writers.Select(w => w.Name).ToArrayAsync(ct)).ShouldBe([writer]);
+        (await verify.Actors.Select(a => a.Name).ToArrayAsync(ct)).ShouldBe([actor]);
     }
 
     [Fact]
