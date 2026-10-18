@@ -32,7 +32,7 @@ public sealed class EfPlaybackHistoryTests(PostgresFixture fixture) : IAsyncLife
 
         await history.RecordAsync(new PlaybackEvent(movieId, PlayedAtUtc), ct);
 
-        await using var read = OpenSibling(write);
+        await using var read = fixture.CreateMigratedContext();
         var recorded = await read.PlaybackEvents.SingleAsync(ct);
         recorded.MovieId.ShouldBe(movieId);
         recorded.PlayedAt.ShouldBe(PlayedAtUtc);
@@ -82,7 +82,7 @@ public sealed class EfPlaybackHistoryTests(PostgresFixture fixture) : IAsyncLife
 
         await history.RecordAsync(new PlaybackEvent(movieId, PlayedAtUtc), ct);
 
-        await using var read = OpenSibling(write);
+        await using var read = fixture.CreateMigratedContext();
         var recorded = await read.PlaybackEvents.SingleAsync(ct);
         recorded.PlayedAt.ShouldBe(PlayedAtUtc);
         recorded.PlayedAt.Offset.ShouldBe(TimeSpan.Zero);
@@ -139,12 +139,5 @@ public sealed class EfPlaybackHistoryTests(PostgresFixture fixture) : IAsyncLife
         var movieId = movie.Id;
         movieId.ShouldNotBeNull();
         return movieId;
-    }
-
-    private static LamuFlixDbContext OpenSibling(LamuFlixDbContext source)
-    {
-        var connectionString = source.Database.GetConnectionString();
-        connectionString.ShouldNotBeNullOrWhiteSpace();
-        return LamuFlixDbContextFactory.OpenContext(connectionString);
     }
 }
