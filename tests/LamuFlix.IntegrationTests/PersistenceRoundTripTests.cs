@@ -165,9 +165,10 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture) : IAsyncL
         write.Movies.Count(movie => movie.ImdbId == null).ShouldBe(2);
     }
 
-    private static LamuFlixDbContext OpenSibling(LamuFlixDbContext source)
+    private LamuFlixDbContext OpenSibling(LamuFlixDbContext source)
     {
-        var connectionString = source.Database.GetConnectionString();
+        ArgumentNullException.ThrowIfNull(source);
+        var connectionString = fixture.ConnectionString;
         connectionString.ShouldNotBeNullOrWhiteSpace();
         return LamuFlixDbContextFactory.OpenContext(connectionString);
     }

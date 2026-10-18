@@ -35,7 +35,7 @@ public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture) : IAsyncL
             MovieCatalogSeed.Create("Tie", "page-4"),
             MovieCatalogSeed.Create("Tie", "page-5"));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
-        var connectionString = context.Database.GetConnectionString();
+        var connectionString = fixture.ConnectionString;
         connectionString.ShouldNotBeNull();
         await using var browseContext = LamuFlixDbContextFactory.OpenContext(connectionString);
         var catalog = new EfMovieCatalog(browseContext);
