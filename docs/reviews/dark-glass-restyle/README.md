@@ -97,4 +97,4 @@ Rebased the restyle cleanly onto `origin/main` at `38f5602c892ead971ff52f63da755
 
 Reran `pwsh -NoProfile -File scripts/run-web-gates.ps1 -All` on the rebased source: exit 0, lint PASS, TypeScript PASS, all 334 tests in 32 files PASS, production build PASS. See [final web gate output](evidence/pr-web-gates.txt) and [final web source hashes](evidence/pr-web-source-sha256.txt). The PR changes only the product README, visual review evidence, and frontend assets/source/tests. Backend files, the OpenAPI/generated client, mock handlers, and the MSW worker are unchanged from the rebased base. Backend gates were not run for this frontend-only change.
 
-The PR is prepared as a draft for code/security review. The user approved the visual result; this receipt does not claim formal ship-review clearance or hosted-check success.
+The PR is ready for code/security review. The user approved the visual result; this receipt does not claim formal ship-review clearance or hosted-check success.
