@@ -15,15 +15,11 @@ public sealed class LamuFlixDbContext(DbContextOptions<LamuFlixDbContext> option
 
     public DbSet<WriterRecord> Writers => Set<WriterRecord>();
 
-<<<<<<< HEAD
+    public DbSet<PlaybackEventRecord> PlaybackEvents => Set<PlaybackEventRecord>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("vector");
-=======
-    public DbSet<PlaybackEventRecord> PlaybackEvents => Set<PlaybackEventRecord>();
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
->>>>>>> 036b565 (DEV-351 - Phase 2: Persistence record, adapter, and composition)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LamuFlixDbContext).Assembly);
     }
 }

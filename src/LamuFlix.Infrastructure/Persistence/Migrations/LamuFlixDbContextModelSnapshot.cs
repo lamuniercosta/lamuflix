@@ -182,6 +182,30 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.ToTable("movies", (string)null);
                 });
 
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.PlaybackEventRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("MovieId")
+                        .HasColumnType("integer")
+                        .HasColumnName("movie_id");
+
+                    b.Property<DateTimeOffset>("PlayedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("played_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MovieId");
+
+                    b.ToTable("playback_events", (string)null);
+                });
+
             modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.WriterRecord", b =>
                 {
                     b.Property<int>("Id")
@@ -259,6 +283,15 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.HasIndex("writer_id");
 
                     b.ToTable("movie_writers");
+                });
+
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.PlaybackEventRecord", b =>
+                {
+                    b.HasOne("LamuFlix.Infrastructure.Persistence.Records.MovieRecord", null)
+                        .WithMany()
+                        .HasForeignKey("MovieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("movie_actors", b =>
