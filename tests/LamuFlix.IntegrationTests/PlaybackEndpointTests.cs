@@ -32,6 +32,9 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
     private readonly IProcessStarter starter = Substitute.For<IProcessStarter>();
+    private readonly IPlaybackHistory history = Substitute.For<IPlaybackHistory>();
+    private readonly TimeProvider clock = new FixedTimeProvider(
+        new DateTimeOffset(2026, 10, 18, 0, 0, 0, TimeSpan.Zero));
 
     [Fact]
     public async Task PlayMovie_LocalPlayEnabled_ReturnsEmptyNoContentAndRecordsOneProcessStart()
@@ -164,5 +167,7 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     {
         services.AddSingleton(catalog);
         services.AddSingleton(starter);
+        services.AddSingleton(history);
+        services.AddSingleton(clock);
     }
 }
