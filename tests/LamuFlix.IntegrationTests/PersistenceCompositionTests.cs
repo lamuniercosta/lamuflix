@@ -201,10 +201,9 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
         return (bool)result;
     }
 
-    private async Task<ServiceCollection> ComposeAsync()
+    private Task<ServiceCollection> ComposeAsync()
     {
-        await using var context = fixture.CreateMigratedContext();
-        var connectionString = context.Database.GetConnectionString();
+        var connectionString = fixture.ConnectionString;
         connectionString.ShouldNotBeNullOrWhiteSpace();
 
         var configuration = new ConfigurationBuilder()
@@ -225,7 +224,7 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
         services.AddLamuFlixOptions();
         services.AddLogging();
         services.AddLamuFlixPersistence(configuration);
-        return services;
+        return Task.FromResult(services);
     }
 
     private static ServiceProviderOptions Validating() =>
