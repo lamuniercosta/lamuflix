@@ -61,6 +61,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         ServiceCollection? services = null;
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var exception = Should.Throw<ArgumentNullException>(
             () => services!.AddLamuFlixPersistence(Configuration(Valid())));
 
@@ -75,6 +76,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         var services = new ServiceCollection();
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var exception = Should.Throw<ArgumentNullException>(
             () => services.AddLamuFlixPersistence(null!));
 
