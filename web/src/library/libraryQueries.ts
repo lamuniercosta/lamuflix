@@ -230,6 +230,40 @@ export function useImportMovieMutation() {
   });
 }
 
+export class PlayMovieError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Playback failed with status ${status}`);
+    this.name = 'PlayMovieError';
+    this.status = status;
+  }
+}
+
+export function usePlayMovieMutation() {
+  return useMutation({
+    mutationFn: async (id: number | string) => {
+      let response: Response;
+
+      try {
+        const result = await client.POST('/api/movies/{id}/play', {
+          params: { path: { id } },
+          parseAs: 'text',
+        });
+        response = result.response;
+      } catch {
+        throw new PlayMovieError(0);
+      }
+
+      if (response.status === 204) {
+        return { id };
+      }
+
+      throw new PlayMovieError(response.status);
+    },
+  });
+}
+
 export function useRetryEnrichmentMutation() {
   const queryClient = useQueryClient();
 

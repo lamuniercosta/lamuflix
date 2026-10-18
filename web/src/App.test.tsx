@@ -19,21 +19,29 @@ function renderApp() {
   return render(<App />, { wrapper: Wrapper });
 }
 
+function detailsBackLink() {
+  const link = screen
+    .getAllByRole('link', { name: 'Library' })
+    .find((element) => !element.closest('nav'));
+  if (!link) throw new Error('Details back link not found');
+  return link;
+}
+
 afterEach(() => {
   window.history.replaceState({}, '', '/');
   cleanup();
 });
 
 describe('App library host', () => {
-  it('shows the Import folder button, browse rows with badges, and a polite live region', async () => {
+  it('shows the Import folder button, a Pending badge without an Enriched badge, and a polite live region', async () => {
     renderApp();
 
     expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
     expect(await screen.findByText('Dune')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Arrival' })).toBeInTheDocument();
     expect(
-      within(screen.getByRole('list', { name: 'Movies' })).getByText('Enriched'),
-    ).toBeInTheDocument();
+      within(screen.getByRole('list', { name: 'Movies' })).queryByText('Enriched'),
+    ).not.toBeInTheDocument();
     expect(
       within(screen.getByRole('list', { name: 'Movies' })).getByText('Pending'),
     ).toBeInTheDocument();
@@ -215,7 +223,7 @@ describe('App layout shell', () => {
     renderApp();
     await screen.findByText('Dune', {}, { timeout: 5000 });
 
-    expect(screen.getByText('LamuFlix')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'LamuFlix' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Library' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Watchlist' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
@@ -227,7 +235,7 @@ describe('App layout shell', () => {
       'aria-pressed',
       'true',
     );
-    expect(screen.getByText('LamuFlix')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'LamuFlix' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
   });
 
@@ -259,14 +267,14 @@ describe('App layout shell', () => {
     renderApp();
     await screen.findByText('Dune', {}, { timeout: 5000 });
 
-    fireEvent.click(screen.getByRole('link', { name: 'Open details for Dune' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
     expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/movies/1');
 
-    fireEvent.click(screen.getByRole('link', { name: 'Back to library' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Library (Pending)' }));
     expect(window.location.pathname).toBe('/');
     expect(window.location.search).toBe('?statuses=Pending&sort=Title&direction=Ascending');
-    expect(await screen.findByRole('link', { name: 'Open details for Dune' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Dune' })).toBeInTheDocument();
   });
 
   it('sends a direct detail route back link to the default library without valid return state', async () => {
@@ -274,9 +282,9 @@ describe('App layout shell', () => {
     renderApp();
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('link', { name: 'Back to library' }));
+    fireEvent.click(detailsBackLink());
     expect(window.location.pathname).toBe('/');
-    expect(await screen.findByRole('link', { name: 'Open details for Dune' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Dune' })).toBeInTheDocument();
   });
 
   it('rejects untrusted return state and falls back to the default library', async () => {
@@ -288,7 +296,7 @@ describe('App layout shell', () => {
     renderApp();
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('link', { name: 'Back to library' }));
+    fireEvent.click(detailsBackLink());
     expect(window.location.pathname).toBe('/');
     expect(window.location.search).toBe('');
   });
@@ -298,12 +306,12 @@ describe('App layout shell', () => {
     renderApp();
     await screen.findByText('Dune', {}, { timeout: 5000 });
 
-    fireEvent.click(screen.getByRole('link', { name: 'Open details for Dune' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
     expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
 
     window.history.replaceState({}, '', '/');
     window.dispatchEvent(new PopStateEvent('popstate'));
-    expect(await screen.findByRole('link', { name: 'Open details for Dune' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Dune' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
   });
 
@@ -312,7 +320,7 @@ describe('App layout shell', () => {
     renderApp();
     await screen.findByText('Dune', {}, { timeout: 5000 });
 
-    fireEvent.click(screen.getByRole('link', { name: 'Open details for Dune' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
     expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
 
     const search = screen.getByPlaceholderText('Search titles');
@@ -352,15 +360,12 @@ describe('App layout shell', () => {
     window.history.replaceState({ libraryReturnUrl: '/?text=a' }, '', '/movies/1');
     renderApp();
     expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Back to library' })).toHaveAttribute(
-      'href',
-      '/?text=a',
-    );
+    expect(screen.getByRole('link', { name: 'Library ("a")' })).toHaveAttribute('href', '/?text=a');
 
     window.history.replaceState({ libraryReturnUrl: '/?text=b' }, '', '/movies/1');
     window.dispatchEvent(new PopStateEvent('popstate'));
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'Back to library' })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: 'Library ("b")' })).toHaveAttribute(
         'href',
         '/?text=b',
       );
@@ -426,17 +431,20 @@ describe('App layout shell', () => {
     },
   );
 
-  it('shows the Playback unavailable dialog for a 403 after client-side details navigation', async () => {
+  it('shows the inline Playback unavailable alert for a 403 after client-side details navigation', async () => {
     server.use(http.post('/api/movies/{id}/play', () => new HttpResponse(null, { status: 403 })));
     window.history.replaceState({}, '', '/');
     renderApp();
     await screen.findByText('Dune', {}, { timeout: 5000 });
 
-    fireEvent.click(screen.getByRole('link', { name: 'Open details for Dune' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
     expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Play' }));
-    expect(await screen.findByRole('dialog', { name: 'Playback unavailable' })).toBeInTheDocument();
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Playback unavailable');
+    expect(alert).toHaveTextContent('Local playback is disabled on this server.');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('debounces shell search without discarding other active filters', async () => {

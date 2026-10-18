@@ -6,6 +6,8 @@ import type { components } from '../api/types';
 import FilterPanel from '../features/library/FilterPanel';
 import {
   currentYearExtent,
+  isRuntimeActive,
+  isYearActive,
   parseFilterQuery,
   RUNTIME_MAX_EXTENT,
   RUNTIME_MIN_EXTENT,
@@ -17,27 +19,25 @@ import {
 import type { FilterQuery } from '../features/library/filterQuery';
 import { buildBrowseParams } from './browseParams';
 import LibraryErrorBoundary from './LibraryErrorBoundary';
-import {
-  GENERIC_RETRY_ERROR,
-  RetryRowError,
-  useBrowseMoviesQuery,
-  useRetryEnrichmentMutation,
-} from './libraryQueries';
+import { useBrowseMoviesQuery } from './libraryQueries';
 import type { BrowseMoviesQueryError } from './libraryQueries';
-import MovieCard from './MovieCard';
+import LibraryTile from './LibraryTile';
+import type { LibraryVariant } from './LibraryTile';
 import MovieGrid from './MovieGrid';
-import type { MovieLike } from './MovieGrid';
 import Pagination from './Pagination';
-import { WatchlistToggleButton } from './watchlist';
-import { useWatchlistToggle } from './watchlistStore';
+import './library.css';
+import { useAmbientPosters } from '../ui/ambient';
+import { genreIcon } from '../ui/genreIcon';
+import { ChevronDownIcon, GridIcon, ListIcon } from '../ui/icons';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
+type GenreDto = components['schemas']['GenreDto'];
 
 const lastGoodQueryKey = ['libraryLastGoodBrowse'];
 
-function GenreDtoList(value: unknown): components['schemas']['GenreDto'][] {
-  return Array.isArray(value) ? (value as components['schemas']['GenreDto'][]) : [];
+function GenreDtoList(value: unknown): GenreDto[] {
+  return Array.isArray(value) ? (value as GenreDto[]) : [];
 }
 
 function PersonDtoList(value: unknown): components['schemas']['PersonDto'][] {
@@ -54,10 +54,6 @@ function isWatchlistFlag(value: unknown): boolean {
   return String(value).toLowerCase() === 'true';
 }
 
-function canRetry(status: MovieSummary['enrichmentStatus']): boolean {
-  return status === 'NotFound' || status === 'Failed';
-}
-
 function replaceQuery(next: FilterQuery, currentYear: number): void {
   try {
     const search = toUrlQuery(next, currentYear);
@@ -68,80 +64,36 @@ function replaceQuery(next: FilterQuery, currentYear: number): void {
   }
 }
 
-interface LibraryTileProps {
-  item: MovieLike;
-  filterActive: boolean;
-  onRemoved: () => void;
-  onHiddenChange: (id: string, hidden: boolean) => void;
-  detailsLink?: ReactNode;
+function activeFilterGroups(query: FilterQuery, currentYear: number): number {
+  const groups = [
+    String(query.text ?? '').trim() !== '',
+    (query.genreIds ?? []).length > 0,
+    (query.actorIds ?? []).length > 0,
+    isRuntimeActive(query.runtimeMin, query.runtimeMax, query.runtimeIncludeUnknown),
+    isYearActive(query.yearMin, query.yearMax, currentYear),
+    (query.statuses ?? []).length > 0,
+  ];
+  return groups.filter(Boolean).length;
 }
 
-function LibraryTile({
-  item,
-  filterActive,
-  onRemoved,
-  onHiddenChange,
-  detailsLink,
-}: LibraryTileProps) {
-  const errorId = useId();
-  const [tileError, setTileError] = useState<string | null>(null);
-  const retryEnrichment = useRetryEnrichmentMutation();
-  const { isInWatchlist, pending } = useWatchlistToggle(item.id, item.isInWatchlist);
-  const removed = filterActive && !pending && !isInWatchlist;
-  const wasRemoved = useRef(removed);
+const GENRE_HEADING_FALLBACK = 'Selected genres';
 
-  useEffect(() => {
-    if (removed && !wasRemoved.current) {
-      onRemoved();
-    }
-    wasRemoved.current = removed;
-  }, [removed, onRemoved]);
-
-  useEffect(() => {
-    onHiddenChange(String(item.id), removed);
-  }, [removed, item.id, onHiddenChange]);
-
-  async function onRetry() {
-    setTileError(null);
-    try {
-      await retryEnrichment.mutateAsync(item.id);
-    } catch (error) {
-      setTileError(error instanceof RetryRowError ? error.message : GENERIC_RETRY_ERROR);
-    }
+function libraryTitle(query: FilterQuery, genres: GenreDto[], watchlistActive: boolean): string {
+  const text = String(query.text ?? '').trim();
+  if (text !== '') {
+    return `Results for “${text}”`;
   }
-
-  if (removed) {
-    return null;
+  const genreIds = query.genreIds ?? [];
+  if (genreIds.length > 0) {
+    const namesById = new Map(
+      genres.map((genre): [string, string] => [String(genre.id), genre.name]),
+    );
+    const names = genreIds
+      .map((id) => namesById.get(String(id)))
+      .filter((name): name is string => name !== undefined);
+    return names.length > 0 ? names.join(' & ') : GENRE_HEADING_FALLBACK;
   }
-
-  const title = String(item.title ?? 'Untitled');
-
-  return (
-    <MovieCard
-      movie={item}
-      actions={
-        <>
-          {detailsLink}
-          {canRetry(item.enrichmentStatus) ? (
-            <button
-              type="button"
-              aria-label={`Retry ${title}`}
-              aria-describedby={tileError ? errorId : undefined}
-              onClick={() => void onRetry()}
-            >
-              Retry
-            </button>
-          ) : null}
-          <WatchlistToggleButton movieId={item.id} isInWatchlist={item.isInWatchlist} />
-          {tileError ? (
-            <p id={errorId} role="alert">
-              {tileError}
-            </p>
-          ) : null}
-        </>
-      }
-    />
-  );
+  return watchlistActive ? 'Watchlist' : 'All movies';
 }
 
 type ResultsMode = 'grid' | 'watchlistEmpty' | 'libraryEmpty';
@@ -161,11 +113,46 @@ function resultsMode(
   return 'libraryEmpty';
 }
 
+interface GenreTilesProps {
+  genres: GenreDto[];
+  selectedIds: ReadonlyArray<string | number>;
+  onToggle: (id: string | number) => void;
+}
+
+function GenreTiles({ genres, selectedIds, onToggle }: GenreTilesProps) {
+  if (genres.length === 0) {
+    return null;
+  }
+  const selected = new Set(selectedIds.map(String));
+
+  return (
+    <div className="genre-tiles" role="group" aria-label="Browse by genre">
+      {genres.map((genre) => {
+        const Icon = genreIcon(genre.name);
+        const isSelected = selected.has(String(genre.id));
+        return (
+          <button
+            key={String(genre.id)}
+            type="button"
+            className="genre-tile"
+            aria-pressed={isSelected}
+            onClick={() => onToggle(genre.id)}
+          >
+            <Icon size={20} className="genre-tile-icon" />
+            <span>{genre.name}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 interface ResultsBodyProps {
   loading: boolean;
   mode: ResultsMode;
   hasItems: boolean;
   tiles: ReactNode;
+  variant: LibraryVariant;
   focusSignal: number;
   totalCount: number;
   page: number;
@@ -178,7 +165,7 @@ interface ResultsBodyProps {
 
 function ResultsBody(props: ResultsBodyProps) {
   if (props.loading) {
-    return <MovieGrid isLoading pageSize={props.pageSize} />;
+    return <MovieGrid isLoading pageSize={props.pageSize} variant={props.variant} />;
   }
   if (props.mode === 'watchlistEmpty') {
     return <p>Your watchlist is empty.</p>;
@@ -190,6 +177,7 @@ function ResultsBody(props: ResultsBodyProps) {
     <>
       <MovieGrid
         tiles={props.hasItems ? props.tiles : undefined}
+        variant={props.variant}
         focusSignal={props.focusSignal}
         totalCount={props.totalCount}
         page={props.page}
@@ -345,6 +333,17 @@ function LibraryBrowseView({
       return next;
     });
   }, []);
+
+  const [variant, setVariant] = useState<LibraryVariant>('grid');
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelId = useId();
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
+  const collapsePanel = useCallback(() => {
+    toggleRef.current?.focus();
+    setPanelOpen(false);
+  }, []);
+
   const browseError = browse.error as BrowseMoviesQueryError | null;
   if (browseError && (browseError.invalidFilter === true || browseError.status === 422)) {
     throw browseError;
@@ -366,42 +365,40 @@ function LibraryBrowseView({
   const openMovie = onOpenMovie;
   const tiles = useMemo(
     () =>
-      visibleItems.map((movie) => {
-        const title = String(movie.title ?? 'Untitled');
-        return (
-          <div key={String(movie.id)} role="listitem">
-            <LibraryTile
-              item={movie}
-              filterActive={watchlistActive}
-              onRemoved={focusGrid}
-              onHiddenChange={setTileHidden}
-              detailsLink={
-                openMovie ? (
-                  <a
-                    href={`/movies/${String(movie.id)}`}
-                    aria-label={`Open details for ${title}`}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      openMovie(movie.id as string | number);
-                    }}
-                  >
-                    Details
-                  </a>
-                ) : (
-                  <a href={`/movies/${String(movie.id)}`}>Details</a>
-                )
-              }
-            />
-          </div>
-        );
-      }),
-    [visibleItems, watchlistActive, focusGrid, setTileHidden, openMovie],
+      visibleItems.map((movie) => (
+        <LibraryTile
+          key={String(movie.id)}
+          item={movie}
+          variant={variant}
+          filterActive={watchlistActive}
+          onRemoved={focusGrid}
+          onHiddenChange={setTileHidden}
+          onOpenMovie={openMovie}
+        />
+      )),
+    [visibleItems, variant, watchlistActive, focusGrid, setTileHidden, openMovie],
   );
+
+  useAmbientPosters(visibleItems.map((item) => item.posterUrl));
 
   const removeValue = useCallback(
     (mutate: (next: FilterQuery) => void) => {
       const next = parseFilterQuery(query);
       mutate(next);
+      next.page = 1;
+      onQueryChange(next);
+    },
+    [query, onQueryChange],
+  );
+
+  const toggleGenre = useCallback(
+    (id: string | number) => {
+      const key = String(id);
+      const next = parseFilterQuery(query);
+      const selected = next.genreIds.map(String).includes(key);
+      next.genreIds = selected
+        ? next.genreIds.filter((value) => String(value) !== key)
+        : [...next.genreIds, id];
       next.page = 1;
       onQueryChange(next);
     },
@@ -523,79 +520,6 @@ function LibraryBrowseView({
     return list;
   }, [query, removeValue, currentYear]);
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(
-    () =>
-      typeof window.matchMedia !== 'function' || window.matchMedia('(min-width: 48rem)').matches,
-  );
-  const filterOpenRef = useRef<HTMLButtonElement>(null);
-  const drawerRef = useRef<HTMLDivElement>(null);
-
-  const closeDrawer = useCallback(() => {
-    setDrawerOpen(false);
-    filterOpenRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    if (!drawerOpen) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const node = drawerRef.current;
-    const focusables = node?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    focusables?.[0]?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeDrawer();
-        return;
-      }
-      if (event.key !== 'Tab' || !node) {
-        return;
-      }
-      const items = Array.from(
-        node.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((item) => !item.hasAttribute('disabled'));
-      if (items.length === 0) {
-        return;
-      }
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [drawerOpen, closeDrawer]);
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') {
-      return;
-    }
-    const media = window.matchMedia('(min-width: 48rem)');
-    const onChange = (event: MediaQueryListEvent) => {
-      setIsDesktop(event.matches);
-      setDrawerOpen(false);
-      document.body.style.overflow = '';
-    };
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
-  }, []);
-
   const prevRoutePathRef = useRef(routePath);
   useEffect(() => {
     if (routePath == null || prevRoutePathRef.current === routePath) {
@@ -603,156 +527,142 @@ function LibraryBrowseView({
       return;
     }
     prevRoutePathRef.current = routePath;
-    setDrawerOpen(false);
-    document.body.style.overflow = '';
+    setPanelOpen(false);
   }, [routePath]);
 
-  useEffect(
-    () => () => {
-      document.body.style.overflow = '';
-    },
-    [],
-  );
-
-  const sortValue = sortValueOf(query.sort, query.direction);
-  const handleToolbarSort = useCallback(
-    (value: string) => {
-      const [sort, direction] = value.split('|');
-      const next = parseFilterQuery(query);
-      next.sort = sort;
-      next.direction = direction;
-      next.page = 1;
-      onQueryChange(next);
-    },
-    [query, onQueryChange],
-  );
-
-  const filterPanel = (
-    <FilterPanel
-      query={query}
-      genres={GenreDtoList(genresQuery.data)}
-      actors={PersonDtoList(actorsQuery.data)}
-      onChange={onQueryChange}
-      genresError={genresQuery.error}
-      actorsError={actorsQuery.error}
-      integrated={integrated}
-      showTitleSearch={!integrated}
-      showSort={!integrated}
-      routeKey={routeKey}
-    />
-  );
-
-  const backgroundInert = !isDesktop && drawerOpen;
+  const groupCount = activeFilterGroups(query, currentYear);
+  const countText = `${totalCount} ${totalCount === 1 ? 'movie' : 'movies'}`;
+  const headingText = libraryTitle(query, GenreDtoList(genresQuery.data), watchlistActive);
 
   return (
-    <>
-      <div className="lamu-browse" inert={backgroundInert}>
-        {isDesktop ? (
-          !sidebarCollapsed ? (
-            <div className="lamu-filter-sidebar">
-              <button type="button" onClick={() => setSidebarCollapsed(true)}>
-                Collapse filters
-              </button>
-              {filterPanel}
-            </div>
-          ) : (
-            <div>
-              <button type="button" onClick={() => setSidebarCollapsed(false)}>
-                Show filters
-              </button>
-            </div>
-          )
-        ) : null}
-        <div className="library-view">
-          <div className="lamu-results-head">
-            {!isDesktop ? (
-              <button
-                ref={filterOpenRef}
-                type="button"
-                className="lamu-filter-open-button"
-                aria-haspopup="dialog"
-                onClick={() => setDrawerOpen(true)}
-              >
-                Filters
-              </button>
-            ) : null}
-            <p role="status">
-              {totalCount} {totalCount === 1 ? 'movie' : 'movies'}
-            </p>
-            {integrated ? (
-              <label>
-                Sort:{' '}
-                <select
-                  aria-label="Sort movies"
-                  value={sortValue}
-                  onChange={(event) => handleToolbarSort(event.target.value)}
-                >
-                  {Object.entries(SORT_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <span aria-live="polite">Sort: {sortLabel(query.sort, query.direction)}</span>
+    <div className="library-view">
+      <GenreTiles
+        genres={GenreDtoList(genresQuery.data)}
+        selectedIds={query.genreIds ?? []}
+        onToggle={toggleGenre}
+      />
+
+      <div className="library-heading">
+        <div className="library-heading-main">
+          <h2 className="library-title lamu-section-heading">{headingText}</h2>
+          <p className="library-count" role="status">
+            {countText}
+          </p>
+          <span className="sr-only" aria-live="polite">
+            Sort: {sortLabel(query.sort, query.direction)}
+          </span>
+        </div>
+        <div className="library-controls">
+          <div className="view-toggle" role="group" aria-label="Result layout">
+            <button
+              type="button"
+              aria-pressed={variant === 'grid'}
+              onClick={() => setVariant('grid')}
+            >
+              <GridIcon size={16} />
+              <span>Grid</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={variant === 'list'}
+              onClick={() => setVariant('list')}
+            >
+              <ListIcon size={16} />
+              <span>List</span>
+            </button>
           </div>
-          {chips.length > 0 ? (
-            <ul className="lamu-chip-list" aria-label="Active filters">
-              {chips.map((chip) => (
-                <li key={chip.key}>
-                  <span className="lamu-chip">
-                    {chip.label}
-                    <button type="button" aria-label={chip.removeLabel} onClick={chip.onRemove}>
-                      ×
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <section aria-label="Results">
-            {refreshFailed ? <p role="alert">Movies could not be refreshed.</p> : null}
-            <ResultsBody
-              loading={loading}
-              mode={mode}
-              hasItems={visibleItems.length > 0}
-              totalCount={totalCount}
-              page={filters.page}
-              pageSize={filters.pageSize}
-              filtersActive={activeFilters}
-              tiles={tiles}
-              focusSignal={focusSignal}
-              onClearFilters={onClearFilters}
-              onFirstPage={() => onPageChange(1)}
-              onPageChange={onPageChange}
-            />
-          </section>
+          <button
+            ref={toggleRef}
+            type="button"
+            className="filters-toggle"
+            aria-expanded={panelOpen}
+            aria-controls={panelId}
+            onClick={() => setPanelOpen((open) => !open)}
+          >
+            <span>Filters</span>
+            {groupCount > 0 ? (
+              <>
+                <span className="filters-toggle-badge" aria-hidden="true">
+                  {groupCount}
+                </span>
+                <span className="sr-only">
+                  {' '}
+                  {groupCount === 1 ? '1 filter group' : `${groupCount} filter groups`} active
+                </span>
+              </>
+            ) : null}
+            <ChevronDownIcon size={18} className="filters-toggle-chevron" />
+          </button>
         </div>
       </div>
-      {!isDesktop && drawerOpen ? (
-        <button
-          type="button"
-          className="lamu-filter-drawer-backdrop"
-          aria-label="Close filters"
-          onClick={closeDrawer}
-        />
-      ) : null}
-      {!isDesktop && drawerOpen ? (
-        <div
-          ref={drawerRef}
-          className="lamu-filter-drawer"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Filters"
-        >
-          <button type="button" onClick={closeDrawer}>
-            Done
+
+      {!panelOpen && chips.length > 0 ? (
+        <div className="library-chips">
+          <ul className="library-chip-list" aria-label="Active filters">
+            {chips.map((chip) => (
+              <li key={chip.key}>
+                <span className="lamu-chip">
+                  {chip.label}
+                  <button
+                    type="button"
+                    className="lamu-chip-remove"
+                    aria-label={chip.removeLabel}
+                    onClick={chip.onRemove}
+                  >
+                    ×
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="lamu-link" onClick={onClearFilters}>
+            Clear all
           </button>
-          {filterPanel}
         </div>
       ) : null}
-    </>
+
+      <div
+        id={panelId}
+        className="filter-collapse"
+        data-open={String(panelOpen)}
+        inert={!panelOpen}
+      >
+        <div className="filter-collapse-inner">
+          <FilterPanel
+            query={query}
+            genres={GenreDtoList(genresQuery.data)}
+            actors={PersonDtoList(actorsQuery.data)}
+            onChange={onQueryChange}
+            genresError={genresQuery.error}
+            actorsError={actorsQuery.error}
+            integrated={integrated}
+            showTitleSearch={!integrated}
+            matchCount={totalCount}
+            onCollapse={collapsePanel}
+            routeKey={routeKey}
+          />
+        </div>
+      </div>
+
+      <section aria-label="Results">
+        {refreshFailed ? <p role="alert">Movies could not be refreshed.</p> : null}
+        <ResultsBody
+          loading={loading}
+          mode={mode}
+          hasItems={visibleItems.length > 0}
+          totalCount={totalCount}
+          page={filters.page}
+          pageSize={filters.pageSize}
+          filtersActive={activeFilters}
+          tiles={tiles}
+          variant={variant}
+          focusSignal={focusSignal}
+          onClearFilters={onClearFilters}
+          onFirstPage={() => onPageChange(1)}
+          onPageChange={onPageChange}
+        />
+      </section>
+    </div>
   );
 }
 

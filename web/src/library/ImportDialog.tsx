@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { AlertTriangleIcon } from '../ui/icons';
 import {
   GENERIC_IMPORT_ERROR,
   ImportFieldError,
@@ -86,38 +87,47 @@ export default function ImportDialog({ open, onClose, onImported }: ImportDialog
   const busy = importMovie.isPending;
 
   return (
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      onKeyDown={trapFocus}
-    >
-      <h2 id={titleId}>Import a movie folder</h2>
-      <form onSubmit={onSubmit}>
-        <label htmlFor={inputId}>Folder path</label>
-        <input
-          id={inputId}
-          name="folderPath"
-          value={folderPath}
-          autoFocus
-          readOnly={busy}
-          aria-invalid={errorMessage != null}
-          aria-describedby={errorMessage ? errorId : undefined}
-          onChange={(event) => setFolderPath(event.target.value)}
-        />
-        {errorMessage ? (
-          <p ref={alertRef} id={errorId} role="alert" tabIndex={-1}>
-            {errorMessage}
-          </p>
-        ) : null}
-        <button type="button" onClick={handleClose}>
-          Cancel
-        </button>
-        <button type="submit" disabled={busy}>
-          Import
-        </button>
-      </form>
+    <div className="lamu-dialog-scrim">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="lamu-glass lamu-dialog"
+        onKeyDown={trapFocus}
+      >
+        <h2 id={titleId} className="lamu-section-heading">
+          Import a movie folder
+        </h2>
+        <form onSubmit={onSubmit}>
+          <label htmlFor={inputId}>Folder path</label>
+          <input
+            id={inputId}
+            className="lamu-field-input"
+            name="folderPath"
+            value={folderPath}
+            autoFocus
+            readOnly={busy}
+            aria-invalid={errorMessage != null}
+            aria-describedby={errorMessage ? errorId : undefined}
+            onChange={(event) => setFolderPath(event.target.value)}
+          />
+          {errorMessage ? (
+            <p ref={alertRef} id={errorId} role="alert" tabIndex={-1} className="lamu-dialog-alert">
+              <AlertTriangleIcon size={18} />
+              {errorMessage}
+            </p>
+          ) : null}
+          <div className="lamu-dialog-actions">
+            <button type="button" className="lamu-action-quiet" onClick={handleClose}>
+              Cancel
+            </button>
+            <button type="submit" className="lamu-action-primary" disabled={busy}>
+              Import
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

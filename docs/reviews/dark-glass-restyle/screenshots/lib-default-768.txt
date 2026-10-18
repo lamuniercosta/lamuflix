@@ -1,0 +1,2 @@
+eval {"mode":"default","heading":"All movies","headingSize":"28px","width":768,"scrollWidth":768,"cards":20,"rows":0,"firstTitle":null,"firstYearDisplay":null,"statusTitle":null,"statusChip":null,"emptyStatusDisplay":null,"filterExpanded":"false","placeholder":true,"activeLayout":"Grid"}
+ok C:\Users\lamun\AppData\Local\Temp\claude\F--Dev\85f210d9-1b7f-4c33-b8a9-6fec1a53109e\scratchpad\review\shots-final\lib-default-768.png {"sw":768,"cw":768,"sh":1891}

@@ -4,16 +4,27 @@
   --color-booth: #16181d;
   --color-reel: #20242b;
   --color-rule: #2b313b;
-  --color-boundary: #64748b;
+  --color-boundary: #9aa3b3;
   --color-ink: #f0ede6;
-  --color-dim: #98a0ac;
+  --color-dim: #c2c8d1;
   --color-amber: #e0a34a;
   --color-booth-ink: #16181d;
-  --font-wordmark: Georgia, 'Times New Roman', serif;
+  --color-glass: rgb(255 255 255 / 0.1);
+  --color-glass-2: rgb(255 255 255 / 0.16);
+  --color-glass-3: rgb(255 255 255 / 0.26);
+  --color-plate: rgb(22 24 29 / 0.85);
+  --font-wordmark: 'Arial Black', Arial, sans-serif;
   --font-interface: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
+@supports (color: rgb(255 255 255 / 0.18)) {
+  :root {
+    --color-rule: rgb(255 255 255 / 0.18);
+  }
+}
+
 :root {
+  color-scheme: dark;
   --library-grid-min: 9rem;
   --lamu-space-1: 0.25rem;
   --lamu-space-2: 0.5rem;
@@ -23,7 +34,14 @@
   --lamu-space-8: 2rem;
   --lamu-space-12: 3rem;
   --lamu-radius-control: 0.375rem;
-  --lamu-radius-media: 0.5rem;
+  --lamu-radius-media: 18px;
+  --lamu-radius-frame: 24px;
+  --lamu-radius-pill: 9999px;
+  --lamu-glass-blur: 22px;
+}
+
+html {
+  background-color: var(--color-booth);
 }
 
 .lamu-app {
@@ -34,232 +52,406 @@
   font-size: 1rem;
 }
 
+.lamu-ambient {
+  position: fixed;
+  inset: -140px;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 45% at 18% 8%, rgb(255 255 255 / 0.05), transparent 70%),
+    linear-gradient(180deg, var(--color-reel) 0%, var(--color-booth) 70%);
+  filter: blur(90px) saturate(1.15);
+}
+
+.lamu-ambient img {
+  position: absolute;
+  width: 42%;
+  height: 58%;
+  max-width: none;
+  object-fit: cover;
+  opacity: 0.5;
+}
+
+.lamu-ambient img:nth-child(1) {
+  top: -4%;
+  left: -4%;
+}
+
+.lamu-ambient img:nth-child(2) {
+  top: -4%;
+  right: -4%;
+}
+
+.lamu-ambient img:nth-child(3) {
+  top: 34%;
+  left: 28%;
+}
+
+.lamu-ambient img:nth-child(4) {
+  bottom: -4%;
+  left: -4%;
+}
+
+.lamu-ambient img:nth-child(5) {
+  bottom: -4%;
+  right: -4%;
+}
+
+.lamu-ambient img:nth-child(6) {
+  top: 30%;
+  right: 8%;
+}
+
+.lamu-glass {
+  background-color: var(--color-reel);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--lamu-radius-frame);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .lamu-glass {
+    background: linear-gradient(var(--color-glass), var(--color-glass)), var(--color-plate);
+    backdrop-filter: blur(var(--lamu-glass-blur));
+    -webkit-backdrop-filter: blur(var(--lamu-glass-blur));
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .lamu-glass {
+    background: var(--color-reel);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.lamu-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 90rem;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.lamu-frame {
+  min-height: calc(100vh - 56px);
+  padding: 20px 26px 28px;
+}
+
+.lamu-shell-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 1.25rem;
+}
+
 .lamu-wordmark {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lamu-space-2);
   font-family: var(--font-wordmark);
-  font-size: 2.25rem;
+  font-size: 1.625rem;
+  font-weight: 900;
   line-height: 1.1;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.05em;
   color: var(--color-ink);
   text-decoration: none;
 }
 
-.lamu-shell-header {
-  background-color: var(--color-reel);
-  border-bottom: 1px solid var(--color-rule);
+.lamu-brand-logo {
+  display: block;
+  flex: none;
+  width: auto;
+  max-width: none;
+  height: 1.5rem;
 }
 
-.lamu-shell-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--lamu-space-3) var(--lamu-space-4);
-  max-width: 90rem;
-  margin-inline: auto;
-  padding: var(--lamu-space-3) var(--lamu-space-4);
+.lamu-shell-header > .lamu-pill-button {
+  justify-self: end;
 }
 
 .lamu-shell-nav {
+  justify-self: center;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--lamu-space-2) var(--lamu-space-3);
+  gap: 2px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 4px;
+  background-color: var(--color-plate);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--lamu-radius-pill);
+}
+
+.lamu-nav-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: var(--lamu-radius-pill);
+  background: none;
+  color: var(--color-dim);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lamu-nav-tab:hover {
+  color: var(--color-ink);
+}
+
+.lamu-nav-tab[aria-current='page'],
+.lamu-nav-tab[aria-pressed='true'] {
+  background-color: var(--color-glass-2);
+  color: var(--color-ink);
 }
 
 .lamu-shell-search {
-  margin-inline-start: auto;
-  min-width: min(16rem, 100%);
+  display: flex;
+  min-width: 0;
+  margin-inline-start: 4px;
 }
 
-.lamu-shell-search input {
-  width: 100%;
-  background-color: var(--color-booth);
+.lamu-shell-search > form {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.lamu-search-field {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--lamu-space-2);
+  min-width: 0;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--lamu-radius-pill);
+  background-color: var(--color-glass);
+  color: var(--color-dim);
+}
+
+.lamu-search-field:focus-within {
+  border-color: var(--color-amber);
+}
+
+.lamu-search-field > svg {
+  flex: none;
+}
+
+.lamu-search-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 15rem;
+  padding: 8px 0;
+  background: none;
+  border: 0;
   color: var(--color-ink);
-  border: 1px solid var(--color-boundary);
-  border-radius: var(--lamu-radius-control);
-  padding: var(--lamu-space-2) var(--lamu-space-3);
   font-size: 0.875rem;
 }
 
-.lamu-browse {
-  display: grid;
-  grid-template-columns: 17rem minmax(0, 1fr);
-  gap: var(--lamu-space-4);
-  max-width: 90rem;
-  margin-inline: auto;
-  padding: var(--lamu-space-4);
+.lamu-search-field input::placeholder {
+  color: var(--color-dim);
+  opacity: 1;
 }
 
-.lamu-filter-sidebar {
-  background-color: var(--color-reel);
-  border: 1px solid var(--color-rule);
-  border-radius: var(--lamu-radius-media);
-  padding: var(--lamu-space-4);
-  align-self: start;
-  position: sticky;
-  top: var(--lamu-space-4);
-  max-height: calc(100vh - 2rem);
-  overflow: auto;
-}
-
-.lamu-results-head {
-  display: flex;
-  flex-wrap: wrap;
+.lamu-pill-button {
+  display: inline-flex;
   align-items: center;
-  gap: var(--lamu-space-2) var(--lamu-space-3);
-  margin-bottom: var(--lamu-space-3);
+  gap: var(--lamu-space-2);
+  padding: var(--lamu-space-2) var(--lamu-space-4);
+  border: 1px solid var(--color-boundary);
+  border-radius: var(--lamu-radius-pill);
+  background-color: var(--color-glass);
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.lamu-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--lamu-space-2);
-  list-style: none;
-  margin: 0;
+.lamu-pill-button:hover {
+  background-color: var(--color-glass-2);
+}
+
+.lamu-pill-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.lamu-icon-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   padding: 0;
+  border: 1px solid var(--color-boundary);
+  border-radius: var(--lamu-radius-pill);
+  background-color: var(--color-glass);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.lamu-icon-button:hover {
+  background-color: var(--color-glass-2);
 }
 
 .lamu-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--lamu-space-2);
-  background-color: var(--color-reel);
+  padding: 0.25rem 0.75rem;
+  background-color: transparent;
   border: 1px solid var(--color-boundary);
-  border-radius: 9999px;
+  border-radius: var(--lamu-radius-pill);
   color: var(--color-ink);
   font-size: 0.875rem;
-  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+}
+
+.lamu-chip:has(button) {
+  padding-right: 0.25rem;
+}
+
+button.lamu-chip {
+  cursor: pointer;
 }
 
 .lamu-chip button {
-  border-radius: 9999px;
+  border-radius: var(--lamu-radius-pill);
   padding: 0.125rem 0.5rem;
+}
+
+.lamu-chip[aria-pressed='true'],
+.lamu-chip-selected {
+  background-color: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-booth);
+}
+
+.lamu-link {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--color-ink);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 .lamu-action-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lamu-space-2);
+  padding: 12px 22px;
+  border: 0;
+  border-radius: var(--lamu-radius-pill);
   background-color: var(--color-amber);
   color: var(--color-booth-ink);
-  border: 1px solid var(--color-amber);
-  border-radius: var(--lamu-radius-control);
-  padding: var(--lamu-space-2) var(--lamu-space-3);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lamu-action-primary:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .lamu-action-quiet {
-  background-color: transparent;
-  color: var(--color-ink);
-  border: 1px solid var(--color-boundary);
-  border-radius: var(--lamu-radius-control);
-  padding: var(--lamu-space-2) var(--lamu-space-3);
-  font-size: 0.875rem;
-}
-
-.library-view {
-  min-width: 0;
-}
-
-.library-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(var(--library-grid-min), 1fr));
-}
-
-.movie-card {
-  background-color: var(--color-reel);
-  border: 1px solid var(--color-rule);
-  border-radius: var(--lamu-radius-media);
-  padding: var(--lamu-space-3);
-  min-width: 0;
-}
-
-.movie-card-media img,
-.movie-card-placeholder {
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
-  border-radius: var(--lamu-radius-media);
-  display: block;
-}
-
-.movie-card-placeholder {
-  background-color: var(--color-booth);
-  border: 1px solid var(--color-boundary);
-  color: var(--color-ink);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  padding: var(--lamu-space-3);
-  font-size: 0.875rem;
-}
-
-.movie-card-title {
-  font-size: 1rem;
-  line-height: 1.35;
-  margin: var(--lamu-space-2) 0 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.movie-card-meta {
-  display: flex;
-  flex-wrap: wrap;
   gap: var(--lamu-space-2);
-  color: var(--color-dim);
-  font-size: 0.875rem;
-  margin: var(--lamu-space-1) 0 0;
-}
-
-.movie-card-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--lamu-space-2);
-  margin-top: var(--lamu-space-2);
-}
-
-.movie-status-chip {
-  font-size: 0.75rem;
+  padding: var(--lamu-space-2) var(--lamu-space-4);
+  background-color: transparent;
   border: 1px solid var(--color-boundary);
-  border-radius: 9999px;
-  padding: 0.125rem 0.5rem;
+  border-radius: var(--lamu-radius-pill);
   color: var(--color-ink);
+  font-size: 0.875rem;
+  cursor: pointer;
 }
 
-.movie-skeleton {
-  background-color: var(--color-reel);
-  border: 1px solid var(--color-rule);
-  border-radius: var(--lamu-radius-media);
+.lamu-section-heading {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.6px;
 }
 
-.movie-grid-empty,
-.library-state {
-  background-color: var(--color-reel);
-  border: 1px solid var(--color-rule);
-  border-radius: var(--lamu-radius-media);
-  padding: var(--lamu-space-6);
-  max-width: 34rem;
-}
-
-.lamu-filter-drawer-backdrop {
+.lamu-dialog-scrim {
   position: fixed;
   inset: 0;
-  background-color: rgb(0 0 0 / 0.6);
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: var(--lamu-space-4);
+  background-color: rgb(0 0 0 / 0.55);
 }
 
-.lamu-filter-drawer {
-  position: fixed;
-  inset-block: 0;
-  inset-inline-end: 0;
-  width: min(22rem, 92vw);
-  background-color: var(--color-reel);
+.lamu-dialog {
+  width: min(30rem, 100%);
+  padding: var(--lamu-space-6);
   color: var(--color-ink);
-  border-inline-start: 1px solid var(--color-boundary);
-  border-start-start-radius: var(--lamu-radius-media);
-  padding: var(--lamu-space-4);
-  overflow: auto;
+  box-shadow: 0 30px 60px -20px #000;
+}
+
+.lamu-dialog > h2 {
+  margin-bottom: var(--lamu-space-4);
+}
+
+.lamu-dialog form > label {
+  display: block;
+  margin-bottom: var(--lamu-space-2);
+  color: var(--color-dim);
+  font-size: 0.875rem;
+}
+
+.lamu-field-input {
+  width: 100%;
+  padding: var(--lamu-space-2) var(--lamu-space-3);
+  background-color: var(--color-glass);
+  border: 1px solid var(--color-boundary);
+  border-radius: 12px;
+  color: var(--color-ink);
+  font-size: 0.875rem;
+}
+
+.lamu-field-input::placeholder {
+  color: var(--color-dim);
+  opacity: 1;
+}
+
+.lamu-field-input[aria-invalid='true'] {
+  border-color: var(--color-amber);
+}
+
+.lamu-dialog-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--lamu-space-2);
+  margin: var(--lamu-space-3) 0 0;
+  font-size: 0.875rem;
+}
+
+.lamu-dialog-alert > svg {
+  flex: none;
+  color: var(--color-amber);
+}
+
+.lamu-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--lamu-space-2);
+  margin-top: var(--lamu-space-4);
 }
 
 :is(a, button, input, select, textarea, [tabindex]):focus-visible {
@@ -279,24 +471,50 @@
   border: 0;
 }
 
-@media (max-width: 47.9375rem) {
-  .lamu-browse {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .lamu-filter-sidebar {
-    display: none;
-  }
-
-  .lamu-shell-search {
-    margin-inline-start: 0;
-    flex: 1 1 100%;
+@media (min-width: 48rem) and (max-width: 63.9375rem) {
+  .lamu-nav-tab {
+    padding-inline: var(--lamu-space-3);
   }
 }
 
-@media (min-width: 48rem) {
-  .lamu-filter-open-button {
-    display: none;
+@media (max-width: 47.9375rem) {
+  .lamu-shell {
+    padding: 10px;
+  }
+
+  .lamu-frame {
+    padding: 14px 14px 22px;
+  }
+
+  .lamu-shell-header {
+    grid-template-columns: 1fr auto;
+  }
+
+  .lamu-shell-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: stretch;
+    flex-wrap: wrap;
+
+    border-radius: 24px;
+  }
+
+  .lamu-nav-tab {
+    flex: 1 1 0;
+  }
+
+  .lamu-shell-search {
+    order: -1;
+    flex: 1 1 100%;
+    margin-inline-start: 0;
+  }
+
+  .lamu-search-field input {
+    width: 100%;
+  }
+
+  .lamu-section-heading {
+    font-size: 1.5rem;
   }
 }
 

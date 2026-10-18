@@ -1,0 +1,200 @@
+[
+  {
+    "mode": "default",
+    "heading": "All movies",
+    "headingSize": "28px",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "cards": 20,
+    "rows": 0,
+    "firstTitle": null,
+    "firstYearDisplay": null,
+    "statusTitle": null,
+    "statusChip": null,
+    "emptyStatusDisplay": null,
+    "filterExpanded": "false",
+    "placeholder": true,
+    "activeLayout": "Grid"
+  },
+  {
+    "mode": "default",
+    "heading": "All movies",
+    "headingSize": "24px",
+    "width": 375,
+    "scrollWidth": 375,
+    "cards": 20,
+    "rows": 0,
+    "firstTitle": null,
+    "firstYearDisplay": null,
+    "statusTitle": null,
+    "statusChip": null,
+    "emptyStatusDisplay": null,
+    "filterExpanded": "false",
+    "placeholder": true,
+    "activeLayout": "Grid"
+  },
+  {
+    "mode": "default",
+    "heading": "All movies",
+    "headingSize": "28px",
+    "width": 768,
+    "scrollWidth": 768,
+    "cards": 20,
+    "rows": 0,
+    "firstTitle": null,
+    "firstYearDisplay": null,
+    "statusTitle": null,
+    "statusChip": null,
+    "emptyStatusDisplay": null,
+    "filterExpanded": "false",
+    "placeholder": true,
+    "activeLayout": "Grid"
+  },
+  {
+    "mode": "filters",
+    "heading": "All movies",
+    "headingSize": "28px",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "cards": 20,
+    "rows": 0,
+    "firstTitle": null,
+    "firstYearDisplay": null,
+    "statusTitle": null,
+    "statusChip": null,
+    "emptyStatusDisplay": null,
+    "filterExpanded": "true",
+    "placeholder": true,
+    "activeLayout": "Grid"
+  },
+  {
+    "mode": "filters",
+    "heading": "All movies",
+    "headingSize": "24px",
+    "width": 375,
+    "scrollWidth": 375,
+    "cards": 20,
+    "rows": 0,
+    "firstTitle": null,
+    "firstYearDisplay": null,
+    "statusTitle": null,
+    "statusChip": null,
+    "emptyStatusDisplay": null,
+    "filterExpanded": "true",
+    "placeholder": true,
+    "activeLayout": "Grid"
+  },
+  {
+    "mode": "filters",
+    "heading": "All movies",
+    "headingSize": "28px",
+    "width": 768,
+    "scrollWidth": 768,
+    "cards": 20,
+    "rows": 0,
+    "firstTitle": null,
+    "firstYearDisplay": null,
+    "statusTitle": null,
+    "statusChip": null,
+    "emptyStatusDisplay": null,
+    "filterExpanded": "true",
+    "placeholder": true,
+    "activeLayout": "Grid"
+  },
+  {
+    "mode": "list",
+    "heading": "All movies",
+    "headingSize": "28px",
+    "width": 1440,
+    "scrollWidth": 1440,
+    "cards": 0,
+    "rows": 20,
+    "firstTitle": {
+      "x": 128,
+      "y": 300.75,
+      "w": 744,
+      "h": 22.5
+    },
+    "firstYearDisplay": "block",
+    "statusTitle": {
+      "x": 128,
+      "y": 986.75,
+      "w": 744,
+      "h": 22.5
+    },
+    "statusChip": {
+      "x": 1163.78125,
+      "y": 986,
+      "w": 72.796875,
+      "h": 24
+    },
+    "emptyStatusDisplay": "flex",
+    "filterExpanded": "false",
+    "placeholder": true,
+    "activeLayout": "List"
+  },
+  {
+    "mode": "list",
+    "heading": "All movies",
+    "headingSize": "24px",
+    "width": 375,
+    "scrollWidth": 375,
+    "cards": 0,
+    "rows": 20,
+    "firstTitle": {
+      "x": 98,
+      "y": 409.25,
+      "w": 123,
+      "h": 22.5
+    },
+    "firstYearDisplay": "none",
+    "statusTitle": {
+      "x": 98,
+      "y": 1071.875,
+      "w": 123,
+      "h": 22.5
+    },
+    "statusChip": {
+      "x": 98,
+      "y": 1113.125,
+      "w": 72.796875,
+      "h": 24
+    },
+    "emptyStatusDisplay": "none",
+    "filterExpanded": "false",
+    "placeholder": true,
+    "activeLayout": "List"
+  },
+  {
+    "mode": "list",
+    "heading": "All movies",
+    "headingSize": "28px",
+    "width": 768,
+    "scrollWidth": 768,
+    "cards": 0,
+    "rows": 20,
+    "firstTitle": {
+      "x": 128,
+      "y": 300.75,
+      "w": 308,
+      "h": 22.5
+    },
+    "firstYearDisplay": "block",
+    "statusTitle": {
+      "x": 128,
+      "y": 963.375,
+      "w": 308,
+      "h": 22.5
+    },
+    "statusChip": {
+      "x": 128,
+      "y": 1004.625,
+      "w": 72.796875,
+      "h": 24
+    },
+    "emptyStatusDisplay": "none",
+    "filterExpanded": "false",
+    "placeholder": true,
+    "activeLayout": "List"
+  }
+]

@@ -1,0 +1,137 @@
+import { useCallback, useSyncExternalStore } from 'react';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryCache,
+  type QueryClient,
+} from '@tanstack/react-query';
+import { client } from '../../api/client';
+import type { components } from '../../api/types';
+import { markRowPending } from '../../library/libraryQueries';
+
+type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
+type MovieSummary = components['schemas']['MovieSummaryResponse'];
+
+export type EnrichmentStatus = MovieSummary['enrichmentStatus'];
+export type ActorId = number | string;
+
+export const MORE_WITH_PAGE_SIZE = 20;
+
+export function useGenresLookup() {
+  return useQuery({
+    queryKey: ['detailsGenres'],
+    queryFn: async ({ signal }) => {
+      const { data, error, response } = await client.GET('/api/genres', { signal });
+      const status = response.status;
+      if (error || !data) {
+        throw new Error(`Genres request failed (${status})`);
+      }
+      return data;
+    },
+  });
+}
+
+export function usePeopleLookup() {
+  return useQuery({
+    queryKey: ['detailsPeople'],
+    queryFn: async ({ signal }) => {
+      const { data, error, response } = await client.GET('/api/people', { signal });
+      if (error || !data) {
+        throw new Error(`People request failed (${response.status})`);
+      }
+      return data;
+    },
+  });
+}
+
+export function useMoreWithActors(actorIds: readonly ActorId[], enabled: boolean) {
+  const ids = [...new Set(actorIds.map(String))].sort();
+  return useQuery({
+    queryKey: ['moreWith', ids],
+    enabled: enabled && ids.length > 0,
+    queryFn: async ({ signal }) => {
+      const { data, error, response } = await client.GET('/api/movies', {
+        params: {
+          query: {
+            ActorIds: ids,
+            sort: 'Title',
+            direction: 'Ascending',
+            page: 1,
+            pageSize: MORE_WITH_PAGE_SIZE,
+          },
+        },
+        signal,
+      });
+      if (error || !data) {
+        throw new Error(`More-with request failed (${response.status})`);
+      }
+      return data.items;
+    },
+  });
+}
+
+export class EnrichmentRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Enrichment request failed with status ${status}`);
+    this.status = status;
+  }
+}
+
+async function postEnrichment(movieId: ActorId): Promise<number> {
+  try {
+    const { response } = await client.POST('/api/movies/{id}/enrichment', {
+      params: { path: { id: Number(movieId) } },
+      parseAs: 'text',
+    });
+    return response.status;
+  } catch {
+    return 0;
+  }
+}
+
+export function useRequestEnrichment(movieId: ActorId, libraryClient: QueryClient) {
+  const detailsClient = useQueryClient();
+  return useMutation<{ id: ActorId }, EnrichmentRequestError, void>({
+    mutationFn: async () => {
+      const status = await postEnrichment(movieId);
+      if (status !== 202) {
+        throw new EnrichmentRequestError(status);
+      }
+      return { id: movieId };
+    },
+    onSuccess: ({ id }) => {
+      libraryClient.setQueriesData<BrowseMoviesResponse>(
+        { queryKey: ['browseMovies'] },
+        (current) => markRowPending(current, id),
+      );
+      void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
+    },
+  });
+}
+
+export function readLibraryEnrichmentStatus(
+  cache: QueryCache,
+  movieId: ActorId,
+): EnrichmentStatus | null {
+  for (const query of cache.findAll({ queryKey: ['browseMovies'] })) {
+    const page = query.state.data as BrowseMoviesResponse | undefined;
+    const match = page?.items.find((item) => String(item.id) === String(movieId));
+    if (match) {
+      return match.enrichmentStatus;
+    }
+  }
+  return null;
+}
+
+export function useLibraryEnrichmentStatus(
+  libraryClient: QueryClient,
+  movieId: ActorId,
+): EnrichmentStatus | null {
+  const cache = libraryClient.getQueryCache();
+  const subscribe = useCallback((onChange: () => void) => cache.subscribe(onChange), [cache]);
+  const snapshot = useCallback(() => readLibraryEnrichmentStatus(cache, movieId), [cache, movieId]);
+  return useSyncExternalStore(subscribe, snapshot, snapshot);
+}

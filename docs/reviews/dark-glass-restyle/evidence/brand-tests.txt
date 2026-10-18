@@ -1,0 +1,13 @@
+
+> lamuflix-web@0.0.0 test
+> vitest run src/App.test.tsx
+
+
+ RUN  v5.0.3 F:/Dev/LamuFlix.worktrees/dark-glass-restyle/web
+
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  02:54:08
+   Duration  5.37s (tests 70%, environment 16%, transform 6%, setup 5%, import 3%)
+

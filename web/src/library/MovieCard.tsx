@@ -1,99 +1,151 @@
-import { useState } from 'react';
-import type { ReactNode } from 'react';
+import { useId, useState, type MouseEvent } from 'react';
 import type { components } from '../api/types';
+import { FilmIcon, PlayFilledIcon, RetryIcon, StarFilledIcon } from '../ui/icons';
+import { usePlayMovieMutation } from './libraryQueries';
+import {
+  canRetryEnrichment,
+  displayValue,
+  formatRating,
+  playErrorMessage,
+} from './movieCardFormat';
+import { WatchlistToggleButton } from './watchlist';
+import { useWatchlistToggle } from './watchlistStore';
 
 export type MovieSummaryResponse = components['schemas']['MovieSummaryResponse'];
 
-type MovieLike = MovieSummaryResponse & Record<string, unknown>;
+const STATUS_LABELS: Record<string, string> = {
+  Pending: 'Pending',
+  NotFound: 'Not found',
+  Failed: 'Failed',
+};
 
 export interface MovieCardProps {
-  movie?: MovieLike;
-  item?: MovieLike;
-  data?: MovieLike;
-  actions?: ReactNode;
-  [key: string]: unknown;
+  movie: MovieSummaryResponse;
+  onOpenMovie?: (id: number | string) => void;
+  onRetry?: (id: number | string) => void;
+  retryError?: string | null;
+  retryErrorId?: string;
 }
 
-function isRecord(value: unknown): value is MovieLike {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
+export default function MovieCard({
+  movie,
+  onOpenMovie,
+  onRetry,
+  retryError,
+  retryErrorId,
+}: MovieCardProps) {
+  const [posterFailed, setPosterFailed] = useState(false);
+  const [playError, setPlayError] = useState<string | null>(null);
+  const playErrorId = useId();
+  const playMutation = usePlayMovieMutation();
+  const watchlist = useWatchlistToggle(movie.id, movie.isInWatchlist);
 
-function extractMovie(props: MovieCardProps): MovieLike {
-  const source = props.movie ?? props.item ?? props.data ?? props;
-  const base: MovieLike = isRecord(source) ? ({ ...source } as MovieLike) : ({} as MovieLike);
-  const keys = [
-    'id',
-    'title',
-    'posterUrl',
-    'poster_url',
-    'poster',
-    'releaseYear',
-    'release_year',
-    'year',
-    'runtime',
-    'runtimeMinutes',
-    'imdbRating',
-    'imdb_rating',
-    'rating',
-    'enrichmentStatus',
-    'enrichment_status',
-    'status',
-  ];
-  const propsRecord = props as Record<string, unknown>;
-  for (const key of keys) {
-    if (propsRecord[key] !== undefined) {
-      base[key] = propsRecord[key];
+  const { id, title, enrichmentStatus: status } = movie;
+  const showPoster = Boolean(movie.posterUrl) && !posterFailed;
+  const ratingText = formatRating(movie.imdbRating);
+  const statusLabel = STATUS_LABELS[status];
+
+  const handlePlay = () => {
+    setPlayError(null);
+    playMutation.mutate(id, {
+      onError: (error) => setPlayError(playErrorMessage(error)),
+    });
+  };
+
+  const handleOpen = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (onOpenMovie) {
+      event.preventDefault();
+      onOpenMovie(id);
     }
-  }
-  return base;
-}
-
-function toNullableNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-export default function MovieCard(props: MovieCardProps) {
-  const movie = extractMovie(props);
-  const title = String(movie.title ?? movie.name ?? 'Untitled');
-  const poster = movie.posterUrl ?? movie.poster_url ?? movie.poster ?? null;
-  const year = toNullableNumber(movie.releaseYear ?? movie.release_year ?? movie.year);
-  const runtime = toNullableNumber(movie.runtime ?? movie.runtimeMinutes ?? movie.runtime_minutes);
-  const rating = toNullableNumber(movie.imdbRating ?? movie.imdb_rating ?? movie.rating);
-  const rawStatus = movie.enrichmentStatus ?? movie.enrichment_status ?? movie.status ?? 'Pending';
-  const status = rawStatus === 'NotFound' ? 'Not found' : String(rawStatus);
-
-  const [broken, setBroken] = useState(false);
-
-  const showImage = typeof poster === 'string' && poster !== '' && !broken;
+  };
 
   return (
-    <article className="movie-card">
-      <div className="movie-card-media" style={{ aspectRatio: '2 / 3' }}>
-        {showImage ? (
-          <img src={String(poster)} alt={title} onError={() => setBroken(true)} />
+    <article className="movie-card" data-status={status}>
+      <div className="movie-card-poster" style={{ aspectRatio: '2 / 3' }}>
+        {showPoster ? (
+          <img
+            src={movie.posterUrl ?? undefined}
+            alt={title}
+            loading="lazy"
+            onError={() => setPosterFailed(true)}
+          />
         ) : (
           <div className="movie-card-placeholder" role="img" aria-label={title}>
-            <span aria-hidden="true">{title}</span>
+            <FilmIcon size={32} />
           </div>
         )}
+
+        {statusLabel ? (
+          <span className={`movie-status movie-status-${status.toLowerCase()}`}>{statusLabel}</span>
+        ) : null}
+
+        <div
+          className="movie-card-watch"
+          data-watchlisted={String(watchlist.isInWatchlist)}
+          data-error={watchlist.error ? 'true' : 'false'}
+        >
+          <WatchlistToggleButton movieId={id} isInWatchlist={movie.isInWatchlist} />
+        </div>
+
+        <button
+          type="button"
+          className="movie-card-play"
+          aria-label={`Play ${title}`}
+          aria-busy={playMutation.isPending}
+          aria-describedby={playError ? playErrorId : undefined}
+          disabled={playMutation.isPending}
+          onClick={handlePlay}
+        >
+          <PlayFilledIcon size={22} />
+        </button>
       </div>
-      <h3 className="movie-card-title">{title}</h3>
+
+      <h3 className="movie-card-title">
+        <a href={`/movies/${id}`} onClick={handleOpen}>
+          {title}
+        </a>
+      </h3>
+
       <p className="movie-card-meta">
-        <span>{year === null ? '—' : year}</span>
-        <span>{runtime === null ? '—' : `${runtime} min`}</span>
         <span
           className="movie-card-rating"
-          aria-label={`IMDb rating ${rating === null ? '—' : rating.toFixed(1)}`}
+          aria-label={ratingText ? `IMDb rating ${ratingText}` : 'IMDb rating unavailable'}
         >
-          {rating === null ? '—' : rating.toFixed(1)}
+          <StarFilledIcon size={14} className="movie-card-star" />
+          <span>{ratingText ?? '—'}</span>
         </span>
+        <span className="movie-card-sep" aria-hidden="true">
+          |
+        </span>
+        <span>{displayValue(movie.releaseYear)}</span>
       </p>
-      <div className="movie-card-status">
-        <span className="movie-status-chip">{status}</span>
-        {props.actions}
-      </div>
+
+      {canRetryEnrichment(status) ? (
+        <div className="movie-card-status">
+          <button
+            type="button"
+            className="movie-card-retry"
+            aria-label={`Retry ${title}`}
+            aria-describedby={retryError ? retryErrorId : undefined}
+            onClick={() => onRetry?.(id)}
+          >
+            <RetryIcon size={14} />
+            <span>Retry</span>
+          </button>
+        </div>
+      ) : null}
+
+      {retryError ? (
+        <p id={retryErrorId} role="alert" className="movie-card-error">
+          {retryError}
+        </p>
+      ) : null}
+
+      {playError ? (
+        <p id={playErrorId} role="alert" className="movie-card-error">
+          {playError}
+        </p>
+      ) : null}
     </article>
   );
 }
