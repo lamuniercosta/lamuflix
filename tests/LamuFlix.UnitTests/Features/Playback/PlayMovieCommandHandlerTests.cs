@@ -63,7 +63,8 @@ public sealed class PlayMovieCommandHandlerTests
         // assert
         await history.Received(1).RecordAsync(Arg.Any<PlaybackEvent>(), ct);
         var recorded = history.ReceivedCalls()
-            .Select(call => (PlaybackEvent)call.GetArguments()[0]!)
+            .Select(call => call.GetArguments()[0])
+            .OfType<PlaybackEvent>()
             .ShouldHaveSingleItem();
         recorded.MovieId.ShouldBe(id);
         recorded.PlayedAt.ShouldBe(Now);
