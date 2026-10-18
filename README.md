@@ -98,7 +98,7 @@ docker compose -f docker-compose.observability.yml up -d
 - Dashboard UI: http://localhost:18888
 - OTLP gRPC: `localhost:4317`, OTLP HTTP: `localhost:4318`
 
-The Api exports to `http://localhost:4317` by default. To send telemetry elsewhere, set `OTEL_EXPORTER_OTLP_ENDPOINT`.
+The Api exports to `http://localhost:4317` by default, which reaches the dashboard when the Api runs on the host. Inside the Docker Compose stack, `localhost` is the api container itself, so `docker/api.settings.example.json` sets `OTEL_EXPORTER_OTLP_ENDPOINT` to `http://aspire-dashboard:18889`, the dashboard's OTLP gRPC port on the Compose network. Start both compose files from the repository root so they share that network. If your `docker/api.settings.json` was copied before this key existed, add it to your copy and restart the api container. To send telemetry elsewhere, set `OTEL_EXPORTER_OTLP_ENDPOINT` to another collector.
 
 The dashboard runs unsecured for local use only. Do not expose ports 18888, 4317, or 4318 beyond localhost.
 

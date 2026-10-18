@@ -1,6 +1,6 @@
 # Local observability target: the Aspire Dashboard receives OTLP from the Api.
 # Start with: docker compose -f docker-compose.observability.yml up -d
-# The Api exports to http://localhost:4317 (see README, "Observability").
+# The Api exports to http://localhost:4317 on the host, or http://aspire-dashboard:18889 from the Compose stack (see README, "Observability").
 services:
   aspire-dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6
