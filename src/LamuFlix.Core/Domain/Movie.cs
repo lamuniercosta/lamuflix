@@ -6,6 +6,10 @@ public sealed class Movie
 {
     private const string InWatchlist = "InWatchlist";
     private const string NotInWatchlist = "NotInWatchlist";
+    private const string Watched = "Watched";
+    private const string NotWatched = "NotWatched";
+    private const string NotInterested = "NotInterested";
+    private const string Interested = "Interested";
 
     private Movie(MovieId id, string title, LibraryPath path, MediaFormat format, ReleaseYear? parsedReleaseYear)
     {
@@ -29,6 +33,10 @@ public sealed class Movie
     public ReleaseYear? ParsedReleaseYear { get; private set; }
 
     public bool IsInWatchlist { get; private set; }
+
+    public bool IsWatched { get; private set; }
+
+    public bool IsNotInterested { get; private set; }
 
     public MovieMetadata? Metadata { get; private set; }
 
@@ -69,12 +77,16 @@ public sealed class Movie
         EnrichmentFailureCategory? lastFailureCategory,
         DateTimeOffset? lastAttemptAt,
         ReleaseYear? parsedReleaseYear = null,
-        ImdbId? manualImdbId = null)
+        ImdbId? manualImdbId = null,
+        bool isWatched = false,
+        bool isNotInterested = false)
     {
         RequireTitle(title);
         return new Movie(id, title, path, format, parsedReleaseYear)
         {
             IsInWatchlist = isInWatchlist,
+            IsWatched = isWatched,
+            IsNotInterested = isNotInterested,
             Metadata = metadata,
             Status = status,
             EnrichedAt = enrichedAt,
@@ -144,6 +156,46 @@ public sealed class Movie
         }
 
         IsInWatchlist = false;
+    }
+
+    public void MarkWatched()
+    {
+        if (IsWatched)
+        {
+            throw new InvalidTransitionException(nameof(MarkWatched), Watched);
+        }
+
+        IsWatched = true;
+    }
+
+    public void UnmarkWatched()
+    {
+        if (!IsWatched)
+        {
+            throw new InvalidTransitionException(nameof(UnmarkWatched), NotWatched);
+        }
+
+        IsWatched = false;
+    }
+
+    public void MarkNotInterested()
+    {
+        if (IsNotInterested)
+        {
+            throw new InvalidTransitionException(nameof(MarkNotInterested), NotInterested);
+        }
+
+        IsNotInterested = true;
+    }
+
+    public void UnmarkNotInterested()
+    {
+        if (!IsNotInterested)
+        {
+            throw new InvalidTransitionException(nameof(UnmarkNotInterested), Interested);
+        }
+
+        IsNotInterested = false;
     }
 
     private static void RequireTitle(string title)
