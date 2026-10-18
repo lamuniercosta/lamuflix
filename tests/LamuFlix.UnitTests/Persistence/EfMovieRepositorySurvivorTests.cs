@@ -1115,24 +1115,29 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         await fixture.ResetAsync(ct);
+        var tag = Guid.NewGuid().ToString("N");
+        var genre = $"Drama {tag}";
+        var director = $"Shared Director {tag}";
+        var writer = $"Shared Writer {tag}";
+        var actor = $"Shared Actor {tag}";
         await using var contextA = fixture.CreateMigratedContext();
         await using var contextB = fixture.CreateMigratedContext();
         var repositoryA = Repository(contextA);
         var repositoryB = Repository(contextB);
-        var movieA = Movie.Create(await repositoryA.NextIdentityAsync(ct), "Alpha", new LibraryPath("C:/library/mutation-concurrent-alpha.mkv"), new MediaFormat("mkv"));
-        var movieB = Movie.Create(await repositoryB.NextIdentityAsync(ct), "Bravo", new LibraryPath("C:/library/mutation-concurrent-bravo.mkv"), new MediaFormat("mkv"));
+        var movieA = Movie.Create(await repositoryA.NextIdentityAsync(ct), "Alpha", new LibraryPath($"C:/library/mutation-concurrent-alpha-{tag}.mkv"), new MediaFormat("mkv"));
+        var movieB = Movie.Create(await repositoryB.NextIdentityAsync(ct), "Bravo", new LibraryPath($"C:/library/mutation-concurrent-bravo-{tag}.mkv"), new MediaFormat("mkv"));
         await repositoryA.AddAsync(movieA, ct);
         await repositoryB.AddAsync(movieB, ct);
         movieA.MarkEnriched(
-            SnapshotMetadata("Alpha", "tt0000011", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 60), Now);
+            SnapshotMetadata("Alpha", "tt0000011", [genre], [director], [writer], [actor], 60), Now);
         movieB.MarkEnriched(
-            SnapshotMetadata("Bravo", "tt0000012", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 61), Now);
+            SnapshotMetadata("Bravo", "tt0000012", [genre], [director], [writer], [actor], 61), Now);
 
         await using var gate = fixture.CreateMigratedContext();
         await using (var gateTransaction = await gate.Database.BeginTransactionAsync(ct))
         {
             await gate.Database.ExecuteSqlRawAsync(
-                "SELECT pg_advisory_xact_lock({0}, hashtext({1}))", [1, "drama"], ct);
+                "SELECT pg_advisory_xact_lock({0}, hashtext({1}))", [1, genre.ToLowerInvariant()], ct);
 
             var saveA = repositoryA.SaveChangesAsync(ct);
             var saveB = repositoryB.SaveChangesAsync(ct);
@@ -1146,10 +1151,10 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
 
         // assert
         await using var verify = fixture.CreateMigratedContext();
-        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe(["Drama"]);
-        (await verify.Directors.Select(director => director.Name).ToArrayAsync(ct)).ShouldBe(["Shared Director"]);
-        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Shared Writer"]);
-        (await verify.Actors.Select(actor => actor.Name).ToArrayAsync(ct)).ShouldBe(["Shared Actor"]);
+        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe([genre]);
+        (await verify.Directors.Select(director => director.Name).ToArrayAsync(ct)).ShouldBe([director]);
+        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe([writer]);
+        (await verify.Actors.Select(actor => actor.Name).ToArrayAsync(ct)).ShouldBe([actor]);
         (await verify.Movies.SelectMany(item => item.Writers).CountAsync(ct)).ShouldBe(2);
         (await verify.Movies.SelectMany(item => item.Genres).CountAsync(ct)).ShouldBe(2);
         (await verify.Movies.SelectMany(item => item.Directors).CountAsync(ct)).ShouldBe(2);
@@ -1274,24 +1279,29 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
     {
         // arrange
         await fixture.ResetAsync(ct);
+        var tag = Guid.NewGuid().ToString("N");
+        var genre = $"Drama {tag}";
+        var director = $"Shared Director {tag}";
+        var writer = $"Shared Writer {tag}";
+        var actor = $"Shared Actor {tag}";
         await using var contextA = fixture.CreateMigratedContext();
         await using var contextB = fixture.CreateMigratedContext();
         var repositoryA = Repository(contextA);
         var repositoryB = Repository(contextB);
-        var movieA = Movie.Create(await repositoryA.NextIdentityAsync(ct), "Alpha", new LibraryPath("C:/library/mutation-gate-alpha.mkv"), new MediaFormat("mkv"));
-        var movieB = Movie.Create(await repositoryB.NextIdentityAsync(ct), "Bravo", new LibraryPath("C:/library/mutation-gate-bravo.mkv"), new MediaFormat("mkv"));
+        var movieA = Movie.Create(await repositoryA.NextIdentityAsync(ct), "Alpha", new LibraryPath($"C:/library/mutation-gate-alpha-{tag}.mkv"), new MediaFormat("mkv"));
+        var movieB = Movie.Create(await repositoryB.NextIdentityAsync(ct), "Bravo", new LibraryPath($"C:/library/mutation-gate-bravo-{tag}.mkv"), new MediaFormat("mkv"));
         await repositoryA.AddAsync(movieA, ct);
         await repositoryB.AddAsync(movieB, ct);
         movieA.MarkEnriched(
-            SnapshotMetadata("Alpha", "tt0000041", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 60), Now);
+            SnapshotMetadata("Alpha", "tt0000041", [genre], [director], [writer], [actor], 60), Now);
         movieB.MarkEnriched(
-            SnapshotMetadata("Bravo", "tt0000042", ["Drama"], ["Shared Director"], ["Shared Writer"], ["Shared Actor"], 61), Now);
+            SnapshotMetadata("Bravo", "tt0000042", [genre], [director], [writer], [actor], 61), Now);
 
         await using var gate = fixture.CreateMigratedContext();
         await using (var gateTransaction = await gate.Database.BeginTransactionAsync(ct))
         {
             await gate.Database.ExecuteSqlRawAsync(
-                "SELECT pg_advisory_xact_lock({0}, hashtext({1}))", [roleId, key], ct);
+                "SELECT pg_advisory_xact_lock({0}, hashtext({1}))", [roleId, $"{key} {tag}"], ct);
 
             var saveA = repositoryA.SaveChangesAsync(ct);
             var saveB = repositoryB.SaveChangesAsync(ct);
@@ -1305,10 +1315,10 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
 
         // assert
         await using var verify = fixture.CreateMigratedContext();
-        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe(["Drama"]);
-        (await verify.Directors.Select(director => director.Name).ToArrayAsync(ct)).ShouldBe(["Shared Director"]);
-        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Shared Writer"]);
-        (await verify.Actors.Select(actor => actor.Name).ToArrayAsync(ct)).ShouldBe(["Shared Actor"]);
+        (await verify.Genres.Select(genre => genre.Name).ToArrayAsync(ct)).ShouldBe([genre]);
+        (await verify.Directors.Select(director => director.Name).ToArrayAsync(ct)).ShouldBe([director]);
+        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe([writer]);
+        (await verify.Actors.Select(actor => actor.Name).ToArrayAsync(ct)).ShouldBe([actor]);
     }
 
     [Fact]

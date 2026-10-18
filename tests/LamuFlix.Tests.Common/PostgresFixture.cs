@@ -15,6 +15,14 @@ public sealed class PostgresFixture : IAsyncLifetime
 {
     private const string DefaultSchema = "public";
     private const string LockTimeoutStatement = "SET LOCAL lock_timeout = '10s'";
+    private const int MaxInitAttempts = 4;
+
+    private static readonly TimeSpan[] InitRetryDelays =
+    [
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4),
+        TimeSpan.FromSeconds(8),
+    ];
 
     private PostgreSqlContainer? _container;
 
@@ -27,18 +35,32 @@ public sealed class PostgresFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        try
+        Exception? lastFailure = null;
+        for (var attempt = 1; attempt <= MaxInitAttempts; attempt++)
         {
-            _container = new PostgreSqlBuilder(
-                "pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d").Build();
-            await _container.StartAsync(cancellationToken);
-            await MigrateAsync(cancellationToken);
+            try
+            {
+                await DiscardAsync();
+                _container = new PostgreSqlBuilder(
+                    "pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d").Build();
+                await _container.StartAsync(cancellationToken);
+                await MigrateAsync(cancellationToken);
+                return;
+            }
+            catch (Exception failure) when (attempt < MaxInitAttempts && !cancellationToken.IsCancellationRequested)
+            {
+                lastFailure = failure;
+                await DiscardAsync();
+                await Task.Delay(InitRetryDelays[attempt - 1], cancellationToken);
+            }
+            catch
+            {
+                await DiscardAsync();
+                throw;
+            }
         }
-        catch
-        {
-            await DiscardAsync();
-            throw;
-        }
+
+        throw lastFailure ?? new InvalidOperationException("PostgresFixture initialization failed.");
     }
 
     public async ValueTask DisposeAsync()
