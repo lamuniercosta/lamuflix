@@ -31,7 +31,8 @@ public sealed class PostgresFixture : IAsyncLifetime
         var cancellationToken = TestContext.Current.CancellationToken;
         try
         {
-            _container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+            _container = new PostgreSqlBuilder(
+                "pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d").Build();
             await _container.StartAsync(cancellationToken);
             await MigrateAsync(cancellationToken);
             _truncateStatement = BuildTruncate(CreateMigratedContext());

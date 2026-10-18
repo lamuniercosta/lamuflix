@@ -15,7 +15,8 @@ public static class ContainerFixture
 
     public static async Task StartAsync()
     {
-        postgresContainer = new PostgreSqlBuilder("postgres:16.4").Build();
+        postgresContainer = new PostgreSqlBuilder(
+            "pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d").Build();
         rabbitMqContainer = new RabbitMqBuilder("rabbitmq:4.0.0").Build();
 
         await postgresContainer.StartAsync();

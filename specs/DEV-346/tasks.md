@@ -58,10 +58,10 @@
 
 **Independent Test**: The three image strings match, and the Compose diff is the postgres `image` line only.
 
-- [ ] T010 [P] [US2] In `tests/LamuFlix.Tests.Common/ContainerFixture.cs`, replace only the PostgreSQL image argument with `pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d`. Leave the RabbitMQ builder and start/dispose behavior unchanged.
-- [ ] T011 [P] [US2] In `tests/LamuFlix.Tests.Common/PostgresFixture.cs`, replace only the PostgreSQL image argument with the same digest pin.
-- [ ] T012 [P] [US2] In `docker-compose.yml`, replace only the postgres service `image` line with the same digest pin. Leave environment interpolation, database name, volume, ports, `pg_isready` healthcheck, and `rabbitmq:4-alpine` unchanged.
-- [ ] T013 [US2] Confirm the three sites contain that exact pin, `ContainerFixture` still builds `rabbitmq:4.0.0`, Compose still contains `rabbitmq:4-alpine`, and `specs/DEV-325/` is unmodified.
+- [X] T010 [P] [US2] In `tests/LamuFlix.Tests.Common/ContainerFixture.cs`, replace only the PostgreSQL image argument with `pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d`. Leave the RabbitMQ builder and start/dispose behavior unchanged.
+- [X] T011 [P] [US2] In `tests/LamuFlix.Tests.Common/PostgresFixture.cs`, replace only the PostgreSQL image argument with the same digest pin.
+- [X] T012 [P] [US2] In `docker-compose.yml`, replace only the postgres service `image` line with the same digest pin. Leave environment interpolation, database name, volume, ports, `pg_isready` healthcheck, and `rabbitmq:4-alpine` unchanged.
+- [X] T013 [US2] Confirm the three sites contain that exact pin, `ContainerFixture` still builds `rabbitmq:4.0.0`, Compose still contains `rabbitmq:4-alpine`, and `specs/DEV-325/` is unmodified.
 
 **Checkpoint**: US2 is met. Container tests that migrate the extension wait for US4 as well.
 
