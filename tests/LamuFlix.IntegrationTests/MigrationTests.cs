@@ -81,13 +81,14 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(6);
+        migrations.Length.ShouldBe(7);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
         migrations[3].ShouldEndWith("_AddPlaybackEvents");
-        migrations[4].ShouldEndWith("_AddParsedReleaseYear");
-        migrations[5].ShouldEndWith("_AddManualImdbId");
+        migrations[4].ShouldEndWith("_AddMovieFeedbackMarks");
+        migrations[5].ShouldEndWith("_AddParsedReleaseYear");
+        migrations[6].ShouldEndWith("_AddManualImdbId");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -95,7 +96,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task MigrateAsync_FromAddMovieWritersWithExistingRows_UpgradesToEnableVectorAndKeepsRowsAndCatalog()
+    public async Task MigrateAsync_FromAddMovieWritersWithExistingRows_UpgradesToLatestAndKeepsRowsAndCatalog()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);

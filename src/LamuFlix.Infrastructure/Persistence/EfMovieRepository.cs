@@ -99,6 +99,8 @@ public sealed class EfMovieRepository : IMovieRepository
             LibraryPath = movie.Path,
             Format = movie.Format,
             IsInWatchlist = movie.IsInWatchlist,
+            IsWatched = movie.IsWatched,
+            IsNotInterested = movie.IsNotInterested,
             Status = movie.Status,
             EnrichedAt = movie.EnrichedAt,
             EnrichmentAttempts = movie.EnrichmentAttempts,
@@ -561,6 +563,16 @@ public sealed class EfMovieRepository : IMovieRepository
             record.IsInWatchlist = movie.IsInWatchlist;
         }
 
+        if (baseline.IsWatched != movie.IsWatched)
+        {
+            record.IsWatched = movie.IsWatched;
+        }
+
+        if (baseline.IsNotInterested != movie.IsNotInterested)
+        {
+            record.IsNotInterested = movie.IsNotInterested;
+        }
+
         if (baseline.Status != movie.Status)
         {
             record.Status = movie.Status;
@@ -640,7 +652,9 @@ public sealed class EfMovieRepository : IMovieRepository
             lastFailureCategory: record.EnrichmentFailureCategory,
             lastAttemptAt: record.LastAttemptAt,
             parsedReleaseYear: record.ParsedReleaseYear,
-            manualImdbId: record.ManualImdbId);
+            manualImdbId: record.ManualImdbId,
+            isWatched: record.IsWatched,
+            isNotInterested: record.IsNotInterested);
     }
 
     private static void SetCurrentAndOriginal<T>(PropertyEntry<MovieRecord, T> property, T value)
@@ -658,6 +672,8 @@ public sealed class EfMovieRepository : IMovieRepository
 
     private sealed record Baseline(
         bool IsInWatchlist,
+        bool IsWatched,
+        bool IsNotInterested,
         EnrichmentStatus Status,
         DateTimeOffset? EnrichedAt,
         int EnrichmentAttempts,
@@ -668,6 +684,8 @@ public sealed class EfMovieRepository : IMovieRepository
     {
         public static Baseline From(Movie movie) => new(
             movie.IsInWatchlist,
+            movie.IsWatched,
+            movie.IsNotInterested,
             movie.Status,
             movie.EnrichedAt,
             movie.EnrichmentAttempts,

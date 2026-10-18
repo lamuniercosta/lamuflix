@@ -16,6 +16,10 @@ public sealed class MovieRecord
 
     public bool IsInWatchlist { get; set; }
 
+    public bool IsWatched { get; set; }
+
+    public bool IsNotInterested { get; set; }
+
     public required EnrichmentStatus Status { get; set; }
 
     public DateTimeOffset? EnrichedAt { get; set; }
