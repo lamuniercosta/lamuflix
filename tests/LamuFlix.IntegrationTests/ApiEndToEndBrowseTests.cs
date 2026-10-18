@@ -69,7 +69,7 @@ public sealed class ApiEndToEndBrowseTests(ApiEndToEndFixture fixture) : ApiEndT
         ShouldCarryExactly(body, "items", "totalCount");
         body.GetProperty("totalCount").GetInt32().ShouldBe(1);
         var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
-        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist");
+        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist", "isWatched", "isNotInterested");
         item.GetProperty("id").GetInt32().ShouldBe(matching.Id.ShouldNotBeNull().Value);
         item.GetProperty("title").GetString().ShouldBe("Matching Film");
         item.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
@@ -101,7 +101,7 @@ public sealed class ApiEndToEndBrowseTests(ApiEndToEndFixture fixture) : ApiEndT
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var items = body.GetProperty("items").EnumerateArray().ToList();
         var posterItem = items.Single(item => item.GetProperty("title").GetString() == "Poster Film");
-        ShouldCarryExactly(posterItem, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist");
+        ShouldCarryExactly(posterItem, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist", "isWatched", "isNotInterested");
         posterItem.GetProperty("posterUrl").GetString().ShouldBe("https://example.test/poster.jpg");
         posterItem.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
         var plainItem = items.Single(item => item.GetProperty("title").GetString() == "Plain Film");

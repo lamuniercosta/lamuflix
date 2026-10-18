@@ -10,13 +10,13 @@ internal sealed record BrowseMoviesResponse(IReadOnlyList<MovieSummaryResponse> 
 {
     public static BrowseMoviesResponse From(PagedResult<MovieSummary> page) =>
         new(
-            [.. page.Items.Select(summary => new MovieSummaryResponse(summary.Id.Value, summary.Title, summary.PosterUrl, summary.ReleaseYear, summary.Runtime, summary.ImdbRating, summary.EnrichmentStatus, summary.IsInWatchlist))],
+            [.. page.Items.Select(summary => new MovieSummaryResponse(summary.Id.Value, summary.Title, summary.PosterUrl, summary.ReleaseYear, summary.Runtime, summary.ImdbRating, summary.EnrichmentStatus, summary.IsInWatchlist, summary.IsWatched, summary.IsNotInterested))],
             page.TotalCount);
 }
 
-internal sealed record MovieSummaryResponse(int Id, string Title, string? PosterUrl, int? ReleaseYear, int? Runtime, decimal? ImdbRating, EnrichmentStatus EnrichmentStatus, bool IsInWatchlist);
+internal sealed record MovieSummaryResponse(int Id, string Title, string? PosterUrl, int? ReleaseYear, int? Runtime, decimal? ImdbRating, EnrichmentStatus EnrichmentStatus, bool IsInWatchlist, bool IsWatched, bool IsNotInterested);
 
-internal sealed record MovieDetailsResponse(int Id, string Title, string Path, string Format, MovieMetadataResponse? Metadata, bool IsInWatchlist)
+internal sealed record MovieDetailsResponse(int Id, string Title, string Path, string Format, MovieMetadataResponse? Metadata, bool IsInWatchlist, bool IsWatched, bool IsNotInterested)
 {
     public static MovieDetailsResponse From(MovieDetails details) =>
         new(
@@ -25,7 +25,9 @@ internal sealed record MovieDetailsResponse(int Id, string Title, string Path, s
             details.Path.Value,
             details.Format.Extension,
             details.Metadata is null ? null : MovieMetadataResponse.From(details.Metadata),
-            details.IsInWatchlist);
+            details.IsInWatchlist,
+            details.IsWatched,
+            details.IsNotInterested);
 }
 
 internal sealed record MovieMetadataResponse(

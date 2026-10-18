@@ -31,6 +31,8 @@ public sealed class GetMovieDetailsQueryHandlerTests
             new LibraryPath("C:/library/a"),
             new MediaFormat("mkv"),
             null,
+            false,
+            false,
             false);
         var ct = CancellationToken.None;
         catalog.GetDetailsAsync(id, ct).Returns(details);

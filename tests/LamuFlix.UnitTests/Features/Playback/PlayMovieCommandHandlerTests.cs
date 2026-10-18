@@ -35,7 +35,7 @@ public sealed class PlayMovieCommandHandlerTests
         var id = NewId();
         var path = new LibraryPath("C:/library/play");
         var format = new MediaFormat("mp4");
-        var details = new MovieDetails(id, "Play Me", path, format, null, false);
+        var details = new MovieDetails(id, "Play Me", path, format, null, false, false, false);
         var ct = CancellationToken.None;
         catalog.GetDetailsAsync(id, ct).Returns(details);
 
