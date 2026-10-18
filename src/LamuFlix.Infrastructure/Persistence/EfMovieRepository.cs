@@ -19,7 +19,7 @@ public sealed class EfMovieRepository : IMovieRepository
 {
     private const string ImdbIdIndexName = "IX_movies_imdb_id";
 
-    private static readonly TimeSpan[] MetadataRetryDelays =
+    private readonly TimeSpan[] metadataRetryDelays =
     [
         TimeSpan.FromMilliseconds(25),
         TimeSpan.FromMilliseconds(50),
@@ -207,10 +207,10 @@ public sealed class EfMovieRepository : IMovieRepository
                 await transaction.CommitAsync(ct);
                 return;
             }
-            catch (Exception exception) when (attempt <= MetadataRetryDelays.Length && IsRetryableConflict(exception))
+            catch (Exception exception) when (attempt <= metadataRetryDelays.Length && IsRetryableConflict(exception))
             {
                 db.ChangeTracker.Clear();
-                await Task.Delay(MetadataRetryDelays[attempt - 1], ct);
+                await Task.Delay(metadataRetryDelays[attempt - 1], ct);
             }
             catch (Exception exception) when (IsImdbIdConflict(exception))
             {
