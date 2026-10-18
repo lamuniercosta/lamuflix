@@ -49,6 +49,10 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
     private const string TracesPath = "/v1/traces";
     private const string MetricsPath = "/v1/metrics";
     private const string LogsPath = "/v1/logs";
+    // A string and a number: Serilog's forwarding formatter would render the string as "probe" in quotes.
+    private const string RenderedLogProbe = "probe";
+    private const int RenderedLogCount = 4217;
+    private const string RenderedLogBody = "exporter is composed for probe 4217 times";
     private const int FlushTimeoutMilliseconds = 5_000;
     private const int MetricsFlushAttempts = 3;
     private const string MeterScopeName = "LamuFlix";
@@ -109,6 +113,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             Received(stub, TracesPath).ShouldBeTrue();
             Received(stub, MetricsPath).ShouldBeTrue();
             Received(stub, LogsPath).ShouldBeTrue();
+            ReceivedBodyContaining(stub, LogsPath, RenderedLogBody).ShouldBeTrue();
         }
         finally
         {
@@ -378,7 +383,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
         meter.CreateCounter<long>("telemetry.composition.probe").Add(1);
         host.Services.GetRequiredService<ILoggerFactory>()
             .CreateLogger("telemetry.composition.probe")
-            .LogInformation("exporter is composed");
+            .LogInformation("exporter is composed for {Probe} {Count} times", RenderedLogProbe, RenderedLogCount);
         activity?.Stop();
     }
 
@@ -469,6 +474,17 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             return request.Path.Contains(path, StringComparison.Ordinal)
                 || request.AbsoluteUrl.Contains(path, StringComparison.Ordinal);
         });
+
+    // OTLP protobuf carries strings as raw UTF-8, so the rendered log body is searchable without decoding.
+    private static bool ReceivedBodyContaining(WireMockServer stub, string path, string text)
+    {
+        var expected = Encoding.UTF8.GetBytes(text);
+        return stub.LogEntries.Any(entry =>
+            entry.RequestMessage is { } request
+            && request.Path.Contains(path, StringComparison.Ordinal)
+            && request.BodyAsBytes is { } body
+            && body.AsSpan().IndexOf(expected) >= 0);
+    }
 
     private static string CreateImportRoot()
     {

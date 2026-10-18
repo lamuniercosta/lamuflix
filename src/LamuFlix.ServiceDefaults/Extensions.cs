@@ -49,7 +49,11 @@ public static class ServiceDefaultsExtensions
                 .AddHttpClientInstrumentation()
                 .AddMeter(TelemetryConstants.ActivitySourceName)
                 .AddOtlpExporter())
-            .WithLogging(logging => logging.AddOtlpExporter());
+            // Without a rendered message, OTLP log bodies carry only the raw template. The processor renders
+            // it instead of IncludeFormattedMessage, whose Serilog-supplied text quotes every string value.
+            .WithLogging(logging => logging
+                .AddProcessor(new UnquotedLogMessageProcessor())
+                .AddOtlpExporter());
         // The matching AddCheck registrations live in Infrastructure; the Api must not duplicate either call.
         builder.Services.AddHealthChecks();
         return builder;
