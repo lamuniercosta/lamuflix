@@ -54,6 +54,34 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         exception.Message.ShouldNotContain(whitespace);
     }
 
+    [Fact]
+    public void AddLamuFlixPersistence_NullServices_ThrowsArgumentNullExceptionNamingServices()
+    {
+        // arrange
+        ServiceCollection? services = null;
+
+        // act
+        var exception = Should.Throw<ArgumentNullException>(
+            () => services!.AddLamuFlixPersistence(Configuration(Valid())));
+
+        // assert
+        exception.ParamName.ShouldBe("services");
+    }
+
+    [Fact]
+    public void AddLamuFlixPersistence_NullConfiguration_ThrowsArgumentNullExceptionNamingConfiguration()
+    {
+        // arrange
+        var services = new ServiceCollection();
+
+        // act
+        var exception = Should.Throw<ArgumentNullException>(
+            () => services.AddLamuFlixPersistence(null!));
+
+        // assert
+        exception.ParamName.ShouldBe("configuration");
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("00:00:00")]
