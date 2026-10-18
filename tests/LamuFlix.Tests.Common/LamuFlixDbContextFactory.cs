@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Testcontainers.PostgreSql;
 
 namespace LamuFlix.Tests.Common;
@@ -27,7 +28,12 @@ public static class LamuFlixDbContextFactory
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
+<<<<<<< HEAD
             .UseNpgsql(connectionString, o => o.UseVector())
+=======
+            .UseNpgsql(connectionString)
+            .ReplaceService<IModelCacheKeyFactory, UncachedModelCacheKeyFactory>()
+>>>>>>> ae5a3a0 (DEV-351 - Harden shared Postgres test infrastructure against cross-mutant state leaks (Option A))
             .Options;
         return new LamuFlixDbContext(options);
     }
@@ -77,6 +83,11 @@ public static class LamuFlixDbContextFactory
         {
             await connection.CloseAsync();
         }
+    }
+
+    private sealed class UncachedModelCacheKeyFactory : IModelCacheKeyFactory
+    {
+        public object Create(DbContext context, bool designTime) => Guid.NewGuid();
     }
 
     private static LamuFlixDbContext CreateAdminContext(string connectionString)
