@@ -13,6 +13,8 @@ const item = {
   imdbRating: 8.3,
   enrichmentStatus: 'Enriched' as const,
   isInWatchlist: false,
+  isWatched: false,
+  isNotInterested: false,
 };
 
 function renderWithClient(ui: ReactElement) {

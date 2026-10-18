@@ -48,6 +48,18 @@ export interface paths {
     /** List the stored actor people. */
     get: operations["GetPeople"];
   };
+  "/api/movies/{id}/watched": {
+    /** Mark a movie as watched. */
+    post: operations["MarkWatched"];
+    /** Remove the watched mark from a movie. */
+    delete: operations["UnmarkWatched"];
+  };
+  "/api/movies/{id}/not-interested": {
+    /** Mark a movie as not interested. */
+    post: operations["MarkNotInterested"];
+    /** Remove the not-interested mark from a movie. */
+    delete: operations["UnmarkNotInterested"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -82,6 +94,8 @@ export interface components {
       format: string;
       metadata: null | components["schemas"]["MovieMetadataResponse"];
       isInWatchlist: boolean;
+      isWatched: boolean;
+      isNotInterested: boolean;
     };
     MovieMetadataResponse: {
       title: string;
@@ -114,6 +128,8 @@ export interface components {
       imdbRating: null | number | string;
       enrichmentStatus: components["schemas"]["EnrichmentStatus"];
       isInWatchlist: boolean;
+      isWatched: boolean;
+      isNotInterested: boolean;
     };
     PersonDto: {
       /** Format: int32 */
@@ -458,6 +474,158 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["PersonDto"][];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Mark a movie as watched. */
+  MarkWatched: {
+    parameters: {
+      path: {
+        id: number | string;
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        content: never;
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Remove the watched mark from a movie. */
+  UnmarkWatched: {
+    parameters: {
+      path: {
+        id: number | string;
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        content: never;
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Mark a movie as not interested. */
+  MarkNotInterested: {
+    parameters: {
+      path: {
+        id: number | string;
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        content: never;
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Remove the not-interested mark from a movie. */
+  UnmarkNotInterested: {
+    parameters: {
+      path: {
+        id: number | string;
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        content: never;
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
         };
       };
       /** @description Unprocessable Entity */

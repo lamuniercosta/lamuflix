@@ -21,6 +21,10 @@ export async function positiveCalls() {
   await client.POST('/api/movies/{id}/watchlist', { params: { path: { id: 1 } } });
   await client.DELETE('/api/movies/{id}/watchlist', { params: { path: { id: 1 } } });
   await client.POST('/api/movies/{id}/play', { params: { path: { id: 1 } } });
+  await client.POST('/api/movies/{id}/watched', { params: { path: { id: 1 } } });
+  await client.DELETE('/api/movies/{id}/watched', { params: { path: { id: 1 } } });
+  await client.POST('/api/movies/{id}/not-interested', { params: { path: { id: 1 } } });
+  await client.DELETE('/api/movies/{id}/not-interested', { params: { path: { id: 1 } } });
   await client.GET('/api/genres');
   await client.GET('/api/people');
 }

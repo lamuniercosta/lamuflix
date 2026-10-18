@@ -113,6 +113,8 @@ export function pendingRow(id: string, title: string): MovieSummary {
     imdbRating: null,
     enrichmentStatus: 'Pending',
     isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
   };
 }
 

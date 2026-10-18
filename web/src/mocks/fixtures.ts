@@ -13,6 +13,8 @@ const browseMoviesData = {
       imdbRating: 8.0,
       enrichmentStatus: 'Enriched',
       isInWatchlist: false,
+      isWatched: false,
+      isNotInterested: false,
     },
     {
       id: 2,
@@ -23,6 +25,8 @@ const browseMoviesData = {
       imdbRating: null,
       enrichmentStatus: 'Pending',
       isInWatchlist: false,
+      isWatched: false,
+      isNotInterested: false,
     },
   ],
   totalCount: 2,
@@ -34,6 +38,8 @@ const movieDetailsData = {
   path: '/media/dune.mkv',
   format: 'mkv',
   isInWatchlist: false,
+  isWatched: false,
+  isNotInterested: false,
   metadata: {
     title: 'Dune',
     synopsis: 'A noble family becomes embroiled in a war for the desert planet Arrakis.',
@@ -55,6 +61,8 @@ const movieDetailsNullMetadataData = {
   path: '/media/dune.mkv',
   format: 'mkv',
   isInWatchlist: false,
+  isWatched: false,
+  isNotInterested: false,
   metadata: null,
 } satisfies Schemas['MovieDetailsResponse'];
 

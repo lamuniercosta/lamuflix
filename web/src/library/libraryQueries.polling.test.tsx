@@ -23,6 +23,8 @@ const pendingArrival: MovieSummary = {
   imdbRating: null,
   enrichmentStatus: 'Pending',
   isInWatchlist: false,
+  isWatched: false,
+  isNotInterested: false,
 };
 
 const enrichedArrival: MovieSummary = {
@@ -39,6 +41,8 @@ const duneEnriched: MovieSummary = {
   imdbRating: null,
   enrichmentStatus: 'Enriched',
   isInWatchlist: false,
+  isWatched: false,
+  isNotInterested: false,
 };
 
 function browseBody(items: MovieSummary[]): BrowseMoviesResponse {
@@ -194,6 +198,8 @@ function enrichedRow(id: number, title: string): MovieSummary {
     imdbRating: null,
     enrichmentStatus: 'Enriched',
     isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
   };
 }
 

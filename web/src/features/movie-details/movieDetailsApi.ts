@@ -26,6 +26,8 @@ const movieDetailsSchema = z.object({
   path: z.string(),
   format: z.string(),
   isInWatchlist: z.boolean(),
+  isWatched: z.boolean(),
+  isNotInterested: z.boolean(),
   metadata: movieMetadataSchema.nullable(),
 }) satisfies z.ZodType<MovieDetailsResponse>;
 

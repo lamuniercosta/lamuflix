@@ -51,6 +51,10 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "POST /api/movies/{id}/play",
         "GET /api/genres",
         "GET /api/people",
+        "POST /api/movies/{id}/watched",
+        "DELETE /api/movies/{id}/watched",
+        "POST /api/movies/{id}/not-interested",
+        "DELETE /api/movies/{id}/not-interested",
     ];
 
     private static readonly string[] ExpectedSchemas =
@@ -67,7 +71,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public static TheoryData<string> DocumentationRoutes => new() { DocumentRoute, ScalarRoute };
 
     [Fact]
-    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheElevenBusinessOperations()
+    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheFifteenBusinessOperations()
     {
         // arrange
         await using var development = CreateDevelopmentHost();

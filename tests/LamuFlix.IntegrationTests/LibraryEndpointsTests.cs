@@ -625,6 +625,10 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "PlayMovie",
                 "GetGenres",
                 "GetPeople",
+                "MarkWatched",
+                "UnmarkWatched",
+                "MarkNotInterested",
+                "UnmarkNotInterested",
             ],
             ignoreOrder: true);
         ShouldDescribe(endpoints["BrowseMovies"], BrowseResponseType, StatusCodes.Status422UnprocessableEntity);
