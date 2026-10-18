@@ -13,7 +13,7 @@ public sealed class EfMovieRepositoryConstructorTests
     public void Constructor_RejectsNonPositiveClaimLease(int seconds)
     {
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql("Host=localhost;Database=unused;Username=unused;Password=unused")
+            .UseNpgsql("Host=localhost;Database=unused;Username=unused;Password=unused", o => o.UseVector())
             .Options;
         using var db = new LamuFlixDbContext(options);
 

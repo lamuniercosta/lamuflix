@@ -14,7 +14,7 @@ public sealed class MovieCatalogRegistrationTests
     {
         // arrange
         var services = new ServiceCollection();
-        services.AddDbContext<LamuFlixDbContext>(options => options.UseNpgsql("Host=localhost;Database=unused"));
+        services.AddDbContext<LamuFlixDbContext>(options => options.UseNpgsql("Host=localhost;Database=unused", o => o.UseVector()));
         services.AddMovieCatalog();
         using var provider = services.BuildServiceProvider();
 

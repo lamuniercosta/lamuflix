@@ -19,7 +19,7 @@ public sealed class LamuFlixDesignTimeDbContextFactory : IDesignTimeDbContextFac
         }
 
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(connectionString)
+            .UseNpgsql(connectionString, o => o.UseVector())
             .Options;
         return new LamuFlixDbContext(options);
     }

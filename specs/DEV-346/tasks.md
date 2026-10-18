@@ -73,18 +73,18 @@
 
 **Independent Test**: Each named site calls `UseVector`. `MovieModelTests` and `ModelMetadataTests` still have no connection string. The model declares `vector` and has no vector column.
 
-- [ ] T014 [P] [US3] In `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs`, change the runtime registration to `UseNpgsql(connectionString, o => o.UseVector())`. Leave the PostgreSQL health-check registration unchanged.
-- [ ] T015 [P] [US3] In `src/LamuFlix.Infrastructure/Persistence/LamuFlixDesignTimeDbContextFactory.cs`, add `UseVector` on the existing connection-bearing `UseNpgsql` call. Keep `LAMUFLIX_DESIGN_TIME_CONNECTION_STRING` as the connection source.
-- [ ] T016 [P] [US3] In `src/LamuFlix.Infrastructure/Persistence/LamuFlixDbContext.cs`, declare `modelBuilder.HasPostgresExtension("vector")` from `OnModelCreating`. Add no vector property, column, or `movie_features` entity.
-- [ ] T017 [P] [US3] In `tests/LamuFlix.Tests.Common/LamuFlixDbContextFactory.cs`, add `UseVector` on the `OpenContext` and `CreateAdminContext` `UseNpgsql` calls. Keep each existing connection argument.
-- [ ] T018 [P] [US3] In `tests/LamuFlix.IntegrationTests/EfMovieRepositoryTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
-- [ ] T019 [P] [US3] In `tests/LamuFlix.IntegrationTests/EfMovieRepositoryClaimConcurrencyTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
-- [ ] T020 [P] [US3] In `tests/LamuFlix.IntegrationTests/EfMovieCatalogPagingTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
-- [ ] T021 [P] [US3] In `tests/LamuFlix.IntegrationTests/MovieCatalogRegistrationTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep the existing unused-host connection argument.
-- [ ] T022 [P] [US3] In `tests/LamuFlix.UnitTests/Persistence/MovieModelTests.cs`, change the model-only build to `UseNpgsql(o => o.UseVector())`. Do not add a connection string.
-- [ ] T023 [P] [US3] In `tests/LamuFlix.UnitTests/Persistence/ModelMetadataTests.cs`, change the model-only build to `UseNpgsql(o => o.UseVector())`. Do not add a connection string.
-- [ ] T024 [P] [US3] In `tests/LamuFlix.UnitTests/Persistence/EfMovieRepositorySurvivorTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
-- [ ] T025 [P] [US3] In `tests/LamuFlix.UnitTests/Persistence/EfMovieRepositoryConstructorTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
+- [X] T014 [P] [US3] In `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs`, change the runtime registration to `UseNpgsql(connectionString, o => o.UseVector())`. Leave the PostgreSQL health-check registration unchanged.
+- [X] T015 [P] [US3] In `src/LamuFlix.Infrastructure/Persistence/LamuFlixDesignTimeDbContextFactory.cs`, add `UseVector` on the existing connection-bearing `UseNpgsql` call. Keep `LAMUFLIX_DESIGN_TIME_CONNECTION_STRING` as the connection source.
+- [X] T016 [P] [US3] In `src/LamuFlix.Infrastructure/Persistence/LamuFlixDbContext.cs`, declare `modelBuilder.HasPostgresExtension("vector")` from `OnModelCreating`. Add no vector property, column, or `movie_features` entity.
+- [X] T017 [P] [US3] In `tests/LamuFlix.Tests.Common/LamuFlixDbContextFactory.cs`, add `UseVector` on the `OpenContext` and `CreateAdminContext` `UseNpgsql` calls. Keep each existing connection argument.
+- [X] T018 [P] [US3] In `tests/LamuFlix.IntegrationTests/EfMovieRepositoryTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
+- [X] T019 [P] [US3] In `tests/LamuFlix.IntegrationTests/EfMovieRepositoryClaimConcurrencyTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
+- [X] T020 [P] [US3] In `tests/LamuFlix.IntegrationTests/EfMovieCatalogPagingTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
+- [X] T021 [P] [US3] In `tests/LamuFlix.IntegrationTests/MovieCatalogRegistrationTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep the existing unused-host connection argument.
+- [X] T022 [P] [US3] In `tests/LamuFlix.UnitTests/Persistence/MovieModelTests.cs`, change the model-only build to `UseNpgsql(o => o.UseVector())`. Do not add a connection string.
+- [X] T023 [P] [US3] In `tests/LamuFlix.UnitTests/Persistence/ModelMetadataTests.cs`, change the model-only build to `UseNpgsql(o => o.UseVector())`. Do not add a connection string.
+- [X] T024 [P] [US3] In `tests/LamuFlix.UnitTests/Persistence/EfMovieRepositorySurvivorTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
+- [X] T025 [P] [US3] In `tests/LamuFlix.UnitTests/Persistence/EfMovieRepositoryConstructorTests.cs`, add `UseVector` on the retained direct `UseNpgsql` call. Keep its connection argument.
 
 **Checkpoint**: US3 is met. No shared options helper exists.
 

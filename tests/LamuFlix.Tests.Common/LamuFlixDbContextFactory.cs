@@ -27,7 +27,7 @@ public static class LamuFlixDbContextFactory
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(connectionString)
+            .UseNpgsql(connectionString, o => o.UseVector())
             .Options;
         return new LamuFlixDbContext(options);
     }
@@ -82,7 +82,7 @@ public static class LamuFlixDbContextFactory
     private static LamuFlixDbContext CreateAdminContext(string connectionString)
     {
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(connectionString)
+            .UseNpgsql(connectionString, o => o.UseVector())
             .Options;
         return new LamuFlixDbContext(options);
     }

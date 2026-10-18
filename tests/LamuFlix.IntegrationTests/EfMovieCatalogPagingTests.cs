@@ -66,7 +66,7 @@ public sealed class EfMovieCatalogPagingTests(PostgresFixture fixture) : IAsyncL
         // arrange
         var interceptor = new CommandCaptureInterceptor();
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(fixture.ConnectionString)
+            .UseNpgsql(fixture.ConnectionString, o => o.UseVector())
             .AddInterceptors(interceptor)
             .Options;
         await using var context = new LamuFlixDbContext(options);

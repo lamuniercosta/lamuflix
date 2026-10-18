@@ -15,6 +15,9 @@ public sealed class LamuFlixDbContext(DbContextOptions<LamuFlixDbContext> option
 
     public DbSet<WriterRecord> Writers => Set<WriterRecord>();
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.HasPostgresExtension("vector");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LamuFlixDbContext).Assembly);
+    }
 }
