@@ -24,7 +24,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         _container ?? throw new InvalidOperationException(
             "PostgresFixture has not been initialized. InitializeAsync must run first.");
 
-    public string ConnectionString => Container.GetConnectionString();
+    public string ConnectionString => $"{Container.GetConnectionString()};Persist Security Info=true";
 
     public async ValueTask InitializeAsync()
     {

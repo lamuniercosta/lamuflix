@@ -55,19 +55,69 @@ public sealed class MigrationTests(PostgresFixture fixture)
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     [Fact]
-    public async Task MigrateAsync_EmptyDatabase_AppliesInitialAndHasNoPendingModelChanges()
+    public async Task MigrateAsync_EmptyDatabase_AppliesMigrationsEnablesVectorAndHasNoPendingModelChanges()
     {
         await using var context = await fixture.CreateEmptyDatabaseContextAsync(TestContext.Current.CancellationToken);
 
         await context.Database.MigrateAsync(TestContext.Current.CancellationToken);
 
+        var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(2);
+        migrations.Length.ShouldBe(3);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
-        var applied = await context.Database.GetAppliedMigrationsAsync(TestContext.Current.CancellationToken);
+        migrations[2].ShouldEndWith("_EnableVector");
+        var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
+        (await new PostgresCatalog(context).ListPostgresExtensionsAsync(cancellationToken)).ShouldContain("vector");
+    }
+
+    [Fact]
+    public async Task MigrateAsync_FromAddMovieWritersWithExistingRows_UpgradesToEnableVectorAndKeepsRowsAndCatalog()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261016195556_AddMovieWriters", cancellationToken);
+        context.Movies.Add(new MovieRecord
+        {
+            Title = "Upgrade Survivor",
+            LibraryPath = new LibraryPath("C:/library/upgrade-survivor.mkv"),
+            Format = new MediaFormat("mkv"),
+            Status = EnrichmentStatus.Pending
+        });
+        await context.SaveChangesAsync(cancellationToken);
+
+        await migrator.MigrateAsync(null, cancellationToken);
+
+        var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+        applied.ShouldBe(context.Database.GetMigrations());
+        applied[^1].ShouldEndWith("_EnableVector");
+        (await context.Movies.SingleAsync(cancellationToken)).Title.ShouldBe("Upgrade Survivor");
+        await AssertPublicTablesAsync(new PostgresCatalog(context), cancellationToken);
+        (await new PostgresCatalog(context).ListPostgresExtensionsAsync(cancellationToken)).ShouldContain("vector");
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MigrateAsync_EnableVectorRolledBack_ReturnsToAddMovieWritersAndReapplies()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync(null, cancellationToken);
+
+        await migrator.MigrateAsync("20261016195556_AddMovieWriters", cancellationToken);
+
+        var rolledBack = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+        rolledBack.Length.ShouldBe(2);
+        rolledBack[0].ShouldEndWith("_Initial");
+        rolledBack[1].ShouldEndWith("_AddMovieWriters");
+
+        await migrator.MigrateAsync(null, cancellationToken);
+
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_EnableVector");
     }
 
     [Fact]
@@ -249,6 +299,9 @@ public sealed class MigrationTests(PostgresFixture fixture)
                 WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
                 """,
                 cancellationToken);
+
+        public Task<List<string>> ListPostgresExtensionsAsync(CancellationToken cancellationToken) =>
+            QueryStringsAsync("SELECT extname FROM pg_extension", cancellationToken);
 
         public Task<List<string>> ListColumnsAsync(string table, CancellationToken cancellationToken) =>
             QueryStringsAsync(
