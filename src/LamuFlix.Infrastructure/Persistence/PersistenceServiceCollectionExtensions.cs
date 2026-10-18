@@ -28,7 +28,7 @@ public static class PersistenceServiceCollectionExtensions
                 "or the ConnectionStrings__DefaultConnection environment variable.");
         }
 
-        services.AddDbContext<LamuFlixDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddDbContext<LamuFlixDbContext>(options => options.UseNpgsql(connectionString, o => o.UseVector()));
         services.AddHealthChecks().AddDbContextCheck<LamuFlixDbContext>("postgres", tags: [HealthCheckTags.Ready]);
         services.TryAddSingleton(TimeProvider.System);
         services.AddOptions<EnrichmentOptions>()

@@ -890,7 +890,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     private static LamuFlixDbContext OpenInstrumentedContext(string connectionString, DbCommandInterceptor interceptor)
     {
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(connectionString)
+            .UseNpgsql(connectionString, o => o.UseVector())
             .AddInterceptors(interceptor)
             .Options;
         return new LamuFlixDbContext(options);

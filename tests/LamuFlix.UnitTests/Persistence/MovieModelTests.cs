@@ -151,7 +151,7 @@ public sealed class MovieModelTests
     private static LamuFlixDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql()
+            .UseNpgsql(o => o.UseVector())
             .ReplaceService<IModelCacheKeyFactory, UncachedModelCacheKeyFactory>()
             .Options;
         return new LamuFlixDbContext(options);

@@ -31,7 +31,7 @@ public sealed class EfMovieRepositoryClaimConcurrencyTests(PostgresFixture fixtu
         connectionString.ShouldNotBeNullOrWhiteSpace();
         var capture = new ClaimCommandCaptureInterceptor();
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql(connectionString)
+            .UseNpgsql(connectionString, o => o.UseVector())
             .AddInterceptors(capture)
             .Options;
 
