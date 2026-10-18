@@ -4,6 +4,7 @@ using System.IO.Abstractions;
 using FluentValidation;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
+using LamuFlix.Core.Features.Feedback;
 using LamuFlix.Core.Features.Import;
 using LamuFlix.Core.Features.Library;
 using LamuFlix.Core.Features.Playback;
@@ -45,6 +46,10 @@ internal static class HandlerRegistration
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();
+        services.AddHandler<MarkWatchedCommandHandler, MarkWatchedCommand, Unit>();
+        services.AddHandler<UnmarkWatchedCommandHandler, UnmarkWatchedCommand, Unit>();
+        services.AddHandler<MarkNotInterestedCommandHandler, MarkNotInterestedCommand, Unit>();
+        services.AddHandler<UnmarkNotInterestedCommandHandler, UnmarkNotInterestedCommand, Unit>();
 
         return services;
     }
