@@ -33,7 +33,7 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture) : IAsync
         await MovieCatalogSeed.AddAsync(context, movie, TestContext.Current.CancellationToken);
         var id = movie.Id;
         id.ShouldNotBeNull();
-        var connectionString = context.Database.GetConnectionString();
+        var connectionString = fixture.ConnectionString;
         connectionString.ShouldNotBeNull();
         await using var detailsContext = LamuFlixDbContextFactory.OpenContext(connectionString);
 
@@ -71,7 +71,7 @@ public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture) : IAsync
         await MovieCatalogSeed.AddAsync(context, movie, TestContext.Current.CancellationToken);
         var id = movie.Id;
         id.ShouldNotBeNull();
-        var connectionString = context.Database.GetConnectionString();
+        var connectionString = fixture.ConnectionString;
         connectionString.ShouldNotBeNull();
         await using var detailsContext = LamuFlixDbContextFactory.OpenContext(connectionString);
 

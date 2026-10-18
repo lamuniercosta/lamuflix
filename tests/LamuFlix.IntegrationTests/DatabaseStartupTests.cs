@@ -29,7 +29,10 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var empty = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
-        var connectionString = empty.Database.GetConnectionString();
+        var database = empty.Database.GetDbConnection().Database;
+        database.ShouldNotBeNullOrWhiteSpace();
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = database };
+        var connectionString = builder.ConnectionString;
         connectionString.ShouldNotBeNullOrWhiteSpace();
 
         var before = await ListPublicBaseTablesAsync(empty, cancellationToken);

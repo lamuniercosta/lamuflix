@@ -1019,9 +1019,10 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         TerminalFailure,
     }
 
-    private static LamuFlixDbContext OpenSibling(LamuFlixDbContext source)
+    private LamuFlixDbContext OpenSibling(LamuFlixDbContext source)
     {
-        var connectionString = source.Database.GetConnectionString();
+        ArgumentNullException.ThrowIfNull(source);
+        var connectionString = fixture.ConnectionString;
         connectionString.ShouldNotBeNullOrWhiteSpace();
         return LamuFlixDbContextFactory.OpenContext(connectionString);
     }

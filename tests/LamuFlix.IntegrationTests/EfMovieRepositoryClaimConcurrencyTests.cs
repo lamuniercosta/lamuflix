@@ -27,7 +27,7 @@ public sealed class EfMovieRepositoryClaimConcurrencyTests(PostgresFixture fixtu
     public async Task TryClaim_ConcurrentWorkersHaveOneWinnerAndOnePredicateUpdateEachIteration()
     {
         await using var seed = fixture.CreateMigratedContext();
-        var connectionString = seed.Database.GetConnectionString();
+        var connectionString = fixture.ConnectionString;
         connectionString.ShouldNotBeNullOrWhiteSpace();
         var capture = new ClaimCommandCaptureInterceptor();
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()

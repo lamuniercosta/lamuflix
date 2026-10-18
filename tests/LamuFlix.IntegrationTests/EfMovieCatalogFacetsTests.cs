@@ -146,7 +146,7 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
             TimeProvider.System.GetUtcNow());
         await repository.SaveChangesAsync(TestContext.Current.CancellationToken);
 
-        var connectionString = context.Database.GetConnectionString();
+        var connectionString = fixture.ConnectionString;
         connectionString.ShouldNotBeNullOrWhiteSpace();
         await using var readContext = LamuFlixDbContextFactory.OpenContext(connectionString);
         var catalog = new EfMovieCatalog(readContext);
