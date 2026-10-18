@@ -1,13 +1,18 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Options;
+using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
 
@@ -18,6 +23,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
 {
     private const string ApplicationJson = "application/json";
     private const string ProblemDetailsJson = "application/problem+json";
+    private const string BrowseRoute = "/api/movies";
     private const string GenresRoute = "/api/genres";
     private const string PeopleRoute = "/api/people?role=actor";
     private const int UnknownId = 999999;
@@ -159,9 +165,324 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         persistedAfterRemove.ShouldBe(false);
     }
 
+    public static TheoryData<bool, bool, bool> FeedbackCombinations => new()
+    {
+        { false, false, false },
+        { false, false, true },
+        { false, true, false },
+        { false, true, true },
+        { true, false, false },
+        { true, false, true },
+        { true, true, false },
+        { true, true, true },
+    };
+
+    public static TheoryData<MovieFlag, MovieFlag, bool, bool, bool> StaleLoadInterleaves
+    {
+        get
+        {
+            var data = new TheoryData<MovieFlag, MovieFlag, bool, bool, bool>();
+            foreach (var actorFlag in new[] { MovieFlag.Watched, MovieFlag.NotInterested, MovieFlag.Watchlist })
+            {
+                foreach (var siblingFlag in new[] { MovieFlag.Watched, MovieFlag.NotInterested, MovieFlag.Watchlist })
+                {
+                    if (actorFlag == siblingFlag)
+                    {
+                        continue;
+                    }
+
+                    foreach (var actorSavesLast in new[] { true, false })
+                    {
+                        foreach (var actorMarks in new[] { true, false })
+                        {
+                            foreach (var siblingMarks in new[] { true, false })
+                            {
+                                data.Add(actorFlag, siblingFlag, actorSavesLast, actorMarks, siblingMarks);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return data;
+        }
+    }
+
+    public static TheoryData<MovieFlag, bool> SameTargetFeedbackOperations => new()
+    {
+        { MovieFlag.Watched, true },
+        { MovieFlag.Watched, false },
+        { MovieFlag.NotInterested, true },
+        { MovieFlag.NotInterested, false },
+    };
+
+    [Theory]
+    [MemberData(nameof(FeedbackCombinations))]
+    public async Task FeedbackMarks_EveryCombination_RoundTripsThroughReloadBrowseAndDetails(
+        bool isWatched,
+        bool isNotInterested,
+        bool isInWatchlist)
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var movie = await SeedAsync(MovieCatalogSeed.Create("Combination", "feedback-combination"));
+        var id = movie.Id.ShouldNotBeNull().Value;
+
+        // act
+        if (isInWatchlist)
+        {
+            await ExpectNoContentAsync(client, WatchlistRoute(id), HttpMethod.Post, cancellationToken);
+        }
+
+        if (isWatched)
+        {
+            await ExpectNoContentAsync(client, WatchedRoute(id), HttpMethod.Post, cancellationToken);
+        }
+
+        if (isNotInterested)
+        {
+            await ExpectNoContentAsync(client, NotInterestedRoute(id), HttpMethod.Post, cancellationToken);
+        }
+
+        var persisted = await ReadPersistedFlagsAsync(id, cancellationToken);
+        var browse = await ReadAsync(
+            client,
+            $"{BrowseRoute}?sort=Title&direction=Ascending&page=1&pageSize=20",
+            cancellationToken);
+        var details = await ReadAsync(client, DetailsRoute(id), cancellationToken);
+
+        // assert
+        persisted.ShouldBe((isWatched, isNotInterested, isInWatchlist));
+        var browseItem = browse.GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("id").GetInt32() == id);
+        AssertFlags(browseItem, isWatched, isNotInterested, isInWatchlist);
+        AssertFlags(details, isWatched, isNotInterested, isInWatchlist);
+    }
+
+    [Theory]
+    [MemberData(nameof(StaleLoadInterleaves))]
+    public async Task FeedbackMarks_StaleLoadSiblingInterleave_PreservesBothChanges(
+        MovieFlag actorFlag,
+        MovieFlag siblingFlag,
+        bool actorSavesLast,
+        bool actorMarks,
+        bool siblingMarks)
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await Fixture.Postgres.ResetAsync(cancellationToken);
+        var initial = InitialFlags(actorFlag, actorMarks, siblingFlag, siblingMarks);
+        var movie = await SeedFlagsAsync(initial, "stale-load-interleave");
+        var id = movie.Id.ShouldNotBeNull().Value;
+        await using var actorContext = Fixture.Postgres.CreateMigratedContext();
+        await using var siblingContext = Fixture.Postgres.CreateMigratedContext();
+        var actorRepository = Repository(actorContext);
+        var siblingRepository = Repository(siblingContext);
+        var actor = (await actorRepository.GetAsync(new MovieId(id), cancellationToken)).ShouldNotBeNull();
+        var sibling = (await siblingRepository.GetAsync(new MovieId(id), cancellationToken)).ShouldNotBeNull();
+
+        // act
+        Change(actor, actorFlag, actorMarks);
+        Change(sibling, siblingFlag, siblingMarks);
+        if (actorSavesLast)
+        {
+            await siblingRepository.SaveChangesAsync(cancellationToken);
+            await actorRepository.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            await actorRepository.SaveChangesAsync(cancellationToken);
+            await siblingRepository.SaveChangesAsync(cancellationToken);
+        }
+
+        // assert
+        var expected = initial;
+        expected[(int)actorFlag] = actorMarks;
+        expected[(int)siblingFlag] = siblingMarks;
+        (await ReadPersistedFlagsAsync(id, cancellationToken))
+            .ShouldBe((expected[0], expected[1], expected[2]));
+    }
+
+    [Theory]
+    [MemberData(nameof(SameTargetFeedbackOperations))]
+    public async Task FeedbackMarks_SameTargetOverlapThenObservedRepeat_ConflictsWithoutSaving(
+        MovieFlag flag,
+        bool mark)
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await Fixture.Postgres.ResetAsync(cancellationToken);
+        var initial = new bool[3];
+        initial[(int)flag] = !mark;
+        var movie = await SeedFlagsAsync(initial, "same-target-overlap");
+        var id = movie.Id.ShouldNotBeNull().Value;
+        await using var firstContext = Fixture.Postgres.CreateMigratedContext();
+        await using var secondContext = Fixture.Postgres.CreateMigratedContext();
+        var firstRepository = Repository(firstContext);
+        var secondRepository = Repository(secondContext);
+        var first = (await firstRepository.GetAsync(new MovieId(id), cancellationToken)).ShouldNotBeNull();
+        var second = (await secondRepository.GetAsync(new MovieId(id), cancellationToken)).ShouldNotBeNull();
+
+        // act
+        Change(first, flag, mark);
+        Change(second, flag, mark);
+        await firstRepository.SaveChangesAsync(cancellationToken);
+        await secondRepository.SaveChangesAsync(cancellationToken);
+        await using var observerContext = Fixture.Postgres.CreateMigratedContext();
+        var observer = (await Repository(observerContext).GetAsync(new MovieId(id), cancellationToken))
+            .ShouldNotBeNull();
+        var conflict = Should.Throw<InvalidTransitionException>(() => Change(observer, flag, mark));
+
+        // assert
+        var (action, state) = ExpectedConflict(flag, mark);
+        conflict.Action.ShouldBe(action);
+        conflict.State.ShouldBe(state);
+        var persisted = await ReadPersistedFlagsAsync(id, cancellationToken);
+        FlagValue(persisted, flag).ShouldBe(mark);
+    }
+
+    private static void AssertFlags(JsonElement element, bool isWatched, bool isNotInterested, bool isInWatchlist)
+    {
+        element.GetProperty("isWatched").GetBoolean().ShouldBe(isWatched);
+        element.GetProperty("isNotInterested").GetBoolean().ShouldBe(isNotInterested);
+        element.GetProperty("isInWatchlist").GetBoolean().ShouldBe(isInWatchlist);
+    }
+
+    private static async Task ExpectNoContentAsync(
+        HttpClient client,
+        string route,
+        HttpMethod method,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, route);
+        using var response = await client.SendAsync(request, cancellationToken);
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    }
+
+    private static async Task<JsonElement> ReadAsync(
+        HttpClient client,
+        string route,
+        CancellationToken cancellationToken)
+    {
+        using var response = await client.GetAsync(route, cancellationToken);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        return await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+    }
+
+    private static bool[] InitialFlags(
+        MovieFlag first,
+        bool firstMarks,
+        MovieFlag second,
+        bool secondMarks)
+    {
+        var flags = new bool[3];
+        flags[(int)first] = !firstMarks;
+        flags[(int)second] = !secondMarks;
+        return flags;
+    }
+
+    private static bool FlagValue(
+        (bool IsWatched, bool IsNotInterested, bool IsInWatchlist) flags,
+        MovieFlag flag) =>
+        flag switch
+        {
+            MovieFlag.Watched => flags.IsWatched,
+            MovieFlag.NotInterested => flags.IsNotInterested,
+            MovieFlag.Watchlist => flags.IsInWatchlist,
+            _ => throw new ArgumentOutOfRangeException(nameof(flag), flag, null),
+        };
+
+    private static void Change(Movie movie, MovieFlag flag, bool mark)
+    {
+        switch (flag)
+        {
+            case MovieFlag.Watched:
+                if (mark)
+                {
+                    movie.MarkWatched();
+                }
+                else
+                {
+                    movie.UnmarkWatched();
+                }
+
+                break;
+            case MovieFlag.NotInterested:
+                if (mark)
+                {
+                    movie.MarkNotInterested();
+                }
+                else
+                {
+                    movie.UnmarkNotInterested();
+                }
+
+                break;
+            case MovieFlag.Watchlist:
+                if (mark)
+                {
+                    movie.AddToWatchlist();
+                }
+                else
+                {
+                    movie.RemoveFromWatchlist();
+                }
+
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(flag), flag, null);
+        }
+    }
+
+    private static (string Action, string State) ExpectedConflict(MovieFlag flag, bool mark) =>
+        (flag, mark) switch
+        {
+            (MovieFlag.Watched, true) => (nameof(Movie.MarkWatched), "Watched"),
+            (MovieFlag.Watched, false) => (nameof(Movie.UnmarkWatched), "NotWatched"),
+            (MovieFlag.NotInterested, true) => (nameof(Movie.MarkNotInterested), "NotInterested"),
+            (MovieFlag.NotInterested, false) => (nameof(Movie.UnmarkNotInterested), "Interested"),
+            _ => throw new ArgumentOutOfRangeException(nameof(flag), flag, null),
+        };
+
+    private EfMovieRepository Repository(LamuFlixDbContext db) =>
+        new(db, Clock, Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+
+    private async Task<MovieRecord> SeedFlagsAsync(bool[] flags, string pathSuffix)
+    {
+        var movie = MovieCatalogSeed.Create("Feedback Flags", pathSuffix);
+        movie.IsWatched = flags[(int)MovieFlag.Watched];
+        movie.IsNotInterested = flags[(int)MovieFlag.NotInterested];
+        movie.IsInWatchlist = flags[(int)MovieFlag.Watchlist];
+        return await SeedAsync(movie);
+    }
+
+    private async Task<(bool IsWatched, bool IsNotInterested, bool IsInWatchlist)> ReadPersistedFlagsAsync(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var movieId = new MovieId(id);
+        await using var context = Fixture.Postgres.CreateMigratedContext();
+        var persisted = await context.Movies
+            .AsNoTracking()
+            .Where(movie => movie.Id == movieId)
+            .Select(movie => new
+            {
+                movie.IsWatched,
+                movie.IsNotInterested,
+                movie.IsInWatchlist,
+            })
+            .SingleAsync(cancellationToken);
+        return (persisted.IsWatched, persisted.IsNotInterested, persisted.IsInWatchlist);
+    }
+
     private static string DetailsRoute(int id) => $"/api/movies/{id}";
 
     private static string WatchlistRoute(int id) => $"/api/movies/{id}/watchlist";
+
+    private static string WatchedRoute(int id) => $"/api/movies/{id}/watched";
+
+    private static string NotInterestedRoute(int id) => $"/api/movies/{id}/not-interested";
 
     private static List<(int Id, string Name)> Facets(JsonElement body) =>
         [.. body.EnumerateArray().Select(Facet)];
@@ -244,5 +565,12 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         await using var context = Fixture.Postgres.CreateMigratedContext();
         context.Movies.AddRange(movies);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    public enum MovieFlag
+    {
+        Watched = 0,
+        NotInterested = 1,
+        Watchlist = 2,
     }
 }
