@@ -118,6 +118,14 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_in_watchlist");
 
+                    b.Property<bool>("IsNotInterested")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_not_interested");
+
+                    b.Property<bool>("IsWatched")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_watched");
+
                     b.Property<DateTimeOffset?>("LastAttemptAt")
                         .HasColumnType("timestamptz")
                         .HasColumnName("last_attempt_at");
