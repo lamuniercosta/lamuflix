@@ -55,12 +55,6 @@ export function formatRuntime(runtime: number | string | null): string {
   return `${hours}h ${remainder}m`;
 }
 
-export function formatRating(value: number | string | null): string {
-  if (value === null) return '';
-  if (typeof value === 'number') return value.toFixed(1);
-  return String(value);
-}
-
 export function useMovieDetails(movieId: number | string) {
   return useQuery<MovieDetails, MovieDetailsError>({
     queryKey: ['movieDetails', movieId],

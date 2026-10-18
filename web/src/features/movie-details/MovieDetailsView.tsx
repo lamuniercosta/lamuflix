@@ -13,8 +13,8 @@ import {
   StarFilledIcon,
 } from '../../ui/icons';
 import { readReturnUrl } from '../app-navigation/useAppNavigation';
+import { formatRating } from '../../library/movieCardFormat';
 import {
-  formatRating,
   formatRuntime,
   useDeleteMovie,
   useMovieDetails,

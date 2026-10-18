@@ -6,7 +6,7 @@ Reviewed on 2026-10-18, using Luna for artifact reconnaissance, the bounded list
 
 - Worktree: `F:\Dev\LamuFlix.worktrees\dark-glass-restyle`.
 - Branch: `feature/dark-glass-restyle`.
-- Base HEAD: `126a2b1b8628f93a0fee54eb7942136ab241f2ea`. Review covers the uncommitted working tree, identified by [web source hashes](evidence/web-source-sha256.txt), rather than that commit alone.
+- Base HEAD: `126a2b1b8628f93a0fee54eb7942136ab241f2ea`. Review covers the uncommitted working tree rather than that commit alone; the source it settled into is identified by the [final web source hashes](evidence/pr-web-source-sha256.txt).
 - The seven outstanding library screenshots were inspected. All nine library states were then recaptured and inspected after the small fixes below.
 - The mock server served the rebuilt `web/dist` on localhost:5199. Its generated posters and movies are review fixtures.
 - Details-page visual checks at the three widths were supplied by the previous session. They were not repeated in this closeout; the full component suite was rerun.
@@ -26,7 +26,7 @@ The current authority is `F:\Dev\lamuflix-layout-direction.md` (SHA-256 `83e6f4e
 |---|---|---|---|---|
 | 375px | [shot](screenshots/lib-default-375.png) | [shot](screenshots/lib-filters-375.png) | [shot](screenshots/lib-list-375.png) | 375px in all three |
 | 768px | [shot](screenshots/lib-default-768.png) | [shot](screenshots/lib-filters-768.png) | [shot](screenshots/lib-list-768.png) | 768px in all three |
-| 1440px | [README selection](screenshots/lib-default-1440.png) | [shot](screenshots/lib-filters-1440.png) | [shot](screenshots/lib-list-1440.png) | 1440px in all three |
+| 1440px | [shot](screenshots/lib-default-1440.png) | [shot](screenshots/lib-filters-1440.png) | [shot](screenshots/lib-list-1440.png) | 1440px in all three |
 
 The layout toggle remains on one line; card titles truncate to one line; missing posters show the film icon; the heading reads “All movies”. All captures show the same 20-result page from 34 fixture movies in either layout. Genre tiles intentionally scroll inside their strip. Filters remain inline and push results down, with all six groups and the footer visible in the 375px extended capture.
 
@@ -83,27 +83,13 @@ Logs: [lint](evidence/lint.txt), [tests](evidence/tests.txt), [build](evidence/b
 
 All existing frontend changes are preserved. The temporary review server was stopped after verification. No commit, PR, hosted-check clearance, merge, or user design approval is implied by this local closeout.
 
-## Logo follow-up (2026-10-18)
+## Logo and identity (2026-10-18)
 
-After the user reviewed the live restyle, they requested a logo and favicon. The initial LF monogram was then replaced, at their request, with an amber figure operating a reel camera on a tripod, paired with the existing serif wordmark. The header uses the SVG mark; the browser receives SVG and 16/32/48px ICO favicons, plus a 180px Apple touch icon. A standalone logo is available at `web/public/lamuflix-logo.svg`. The camera version was inspected at 16px, 32px and larger sizes; lint and build passed again, with receipts in `evidence/camera-lint.txt` and `evidence/camera-build.txt`.
+After reviewing the live restyle, the user requested a logo and favicon and, after several previews, approved the LF monogram in its lower-height lockup: the amber letters form an operator and camera, with the symbol matching the visible top and bottom of a heavy sans-serif wordmark (system Arial Black/Arial at weight 900). Intermediate camera-illustration and square-monogram iterations were superseded; their receipts and captures were pruned from this folder.
 
-The [branded desktop capture](screenshots/library-branded-1440.png) now appears in the main README. The original nine screenshots, source hashes, and contrast results above remain evidence for the pre-branding closeout. Branding was additionally checked at 375, 768, and 1440px without horizontal page overflow, with the header image loading and every icon URL returning HTTP 200. Tablet tab padding was reduced slightly to preserve search space. The existing 22 App tests passed; lint and the build (including both TypeScript configurations) passed. The review server remains available on localhost:5199 for the user.
+The header renders the combined transparent SVG at 24px high, with accessible name LamuFlix. The standalone mark uses 100-by-75 proportions; `web/public/favicon.svg`, the 16/32/48px ICO and the 180px Apple touch icon center that mark on square canvases. Asset URLs carry `v=text-height` to bypass cached earlier favicons.
 
-## Approved LF identity (2026-10-18)
-
-The user selected and approved the chubbier square LF monogram after reviewing successive previews. The amber letters form the operator and camera; the head, arm and inset lens use warm white. The mark has exact 100-by-100 geometric bounds, 28-unit letter stems, a shared baseline, and tighter spacing. This replaces the literal camera-operator illustration described above. The user also approved the heavier modern sans-serif wordmark, replacing the earlier serif treatment.
-
-Applied the approved geometry to `web/public/favicon.svg` and `web/public/lamuflix-logo.svg`, regenerated the 16/32/48px ICO and 180px Apple touch icon, and updated the header wordmark to the system Arial Black/Arial stack at weight 900. Icon URLs carry `v=lf-square` so the browser can fetch the approved version instead of a cached earlier favicon.
-
-At the user's request, the header now loads `web/public/lamuflix-mark.svg`, a transparent version without the dark background rectangle. The live header and README screenshot were refreshed and visually checked; lint and build passed again. The favicon assets retain their existing background.
-
-The rebuilt page was independently inspected at [375px](screenshots/approved-375.png), [768px](screenshots/approved-768.png), and [1440px](screenshots/library-branded-1440.png). Each document scroll width equals its viewport width; the logo loads and header controls remain separate. The README screenshot now shows the approved identity. All four icon/logo URLs return HTTP 200. Lint, the build with both TypeScript configurations, and the 22 existing App tests pass; see [lint](evidence/approved-lint.txt), [build](evidence/approved-build.txt), and [tests](evidence/approved-tests.txt). The service worker remains unchanged. The full 334-test suite above was run during the earlier closeout; only the 22 App tests were rerun for this branding change.
-
-## Approved text-height lockup (2026-10-18)
-
-The user subsequently approved the lower-height variant, with the symbol matching the visible top and bottom of the name text. The full transparent logo SVG now matches that approved preview exactly. The header renders the combined SVG at 24px high so the symbol-to-name alignment is preserved as one asset. Its accessible name remains LamuFlix, and the two shell assertions now locate the brand link by that accessible name. The standalone mark uses the approved 100-by-75 proportions; favicon and Apple touch exports center that mark within their square canvases. Updated asset URLs use `v=text-height`.
-
-Final captures at [375px](screenshots/text-height-375.png), [768px](screenshots/text-height-768.png), and [1440px](screenshots/library-branded-1440.png) show the new lockup. At each width the logo loads at approximately 165-by-24px and the document scroll width equals the viewport width. The tablet layout preserves the logo's intrinsic width beside navigation. Lint, build with both TypeScript checks, and all 22 App tests pass; receipts are [lint](evidence/text-height-lint.txt), [build](evidence/text-height-build.txt), and [tests](evidence/text-height-tests.txt). All five logo/icon URLs return HTTP 200. The service worker remains unchanged. The README image shows this final version, and the local review server remains available on port 5199.
+Final captures at [375px](screenshots/text-height-375.png), [768px](screenshots/text-height-768.png) and [1440px](../../images/library.png) show the lockup at approximately 165-by-24px, with document scroll width equal to the viewport width at each size. All five logo/icon URLs returned HTTP 200. The gate run below supersedes the per-iteration lint, build and test receipts.
 
 ## PR preparation (2026-10-18)
 
