@@ -1,5 +1,6 @@
 using System;
 using LamuFlix.Infrastructure.Persistence;
+using LamuFlix.Infrastructure.Persistence.Converters;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -46,6 +47,45 @@ public sealed class ModelMetadataTests
         var id = entity.FindProperty("Id");
         id.ShouldNotBeNull();
         id.ValueGenerated.ShouldBe(ValueGenerated.OnAdd);
+    }
+
+    [Fact]
+    public void PlaybackEvent_MetadataMatchesDatabaseMapping()
+    {
+        using var context = CreateContext();
+        var entity = context.Model.FindEntityType(typeof(PlaybackEventRecord));
+        entity.ShouldNotBeNull();
+        entity.GetTableName().ShouldBe("playback_events");
+        var table = StoreObjectIdentifier.Table("playback_events");
+
+        var id = entity.FindProperty("Id");
+        id.ShouldNotBeNull();
+        id.GetColumnName(table).ShouldBe("id");
+        id.GetColumnType().ShouldBe("integer");
+        id.ValueGenerated.ShouldBe(ValueGenerated.OnAdd);
+        entity.FindPrimaryKey().ShouldNotBeNull().Properties.ShouldContain(id);
+
+        var movieId = entity.FindProperty("MovieId");
+        movieId.ShouldNotBeNull();
+        movieId.GetColumnName(table).ShouldBe("movie_id");
+        movieId.GetColumnType().ShouldBe("integer");
+        movieId.IsNullable.ShouldBeFalse();
+        movieId.GetValueConverter().ShouldBeOfType<MovieIdConverter>();
+
+        var playedAt = entity.FindProperty("PlayedAt");
+        playedAt.ShouldNotBeNull();
+        playedAt.GetColumnName(table).ShouldBe("played_at");
+        playedAt.GetColumnType().ShouldBe("timestamptz");
+        playedAt.IsNullable.ShouldBeFalse();
+
+        var index = entity.GetIndexes().ShouldHaveSingleItem();
+        index.Properties.ShouldBe([movieId]);
+        index.IsUnique.ShouldBeFalse();
+
+        var foreignKey = entity.GetForeignKeys().ShouldHaveSingleItem();
+        foreignKey.PrincipalEntityType.ClrType.ShouldBe(typeof(MovieRecord));
+        foreignKey.Properties.ShouldBe([movieId]);
+        foreignKey.DeleteBehavior.ShouldBe(DeleteBehavior.Cascade);
     }
 
     private static void AssertNamedEntity<TEntity>(LamuFlixDbContext context, string tableName)

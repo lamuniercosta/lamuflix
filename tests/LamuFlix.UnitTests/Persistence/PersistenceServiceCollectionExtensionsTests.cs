@@ -88,6 +88,20 @@ public sealed class PersistenceServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddLamuFlixPersistence_RegistersScopedPlaybackHistory()
+    {
+        // arrange
+        var services = RegisteredServices(Configuration(Valid()));
+
+        // act
+        var history = services.Single(descriptor => descriptor.ServiceType == typeof(IPlaybackHistory));
+
+        // assert
+        history.ImplementationType.ShouldBe(typeof(EfPlaybackHistory));
+        history.Lifetime.ShouldBe(ServiceLifetime.Scoped);
+    }
+
+    [Fact]
     public void AddLamuFlixPersistence_PreRegisteredClock_SurvivesTheCall()
     {
         // arrange

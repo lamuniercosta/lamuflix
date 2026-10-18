@@ -37,6 +37,7 @@ public static class PersistenceServiceCollectionExtensions
                 "Enrichment:ClaimLease must be explicitly configured and greater than zero when production persistence is registered")
             .ValidateOnStart();
         services.AddScoped<IMovieRepository, EfMovieRepository>();
+        services.AddScoped<IPlaybackHistory, EfPlaybackHistory>();
 
         return services;
     }
