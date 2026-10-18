@@ -113,8 +113,8 @@ describe('browse query polling', () => {
       await waitFor(
         () => {
           expect(
-            within(screen.getByRole('list', { name: 'Movies' })).getByText('Enriched'),
-          ).toBeInTheDocument();
+            within(screen.getByRole('list', { name: 'Movies' })).queryByText('Pending'),
+          ).not.toBeInTheDocument();
         },
         { timeout: 4000 },
       );
@@ -237,9 +237,7 @@ describe('optimistic import placeholder', () => {
     expect(
       within(screen.getByRole('list', { name: 'Movies' })).queryByText('Pending'),
     ).not.toBeInTheDocument();
-    expect(
-      within(screen.getByRole('list', { name: 'Movies' })).getAllByText('Enriched'),
-    ).toHaveLength(2);
+    expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
   });
 
   it('drops an off-page placeholder and disarms polling', { timeout: 15_000 }, async () => {

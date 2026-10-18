@@ -1,0 +1,2 @@
+eval {"mode":"list","heading":"All movies","headingSize":"28px","width":1440,"scrollWidth":1440,"cards":0,"rows":20,"firstTitle":{"x":128,"y":300.75,"w":744,"h":22.5},"firstYearDisplay":"block","statusTitle":{"x":128,"y":986.75,"w":744,"h":22.5},"statusChip":{"x":1163.78125,"y":986,"w":72.796875,"h":24},"emptyStatusDisplay":"flex","filterExpanded":"false","placeholder":true,"activeLayout":"List"}
+ok C:\Users\lamun\AppData\Local\Temp\claude\F--Dev\85f210d9-1b7f-4c33-b8a9-6fec1a53109e\scratchpad\review\shots-final\lib-list-1440.png {"sw":1440,"cw":1440,"sh":2316}

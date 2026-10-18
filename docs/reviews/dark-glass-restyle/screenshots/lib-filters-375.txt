@@ -1,0 +1,2 @@
+eval {"mode":"filters","heading":"All movies","headingSize":"24px","width":375,"scrollWidth":375,"cards":20,"rows":0,"firstTitle":null,"firstYearDisplay":null,"statusTitle":null,"statusChip":null,"emptyStatusDisplay":null,"filterExpanded":"true","placeholder":true,"activeLayout":"Grid"}
+ok C:\Users\lamun\AppData\Local\Temp\claude\F--Dev\85f210d9-1b7f-4c33-b8a9-6fec1a53109e\scratchpad\review\shots-final\lib-filters-375.png {"sw":375,"cw":375,"sh":4623}

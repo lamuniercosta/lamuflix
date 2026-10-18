@@ -1,5 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type MouseEvent } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import type { components } from '../../api/types';
+import { WatchlistToggleButton } from '../../library/watchlist';
+import { useAmbientPosters } from '../../ui/ambient';
+import {
+  ArrowRightIcon,
+  CopyIcon,
+  ExternalLinkIcon,
+  FilmIcon,
+  LoaderIcon,
+  PlayFilledIcon,
+  StarFilledIcon,
+} from '../../ui/icons';
+import { readReturnUrl } from '../app-navigation/useAppNavigation';
 import {
   formatRating,
   formatRuntime,
@@ -9,76 +22,294 @@ import {
   type MovieDetails,
   type MovieMetadata,
 } from './movieDetailsApi';
-import { WatchlistToggleButton } from '../../library/watchlist';
+import { libraryHrefForActors, matchPersonIds } from './movieDetailsLabels';
+import {
+  EnrichmentRequestError,
+  useLibraryEnrichmentStatus,
+  useMoreWithActors,
+  usePeopleLookup,
+  useRequestEnrichment,
+  type EnrichmentStatus,
+} from './movieDetailsQueries';
 import './MovieDetailsView.css';
+
+type PersonDto = components['schemas']['PersonDto'];
+type MovieSummary = components['schemas']['MovieSummaryResponse'];
+type ActorId = number | string;
+type PlayState = 'idle' | 'success' | 'notfound' | 'unavailable' | 'error';
+type CopyState = 'idle' | 'copied' | 'failed';
 
 export interface MovieDetailsViewProps {
   movieId: number | string;
 }
 
-function MetadataSection({ movie }: { movie: MovieDetails }) {
-  const metadata: MovieMetadata | null = movie.metadata;
-  const hasYearOrRuntime =
-    Boolean(metadata) && (metadata!.releaseYear != null || metadata!.runtime != null);
+function navigateTo(href: string, state: unknown = {}): void {
+  window.history.pushState(state, '', href);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
 
+function openDetails(id: ActorId): void {
+  const returnUrl = readReturnUrl(window.history.state);
+  navigateTo(`/movies/${String(id)}`, returnUrl ? { libraryReturnUrl: returnUrl } : {});
+}
+
+function factsLine(metadata: MovieMetadata | null): string {
+  if (!metadata) return '';
+  const parts = [
+    metadata.releaseYear != null ? String(metadata.releaseYear) : '',
+    metadata.runtime != null ? formatRuntime(metadata.runtime) : '',
+  ];
+  return parts.filter(Boolean).join(' · ');
+}
+
+function enrichmentNote(status: EnrichmentStatus | null): string | null {
+  if (status === 'Pending') return 'A metadata lookup is in progress.';
+  if (status === 'NotFound') return 'The last lookup found no match for this title.';
+  if (status === 'Failed') return 'The last metadata lookup failed.';
+  return null;
+}
+
+function enrichmentRequestMessage(error: EnrichmentRequestError): string {
+  if (error.status === 409) return 'A metadata lookup is already running for this movie.';
+  if (error.status === 404) return 'This movie is no longer in the library.';
+  return "Couldn't request metadata. Try again later.";
+}
+
+function Poster({ title, posterUrl }: { title: string; posterUrl: string | null }) {
+  if (posterUrl) {
+    return <img className="details-poster" src={posterUrl} alt={`${title} poster`} />;
+  }
   return (
-    <div className="movie-details">
-      <div className="movie-details-poster">
-        {metadata?.posterUrl ? (
-          <img src={metadata.posterUrl} alt={`${movie.title} poster`} />
-        ) : (
-          <div className="movie-details-placeholder" aria-hidden="true" />
-        )}
-      </div>
-      <section>
-        <h1>{movie.title}</h1>
-        <WatchlistToggleButton movieId={movie.id} isInWatchlist={movie.isInWatchlist} />
-        <p className="movie-details-format">{movie.format}</p>
-        {hasYearOrRuntime && (
-          <p className="movie-details-year-runtime">
-            {metadata?.releaseYear != null && <span>{metadata.releaseYear}</span>}
-            {metadata?.releaseYear != null && metadata?.runtime != null && <span> × </span>}
-            {metadata?.runtime != null && <span>{formatRuntime(metadata.runtime)}</span>}
-          </p>
-        )}
-        {metadata && (
-          <div className="movie-details-badges">
-            {metadata.imdbRating != null && (
-              <span className="movie-details-badge">
-                IMDb {formatRating(metadata.imdbRating)}/10
-              </span>
-            )}
-            {metadata.rottenTomatoesRating != null && (
-              <span className="movie-details-badge">
-                Rotten Tomatoes {metadata.rottenTomatoesRating}
-              </span>
-            )}
-            {metadata.metaScore != null && (
-              <span className="movie-details-badge">Metacritic {metadata.metaScore}</span>
-            )}
-          </div>
-        )}
-        {metadata && metadata.directors.length > 0 && (
-          <p className="movie-details-directors">
-            {metadata.directors.length > 1 ? 'Directors' : 'Director'}:{' '}
-            {metadata.directors.join(', ')}
-          </p>
-        )}
-        {metadata && metadata.actors.length > 0 && (
-          <p className="movie-details-cast">Cast: {metadata.actors.join(', ')}</p>
-        )}
-        {metadata?.synopsis && <p className="movie-details-synopsis">{metadata.synopsis}</p>}
-        {metadata === null && (
-          <p className="movie-details-no-metadata">No metadata available yet.</p>
-        )}
-      </section>
+    <div className="details-poster details-poster-placeholder lamu-glass" aria-hidden="true">
+      <FilmIcon size={48} />
     </div>
   );
 }
 
-function navigateToLibrary(): void {
-  window.history.pushState({}, '', '/');
-  window.dispatchEvent(new PopStateEvent('popstate'));
+function NoMetadata({
+  movieId,
+  libraryClient,
+  status,
+}: {
+  movieId: ActorId;
+  libraryClient: QueryClient;
+  status: EnrichmentStatus | null;
+}) {
+  const request = useRequestEnrichment(movieId, libraryClient);
+  const note = enrichmentNote(status);
+  const requestError = request.error;
+  return (
+    <div className="details-no-metadata">
+      <p>No metadata available yet.</p>
+      {note && <p className="details-status">{note}</p>}
+      {status !== 'Pending' && (
+        <button
+          type="button"
+          className="lamu-pill-button"
+          disabled={request.isPending}
+          onClick={() => request.mutate()}
+        >
+          {request.isPending ? 'Requesting...' : 'Fetch metadata'}
+        </button>
+      )}
+      {requestError && (
+        <p role={requestError.status === 409 ? 'status' : 'alert'} className="details-status">
+          {enrichmentRequestMessage(requestError)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CastSection({
+  actors,
+  people,
+  selected,
+  onSelect,
+}: {
+  actors: string[];
+  people: readonly PersonDto[];
+  selected: string | null;
+  onSelect: (name: string) => void;
+}) {
+  const headingId = useId();
+  return (
+    <section className="details-section" aria-labelledby={headingId}>
+      <h2 id={headingId} className="details-section-heading">
+        Cast
+      </h2>
+      <ul className="details-cast-list">
+        {actors.map((name, index) => {
+          const key = `${index}-${name}`;
+          if (matchPersonIds(name, people).length === 0) {
+            return (
+              <li key={key} className="details-cast-plain">
+                {name}
+              </li>
+            );
+          }
+          return (
+            <li key={key}>
+              <button
+                type="button"
+                className="lamu-chip"
+                aria-pressed={selected === name}
+                onClick={() => onSelect(name)}
+              >
+                {name}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function MorePosterCard({ item }: { item: MovieSummary }) {
+  const [posterFailed, setPosterFailed] = useState(false);
+  const href = `/movies/${String(item.id)}`;
+  const open = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    openDetails(item.id);
+  };
+  const rating = item.imdbRating != null ? formatRating(item.imdbRating) : null;
+  return (
+    <li className="details-more-card">
+      <a
+        className="details-more-poster"
+        href={href}
+        tabIndex={-1}
+        aria-hidden="true"
+        onClick={open}
+      >
+        {item.posterUrl && !posterFailed ? (
+          <img src={item.posterUrl} alt="" loading="lazy" onError={() => setPosterFailed(true)} />
+        ) : (
+          <span className="details-more-placeholder lamu-glass">
+            <FilmIcon size={28} />
+          </span>
+        )}
+      </a>
+      <a className="details-more-title" href={href} onClick={open}>
+        {item.title}
+      </a>
+      <p className="details-more-meta">
+        {item.enrichmentStatus === 'Enriched' ? (
+          <>
+            {rating ? (
+              <>
+                <StarFilledIcon size={12} className="details-more-star" />
+                <span className="sr-only">IMDb </span>
+                {rating}
+              </>
+            ) : (
+              '—'
+            )}
+            <span aria-hidden="true"> | </span>
+            {item.releaseYear ?? '—'}
+          </>
+        ) : (
+          'No metadata yet'
+        )}
+      </p>
+    </li>
+  );
+}
+
+function MoreWithPanel({
+  actor,
+  actorIds,
+  movieId,
+}: {
+  actor: string;
+  actorIds: ActorId[];
+  movieId: ActorId;
+}) {
+  const headingId = useId();
+  const more = useMoreWithActors(actorIds, actorIds.length > 0);
+  const libraryHref = libraryHrefForActors(actorIds);
+  const rows = (more.data ?? []).filter((item) => String(item.id) !== String(movieId));
+  return (
+    <section className="details-section details-more" aria-labelledby={headingId}>
+      <div className="details-section-head">
+        <h2 id={headingId} className="details-section-heading">
+          {`More with ${actor} in your library`}
+        </h2>
+        <a
+          className="lamu-link"
+          href={libraryHref}
+          onClick={(event) => {
+            event.preventDefault();
+            navigateTo(libraryHref);
+          }}
+        >
+          {`See all with ${actor} in Library`}
+          <ArrowRightIcon size={14} />
+        </a>
+      </div>
+      {more.isPending && (
+        <p role="status" className="details-status">
+          Loading movies…
+        </p>
+      )}
+      {more.isError && (
+        <p role="alert" className="details-status">
+          Couldn&apos;t load more movies. Try again later.
+        </p>
+      )}
+      {more.isSuccess && rows.length === 0 && (
+        <p className="details-status">{`No other movies with ${actor} in your library yet.`}</p>
+      )}
+      {rows.length > 0 && (
+        <ul className="details-more-row">
+          {rows.map((item) => (
+            <MorePosterCard key={String(item.id)} item={item} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function FileSection({ path, imdbId }: { path: string; imdbId: string | null }) {
+  const headingId = useId();
+  const [copyState, setCopyState] = useState<CopyState>('idle');
+  const copyPath = async () => {
+    try {
+      await navigator.clipboard.writeText(path);
+      setCopyState('copied');
+    } catch {
+      setCopyState('failed');
+    }
+  };
+  return (
+    <section className="details-section details-file" aria-labelledby={headingId}>
+      <h2 id={headingId} className="details-section-heading">
+        File
+      </h2>
+      <p className="details-path">{path}</p>
+      <div className="details-file-actions">
+        <button type="button" className="lamu-link" onClick={() => void copyPath()}>
+          <CopyIcon size={16} />
+          Copy path
+        </button>
+        {copyState === 'copied' && <span role="status">Copied</span>}
+        {copyState === 'failed' && <span role="alert">Couldn&apos;t copy the path.</span>}
+        {imdbId && (
+          <a
+            className="lamu-link"
+            href={`https://www.imdb.com/title/${imdbId}/`}
+            target="_blank"
+            rel="noopener"
+          >
+            View on IMDb
+            <ExternalLinkIcon size={16} />
+          </a>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export default function MovieDetailsView({ movieId }: MovieDetailsViewProps) {
@@ -89,6 +320,7 @@ export default function MovieDetailsView({ movieId }: MovieDetailsViewProps) {
   return (
     <QueryClientProvider client={detailsClient}>
       <MovieDetailsViewInner
+        key={String(movieId)}
         movieId={movieId}
         detailsClient={detailsClient}
         libraryClient={libraryClient}
@@ -108,93 +340,73 @@ function MovieDetailsViewInner({
   libraryClient,
 }: MovieDetailsViewInnerProps) {
   const query = useMovieDetails(movieId);
+  const movie: MovieDetails | undefined = query.data;
+  const metadata = movie?.metadata ?? null;
+  const posterUrl = metadata?.posterUrl ?? null;
+  useAmbientPosters([posterUrl]);
+
+  const libraryStatus = useLibraryEnrichmentStatus(libraryClient, movieId);
+  const hasMetadata = metadata !== null;
+  useEffect(() => {
+    if (libraryStatus === 'Enriched' && !hasMetadata) {
+      void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
+    }
+  }, [libraryStatus, hasMetadata, detailsClient, movieId]);
+
+  const people = usePeopleLookup();
+  const peopleList: readonly PersonDto[] = people.data ?? [];
   const playMutation = usePlayMovie(movieId);
-  const [playState, setPlayState] = useState<'idle' | 'success' | 'notfound' | 'error'>('idle');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const playButtonRef = useRef<HTMLButtonElement>(null);
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
-  const playInFlightRef = useRef(false);
   const deleteMutation = useDeleteMovie(movieId);
-  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
-  const [removeState, setRemoveState] = useState<'idle' | 'error'>('idle');
+  const [playState, setPlayState] = useState<PlayState>('idle');
+  const playInFlightRef = useRef(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removeFailed, setRemoveFailed] = useState(false);
   const removeInFlightRef = useRef(false);
-  const removeButtonRef = useRef<HTMLButtonElement>(null);
+  const removeTriggerRef = useRef<HTMLButtonElement>(null);
   const removeConfirmRef = useRef<HTMLButtonElement>(null);
-  const removePreviousFocus = useRef<HTMLElement | null>(null);
+  const stripPromptId = useId();
+  const [selectedActor, setSelectedActor] = useState<string | null>(null);
+
+  const closeRemove = useCallback(() => {
+    setRemoveOpen(false);
+    setRemoveFailed(false);
+    removeTriggerRef.current?.focus();
+  }, []);
 
   useEffect(() => {
-    if (removeDialogOpen && removeConfirmRef.current) {
-      removePreviousFocus.current =
-        removeButtonRef.current ?? (document.activeElement as HTMLElement | null);
-      removeConfirmRef.current.focus();
-    } else if (!removeDialogOpen && removePreviousFocus.current) {
-      removePreviousFocus.current.focus();
-      removePreviousFocus.current = null;
+    if (removeOpen) {
+      removeConfirmRef.current?.focus();
     }
-  }, [removeDialogOpen]);
+  }, [removeOpen]);
 
   useEffect(() => {
-    if (!removeDialogOpen) return;
-    const handler = (event: KeyboardEvent) => {
+    if (!removeOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setRemoveDialogOpen(false);
-        setRemoveState('idle');
+        closeRemove();
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [removeDialogOpen]);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [removeOpen, closeRemove]);
 
-  useEffect(() => {
-    if (dialogOpen && closeBtnRef.current) {
-      previousFocus.current =
-        playButtonRef.current ?? (document.activeElement as HTMLElement | null);
-      closeBtnRef.current.focus();
-    } else if (!dialogOpen && previousFocus.current) {
-      previousFocus.current.focus();
-      previousFocus.current = null;
-    }
-  }, [dialogOpen]);
-
-  useEffect(() => {
-    if (!dialogOpen) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setDialogOpen(false);
-        return;
-      }
-      if (event.key === 'Tab') {
-        event.preventDefault();
-        closeBtnRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [dialogOpen]);
-
-  const openRemoveDialog = () => {
-    setRemoveState('idle');
-    setRemoveDialogOpen(true);
-  };
-
-  const cancelRemove = () => {
-    setRemoveDialogOpen(false);
-    setRemoveState('idle');
+  const openRemove = () => {
+    setRemoveFailed(false);
+    setRemoveOpen(true);
   };
 
   const confirmRemove = () => {
     if (removeInFlightRef.current) return;
     removeInFlightRef.current = true;
-    setRemoveState('idle');
+    setRemoveFailed(false);
     deleteMutation.mutate(undefined, {
       onSuccess: async () => {
         await detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
         await libraryClient.invalidateQueries({ queryKey: ['browseMovies'] });
-        navigateToLibrary();
+        navigateTo('/');
       },
       onError: () => {
-        setRemoveState('error');
+        setRemoveFailed(true);
       },
       onSettled: () => {
         removeInFlightRef.current = false;
@@ -211,10 +423,9 @@ function MovieDetailsViewInner({
         setPlayState('success');
       },
       onError: (error) => {
-        const status = (error as { status?: number }).status;
-        if (status === 403) {
-          setDialogOpen(true);
-        } else if (status === 404) {
+        if (error.status === 403) {
+          setPlayState('unavailable');
+        } else if (error.status === 404) {
           setPlayState('notfound');
         } else {
           setPlayState('error');
@@ -224,6 +435,10 @@ function MovieDetailsViewInner({
         playInFlightRef.current = false;
       },
     });
+  };
+
+  const toggleActor = (name: string) => {
+    setSelectedActor((current) => (current === name ? null : name));
   };
 
   if (query.isPending) {
@@ -236,67 +451,143 @@ function MovieDetailsViewInner({
     }
     return <p role="alert">Couldn&apos;t load this movie. Try again later.</p>;
   }
+  if (!movie) {
+    return null;
+  }
+
+  const actors = metadata?.actors ?? [];
+  const directors = metadata?.directors ?? [];
+  const facts = factsLine(metadata);
+  const hasRatings =
+    metadata !== null &&
+    [metadata.imdbRating, metadata.rottenTomatoesRating, metadata.metaScore].some(
+      (value) => value != null,
+    );
+  const selectedIds = selectedActor ? matchPersonIds(selectedActor, peopleList) : [];
 
   return (
-    <>
-      <MetadataSection movie={query.data as MovieDetails} />
-      <button
-        ref={playButtonRef}
-        type="button"
-        disabled={playMutation.isPending}
-        onClick={handlePlay}
-      >
-        {playMutation.isPending ? 'Starting...' : 'Play'}
-      </button>
-      {playState === 'success' && <span role="status">Playback started.</span>}
-      {playState === 'notfound' && (
-        <span role="alert">This movie is no longer in the library.</span>
-      )}
-      {playState === 'error' && (
-        <span role="alert">Couldn&apos;t start playback. Try again later.</span>
-      )}
-      <button
-        ref={removeButtonRef}
-        type="button"
-        disabled={deleteMutation.isPending}
-        onClick={openRemoveDialog}
-      >
-        Remove from library
-      </button>
-      {removeDialogOpen && (
-        <div role="dialog" aria-modal="true" aria-labelledby="remove-movie-title">
-          <h2 id="remove-movie-title">Remove this movie from the library?</h2>
-          <p>The movie leaves the library. The file on disk stays.</p>
-          <button
-            ref={removeConfirmRef}
-            type="button"
-            disabled={deleteMutation.isPending}
-            onClick={confirmRemove}
-          >
-            Remove
-          </button>
-          <button type="button" onClick={cancelRemove}>
-            Cancel
-          </button>
-          {removeState === 'error' && (
-            <>
-              <p role="alert">Could not remove this movie.</p>
-              <button type="button" onClick={confirmRemove}>
-                Try again
-              </button>
-            </>
+    <article className="details">
+      <div className="details-hero">
+        <Poster title={movie.title} posterUrl={posterUrl} />
+        <div className="details-summary">
+          <h1 className="details-title">{movie.title}</h1>
+          <p className="details-format">{movie.format}</p>
+          {facts && <p className="details-facts">{facts}</p>}
+          {metadata && hasRatings && (
+            <ul className="details-ratings" aria-label="Ratings">
+              {metadata.imdbRating != null && (
+                <li className="details-rating">
+                  <StarFilledIcon size={14} />
+                  IMDb {formatRating(metadata.imdbRating)}/10
+                </li>
+              )}
+              {metadata.rottenTomatoesRating != null && (
+                <li className="details-rating">Rotten Tomatoes {metadata.rottenTomatoesRating}</li>
+              )}
+              {metadata.metaScore != null && (
+                <li className="details-rating">Metacritic {metadata.metaScore}</li>
+              )}
+            </ul>
+          )}
+          {directors.length > 0 && (
+            <p className="details-directors">
+              {`${directors.length > 1 ? 'Directors' : 'Director'}: ${directors.join(', ')}`}
+            </p>
+          )}
+          {metadata === null && (
+            <NoMetadata movieId={movieId} libraryClient={libraryClient} status={libraryStatus} />
+          )}
+          {actors.length > 0 && (
+            <CastSection
+              actors={actors}
+              people={peopleList}
+              selected={selectedActor}
+              onSelect={toggleActor}
+            />
+          )}
+          {metadata?.synopsis && <p className="details-synopsis">{metadata.synopsis}</p>}
+
+          <div className="details-actions">
+            <button
+              type="button"
+              className="lamu-action-primary"
+              disabled={playMutation.isPending}
+              onClick={handlePlay}
+            >
+              {playMutation.isPending ? <LoaderIcon size={18} /> : <PlayFilledIcon size={18} />}
+              {playMutation.isPending ? 'Starting...' : 'Play'}
+            </button>
+            <div className="details-watchlist">
+              <WatchlistToggleButton movieId={movie.id} isInWatchlist={movie.isInWatchlist} />
+            </div>
+            <button
+              ref={removeTriggerRef}
+              type="button"
+              className="lamu-action-quiet"
+              aria-expanded={removeOpen}
+              disabled={deleteMutation.isPending}
+              onClick={openRemove}
+            >
+              Remove from library
+            </button>
+          </div>
+
+          {playState === 'success' && (
+            <p role="status" className="details-status">
+              Playback started.
+            </p>
+          )}
+          {playState === 'notfound' && (
+            <p role="alert" className="details-status">
+              This movie is no longer in the library.
+            </p>
+          )}
+          {playState === 'error' && (
+            <p role="alert" className="details-status">
+              Couldn&apos;t start playback. Try again later.
+            </p>
+          )}
+          {playState === 'unavailable' && (
+            <div role="alert" className="details-inline-alert">
+              <p className="details-inline-alert-title">Playback unavailable</p>
+              <p>Local playback is disabled on this server.</p>
+            </div>
+          )}
+
+          {removeOpen && (
+            <div className="details-strip" role="group" aria-labelledby={stripPromptId}>
+              <p id={stripPromptId}>The movie leaves the library. The file on disk stays.</p>
+              <div className="details-strip-actions">
+                <button
+                  ref={removeConfirmRef}
+                  type="button"
+                  className="lamu-action-quiet"
+                  disabled={deleteMutation.isPending}
+                  onClick={confirmRemove}
+                >
+                  Remove
+                </button>
+                <button type="button" className="lamu-action-quiet" onClick={closeRemove}>
+                  Cancel
+                </button>
+              </div>
+              {removeFailed && (
+                <div className="details-strip-error">
+                  <p role="alert">Could not remove this movie.</p>
+                  <button type="button" className="lamu-action-quiet" onClick={confirmRemove}>
+                    Try again
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
+      </div>
+
+      {selectedActor && selectedIds.length > 0 && (
+        <MoreWithPanel actor={selectedActor} actorIds={selectedIds} movieId={movieId} />
       )}
-      {dialogOpen && (
-        <div role="dialog" aria-modal="true" aria-labelledby="playback-unavailable-title">
-          <h2 id="playback-unavailable-title">Playback unavailable</h2>
-          <p>Local playback is disabled on this server.</p>
-          <button ref={closeBtnRef} type="button" onClick={() => setDialogOpen(false)}>
-            Close
-          </button>
-        </div>
-      )}
-    </>
+      <FileSection path={movie.path} imdbId={metadata?.imdbId ?? null} />
+    </article>
   );
 }

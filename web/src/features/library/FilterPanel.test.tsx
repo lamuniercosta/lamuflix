@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import { act } from '@testing-library/react';
 import type { components } from '../../api/types';
@@ -26,11 +26,11 @@ describe('FilterPanel', () => {
     vi.useRealTimers();
   });
 
-  it('renders search placeholder and clear button', () => {
+  it('renders search placeholder and clear all button', () => {
     render(<FilterPanel />);
 
     expect(screen.getByPlaceholderText('Search titles')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /clear filters/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
   });
 
   it('renders genre counts in a fixed badge and accessible suffix', () => {
@@ -59,24 +59,25 @@ describe('FilterPanel', () => {
     expect(action.compareDocumentPosition(zoo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('sorts cast options by name and keeps local filtering', () => {
+  it('filters cast suggestions by typed text and sorts them by name', () => {
     render(
       <FilterPanel
         genres={[]}
-        actors={[person({ id: 2, name: 'Zoe' }), person({ id: 1, name: 'Aaron' })]}
+        actors={[person({ id: 2, name: 'Zoe' }), person({ id: 1, name: 'Zack' })]}
       />,
     );
 
-    const aaron = screen.getByText('Aaron');
-    const zoe = screen.getByText('Zoe');
-    expect(aaron.compareDocumentPosition(zoe) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Add a cast member'), { target: { value: 'z' } });
+    const zack = screen.getByRole('button', { name: 'Zack' });
+    const zoe = screen.getByRole('button', { name: 'Zoe' });
+    expect(zack.compareDocumentPosition(zoe) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    fireEvent.change(screen.getByPlaceholderText('Filter cast'), { target: { value: 'Zo' } });
-    expect(screen.queryByText('Aaron')).not.toBeInTheDocument();
-    expect(screen.getByText('Zoe')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Add a cast member'), { target: { value: 'Zo' } });
+    expect(screen.queryByRole('button', { name: 'Zack' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zoe' })).toBeInTheDocument();
   });
 
-  it('persists cast selections when filter hides them from view', () => {
+  it('keeps selected cast members as chips while the search text changes', () => {
     const onChange = vi.fn();
     render(
       <FilterPanel
@@ -87,18 +88,33 @@ describe('FilterPanel', () => {
       />,
     );
 
-    const zoeCheckbox = screen.getByRole('checkbox', { name: /Zoe/i });
-    expect(zoeCheckbox).toBeChecked();
+    const selected = screen.getByRole('list', { name: 'Selected cast' });
+    expect(within(selected).getByText('Zoe')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Filter cast'), { target: { value: 'Aar' } });
+    fireEvent.change(screen.getByLabelText('Add a cast member'), { target: { value: 'Aar' } });
     // selected actors persist in the list even when filtered from view
-    expect(screen.getByText('Zoe')).toBeInTheDocument();
-    const zoe = screen.getByRole('checkbox', { name: /Zoe/i });
-    expect(zoe).toBeChecked();
+    expect(within(selected).getByText('Zoe')).toBeInTheDocument();
 
-    const aaron = screen.getByRole('checkbox', { name: /Aaron/i });
-    fireEvent.click(aaron);
+    fireEvent.click(screen.getByRole('button', { name: 'Aaron' }));
     expect(onChange).toHaveBeenCalled();
+    const last = onChange.mock.calls.at(-1)?.[0];
+    expect(last.actorIds.map(String)).toEqual(['2', '1']);
+  });
+
+  it('removes a selected cast member through its chip remove button', () => {
+    const onChange = vi.fn();
+    render(
+      <FilterPanel
+        query={{ actorIds: [2] }}
+        genres={[]}
+        actors={[person({ id: 2, name: 'Zoe' })]}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Zoe from cast filter' }));
+    const last = onChange.mock.calls.at(-1)?.[0];
+    expect(last.actorIds.map(String)).not.toContain('2');
   });
 
   it('hydrates controls from the URL on mount', () => {
@@ -107,7 +123,8 @@ describe('FilterPanel', () => {
     render(<FilterPanel />);
 
     expect(screen.getByPlaceholderText('Search titles')).toHaveValue('hello');
-    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('Year (newest)');
+    expect(screen.getByRole('button', { name: 'Year' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Descending' })).toBeInTheDocument();
   });
 
   it('restores controls on popstate', async () => {
@@ -134,7 +151,7 @@ describe('FilterPanel', () => {
       />,
     );
 
-    const clearButton = screen.getByRole('button', { name: /clear filters/i });
+    const clearButton = screen.getByRole('button', { name: /clear all/i });
     fireEvent.click(clearButton);
 
     expect(onChange).toHaveBeenCalled();
@@ -153,17 +170,18 @@ describe('FilterPanel', () => {
     expect(last.direction).toBe('Descending');
   });
 
-  it('preserves sort and direction selector after clear', async () => {
+  it('preserves sort and direction after clear all', async () => {
     render(
       <FilterPanel
         query={parseFilterQuery('sort=Year&direction=Descending&text=x')}
         onChange={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+    fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
     await waitFor(() => {
-      expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('Year (newest)');
+      expect(screen.getByRole('button', { name: 'Year' })).toHaveAttribute('aria-pressed', 'true');
     });
+    expect(screen.getByRole('button', { name: 'Descending' })).toBeInTheDocument();
   });
 
   it('exposes slider steps and extents', () => {
@@ -269,29 +287,24 @@ describe('FilterPanel', () => {
     vi.setSystemTime(new Date());
   });
 
-  it('maps all eight sort choices to matching sort and direction', () => {
+  it('sets the sort field from its chip and toggles direction with the direction button', () => {
     const onChange = vi.fn();
-    render(<FilterPanel query={{}} onChange={onChange} />);
+    render(<FilterPanel onChange={onChange} />);
 
-    const select = screen.getByRole('combobox');
-    const expected: Record<string, [string, string]> = {
-      'Title (A-Z)': ['Title', 'Ascending'],
-      'Title (Z-A)': ['Title', 'Descending'],
-      'Year (oldest)': ['Year', 'Ascending'],
-      'Year (newest)': ['Year', 'Descending'],
-      'IMDb (lowest)': ['Rating', 'Ascending'],
-      'IMDb (highest)': ['Rating', 'Descending'],
-      'Runtime (shortest)': ['Runtime', 'Ascending'],
-      'Runtime (longest)': ['Runtime', 'Descending'],
-    };
-
-    for (const [label, [sort, direction]] of Object.entries(expected)) {
-      fireEvent.change(select, { target: { value: label } });
+    for (const field of ['Title', 'Year', 'Rating', 'Runtime']) {
+      fireEvent.click(screen.getByRole('button', { name: field }));
       const last = onChange.mock.calls.at(-1)?.[0];
-      expect(last.sort).toBe(sort);
-      expect(last.direction).toBe(direction);
+      expect(last.sort).toBe(field);
+      expect(screen.getByRole('button', { name: field })).toHaveAttribute('aria-pressed', 'true');
     }
-    expect(onChange).toHaveBeenCalledTimes(8);
+    expect(onChange).toHaveBeenCalledTimes(4);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ascending' }));
+    expect(onChange.mock.calls.at(-1)?.[0].direction).toBe('Descending');
+    expect(onChange.mock.calls.at(-1)?.[0].sort).toBe('Runtime');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Descending' }));
+    expect(onChange.mock.calls.at(-1)?.[0].direction).toBe('Ascending');
   });
 
   it('toggles status chips and omits statuses when none selected', () => {
@@ -328,7 +341,7 @@ describe('FilterPanel', () => {
       />,
     );
     expect(screen.getByText(/Genres could not be loaded/i)).toBeInTheDocument();
-    expect(screen.getByText('Zoe')).toBeInTheDocument();
+    expect(screen.getByLabelText('Add a cast member')).toBeInTheDocument();
   });
 
   it('shows independent cast error and keeps genres usable', () => {
@@ -340,6 +353,21 @@ describe('FilterPanel', () => {
     );
     expect(screen.getByText(/Cast could not be loaded/i)).toBeInTheDocument();
     expect(screen.getByText('Action')).toBeInTheDocument();
+  });
+
+  it('shows Collapse only when a handler is given and calls it', () => {
+    const onCollapse = vi.fn();
+    const { rerender } = render(<FilterPanel />);
+    expect(screen.queryByRole('button', { name: 'Collapse' })).not.toBeInTheDocument();
+
+    rerender(<FilterPanel onCollapse={onCollapse} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports the match count in the footer', () => {
+    render(<FilterPanel matchCount={1} />);
+    expect(screen.getByText('1 match')).toBeInTheDocument();
   });
 
   it('debounced text commit preserves a newer discrete filter selection', () => {
@@ -411,7 +439,7 @@ describe('FilterPanel', () => {
     );
   }
 
-  it('cancels a pending text commit when Clear filters is clicked', () => {
+  it('cancels a pending text commit when Clear all is clicked', () => {
     vi.useFakeTimers();
     const onChange = vi.fn();
     render(<FilterPanel onChange={onChange} />);
@@ -422,7 +450,7 @@ describe('FilterPanel', () => {
     });
 
     const callsBeforeClear = onChange.mock.calls.length;
-    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+    fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
     act(() => {
       vi.advanceTimersByTime(300);
     });

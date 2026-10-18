@@ -15,11 +15,14 @@ import {
 } from './features/library/filterQuery';
 import type { FilterQuery } from './features/library/filterQuery';
 import { useDebouncedSearch } from './features/library/useDebouncedSearch';
+import DetailsBackLink from './features/movie-details/DetailsBackLink';
 import MovieDetailsView from './features/movie-details/MovieDetailsView';
 import ImportDialog from './library/ImportDialog';
 import LibraryErrorBoundary from './library/LibraryErrorBoundary';
 import { armImportPlaceholder, pendingRow } from './library/libraryQueries';
 import LibraryView from './library/LibraryView';
+import { AmbientProvider } from './ui/AmbientProvider';
+import { FolderPlusIcon, SearchIcon } from './ui/icons';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 
@@ -37,7 +40,8 @@ function SearchField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="lamu-shell-search">
+    <div className="lamu-search-field">
+      <SearchIcon size={16} />
       <label className="sr-only" htmlFor={id}>
         Search titles
       </label>
@@ -96,14 +100,16 @@ function ShellSearch({
   }, []);
 
   return (
-    <SearchField
-      id={id}
-      value={draft}
-      onChange={(value) => {
-        setDraft(value);
-        commit.schedule(value);
-      }}
-    />
+    <div className="lamu-shell-search">
+      <SearchField
+        id={id}
+        value={draft}
+        onChange={(value) => {
+          setDraft(value);
+          commit.schedule(value);
+        }}
+      />
+    </div>
   );
 }
 
@@ -239,81 +245,96 @@ export default function App() {
   const detailsDraft = detailsReturnSearch ? parseFilterQuery(detailsReturnSearch).text : '';
 
   return (
-    <div className="lamu-app">
-      <header className="lamu-shell-header">
-        <div className="lamu-shell-bar">
-          <a
-            className="lamu-wordmark"
-            href="/"
-            onClick={(event) => {
-              event.preventDefault();
-              goLibrary(false);
-            }}
-          >
-            LamuFlix
-          </a>
-          <nav className="lamu-shell-nav" aria-label="Primary">
-            <a
-              href="/"
-              onClick={(event) => {
-                event.preventDefault();
-                goLibrary(false);
-              }}
-            >
-              Library
-            </a>
-            <button
-              type="button"
-              aria-pressed={watchlistActive}
-              onClick={() => goLibrary(!watchlistActive)}
-            >
-              Watchlist
-            </button>
-            <button ref={importFolderButtonRef} type="button" onClick={() => setImportOpen(true)}>
-              Import folder
-            </button>
-          </nav>
-          {isDetails ? (
-            <DetailsSearch
-              id={headerSearchId}
-              initialText={detailsDraft}
-              onSubmit={handleDetailsSearchSubmit}
-            />
-          ) : (
-            <ShellSearch
-              id={headerSearchId}
-              initialText={libraryQuery.text}
-              routeKey={route.routeKey}
-              onCommittedText={handleShellSearchText}
-            />
-          )}
+    <AmbientProvider>
+      <div className="lamu-app">
+        <div className="lamu-shell">
+          <div className="lamu-glass lamu-frame">
+            <header className="lamu-shell-header">
+              <a
+                className="lamu-wordmark"
+                href="/"
+                onClick={(event) => {
+                  event.preventDefault();
+                  goLibrary(false);
+                }}
+              >
+                <img
+                  className="lamu-brand-logo"
+                  src="/lamuflix-logo.svg?v=text-height"
+                  alt="LamuFlix"
+                  width="378"
+                  height="55"
+                />
+              </a>
+              <nav className="lamu-shell-nav" aria-label="Primary">
+                <a
+                  className="lamu-nav-tab"
+                  href="/"
+                  aria-current={watchlistActive ? undefined : 'page'}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    goLibrary(false);
+                  }}
+                >
+                  Library
+                </a>
+                <button
+                  type="button"
+                  className="lamu-nav-tab"
+                  aria-pressed={watchlistActive}
+                  onClick={() => goLibrary(!watchlistActive)}
+                >
+                  Watchlist
+                </button>
+                {isDetails ? (
+                  <DetailsSearch
+                    id={headerSearchId}
+                    initialText={detailsDraft}
+                    onSubmit={handleDetailsSearchSubmit}
+                  />
+                ) : (
+                  <ShellSearch
+                    id={headerSearchId}
+                    initialText={libraryQuery.text}
+                    routeKey={route.routeKey}
+                    onCommittedText={handleShellSearchText}
+                  />
+                )}
+              </nav>
+              <button
+                ref={importFolderButtonRef}
+                type="button"
+                className="lamu-pill-button"
+                onClick={() => setImportOpen(true)}
+              >
+                <FolderPlusIcon size={18} />
+                Import folder
+              </button>
+            </header>
+            {isDetails && movieId !== null ? (
+              <main>
+                <DetailsBackLink href={detailsReturnTarget ?? '/'} onClick={handleDetailsBack} />
+                <MovieDetailsView movieId={movieId} />
+              </main>
+            ) : (
+              <main>
+                <LibraryErrorBoundary>
+                  <LibraryView
+                    leadingItem={importedRow}
+                    inWatchlist={watchlistActive}
+                    query={libraryQuery}
+                    routeKey={route.routeKey}
+                    routePath={route.pathname}
+                    onQueryChange={applyLibraryQuery}
+                    onOpenMovie={openMovie}
+                  />
+                </LibraryErrorBoundary>
+              </main>
+            )}
+          </div>
         </div>
-      </header>
-      {isDetails && movieId !== null ? (
-        <main>
-          <p>
-            <a href={detailsReturnTarget ?? '/'} onClick={handleDetailsBack}>
-              Back to library
-            </a>
-          </p>
-          <MovieDetailsView movieId={movieId} />
-        </main>
-      ) : (
-        <main>
-          <LibraryErrorBoundary>
-            <LibraryView
-              leadingItem={importedRow}
-              inWatchlist={watchlistActive}
-              query={libraryQuery}
-              routeKey={route.routeKey}
-              routePath={route.pathname}
-              onQueryChange={applyLibraryQuery}
-              onOpenMovie={openMovie}
-            />
-          </LibraryErrorBoundary>
-        </main>
-      )}
-      <ImportDialog open={importOpen} onClose={closeImport} onImported={prependImportedMovie} />
-    </div>
+        <ImportDialog open={importOpen} onClose={closeImport} onImported={prependImportedMovie} />
+      </div>
+    </AmbientProvider>
   );
 }

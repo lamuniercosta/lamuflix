@@ -124,8 +124,8 @@ describe('LibraryView composition', () => {
 
     await screen.findByText('Dune');
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'Title (Z-A)' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Year' }));
 
     await waitFor(() => {
       expect(replaceSpy).toHaveBeenCalled();

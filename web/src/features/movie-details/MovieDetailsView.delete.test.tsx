@@ -19,6 +19,8 @@ const customSortKey = [
 
 const paginatedKey = ['browseMovies', { ...standingBrowseQuery, page: 2 }] as const;
 
+const STRIP_TEXT = 'The movie leaves the library. The file on disk stays.';
+
 function renderView() {
   const libraryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const rendered = render(
@@ -84,8 +86,73 @@ describe('MovieDetailsView destructive removal', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.queryByText(STRIP_TEXT)).not.toBeInTheDocument();
     expect(deleteCalls).toBe(0);
     expect(window.location.pathname).toBe('/movies/1');
+  });
+
+  it('opens the removal as an inline strip with focus on its Remove button', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)));
+    renderView();
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    const trigger = screen.getByRole('button', { name: 'Remove from library' });
+    fireEvent.click(trigger);
+
+    const remove = await screen.findByRole('button', { name: 'Remove' });
+    expect(screen.getByText(STRIP_TEXT)).toBeInTheDocument();
+    expect(remove).toHaveFocus();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('returns focus to the trigger when the strip is cancelled', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)));
+    renderView();
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    const trigger = screen.getByRole('button', { name: 'Remove from library' });
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(screen.queryByText(STRIP_TEXT)).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('closes the strip and returns focus to the trigger on Escape', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)));
+    renderView();
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    const trigger = screen.getByRole('button', { name: 'Remove from library' });
+    fireEvent.click(trigger);
+    await screen.findByText(STRIP_TEXT);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(screen.queryByText(STRIP_TEXT)).not.toBeInTheDocument();
+  });
+
+  it('removes the movie when Remove is confirmed in the inline strip', async () => {
+    let deleteCalls = 0;
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)),
+      http.delete('*/api/movies/:id', () => {
+        deleteCalls += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderView();
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove from library' }));
+    expect(await screen.findByText(STRIP_TEXT)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => expect(deleteCalls).toBe(1));
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
   });
 
   it('sends only one delete while the request is in flight', async () => {

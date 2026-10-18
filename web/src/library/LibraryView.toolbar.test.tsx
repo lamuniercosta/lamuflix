@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import App from '../App';
 
 function renderApp() {
@@ -12,33 +12,20 @@ function renderApp() {
   return render(<App />, { wrapper: Wrapper });
 }
 
-const originalMatchMedia = window.matchMedia;
+async function waitForLibrary() {
+  await screen.findByRole('link', { name: 'Dune' }, { timeout: 5000 });
+}
 
-function stubMatchMedia(matches: boolean) {
-  const listeners = new Set<(event: { matches: boolean }) => void>();
-  const media = {
-    matches,
-    media: '(min-width: 48rem)',
-    addEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => {
-      listeners.add(listener);
-    },
-    removeEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => {
-      listeners.delete(listener);
-    },
-    dispatch: (next: boolean) => {
-      for (const listener of listeners) {
-        listener({ matches: next });
-      }
-    },
-  };
-  window.matchMedia = vi.fn().mockReturnValue(media);
-  return media;
+function getFiltersToggle() {
+  return screen.getByRole('button', { name: /^Filters/ });
+}
+
+function openFilters() {
+  fireEvent.click(getFiltersToggle());
 }
 
 afterEach(() => {
   window.history.replaceState({}, '', '/');
-  document.body.style.overflow = '';
-  window.matchMedia = originalMatchMedia;
   cleanup();
 });
 
@@ -46,7 +33,7 @@ describe('Library results toolbar', () => {
   it('shows an include-unknown-runtime chip and clears only the flag', async () => {
     window.history.replaceState({}, '', '/?runtimeMin=10&runtimeMax=&runtimeIncludeUnknown=true');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
     const chips = screen.getByRole('list', { name: 'Active filters' });
     expect(chips).toHaveTextContent('Include unknown runtime');
@@ -63,7 +50,7 @@ describe('Library results toolbar', () => {
   it('renders repeated values with unique chips that remove one occurrence', async () => {
     window.history.replaceState({}, '', '/?statuses=Pending&statuses=Pending');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
     expect(screen.getAllByText('Status: Pending')).toHaveLength(2);
     fireEvent.click(screen.getAllByRole('button', { name: 'Remove status filter Pending' })[0]);
@@ -74,27 +61,31 @@ describe('Library results toolbar', () => {
   it('hides range chips for inactive extent defaults', async () => {
     window.history.replaceState({}, '', '/?runtimeMin=0&runtimeMax=240&statuses=Pending');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
     expect(screen.queryByText(/Runtime (from|to)/)).not.toBeInTheDocument();
     expect(screen.getByText('Status: Pending')).toBeInTheDocument();
   });
 
-  it('falls back the sort control for unknown sort values without changing the query', async () => {
+  it('falls back the sort summary for unknown sort values without changing the query', async () => {
     window.history.replaceState({}, '', '/?sort=Bogus&direction=Ascending');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
-    expect(screen.getByRole('combobox', { name: 'Sort movies' })).toHaveValue('Title|Ascending');
     expect(screen.getByText('Sort: Title (A-Z)')).toBeInTheDocument();
-    const params = new URLSearchParams(window.location.search);
-    expect(params.get('sort')).toBe('Bogus');
+    expect(new URLSearchParams(window.location.search).get('sort')).toBe('Bogus');
+
+    openFilters();
+    for (const field of ['Title', 'Year', 'Rating', 'Runtime']) {
+      expect(screen.getByRole('button', { name: field })).toHaveAttribute('aria-pressed', 'false');
+    }
+    expect(screen.getByRole('button', { name: 'Ascending' })).toBeInTheDocument();
   });
 
-  it('shows result count and current sort summary', async () => {
+  it('shows the result count and the current sort summary', async () => {
     window.history.replaceState({}, '', '/');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
     expect(screen.getByText('2 movies')).toBeInTheDocument();
     expect(screen.getByText('Sort: Title (A-Z)')).toBeInTheDocument();
@@ -103,7 +94,7 @@ describe('Library results toolbar', () => {
   it('renders one removable chip per active filter value', async () => {
     window.history.replaceState({}, '', '/?text=dune&statuses=Pending&statuses=Failed');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
     expect(screen.getByText('Search: dune')).toBeInTheDocument();
     expect(screen.getByText('Status: Pending')).toBeInTheDocument();
@@ -113,7 +104,7 @@ describe('Library results toolbar', () => {
   it('removes only the chosen chip value and resets page', async () => {
     window.history.replaceState({}, '', '/?text=dune&statuses=Pending&statuses=Failed&page=3');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove status filter Pending' }));
     const params = new URLSearchParams(window.location.search);
@@ -127,7 +118,7 @@ describe('Library results toolbar', () => {
   it('removes one range endpoint while retaining the other', async () => {
     window.history.replaceState({}, '', '/?yearMin=2000&yearMax=2020');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove minimum year 2000' }));
     const params = new URLSearchParams(window.location.search);
@@ -140,36 +131,39 @@ describe('Library results toolbar', () => {
   it('preserves unknown query keys across chip removal', async () => {
     window.history.replaceState({}, '', '/?statuses=Pending&foo=bar');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove status filter Pending' }));
     expect(new URLSearchParams(window.location.search).get('foo')).toBe('bar');
   });
 
-  it('resets page when sort changes from the toolbar', async () => {
+  it('resets page when the sort field changes in the panel', async () => {
     window.history.replaceState({}, '', '/?page=3');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Sort movies' }), {
-      target: { value: 'Year|Descending' },
-    });
-    const params = new URLSearchParams(window.location.search);
+    openFilters();
+    fireEvent.click(screen.getByRole('button', { name: 'Year' }));
+    let params = new URLSearchParams(window.location.search);
     expect(params.get('sort')).toBe('Year');
-    expect(params.get('direction')).toBe('Descending');
     expect(params.get('page') ?? '1').toBe('1');
+    expect(screen.getByText('Sort: Year (oldest)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ascending' }));
+    params = new URLSearchParams(window.location.search);
+    expect(params.get('direction')).toBe('Descending');
     expect(screen.getByText('Sort: Year (newest)')).toBeInTheDocument();
   });
 
   it('restores the query on Back and Forward navigation', async () => {
     window.history.replaceState({}, '', '/');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Sort movies' }), {
-      target: { value: 'Year|Descending' },
-    });
+    openFilters();
+    fireEvent.click(screen.getByRole('button', { name: 'Year' }));
     expect(new URLSearchParams(window.location.search).get('sort')).toBe('Year');
+    expect(screen.getByText('Sort: Year (oldest)')).toBeInTheDocument();
 
     window.history.replaceState({}, '', '/');
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -180,165 +174,171 @@ describe('Library results toolbar', () => {
   });
 });
 
-describe('Filter sidebar and drawer', () => {
-  it('selects the sidebar at 768px and wider, expanded by default', async () => {
-    stubMatchMedia(true);
-    window.history.replaceState({}, '', '/');
-    renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
-
-    expect(window.matchMedia).toHaveBeenCalledWith('(min-width: 48rem)');
-    expect(screen.queryByRole('button', { name: 'Filters' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Collapse filters' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Sort movies' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse filters' }));
-    expect(screen.getByRole('button', { name: 'Show filters' })).toBeInTheDocument();
-  });
-
-  it('selects the closed drawer below 768px and applies edits live', async () => {
-    stubMatchMedia(false);
-    window.history.replaceState({}, '', '/');
-    renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
-
-    expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByLabelText(/^Pending$/i));
-    expect(new URLSearchParams(window.location.search).getAll('statuses')).toContain('Pending');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
-    expect(new URLSearchParams(window.location.search).getAll('statuses')).toContain('Pending');
-    expect(screen.getByText('Status: Pending')).toBeInTheDocument();
-  });
-
-  it('marks the background inert while the drawer is open', async () => {
-    stubMatchMedia(false);
+describe('Filters toggle and inline collapsible panel', () => {
+  it('starts collapsed and wires aria-expanded and aria-controls to the panel', async () => {
     window.history.replaceState({}, '', '/');
     const { container } = renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
-    const browse = container.querySelector('.lamu-browse');
-    expect(browse).not.toBeNull();
-    expect(browse).not.toHaveAttribute('inert');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument();
-    expect(browse).toHaveAttribute('inert');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(browse).not.toHaveAttribute('inert');
+    const toggle = getFiltersToggle();
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    const panel = container.querySelector('.filter-collapse');
+    expect(panel).not.toBeNull();
+    expect(panel).toHaveAttribute('data-open', 'false');
+    expect(panel).toHaveAttribute('inert');
+    expect(document.getElementById(toggle.getAttribute('aria-controls') ?? '')).toBe(panel);
   });
 
-  it('returns focus to the opener and restores body scroll on Done', async () => {
-    stubMatchMedia(false);
-    window.history.replaceState({}, '', '/');
-    renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+  it('opens the panel from the toggle, making it reachable and hiding the chip list', async () => {
+    window.history.replaceState({}, '', '/?statuses=Pending');
+    const { container } = renderApp();
+    await waitForLibrary();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    expect(document.body.style.overflow).toBe('hidden');
+    expect(screen.getByRole('list', { name: 'Active filters' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(screen.getByRole('button', { name: 'Filters' })).toHaveFocus();
-    expect(document.body.style.overflow).toBe('');
+    openFilters();
+    expect(getFiltersToggle()).toHaveAttribute('aria-expanded', 'true');
+    const panel = container.querySelector('.filter-collapse');
+    expect(panel).toHaveAttribute('data-open', 'true');
+    expect(panel).not.toHaveAttribute('inert');
+    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument();
+
+    openFilters();
+    expect(getFiltersToggle()).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('list', { name: 'Active filters' })).toBeInTheDocument();
   });
 
-  it('closes the drawer on Escape and on backdrop with scroll cleanup', async () => {
-    stubMatchMedia(false);
-    window.history.replaceState({}, '', '/');
+  it('shows the active filter group count on the toggle badge', async () => {
+    window.history.replaceState({}, '', '/?statuses=Pending&yearMin=2000');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
-    expect(document.body.style.overflow).toBe('');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Close filters' }));
-    expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
-    expect(document.body.style.overflow).toBe('');
-  });
-
-  it('traps focus inside the open drawer', async () => {
-    stubMatchMedia(false);
-    window.history.replaceState({}, '', '/');
-    renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    const dialog = screen.getByRole('dialog', { name: 'Filters' });
-    const focusables = dialog.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea',
+    expect(getFiltersToggle()).toHaveAccessibleName(
+      expect.stringMatching(/2 filter groups active/),
     );
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-
-    last.focus();
-    fireEvent.keyDown(document, { key: 'Tab' });
-    expect(document.activeElement).toBe(first);
-
-    first.focus();
-    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(last);
   });
 
-  it('keeps the drawer across query changes but closes it on route change', async () => {
-    stubMatchMedia(false);
+  it('closes on Collapse and returns focus to the Filters toggle', async () => {
+    window.history.replaceState({}, '', '/');
+    const { container } = renderApp();
+    await waitForLibrary();
+
+    openFilters();
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
+
+    const toggle = getFiltersToggle();
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(container.querySelector('.filter-collapse')).toHaveAttribute('inert');
+  });
+
+  it('clears URL-sourced filters from the collapsed chip list with Clear all', async () => {
+    window.history.replaceState({}, '', '/?text=dune&statuses=Pending&foo=bar');
+    const { container } = renderApp();
+    await waitForLibrary();
+
+    const chipRow = container.querySelector('.library-chips');
+    expect(chipRow).not.toBeNull();
+    fireEvent.click(within(chipRow as HTMLElement).getByRole('button', { name: 'Clear all' }));
+
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('text') ?? '').toBe('');
+    expect(params.getAll('statuses')).toEqual([]);
+    expect(params.get('foo')).toBe('bar');
+    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the same movies when switching between Grid and List', async () => {
+    window.history.replaceState({}, '', '/');
+    const { container } = renderApp();
+    await waitForLibrary();
+
+    expect(container.querySelectorAll('.movie-card')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'List' }));
+    expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
+    expect(container.querySelectorAll('.movie-row')).toHaveLength(2);
+    expect(screen.getByRole('link', { name: 'Dune' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Arrival' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Grid' }));
+    expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
+    expect(container.querySelectorAll('.movie-card')).toHaveLength(2);
+  });
+
+  it('keeps the panel open across query changes', async () => {
     window.history.replaceState({}, '', '/');
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument();
-
+    openFilters();
     window.history.replaceState({}, '', '/?text=x');
     window.dispatchEvent(new PopStateEvent('popstate'));
     await waitFor(() => {
       expect(new URLSearchParams(window.location.search).get('text')).toBe('x');
     });
-    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument();
-
-    window.history.replaceState({}, '', '/movies/1');
-    window.dispatchEvent(new PopStateEvent('popstate'));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
-    });
-    expect(document.body.style.overflow).toBe('');
+    expect(getFiltersToggle()).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('closes the drawer on viewport transition to desktop', async () => {
-    const media = stubMatchMedia(false);
-    window.history.replaceState({}, '', '/');
-    renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument();
-    media.dispatch(true);
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
-    });
-    expect(document.body.style.overflow).toBe('');
-  });
-
-  it('does not persist panel visibility across reloads', async () => {
-    stubMatchMedia(false);
+  it('always starts collapsed on a fresh load', async () => {
     window.history.replaceState({}, '', '/');
     const first = renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
+    await waitForLibrary();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
-    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeInTheDocument();
+    openFilters();
+    expect(getFiltersToggle()).toHaveAttribute('aria-expanded', 'true');
     first.unmount();
     cleanup();
 
     renderApp();
-    await screen.findByRole('link', { name: 'Open details for Dune' }, { timeout: 5000 });
-    expect(screen.queryByRole('dialog', { name: 'Filters' })).not.toBeInTheDocument();
+    await waitForLibrary();
+    expect(getFiltersToggle()).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+describe('Library section heading', () => {
+  it('names the results after the text search', async () => {
+    window.history.replaceState({}, '', '/?text=dune');
+    renderApp();
+    await waitForLibrary();
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Results for “dune”' }),
+    ).toBeInTheDocument();
+  });
+
+  it('names the results after the selected genres in URL order', async () => {
+    window.history.replaceState({}, '', '/?genreIds=2&genreIds=1');
+    renderApp();
+    await waitForLibrary();
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Sci-Fi & Action' }),
+    ).toBeInTheDocument();
+  });
+
+  it('prefers the text search over the selected genres', async () => {
+    window.history.replaceState({}, '', '/?text=dune&genreIds=1');
+    renderApp();
+    await waitForLibrary();
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Results for “dune”' }),
+    ).toBeInTheDocument();
+  });
+
+  it('names the watchlist view', async () => {
+    window.history.replaceState({}, '', '/?inWatchlist=true');
+    renderApp();
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Watchlist' })).toBeInTheDocument();
+  });
+
+  it('names the unfiltered library "All movies"', async () => {
+    window.history.replaceState({}, '', '/');
+    renderApp();
+    await waitForLibrary();
+
+    expect(screen.getByRole('heading', { level: 2, name: 'All movies' })).toBeInTheDocument();
   });
 });

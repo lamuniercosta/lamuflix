@@ -1,0 +1,17 @@
+
+> lamuflix-web@0.0.0 test
+> vitest run
+
+
+ RUN  v5.0.3 F:/Dev/LamuFlix.worktrees/dark-glass-restyle/web
+
+
+ Test Files  32 passed (32)
+      Tests  334 passed (334)
+   Start at  02:39:01
+   Duration  21.59s (tests 41%, environment 37%, setup 14%, transform 4%, import 4%)
+
+Environment  jsdom was created 32 times · 77.10s total, 37% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

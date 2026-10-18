@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import MovieGrid from './MovieGrid';
 
@@ -10,11 +12,17 @@ const item = {
   runtime: 170,
   imdbRating: 8.3,
   enrichmentStatus: 'Enriched' as const,
+  isInWatchlist: false,
 };
+
+function renderWithClient(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 describe('MovieGrid', () => {
   it('renders a responsive grid of cards', () => {
-    const { container } = render(
+    const { container } = renderWithClient(
       <MovieGrid items={[item, { ...item, id: 2, title: 'Arrival' }]} />,
     );
 
