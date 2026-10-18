@@ -26,6 +26,8 @@ public sealed class MovieTests
         movie.Path.ShouldBe(path);
         movie.Format.Extension.ShouldBe("mkv");
         movie.IsInWatchlist.ShouldBeFalse();
+        movie.IsWatched.ShouldBeFalse();
+        movie.IsNotInterested.ShouldBeFalse();
         movie.Metadata.ShouldBeNull();
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
         movie.EnrichedAt.ShouldBeNull();
@@ -110,6 +112,53 @@ public sealed class MovieTests
         Act(movie, action);
         var after = Capture(movie);
         after.ShouldBe(before with { IsInWatchlist = !inWatchlist });
+    }
+
+    public static TheoryData<bool, bool, bool, FeedbackAction> FeedbackTransitions()
+    {
+        var data = new TheoryData<bool, bool, bool, FeedbackAction>();
+        foreach (var isWatched in new[] { false, true })
+        {
+            foreach (var isNotInterested in new[] { false, true })
+            {
+                foreach (var isInWatchlist in new[] { false, true })
+                {
+                    foreach (var action in Enum.GetValues<FeedbackAction>())
+                    {
+                        data.Add(isWatched, isNotInterested, isInWatchlist, action);
+                    }
+                }
+            }
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(FeedbackTransitions))]
+    public void Feedback_FromMarksAndWatchlist_MatchesTransitionTable(
+        bool isWatched,
+        bool isNotInterested,
+        bool isInWatchlist,
+        FeedbackAction action)
+    {
+        var movie = InFeedbackState(isWatched, isNotInterested, isInWatchlist);
+        var before = Capture(movie);
+
+        if (!IsLegal(isWatched, isNotInterested, action))
+        {
+            var exception = Should.Throw<InvalidTransitionException>(() => Act(movie, action));
+            exception.Action.ShouldBe(FeedbackActionName(action));
+            exception.State.ShouldBe(FeedbackStateToken(action));
+            Capture(movie).ShouldBe(before);
+            movie.IsInWatchlist.ShouldBe(isInWatchlist);
+            return;
+        }
+
+        Act(movie, action);
+        Capture(movie).ShouldBe(Expected(before, action));
+        movie.IsInWatchlist.ShouldBe(isInWatchlist);
+        AssertUntouchedFeedbackFlag(movie, before, action);
     }
 
     [Fact]
@@ -246,6 +295,99 @@ public sealed class MovieTests
         movie.RemoveFromWatchlist();
     }
 
+    private static Movie InFeedbackState(bool isWatched, bool isNotInterested, bool isInWatchlist)
+    {
+        var movie = InStatus(EnrichmentStatus.Enriched);
+        if (isWatched)
+        {
+            movie.MarkWatched();
+        }
+
+        if (isNotInterested)
+        {
+            movie.MarkNotInterested();
+        }
+
+        if (isInWatchlist)
+        {
+            movie.AddToWatchlist();
+        }
+
+        return movie;
+    }
+
+    private static bool IsLegal(bool isWatched, bool isNotInterested, FeedbackAction action) =>
+        action switch
+        {
+            FeedbackAction.MarkWatched => !isWatched,
+            FeedbackAction.UnmarkWatched => isWatched,
+            FeedbackAction.MarkNotInterested => !isNotInterested,
+            FeedbackAction.UnmarkNotInterested => isNotInterested,
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown feedback action."),
+        };
+
+    private static void Act(Movie movie, FeedbackAction action)
+    {
+        switch (action)
+        {
+            case FeedbackAction.MarkWatched:
+                movie.MarkWatched();
+                return;
+            case FeedbackAction.UnmarkWatched:
+                movie.UnmarkWatched();
+                return;
+            case FeedbackAction.MarkNotInterested:
+                movie.MarkNotInterested();
+                return;
+            case FeedbackAction.UnmarkNotInterested:
+                movie.UnmarkNotInterested();
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown feedback action.");
+        }
+    }
+
+    private static string FeedbackActionName(FeedbackAction action) =>
+        action switch
+        {
+            FeedbackAction.MarkWatched => "MarkWatched",
+            FeedbackAction.UnmarkWatched => "UnmarkWatched",
+            FeedbackAction.MarkNotInterested => "MarkNotInterested",
+            FeedbackAction.UnmarkNotInterested => "UnmarkNotInterested",
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown feedback action."),
+        };
+
+    private static string FeedbackStateToken(FeedbackAction action) =>
+        action switch
+        {
+            FeedbackAction.MarkWatched => "Watched",
+            FeedbackAction.UnmarkWatched => "NotWatched",
+            FeedbackAction.MarkNotInterested => "NotInterested",
+            FeedbackAction.UnmarkNotInterested => "Interested",
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown feedback action."),
+        };
+
+    private static void AssertUntouchedFeedbackFlag(Movie movie, Snapshot before, FeedbackAction action)
+    {
+        if (action is FeedbackAction.MarkWatched or FeedbackAction.UnmarkWatched)
+        {
+            movie.IsNotInterested.ShouldBe(before.IsNotInterested);
+            return;
+        }
+
+        movie.IsWatched.ShouldBe(before.IsWatched);
+    }
+
+    private static Snapshot Expected(Snapshot before, FeedbackAction action) =>
+        action switch
+        {
+            FeedbackAction.MarkWatched => before with { IsWatched = true },
+            FeedbackAction.UnmarkWatched => before with { IsWatched = false },
+            FeedbackAction.MarkNotInterested => before with { IsNotInterested = true },
+            FeedbackAction.UnmarkNotInterested => before with { IsNotInterested = false },
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown feedback action."),
+        };
+
     private static Snapshot Expected(Snapshot before, EnrichmentAction action) =>
         action switch
         {
@@ -281,6 +423,8 @@ public sealed class MovieTests
         movie.Path,
         movie.Format,
         movie.IsInWatchlist,
+        movie.IsWatched,
+        movie.IsNotInterested,
         movie.Metadata,
         movie.Status,
         movie.EnrichedAt,
@@ -294,6 +438,8 @@ public sealed class MovieTests
         LibraryPath Path,
         MediaFormat Format,
         bool IsInWatchlist,
+        bool IsWatched,
+        bool IsNotInterested,
         MovieMetadata? Metadata,
         EnrichmentStatus Status,
         DateTimeOffset? EnrichedAt,
@@ -311,13 +457,15 @@ public sealed class MovieTests
             LibraryPath Path,
             MediaFormat Format,
             bool IsInWatchlist,
+            bool IsWatched,
+            bool IsNotInterested,
             MovieMetadata? Metadata,
             EnrichmentStatus Status,
             DateTimeOffset? EnrichedAt,
             int EnrichmentAttempts,
             EnrichmentFailureCategory? LastFailureCategory,
             DateTimeOffset? LastAttemptAt) State() =>
-            (Id, Title, Path, Format, IsInWatchlist, Metadata, Status, EnrichedAt, EnrichmentAttempts, LastFailureCategory, LastAttemptAt);
+            (Id, Title, Path, Format, IsInWatchlist, IsWatched, IsNotInterested, Metadata, Status, EnrichedAt, EnrichmentAttempts, LastFailureCategory, LastAttemptAt);
     }
 
     public enum EnrichmentAction
@@ -332,5 +480,13 @@ public sealed class MovieTests
     {
         Add,
         Remove,
+    }
+
+    public enum FeedbackAction
+    {
+        MarkWatched,
+        UnmarkWatched,
+        MarkNotInterested,
+        UnmarkNotInterested,
     }
 }

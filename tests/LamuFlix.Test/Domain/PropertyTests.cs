@@ -184,6 +184,34 @@ public sealed class PropertyTests
         }).QuickCheckThrowOnFailure();
     }
 
+    [Fact]
+    [Trait("Category", "Property")]
+    public void Movie_FeedbackAndWatchlist_ChangeOnlyTheTargetFlag()
+    {
+        Prop.ForAll<string>(title =>
+        {
+            var safeTitle = string.IsNullOrWhiteSpace(title) ? "Title" : title;
+            foreach (var (watched, notInterested, inWatchlist) in FlagCombinations())
+            {
+                foreach (FeedbackTransition action in Enum.GetValues<FeedbackTransition>())
+                {
+                    if (!FeedbackAgrees(safeTitle, watched, notInterested, inWatchlist, action))
+                    {
+                        return false;
+                    }
+                }
+
+                if (!WatchlistIsolationAgrees(safeTitle, watched, notInterested, inWatchlist, add: true)
+                    || !WatchlistIsolationAgrees(safeTitle, watched, notInterested, inWatchlist, add: false))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }).QuickCheckThrowOnFailure();
+    }
+
     private static readonly DateTimeOffset ArrivedAt = new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     private static bool TransitionAgrees(EnrichmentStatus status, MovieTransition action, DateTimeOffset actedAt, string title)
@@ -388,7 +416,9 @@ public sealed class PropertyTests
         movie.Metadata,
         movie.LastFailureCategory,
         movie.LastAttemptAt,
-        movie.IsInWatchlist);
+        movie.IsInWatchlist,
+        movie.IsWatched,
+        movie.IsNotInterested);
 
     private readonly record struct Taken(
         EnrichmentStatus Status,
@@ -397,7 +427,172 @@ public sealed class PropertyTests
         MovieMetadata? Metadata,
         EnrichmentFailureCategory? Category,
         DateTimeOffset? LastAttemptAt,
-        bool InWatchlist);
+        bool InWatchlist,
+        bool Watched,
+        bool NotInterested);
+
+    private static IEnumerable<(bool Watched, bool NotInterested, bool InWatchlist)> FlagCombinations()
+    {
+        foreach (var watched in new[] { false, true })
+        {
+            foreach (var notInterested in new[] { false, true })
+            {
+                foreach (var inWatchlist in new[] { false, true })
+                {
+                    yield return (watched, notInterested, inWatchlist);
+                }
+            }
+        }
+    }
+
+    private static bool FeedbackAgrees(
+        string title,
+        bool watched,
+        bool notInterested,
+        bool inWatchlist,
+        FeedbackTransition action)
+    {
+        var movie = MovieWith(title, watched, notInterested, inWatchlist);
+        var before = Take(movie);
+        var legal = FeedbackIsLegal(watched, notInterested, action);
+        if (!TryFeedback(movie, action, out var rejected))
+        {
+            return false;
+        }
+
+        if (rejected)
+        {
+            return !legal && FeedbackUnchanged(movie, before);
+        }
+
+        if (!legal)
+        {
+            return false;
+        }
+
+        return FeedbackFlipped(movie, before, action);
+    }
+
+    private static bool WatchlistIsolationAgrees(
+        string title,
+        bool watched,
+        bool notInterested,
+        bool inWatchlist,
+        bool add)
+    {
+        var movie = MovieWith(title, watched, notInterested, inWatchlist);
+        var before = Take(movie);
+        var legal = add ? !inWatchlist : inWatchlist;
+        if (!TryWatchlist(movie, add, out var rejected))
+        {
+            return false;
+        }
+
+        if (rejected)
+        {
+            return !legal && FeedbackUnchanged(movie, before);
+        }
+
+        return legal
+            && WatchlistFlipped(movie, before)
+            && movie.IsWatched == before.Watched
+            && movie.IsNotInterested == before.NotInterested;
+    }
+
+    private static bool FeedbackIsLegal(bool watched, bool notInterested, FeedbackTransition action) =>
+        action switch
+        {
+            FeedbackTransition.MarkWatched => !watched,
+            FeedbackTransition.UnmarkWatched => watched,
+            FeedbackTransition.MarkNotInterested => !notInterested,
+            FeedbackTransition.UnmarkNotInterested => notInterested,
+            _ => false,
+        };
+
+    private static bool TryFeedback(Movie movie, FeedbackTransition action, out bool rejected)
+    {
+        try
+        {
+            ApplyFeedback(movie, action);
+            rejected = false;
+            return true;
+        }
+        catch (InvalidTransitionException)
+        {
+            rejected = true;
+            return true;
+        }
+        catch (Exception)
+        {
+            rejected = false;
+            return false;
+        }
+    }
+
+    private static void ApplyFeedback(Movie movie, FeedbackTransition action)
+    {
+        switch (action)
+        {
+            case FeedbackTransition.MarkWatched:
+                movie.MarkWatched();
+                return;
+            case FeedbackTransition.UnmarkWatched:
+                movie.UnmarkWatched();
+                return;
+            case FeedbackTransition.MarkNotInterested:
+                movie.MarkNotInterested();
+                return;
+            case FeedbackTransition.UnmarkNotInterested:
+                movie.UnmarkNotInterested();
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown feedback transition.");
+        }
+    }
+
+    private static bool FeedbackUnchanged(Movie movie, Taken before) =>
+        movie.IsWatched == before.Watched
+        && movie.IsNotInterested == before.NotInterested
+        && movie.IsInWatchlist == before.InWatchlist
+        && SameHistory(movie, before);
+
+    private static bool FeedbackFlipped(Movie movie, Taken before, FeedbackTransition action)
+    {
+        if (!SameHistory(movie, before) || movie.IsInWatchlist != before.InWatchlist)
+        {
+            return false;
+        }
+
+        return action switch
+        {
+            FeedbackTransition.MarkWatched or FeedbackTransition.UnmarkWatched =>
+                movie.IsWatched == !before.Watched && movie.IsNotInterested == before.NotInterested,
+            FeedbackTransition.MarkNotInterested or FeedbackTransition.UnmarkNotInterested =>
+                movie.IsNotInterested == !before.NotInterested && movie.IsWatched == before.Watched,
+            _ => false,
+        };
+    }
+
+    private static Movie MovieWith(string title, bool watched, bool notInterested, bool inWatchlist)
+    {
+        var movie = MovieIn(EnrichmentStatus.Enriched, title);
+        if (watched)
+        {
+            movie.MarkWatched();
+        }
+
+        if (notInterested)
+        {
+            movie.MarkNotInterested();
+        }
+
+        if (inWatchlist)
+        {
+            movie.AddToWatchlist();
+        }
+
+        return movie;
+    }
 
     private static bool WatchlistAgrees(string title)
     {
@@ -494,6 +689,14 @@ public sealed class PropertyTests
         MarkNotFound,
         MarkFailed,
         RequestEnrichment,
+    }
+
+    private enum FeedbackTransition
+    {
+        MarkWatched,
+        UnmarkWatched,
+        MarkNotInterested,
+        UnmarkNotInterested,
     }
 
     private static bool TryNormalizeMediaFormat(string? extension, out string expected)
