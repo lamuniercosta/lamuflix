@@ -42,6 +42,18 @@ describe('generated MSW handlers', () => {
       params: { path: { id: 1 } },
     });
     const played = await client.POST('/api/movies/{id}/play', { params: { path: { id: 1 } } });
+    const markedWatched = await client.POST('/api/movies/{id}/watched', {
+      params: { path: { id: 1 } },
+    });
+    const unmarkedWatched = await client.DELETE('/api/movies/{id}/watched', {
+      params: { path: { id: 1 } },
+    });
+    const markedNotInterested = await client.POST('/api/movies/{id}/not-interested', {
+      params: { path: { id: 1 } },
+    });
+    const unmarkedNotInterested = await client.DELETE('/api/movies/{id}/not-interested', {
+      params: { path: { id: 1 } },
+    });
     const genreList = await client.GET('/api/genres');
     const peopleList = await client.GET('/api/people');
 
@@ -55,6 +67,10 @@ describe('generated MSW handlers', () => {
     expect(added.response.status).toBe(204);
     expect(removed.response.status).toBe(204);
     expect(played.response.status).toBe(204);
+    expect(markedWatched.response.status).toBe(204);
+    expect(unmarkedWatched.response.status).toBe(204);
+    expect(markedNotInterested.response.status).toBe(204);
+    expect(unmarkedNotInterested.response.status).toBe(204);
     expect(genreList.data).toEqual(genres);
     expect(peopleList.data).toEqual(people);
   });

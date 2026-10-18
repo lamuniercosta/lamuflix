@@ -13,6 +13,8 @@ const base = {
   runtime: 170,
   imdbRating: 8.3,
   isInWatchlist: false,
+  isWatched: false,
+  isNotInterested: false,
 } as const;
 
 function renderWithClient(ui: ReactElement) {

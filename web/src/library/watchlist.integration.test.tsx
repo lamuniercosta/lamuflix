@@ -21,6 +21,8 @@ function summary(overrides: Partial<MovieSummary> = {}): MovieSummary {
     imdbRating: null,
     enrichmentStatus: 'Enriched',
     isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
     ...overrides,
   };
 }
@@ -32,6 +34,8 @@ function details(overrides: Partial<MovieDetails> = {}): MovieDetails {
     path: '/media/dune.mkv',
     format: 'mkv',
     isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
     metadata: null,
     ...overrides,
   };

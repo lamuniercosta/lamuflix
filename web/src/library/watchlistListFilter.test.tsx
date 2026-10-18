@@ -22,6 +22,8 @@ function summary(overrides: Partial<MovieSummary> = {}): MovieSummary {
     imdbRating: null,
     enrichmentStatus: 'Enriched',
     isInWatchlist: true,
+    isWatched: false,
+    isNotInterested: false,
     ...overrides,
   };
 }

@@ -143,3 +143,24 @@ Patron Q12/12 in CONCLUSIONS.md settles all three axis reports before Keel edits
 No new taste assumption, dependency, schema beyond the two ticket columns, public route or owner checkbox. Both Q11 structural owner decisions remain unresolved. Planning freeze, once the corrected artifacts are checked, is conditional on those owner decisions for execution; it never opens Gate 1 or authorizes implementation. Full adjudication belongs in plan.md and the DEV-352 note.
 
 Evidence/closure supplement: recon-DEV-352:74-127 now appends repository baseline/delta, projection and concurrency facts; :1-72 remains the MSW snapshot. Earlier intake/migration snapshots are not present and are cited only as historical decision provenance. Plan challenge round 1 is adjudicated in plan.md (all 16 dispositions); conditional plan freeze for spec-PR handoff leaves both Q11 owner checkboxes unresolved, Gate 1 closed and implementation unauthorized. No delivery gates run.
+
+## Phase 6 decision supplement — T021 forced compatibility (2026-10-18)
+
+Patron explicitly authorizes this supplement under charter 2.3 item 6, amending Q5/Q11/FR-010/T021; the full cited ruling is appended in CONCLUSIONS.md. Evidence is recon-DEV-352-2:1-44 at implementation HEAD 6609ae0221274e3dfca4d326444636ea61a01b45 in F:/Dev/LamuFlix.worktrees/DEV-352 on feature/DEV-352. This completes the existing frozen contract-compatibility scope; it adds no delivery behavior or owner checkbox and makes no Gate 1 or gate-pass claim.
+
+Extend T021 by exactly these ten handwritten files:
+
+- web/src/library/libraryQueries.ts (pendingRow only)
+- web/src/api/client.test.ts
+- web/src/App.test.tsx
+- web/src/library/libraryQueries.polling.test.tsx
+- web/src/library/LibraryView.retry.test.tsx
+- web/src/library/MovieCard.layout.test.tsx
+- web/src/library/MovieCard.test.tsx
+- web/src/library/MovieGrid.test.tsx
+- web/src/library/watchlist.integration.test.tsx
+- web/src/library/watchlistListFilter.test.tsx
+
+Only add isWatched: false and isNotInterested: false to pendingRow and existing response literals/factory defaults; retain existing override spreads. These ten are the direct literal failures (recon:17,19-27,39). MovieDetailsView.tsx and web/src/test/handlers.ts remain excluded from direct edits: their errors are transitive through the already-authorized movieDetailsApi.ts schema and mocks/fixtures.ts (recon:18,28,32-33,40-41). A remaining failure requiring either direct edit needs new recon and a new Patron ruling.
+
+No new UI controls, branching logic, abstraction, dependency, or generated hand-edits. The C# to OpenAPI to generated TypeScript/MSW chain remains mandatory. Existing T025 separate typecheck, runtime-schema/contract, web tests/build, generator/generated-handler regression and generated-drift verdicts apply to this expansion. T020 before T021, the green T016-T021 commit group, Critical/High closing bar, all-three-axis requirement and two-round cap remain unchanged. No extra test suite or new task is introduced.
