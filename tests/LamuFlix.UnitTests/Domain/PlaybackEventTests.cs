@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using LamuFlix.Core.Domain;
-using Shouldly;
 
 namespace LamuFlix.UnitTests.Domain;
 

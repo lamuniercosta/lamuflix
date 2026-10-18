@@ -143,10 +143,10 @@ public sealed class PlaybackHistoryEndpointTests(ApiEndToEndFixture fixture) : I
     private static void EnableLocalPlay(IServiceCollection services)
     {
         services.RemoveAll<IOptions<FeatureOptions>>();
-        services.AddSingleton<IOptions<FeatureOptions>>(
+        services.AddSingleton(
             Options.Create(new FeatureOptions { LocalPlay = true }));
         services.RemoveAll<IOptions<PlaybackOptions>>();
-        services.AddSingleton<IOptions<PlaybackOptions>>(
+        services.AddSingleton(
             Options.Create(new PlaybackOptions
             {
                 Players =
