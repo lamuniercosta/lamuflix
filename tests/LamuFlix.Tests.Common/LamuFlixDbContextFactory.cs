@@ -28,12 +28,8 @@ public static class LamuFlixDbContextFactory
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-<<<<<<< HEAD
             .UseNpgsql(connectionString, o => o.UseVector())
-=======
-            .UseNpgsql(connectionString)
             .ReplaceService<IModelCacheKeyFactory, UncachedModelCacheKeyFactory>()
->>>>>>> ae5a3a0 (DEV-351 - Harden shared Postgres test infrastructure against cross-mutant state leaks (Option A))
             .Options;
         return new LamuFlixDbContext(options);
     }
