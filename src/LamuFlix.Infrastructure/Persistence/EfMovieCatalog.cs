@@ -41,7 +41,9 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 // ReSharper disable once NullableWarningSuppressionIsUsed
                 movie.ImdbRating!.Value,
                 movie.Status,
-                movie.IsInWatchlist))
+                movie.IsInWatchlist,
+                movie.IsWatched,
+                movie.IsNotInterested))
             .ToArrayAsync(ct);
         return new PagedResult<MovieSummary>([.. items], totalCount);
     }
@@ -65,6 +67,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.RottenTomatoesRating,
                 movie.MetaScore,
                 movie.IsInWatchlist,
+                movie.IsWatched,
+                movie.IsNotInterested,
                 movie.Directors.Select(director => director.Name).ToList(),
                 movie.Actors.Select(actor => actor.Name).ToList(),
                 movie.Genres.Select(genre => genre.Name).ToList(),
@@ -94,7 +98,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 record.Genres,
                 record.Writers)
             : null;
-        return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist);
+        return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist, record.IsWatched, record.IsNotInterested);
     }
 
     public async Task<IReadOnlyList<GenreFacet>> GetGenresAsync(CancellationToken ct)
@@ -153,6 +157,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         short? RottenTomatoesRating,
         short? MetaScore,
         bool IsInWatchlist,
+        bool IsWatched,
+        bool IsNotInterested,
         List<string> Directors,
         List<string> Actors,
         List<string> Genres,

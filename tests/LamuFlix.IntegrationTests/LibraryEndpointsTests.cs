@@ -366,7 +366,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
         ShouldCarryExactly(body, "items", "totalCount");
         var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
-        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist");
+        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist", "isWatched", "isNotInterested");
         item.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
         item.GetProperty("id").GetInt32().ShouldBe(1);
         item.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
@@ -393,7 +393,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested");
         body.GetProperty("isInWatchlist").ValueKind.ShouldBe(JsonValueKind.True);
         body.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
         body.GetProperty("id").GetInt32().ShouldBe(7);
@@ -434,7 +434,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested");
         body.GetProperty("format").GetString().ShouldBe("mkv");
         body.GetProperty("isInWatchlist").GetBoolean().ShouldBeTrue();
         ShouldCarryJsonNull(body, "metadata");
@@ -724,7 +724,9 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             new LibraryPath("C:/library/Heat/Heat.mkv"),
             new MediaFormat(".MKV"),
             null,
-            true);
+            true,
+            false,
+            false);
 
     private static MovieDetails DetailsWithFullMetadata() =>
         new(
@@ -739,7 +741,9 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 new Runtime(131),
                 new ImdbRating(8.3m),
                 new ImdbId("tt0113277")),
-            true);
+            true,
+            false,
+            false);
 
     private static MovieDetails DetailsWithSparseMetadata() =>
         new(
@@ -748,6 +752,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             new LibraryPath("C:/library/Heat/Heat.mkv"),
             new MediaFormat(".MKV"),
             new MovieMetadata("Heat"),
+            false,
+            false,
             false);
 
     private static MovieQuery Accepted() => new()
@@ -786,7 +792,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             ct.ThrowIfCancellationRequested();
             Queries.Add(query);
             return Task.FromResult(
-                new PagedResult<MovieSummary>([new MovieSummary(new MovieId(1), "Heat", null, null, null, null, EnrichmentStatus.Pending, true)], 1));
+                new PagedResult<MovieSummary>([new MovieSummary(new MovieId(1), "Heat", null, null, null, null, EnrichmentStatus.Pending, true, false, false)], 1));
         }
 
         public Task<MovieDetails?> GetDetailsAsync(MovieId id, CancellationToken ct)
