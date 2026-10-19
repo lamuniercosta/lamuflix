@@ -87,7 +87,7 @@ function Set-FixtureHarnessConfig {
         [AllowNull()][string]$MaxKillShare = '50',
         # $null (the default) leaves maxKillFileSpan out, so the gate reads its default of 15.
         [AllowNull()][string]$MaxKillFileSpan = $null,
-        # $null (the default) leaves concurrency out, so the gate reads its default of the runner core count.
+        # $null (the default) leaves concurrency out, so the gate reads its default of half the runner core count.
         [AllowNull()][string]$Concurrency = $null
     )
 
