@@ -64,7 +64,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [P] [US1] Add the browse smoke spec as one `web/e2e/*.e2e.ts` file. Open the library at `http://localhost:3000` and assert both seeded movies are visible on the grid. Do not intercept application calls in the browser. If the spec names an application contract, use the generated types in `web/src/api/types.ts`. Depends on T009.
+- [X] T010 [P] [US1] Add the browse smoke spec as one `web/e2e/*.e2e.ts` file. Open the library at `http://localhost:3000` and assert both seeded movies are visible on the grid. Do not intercept application calls in the browser. If the spec names an application contract, use the generated types in `web/src/api/types.ts`. Depends on T009.
 
 **Checkpoint**: The browse spec passes on its own. The developer's root `.env` and `docker/api.settings.json` are unchanged.
 
