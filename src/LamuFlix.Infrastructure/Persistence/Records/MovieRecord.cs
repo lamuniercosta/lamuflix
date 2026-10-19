@@ -38,6 +38,8 @@ public sealed class MovieRecord
 
     public ImdbId? ImdbId { get; set; }
 
+    public ImdbId? ManualImdbId { get; set; }
+
     public short? RottenTomatoesRating { get; set; }
 
     public short? MetaScore { get; set; }

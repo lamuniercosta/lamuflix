@@ -66,6 +66,11 @@ public sealed partial class OmdbMetadataProvider(
 
     private async Task<MetadataLookupResult> ExecuteAsync(MetadataLookup stored, CancellationToken ct)
     {
+        if (stored.ManualImdbId is { } manualId)
+        {
+            return await FetchByIdAsync(manualId, ct);
+        }
+
         var lookup = Recleaned(stored);
         var direct = await FetchAsync(BuildUri(lookup), ct);
         if (direct is Fetch.Rejected rejected)
@@ -185,7 +190,12 @@ public sealed partial class OmdbMetadataProvider(
     private async Task<MetadataLookupResult> FetchMatchAsync(MetadataLookup lookup, Candidate candidate, CancellationToken ct)
     {
         Log.FallbackMatched(logger, lookup.Title, candidate.Title, candidate.Id.Value, Math.Round(candidate.Score, 3));
-        var fetch = await FetchAsync(BuildIdUri(candidate.Id), ct);
+        return await FetchByIdAsync(candidate.Id, ct);
+    }
+
+    private async Task<MetadataLookupResult> FetchByIdAsync(ImdbId id, CancellationToken ct)
+    {
+        var fetch = await FetchAsync(BuildIdUri(id), ct);
         return fetch is Fetch.Rejected rejected
             ? rejected.Failure
             : Classify(((Fetch.Succeeded)fetch).Body);

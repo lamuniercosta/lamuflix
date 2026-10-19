@@ -16,6 +16,7 @@ export const handlers = [
   http.delete('*/api/movies/:id', () => new HttpResponse(null, { status: 204 })),
   http.post('*/api/movies/import', () => new HttpResponse(null, { status: 202, headers: { Location: acceptedLocation, 'Content-Length': '0' } })),
   http.post('*/api/movies/:id/enrichment', () => new HttpResponse(null, { status: 202, headers: { Location: acceptedLocation, 'Content-Length': '0' } })),
+  http.put('*/api/movies/:id/imdb', () => new HttpResponse(null, { status: 202, headers: { Location: acceptedLocation, 'Content-Length': '0' } })),
   http.post('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
   http.delete('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
   http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 204 })),

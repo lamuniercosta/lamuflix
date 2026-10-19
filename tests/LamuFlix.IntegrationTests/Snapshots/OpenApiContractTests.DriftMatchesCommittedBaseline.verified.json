@@ -357,6 +357,75 @@
         }
       }
     },
+    "/api/movies/{id}/imdb": {
+      "put": {
+        "tags": [
+          "EnrichmentEndpoints"
+        ],
+        "summary": "Match a movie to a user-supplied IMDb id and request enrichment.",
+        "operationId": "MatchMovieImdbId",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchImdbIdRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/movies/{id}/watchlist": {
       "post": {
         "tags": [
@@ -692,6 +761,20 @@
         "properties": {
           "folderPath": {
             "type": "string"
+          }
+        }
+      },
+      "MatchImdbIdRequest": {
+        "required": [
+          "imdbId"
+        ],
+        "type": "object",
+        "properties": {
+          "imdbId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

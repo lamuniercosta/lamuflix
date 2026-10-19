@@ -27,6 +27,7 @@ internal static class HandlerRegistration
         services.TryAddSingleton<IFileSystem, FileSystem>();
         services.AddScoped<IMediaLibraryScanner, DirectoryMediaLibraryScanner>();
         services.AddHandler<RequestEnrichmentCommandHandler, RequestEnrichmentCommand, MovieId>();
+        services.AddHandler<MatchMovieImdbIdCommandHandler, MatchMovieImdbIdCommand, MovieId>();
         services.AddHandler<RequeueStrandedMoviesCommandHandler, RequeueStrandedMoviesCommand, int>();
         services.AddHandler<SweepStrandedMoviesCommandHandler, SweepStrandedMoviesCommand, int>();
         services.AddHandler<ImportMovieFolderCommandHandler, ImportMovieFolderCommand, MovieId>();

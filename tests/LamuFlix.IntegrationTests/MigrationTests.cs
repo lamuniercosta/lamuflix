@@ -49,7 +49,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "enriched_at",
         "enrichment_failure_category",
         "last_attempt_at",
-        "parsed_release_year"
+        "parsed_release_year",
+        "manual_imdb_id"
     ];
 
     private static readonly Regex SnakeCase = new(
@@ -80,12 +81,13 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(5);
+        migrations.Length.ShouldBe(6);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
         migrations[3].ShouldEndWith("_AddPlaybackEvents");
         migrations[4].ShouldEndWith("_AddParsedReleaseYear");
+        migrations[5].ShouldEndWith("_AddManualImdbId");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -105,7 +107,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddParsedReleaseYear");
+        applied[^1].ShouldEndWith("_AddManualImdbId");
         (await context.Movies.SingleAsync(cancellationToken)).Title.ShouldBe("Upgrade Survivor");
         await AssertPublicTablesAsync(new PostgresCatalog(context), cancellationToken);
         (await new PostgresCatalog(context).ListPostgresExtensionsAsync(cancellationToken)).ShouldContain("vector");
@@ -129,7 +131,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddParsedReleaseYear");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddManualImdbId");
     }
 
     [Fact]

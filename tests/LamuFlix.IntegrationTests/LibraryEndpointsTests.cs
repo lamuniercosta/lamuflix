@@ -619,6 +619,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "DeleteMovie",
                 "ImportMovie",
                 "RequestEnrichment",
+                "MatchMovieImdbId",
                 "AddToWatchlist",
                 "RemoveFromWatchlist",
                 "PlayMovie",

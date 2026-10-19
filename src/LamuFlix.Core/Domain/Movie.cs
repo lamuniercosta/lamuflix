@@ -42,6 +42,9 @@ public sealed class Movie
 
     public DateTimeOffset? LastAttemptAt { get; private set; }
 
+    /// <summary>An IMDb id supplied by the user when automatic matching cannot find the movie; used instead of title search.</summary>
+    public ImdbId? ManualImdbId { get; private set; }
+
     public static Movie Create(
         MovieId id,
         string title,
@@ -65,7 +68,8 @@ public sealed class Movie
         int enrichmentAttempts,
         EnrichmentFailureCategory? lastFailureCategory,
         DateTimeOffset? lastAttemptAt,
-        ReleaseYear? parsedReleaseYear = null)
+        ReleaseYear? parsedReleaseYear = null,
+        ImdbId? manualImdbId = null)
     {
         RequireTitle(title);
         return new Movie(id, title, path, format, parsedReleaseYear)
@@ -77,6 +81,7 @@ public sealed class Movie
             EnrichmentAttempts = enrichmentAttempts,
             LastFailureCategory = lastFailureCategory,
             LastAttemptAt = lastAttemptAt,
+            ManualImdbId = manualImdbId,
         };
     }
 
@@ -105,6 +110,14 @@ public sealed class Movie
     public void RequestEnrichment()
     {
         RequireNotPending(nameof(RequestEnrichment));
+        Status = EnrichmentStatus.Pending;
+    }
+
+    public void MatchManually(ImdbId imdbId)
+    {
+        ArgumentNullException.ThrowIfNull(imdbId);
+        ManualImdbId = imdbId;
+        LastFailureCategory = null;
         Status = EnrichmentStatus.Pending;
     }
 

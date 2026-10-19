@@ -103,6 +103,7 @@ public sealed class EfMovieRepository : IMovieRepository
             EnrichmentFailureCategory = movie.LastFailureCategory,
             LastAttemptAt = movie.LastAttemptAt,
             ParsedReleaseYear = movie.ParsedReleaseYear,
+            ManualImdbId = movie.ManualImdbId,
         };
         CopyMetadata(record, movie.Metadata);
         return record;
@@ -538,6 +539,11 @@ public sealed class EfMovieRepository : IMovieRepository
         {
             record.EnrichedAt = movie.EnrichedAt;
         }
+
+        if (baseline.ManualImdbId != movie.ManualImdbId)
+        {
+            record.ManualImdbId = movie.ManualImdbId;
+        }
     }
 
     private static void ApplyAttempts(Movie movie, MovieRecord record, Baseline baseline)
@@ -602,7 +608,8 @@ public sealed class EfMovieRepository : IMovieRepository
             enrichmentAttempts: record.EnrichmentAttempts,
             lastFailureCategory: record.EnrichmentFailureCategory,
             lastAttemptAt: record.LastAttemptAt,
-            parsedReleaseYear: record.ParsedReleaseYear);
+            parsedReleaseYear: record.ParsedReleaseYear,
+            manualImdbId: record.ManualImdbId);
     }
 
     private static void SetCurrentAndOriginal<T>(PropertyEntry<MovieRecord, T> property, T value)
@@ -625,7 +632,8 @@ public sealed class EfMovieRepository : IMovieRepository
         int EnrichmentAttempts,
         EnrichmentFailureCategory? LastFailureCategory,
         DateTimeOffset? LastAttemptAt,
-        MovieMetadata? Metadata)
+        MovieMetadata? Metadata,
+        ImdbId? ManualImdbId)
     {
         public static Baseline From(Movie movie) => new(
             movie.IsInWatchlist,
@@ -634,6 +642,7 @@ public sealed class EfMovieRepository : IMovieRepository
             movie.EnrichmentAttempts,
             movie.LastFailureCategory,
             movie.LastAttemptAt,
-            movie.Metadata);
+            movie.Metadata,
+            movie.ManualImdbId);
     }
 }

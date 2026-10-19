@@ -112,6 +112,48 @@ export function useRequestEnrichment(movieId: ActorId, libraryClient: QueryClien
   });
 }
 
+export class MatchImdbIdError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`IMDb match request failed with status ${status}`);
+    this.status = status;
+  }
+}
+
+async function putImdbMatch(movieId: ActorId, imdbId: string): Promise<number> {
+  try {
+    const { response } = await client.PUT('/api/movies/{id}/imdb', {
+      params: { path: { id: Number(movieId) } },
+      body: { imdbId },
+      parseAs: 'text',
+    });
+    return response.status;
+  } catch {
+    return 0;
+  }
+}
+
+export function useMatchImdbId(movieId: ActorId, libraryClient: QueryClient) {
+  const detailsClient = useQueryClient();
+  return useMutation<{ id: ActorId }, MatchImdbIdError, string>({
+    mutationFn: async (imdbId) => {
+      const status = await putImdbMatch(movieId, imdbId);
+      if (status !== 202) {
+        throw new MatchImdbIdError(status);
+      }
+      return { id: movieId };
+    },
+    onSuccess: ({ id }) => {
+      libraryClient.setQueriesData<BrowseMoviesResponse>(
+        { queryKey: ['browseMovies'] },
+        (current) => markRowPending(current, id),
+      );
+      void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
+    },
+  });
+}
+
 export function readLibraryEnrichmentStatus(
   cache: QueryCache,
   movieId: ActorId,

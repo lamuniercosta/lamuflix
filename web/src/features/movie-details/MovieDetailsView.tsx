@@ -31,6 +31,7 @@ import {
   useRequestEnrichment,
   type EnrichmentStatus,
 } from './movieDetailsQueries';
+import MatchManuallyDialog from './MatchManuallyDialog';
 import './MovieDetailsView.css';
 
 type PersonDto = components['schemas']['PersonDto'];
@@ -96,8 +97,15 @@ function NoMetadata({
   status: EnrichmentStatus | null;
 }) {
   const request = useRequestEnrichment(movieId, libraryClient);
+  const [matchOpen, setMatchOpen] = useState(false);
+  const matchTriggerRef = useRef<HTMLButtonElement>(null);
   const note = enrichmentNote(status);
   const requestError = request.error;
+  const canMatch = status === 'NotFound' || status === 'Failed';
+  const closeMatch = () => {
+    setMatchOpen(false);
+    matchTriggerRef.current?.focus();
+  };
   return (
     <div className="details-no-metadata">
       <p>No metadata available yet.</p>
@@ -112,10 +120,25 @@ function NoMetadata({
           {request.isPending ? 'Requesting...' : 'Fetch metadata'}
         </button>
       )}
+      {canMatch && (
+        <button
+          ref={matchTriggerRef}
+          type="button"
+          className="lamu-pill-button"
+          aria-haspopup="dialog"
+          aria-expanded={matchOpen}
+          onClick={() => setMatchOpen(true)}
+        >
+          Match manually
+        </button>
+      )}
       {requestError && (
         <p role={requestError.status === 409 ? 'status' : 'alert'} className="details-status">
           {enrichmentRequestMessage(requestError)}
         </p>
+      )}
+      {matchOpen && (
+        <MatchManuallyDialog movieId={movieId} libraryClient={libraryClient} onClose={closeMatch} />
       )}
     </div>
   );
