@@ -221,7 +221,7 @@ public sealed class PlayMovieCommandHandlerTests
     }
 
     private static MovieDetails Details(MovieId id) =>
-        new(id, "Play Me", new LibraryPath("C:/library/play"), new MediaFormat("mp4"), null, false);
+        new(id, "Play Me", new LibraryPath("C:/library/play"), new MediaFormat("mp4"), null, false, false, false);
 
     private MovieId NewId() => new(Math.Abs(fixture.Create<int>()) + 1);
 }
