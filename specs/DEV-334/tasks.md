@@ -35,9 +35,9 @@
 
 **Checkpoint**: The lockfile is npm-generated. Vitest's existing script is unchanged; the build script adds e2e typechecking. No second direct dependency was added.
 
-- [ ] T003 Add `@playwright/test` to `web/package.json` as an exact-pinned dev dependency at the version T002 recorded, and add the `e2e` script that runs `web/e2e/run.mjs`. Update `web/package-lock.json` only by running npm. Do not hand-edit the lockfile. Do not add another direct dependency. Add web/e2e/tsconfig.json covering web/playwright.config.ts and the three e2e specs; wire a dedicated typecheck command into the existing build script so run-web-gates checks them.
-- [ ] T004 Create `web/playwright.config.ts` so the suite is headless Chromium only, `testMatch` is limited to the three `web/e2e/*.e2e.ts` specs, the specs run serially, retries are 1 when CI is set and 0 otherwise, the base URL is `http://localhost:3000`, and failure screenshots are written under `web/e2e/.runtime/`. Depends on T003.
-- [ ] T005 [P] Create `web/e2e/.gitignore` so `web/e2e/.runtime/` is ignored. Narrowly edit `web/eslint.config.js` and `web/.prettierignore` solely to exclude `e2e/.runtime/` from lint/format scope.
+- [X] T003 Add `@playwright/test` to `web/package.json` as an exact-pinned dev dependency at the version T002 recorded, and add the `e2e` script that runs `web/e2e/run.mjs`. Update `web/package-lock.json` only by running npm. Do not hand-edit the lockfile. Do not add another direct dependency. Add web/e2e/tsconfig.json covering web/playwright.config.ts and the three e2e specs; wire a dedicated typecheck command into the existing build script so run-web-gates checks them.
+- [X] T004 Create `web/playwright.config.ts` so the suite is headless Chromium only, `testMatch` is limited to the three `web/e2e/*.e2e.ts` specs, the specs run serially, retries are 1 when CI is set and 0 otherwise, the base URL is `http://localhost:3000`, and failure screenshots are written under `web/e2e/.runtime/`. Depends on T003.
+- [X] T005 [P] Create `web/e2e/.gitignore` so `web/e2e/.runtime/` is ignored. Narrowly edit `web/eslint.config.js` and `web/.prettierignore` solely to exclude `e2e/.runtime/` from lint/format scope.
 
 ---
 
