@@ -11,6 +11,7 @@ public sealed class EnrichmentFailureCategoryTests
         (EnrichmentFailureCategory.RateLimited, "The metadata provider is temporarily rate limiting requests."),
         (EnrichmentFailureCategory.InvalidResponse, "The metadata provider returned an unusable response."),
         (EnrichmentFailureCategory.Unknown, "The enrichment failed for an unknown reason."),
+        (EnrichmentFailureCategory.DuplicateImdbId, "Another movie in the library already has this IMDb id."),
     ];
 
     [Theory]

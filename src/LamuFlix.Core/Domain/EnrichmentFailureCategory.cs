@@ -11,6 +11,7 @@ public sealed record EnrichmentFailureCategory
     private const string RateLimitedCode = "rate_limited";
     private const string InvalidResponseCode = "invalid_response";
     private const string UnknownCode = "unknown";
+    private const string DuplicateImdbIdCode = "duplicate_imdb_id";
 
     public static readonly EnrichmentFailureCategory ProviderUnavailable = new(ProviderUnavailableCode);
 
@@ -19,6 +20,8 @@ public sealed record EnrichmentFailureCategory
     public static readonly EnrichmentFailureCategory InvalidResponse = new(InvalidResponseCode);
 
     public static readonly EnrichmentFailureCategory Unknown = new(UnknownCode);
+
+    public static readonly EnrichmentFailureCategory DuplicateImdbId = new(DuplicateImdbIdCode);
 
     // Expression-bodied so Stryker has no constructor block to remove: that mutant, active when the
     // statics above initialise, would leave Code null for every later mutant in the process.
@@ -34,6 +37,7 @@ public sealed record EnrichmentFailureCategory
         RateLimitedCode => "The metadata provider is temporarily rate limiting requests.",
         InvalidResponseCode => "The metadata provider returned an unusable response.",
         UnknownCode => "The enrichment failed for an unknown reason.",
+        DuplicateImdbIdCode => "Another movie in the library already has this IMDb id.",
         _ => throw new UnreachableException(),
     };
 
@@ -43,6 +47,7 @@ public sealed record EnrichmentFailureCategory
         RateLimitedCode => true,
         InvalidResponseCode => false,
         UnknownCode => true,
+        DuplicateImdbIdCode => false,
         _ => throw new UnreachableException(),
     };
 }

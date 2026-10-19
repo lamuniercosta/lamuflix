@@ -38,6 +38,10 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 httpContext,
                 StatusCodes.Status409Conflict,
                 CreateConflictProblem()),
+            ImdbIdConflictException imdbIdConflict => await WriteAsync(
+                httpContext,
+                StatusCodes.Status409Conflict,
+                CreateImdbIdConflictProblem(imdbIdConflict)),
             FeatureDisabledException => await WriteAsync(
                 httpContext,
                 StatusCodes.Status403Forbidden,
@@ -94,6 +98,14 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             Title = "Conflict",
             Type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
         };
+
+    private static ProblemDetails CreateImdbIdConflictProblem(ImdbIdConflictException imdbIdConflict)
+    {
+        var problem = CreateConflictProblem();
+        problem.Detail = imdbIdConflict.Message;
+        problem.Extensions["heldByMovieId"] = imdbIdConflict.HeldBy.Value;
+        return problem;
+    }
 
     private static ProblemDetails CreateForbiddenProblem() =>
         new()

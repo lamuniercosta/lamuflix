@@ -14,6 +14,12 @@ public sealed class MatchMovieImdbIdCommandHandler(IMovieRepository movies, IEnr
         var movie = await movies.GetAsync(command.Id, cancellationToken)
                     ?? throw new NotFoundException();
 
+        var holder = await movies.FindMovieIdByImdbIdAsync(command.ImdbId, cancellationToken);
+        if (holder is { } heldBy && heldBy != command.Id)
+        {
+            throw new ImdbIdConflictException(command.ImdbId, heldBy);
+        }
+
         movie.MatchManually(command.ImdbId);
         await movies.SaveChangesAsync(cancellationToken);
         await queue.EnqueueAsync(new EnrichmentRequested(command.Id, 1), cancellationToken);

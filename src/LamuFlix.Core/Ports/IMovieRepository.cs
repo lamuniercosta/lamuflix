@@ -31,4 +31,10 @@ public interface IMovieRepository
     Task<bool> TryClaimForEnrichmentAsync(MovieId id, CancellationToken ct);
 
     Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct);
+
+    /// <summary>
+    /// Returns the id of the movie whose resolved metadata holds this IMDb id (the uniquely indexed imdb_id
+    /// column), or null when no movie holds it.
+    /// </summary>
+    Task<MovieId?> FindMovieIdByImdbIdAsync(ImdbId imdbId, CancellationToken ct);
 }

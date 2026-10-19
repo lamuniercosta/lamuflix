@@ -89,6 +89,31 @@ public sealed class GlobalExceptionHandlerTests
     }
 
     [Fact]
+    public async Task TryHandleAsync_ImdbIdConflictException_Writes409WithTheHolderAndNoExceptionLeak()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+        var exception = new ImdbIdConflictException(new ImdbId("tt0083658"), new MovieId(7));
+
+        // act
+        var handled = await handler.TryHandleAsync(context, exception, CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
+        context.Response.ContentType.ShouldNotBeNull().ShouldStartWith("application/problem+json");
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status409Conflict);
+        root.GetProperty("title").GetString().ShouldBe("Conflict");
+        root.GetProperty("type").GetString().ShouldBe("https://tools.ietf.org/html/rfc9110#section-15.5.10");
+        root.GetProperty("traceId").GetString().ShouldBe("trace-296");
+        root.GetProperty("detail").GetString().ShouldBe(exception.Message);
+        root.GetProperty("heldByMovieId").GetInt32().ShouldBe(7);
+        root.GetRawText().ShouldNotContain(nameof(ImdbIdConflictException));
+    }
+
+    [Fact]
     public async Task TryHandleAsync_FeatureDisabledException_Writes403WithoutExceptionLeak()
     {
         // arrange

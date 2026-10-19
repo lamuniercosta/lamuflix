@@ -118,7 +118,7 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
         pending.Status.ShouldBe(EnrichmentStatus.Pending);
         await queue.DidNotReceive()
             .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
-        ConflictMetadata(host).ShouldContain(item =>
+        ConflictMetadata(host, "RequestEnrichment").ShouldContain(item =>
             item.StatusCode == StatusCodes.Status409Conflict && item.Type == typeof(ProblemDetails));
     }
 
@@ -240,6 +240,40 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
             .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task MatchImdbId_IdHeldByAnotherMovie_ReturnsConflictProblemNamingTheHolderAndDoesNotEnqueue()
+    {
+        // arrange
+        movies.GetAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(movie);
+        movies.FindMovieIdByImdbIdAsync(new ImdbId("tt0083658"), Arg.Any<CancellationToken>())
+            .Returns(new MovieId(99));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PutAsJsonAsync(
+            $"/api/movies/{KnownId}/imdb",
+            new { imdbId = "tt0083658" },
+            cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status409Conflict);
+        problem.GetProperty("detail").GetString().ShouldBe("IMDb id tt0083658 is already assigned to movie 99.");
+        problem.GetProperty("heldByMovieId").GetInt32().ShouldBe(99);
+        problem.GetRawText().ShouldNotContain(nameof(ImdbIdConflictException));
+        movie.ManualImdbId.ShouldBeNull();
+        movie.Status.ShouldBe(EnrichmentStatus.NotFound);
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await queue.DidNotReceive()
+            .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
+        ConflictMetadata(host, "MatchMovieImdbId").ShouldContain(item =>
+            item.StatusCode == StatusCodes.Status409Conflict && item.Type == typeof(ProblemDetails));
+    }
+
     private WebApplicationFactory<Program> CreateHost() =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
@@ -247,11 +281,13 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
             services.AddSingleton(queue);
         }));
 
-    private static IEnumerable<IProducesResponseTypeMetadata> ConflictMetadata(WebApplicationFactory<Program> host) =>
+    private static IEnumerable<IProducesResponseTypeMetadata> ConflictMetadata(
+        WebApplicationFactory<Program> host,
+        string endpointName) =>
         host.Services.GetRequiredService<EndpointDataSource>()
             .Endpoints
             .OfType<RouteEndpoint>()
-            .Single(endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "RequestEnrichment")
+            .Single(endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == endpointName)
             .Metadata
             .OfType<IProducesResponseTypeMetadata>();
 }

@@ -114,23 +114,35 @@ export function useRequestEnrichment(movieId: ActorId, libraryClient: QueryClien
 
 export class MatchImdbIdError extends Error {
   readonly status: number;
+  readonly detail: string | null;
 
-  constructor(status: number) {
+  constructor(status: number, detail: string | null = null) {
     super(`IMDb match request failed with status ${status}`);
     this.status = status;
+    this.detail = detail;
   }
 }
 
-async function putImdbMatch(movieId: ActorId, imdbId: string): Promise<number> {
+type ImdbMatchOutcome = { status: number; detail: string | null };
+
+/** Reads the RFC 7807 `detail` from an already-parsed error body; anything else yields null. */
+function problemDetailText(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null) return null;
+  const { detail } = body as { detail?: unknown };
+  return typeof detail === 'string' && detail.trim() !== '' ? detail : null;
+}
+
+async function putImdbMatch(movieId: ActorId, imdbId: string): Promise<ImdbMatchOutcome> {
   try {
-    const { response } = await client.PUT('/api/movies/{id}/imdb', {
+    const { response, error } = await client.PUT('/api/movies/{id}/imdb', {
       params: { path: { id: Number(movieId) } },
       body: { imdbId },
       parseAs: 'text',
     });
-    return response.status;
+    const detail = response.status === 409 ? problemDetailText(error) : null;
+    return { status: response.status, detail };
   } catch {
-    return 0;
+    return { status: 0, detail: null };
   }
 }
 
@@ -138,9 +150,9 @@ export function useMatchImdbId(movieId: ActorId, libraryClient: QueryClient) {
   const detailsClient = useQueryClient();
   return useMutation<{ id: ActorId }, MatchImdbIdError, string>({
     mutationFn: async (imdbId) => {
-      const status = await putImdbMatch(movieId, imdbId);
+      const { status, detail } = await putImdbMatch(movieId, imdbId);
       if (status !== 202) {
-        throw new MatchImdbIdError(status);
+        throw new MatchImdbIdError(status, detail);
       }
       return { id: movieId };
     },

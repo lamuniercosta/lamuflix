@@ -848,6 +848,51 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         await ambient.RollbackAsync(ct);
     }
 
+    [Fact]
+    public async Task FindMovieIdByImdbIdAsync_HeldIdReturnsTheHolderAndAbsentIdReturnsNull()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = Movie.Rehydrate(
+            id, "Holder", new LibraryPath("C:/library/holder.mkv"), new MediaFormat("mkv"),
+            false, SnapshotMetadata("Holder", "tt0000031", [], [], [], [], null), EnrichmentStatus.Enriched,
+            Now, 1, null, Now);
+
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+
+        (await repository.FindMovieIdByImdbIdAsync(new ImdbId("tt0000031"), ct)).ShouldBe(id);
+        (await repository.FindMovieIdByImdbIdAsync(new ImdbId("tt0000032"), ct)).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SaveChanges_ImdbIdHeldByAnotherRow_ThrowsDuplicateImdbIdAndLeavesTheRowPendingOnReload()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var holder = PendingMovie(await repository.NextIdentityAsync(ct), "Holder", "dup-holder");
+        holder.MarkEnriched(SnapshotMetadata("Holder", "tt0000033", [], [], [], [], null), Now);
+        await repository.AddAsync(holder, ct);
+        await repository.SaveChangesAsync(ct);
+
+        var loserId = await repository.NextIdentityAsync(ct);
+        var loser = PendingMovie(loserId, "Loser", "dup-loser");
+        await repository.AddAsync(loser, ct);
+        await repository.SaveChangesAsync(ct);
+        loser.MarkEnriched(SnapshotMetadata("Loser", "tt0000033", [], [], [], [], null), Now);
+
+        await Should.ThrowAsync<DuplicateImdbIdException>(() => repository.SaveChangesAsync(ct));
+
+        await using var read = OpenSibling(db);
+        var reloaded = await Repository(read).GetAsync(loserId, ct);
+        reloaded.ShouldNotBeNull();
+        reloaded.Status.ShouldBe(EnrichmentStatus.Pending);
+        reloaded.Metadata.ShouldBeNull();
+    }
+
     private static PostgresException? FindPostgres(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)

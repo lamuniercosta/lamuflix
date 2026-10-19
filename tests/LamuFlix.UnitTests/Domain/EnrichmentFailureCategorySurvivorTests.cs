@@ -10,6 +10,7 @@ public sealed class EnrichmentFailureCategorySurvivorTests
         (EnrichmentFailureCategory.RateLimited, true),
         (EnrichmentFailureCategory.InvalidResponse, false),
         (EnrichmentFailureCategory.Unknown, true),
+        (EnrichmentFailureCategory.DuplicateImdbId, false),
     ];
 
     [Theory]

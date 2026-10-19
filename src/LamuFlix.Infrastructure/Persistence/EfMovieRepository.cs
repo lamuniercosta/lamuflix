@@ -17,6 +17,8 @@ namespace LamuFlix.Infrastructure.Persistence;
 
 public sealed class EfMovieRepository : IMovieRepository
 {
+    private const string ImdbIdIndexName = "IX_movies_imdb_id";
+
     private static readonly TimeSpan[] MetadataRetryDelays =
     [
         TimeSpan.FromMilliseconds(25),
@@ -208,6 +210,11 @@ public sealed class EfMovieRepository : IMovieRepository
                 db.ChangeTracker.Clear();
                 await Task.Delay(MetadataRetryDelays[attempt - 1], ct);
             }
+            catch (Exception exception) when (IsImdbIdConflict(exception))
+            {
+                ResetAfterDuplicateImdbId();
+                throw new DuplicateImdbIdException(exception.Message, exception);
+            }
             catch
             {
                 db.ChangeTracker.Clear();
@@ -222,11 +229,22 @@ public sealed class EfMovieRepository : IMovieRepository
         {
             await RunMetadataWriteAsync(ct);
         }
+        catch (Exception exception) when (IsImdbIdConflict(exception))
+        {
+            ResetAfterDuplicateImdbId();
+            throw new DuplicateImdbIdException(exception.Message, exception);
+        }
         catch
         {
             db.ChangeTracker.Clear();
             throw;
         }
+    }
+
+    private void ResetAfterDuplicateImdbId()
+    {
+        db.ChangeTracker.Clear();
+        identityMap.Clear();
     }
 
     private async Task RunMetadataWriteAsync(CancellationToken ct)
@@ -427,6 +445,9 @@ public sealed class EfMovieRepository : IMovieRepository
     private static bool IsRetryableConflict(Exception exception) =>
         UnwrapPostgres(exception) is { } postgres && IsRetryableSqlState(postgres);
 
+    private static bool IsImdbIdConflict(Exception exception) =>
+        UnwrapPostgres(exception) is { SqlState: "23505", ConstraintName: ImdbIdIndexName };
+
     private static PostgresException? UnwrapPostgres(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)
@@ -492,6 +513,16 @@ public sealed class EfMovieRepository : IMovieRepository
             .Select(movie => movie.Id)
             .ToArrayAsync(ct);
         return PresentIds(ids);
+    }
+
+    public async Task<MovieId?> FindMovieIdByImdbIdAsync(ImdbId imdbId, CancellationToken ct)
+    {
+        var ids = await db.Movies
+            .AsNoTracking()
+            .Where(movie => movie.ImdbId == imdbId)
+            .Select(movie => movie.Id)
+            .ToArrayAsync(ct);
+        return PresentIds(ids).FirstOrDefault();
     }
 
     private static MovieId[] PresentIds(MovieId?[] ids)
