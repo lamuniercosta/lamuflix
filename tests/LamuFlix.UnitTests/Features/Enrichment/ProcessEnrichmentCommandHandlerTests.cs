@@ -133,6 +133,54 @@ public sealed class ProcessEnrichmentCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_UnenrichedMovieWithParsedYear_LooksUpWithParsedReleaseYear()
+    {
+        // arrange
+        var parsedYear = new ReleaseYear(2012, Now);
+        var movie = Movie.Create(NewId(), "Two Days in New York", new LibraryPath("C:/library/a"), new MediaFormat("mkv"), parsedYear);
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns(new MetadataLookupResult.NotFound());
+
+        // act
+        await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert
+        await provider.Received(1).FindAsync(new MetadataLookup("Two Days in New York", parsedYear), ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_EnrichedMovieWithParsedYear_PrefersMetadataReleaseYear()
+    {
+        // arrange
+        var metadataYear = new ReleaseYear(1999, Now);
+        var parsedYear = new ReleaseYear(2001, Now);
+        var pending = PendingMovie();
+        var movie = Movie.Rehydrate(
+            pending.Id,
+            pending.Title,
+            pending.Path,
+            pending.Format,
+            false,
+            new MovieMetadata("Previously Enriched", releaseYear: metadataYear),
+            EnrichmentStatus.Pending,
+            null,
+            0,
+            null,
+            null,
+            parsedYear);
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns(new MetadataLookupResult.NotFound());
+
+        // act
+        await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert
+        await provider.Received(1).FindAsync(new MetadataLookup(movie.Title, metadataYear), ct);
+    }
+
+    [Fact]
     public async Task HandleAsync_MissingMovieAfterClaim_ThrowsNotFound()
     {
         // arrange

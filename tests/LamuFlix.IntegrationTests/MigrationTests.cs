@@ -48,12 +48,28 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "poster_url",
         "enriched_at",
         "enrichment_failure_category",
-        "last_attempt_at"
+        "last_attempt_at",
+        "parsed_release_year"
     ];
 
     private static readonly Regex SnakeCase = new(
         "^[a-z][a-z0-9]*(_[a-z0-9]+)*$",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    // Legacy rows are inserted with SQL that names only the columns the older schema has, because EF's
+    // INSERT for the current model also writes parsed_release_year, which does not exist before that migration.
+    private static async Task<int> InsertLegacyMovieAsync(
+        DbContext context,
+        string title,
+        string libraryPath,
+        CancellationToken cancellationToken)
+    {
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT INTO movies (title, library_path, format, is_in_watchlist, status, enrichment_attempts) VALUES ({title}, {libraryPath}, 'mkv', false, {(int)EnrichmentStatus.Pending}, 0)",
+            cancellationToken);
+        return await context.Database.SqlQuery<int>($"SELECT id AS \"Value\" FROM movies WHERE title = {title}")
+            .SingleAsync(cancellationToken);
+    }
 
     [Fact]
     public async Task MigrateAsync_EmptyDatabase_AppliesMigrationsEnablesVectorAndHasNoPendingModelChanges()
@@ -64,11 +80,12 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(4);
+        migrations.Length.ShouldBe(5);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
         migrations[3].ShouldEndWith("_AddPlaybackEvents");
+        migrations[4].ShouldEndWith("_AddParsedReleaseYear");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -82,20 +99,13 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
         var migrator = context.Database.GetService<IMigrator>();
         await migrator.MigrateAsync("20261016195556_AddMovieWriters", cancellationToken);
-        context.Movies.Add(new MovieRecord
-        {
-            Title = "Upgrade Survivor",
-            LibraryPath = new LibraryPath("C:/library/upgrade-survivor.mkv"),
-            Format = new MediaFormat("mkv"),
-            Status = EnrichmentStatus.Pending
-        });
-        await context.SaveChangesAsync(cancellationToken);
+        await InsertLegacyMovieAsync(context, "Upgrade Survivor", "C:/library/upgrade-survivor.mkv", cancellationToken);
 
         await migrator.MigrateAsync(null, cancellationToken);
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddPlaybackEvents");
+        applied[^1].ShouldEndWith("_AddParsedReleaseYear");
         (await context.Movies.SingleAsync(cancellationToken)).Title.ShouldBe("Upgrade Survivor");
         await AssertPublicTablesAsync(new PostgresCatalog(context), cancellationToken);
         (await new PostgresCatalog(context).ListPostgresExtensionsAsync(cancellationToken)).ShouldContain("vector");
@@ -119,7 +129,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddPlaybackEvents");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddParsedReleaseYear");
     }
 
     [Fact]
@@ -129,14 +139,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
         var migrator = context.Database.GetService<IMigrator>();
         await migrator.MigrateAsync("20260930153520_Initial", cancellationToken);
-        context.Movies.Add(new MovieRecord
-        {
-            Title = "Legacy",
-            LibraryPath = new LibraryPath("C:/library/legacy.mkv"),
-            Format = new MediaFormat("mkv"),
-            Status = EnrichmentStatus.Pending
-        });
-        await context.SaveChangesAsync(cancellationToken);
+        await InsertLegacyMovieAsync(context, "Legacy", "C:/library/legacy.mkv", cancellationToken);
 
         await migrator.MigrateAsync(null, cancellationToken);
 
@@ -180,16 +183,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
         var migrator = context.Database.GetService<IMigrator>();
         await migrator.MigrateAsync("20261016195556_AddMovieWriters", cancellationToken);
-        context.Movies.Add(new MovieRecord
-        {
-            Title = "Upgrade Survivor",
-            LibraryPath = new LibraryPath("C:/library/upgrade-survivor.mkv"),
-            Format = new MediaFormat("mkv"),
-            Status = EnrichmentStatus.Pending
-        });
-        await context.SaveChangesAsync(cancellationToken);
-        var movieId = context.Movies.Single().Id;
-        movieId.ShouldNotBeNull();
+        var movieId = new MovieId(await InsertLegacyMovieAsync(context, "Upgrade Survivor", "C:/library/upgrade-survivor.mkv", cancellationToken));
 
         await migrator.MigrateAsync(null, cancellationToken);
 

@@ -16,7 +16,7 @@ public sealed class ImportMovieFolderCommandHandler(
     {
         var scanned = scanner.Scan(command.Folder);
         var id = await movies.NextIdentityAsync(cancellationToken);
-        var movie = Movie.Create(id, scanned.Title, scanned.Path, scanned.Format);
+        var movie = Movie.Create(id, scanned.Title, scanned.Path, scanned.Format, scanned.Year);
         await movies.AddAsync(movie, cancellationToken);
         await movies.SaveChangesAsync(cancellationToken);
         EnrichmentMetrics.ImportCount.Add(1);

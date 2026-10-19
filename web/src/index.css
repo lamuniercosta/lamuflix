@@ -406,6 +406,12 @@ button.lamu-chip {
   border-color: var(--color-amber);
 }
 
+.lamu-dialog-hint {
+  margin: var(--lamu-space-2) 0 0;
+  color: var(--color-dim);
+  font-size: 0.8125rem;
+}
+
 .lamu-dialog-alert {
   display: flex;
   align-items: center;

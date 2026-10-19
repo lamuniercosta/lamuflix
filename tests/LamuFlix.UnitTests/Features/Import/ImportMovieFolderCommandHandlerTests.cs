@@ -78,6 +78,27 @@ public sealed class ImportMovieFolderCommandHandlerTests : IClassFixture<Postgre
     }
 
     [Fact]
+    public async Task HandleAsync_ScannedYear_IsPersistedAsParsedReleaseYear()
+    {
+        // arrange
+        var folder = new LibraryPath("C:/library/incoming");
+        var id = NewId();
+        var year = new ReleaseYear(2012, new DateTimeOffset(2026, 10, 18, 0, 0, 0, TimeSpan.Zero));
+        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "2 Days in New York", new MediaFormat("mkv"), year, 1024L);
+        var ct = CancellationToken.None;
+        scanner.Scan(folder).Returns(scanned);
+        movies.NextIdentityAsync(ct).Returns(id);
+
+        // act
+        await handler.HandleAsync(new ImportMovieFolderCommand(folder), ct);
+
+        // assert
+        await movies.Received(1).AddAsync(
+            Arg.Is<Movie>(movie => movie.ParsedReleaseYear == year && movie.Title == "2 Days in New York"),
+            ct);
+    }
+
+    [Fact]
     public async Task HandleAsync_QueueFailure_PropagatesAfterSave()
     {
         // arrange

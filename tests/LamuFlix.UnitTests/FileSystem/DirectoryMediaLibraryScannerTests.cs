@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Abstractions.TestingHelpers;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.FileSystem;
 using LamuFlix.UnitTests.Features;
+using Microsoft.Extensions.Options;
 
 namespace LamuFlix.UnitTests.FileSystem;
 
@@ -14,19 +16,120 @@ public sealed class DirectoryMediaLibraryScannerTests
     private static readonly TimeProvider Now =
         new FixedTimeProvider(new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero));
 
+    private static readonly IOptions<LibraryOptions> Library =
+        Microsoft.Extensions.Options.Options.Create(new LibraryOptions { RootPath = "/library" });
+
+    [Fact]
+    public void Scan_RelativeFolderName_ResolvesUnderRootPath()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/library/2 Days in New York[2012]/2 Days in New York[2012].mkv", 1024));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.Scan(new LibraryPath("2 Days in New York[2012]"));
+
+        // assert
+        result.ShouldBe(new ScannedMovie(
+            new LibraryPath(Path.Combine("/library", "2 Days in New York[2012]")),
+            "2 Days in New York",
+            new MediaFormat("mkv"),
+            new ReleaseYear(2012, Now.GetUtcNow()),
+            1024L));
+    }
+
+    [Fact]
+    public void Scan_NestedRelativeFolder_ResolvesUnderRootPath()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/library/Collections/Alien (1979)/Alien.mkv", 2048));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.Scan(new LibraryPath("Collections/Alien (1979)"));
+
+        // assert
+        result.ShouldBe(new ScannedMovie(
+            new LibraryPath(Path.Combine("/library", "Collections/Alien (1979)")),
+            "Alien",
+            new MediaFormat("mkv"),
+            new ReleaseYear(1979, Now.GetUtcNow()),
+            2048L));
+    }
+
+    [Fact]
+    public void Scan_RelativeFolderWithStrayTrailingSeparator_TrimsSeparatorBeforeResolving()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/library/Heat (1995)/Heat.mkv", 512));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.Scan(new LibraryPath("Heat (1995)/"));
+
+        // assert
+        result.Path.ShouldBe(new LibraryPath(Path.Combine("/library", "Heat (1995)")));
+        result.Title.ShouldBe("Heat");
+    }
+
+    [Fact]
+    public void Scan_AbsolutePath_UsesPathUnchangedAndIgnoresRootPath()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/elsewhere/Inception (2010)/Inception.mkv", 1500));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.Scan(new LibraryPath("/elsewhere/Inception (2010)"));
+
+        // assert
+        result.Path.ShouldBe(new LibraryPath("/elsewhere/Inception (2010)"));
+        result.Title.ShouldBe("Inception");
+    }
+
+    [Fact]
+    public void Scan_MissingRelativeFolder_ThrowsDirectoryNotFoundNamingResolvedPath()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/library/Inception (2010)/Inception.mkv", 1024));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var exception = Should.Throw<DirectoryNotFoundException>(
+            () => scanner.Scan(new LibraryPath("Absent (1999)")));
+
+        // assert
+        exception.Message.ShouldContain(Path.Combine("/library", "Absent (1999)"));
+    }
+
+    [Fact]
+    public void Scan_RelativeFolderWithoutVideo_ThrowsInvalidOperationNamingResolvedPath()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/library/Inception (2010)/Inception.srt", 9000));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var exception = Should.Throw<InvalidOperationException>(
+            () => scanner.Scan(new LibraryPath("Inception (2010)")));
+
+        // assert
+        exception.Message.ShouldContain(Path.Combine("/library", "Inception (2010)"));
+    }
+
     [Fact]
     public void Scan_ParenthesisedYear_ReturnsTitleAndYear()
     {
         // arrange
-        var fileSystem = FileSystemWith(("C:/library/Inception (2010)/Inception (2010).mkv", 1024));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        var fileSystem = FileSystemWith(("/library/Inception (2010)/Inception (2010).mkv", 1024));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath("C:/library/Inception (2010)"));
+        var result = scanner.Scan(new LibraryPath("/library/Inception (2010)"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath("C:/library/Inception (2010)"),
+            new LibraryPath("/library/Inception (2010)"),
             "Inception",
             new MediaFormat("mkv"),
             new ReleaseYear(2010, Now.GetUtcNow()),
@@ -37,15 +140,15 @@ public sealed class DirectoryMediaLibraryScannerTests
     public void Scan_NoYearMarker_ReturnsWholeNameAndNoYear()
     {
         // arrange
-        var fileSystem = FileSystemWith(("C:/library/Inception/Inception.mkv", 2048));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        var fileSystem = FileSystemWith(("/library/Inception/Inception.mkv", 2048));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath("C:/library/Inception"));
+        var result = scanner.Scan(new LibraryPath("/library/Inception"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath("C:/library/Inception"),
+            new LibraryPath("/library/Inception"),
             "Inception",
             new MediaFormat("mkv"),
             null,
@@ -57,15 +160,15 @@ public sealed class DirectoryMediaLibraryScannerTests
     public void Scan_ValidYearMarker_ReturnsTitleAndYear(string folderName, string expectedTitle, int expectedYear)
     {
         // arrange
-        var fileSystem = FileSystemWith(($"C:/library/{folderName}/{folderName}.mkv", 4096));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        var fileSystem = FileSystemWith(($"/library/{folderName}/{folderName}.mkv", 4096));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath($"C:/library/{folderName}"));
+        var result = scanner.Scan(new LibraryPath($"/library/{folderName}"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath($"C:/library/{folderName}"),
+            new LibraryPath($"/library/{folderName}"),
             expectedTitle,
             new MediaFormat("mkv"),
             new ReleaseYear(expectedYear, Now.GetUtcNow()),
@@ -77,15 +180,15 @@ public sealed class DirectoryMediaLibraryScannerTests
     public void Scan_NoUsableYearMarker_ReturnsWholeNameAndNoYear(string folderName, string expectedTitle)
     {
         // arrange
-        var fileSystem = FileSystemWith(($"C:/library/{folderName}/{folderName}.mkv", 4096));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        var fileSystem = FileSystemWith(($"/library/{folderName}/{folderName}.mkv", 4096));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath($"C:/library/{folderName}"));
+        var result = scanner.Scan(new LibraryPath($"/library/{folderName}"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath($"C:/library/{folderName}"),
+            new LibraryPath($"/library/{folderName}"),
             expectedTitle,
             new MediaFormat("mkv"),
             null,
@@ -97,18 +200,18 @@ public sealed class DirectoryMediaLibraryScannerTests
     {
         // arrange
         var fileSystem = FileSystemWith(
-            ("C:/library/Inception (2010)/Inception.srt", 9000),
-            ("C:/library/Inception (2010)/Inception.nfo", 8000),
-            ("C:/library/Inception (2010)/Inception.txt", 7000),
-            ("C:/library/Inception (2010)/Inception.wmv", 6000));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+            ("/library/Inception (2010)/Inception.srt", 9000),
+            ("/library/Inception (2010)/Inception.nfo", 8000),
+            ("/library/Inception (2010)/Inception.txt", 7000),
+            ("/library/Inception (2010)/Inception.wmv", 6000));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
         var exception = Should.Throw<InvalidOperationException>(
-            () => scanner.Scan(new LibraryPath("C:/library/Inception (2010)")));
+            () => scanner.Scan(new LibraryPath("/library/Inception (2010)")));
 
         // assert
-        exception.Message.ShouldContain("C:/library/Inception (2010)");
+        exception.Message.ShouldContain("/library/Inception (2010)");
     }
 
     [Fact]
@@ -116,16 +219,16 @@ public sealed class DirectoryMediaLibraryScannerTests
     {
         // arrange
         var fileSystem = FileSystemWith(
-            ("C:/library/Inception (2010)/Inception.mkv", 1500),
-            ("C:/library/Inception (2010)/Inception.srt", 9999));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+            ("/library/Inception (2010)/Inception.mkv", 1500),
+            ("/library/Inception (2010)/Inception.srt", 9999));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath("C:/library/Inception (2010)"));
+        var result = scanner.Scan(new LibraryPath("/library/Inception (2010)"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath("C:/library/Inception (2010)"),
+            new LibraryPath("/library/Inception (2010)"),
             "Inception",
             new MediaFormat("mkv"),
             new ReleaseYear(2010, Now.GetUtcNow()),
@@ -137,17 +240,17 @@ public sealed class DirectoryMediaLibraryScannerTests
     {
         // arrange
         var fileSystem = FileSystemWith(
-            ("C:/library/Inception (2010)/small.mkv", 10),
-            ("C:/library/Inception (2010)/large.mp4", 5000),
-            ("C:/library/Inception (2010)/medium.avi", 3000));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+            ("/library/Inception (2010)/small.mkv", 10),
+            ("/library/Inception (2010)/large.mp4", 5000),
+            ("/library/Inception (2010)/medium.avi", 3000));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath("C:/library/Inception (2010)"));
+        var result = scanner.Scan(new LibraryPath("/library/Inception (2010)"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath("C:/library/Inception (2010)"),
+            new LibraryPath("/library/Inception (2010)"),
             "Inception",
             new MediaFormat("mp4"),
             new ReleaseYear(2010, Now.GetUtcNow()),
@@ -159,16 +262,16 @@ public sealed class DirectoryMediaLibraryScannerTests
     {
         // arrange
         var fileSystem = FileSystemWith(
-            ("C:/library/Inception (2010)/a.mkv", 4096),
-            ("C:/library/Inception (2010)/B.mp4", 4096));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+            ("/library/Inception (2010)/a.mkv", 4096),
+            ("/library/Inception (2010)/B.mp4", 4096));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath("C:/library/Inception (2010)"));
+        var result = scanner.Scan(new LibraryPath("/library/Inception (2010)"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath("C:/library/Inception (2010)"),
+            new LibraryPath("/library/Inception (2010)"),
             "Inception",
             new MediaFormat("mp4"),
             new ReleaseYear(2010, Now.GetUtcNow()),
@@ -179,15 +282,15 @@ public sealed class DirectoryMediaLibraryScannerTests
     public void Scan_MissingFolder_ThrowsDirectoryNotFound()
     {
         // arrange
-        var fileSystem = FileSystemWith(("C:/library/Inception (2010)/Inception.mkv", 1024));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        var fileSystem = FileSystemWith(("/library/Inception (2010)/Inception.mkv", 1024));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
         var exception = Should.Throw<DirectoryNotFoundException>(
-            () => scanner.Scan(new LibraryPath("C:/library/Absent (1999)")));
+            () => scanner.Scan(new LibraryPath("/library/Absent (1999)")));
 
         // assert
-        exception.Message.ShouldContain("C:/library/Absent (1999)");
+        exception.Message.ShouldContain("/library/Absent (1999)");
     }
 
     [Fact]
@@ -195,30 +298,30 @@ public sealed class DirectoryMediaLibraryScannerTests
     {
         // arrange
         var fileSystem = FileSystemWith();
-        fileSystem.AddDirectory("C:/library");
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        fileSystem.AddDirectory("/library");
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
         var exception = Should.Throw<InvalidOperationException>(
-            () => scanner.Scan(new LibraryPath("C:/library")));
+            () => scanner.Scan(new LibraryPath("/library")));
 
         // assert
-        exception.Message.ShouldContain("C:/library");
+        exception.Message.ShouldContain("/library");
     }
 
     [Fact]
     public void Scan_VideoOnlyInSubfolder_ThrowsInvalidOperation()
     {
         // arrange
-        var fileSystem = FileSystemWith(("C:/library/Inception (2010)/Featurettes/extra.mkv", 1024));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        var fileSystem = FileSystemWith(("/library/Inception (2010)/Featurettes/extra.mkv", 1024));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
         var exception = Should.Throw<InvalidOperationException>(
-            () => scanner.Scan(new LibraryPath("C:/library/Inception (2010)")));
+            () => scanner.Scan(new LibraryPath("/library/Inception (2010)")));
 
         // assert
-        exception.Message.ShouldContain("C:/library/Inception (2010)");
+        exception.Message.ShouldContain("/library/Inception (2010)");
     }
 
     [Fact]
@@ -226,16 +329,16 @@ public sealed class DirectoryMediaLibraryScannerTests
     {
         // arrange
         var fileSystem = FileSystemWith(
-            ("C:/library/Inception (2010)/Inception.mkv", 1500),
-            ("C:/library/Inception (2010)/Featurettes/deleted-scene.mp4", 99999));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+            ("/library/Inception (2010)/Inception.mkv", 1500),
+            ("/library/Inception (2010)/Featurettes/deleted-scene.mp4", 99999));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath("C:/library/Inception (2010)"));
+        var result = scanner.Scan(new LibraryPath("/library/Inception (2010)"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath("C:/library/Inception (2010)"),
+            new LibraryPath("/library/Inception (2010)"),
             "Inception",
             new MediaFormat("mkv"),
             new ReleaseYear(2010, Now.GetUtcNow()),
@@ -248,6 +351,9 @@ public sealed class DirectoryMediaLibraryScannerTests
         { ".mp4", "mp4" },
         { ".avi", "avi" },
         { ".m4v", "m4v" },
+        { ".rmvb", "rmvb" },
+        { ".rm", "rm" },
+        { ".flv", "flv" },
     };
 
     [Theory]
@@ -255,15 +361,15 @@ public sealed class DirectoryMediaLibraryScannerTests
     public void Scan_SupportedExtension_SelectsAndNormalisesFormat(string extension, string expectedFormat)
     {
         // arrange
-        var fileSystem = FileSystemWith(($"C:/library/Clip/Clip{extension}", 512));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        var fileSystem = FileSystemWith(($"/library/Clip/Clip{extension}", 512));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath("C:/library/Clip"));
+        var result = scanner.Scan(new LibraryPath("/library/Clip"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath("C:/library/Clip"),
+            new LibraryPath("/library/Clip"),
             "Clip",
             new MediaFormat(expectedFormat),
             null,
@@ -274,15 +380,15 @@ public sealed class DirectoryMediaLibraryScannerTests
     public void Scan_UpperCaseExtension_SelectsAndNormalisesFormat()
     {
         // arrange
-        var fileSystem = FileSystemWith(("C:/library/Clip/MOVIE.MKV", 777));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        var fileSystem = FileSystemWith(("/library/Clip/MOVIE.MKV", 777));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath("C:/library/Clip"));
+        var result = scanner.Scan(new LibraryPath("/library/Clip"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath("C:/library/Clip"),
+            new LibraryPath("/library/Clip"),
             "Clip",
             new MediaFormat("mkv"),
             null,
@@ -293,15 +399,15 @@ public sealed class DirectoryMediaLibraryScannerTests
     public void Scan_MixedCaseExtension_SelectsAndNormalisesFormat()
     {
         // arrange
-        var fileSystem = FileSystemWith(("C:/library/Clip/Movie.Mp4", 888));
-        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now);
+        var fileSystem = FileSystemWith(("/library/Clip/Movie.Mp4", 888));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var result = scanner.Scan(new LibraryPath("C:/library/Clip"));
+        var result = scanner.Scan(new LibraryPath("/library/Clip"));
 
         // assert
         result.ShouldBe(new ScannedMovie(
-            new LibraryPath("C:/library/Clip"),
+            new LibraryPath("/library/Clip"),
             "Clip",
             new MediaFormat("mp4"),
             null,
@@ -317,6 +423,9 @@ public sealed class DirectoryMediaLibraryScannerTests
         { "Old (1888)", "Old", 1888 },
         { "Future (2031)", "Future", 2031 },
         { "  Inception (2010)", "Inception", 2010 },
+        { "2 Days in New York[2012]", "2 Days in New York", 2012 },
+        { "The Invite (2026) [1080p] [WEBRip] [5.1] [YTS.GG - YTS.BZ]", "The Invite", 2026 },
+        { "The.Matrix.1999", "The Matrix", 1999 },
     };
 
     public static TheoryData<string, string> FolderWithoutUsableYear() => new()
@@ -327,7 +436,7 @@ public sealed class DirectoryMediaLibraryScannerTests
         { "Inception (20100)", "Inception (20100)" },
         { "Old (1887)", "Old (1887)" },
         { "Future (2032)", "Future (2032)" },
-        { "The.Matrix.1999", "The.Matrix.1999" },
+        { "Blade Runner 2049", "Blade Runner 2049" },
         { "(٢٠١٠)", "(٢٠١٠)" },
     };
 

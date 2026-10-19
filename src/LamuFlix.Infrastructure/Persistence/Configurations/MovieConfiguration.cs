@@ -76,6 +76,12 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
             .HasColumnName("last_attempt_at")
             .HasColumnType("timestamptz")
             .IsRequired(false);
+        ConvertUsing(
+            builder.Property(movie => movie.ParsedReleaseYear)
+                .HasColumnName("parsed_release_year")
+                .HasColumnType("integer")
+                .IsRequired(false),
+            new ReleaseYearConverter(TimeProvider.System));
     }
 
     private static void ConfigureMetadata(EntityTypeBuilder<MovieRecord> builder)

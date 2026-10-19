@@ -102,6 +102,7 @@ public sealed class EfMovieRepository : IMovieRepository
             EnrichmentAttempts = movie.EnrichmentAttempts,
             EnrichmentFailureCategory = movie.LastFailureCategory,
             LastAttemptAt = movie.LastAttemptAt,
+            ParsedReleaseYear = movie.ParsedReleaseYear,
         };
         CopyMetadata(record, movie.Metadata);
         return record;
@@ -600,7 +601,8 @@ public sealed class EfMovieRepository : IMovieRepository
             enrichedAt: record.EnrichedAt,
             enrichmentAttempts: record.EnrichmentAttempts,
             lastFailureCategory: record.EnrichmentFailureCategory,
-            lastAttemptAt: record.LastAttemptAt);
+            lastAttemptAt: record.LastAttemptAt,
+            parsedReleaseYear: record.ParsedReleaseYear);
     }
 
     private static void SetCurrentAndOriginal<T>(PropertyEntry<MovieRecord, T> property, T value)

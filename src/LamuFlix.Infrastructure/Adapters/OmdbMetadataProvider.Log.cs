@@ -29,5 +29,11 @@ public sealed partial class OmdbMetadataProvider
             Level = LogLevel.Warning,
             Message = "The metadata provider returned an unusable response: {Reason}.")]
         public static partial void InvalidResponse(ILogger logger, string reason);
+
+        [LoggerMessage(
+            EventId = 5,
+            Level = LogLevel.Information,
+            Message = "Metadata lookup for {Title} matched search candidate {CandidateTitle} ({ImdbId}) with score {Score}; fetching details.")]
+        public static partial void FallbackMatched(ILogger logger, string title, string candidateTitle, string imdbId, double score);
     }
 }
