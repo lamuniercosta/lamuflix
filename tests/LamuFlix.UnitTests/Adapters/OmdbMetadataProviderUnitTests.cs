@@ -710,6 +710,37 @@ public sealed class OmdbMetadataProviderUnitTests
         status.ShouldBe(ActivityStatusCode.Error.ToString());
     }
 
+    [Fact]
+    public async Task FindAsync_ManualImdbId_QueriesByIdInsteadOfTitle()
+    {
+        // arrange
+        var handler = new StubHandler(HttpStatusCode.OK, RichBody);
+        var provider = Provider(handler);
+        var lookup = new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now), new ImdbId("tt0083658"));
+
+        // act
+        var result = await provider.FindAsync(lookup, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        handler.RequestUri.ShouldNotBeNull();
+        handler.RequestUri.Query.ShouldBe("?apikey=key&i=tt0083658&plot=full");
+    }
+
+    [Fact]
+    public async Task FindAsync_ManualImdbIdNotFound_ReturnsNotFound()
+    {
+        // arrange
+        var provider = Provider(new StubHandler(HttpStatusCode.OK, """{ "Response": "False", "Error": "Movie not found!" }"""));
+        var lookup = new MetadataLookup("Blade Runner", null, new ImdbId("tt0000001"));
+
+        // act
+        var result = await provider.FindAsync(lookup, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+    }
+
     private static OmdbMetadataProvider Provider(StubHandler handler)
     {
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };

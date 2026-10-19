@@ -127,6 +127,10 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("library_path");
 
+                    b.Property<string>("ManualImdbId")
+                        .HasColumnType("text")
+                        .HasColumnName("manual_imdb_id");
+
                     b.Property<short?>("MetaScore")
                         .HasColumnType("smallint")
                         .HasColumnName("meta_score");

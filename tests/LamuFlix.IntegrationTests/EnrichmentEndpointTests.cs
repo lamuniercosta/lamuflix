@@ -164,6 +164,82 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
         problem.GetRawText().ShouldNotContain("BadHttpRequestException");
     }
 
+    [Fact]
+    public async Task MatchImdbId_ValidId_ReturnsAcceptedWithLocationAndRequeuesWithManualId()
+    {
+        // arrange
+        movies.GetAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(movie);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PutAsJsonAsync(
+            $"/api/movies/{KnownId}/imdb",
+            new { imdbId = "tt0083658" },
+            cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        response.Headers.Location.ShouldNotBeNull().ToString().ShouldBe($"/api/movies/{KnownId}");
+        movie.ManualImdbId.ShouldBe(new ImdbId("tt0083658"));
+        movie.Status.ShouldBe(EnrichmentStatus.Pending);
+        await movies.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await queue.Received(1)
+            .EnqueueAsync(new EnrichmentRequested(new MovieId(KnownId), 1), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("tt123")]
+    [InlineData("https://www.imdb.com/title/tt0083658/")]
+    public async Task MatchImdbId_MalformedImdbId_ReturnsBadRequestValidationProblemAndDoesNotEnqueue(string imdbId)
+    {
+        // arrange
+        movies.GetAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(movie);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PutAsJsonAsync(
+            $"/api/movies/{KnownId}/imdb",
+            new { imdbId },
+            cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("errors").EnumerateObject().Select(property => property.Name).ShouldContain("imdbId");
+        movie.ManualImdbId.ShouldBeNull();
+        await queue.DidNotReceive()
+            .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task MatchImdbId_UnknownId_ReturnsNotFoundProblemAndDoesNotEnqueue()
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PutAsJsonAsync(
+            $"/api/movies/{UnknownId}/imdb",
+            new { imdbId = "tt0083658" },
+            cancellationToken);
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        payload.ShouldNotContain(nameof(NotFoundException));
+        await queue.DidNotReceive()
+            .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
+    }
+
     private WebApplicationFactory<Program> CreateHost() =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {

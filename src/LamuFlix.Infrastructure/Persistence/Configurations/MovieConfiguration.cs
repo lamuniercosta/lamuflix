@@ -114,6 +114,12 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
                 .HasColumnType("text")
                 .IsRequired(false),
             new ImdbIdConverter());
+        ConvertUsing(
+            builder.Property(movie => movie.ManualImdbId)
+                .HasColumnName("manual_imdb_id")
+                .HasColumnType("text")
+                .IsRequired(false),
+            new ImdbIdConverter());
         builder.Property(movie => movie.RottenTomatoesRating)
             .HasColumnName("rotten_tomatoes_rating")
             .HasColumnType("smallint")

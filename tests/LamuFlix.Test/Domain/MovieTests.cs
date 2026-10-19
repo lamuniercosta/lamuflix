@@ -169,6 +169,43 @@ public sealed class MovieTests
         after.LastAttemptAt.ShouldBe(before.LastAttemptAt);
     }
 
+    [Theory]
+    [MemberData(nameof(AllStatuses))]
+    public void MatchManually_FromAnyStatus_SetsManualIdAndReturnsToPendingKeepingHistory(EnrichmentStatus status)
+    {
+        var movie = InStatus(status);
+        var imdbId = new ImdbId("tt0083658");
+        var before = Capture(movie);
+
+        movie.MatchManually(imdbId);
+
+        movie.ManualImdbId.ShouldBe(imdbId);
+        movie.Status.ShouldBe(EnrichmentStatus.Pending);
+        movie.LastFailureCategory.ShouldBeNull();
+        movie.EnrichmentAttempts.ShouldBe(before.EnrichmentAttempts);
+        movie.LastAttemptAt.ShouldBe(before.LastAttemptAt);
+    }
+
+    [Fact]
+    public void MatchManually_NullImdbId_ThrowsArgumentNullException()
+    {
+        var movie = InStatus(EnrichmentStatus.NotFound);
+
+        // ReSharper disable once NullableWarningSuppressionIsUsed - intentional null exercises the guard clause.
+        Should.Throw<ArgumentNullException>(() => movie.MatchManually(null!));
+    }
+
+    public static TheoryData<EnrichmentStatus> AllStatuses()
+    {
+        var data = new TheoryData<EnrichmentStatus>();
+        foreach (var status in EnrichmentStatus.List)
+        {
+            data.Add(status);
+        }
+
+        return data;
+    }
+
     private static bool IsLegal(EnrichmentStatus status, EnrichmentAction action) =>
         action == EnrichmentAction.RequestEnrichment
             ? status != EnrichmentStatus.Pending

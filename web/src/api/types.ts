@@ -26,6 +26,10 @@ export interface paths {
     /** Request a metadata enrichment retry for a movie. */
     post: operations["RequestEnrichment"];
   };
+  "/api/movies/{id}/imdb": {
+    /** Match a movie to a user-supplied IMDb id and request enrichment. */
+    put: operations["MatchMovieImdbId"];
+  };
   "/api/movies/{id}/watchlist": {
     /** Add a movie to the watchlist. */
     post: operations["AddToWatchlist"];
@@ -66,6 +70,9 @@ export interface components {
     };
     ImportMovieRequest: {
       folderPath: string;
+    };
+    MatchImdbIdRequest: {
+      imdbId: null | string;
     };
     MovieDetailsResponse: {
       /** Format: int32 */
@@ -264,6 +271,43 @@ export interface operations {
       };
       /** @description Conflict */
       409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Match a movie to a user-supplied IMDb id and request enrichment. */
+  MatchMovieImdbId: {
+    parameters: {
+      path: {
+        id: number | string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MatchImdbIdRequest"];
+      };
+    };
+    responses: {
+      /** @description Accepted */
+      202: {
+        content: never;
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };

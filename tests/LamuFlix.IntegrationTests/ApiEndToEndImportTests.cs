@@ -184,6 +184,47 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         }
     }
 
+    [Fact]
+    public async Task ManualImdbMatch_NotFoundMovie_RequeriesByImdbIdAndPersistsEnrichedMovie()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = await StartHostAsync(InstallOmdbStub);
+        var seed = MovieCatalogSeed.Create(FolderTitle, "manual-imdb-match");
+        seed.Status = EnrichmentStatus.NotFound;
+        seed.LastAttemptAt = Clock.GetUtcNow() - TimeSpan.FromMinutes(5);
+        var movie = await SeedAsync(seed);
+        var id = movie.Id.ShouldNotBeNull().Value;
+
+        // act
+        var response = await client.PutAsJsonAsync(
+            $"{DetailsRoutePrefix}{id}/imdb",
+            new { imdbId = ExpectedImdbId },
+            cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        response.Headers.Location.ShouldNotBeNull().ToString().ShouldBe($"{DetailsRoutePrefix}{id}");
+
+        // act
+        await WaitForStatusAsync(new MovieId(id), EnrichmentStatus.Enriched);
+
+        // assert
+        var measured = Fixture.Server.LogEntries.ShouldHaveSingleItem().RequestMessage.ShouldNotBeNull();
+        measured.Method.ShouldBe("GET");
+        measured.AbsolutePath.ShouldBe("/");
+        var query = measured.Query.ShouldNotBeNull();
+        query.Keys.ShouldBe(["apikey", "i", "plot"], ignoreOrder: true);
+        query["apikey"].ShouldContain(MetadataProviderProbe.SentinelApiKey);
+        query["i"].ShouldContain(ExpectedImdbId);
+        query["plot"].ShouldContain("full");
+
+        await using var persisted = Fixture.Postgres.CreateMigratedContext();
+        var stored = await persisted.Movies.AsNoTracking()
+            .SingleAsync(item => item.Id == new MovieId(id), cancellationToken);
+        stored.ManualImdbId.ShouldBe(new ImdbId(ExpectedImdbId));
+    }
+
     private static void ShouldProveTraceAncestry(TraceAncestry ancestry, ActivityTraceId requestTraceId, string tracestate)
     {
         ancestry.Server.TraceId.ShouldBe(requestTraceId);
