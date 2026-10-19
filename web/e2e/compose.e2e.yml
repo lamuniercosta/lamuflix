@@ -1,0 +1,31 @@
+services:
+  api:
+    volumes:
+      - type: bind
+        source: ${E2E_SETTINGS_FILE}
+        target: /app/appsettings.Production.json
+        read_only: true
+        bind:
+          create_host_path: false
+
+  omdb-stub:
+    image: docker.io/library/node:26.12-alpine
+    network_mode: 'service:api'
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      E2E_STUB_PORT: ${E2E_STUB_PORT}
+      E2E_STUB_RESPONSES_FILE: /e2e/responses.json
+      E2E_WAIT_BUDGET_MS: ${E2E_WAIT_BUDGET_MS}
+    volumes:
+      - ${E2E_STUB_SCRIPT}:/e2e/stub.mjs:ro
+      - ${E2E_STUB_RESPONSES_FILE}:/e2e/responses.json:ro
+    command: ['node', '/e2e/stub.mjs', 'serve']
+    healthcheck:
+      test: ['CMD', 'node', '/e2e/stub.mjs', 'health']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: 'no'
