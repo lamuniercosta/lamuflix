@@ -95,3 +95,35 @@ Planning only. Evidence: `recon-DEV-334` and its continuation `recon-DEV-334-2`,
 - Items 5 & 6 — ADR durability, gate reporting & CI/code standards (Item 5 ACCEPT; Item 6 ACCEPT — .specify/memory/constitution.md §Documentation Rules, AGENTS.md Non-negotiables, Ledger M3/L1-L4, Compass L1/L2, Sentry L6): Use canonical-relative links, Proposed-only status, and durable brief/conclusions/spec citations in ADR 0023 with Phase B status-only diff proof noted in spec/tasks and separate auxiliary dotnet format reporting; enforce CI PR guard, bounded timeout, least permissions, existing action major pins, always-uploaded sanitized artifact allowlist with retention-days covering retry-pass failures, zero explanatory comments, and recon-backed test naming.
 
 
+
+
+## Phase 2 Step 6 — Keel disposition and freeze receipt
+
+All three real reports were read before adjudication: findings-DEV-334-Sentry:1-87 (Risk/Security), findings-DEV-334-Ledger:1-51 (Standards), findings-DEV-334-Compass:1-44 (Spec). Evidence is limited to the named planning artifacts, these reports, and cited recon. The six cited Patron rulings above were persisted before brief and artifact adjustments. Keel applies those decision changes directly as authorized by the step 6 ask; no production files are edited.
+
+| Axis / ID | Severity | Adjudication and amended evidence |
+| --- | --- | --- |
+| Sentry M1 | Medium | Accepted, resolved at plan level: exec-based loopback control, no published port; brief step 6 item 3, plan Design 4, FR-004, T006/T007/T012. |
+| Sentry L1 | Low | Accepted: explicit credential/key redaction, no settings/config dumps, upload allowlist secret scan; brief item 4, FR-009, T009/T013/T020. |
+| Sentry L2 | Low | Accepted: crypto.randomBytes; brief item 4, plan Design 6, T009. |
+| Sentry L3 | Low | Accepted: literal 127.0.0.1 bind and no port publication; FR-004, T006/T007. |
+| Sentry L4 | Low | Risk accepted, recommendation replaced by stricter literal-host allowlist: reject all hostnames, so no DNS resolution policy is needed; Patron item 4, FR-004, T009/T021. |
+| Sentry L5 | Low | Accepted: explicit unexpected-request control status makes runner nonzero even if browser passes; FR-004, T007/T021. |
+| Sentry L6 | Low | Accepted: status-only canonical publication diff proof; brief item 5, FR-002, T013a. |
+| Ledger M1 | Medium | Accepted, resolved at plan level: two narrow ignore edits, new e2e tsconfig and build typecheck, web gate after e2e; Patron item 1, brief item 1, plan file whitelist, FR-002/FR-012, T003/T005/T014. |
+| Ledger M2 | Medium | Accepted decision gap, resolved by option b: actual boundary failure probes, not helper extraction; Patron item 2 records rationale, brief item 2, FR-012, T018/T020/T021. No dependency, test-runner addition or mutation success claimed. |
+| Ledger M3 | Medium | Accepted, resolved: Proposed-only status, canonical-relative durable links, no publication/process paragraph in ADR; publication instructions retained here, brief and T013a. |
+| Ledger L1 | Low | Accepted: ADR cites durable brief/conclusions/spec and states required configuration/enrichment facts; ephemeral recon citations remain in conclusions. |
+| Ledger L2 | Low | Accepted: stale plan narration removed, ADR in document tree, constitution section citations replace line numbers. |
+| Ledger L3 | Low | Accepted: PR guard, timeout, minimum permissions, existing action majors, explicit retention and always-run sanitized allowlist upload; plan Design 10, FR-009, T013. |
+| Ledger L4 | Low | Accepted no-explanatory-comments and recon-backed naming; brief item 6, tasks Tests and T001. The claimed C#-only AAA restriction is not adopted: AGENTS lists its actual exemptions; no new exemption is introduced. |
+| Ledger L5 | Low | Accepted: one run.mjs wait-budget source passed to consumers plus exec control; brief item 3, FR-004/FR-008, T006/T007/T009/T012. |
+| Compass M1 | Medium | Accepted, resolved at plan level: arm each attempt, finally release on observation/failure, drain before retry rearm, invocation finally releases all; brief item 3, FR-007, T007/T012/T018 and ADR. |
+| Compass L1 | Low | Accepted: explicit Phase B canonical publication carve-out and status-only proof; FR-002/FR-011, T013a. |
+| Compass L2 | Low | Accepted: dotnet format is auxiliary with separate exit; brief item 5, FR-012, T015. |
+
+Freeze: 2026-10-19, feature/334-spec in F:/Dev/LamuFlix.worktrees/feature-334-spec. Amended brief.md, spec.md, plan.md, tasks.md and ADR 0023 are frozen. All 5 Medium and 13 Low findings have dispositions; no unresolved Critical/High/Medium or unrecorded Low remains in this plan challenge. No follow-up ticket is required for these resolved planning items (noted, no ticket). The two-round/two-fix-commit cap and delivery exclusions remain intact.
+
+Verification of this step is a document consistency/read-back check only. Runner probes, web gate, stack smoke, cleanup/secret checks, and status-only ADR publication proof are scheduled future evidence, not passed work. The earlier clean analyze receipt predates these amendments; this freeze does not claim a fresh Spec Kit analyze run. No implementation, tests, gates, PR posting, tracker change or merge by Keel occurred.
+
+Next: Patron provisional Gate 1, spec-PR publication and user-owned spec merge. Gate 1 remains closed until that merge; this plan freeze grants no Phase B authorization. Zero owner checkboxes and no constitution departure under Patron ruling.
