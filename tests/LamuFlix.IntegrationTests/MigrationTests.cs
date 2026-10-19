@@ -269,9 +269,16 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
         var migrator = context.Database.GetService<IMigrator>();
         await migrator.MigrateAsync("20261016195556_AddMovieWriters", cancellationToken);
-        var movieId = new MovieId(await InsertLegacyMovieAsync(context, "Upgrade Survivor", "C:/library/upgrade-survivor.mkv", cancellationToken));
+        await InsertLegacyMovieAsync(
+            context,
+            new LegacyMovie("Upgrade Survivor", "C:/library/upgrade-survivor.mkv", "mkv", 0),
+            cancellationToken);
 
         await migrator.MigrateAsync(null, cancellationToken);
+        context.ChangeTracker.Clear();
+
+        var movieId = (await context.Movies.AsNoTracking().SingleAsync(cancellationToken)).Id;
+        movieId.ShouldNotBeNull();
 
         var catalog = new PostgresCatalog(context);
         (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("playback_events");
@@ -287,11 +294,13 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await context.SaveChangesAsync(cancellationToken);
 
         await migrator.MigrateAsync("20261016195556_AddMovieWriters", cancellationToken);
+        context.ChangeTracker.Clear();
 
         (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldNotContain("playback_events");
-        (await context.Movies.CountAsync(cancellationToken)).ShouldBe(1);
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(1);
 
         await migrator.MigrateAsync(null, cancellationToken);
+        context.ChangeTracker.Clear();
 
         (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("playback_events");
         (await context.Movies.CountAsync(cancellationToken)).ShouldBe(1);
