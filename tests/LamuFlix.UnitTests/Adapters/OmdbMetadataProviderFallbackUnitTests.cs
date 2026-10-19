@@ -322,6 +322,95 @@ public sealed class OmdbMetadataProviderFallbackUnitTests
             && entry.Message.Contains("score", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task FindAsync_DashedTitle_SearchesColonVariant()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("i")
+            ? Ok(Detail("Futurama: Into the Wild Green Yonder", "2009", "tt1054487"))
+            : p.TryGetValue("s", out var search) && search.Contains(':', StringComparison.Ordinal)
+                ? Ok(SearchBody(Hit("Futurama: Into the Wild Green Yonder", "2009", "tt1054487")))
+                : Ok(MovieNotFound));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Futurama - Into The Wild Green Yonder", new ReleaseYear(2008, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        handler.Requests[^2]["s"].ShouldBe("Futurama: Into The Wild Green Yonder");
+        handler.Requests[^1]["i"].ShouldBe("tt1054487");
+    }
+
+    [Fact]
+    public async Task FindAsync_CandidateTwoYearsLater_IsAccepted()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(Detail("City of God", "2004", "tt0317248"))
+                : Ok(SearchBody(Hit("City of God", "2004", "tt0317248"))));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("City of God", new ReleaseYear(2002, Now)), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        handler.Requests[^1]["i"].ShouldBe("tt0317248");
+    }
+
+    [Fact]
+    public async Task FindAsync_StoredTitleWithReleaseTags_IsRecleanedBeforeLookup()
+    {
+        // arrange
+        var handler = new RoutingHandler(_ => Ok(Detail("Barbie", "2023", "tt1517268")));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Barbie 2023 720p HDCAM-C1NEM4[TGx]", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        handler.Requests[0]["t"].ShouldBe("Barbie");
+        handler.Requests[0]["y"].ShouldBe("2023");
+    }
+
+    [Fact]
+    public async Task FindAsync_StoredTitleWithEditionLabel_KeepsStoredYear()
+    {
+        // arrange
+        var handler = new RoutingHandler(_ => Ok(Detail("The Lord of the Rings: The Two Towers", "2002", "tt0167261")));
+        var provider = Provider(handler);
+
+        // act
+        await provider.FindAsync(
+            new MetadataLookup("The Lord of the Rings The Two Towers EXTENDED", new ReleaseYear(2002, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        handler.Requests[0]["t"].ShouldBe("The Lord of the Rings The Two Towers");
+        handler.Requests[0]["y"].ShouldBe("2002");
+    }
+
+    [Fact]
+    public async Task FindAsync_StoredYearAndYearInTitle_KeepsStoredLookup()
+    {
+        // arrange
+        var handler = new RoutingHandler(_ => Ok(Detail("Death Race 2000", "1975", "tt0072856")));
+        var provider = Provider(handler);
+
+        // act
+        await provider.FindAsync(new MetadataLookup("Death Race 2000", new ReleaseYear(1975, Now)), TestContext.Current.CancellationToken);
+
+        // assert
+        handler.Requests[0]["t"].ShouldBe("Death Race 2000");
+        handler.Requests[0]["y"].ShouldBe("1975");
+    }
+
     private static Reply Ok(string body) => new(HttpStatusCode.OK, body);
 
     private static string Hit(string title, string year, string id) =>

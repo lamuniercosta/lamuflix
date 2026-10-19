@@ -11,6 +11,7 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.FileSystem;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Polly.CircuitBreaker;
@@ -63,8 +64,9 @@ public sealed partial class OmdbMetadataProvider(
         }
     }
 
-    private async Task<MetadataLookupResult> ExecuteAsync(MetadataLookup lookup, CancellationToken ct)
+    private async Task<MetadataLookupResult> ExecuteAsync(MetadataLookup stored, CancellationToken ct)
     {
+        var lookup = Recleaned(stored);
         var direct = await FetchAsync(BuildUri(lookup), ct);
         if (direct is Fetch.Rejected rejected)
         {
@@ -75,6 +77,23 @@ public sealed partial class OmdbMetadataProvider(
         return ResponseMapper.IsMovieNotFound(body)
             ? await FallbackAsync(lookup, ct)
             : Classify(body);
+    }
+
+    /// <summary>
+    /// Runs the stored title through the current <see cref="FolderNameCleaner"/>, so rows imported before
+    /// a cleaning fix (release tags or an edition label left in the title) match without a re-import. A
+    /// year the cleaner finds is used only when none is stored; when both exist the stored lookup wins,
+    /// so a title such as "Death Race 2000" keeps its number.
+    /// </summary>
+    private MetadataLookup Recleaned(MetadataLookup stored)
+    {
+        var cleaned = FolderNameCleaner.Clean(stored.Title, timeProvider.GetUtcNow());
+        return (stored.ReleaseYear, cleaned.Year) switch
+        {
+            (null, { } year) => new MetadataLookup(cleaned.Title, year),
+            (_, null) => stored with { Title = cleaned.Title },
+            _ => stored,
+        };
     }
 
     private async Task<MetadataLookupResult> FallbackAsync(MetadataLookup lookup, CancellationToken ct)

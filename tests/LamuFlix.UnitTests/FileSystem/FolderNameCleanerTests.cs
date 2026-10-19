@@ -46,6 +46,43 @@ public sealed class FolderNameCleanerTests
             expectedYear is null ? null : new ReleaseYear(expectedYear.Value, Now)));
     }
 
+    [Theory]
+    [InlineData("Barbie.2023.720p.HDCAM-C1NEM4[TGx]", "Barbie", 2023)]
+    [InlineData("Barbie 2023 720p HDCAM-C1NEM4[TGx]", "Barbie", 2023)]
+    [InlineData("Conclave.2024.1080p.AMZN.WEBRip.DDP5.1.x265.10bit-GalaxyRG265[TGx]", "Conclave", 2024)]
+    [InlineData("Parasite.2019.1080p.BluRay.KORSUB.x264-GROUP", "Parasite", 2019)]
+    [InlineData("Movie 2010 Part 2", "Movie 2010 Part 2", null)]
+    public void Clean_YearFollowedByReleaseTag_TakesYearDespiteUnknownTokens(
+        string folderName,
+        string expectedTitle,
+        int? expectedYear)
+    {
+        // act
+        var result = FolderNameCleaner.Clean(folderName, Now);
+
+        // assert
+        result.ShouldBe(new CleanedFolderName(
+            expectedTitle,
+            expectedYear is null ? null : new ReleaseYear(expectedYear.Value, Now)));
+    }
+
+    [Theory]
+    [InlineData("The Lord of the Rings The Fellowship of the Ring  EXTENDED[2001]", "The Lord of the Rings The Fellowship of the Ring", 2001)]
+    [InlineData("Aliens Director's Cut (1986)", "Aliens", 1986)]
+    [InlineData("Blade Runner The Final Cut Remastered (1982)", "Blade Runner The Final Cut", 1982)]
+    [InlineData("The Lord of the Rings The Two Towers EXTENDED", "The Lord of the Rings The Two Towers", null)]
+    [InlineData("Extended", "Extended", null)]
+    public void Clean_TrailingEditionLabel_IsDropped(string folderName, string expectedTitle, int? expectedYear)
+    {
+        // act
+        var result = FolderNameCleaner.Clean(folderName, Now);
+
+        // assert
+        result.ShouldBe(new CleanedFolderName(
+            expectedTitle,
+            expectedYear is null ? null : new ReleaseYear(expectedYear.Value, Now)));
+    }
+
     [Fact]
     public void Clean_FutureBeyondAllowedWindow_ReturnsWholeNameWithoutYear()
     {
@@ -61,7 +98,7 @@ public sealed class FolderNameCleanerTests
         { "2 Days in New York[2012]", "2 Days in New York", 2012 },
         { "The Invite (2026) [1080p] [WEBRip] [5.1] [YTS.GG - YTS.BZ]", "The Invite", 2026 },
         { "The.Matrix.1999", "The Matrix", 1999 },
-        { "Inception (2010) Remastered", "Inception (2010) Remastered", null },
+        { "Inception (2010) Remastered", "Inception", 2010 },
         { "Inception (2010]", "Inception (2010]", null },
         { "(2010)", "(2010)", 2010 },
         { "Do The Right Thing [20th Anniversary SE].1989.1080p.BluRay", "Do The Right Thing [20th Anniversary SE]", 1989 },
