@@ -54,6 +54,49 @@ public sealed class TitleMatcherTests
         score.ShouldNotBeNull().ShouldBe(0.706, 0.001);
     }
 
+    [Theory]
+    [InlineData("City of God", 2002, 2004, 0.95)]
+    [InlineData("A Fistful of Dollars", 1964, 1967, 0.9)]
+    public void Score_CandidateUpToThreeYearsLater_IsPenalisedPerExtraYear(string title, int queryYear, int candidateYear, double expected)
+    {
+        // act
+        var score = TitleMatcher.Score(title, queryYear, title, candidateYear);
+
+        // assert
+        score.ShouldNotBeNull().ShouldBe(expected, 0.001);
+    }
+
+    [Fact]
+    public void Score_CandidateMoreThanThreeYearsLater_IsNull()
+    {
+        // act
+        var score = TitleMatcher.Score("Hamilton", 2016, "Hamilton", 2020);
+
+        // assert
+        score.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Score_CandidateMainTitleBeforeSubtitle_MatchesWithSubtitlePenalty()
+    {
+        // act
+        var score = TitleMatcher.Score("Pokémon - The First Movie", null, "Pokémon: The First Movie - Mewtwo Strikes Back", null);
+
+        // assert
+        score.ShouldNotBeNull().ShouldBe(0.95, 0.001);
+    }
+
+    [Fact]
+    public void Score_FullTitleMatch_RanksAboveMainTitleMatch()
+    {
+        // act
+        var full = TitleMatcher.Score("Alien - Resurrection", null, "Alien - Resurrection", null);
+        var mainOnly = TitleMatcher.Score("Alien", null, "Alien - Resurrection", null);
+
+        // assert
+        full.ShouldNotBeNull().ShouldBeGreaterThan(mainOnly.ShouldNotBeNull());
+    }
+
     [Fact]
     public void Similarity_IgnoresCaseDiacriticsAndPunctuation()
     {
@@ -79,6 +122,18 @@ public sealed class TitleMatcherTests
     {
         // act
         var score = TitleMatcher.Similarity("2 Days in New York", "Two Days in New York");
+
+        // assert
+        score.ShouldBe(1.0);
+    }
+
+    [Theory]
+    [InlineData("Gone in Sixty Seconds", "Gone in 60 Seconds")]
+    [InlineData("Twenty-Eight Days Later", "28 Days Later")]
+    public void Similarity_ComparesTensWordsAsDigits(string left, string right)
+    {
+        // act
+        var score = TitleMatcher.Similarity(left, right);
 
         // assert
         score.ShouldBe(1.0);
@@ -122,6 +177,29 @@ public sealed class TitleMatcherTests
 
         // assert
         variants.ShouldBe(["Catch 22"]);
+    }
+
+    [Fact]
+    public void SearchVariants_DashSeparator_AddsColonVariant()
+    {
+        // act
+        var variants = TitleMatcher.SearchVariants("Futurama - Into The Wild Green Yonder");
+
+        // assert
+        variants.ShouldBe(["Futurama - Into The Wild Green Yonder", "Futurama: Into The Wild Green Yonder"]);
+    }
+
+    [Theory]
+    [InlineData("Gone in Sixty Seconds", "Gone in 60 Seconds")]
+    [InlineData("Twenty-Eight Days Later", "28 Days Later")]
+    [InlineData("Ninety Nine Homes", "99 Homes")]
+    public void SearchVariants_TensWrittenAsWords_AddsDigitVariant(string title, string digitized)
+    {
+        // act
+        var variants = TitleMatcher.SearchVariants(title);
+
+        // assert
+        variants.ShouldBe([title, digitized]);
     }
 
     [Fact]

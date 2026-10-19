@@ -430,7 +430,7 @@ public sealed class DirectoryMediaLibraryScannerTests
 
     public static TheoryData<string, string> FolderWithoutUsableYear() => new()
     {
-        { "Inception (2010) Remastered", "Inception (2010) Remastered" },
+        { "Inception (2010) Revisited", "Inception (2010) Revisited" },
         { "Inception (2010]", "Inception (2010]" },
         { "Inception (201)", "Inception (201)" },
         { "Inception (20100)", "Inception (20100)" },
