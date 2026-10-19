@@ -86,7 +86,9 @@ function Set-FixtureHarnessConfig {
         # $null leaves maxKillShare out entirely, so the gate reads its default of 50.
         [AllowNull()][string]$MaxKillShare = '50',
         # $null (the default) leaves maxKillFileSpan out, so the gate reads its default of 15.
-        [AllowNull()][string]$MaxKillFileSpan = $null
+        [AllowNull()][string]$MaxKillFileSpan = $null,
+        # $null (the default) leaves concurrency out, so the gate reads its default of the runner core count.
+        [AllowNull()][string]$Concurrency = $null
     )
 
     $lines = [System.Collections.Generic.List[string]]::new()
@@ -99,6 +101,9 @@ function Set-FixtureHarnessConfig {
     }
     if ($null -ne $MaxKillFileSpan) {
         $lines.Add("    maxKillFileSpan: $MaxKillFileSpan")
+    }
+    if ($null -ne $Concurrency) {
+        $lines.Add("    concurrency: $Concurrency")
     }
     if ($null -ne $Exclusions) {
         $lines.Add('    exclusions:')
@@ -713,7 +718,8 @@ $killedInChangedFile,
         'Whole-project mode: LamuFlix.Core',
         'LamuFlix.Core.csproj',
         'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj',
-        '"additional-timeout": 30000'
+        '"additional-timeout": 30000',
+        '"concurrency":'
     ) -MustNotContain @('SKIPPED')
 
     Assert-MutationCase -Name '10c a stryker-config.json without additional-timeout is GATE NOT WIRED' -Setup {
@@ -747,8 +753,43 @@ $killedInChangedFile,
 "@
     Assert-MutationCase -Name '11 whole-project invocation via the stub dotnet writes the report and passes' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null
-    } -Arguments @('-WholeProject', '-OutputRoot', $wpPassOut) -ExpectedExit 0 -MustContain @('PASSED') `
+    } -Arguments @('-WholeProject', '-OutputRoot', $wpPassOut) -ExpectedExit 0 -MustContain @('PASSED', 'Mutation timing:') `
         -Environment (New-StrykerStubEnvironment -OutputRoot $wpPassOut -ReportSource $wpPassReport)
+
+    $script:checks++
+    $timingPath = Join-Path $wpPassOut 'mutation-timing.json'
+    $timingProblems = [System.Collections.Generic.List[string]]::new()
+    if (-not (Test-Path -LiteralPath $timingPath)) {
+        $timingProblems.Add("timing file missing at '$timingPath'")
+    }
+    else {
+        $timing = Get-Content -LiteralPath $timingPath -Raw | ConvertFrom-Json
+        if ($timing.projects.Count -ne 1) { $timingProblems.Add("expected 1 timed project, got $($timing.projects.Count)") }
+        if ($timing.projects[0].totalMutants -ne 1) { $timingProblems.Add("expected 1 total mutant, got $($timing.projects[0].totalMutants)") }
+        if ($timing.projects[0].tested -ne 1) { $timingProblems.Add("expected 1 tested mutant, got $($timing.projects[0].tested)") }
+        if ([double]$timing.durationSeconds -lt 0) { $timingProblems.Add('total durationSeconds must not be negative') }
+        if ([double]$timing.projects[0].durationSeconds -lt 0) { $timingProblems.Add('project durationSeconds must not be negative') }
+        if ([int]$timing.concurrency -lt 1) { $timingProblems.Add('concurrency must be at least 1') }
+        if ([int]$timing.threshold -ne 80) { $timingProblems.Add("expected threshold 80, got $($timing.threshold)") }
+    }
+    if ($timingProblems.Count -eq 0) {
+        Write-Host '  ok       11b stub run writes mutation-timing.json with wall time and mutant counts'
+    }
+    else {
+        $script:failures++
+        Write-Host '  FAIL     11b stub run writes mutation-timing.json with wall time and mutant counts' -ForegroundColor Red
+        foreach ($problem in $timingProblems) {
+            Write-Host "           - $problem" -ForegroundColor Red
+        }
+    }
+
+    Assert-MutationCase -Name '27 concurrency 0 is a configuration error that exits 1 before evaluation' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -Concurrency '0'
+        Write-KillSpanReport -Path $spanReport -FileCount 2
+    } -Arguments $spanArgs -ExpectedExit 1 -MustContain @(
+        'invalid mutation configuration in harness.yml gates.mutation.concurrency',
+        'must be an integer of at least 1, got ''0'''
+    ) -MustNotContain @('Suspected artifact kill', 'PASSED')
 
     $wpOutsideOut = Join-Path $script:work 'wp-outside-out'
     $wpOutsideReport = Join-Path $script:work 'wp-outside-report.json'

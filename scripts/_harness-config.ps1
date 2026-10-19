@@ -39,6 +39,7 @@ $script:HarnessSchema = @{
     'gates.mutation.threshold'                   = 'int'
     'gates.mutation.maxKillShare'                = 'int'
     'gates.mutation.maxKillFileSpan'             = 'int'
+    'gates.mutation.concurrency'               = 'int'
     'gates.mutation.exclusions'                  = 'map'
     'gates.analyzers.mode'                       = 'scalar'
     'gates.analyzers.warningsAsErrors'           = 'bool'
@@ -83,6 +84,7 @@ function Get-HarnessDefaults {
         'gates.mutation.threshold'                   = 80
         'gates.mutation.maxKillShare'                = 50
         'gates.mutation.maxKillFileSpan'             = 15
+        'gates.mutation.concurrency'               = $null   # resolved from the runner core count in run-mutation.ps1
         'gates.mutation.exclusions'                  = @{}
         'gates.analyzers.mode'                       = 'All'
         'gates.analyzers.warningsAsErrors'           = $false
