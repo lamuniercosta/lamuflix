@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+e2e/.runtime/
 package-lock.json
 src/api/openapi.json
 src/api/types.ts

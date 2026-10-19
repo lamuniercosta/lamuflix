@@ -10,6 +10,7 @@ export default [
     ignores: [
       'dist/',
       'coverage/',
+      'e2e/.runtime/',
       'public/mockServiceWorker.js',
       'src/api/types.ts',
       'src/mocks/handlers.ts',

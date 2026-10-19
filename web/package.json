@@ -8,14 +8,16 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build",
+    "build": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && npm run typecheck:e2e && vite build",
     "lint": "npm run check:api && eslint . --max-warnings 0 && prettier --check .",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:run": "vitest run",
     "test:watch": "vitest",
     "generate:api": "node scripts/generate-api.mjs",
-    "check:api": "node scripts/check-api.mjs"
+    "check:api": "node scripts/check-api.mjs",
+    "e2e": "node e2e/run.mjs",
+    "typecheck:e2e": "tsc --noEmit -p e2e/tsconfig.json"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.2",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/dom": "10.4.2",
     "@testing-library/jest-dom": "7.0.1",
