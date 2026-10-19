@@ -189,10 +189,12 @@ public sealed class MigrationTests(PostgresFixture fixture)
         applied[1].ShouldEndWith("_AddMovieWriters");
         var priorColumns = await catalog.ListColumnsAsync("movies", cancellationToken);
         priorColumns.ShouldBe(
-            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested"),
+            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id"),
             ignoreOrder: true);
         priorColumns.ShouldNotContain("is_watched");
         priorColumns.ShouldNotContain("is_not_interested");
+        priorColumns.ShouldNotContain("parsed_release_year");
+        priorColumns.ShouldNotContain("manual_imdb_id");
         var rows = await catalog.ListLegacyMoviesAsync(cancellationToken);
         rows.ShouldBe(expected, ignoreOrder: true);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
