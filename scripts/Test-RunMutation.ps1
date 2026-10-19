@@ -753,7 +753,7 @@ $killedInChangedFile,
 "@
     Assert-MutationCase -Name '11 whole-project invocation via the stub dotnet writes the report and passes' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null
-    } -Arguments @('-WholeProject', '-OutputRoot', $wpPassOut) -ExpectedExit 0 -MustContain @('PASSED', 'Mutation timing:') `
+    } -Arguments @('-WholeProject', '-OutputRoot', $wpPassOut) -ExpectedExit 0 -MustContain @('PASSED', 'Mutation timing:', 'Stryker native exit for LamuFlix.Core.csproj: 0') `
         -Environment (New-StrykerStubEnvironment -OutputRoot $wpPassOut -ReportSource $wpPassReport)
 
     $script:checks++
@@ -779,6 +779,32 @@ $killedInChangedFile,
         $script:failures++
         Write-Host '  FAIL     11b stub run writes mutation-timing.json with wall time and mutant counts' -ForegroundColor Red
         foreach ($problem in $timingProblems) {
+            Write-Host "           - $problem" -ForegroundColor Red
+        }
+    }
+
+    $script:checks++
+    $receiptProblems = [System.Collections.Generic.List[string]]::new()
+    foreach ($entry in @(
+        @{ Line = 'Stryker native exit for LamuFlix.Core.csproj: 0 (12.3s wall time)'; Expected = 0 },
+        @{ Line = 'Stryker native exit for LamuFlix.Core.csproj: 0'; Expected = 0 }
+    )) {
+        if ($entry.Line -match ': (-?\d+)') {
+            if ([int]$Matches[1] -ne $entry.Expected) {
+                $receiptProblems.Add("line '$($entry.Line)' parsed as $($Matches[1]), expected $($entry.Expected)")
+            }
+        }
+        else {
+            $receiptProblems.Add("receipt parse regex did not match '$($entry.Line)'")
+        }
+    }
+    if ($receiptProblems.Count -eq 0) {
+        Write-Host '  ok       11c receipt parse regex reads the Stryker native exit with and without the wall-time suffix'
+    }
+    else {
+        $script:failures++
+        Write-Host '  FAIL     11c receipt parse regex reads the Stryker native exit with and without the wall-time suffix' -ForegroundColor Red
+        foreach ($problem in $receiptProblems) {
             Write-Host "           - $problem" -ForegroundColor Red
         }
     }

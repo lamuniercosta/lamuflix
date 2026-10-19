@@ -350,7 +350,7 @@ try {
 
         $log = @(Get-Content -LiteralPath $gateLog)
         $nativeLine = $log | Where-Object { $_ -match "^Stryker native exit for $([regex]::Escape($proj))\.csproj: (-?\d+)" } | Select-Object -First 1
-        $strykerExit = if ($nativeLine -and $nativeLine -match ': (-?\d+)$') { [int]$Matches[1] } else { $null }
+        $strykerExit = if ($nativeLine -match ': (-?\d+)') { [int]$Matches[1] } else { $null }
         $verdictStart = [array]::FindLastIndex([string[]]$log, [Predicate[string]] { param($l) $l -match '^Mutation testing: ' })
         $verdictLines = if ($verdictStart -ge 0) { @($log[$verdictStart..($log.Count - 1)] | Where-Object { $_.Trim() }) } else { @() }
 
