@@ -84,7 +84,8 @@ public sealed class ValueConverterPropertyTests
             EnrichmentFailureCategory.ProviderUnavailable.Code,
             EnrichmentFailureCategory.RateLimited.Code,
             EnrichmentFailureCategory.InvalidResponse.Code,
-            EnrichmentFailureCategory.Unknown.Code);
+            EnrichmentFailureCategory.Unknown.Code,
+            EnrichmentFailureCategory.DuplicateImdbId.Code);
         RoundTrip(new EnrichmentFailureCategoryConverter(), codes);
     }
 

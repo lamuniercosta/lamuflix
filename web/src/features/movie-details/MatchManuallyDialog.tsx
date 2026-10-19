@@ -5,6 +5,7 @@ import { extractImdbId } from './imdbMatch';
 import { MatchImdbIdError, useMatchImdbId, type ActorId } from './movieDetailsQueries';
 
 const INVALID_IMDB_INPUT_MESSAGE = 'Enter an IMDb id like tt0083658, or an IMDb title URL.';
+const DUPLICATE_IMDB_ID_MESSAGE = 'Another movie in your library already has this IMDb id.';
 
 type MatchManuallyDialogProps = {
   movieId: ActorId;
@@ -22,6 +23,7 @@ function matchErrorMessage(error: unknown): string {
   if (error instanceof MatchImdbIdError) {
     if (error.status === 404) return 'This movie is no longer in the library.';
     if (error.status === 400) return "That IMDb id isn't valid.";
+    if (error.status === 409) return error.detail ?? DUPLICATE_IMDB_ID_MESSAGE;
   }
   return "Couldn't match this movie. Try again later.";
 }

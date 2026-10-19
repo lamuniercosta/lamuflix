@@ -373,6 +373,117 @@ public sealed class ProcessEnrichmentCommandHandlerTests
             EnrichmentFailureCategory.ProviderUnavailable));
     }
 
+    [Fact]
+    public async Task HandleAsync_FoundImdbIdHeldByAnotherMovie_MarksFailedAsDuplicateAndDeadLetters()
+    {
+        // arrange
+        var movie = PendingMovie();
+        var imdbId = new ImdbId("tt0083658");
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", imdbId: imdbId)));
+        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(new MovieId(99));
+        var command = new ProcessEnrichmentCommand(movie.Id, 1);
+
+        // act
+        var outcome = await handler.HandleAsync(command, ct);
+
+        // assert
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            EnrichmentFailureCategory.DuplicateImdbId));
+        movie.Status.ShouldBe(EnrichmentStatus.Failed);
+        movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+        movie.Metadata.ShouldBeNull();
+        await movies.Received(1).SaveChangesAsync(ct);
+        AssertFailureLogged(command, EnrichmentFailureCategory.DuplicateImdbId);
+    }
+
+    [Fact]
+    public async Task HandleAsync_FoundImdbIdHeldByTheSameMovie_Enriches()
+    {
+        // arrange
+        var movie = PendingMovie();
+        var imdbId = new ImdbId("tt0083658");
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", imdbId: imdbId)));
+        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(movie.Id);
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Completed(true));
+        movie.Status.ShouldBe(EnrichmentStatus.Enriched);
+        await movies.Received(1).SaveChangesAsync(ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ManualImdbIdHeldByAnotherMovie_FailsBeforeTheProviderLookup()
+    {
+        // arrange
+        var movie = PendingMovie();
+        var manualId = new ImdbId("tt0083658");
+        movie.MatchManually(manualId);
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        movies.FindMovieIdByImdbIdAsync(manualId, ct).Returns(new MovieId(99));
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            EnrichmentFailureCategory.DuplicateImdbId));
+        movie.Status.ShouldBe(EnrichmentStatus.Failed);
+        await provider.DidNotReceive().FindAsync(Arg.Any<MetadataLookup>(), Arg.Any<CancellationToken>());
+        await movies.Received(1).SaveChangesAsync(ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_SaveLosesTheImdbIdRace_ReloadsTheRowAndFailsItAsDuplicate()
+    {
+        // arrange
+        var movie = PendingMovie();
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        var reloaded = Movie.Rehydrate(
+            movie.Id,
+            movie.Title,
+            movie.Path,
+            movie.Format,
+            false,
+            null,
+            EnrichmentStatus.Pending,
+            null,
+            1,
+            null,
+            null);
+        movies.GetAsync(movie.Id, ct).Returns(movie, reloaded);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Found(new MovieMetadata("Enriched Title")));
+        var saves = 0;
+        movies.SaveChangesAsync(ct).Returns(_ => saves++ == 0
+            ? throw new DuplicateImdbIdException("IX_movies_imdb_id")
+            : Task.CompletedTask);
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            EnrichmentFailureCategory.DuplicateImdbId));
+        reloaded.Status.ShouldBe(EnrichmentStatus.Failed);
+        reloaded.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+        await movies.Received(2).GetAsync(movie.Id, ct);
+        await movies.Received(2).SaveChangesAsync(ct);
+    }
+
     private void AssertFailureLogged(ProcessEnrichmentCommand command, EnrichmentFailureCategory category)
     {
         logger.Entries.Count.ShouldBe(1);

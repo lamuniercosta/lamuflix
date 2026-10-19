@@ -91,6 +91,51 @@ public sealed class MatchMovieImdbIdCommandHandlerTests
         await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_IdHeldByAnotherMovie_ThrowsConflictAndLeavesTheMovieUnchanged()
+    {
+        // arrange
+        var movie = MovieIn(EnrichmentStatus.NotFound);
+        var imdbId = new ImdbId("tt0083658");
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(new MovieId(99));
+
+        // act
+        var thrown = await Should.ThrowAsync<ImdbIdConflictException>(
+            () => handler.HandleAsync(new MatchMovieImdbIdCommand(movie.Id, imdbId), ct));
+
+        // assert
+        thrown.ImdbId.ShouldBe(imdbId);
+        thrown.HeldBy.ShouldBe(new MovieId(99));
+        movie.ManualImdbId.ShouldBeNull();
+        movie.Status.ShouldBe(EnrichmentStatus.NotFound);
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_IdHeldByTheSameMovie_Succeeds()
+    {
+        // arrange
+        var movie = MovieIn(EnrichmentStatus.Failed);
+        var imdbId = new ImdbId("tt0083658");
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(movie.Id);
+
+        // act
+        var result = await handler.HandleAsync(new MatchMovieImdbIdCommand(movie.Id, imdbId), ct);
+
+        // assert
+        result.ShouldBe(movie.Id);
+        movie.ManualImdbId.ShouldBe(imdbId);
+        await movies.Received(1).SaveChangesAsync(ct);
+        await queue.Received(1).EnqueueAsync(
+            Arg.Is<EnrichmentRequested>(message => message.MovieId == movie.Id),
+            ct);
+    }
+
     public static TheoryData<EnrichmentStatus> Statuses() =>
     [
         EnrichmentStatus.NotFound,

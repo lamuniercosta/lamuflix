@@ -28,6 +28,10 @@ _Avoid_: job, task, processing
 Pending, Enriched, NotFound, or Failed on the Movie aggregate. `MarkEnriched`, `MarkNotFound`, and `MarkFailed` are legal only from Pending. `RequestEnrichment` is legal only from Enriched, NotFound, or Failed.
 _Avoid_: state, job status
 
+**Duplicate IMDb id**
+An IMDb id held by one Movie row at a time: the unique index `IX_movies_imdb_id` admits a single holder. When enrichment resolves a movie to an id another row already holds, the movie ends as Failed with the non-retryable `duplicate_imdb_id` category. A manual match to a held id is rejected with 409 Conflict and enqueues nothing.
+_Avoid_: duplicate movie, collision, conflict (unqualified)
+
 **Failure Category**
 A caller-safe taxonomy.
 _Avoid_: error type, raw exception

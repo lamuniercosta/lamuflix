@@ -63,6 +63,12 @@ public sealed class LeaseAwareMovieRepository(TimeProvider time, TimeSpan claimL
         return Task.FromResult(true);
     }
 
+    public Task<MovieId?> FindMovieIdByImdbIdAsync(ImdbId imdbId, CancellationToken ct) =>
+        Task.FromResult(movies.Values
+            .Where(movie => movie.Metadata?.ImdbId == imdbId)
+            .Select(movie => (MovieId?)movie.Id)
+            .FirstOrDefault());
+
     public Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<MovieId>>([.. movies.Values
             .Where(movie => movie.Status == EnrichmentStatus.Pending

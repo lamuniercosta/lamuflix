@@ -31,6 +31,28 @@ public sealed class ProcessEnrichmentCommandHandler(
         var movie = await movies.GetAsync(command.MovieId, cancellationToken)
                     ?? throw new NotFoundException();
 
+        if (await IsHeldByAnotherMovieAsync(movie, movie.ManualImdbId, cancellationToken))
+        {
+            return await FailAsync(command, EnrichmentFailureCategory.DuplicateImdbId, movie, cancellationToken);
+        }
+
+        var result = await LookupAsync(movie, cancellationToken);
+
+        if (result is MetadataLookupResult.Failed failed)
+        {
+            return await FailAsync(command, failed.Category, movie, cancellationToken);
+        }
+
+        if (await IsFoundImdbIdHeldByAnotherMovieAsync(movie, result, cancellationToken))
+        {
+            return await FailAsync(command, EnrichmentFailureCategory.DuplicateImdbId, movie, cancellationToken);
+        }
+
+        return await CompleteAsync(command, movie, result, cancellationToken);
+    }
+
+    private async Task<MetadataLookupResult> LookupAsync(Movie movie, CancellationToken cancellationToken)
+    {
         // ReSharper disable once RedundantAssignment - the seed keeps the lookup result assigned when Stryker removes a try or catch body, so those mutants compile instead of tripping CS0165.
         MetadataLookupResult result = new MetadataLookupResult.Failed(EnrichmentFailureCategory.Unknown);
         try
@@ -50,15 +72,49 @@ public sealed class ProcessEnrichmentCommandHandler(
             result = new MetadataLookupResult.Failed(EnrichmentFailureClassifier.Classify(exception));
         }
 
-        if (result is MetadataLookupResult.Failed failed)
-        {
-            return await FailAsync(command, failed.Category, movie, cancellationToken);
-        }
+        return result;
+    }
 
+    private async Task<ProcessEnrichmentOutcome> CompleteAsync(
+        ProcessEnrichmentCommand command,
+        Movie movie,
+        MetadataLookupResult result,
+        CancellationToken cancellationToken)
+    {
         RecordLookupOutcome(result);
         Apply(movie, result, time.GetUtcNow());
-        await movies.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await movies.SaveChangesAsync(cancellationToken);
+        }
+        catch (DuplicateImdbIdException)
+        {
+            // Another row took the id between the lookup check and the save: reload the rejected row and end it as a duplicate.
+            // The classified outcome was already recorded above, so settlement records no second measurement.
+            var fresh = await movies.GetAsync(command.MovieId, cancellationToken)
+                        ?? throw new NotFoundException();
+            return await SettleFailureAsync(command, EnrichmentFailureCategory.DuplicateImdbId, fresh, cancellationToken);
+        }
+
         return new ProcessEnrichmentOutcome.Completed(Claimed: true);
+    }
+
+    private async Task<bool> IsFoundImdbIdHeldByAnotherMovieAsync(
+        Movie movie,
+        MetadataLookupResult result,
+        CancellationToken cancellationToken) =>
+        result is MetadataLookupResult.Found found
+        && await IsHeldByAnotherMovieAsync(movie, found.Metadata.ImdbId, cancellationToken);
+
+    private async Task<bool> IsHeldByAnotherMovieAsync(Movie movie, ImdbId? imdbId, CancellationToken cancellationToken)
+    {
+        if (imdbId is null)
+        {
+            return false;
+        }
+
+        var holder = await movies.FindMovieIdByImdbIdAsync(imdbId, cancellationToken);
+        return holder is not null && holder != movie.Id;
     }
 
     private async Task<ProcessEnrichmentOutcome> FailAsync(
@@ -71,6 +127,15 @@ public sealed class ProcessEnrichmentCommandHandler(
             1,
             new KeyValuePair<string, object?>(TelemetryConstants.OutcomeTagName, TelemetryConstants.FailedOutcome),
             new KeyValuePair<string, object?>(TelemetryConstants.FailureCategoryTagName, category.Code));
+        return await SettleFailureAsync(command, category, movie, cancellationToken);
+    }
+
+    private async Task<ProcessEnrichmentOutcome> SettleFailureAsync(
+        ProcessEnrichmentCommand command,
+        EnrichmentFailureCategory category,
+        Movie movie,
+        CancellationToken cancellationToken)
+    {
         if (EnrichmentRetryPolicy.Decide(category, command.Attempt, options.Value.MaxAttempts) is { } retry)
         {
             LogOutcome(command, category);
@@ -113,4 +178,3 @@ public sealed class ProcessEnrichmentCommandHandler(
             command.Attempt,
             category.Code);
 }
-

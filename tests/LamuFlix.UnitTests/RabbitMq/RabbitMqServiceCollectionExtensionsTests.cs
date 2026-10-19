@@ -231,6 +231,9 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
 
         public Task<bool> TryClaimForEnrichmentAsync(MovieId id, CancellationToken ct) => Task.FromResult(false);
 
+        public Task<MovieId?> FindMovieIdByImdbIdAsync(ImdbId imdbId, CancellationToken ct) =>
+            Task.FromResult<MovieId?>(null);
+
         public Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<MovieId>>([]);
     }
@@ -248,5 +251,3 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
         }
     }
 }
-
-

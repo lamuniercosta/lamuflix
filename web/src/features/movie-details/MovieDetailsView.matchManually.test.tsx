@@ -14,6 +14,7 @@ const MATCH_INPUT_LABEL = 'IMDb id or URL';
 const NOT_IN_LIBRARY = 'This movie is no longer in the library.';
 const INVALID_INPUT = 'Enter an IMDb id like tt0083658, or an IMDb title URL.';
 const GENERIC_MATCH_ERROR = "Couldn't match this movie. Try again later.";
+const ALREADY_ASSIGNED_FALLBACK = 'Another movie in your library already has this IMDb id.';
 
 function seedLibrary(libraryClient: QueryClient, status: EnrichmentStatusValue) {
   libraryClient.setQueryData(browseMoviesQueryKey, {
@@ -187,6 +188,61 @@ describe('MovieDetailsView manual IMDb match', () => {
     submitMatch('tt0083658');
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(GENERIC_MATCH_ERROR);
+    expect(screen.getByRole('dialog', { name: 'Match manually' })).toBeInTheDocument();
+  });
+
+  it('shows the server detail and keeps the dialog open on a 409 conflict', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieDetailsNullMetadata)),
+      http.put('*/api/movies/:id/imdb', () =>
+        HttpResponse.json(
+          { ...problemDetails(409), detail: 'IMDb id tt8503618 is already assigned to movie 302.' },
+          {
+            status: 409,
+            headers: { 'Content-Type': 'application/problem+json' },
+          },
+        ),
+      ),
+    );
+    renderView('NotFound');
+    const dialog = await openMatchDialog();
+
+    submitMatch('tt8503618');
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'IMDb id tt8503618 is already assigned to movie 302.',
+    );
+    expect(screen.getByRole('dialog', { name: 'Match manually' })).toBeInTheDocument();
+  });
+
+  it('shows the fallback message on a 409 conflict without a body', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieDetailsNullMetadata)),
+      http.put('*/api/movies/:id/imdb', () => new HttpResponse(null, { status: 409 })),
+    );
+    renderView('NotFound');
+    const dialog = await openMatchDialog();
+
+    submitMatch('tt8503618');
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(ALREADY_ASSIGNED_FALLBACK);
+    expect(screen.getByRole('dialog', { name: 'Match manually' })).toBeInTheDocument();
+  });
+
+  it('shows the fallback message on a 409 conflict with a non-JSON body', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieDetailsNullMetadata)),
+      http.put(
+        '*/api/movies/:id/imdb',
+        () => new HttpResponse('<html>Conflict</html>', { status: 409 }),
+      ),
+    );
+    renderView('NotFound');
+    const dialog = await openMatchDialog();
+
+    submitMatch('tt8503618');
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(ALREADY_ASSIGNED_FALLBACK);
     expect(screen.getByRole('dialog', { name: 'Match manually' })).toBeInTheDocument();
   });
 
