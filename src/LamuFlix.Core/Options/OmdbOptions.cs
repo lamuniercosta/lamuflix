@@ -17,6 +17,10 @@ public sealed record OmdbOptions
     [AllowedBaseUrl]
     public string BaseUrl { get; init; } = string.Empty;
 
+    /// <summary>Minimum title similarity (0 to 1) a fuzzy search candidate needs before its details are fetched.</summary>
+    [Range(0.0, 1.0)]
+    public double MatchThreshold { get; init; } = 0.8;
+
     [AttributeUsage(AttributeTargets.Property)]
     private sealed class AllowedBaseUrlAttribute : ValidationAttribute
     {

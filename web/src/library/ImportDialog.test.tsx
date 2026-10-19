@@ -19,6 +19,16 @@ function renderApp() {
   return render(<App />, { wrapper: Wrapper });
 }
 
+const IMPORT_HINT = 'Folder name inside your movie library, e.g. 2 Days in New York[2012].';
+
+function expectDescribedByHintAndAlert(alert: HTMLElement) {
+  const hint = screen.getByText(IMPORT_HINT);
+  expect(screen.getByLabelText('Folder path')).toHaveAttribute(
+    'aria-describedby',
+    `${hint.id} ${alert.id}`,
+  );
+}
+
 async function openImport() {
   renderApp();
   fireEvent.click(screen.getByRole('button', { name: 'Import folder' }));
@@ -31,6 +41,16 @@ async function openImport() {
 describe('ImportDialog', () => {
   it('opens from Import folder showing title, label, and actions', async () => {
     await openImport();
+  });
+
+  it('shows a relative-name hint and placeholder wired to the folder input', async () => {
+    await openImport();
+    const input = screen.getByLabelText('Folder path');
+    const hint = screen.getByText(IMPORT_HINT);
+
+    expect(input).toHaveAttribute('placeholder', '2 Days in New York[2012]');
+    expect(input).toHaveAttribute('aria-describedby', hint.id);
+    expect(input).toHaveAccessibleDescription(IMPORT_HINT);
   });
 
   it('submits on Enter and prepends a Pending row from Location on 202', async () => {
@@ -58,7 +78,7 @@ describe('ImportDialog', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Folder path is required.');
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByLabelText('Folder path')).toHaveAttribute('aria-describedby', alert.id);
+    expectDescribedByHintAndAlert(alert);
   });
 
   it('keeps the dialog open and describes a generic 400 error', async () => {
@@ -72,7 +92,7 @@ describe('ImportDialog', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(GENERIC_IMPORT_ERROR);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByLabelText('Folder path')).toHaveAttribute('aria-describedby', alert.id);
+    expectDescribedByHintAndAlert(alert);
   });
 
   it('keeps the dialog open and describes a generic network error', async () => {
@@ -86,7 +106,7 @@ describe('ImportDialog', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(GENERIC_IMPORT_ERROR);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByLabelText('Folder path')).toHaveAttribute('aria-describedby', alert.id);
+    expectDescribedByHintAndAlert(alert);
   });
 
   it('returns focus to Import folder on Escape and Cancel', async () => {

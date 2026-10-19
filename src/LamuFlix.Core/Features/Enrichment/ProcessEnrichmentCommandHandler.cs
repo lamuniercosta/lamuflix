@@ -35,7 +35,7 @@ public sealed class ProcessEnrichmentCommandHandler(
         MetadataLookupResult result = new MetadataLookupResult.Failed(EnrichmentFailureCategory.Unknown);
         try
         {
-            var lookup = new MetadataLookup(movie.Title, movie.Metadata?.ReleaseYear);
+            var lookup = new MetadataLookup(movie.Title, movie.Metadata?.ReleaseYear ?? movie.ParsedReleaseYear);
             result = await provider.FindAsync(lookup, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

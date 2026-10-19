@@ -22,6 +22,7 @@ function focusableElements(root: HTMLElement): HTMLElement[] {
 export default function ImportDialog({ open, onClose, onImported }: ImportDialogProps) {
   const titleId = useId();
   const inputId = useId();
+  const hintId = useId();
   const errorId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const alertRef = useRef<HTMLParagraphElement>(null);
@@ -106,12 +107,16 @@ export default function ImportDialog({ open, onClose, onImported }: ImportDialog
             className="lamu-field-input"
             name="folderPath"
             value={folderPath}
+            placeholder="2 Days in New York[2012]"
             autoFocus
             readOnly={busy}
             aria-invalid={errorMessage != null}
-            aria-describedby={errorMessage ? errorId : undefined}
+            aria-describedby={errorMessage ? `${hintId} ${errorId}` : hintId}
             onChange={(event) => setFolderPath(event.target.value)}
           />
+          <p id={hintId} className="lamu-dialog-hint">
+            Folder name inside your movie library, e.g. 2 Days in New York[2012].
+          </p>
           {errorMessage ? (
             <p ref={alertRef} id={errorId} role="alert" tabIndex={-1} className="lamu-dialog-alert">
               <AlertTriangleIcon size={18} />

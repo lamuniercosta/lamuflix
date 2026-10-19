@@ -7,12 +7,13 @@ public sealed class Movie
     private const string InWatchlist = "InWatchlist";
     private const string NotInWatchlist = "NotInWatchlist";
 
-    private Movie(MovieId id, string title, LibraryPath path, MediaFormat format)
+    private Movie(MovieId id, string title, LibraryPath path, MediaFormat format, ReleaseYear? parsedReleaseYear)
     {
         Id = id;
         Title = title;
         Path = path;
         Format = format;
+        ParsedReleaseYear = parsedReleaseYear;
         Status = EnrichmentStatus.Pending;
     }
 
@@ -23,6 +24,9 @@ public sealed class Movie
     public LibraryPath Path { get; private set; }
 
     public MediaFormat Format { get; private set; }
+
+    /// <summary>The release year parsed from the library folder name, used before any metadata is known.</summary>
+    public ReleaseYear? ParsedReleaseYear { get; private set; }
 
     public bool IsInWatchlist { get; private set; }
 
@@ -38,10 +42,15 @@ public sealed class Movie
 
     public DateTimeOffset? LastAttemptAt { get; private set; }
 
-    public static Movie Create(MovieId id, string title, LibraryPath path, MediaFormat format)
+    public static Movie Create(
+        MovieId id,
+        string title,
+        LibraryPath path,
+        MediaFormat format,
+        ReleaseYear? parsedReleaseYear = null)
     {
         RequireTitle(title);
-        return new Movie(id, title, path, format);
+        return new Movie(id, title, path, format, parsedReleaseYear);
     }
 
     public static Movie Rehydrate(
@@ -55,10 +64,11 @@ public sealed class Movie
         DateTimeOffset? enrichedAt,
         int enrichmentAttempts,
         EnrichmentFailureCategory? lastFailureCategory,
-        DateTimeOffset? lastAttemptAt)
+        DateTimeOffset? lastAttemptAt,
+        ReleaseYear? parsedReleaseYear = null)
     {
         RequireTitle(title);
-        return new Movie(id, title, path, format)
+        return new Movie(id, title, path, format, parsedReleaseYear)
         {
             IsInWatchlist = isInWatchlist,
             Metadata = metadata,

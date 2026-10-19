@@ -32,6 +32,7 @@ public sealed partial class OmdbMetadataProvider(
     private const string FoundFlag = "True";
     private const string NotFoundFlag = "False";
     private const string MovieNotFoundError = "Movie not found!";
+    private const string TooManyResultsError = "Too many results.";
     private const string NotAvailable = "N/A";
     private const int YearDigits = 4;
 
@@ -64,33 +65,137 @@ public sealed partial class OmdbMetadataProvider(
 
     private async Task<MetadataLookupResult> ExecuteAsync(MetadataLookup lookup, CancellationToken ct)
     {
+        var direct = await FetchAsync(BuildUri(lookup), ct);
+        if (direct is Fetch.Rejected rejected)
+        {
+            return rejected.Failure;
+        }
+
+        var body = ((Fetch.Succeeded)direct).Body;
+        return ResponseMapper.IsMovieNotFound(body)
+            ? await FallbackAsync(lookup, ct)
+            : Classify(body);
+    }
+
+    private async Task<MetadataLookupResult> FallbackAsync(MetadataLookup lookup, CancellationToken ct)
+    {
+        var candidates = new List<SearchHit>();
+        foreach (var query in FallbackQueries(lookup))
+        {
+            var page = await SearchAsync(query, ct);
+            if (page.Failure is { } failure)
+            {
+                return failure;
+            }
+
+            candidates.AddRange(page.Hits);
+            if (BestCandidate(lookup, candidates) is { } match)
+            {
+                return await FetchMatchAsync(lookup, match, ct);
+            }
+        }
+
+        return NotFoundOutcome();
+    }
+
+    private static IEnumerable<SearchQuery> FallbackQueries(MetadataLookup lookup)
+    {
+        var year = lookup.ReleaseYear?.Value;
+        foreach (var title in TitleMatcher.SearchVariants(lookup.Title))
+        {
+            if (year is { } known)
+            {
+                yield return new SearchQuery(title, known);
+            }
+
+            yield return new SearchQuery(title, null);
+        }
+    }
+
+    private async Task<SearchPage> SearchAsync(SearchQuery query, CancellationToken ct)
+    {
+        var fetch = await FetchAsync(BuildSearchUri(query), ct);
+        if (fetch is Fetch.Rejected rejected)
+        {
+            return SearchPage.Failed(rejected.Failure);
+        }
+
+        var body = ((Fetch.Succeeded)fetch).Body;
+        if (ResponseMapper.IsSearchExhausted(body))
+        {
+            return SearchPage.Empty;
+        }
+
+        return ResponseMapper.IsFound(body) && body.Search is { } hits
+            ? new SearchPage(hits, Failure: null)
+            : SearchPage.Failed(InvalidBodyOutcome());
+    }
+
+    private Candidate? BestCandidate(MetadataLookup lookup, IReadOnlyList<SearchHit> hits)
+    {
+        Candidate? best = null;
+        foreach (var hit in hits)
+        {
+            var candidate = ScoreCandidate(lookup, hit);
+            if (candidate is { } scored
+                && scored.Score >= omdbOptions.MatchThreshold
+                && (best is null || scored.Score > best.Score))
+            {
+                best = scored;
+            }
+        }
+
+        return best;
+    }
+
+    private static Candidate? ScoreCandidate(MetadataLookup lookup, SearchHit hit)
+    {
+        if (hit.Title is null || !ImdbId.TryCreate(hit.Identifier, out var id))
+        {
+            return null;
+        }
+
+        var score = TitleMatcher.Score(
+            lookup.Title,
+            lookup.ReleaseYear?.Value,
+            hit.Title,
+            ResponseMapper.MapSearchYear(hit.Year));
+        return score is { } value ? new Candidate(hit.Title, id, value) : null;
+    }
+
+    private async Task<MetadataLookupResult> FetchMatchAsync(MetadataLookup lookup, Candidate candidate, CancellationToken ct)
+    {
+        Log.FallbackMatched(logger, lookup.Title, candidate.Title, candidate.Id.Value, Math.Round(candidate.Score, 3));
+        var fetch = await FetchAsync(BuildIdUri(candidate.Id), ct);
+        return fetch is Fetch.Rejected rejected
+            ? rejected.Failure
+            : Classify(((Fetch.Succeeded)fetch).Body);
+    }
+
+    private async Task<Fetch> FetchAsync(Uri uri, CancellationToken ct)
+    {
         try
         {
-            using var response = await httpClient.GetAsync(BuildUri(lookup), ct);
-            return await InterpretAsync(response, ct);
+            using var response = await httpClient.GetAsync(uri, ct);
+            return await ReadAsync(response, ct);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            return UnavailableFailure(statusCode: null, exception: null);
+            return new Fetch.Rejected(UnavailableFailure(statusCode: null, exception: null));
         }
         catch (Exception exception) when (exception is HttpRequestException or TimeoutRejectedException or BrokenCircuitException)
         {
-            return UnavailableFailure(statusCode: null, exception: exception);
+            return new Fetch.Rejected(UnavailableFailure(statusCode: null, exception: exception));
         }
     }
 
-    private async Task<MetadataLookupResult> InterpretAsync(HttpResponseMessage response, CancellationToken ct)
+    private async Task<Fetch> ReadAsync(HttpResponseMessage response, CancellationToken ct)
     {
         if (!response.IsSuccessStatusCode)
         {
-            return StatusFailure(response.StatusCode);
+            return new Fetch.Rejected(StatusFailure(response.StatusCode));
         }
 
-        return await BodyOutcomeAsync(response, ct);
-    }
-
-    private async Task<MetadataLookupResult> BodyOutcomeAsync(HttpResponseMessage response, CancellationToken ct)
-    {
         Response? body;
         try
         {
@@ -98,21 +203,16 @@ public sealed partial class OmdbMetadataProvider(
         }
         catch (Exception exception) when (exception is JsonException or NotSupportedException)
         {
-            Log.InvalidResponse(logger, MalformedBody);
-            return Failure(EnrichmentFailureCategory.InvalidResponse);
+            return new Fetch.Rejected(MalformedFailure());
         }
 
-        return Classify(body);
+        return body is null
+            ? new Fetch.Rejected(MalformedFailure())
+            : new Fetch.Succeeded(body);
     }
 
-    private MetadataLookupResult Classify(Response? body)
+    private MetadataLookupResult Classify(Response body)
     {
-        if (body is null)
-        {
-            Log.InvalidResponse(logger, MalformedBody);
-            return Failure(EnrichmentFailureCategory.InvalidResponse);
-        }
-
         if (ResponseMapper.IsFound(body))
         {
             return FoundOutcome(body);
@@ -143,6 +243,12 @@ public sealed partial class OmdbMetadataProvider(
     private MetadataLookupResult InvalidBodyOutcome()
     {
         Log.InvalidResponse(logger, UnusableBody);
+        return Failure(EnrichmentFailureCategory.InvalidResponse);
+    }
+
+    private MetadataLookupResult MalformedFailure()
+    {
+        Log.InvalidResponse(logger, MalformedBody);
         return Failure(EnrichmentFailureCategory.InvalidResponse);
     }
 
@@ -223,15 +329,56 @@ public sealed partial class OmdbMetadataProvider(
             ? string.Empty
             : "&y=" + Uri.EscapeDataString(lookup.ReleaseYear.Value.ToString(CultureInfo.InvariantCulture));
 
-        var query = string.Concat(
-            "?apikey=",
-            Uri.EscapeDataString(omdbOptions.ApiKey),
-            "&t=",
-            Uri.EscapeDataString(lookup.Title),
-            "&type=movie",
-            "&plot=full",
-            year);
-
-        return new Uri(new Uri(omdbOptions.BaseUrl), query);
+        return ComposeUri(
+            string.Concat(
+                "&t=",
+                Uri.EscapeDataString(lookup.Title),
+                "&type=movie",
+                "&plot=full",
+                year));
     }
+
+    private Uri BuildSearchUri(SearchQuery query)
+    {
+        var year = query.Year is { } known
+            ? "&y=" + known.ToString(CultureInfo.InvariantCulture)
+            : string.Empty;
+
+        return ComposeUri(
+            string.Concat(
+                "&s=",
+                Uri.EscapeDataString(query.Title),
+                "&type=movie",
+                year));
+    }
+
+    private Uri BuildIdUri(ImdbId id) =>
+        ComposeUri(string.Concat("&i=", Uri.EscapeDataString(id.Value), "&plot=full"));
+
+    private Uri ComposeUri(string parameters) =>
+        new(
+            new Uri(omdbOptions.BaseUrl),
+            string.Concat("?apikey=", Uri.EscapeDataString(omdbOptions.ApiKey), parameters));
+
+    private abstract record Fetch
+    {
+        private Fetch()
+        {
+        }
+
+        public sealed record Succeeded(Response Body) : Fetch;
+
+        public sealed record Rejected(MetadataLookupResult Failure) : Fetch;
+    }
+
+    private sealed record SearchQuery(string Title, int? Year);
+
+    private sealed record SearchPage(IReadOnlyList<SearchHit> Hits, MetadataLookupResult? Failure)
+    {
+        public static SearchPage Empty { get; } = new([], Failure: null);
+
+        public static SearchPage Failed(MetadataLookupResult failure) => new([], failure);
+    }
+
+    private sealed record Candidate(string Title, ImdbId Id, double Score);
 }

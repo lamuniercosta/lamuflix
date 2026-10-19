@@ -135,6 +135,10 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("metadata_title");
 
+                    b.Property<int?>("ParsedReleaseYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("parsed_release_year");
+
                     b.Property<string>("Plot")
                         .HasColumnType("text")
                         .HasColumnName("plot");

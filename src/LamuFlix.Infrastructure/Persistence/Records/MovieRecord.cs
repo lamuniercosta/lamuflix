@@ -30,6 +30,8 @@ public sealed class MovieRecord
 
     public Runtime? RuntimeMinutes { get; set; }
 
+    public ReleaseYear? ParsedReleaseYear { get; set; }
+
     public ReleaseYear? ReleaseYear { get; set; }
 
     public ImdbRating? ImdbRating { get; set; }

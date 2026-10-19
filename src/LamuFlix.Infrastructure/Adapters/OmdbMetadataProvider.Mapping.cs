@@ -18,6 +18,14 @@ public sealed partial class OmdbMetadataProvider
             string.Equals(response.ResponseFlag, NotFoundFlag, StringComparison.Ordinal)
             && string.Equals(response.Error, MovieNotFoundError, StringComparison.Ordinal);
 
+        public static bool IsSearchExhausted(Response response) =>
+            string.Equals(response.ResponseFlag, NotFoundFlag, StringComparison.Ordinal)
+            && (string.Equals(response.Error, MovieNotFoundError, StringComparison.Ordinal)
+                || string.Equals(response.Error, TooManyResultsError, StringComparison.Ordinal));
+
+        public static int? MapSearchYear(string? year) =>
+            TryLeadingDigits(year, out var value) ? value : null;
+
         public static MovieMetadata? Map(Response response, DateTimeOffset now) =>
             TryTitle(response.Title, out var title)
                 ? new MovieMetadata(
@@ -182,5 +190,22 @@ public sealed partial class OmdbMetadataProvider
 
         [JsonPropertyName("Metascore")]
         public string? MetaScore { get; set; }
+
+        [JsonPropertyName("Search")]
+        public List<SearchHit>? Search { get; set; }
     }
+
+    // ReSharper disable UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+    private sealed class SearchHit
+    {
+        [JsonPropertyName("Title")]
+        public string? Title { get; init; }
+
+        [JsonPropertyName("Year")]
+        public string? Year { get; init; }
+
+        [JsonPropertyName("imdbID")]
+        public string? Identifier { get; init; }
+    }
+    // ReSharper restore UnusedAutoPropertyAccessor.Local
 }
