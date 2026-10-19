@@ -112,9 +112,12 @@ CONFIGURATION:
   timeouts, which Stryker counts as detected, so the score rises without any test
   catching the mutant (DEV-410).
 
-  gates.mutation.concurrency is an integer of at least 1 (default: the runner's core
-  count): how many test runners Stryker runs in parallel. The gate copies it into the
-  config it generates.
+  gates.mutation.concurrency is an integer of at least 1 (default: half the
+  runner's logical cores, Stryker's own default): how many test runners Stryker
+  runs in parallel. The gate copies it into the config it generates. Higher
+  values over-subscribe the runner and turn surviving mutants into timeouts,
+  which Stryker counts as detected, so the score rises without any test
+  catching the mutant (DEV-435 measurement).
 
   Every real run writes mutation-timing.json next to the per-project folders under the
   output root: total and per-project wall time in seconds, mutant counts, score, and
@@ -589,12 +592,14 @@ catch {
     exit 1
 }
 
-# Test-runner parallelism (DEV-435). Defaults to the runner's core count so the
-# gate scales with the machine instead of Stryker's half-cores default; an
-# explicit harness value tunes it without touching the threshold.
+# Test-runner parallelism (DEV-435). Defaults to half the runner's logical cores,
+# Stryker's own default and recommended ceiling: full-core parallelism was
+# measured to turn surviving mutants into timeouts and flip gate verdicts
+# (DEV-435 paired runs), and Stryker itself warns above half cores. An explicit
+# harness value tunes it without touching the threshold.
 try {
     $concurrency = Get-HarnessValue -Key 'gates.mutation.concurrency' -RepoRoot $repoRoot
-    if ($null -eq $concurrency) { $concurrency = [Environment]::ProcessorCount }
+    if ($null -eq $concurrency) { $concurrency = [Math]::Max(1, [int][Math]::Floor([Environment]::ProcessorCount / 2)) }
     $concurrency = [int]$concurrency
     if ($concurrency -lt 1) {
         throw "must be an integer of at least 1, got '$concurrency'"
