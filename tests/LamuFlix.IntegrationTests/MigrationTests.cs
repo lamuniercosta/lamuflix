@@ -59,17 +59,15 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
     // Legacy rows are inserted with SQL that names only the columns the older schema has, because EF's
     // INSERT for the current model also writes parsed_release_year, which does not exist before that migration.
-    private static async Task<int> InsertLegacyMovieAsync(
+    private static Task InsertLegacyMovieAsync(
         DbContext context,
         string title,
         string libraryPath,
         CancellationToken cancellationToken)
     {
-        await context.Database.ExecuteSqlInterpolatedAsync(
+        return context.Database.ExecuteSqlInterpolatedAsync(
             $"INSERT INTO movies (title, library_path, format, is_in_watchlist, status, enrichment_attempts) VALUES ({title}, {libraryPath}, 'mkv', false, {(int)EnrichmentStatus.Pending}, 0)",
             cancellationToken);
-        return await context.Database.SqlQuery<int>($"SELECT id AS \"Value\" FROM movies WHERE title = {title}")
-            .SingleAsync(cancellationToken);
     }
 
     [Fact]
