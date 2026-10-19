@@ -45,6 +45,8 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '_gate-common.ps1')
 
+$gateStartUtc = [DateTime]::UtcNow
+
 # The exit-code contract of this gate. -Help prints this table and AGENTS.md carries a
 # copy of it, so the three texts stay identical line for line after the leading
 # whitespace on each line is trimmed.
@@ -109,6 +111,14 @@ CONFIGURATION:
   config it generates. A smaller allowance lets a slow machine turn survivors into
   timeouts, which Stryker counts as detected, so the score rises without any test
   catching the mutant (DEV-410).
+
+  gates.mutation.concurrency is an integer of at least 1 (default: the runner's core
+  count): how many test runners Stryker runs in parallel. The gate copies it into the
+  config it generates.
+
+  Every real run writes mutation-timing.json next to the per-project folders under the
+  output root: total and per-project wall time in seconds, mutant counts, score, and
+  the concurrency used, so per-run gate time can be tracked over time.
 
 EXAMPLES:
   ./scripts/run-mutation.ps1
@@ -579,6 +589,22 @@ catch {
     exit 1
 }
 
+# Test-runner parallelism (DEV-435). Defaults to the runner's core count so the
+# gate scales with the machine instead of Stryker's half-cores default; an
+# explicit harness value tunes it without touching the threshold.
+try {
+    $concurrency = Get-HarnessValue -Key 'gates.mutation.concurrency' -RepoRoot $repoRoot
+    if ($null -eq $concurrency) { $concurrency = [Environment]::ProcessorCount }
+    $concurrency = [int]$concurrency
+    if ($concurrency -lt 1) {
+        throw "must be an integer of at least 1, got '$concurrency'"
+    }
+}
+catch {
+    Write-Host "Mutation testing: FAILED - invalid mutation configuration in harness.yml gates.mutation.concurrency: $($_.Exception.Message)"
+    exit 1
+}
+
 # Direct report evaluation mode (e.g. fail-safe verification / regression check)
 if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
     $evalPath = if ([System.IO.Path]::IsPathRooted($EvaluateReport)) {
@@ -904,6 +930,7 @@ try {
                 'test-runner'       = $baseStryker.'test-runner'
                 'coverage-analysis' = $baseStryker.'coverage-analysis'
                 'additional-timeout' = [long]$additionalTimeoutValue
+                'concurrency'        = $concurrency
                 'test-projects'     = @($testProjectsByProject[$proj])
                 'since'             = [ordered]@{ 'enabled' = $false }
                 'mutate'         = @($projectGroups[$proj])
@@ -962,6 +989,7 @@ try {
 
     # Run Stryker sequentially per eligible project, from the project directory, into <output root>/<project>
     $results = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $durationsSeconds = [ordered]@{}
 
     foreach ($proj in $eligibleProjects) {
         Write-Host "`n================================================================================"
@@ -973,6 +1001,7 @@ try {
         New-Item -ItemType Directory -Path $projOut -Force | Out-Null
         Copy-Item -LiteralPath $cfgPath -Destination (Join-Path $projOut 'stryker-config.json') -Force
 
+        $projStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         Push-Location $projectDirs[$proj]
         try {
             & dotnet stryker -f $cfgPath -p $proj -O $projOut
@@ -981,7 +1010,9 @@ try {
         finally {
             Pop-Location
         }
-        Write-Host "Stryker native exit for ${proj}: $nativeExit"
+        $projStopwatch.Stop()
+        $durationsSeconds[$proj] = [math]::Round($projStopwatch.Elapsed.TotalSeconds, 1)
+        Write-Host "Stryker native exit for ${proj}: $nativeExit ($($durationsSeconds[$proj])s wall time)"
 
         $candidateReport = Join-Path $projOut 'reports/mutation-report.json'
         $reportPath = if (Test-Path -LiteralPath $candidateReport) { (Resolve-Path -LiteralPath $candidateReport).Path } else { $null }
@@ -1047,6 +1078,29 @@ try {
     }
 
     Write-Host "`nOutput root: $outputRootPath"
+
+    $gateEndUtc = [DateTime]::UtcNow
+    $timingProjects = @($results | ForEach-Object {
+            [ordered]@{
+                project         = $_.ProjectName
+                durationSeconds = $durationsSeconds[$_.ProjectName]
+                totalMutants    = $_.TotalMutants
+                tested          = $_.Tested
+                score           = $_.Score
+                passed          = $_.Passed
+            }
+        })
+    $timing = [ordered]@{
+        generatedUtc    = $gateEndUtc.ToString('yyyy-MM-ddTHH:mm:ssZ')
+        durationSeconds = [math]::Round(($gateEndUtc - $gateStartUtc).TotalSeconds, 1)
+        concurrency     = $concurrency
+        threshold       = $threshold
+        projects        = $timingProjects
+    }
+    $timingPath = Join-Path $outputRootPath 'mutation-timing.json'
+    [System.IO.File]::WriteAllText($timingPath, ($timing | ConvertTo-Json -Depth 6) + "`n", [System.Text.UTF8Encoding]::new($false))
+    Write-Host "Mutation timing: $($timing.durationSeconds)s wall time, $($totalTestedOverall) tested mutant(s), concurrency $concurrency (details: $timingPath)"
+
     Write-Host "`n--------------------------------------------------------------------------------"
     if ($runFailureReasons.Count -eq 0) {
         Write-Host "Mutation testing: PASSED (all projects scored at or above threshold $threshold%, total tested: $totalTestedOverall)."

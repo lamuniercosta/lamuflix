@@ -209,6 +209,7 @@ function Write-ReceiptMarkdown {
     $testProjectCells = @($r.testProjects | ForEach-Object { '`' + $_ + '`' }) -join ', '
     $lines.Add("| Test projects | $testProjectCells |")
     $lines.Add("| Exits | tool restore $($r.exits.toolRestore), gate $($r.exits.gate), Stryker $($r.exits.stryker), clean build $($r.exits.cleanBuild) |")
+    $lines.Add("| Duration (gate wall time) | $($r.durationSeconds)s |")
     $c = $r.counts
     $lines.Add("| Mutants | Killed $($c.Killed), Survived $($c.Survived), Timeout $($c.Timeout), NoCoverage $($c.NoCoverage), Ignored $($c.Ignored), CompileError $($c.CompileError) |")
     $lines.Add("| Score | $(if ($null -ne $c.Score) { "$($c.Score)% of $($c.Tested) tested" } else { 'n/a (0 tested)' }) |")
@@ -332,6 +333,7 @@ try {
         Write-Host "`n=== $proj ==="
 
         $sampler = Start-ThreadJob -ScriptBlock $samplerBody -ArgumentList $procLog, $checkout, @("$proj.dll"), $assemblyProbe.ToString()
+        $gateStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         Push-Location $checkout
         try {
             & pwsh -NoProfile -File (Join-Path $checkout 'scripts/run-mutation.ps1') -Project $proj -OutputRoot $gateOut 2>&1 |
@@ -340,9 +342,11 @@ try {
         }
         finally {
             Pop-Location
+            $gateStopwatch.Stop()
             Stop-Job $sampler -ErrorAction SilentlyContinue
             Remove-Job $sampler -Force -ErrorAction SilentlyContinue
         }
+        $gateDurationSeconds = [math]::Round($gateStopwatch.Elapsed.TotalSeconds, 1)
 
         $log = @(Get-Content -LiteralPath $gateLog)
         $nativeLine = $log | Where-Object { $_ -match "^Stryker native exit for $([regex]::Escape($proj))\.csproj: (-?\d+)" } | Select-Object -First 1
@@ -414,6 +418,7 @@ try {
             effectiveConfig = $effective
             testProjects   = @($testProjects | ForEach-Object { [System.IO.Path]::GetRelativePath($checkout, $_).Replace('\', '/') })
             exits          = [ordered]@{ toolRestore = $toolRestoreExit; gate = $gateExit; stryker = $strykerExit; cleanBuild = $cleanBuildExit }
+            durationSeconds = $gateDurationSeconds
             gate           = [ordered]@{ verdictLines = $verdictLines }
             mutatedFiles   = @($mutants | ForEach-Object { $_.file } | Select-Object -Unique)
             counts         = Get-MutationCounts -Report $report
