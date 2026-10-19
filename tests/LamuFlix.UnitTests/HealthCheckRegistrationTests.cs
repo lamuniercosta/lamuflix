@@ -19,7 +19,7 @@ public sealed class HealthCheckRegistrationTests
         "Host=localhost;Database=unused;Username=unused;Password=unused";
 
     [Fact]
-    public void ProductionRegistrations_ReadyGroup_IsPostgresAndRabbitMqWithUntaggedMetadataProvider()
+    public void ProductionRegistrations_ReadyGroup_IsPostgresRabbitMqAndEnrichmentConsumerWithUntaggedMetadataProvider()
     {
         // arrange
         var services = ComposeProductionHealthRegistrations();
@@ -31,9 +31,9 @@ public sealed class HealthCheckRegistrationTests
         var metadata = registrations.Single(registration => registration.Name == "metadata-provider");
 
         // assert
-        ready.Length.ShouldBe(2);
+        ready.Length.ShouldBe(3);
         ready.Select(registration => registration.Name).OrderBy(name => name)
-            .ShouldBe(["postgres", "rabbitmq"]);
+            .ShouldBe(["enrichment-consumer", "postgres", "rabbitmq"]);
         metadata.Tags.ShouldBeEmpty();
     }
 

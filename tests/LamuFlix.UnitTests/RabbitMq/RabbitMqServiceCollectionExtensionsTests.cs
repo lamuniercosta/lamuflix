@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Abstractions;
+using System.IO.Abstractions.TestingHelpers;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -103,6 +106,48 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
         var registrations = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
         var check = registrations.Single(registration => registration.Name == "rabbitmq");
         check.Tags.ShouldContain("ready");
+    }
+
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, false, false)]
+    public async Task AddLamuFlixRabbitMq_EnrichmentConsumerCheck_IsReadyTaggedOnlyForTheActiveConsumer(
+        bool providerPort,
+        bool repositoryPort,
+        bool expected)
+    {
+        // arrange
+        var services = NewServices(providerPort, repositoryPort);
+        services.AddLamuFlixRabbitMq();
+
+        // act
+        await using var provider = services.BuildServiceProvider();
+        var registrations = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
+
+        // assert
+        registrations.Any(registration => registration.Name == "enrichment-consumer").ShouldBe(expected);
+        registrations
+            .Any(registration => registration.Name == "enrichment-consumer" && registration.Tags.Contains(HealthCheckTags.Ready))
+            .ShouldBe(expected);
+    }
+
+    [Fact]
+    public void AddLamuFlixRabbitMq_ActiveConsumer_WritesLivenessUnderTheTempDirectory()
+    {
+        // arrange
+        var fileSystem = new MockFileSystem();
+        var services = NewServices(providerPort: true, repositoryPort: true);
+        services.AddSingleton<IFileSystem>(fileSystem);
+        services.AddLamuFlixRabbitMq();
+        using var provider = services.BuildServiceProvider();
+
+        // act
+        provider.GetRequiredService<IWorkerLiveness>().MarkListening();
+
+        // assert
+        fileSystem.File.Exists(Path.Combine(Path.GetTempPath(), "lamuflix", WorkerLivenessSignal.FileName)).ShouldBeTrue();
     }
 
     [Fact]

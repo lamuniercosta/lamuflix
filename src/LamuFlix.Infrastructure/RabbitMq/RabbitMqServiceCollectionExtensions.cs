@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
 using System.Threading;
@@ -21,6 +22,8 @@ namespace LamuFlix.Infrastructure.RabbitMq;
 
 public static class RabbitMqServiceCollectionExtensions
 {
+    private const string LivenessDirectoryName = "lamuflix";
+
     public const string InactiveLogMessage =
         "The RabbitMQ enrichment consumer is inactive because no IMetadataProvider and IMovieRepository are both registered. Messages wait in " +
         RabbitMqTopology.RequestedQueue +
@@ -54,7 +57,8 @@ public static class RabbitMqServiceCollectionExtensions
             services.AddSingleton<IWorkerLiveness>(provider => new WorkerLivenessSignal(
                 provider.GetRequiredService<IFileSystem>(),
                 provider.GetRequiredService<TimeProvider>(),
-                AppContext.BaseDirectory));
+                Path.Combine(Path.GetTempPath(), LivenessDirectoryName)));
+            services.AddHealthChecks().AddCheck<EnrichmentConsumerHealthCheck>("enrichment-consumer", tags: [HealthCheckTags.Ready]);
             services.AddHostedService<EnrichmentConsumer>();
             return services;
         }

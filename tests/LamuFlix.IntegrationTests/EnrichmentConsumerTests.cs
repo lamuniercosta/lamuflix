@@ -1229,9 +1229,19 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
 
         public int Stopped { get; private set; }
 
-        public void MarkListening() => Listening++;
+        public bool IsListening { get; private set; }
 
-        public void MarkStopped() => Stopped++;
+        public void MarkListening()
+        {
+            Listening++;
+            IsListening = true;
+        }
+
+        public void MarkStopped()
+        {
+            Stopped++;
+            IsListening = false;
+        }
     }
 
     private sealed class RecordingLogger<T> : ILogger<T>
@@ -1265,6 +1275,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
 
         public int Stopped { get; private set; }
 
+        public bool IsListening { get; private set; }
+
         public bool ThrowOnListen { get; init; }
 
         public bool ThrowOnStop { get; init; }
@@ -1276,11 +1288,14 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
             {
                 throw new IOException("liveness write failed");
             }
+
+            IsListening = true;
         }
 
         public void MarkStopped()
         {
             Stopped++;
+            IsListening = false;
             if (ThrowOnStop)
             {
                 throw new IOException("liveness delete failed");
@@ -1348,6 +1363,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
     private sealed class NoOpLiveness : IWorkerLiveness
     {
         public static readonly NoOpLiveness Instance = new();
+
+        public bool IsListening => false;
 
         public void MarkListening()
         {

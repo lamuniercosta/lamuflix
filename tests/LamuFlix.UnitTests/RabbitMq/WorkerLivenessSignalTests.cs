@@ -41,6 +41,44 @@ public sealed class WorkerLivenessSignalTests
         return written && !fileSystem.File.Exists(path);
     }
 
+    [Fact]
+    public void IsListening_IsTrueOnlyBetweenMarkListeningAndMarkStopped()
+    {
+        // arrange
+        var instant = new DateTimeOffset(2026, 10, 9, 16, 0, 0, TimeSpan.Zero);
+        var fileSystem = new MockFileSystem();
+        var signal = new WorkerLivenessSignal(fileSystem, new FixedTimeProvider(instant), @"C:\worker");
+
+        // act
+        var initial = signal.IsListening;
+        signal.MarkListening();
+        var listening = signal.IsListening;
+        signal.MarkStopped();
+
+        // assert
+        initial.ShouldBeFalse();
+        listening.ShouldBeTrue();
+        signal.IsListening.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void MarkListening_WhenTheWriteFails_LeavesIsListeningFalse()
+    {
+        // arrange
+        var instant = new DateTimeOffset(2026, 10, 9, 16, 0, 0, TimeSpan.Zero);
+        var fileSystem = new MockFileSystem();
+        var path = fileSystem.Path.Combine(@"C:\worker", WorkerLivenessSignal.FileName);
+        fileSystem.AddDirectory(path);
+        var signal = new WorkerLivenessSignal(fileSystem, new FixedTimeProvider(instant), @"C:\worker");
+
+        // act
+        var act = () => signal.MarkListening();
+
+        // assert
+        Should.Throw<UnauthorizedAccessException>(act);
+        signal.IsListening.ShouldBeFalse();
+    }
+
     private static DateTimeOffset Instant(long rawMilliseconds)
     {
         const long min = -62135596800000L;
