@@ -217,11 +217,12 @@ function Stop-ProbeProcessTree {
 }
 
 function Resolve-ProbePool {
-    param([string]$HostName, [string]$ModelName)
+    param([string]$HostName, [string]$ModelName, [string]$Account)
     switch ($HostName) {
         'agy' {
-            if ($ModelName -match '^(claude|gpt-oss|gpt-)') { return 'AGY-C' }
-            return 'AGY-G'
+            $family = if (Test-SeatMapIsDefaultAccount -Account $Account) { 'AGY' } else { 'AGY2' }
+            if ($ModelName -match '^(claude|gpt-oss|gpt-)') { return "$family-C" }
+            return "$family-G"
         }
         'opencode' {
             if ($ModelName -like 'openrouter/*') { return 'OPENROUTER' }
@@ -1057,6 +1058,7 @@ if ($ProbeHost -eq 'opencode') {
 $resolvedSeat = $null
 if ($hasSeat) {
     $resolvedSeat = Resolve-SeatCell -SeatName $Seat -RungName $Rung -MapPath $SeatMapPath
+    $pool = Resolve-ProbePool -HostName $ProbeHost -ModelName $Model -Account (Get-SeatMapRungAccount -Cell $resolvedSeat.Cell)
 }
 
 # DEV-236: fail-closed Junie/Cursor checks before -WhatIf, lock, mutation, or launch.

@@ -1724,6 +1724,46 @@ try {
     $portalQuoteRes = Invoke-IsolatedPwsh -HomeDir $isoHome -File $portalQuoteScript
     Assert-True 'R1 A3 Start-SeatMapServer recruitCommand quoting: exit 0' ($portalQuoteRes.ExitCode -eq 0) '0' ("exit=$($portalQuoteRes.ExitCode)`n$($portalQuoteRes.StdOut)`n$($portalQuoteRes.StdErr)")
 
+    # --- AGY2: second agy account carried as --account ---
+    $agy2Launch = 'agy --dangerously-skip-permissions'
+    $agy2NoAccount = Get-SeatMapRecruitCommand -Codename 'Dudamel' -Preset 'opencode' -Launch $agy2Launch
+    Assert-True 'AGY2 recruit command: no --account without a rung account' (-not $agy2NoAccount.Contains('--account')) 'no --account' $agy2NoAccount
+    $agy2Blank = Get-SeatMapRecruitCommand -Codename 'Dudamel' -Preset 'opencode' -Launch $agy2Launch -Account ''
+    Assert-True 'AGY2 recruit command: blank account adds nothing' ($agy2Blank -eq $agy2NoAccount) $agy2NoAccount $agy2Blank
+    $agy2WithAccount = Get-SeatMapRecruitCommand -Codename 'Dudamel' -Preset 'opencode' -Launch $agy2Launch -Account 'AGY-2'
+    Assert-True 'AGY2 recruit command: --account appended' ($agy2WithAccount -eq ($agy2NoAccount + " --account 'AGY-2'")) ($agy2NoAccount + " --account 'AGY-2'") $agy2WithAccount
+    $agy2Quoted = Get-SeatMapRecruitCommand -Codename 'Dudamel' -Preset 'opencode' -Launch $agy2Launch -Account "Lu's agy"
+    Assert-True 'AGY2 recruit command: account quoted' ($agy2Quoted.EndsWith(" --account 'Lu''s agy'")) "... --account 'Lu''s agy'" $agy2Quoted
+
+    $agy2MapPath = Join-Path $isoHome 'agy2-seat-map.json'
+    $agy2MapObj = Get-Content -LiteralPath $examplePath -Raw | ConvertFrom-Json
+    $agy2Seat = @($agy2MapObj.seats | Where-Object { $_.id -eq 'conductor' })[0]
+    $agy2Third = @($agy2Seat.rungs | Where-Object { $_.name -eq 'third' })[0]
+    $agy2Third.launch = $agy2Launch
+    $agy2Third.pool = 'AGY2-G'
+    $agy2Third.host = 'agy'
+    $agy2Third.model = 'gemini-3.8-flash-medium'
+    $agy2Third | Add-Member -NotePropertyName 'account' -NotePropertyValue 'AGY-2'
+    $agy2Seat.activeRung = 'third'
+    $agy2MapJson = $agy2MapObj | ConvertTo-Json -Depth 12
+    [System.IO.File]::WriteAllText($agy2MapPath, $agy2MapJson, [System.Text.UTF8Encoding]::new($false))
+    $agy2ExpectedCmd = Get-SeatMapRecruitCommand -Codename $agy2Seat.codename -Preset $agy2Seat.preset -Launch $agy2Launch -Account 'AGY-2'
+    $agy2Sync = Invoke-IsolatedPwsh -HomeDir $isoHome -File $syncScript -ArgumentList @('-SeatMapPath', $agy2MapPath, '-GenerateCommands')
+    Assert-True 'AGY2 Sync-SeatMap -GenerateCommands: exit 0' ($agy2Sync.ExitCode -eq 0) '0' ("exit=$($agy2Sync.ExitCode)`n$($agy2Sync.StdOut)`n$($agy2Sync.StdErr)")
+    Assert-True 'AGY2 Sync-SeatMap -GenerateCommands: --account in command' (Test-TextContains $agy2Sync.StdOut $agy2ExpectedCmd) $agy2ExpectedCmd $agy2Sync.StdOut
+
+    # Receipt round-trip both ways: onto the AGY2 rung, then back off it.
+    $agy2Seat.activeRung = 'first'
+    $agy2OnDecision = Get-SeatMapTargetSwapDecision -Seat $agy2Seat -RungName 'third'
+    $agy2OnReceipt = Read-SeatMapLockedSwapReceipt -Text (Format-SeatMapLockedSwapLine -Decision $agy2OnDecision)
+    Assert-True 'AGY2 receipt onto AGY2 rung: account AGY-2' ([string]$agy2OnReceipt.account -eq 'AGY-2') 'AGY-2' ([string]$agy2OnReceipt.account)
+    Assert-True 'AGY2 receipt onto AGY2 rung: previousAccount empty' ([string]$agy2OnReceipt.previousAccount -eq '') "''" ([string]$agy2OnReceipt.previousAccount)
+    $agy2Seat.activeRung = 'third'
+    $agy2OffDecision = Get-SeatMapTargetSwapDecision -Seat $agy2Seat -RungName 'first'
+    $agy2OffReceipt = Read-SeatMapLockedSwapReceipt -Text (Format-SeatMapLockedSwapLine -Decision $agy2OffDecision)
+    Assert-True 'AGY2 receipt off AGY2 rung: account empty' ([string]$agy2OffReceipt.account -eq '') "''" ([string]$agy2OffReceipt.account)
+    Assert-True 'AGY2 receipt off AGY2 rung: previousAccount AGY-2' ([string]$agy2OffReceipt.previousAccount -eq 'AGY-2') 'AGY-2' ([string]$agy2OffReceipt.previousAccount)
+
     # --- DEV-235 B4: Portal HTTP render + POST + activeRung readback ---
     # B3 fixture: conductor needs safe measured/cleared runtime-floor candidates before declared-rung POST.
     # Probe fake write above sets alt evidence to probed; restore and pin alt cleared + floor measured.
@@ -1878,6 +1918,57 @@ try {
             Assert-True ("DEV-246 $($dev246Case.Name): fake-CLI sentinel exists equals `$true") ($sentinelExists -eq $true) '$true' ([string]$sentinelExists)
         }
     }
+
+    # --- AGY2: portal live swap passes --account to the Maestri CLI ---
+    $agy2WsId = [guid]::NewGuid().ToString()
+    $agy2WsDir = New-WorkspaceDir -HomeDir $isoHome -WorkspaceId $agy2WsId -RepoRootHint $repoRoot
+    Write-NoteStubs -WsDir $agy2WsDir
+    $agy2LiveMapPath = Join-Path $agy2WsDir 'seat-map.json'
+    $agy2LiveMap = Get-Content -LiteralPath $examplePath -Raw | ConvertFrom-Json
+    $agy2LiveConductor = @($agy2LiveMap.seats | Where-Object { $_.id -eq 'conductor' })[0]
+    $agy2LiveThird = @($agy2LiveConductor.rungs | Where-Object { $_.name -eq 'third' })[0]
+    $agy2LiveFloor = @($agy2LiveConductor.rungs | Where-Object { $_.name -eq 'floor' })[0]
+    $agy2LiveThird.launch = $agy2Launch
+    $agy2LiveThird.pool = 'AGY2-G'
+    $agy2LiveThird.host = 'agy'
+    $agy2LiveThird.model = 'gemini-3.8-flash-medium'
+    $agy2LiveThird.evidence = 'cleared'
+    $agy2LiveThird | Add-Member -NotePropertyName 'account' -NotePropertyValue 'AGY-2'
+    $agy2LiveFloor.evidence = 'measured'
+    $agy2LiveMapJson = $agy2LiveMap | ConvertTo-Json -Depth 12
+    if (-not $agy2LiveMapJson.EndsWith("`n")) { $agy2LiveMapJson += "`n" }
+    [System.IO.File]::WriteAllText($agy2LiveMapPath, $agy2LiveMapJson, [System.Text.UTF8Encoding]::new($false))
+    $agy2CaseDir = Join-Path $isoHome 'agy2-portal'
+    New-Item -ItemType Directory -Path $agy2CaseDir -Force | Out-Null
+    $agy2FakeCli = Join-Path $agy2CaseDir 'fake-maestri.ps1'
+    $agy2ArgvPath = Join-Path $agy2CaseDir 'argv.txt'
+    $agy2FakeBody = @(
+        "[System.IO.File]::WriteAllText('$($agy2ArgvPath.Replace("'", "''"))', (`$args -join [char]10))",
+        "Write-Output 'fake maestri recruit stdout'",
+        'exit 0'
+    ) -join [Environment]::NewLine
+    [System.IO.File]::WriteAllText($agy2FakeCli, $agy2FakeBody + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+    $agy2Child = Join-Path $isoHome 'test-agy2-portal.ps1'
+    $agy2ChildLines = New-Dev246PortalLiveChildLines `
+        -Port '8797' `
+        -MapPathLiteral $agy2LiveMapPath.Replace("'", "''") `
+        -WorkspaceIdLiteral $agy2WsId `
+        -ServerScriptLiteral $serverScript.Replace("'", "''") `
+        -IsoHomeLiteral $isoHome.Replace("'", "''") `
+        -FakeCliLiteral $agy2FakeCli.Replace("'", "''") `
+        -SentinelLiteral $agy2ArgvPath.Replace("'", "''") `
+        -LogName 'server-agy2.log' `
+        -RequireFakeExists $true `
+        -ExpectLiveSwapped $true `
+        -ExpectSentinel $true `
+        -ExpectSwapDetailExact '' `
+        -ExpectSwapDetailPrefix ''
+    [System.IO.File]::WriteAllText($agy2Child, (($agy2ChildLines -join [Environment]::NewLine) + [Environment]::NewLine), [System.Text.UTF8Encoding]::new($false))
+    $agy2Res = Invoke-IsolatedPwsh -HomeDir $isoHome -File $agy2Child
+    Assert-True 'AGY2 portal live swap: isolated POST exit 0' ($agy2Res.ExitCode -eq 0) '0' ("exit=$($agy2Res.ExitCode)`n$($agy2Res.StdOut)`n$($agy2Res.StdErr)")
+    $agy2Argv = if (Test-Path -LiteralPath $agy2ArgvPath) { @([System.IO.File]::ReadAllText($agy2ArgvPath) -split "`n") } else { @() }
+    $agy2ExpectedArgv = @('recruit', $agy2LiveConductor.codename, '--preset', $agy2LiveConductor.preset, '--command', $agy2Launch, '--replace', $agy2LiveConductor.codename, '--account', 'AGY-2')
+    Assert-True 'AGY2 portal live swap: CLI argv carries --account AGY-2' (($agy2Argv -join '|') -eq ($agy2ExpectedArgv -join '|')) ($agy2ExpectedArgv -join '|') ($agy2Argv -join '|')
 
     # --- TW1: Portal failure atomicity (no-capable-floor fixture) ---
     $tw1Home = Join-Path $isoHome 'tw1-portal-fail'
