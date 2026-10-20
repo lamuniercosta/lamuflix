@@ -181,4 +181,17 @@ Sentry F1 is rejected by contrary empirical evidence, Ledger F1 closed, accepted
 - Production `src/LamuFlix.Infrastructure` strictly prohibited: DEV-336's ticket text and acceptance criteria forbid production HTTP/infrastructure work and require Core-only production types (`DEV-336:18`; `specs/DEV-336/CONCLUSIONS.md:16,66`), and modifying `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqTopology.cs` would violate the Core-only production boundary and pull `LamuFlix.Infrastructure` into `run-mutation.ps1` scope (`task-pipeline:102`).
 - Execution path for Cog and Gauge: Cog applies the minimal teardown/declaration resilience fix in `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs` (leaving `src/` restricted to `MovieFeatures.cs` and `MovieFeaturesMapper.cs`), commits on `feature/DEV-336`, and hands back to Gauge to re-run Phase 3 step 5 gates on the new HEAD (`task-pipeline:109`; `DEV-336:190,198`).
 
+---
+
+## Phase 3 Step 6 — Follow-up test-body declaration scope disposition (2026-10-20)
+
+**Conductor:** In `F:/Dev/LamuFlix.worktrees/DEV-336` (`feature/DEV-336`), Cog committed `d56c0d8` adding bounded retry to `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs`. Full `dotnet test` still fails with code `541 cluster_not_formed` inside `EveryRetryArgumentIsInEffect` declaring the dead-letter queue via `DeclareAsync` line 195 in `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs` (which bypasses the fixture). Does Patron authorize modifying `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs` to add retry around test-body declarations, or what is Patron scope disposition?
+
+**Patron (verbatim cited ruling):**
+[from Patron] DEV-336 SCOPE DISPOSITION (TEST-BODY DECLARATIONS): Authorize minimal gate-forced bounded retry in `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs` (alongside `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs`) around test-body topology declarations; keep `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqTopology.cs` strictly untouched.
+- Gate-forced test-file edit in scope (§2.3 item 6): `dotnet test` exit 0 is a non-waivable blocking gate (`task-pipeline:106,108-110,133`), and `RabbitMqTopologyTests.cs:23,112-131,192-196` deletes quorum queues in `InitializeAsync` and immediately invokes `EnsureDeclaredAsync` in test bodies (`DeclareAsync` at line 195 and direct calls at lines 117-119, 127-130), triggering broker `541 cluster_not_formed` outside the fixture (`DEV-336:197-202`), so adding bounded `541 cluster_not_formed` retry in `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs` is a gate-forced edit authorized by Patron (`AGENTS.md §2.3 item 6`; `lamuflix-team-charter:24`).
+- Assertions and production boundary preserved: All test assertions in `RabbitMqTopologyTests.cs` (including `406` argument-perturbation rejections at lines 174-176, idempotency checks, and routing-key assertions) must remain intact and unweakened (`DEV-336:208`), and `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqTopology.cs` remains strictly off-limits so `src/` stays restricted to `MovieFeatures.cs` and `MovieFeaturesMapper.cs` (`DEV-336:18`; `specs/DEV-336/CONCLUSIONS.md:16,66,181`).
+- Execution path for Cog and Gauge: Cog applies the minimal bounded retry to test-body topology declarations in `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs`, commits on `feature/DEV-336`, and Gauge re-runs the Phase 3 step 5 gates on the new HEAD (`task-pipeline:109`; `DEV-336:201-202`).
+
+
 
