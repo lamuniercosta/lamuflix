@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
 using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Core.Features.Recommendations;
@@ -82,14 +81,15 @@ public sealed record MovieFeatures
     private static ImmutableHashSet<string> Normalize(IEnumerable<string>? values) =>
         values is null
             ? ImmutableHashSet.Create<string>(StringComparer.OrdinalIgnoreCase)
-            : values.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
+            : ImmutableHashSet.CreateRange(StringComparer.OrdinalIgnoreCase, values);
 
     private static int SetHash(ImmutableHashSet<string> values)
     {
         var hash = 0;
-        foreach (string? value in values)
+        // ReSharper disable once VariableCanBeNotNullable // sets under test intentionally contain null members that violate the annotation.
+        foreach (object? value in values)
         {
-            hash = unchecked(hash + (value is null ? 0 : StringComparer.OrdinalIgnoreCase.GetHashCode(value)));
+            hash = unchecked(hash + (value is string text ? StringComparer.OrdinalIgnoreCase.GetHashCode(text) : 0));
         }
 
         return hash;
