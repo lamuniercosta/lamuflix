@@ -195,3 +195,14 @@ Sentry F1 is rejected by contrary empirical evidence, Ledger F1 closed, accepted
 
 
 
+---
+
+## Phase 4 Step 3 — Code review triage at 7f0294a78a98373d8ef4cb9f145f8e711533d65e (2026-10-20)
+
+**Keel:** DEV-336 Phase 4 step 3 triage at HEAD `7f0294a78a98373d8ef4cb9f145f8e711533d65e` in `F:/Dev/LamuFlix.worktrees/DEV-336`. No Critical/High or Core defects. Survivors: Ledger 1 Medium duplicated divergent retry policies (`RabbitMqFixture.cs:97-116` and `RabbitMqTopologyTests.cs:213-243`); Sentry F1 Low catch-all retries permanent fixture faults for 14s (`RabbitMqFixture.cs:108-112`); Sentry F2 Low `Contains("541")` accepts unrelated `5410` messages and delays permanent failures 14s (`RabbitMqTopologyTests.cs:236`); Ledger 2 Low unreachable `lastFailure` fallback (`RabbitMqFixture.cs:99,111,116`). Reject Sentry F3 stack-reset claim (`line 116` unreachable) and drop Ledger 3 suppression wording (allowed scoped suppression for Q6 null handling). Rule triage under charter §2.3.
+
+**Patron (verbatim cited ruling):**
+[from Patron] DEV-336 PHASE 4 STEP 3 TRIAGE: Zero Critical/High or broken-behaviour findings at `7f0294a78a98373d8ef4cb9f145f8e711533d65e`; closing bar met with zero fix round and zero follow-up YouTrack tickets required.
+- Surviving Medium/Low test-support observations (Ledger 1, Sentry F1, Sentry F2, Ledger 2): `noted, no ticket` — all four are non-broken test-fixture/test-body retry polish below the Critical/High closing bar with no user request (`AGENTS.md §2.3`; `specs/DEV-336/CONCLUSIONS.md:18,179-194`; `RabbitMqFixture.cs:97-116`; `RabbitMqTopologyTests.cs:213-243`).
+- Rejected/dropped claims (Sentry F3, Ledger 3): Reject Sentry F3 because `RabbitMqFixture.cs:110` filters `when (attempt < MaxAttempts)`, so the 4th failure propagates its original stack trace and line 116 is unreachable; drop Ledger 3 because the narrowly scoped warning suppression with same-line justification on `MovieFeatures.cs` is explicitly permitted to uphold the Q6 null-element contract (`AGENTS.md` Non-negotiables; `specs/DEV-336/CONCLUSIONS.md:80`).
+- Gate 2 / Phase 4 closure: Implementation satisfies the frozen Core scope and closing bar with zero remediation round (`specs/DEV-336/CONCLUSIONS.md:16-18,68`).
