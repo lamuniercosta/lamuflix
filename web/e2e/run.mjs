@@ -442,6 +442,11 @@ function testResultFiles(directory) {
   return files;
 }
 
+function hasFailureEvidence() {
+  const resultsDir = path.join(runtimeDir, 'test-results');
+  return testResultFiles(resultsDir).some((file) => file.endsWith('.png'));
+}
+
 function buildUploadAllowlist() {
   const files = [];
   if (existsSync(evidenceDir)) {
@@ -506,7 +511,7 @@ async function main() {
     exitCode = 1;
     process.stderr.write(`e2e failed: ${sanitize(error.message)}\n`);
   } finally {
-    if (exitCode !== 0) {
+    if (exitCode !== 0 || hasFailureEvidence()) {
       await collectEvidence().catch((evidenceError) => {
         process.stderr.write(`evidence collection failed: ${sanitize(evidenceError.message)}\n`);
       });
