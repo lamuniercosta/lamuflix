@@ -49,12 +49,16 @@ public sealed record MovieFeatures
     public string? FullPlot { get; }
 
     public bool Equals(MovieFeatures? other) =>
-        other is not null
-        && Genres.SetEquals(other.Genres)
+        other is not null && SetsEqual(other) && ScalarsEqual(other);
+
+    private bool SetsEqual(MovieFeatures other) =>
+        Genres.SetEquals(other.Genres)
         && Directors.SetEquals(other.Directors)
         && Writers.SetEquals(other.Writers)
-        && Cast.SetEquals(other.Cast)
-        && ReleaseYear == other.ReleaseYear
+        && Cast.SetEquals(other.Cast);
+
+    private bool ScalarsEqual(MovieFeatures other) =>
+        ReleaseYear == other.ReleaseYear
         && Runtime == other.Runtime
         && ImdbRating == other.ImdbRating
         && MetaScore == other.MetaScore
@@ -83,7 +87,7 @@ public sealed record MovieFeatures
     private static int SetHash(ImmutableHashSet<string> values)
     {
         var hash = 0;
-        foreach (var value in values)
+        foreach (string? value in values)
         {
             hash = unchecked(hash + (value is null ? 0 : StringComparer.OrdinalIgnoreCase.GetHashCode(value)));
         }
