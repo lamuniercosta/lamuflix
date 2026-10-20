@@ -1,12 +1,17 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
 
@@ -122,6 +127,37 @@ public sealed class MovieCatalogRegistrationTests
         services.Count(descriptor => descriptor.ServiceType == typeof(GenreWeightsCache)).ShouldBe(1);
         provider.GetRequiredService<GenreWeightsCache>().ShouldBeSameAs(cache);
         calculator.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task BothExtensions_RepositoryAndCalculatorShareOneGenreWeightsCacheSingleton()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var services = new ServiceCollection();
+        services.AddLamuFlixPersistence(Configuration());
+        services.AddSingleton<IOptions<EnrichmentOptions>>(
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(1) }));
+        services.AddMovieCatalog();
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var cache = provider.GetRequiredService<GenreWeightsCache>();
+        var calculator = scope.ServiceProvider.GetRequiredService<GenreWeightsCalculator>();
+        var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
+        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<int, long> { [7] = 1 }));
+        await cache.GetOrLoadAsync(_ => Task.FromResult(warm), ct);
+
+        // act
+        var viaCalculator = await calculator.GetAsync(ct);
+        await repository.SaveChangesAsync(ct);
+        var afterRepositorySave = await cache.GetOrLoadAsync(
+            _ => Task.FromResult(GenreWeights.Calculate(new GenreCounts(2, new Dictionary<int, long> { [7] = 1 }))),
+            ct);
+
+        // assert
+        services.Count(descriptor => descriptor.ServiceType == typeof(GenreWeightsCache)).ShouldBe(1);
+        viaCalculator.ShouldBeSameAs(warm);
+        afterRepositorySave.ShouldNotBeSameAs(warm);
     }
 
     private static IConfiguration Configuration() =>

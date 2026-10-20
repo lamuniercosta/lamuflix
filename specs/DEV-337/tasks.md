@@ -104,13 +104,13 @@
 
 ### Tests for User Story 4
 
-- [ ] T016 [US4] Write `tests/LamuFlix.IntegrationTests/GenreWeightsIntegrationTests.cs` on the existing Postgres collection: warm cache; successful import/save rebuilds; successful genre-membership replacement rebuilds cached IDF; successful delete (`rows == 1`) rebuilds; false delete retains cache; failed/cancelled save retains cache; warm the cache, perform a successful scalar-only repository save with no genre change, and prove the next read reloads even if computed weights are equal; ordinary successful path covered as well as races/failures. Method names `Method_Condition_Expected`. AAA only. No handler edits or extra files.
+- [X] T016 [US4] Write `tests/LamuFlix.IntegrationTests/GenreWeightsIntegrationTests.cs` on the existing Postgres collection: warm cache; successful import/save rebuilds; successful genre-membership replacement rebuilds cached IDF; successful delete (`rows == 1`) rebuilds; false delete retains cache; failed/cancelled save retains cache; warm the cache, perform a successful scalar-only repository save with no genre change, and prove the next read reloads even if computed weights are equal; ordinary successful path covered as well as races/failures. Method names `Method_Condition_Expected`. AAA only. No handler edits or extra files.
 
 ### Implementation for User Story 4
 
-- [ ] T017 [US4] Wire `GenreWeightsCache` into `src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs`: invalidate at successful completion of the public `SaveChangesAsync` (covering every internal path) and after `TryDeleteAsync` when `rows == 1`, before return. Failed/cancelled saves exit before invalidation. Optional `GenreWeightsCache? cache = null` with `cache ?? new GenreWeightsCache()` for direct construction; DI supplies the shared singleton. No mutable static. No command-handler edits. Conservative invalidation on scalar saves.
+- [X] T017 [US4] Wire `GenreWeightsCache` into `src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs`: invalidate at successful completion of the public `SaveChangesAsync` (covering every internal path) and after `TryDeleteAsync` when `rows == 1`, before return. Failed/cancelled saves exit before invalidation. Optional `GenreWeightsCache? cache = null` with `cache ?? new GenreWeightsCache()` for direct construction; DI supplies the shared singleton. No mutable static. No command-handler edits. Conservative invalidation on scalar saves.
 
-- [ ] T018 [US4] After T017, extend `tests/LamuFlix.IntegrationTests/MovieCatalogRegistrationTests.cs` to prove the repository and calculator share one `GenreWeightsCache` singleton under DI (both extensions registered).
+- [X] T018 [US4] After T017, extend `tests/LamuFlix.IntegrationTests/MovieCatalogRegistrationTests.cs` to prove the repository and calculator share one `GenreWeightsCache` singleton under DI (both extensions registered).
 
 **Checkpoint**: US4 integration tests pass. Repository and calculator share one cache under DI. Prior phases remain green.
 
