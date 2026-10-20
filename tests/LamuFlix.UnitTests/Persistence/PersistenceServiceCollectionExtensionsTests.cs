@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
@@ -170,6 +171,24 @@ public sealed class PersistenceServiceCollectionExtensionsTests
 
         using var scope = provider.CreateScope();
         scope.ServiceProvider.GetRequiredService<IMovieRepository>().ShouldBeOfType<EfMovieRepository>();
+    }
+
+    [Fact]
+    public void AddLamuFlixPersistence_RegistersSingleSharedGenreWeightsCache()
+    {
+        // arrange
+        var services = Compose(Configuration(Valid()));
+
+        // act
+        var descriptors = services.Where(descriptor => descriptor.ServiceType == typeof(GenreWeightsCache)).ToArray();
+        using var provider = services.BuildServiceProvider();
+        var root = provider.GetRequiredService<GenreWeightsCache>();
+        using var scope = provider.CreateScope();
+        var scoped = scope.ServiceProvider.GetRequiredService<GenreWeightsCache>();
+
+        // assert
+        descriptors.ShouldHaveSingleItem().Lifetime.ShouldBe(ServiceLifetime.Singleton);
+        scoped.ShouldBeSameAs(root);
     }
 
     private static List<ServiceDescriptor> RegisteredServices(IConfiguration configuration) =>

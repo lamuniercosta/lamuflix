@@ -122,10 +122,15 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             GROUP BY g.id
             """).ToArrayAsync(ct);
 
-        var total = rows
-            .Where(row => row.GenreId is null)
-            .Select(row => row.MovieCount)
-            .FirstOrDefault();
+        var total = 0L;
+        foreach (var row in rows)
+        {
+            if (row.GenreId is null)
+            {
+                total = row.MovieCount;
+            }
+        }
+
         var moviesWithGenre = new Dictionary<int, long>();
         foreach (var row in rows)
         {
