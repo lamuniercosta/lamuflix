@@ -114,3 +114,15 @@ _Avoid_: counting it as a kill
 **Mutation receipt**
 The committed, compact evidence of one mutation run: SHAs, Stryker version, effective config, mutated files, per-mutant status and killedBy names, native exits, and process and assembly identity. Bulky reports stay outside the repo.
 _Avoid_: report (the full Stryker output)
+
+**Genre weight**
+The library rarity multiplier for a genre; rarer genres carry more weight in genre similarity.
+_Avoid_: genre preference, genre popularity score
+
+**GenreWeights**
+An immutable table of genre weights for one library catalog snapshot.
+_Avoid_: user taste weights, recommendation option weights
+
+**Genre similarity**
+The overlap of two movies genre sets, weighted by library rarity.
+_Avoid_: unweighted genre overlap, overall recommendation score
