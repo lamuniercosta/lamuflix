@@ -12,6 +12,18 @@ public sealed class GenreWeightsCacheTests
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
     [Fact]
+    public async Task GetOrLoadAsync_NullLoader_ThrowsArgumentNullException()
+    {
+        // arrange
+        var cache = new GenreWeightsCache();
+        var ct = TestContext.Current.CancellationToken;
+
+        // act / assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
+        await Should.ThrowAsync<ArgumentNullException>(() => cache.GetOrLoadAsync(null!, ct));
+    }
+
+    [Fact]
     public async Task GetOrLoadAsync_ColdCache_LoadsOnceAndReusesSnapshot()
     {
         // arrange
@@ -220,7 +232,7 @@ public sealed class GenreWeightsCacheTests
             ct);
 
         // act
-        holderCancellation.Cancel();
+        await holderCancellation.CancelAsync();
         var cancellation = await Should.ThrowAsync<OperationCanceledException>(() => holder);
         var result = await waiter.WaitAsync(Timeout, ct);
 
@@ -256,7 +268,7 @@ public sealed class GenreWeightsCacheTests
 
         // act
         cache.Invalidate();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         release.SetResult();
         await Should.ThrowAsync<OperationCanceledException>(() => cancelled);
         var result = await cache.GetOrLoadAsync(_ => Task.FromResult(expected), ct);
@@ -294,12 +306,13 @@ public sealed class GenreWeightsCacheTests
         var expected = Weights(9);
         var ct = TestContext.Current.CancellationToken;
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
+        var cancelledToken = cancellation.Token;
 
         // act
         await Should.ThrowAsync<OperationCanceledException>(
             () => cache.GetOrLoadAsync(
-                _ => Task.FromCanceled<GenreWeights>(cancellation.Token),
+                _ => Task.FromCanceled<GenreWeights>(cancelledToken),
                 ct));
         var result = await cache.GetOrLoadAsync(_ => Task.FromResult(expected), ct);
 
@@ -313,9 +326,8 @@ public sealed class GenreWeightsCacheTests
         // arrange
         var cache = new GenreWeightsCache();
         var invoked = false;
-        var ct = TestContext.Current.CancellationToken;
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
 
         // act
         await Should.ThrowAsync<OperationCanceledException>(

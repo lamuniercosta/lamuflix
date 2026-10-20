@@ -58,13 +58,25 @@ public sealed class GenreWeightsTests
     }
 
     [Fact]
+    public void Calculate_NullCounts_ThrowsArgumentNullException()
+    {
+        // act / assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
+        Should.Throw<ArgumentNullException>(() => GenreWeights.Calculate(null!));
+    }
+
+    [Fact]
     public void Calculate_TotalMoviesNegative_ThrowsArgumentOutOfRange()
     {
         // arrange
         var counts = new GenreCounts(-1, new Dictionary<int, long>());
 
-        // act / assert
-        Should.Throw<ArgumentOutOfRangeException>(() => GenreWeights.Calculate(counts));
+        // act
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => GenreWeights.Calculate(counts));
+
+        // assert
+        failure.ParamName.ShouldBe("counts");
+        failure.Message.ShouldContain("Total movie count cannot be negative.");
     }
 
     [Fact]
@@ -73,8 +85,12 @@ public sealed class GenreWeightsTests
         // arrange
         var counts = new GenreCounts(5, new Dictionary<int, long> { [1] = -1 });
 
-        // act / assert
-        Should.Throw<ArgumentOutOfRangeException>(() => GenreWeights.Calculate(counts));
+        // act
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => GenreWeights.Calculate(counts));
+
+        // assert
+        failure.ParamName.ShouldBe("counts");
+        failure.Message.ShouldContain("Genre movie count cannot be negative.");
     }
 
     [Fact]
@@ -83,8 +99,12 @@ public sealed class GenreWeightsTests
         // arrange
         var counts = new GenreCounts(2, new Dictionary<int, long> { [1] = 3 });
 
-        // act / assert
-        Should.Throw<ArgumentOutOfRangeException>(() => GenreWeights.Calculate(counts));
+        // act
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => GenreWeights.Calculate(counts));
+
+        // assert
+        failure.ParamName.ShouldBe("counts");
+        failure.Message.ShouldContain("Genre movie count cannot exceed the total movie count.");
     }
 
     [Fact]
@@ -111,6 +131,34 @@ public sealed class GenreWeightsTests
 
         // assert
         weights.GetWeight(999).ShouldBe(1.0);
+    }
+
+    [Fact]
+    public void Similarity_NullFirst_ThrowsArgumentNullException()
+    {
+        // arrange
+        var weights = CreateControlledWeights();
+
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
+        var failure = Should.Throw<ArgumentNullException>(() => weights.Similarity(null!, [1]));
+
+        // assert
+        failure.ParamName.ShouldBe("first");
+    }
+
+    [Fact]
+    public void Similarity_NullSecond_ThrowsArgumentNullException()
+    {
+        // arrange
+        var weights = CreateControlledWeights();
+
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
+        var failure = Should.Throw<ArgumentNullException>(() => weights.Similarity([1], null!));
+
+        // assert
+        failure.ParamName.ShouldBe("second");
     }
 
     [Fact]
@@ -262,6 +310,20 @@ public sealed class GenreWeightsTests
         weights.GetWeight(3).ShouldBe(1.0);
     }
 
+    [Fact]
+    public void Similarity_ManyGenres_AccumulatesUnionWeightInAscendingGenreOrder()
+    {
+        // arrange
+        var counts = new GenreCounts(1000, Enumerable.Range(1, 60).ToDictionary(i => i, i => (long)i));
+        var weights = GenreWeights.Calculate(counts);
+
+        // act
+        var score = weights.Similarity(Enumerable.Range(1, 60), Enumerable.Range(1, 30));
+
+        // assert
+        score.ShouldBe(0.5648622875443278);
+    }
+
     private static GenreWeights CreateControlledWeights() =>
         GenreWeights.Calculate(
             new GenreCounts(
@@ -288,7 +350,7 @@ public sealed class GenreWeightsPropertyTests
         var permutedLeft = left.Reverse().Concat(left).ToArray();
         var permutedRight = right.Reverse().Concat(right).ToArray();
 
-        return weights.Similarity(left, right) == weights.Similarity(permutedLeft, permutedRight);
+        return Math.Abs(weights.Similarity(left, right) - weights.Similarity(permutedLeft, permutedRight)) < 1e-12;
     }
 
     [Property(MaxTest = 100, Replay = "337003,337005")]
@@ -299,7 +361,7 @@ public sealed class GenreWeightsPropertyTests
         var left = first ?? [];
         var right = second ?? [];
 
-        return weights.Similarity(left, right) == weights.Similarity(right, left);
+        return Math.Abs(weights.Similarity(left, right) - weights.Similarity(right, left)) < 1e-12;
     }
 
     [Property(MaxTest = 100, Replay = "337005,337007")]

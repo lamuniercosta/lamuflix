@@ -389,6 +389,52 @@ public sealed class EfMovieCatalogSurvivorTests(PostgresFixture fixture)
         details.Metadata.Writers.ShouldBe(["Wanda Writer"]);
     }
 
+    [Fact]
+    public async Task GetGenreCountsAsync_SeededLibrary_ReturnsTotalAndPerGenreCounts()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var drama = new GenreRecord { Name = "Drama" };
+        var comedy = new GenreRecord { Name = "Comedy" };
+        var unused = new GenreRecord { Name = "Unused" };
+        context.Genres.AddRange(drama, comedy, unused);
+        var shared = Movie("Shared", "unit-counts-shared");
+        shared.Genres.Add(drama);
+        shared.Genres.Add(comedy);
+        var dramaOnly = Movie("Drama only", "unit-counts-drama-only");
+        dramaOnly.Genres.Add(drama);
+        context.Movies.AddRange(shared, dramaOnly, Movie("No genre", "unit-counts-no-genre"));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var counts = await catalog.GetGenreCountsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        counts.TotalMovies.ShouldBe(3);
+        counts.MoviesWithGenre[drama.Id].ShouldBe(2);
+        counts.MoviesWithGenre[comedy.Id].ShouldBe(1);
+        counts.MoviesWithGenre[unused.Id].ShouldBe(0);
+        counts.MoviesWithGenre.Count.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task GetGenreCountsAsync_EmptyLibrary_ReturnsZeroTotalAndEmptyMap()
+    {
+        // arrange
+        await fixture.ResetAsync(TestContext.Current.CancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var counts = await catalog.GetGenreCountsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        counts.TotalMovies.ShouldBe(0);
+        counts.MoviesWithGenre.ShouldBeEmpty();
+    }
+
     private static MovieRecord Movie(string title, string suffix) => new()
     {
         Title = title,

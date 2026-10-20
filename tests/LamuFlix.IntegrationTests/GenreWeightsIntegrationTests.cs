@@ -153,6 +153,7 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
         await cancelled.CancelAsync();
 
         // act
+        // ReSharper disable once AccessToDisposedClosure // the assertion runs before disposal within the test
         var act = () => repository.SaveChangesAsync(cancelled.Token);
         await Should.ThrowAsync<OperationCanceledException>(act);
         var after = await ReadAsync(cache);

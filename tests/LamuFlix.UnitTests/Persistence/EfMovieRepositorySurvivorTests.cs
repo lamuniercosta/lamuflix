@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
@@ -49,6 +50,113 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         // assert
         failure.ParamName.ShouldBe("options");
         failure.Message.ShouldContain("Claim lease must be positive.");
+    }
+
+    [Fact]
+    public async Task SaveChangesAsync_WarmedCache_InvalidatesSoNextReadRebuilds()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var cache = new GenreWeightsCache();
+        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<int, long> { [7] = 1 }));
+        await cache.GetOrLoadAsync(_ => Task.FromResult(warm), ct);
+        var repository = Repository(db, cache);
+        var fresh = GenreWeights.Calculate(new GenreCounts(2, new Dictionary<int, long> { [7] = 1 }));
+        var reloaded = false;
+
+        // act
+        var id = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(Movie.Create(id, "Cached", new LibraryPath("C:/library/cached.mkv"), new MediaFormat("mkv")), ct);
+        await repository.SaveChangesAsync(ct);
+        var after = await cache.GetOrLoadAsync(
+            _ =>
+            {
+                reloaded = true;
+                return Task.FromResult(fresh);
+            },
+            ct);
+
+        // assert
+        after.ShouldBeSameAs(fresh);
+        reloaded.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SaveChangesAsync_DefaultCache_FallsBackAndPersists()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = new EfMovieRepository(
+            db,
+            TimeProvider.System,
+            Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+
+        // act
+        var id = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(Movie.Create(id, "Fallback", new LibraryPath("C:/library/fallback.mkv"), new MediaFormat("mkv")), ct);
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        (await repository.GetAsync(id, ct)).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task TryDeleteAsync_ExistingMovie_InvalidatesWarmCache()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var cache = new GenreWeightsCache();
+        var repository = Repository(db, cache);
+        var id = await AddMovieAsync(repository, "Doomed", "unit-cache-doomed", ct);
+        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<int, long> { [7] = 1 }));
+        await cache.GetOrLoadAsync(_ => Task.FromResult(warm), ct);
+        var fresh = GenreWeights.Calculate(new GenreCounts(0, new Dictionary<int, long>()));
+        var reloaded = false;
+
+        // act
+        var deleted = await repository.TryDeleteAsync(id, ct);
+        var after = await cache.GetOrLoadAsync(
+            _ =>
+            {
+                reloaded = true;
+                return Task.FromResult(fresh);
+            },
+            ct);
+
+        // assert
+        deleted.ShouldBeTrue();
+        after.ShouldBeSameAs(fresh);
+        reloaded.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task TryDeleteAsync_AbsentMovie_RetainsWarmCache()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var cache = new GenreWeightsCache();
+        var repository = Repository(db, cache);
+        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<int, long> { [7] = 1 }));
+        await cache.GetOrLoadAsync(_ => Task.FromResult(warm), ct);
+        var absent = await repository.NextIdentityAsync(ct);
+
+        // act
+        var deleted = await repository.TryDeleteAsync(absent, ct);
+        var after = await cache.GetOrLoadAsync(
+            _ => Task.FromResult(GenreWeights.Calculate(new GenreCounts(9, new Dictionary<int, long>()))),
+            ct);
+
+        // assert
+        deleted.ShouldBeFalse();
+        after.ShouldBeSameAs(warm);
     }
 
     [Fact]
@@ -1631,6 +1739,9 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
 
     private static EfMovieRepository Repository(LamuFlixDbContext db) =>
         new(db, new FixedTimeProvider(Now), Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+
+    private static EfMovieRepository Repository(LamuFlixDbContext db, GenreWeightsCache cache) =>
+        new(db, new FixedTimeProvider(Now), Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }), cache);
 
     private static MovieRecord Record(
         MovieId id, EnrichmentStatus status, DateTimeOffset? lastAttemptAt, int attempts = 0) =>

@@ -285,8 +285,8 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
 
         // assert
         interceptor.Commands.Count.ShouldBe(1);
-        interceptor.Commands[0].ShouldContain("COUNT", Case.Insensitive);
-        interceptor.Commands[0].ShouldContain("GROUP BY", Case.Insensitive);
+        interceptor.Commands[0].ShouldContain("COUNT");
+        interceptor.Commands[0].ShouldContain("GROUP BY");
         counts.TotalMovies.ShouldBe(2);
         counts.MoviesWithGenre[drama.Id].ShouldBe(1);
         counts.MoviesWithGenre[comedy.Id].ShouldBe(1);
