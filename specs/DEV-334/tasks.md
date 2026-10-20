@@ -106,11 +106,11 @@
 
 **Checkpoint**: The job is additive. No visual baseline is configured. Uploaded logs are sanitized.
 
-- [ ] T013 Add a blocking pull-request e2e job to `.github/workflows/ci.yml`. Use Node 24 from `web/.node-version`, run `npm ci` in `web/`, run `npx playwright install --with-deps chromium`, and run `npm run e2e`. Upload failure screenshots and sanitized compose and stub logs from `web/e2e/.runtime/`, including evidence from an attempt that failed and then passed on retry. Do not upload credentials or provider keys. Do not add a visual baseline. Use a pull_request guard, explicit bounded timeout, minimum permissions under existing workflow policy, checkout/setup-node/upload-artifact v7 majors, explicit retention-days, and an always-run upload of only the sanitized screenshots/logs allowlist, including retry-pass failure evidence. Do not upload the whole .runtime tree or settings/compose-config dumps; block upload on secret-value scan failure. Do not edit any other workflow.
+- [X] T013 Add a blocking pull-request e2e job to `.github/workflows/ci.yml`. Use Node 24 from `web/.node-version`, run `npm ci` in `web/`, run `npx playwright install --with-deps chromium`, and run `npm run e2e`. Upload failure screenshots and sanitized compose and stub logs from `web/e2e/.runtime/`, including evidence from an attempt that failed and then passed on retry. Do not upload credentials or provider keys. Do not add a visual baseline. Use a pull_request guard, explicit bounded timeout, minimum permissions under existing workflow policy, checkout/setup-node/upload-artifact v7 majors, explicit retention-days, and an always-run upload of only the sanitized screenshots/logs allowlist, including retry-pass failure evidence. Do not upload the whole .runtime tree or settings/compose-config dumps; block upload on secret-value scan failure. Do not edit any other workflow.
 
 ---
 
-- [ ] T013a Publish `docs/adr/0023-compose-browser-smoke-isolation.md` from the Phase A draft after user Gate 1, changing only Status to Accepted. Anvil records the status-only diff proof in the delivery PR before Gauge verification. No architectural rewrite.
+- [X] T013a Publish `docs/adr/0023-compose-browser-smoke-isolation.md` from the Phase A draft after user Gate 1, changing only Status to Accepted. Anvil records the status-only diff proof in the delivery PR before Gauge verification. No architectural rewrite.
 
 ---
 
