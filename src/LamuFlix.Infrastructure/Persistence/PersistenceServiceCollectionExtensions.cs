@@ -1,4 +1,5 @@
 using System;
+using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
@@ -31,6 +32,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddDbContext<LamuFlixDbContext>(options => options.UseNpgsql(connectionString, o => o.UseVector()));
         services.AddHealthChecks().AddDbContextCheck<LamuFlixDbContext>("postgres", tags: [HealthCheckTags.Ready]);
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<GenreWeightsCache>();
         services.AddOptions<EnrichmentOptions>()
             .Validate(
                 options => options.ClaimLease > TimeSpan.Zero,
