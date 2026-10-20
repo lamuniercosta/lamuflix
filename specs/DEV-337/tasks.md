@@ -58,13 +58,13 @@
 
 ### Tests for User Story 2
 
-- [ ] T007 [US2] Write `tests/LamuFlix.UnitTests/Domain/GenreWeightsTests.cs` covering formula tolerance with double arithmetic, rare/common controlled comparison under a common union, rejection of negative N / negative df / df > N, empty-library and unknown-genre default weight 1.0, empty/identical/disjoint similarity, duplicate and permutation invariance, symmetry, bounds in [0,1], finite scores, no overall genre coefficient, and immutability when the input counts map is mutated after `Calculate`. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA only.
+- [X] T007 [US2] Write `tests/LamuFlix.UnitTests/Domain/GenreWeightsTests.cs` covering formula tolerance with double arithmetic, rare/common controlled comparison under a common union, rejection of negative N / negative df / df > N, empty-library and unknown-genre default weight 1.0, empty/identical/disjoint similarity, duplicate and permutation invariance, symmetry, bounds in [0,1], finite scores, no overall genre coefficient, and immutability when the input counts map is mutated after `Calculate`. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA only.
 
-- [ ] T008 [US2] After T007, add FsCheck properties in the same `tests/LamuFlix.UnitTests/Domain/GenreWeightsTests.cs` (brief names this single file for numerical and property proof) for set permutation/duplicate invariance, symmetry, and bounds. Each property: FsCheck.Xunit `[Property(MaxTest = 100)]`, `[Trait("Category", "Property")]`, explicit deterministic Replay seed, no `System.Random`, no algorithm restatement. Do not add a second property-test file.
+- [X] T008 [US2] After T007, add FsCheck properties in the same `tests/LamuFlix.UnitTests/Domain/GenreWeightsTests.cs` (brief names this single file for numerical and property proof) for set permutation/duplicate invariance, symmetry, and bounds. Each property: FsCheck.Xunit `[Property(MaxTest = 100)]`, `[Trait("Category", "Property")]`, explicit deterministic Replay seed, no `System.Random`, no algorithm restatement. Do not add a second property-test file.
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Add `src/LamuFlix.Core/Domain/GenreWeights.cs`: sealed immutable table; `Calculate(GenreCounts)`; `GetWeight(int)`; `Similarity(IEnumerable<int>, IEnumerable<int>)` per brief Q3 / spec FR-004–FR-005. No comments.
+- [X] T009 [US2] Add `src/LamuFlix.Core/Domain/GenreWeights.cs`: sealed immutable table; `Calculate(GenreCounts)`; `GetWeight(int)`; `Similarity(IEnumerable<int>, IEnumerable<int>)` per brief Q3 / spec FR-004–FR-005. No comments.
 
 **Checkpoint**: US2 unit and property tests pass.
 
