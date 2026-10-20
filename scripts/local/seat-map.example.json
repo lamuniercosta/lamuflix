@@ -5,6 +5,7 @@
     "invariants":  {
                        "maxCursorHeads":  4,
                        "maxAgyGHeads":  3,
+                       "maxAgy2GHeads":  3,
                        "minGeminiHeads":  1,
                        "disallowedFloorPools":  [
                                                     "ZEN"
@@ -35,6 +36,8 @@
                                                             "CURSOR":  2,
                                                             "AGY-G":  1,
                                                             "AGY-C":  2,
+                                                            "AGY2-G":  1,
+                                                            "AGY2-C":  2,
                                                             "GEMINI":  3,
                                                             "JETBRAINS":  3,
                                                             "OPENROUTER":  4,

@@ -82,12 +82,32 @@ function Get-SeatMapRecruitCommand {
         [string]$Preset,
         [AllowNull()]
         [AllowEmptyString()]
-        [string]$Launch
+        [string]$Launch,
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$Account
     )
     $c = ConvertTo-SeatMapQuotedArgument -Text $Codename
     $p = ConvertTo-SeatMapQuotedArgument -Text $Preset
     $l = ConvertTo-SeatMapQuotedArgument -Text $Launch
-    return "maestri recruit $c --preset $p --command $l --replace $c"
+    $cmd = "maestri recruit $c --preset $p --command $l --replace $c"
+    if (-not [string]::IsNullOrWhiteSpace($Account)) {
+        $cmd += ' --account ' + (ConvertTo-SeatMapQuotedArgument -Text $Account)
+    }
+    return $cmd
+}
+
+# A rung's Maestri account: '' when the rung does not declare one, so the
+# recruit keeps the preset's account (the CLI's Default login unless pinned).
+function Get-SeatMapRungAccount {
+    param($Cell)
+    if ($null -eq $Cell -or -not (Test-JsonProperty -Object $Cell -Name 'account')) { return '' }
+    return [string]$Cell.account
+}
+
+function Test-SeatMapIsDefaultAccount {
+    param([string]$Account)
+    return ([string]::IsNullOrWhiteSpace($Account) -or $Account -eq 'Default')
 }
 
 function Write-SeatMapViolationsAndExit {
@@ -213,7 +233,7 @@ function Get-SeatMapViolations {
 
     $knownHosts = @('claude', 'cursor', 'agy', 'junie', 'gemini', 'opencode', 'codex', 'muse')
     $validEvidence = @('measured', 'cleared', 'probed', 'unmeasured')
-    $validPools = @('CLAUDE', 'CODEX', 'CURSOR', 'AGY-G', 'AGY-C', 'JETBRAINS', 'GEMINI', 'OPENROUTER', 'DEEPSEEK', 'ZEN', 'MUSE', 'OPENCODE-GO', 'XIAOMI')
+    $validPools = @('CLAUDE', 'CODEX', 'CURSOR', 'AGY-G', 'AGY-C', 'AGY2-G', 'AGY2-C', 'JETBRAINS', 'GEMINI', 'OPENROUTER', 'DEEPSEEK', 'ZEN', 'MUSE', 'OPENCODE-GO', 'XIAOMI')
     $validCostSources = @('actual', 'estimated', 'unknown')
     $validRoles = @('head', 'floor')
 
@@ -224,6 +244,7 @@ function Get-SeatMapViolations {
 
     $maxCursorHeads = 3
     $maxAgyGHeads = 3
+    $maxAgy2GHeads = 3
     $minGeminiHeads = 1
     $disallowedFloorPools = @('ZEN')
     $zenFloorExceptions = @('Quill')
@@ -231,6 +252,7 @@ function Get-SeatMapViolations {
 
     if (Test-JsonProperty -Object $invariants -Name 'maxCursorHeads') { $maxCursorHeads = [int]$invariants.maxCursorHeads }
     if (Test-JsonProperty -Object $invariants -Name 'maxAgyGHeads') { $maxAgyGHeads = [int]$invariants.maxAgyGHeads }
+    if (Test-JsonProperty -Object $invariants -Name 'maxAgy2GHeads') { $maxAgy2GHeads = [int]$invariants.maxAgy2GHeads }
     if (Test-JsonProperty -Object $invariants -Name 'minGeminiHeads') { $minGeminiHeads = [int]$invariants.minGeminiHeads }
     if (Test-JsonProperty -Object $invariants -Name 'disallowedFloorPools') { $disallowedFloorPools = @($invariants.disallowedFloorPools) }
     if (Test-JsonProperty -Object $invariants -Name 'zenFloorExceptions') { $zenFloorExceptions = @($invariants.zenFloorExceptions) }
@@ -239,7 +261,9 @@ function Get-SeatMapViolations {
     $failures = [System.Collections.Generic.List[string]]::new()
     $cursorHeads = 0
     $agyGHeads = 0
+    $agy2GHeads = 0
     $geminiHeads = 0
+    $agy2Accounts = [System.Collections.Generic.List[string]]::new()
 
     if (-not (Test-JsonProperty -Object $Map -Name 'schemaVersion') -or $null -eq $Map.schemaVersion -or [string]$Map.schemaVersion -eq '') {
         $failures.Add('Seat map is missing required schemaVersion.')
@@ -357,6 +381,21 @@ function Get-SeatMapViolations {
                 $namedPools.Add($pool)
             }
 
+            $account = Get-SeatMapRungAccount -Cell $cell
+            if ((Test-JsonProperty -Object $cell -Name 'account') -and [string]::IsNullOrWhiteSpace($account)) {
+                $failures.Add("Seat '$label' rung '$r' has an empty account.")
+            }
+            elseif ($pool -like 'AGY2-*') {
+                if (Test-SeatMapIsDefaultAccount -Account $account) {
+                    $failures.Add("Seat '$label' rung '$r' is on $pool but does not name its Maestri account (account must be the second agy login, not Default).")
+                } else {
+                    $agy2Accounts.Add($account)
+                }
+            }
+            elseif ($pool -like 'AGY-*' -and -not (Test-SeatMapIsDefaultAccount -Account $account)) {
+                $failures.Add("Seat '$label' rung '$r' is on $pool, the Default agy login, but declares account '$account' (use AGY2-G or AGY2-C).")
+            }
+
             if ((Test-JsonProperty -Object $cell -Name 'evidence') -and -not [string]::IsNullOrWhiteSpace([string]$cell.evidence)) {
                 $evidence = [string]$cell.evidence
                 if ($validEvidence -notcontains $evidence) {
@@ -459,6 +498,7 @@ function Get-SeatMapViolations {
 
         if ($headPool -eq 'CURSOR') { $cursorHeads++ }
         if ($headPool -eq 'AGY-G') { $agyGHeads++ }
+        if ($headPool -eq 'AGY2-G') { $agy2GHeads++ }
         if ($headPool -eq 'GEMINI') { $geminiHeads++ }
 
         if ($disallowedFloorPools -contains $floorPool -and $zenFloorExceptions -notcontains $codename -and $zenFloorExceptions -notcontains $seatId) {
@@ -478,6 +518,13 @@ function Get-SeatMapViolations {
     }
     if ($agyGHeads -gt $maxAgyGHeads) {
         $failures.Add("At most $maxAgyGHeads AGY-G heads allowed (found $agyGHeads).")
+    }
+    if ($agy2GHeads -gt $maxAgy2GHeads) {
+        $failures.Add("At most $maxAgy2GHeads AGY2-G heads allowed (found $agy2GHeads).")
+    }
+    $distinctAgy2Accounts = @($agy2Accounts | Select-Object -Unique)
+    if ($distinctAgy2Accounts.Count -gt 1) {
+        $failures.Add("AGY2-G and AGY2-C rungs must all use one Maestri account (found: $($distinctAgy2Accounts -join ', ')).")
     }
     if ($geminiHeads -lt $minGeminiHeads) {
         $failures.Add("At least $minGeminiHeads Gemini heads required (found $geminiHeads).")
@@ -882,13 +929,16 @@ function Get-SeatMapTargetSwapDecision {
     $useFloor = ($null -ne $RuntimeFloor -and [bool]$RuntimeFloor.Ok -and (Test-SeatMapRungIsFloorRole -Seat $Seat -RungName $RungName -Cell $rungCell))
     $launch = ''
     $pool = ''
+    $account = ''
     if ($useFloor) {
         $launch = [string]$RuntimeFloor.Launch
         $pool = [string]$RuntimeFloor.Pool
+        $account = Get-SeatMapRungAccount -Cell $RuntimeFloor.Cell
     }
     else {
         if ($null -ne $rungCell -and (Test-JsonProperty -Object $rungCell -Name 'launch')) { $launch = [string]$rungCell.launch }
         if ($null -ne $rungCell -and (Test-JsonProperty -Object $rungCell -Name 'pool')) { $pool = [string]$rungCell.pool }
+        $account = Get-SeatMapRungAccount -Cell $rungCell
     }
     $previousRung = Get-SeatActiveRungName -Seat $Seat
     $previousLaunch = ''
@@ -898,6 +948,7 @@ function Get-SeatMapTargetSwapDecision {
         if (Test-JsonProperty -Object $prevCell -Name 'launch') { $previousLaunch = [string]$prevCell.launch }
         if (Test-JsonProperty -Object $prevCell -Name 'pool') { $previousPool = [string]$prevCell.pool }
     }
+    $previousAccount = Get-SeatMapRungAccount -Cell $prevCell
     $codeName = if (Test-JsonProperty -Object $Seat -Name 'codename') { [string]$Seat.codename } else { '' }
     $preset = if (Test-JsonProperty -Object $Seat -Name 'preset') { [string]$Seat.preset } else { '' }
     $seatId = if (Test-JsonProperty -Object $Seat -Name 'id') { [string]$Seat.id } else { '' }
@@ -908,9 +959,11 @@ function Get-SeatMapTargetSwapDecision {
         ActiveRung         = $RungName
         Launch             = $launch
         Pool               = $pool
+        Account            = $account
         PreviousActiveRung = $previousRung
         PreviousLaunch     = $previousLaunch
         PreviousPool       = $previousPool
+        PreviousAccount    = $previousAccount
     }
 }
 
@@ -925,9 +978,11 @@ function Format-SeatMapLockedSwapLine {
         activeRung         = [string]$Decision.ActiveRung
         launch             = [string]$Decision.Launch
         pool               = [string]$Decision.Pool
+        account            = [string]$Decision.Account
         previousActiveRung = [string]$Decision.PreviousActiveRung
         previousLaunch     = [string]$Decision.PreviousLaunch
         previousPool       = [string]$Decision.PreviousPool
+        previousAccount    = [string]$Decision.PreviousAccount
         preset             = [string]$Decision.Preset
     } | ConvertTo-Json -Compress
     return "[SEAT-MAP LOCKED-SWAP] $payload"

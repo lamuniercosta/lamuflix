@@ -121,6 +121,29 @@ Test-NegativeFixture -Name "invalid evidence" -Mutator { param($m) $m.seats[0].r
 # 16. Missing model
 Test-NegativeFixture -Name "missing model" -Mutator { param($m) $m.seats[0].rungs[0].psobject.properties.remove('model') } -ExpectedErrorSubstring "missing model"
 
+# 17. A second-account agy pool must name its Maestri account
+Test-NegativeFixture -Name "AGY2 rung without account" -Mutator { param($m) $m.seats[0].rungs[1].pool = 'AGY2-G'; $m.seats[0].rungs[1].host = 'agy'; $m.seats[0].rungs[1].PSObject.Properties.Remove('account') } -ExpectedErrorSubstring "does not name its Maestri account"
+
+# 18. The Default agy pools cannot carry another account
+Test-NegativeFixture -Name "AGY-G rung with an account" -Mutator { param($m) $m.seats[0].rungs[1].pool = 'AGY-G'; Add-Member -InputObject $m.seats[0].rungs[1] -NotePropertyName 'account' -NotePropertyValue 'AGY-2' -Force } -ExpectedErrorSubstring "the Default agy login, but declares account 'AGY-2'"
+
+# 19. Both AGY2 pools are one login, so every AGY2 rung shares one account
+Test-NegativeFixture -Name "AGY2 rungs on two accounts" -Mutator {
+    param($m)
+    $m.seats[0].rungs[1].pool = 'AGY2-G'; Add-Member -InputObject $m.seats[0].rungs[1] -NotePropertyName 'account' -NotePropertyValue 'AGY-2' -Force
+    $m.seats[1].rungs[1].pool = 'AGY2-C'; Add-Member -InputObject $m.seats[1].rungs[1] -NotePropertyName 'account' -NotePropertyValue 'AGY-3' -Force
+} -ExpectedErrorSubstring "must all use one Maestri account (found: AGY-2, AGY-3)"
+
+# 20. AGY2-G heads are capped on their own, apart from AGY-G
+Test-NegativeFixture -Name "AGY2-G heads over the cap" -Mutator {
+    param($m)
+    $m.invariants | Add-Member -NotePropertyName 'maxAgy2GHeads' -NotePropertyValue 0 -Force
+    $m.seats[0].rungs[0].pool = 'AGY2-G'; Add-Member -InputObject $m.seats[0].rungs[0] -NotePropertyName 'account' -NotePropertyValue 'AGY-2' -Force
+} -ExpectedErrorSubstring "At most 0 AGY2-G heads allowed (found 1)"
+
+# 21. A declared account cannot be blank
+Test-NegativeFixture -Name "empty account" -Mutator { param($m) Add-Member -InputObject $m.seats[0].rungs[1] -NotePropertyName 'account' -NotePropertyValue ' ' -Force } -ExpectedErrorSubstring "has an empty account"
+
 # --- Positive Fixtures: what the map is allowed to do ---
 function Test-PositiveFixture {
     param(
@@ -148,6 +171,15 @@ Test-PositiveFixture -Name "extra rung reusing a pool before floor" -Mutator {
     $extra.name = 'extra-pool-reuse'
     $extra.psobject.properties.remove('role')
     $s.rungs = @($s.rungs[0..($s.rungs.Count - 2)]) + @($extra) + @($s.rungs[-1])
+}
+
+# P2. A rung on the second agy login validates when it names its account
+Test-PositiveFixture -Name "AGY2-G rung on a named account" -Mutator {
+    param($m)
+    $m.invariants.distinctPoolsPerSeat = $false
+    $c = $m.seats[0].rungs[1]
+    $c.pool = 'AGY2-G'; $c.host = 'agy'; $c.model = 'gemini-3.8-flash-medium'; $c.launch = 'agy --dangerously-skip-permissions'
+    Add-Member -InputObject $c -NotePropertyName 'account' -NotePropertyValue 'AGY-2' -Force
 }
 
 # --- Warning Fixtures: tierPolicy must warn, and must not fail ---
@@ -202,5 +234,5 @@ if (Test-JsonProperty -Object $seatMap.invariants -Name 'tierPolicy') {
     Write-Host "Test-SeatMap: 5 warning fixtures verified (advisory, non-fatal)." -ForegroundColor Green
 }
 
-Write-Host "Test-SeatMap: All checks PASSED ($($seatMap.seats.Count) seats, schema valid, invariants held, 16 negative and 1 positive fixture verified)." -ForegroundColor Green
+Write-Host "Test-SeatMap: All checks PASSED ($($seatMap.seats.Count) seats, schema valid, invariants held, 21 negative and 2 positive fixtures verified)." -ForegroundColor Green
 exit 0

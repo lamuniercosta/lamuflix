@@ -303,7 +303,8 @@ function Apply-SeatRung {
     $previousRung = [string]$receipt.previousActiveRung
     $previousLaunch = [string]$receipt.previousLaunch
     $previousPool = [string]$receipt.previousPool
-    $recruitCmd = Get-SeatMapRecruitCommand -Codename $codeName -Preset $preset -Launch $launch
+    $account = [string]$receipt.account
+    $recruitCmd = Get-SeatMapRecruitCommand -Codename $codeName -Preset $preset -Launch $launch -Account $account
     $liveSwapped = $false
     $detail = 'map+notes'
     if ($env:MAESTRI_PIPE) {
@@ -313,7 +314,9 @@ function Apply-SeatRung {
             # return value. The portal handler reads .success; extra success-stream
             # objects turn $result into an array and StrictMode throws
             # "The property 'success' cannot be found on this object."
-            $null = & $cliPath recruit $codeName --preset $preset --command $launch --replace $codeName
+            $recruitArgs = @('recruit', $codeName, '--preset', $preset, '--command', $launch, '--replace', $codeName)
+            if (-not [string]::IsNullOrWhiteSpace($account)) { $recruitArgs += @('--account', $account) }
+            $null = & $cliPath @recruitArgs
             $liveSwapped = ($LASTEXITCODE -eq 0)
             $detail = if ($liveSwapped) { 'recruit --replace' } else { "recruit exit $LASTEXITCODE" }
         } catch {

@@ -415,6 +415,7 @@ if ($Validate -or $All -or $noAction) {
     Write-Host '  [OK] At least 1 Gemini API head'
     Write-Host '  [OK] Zen floor = 0 (Quill excepted)'
     Write-Host '  [OK] Distinct pools across all declared rungs'
+    Write-Host '  [OK] AGY2 rungs name one Maestri account; AGY rungs stay on Default'
     Write-SeatMapWarnings -Warnings @(Get-SeatMapWarnings -Map $seatMap)
     if ($Validate -and -not $All -and -not $Seat -and -not $SyncNotes -and -not $Verify -and -not $GenerateCommands) {
         exit 0
@@ -507,7 +508,8 @@ if ($GenerateCommands -or $All) {
         $codeName = if (Test-JsonProperty -Object $s -Name 'codename') { [string]$s.codename } else { '' }
         $preset = if (Test-JsonProperty -Object $s -Name 'preset') { [string]$s.preset } else { '' }
         $launch = if ($null -ne $activeCell -and (Test-JsonProperty -Object $activeCell -Name 'launch')) { [string]$activeCell.launch } else { '' }
-        Write-Host (Get-SeatMapRecruitCommand -Codename $codeName -Preset $preset -Launch $launch)
+        $account = Get-SeatMapRungAccount -Cell $activeCell
+        Write-Host (Get-SeatMapRecruitCommand -Codename $codeName -Preset $preset -Launch $launch -Account $account)
     }
 }
 
