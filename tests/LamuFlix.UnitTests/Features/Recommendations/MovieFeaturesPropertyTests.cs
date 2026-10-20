@@ -161,19 +161,25 @@ public sealed class MovieFeaturesPropertyTests
             null);
 
     private static string[] Expand(string[]? values) =>
-        [.. (values ?? []), null!];
+        [.. (values ?? []), NullElement()];
 
     private static string[] RepeatNull(string[]? values) =>
-        [.. (values ?? []), null!, null!];
+        [.. (values ?? []), NullElement(), NullElement()];
 
     private static string[] Vary(string[]? values)
     {
         var source = values ?? [];
         var combined = source
             .Concat(source.Reverse())
-            .Append(null!)
-            .Select(value => value is null ? null! : VaryAsciiCase(value));
+            .Select(VaryAsciiCase)
+            .Append(NullElement());
         return [.. combined];
+    }
+
+    private static string NullElement()
+    {
+        // ReSharper disable once NullableWarningSuppressionIsUsed // the null member is the subject of this test.
+        return null!;
     }
 
     private static string VaryAsciiCase(string value) =>
@@ -191,5 +197,7 @@ public sealed class MovieFeaturesPropertyTests
         NullCount(values) > 0;
 
     private static int NullCount(ImmutableHashSet<string> values) =>
-        values.Count(value => value is null);
+        values.Count(IsNull);
+
+    private static bool IsNull(object? value) => value is null;
 }

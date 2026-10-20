@@ -55,6 +55,7 @@ public sealed class MovieFeaturesMapperTests
         var features = MovieFeaturesMapper.From(movie);
 
         // assert
+        // ReSharper disable once RedundantCast // the cast widens short? to int? before boxing so ShouldBe compares equal numeric types.
         features.MetaScore.ShouldBe((int?)metaScore);
     }
 
@@ -99,6 +100,7 @@ public sealed class MovieFeaturesMapperTests
     public void From_NullMovie_ThrowsArgumentNullException()
     {
         // act & assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard.
         Should.Throw<ArgumentNullException>(() => MovieFeaturesMapper.From(null!));
     }
 
@@ -300,69 +302,69 @@ public sealed class MovieFeaturesMapperTests
     public void From_GenresWithNullElement_KeepsNullMember()
     {
         // arrange
-        var movie = CreateMovie(new MovieMetadata("Title", genres: new[] { "Drama", null! }));
+        var movie = CreateMovie(new MovieMetadata("Title", genres: new[] { "Drama", NullElement() }));
 
         // act
         var features = MovieFeaturesMapper.From(movie);
 
         // assert
         features.Genres.Count.ShouldBe(2);
-        features.Genres.Any(value => value is null).ShouldBeTrue();
+        features.Genres.Any(IsNull).ShouldBeTrue();
     }
 
     [Fact]
     public void From_DirectorsWithNullElement_KeepsNullMember()
     {
         // arrange
-        var movie = CreateMovie(new MovieMetadata("Title", directors: new[] { "Director A", null! }));
+        var movie = CreateMovie(new MovieMetadata("Title", directors: new[] { "Director A", NullElement() }));
 
         // act
         var features = MovieFeaturesMapper.From(movie);
 
         // assert
         features.Directors.Count.ShouldBe(2);
-        features.Directors.Any(value => value is null).ShouldBeTrue();
+        features.Directors.Any(IsNull).ShouldBeTrue();
     }
 
     [Fact]
     public void From_WritersWithNullElement_KeepsNullMember()
     {
         // arrange
-        var movie = CreateMovie(new MovieMetadata("Title", writers: new[] { "Writer A", null! }));
+        var movie = CreateMovie(new MovieMetadata("Title", writers: new[] { "Writer A", NullElement() }));
 
         // act
         var features = MovieFeaturesMapper.From(movie);
 
         // assert
         features.Writers.Count.ShouldBe(2);
-        features.Writers.Any(value => value is null).ShouldBeTrue();
+        features.Writers.Any(IsNull).ShouldBeTrue();
     }
 
     [Fact]
     public void From_ActorsWithNullElement_KeepsNullMemberInCast()
     {
         // arrange
-        var movie = CreateMovie(new MovieMetadata("Title", actors: new[] { "Actor A", null! }));
+        var movie = CreateMovie(new MovieMetadata("Title", actors: new[] { "Actor A", NullElement() }));
 
         // act
         var features = MovieFeaturesMapper.From(movie);
 
         // assert
         features.Cast.Count.ShouldBe(2);
-        features.Cast.Any(value => value is null).ShouldBeTrue();
+        features.Cast.Any(IsNull).ShouldBeTrue();
     }
 
     [Fact]
     public void From_GenresWithRepeatedNullElements_CollapsesToSingleNullMember()
     {
         // arrange
-        var movie = CreateMovie(new MovieMetadata("Title", genres: new[] { null!, null!, "Drama" }));
+        var movie = CreateMovie(new MovieMetadata("Title", genres: new[] { NullElement(), NullElement(), "Drama" }));
 
         // act
         var features = MovieFeaturesMapper.From(movie);
 
         // assert
-        features.Genres.Count(value => value is null).ShouldBe(1);
+        features.Genres.Count(IsNull).ShouldBe(1);
         features.Genres.Count.ShouldBe(2);
     }
 
@@ -370,13 +372,13 @@ public sealed class MovieFeaturesMapperTests
     public void From_DirectorsWithRepeatedNullElements_CollapsesToSingleNullMember()
     {
         // arrange
-        var movie = CreateMovie(new MovieMetadata("Title", directors: new[] { null!, null!, "Director A" }));
+        var movie = CreateMovie(new MovieMetadata("Title", directors: new[] { NullElement(), NullElement(), "Director A" }));
 
         // act
         var features = MovieFeaturesMapper.From(movie);
 
         // assert
-        features.Directors.Count(value => value is null).ShouldBe(1);
+        features.Directors.Count(IsNull).ShouldBe(1);
         features.Directors.Count.ShouldBe(2);
     }
 
@@ -384,13 +386,13 @@ public sealed class MovieFeaturesMapperTests
     public void From_WritersWithRepeatedNullElements_CollapsesToSingleNullMember()
     {
         // arrange
-        var movie = CreateMovie(new MovieMetadata("Title", writers: new[] { null!, null!, "Writer A" }));
+        var movie = CreateMovie(new MovieMetadata("Title", writers: new[] { NullElement(), NullElement(), "Writer A" }));
 
         // act
         var features = MovieFeaturesMapper.From(movie);
 
         // assert
-        features.Writers.Count(value => value is null).ShouldBe(1);
+        features.Writers.Count(IsNull).ShouldBe(1);
         features.Writers.Count.ShouldBe(2);
     }
 
@@ -398,13 +400,13 @@ public sealed class MovieFeaturesMapperTests
     public void From_ActorsWithRepeatedNullElements_CollapsesToSingleNullMemberInCast()
     {
         // arrange
-        var movie = CreateMovie(new MovieMetadata("Title", actors: new[] { null!, null!, "Actor A" }));
+        var movie = CreateMovie(new MovieMetadata("Title", actors: new[] { NullElement(), NullElement(), "Actor A" }));
 
         // act
         var features = MovieFeaturesMapper.From(movie);
 
         // assert
-        features.Cast.Count(value => value is null).ShouldBe(1);
+        features.Cast.Count(IsNull).ShouldBe(1);
         features.Cast.Count.ShouldBe(2);
     }
 
@@ -480,16 +482,16 @@ public sealed class MovieFeaturesMapperTests
         // arrange
         var first = CreateMovie(new MovieMetadata(
             "Title",
-            genres: new[] { "Drama", null! },
-            directors: new[] { "Director A", null! },
-            writers: new[] { "Writer A", null! },
-            actors: new[] { "Actor A", null! }));
+            genres: new[] { "Drama", NullElement() },
+            directors: new[] { "Director A", NullElement() },
+            writers: new[] { "Writer A", NullElement() },
+            actors: new[] { "Actor A", NullElement() }));
         var second = CreateMovie(new MovieMetadata(
             "Title",
-            genres: new[] { "drama", null! },
-            directors: new[] { "DIRECTOR A", null! },
-            writers: new[] { "writer a", null! },
-            actors: new[] { "ACTOR A", null! }));
+            genres: new[] { "drama", NullElement() },
+            directors: new[] { "DIRECTOR A", NullElement() },
+            writers: new[] { "writer a", NullElement() },
+            actors: new[] { "ACTOR A", NullElement() }));
 
         // act
         var firstFeatures = MovieFeaturesMapper.From(first);
@@ -506,7 +508,7 @@ public sealed class MovieFeaturesMapperTests
     {
         // arrange
         var withoutNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", genres: ["Drama"], synopsis: "Plot")));
-        var withNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", genres: ["Drama", null!], synopsis: "Plot")));
+        var withNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", genres: ["Drama", NullElement()], synopsis: "Plot")));
 
         // act & assert
         withNull.GetHashCode().ShouldBe(withoutNull.GetHashCode());
@@ -519,7 +521,7 @@ public sealed class MovieFeaturesMapperTests
     {
         // arrange
         var withoutNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", directors: ["Director A"], synopsis: "Plot")));
-        var withNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", directors: ["Director A", null!], synopsis: "Plot")));
+        var withNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", directors: ["Director A", NullElement()], synopsis: "Plot")));
 
         // act & assert
         withNull.GetHashCode().ShouldBe(withoutNull.GetHashCode());
@@ -532,7 +534,7 @@ public sealed class MovieFeaturesMapperTests
     {
         // arrange
         var withoutNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", writers: ["Writer A"], synopsis: "Plot")));
-        var withNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", writers: ["Writer A", null!], synopsis: "Plot")));
+        var withNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", writers: ["Writer A", NullElement()], synopsis: "Plot")));
 
         // act & assert
         withNull.GetHashCode().ShouldBe(withoutNull.GetHashCode());
@@ -545,7 +547,7 @@ public sealed class MovieFeaturesMapperTests
     {
         // arrange
         var withoutNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", actors: ["Actor A"], synopsis: "Plot")));
-        var withNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", actors: ["Actor A", null!], synopsis: "Plot")));
+        var withNull = MovieFeaturesMapper.From(CreateMovie(new MovieMetadata("Title", actors: ["Actor A", NullElement()], synopsis: "Plot")));
 
         // act & assert
         withNull.GetHashCode().ShouldBe(withoutNull.GetHashCode());
@@ -620,6 +622,14 @@ public sealed class MovieFeaturesMapperTests
         lower.ShouldNotBe(upper);
         upper.ShouldNotBe(lower);
     }
+
+    private static string NullElement()
+    {
+        // ReSharper disable once NullableWarningSuppressionIsUsed // the null member is the subject of this test.
+        return null!;
+    }
+
+    private static bool IsNull(object? value) => value is null;
 
     private static Movie CreateMovie(MovieMetadata? metadata) =>
         Movie.Rehydrate(

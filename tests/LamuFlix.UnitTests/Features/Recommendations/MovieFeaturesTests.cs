@@ -33,7 +33,9 @@ public sealed class MovieFeaturesTests
     public void Constructor_ExplicitNullArguments_YieldsFourEmptySetsAndFiveNullScalars()
     {
         // act
+        // ReSharper disable RedundantArgumentDefaultValue // passing explicit nulls is the subject of this test.
         var features = new MovieFeatures(null, null, null, null, null, null, null, null, null);
+        // ReSharper restore RedundantArgumentDefaultValue
 
         // assert
         features.Genres.ShouldBeEmpty();
@@ -98,54 +100,54 @@ public sealed class MovieFeaturesTests
     public void Constructor_GenresWithNullElement_KeepsNullMember()
     {
         // act
-        var features = new MovieFeatures(genres: new[] { "Drama", null! });
+        var features = new MovieFeatures(genres: new[] { "Drama", NullElement() });
 
         // assert
         features.Genres.Count.ShouldBe(2);
-        features.Genres.Any(value => value is null).ShouldBeTrue();
+        features.Genres.Any(IsNull).ShouldBeTrue();
     }
 
     [Fact]
     public void Constructor_DirectorsWithNullElement_KeepsNullMember()
     {
         // act
-        var features = new MovieFeatures(directors: new[] { "Director A", null! });
+        var features = new MovieFeatures(directors: new[] { "Director A", NullElement() });
 
         // assert
         features.Directors.Count.ShouldBe(2);
-        features.Directors.Any(value => value is null).ShouldBeTrue();
+        features.Directors.Any(IsNull).ShouldBeTrue();
     }
 
     [Fact]
     public void Constructor_WritersWithNullElement_KeepsNullMember()
     {
         // act
-        var features = new MovieFeatures(writers: new[] { "Writer A", null! });
+        var features = new MovieFeatures(writers: new[] { "Writer A", NullElement() });
 
         // assert
         features.Writers.Count.ShouldBe(2);
-        features.Writers.Any(value => value is null).ShouldBeTrue();
+        features.Writers.Any(IsNull).ShouldBeTrue();
     }
 
     [Fact]
     public void Constructor_CastWithNullElement_KeepsNullMember()
     {
         // act
-        var features = new MovieFeatures(cast: new[] { "Actor A", null! });
+        var features = new MovieFeatures(cast: new[] { "Actor A", NullElement() });
 
         // assert
         features.Cast.Count.ShouldBe(2);
-        features.Cast.Any(value => value is null).ShouldBeTrue();
+        features.Cast.Any(IsNull).ShouldBeTrue();
     }
 
     [Fact]
     public void Constructor_GenresWithRepeatedNullElements_CollapsesToSingleNullMember()
     {
         // act
-        var features = new MovieFeatures(genres: new[] { null!, null!, "Drama" });
+        var features = new MovieFeatures(genres: new[] { NullElement(), NullElement(), "Drama" });
 
         // assert
-        features.Genres.Count(value => value is null).ShouldBe(1);
+        features.Genres.Count(IsNull).ShouldBe(1);
         features.Genres.Count.ShouldBe(2);
     }
 
@@ -153,10 +155,10 @@ public sealed class MovieFeaturesTests
     public void Constructor_DirectorsWithRepeatedNullElements_CollapsesToSingleNullMember()
     {
         // act
-        var features = new MovieFeatures(directors: new[] { null!, null!, "Director A" });
+        var features = new MovieFeatures(directors: new[] { NullElement(), NullElement(), "Director A" });
 
         // assert
-        features.Directors.Count(value => value is null).ShouldBe(1);
+        features.Directors.Count(IsNull).ShouldBe(1);
         features.Directors.Count.ShouldBe(2);
     }
 
@@ -164,10 +166,10 @@ public sealed class MovieFeaturesTests
     public void Constructor_WritersWithRepeatedNullElements_CollapsesToSingleNullMember()
     {
         // act
-        var features = new MovieFeatures(writers: new[] { null!, null!, "Writer A" });
+        var features = new MovieFeatures(writers: new[] { NullElement(), NullElement(), "Writer A" });
 
         // assert
-        features.Writers.Count(value => value is null).ShouldBe(1);
+        features.Writers.Count(IsNull).ShouldBe(1);
         features.Writers.Count.ShouldBe(2);
     }
 
@@ -175,10 +177,10 @@ public sealed class MovieFeaturesTests
     public void Constructor_CastWithRepeatedNullElements_CollapsesToSingleNullMember()
     {
         // act
-        var features = new MovieFeatures(cast: new[] { null!, null!, "Actor A" });
+        var features = new MovieFeatures(cast: new[] { NullElement(), NullElement(), "Actor A" });
 
         // assert
-        features.Cast.Count(value => value is null).ShouldBe(1);
+        features.Cast.Count(IsNull).ShouldBe(1);
         features.Cast.Count.ShouldBe(2);
     }
 
@@ -202,10 +204,10 @@ public sealed class MovieFeaturesTests
             typeof(int?),
             typeof(string),
         ]);
-        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Genres))!.PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
-        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Directors))!.PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
-        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Writers))!.PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
-        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Cast))!.PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
+        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Genres)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
+        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Directors)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
+        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Writers)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
+        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Cast)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
     }
 
     [Fact]
@@ -299,15 +301,15 @@ public sealed class MovieFeaturesTests
     {
         // arrange
         var left = new MovieFeatures(
-            genres: new[] { "Drama", null! },
-            directors: new[] { "Director A", null! },
-            writers: new[] { "Writer A", null! },
-            cast: new[] { "Actor A", null! });
+            genres: new[] { "Drama", NullElement() },
+            directors: new[] { "Director A", NullElement() },
+            writers: new[] { "Writer A", NullElement() },
+            cast: new[] { "Actor A", NullElement() });
         var right = new MovieFeatures(
-            genres: new[] { "drama", null! },
-            directors: new[] { "DIRECTOR A", null! },
-            writers: new[] { "writer a", null! },
-            cast: new[] { "ACTOR A", null! });
+            genres: new[] { "drama", NullElement() },
+            directors: new[] { "DIRECTOR A", NullElement() },
+            writers: new[] { "writer a", NullElement() },
+            cast: new[] { "ACTOR A", NullElement() });
 
         // act & assert
         left.ShouldBe(right);
@@ -320,7 +322,7 @@ public sealed class MovieFeaturesTests
     {
         // arrange
         var withoutNull = new MovieFeatures(genres: new[] { "Drama" }, fullPlot: "Plot");
-        var withNull = new MovieFeatures(genres: new[] { "Drama", null! }, fullPlot: "Plot");
+        var withNull = new MovieFeatures(genres: new[] { "Drama", NullElement() }, fullPlot: "Plot");
 
         // act & assert
         withNull.GetHashCode().ShouldBe(withoutNull.GetHashCode());
@@ -333,7 +335,7 @@ public sealed class MovieFeaturesTests
     {
         // arrange
         var withoutNull = new MovieFeatures(directors: new[] { "Director A" }, fullPlot: "Plot");
-        var withNull = new MovieFeatures(directors: new[] { "Director A", null! }, fullPlot: "Plot");
+        var withNull = new MovieFeatures(directors: new[] { "Director A", NullElement() }, fullPlot: "Plot");
 
         // act & assert
         withNull.GetHashCode().ShouldBe(withoutNull.GetHashCode());
@@ -346,7 +348,7 @@ public sealed class MovieFeaturesTests
     {
         // arrange
         var withoutNull = new MovieFeatures(writers: new[] { "Writer A" }, fullPlot: "Plot");
-        var withNull = new MovieFeatures(writers: new[] { "Writer A", null! }, fullPlot: "Plot");
+        var withNull = new MovieFeatures(writers: new[] { "Writer A", NullElement() }, fullPlot: "Plot");
 
         // act & assert
         withNull.GetHashCode().ShouldBe(withoutNull.GetHashCode());
@@ -359,7 +361,7 @@ public sealed class MovieFeaturesTests
     {
         // arrange
         var withoutNull = new MovieFeatures(cast: new[] { "Actor A" }, fullPlot: "Plot");
-        var withNull = new MovieFeatures(cast: new[] { "Actor A", null! }, fullPlot: "Plot");
+        var withNull = new MovieFeatures(cast: new[] { "Actor A", NullElement() }, fullPlot: "Plot");
 
         // act & assert
         withNull.GetHashCode().ShouldBe(withoutNull.GetHashCode());
@@ -395,7 +397,9 @@ public sealed class MovieFeaturesTests
         var features = new MovieFeatures();
 
         // act & assert
+        // ReSharper disable once RedundantCast // the cast selects the MovieFeatures? overload instead of Equals(object?).
         features.Equals((MovieFeatures?)null).ShouldBeFalse();
+        // ReSharper disable once SuspiciousTypeConversion.Global // a non-MovieFeatures argument must return false.
         features.Equals("not movie features").ShouldBeFalse();
     }
 
@@ -453,6 +457,14 @@ public sealed class MovieFeaturesTests
             nameof(MovieFeatures.FullPlot) => Copy(baseline, fullPlot: "Another plot."),
             _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown field."),
         };
+
+    private static string NullElement()
+    {
+        // ReSharper disable once NullableWarningSuppressionIsUsed // the null member is the subject of this test.
+        return null!;
+    }
+
+    private static bool IsNull(object? value) => value is null;
 
     private static MovieFeatures Copy(
         MovieFeatures baseline,
