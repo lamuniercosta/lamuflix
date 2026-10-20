@@ -9,7 +9,6 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
@@ -149,10 +148,6 @@ public sealed class EfMovieRepository : IMovieRepository
         record.ImdbId = null;
         record.PosterUrl = null;
         record.MetaScore = null;
-        record.Actors.Clear();
-        record.Directors.Clear();
-        record.Genres.Clear();
-        record.Writers.Clear();
     }
 
     public async Task<MovieId> NextIdentityAsync(CancellationToken ct)
@@ -218,8 +213,7 @@ public sealed class EfMovieRepository : IMovieRepository
             }
             catch (Exception exception) when (attempt <= metadataRetryDelays.Length && IsRetryableConflict(exception))
             {
-                db.ChangeTracker.Clear();
-                await Task.Delay(metadataRetryDelays[attempt - 1], ct);
+                await Task.Delay(metadataRetryDelays[attempt - 1], timeProvider, ct);
             }
             catch (Exception exception) when (IsImdbIdConflict(exception))
             {
@@ -271,13 +265,10 @@ public sealed class EfMovieRepository : IMovieRepository
             Apply(tracked.Movie, tracked.Record, tracked.Baseline);
         }
 
-        if (metadataTracked.Count > 0)
+        await AcquireSnapshotLocksAsync(metadataTracked, ct);
+        foreach (var tracked in metadataTracked)
         {
-            await AcquireSnapshotLocksAsync(metadataTracked, ct);
-            foreach (var tracked in metadataTracked)
-            {
-                await ReplaceAssociationsAsync(tracked.Record, tracked.Movie.Metadata, ct);
-            }
+            await ReplaceAssociationsAsync(tracked.Record, tracked.Movie.Metadata, ct);
         }
 
         await db.SaveChangesAsync(ct);
@@ -319,10 +310,10 @@ public sealed class EfMovieRepository : IMovieRepository
         {
             if (item.Movie.Metadata is { } metadata)
             {
-                CollectKeys(keys, 1, metadata.Genres);
-                CollectKeys(keys, 2, metadata.Directors);
-                CollectKeys(keys, 3, metadata.Writers);
-                CollectKeys(keys, 4, metadata.Actors);
+                CollectKeys(keys, 1, NormalizeUnique(metadata.Genres));
+                CollectKeys(keys, 2, NormalizeUnique(metadata.Directors));
+                CollectKeys(keys, 3, NormalizeUnique(metadata.Writers));
+                CollectKeys(keys, 4, NormalizeUnique(metadata.Actors));
             }
         }
 
@@ -340,15 +331,11 @@ public sealed class EfMovieRepository : IMovieRepository
         }
     }
 
-    private static void CollectKeys(List<(int RoleId, string Name)> keys, int roleId, IEnumerable<string> names)
+    private static void CollectKeys(List<(int RoleId, string Name)> keys, int roleId, List<string> names)
     {
         foreach (var name in names)
         {
-            var normalized = Normalize(name);
-            if (normalized.Length > 0)
-            {
-                keys.Add((roleId, normalized));
-            }
+            keys.Add((roleId, Normalize(name)));
         }
     }
 
@@ -383,9 +370,7 @@ public sealed class EfMovieRepository : IMovieRepository
         where TEntity : class
     {
         var desired = NormalizeUnique(names);
-        var existing = desired.Count == 0
-            ? []
-            : await LoadMatchingAsync(set, desired, nameOf, ct);
+        var existing = await LoadMatchingAsync(set, desired, nameOf, ct);
         var byKey = new Dictionary<string, TEntity>(StringComparer.Ordinal);
         foreach (var entity in existing)
         {
@@ -399,7 +384,6 @@ public sealed class EfMovieRepository : IMovieRepository
             if (!byKey.TryGetValue(key, out var entity))
             {
                 entity = create(name);
-                set.Add(entity);
                 byKey[key] = entity;
             }
 
@@ -472,18 +456,21 @@ public sealed class EfMovieRepository : IMovieRepository
         return null;
     }
 
-    private static bool IsRetryableSqlState(PostgresException exception) =>
-        exception.SqlState switch
+    internal static bool IsRetryableSqlState(string? sqlState, string? constraintName) =>
+        sqlState switch
         {
             "40001" or "40P01" => true,
-            "23505" => IsMovieOrJoinPrimaryKey(exception.ConstraintName),
+            "23505" => IsMovieOrJoinPrimaryKey(constraintName),
             _ => false,
         };
 
-    private static bool IsMovieOrJoinPrimaryKey(string? constraintName) =>
+    internal static bool IsMovieOrJoinPrimaryKey(string? constraintName) =>
         constraintName is not null
         && (string.Equals(constraintName, "PK_movies", StringComparison.Ordinal)
             || constraintName.StartsWith("PK_movie_", StringComparison.Ordinal));
+
+    private static bool IsRetryableSqlState(PostgresException exception) =>
+        IsRetryableSqlState(exception.SqlState, exception.ConstraintName);
 
     public async Task<bool> TryClaimForEnrichmentAsync(MovieId id, CancellationToken ct)
     {
@@ -500,16 +487,6 @@ public sealed class EfMovieRepository : IMovieRepository
         if (rows != 1)
         {
             return false;
-        }
-
-        if (identityMap.TryGetValue(id, out var tracked))
-        {
-            var attempts = await db.Movies.AsNoTracking()
-                .Where(movie => movie.Id == id)
-                .Select(movie => movie.EnrichmentAttempts)
-                .SingleAsync(ct);
-            SetCurrentAndOriginal(db.Entry(tracked.Record).Property(movie => movie.LastAttemptAt), now);
-            SetCurrentAndOriginal(db.Entry(tracked.Record).Property(movie => movie.EnrichmentAttempts), attempts);
         }
 
         return true;
@@ -552,17 +529,9 @@ public sealed class EfMovieRepository : IMovieRepository
 
     private static void Apply(Movie movie, MovieRecord record, Baseline baseline)
     {
-        ApplyCore(movie, record);
         ApplyState(movie, record, baseline);
         ApplyAttempts(movie, record, baseline);
         ApplyMetadata(movie, record, baseline);
-    }
-
-    private static void ApplyCore(Movie movie, MovieRecord record)
-    {
-        record.Title = movie.Title;
-        record.LibraryPath = movie.Path;
-        record.Format = movie.Format;
     }
 
     private static void ApplyState(Movie movie, MovieRecord record, Baseline baseline)
@@ -609,11 +578,6 @@ public sealed class EfMovieRepository : IMovieRepository
 
     private static void ApplyAttempts(Movie movie, MovieRecord record, Baseline baseline)
     {
-        if (baseline.EnrichmentAttempts != movie.EnrichmentAttempts)
-        {
-            record.EnrichmentAttempts += movie.EnrichmentAttempts - baseline.EnrichmentAttempts;
-        }
-
         if (baseline.LastFailureCategory != movie.LastFailureCategory)
         {
             record.EnrichmentFailureCategory = movie.LastFailureCategory;
@@ -675,12 +639,6 @@ public sealed class EfMovieRepository : IMovieRepository
             isNotInterested: record.IsNotInterested);
     }
 
-    private static void SetCurrentAndOriginal<T>(PropertyEntry<MovieRecord, T> property, T value)
-    {
-        property.CurrentValue = value;
-        property.OriginalValue = value;
-    }
-
     private sealed class TrackedMovie(Movie movie, MovieRecord record, Baseline baseline)
     {
         public Movie Movie { get; } = movie;
@@ -694,7 +652,6 @@ public sealed class EfMovieRepository : IMovieRepository
         bool IsNotInterested,
         EnrichmentStatus Status,
         DateTimeOffset? EnrichedAt,
-        int EnrichmentAttempts,
         EnrichmentFailureCategory? LastFailureCategory,
         DateTimeOffset? LastAttemptAt,
         MovieMetadata? Metadata,
@@ -706,7 +663,6 @@ public sealed class EfMovieRepository : IMovieRepository
             movie.IsNotInterested,
             movie.Status,
             movie.EnrichedAt,
-            movie.EnrichmentAttempts,
             movie.LastFailureCategory,
             movie.LastAttemptAt,
             movie.Metadata,

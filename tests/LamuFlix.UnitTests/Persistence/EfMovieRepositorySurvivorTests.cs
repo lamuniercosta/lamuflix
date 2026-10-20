@@ -1517,6 +1517,320 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         (await verify.Movies.CountAsync(item => item.Id == firstId || item.Id == secondId, ct)).ShouldBe(2);
     }
 
+    [Fact]
+    public async Task SaveChanges_DuplicateImdbIdOnMetadataWrite_ThrowsDuplicateAndClearsTracking()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var holder = Movie.Create(
+            await repository.NextIdentityAsync(ct),
+            "Holder", new LibraryPath("C:/library/mutation-dup-holder.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(holder, ct);
+        holder.MarkEnriched(new MovieMetadata("Holder", imdbId: new ImdbId("tt9900100")), Now);
+        await repository.SaveChangesAsync(ct);
+        var loser = Movie.Create(
+            await repository.NextIdentityAsync(ct),
+            "Loser", new LibraryPath("C:/library/mutation-dup-loser.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(loser, ct);
+        await repository.SaveChangesAsync(ct);
+        loser.MarkEnriched(new MovieMetadata("Loser", imdbId: new ImdbId("tt9900100")), Now);
+
+        // act
+        var failure = await Should.ThrowAsync<DuplicateImdbIdException>(() => repository.SaveChangesAsync(ct));
+
+        // assert
+        failure.InnerException.ShouldNotBeNull();
+        db.ChangeTracker.Entries().ShouldBeEmpty();
+        (await repository.GetAsync(loser.Id, ct)).ShouldNotBeSameAs(loser);
+        await using var verify = OpenSibling(db);
+        (await verify.Movies.CountAsync(movie => movie.Id == loser.Id, ct)).ShouldBe(1);
+        (await verify.Movies.AsNoTracking().SingleAsync(movie => movie.Id == loser.Id, ct)).ImdbId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task MetadataSave_AmbientTransaction_DuplicateImdbId_ThrowsDuplicateAndClearsTracking()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var holder = Movie.Create(
+            await repository.NextIdentityAsync(ct),
+            "Holder", new LibraryPath("C:/library/mutation-ambient-dup-holder.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(holder, ct);
+        holder.MarkEnriched(new MovieMetadata("Holder", imdbId: new ImdbId("tt9900200")), Now);
+        await repository.SaveChangesAsync(ct);
+        var loser = Movie.Create(
+            await repository.NextIdentityAsync(ct),
+            "Loser", new LibraryPath("C:/library/mutation-ambient-dup-loser.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(loser, ct);
+        await repository.SaveChangesAsync(ct);
+        loser.MarkEnriched(new MovieMetadata("Loser", imdbId: new ImdbId("tt9900200")), Now);
+
+        // act
+        await using var ambient = await db.Database.BeginTransactionAsync(ct);
+        var failure = await Should.ThrowAsync<DuplicateImdbIdException>(() => repository.SaveChangesAsync(ct));
+
+        // assert
+        failure.InnerException.ShouldNotBeNull();
+        db.ChangeTracker.Entries().ShouldBeEmpty();
+        (await repository.GetAsync(loser.Id, ct)).ShouldNotBeSameAs(loser);
+        await ambient.RollbackAsync(ct);
+    }
+
+    [Fact]
+    public async Task ConcurrentEnrichment_DirectorOnlyLock_BlocksBothSavesUntilRelease()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        var tag = Guid.NewGuid().ToString("N");
+        var director = $"Only Director {tag}";
+        await using var contextA = fixture.CreateMigratedContext();
+        await using var contextB = fixture.CreateMigratedContext();
+        var repositoryA = Repository(contextA);
+        var repositoryB = Repository(contextB);
+        var movieA = Movie.Create(await repositoryA.NextIdentityAsync(ct), "Alpha", new LibraryPath($"C:/library/mutation-director-alpha-{tag}.mkv"), new MediaFormat("mkv"));
+        var movieB = Movie.Create(await repositoryB.NextIdentityAsync(ct), "Bravo", new LibraryPath($"C:/library/mutation-director-bravo-{tag}.mkv"), new MediaFormat("mkv"));
+        await repositoryA.AddAsync(movieA, ct);
+        await repositoryB.AddAsync(movieB, ct);
+        movieA.MarkEnriched(
+            SnapshotMetadata("Alpha", "tt0000051", [], [director], [], [], 60), Now);
+        movieB.MarkEnriched(
+            SnapshotMetadata("Bravo", "tt0000052", [], [director], [], [], 61), Now);
+
+        await using var gate = fixture.CreateMigratedContext();
+        await using (var gateTransaction = await gate.Database.BeginTransactionAsync(ct))
+        {
+            await gate.Database.ExecuteSqlRawAsync(
+                "SELECT pg_advisory_xact_lock({0}, hashtext({1}))", [2, director.ToLowerInvariant()], ct);
+
+            var saveA = repositoryA.SaveChangesAsync(ct);
+            var saveB = repositoryB.SaveChangesAsync(ct);
+            await Task.Delay(300, ct);
+            saveA.IsCompleted.ShouldBeFalse();
+            saveB.IsCompleted.ShouldBeFalse();
+
+            await gateTransaction.RollbackAsync(ct);
+            await Task.WhenAll(saveA, saveB);
+        }
+
+        // assert
+        await using var verify = fixture.CreateMigratedContext();
+        (await verify.Directors.Select(d => d.Name).ToArrayAsync(ct)).ShouldBe([director]);
+        (await verify.Genres.CountAsync(ct)).ShouldBe(0);
+        (await verify.Writers.CountAsync(ct)).ShouldBe(0);
+        (await verify.Actors.CountAsync(ct)).ShouldBe(0);
+        (await verify.Movies.SelectMany(item => item.Directors).CountAsync(ct)).ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task AcquireSnapshotLocks_TakesLocksInRoleThenNameOrder()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        var interceptor = new LockOrderInterceptor();
+        await using var db = OpenInstrumentedContext(fixture.ConnectionString, interceptor);
+        var repository = Repository(db);
+        var movie = Movie.Create(
+            await repository.NextIdentityAsync(ct),
+            "Ordered", new LibraryPath("C:/library/mutation-lock-order.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, ct);
+        movie.MarkEnriched(
+            SnapshotMetadata("Ordered", "tt0000053", ["Zulu", "Alpha"], ["Delta"], ["Mike"], ["Beta"], 60),
+            Now);
+
+        // act
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        interceptor.Locks.ShouldBe(
+        [
+            (1, "alpha"), (1, "zulu"), (2, "delta"), (3, "mike"), (4, "beta")
+        ]);
+    }
+
+    [Fact]
+    public async Task SaveChanges_EmptyRoleCollections_SucceedsWithoutLookups()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Empty Roles", "mutation-empty-roles", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+
+        // act
+        movie.MarkEnriched(
+            SnapshotMetadata("Empty Roles", "tt0000054", [], [], [], [], 60),
+            Now);
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.MetadataTitle.ShouldBe("Empty Roles");
+        (await verify.Genres.CountAsync(ct)).ShouldBe(0);
+        (await verify.Directors.CountAsync(ct)).ShouldBe(0);
+        (await verify.Writers.CountAsync(ct)).ShouldBe(0);
+        (await verify.Actors.CountAsync(ct)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task FindMovieIdByImdbId_HeldAbsentAndEmpty_ReturnsHolderNullAndNull()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var heldId = await repository.NextIdentityAsync(ct);
+        var otherId = await repository.NextIdentityAsync(ct);
+        db.Movies.AddRange(
+            new MovieRecord
+            {
+                Id = heldId,
+                Title = "Held",
+                LibraryPath = new LibraryPath("C:/library/mutation-held.mkv"),
+                Format = new MediaFormat("mkv"),
+                Status = EnrichmentStatus.Pending,
+                ImdbId = new ImdbId("tt0000055"),
+            },
+            Record(otherId, EnrichmentStatus.Pending, null));
+        await db.SaveChangesAsync(ct);
+
+        // act
+        var held = await repository.FindMovieIdByImdbIdAsync(new ImdbId("tt0000055"), ct);
+        var absent = await repository.FindMovieIdByImdbIdAsync(new ImdbId("tt0000056"), ct);
+
+        // assert
+        held.ShouldBe(heldId);
+        absent.ShouldBeNull();
+
+        // act
+        await fixture.ResetAsync(ct);
+        var empty = await repository.FindMovieIdByImdbIdAsync(new ImdbId("tt0000055"), ct);
+
+        // assert
+        empty.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SaveChanges_WatchedToggle_PersistsEachState()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Watched", "mutation-watched", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+
+        // act
+        movie.MarkWatched();
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        (await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).IsWatched.ShouldBeTrue();
+
+        // act
+        movie.UnmarkWatched();
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var reread = OpenSibling(db);
+        (await reread.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).IsWatched.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task SaveChanges_NotInterestedToggle_PersistsEachState()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "NotInterested", "mutation-not-interested", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+
+        // act
+        movie.MarkNotInterested();
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        (await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).IsNotInterested.ShouldBeTrue();
+
+        // act
+        movie.UnmarkNotInterested();
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var reread = OpenSibling(db);
+        (await reread.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).IsNotInterested.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task SaveChanges_MatchManually_PersistsManualImdbId()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Manual", "mutation-manual", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+
+        // act
+        movie.MatchManually(new ImdbId("tt0000057"));
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.ManualImdbId.ShouldBe(new ImdbId("tt0000057"));
+        record.Status.ShouldBe(EnrichmentStatus.Pending);
+    }
+
+    [Fact]
+    public async Task MetadataSave_RetryableConflict_RecordsBackoffDelays()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        var clock = new RecordingTimeProvider(Now);
+        var interceptor = new RetryableConflictInterceptor("40001", 1);
+        await using var db = OpenInstrumentedContext(fixture.ConnectionString, interceptor);
+        var repository = Repository(db, clock);
+        var movie = Movie.Create(
+            await repository.NextIdentityAsync(ct),
+            "Backoff", new LibraryPath("C:/library/mutation-backoff.mkv"), new MediaFormat("mkv"));
+        await repository.AddAsync(movie, ct);
+        movie.MarkEnriched(
+            SnapshotMetadata("Backoff", "tt0000058", ["Backoff Genre"], [], ["Backoff Writer"], [], 60),
+            Now);
+
+        // act
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        interceptor.FailureCount.ShouldBe(1);
+        clock.Delays.ShouldBe([TimeSpan.FromMilliseconds(25)]);
+        await using var verify = fixture.CreateMigratedContext();
+        (await verify.Writers.Select(writer => writer.Name).ToArrayAsync(ct)).ShouldBe(["Backoff Writer"]);
+    }
+
     private static PostgresException? FindPostgres(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)
@@ -1560,6 +1874,72 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
             .AddInterceptors(interceptor)
             .Options;
         return new LamuFlixDbContext(options);
+    }
+
+    private sealed class LockOrderInterceptor : DbCommandInterceptor
+    {
+        public List<(int RoleId, string Name)> Locks { get; } = [];
+
+        public override ValueTask<int> NonQueryExecutedAsync(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            int result,
+            CancellationToken cancellationToken = default)
+        {
+            Record(command);
+            return new ValueTask<int>(result);
+        }
+
+        public override int NonQueryExecuted(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            int result)
+        {
+            Record(command);
+            return result;
+        }
+
+        private void Record(DbCommand command)
+        {
+            if (!command.CommandText.Contains("pg_advisory_xact_lock", StringComparison.Ordinal)
+                || command.Parameters.Count < 2
+                || command.Parameters[0].Value is not int roleId
+                || command.Parameters[1].Value is not string name)
+            {
+                return;
+            }
+
+            Locks.Add((roleId, name));
+        }
+    }
+
+    private sealed class RecordingTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public List<TimeSpan> Delays { get; } = [];
+
+        public override DateTimeOffset GetUtcNow() => now;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            if (dueTime != Timeout.InfiniteTimeSpan)
+            {
+                Delays.Add(dueTime);
+            }
+
+            callback(state);
+            return new NoopTimer();
+        }
+
+        private sealed class NoopTimer : ITimer
+        {
+            public bool Change(TimeSpan dueTime, TimeSpan period) => true;
+
+            public void Dispose()
+            {
+            }
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 
     private sealed class RetryableConflictInterceptor(string sqlState, int allowedFailures) : DbCommandInterceptor
@@ -1739,6 +2119,9 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
 
     private static EfMovieRepository Repository(LamuFlixDbContext db) =>
         new(db, new FixedTimeProvider(Now), Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+
+    private static EfMovieRepository Repository(LamuFlixDbContext db, TimeProvider clock) =>
+        new(db, clock, Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
 
     private static EfMovieRepository Repository(LamuFlixDbContext db, GenreWeightsCache cache) =>
         new(db, new FixedTimeProvider(Now), Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }), cache);
