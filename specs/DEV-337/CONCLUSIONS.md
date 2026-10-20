@@ -96,3 +96,8 @@ RULING (DEV-337 Phase 2 Step 4 — Sentry M1 & Ledger F3): ACCEPT — Approve th
 - Concrete cache surface & per-caller token ownership (Ledger F3, §2.3 items 1–2): Pinning `Task<GenreWeights> GetOrLoadAsync(Func<CancellationToken, Task<GenreWeights>> load, CancellationToken ct)` and `void Invalidate()` on `GenreWeightsCache` ensures only the active gate holder invokes its own scoped loader delegate, both the gate wait and loader execution observe that caller's `CancellationToken` (including retries when generation changes in flight), caller cancellation releases the gate without cancelling independent waiting callers, and no loader delegate or scoped `IMovieCatalog`/`DbContext` reference is retained after `GetOrLoadAsync` completes (`specs/DEV-337/brief.md:54-60`, `specs/PRODUCT.md:18`).
 - Deterministic unit proofs within frozen scope (§2.3 item 6 & Q6/Q7): Adding `TaskCompletionSource`-controlled cases in `tests/LamuFlix.UnitTests/Domain/GenreWeightsCacheTests.cs` (and `GenreWeightsCalculatorTests.cs` as applicable) for immediate `Invalidate()` completion while a load is held, gate-holder cancellation with a surviving waiter succeeding, and retry cancellation releasing the gate stays strictly within the Q7 frozen file set and proof strategy (`specs/DEV-337/brief.md:76-96,102`, Constitution Principle IX at `recon-DEV-337-2:184`).
 
+
+## Phase 2 step 4 - factual naming correction
+
+Keel records a factual correction, not a new Patron choice: Q5/Q6 references to AddPersistence mean the existing AddLamuFlixPersistence method. Basis: recon-DEV-337-3 section 10.1, Program.cs:27 and PersistenceServiceCollectionExtensions.cs:39. Register in both existing extensions as ruled; no production method rename or scope change. Original Q&A is preserved above.
+
