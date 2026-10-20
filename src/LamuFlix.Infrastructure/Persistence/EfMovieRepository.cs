@@ -567,6 +567,12 @@ public sealed class EfMovieRepository : IMovieRepository
 
     private static void ApplyState(Movie movie, MovieRecord record, Baseline baseline)
     {
+        ApplyWatchState(movie, record, baseline);
+        ApplyEnrichmentState(movie, record, baseline);
+    }
+
+    private static void ApplyWatchState(Movie movie, MovieRecord record, Baseline baseline)
+    {
         if (baseline.IsInWatchlist != movie.IsInWatchlist)
         {
             record.IsInWatchlist = movie.IsInWatchlist;
@@ -581,7 +587,10 @@ public sealed class EfMovieRepository : IMovieRepository
         {
             record.IsNotInterested = movie.IsNotInterested;
         }
+    }
 
+    private static void ApplyEnrichmentState(Movie movie, MovieRecord record, Baseline baseline)
+    {
         if (baseline.Status != movie.Status)
         {
             record.Status = movie.Status;
