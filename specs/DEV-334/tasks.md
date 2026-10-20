@@ -92,7 +92,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T012 [P] [US3] Add the import smoke spec as one `web/e2e/*.e2e.ts` file. Submit the real import dialog for this attempt's reserved folder. Assert the real POST to `/api/movies/import` returns 202 and that a Pending row for that import is visible before `web/e2e/stub.mjs` releases the response. Use the distinct folder path from T008 for the initial attempt and for a retry. Arm via stub exec control before submission; release in attempt finally on Pending observation or failure, and await drain before retry rearm. Bound the wait on the request or the visible row. Do not use a fixed sleep, and do not accept Pending-or-Failed. Do not intercept application calls in the browser. Depends on T009.
+- [X] T012 [P] [US3] Add the import smoke spec as one `web/e2e/*.e2e.ts` file. Submit the real import dialog for this attempt's reserved folder. Assert the real POST to `/api/movies/import` returns 202 and that a Pending row for that import is visible before `web/e2e/stub.mjs` releases the response. Use the distinct folder path from T008 for the initial attempt and for a retry. Arm via stub exec control before submission; release in attempt finally on Pending observation or failure, and await drain before retry rearm. Bound the wait on the request or the visible row. Do not use a fixed sleep, and do not accept Pending-or-Failed. Do not intercept application calls in the browser. Depends on T009.
 
 **Checkpoint**: The import spec passes on its own. The tree contains exactly three `web/e2e/*.e2e.ts` specs.
 
