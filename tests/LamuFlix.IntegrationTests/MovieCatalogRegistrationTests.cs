@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
@@ -136,10 +135,9 @@ public sealed class MovieCatalogRegistrationTests
         var ct = TestContext.Current.CancellationToken;
         var services = new ServiceCollection();
         services.AddLamuFlixPersistence(Configuration());
-        services.AddSingleton<IOptions<EnrichmentOptions>>(
-            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(1) }));
+        services.AddSingleton(Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(1) }));
         services.AddMovieCatalog();
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var cache = provider.GetRequiredService<GenreWeightsCache>();
         var calculator = scope.ServiceProvider.GetRequiredService<GenreWeightsCalculator>();

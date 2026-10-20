@@ -15,6 +15,28 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 public sealed class GenreWeightsCalculatorTests
 {
     [Fact]
+    public void Constructor_NullCatalog_ThrowsArgumentNullException()
+    {
+        // arrange
+        var cache = new GenreWeightsCache();
+
+        // act / assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
+        Should.Throw<ArgumentNullException>(() => new GenreWeightsCalculator(null!, cache));
+    }
+
+    [Fact]
+    public void Constructor_NullCache_ThrowsArgumentNullException()
+    {
+        // arrange
+        var catalog = Substitute.For<IMovieCatalog>();
+
+        // act / assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
+        Should.Throw<ArgumentNullException>(() => new GenreWeightsCalculator(catalog, null!));
+    }
+
+    [Fact]
     public async Task GetAsync_ColdCache_LoadsCountsAndCalculatesWeights()
     {
         // arrange
@@ -81,7 +103,7 @@ public sealed class GenreWeightsCalculatorTests
         var catalog = Substitute.For<IMovieCatalog>();
         var calculator = new GenreWeightsCalculator(catalog, new GenreWeightsCache());
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
 
         // act
         await Should.ThrowAsync<OperationCanceledException>(() => calculator.GetAsync(cancellation.Token));

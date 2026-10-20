@@ -126,9 +126,15 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .Where(row => row.GenreId is null)
             .Select(row => row.MovieCount)
             .FirstOrDefault();
-        var moviesWithGenre = rows
-            .Where(row => row.GenreId is not null)
-            .ToDictionary(row => row.GenreId!.Value, row => row.MovieCount);
+        var moviesWithGenre = new Dictionary<int, long>();
+        foreach (var row in rows)
+        {
+            if (row.GenreId is { } genreId)
+            {
+                moviesWithGenre[genreId] = row.MovieCount;
+            }
+        }
+
         return new GenreCounts(total, moviesWithGenre);
     }
 
@@ -187,9 +193,11 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         List<string> Writers);
 }
 
+// ReSharper disable UnusedAutoPropertyAccessor.Global // EF SqlQueryRaw materialization sets these properties reflectively.
 internal sealed class GenreCountRow
 {
     public int? GenreId { get; set; }
 
     public long MovieCount { get; set; }
 }
+// ReSharper restore UnusedAutoPropertyAccessor.Global

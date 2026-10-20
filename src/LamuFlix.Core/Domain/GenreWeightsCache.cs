@@ -9,14 +9,13 @@ public sealed class GenreWeightsCache
     private readonly SemaphoreSlim _loadGate = new(1, 1);
     private readonly object _stateLock = new();
     private GenreWeights? _weights;
-    private long _generation;
+    private object _stateVersion = new();
 
     public async Task<GenreWeights> GetOrLoadAsync(
         Func<CancellationToken, Task<GenreWeights>> load,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(load);
-        ct.ThrowIfCancellationRequested();
 
         await _loadGate.WaitAsync(ct);
         try
@@ -25,7 +24,7 @@ public sealed class GenreWeightsCache
             {
                 ct.ThrowIfCancellationRequested();
 
-                long observedGeneration;
+                object observedVersion;
                 lock (_stateLock)
                 {
                     if (_weights is not null)
@@ -33,14 +32,14 @@ public sealed class GenreWeightsCache
                         return _weights;
                     }
 
-                    observedGeneration = _generation;
+                    observedVersion = _stateVersion;
                 }
 
                 var loaded = await load(ct);
 
                 lock (_stateLock)
                 {
-                    if (_generation == observedGeneration)
+                    if (ReferenceEquals(_stateVersion, observedVersion))
                     {
                         _weights = loaded;
                         return loaded;
@@ -59,7 +58,7 @@ public sealed class GenreWeightsCache
         lock (_stateLock)
         {
             _weights = null;
-            _generation++;
+            _stateVersion = new object();
         }
     }
 }
