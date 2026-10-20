@@ -135,8 +135,9 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
         await DeclareWithRetryAsync(() => NewTopology(firstOwner).EnsureDeclaredAsync(ct), ct);
 
         await using var secondOwner = NewOwner();
+        var secondTopology = NewTopology(secondOwner);
         await Should.NotThrowAsync(() => DeclareWithRetryAsync(
-            () => NewTopology(secondOwner).EnsureDeclaredAsync(ct), ct));
+            () => secondTopology.EnsureDeclaredAsync(ct), ct));
     }
 
     [Fact]
