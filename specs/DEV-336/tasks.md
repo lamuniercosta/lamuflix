@@ -60,7 +60,7 @@
 
 **Checkpoint**: Refactor complexity is at or under the harness refactor limit. Every mandatory gate has its script verdict. Scope-empty skip is not recorded as pass.
 
-- [ ] T007 Refactor only the five files named in `specs/DEV-336/plan.md` until the refactor pass of `./scripts/run-cyclomatic-complexity.ps1` meets the limit in `harness.yml`. Extract helpers, early returns, and guard clauses. Do not suppress to pass. Do not lower a threshold. Do not add a type, dependency, or file.
+- [x] T007 Refactor only the five files named in `specs/DEV-336/plan.md` until the refactor pass of `./scripts/run-cyclomatic-complexity.ps1` meets the limit in `harness.yml`. Extract helpers, early returns, and guard clauses. Do not suppress to pass. Do not lower a threshold. Do not add a type, dependency, or file.
 
 - [ ] T008 After T007, run the configured gates and record each script verdict: `./scripts/run-roslyn-analyzers.ps1`, `./scripts/run-cyclomatic-complexity.ps1`, `./scripts/run-jetbrains-inspectcode.ps1` with no `-All`, `./scripts/run-property-tests.ps1`, `./scripts/run-vulnerable-packages.ps1`, `dotnet format --verify-no-changes`, `dotnet test`, and `./scripts/run-mutation.ps1` with no `--since`. Thresholds, exclusions, kill-share, and file-span rules come from `harness.yml`. Do not edit generated configuration. An unchanged `/web` tree is scope-empty `SKIPPED (scope-empty)`, never PASS. Exit 0 is PASS only when that gate ran. Exit 1 or Could not run blocks. Property-test exit 2 blocks: this task has no property-test opt-out. Mutation that the script reports as all-excluded is N/A, not PASS.
 
