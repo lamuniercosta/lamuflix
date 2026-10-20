@@ -14,6 +14,8 @@ public interface IMovieCatalog
 
     Task<IReadOnlyList<GenreFacet>> GetGenresAsync(CancellationToken ct);
 
+    Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct);
+
     Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct);
 }
 

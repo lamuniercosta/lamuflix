@@ -813,6 +813,12 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             return Task.FromResult<IReadOnlyList<GenreFacet>>([]);
         }
 
+        public Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(new GenreCounts(0, new Dictionary<int, long>()));
+        }
+
         public Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
