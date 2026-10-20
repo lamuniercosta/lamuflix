@@ -14,7 +14,15 @@ public sealed class RabbitMqFixture : IAsyncLifetime
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
 
+    private static readonly TimeSpan[] TopologyRetryDelays =
+    [
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4),
+        TimeSpan.FromSeconds(8),
+    ];
+
     private const int MaxAttempts = 3;
+    private const int MaxTopologyAttempts = 4;
 
     private RabbitMqContainer? container;
     private ConnectionFactory? factory;
@@ -88,8 +96,24 @@ public sealed class RabbitMqFixture : IAsyncLifetime
 
     private async Task EnsureTopologyAsync(CancellationToken cancellationToken)
     {
-        await using var owner = new RabbitMqConnectionOwner(Wrap(Options));
-        await NewTopology(owner).EnsureDeclaredAsync(cancellationToken);
+        Exception? lastFailure = null;
+        for (var attempt = 1; attempt <= MaxTopologyAttempts; attempt++)
+        {
+            try
+            {
+                await using var owner = new RabbitMqConnectionOwner(Wrap(Options));
+                await NewTopology(owner).EnsureDeclaredAsync(cancellationToken);
+                return;
+            }
+            catch (Exception failure)
+                when (attempt < MaxTopologyAttempts && !cancellationToken.IsCancellationRequested)
+            {
+                lastFailure = failure;
+                await Task.Delay(TopologyRetryDelays[attempt - 1], cancellationToken);
+            }
+        }
+
+        throw lastFailure ?? new InvalidOperationException("RabbitMqFixture topology declaration failed.");
     }
 
     private static async Task DeleteTopologyAsync(IConnection connection, CancellationToken cancellationToken)
