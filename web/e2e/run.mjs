@@ -315,24 +315,39 @@ async function assertNoUnexpectedProviderRequests() {
   }
 }
 
-async function readJson(url, options) {
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    throw new Error(`${options?.method ?? 'GET'} ${url} returned ${response.status}`);
+async function readJson(url, options = {}, timeoutMs = WAIT_BUDGET_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(timeoutMs, 1));
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`${options?.method ?? 'GET'} ${url} returned ${response.status}`);
+    }
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
   }
-  return response.json();
 }
 
 async function seedMovies() {
   for (const movie of SEED_MOVIES) {
-    const response = await fetch(`${BASE_URL}/api/movies/import`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ folderPath: movie.relativePath }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), WAIT_BUDGET_MS);
+    try {
+      const response = await fetch(`${BASE_URL}/api/movies/import`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ folderPath: movie.relativePath }),
+        signal: controller.signal,
+      });
 
-    if (response.status !== 202) {
-      throw new Error(`seed import for ${movie.title} returned ${response.status}`);
+      if (response.status !== 202) {
+        throw new Error(`seed import for ${movie.title} returned ${response.status}`);
+      }
+
+      await response.body?.cancel().catch(() => {});
+    } finally {
+      clearTimeout(timer);
     }
   }
 }
@@ -344,9 +359,14 @@ async function waitForSeededState() {
   const deadline = Date.now() + WAIT_BUDGET_MS;
 
   while (Date.now() < deadline) {
+    const remaining = deadline - Date.now();
     const [browse, genres] = await Promise.all([
-      readJson(`${BASE_URL}/api/movies?sort=Title&direction=Ascending&page=1&pageSize=20`),
-      readJson(`${BASE_URL}/api/genres`),
+      readJson(
+        `${BASE_URL}/api/movies?sort=Title&direction=Ascending&page=1&pageSize=20`,
+        {},
+        remaining,
+      ),
+      readJson(`${BASE_URL}/api/genres`, {}, remaining),
     ]);
     const genreNames = new Set(genres.map((genre) => genre.name));
     const moviesEnriched = SEED_MOVIES.every((seed) =>
