@@ -1,11 +1,16 @@
 using System;
+using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
@@ -159,6 +164,135 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
     }
 
     [Fact]
+    public async Task GetGenreCountsAsync_NoMoviesOrGenres_ReturnsZeroTotalAndEmptyMap()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var counts = await catalog.GetGenreCountsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        counts.TotalMovies.ShouldBe(0);
+        counts.MoviesWithGenre.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetGenreCountsAsync_PersistedGenresWithoutMovies_ReturnsZeroCountForEveryGenre()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var drama = new GenreRecord { Name = "Drama" };
+        var comedy = new GenreRecord { Name = "Comedy" };
+        context.Genres.AddRange(drama, comedy);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var counts = await catalog.GetGenreCountsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        counts.TotalMovies.ShouldBe(0);
+        counts.MoviesWithGenre.Count.ShouldBe(2);
+        counts.MoviesWithGenre[drama.Id].ShouldBe(0);
+        counts.MoviesWithGenre[comedy.Id].ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetGenreCountsAsync_MoviesWithoutGenres_IncludesThemInTotal()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var drama = new GenreRecord { Name = "Drama" };
+        context.Genres.Add(drama);
+        context.Movies.AddRange(
+            MovieCatalogSeed.Create("No genre one", "counts-no-genre-1"),
+            MovieCatalogSeed.Create("No genre two", "counts-no-genre-2"));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var counts = await catalog.GetGenreCountsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        counts.TotalMovies.ShouldBe(2);
+        counts.MoviesWithGenre[drama.Id].ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetGenreCountsAsync_SharedAndMultipleMemberships_CountsDistinctMoviesWithoutJoinMultiplication()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var drama = new GenreRecord { Name = "Drama" };
+        var comedy = new GenreRecord { Name = "Comedy" };
+        var unused = new GenreRecord { Name = "Unused" };
+        context.Genres.AddRange(drama, comedy, unused);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var shared = MovieCatalogSeed.Create("Shared", "counts-shared");
+        shared.Genres.Add(drama);
+        shared.Genres.Add(comedy);
+        var dramaOnly = MovieCatalogSeed.Create("Drama only", "counts-drama-only");
+        dramaOnly.Genres.Add(drama);
+        context.Movies.AddRange(
+            shared,
+            dramaOnly,
+            MovieCatalogSeed.Create("No genre one", "counts-no-genre-1"),
+            MovieCatalogSeed.Create("No genre two", "counts-no-genre-2"));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var counts = await catalog.GetGenreCountsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        counts.TotalMovies.ShouldBe(4);
+        counts.MoviesWithGenre[drama.Id].ShouldBe(2);
+        counts.MoviesWithGenre[comedy.Id].ShouldBe(1);
+        counts.MoviesWithGenre[unused.Id].ShouldBe(0);
+        counts.MoviesWithGenre.Values.Sum().ShouldNotBe(counts.TotalMovies);
+    }
+
+    [Fact]
+    public async Task GetGenreCountsAsync_SeededLibrary_ExecutesOneGroupedSqlCommand()
+    {
+        // arrange
+        await using var seed = fixture.CreateMigratedContext();
+        var drama = new GenreRecord { Name = "Drama" };
+        var comedy = new GenreRecord { Name = "Comedy" };
+        seed.Genres.AddRange(drama, comedy);
+        var shared = MovieCatalogSeed.Create("Shared", "counts-single-command");
+        shared.Genres.Add(drama);
+        shared.Genres.Add(comedy);
+        seed.Movies.AddRange(shared, MovieCatalogSeed.Create("No genre", "counts-single-command-no-genre"));
+        await seed.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var connectionString = fixture.ConnectionString;
+        connectionString.ShouldNotBeNullOrWhiteSpace();
+        var interceptor = new CommandCaptureInterceptor();
+        var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
+            .UseNpgsql(connectionString, o => o.UseVector())
+            .AddInterceptors(interceptor)
+            .Options;
+        await using var context = new LamuFlixDbContext(options);
+        interceptor.Commands.Clear();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var counts = await catalog.GetGenreCountsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        interceptor.Commands.Count.ShouldBe(1);
+        interceptor.Commands[0].ShouldContain("COUNT", Case.Insensitive);
+        interceptor.Commands[0].ShouldContain("GROUP BY", Case.Insensitive);
+        counts.TotalMovies.ShouldBe(2);
+        counts.MoviesWithGenre[drama.Id].ShouldBe(1);
+        counts.MoviesWithGenre[comedy.Id].ShouldBe(1);
+    }
+
+    [Fact]
     public async Task GetPeopleAsync_StoredActors_ReturnsActorRowsSortedNameThenId()
     {
         // arrange
@@ -193,5 +327,20 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
 
         // assert
         facets.ShouldBeEmpty();
+    }
+
+    private sealed class CommandCaptureInterceptor : DbCommandInterceptor
+    {
+        internal List<string> Commands { get; } = [];
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
     }
 }

@@ -110,6 +110,28 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         return facets;
     }
 
+    public async Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct)
+    {
+        var rows = await dbContext.Database.SqlQueryRaw<GenreCountRow>(
+            """
+            SELECT CAST(NULL AS integer) AS "GenreId", (SELECT COUNT(*) FROM movies) AS "MovieCount"
+            UNION ALL
+            SELECT g.id AS "GenreId", COUNT(DISTINCT mg.movie_id) AS "MovieCount"
+            FROM genres AS g
+            LEFT JOIN movie_genres AS mg ON mg.genre_id = g.id
+            GROUP BY g.id
+            """).ToArrayAsync(ct);
+
+        var total = rows
+            .Where(row => row.GenreId is null)
+            .Select(row => row.MovieCount)
+            .FirstOrDefault();
+        var moviesWithGenre = rows
+            .Where(row => row.GenreId is not null)
+            .ToDictionary(row => row.GenreId!.Value, row => row.MovieCount);
+        return new GenreCounts(total, moviesWithGenre);
+    }
+
     public async Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct)
     {
         var facets = await dbContext.Actors.AsNoTracking()
@@ -163,4 +185,11 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         List<string> Actors,
         List<string> Genres,
         List<string> Writers);
+}
+
+internal sealed class GenreCountRow
+{
+    public int? GenreId { get; set; }
+
+    public long MovieCount { get; set; }
 }

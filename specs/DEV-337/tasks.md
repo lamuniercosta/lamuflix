@@ -34,17 +34,17 @@
 
 ### Tests for User Story 1
 
-- [ ] T002 [P] [US1] Extend `tests/LamuFlix.IntegrationTests/EfMovieCatalogFacetsTests.cs` for `GetGenreCountsAsync`: no movies / no genres; zero-count persisted genres remain in the map with total 0; movies without genres included in `TotalMovies`; shared and multiple memberships counted distinctly; total not derived from summed genre counts; one database command / coherent snapshot via command instrumentation on the existing Postgres fixture. Name methods `Method_Condition_Expected`. AAA headers only. Shouldly. No EF InMemory. Do not add a second test file.
+- [X] T002 [P] [US1] Extend `tests/LamuFlix.IntegrationTests/EfMovieCatalogFacetsTests.cs` for `GetGenreCountsAsync`: no movies / no genres; zero-count persisted genres remain in the map with total 0; movies without genres included in `TotalMovies`; shared and multiple memberships counted distinctly; total not derived from summed genre counts; one database command / coherent snapshot via command instrumentation on the existing Postgres fixture. Name methods `Method_Condition_Expected`. AAA headers only. Shouldly. No EF InMemory. Do not add a second test file.
 
 ### Implementation for User Story 1
 
-- [ ] T004 [P] [US1] Add `src/LamuFlix.Core/Ports/GenreCounts.cs` as `sealed record GenreCounts(long TotalMovies, IReadOnlyDictionary<int, long> MoviesWithGenre)`.
+- [X] T004 [P] [US1] Add `src/LamuFlix.Core/Ports/GenreCounts.cs` as `sealed record GenreCounts(long TotalMovies, IReadOnlyDictionary<int, long> MoviesWithGenre)`.
 
-- [ ] T005 [US1] Extend `src/LamuFlix.Core/Ports/IMovieCatalog.cs` with `Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct)`.
+- [X] T005 [US1] Extend `src/LamuFlix.Core/Ports/IMovieCatalog.cs` with `Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct)`.
 
-- [ ] T003 [US1] After T005, adapt `RecordingMovieCatalog` in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` only as compiler-forced for the new `IMovieCatalog` member. Do not change facet HTTP assertions beyond what compilation requires. Completes in the same Phase 2 commit as T005 (not marked [P]; depends on the unfinished port member).
+- [X] T003 [US1] After T005, adapt `RecordingMovieCatalog` in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` only as compiler-forced for the new `IMovieCatalog` member. Do not change facet HTTP assertions beyond what compilation requires. Completes in the same Phase 2 commit as T005 (not marked [P]; depends on the unfinished port member).
 
-- [ ] T006 [US1] Implement `GetGenreCountsAsync` in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` as one grouped SQL query / one database command over existing tables. Semantics per brief Q2 / spec FR-002–FR-003. Do not alter `GetGenresAsync` facet behavior. No migration.
+- [X] T006 [US1] Implement `GetGenreCountsAsync` in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` as one grouped SQL query / one database command over existing tables. Semantics per brief Q2 / spec FR-002–FR-003. Do not alter `GetGenresAsync` facet behavior. No migration.
 
 **Checkpoint**: US1 Postgres tests pass. Facet HTTP behavior unchanged. After T005, RecordingMovieCatalog adaptation (T003) compiles in the same phase commit.
 
