@@ -120,6 +120,15 @@ function hold(response, title, year) {
   log('provider-request-held', { title, year });
 }
 
+function clearArms(title) {
+  for (let index = arms.length - 1; index >= 0; index -= 1) {
+    if (!title || same(arms[index].title, title)) {
+      const [removed] = arms.splice(index, 1);
+      log('provider-arm-cleared', { title: removed.title, year: removed.year });
+    }
+  }
+}
+
 function releaseHeld(responses, title) {
   let released = 0;
   for (const record of held.values()) {
@@ -222,6 +231,7 @@ async function handleControl(request, response, url, responses) {
   if (request.method === 'POST' && action === 'release') {
     const body = await readBody(request);
     const released = releaseHeld(responses, body.title);
+    clearArms(body.title);
     await drainHolds();
     sendJson(response, 200, { released, remaining: held.size });
     return;
@@ -229,6 +239,7 @@ async function handleControl(request, response, url, responses) {
 
   if (request.method === 'POST' && action === 'release-all') {
     const released = releaseHeld(responses);
+    clearArms();
     await drainHolds();
     sendJson(response, 200, { released, remaining: held.size });
     return;
