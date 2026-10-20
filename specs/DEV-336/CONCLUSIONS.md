@@ -169,3 +169,16 @@ Sentry F1 is rejected by contrary empirical evidence, Ledger F1 closed, accepted
 - Zero escalations: Zero ticket-text contradictions and zero constitution departures; pure static Core mapping complies with Principle I and Stack row 353 (`specs/DEV-336/CONCLUSIONS.md:15-18,90-93`; `.specify/memory/constitution.md:125-127,353`).
 - Gate 1 boundary: Phase A spec artifacts are ready for Rigger spec-PR packaging; Gate 1 remains closed until the user merges the spec PR.
 
+---
+
+## Phase 3 Step 6 — Gate-forced test fixture scope disposition (2026-10-20)
+
+**Conductor / Cog:** In `F:/Dev/LamuFlix.worktrees/DEV-336` (`feature/DEV-336`), `dotnet test` fails on `RabbitMqTopologyTests.EnsureDeclaredAsync_BindsEveryRoutingKeyToItsOwnQueue` during `DisposeAsync` (`ResetTopologyAsync` -> `EnsureTopologyAsync`, broker-side `cluster_not_formed`). Does Patron authorize modifying tracked infrastructure files (`RabbitMqFixture.cs` or `RabbitMqTopology.cs`) to remediate the `DisposeAsync` reset flakiness under DEV-336, or does DEV-336 scope strictly prohibit infrastructure edits?
+
+**Patron (verbatim cited ruling):**
+[from Patron] DEV-336 SCOPE DISPOSITION: Authorize a minimal gate-forced remediation in test support (`tests/LamuFlix.Tests.Common/RabbitMqFixture.cs` only); strictly prohibit any edit to production infrastructure (`src/LamuFlix.Infrastructure/RabbitMq/RabbitMqTopology.cs`).
+- Gate-forced test-fixture edit in scope (§2.3 item 6): `dotnet test` exit 0 is a non-waivable blocking gate with rerun loops forbidden (`task-pipeline:106,108-110,133`; `DEV-336:180-198`), and the `cluster_not_formed` failure originates in `RabbitMqFixture.ResetTopologyAsync` / `EnsureTopologyAsync` during test teardown (`DEV-336:185-187`), so a minimal remediation confined to `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs` is a gate-forced edit authorized by Patron under §2.3 item 6 (`lamuflix-team-charter:24`; `specs/DEV-336/tasks.md:65,71`).
+- Production `src/LamuFlix.Infrastructure` strictly prohibited: DEV-336's ticket text and acceptance criteria forbid production HTTP/infrastructure work and require Core-only production types (`DEV-336:18`; `specs/DEV-336/CONCLUSIONS.md:16,66`), and modifying `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqTopology.cs` would violate the Core-only production boundary and pull `LamuFlix.Infrastructure` into `run-mutation.ps1` scope (`task-pipeline:102`).
+- Execution path for Cog and Gauge: Cog applies the minimal teardown/declaration resilience fix in `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs` (leaving `src/` restricted to `MovieFeatures.cs` and `MovieFeaturesMapper.cs`), commits on `feature/DEV-336`, and hands back to Gauge to re-run Phase 3 step 5 gates on the new HEAD (`task-pipeline:109`; `DEV-336:190,198`).
+
+
