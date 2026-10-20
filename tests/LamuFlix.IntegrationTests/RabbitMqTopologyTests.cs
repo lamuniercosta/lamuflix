@@ -17,6 +17,14 @@ namespace LamuFlix.IntegrationTests;
 public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifetime
 {
     private const int MaxAttempts = 3;
+    private const int MaxDeclareAttempts = 4;
+
+    private static readonly TimeSpan[] DeclareRetryDelays =
+    [
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4),
+        TimeSpan.FromSeconds(8),
+    ];
 
     private readonly RabbitMqProbe probe = new(fixture);
 
@@ -114,7 +122,7 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
         var ct = TestContext.Current.CancellationToken;
         await using var owner = NewOwner();
         var topology = NewTopology(owner);
-        await topology.EnsureDeclaredAsync(ct);
+        await DeclareWithRetryAsync(() => topology.EnsureDeclaredAsync(ct), ct);
 
         await Should.NotThrowAsync(() => topology.EnsureDeclaredAsync(ct));
     }
@@ -124,10 +132,11 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
     {
         var ct = TestContext.Current.CancellationToken;
         await using var firstOwner = NewOwner();
-        await NewTopology(firstOwner).EnsureDeclaredAsync(ct);
+        await DeclareWithRetryAsync(() => NewTopology(firstOwner).EnsureDeclaredAsync(ct), ct);
 
         await using var secondOwner = NewOwner();
-        await Should.NotThrowAsync(() => NewTopology(secondOwner).EnsureDeclaredAsync(ct));
+        await Should.NotThrowAsync(() => DeclareWithRetryAsync(
+            () => NewTopology(secondOwner).EnsureDeclaredAsync(ct), ct));
     }
 
     [Fact]
@@ -191,8 +200,46 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
 
     private async Task DeclareAsync(CancellationToken cancellationToken)
     {
-        await using var owner = NewOwner();
-        await NewTopology(owner).EnsureDeclaredAsync(cancellationToken);
+        await DeclareWithRetryAsync(
+            async () =>
+            {
+                await using var owner = NewOwner();
+                await NewTopology(owner).EnsureDeclaredAsync(cancellationToken);
+            },
+            cancellationToken);
+    }
+
+    private static async Task DeclareWithRetryAsync(Func<Task> declare, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await declare();
+                return;
+            }
+            catch (Exception failure)
+                when (attempt < MaxDeclareAttempts
+                    && IsClusterNotFormed(failure)
+                    && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(DeclareRetryDelays[attempt - 1], cancellationToken);
+            }
+        }
+    }
+
+    private static bool IsClusterNotFormed(Exception failure)
+    {
+        for (var current = failure; current is not null; current = current.InnerException)
+        {
+            if (current.Message.Contains("541", StringComparison.OrdinalIgnoreCase)
+                || current.Message.Contains("cluster_not_formed", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private RabbitMqConnectionOwner NewOwner() => new(Options.Create(fixture.Options));
