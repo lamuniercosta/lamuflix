@@ -28,16 +28,19 @@ public sealed class EfMovieRepository : IMovieRepository
     private readonly LamuFlixDbContext db;
     private readonly TimeProvider timeProvider;
     private readonly TimeSpan claimLease;
+    private readonly GenreWeightsCache cache;
     private readonly Dictionary<MovieId, TrackedMovie> identityMap = [];
 
     public EfMovieRepository(
         LamuFlixDbContext db,
         TimeProvider timeProvider,
-        IOptions<EnrichmentOptions> options)
+        IOptions<EnrichmentOptions> options,
+        GenreWeightsCache? cache = null)
     {
         this.db = db;
         this.timeProvider = timeProvider;
         claimLease = options.Value.ClaimLease;
+        this.cache = cache ?? new GenreWeightsCache();
         if (claimLease <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(options), claimLease, "Claim lease must be positive.");
@@ -82,9 +85,14 @@ public sealed class EfMovieRepository : IMovieRepository
             .Where(movie => movie.Id == id)
             .ExecuteDeleteAsync(ct);
 
-        if (rows == 1 && identityMap.Remove(id, out var tracked))
+        if (rows == 1)
         {
-            db.Entry(tracked.Record).State = EntityState.Detached;
+            if (identityMap.Remove(id, out var tracked))
+            {
+                db.Entry(tracked.Record).State = EntityState.Detached;
+            }
+
+            cache.Invalidate();
         }
 
         return rows == 1;
@@ -165,16 +173,17 @@ public sealed class EfMovieRepository : IMovieRepository
         if (!HasMetadataWrites())
         {
             await ApplyAndPersistAsync(ct);
-            return;
         }
-
-        if (db.Database.CurrentTransaction is not null)
+        else if (db.Database.CurrentTransaction is not null)
         {
             await RunAmbientMetadataWriteAsync(ct);
-            return;
+        }
+        else
+        {
+            await SaveMetadataWithRetryAsync(ct);
         }
 
-        await SaveMetadataWithRetryAsync(ct);
+        cache.Invalidate();
     }
 
     private async Task ApplyAndPersistAsync(CancellationToken ct)
