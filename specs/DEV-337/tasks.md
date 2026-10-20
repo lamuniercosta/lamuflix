@@ -20,7 +20,7 @@
 
 **Purpose**: Publish the three approved domain terms before production work.
 
-- [ ] T001 Confirm root `CONTEXT.md` carries **Genre weight**, **GenreWeights**, and **Genre similarity** with the definitions and `_Avoid_:` lines fixed in `specs/DEV-337/spec.md` Domain vocabulary (and already drafted in this worktree). Do not invent alternate wording. Keep existing Movie, Library, Recommendation, and Taste Profile terms unchanged.
+- [X] T001 Confirm root `CONTEXT.md` carries **Genre weight**, **GenreWeights**, and **Genre similarity** with the definitions and `_Avoid_:` lines fixed in `specs/DEV-337/spec.md` Domain vocabulary (and already drafted in this worktree). Do not invent alternate wording. Keep existing Movie, Library, Recommendation, and Taste Profile terms unchanged.
 
 **Checkpoint**: Glossary text matches the published Spec Kit vocabulary.
 
