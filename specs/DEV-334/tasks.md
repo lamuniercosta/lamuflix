@@ -78,7 +78,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T011 [P] [US2] Add the genre smoke spec as one `web/e2e/*.e2e.ts` file. Activate the real genre control for a persisted genre that contains one seeded movie and not the other. Assert that inclusion, that exclusion, and the matching `genreIds` value in the URL. Take the id from the live genre data for the run. Do not intercept application calls in the browser. Depends on T009.
+- [X] T011 [P] [US2] Add the genre smoke spec as one `web/e2e/*.e2e.ts` file. Activate the real genre control for a persisted genre that contains one seeded movie and not the other. Assert that inclusion, that exclusion, and the matching `genreIds` value in the URL. Take the id from the live genre data for the run. Do not intercept application calls in the browser. Depends on T009.
 
 **Checkpoint**: The genre spec passes on its own and does not assume spec order.
 
