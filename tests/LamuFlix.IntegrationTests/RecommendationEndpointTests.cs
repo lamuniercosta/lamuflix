@@ -300,7 +300,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     public async Task GetRecommendations_NonPendingMovie_DispatchesTheHandler(string statusName)
     {
         // arrange
-        var status = EnrichmentStatus.FromName(statusName, false);
+        var status = EnrichmentStatus.FromName(statusName);
         GivenSelectedMovie(status);
         HandlerReturns();
         await using var host = CreateHost();
@@ -314,7 +314,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         DispatchedQuery.ShouldNotBeNull().MovieId.ShouldBe(new MovieId(KnownId));
         await handler.Received(1)
-            .HandleAsync(new GetRecommendationsQuery(new MovieId(KnownId), 10), Arg.Any<CancellationToken>());
+            .HandleAsync(new GetRecommendationsQuery(new MovieId(KnownId)), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -340,9 +340,9 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         item.GetProperty("id").GetInt32().ShouldBe(summary.Id.Value);
         item.GetProperty("title").GetString().ShouldBe(summary.Title);
         item.GetProperty("posterUrl").GetString().ShouldBe(summary.PosterUrl);
-        item.GetProperty("releaseYear").GetInt32().ShouldBe(summary.ReleaseYear!.Value);
-        item.GetProperty("runtime").GetInt32().ShouldBe(summary.Runtime!.Value);
-        item.GetProperty("imdbRating").GetDecimal().ShouldBe(summary.ImdbRating!.Value);
+        item.GetProperty("releaseYear").GetInt32().ShouldBe(summary.ReleaseYear.ShouldNotBeNull());
+        item.GetProperty("runtime").GetInt32().ShouldBe(summary.Runtime.ShouldNotBeNull());
+        item.GetProperty("imdbRating").GetDecimal().ShouldBe(summary.ImdbRating.ShouldNotBeNull());
         item.GetProperty("enrichmentStatus").GetString().ShouldBe(summary.EnrichmentStatus.Name);
         item.GetProperty("isInWatchlist").GetBoolean().ShouldBe(summary.IsInWatchlist);
         item.GetProperty("isWatched").GetBoolean().ShouldBe(summary.IsWatched);
@@ -573,7 +573,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     private static IEnumerable<string?> ReasonTexts(JsonElement item) =>
         item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetString());
 
-    private static async Task<JsonElement> ReadProblemAsync(
+    private static async Task ReadProblemAsync(
         HttpResponseMessage response,
         HttpStatusCode expected,
         CancellationToken cancellationToken)
@@ -582,7 +582,6 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
         problem.GetProperty("status").GetInt32().ShouldBe((int)expected);
-        return problem;
     }
 
     private static Movie MovieIn(EnrichmentStatus status)
