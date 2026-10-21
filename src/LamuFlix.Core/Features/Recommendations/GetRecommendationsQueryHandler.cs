@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -82,17 +81,30 @@ public sealed class GetRecommendationsQueryHandler(
         return scored;
     }
 
-    private static MovieSummary Summarize(Movie movie) => new(
-        movie.Id,
-        movie.Title,
-        movie.Metadata?.PosterUrl,
-        movie.Metadata?.ReleaseYear?.Value,
-        movie.Metadata?.Runtime?.Minutes,
-        movie.Metadata?.ImdbRating?.Value,
-        movie.Status,
-        movie.IsInWatchlist,
-        movie.IsWatched,
-        movie.IsNotInterested);
+    private static MovieSummary Summarize(Movie movie)
+    {
+        var metadata = movie.Metadata;
+
+        return new MovieSummary(
+            movie.Id,
+            movie.Title,
+            PosterUrl(metadata),
+            ReleaseYear(metadata),
+            RuntimeMinutes(metadata),
+            ImdbRating(metadata),
+            movie.Status,
+            movie.IsInWatchlist,
+            movie.IsWatched,
+            movie.IsNotInterested);
+    }
+
+    private static string? PosterUrl(MovieMetadata? metadata) => metadata?.PosterUrl;
+
+    private static int? ReleaseYear(MovieMetadata? metadata) => metadata?.ReleaseYear?.Value;
+
+    private static int? RuntimeMinutes(MovieMetadata? metadata) => metadata?.Runtime?.Minutes;
+
+    private static decimal? ImdbRating(MovieMetadata? metadata) => metadata?.ImdbRating?.Value;
 
     private readonly record struct ScoredCandidate(Movie Movie, SimilarityResult Result);
 }

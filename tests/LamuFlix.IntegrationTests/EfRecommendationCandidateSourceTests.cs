@@ -257,7 +257,8 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         await cancelled.CancelAsync();
 
         // act
-        var act = () => source.GetCandidatesAsync(new MovieId(9999), cancelled.Token);
+        var token = cancelled.Token;
+        var act = () => source.GetCandidatesAsync(new MovieId(9999), token);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
