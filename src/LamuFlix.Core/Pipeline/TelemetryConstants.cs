@@ -36,6 +36,18 @@ public static class TelemetryConstants
 
     public const string ImportCountMetricName = "lamuflix.import.count";
 
+    public const string EmbeddingGenerate = "Embedding.Generate";
+
+    public const string EmbeddingDurationMetricName = "lamuflix.embedding.duration";
+
+    public const string EmbeddingDurationUnit = "s";
+
+    public const string EmbeddingOutcomeMetricName = "lamuflix.embedding.outcome";
+
+    public const string SucceededOutcome = "succeeded";
+
+    public const string CancelledOutcome = "cancelled";
+
     public const string ProviderTagName = "provider";
 
     public const string OutcomeTagName = "outcome";
