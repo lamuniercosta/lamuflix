@@ -1,16 +1,19 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO.Abstractions;
 using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentValidation;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Features.Import;
 using LamuFlix.Core.Features.Library;
 using LamuFlix.Core.Features.Playback;
+using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Features.Watchlist;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
@@ -21,9 +24,11 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Pipeline;
 using LamuFlix.Infrastructure.Playback;
 using LamuFlix.Infrastructure.RabbitMq;
+using LamuFlix.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
 
@@ -94,6 +99,11 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                 typeof(GetPeopleQuery),
                 typeof(IReadOnlyList<PersonFacet>)
             },
+            {
+                typeof(IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>),
+                typeof(GetRecommendationsQuery),
+                typeof(ImmutableList<RecommendedMovie>)
+            },
         };
 
     [Fact]
@@ -122,6 +132,29 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
         // assert
         catalog.ShouldBeOfType<EfMovieCatalog>();
         scanner.ShouldBeOfType<DirectoryMediaLibraryScanner>();
+    }
+
+    [Fact]
+    public void Persistence_StartedComposition_ResolvesAScopedCandidateSourceWithTheCalculatorAndBoundOptions()
+    {
+        // arrange
+        using var firstScope = factory.Services.CreateScope();
+        using var secondScope = factory.Services.CreateScope();
+
+        // act
+        var source = firstScope.ServiceProvider.GetRequiredService<IRecommendationCandidateSource>();
+        var sameScopeSource = firstScope.ServiceProvider.GetRequiredService<IRecommendationCandidateSource>();
+        var otherScopeSource = secondScope.ServiceProvider.GetRequiredService<IRecommendationCandidateSource>();
+        var calculator = firstScope.ServiceProvider.GetRequiredService<GenreWeightsCalculator>();
+        var options = firstScope.ServiceProvider.GetRequiredService<IOptions<RecommendationOptions>>();
+
+        // assert
+        source.ShouldBeOfType<EfRecommendationCandidateSource>();
+        source.ShouldBeSameAs(sameScopeSource);
+        source.ShouldNotBeSameAs(otherScopeSource);
+        calculator.ShouldBeOfType<GenreWeightsCalculator>();
+        options.Value.ShouldNotBeNull();
+        options.Value.Weights.ShouldNotBeNull();
     }
 
     [Fact]
@@ -203,6 +236,19 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
 
         // assert
         resolved.GetType().ShouldBe(typeof(TracingDecorator<,>).MakeGenericType(request, response));
+    }
+
+    [Fact]
+    public void Validators_StartedComposition_ResolveTheRecommendationsValidatorThroughThePipeline()
+    {
+        // arrange
+        using var scope = factory.Services.CreateScope();
+
+        // act
+        var validator = scope.ServiceProvider.GetRequiredService<IValidator<GetRecommendationsQuery>>();
+
+        // assert
+        validator.ShouldBeOfType<GetRecommendationsQueryValidator>();
     }
 
     [Fact]

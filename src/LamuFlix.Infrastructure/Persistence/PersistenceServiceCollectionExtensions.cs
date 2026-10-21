@@ -40,6 +40,7 @@ public static class PersistenceServiceCollectionExtensions
             .ValidateOnStart();
         services.AddScoped<IMovieRepository, EfMovieRepository>();
         services.AddScoped<IPlaybackHistory, EfPlaybackHistory>();
+        services.AddScoped<IRecommendationCandidateSource, EfRecommendationCandidateSource>();
 
         return services;
     }
