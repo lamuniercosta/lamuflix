@@ -81,7 +81,7 @@ public sealed class SimilarityScorerPropertyTests
         var result = SimilarityScorer.Score(movie, movie, Weights(seed), Table);
 
         // assert
-        return result.Score == 1.0;
+        return result.Score.Equals(1.0);
     }
 
     [Property(MaxTest = 100, Replay = "338004,400001")]
@@ -103,6 +103,49 @@ public sealed class SimilarityScorerPropertyTests
 
         // assert
         return snapshot.Matches(first);
+    }
+
+    [Property(MaxTest = 100, Replay = "338005,500021")]
+    [Trait("Category", "Property")]
+    public bool Score_SwappedArguments_ProduceIdenticalReasons(
+        string[]? genres,
+        string[]? directors,
+        string[]? writers,
+        string[]? cast,
+        int seed)
+    {
+        // arrange
+        var first = Profile(genres, directors, writers, cast, seed);
+        var second = Profile(Vary(genres), Vary(directors), Vary(writers), Vary(cast), unchecked(seed + 7919));
+        var weights = Weights(seed);
+
+        // act
+        var forward = SimilarityScorer.Score(first, second, weights, Table);
+        var reverse = SimilarityScorer.Score(second, first, weights, Table);
+
+        // assert
+        return forward.Reasons.Select(reason => reason.Text)
+            .SequenceEqual(reverse.Reasons.Select(reason => reason.Text));
+    }
+
+    [Property(MaxTest = 100, Replay = "338006,600007")]
+    [Trait("Category", "Property")]
+    public bool Score_PositiveScore_EmitsNonEmptyReasons(
+        string[]? genres,
+        string[]? directors,
+        string[]? writers,
+        string[]? cast,
+        int seed)
+    {
+        // arrange
+        var first = Profile(genres, directors, writers, cast, seed);
+        var second = Profile(Vary(genres), Vary(directors), Vary(writers), Vary(cast), unchecked(seed + 7919));
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Weights(seed), Table);
+
+        // assert
+        return result.Score <= 0.0 || result.Reasons.Count > 0;
     }
 
     private static MovieFeatures Profile(

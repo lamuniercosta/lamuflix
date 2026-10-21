@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Text;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 
@@ -10,6 +12,7 @@ public static class SimilarityScorer
     private const double YearDecayRate = 0.1;
     private const double RuntimeDecayRate = 0.01;
     private const double RatingScale = 10.0;
+    private const string IdentityReason = "Identical feature profile";
 
     public static SimilarityResult Score(
         MovieFeatures a,
@@ -25,9 +28,14 @@ public static class SimilarityScorer
         ValidateWeights(weights);
 
         var terms = CollectTerms(a, b, weights, genreWeights);
-        var score = ComputeScore(a, b, terms);
+        var maxWeight = MaxWeight(terms);
 
-        return new SimilarityResult(score, ImmutableList<Reason>.Empty);
+        if (maxWeight <= 0.0)
+        {
+            return ZeroWeightResult(a, b);
+        }
+
+        return new SimilarityResult(ComputeScore(terms, maxWeight), CollectReasons(terms));
     }
 
     private static ImmutableArray<Term> CollectTerms(
@@ -38,9 +46,9 @@ public static class SimilarityScorer
     {
         var builder = ImmutableArray.CreateBuilder<Term>();
 
-        AddSetTerm(builder, a.Directors, b.Directors, weights.Director);
-        AddSetTerm(builder, a.Writers, b.Writers, weights.Writers);
-        AddSetTerm(builder, a.Cast, b.Cast, weights.Cast);
+        AddSetTerm(builder, a.Directors, b.Directors, weights.Director, SetLabel.Director);
+        AddSetTerm(builder, a.Writers, b.Writers, weights.Writers, SetLabel.Writers);
+        AddSetTerm(builder, a.Cast, b.Cast, weights.Cast, SetLabel.Cast);
         AddGenreTerm(builder, a.Genres, b.Genres, weights.Genres, genreWeights);
         AddYearTerm(builder, a.ReleaseYear, b.ReleaseYear, weights.YearProximity);
         AddRuntimeTerm(builder, a.Runtime, b.Runtime, weights.RuntimeProximity);
@@ -53,11 +61,14 @@ public static class SimilarityScorer
         ImmutableArray<Term>.Builder builder,
         ImmutableHashSet<string> first,
         ImmutableHashSet<string> second,
-        double weight)
+        double weight,
+        SetLabel label)
     {
         if (first.Count > 0 && second.Count > 0)
         {
-            builder.Add(new Term(weight, Jaccard(first, second)));
+            var similarity = Jaccard(first, second);
+            var reason = IsEligible(weight, similarity) ? SetReason(label, first, second) : null;
+            builder.Add(new Term(weight, similarity, reason));
         }
     }
 
@@ -70,7 +81,11 @@ public static class SimilarityScorer
     {
         if (first.Count > 0 && second.Count > 0)
         {
-            builder.Add(new Term(weight, genreWeights.Similarity(first, second)));
+            var similarity = genreWeights.Similarity(first, second);
+            var reason = IsEligible(weight, similarity)
+                ? SetReason(SetLabel.Genres, first, second)
+                : null;
+            builder.Add(new Term(weight, similarity, reason));
         }
     }
 
@@ -82,7 +97,8 @@ public static class SimilarityScorer
     {
         if (first is not null && second is not null)
         {
-            builder.Add(new Term(weight, Proximity(YearDecayRate, first.Value, second.Value)));
+            var similarity = Proximity(YearDecayRate, first.Value, second.Value);
+            builder.Add(new Term(weight, similarity, Label(weight, similarity, "Similar release years")));
         }
     }
 
@@ -94,7 +110,8 @@ public static class SimilarityScorer
     {
         if (first is not null && second is not null)
         {
-            builder.Add(new Term(weight, Proximity(RuntimeDecayRate, first.Minutes, second.Minutes)));
+            var similarity = Proximity(RuntimeDecayRate, first.Minutes, second.Minutes);
+            builder.Add(new Term(weight, similarity, Label(weight, similarity, "Similar runtime")));
         }
     }
 
@@ -106,26 +123,13 @@ public static class SimilarityScorer
     {
         if (first is not null && second is not null)
         {
-            builder.Add(new Term(weight, RatingProximity(first.Value, second.Value)));
+            var similarity = RatingProximity(first.Value, second.Value);
+            builder.Add(new Term(weight, similarity, Label(weight, similarity, "Similar rating")));
         }
     }
 
-    private static double ComputeScore(
-        MovieFeatures a,
-        MovieFeatures b,
-        ImmutableArray<Term> terms)
+    private static double ComputeScore(ImmutableArray<Term> terms, double maxWeight)
     {
-        if (terms.IsDefaultOrEmpty)
-        {
-            return 0.0;
-        }
-
-        var maxWeight = MaxWeight(terms);
-        if (maxWeight <= 0.0)
-        {
-            return ZeroDenominatorScore(a, b);
-        }
-
         var numerator = 0.0;
         var denominator = 0.0;
         var allOne = true;
@@ -136,7 +140,7 @@ public static class SimilarityScorer
             numerator += scaledWeight * term.Similarity;
             denominator += scaledWeight;
 
-            if (term.Weight > 0.0 && term.Similarity != 1.0)
+            if (term.Weight > 0.0 && term.Similarity < 1.0)
             {
                 allOne = false;
             }
@@ -146,6 +150,26 @@ public static class SimilarityScorer
             ? 1.0
             : Math.Clamp(numerator / denominator, 0.0, 1.0);
     }
+
+    private static ImmutableList<Reason> CollectReasons(ImmutableArray<Term> terms)
+    {
+        var builder = ImmutableList.CreateBuilder<Reason>();
+
+        foreach (var term in terms)
+        {
+            if (term.Reason is { } reason)
+            {
+                builder.Add(new Reason(reason));
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static SimilarityResult ZeroWeightResult(MovieFeatures a, MovieFeatures b) =>
+        IsIdenticalProfile(a, b) && HasScoringFeature(a)
+            ? new SimilarityResult(1.0, ImmutableList.Create(new Reason(IdentityReason)))
+            : new SimilarityResult(0.0, ImmutableList<Reason>.Empty);
 
     private static double MaxWeight(ImmutableArray<Term> terms)
     {
@@ -160,9 +184,6 @@ public static class SimilarityScorer
 
         return max;
     }
-
-    private static double ZeroDenominatorScore(MovieFeatures a, MovieFeatures b) =>
-        IsIdenticalProfile(a, b) && HasScoringFeature(a) ? 1.0 : 0.0;
 
     private static bool IsIdenticalProfile(MovieFeatures a, MovieFeatures b) =>
         a.Directors.SetEquals(b.Directors)
@@ -190,18 +211,102 @@ public static class SimilarityScorer
 
     private static double Jaccard(ImmutableHashSet<string> first, ImmutableHashSet<string> second)
     {
-        var intersection = 0;
-        foreach (var value in first)
-        {
-            if (second.Contains(value))
-            {
-                intersection++;
-            }
-        }
-
+        var intersection = SharedTokens(first, second).Count;
         var union = first.Count + second.Count - intersection;
         return (double)intersection / union;
     }
+
+    private static bool IsEligible(double weight, double similarity) =>
+        weight > 0.0 && similarity > 0.0;
+
+    private static string? Label(double weight, double similarity, string label) =>
+        IsEligible(weight, similarity) ? label : null;
+
+    private static string SetReason(
+        SetLabel label,
+        ImmutableHashSet<string> first,
+        ImmutableHashSet<string> second)
+    {
+        var tokens = DisplayTokens(SharedTokens(first, second));
+        return tokens.Count == 0
+            ? Fallback(label)
+            : Format(label, string.Join(", ", tokens));
+    }
+
+    private static List<string> SharedTokens(
+        ImmutableHashSet<string> first,
+        ImmutableHashSet<string> second)
+    {
+        var tokens = new List<string>();
+
+        foreach (var value in first)
+        {
+            if (second.TryGetValue(value, out var other))
+            {
+                tokens.Add(string.CompareOrdinal(value, other) <= 0 ? value : other);
+            }
+        }
+
+        return tokens;
+    }
+
+    private static List<string> DisplayTokens(List<string> tokens)
+    {
+        tokens.Sort(CompareTokens);
+        var display = new List<string>(tokens.Count);
+
+        foreach (var token in tokens)
+        {
+            var text = Sanitize(token);
+            if (text.Length > 0)
+            {
+                display.Add(text);
+            }
+        }
+
+        return display;
+    }
+
+    private static int CompareTokens(string first, string second)
+    {
+        var insensitive = StringComparer.OrdinalIgnoreCase.Compare(first, second);
+        return insensitive != 0 ? insensitive : StringComparer.Ordinal.Compare(first, second);
+    }
+
+    private static string Sanitize(string? value)
+    {
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(value.Length);
+
+        foreach (var character in value)
+        {
+            builder.Append(char.IsControl(character) ? ' ' : character);
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static string Format(SetLabel label, string names) =>
+        label switch
+        {
+            SetLabel.Director => $"Same director: {names}",
+            SetLabel.Writers => $"Shared writers: {names}",
+            SetLabel.Cast => $"Features {names}",
+            _ => $"Shares {names}",
+        };
+
+    private static string Fallback(SetLabel label) =>
+        label switch
+        {
+            SetLabel.Director => "Shared director",
+            SetLabel.Writers => "Shared writers",
+            SetLabel.Cast => "Shared cast",
+            _ => "Shared genres",
+        };
 
     private static void ValidateWeights(SimilarityWeights weights)
     {
@@ -225,5 +330,13 @@ public static class SimilarityScorer
         }
     }
 
-    private readonly record struct Term(double Weight, double Similarity);
+    private enum SetLabel
+    {
+        Director,
+        Writers,
+        Cast,
+        Genres,
+    }
+
+    private readonly record struct Term(double Weight, double Similarity, string? Reason);
 }
