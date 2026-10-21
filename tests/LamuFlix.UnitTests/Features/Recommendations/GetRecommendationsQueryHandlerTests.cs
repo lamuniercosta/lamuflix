@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -103,7 +102,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         Arrange(Selected(), pool);
 
         // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(Selected().Id, DefaultTake), CancellationToken.None);
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(Selected().Id), CancellationToken.None);
 
         // assert
         result.Count.ShouldBe(3);
@@ -118,7 +117,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         Arrange(Selected(), pool);
 
         // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(Selected().Id, DefaultTake), CancellationToken.None);
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(Selected().Id), CancellationToken.None);
 
         // assert
         result.Count.ShouldBe(DefaultTake);
@@ -133,7 +132,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         Arrange(Selected(), pool);
 
         // act
-        var result = await handler.HandleAsync(new GetRecommendationsQuery(Selected().Id, DefaultTake), CancellationToken.None);
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(Selected().Id), CancellationToken.None);
 
         // assert
         result.Count.ShouldBe(DefaultTake);
@@ -349,6 +348,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
+                // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
                 cts.Cancel();
                 return Task.FromResult<Movie?>(Selected());
             });
@@ -370,6 +370,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
+                // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
                 cts.Cancel();
                 return Task.FromResult(pool);
             });
@@ -390,6 +391,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
+                // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
                 cts.Cancel();
                 return Task.FromResult(Counts);
             });
@@ -505,18 +507,17 @@ public sealed class GetRecommendationsQueryHandlerTests
         bool isNotInterested = false)
     {
         var movieTitle = title ?? $"Movie {id}";
-        var metadata = withMetadata
-            ? new MovieMetadata(
-                movieTitle,
-                posterUrl: posterUrl,
-                releaseYear: releaseYear is null ? null : new ReleaseYear(releaseYear.Value, Now),
-                runtime: runtimeMinutes is null ? null : new Runtime(runtimeMinutes.Value),
-                imdbRating: imdbRating is null ? null : new ImdbRating(imdbRating.Value),
-                directors: directors,
-                actors: actors,
-                genres: genres,
-                writers: writers)
-            : null;
+        var metadata = BuildMetadata(
+            movieTitle,
+            posterUrl,
+            releaseYear,
+            runtimeMinutes,
+            imdbRating,
+            genres,
+            directors,
+            actors,
+            writers,
+            withMetadata);
 
         return Movie.Rehydrate(
             new MovieId(id),
@@ -532,6 +533,35 @@ public sealed class GetRecommendationsQueryHandlerTests
             null,
             isWatched: isWatched,
             isNotInterested: isNotInterested);
+    }
+
+    private static MovieMetadata? BuildMetadata(
+        string movieTitle,
+        string? posterUrl,
+        int? releaseYear,
+        int? runtimeMinutes,
+        decimal? imdbRating,
+        string[]? genres,
+        string[]? directors,
+        string[]? actors,
+        string[]? writers,
+        bool withMetadata)
+    {
+        if (!withMetadata)
+        {
+            return null;
+        }
+
+        return new MovieMetadata(
+            movieTitle,
+            posterUrl: posterUrl,
+            releaseYear: releaseYear is null ? null : new ReleaseYear(releaseYear.Value, Now),
+            runtime: runtimeMinutes is null ? null : new Runtime(runtimeMinutes.Value),
+            imdbRating: imdbRating is null ? null : new ImdbRating(imdbRating.Value),
+            directors: directors,
+            actors: actors,
+            genres: genres,
+            writers: writers);
     }
 
     private sealed class CancellingCandidates(IReadOnlyList<Movie> items, CancellationTokenSource source)

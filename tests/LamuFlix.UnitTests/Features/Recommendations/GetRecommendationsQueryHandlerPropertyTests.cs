@@ -197,7 +197,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
                 return false;
             }
 
-            if (previous.Score == current.Score && previous.Summary.Id.Value > current.Summary.Id.Value)
+            if (previous.Score.Equals(current.Score) && previous.Summary.Id.Value > current.Summary.Id.Value)
             {
                 return false;
             }
@@ -226,7 +226,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
 
     private static bool SameRecommendation(RecommendedMovie first, RecommendedMovie second) =>
         first.Summary == second.Summary
-        && first.Score == second.Score
+        && first.Score.Equals(second.Score)
         && first.Reasons.Select(reason => reason.Text)
             .SequenceEqual(second.Reasons.Select(reason => reason.Text), StringComparer.Ordinal);
 }
