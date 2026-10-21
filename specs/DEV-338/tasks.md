@@ -6,7 +6,7 @@
 
 **Tests**: Included. Brief Q7 and task ordering require them. Author tests in the same phase as the behavior they lock. Once production compiles, the phase is not done until the listed tests pass. Do not start a later phase before the earlier phase is green and committed. Do not start Phase 2 until the spec PR has merged, Gate 1 is established, and Phase B prerequisites (Epic 7 plus merged DEV-336 and DEV-337, landed-signature recon, Gauge baseline gates, and Keel spec-drift analysis) allow build intake.
 
-**Organization**: Phases follow brief task ordering and `spec.md` user stories US1–US3. Anvil implements one phase per ask. Phase 1 is dependency pickup only. Polish is Cog then Gauge.
+**Organization**: Phases follow brief task ordering and `spec.md` user stories US1–US3. Anvil implements one phase per ask. Phase 1 is dependency pickup only; Phase 2 begins with the authorized genre-contract alignment. Polish is Cog then Gauge.
 
 **Domain vocabulary**: Use root `CONTEXT.md` Recommendation / Reason / Genre weight / GenreWeights / Genre similarity; Similarity score scoping as in `spec.md`. Do not edit root `CONTEXT.md`.
 
@@ -18,11 +18,11 @@
 
 ## Phase 1: Setup — Phase B dependency pickup
 
-**Purpose**: Confirm predecessors, baseline gates, and spec drift before any DEV-338 production edit (brief.md:57; plan.md:84).
+**Purpose**: Confirm predecessors, baseline gates, and spec drift before any DEV-338 production edit (brief.md Phase B amendment; plan.md Design Overview).
 
-- [ ] T001 Confirm Epic 7 prerequisite and merged DEV-336 / DEV-337 implementations on the build base; record landed `MovieFeatures` and `GenreWeights` signatures (including genre-similarity call shape) via Wisp pickup recon. Do not invent method names or genre-identity bridging. Do not stub or reimplement predecessors. If contracts are missing or incompatible with brief Q2/Q6, stop for a decision — do not start Phase 2.
-- [ ] T001a Gauge owns and records baseline gates on the build base before Builder intake (brief.md:57; plan.md:84). Phase 2 does not start until this baseline is recorded.
-- [ ] T001b Keel owns and records Phase B spec-drift analysis against the frozen Phase A docs and landed predecessor contracts before Builder intake (brief.md:57; plan.md:84). Phase 2 does not start until drift analysis is clear.
+- [ ] T001 Confirm Epic 7 prerequisite and merged DEV-336 / DEV-337 implementations on the build base; record landed `MovieFeatures` and `GenreWeights` signatures (including genre-similarity call shape) via Wisp pickup recon. Recorded resolution: both predecessors are merged (recon-DEV-338-2:9-14); Epic 7 is satisfied and string-name contract alignment is authorized by CONCLUSIONS.md Phase B Intake Rulings at 6490fb7. Implement only the brief Phase B amendment; do not invent a bridge or stub predecessors. Any further incompatibility stops for a decision.
+- [ ] T001a Gauge owns and records baseline gates on the build base before Builder intake (brief.md Phase B amendment; plan.md Design Overview). Phase 2 does not start until this baseline is recorded.
+- [x] T001b Keel records **CLEAR — decision-resolved drift** against pickup HEAD `6490fb794bb6bf702078a505d0cc0e088eb86e3a`: Patron ruling in CONCLUSIONS.md resolves Epic 7 and authorizes the string-name genre contract. Brief Phase B amendment and plan.md mirror the amended file set, direct delegation, safe null/blank handling, proof order, and gates. This is document/drift clearance, not T001a or runtime verification.
 
 **Checkpoint**: Landed-signature recon (T001), Gauge baseline gates (T001a), and Keel spec-drift analysis (T001b) are all recorded. Phase 2 cannot start solely on signature recon. Builder may proceed only when the full Phase 1 pickup is clear.
 
@@ -34,9 +34,28 @@
 
 **Independent Test**: Unit examples for Jaccard ratios, delegated genre similarity, missing-side exclusion vs disjoint zero inclusion, null/invalid-weight guards.
 
+### Authorized contract alignment (before T002/T005)
+
+Authority: CONCLUSIONS.md Phase B Intake Rulings, commit `6490fb794bb6bf702078a505d0cc0e088eb86e3a`; brief Phase B amendment. These tasks are sequential with scorer work, not parallel with any writer on the same files.
+
+- [ ] T001c [US1] Amend `src/LamuFlix.Core/Ports/GenreCounts.cs` to `IReadOnlyDictionary<string, long>` genre-name counts and `src/LamuFlix.Core/Domain/GenreWeights.cs` to `GetWeight(string genre)` / `Similarity(IEnumerable<string> first, IEnumerable<string> second)`, with OrdinalIgnoreCase counts/weights/set membership, safe runtime-null/blank member handling preserving raw MovieFeatures membership, existing weighted-Jaccard/IDF math and unknown/default 1.0. Update existing contract fixtures and focused regressions only in:
+  - `tests/LamuFlix.UnitTests/Domain/GenreWeightsTests.cs`
+  - `tests/LamuFlix.UnitTests/Domain/GenreWeightsCacheTests.cs`
+  - `tests/LamuFlix.UnitTests/Features/Recommendations/GenreWeightsCalculatorTests.cs`
+  - `tests/LamuFlix.UnitTests/Persistence/EfMovieCatalogSurvivorTests.cs`
+  - `tests/LamuFlix.UnitTests/Persistence/EfMovieRepositorySurvivorTests.cs`
+  - `tests/LamuFlix.UnitTests/Persistence/MovieCatalogRegistrationTests.cs`
+
+- [ ] T001d [US1] Amend only the genre-count contract/query in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs`: select `g.name AS "Genre"`, construct case-insensitive string-name counts. Preserve count semantics and use no schema/migration. Update existing real-Postgres regression coverage for name-keyed counts, case variants, and calculator/default behavior only in:
+  - `tests/LamuFlix.IntegrationTests/EfMovieCatalogFacetsTests.cs`
+  - `tests/LamuFlix.IntegrationTests/GenreWeightsIntegrationTests.cs`
+  - `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs`
+
+- [ ] T001e [US1] Run relevant existing unit and real-Postgres integration tests for T001c/T001d; prove the amended consumers compile and preserve known weights/defaults before scorer delegation. Do not mock query translation or duplicate the genre formula in SimilarityScorer. Later T014 covers the complete amended Core/Infrastructure diff.
+
 ### Tests for User Story 1
 
-- [ ] T002 [US1] Write `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs` covering ArgumentNullException for null `a`/`b`/`weights`/`genreWeights`; ArgumentOutOfRangeException for negative/NaN/±Infinity weights; isolated Director/Writers/Cast Jaccard with known ratios under OrdinalIgnoreCase; missing-side exclusion vs nonempty disjoint zero inclusion retaining weight; Genres delegation to landed GenreWeights (including unknown-genre default 1.0) without a second formula. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA headers only. No mocks, IO, or Testcontainers.
+- [ ] T002 [US1] Write `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs` covering ArgumentNullException for null `a`/`b`/`weights`/`genreWeights`; ArgumentOutOfRangeException for negative/NaN/±Infinity weights; isolated Director/Writers/Cast Jaccard with known ratios under OrdinalIgnoreCase; missing-side exclusion vs nonempty disjoint zero inclusion retaining weight; Genres direct delegation to the amended string-name GenreWeights contract (including case variants, runtime-null/blank safety, unknown-genre default 1.0) without a second formula. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA headers only. No mocks, IO, or Testcontainers.
 
 ### Implementation for User Story 1
 
@@ -44,7 +63,7 @@
 
 - [ ] T004 [P] [US1] Add `src/LamuFlix.Core/Features/Recommendations/SimilarityResult.cs` as `public sealed record SimilarityResult(double Score, ImmutableList<Reason> Reasons)`.
 
-- [ ] T005 [US1] Add `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs` as `public static class SimilarityScorer` with `Score(MovieFeatures a, MovieFeatures b, SimilarityWeights weights, GenreWeights genreWeights)` implementing FR-001–FR-006 and FR-011 for overlap terms and guards. Use landed GenreWeights API from T001 recon. No DI, interface, or options edits. No comments.
+- [ ] T005 [US1] Add `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs` as `public static class SimilarityScorer` with `Score(MovieFeatures a, MovieFeatures b, SimilarityWeights weights, GenreWeights genreWeights)` implementing FR-001–FR-006 and FR-011 for overlap terms and guards. After T001c–T001e, call `genreWeights.Similarity(a.Genres, b.Genres)` directly; no extra mapping argument or catalog access. The cited Phase B ruling supersedes spec.md FR-011 only for the named alignment files. No DI, interface, or options edits. No comments.
 
 **Checkpoint**: US1 unit tests pass for overlap and guards. Records compile.
 
@@ -104,14 +123,14 @@
 
 ## Excluded (never scheduled)
 
-Recommendation orchestration, candidates, storage, caching, endpoints, UI chips, configuration/options edits, predecessor MovieFeatures/GenreWeights implementations or stubs, tuning studies, new dependencies/projects/layers/schema, HTTP/OpenAPI/generated clients, secrets, `Features:LocalPlay`, `Process.Start`, Gherkin/Reqnroll, new ADR, root `CONTEXT.md` edit, second assertion/mocking library, Testcontainers, mocks, unrelated cleanup. A discovered need outside this list stops for a decision.
+Recommendation orchestration, candidates, storage changes beyond the authorized genre-count query, caching, endpoints, UI chips, configuration/options edits, MovieFeatures edits or predecessor stubs and predecessor changes beyond T001c/T001d, tuning studies, new dependencies/projects/layers/schema, HTTP/OpenAPI/generated clients, secrets, `Features:LocalPlay`, `Process.Start`, Gherkin/Reqnroll, new ADR, root `CONTEXT.md` edit, second assertion/mocking library, new test infrastructure, database-driver mocks, unrelated cleanup. Existing named integration tests use Testcontainers under the Phase B amendment. A discovered need outside this list stops for a decision.
 
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
 
 - **Phase 1**: Dependency pickup — T001 (Wisp landed-signature recon), T001a (Gauge baseline gates), and T001b (Keel spec-drift analysis). All three must complete. Blocks all production/test edits. Phase 2 cannot start solely on signature recon.
-- **Phase 2 (US1)**: Depends on complete Phase 1 (T001 + T001a + T001b). Delivers records, guards, overlap.
+- **Phase 2 (US1)**: Depends on complete Phase 1 (T001 + T001a + T001b). Runs T001c → T001d → T001e first, then delivers records, guards, overlap.
 - **Phase 3 (US2)**: Depends on Phase 2 scorer skeleton. Adds proximity/normalization/identity and core properties.
 - **Phase 4 (US3)**: Depends on Phase 3 scoring path. Adds Reasons and Reason properties.
 - **Phase 5**: Depends on Phases 2–4 committed. Cog owns T013; Gauge owns T014.
@@ -147,8 +166,8 @@ Task: "T004 Add SimilarityResult.cs in src/LamuFlix.Core/Features/Recommendation
 
 ### MVP First (User Story 1)
 
-1. Complete Phase 1 pickup (T001 + T001a + T001b).
-2. Deliver US1 records, guards, and overlap scoring with tests.
+1. Complete Phase 1 pickup (T001 + T001a + T001b); T001b is recorded above, T001a is not implied.
+2. Complete T001c–T001e contract alignment, then deliver US1 records, guards, and overlap scoring with tests.
 3. Validate independently, then continue US2–US3; frozen scope requires all three stories before review.
 
 ### Incremental Delivery
@@ -165,4 +184,6 @@ One implementer in phase order is the expected path. Safe splits are listed unde
 - Story labels map to `spec.md`.
 - Commit after each implementation phase using `DEV-338 - {phase subject}`.
 - Gate 1 comes from the merged spec PR. This task list does not authorize implementation before that, and Phase B remains gated on Epic 7 plus merged DEV-336/DEV-337, plus T001/T001a/T001b (signature recon, Gauge baseline, Keel drift).
-- Quill invented no decisions; content is from `brief.md` Q1–Q9, `CONCLUSIONS.md`, `ASSUMPTIONS.md`, and recon facts.
+- Phase B amendments implement the cited Patron ruling; original Phase A content is from `brief.md` Q1–Q9, `CONCLUSIONS.md`, `ASSUMPTIONS.md`, and recon facts.
+
+- T014 scope includes the authorized Core and Infrastructure changes and their unit/integration tests; mutation eligibility is determined per changed project by harness.yml, never assumed Core-only. No gate is claimed by T001b.
