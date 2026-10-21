@@ -77,13 +77,13 @@ Authority: CONCLUSIONS.md Phase B Intake Rulings, commit `6490fb794bb6bf702078a5
 
 ### Tests for User Story 2
 
-- [ ] T006 [US2] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs` for year k=0.1 and runtime k=0.01 exponential proximity, rating formula boundaries, mixed and all-zero weights (Q1), empty vs identical seven-field profiles (Q5), exact 1.0 when every eligible positive-weight term is 1.0, finite MaxValue stabilization, and tiny-weight underflow behavior. Same file as T002 (not [P]).
+- [X] T006 [US2] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs` for year k=0.1 and runtime k=0.01 exponential proximity, rating formula boundaries, mixed and all-zero weights (Q1), empty vs identical seven-field profiles (Q5), exact 1.0 when every eligible positive-weight term is 1.0, finite MaxValue stabilization, and tiny-weight underflow behavior. Same file as T002 (not [P]).
 
-- [ ] T007 [US2] Write `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerPropertyTests.cs` with FsCheck properties: score finite and in [0, 1]; symmetry within absolute tolerance 1e-12; exact `Score(a, a) == 1.0` when `a` has at least one scoring feature; inputs unchanged. Each property: FsCheck.Xunit `[Property(MaxTest = 100)]`, `[Trait("Category", "Property")]`, explicit deterministic Replay seed, no `System.Random`, no algorithm restatement. Respect landed MovieFeatures construction rules for generated inputs.
+- [X] T007 [US2] Write `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerPropertyTests.cs` with FsCheck properties: score finite and in [0, 1]; symmetry within absolute tolerance 1e-12; exact `Score(a, a) == 1.0` when `a` has at least one scoring feature; inputs unchanged. Each property: FsCheck.Xunit `[Property(MaxTest = 100)]`, `[Trait("Category", "Property")]`, explicit deterministic Replay seed, no `System.Random`, no algorithm restatement. Respect landed MovieFeatures construction rules for generated inputs.
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] Extend `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs` with proximity/rating terms, `const double` decay rates, max-weight scaled normalization, clamp, Q1 zero-denominator boundary, and exact-1 short circuit per brief Q3/Q5 and spec FR-007–FR-010. Do not edit SimilarityWeights or RecommendationOptions.
+- [X] T008 [US2] Extend `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs` with proximity/rating terms, `const double` decay rates, max-weight scaled normalization, clamp, Q1 zero-denominator boundary, and exact-1 short circuit per brief Q3/Q5 and spec FR-007–FR-010. Do not edit SimilarityWeights or RecommendationOptions.
 
 **Checkpoint**: US2 unit and property tests listed above pass. Prior US1 coverage remains green.
 
