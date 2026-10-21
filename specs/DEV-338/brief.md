@@ -84,3 +84,35 @@ Phase A runs no build/test/analyzer/mutation gates and makes no runtime claim. L
 
 Quill drafts spec.md, plan.md, and tasks.md from this brief, full CONCLUSIONS, recon-DEV-338, and PRODUCT. Keel later runs read-only speckit-analyze and checks every plan/task decision against this brief. Plan challenge, freeze, provisional Gate 1, spec PR, and user merge remain later steps owned by their assigned seats. No spec PR merge or Gate 1 approval is implied by grill completion.
 
+
+## Phase B amendment — T001b decision record (2026-10-21)
+
+Authority: CONCLUSIONS.md, Phase B Intake Rulings (2026-10-20), committed in `6490fb794bb6bf702078a505d0cc0e088eb86e3a`. This later cited Patron ruling supersedes Q6/Q7/Q8 exclusions only for the contract alignment and file set below. The Phase A exchanges above remain historical records.
+
+- Epic 7 is satisfied by the owner merge/active-chain ruling; DEV-338 is approved to build subject to the remaining Phase 1 receipts. DEV-336 and DEV-337 are landed (`recon-DEV-338-2:9-14`).
+- Replace the landed integer-ID genre contract with case-insensitive string genre names: `GenreCounts.MoviesWithGenre` is `IReadOnlyDictionary<string, long>`; `GenreWeights.GetWeight(string genre)` and `Similarity(IEnumerable<string> first, IEnumerable<string> second)` use `StringComparer.OrdinalIgnoreCase`. Persistence counts select `g.name AS "Genre"` instead of the database ID. Keep the existing IDF/Jaccard formula, unknown/default weight 1.0, and empty-union behavior.
+- Delegate directly with `genreWeights.Similarity(a.Genres, b.Genres)`; the four-argument scorer signature stays fixed. Follow the ruling safe-handling alternative: preserve raw MovieFeatures null/blank membership and make GenreWeights handle runtime-null members safely. Do not filter scoring membership or sanitize scoring tokens; display sanitization stays separate.
+
+Additional existing production files approved by Patron:
+
+- `src/LamuFlix.Core/Ports/GenreCounts.cs`
+- `src/LamuFlix.Core/Domain/GenreWeights.cs`
+- `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs`
+
+Additional existing test files approved for forced contract alignment and focused regression proof:
+
+- `tests/LamuFlix.UnitTests/Domain/GenreWeightsTests.cs`
+- `tests/LamuFlix.UnitTests/Domain/GenreWeightsCacheTests.cs`
+- `tests/LamuFlix.UnitTests/Features/Recommendations/GenreWeightsCalculatorTests.cs`
+- `tests/LamuFlix.UnitTests/Persistence/EfMovieCatalogSurvivorTests.cs`
+- `tests/LamuFlix.UnitTests/Persistence/EfMovieRepositorySurvivorTests.cs`
+- `tests/LamuFlix.UnitTests/Persistence/MovieCatalogRegistrationTests.cs`
+- `tests/LamuFlix.IntegrationTests/EfMovieCatalogFacetsTests.cs`
+- `tests/LamuFlix.IntegrationTests/GenreWeightsIntegrationTests.cs`
+- `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs`
+
+- Delivery order: complete Phase 1 receipts, then align the genre count/weight/persistence contract and its existing tests before scorer overlap/delegation. Unit coverage retains defaults, guards, case-insensitive matching, null/blank safety, and weighted behavior; existing real-Postgres integration coverage proves name-keyed counts, case variants, and end-to-end calculator compatibility. No database-driver mocks. This narrowly supersedes the original no-IO/Testcontainers instruction for the named existing integration tests.
+- Run the configured M gates over the amended Core and Infrastructure diff and the relevant unit/integration suites; mutation applicability includes both changed production projects according to harness.yml. Thresholds, round caps, and all-three-axis review requirements remain as frozen.
+- No schema/migration, new package, project, port, catalog access from the scorer, auxiliary bridge parameter, or unrelated cleanup is authorized. The predecessor-edit prohibition in spec.md FR-011 is superseded only for GenreWeights and the explicitly named alignment files by this later Patron ruling; MovieFeatures and options remain excluded.
+
+T001b verdict: **CLEAR — decision-resolved drift** at pickup HEAD `6490fb794bb6bf702078a505d0cc0e088eb86e3a`, with this amendment mirrored into plan.md/tasks.md. The incompatible landed int-ID shape remains the starting implementation fact, not the target contract. T001a is independently owned by Gauge; this verdict makes no baseline, runtime, gate, review, or merge claim.
