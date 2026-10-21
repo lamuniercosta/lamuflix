@@ -38,7 +38,7 @@
 
 Authority: CONCLUSIONS.md Phase B Intake Rulings, commit `6490fb794bb6bf702078a505d0cc0e088eb86e3a`; brief Phase B amendment. These tasks are sequential with scorer work, not parallel with any writer on the same files.
 
-- [ ] T001c [US1] Amend `src/LamuFlix.Core/Ports/GenreCounts.cs` to `IReadOnlyDictionary<string, long>` genre-name counts and `src/LamuFlix.Core/Domain/GenreWeights.cs` to `GetWeight(string genre)` / `Similarity(IEnumerable<string> first, IEnumerable<string> second)`, with OrdinalIgnoreCase counts/weights/set membership, safe runtime-null/blank member handling preserving raw MovieFeatures membership, existing weighted-Jaccard/IDF math and unknown/default 1.0. Update existing contract fixtures and focused regressions only in:
+- [X] T001c [US1] Amend `src/LamuFlix.Core/Ports/GenreCounts.cs` to `IReadOnlyDictionary<string, long>` genre-name counts and `src/LamuFlix.Core/Domain/GenreWeights.cs` to `GetWeight(string genre)` / `Similarity(IEnumerable<string> first, IEnumerable<string> second)`, with OrdinalIgnoreCase counts/weights/set membership, safe runtime-null/blank member handling preserving raw MovieFeatures membership, existing weighted-Jaccard/IDF math and unknown/default 1.0. Update existing contract fixtures and focused regressions only in:
   - `tests/LamuFlix.UnitTests/Domain/GenreWeightsTests.cs`
   - `tests/LamuFlix.UnitTests/Domain/GenreWeightsCacheTests.cs`
   - `tests/LamuFlix.UnitTests/Features/Recommendations/GenreWeightsCalculatorTests.cs`
@@ -46,24 +46,24 @@ Authority: CONCLUSIONS.md Phase B Intake Rulings, commit `6490fb794bb6bf702078a5
   - `tests/LamuFlix.UnitTests/Persistence/EfMovieRepositorySurvivorTests.cs`
   - `tests/LamuFlix.UnitTests/Persistence/MovieCatalogRegistrationTests.cs`
 
-- [ ] T001d [US1] Amend only the genre-count contract/query in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs`: select `g.name AS "Genre"`, construct case-insensitive string-name counts. Preserve count semantics and use no schema/migration. Update existing real-Postgres regression coverage for name-keyed counts, case variants, and calculator/default behavior only in:
+- [X] T001d [US1] Amend only the genre-count contract/query in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs`: select `g.name AS "Genre"`, construct case-insensitive string-name counts. Preserve count semantics and use no schema/migration. Update existing real-Postgres regression coverage for name-keyed counts, case variants, and calculator/default behavior only in:
   - `tests/LamuFlix.IntegrationTests/EfMovieCatalogFacetsTests.cs`
   - `tests/LamuFlix.IntegrationTests/GenreWeightsIntegrationTests.cs`
   - `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs`
 
-- [ ] T001e [US1] Run relevant existing unit and real-Postgres integration tests for T001c/T001d; prove the amended consumers compile and preserve known weights/defaults before scorer delegation. Do not mock query translation or duplicate the genre formula in SimilarityScorer. Later T014 covers the complete amended Core/Infrastructure diff.
+- [X] T001e [US1] Run relevant existing unit and real-Postgres integration tests for T001c/T001d; prove the amended consumers compile and preserve known weights/defaults before scorer delegation. Do not mock query translation or duplicate the genre formula in SimilarityScorer. Later T014 covers the complete amended Core/Infrastructure diff.
 
 ### Tests for User Story 1
 
-- [ ] T002 [US1] Write `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs` covering ArgumentNullException for null `a`/`b`/`weights`/`genreWeights`; ArgumentOutOfRangeException for negative/NaN/±Infinity weights; isolated Director/Writers/Cast Jaccard with known ratios under OrdinalIgnoreCase; missing-side exclusion vs nonempty disjoint zero inclusion retaining weight; Genres direct delegation to the amended string-name GenreWeights contract (including case variants, runtime-null/blank safety, unknown-genre default 1.0) without a second formula. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA headers only. No mocks, IO, or Testcontainers.
+- [X] T002 [US1] Write `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs` covering ArgumentNullException for null `a`/`b`/`weights`/`genreWeights`; ArgumentOutOfRangeException for negative/NaN/±Infinity weights; isolated Director/Writers/Cast Jaccard with known ratios under OrdinalIgnoreCase; missing-side exclusion vs nonempty disjoint zero inclusion retaining weight; Genres direct delegation to the amended string-name GenreWeights contract (including case variants, runtime-null/blank safety, unknown-genre default 1.0) without a second formula. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA headers only. No mocks, IO, or Testcontainers.
 
 ### Implementation for User Story 1
 
-- [ ] T003 [P] [US1] Add `src/LamuFlix.Core/Features/Recommendations/Reason.cs` as `public sealed record Reason(string Text)`.
+- [X] T003 [P] [US1] Add `src/LamuFlix.Core/Features/Recommendations/Reason.cs` as `public sealed record Reason(string Text)`.
 
-- [ ] T004 [P] [US1] Add `src/LamuFlix.Core/Features/Recommendations/SimilarityResult.cs` as `public sealed record SimilarityResult(double Score, ImmutableList<Reason> Reasons)`.
+- [X] T004 [P] [US1] Add `src/LamuFlix.Core/Features/Recommendations/SimilarityResult.cs` as `public sealed record SimilarityResult(double Score, ImmutableList<Reason> Reasons)`.
 
-- [ ] T005 [US1] Add `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs` as `public static class SimilarityScorer` with `Score(MovieFeatures a, MovieFeatures b, SimilarityWeights weights, GenreWeights genreWeights)` implementing FR-001–FR-006 and FR-011 for overlap terms and guards. After T001c–T001e, call `genreWeights.Similarity(a.Genres, b.Genres)` directly; no extra mapping argument or catalog access. The cited Phase B ruling supersedes spec.md FR-011 only for the named alignment files. No DI, interface, or options edits. No comments.
+- [X] T005 [US1] Add `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs` as `public static class SimilarityScorer` with `Score(MovieFeatures a, MovieFeatures b, SimilarityWeights weights, GenreWeights genreWeights)` implementing FR-001–FR-006 and FR-011 for overlap terms and guards. After T001c–T001e, call `genreWeights.Similarity(a.Genres, b.Genres)` directly; no extra mapping argument or catalog access. The cited Phase B ruling supersedes spec.md FR-011 only for the named alignment files. No DI, interface, or options edits. No comments.
 
 **Checkpoint**: US1 unit tests pass for overlap and guards. Records compile.
 

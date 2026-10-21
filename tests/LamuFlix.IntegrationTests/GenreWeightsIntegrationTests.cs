@@ -48,12 +48,12 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
         imported.MarkEnriched(new MovieMetadata("Imported", genres: ["Drama"]), MovieCatalogSeed.FixedTime);
         await repository.SaveChangesAsync(ct);
         var refreshed = await ReadAsync(cache);
-        var dramaId = await GenreIdAsync("Drama");
 
         // assert
         refreshed.ShouldNotBeSameAs(warm);
-        warm.GetWeight(dramaId).ShouldBe(1.0);
-        refreshed.GetWeight(dramaId).ShouldBe(Idf(2, 1), 1e-9);
+        warm.GetWeight("Drama").ShouldBe(1.0);
+        refreshed.GetWeight("Drama").ShouldBe(Idf(2, 1), 1e-9);
+        refreshed.GetWeight("drama").ShouldBe(Idf(2, 1), 1e-9);
     }
 
     [Fact]
@@ -67,8 +67,6 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
             ("Charlie", "gw-replace-charlie", []));
         var cache = new GenreWeightsCache();
         var warm = await ReadAsync(cache);
-        var dramaId = seeded.Genres["Drama"];
-        var comedyId = seeded.Genres["Comedy"];
         await using var db = OpenContext();
         var repository = Repository(db, cache);
         var alpha = await repository.GetAsync(seeded.Movies[0], ct);
@@ -80,11 +78,11 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
         var refreshed = await ReadAsync(cache);
 
         // assert
-        warm.GetWeight(dramaId).ShouldBe(Idf(3, 2), 1e-9);
-        warm.GetWeight(comedyId).ShouldBe(Idf(3, 1), 1e-9);
+        warm.GetWeight("Drama").ShouldBe(Idf(3, 2), 1e-9);
+        warm.GetWeight("Comedy").ShouldBe(Idf(3, 1), 1e-9);
         refreshed.ShouldNotBeSameAs(warm);
-        refreshed.GetWeight(dramaId).ShouldBe(Idf(3, 1), 1e-9);
-        refreshed.GetWeight(comedyId).ShouldBe(Idf(3, 2), 1e-9);
+        refreshed.GetWeight("Drama").ShouldBe(Idf(3, 1), 1e-9);
+        refreshed.GetWeight("Comedy").ShouldBe(Idf(3, 2), 1e-9);
     }
 
     [Fact]
@@ -98,8 +96,6 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
             ("Charlie", "gw-delete-charlie", ["Comedy"]));
         var cache = new GenreWeightsCache();
         var warm = await ReadAsync(cache);
-        var dramaId = seeded.Genres["Drama"];
-        var comedyId = seeded.Genres["Comedy"];
         await using var db = OpenContext();
         var repository = Repository(db, cache);
 
@@ -109,10 +105,11 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
 
         // assert
         deleted.ShouldBeTrue();
-        warm.GetWeight(dramaId).ShouldBe(Idf(3, 2), 1e-9);
+        warm.GetWeight("Drama").ShouldBe(Idf(3, 2), 1e-9);
         refreshed.ShouldNotBeSameAs(warm);
-        refreshed.GetWeight(dramaId).ShouldBe(Idf(2, 1), 1e-9);
-        refreshed.GetWeight(comedyId).ShouldBe(Idf(2, 1), 1e-9);
+        refreshed.GetWeight("Drama").ShouldBe(Idf(2, 1), 1e-9);
+        refreshed.GetWeight("drama").ShouldBe(Idf(2, 1), 1e-9);
+        refreshed.GetWeight("Comedy").ShouldBe(Idf(2, 1), 1e-9);
     }
 
     [Fact]
@@ -207,7 +204,6 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
             ("Bravo", "gw-scalar-bravo", []));
         var cache = new GenreWeightsCache();
         var warm = await ReadAsync(cache);
-        var dramaId = seeded.Genres["Drama"];
         await using var db = OpenContext();
         var repository = Repository(db, cache);
         var bravo = await repository.GetAsync(seeded.Movies[1], ct);
@@ -220,8 +216,9 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
 
         // assert
         refreshed.ShouldNotBeSameAs(warm);
-        refreshed.GetWeight(dramaId).ShouldBe(warm.GetWeight(dramaId));
-        refreshed.GetWeight(dramaId).ShouldBe(Idf(2, 1), 1e-9);
+        refreshed.GetWeight("Drama").ShouldBe(warm.GetWeight("Drama"));
+        refreshed.GetWeight("Drama").ShouldBe(Idf(2, 1), 1e-9);
+        refreshed.GetWeight("drama").ShouldBe(Idf(2, 1), 1e-9);
     }
 
     [Fact]
@@ -257,11 +254,10 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
         await SaveGenreToFirstMovieAsync(cache, ct);
         release.SetResult();
         var weights = await read;
-        var dramaId = await GenreIdAsync("Drama");
 
         // assert
         calls.ShouldBe(2);
-        weights.GetWeight(dramaId).ShouldBe(Idf(2, 1), 1e-9);
+        weights.GetWeight("Drama").ShouldBe(Idf(2, 1), 1e-9);
     }
 
     private async Task SaveGenreToFirstMovieAsync(GenreWeightsCache cache, CancellationToken ct)
@@ -281,15 +277,6 @@ public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsy
         await using var db = OpenContext();
         var calculator = new GenreWeightsCalculator(new EfMovieCatalog(db), cache);
         return await calculator.GetAsync(TestContext.Current.CancellationToken);
-    }
-
-    private async Task<int> GenreIdAsync(string name)
-    {
-        await using var db = OpenContext();
-        return await db.Genres
-            .Where(genre => genre.Name == name)
-            .Select(genre => genre.Id)
-            .SingleAsync(TestContext.Current.CancellationToken);
     }
 
     private async Task<(IReadOnlyList<MovieId> Movies, IReadOnlyDictionary<string, int> Genres)> SeedAsync(

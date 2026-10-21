@@ -816,7 +816,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         public Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            return Task.FromResult(new GenreCounts(0, new Dictionary<int, long>()));
+            return Task.FromResult(new GenreCounts(0, new Dictionary<string, long>()));
         }
 
         public Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct)

@@ -41,14 +41,14 @@ public sealed class GenreWeightsCalculatorTests
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
-        var catalog = CatalogReturning(10, new Dictionary<int, long> { [1] = 4 });
+        var catalog = CatalogReturning(10, new Dictionary<string, long> { ["Drama"] = 4 });
         var calculator = new GenreWeightsCalculator(catalog, new GenreWeightsCache());
 
         // act
         var weights = await calculator.GetAsync(ct);
 
         // assert
-        weights.GetWeight(1).ShouldBe(Math.Log(11.0 / 5.0) + 1.0, 1e-12);
+        weights.GetWeight("Drama").ShouldBe(Math.Log(11.0 / 5.0) + 1.0, 1e-12);
         await catalog.Received(1).GetGenreCountsAsync(ct);
     }
 
@@ -57,7 +57,7 @@ public sealed class GenreWeightsCalculatorTests
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
-        var catalog = CatalogReturning(10, new Dictionary<int, long> { [1] = 4 });
+        var catalog = CatalogReturning(10, new Dictionary<string, long> { ["Drama"] = 4 });
         var services = new ServiceCollection();
         services.AddSingleton(new GenreWeightsCache());
         services.AddScoped(_ => catalog);
@@ -84,7 +84,7 @@ public sealed class GenreWeightsCalculatorTests
         // arrange
         var ct = TestContext.Current.CancellationToken;
         var cache = new GenreWeightsCache();
-        var firstCatalog = CatalogReturning(10, new Dictionary<int, long> { [1] = 2 });
+        var firstCatalog = CatalogReturning(10, new Dictionary<string, long> { ["Drama"] = 2 });
         var first = await new GenreWeightsCalculator(firstCatalog, cache).GetAsync(ct);
         var secondCatalog = Substitute.For<IMovieCatalog>();
 
@@ -117,7 +117,7 @@ public sealed class GenreWeightsCalculatorTests
     {
         // arrange
         using var cancellation = new CancellationTokenSource();
-        var catalog = CatalogReturning(10, new Dictionary<int, long> { [1] = 2 });
+        var catalog = CatalogReturning(10, new Dictionary<string, long> { ["Drama"] = 2 });
         var calculator = new GenreWeightsCalculator(catalog, new GenreWeightsCache());
 
         // act
@@ -133,9 +133,9 @@ public sealed class GenreWeightsCalculatorTests
         // arrange
         var ct = TestContext.Current.CancellationToken;
         var cache = new GenreWeightsCache();
-        var firstCatalog = CatalogReturning(10, new Dictionary<int, long> { [1] = 9 });
+        var firstCatalog = CatalogReturning(10, new Dictionary<string, long> { ["Drama"] = 9 });
         var first = await new GenreWeightsCalculator(firstCatalog, cache).GetAsync(ct);
-        var secondCatalog = CatalogReturning(10, new Dictionary<int, long> { [2] = 1 });
+        var secondCatalog = CatalogReturning(10, new Dictionary<string, long> { ["Comedy"] = 1 });
 
         // act
         cache.Invalidate();
@@ -143,8 +143,8 @@ public sealed class GenreWeightsCalculatorTests
 
         // assert
         ReferenceEquals(first, second).ShouldBeFalse();
-        first.GetWeight(1).ShouldBeGreaterThan(1.0);
-        second.GetWeight(2).ShouldBeGreaterThan(1.0);
+        first.GetWeight("Drama").ShouldBeGreaterThan(1.0);
+        second.GetWeight("Comedy").ShouldBeGreaterThan(1.0);
         await firstCatalog.Received(1).GetGenreCountsAsync(Arg.Any<CancellationToken>());
         await secondCatalog.Received(1).GetGenreCountsAsync(Arg.Any<CancellationToken>());
     }
@@ -170,13 +170,13 @@ public sealed class GenreWeightsCalculatorTests
     private static async Task<(WeakReference Calculator, WeakReference Catalog)> LoadAndForgetScopedServicesAsync(
         GenreWeightsCache cache)
     {
-        var catalog = new FakeMovieCatalog(new GenreCounts(10, new Dictionary<int, long> { [1] = 1 }));
+        var catalog = new FakeMovieCatalog(new GenreCounts(10, new Dictionary<string, long> { ["Drama"] = 1 }));
         var calculator = new GenreWeightsCalculator(catalog, cache);
         await calculator.GetAsync(TestContext.Current.CancellationToken);
         return (new WeakReference(calculator), new WeakReference(catalog));
     }
 
-    private static IMovieCatalog CatalogReturning(long totalMovies, IReadOnlyDictionary<int, long> moviesWithGenre)
+    private static IMovieCatalog CatalogReturning(long totalMovies, IReadOnlyDictionary<string, long> moviesWithGenre)
     {
         var catalog = Substitute.For<IMovieCatalog>();
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>())

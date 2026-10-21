@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -114,29 +115,29 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
     {
         var rows = await dbContext.Database.SqlQueryRaw<GenreCountRow>(
             """
-            SELECT CAST(NULL AS integer) AS "GenreId", (SELECT COUNT(*) FROM movies) AS "MovieCount"
+            SELECT CAST(NULL AS text) AS "Genre", (SELECT COUNT(*) FROM movies) AS "MovieCount"
             UNION ALL
-            SELECT g.id AS "GenreId", COUNT(DISTINCT mg.movie_id) AS "MovieCount"
+            SELECT g.name AS "Genre", COUNT(DISTINCT mg.movie_id) AS "MovieCount"
             FROM genres AS g
             LEFT JOIN movie_genres AS mg ON mg.genre_id = g.id
-            GROUP BY g.id
+            GROUP BY g.name
             """).ToArrayAsync(ct);
 
         var total = 0L;
         foreach (var row in rows)
         {
-            if (row.GenreId is null)
+            if (row.Genre is null)
             {
                 total = row.MovieCount;
             }
         }
 
-        var moviesWithGenre = new Dictionary<int, long>();
+        var moviesWithGenre = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in rows)
         {
-            if (row.GenreId is { } genreId)
+            if (row.Genre is { } genre)
             {
-                moviesWithGenre[genreId] = row.MovieCount;
+                moviesWithGenre[genre] = row.MovieCount;
             }
         }
 
@@ -201,7 +202,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
 // ReSharper disable UnusedAutoPropertyAccessor.Global // EF SqlQueryRaw materialization sets these properties reflectively.
 internal sealed class GenreCountRow
 {
-    public int? GenreId { get; set; }
+    public string? Genre { get; set; }
 
     public long MovieCount { get; set; }
 }
