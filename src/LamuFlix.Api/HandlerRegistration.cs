@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO.Abstractions;
 using FluentValidation;
 using LamuFlix.Core.Domain;
@@ -8,12 +9,14 @@ using LamuFlix.Core.Features.Feedback;
 using LamuFlix.Core.Features.Import;
 using LamuFlix.Core.Features.Library;
 using LamuFlix.Core.Features.Playback;
+using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Features.Watchlist;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.FileSystem;
 using LamuFlix.Infrastructure.Library;
 using LamuFlix.Infrastructure.Pipeline;
+using LamuFlix.Infrastructure.Recommendations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -40,6 +43,10 @@ internal static class HandlerRegistration
         services.AddScoped<IValidator<GetMovieDetailsQuery>>(
             serviceProvider => serviceProvider.GetRequiredService<GetMovieDetailsQueryValidator>());
         services.AddHandler<GetMovieDetailsQueryHandler, GetMovieDetailsQuery, MovieDetails>();
+        services.AddScoped<GetRecommendationsQueryValidator>();
+        services.AddScoped<IValidator<GetRecommendationsQuery>>(
+            serviceProvider => serviceProvider.GetRequiredService<GetRecommendationsQueryValidator>());
+        services.AddHandler<GetRecommendationsQueryHandler, GetRecommendationsQuery, ImmutableList<RecommendedMovie>>();
         services.AddHandler<DeleteMovieCommandHandler, DeleteMovieCommand, Unit>();
         services.AddHandler<GetGenresQueryHandler, GetGenresQuery, IReadOnlyList<GenreFacet>>();
         services.AddHandler<GetPeopleQueryHandler, GetPeopleQuery, IReadOnlyList<PersonFacet>>();
