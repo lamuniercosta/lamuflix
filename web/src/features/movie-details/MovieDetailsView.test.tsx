@@ -1,22 +1,28 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../test/server';
-import { browseMovies, movieDetails, movieDetailsNullMetadata, people } from '../../mocks/fixtures';
+import {
+  browseMovies,
+  movieDetails,
+  movieDetailsNullMetadata,
+  people,
+  relatedMovies,
+} from '../../mocks/fixtures';
 import { browseMoviesQueryKey } from '../../library/libraryQueries';
 import MovieDetailsView from './MovieDetailsView';
 
-function renderWith(client: QueryClient) {
+function renderWith(client: QueryClient, movieId: number | string = 1) {
   return render(
     <QueryClientProvider client={client}>
-      <MovieDetailsView movieId={1} />
+      <MovieDetailsView movieId={movieId} />
     </QueryClientProvider>,
   );
 }
 
-function renderView() {
-  return renderWith(new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+function renderView(movieId: number | string = 1) {
+  return renderWith(new QueryClient({ defaultOptions: { queries: { retry: false } } }), movieId);
 }
 
 const fullMovie = {
@@ -415,5 +421,128 @@ describe('MovieDetailsView metadata request', () => {
     renderWith(client);
 
     expect(await screen.findByText('The last metadata lookup failed.')).toBeInTheDocument();
+  });
+});
+
+describe('MovieDetailsView related movies integration', () => {
+  function recommendationsHandler(body: object) {
+    return http.get('*/api/movies/:id/recommendations', () => HttpResponse.json(body));
+  }
+
+  function recordedRecommendationsHandler(requests: string[]) {
+    return http.get('*/api/movies/:id/recommendations', ({ request }) => {
+      requests.push(request.url);
+      return HttpResponse.json([]);
+    });
+  }
+
+  it('renders Related movies after More with and before File when populated', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieWithActors(['Timothée Chalamet']))),
+      http.get('*/api/movies', () => HttpResponse.json(browseMovies)),
+      recommendationsHandler(relatedMovies),
+    );
+    const { container } = renderView();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    expect(
+      await screen.findByRole('heading', { name: 'More with Timothée Chalamet in your library' }),
+    ).toBeInTheDocument();
+    const region = await screen.findByRole('region', { name: 'Related movies' });
+
+    const sectionClasses = Array.from(
+      container.querySelectorAll('.details > .details-section'),
+    ).map((section) => section.className);
+    expect(sectionClasses).toEqual([
+      'details-section details-more',
+      'details-section related-movies',
+      'details-section details-file',
+    ]);
+
+    const arrival = within(region).getByRole('link', { name: /Arrival/ });
+    expect(within(arrival).getByText('Same director')).toBeInTheDocument();
+    expect(within(region).getByRole('link', { name: /Prisoners/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'File' })).toBeInTheDocument();
+    expect(screen.getByText('/media/dune.mkv')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy path' })).toBeInTheDocument();
+  });
+
+  it('navigates a recommendation card from the host view retaining the library return URL', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      recommendationsHandler(relatedMovies),
+    );
+    window.history.replaceState({ libraryReturnUrl: '/?genreIds=1' }, '', '/movies/1');
+    renderView();
+
+    const region = await screen.findByRole('region', { name: 'Related movies' });
+    fireEvent.click(within(region).getByRole('link', { name: /Arrival/ }));
+
+    expect(window.location.pathname).toBe('/movies/2');
+    expect(window.history.state).toEqual({ libraryReturnUrl: '/?genreIds=1' });
+  });
+
+  it('does not request recommendations while the host movie is loading', async () => {
+    const requests: string[] = [];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('*/api/movies/:id', async () => {
+        await gate;
+        return HttpResponse.json(fullMovie);
+      }),
+      recordedRecommendationsHandler(requests),
+    );
+    renderView();
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading movie…');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(requests).toEqual([]);
+
+    release();
+    expect(await screen.findByText('No related movies yet.')).toBeInTheDocument();
+  });
+
+  it('does not request recommendations when the host movie fails to load', async () => {
+    const requests: string[] = [];
+    server.use(
+      http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 500 })),
+      recordedRecommendationsHandler(requests),
+    );
+    renderView();
+
+    expect(
+      await screen.findByText("Couldn't load this movie. Try again later."),
+    ).toBeInTheDocument();
+    expect(requests).toEqual([]);
+  });
+
+  it('does not request recommendations when the host movie is missing', async () => {
+    const requests: string[] = [];
+    server.use(
+      http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 404 })),
+      recordedRecommendationsHandler(requests),
+    );
+    renderView();
+
+    expect(await screen.findByText('Movie not found.')).toBeInTheDocument();
+    expect(requests).toEqual([]);
+  });
+
+  it('does not request or render recommendations for an invalid host movie id', async () => {
+    const requests: string[] = [];
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      recordedRecommendationsHandler(requests),
+    );
+    renderView('abc');
+
+    expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Related movies' })).not.toBeInTheDocument();
+    expect(requests).toEqual([]);
   });
 });

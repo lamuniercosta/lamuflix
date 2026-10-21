@@ -32,6 +32,7 @@ import {
   type EnrichmentStatus,
 } from './movieDetailsQueries';
 import MatchManuallyDialog from './MatchManuallyDialog';
+import RelatedMovies from './RelatedMovies';
 import './MovieDetailsView.css';
 
 type PersonDto = components['schemas']['PersonDto'];
@@ -610,6 +611,7 @@ function MovieDetailsViewInner({
       {selectedActor && selectedIds.length > 0 && (
         <MoreWithPanel actor={selectedActor} actorIds={selectedIds} movieId={movieId} />
       )}
+      <RelatedMovies movieId={movieId} />
       <FileSection path={movie.path} imdbId={metadata?.imdbId ?? null} />
     </article>
   );
