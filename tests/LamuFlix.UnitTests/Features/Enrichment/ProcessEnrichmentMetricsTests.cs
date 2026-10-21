@@ -35,6 +35,7 @@ public sealed class ProcessEnrichmentMetricsTests
 
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IMetadataProvider provider = Substitute.For<IMetadataProvider>();
+    private readonly IEnrichmentQueue queue = Substitute.For<IEnrichmentQueue>();
     private readonly RecordingLogger<ProcessEnrichmentCommandHandler> logger = new();
     private readonly ProcessEnrichmentCommandHandler handler;
     private readonly Fixture fixture = new();
@@ -44,6 +45,7 @@ public sealed class ProcessEnrichmentMetricsTests
         handler = new ProcessEnrichmentCommandHandler(
             movies,
             provider,
+            queue,
             Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { MaxAttempts = MaxAttempts }),
             new FixedTimeProvider(Now),
             logger);
