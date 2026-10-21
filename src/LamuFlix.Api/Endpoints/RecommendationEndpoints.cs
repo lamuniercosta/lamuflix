@@ -72,22 +72,19 @@ internal static class RecommendationEndpoints
 
     private static int ParseTake(IQueryCollection query, int candidatePoolSize)
     {
-        if (!query.TryGetValue(TakeKey, out var values))
+        var take = DefaultTake;
+
+        if (query.TryGetValue(TakeKey, out var values))
         {
-            return ValidateTake(DefaultTake, candidatePoolSize);
+            if (values.Count != 1
+                || !int.TryParse(values[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            {
+                throw new BadHttpRequestException($"'{TakeKey}' must be a single integer.");
+            }
+
+            take = parsed;
         }
 
-        if (values.Count != 1
-            || !int.TryParse(values[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
-        {
-            throw new BadHttpRequestException($"'{TakeKey}' must be a single integer.");
-        }
-
-        return ValidateTake(parsed, candidatePoolSize);
-    }
-
-    private static int ValidateTake(int take, int candidatePoolSize)
-    {
         if (take < 1 || take > candidatePoolSize)
         {
             throw new BadHttpRequestException(
