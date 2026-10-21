@@ -76,11 +76,11 @@
 
 ### Tests
 
-- [ ] T008 [US1] Extend `web/src/features/movie-details/MovieDetailsView.test.tsx` with additive integration/regression coverage: RelatedMovies appears after MoreWithPanel and before FileSection; populated recommendation card navigation; existing MoreWithPanel and FileSection behaviors still pass; host negative proofs that loading, failed, missing, and invalid Movie Details produce no recommendations request (preserve existing host states; do not invent a universal no-section rule). Same-file sequential work; do not parallelize conflicting edits with T009.
+- [X] T008 [US1] Extend `web/src/features/movie-details/MovieDetailsView.test.tsx` with additive integration/regression coverage: RelatedMovies appears after MoreWithPanel and before FileSection; populated recommendation card navigation; existing MoreWithPanel and FileSection behaviors still pass; host negative proofs that loading, failed, missing, and invalid Movie Details produce no recommendations request (preserve existing host states; do not invent a universal no-section rule). Same-file sequential work; do not parallelize conflicting edits with T009.
 
 ### Implementation
 
-- [ ] T009 [US1] Integratively render RelatedMovies in `web/src/features/movie-details/MovieDetailsView.tsx` after MoreWithPanel and before FileSection (`recon-DEV-343:20`). Preserve all existing details functionality. No unrelated rewrites.
+- [X] T009 [US1] Integratively render RelatedMovies in `web/src/features/movie-details/MovieDetailsView.tsx` after MoreWithPanel and before FileSection (`recon-DEV-343:20`). Preserve all existing details functionality. No unrelated rewrites.
 
 **Checkpoint**: Host integration green; existing details-section regressions green.
 
