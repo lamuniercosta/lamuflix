@@ -9,6 +9,8 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 
 public sealed class SimilarityScorerTests
 {
+    private static readonly DateTimeOffset Now = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
+
     [Fact]
     public void Score_NullFirstMovie_ThrowsArgumentNullException()
     {
@@ -294,20 +296,217 @@ public sealed class SimilarityScorerTests
         result.Score.ShouldBe(0.0);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10)]
+    [InlineData(25)]
+    public void Score_YearProximity_AbsoluteYearDistanceUsesExpDecay(int distance)
+    {
+        // arrange
+        var first = Features(releaseYear: 2000);
+        var second = Features(releaseYear: 2000 + distance);
+        var expected = Math.Exp(-0.1 * distance);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(year: 1.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(expected, 1e-12);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10)]
+    [InlineData(100)]
+    public void Score_RuntimeProximity_AbsoluteMinuteDistanceUsesExpDecay(int distance)
+    {
+        // arrange
+        var first = Features(runtime: 90);
+        var second = Features(runtime: 90 + distance);
+        var expected = Math.Exp(-0.01 * distance);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(runtime: 1.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(expected, 1e-12);
+    }
+
+    [Theory]
+    [InlineData(8.0, 8.0, 1.0)]
+    [InlineData(7.0, 9.5, 0.75)]
+    [InlineData(0.0, 10.0, 0.0)]
+    [InlineData(5.0, 0.0, 0.5)]
+    public void Score_RatingProximity_TenPointScaleDifference(double firstRating, double secondRating, double expected)
+    {
+        // arrange
+        var first = Features(imdbRating: (decimal)firstRating);
+        var second = Features(imdbRating: (decimal)secondRating);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(rating: 1.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(expected, 1e-12);
+    }
+
+    [Fact]
+    public void Score_AllZeroWeightsIdenticalNonemptyProfiles_ReturnsExactOne()
+    {
+        // arrange
+        var movie = Features(directors: ["Alpha"], releaseYear: 2000);
+
+        // act
+        var result = SimilarityScorer.Score(movie, movie, Only(), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(1.0);
+    }
+
+    [Fact]
+    public void Score_MixedZeroAndPositiveWeights_OnlyPositiveWeightTermCounts()
+    {
+        // arrange
+        var first = Features(directors: ["Alpha", "Beta"], releaseYear: 2000);
+        var second = Features(directors: ["alpha"], releaseYear: 2025);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(director: 2.0, year: 0.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(0.5, 1e-12);
+    }
+
+    [Fact]
+    public void Score_BothProfilesFullyEmpty_ReturnsZero()
+    {
+        // arrange
+        var empty = new MovieFeatures();
+
+        // act
+        var result = SimilarityScorer.Score(empty, empty, Only(director: 1.0, year: 1.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(0.0);
+    }
+
+    [Fact]
+    public void Score_IdenticalSevenFieldProfiles_ReturnsExactOne()
+    {
+        // arrange
+        var movie = Features(
+            genres: ["Drama", "Comedy"],
+            directors: ["Director"],
+            writers: ["Writer"],
+            cast: ["Actor"],
+            releaseYear: 2000,
+            runtime: 120,
+            imdbRating: 8.5m);
+
+        // act
+        var result = SimilarityScorer.Score(movie, movie, new SimilarityWeights(), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(1.0);
+    }
+
+    [Fact]
+    public void Score_AllZeroWeightsProfilesDifferingOnlyInNonScoredFields_ReturnsExactOne()
+    {
+        // arrange
+        var first = Features(directors: ["Alpha"], metaScore: 10, fullPlot: "First");
+        var second = Features(directors: ["alpha"], metaScore: 90, fullPlot: "Second");
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(1.0);
+    }
+
+    [Fact]
+    public void Score_EveryEligiblePositiveWeightTermOne_ReturnsExactOneDespiteZeroWeightMismatch()
+    {
+        // arrange
+        var first = Features(directors: ["Alpha"], runtime: 90);
+        var second = Features(directors: ["alpha"], runtime: 200);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(director: 2.0, runtime: 0.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(1.0);
+    }
+
+    [Fact]
+    public void Score_MaxValueWeightsOnTwoTerms_StayFiniteAndUseScaledNormalization()
+    {
+        // arrange
+        var first = Features(releaseYear: 2000, runtime: 100);
+        var second = Features(releaseYear: 2010, runtime: 200);
+        var weights = new SimilarityWeights
+        {
+            Director = 0.0,
+            Writers = 0.0,
+            Cast = 0.0,
+            Genres = 0.0,
+            YearProximity = double.MaxValue,
+            RuntimeProximity = double.MaxValue,
+            RatingBoost = 0.0,
+        };
+        var expected = Math.Exp(-1.0);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, weights, GenreTable());
+
+        // assert
+        double.IsFinite(result.Score).ShouldBeTrue();
+        result.Score.ShouldBe(expected, 1e-12);
+    }
+
+    [Fact]
+    public void Score_TinyWeightAgainstMaxWeight_UnderflowsWithoutChangingScore()
+    {
+        // arrange
+        var first = Features(releaseYear: 1900, runtime: 100);
+        var second = Features(releaseYear: 2000, runtime: 100);
+        var weights = new SimilarityWeights
+        {
+            Director = 0.0,
+            Writers = 0.0,
+            Cast = 0.0,
+            Genres = 0.0,
+            YearProximity = double.MaxValue,
+            RuntimeProximity = double.Epsilon,
+            RatingBoost = 0.0,
+        };
+        var expected = Math.Exp(-10.0);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, weights, GenreTable());
+
+        // assert
+        double.IsFinite(result.Score).ShouldBeTrue();
+        result.Score.ShouldBe(expected, 1e-12);
+    }
+
     private static SimilarityWeights Only(
         double director = 0.0,
         double writers = 0.0,
         double cast = 0.0,
-        double genres = 0.0) =>
+        double genres = 0.0,
+        double year = 0.0,
+        double runtime = 0.0,
+        double rating = 0.0) =>
         new()
         {
             Director = director,
             Writers = writers,
             Cast = cast,
             Genres = genres,
-            YearProximity = 0.0,
-            RuntimeProximity = 0.0,
-            RatingBoost = 0.0,
+            YearProximity = year,
+            RuntimeProximity = runtime,
+            RatingBoost = rating,
         };
 
     private static GenreWeights GenreTable() =>
@@ -325,6 +524,20 @@ public sealed class SimilarityScorerTests
         IEnumerable<string>? genres = null,
         IEnumerable<string>? directors = null,
         IEnumerable<string>? writers = null,
-        IEnumerable<string>? cast = null) =>
-        new(genres: genres, directors: directors, writers: writers, cast: cast);
+        IEnumerable<string>? cast = null,
+        int? releaseYear = null,
+        int? runtime = null,
+        decimal? imdbRating = null,
+        int? metaScore = null,
+        string? fullPlot = null) =>
+        new(
+            genres,
+            directors,
+            writers,
+            cast,
+            releaseYear is int year ? new ReleaseYear(year, Now) : null,
+            runtime is int minutes ? new Runtime(minutes) : null,
+            imdbRating is decimal rating ? new ImdbRating(rating) : null,
+            metaScore,
+            fullPlot);
 }
