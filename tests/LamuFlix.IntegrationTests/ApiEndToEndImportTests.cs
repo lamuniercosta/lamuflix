@@ -230,6 +230,8 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         ancestry.Server.TraceId.ShouldBe(requestTraceId);
         ancestry.Enqueue.TraceId.ShouldBe(requestTraceId);
         ancestry.Publish.TraceId.ShouldBe(requestTraceId);
+        ancestry.FeaturesEnqueue.TraceId.ShouldBe(requestTraceId);
+        ancestry.FeaturesPublish.TraceId.ShouldBe(requestTraceId);
         ancestry.Consumer.TraceId.ShouldBe(requestTraceId);
         ancestry.ProcessingHandler.TraceId.ShouldBe(requestTraceId);
         ancestry.Lookup.TraceId.ShouldBe(requestTraceId);
@@ -241,6 +243,8 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
 
         ShouldDescendFrom(ancestry.Enqueue, ancestry.Server, ancestry.BySpanId);
         ancestry.Publish.ParentSpanId.ShouldBe(ancestry.Enqueue.SpanId);
+        ancestry.FeaturesPublish.ParentSpanId.ShouldBe(ancestry.FeaturesEnqueue.SpanId);
+        ShouldDescendFrom(ancestry.FeaturesEnqueue, ancestry.ProcessingHandler, ancestry.BySpanId);
         ancestry.Consumer.ParentSpanId.ShouldBe(ancestry.Publish.SpanId);
         ShouldDescendFrom(ancestry.ProcessingHandler, ancestry.Consumer, ancestry.BySpanId);
         ShouldDescendFrom(ancestry.Lookup, ancestry.ProcessingHandler, ancestry.BySpanId);
@@ -421,8 +425,9 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
     private static TraceAncestry? FindTraceAncestry(IReadOnlyList<Activity> stopped, ActivityTraceId requestTraceId)
     {
         var trace = stopped.Where(activity => activity.TraceId == requestTraceId).ToArray();
+        var bySpanId = trace.ToDictionary(activity => activity.SpanId.ToHexString());
         var matches = new Activity[RequiredTraceSpans.Length];
-        for (var index = 0; index < RequiredTraceSpans.Length; index++)
+        for (var index = 2; index < RequiredTraceSpans.Length; index++)
         {
             var count = 0;
             foreach (var activity in trace)
@@ -440,13 +445,40 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             }
         }
 
+        // DEV-347 adds a second enqueue/publish pair: the enrichment success path
+        // publishes FeaturesRequested, so the trace carries one import pair plus one
+        // features pair. The import pair stays outside the consumer subtree while the
+        // features pair descends from it.
+        var enqueueSpans = trace.Where(IsEnqueueSpan).ToArray();
+        var publishSpans = trace.Where(IsPublishSpan).ToArray();
+        if (enqueueSpans.Length != 2 || publishSpans.Length != 2)
+        {
+            return null;
+        }
+
+        var importEnqueue = enqueueSpans.SingleOrDefault(enqueue => !DescendsFrom(enqueue, matches[2], bySpanId));
+        var featuresEnqueue = enqueueSpans.SingleOrDefault(enqueue => DescendsFrom(enqueue, matches[2], bySpanId));
+        if (importEnqueue is null || featuresEnqueue is null)
+        {
+            return null;
+        }
+
+        var enrichmentPublish = publishSpans.SingleOrDefault(publish => publish.ParentSpanId == importEnqueue.SpanId);
+        var featuresPublish = publishSpans.SingleOrDefault(publish => publish.ParentSpanId == featuresEnqueue.SpanId);
+        if (enrichmentPublish is null || featuresPublish is null)
+        {
+            return null;
+        }
+
+        matches[0] = importEnqueue;
+        matches[1] = enrichmentPublish;
+
         var importAncestry = trace.Where(IsImportAncestrySpan).ToArray();
         if (importAncestry.Length == 0)
         {
             return null;
         }
 
-        var bySpanId = trace.ToDictionary(activity => activity.SpanId.ToHexString());
         var server = FindServerAncestor(matches[0], bySpanId);
         if (server is null)
         {
@@ -457,6 +489,8 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             server,
             matches[0],
             matches[1],
+            featuresEnqueue,
+            featuresPublish,
             matches[2],
             matches[3],
             matches[4],
@@ -493,8 +527,33 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             .Append($"import ancestry spans={trace.Count(IsImportAncestrySpan)}")
             .Append($"API server spans={trace.Count(activity => activity.Source.Name == ApiImportTraceCapture.AspNetCoreSourceName)}");
         var observed = trace.Select(activity => $"{activity.Source.Name}:{activity.OperationName}");
-        return $"Expected one of each required span: {string.Join(", ", counts)}. " +
+        return $"Expected one consumer, processing handler, and lookup span plus two enqueue spans (import and features) " +
+            $"each with its publisher publish span: {string.Join(", ", counts)}. " +
             $"Observed {trace.Length} stopped spans with the request trace id: {string.Join(", ", observed)}.";
+    }
+
+    private static bool DescendsFrom(
+        Activity activity,
+        Activity ancestor,
+        IReadOnlyDictionary<string, Activity> bySpanId)
+    {
+        var current = activity;
+        for (var hops = 0; hops <= bySpanId.Count; hops++)
+        {
+            if (!bySpanId.TryGetValue(current.ParentSpanId.ToHexString(), out var parent))
+            {
+                return false;
+            }
+
+            if (parent.SpanId == ancestor.SpanId)
+            {
+                return true;
+            }
+
+            current = parent;
+        }
+
+        return false;
     }
 
     private static void ShouldDescendFrom(
@@ -623,6 +682,8 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         Activity Server,
         Activity Enqueue,
         Activity Publish,
+        Activity FeaturesEnqueue,
+        Activity FeaturesPublish,
         Activity Consumer,
         Activity ProcessingHandler,
         Activity Lookup,
