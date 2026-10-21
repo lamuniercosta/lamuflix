@@ -25,6 +25,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 using Shouldly;
 using Xunit;
 
@@ -44,6 +45,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
     private const string EnrichedOutcomeValue = "enriched";
     private const string NotFoundOutcomeValue = "not_found";
     private const string FailedOutcomeValue = "failed";
+    private const string SkippedOutcomeValue = "skipped";
     private const string ProviderUnavailableCode = "provider_unavailable";
 
     private readonly RabbitMqProbe probe = new(fixture);
@@ -433,6 +435,174 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
 
         dead.ShouldNotBeNull();
         host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
+    }
+
+    [Fact]
+    public async Task Consumer_ANonEmptyPlotEnrichment_PublishesOneFeaturesMessageAndAcksTheEnrichment()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var delivered = new ConcurrentQueue<Activity>();
+        using var listener = ObserveConsumerDeliveries(delivered);
+        await using var host = NewHost(_ =>
+            new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", synopsis: "A persisted plot.")));
+        var movie = host.AddPendingMovie(120);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await WaitForDeliveryAsync(delivered, movie, ct);
+        (await probe.PollMessageCountAsync(RabbitMqTopology.FeaturesRequestedQueue, ct)).ShouldBe(1U);
+        var features = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.FeaturesRequestedQueue,
+            candidate => ReadFeatures(candidate).MovieId.Value == movie.Value,
+            ct);
+        await host.StopAsync(CancellationToken.None);
+
+        features.ShouldNotBeNull();
+        ReadFeatures(features).Attempt.ShouldBe(1);
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+        await ShouldHaveEmptyQueuesAsync(ct);
+        await ShouldHaveEmptyFeaturesQueuesAsync(ct);
+    }
+
+    [Fact]
+    public async Task Consumer_AnEmptyPlotEnrichment_PublishesNoFeaturesMessage()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var delivered = new ConcurrentQueue<Activity>();
+        using var listener = ObserveConsumerDeliveries(delivered);
+        await using var host = NewHost(_ =>
+            new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", synopsis: "   ")));
+        var movie = host.AddPendingMovie(121);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await WaitForDeliveryAsync(delivered, movie, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+        await ShouldHaveEmptyQueuesAsync(ct);
+        await ShouldHaveEmptyFeaturesQueuesAsync(ct);
+    }
+
+    [Fact]
+    public async Task Consumer_APostSaveFeaturesPublishFailure_DeadLettersTheEnrichmentAndMarksTheActivityError()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var delivered = new ConcurrentQueue<Activity>();
+        using var listener = ObserveConsumerDeliveries(delivered);
+        var logs = new RecordingLogger<EnrichmentConsumer>();
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", synopsis: "A persisted plot.")),
+            logger: logs);
+        var movie = host.AddPendingMovie(122);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await host.CloseFeaturesRequestedQueueAsync(ct);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        var dead = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.DeadLetterQueue,
+            candidate => Read(candidate).MovieId.Value == movie.Value,
+            ct);
+        var failed = (await WaitForDeliveryAsync(delivered, movie, ct)).ShouldHaveSingleItem();
+        await WaitForLogAsync(logs, "dead-lettered", ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+        failed.Status.ShouldBe(ActivityStatusCode.Error);
+        failed.GetTagItem(TelemetryConstants.ErrorType).ShouldNotBeNull();
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RetryQueue, ct)).ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_ACancellationDuringFeaturesPublish_RequeuesTheEnrichmentDelivery()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var publishEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", synopsis: "A persisted plot.")),
+            featuresPublish: async (_, _, token) =>
+            {
+                publishEntered.TrySetResult();
+                await Task.Delay(Timeout.Infinite, token);
+            });
+        var movie = host.AddPendingMovie(123);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+
+        await host.StartAsync(ct);
+        await publishEntered.Task.WaitAsync(TimeSpan.FromSeconds(30), ct);
+        await host.StopAsync(CancellationToken.None);
+
+        (await probe.PollGetMatchingAsync(
+            RabbitMqTopology.RequestedQueue,
+            candidate => Read(candidate).MovieId.Value == movie.Value,
+            ct)).ShouldNotBeNull();
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+        (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesRequestedQueue, ct)).ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_ARedeliveryAfterCommitWithARefusedClaim_SkipsWithoutRepublishingFeatures()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var delivered = new ConcurrentQueue<Activity>();
+        using var listener = ObserveConsumerDeliveries(delivered);
+        await using var host = NewHost(_ =>
+            new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", synopsis: "A persisted plot.")));
+        var movie = host.AddPendingMovie(124);
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+        await probe.DrainAsync(RabbitMqTopology.RetryQueue, ct);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await WaitForDeliveryAsync(delivered, movie, ct);
+        (await probe.PollGetMatchingAsync(
+            RabbitMqTopology.FeaturesRequestedQueue,
+            candidate => ReadFeatures(candidate).MovieId.Value == movie.Value,
+            ct)).ShouldNotBeNull();
+
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 2), ct);
+        var deliveries = await WaitForDeliveriesAsync(delivered, movie, 2, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        var skipped = deliveries.MaxBy(activity => activity.StartTimeUtc).ShouldNotBeNull();
+        skipped.GetTagItem(TelemetryConstants.EnrichmentOutcome).ShouldBe(SkippedOutcomeValue);
+        host.Provider.Calls.ShouldBe(1);
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+        (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesRequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_AnAmbiguousFeaturesConfirm_DeadLettersTheEnrichmentWithoutAssumingBrokerAcceptance()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", synopsis: "A persisted plot.")),
+            featuresPublish: async (inner, message, token) =>
+            {
+                await inner.EnqueueAsync(message, token);
+                throw new PublishException(0, isReturn: false, "The publisher confirm was lost.");
+            });
+        var movie = host.AddPendingMovie(125);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        var dead = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.DeadLetterQueue,
+            candidate => Read(candidate).MovieId.Value == movie.Value,
+            ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+        host.Repository.Find(movie).ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Enriched);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.RetryQueue, ct)).ShouldBe(0U);
     }
 
     [Fact]
@@ -943,15 +1113,22 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         return listener;
     }
 
-    private static Task WaitForDeliveryAsync(
+    private static Task<IReadOnlyList<Activity>> WaitForDeliveryAsync(
         ConcurrentQueue<Activity> observed,
         MovieId movie,
+        CancellationToken ct) =>
+        WaitForDeliveriesAsync(observed, movie, 1, ct);
+
+    private static Task<IReadOnlyList<Activity>> WaitForDeliveriesAsync(
+        ConcurrentQueue<Activity> observed,
+        MovieId movie,
+        int count,
         CancellationToken ct) =>
         WaitForActivitiesAsync(
             observed,
             activity => activity.OperationName == TelemetryConstants.EnrichmentProcess
                         && Equals(activity.GetTagItem(TelemetryConstants.MovieId), movie.Value),
-            1,
+            count,
             ct);
 
     private async Task<uint> ReadyMessageCountAsync(string queue, CancellationToken ct) =>
@@ -962,6 +1139,13 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
         (await ReadyMessageCountAsync(RabbitMqTopology.RetryQueue, ct)).ShouldBe(0U);
         (await ReadyMessageCountAsync(RabbitMqTopology.DeadLetterQueue, ct)).ShouldBe(0U);
+    }
+
+    private async Task ShouldHaveEmptyFeaturesQueuesAsync(CancellationToken ct)
+    {
+        (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesRequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesRetryQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesDeadLetterQueue, ct)).ShouldBe(0U);
     }
 
     private static async Task HoldTheGate(
@@ -992,6 +1176,11 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
 
     private static EnrichmentRequested Read(BasicGetResult message) =>
         JsonSerializer.Deserialize<EnrichmentRequested>(
+            Encoding.UTF8.GetString(message.Body.Span),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
+
+    private static FeaturesRequested ReadFeatures(BasicGetResult message) =>
+        JsonSerializer.Deserialize<FeaturesRequested>(
             Encoding.UTF8.GetString(message.Body.Span),
             new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
 
@@ -1089,7 +1278,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         DispatchScopeLog? scopeLog = null,
         Func<MetadataLookup, CancellationToken, Task>? beforeLookup = null,
         IWorkerLiveness? liveness = null,
-        ILogger<EnrichmentConsumer>? logger = null)
+        ILogger<EnrichmentConsumer>? logger = null,
+        Func<RabbitMqEnrichmentQueuePublisher, FeaturesRequested, CancellationToken, Task>? featuresPublish = null)
     {
         var clock = new AdjustableTimeProvider(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
         var provider = new ScriptedMetadataProvider(script);
@@ -1114,6 +1304,11 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         services.AddSingleton(topology);
         services.AddSingleton(publisher);
         services.AddSingleton<IEnrichmentQueue>(publisher);
+        if (featuresPublish is { } publishFeatures)
+        {
+            services.AddSingleton<IEnrichmentQueue>(new ScriptedFeaturesQueue(publisher, publishFeatures));
+        }
+
         services.AddScoped<ProcessEnrichmentCommandHandler>();
         services.AddScoped<ProcessEnrichmentCommandValidator>();
         services.AddScoped<IValidator<ProcessEnrichmentCommand>>(p =>
@@ -1210,11 +1405,17 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
             Repository.Find(id).ShouldNotBeNull().Status.ShouldBe(status);
         }
 
-        public async Task CloseRetryQueueAsync(CancellationToken cancellationToken)
+        public Task CloseRetryQueueAsync(CancellationToken cancellationToken) =>
+            CloseQueueAsync(RabbitMqTopology.RetryQueue, cancellationToken);
+
+        public Task CloseFeaturesRequestedQueueAsync(CancellationToken cancellationToken) =>
+            CloseQueueAsync(RabbitMqTopology.FeaturesRequestedQueue, cancellationToken);
+
+        private async Task CloseQueueAsync(string queue, CancellationToken cancellationToken)
         {
             var connection = await owner.GetAsync(cancellationToken);
             await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
-            await channel.QueueDeleteAsync(RabbitMqTopology.RetryQueue, cancellationToken: cancellationToken);
+            await channel.QueueDeleteAsync(queue, cancellationToken: cancellationToken);
         }
 
         public ValueTask DisposeAsync()
@@ -1222,6 +1423,18 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
             services.Dispose();
             return owner.DisposeAsync();
         }
+    }
+
+    private sealed class ScriptedFeaturesQueue(
+        RabbitMqEnrichmentQueuePublisher inner,
+        Func<RabbitMqEnrichmentQueuePublisher, FeaturesRequested, CancellationToken, Task> features)
+        : IEnrichmentQueue
+    {
+        public Task EnqueueAsync(EnrichmentRequested message, CancellationToken ct) =>
+            inner.EnqueueAsync(message, ct);
+
+        public Task EnqueueAsync(FeaturesRequested message, CancellationToken ct) =>
+            features(inner, message, ct);
     }
 
     private sealed class RecordingLiveness : IWorkerLiveness
