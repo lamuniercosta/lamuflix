@@ -1113,6 +1113,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         services.AddSingleton<RabbitMqConnectionOwner>(_ => owner);
         services.AddSingleton(topology);
         services.AddSingleton(publisher);
+        services.AddSingleton<IEnrichmentQueue>(publisher);
         services.AddScoped<ProcessEnrichmentCommandHandler>();
         services.AddScoped<ProcessEnrichmentCommandValidator>();
         services.AddScoped<IValidator<ProcessEnrichmentCommand>>(p =>

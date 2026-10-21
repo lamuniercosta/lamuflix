@@ -11,6 +11,7 @@ using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace LamuFlix.UnitTests.Features.Enrichment;
 
@@ -21,6 +22,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
 
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IMetadataProvider provider = Substitute.For<IMetadataProvider>();
+    private readonly IEnrichmentQueue queue = Substitute.For<IEnrichmentQueue>();
     private readonly RecordingLogger<ProcessEnrichmentCommandHandler> logger = new();
     private readonly ProcessEnrichmentCommandHandler handler;
     private readonly Fixture fixture = new();
@@ -30,6 +32,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         handler = new ProcessEnrichmentCommandHandler(
             movies,
             provider,
+            queue,
             Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { MaxAttempts = MaxAttempts }),
             new FixedTimeProvider(Now),
             logger);
@@ -51,6 +54,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
         await provider.DidNotReceive().FindAsync(Arg.Any<MetadataLookup>(), Arg.Any<CancellationToken>());
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<FeaturesRequested>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -73,6 +77,95 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         movie.Metadata.ShouldBe(metadata);
         movie.EnrichmentAttempts.ShouldBe(attempts);
         await movies.Received(1).SaveChangesAsync(ct);
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<FeaturesRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_FoundWithNonWhitespaceSynopsis_EnqueuesFeaturesRequestedOnceAfterSave()
+    {
+        // arrange
+        var movie = PendingMovie();
+        var metadata = new MovieMetadata("Enriched Title", synopsis: "A persisted plot.");
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns(new MetadataLookupResult.Found(metadata));
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Completed(true));
+        movie.Status.ShouldBe(EnrichmentStatus.Enriched);
+        await queue.Received(1).EnqueueAsync(new FeaturesRequested(movie.Id, 1), ct);
+        Received.InOrder(() =>
+        {
+            movies.SaveChangesAsync(ct);
+            queue.EnqueueAsync(new FeaturesRequested(movie.Id, 1), ct);
+        });
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task HandleAsync_FoundWithoutNonWhitespaceSynopsis_EnqueuesNothing(string? synopsis)
+    {
+        // arrange
+        var movie = PendingMovie();
+        var metadata = new MovieMetadata("Enriched Title", synopsis: synopsis);
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns(new MetadataLookupResult.Found(metadata));
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Completed(true));
+        movie.Status.ShouldBe(EnrichmentStatus.Enriched);
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<FeaturesRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_SaveThrows_DoesNotEnqueueFeatures()
+    {
+        // arrange
+        var movie = PendingMovie();
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", synopsis: "A persisted plot.")));
+        movies.SaveChangesAsync(ct).ThrowsAsync(new InvalidOperationException("save"));
+
+        // act
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct));
+
+        // assert
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<FeaturesRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_FeaturesEnqueueThrows_PropagatesAndLeavesRowEnriched()
+    {
+        // arrange
+        var movie = PendingMovie();
+        var metadata = new MovieMetadata("Enriched Title", synopsis: "A persisted plot.");
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct).Returns(new MetadataLookupResult.Found(metadata));
+        queue.EnqueueAsync(Arg.Any<FeaturesRequested>(), ct)
+            .ThrowsAsync(new InvalidOperationException("confirm"));
+
+        // act
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct));
+
+        // assert
+        movie.Status.ShouldBe(EnrichmentStatus.Enriched);
+        movie.Metadata.ShouldBe(metadata);
+        await movies.Received(1).SaveChangesAsync(ct);
+        await queue.Received(1).EnqueueAsync(new FeaturesRequested(movie.Id, 1), ct);
     }
 
     [Fact]
@@ -93,6 +186,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         movie.Status.ShouldBe(EnrichmentStatus.NotFound);
         movie.EnrichmentAttempts.ShouldBe(attempts);
         await movies.Received(1).SaveChangesAsync(ct);
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<FeaturesRequested>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -217,6 +311,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
             EnrichmentFailureCategory.ProviderUnavailable));
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<FeaturesRequested>(), Arg.Any<CancellationToken>());
         AssertFailureLogged(command, EnrichmentFailureCategory.ProviderUnavailable);
     }
 
@@ -397,6 +492,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
         movie.Metadata.ShouldBeNull();
         await movies.Received(1).SaveChangesAsync(ct);
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<FeaturesRequested>(), Arg.Any<CancellationToken>());
         AssertFailureLogged(command, EnrichmentFailureCategory.DuplicateImdbId);
     }
 

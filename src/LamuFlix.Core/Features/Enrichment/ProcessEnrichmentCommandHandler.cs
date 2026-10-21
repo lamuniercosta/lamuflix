@@ -14,6 +14,7 @@ namespace LamuFlix.Core.Features.Enrichment;
 public sealed class ProcessEnrichmentCommandHandler(
     IMovieRepository movies,
     IMetadataProvider provider,
+    IEnrichmentQueue queue,
     IOptions<EnrichmentOptions> options,
     TimeProvider time,
     ILogger<ProcessEnrichmentCommandHandler> logger)
@@ -94,6 +95,11 @@ public sealed class ProcessEnrichmentCommandHandler(
             var fresh = await movies.GetAsync(command.MovieId, cancellationToken)
                         ?? throw new NotFoundException();
             return await SettleFailureAsync(command, EnrichmentFailureCategory.DuplicateImdbId, fresh, cancellationToken);
+        }
+
+        if (result is MetadataLookupResult.Found && !string.IsNullOrWhiteSpace(movie.Metadata?.Synopsis))
+        {
+            await queue.EnqueueAsync(new FeaturesRequested(movie.Id, 1), cancellationToken);
         }
 
         return new ProcessEnrichmentOutcome.Completed(Claimed: true);
