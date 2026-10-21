@@ -445,10 +445,6 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             }
         }
 
-        // DEV-347 adds a second enqueue/publish pair: the enrichment success path
-        // publishes FeaturesRequested, so the trace carries one import pair plus one
-        // features pair. The import pair stays outside the consumer subtree while the
-        // features pair descends from it.
         var enqueueSpans = trace.Where(IsEnqueueSpan).ToArray();
         var publishSpans = trace.Where(IsPublishSpan).ToArray();
         if (enqueueSpans.Length != 2 || publishSpans.Length != 2)
