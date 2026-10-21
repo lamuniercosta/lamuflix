@@ -23,8 +23,12 @@ gates:
     # spanning more is failing outside the mutation; clean whole-Core runs peak at 9 (DEV-410).
     maxKillFileSpan: 15
     exclusions:
-      # Api is the only listed project: LamuFlix.UnitTests does not reference it.
+      # Constitution IX scopes mutation to LamuFlix.Core. Api is not referenced by
+      # LamuFlix.UnitTests. Infrastructure is, but EF query code can only be proven
+      # against a real database, which IX places in IntegrationTests; mutating it
+      # pulled Testcontainers into UnitTests. The gate prints a WARNING for it.
       LamuFlix.Api: "host proof lives in IntegrationTests per Constitution IX"
+      LamuFlix.Infrastructure: "persistence proof lives in IntegrationTests per Constitution IX"
 
   analyzers:
     mode: All

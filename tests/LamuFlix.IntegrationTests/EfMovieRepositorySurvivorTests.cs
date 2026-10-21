@@ -11,12 +11,13 @@ using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
-using LamuFlix.UnitTests.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
+using Shouldly;
+using Xunit;
 
-namespace LamuFlix.UnitTests.Persistence;
+namespace LamuFlix.IntegrationTests;
 
 [Collection(nameof(RepositoryMutationCollection))]
 public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
