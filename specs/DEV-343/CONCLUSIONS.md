@@ -120,3 +120,19 @@ Citation-only corrections authorized by adjudication-DEV-343-plan-round1:96 and 
 - Q5, line 92: sibling-section placement is recon-DEV-343:20 (superseding :17-18); retain the existing scope citation :89.
 
 The matching brief citations are corrected at brief.md:21 (host recon-DEV-343:19 and existing-folder mapping :87; remove the unrelated grid anchor :45) and :37 (placement :20 and navigation :35–39). Other citation segments and brief.md:25 remain unchanged.
+
+---
+
+## Phase 4 Step 8 - Product, taste, and follow-up triage ruling (2026-10-21)
+
+Input: `adjudication-DEV-343-Keel-round1:15-24` and `DEV-343:50-53` at HEAD `19662d8e8689e185e19fad058858749ba2da33de`.
+
+### Patron ruling
+Ruling: (1) Accept the current self-contained `MovieCarousel` controls row (`web/src/ui/MovieCarousel.tsx:117-136`, `MovieCarousel.css:7-11`) above the scroll viewport rather than sharing the caller `<h2>` heading row in `RelatedMovies.tsx:82,105` as a `[assumed]` taste decision; (2) dispose all four below-bar Phase 4 follow-up candidates as `noted, no ticket`, with zero immediate code changes or YouTrack follow-up issues required.
+- Visual Controls Row Placement (Finding 4 / Compass item 3, `[assumed]` in `specs/DEV-343/ASSUMPTIONS.md`): Keeping the right-aligned `Previous`/`Next` toolbar inside `MovieCarousel` above its viewport (`MovieCarousel.tsx:117-136`, `MovieCarousel.css:7-11`) preserves `MovieCarousel`'s approved `{ label, children }` presentational API (`spec.md` FR-006/FR-007, `CONCLUSIONS.md` Q2–Q3) for DEV-418 reuse without coupling caller section headings into the carousel, while satisfying all boundary, keyboard, and DOM order contracts (`design.md:117-122,192-199`); Phase 5 built-UI browser verification (`FR-011` / `T010`) remains required.
+- Below-bar Follow-up Triage (`adjudication-DEV-343-Keel-round1:15-23`): Under charter §2.3 follow-up rules (follow-up tickets are filed only for out-of-scope findings that are Critical/High, broken behaviour, or user-requested) and `CONCLUSIONS.md` Q7 loop terms:
+  - Artifact 1 (Ledger S1 Medium / Compass item 1 Low — `navigateTo` helper duplication in `RelatedMovies.tsx:18-26` vs `MovieDetailsView.tsx:48-55`): `noted, no ticket` — additive two-site helper with no broken routing behaviour, and `useAppNavigation` is instance-local (`adjudication-DEV-343-Keel-round1:15`).
+  - Artifact 2 (Sentry F1 Low / Ledger S4 Low / Compass item 2 Low — `aria-label={label}` on both `<section>` and `role="group"` viewport in `MovieCarousel.tsx:116,140-142`): `noted, no ticket` — Low severity with no demonstrated acceptance failure (`adjudication-DEV-343-Keel-round1:16`); Phase 5 `T010` browser verification covers live focus/AT checks.
+  - Artifact 3 (Sentry F2 Low — `RelatedMoviesError` annotation vs raw `fetch` rejection in `relatedMoviesApi.ts:33,41-47`): `noted, no ticket` — Low severity with no broken behaviour (`RelatedMovies.tsx:88-99` consumes `query.isError` only; `adjudication-DEV-343-Keel-round1:17`).
+  - Artifact 4 (Compass item 3 Low — controls in dedicated row vs `design.md:78,132` heading row): `noted, no ticket` — settled by taste ruling (1) above (`[assumed]` in `ASSUMPTIONS.md`).
+
