@@ -1126,6 +1126,8 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     {
         public List<EnrichmentRequested> Messages { get; } = [];
 
+        // ReSharper disable once CollectionNeverQueried.Local - test double records features messages for interface compliance; this fixture asserts only enrichment messages.
+        // ReSharper disable once MemberCanBePrivate.Local - interface implementation must stay public.
         public List<FeaturesRequested> FeaturesMessages { get; } = [];
 
         public Task EnqueueAsync(EnrichmentRequested message, CancellationToken ct)
