@@ -84,3 +84,11 @@ All product, scope, and §2.3 structural questions for DEV-347 are settled from 
      - `src/LamuFlix.Infrastructure/RabbitMq/EnrichmentConsumer.cs`
      - Corresponding unit and integration test files under `tests/LamuFlix.UnitTests/` and `tests/LamuFlix.IntegrationTests/` (and `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs` if queue reset/clean-up enumerates declared queues).
    - **Basis:** Forced by Ticket `DEV-347:40-49` and Constitution Principle IX (`constitution.md:304-328`); `recon-DEV-347:33-88,100`.
+
+---
+
+## Gate 1 (provisional)
+
+- **Ruling:** `gate1: provisional` (Patron, Phase 2).
+- **Basis:** Frozen Phase A artifacts on `feature/347-spec` at HEAD `8919fdd1441081ab2d8b5cd699c7ad8b3194ac6c`; exact-byte manifest in note `plan-freeze-DEV-347` (six paths: `brief.md`, `spec.md`, `plan.md`, `tasks.md`, `checklists/requirements.md`, `DRAFTING_RECEIPT.md`) verified unchanged alongside committed `CONCLUSIONS.md` and `ASSUMPTIONS.md`. Analyze round 2 is CLEAN (20/20 FR+SC mapped across T001–T016); three-axis plan challenge (Sentry Risk, Ledger Standards F1–F4, Compass Spec) is adjudicated and verified READY. Q1–Q9, six care-list rulings, three tagged assumptions, approved production/test file envelope, and phase/dependency/checkpoint ordering are preserved with zero structural blockers or owner checkboxes.
+- **Scope boundary:** Merged Gate 1 (user merge of the spec PR) and Phase B implementation authorization (including Epic 7 sequencing and fresh Phase B drift recon) remain strictly separate from this provisional ruling.
