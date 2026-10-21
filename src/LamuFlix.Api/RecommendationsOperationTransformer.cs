@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,18 +50,8 @@ internal sealed class RecommendationsOperationTransformer : IOpenApiOperationTra
         return Task.CompletedTask;
     }
 
-    private static bool ContainsTakeParameter(System.Collections.Generic.IList<IOpenApiParameter> parameters)
-    {
-        foreach (var parameter in parameters)
-        {
-            if (parameter is OpenApiParameter concrete
-                && string.Equals(concrete.Name, TakeParameterName, StringComparison.Ordinal)
-                && concrete.In == ParameterLocation.Query)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    private static bool ContainsTakeParameter(IList<IOpenApiParameter> parameters) =>
+        parameters.OfType<OpenApiParameter>().Any(static parameter =>
+            string.Equals(parameter.Name, TakeParameterName, StringComparison.Ordinal)
+            && parameter.In == ParameterLocation.Query);
 }
