@@ -279,11 +279,16 @@ public sealed class SimilarityScorerPropertyTests
         }
 
         public bool Matches(MovieFeatures movie) =>
+            MatchSets(movie) && MatchScalars(movie);
+
+        private bool MatchSets(MovieFeatures movie) =>
             movie.Genres.SetEquals(_genres)
             && movie.Directors.SetEquals(_directors)
             && movie.Writers.SetEquals(_writers)
-            && movie.Cast.SetEquals(_cast)
-            && movie.ReleaseYear?.Value == _releaseYear
+            && movie.Cast.SetEquals(_cast);
+
+        private bool MatchScalars(MovieFeatures movie) =>
+            movie.ReleaseYear?.Value == _releaseYear
             && movie.Runtime?.Minutes == _runtime
             && movie.ImdbRating?.Value == _imdbRating;
     }
