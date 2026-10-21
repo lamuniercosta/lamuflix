@@ -50,6 +50,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string PlayMovieRoute = "/api/movies/{id}/play";
     private const string GetGenresRoute = "/api/genres";
     private const string GetPeopleRoute = "/api/people";
+    private const string GetRecommendationsRoute = "/api/movies/{id:int}/recommendations";
 
     public static TheoryData<Type, Type, Type> ManifestContracts =>
         new()
@@ -218,6 +219,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     WatchedRoute,
                     NotInterestedRoute,
                     NotInterestedRoute,
+                    GetRecommendationsRoute,
                 ]);
     }
 

@@ -60,13 +60,13 @@
 
 ### Tests
 
-- [ ] T007 [US1] [US2] Write `tests/LamuFlix.IntegrationTests/ApiEndToEndRecommendationTests.cs` on existing `ApiEndToEndCollection` / real-Postgres fixture: seeded eligible movie returns ranked JSON with reasons; unknown id → 404; Pending → 200 empty array. Use seed/fixture helpers confirmed in T001; feed fresh AutoFixture/Faker.Net data through those existing helpers. Theory + MemberData only for genuinely repeated scenarios; distinct integration proofs may remain Facts. Hand-written builders only for a named domain invariant AutoFixture cannot satisfy — name both invariant and limitation in evidence; Pending or zero-score alone is not a blanket exemption. No driver mocks for translation or serialization. Method names `Method_Condition_Expected`. AAA only. Shouldly.
+- [X] T007 [US1] [US2] Write `tests/LamuFlix.IntegrationTests/ApiEndToEndRecommendationTests.cs` on existing `ApiEndToEndCollection` / real-Postgres fixture: seeded eligible movie returns ranked JSON with reasons; unknown id → 404; Pending → 200 empty array. Use seed/fixture helpers confirmed in T001; feed fresh AutoFixture/Faker.Net data through those existing helpers. Theory + MemberData only for genuinely repeated scenarios; distinct integration proofs may remain Facts. Hand-written builders only for a named domain invariant AutoFixture cannot satisfy — name both invariant and limitation in evidence; Pending or zero-score alone is not a blanket exemption. No driver mocks for translation or serialization. Method names `Method_Condition_Expected`. AAA only. Shouldly.
 
 ### Implementation / forced inventory updates
 
-- [ ] T008 [P] [US1] Update `tests/LamuFlix.IntegrationTests/ApiHostCompositionTests.cs` route inventory to the actual post-drift set including the recommendations route.
+- [X] T008 [P] [US1] Update `tests/LamuFlix.IntegrationTests/ApiHostCompositionTests.cs` route inventory to the actual post-drift set including the recommendations route.
 
-- [ ] T009 [P] [US1] Update `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` shared endpoint-name inventory only to include `GetRecommendations` (no unrelated metadata rewrites).
+- [X] T009 [P] [US1] Update `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` shared endpoint-name inventory only to include `GetRecommendations` (no unrelated metadata rewrites).
 
 **Checkpoint**: Named targeted proofs — `ApiEndToEndRecommendationTests` green; `ApiHostCompositionTests` route inventory (**T008**) and `LibraryEndpointsTests` name inventory (**T009**) green, closing those deferred failures. Prior-phase targeted proofs (`RecommendationEndpointTests`) remain green. Only the explicitly deferred OpenAPI operation/schema (**T012**) and committed baseline/snapshot drift (**T013**) may remain expected failing/deferred (owner Anvil; never PASS/SKIPPED). Unexpected failure, baseline regression, overdue route/name deferral, or unconfirmed deferred set stops for evidence/cited decision.
 

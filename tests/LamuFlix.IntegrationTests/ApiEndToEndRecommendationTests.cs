@@ -1,0 +1,204 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using AutoFixture;
+using LamuFlix.Core.Domain;
+using LamuFlix.Infrastructure.Persistence.Records;
+using Shouldly;
+using Xunit;
+
+namespace LamuFlix.IntegrationTests;
+
+[Collection(nameof(ApiEndToEndCollection))]
+public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture)
+{
+    private const string BrowseRoute = "/api/movies";
+    private const string RecommendationsSuffix = "/recommendations";
+    private const string ApplicationJson = "application/json";
+    private const string ProblemDetailsJson = "application/problem+json";
+    private const int UnknownId = 999999;
+    private const int SelectedYear = 2000;
+    private const int OtherYear = 2010;
+    private const int SelectedRuntime = 100;
+    private const decimal SelectedRating = 8.0m;
+    private const double IdenticalProfileScore = 1.0;
+    private const double PartialProfileScore = 0.48112563433075205;
+
+    private static readonly string[] DtoFieldNames =
+    [
+        "id",
+        "title",
+        "posterUrl",
+        "releaseYear",
+        "runtime",
+        "imdbRating",
+        "enrichmentStatus",
+        "isInWatchlist",
+        "isWatched",
+        "isNotInterested",
+        "score",
+        "reasons",
+    ];
+
+    [Fact]
+    public async Task GetRecommendations_SeededEligibleMovie_ReturnsRankedJsonWithReasons()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var data = new Fixture();
+        var genre = Faker.Lorem.GetFirstWord();
+        var director = Faker.Name.FullName();
+        var otherDirector = Faker.Name.FullName();
+        while (string.Equals(otherDirector, director, System.StringComparison.Ordinal))
+        {
+            otherDirector = Faker.Name.FullName();
+        }
+
+        var selected = EnrichedMovie(
+            data.Create<string>(), "recommendations-selected", genre, director, SelectedYear, SelectedRuntime, SelectedRating);
+        var identical = EnrichedMovie(
+            data.Create<string>(), "recommendations-identical", genre, director, SelectedYear, SelectedRuntime, SelectedRating);
+        var partial = EnrichedMovie(
+            data.Create<string>(), "recommendations-partial", genre, otherDirector, OtherYear, runtime: null, rating: null);
+        var selectedRecord = await SeedAsync(selected);
+        var identicalRecord = await SeedAsync(identical);
+        var partialRecord = await SeedAsync(partial);
+        var selectedId = selectedRecord.Id.ShouldNotBeNull().Value;
+        var identicalId = identicalRecord.Id.ShouldNotBeNull().Value;
+        var partialId = partialRecord.Id.ShouldNotBeNull().Value;
+
+        // act
+        var response = await client.GetAsync(
+            $"{BrowseRoute}/{selectedId}{RecommendationsSuffix}",
+            cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
+        var items = body.EnumerateArray().ToList();
+        items.Select(item => item.GetProperty("id").GetInt32()).ShouldBe([identicalId, partialId]);
+
+        var identicalItem = items[0];
+        ShouldCarryExactly(identicalItem, DtoFieldNames);
+        identicalItem.GetProperty("id").GetInt32().ShouldBe(identicalId);
+        identicalItem.GetProperty("title").GetString().ShouldBe(identical.Title);
+        identicalItem.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
+        identicalItem.GetProperty("releaseYear").GetInt32().ShouldBe(SelectedYear);
+        identicalItem.GetProperty("runtime").GetInt32().ShouldBe(SelectedRuntime);
+        identicalItem.GetProperty("imdbRating").GetDecimal().ShouldBe(SelectedRating);
+        identicalItem.GetProperty("enrichmentStatus").GetString().ShouldBe(nameof(EnrichmentStatus.Enriched));
+        identicalItem.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
+        identicalItem.GetProperty("isWatched").GetBoolean().ShouldBeFalse();
+        identicalItem.GetProperty("isNotInterested").GetBoolean().ShouldBeFalse();
+        identicalItem.GetProperty("score").GetDouble().ShouldBe(IdenticalProfileScore);
+        ReasonTexts(identicalItem).ShouldBe(
+        [
+            $"Same director: {director}",
+            $"Shares {genre}",
+            "Similar release years",
+            "Similar runtime",
+            "Similar rating",
+        ]);
+
+        var partialItem = items[1];
+        ShouldCarryExactly(partialItem, DtoFieldNames);
+        partialItem.GetProperty("id").GetInt32().ShouldBe(partialId);
+        partialItem.GetProperty("title").GetString().ShouldBe(partial.Title);
+        partialItem.GetProperty("posterUrl").ValueKind.ShouldBe(JsonValueKind.Null);
+        partialItem.GetProperty("releaseYear").GetInt32().ShouldBe(OtherYear);
+        partialItem.GetProperty("runtime").ValueKind.ShouldBe(JsonValueKind.Null);
+        partialItem.GetProperty("imdbRating").ValueKind.ShouldBe(JsonValueKind.Null);
+        partialItem.GetProperty("enrichmentStatus").GetString().ShouldBe(nameof(EnrichmentStatus.Enriched));
+        partialItem.GetProperty("score").GetDouble().ShouldBe(PartialProfileScore, 1e-9);
+        ReasonTexts(partialItem).ShouldBe(
+        [
+            $"Shares {genre}",
+            "Similar release years",
+        ]);
+    }
+
+    [Fact]
+    public async Task GetRecommendations_UnknownMovieId_ReturnsNotFoundProblem()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(
+            $"{BrowseRoute}/{UnknownId}{RecommendationsSuffix}",
+            cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        body.GetProperty("status").GetInt32().ShouldBe((int)HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetRecommendations_PendingMovie_ReturnsOkWithAnEmptyArray()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var data = new Fixture();
+        var pending = MovieCatalogSeed.Create(data.Create<string>(), "recommendations-pending");
+        var pendingRecord = await SeedAsync(pending);
+        var pendingId = pendingRecord.Id.ShouldNotBeNull().Value;
+
+        // act
+        var response = await client.GetAsync(
+            $"{BrowseRoute}/{pendingId}{RecommendationsSuffix}",
+            cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
+        body.ValueKind.ShouldBe(JsonValueKind.Array);
+        body.EnumerateArray().ShouldBeEmpty();
+    }
+
+    private static MovieRecord EnrichedMovie(
+        string title,
+        string pathSuffix,
+        string genre,
+        string director,
+        int year,
+        int? runtime,
+        decimal? rating)
+    {
+        var movie = MovieCatalogSeed.Create(title, pathSuffix);
+        movie.Status = EnrichmentStatus.Enriched;
+        movie.MetadataTitle = title;
+        movie.ReleaseYear = new ReleaseYear(year, MovieCatalogSeed.FixedTime);
+        movie.Genres.Add(new GenreRecord { Name = genre });
+        movie.Directors.Add(new DirectorRecord { Name = director });
+
+        if (runtime is { } minutes)
+        {
+            movie.RuntimeMinutes = new Runtime(minutes);
+        }
+
+        if (rating is { } value)
+        {
+            movie.ImdbRating = new ImdbRating(value);
+        }
+
+        return movie;
+    }
+
+    private static void ShouldCarryExactly(JsonElement element, IEnumerable<string> names) =>
+        element.EnumerateObject().Select(property => property.Name).ShouldBe(names, ignoreOrder: true);
+
+    private static IEnumerable<string?> ReasonTexts(JsonElement item) =>
+        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetString());
+}
