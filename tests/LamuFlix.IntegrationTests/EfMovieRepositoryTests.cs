@@ -1126,9 +1126,17 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     {
         public List<EnrichmentRequested> Messages { get; } = [];
 
+        public List<FeaturesRequested> FeaturesMessages { get; } = [];
+
         public Task EnqueueAsync(EnrichmentRequested message, CancellationToken ct)
         {
             Messages.Add(message);
+            return Task.CompletedTask;
+        }
+
+        public Task EnqueueAsync(FeaturesRequested message, CancellationToken ct)
+        {
+            FeaturesMessages.Add(message);
             return Task.CompletedTask;
         }
     }

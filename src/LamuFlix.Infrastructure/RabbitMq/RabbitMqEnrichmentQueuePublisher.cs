@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using RabbitMQ.Client;
@@ -29,6 +30,17 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
     public Task EnqueueAsync(EnrichmentRequested message, CancellationToken ct) =>
         PublishAsync(message, RabbitMqTopology.RequestedRoutingKey, ct);
 
+    public Task EnqueueAsync(FeaturesRequested message, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        return PublishCoreAsync(
+            message.MovieId,
+            EnrichmentRouting.FeaturesRequestedRoutingKey,
+            Serialize(message),
+            NoAdditions,
+            ct);
+    }
+
     public Task PublishAsync(EnrichmentRequested message, string routingKey, CancellationToken ct) =>
         PublishAsync(message, routingKey, NoAdditions, ct);
 
@@ -43,13 +55,23 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         ArgumentNullException.ThrowIfNull(additionalHeaders);
         EnsureUsableHeaders(additionalHeaders);
 
+        await PublishCoreAsync(message.MovieId, routingKey, Serialize(message), additionalHeaders, ct);
+    }
+
+    private async Task PublishCoreAsync(
+        MovieId movieId,
+        string routingKey,
+        ReadOnlyMemory<byte> body,
+        IReadOnlyDictionary<string, object?> additionalHeaders,
+        CancellationToken ct)
+    {
         await topology.EnsureDeclaredAsync(ct);
 
         // ReSharper disable once ExplicitCallerInfoArgument - the span name is a telemetry contract, not the caller member name.
         using var activity = Source.StartActivity(
             TelemetryConstants.EnrichmentEnqueue,
             ActivityKind.Producer);
-        activity?.SetTag(TelemetryConstants.MovieId, message.MovieId.Value);
+        activity?.SetTag(TelemetryConstants.MovieId, movieId.Value);
 
         var headers = new Dictionary<string, object?>(StringComparer.Ordinal);
         TraceContextCarrier.Inject(headers, activity?.Context);
@@ -71,7 +93,7 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
             routingKey,
             mandatory: true,
             basicProperties: properties,
-            body: Serialize(message),
+            body: body,
             cancellationToken: ct);
     }
 
@@ -100,6 +122,6 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         || key.Equals("x-death", StringComparison.Ordinal)
         || key.StartsWith("x-first-death-", StringComparison.Ordinal);
 
-    private static ReadOnlyMemory<byte> Serialize(EnrichmentRequested message) =>
+    private static ReadOnlyMemory<byte> Serialize<TMessage>(TMessage message) =>
         JsonSerializer.SerializeToUtf8Bytes(message, SerializerOptions);
 }
