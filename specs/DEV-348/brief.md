@@ -1,0 +1,343 @@
+# DEV-348 — Frozen Grill Brief
+
+Status: Phase A grill decisions frozen after Patron Q11; 11 of 12 questions used.
+Worktree: F:/Dev/LamuFlix.worktrees/feature-348-spec
+Branch: feature/348-spec
+Phase A base HEAD: 503f0ed8c0f4d435aabde2d602b1d3893b4a147e
+Size M; ui: none. Decision owner Patron; recorder Keel. Date 2026-10-21.
+
+## Authority and limits
+
+Ticket text is decided scope (DEV-348 note:22). Evidence is recon-DEV-348:1-100, the named task-pipeline and lamuflix-team-charter notes, and specs/PRODUCT.md sections 2-5. Full questions, recommendations, answers, rationale and implications are preserved append-only in CONCLUSIONS.md. ASSUMPTIONS.md mirrors Patron-tagged choices. No facts are inferred from another checkout or missing predecessor implementation.
+
+This closeout authorizes the brief only. It grants no provisional Gate 1, merged Gate 1, plan-challenge clearance, implementation clearance, review clearance, gate pass or merge permission. No Spec Kit drafting or build gates ran in this ask. The next drafting step belongs to Quill through Conductor, not this closeout.
+
+## Frozen scope and vocabulary
+
+Implement IRecommendationCandidateSource as a PostgreSQL pgvector cosine-distance (<=>) query over stored movie_features vectors, using the selected movie stored vector and returning at most CandidatePoolSize (default 50), nearest first, with each candidate cosine similarity. Return empty without throwing when the selected feature row is missing. Emit exactly "Similar story" only when cosine similarity is strictly above a configurable RecommendationOptions threshold, whose default is calibrated on DEV-342.
+
+Cosine distance is the pgvector retrieval distance; cosine similarity is 1.0 - distance (finite [-1,1]). It is distinct from SimilarityResult.Score, the existing normalized weighted metadata similarity in [0,1]. Candidate-pool distance ordering does not replace final handler metadata-score ordering.
+
+No request-time embedding or runtime DEV-345 dependency; no DEV-354 reranking, blended scoring or MMR; no new schema, migrations, indexes, dependencies, projects, architectural layers, HTTP route/DTO changes, web work, secrets, Process.Start or LocalPlay changes. Consume DEV-413 mapping unchanged. No ADR or global glossary edit for this M ticket. Drift-induced file additions require cited scope adjudication. anything else is a follow-up issue, not a finding in this round.
+
+Basis: ticket DEV-348:22; recon:14-23,35-49,57-85; PRODUCT sections 2-5; charter 16-28; Q1-Q10.
+
+## Preconditions and measured-default checkpoint — Q1, Q4
+
+Phase A can close now. The merged DEV-348 spec PR is Gate 1 before Build; the later Phase B pickup also requires drift/consistency analysis per task-pipeline. Phase B in the Build workspace is gated on Epic 7 completion, landed DEV-413 schema and landed DEV-342 golden implementation. Phase B Wisp recon verifies origin/main drift, concrete schema identifiers and golden fixture paths before code. Quill must bind those identifiers and paths to this checkpoint; it must not invent them.
+
+Before reason implementation, a read-only calibration task evaluates the landed DEV-342 golden set and records fixture SHA, stored vector/model provenance, pair cosine similarities, selected separating threshold and rationale. Patron must ratify the numeric default with citations. Phase A deliberately contains no numeric default or placeholder/fallback. If semantic vector pairs or other required calibration evidence are missing, report needs recon to Conductor and obtain Patron ruling; never invent labels, substitute weighted scores or waive calibration. This explicit gated measurement is not an unresolved owner checkbox and is not a writer decision.
+
+Basis: recon:21,23,35-39,46; PRODUCT section 2; task-pipeline:43,65,77; Q1/Q4.
+
+## Core and options contracts — Q2, Q4
+
+Create public sealed record RecommendationCandidate(Movie Movie, double CosineSimilarity) in Core/Features/Recommendations.
+Change the existing port in place:
+GetCandidatesAsync(MovieId selectedMovieId, CancellationToken ct)
+returns Task<IReadOnlyList<RecommendationCandidate>>.
+
+No new port, layer, compatibility overload, fake similarity or NotImplemented stub. A legitimately computed zero cosine similarity is valid; a sentinel zero is not.
+
+Add public double SimilarStoryThreshold { get; init; } on RecommendationOptions with the Phase B calibrated default. Reject NaN, infinities and values outside [-1,1] using existing IValidatableObject/options startup validation. Endpoints -1 and 1 are valid. Preserve Take=10, CandidatePoolSize=50, MmrLambda=0.7, Weights and CandidatePoolSize >= Take behavior. Inject IOptions<RecommendationOptions> directly into the existing adapter. Preserve the existing scoped port registration.
+
+Basis: recon:14,16,18-19,29,47,57-59,89-94; Q2/Q4/Q6.
+
+## Retrieval design — Q5, Q6
+
+1. Read the selected stored vector asynchronously. Missing movie_features row or unusable vector (null/zero norm where representable) returns empty after one reader command. Do not generate an embedding.
+2. Run one AsNoTracking candidate query with the four existing collection includes and complete existing ToDomain hydration. Preserve enriched-only filtering and selected-id exclusion.
+3. Require usable candidate stored vectors; exclude missing/null/zero vectors and non-finite cosine distances before the cap. Order on the server by vector <=> selected vector ascending, then movie id ascending, and apply options.Value.CandidatePoolSize on the server before domain hydration. No client full-table scan or Take-before-filter.
+4. Project Movie and CosineSimilarity only; compute 1.0 - distance and clamp finite values to [-1,1] solely for floating-point endpoint tolerance. Persistence constructs no Reason.
+5. Maximum two sequential read-only async reader commands on populated pools; one when selected vector is unavailable. No N+1 queries or snapshot transaction wrapper.
+6. Propagate CancellationToken to both operations. Cancellation/database faults propagate normally; only the missing/unusable selected-vector case is empty success. No below-threshold pool filtering.
+
+Use landed DEV-413 entity/column identifiers only after recon. Translation failure blocks; it never permits client scanning, schema changes or a new abstraction.
+
+Basis: recon:15-18,21-23,30,36,44-49; Q5/Q6.
+
+## Handler behavior — Q3
+
+Unwrap candidate.Movie for the existing SimilarityScorer. Preserve SimilarityResult.Score and feature reasons, including zero-weight identity behavior. Append a single new Reason("Similar story") after all existing feature reasons iff candidate.CosineSimilarity > options.SimilarStoryThreshold. Equality emits none. This eligibility is independent of metadata weights.
+
+Candidates at/below threshold remain eligible for ordinary scoring and final selection. Preserve descending weighted Score, ascending movie-id ties and Take(query.Take), including existing selected-movie NotFound behavior and empty-pool short circuit. RecommendedMovie carries the same weighted Score and resulting reasons; no new public output fields.
+
+SimilarityScorer, SimilarityResult, Reason and RecommendedMovie stay unchanged. Only the handler adds the story suffix. Source order and final handler order are distinct contracts, explicitly ruled consistent with the DEV-354 boundary.
+
+Basis: recon:57-85; Q2/Q3.
+
+## Frozen implementation file set — Q8
+
+| File | Authorized change |
+|---|---|
+| src/LamuFlix.Core/Features/Recommendations/RecommendationCandidate.cs | New immutable candidate record |
+| src/LamuFlix.Core/Ports/IRecommendationCandidateSource.cs | In-place return contract |
+| src/LamuFlix.Core/Options/RecommendationOptions.cs | Calibrated threshold and finite-range validation |
+| src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs | Candidate unwrap and conditional story reason |
+| src/LamuFlix.Infrastructure/Persistence/EfRecommendationCandidateSource.cs | Stored-vector bounded query and options consumption |
+| tests/LamuFlix.IntegrationTests/EfRecommendationCandidateSourceTests.cs | Real pgvector behavior, forced obsolete-contract assertions |
+| tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs | Forced substitute migration and handler behavior |
+| tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerPropertyTests.cs | Forced substitute migration and invariants |
+| tests/LamuFlix.UnitTests/Options/RecommendationOptionsTests.cs | Threshold validity/startup/default regressions |
+
+Five production files and four test files. Existing DI registration and architecture whitelist remain unchanged. Forced edits are justified by the ticket AC and port migration, not blanket rewrite permission. Further required files discovered at drift need cited adjudication. Phase A writes are confined to specs/DEV-348 artifacts.
+
+## Dependency-ordered plan — Q8 amended by Q10
+
+Q10 supersedes only Q8 original five-stage ordering. Final four stages:
+
+| Stage | Owner/responsibility | Checkpoint |
+|---|---|---|
+| A — Prerequisites and measured default | Wisp read-only Phase B prerequisite/drift/schema/golden recon and calibration receipt; Patron cited numeric-default ratification; Gauge baseline | Q1 dependencies verified, concrete contracts evidenced, calibrated default ratified; otherwise dependent code stops |
+| B — Atomic contract and real adapter | Build creates record, changes port/options, implements real two-read vector query, migrates handler to unwrap candidates and all affected substitutes/tests together | Compilable, existing affected suites green, calibrated option and real PostgreSQL Testcontainers tests green, honest similarity values, committed |
+| C — Story reason | Build adds handler-only strict-threshold suffix and unit/property regressions | Weighted score/order/feature-prefix invariants preserved, unit and FsCheck suites green, committed |
+| D — Postbuild quality and ship | Cog single refactor; Gauge full gates; Sentry/Ledger/Compass review, Keel adjudication, bounded remediation, rebase and PR through Build workspace | Exact-head evidence, no above-bar residual findings, applicable gates/hosted checks satisfied, awaiting-merge; user merges |
+
+A build phase includes its tests, ends green and committed, and hands off no half-migrated port. The contract and real adapter cannot be split across commits that need sentinel values or stubs. Build routing follows task-pipeline ownership; no production/test edits are performed by this Spec seat.
+
+## Test strategy — Q7
+
+Use existing xUnit/NSubstitute/FsCheck/Testcontainers conventions only. Real PostgreSQL+pgvector validates translation and serialization; never mock a driver. Deterministic 384-dimensional stored vectors use EmbeddingDimensions.Value. No live Ollama/model calls or time-dependent fixtures.
+
+Adapter integration covers:
+- Default-50/custom caps with excess eligible rows; distances deliberately opposite id order; equal-distance id ties; accurate cosine conversion and finite-range output.
+- Missing selected row/usable vector, candidate missing/unusable vectors filtered before cap, self/non-enriched exclusion; null/zero persistence cases where landed schema permits.
+- Complete four-collection hydration, no tracked entities, bounded reader count on small and large pools, no per-candidate reads.
+- Real server execution plus non-brittle command-shape evidence for <=>, ORDER BY and LIMIT, not whole-SQL text equality; translation failure blocks.
+- Cancellation/database faults remain faults. Missing selected vector takes one reader; populated pool uses at most two.
+
+Handler unit/property tests cover strict > with equality and threshold overrides; negative/zero/positive cosine similarity; independence from metadata weights; retention below threshold; unchanged weighted score/order/query.Take and feature-reason prefix plus optional single story suffix. Preserve identity/empty behavior.
+
+Options tests reject NaN/infinities/out-of-range values, accept endpoints, exercise IStartupValidator via AddLamuFlixOptions, and assert the calibrated default after ratification. Replace obsolete uncapped-pool/exact-one-reader and pure reason-pass-through expectations only as forced by new AC/contracts. No container availability waiver.
+
+Basis: recon:18,22-23,27-31,57-94; Q2-Q7.
+
+## Loop discipline and gate expectations — Q9
+
+Closing bar: in-scope Critical/High/Medium findings block. Low observations are nonblocking; acceptance-criteria failures and failed/unrunnable applicable gates block regardless of label. Require Sentry Risk, Ledger Standards and Compass Spec reports on the pinned head/range, never a missing-axis skip.
+
+Plan challenge and code-review/remediation are each capped at two rounds; at most two fix commits per remediation round. Route third-round residuals to user PR review without claiming clearance. Frozen scope is the scope above: anything else is a follow-up issue, not a finding in this round.
+
+Out-of-scope ticket consideration goes through Patron/Rigger only for Critical/High, broken behavior or user request, checking/folding into existing tickets first. Other observations: noted, no ticket. No new follow-up issue is requested by this grill.
+
+Gauge runs task-pipeline Phase 3 step 5 at unchanged harness.yml thresholds: Roslyn, complexity (build <=15 / refactor <=6), InspectCode without -All, mutation via run-mutation.ps1 with since disabled, property tests, vulnerable packages, dotnet format --verify-no-changes, dotnet test, web gates. Property tests are mandatory here; no domain-invariant opt-out.
+
+Exit 0 earns the corresponding pass. Scope-empty exit 2 remains SKIPPED (scope-empty), configured mutation exclusions are N/A, harness-disabled gates are SKIP; none is PASS. Applicable exit 1 or Could not run blocks. Apply charter mutation artifact/timeout protections; no thresholds lowered and no all-timeout/zero-tested proof. No web changes means the web gate is scope-empty, not checked green. No build gates run in Phase A.
+
+## Answer register and closeout
+
+Each answer is incorporated above; full verbatim Q&A and cited Patron rulings are in CONCLUSIONS.md.
+- Q1: Phase A unchanged scope may continue; Phase B Epic 7 + landed DEV-413/DEV-342 and drift gates.
+- Q2: Sealed RecommendationCandidate(Movie, double CosineSimilarity); in-place existing-port migration, no new layer/port or HTTP shape.
+- Q3: Preserve weighted scoring/final order, append one strict-threshold handler story suffix independent of weights.
+- Q4: Finite [-1,1] SimilarStoryThreshold; complete Phase A with mandatory measured-default and Patron checkpoint, no fabricated literal.
+- Q5: Existing eligibility plus usable vectors, server distance/id ordering and cap, clamped finite similarity, no schema changes or structural escalation.
+- Q6: At most two async reads, full metadata hydration, direct options injection, fault/cancellation propagation.
+- Q7: Real database adapter tests, independent handler unit/property and startup-options verification.
+- Q8: Exact nine-file scope; original phase split superseded only by Q10.
+- Q9: Blocking severities, required three axes, round/commit caps, follow-up rules, exact gate verdicts and phase boundaries.
+- Q10: Four stages A-D with port/options/real adapter/forced migration in one honest green build phase; no scope change.
+- Q11: Patron confirmed shared understanding and closeout at 11/12, with no owner checkbox or ticket edit; the full ruling is in the complete exchange below.
+
+Patron-tagged Q3 suffix placement, Q4 property name and Q5 equal-distance id order are mirrored [assumed] in ASSUMPTIONS.md. No unresolved structural escalation, owner checkbox, ticket correction or new dependency is identified. Future missing/incompatible prerequisite evidence returns through recon and Patron; it is not permission to improvise.
+
+Stop here: no Spec Kit drafting. Conductor owns the next ask.
+
+## Complete grill Q&A — verbatim persisted exchange
+
+# DEV-348 Grill Conclusions
+
+## Q1 — Prerequisite sequencing (question 1 of 12)
+
+### Full question — Keel
+
+[from Keel] /grill-with-docs DEV-348 — Q1 of at most 12. Worktree F:/Dev/LamuFlix.worktrees/feature-348-spec; branch feature/348-spec; HEAD 503f0ed8c0f4d435aabde2d602b1d3893b4a147e. Read only named notes DEV-348, recon-DEV-348, task-pipeline, lamuflix-team-charter and worktree specs/PRODUCT.md. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there. I own specs/DEV-348/brief.md and append-only CONCLUSIONS.md; please return a cited ruling here, do not edit. Q1: Shall Phase A define the ticket unchanged while Phase B remains blocked on landed DEV-413 schema and DEV-342 golden implementation, plus Epic 7 sequencing from PRODUCT section 2? I recommend yes: preserve stored-vector cosine query, bounded ordered candidates with similarity, and calibrated reason threshold, with no replacement schema, arbitrary numeric threshold, request-time embedding, or reranking. Cost: implementation cannot begin until these prerequisites and concrete contracts/calibration are verified. Basis DEV-348:22; recon-DEV-348:14,19,21,35-40,46-47; PRODUCT sections 2-3; charter section 2.3. Please decide sequencing and whether missing schema/calibration evidence prevents further grill decisions now. Reply via maestri ask Keel with full ruling and citations.
+
+### Initial answer — Patron
+
+[from Patron] DEV-348 Q1 ruling: Approved — Phase A defines DEV-348 unchanged; Phase B gated on Epic 7 + landed DEV-413 + landed DEV-342; Phase A grill continues now. Full cited ruling at C:/Users/lamun/AppData/Local/Temp/patron-DEV-348-q1.md
+
+### Delivery repair — Keel (not another grill question)
+
+[from Keel] DEV-348 Q1 ruling received: Approved, Phase A unchanged, Phase B gated on Epic 7 plus landed DEV-413 and DEV-342, grill continues. The ask limits reads to feature-348-spec and named notes, so C:/Users/lamun/AppData/Local/Temp/patron-DEV-348-q1.md is outside authorized roots. Please return the full Q1 ruling verbatim with citations directly via maestri ask Keel, or put it in named note DEV-348 and report the line range. This is a delivery repair for Q1, not Q2. Do not edit worktree artifacts.
+
+### Full cited answer — Patron
+
+[from Patron] Ruling on DEV-348 Q1 — Approved: Phase A defines DEV-348 unchanged per ticket scope while Phase B build is sequenced after Epic 7, landed DEV-413 schema, and landed DEV-342 golden set; missing HEAD implementation of DEV-413/DEV-342 does not block further Phase A grill decisions. (1) Unchanged Ticket Scope in Phase A: Preserve DEV-348 scope verbatim — IRecommendationCandidateSource pgvector cosine distance (<=>) query over stored movie_features rows (no replacement schema in DEV-348, no request-time embedding or runtime DEV-345 dependency, no DEV-354 re-ranking), returning at most CandidatePoolSize (default 50) ordered candidates with similarity, missing movie_features row returning empty list without throwing, and emitting Similar story only above the configurable RecommendationOptions threshold (DEV-348:22; specs/PRODUCT.md:23-24; lamuflix-team-charter:16-28; recon-DEV-348:14-23,37,40,46). (2) Sequencing and Phase B Gate Prerequisites: Phase A spec work proceeds now in LamuFlix - Spec (lamuflix-team-charter:10; task-pipeline:7,67-83), while Phase B build in workspace LamuFlix is sequenced strictly after Epic 7 (SPA) completes (specs/PRODUCT.md:17), DEV-413 (movie_features schema) merges to main (recon-DEV-348:21,36,46), and DEV-342 (golden set implementation) merges to main (recon-DEV-348:35) so the default similarity threshold is calibrated against the golden set rather than set to an arbitrary uncalibrated number (DEV-348:22). (3) Grill Continuation in Phase A: Missing DEV-413 and DEV-342 commits on HEAD do not block remaining Phase A grill decisions on Core/Infrastructure contracts (IRecommendationCandidateSource similarity return shape, RecommendationOptions threshold property/validation, GetRecommendationsQueryHandler consumption for Similar story, and forced test updates in EfRecommendationCandidateSourceTests and handler tests per recon-DEV-348:14,17,19,28,30,47,49); Phase B intake (task-pipeline:65) will verify drift and concrete landed schema/calibration on origin/main before build begins.
+
+### Decision, rationale, and implications
+
+Q1 is settled as approved above. Phase A may continue; Phase B requires Epic 7 completion and landed DEV-413/DEV-342 plus drift and calibration verification. Ticket scope is unchanged. This ruling does not freeze the remaining contract, reason propagation, calibration method, test strategy, closing bar, or round-cap decisions, and does not grant Gate 1. No taste assumption or owner checkbox was created.
+
+---
+
+## Q2 — Candidate contract
+
+### Full question — Keel
+
+[from Keel] DEV-348 /grill-with-docs Q2/12, same exchange and Q1 preserved. Worktree F:/Dev/LamuFlix.worktrees/feature-348-spec; feature/348-spec; HEAD 503f0ed8c0f4d435aabde2d602b1d3893b4a147e. recon-DEV-348:55-100 now supplies Reason(string Text), SimilarityResult(double Score, ImmutableList<Reason> Reasons), weighted scorer semantics and handler pass-through. What should the candidate-source contract return? I recommend an immutable Core record RecommendationCandidate(Movie Movie, double CosineSimilarity), with IRecommendationCandidateSource.GetCandidatesAsync returning Task<IReadOnlyList<RecommendationCandidate>>. CosineSimilarity is 1 - cosine distance, finite in [-1,1], distinct from the existing weighted SimilarityResult.Score in [0,1]. Adapter returns distance-ascending candidates and their similarity only; no new port or layer, no reason construction in persistence, no HTTP DTO field changes. Cost: forced adapter, handler and substitute-test updates; no compatibility overload preserving an obsolete movie-only contract. Basis DEV-348:22; recon:14,17,28-29,47,57-59,66,79-85; PRODUCT sections 2,3,5; charter 16-28. Please approve or replace with a cited ruling. Return full answer directly via maestri ask Keel, never a temp-file pointer; no artifact edits. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q2 — Approved: Update IRecommendationCandidateSource.GetCandidatesAsync in place to return Task<IReadOnlyList<RecommendationCandidate>> using sealed Core record RecommendationCandidate(Movie Movie, double CosineSimilarity) with no compatibility overload. (1) Core Port and Record Shape: Define public sealed record RecommendationCandidate(Movie Movie, double CosineSimilarity) in LamuFlix.Core and change IRecommendationCandidateSource.GetCandidatesAsync(MovieId selectedMovieId, CancellationToken ct) to return Task<IReadOnlyList<RecommendationCandidate>>, where CosineSimilarity is 1.0 - cosineDistance (finite in [-1.0, 1.0]) and remains distinct from the feature-weighted SimilarityResult.Score in [0.0, 1.0]; this introduces no new port or architectural layer and preserves the closed port whitelist (DEV-348:22; specs/PRODUCT.md:18,23-24,44; lamuflix-team-charter:19-22; recon-DEV-348:14,29,47,58,66). (2) Persistence vs Core Boundary: EfRecommendationCandidateSource queries at most CandidatePoolSize candidates ordered by pgvector cosine distance ascending (<=>) and projects Movie plus CosineSimilarity only; persistence constructs no Reason instances, and no HTTP route or DTO shape changes (DEV-348:7,22; specs/PRODUCT.md:46; lamuflix-team-charter:22; recon-DEV-348:15,47,57-59). (3) Forced Caller and Test Updates Without Compatibility Overload: Replace the movie-only port signature directly without a legacy overload; resulting updates to EfRecommendationCandidateSource.cs, GetRecommendationsQueryHandler.cs, EfRecommendationCandidateSourceTests.cs, GetRecommendationsQueryHandlerTests.cs, and GetRecommendationsQueryHandlerPropertyTests.cs are forced by the DEV-348 acceptance criteria and are in scope (DEV-348:22; specs/PRODUCT.md:48; lamuflix-team-charter:24; recon-DEV-348:14-17,28,30,47,49,79-85).
+
+### Rationale and implications
+
+The ticket requires candidates with similarity; the existing port changes in place and all forced callers/tests migrate. Semantic cosine similarity stays distinct from feature-weighted scoring. No new layer, port, or HTTP shape is authorized.
+
+---
+
+
+## Q3 — Handler consumption and reason emission
+
+### Full question — Keel
+
+[from Keel] DEV-348 Q3/12: How should the handler consume RecommendationCandidate without taking DEV-354 reranking scope? I recommend unwrap Movie for the existing feature scorer, preserve weighted Score and existing score-descending/movie-id-ascending ordering and query.Take, and append one Reason("Similar story") AFTER existing feature reasons iff candidate.CosineSimilarity > options.SimilarStoryThreshold. Equality emits none; eligibility depends only on semantic cosine similarity, not metadata weights, and does not drop candidates below threshold. Preserve existing feature reasons and their order, including zero-weight identity behavior. This makes the source distance ordering a candidate-pool contract and final handler ordering the existing feature-score contract; it adds no blended semantic scoring, MMR or reranking algorithm. Cost: the old reason-pass-through assertion must now verify unchanged feature prefix plus optional story suffix. Basis DEV-348:22 (similarity-only source, DEV-354 deferred); recon-DEV-348:57-85; Q2. Please approve or replace with cited ruling, explicitly deciding whether preserved handler ordering conflicts with the ticket. Same bounded worktree/notes; no artifact edits; full answer directly to Keel. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q3 — Approved: GetRecommendationsQueryHandler unwraps candidate.Movie for SimilarityScorer.Score, preserves existing weighted Score and final handler ordering (Score descending, Movie.Id.Value ascending, query.Take), and appends Reason(Similar story) after existing feature reasons iff candidate.CosineSimilarity > options.SimilarStoryThreshold; preserved handler ordering does not conflict with DEV-348. (1) No Conflict Between Candidate-Pool Distance Ordering and Handler Final Ordering: DEV-348:22 scopes distance ordering (at most CandidatePoolSize ordered by vector <=> @selectedVector) to IRecommendationCandidateSource candidate retrieval and explicitly states Re-ranking in DEV-354; this ticket returns candidates with similarity only, so keeping GetRecommendationsQueryHandler final ordering (OrderByDescending Score, ThenBy Movie.Id.Value, Take(query.Take)) honors the DEV-354 boundary without introducing premature blended scoring or MMR (DEV-348:22; specs/PRODUCT.md:18,23-24; recon-DEV-348:17,40,60,66,81-83). (2) Similar story Reason Emission and Ordering: Preserve SimilarityScorer feature reasons and zero-weight identity behavior unchanged, and in GetRecommendationsQueryHandler append a single Reason(Similar story) after the scorer feature reasons iff candidate.CosineSimilarity > options.SimilarStoryThreshold (strict greater-than; equality emits none; independent of metadata SimilarityWeights; candidates at or below threshold are still retained and scored, never dropped) [assumed: suffix placement of Similar story after metadata feature reasons] (DEV-348:22; specs/PRODUCT.md:28-30; recon-DEV-348:57-59,68-71,82). (3) Forced Handler Test Updates: Updating GetRecommendationsQueryHandlerTests (including HandleAsync_ScoredCandidate_PassesScoreAndReasonsThroughUnchanged at recon-DEV-348:84) to assert unchanged feature-reason prefix plus conditional Similar story suffix above SimilarStoryThreshold is forced by the DEV-348 acceptance criteria and in scope (DEV-348:22; lamuflix-team-charter:24; recon-DEV-348:28,49,82-85).
+
+### Rationale and implications
+
+Candidate distance order and final feature-score order are separate contracts. Story reason uses strict cosine comparison, independent of metadata scoring. Suffix placement is a taste assumption mirrored in ASSUMPTIONS.md.
+
+---
+
+
+## Q4 — Options and measured default checkpoint
+
+### Full question — Keel
+
+[from Keel] DEV-348 Q4/12: What is the configuration and calibration contract for SimilarStoryThreshold? I recommend public double SimilarStoryThreshold in RecommendationOptions, valid only when finite and in [-1,1], using the existing IValidatableObject/startup-validation path; CandidatePoolSize=50 and other option behavior stay unchanged. No fabricated numeric default during Phase A. Phase B must first load the landed DEV-342 golden fixture, produce a reproducible cosine-similarity calibration receipt (fixture version, stored vectors/model provenance, sample scores, selected threshold and why it separates story matches), obtain your cited numeric-default ruling, and encode that calibrated default plus regression tests before implementing reason emission. If the landed golden set cannot support semantic calibration, report needs recon to Conductor and then seek your ruling; never substitute the feature-weighted score, invent labels, silently use a fallback, or waive the ticket default. Cost: explicit Phase B calibration/decision checkpoint before build rather than guessing a number now. Basis ticket DEV-348:22; recon:19,23,35,58,66,89-94; Q1 and Q3. Please approve/replace, deciding whether this deferred measured-default checkpoint permits a complete Phase A brief without a numeric default today. Full cited answer directly to Keel, no writes; same worktree and named sources. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q4 — Approved: Define public double SimilarStoryThreshold on RecommendationOptions validated as finite in [-1.0, 1.0] via the existing options/startup validation path, with no fabricated Phase A numeric literal; the deferred Phase B calibration-and-ruling checkpoint permits a complete Phase A brief today. (1) RecommendationOptions Shape and Validation: Add public double SimilarStoryThreshold { get; init; } to RecommendationOptions (keeping CandidatePoolSize = 50, Take = 10, MmrLambda = 0.7, Weights, and CandidatePoolSize >= Take unchanged), validated as finite and within [-1.0, 1.0] through RecommendationOptions validation and the existing AddLamuFlixOptions IStartupValidator pipeline (DEV-348:22; recon-DEV-348:18-19,89-94; [assumed: property name SimilarStoryThreshold]). (2) Complete Phase A Brief Without a Fabricated Numeric Literal: Because DEV-342 golden implementation commits are not on HEAD (recon-DEV-348:35), guessing a number in Phase A would violate DEV-348:22 (default calibrated on DEV-342 golden set) and AGENTS.md Non-negotiables (never hardcode an uncalibrated threshold); specifying the property contract, [-1.0, 1.0] validation, strict > comparison, and mandatory Phase B calibration gate makes Phase A brief.md complete today without a placeholder number (DEV-348:22; specs/PRODUCT.md:23-24; task-pipeline:65,77; Q1; Q3). (3) Mandatory Phase B Calibration and Patron Checkpoint: Before Anvil implements reason emission in Phase B, a read-only Phase B calibration task must evaluate the landed DEV-342 golden set, record a reproducible cosine-similarity calibration receipt (fixture SHA, vector/model provenance, pair cosine similarities, and separating threshold), and obtain Patron cited ratification of the numeric default; if landed DEV-342 lacks semantic vector pairs, report needs recon to Conductor and route to Patron rather than substituting feature-weighted SimilarityResult.Score, inventing labels, or picking a silent fallback (DEV-348:22; task-pipeline:43,65,88-92; recon-DEV-348:35,58,66).
+
+### Rationale and implications
+
+The Phase A contract is complete without an invented numeric default. Phase B calibration and cited numeric ratification are mandatory before reason implementation; missing semantic pairs require recon and Patron routing. Validation must reject NaN and infinities as well as out-of-range numbers.
+
+---
+
+
+## Q5 — Retrieval invariants
+
+### Full question — Keel
+
+[from Keel] DEV-348 Q5/12: What are the source eligibility and ordering rules at edge cases? I recommend preserve existing enriched-only and selected-id exclusion, require a usable stored vector for each candidate, and return empty without throw when selected movie_features row is absent. If a schema permits a null or zero vector, treat selected vector as unavailable (empty) and exclude such candidates before the cap; cosine is undefined for zero norm. Only finite cosine distances may enter results; similarity is 1-distance within [-1,1] subject to floating-point endpoint tolerance, never substituting feature scores. Query orders by distance ascending then movie id ascending, and applies CandidatePoolSize on the server after eligibility, before domain hydration; no client full-table distance scan or Take-before-filter, no request-time embedding, no below-threshold pool filtering. Use the landed DEV-413 mapping unchanged, with exact entity/column names reconfirmed at Phase B; add no schema/migration, index, dependency or architecture. Cost: fewer than the cap when fewer eligible vectors exist; deterministic tie-breaking. Basis DEV-348:22; recon:15,18,21-23,36,44-49; Q1-4. Please decide this one retrieval contract, especially whether any rule changes ticket delivery and needs structural escalation. Return cited ruling directly to Keel; no artifact edits. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q5 — Approved: Adopt the proposed server-side retrieval, eligibility, tie-breaking, and floating-point safety contract in full; none of these rules alters ticket delivery or requires structural escalation. (1) Eligibility and Missing/Degenerate Vector Handling: Preserve existing candidate filters (Status == EnrichmentStatus.Enriched and movie.Id != selectedMovieId), require a stored movie_features row with a usable (non-null, non-zero-norm) vector for both the selected movie and each candidate, and return an empty list without throwing whenever the selected movie lacks a movie_features row or usable vector; exclude candidates with missing/null/zero vectors or non-finite cosine distance before applying the pool cap, and clamp finite 1.0 - distance to [-1.0, 1.0] for IEEE-754 endpoint tolerance without ever substituting feature scores (DEV-348:22; recon-DEV-348:15,21-23,30; specs/PRODUCT.md:23-24,34). (2) Server-Side Ordering, Tie-Breaking, and Cap Before Rehydration: Execute distance ordering (vector <=> @selectedVector ascending, then MovieId ascending as deterministic tie-breaker [assumed: MovieId ascending tie-breaker on equal cosine distance]) and Take(options.CandidatePoolSize) on the Postgres server after eligibility filtering and before ToDomain entity rehydration — no client-side full-table scan, no Take-before-filter, no request-time embedding, and no below-threshold candidate filtering in the source (DEV-348:22; specs/PRODUCT.md:28-30; recon-DEV-348:15,18,22-23,30; Q1-Q3). (3) No Structural Escalation and Strict DEV-413 Schema Consumption: Consuming the landed DEV-413 movie_features mapping unchanged (reconfirming exact entity/column identifiers at Phase B intake) with zero new migrations, indexes, packages, or layers satisfies Charter section 2.3 items 1-3 and directly fulfills DEV-348:22 (at most CandidatePoolSize ordered by distance; missing movie_features row returns empty list without throw), so no owner checkbox or structural escalation is triggered (DEV-348:22; specs/PRODUCT.md:34-48; lamuflix-team-charter:16-28; recon-DEV-348:21-22,36,44-49).
+
+### Rationale and implications
+
+Server-side eligibility precedes ordering and cap. Invalid vectors do not consume slots; no schema creation or speculative indexing is authorized. Finite cosine conversion is clamped only for endpoint tolerance. Patron explicitly found no ticket change or constitution departure.
+
+---
+
+
+## Q6 — Bounded query execution
+
+### Full question — Keel
+
+[from Keel] DEV-348 Q6/12: Shall we freeze the bounded query execution design as two sequential read-only async operations at most: selected stored-vector lookup, then one server-bounded candidate query including required movie metadata for existing ToDomain rehydration? I recommend at most two reader commands on the ordinary populated path (one if selected vector unavailable), AsNoTracking on movie materialization, no per-candidate queries, propagate CancellationToken to both operations, propagate cancellation/database failures rather than disguising them as missing-vector empty success. The old exactly-one-reader test must change because the selected vector is now retrieved; the new assertion proves bounded reads for both small and large pools rather than exact SQL text. Existing DI registration stays IRecommendationCandidateSource -> EfRecommendationCandidateSource; adapter gains IOptions<RecommendationOptions> consumption without a wrapper or embedding dependency. Cost: one extra round trip, with straightforward translation and complete movie hydration. No snapshot isolation or concurrent-write consistency guarantee is added. Basis recon:15-18,23,27,30,47,79-80 and DEV-348:22. Approve or replace this execution design with cited ruling; same roots, no artifact writes, full answer directly Keel. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q6 — Approved: Freeze the adapter execution design at a maximum of two sequential read-only async queries (selected-vector lookup followed by one server-bounded candidate query with navigation includes and ToDomain hydration), direct IOptions<RecommendationOptions> injection, normal cancellation/DB error propagation, and updated bounded-reader integration assertions. (1) Bounded Two-Step Read Execution and Hydration: First query reads the selected movie stored vector from movie_features (returning empty after 1 reader command if missing/unusable); second query runs a single AsNoTracking server-bounded query ordered by vector <=> @selectedVector ascending then MovieId ascending, capped at options.Value.CandidatePoolSize, with the four collection includes required by existing ToDomain rehydration and zero per-candidate N+1 queries, without adding snapshot transaction wrappers (DEV-348:22; specs/PRODUCT.md:18,23-24; recon-DEV-348:15,18,22,30; Q5). (2) Cancellation, Exception Semantics, and DI Wiring: Propagate CancellationToken to both async database calls and let cancellation or database faults throw normally rather than masking them as missing-row empty results; retain AddScoped<IRecommendationCandidateSource, EfRecommendationCandidateSource>() and inject IOptions<RecommendationOptions> directly into EfRecommendationCandidateSource with no wrapper layer and no IEmbeddingGenerator runtime dependency (DEV-348:22; specs/PRODUCT.md:18,44; lamuflix-team-charter:20; recon-DEV-348:14,16,18,23,27,37). (3) Forced Update to Reader-Count Integration Test: Updating EfRecommendationCandidateSourceTests.cs:187 from an exact 1-reader assertion to assert bounded reader commands (1 when selected vector is absent, at most 2 on populated small/large pools, without asserting raw SQL text) is forced by the DEV-348 stored-vector lookup requirement and is in scope (DEV-348:22; specs/PRODUCT.md:48; lamuflix-team-charter:24; recon-DEV-348:30,49).
+
+### Rationale and implications
+
+Two bounded reads replace the old one-reader contract. Cancellation and faults remain observable; missing-vector success does not swallow errors. Metadata hydration remains complete without N+1 queries.
+
+---
+
+
+## Q7 — Verification strategy
+
+### Full question — Keel
+
+[from Keel] DEV-348 Q7/12: Shall the verification contract be real PostgreSQL+pgvector Testcontainers for adapter behavior, with deterministic stored 384-dimensional vectors and source/handler/options tests separated? I recommend adapter integration cases: default50 and custom cap with more eligible rows than cap; known cosine distance order deliberately opposite id order; equal-distance id ties; exact 1-distance similarity within numerical tolerance; absent selected row and usable-vector absence; candidate missing/unusable rows excluded BEFORE cap; self and non-enriched exclusion; complete four-collection domain hydration; no tracked entities/N+1 and Q6 bounded reads; cancellation/faults not converted to empty. Cover null/zero persisted vectors only where landed schema can represent them. Verify EF translation and server-side filtering/order/limit via real execution plus command-shape evidence (operator/order/limit, not brittle full SQL string equality); translation failure is blocking, not permission for client scanning. Handler unit/property tests assert strict > including equality, threshold overrides, negative/zero/positive cosine values, unchanged weighted score/order/query.Take/feature-reason prefix and optional one story suffix independent of weights. Options tests reject NaN/infinities/out-of-range and accept endpoints, exercise startup validation; calibrated default regression follows Q4. No live Ollama, external model or mocked query driver. Cost: container-required integration runtime; no gate waiver if unavailable. Existing test tools only, deterministic input, no sleeping/time-dependent fixtures. Basis ticket AC; recon:22-23,27-31,57-94; Q2-6; AGENTS real-translation Testcontainers rule. Please approve/adjust this test strategy with citations. Same bounded roots; full answer directly Keel, no writes. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q7 — Approved: Adopt the separated Testcontainers integration, handler unit/property, and options verification strategy in full using deterministic 384-dimensional stored vectors and existing test libraries only. (1) Real PostgreSQL+pgvector Testcontainers Adapter Verification: EfRecommendationCandidateSourceTests must run against real PostgreSQL+pgvector via Testcontainers (never a mocked EF/DB driver, and container unavailability is never waived) using deterministic stored 384-dimensional vectors (EmbeddingDimensions.Value = 384, no live Ollama or IEmbeddingGenerator), covering default-50 and custom CandidatePoolSize caps with excess eligible rows, cosine distance order opposite MovieId order, equal-distance MovieId ascending ties, 1.0 - distance similarity accuracy, missing selected row returning empty in 1 read without throwing, candidate missing/unusable rows excluded before server cap (covering null/zero persisted vectors wherever landed DEV-413 schema permits), self/non-enriched exclusion, 4-collection ToDomain hydration, AsNoTracking and <= 2 reader commands with non-brittle command-shape verification (<=>, ORDER BY, LIMIT where EF translation failure blocks rather than falling back to client scan), and normal cancellation/fault propagation (DEV-348:22; AGENTS.md Non-negotiables; recon-DEV-348:15,18,22-23,30,49; Q5-Q6). (2) Handler Unit and FsCheck Property Verification: GetRecommendationsQueryHandlerTests and GetRecommendationsQueryHandlerPropertyTests (using existing xUnit, NSubstitute, and FsCheck only) must verify strict candidate.CosineSimilarity > options.SimilarStoryThreshold (equality emits no reason), custom threshold overrides, negative/zero/positive cosine similarities in [-1.0, 1.0], independence from SimilarityWeights, retention of candidates at or below threshold, and unchanged feature-weighted Score, final ordering, query.Take, and feature-reason prefix with optional single Reason(Similar story) suffix (DEV-348:22; AGENTS.md Non-negotiables; recon-DEV-348:28,31,57-85; Q2-Q3). (3) RecommendationOptions and Calibrated Default Verification: RecommendationOptionsTests must verify rejection of NaN, +/-Infinity, and values outside [-1.0, 1.0], acceptance of endpoints -1.0 and 1.0, IStartupValidator enforcement via AddLamuFlixOptions(), and regression assertion of the calibrated default once ratified at the Q4 Phase B checkpoint (DEV-348:22; recon-DEV-348:18-19,89-94; Q4).
+
+### Rationale and implications
+
+Translation, eligibility-before-cap, hydration and bounded reads require real database execution. Unit/property tests protect independent score/reason contracts; options tests cover finite-range startup validation. Container unavailability earns no pass.
+
+---
+
+
+## Q8 — File set and dependency-ordered plan
+
+### Full question — Keel
+
+[from Keel] DEV-348 Q8/12: Shall we freeze this implementation file set and dependency-ordered plan? New src/LamuFlix.Core/Features/Recommendations/RecommendationCandidate.cs; alter src/LamuFlix.Core/Ports/IRecommendationCandidateSource.cs, src/LamuFlix.Core/Options/RecommendationOptions.cs, src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs, src/LamuFlix.Infrastructure/Persistence/EfRecommendationCandidateSource.cs; forced tests tests/LamuFlix.IntegrationTests/EfRecommendationCandidateSourceTests.cs, tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs and GetRecommendationsQueryHandlerPropertyTests.cs, tests/LamuFlix.UnitTests/Options/RecommendationOptionsTests.cs. Keep existing DI mapping, feature scorer and output DTOs unchanged. Phase order: (A) Wisp Phase B drift/prerequisite/schema/golden recon and read-only calibration receipt, Patron numeric-default ratification (Q1/Q4), Gauge baseline; (B) contract plus validated calibrated option and forced caller/test migration as one compilable phase; (C) vector-backed adapter, real-DB query proof and integration tests; (D) handler story reason and unit/property regressions; (E) Cog refactor then Gauge full gates, three-axis review, bounded remediation and user-owned merge through Build workspace. Each build phase includes its relevant tests and ends green/committed; no half-migrated port handoff. Concrete DEV-413 identifiers and calibration fixture paths come ONLY from Phase B recon, not guesses in Quill drafts. Phase A changes only specs/DEV-348 artifacts; no ADR or global glossary change for this M task (the brief defines semantic vs weighted similarity locally), no new packages/projects/schema/index/API/web/local-execution changes. Further forced file edits discovered at drift require cited scope adjudication, not silent widening. Cost: cross-file contract phase first; schema/calibration failures stop dependent tasks. Basis recon:14-19,27-30,35-49,57-94; PRODUCT sections2/3/5; task-pipeline:43-45,65,77-81,88-109; Q1-7. Approve/replace this execution plan with citations. Full answer directly Keel; no writes. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q8 — Approved: Freeze the exact 9-file implementation scope and 5-stage dependency-ordered execution plan for brief.md, plan.md, and tasks.md. (1) Frozen File Scope and Charter Boundaries: Freeze production files to new src/LamuFlix.Core/Features/Recommendations/RecommendationCandidate.cs and altered src/LamuFlix.Core/Ports/IRecommendationCandidateSource.cs, src/LamuFlix.Core/Options/RecommendationOptions.cs, src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs, and src/LamuFlix.Infrastructure/Persistence/EfRecommendationCandidateSource.cs, plus forced test files tests/LamuFlix.IntegrationTests/EfRecommendationCandidateSourceTests.cs, tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs, tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerPropertyTests.cs, and tests/LamuFlix.UnitTests/Options/RecommendationOptionsTests.cs; keep DI registration, SimilarityScorer, SimilarityResult, Reason, and RecommendedMovie unchanged, with no ADR (size:M path), no new packages/projects/schema/indexes/API/web/LocalPlay touches, and any Phase B drift-induced file additions gated on a cited scope ruling (DEV-348:5,22; specs/PRODUCT.md:41-48; lamuflix-team-charter:18-24; task-pipeline:14-23,81; recon-DEV-348:14-19,27-30,44-49,57-94). (2) Atomic Compilable Build Phases and No Guessed Identifiers: Order tasks.md as (A) Wisp Phase B prerequisite/drift/schema/golden recon + read-only DEV-342 calibration receipt, Patron numeric-default ratification, and Gauge baseline (with Quill leaving concrete DEV-413 entity/column names and DEV-342 paths bound to Phase B recon rather than guessed in Phase A), (B) atomic compilable port/record/validated-option migration across Core, adapter, handler, and tests with RecommendationOptionsTests green, (C) pgvector <=> adapter implementation and Testcontainers integration suite green, and (D) handler Similar story suffix implementation and unit/property test suites green — ensuring every Anvil phase compiles, passes its checkpoint, and commits cleanly without half-migrated port states (task-pipeline:43-45,65,77-78,88-95; Q1-Q7). (3) Post-Build Refactor, Gates, Review, and Workspace Boundary: Phase (E) runs in workspace LamuFlix after Phase A handoff — Cog single /refactor pass (complexity <= 6), Gauge full Phase 3 gates including scripts/run-mutation.ps1 with since disabled, Phase 4 three-axis review and bounded remediation (<= 2 rounds, <= 2 fix commits/round), and Phase 5 rebase/PR to awaiting-merge with no auto-merge (lamuflix-team-charter:10-12,37,73-83; task-pipeline:28-31,96-137).
+
+### Rationale and implications
+
+Five production and four test files are frozen. Prerequisites and measured numeric default precede the compilable contract migration, vector query and story reason phases. Drift-induced additions require cited adjudication. No ADR/global glossary rewrite is authorized.
+
+---
+
+
+## Q9 — Loop discipline and gate expectations
+
+### Full question — Keel
+
+[from Keel] DEV-348 Q9/12: Shall we freeze these loop/closing terms? I recommend in-scope Critical, High and Medium findings block code-review/ship-review close; Low findings are nonblocking observations, with ticket AC failures and failed/unrunnable applicable gates always blocking regardless of labeling. Require all Sentry Risk, Ledger Standards, Compass Spec reports on M, at the pinned head/range; no missing-axis skip. Cap plan-challenge and code-review/remediation at two rounds each, at most two fix commits per remediation round; beyond cap route unresolved findings to user review on PR, do not claim clearance. Frozen scope is Q1-8: stored-vector server-bounded candidate retrieval with similarity, validated calibrated threshold, handler-only story reason, forced nine-file migration and tests, with no DEV-354 reranking, schema/index/new layer/dependency/API/web/runtime embedding. Scope statement ends: anything else is a follow-up issue, not a finding in this round. Apply charter follow-up policy: only Critical/High, broken behavior or user-requested items warrant ticket consideration through Patron/Rigger; otherwise noted, no ticket. Gate expectations are task-pipeline Phase3 step5, actual harness thresholds unchanged: Roslyn, complexity, InspectCode, mutation (since disabled), property tests, vulnerable packages, format, dotnet test and web gate; eligible exits0 pass, scope-empty exit2 SKIPPED (scope-empty), mutation exclusion exit2 N/A, harness opt-out SKIP, recorded property opt-out only if justified; never relabel these PASS, no opt-out for our domain invariants. Exit1/Could not run blocks. Phase A runs no build gates; this closeout grants neither provisional Gate1, merged Gate1, three-axis clearance nor merge permission. Cost: bounded review may end at an unresolved user-owned PR bar rather than endless repair. Basis task-pipeline:27-29,77,98-108,114-137; charter:24-28,37-38,73-83; PRODUCT sections2/5; Q1-8. Approve/replace these loop terms with cited ruling. Full answer directly Keel, no writes. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q9 — Approved: Freeze the closing bar, two-round/two-commit caps, frozen scope statement, follow-up policy, and Phase 3 step 5 gate expectations in full. (1) Closing Bar, Mandatory Three-Axis Review, and Round Caps: In-scope Critical, High, and Medium findings block review closure while Low findings are non-blocking observations, except ticket AC violations and failed/unrunnable applicable gates always block regardless of severity label; all three review axes (Sentry Risk, Ledger Standards, Compass Spec) must report on the pinned head/diff range with no missing-axis skip, and both plan-challenge and code-review remediation are capped at 2 rounds (at most 2 fix commits per remediation round), routing any third-round residuals to user review on the PR without claiming clearance (task-pipeline:20,28-29,77,114-120,133-134; lamuflix-team-charter:87). (2) Frozen Scope Statement and Follow-Up Policy: Freeze scope to Q1-Q8 (stored-vector server-bounded candidate retrieval with similarity, validated calibrated SimilarStoryThreshold, handler-only Similar story reason, and the 9-file migration/test set, excluding DEV-354 reranking, schema/index, new layer/dependency, API/web, and runtime embedding) ending with anything else is a follow-up issue, not a finding in this round; under lamuflix-team-charter:38, out-of-scope items warrant a YouTrack follow-up via Patron/Rigger only when Critical/High, broken behavior, or user-requested (folding into existing open tickets first), and all others record noted, no ticket in CONCLUSIONS.md (specs/PRODUCT.md:18,34-48; lamuflix-team-charter:16-28,38; task-pipeline:49,77; Q1-Q8). (3) Gate Expectations and Phase A Closeout Boundary: Phase B must pass all task-pipeline Phase 3 step 5 gates at unchanged harness.yml thresholds — Roslyn, complexity (<= 15 build / <= 6 refactor), InspectCode (no -All), scripts/run-mutation.ps1 (since disabled), scripts/run-property-tests.ps1 (mandatory exit 0, no opt-out because DEV-348 carries domain invariants), vulnerable packages, dotnet format --verify-no-changes, dotnet test, and scripts/run-web-gates.ps1 (exit 2 recorded verbatim as SKIPPED (scope-empty), never PASS, and exit 1 or Could not run always blocking) — while Phase A runs no build gates and grill closeout grants neither gate1: provisional, merged Gate 1, nor merge permission (AGENTS.md Non-negotiables and Verification commands; specs/PRODUCT.md:12,19; lamuflix-team-charter:37,73-87; task-pipeline:82-83,98-108).
+
+### Rationale and implications
+
+Closing bar and round caps are settled; exceeding a cap is not clearance. All three axes remain mandatory. Scope-empty/opt-out/excluded verdicts remain separate from pass; applicable failures cannot be waived. Phase A runs no gates and grants no Gate 1 state.
+
+---
+
+
+## Q10 — Atomic migration amendment
+
+### Full question — Keel
+
+[from Keel] DEV-348 Q10/12: Shall we amend Q8 phase ordering to avoid a fabricated intermediate cosine value? Q8 splits the candidate port migration (B) from the real vector query (C), but the old movie-only adapter cannot populate the new CosineSimilarity honestly before implementing that query. I recommend combine Q8 B+C into ONE atomic build phase: add record/port and calibrated option, implement the real two-read vector adapter, migrate existing handler to unwrap Movie while preserving weighted scoring, update all forced callers/substitutes and integration/options tests together, then compile and pass existing affected suites including real DB tests before committing. No zero/sentinel similarities, NotImplemented stubs, compatibility overload or interim fake result. Follow with a separate handler story-reason/unit-property phase, then refactor/gates/review. Final stage labels A prerequisites/calibration; B atomic contract+options+real adapter+forced migration+integration tests; C story-reason+unit/property regressions; D postbuild refactor/gates/review/ship. Scope and every final behavior stay identical to Q1-9. Cost: one larger cross-file phase, eliminating an invalid intermediate contract. Basis recon:14-17,47,58; Q2/Q6/Q8; task-pipeline:88-95 compilable phases. Please approve this plan-only amendment or provide an equally truthful build sequence; no owner escalation unless you find ticket scope changes. Full answer directly Keel, no writes; same roots. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q10 — Approved: Amend Q8 phase ordering to merge former stages B and C into one atomic build stage (Stage B) so EfRecommendationCandidateSource never emits a fake/sentinel CosineSimilarity or stub, with no ticket scope change or owner escalation. (1) Atomic Stage B (Contract + Validated Option + Real pgvector Adapter + Forced Migration): Combine RecommendationCandidate, IRecommendationCandidateSource signature update, RecommendationOptions.SimilarStoryThreshold (with Q4 calibrated default and [-1.0, 1.0] finite validation), the real two-read pgvector <=> EfRecommendationCandidateSource implementation, handler candidate.Movie unwrap, and forced updates to RecommendationOptionsTests, EfRecommendationCandidateSourceTests (real PostgreSQL+pgvector Testcontainers), and handler test substitutes into a single compilable, green Phase B build commit with zero sentinel/0.0 similarities, NotImplemented stubs, or compatibility overloads (DEV-348:22; specs/PRODUCT.md:18,30; task-pipeline:88-95; recon-DEV-348:14-18,28,30,47,58; Q2; Q5-Q8). (2) Revised Four-Stage Sequence (A through D): Freeze the updated stage sequence as (A) Wisp Phase B prerequisite/drift/schema/golden recon + read-only DEV-342 calibration receipt, Patron numeric-default ratification, and Gauge baseline; (B) atomic contract, validated calibrated option, real pgvector adapter, forced caller/substitute migration, and green options + Testcontainers integration suites; (C) handler Similar story suffix above SimilarStoryThreshold and green unit + FsCheck property test suites; and (D) Cog single /refactor pass, Gauge full Phase 3 gates, Phase 4 three-axis review/remediation, and Phase 5 rebase/PR to awaiting-merge in the Build workspace (task-pipeline:65,88-137; lamuflix-team-charter:10-12; Q1-Q9). (3) No Scope Change or Structural Escalation: This amendment is strictly a task-ordering refinement within the frozen 9-file set from Q8 to preserve honest intermediate commits; all delivered behaviors and acceptance criteria from Q1-Q9 remain identical, so no owner checkbox is triggered (DEV-348:22; specs/PRODUCT.md:34-48; lamuflix-team-charter:16-28; Q8-Q9).
+
+### Rationale and implications
+
+Q10 supersedes only the five-stage ordering in Q8. Final order is A prerequisites/calibration, B real adapter plus atomic contract migration, C story reason, D postbuild. No fabricated intermediate similarity is permitted; a legitimate computed cosine similarity of 0.0 remains valid.
+
+---
+
+
+## Q11 — Shared understanding and grill closeout
+
+### Full question — Keel
+
+[from Keel] DEV-348 Q11/12 — shared-understanding closeout: Do you confirm Q1-Q10, with Q10 superseding ONLY Q8 stage ordering, are sufficient to freeze brief.md now? I recommend close at 11 questions: unchanged ticket delivery, Epic7+DEV413+DEV342 PhaseB gates and later measured numeric-default ratification (not an owner checkbox), exact Q2 Core record/port, Q3 handler-only strict-threshold story suffix with weighted output unchanged, Q4 finite [-1,1] threshold, Q5 server eligibility/order/cap and unusable-vector rules, Q6 at most2 reads/cancellation/hydration, Q7 real DB/unit/property/options proof, Q8 nine files, Q9 closing bar/caps/gate verdicts, Q10 final A-D atomic sequence. Persist all full Q&A append-only in CONCLUSIONS.md, mirror Q3/Q4/Q5 assumed suffix/property-name/tie-break choices in ASSUMPTIONS.md, and put every decision and every answer in brief.md with cited provenance. No further vocabulary/global glossary/ADR changes; local brief defines cosine similarity vs weighted score. No unresolved structural escalation or ticket correction has been identified; PhaseB concrete schema names and golden calibration are explicit gated evidence, not Quill choices. This ask ends at brief and conclusions; no Spec Kit drafting, gate runs, PR or Gate1 grant. Cost: future missing semantic golden data or incompatible schema must return through recon/Patron, never be improvised by a writer or builder. Please confirm shared understanding and close or name any unresolved decision (one question remains within cap). Full cited ruling directly Keel, no artifact writes. Facts come from recon-DEV-348. If you need one that is not there, reply needs recon: <question> and stop there.
+
+### Full answer — Patron
+
+[from Patron] Ruling on DEV-348 Q11 — Confirmed and Closed: Q1 through Q10 (with Q10 superseding only Q8 stage ordering into the four-stage A-D sequence) are complete and sufficient to freeze specs/DEV-348/brief.md, specs/DEV-348/CONCLUSIONS.md, and specs/DEV-348/ASSUMPTIONS.md now at 11/12 questions with zero unresolved decisions. (1) Shared Understanding and Complete Decision Set: Ratify Q1-Q10 in full — unchanged DEV-348 delivery, Phase B gated on Epic 7 completion plus landed DEV-413 schema and landed DEV-342 golden set with Patron Phase B numeric-default ratification (not an owner checkbox), RecommendationCandidate(Movie Movie, double CosineSimilarity) and IRecommendationCandidateSource in-place migration (Q2), handler candidate.Movie unwrap with unchanged feature-weighted Score/ordering/query.Take and single Reason(Similar story) suffix iff CosineSimilarity > SimilarStoryThreshold (Q3), finite [-1.0, 1.0] SimilarStoryThreshold validation via AddLamuFlixOptions (Q4), server-side enriched/non-selected/usable-vector eligibility, distance-ascending then MovieId-ascending ordering, CandidatePoolSize cap before hydration, and empty return on missing/unusable selected row without throwing (Q5), at most 2 read-only async queries with normal cancellation/fault propagation (Q6), real PostgreSQL+pgvector Testcontainers plus unit/property/options verification (Q7), frozen 9-file scope (Q8), closing bar/round caps/Phase 3 step 5 gate rules (Q9), and atomic A-D stage sequence (Q10) (DEV-348:22; specs/PRODUCT.md:17-48; lamuflix-team-charter:16-38; task-pipeline:67-83; recon-DEV-348:1-100). (2) Artifact Recording and Assumed Taste Mirroring: Persist all Q1-Q11 rulings append-only in specs/DEV-348/CONCLUSIONS.md, log the three [assumed] choices (Q3 suffix placement of Similar story after metadata feature reasons, Q4 property name SimilarStoryThreshold, and Q5 MovieId ascending tie-breaker on equal cosine distance) in specs/DEV-348/ASSUMPTIONS.md, and write specs/DEV-348/brief.md with closing bar, frozen scope, round caps, every grill Q&A, local distinction between semantic CosineSimilarity in [-1.0, 1.0] and feature-weighted SimilarityResult.Score in [0.0, 1.0], and plan decisions with no ADR or global glossary edits (specs/PRODUCT.md:28-35; task-pipeline:27,71-77). (3) No Structural Escalation, No Ticket Edit, and Strict Phase Boundary: Zero owner checkboxes or YouTrack ticket corrections are needed; concrete DEV-413 identifiers and DEV-342 calibration values remain gated on Phase B recon and Patron ratification rather than improvised by Quill or Anvil, and this closeout closes only the Phase 2 step 1-2 grill (granting neither Spec Kit drafting in this step, gate1: provisional, merged Gate 1, nor merge permission) (specs/PRODUCT.md:19,36-39; lamuflix-team-charter:37-38; task-pipeline:77-83).
+
+### Rationale and implications
+
+Grill closed at 11/12. All Phase A decisions are settled; concrete prerequisite identifiers and measured numeric default remain mandatory Phase B evidence/checkpoints, not assumptions or owner checkboxes. No new ticket correction, ADR, global glossary edit, gate run or Spec Kit drafting is authorized by this closeout.
+
+---
+
+
