@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace LamuFlix.Tests.Common;
+namespace LamuFlix.UnitTests;
 
 // Thread-safe: code under test creates and changes timers on its own threads while the test thread
 // advances the clock. Timer callbacks run outside the lock so they may create or change timers.

@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Ports;
-using LamuFlix.Tests.Common;
 using Microsoft.Extensions.AI;
 
 namespace LamuFlix.UnitTests;
