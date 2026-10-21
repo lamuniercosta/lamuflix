@@ -28,7 +28,7 @@ public sealed class GenreWeightsCacheTests
     {
         // arrange
         var cache = new GenreWeightsCache();
-        var expected = Weights(1);
+        var expected = Weights("1");
         var loads = 0;
         var ct = TestContext.Current.CancellationToken;
 
@@ -55,7 +55,7 @@ public sealed class GenreWeightsCacheTests
     {
         // arrange
         var cache = new GenreWeightsCache();
-        var expected = Weights(2);
+        var expected = Weights("2");
         var entered = NewSignal();
         var release = NewSignal();
         var loads = 0;
@@ -87,8 +87,8 @@ public sealed class GenreWeightsCacheTests
     {
         // arrange
         var cache = new GenreWeightsCache();
-        var stale = Weights(1);
-        var fresh = Weights(3);
+        var stale = Weights("1");
+        var fresh = Weights("3");
         var entered = NewSignal();
         var release = NewSignal();
         var loads = 0;
@@ -136,7 +136,7 @@ public sealed class GenreWeightsCacheTests
         {
             entered.TrySetResult();
             await release.Task.WaitAsync(token);
-            return Weights(4);
+            return Weights("4");
         }
 
         var inFlight = cache.GetOrLoadAsync(Load, ct);
@@ -158,8 +158,8 @@ public sealed class GenreWeightsCacheTests
     {
         // arrange
         var cache = new GenreWeightsCache();
-        var stale = Weights(1);
-        var fresh = Weights(5);
+        var stale = Weights("1");
+        var fresh = Weights("5");
         var entered = NewSignal();
         var release = NewSignal();
         var loads = 0;
@@ -205,7 +205,7 @@ public sealed class GenreWeightsCacheTests
     {
         // arrange
         var cache = new GenreWeightsCache();
-        var expected = Weights(6);
+        var expected = Weights("6");
         var entered = NewSignal();
         var holderLoads = 0;
         var waiterLoads = 0;
@@ -250,7 +250,7 @@ public sealed class GenreWeightsCacheTests
         var cache = new GenreWeightsCache();
         var entered = NewSignal();
         var release = NewSignal();
-        var expected = Weights(7);
+        var expected = Weights("7");
         var loads = 0;
         var ct = TestContext.Current.CancellationToken;
         using var cancellation = new CancellationTokenSource();
@@ -260,7 +260,7 @@ public sealed class GenreWeightsCacheTests
             Interlocked.Increment(ref loads);
             entered.TrySetResult();
             await release.Task;
-            return Weights(1);
+            return Weights("1");
         }
 
         var cancelled = cache.GetOrLoadAsync(Load, cancellation.Token);
@@ -283,7 +283,7 @@ public sealed class GenreWeightsCacheTests
     {
         // arrange
         var cache = new GenreWeightsCache();
-        var expected = Weights(8);
+        var expected = Weights("8");
         var ct = TestContext.Current.CancellationToken;
 
         // act
@@ -303,7 +303,7 @@ public sealed class GenreWeightsCacheTests
     {
         // arrange
         var cache = new GenreWeightsCache();
-        var expected = Weights(9);
+        var expected = Weights("9");
         var ct = TestContext.Current.CancellationToken;
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
@@ -335,7 +335,7 @@ public sealed class GenreWeightsCacheTests
                 _ =>
                 {
                     invoked = true;
-                    return Task.FromResult(Weights(10));
+                    return Task.FromResult(Weights("10"));
                 },
                 cancellation.Token));
 
@@ -348,7 +348,7 @@ public sealed class GenreWeightsCacheTests
     {
         // arrange
         var cache = new GenreWeightsCache();
-        var expected = Weights(11);
+        var expected = Weights("11");
         using var cancellation = new CancellationTokenSource();
 
         // act
@@ -369,8 +369,8 @@ public sealed class GenreWeightsCacheTests
     {
         // arrange
         var cache = new GenreWeightsCache();
-        var first = Weights(1);
-        var second = Weights(2);
+        var first = Weights("1");
+        var second = Weights("2");
         var ct = TestContext.Current.CancellationToken;
 
         // act
@@ -380,15 +380,15 @@ public sealed class GenreWeightsCacheTests
 
         // assert
         returned.ShouldBeSameAs(first);
-        returned.GetWeight(1).ShouldBeGreaterThan(1.0);
+        returned.GetWeight("1").ShouldBeGreaterThan(1.0);
         rebuilt.ShouldBeSameAs(second);
-        rebuilt.GetWeight(2).ShouldBeGreaterThan(1.0);
+        rebuilt.GetWeight("2").ShouldBeGreaterThan(1.0);
         ReferenceEquals(returned, rebuilt).ShouldBeFalse();
     }
 
-    private static GenreWeights Weights(int genreId) =>
+    private static GenreWeights Weights(string genre) =>
         GenreWeights.Calculate(
-            new GenreCounts(10, new Dictionary<int, long> { [genreId] = 1 }));
+            new GenreCounts(10, new Dictionary<string, long> { [genre] = 1 }));
 
     private static TaskCompletionSource NewSignal() =>
         new(TaskCreationOptions.RunContinuationsAsynchronously);

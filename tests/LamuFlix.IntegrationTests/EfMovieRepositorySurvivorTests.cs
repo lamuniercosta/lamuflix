@@ -61,10 +61,10 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         await fixture.ResetAsync(ct);
         await using var db = fixture.CreateMigratedContext();
         var cache = new GenreWeightsCache();
-        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<int, long> { [7] = 1 }));
+        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<string, long> { ["7"] = 1 }));
         await cache.GetOrLoadAsync(_ => Task.FromResult(warm), ct);
         var repository = Repository(db, cache);
-        var fresh = GenreWeights.Calculate(new GenreCounts(2, new Dictionary<int, long> { [7] = 1 }));
+        var fresh = GenreWeights.Calculate(new GenreCounts(2, new Dictionary<string, long> { ["7"] = 1 }));
         var reloaded = false;
 
         // act
@@ -115,9 +115,9 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         var cache = new GenreWeightsCache();
         var repository = Repository(db, cache);
         var id = await AddMovieAsync(repository, "Doomed", "unit-cache-doomed", ct);
-        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<int, long> { [7] = 1 }));
+        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<string, long> { ["7"] = 1 }));
         await cache.GetOrLoadAsync(_ => Task.FromResult(warm), ct);
-        var fresh = GenreWeights.Calculate(new GenreCounts(0, new Dictionary<int, long>()));
+        var fresh = GenreWeights.Calculate(new GenreCounts(0, new Dictionary<string, long>()));
         var reloaded = false;
 
         // act
@@ -145,14 +145,14 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         await using var db = fixture.CreateMigratedContext();
         var cache = new GenreWeightsCache();
         var repository = Repository(db, cache);
-        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<int, long> { [7] = 1 }));
+        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<string, long> { ["7"] = 1 }));
         await cache.GetOrLoadAsync(_ => Task.FromResult(warm), ct);
         var absent = await repository.NextIdentityAsync(ct);
 
         // act
         var deleted = await repository.TryDeleteAsync(absent, ct);
         var after = await cache.GetOrLoadAsync(
-            _ => Task.FromResult(GenreWeights.Calculate(new GenreCounts(9, new Dictionary<int, long>()))),
+            _ => Task.FromResult(GenreWeights.Calculate(new GenreCounts(9, new Dictionary<string, long>()))),
             ct);
 
         // assert

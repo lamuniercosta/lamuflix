@@ -195,8 +195,10 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
         // assert
         counts.TotalMovies.ShouldBe(0);
         counts.MoviesWithGenre.Count.ShouldBe(2);
-        counts.MoviesWithGenre[drama.Id].ShouldBe(0);
-        counts.MoviesWithGenre[comedy.Id].ShouldBe(0);
+        counts.MoviesWithGenre[drama.Name].ShouldBe(0);
+        counts.MoviesWithGenre[comedy.Name].ShouldBe(0);
+        counts.MoviesWithGenre["drama"].ShouldBe(0);
+        counts.MoviesWithGenre["COMEDY"].ShouldBe(0);
     }
 
     [Fact]
@@ -217,7 +219,7 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
 
         // assert
         counts.TotalMovies.ShouldBe(2);
-        counts.MoviesWithGenre[drama.Id].ShouldBe(0);
+        counts.MoviesWithGenre[drama.Name].ShouldBe(0);
     }
 
     [Fact]
@@ -249,9 +251,10 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
 
         // assert
         counts.TotalMovies.ShouldBe(4);
-        counts.MoviesWithGenre[drama.Id].ShouldBe(2);
-        counts.MoviesWithGenre[comedy.Id].ShouldBe(1);
-        counts.MoviesWithGenre[unused.Id].ShouldBe(0);
+        counts.MoviesWithGenre[drama.Name].ShouldBe(2);
+        counts.MoviesWithGenre[comedy.Name].ShouldBe(1);
+        counts.MoviesWithGenre[unused.Name].ShouldBe(0);
+        counts.MoviesWithGenre["DRAMA"].ShouldBe(2);
         counts.MoviesWithGenre.Values.Sum().ShouldNotBe(counts.TotalMovies);
     }
 
@@ -288,8 +291,8 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
         interceptor.Commands[0].ShouldContain("COUNT");
         interceptor.Commands[0].ShouldContain("GROUP BY");
         counts.TotalMovies.ShouldBe(2);
-        counts.MoviesWithGenre[drama.Id].ShouldBe(1);
-        counts.MoviesWithGenre[comedy.Id].ShouldBe(1);
+        counts.MoviesWithGenre[drama.Name].ShouldBe(1);
+        counts.MoviesWithGenre[comedy.Name].ShouldBe(1);
     }
 
     [Fact]

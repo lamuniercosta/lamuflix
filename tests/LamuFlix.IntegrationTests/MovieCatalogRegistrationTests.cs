@@ -142,14 +142,14 @@ public sealed class MovieCatalogRegistrationTests
         var cache = provider.GetRequiredService<GenreWeightsCache>();
         var calculator = scope.ServiceProvider.GetRequiredService<GenreWeightsCalculator>();
         var repository = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
-        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<int, long> { [7] = 1 }));
+        var warm = GenreWeights.Calculate(new GenreCounts(1, new Dictionary<string, long> { ["7"] = 1 }));
         await cache.GetOrLoadAsync(_ => Task.FromResult(warm), ct);
 
         // act
         var viaCalculator = await calculator.GetAsync(ct);
         await repository.SaveChangesAsync(ct);
         var afterRepositorySave = await cache.GetOrLoadAsync(
-            _ => Task.FromResult(GenreWeights.Calculate(new GenreCounts(2, new Dictionary<int, long> { [7] = 1 }))),
+            _ => Task.FromResult(GenreWeights.Calculate(new GenreCounts(2, new Dictionary<string, long> { ["7"] = 1 }))),
             ct);
 
         // assert

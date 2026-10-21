@@ -416,9 +416,10 @@ public sealed class EfMovieCatalogSurvivorTests(PostgresFixture fixture)
 
         // assert
         counts.TotalMovies.ShouldBe(3);
-        counts.MoviesWithGenre[drama.Id].ShouldBe(2);
-        counts.MoviesWithGenre[comedy.Id].ShouldBe(1);
-        counts.MoviesWithGenre[unused.Id].ShouldBe(0);
+        counts.MoviesWithGenre[drama.Name].ShouldBe(2);
+        counts.MoviesWithGenre[comedy.Name].ShouldBe(1);
+        counts.MoviesWithGenre[unused.Name].ShouldBe(0);
+        counts.MoviesWithGenre["drama"].ShouldBe(2);
         counts.MoviesWithGenre.Count.ShouldBe(3);
     }
 
