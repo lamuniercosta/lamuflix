@@ -16,6 +16,7 @@ internal static class ApiEndpoints
             .MapWatchlistEndpoints()
             .MapPlaybackEndpoints()
             .MapFacetEndpoints()
-            .MapFeedbackEndpoints();
+            .MapFeedbackEndpoints()
+            .MapRecommendationEndpoints();
     }
 }

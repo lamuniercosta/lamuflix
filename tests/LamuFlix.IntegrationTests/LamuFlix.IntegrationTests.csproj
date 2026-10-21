@@ -18,6 +18,8 @@
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="FsCheck" />
+    <PackageReference Include="AutoFixture" />
+    <PackageReference Include="Faker.Net" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="WireMock.Net" />
