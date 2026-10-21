@@ -97,15 +97,15 @@ Authority: CONCLUSIONS.md Phase B Intake Rulings, commit `6490fb794bb6bf702078a5
 
 ### Tests for User Story 3
 
-- [ ] T009 [US3] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs` for Reason emission: eligibility requires `w > 0` and `s > 0`; fixed order Director → Writers → Cast → Genres → YearProximity → RuntimeProximity → RatingBoost; case-variant shared-token spelling identical under swap; null/blank/control-character sanitization with partial empty tokens omitted; generic fallbacks `Shared director` / `Shared writers` / `Shared cast` / `Shared genres`; labels per `ASSUMPTIONS.md`; Q1 `Identical feature profile`; adversarial plain text without HTML/Markdown; zero internal identifiers; Reasons still emitted when scaled underflow zeros the final score while raw contribution was positive. Same file (not [P]).
+- [X] T009 [US3] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs` for Reason emission: eligibility requires `w > 0` and `s > 0`; fixed order Director → Writers → Cast → Genres → YearProximity → RuntimeProximity → RatingBoost; case-variant shared-token spelling identical under swap; null/blank/control-character sanitization with partial empty tokens omitted; generic fallbacks `Shared director` / `Shared writers` / `Shared cast` / `Shared genres`; labels per `ASSUMPTIONS.md`; Q1 `Identical feature profile`; adversarial plain text without HTML/Markdown; zero internal identifiers; Reasons still emitted when scaled underflow zeros the final score while raw contribution was positive. Same file (not [P]).
 
-- [ ] T010 [P] [US3] Optionally add `tests/LamuFlix.UnitTests/Features/Recommendations/ReasonTests.cs` only if focused Reason construction/sanitization coverage is clearer as a separate file; otherwise keep Reason proofs in SimilarityScorerTests. Skip creating this file when T009 already covers the matrix.
+- [X] T010 [P] [US3] Optionally add `tests/LamuFlix.UnitTests/Features/Recommendations/ReasonTests.cs` only if focused Reason construction/sanitization coverage is clearer as a separate file; otherwise keep Reason proofs in SimilarityScorerTests. Skip creating this file when T009 already covers the matrix.
 
-- [ ] T011 [US3] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerPropertyTests.cs` with properties for deterministic swap-identical Reasons and one-way `Score > 0 => Reasons nonempty` (Q9; do not assert the superseded Q7 iff). Same tagging/Replay rules as T007. Same file as T007 (not [P] vs T007; may follow T007 sequentially).
+- [X] T011 [US3] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerPropertyTests.cs` with properties for deterministic swap-identical Reasons and one-way `Score > 0 => Reasons nonempty` (Q9; do not assert the superseded Q7 iff). Same tagging/Replay rules as T007. Same file as T007 (not [P] vs T007; may follow T007 sequentially).
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] Extend `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs` to emit Reasons per FR-012–FR-013 and `ASSUMPTIONS.md`. Sanitize display only; never alter scoring set membership. Plain text only.
+- [X] T012 [US3] Extend `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs` to emit Reasons per FR-012–FR-013 and `ASSUMPTIONS.md`. Sanitize display only; never alter scoring set membership. Plain text only.
 
 **Checkpoint**: US3 unit and property tests pass. Full SimilarityScorer suite green.
 
