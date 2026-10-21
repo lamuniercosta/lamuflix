@@ -6,8 +6,11 @@ using LamuFlix.Core.Library;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
+using Shouldly;
+using Xunit;
+using SortDirection = LamuFlix.Core.Library.SortDirection;
 
-namespace LamuFlix.UnitTests.Persistence;
+namespace LamuFlix.IntegrationTests;
 
 [Collection(nameof(CatalogMutationCollection))]
 public sealed class EfMovieCatalogSurvivorTests(PostgresFixture fixture)

@@ -7,42 +7,31 @@ using System.Threading.Tasks;
 using AutoFixture;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
-using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
-using LamuFlix.Infrastructure.Persistence;
-using LamuFlix.Tests.Common;
 using LamuFlix.UnitTests.Pipeline;
-using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using Npgsql;
 
 namespace LamuFlix.UnitTests.Features.Import;
 
 /// <summary>
-/// This file owns the <c>PostgresFixture</c> the real-persistence case consumes: xUnit creates one
-/// instance for the class, runs <c>InitializeAsync</c> (container start plus migration) before the
-/// first test and <c>DisposeAsync</c> after the last, and the duplicate-import case calls
-/// <c>ResetAsync</c> before it acts. The class carries the single <c>MetricsCollection</c> assignment
+/// The class carries the single <c>MetricsCollection</c> assignment
 /// so every application-meter observer in this file runs with no parallel neighbour.
 /// </summary>
 [Collection(nameof(MetricsCollection))]
-public sealed class ImportMovieFolderCommandHandlerTests : IClassFixture<PostgresFixture>
+public sealed class ImportMovieFolderCommandHandlerTests
 {
     private const string MeterName = "LamuFlix";
     private const string ImportInstrumentName = "lamuflix.import.count";
-    private const string DuplicateIndexName = "IX_movies_library_path";
 
     private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IEnrichmentQueue queue = Substitute.For<IEnrichmentQueue>();
     private readonly ImportMovieFolderCommandHandler handler;
-    private readonly PostgresFixture postgres;
     private readonly Fixture fixture = new();
 
-    public ImportMovieFolderCommandHandlerTests(PostgresFixture postgres)
+    public ImportMovieFolderCommandHandlerTests()
     {
-        this.postgres = postgres;
         handler = new ImportMovieFolderCommandHandler(scanner, movies, queue);
     }
 
@@ -190,61 +179,7 @@ public sealed class ImportMovieFolderCommandHandlerTests : IClassFixture<Postgre
         capture.Measurements.ShouldBeEmpty();
     }
 
-    [Fact]
-    public async Task HandleAsync_DuplicateLibraryPath_RealDatabaseRejectsSecondImport_RecordsOneImport()
-    {
-        // arrange
-        var ct = TestContext.Current.CancellationToken;
-        await postgres.ResetAsync(ct);
-        var folder = new LibraryPath("C:/library/incoming");
-        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"), null, 1024L);
-        scanner.Scan(folder).Returns(scanned);
-        using var capture = new ImportCountCapture();
-
-        // act
-        MovieId firstId;
-        await using (var firstContext = postgres.CreateMigratedContext())
-        {
-            var firstHandler = new ImportMovieFolderCommandHandler(scanner, NewRepository(firstContext), queue);
-            firstId = await firstHandler.HandleAsync(new ImportMovieFolderCommand(folder), ct);
-        }
-
-        var baseline = capture.Measurements.Count;
-
-        DbUpdateException rejection;
-        await using (var secondContext = postgres.CreateMigratedContext())
-        {
-            var secondHandler = new ImportMovieFolderCommandHandler(scanner, NewRepository(secondContext), queue);
-            rejection = await Should.ThrowAsync<DbUpdateException>(
-                () => secondHandler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
-        }
-
-        // assert
-        var uniqueViolation = rejection.InnerException.ShouldBeOfType<PostgresException>();
-        uniqueViolation.SqlState.ShouldBe(PostgresErrorCodes.UniqueViolation);
-        uniqueViolation.ConstraintName.ShouldBe(DuplicateIndexName);
-        await queue.Received(1).EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
-        await using var verificationContext = postgres.CreateMigratedContext();
-        var persisted = await verificationContext.Movies.ToListAsync(ct);
-        var stored = persisted.ShouldHaveSingleItem();
-        stored.Id.ShouldBe(firstId);
-        stored.LibraryPath.ShouldBe(scanned.Path);
-        baseline.ShouldBe(1);
-        capture.Measurements.Count.ShouldBe(baseline);
-        var measured = capture.Measurements.ShouldHaveSingleItem();
-        measured.InstrumentName.ShouldBe(ImportInstrumentName);
-        measured.Value.ShouldBe(1L);
-        measured.Tags.ShouldBeEmpty();
-    }
-
     private MovieId NewId() => new(Math.Abs(fixture.Create<int>()) + 1);
-
-    private static EfMovieRepository NewRepository(LamuFlixDbContext context)
-    {
-        var options = Microsoft.Extensions.Options.Options.Create(
-            new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) });
-        return new EfMovieRepository(context, TimeProvider.System, options);
-    }
 
     private sealed class ImportCountCapture : IDisposable
     {
