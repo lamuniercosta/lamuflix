@@ -60,6 +60,10 @@ export interface paths {
     /** Remove the not-interested mark from a movie. */
     delete: operations["UnmarkNotInterested"];
   };
+  "/api/movies/{id}/recommendations": {
+    /** Get recommendations for a library movie */
+    get: operations["GetRecommendations"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -143,6 +147,25 @@ export interface components {
       status?: null | number | string;
       detail?: null | string;
       instance?: null | string;
+    };
+    RecommendedMovieDto: {
+      /** Format: int32 */
+      id: number | string;
+      title: string;
+      posterUrl: null | string;
+      /** Format: int32 */
+      releaseYear: null | number | string;
+      /** Format: int32 */
+      runtime: null | number | string;
+      /** Format: double */
+      imdbRating: null | number | string;
+      enrichmentStatus: components["schemas"]["EnrichmentStatus"];
+      isInWatchlist: boolean;
+      isWatched: boolean;
+      isNotInterested: boolean;
+      /** Format: double */
+      score: number | string;
+      reasons: string[];
     };
   };
   responses: never;
@@ -630,6 +653,38 @@ export interface operations {
       };
       /** @description Unprocessable Entity */
       422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Get recommendations for a library movie */
+  GetRecommendations: {
+    parameters: {
+      query?: {
+        /** @description The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize. */
+        take?: number;
+      };
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RecommendedMovieDto"][];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };

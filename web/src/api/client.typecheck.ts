@@ -16,6 +16,9 @@ export async function positiveCalls() {
     },
   });
   await client.GET('/api/movies/{id}', { params: { path: { id: 1 } } });
+  await client.GET('/api/movies/{id}/recommendations', {
+    params: { path: { id: 1 }, query: { take: 10 } },
+  });
   await client.POST('/api/movies/import', { body: { folderPath: '/media' } });
   await client.POST('/api/movies/{id}/enrichment', { params: { path: { id: '1' } } });
   await client.POST('/api/movies/{id}/watchlist', { params: { path: { id: 1 } } });

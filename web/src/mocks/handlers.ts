@@ -26,4 +26,5 @@ export const handlers = [
   http.delete('*/api/movies/:id/watched', () => new HttpResponse(null, { status: 204 })),
   http.post('*/api/movies/:id/not-interested', () => new HttpResponse(null, { status: 204 })),
   http.delete('*/api/movies/:id/not-interested', () => new HttpResponse(null, { status: 204 })),
+  http.get('*/api/movies/:id/recommendations', () => HttpResponse.json(success.GetRecommendations, { status: 200 })),
 ];

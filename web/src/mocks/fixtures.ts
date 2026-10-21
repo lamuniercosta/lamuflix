@@ -66,6 +66,8 @@ const movieDetailsNullMetadataData = {
   metadata: null,
 } satisfies Schemas['MovieDetailsResponse'];
 
+const recommendationsData: Schemas['RecommendedMovieDto'][] = [];
+
 const genresData = [
   { id: 1, name: 'Action', movieCount: 10 },
   { id: 2, name: 'Sci-Fi', movieCount: 5 },
@@ -79,12 +81,14 @@ const peopleData = [
 export const browseMovies = Object.freeze(browseMoviesData);
 export const movieDetails = Object.freeze(movieDetailsData);
 export const movieDetailsNullMetadata = Object.freeze(movieDetailsNullMetadataData);
+export const recommendations = Object.freeze(recommendationsData);
 export const genres = Object.freeze(genresData);
 export const people = Object.freeze(peopleData);
 
 export const success = Object.freeze({
   BrowseMovies: browseMovies,
   GetMovieDetails: movieDetails,
+  GetRecommendations: recommendations,
   GetGenres: genres,
   GetPeople: people,
 });

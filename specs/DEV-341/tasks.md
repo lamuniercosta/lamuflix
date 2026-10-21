@@ -80,19 +80,19 @@
 
 ### Implementation
 
-- [ ] T010 [US3] Add `src/LamuFlix.Api/RecommendationsOperationTransformer.cs` documenting this operation only: optional integer take default 10 / minimum 1 / exact fixed description prose `The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.`; 200 DTO array; 400/404 ProblemDetails. No numeric maximum and no runtime interpolation; the transformer receives no runtime `RecommendationOptions` for this description; endpoint validation still reads the configured bound. Leave other operations unchanged.
+- [X] T010 [US3] Add `src/LamuFlix.Api/RecommendationsOperationTransformer.cs` documenting this operation only: optional integer take default 10 / minimum 1 / exact fixed description prose `The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.`; 200 DTO array; 400/404 ProblemDetails. No numeric maximum and no runtime interpolation; the transformer receives no runtime `RecommendationOptions` for this description; endpoint validation still reads the configured bound. Leave other operations unchanged.
 
-- [ ] T011 [US3] Register the transformer in existing `AddOpenApi` wiring in `src/LamuFlix.Api/Program.cs`.
+- [X] T011 [US3] Register the transformer in existing `AddOpenApi` wiring in `src/LamuFlix.Api/Program.cs`.
 
-- [ ] T012 [US3] Update `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` assertions for GetRecommendations operation, optional integer take metadata including the exact fixed description prose `The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.` (no numeric maximum / runtime interpolation), 200 array of exact DTOs, string reasons, EnrichmentStatus string enum, 400/404 ProblemDetails and media types, deterministic generation/drift, no health leak, and production documentation 404. Align expected operation/schema lists to the actual post-drift set. This task closes the deferred OpenAPI operation/schema expectation failures.
+- [X] T012 [US3] Update `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` assertions for GetRecommendations operation, optional integer take metadata including the exact fixed description prose `The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.` (no numeric maximum / runtime interpolation), 200 array of exact DTOs, string reasons, EnrichmentStatus string enum, 400/404 ProblemDetails and media types, deterministic generation/drift, no health leak, and production documentation 404. Align expected operation/schema lists to the actual post-drift set. This task closes the deferred OpenAPI operation/schema expectation failures.
 
-- [ ] T013 [US3] Regenerate `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` together via opt-in `LAMUFLIX_REGENERATE_OPENAPI=true`. Then run `npm run generate:api` in `web/` to regenerate `web/src/api/types.ts` and `web/src/mocks/handlers.ts`. Never hand-edit generated files or rewrite the generator. This task closes the deferred committed baseline/snapshot drift failures.
+- [X] T013 [US3] Regenerate `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` together via opt-in `LAMUFLIX_REGENERATE_OPENAPI=true`. Then run `npm run generate:api` in `web/` to regenerate `web/src/api/types.ts` and `web/src/mocks/handlers.ts`. Never hand-edit generated files or rewrite the generator. This task closes the deferred committed baseline/snapshot drift failures.
 
-- [ ] T014 [P] [US3] Add typed `GetRecommendations: []` to `web/src/mocks/fixtures.ts`.
+- [X] T014 [P] [US3] Add typed `GetRecommendations: []` to `web/src/mocks/fixtures.ts`.
 
-- [ ] T015 [P] [US3] Add typed endpoint exercise for the new route in `web/src/api/client.typecheck.ts`.
+- [X] T015 [P] [US3] Add typed endpoint exercise for the new route in `web/src/api/client.typecheck.ts`.
 
-- [ ] T016 [US3] Add `web/src/mocks/recommendations.test.ts`: import generated handlers under existing Vitest/MSW conventions confirmed in T001; request the new route; assert 200 empty array using the Q6 typed fixture. Stop for a cited decision if T001 found a placement/convention mismatch.
+- [X] T016 [US3] Add `web/src/mocks/recommendations.test.ts`: import generated handlers under existing Vitest/MSW conventions confirmed in T001; request the new route; assert 200 empty array using the Q6 typed fixture. Stop for a cited decision if T001 found a placement/convention mismatch.
 
 **Checkpoint**: OpenAPI drift green; generate:api/check:api green; MSW smoke green. No deferred inventory/drift failures remain after T012/T013.
 
