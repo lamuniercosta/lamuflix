@@ -68,6 +68,51 @@ const movieDetailsNullMetadataData = {
 
 const recommendationsData: Schemas['RecommendedMovieDto'][] = [];
 
+const relatedMoviesData = [
+  {
+    id: 2,
+    title: 'Arrival',
+    posterUrl: '/posters/arrival.jpg',
+    releaseYear: 2016,
+    runtime: 116,
+    imdbRating: 7.9,
+    enrichmentStatus: 'Enriched',
+    isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
+    score: 0.82,
+    reasons: ['Same director', 'Shares the genre Drama'],
+  },
+  {
+    id: 3,
+    title: 'Blade Runner 2049',
+    posterUrl: '/posters/blade-runner-2049.jpg',
+    releaseYear: 2017,
+    runtime: 164,
+    imdbRating: 8.0,
+    enrichmentStatus: 'Enriched',
+    isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
+    score: 0.77,
+    reasons: [],
+  },
+  {
+    id: 4,
+    title: 'Prisoners',
+    posterUrl: null,
+    releaseYear: null,
+    runtime: 153,
+    imdbRating: 8.1,
+    enrichmentStatus: 'Enriched',
+    isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
+    score: 0.64,
+    reasons: ['Same director'],
+  },
+] satisfies Schemas['RecommendedMovieDto'][];
+
 const genresData = [
   { id: 1, name: 'Action', movieCount: 10 },
   { id: 2, name: 'Sci-Fi', movieCount: 5 },
@@ -82,6 +127,7 @@ export const browseMovies = Object.freeze(browseMoviesData);
 export const movieDetails = Object.freeze(movieDetailsData);
 export const movieDetailsNullMetadata = Object.freeze(movieDetailsNullMetadataData);
 export const recommendations = Object.freeze(recommendationsData);
+export const relatedMovies = Object.freeze(relatedMoviesData);
 export const genres = Object.freeze(genresData);
 export const people = Object.freeze(peopleData);
 

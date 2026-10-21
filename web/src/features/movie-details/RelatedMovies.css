@@ -1,0 +1,93 @@
+.related-movies {
+  gap: var(--lamu-space-3);
+}
+
+.related-movies-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lamu-space-3);
+}
+
+.related-movies-error p {
+  margin: 0;
+}
+
+.related-movie-card {
+  width: 10.5rem;
+  min-width: 0;
+}
+
+.related-movie-link {
+  display: grid;
+  gap: 0.25rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.related-movie-poster {
+  display: block;
+  aspect-ratio: 2 / 3;
+  margin-bottom: var(--lamu-space-2);
+  overflow: hidden;
+  border-radius: var(--lamu-radius-media);
+  background: var(--color-reel);
+}
+
+.related-movie-poster img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.related-movie-placeholder {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  border: 1px dashed var(--color-boundary);
+  border-radius: inherit;
+  color: var(--color-dim);
+}
+
+.related-movie-title {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.related-movie-link:hover .related-movie-title,
+.related-movie-link:focus-visible .related-movie-title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.related-movie-year {
+  color: var(--color-dim);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.related-movie-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lamu-space-1);
+  margin-top: var(--lamu-space-1);
+}
+
+.related-movie-reason {
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--lamu-radius-control);
+  background: color-mix(in srgb, var(--color-boundary) 16%, transparent);
+  color: var(--color-dim);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 47.9375rem) {
+  .related-movie-card {
+    width: 8.5rem;
+  }
+}
