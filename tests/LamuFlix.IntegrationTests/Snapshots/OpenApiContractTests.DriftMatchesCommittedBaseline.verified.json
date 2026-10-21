@@ -970,6 +970,72 @@
           }
         }
       }
+    },
+    "/api/movies/{id}/recommendations": {
+      "get": {
+        "tags": [
+          "RecommendationEndpoints"
+        ],
+        "summary": "Get recommendations for a library movie",
+        "operationId": "GetRecommendations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "description": "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecommendedMovieDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1337,6 +1403,95 @@
             ]
           }
         }
+      },
+      "RecommendedMovieDto": {
+        "required": [
+          "id",
+          "title",
+          "posterUrl",
+          "releaseYear",
+          "runtime",
+          "imdbRating",
+          "enrichmentStatus",
+          "isInWatchlist",
+          "isWatched",
+          "isNotInterested",
+          "score",
+          "reasons"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releaseYear": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "runtime": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "imdbRating": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "enrichmentStatus": {
+            "$ref": "#/components/schemas/EnrichmentStatus"
+          },
+          "isInWatchlist": {
+            "type": "boolean"
+          },
+          "isWatched": {
+            "type": "boolean"
+          },
+          "isNotInterested": {
+            "type": "boolean"
+          },
+          "score": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       }
     }
   },
@@ -1361,6 +1516,9 @@
     },
     {
       "name": "FeedbackEndpoints"
+    },
+    {
+      "name": "RecommendationEndpoints"
     }
   ]
 }

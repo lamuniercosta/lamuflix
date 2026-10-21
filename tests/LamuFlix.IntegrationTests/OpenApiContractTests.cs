@@ -42,6 +42,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     [
         "GET /api/movies",
         "GET /api/movies/{id}",
+        "GET /api/movies/{id}/recommendations",
         "DELETE /api/movies/{id}",
         "POST /api/movies/import",
         "POST /api/movies/{id}/enrichment",
@@ -61,6 +62,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     [
         "BrowseMoviesResponse",
         "MovieDetailsResponse",
+        "RecommendedMovieDto",
         "GenreDto",
         "PersonDto",
     ];
@@ -71,7 +73,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public static TheoryData<string> DocumentationRoutes => new() { DocumentRoute, ScalarRoute };
 
     [Fact]
-    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheFifteenBusinessOperations()
+    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheSixteenBusinessOperations()
     {
         // arrange
         await using var development = CreateDevelopmentHost();
@@ -185,6 +187,84 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         parameters["pageSize"].GetProperty("schema").GetProperty("type").GetString().ShouldBe("integer");
         parameters["pageSize"].GetProperty("schema").GetProperty("minimum").GetInt32().ShouldBe(1);
         parameters["pageSize"].GetProperty("schema").GetProperty("maximum").GetInt32().ShouldBe(100);
+    }
+
+    [Fact]
+    public async Task Document_GetRecommendations_DocumentsOptionalTakeBoundsDtoArrayAndProblemResponses()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        var operation = parsed.RootElement.GetProperty("paths")
+            .GetProperty("/api/movies/{id}/recommendations")
+            .GetProperty("get");
+        operation.GetProperty("operationId").GetString().ShouldBe("GetRecommendations");
+        operation.GetProperty("summary").GetString().ShouldBe("Get recommendations for a library movie");
+
+        var parameters = operation.GetProperty("parameters").EnumerateArray()
+            .ToDictionary(
+                parameter => parameter.GetProperty("name").GetString()
+                    ?? throw new InvalidOperationException("OpenAPI parameter is missing a name."),
+                StringComparer.Ordinal);
+        parameters.Keys.ShouldContain("id");
+        var take = parameters["take"];
+        OptionalQuery(take);
+        take.GetProperty("description").GetString().ShouldBe(
+            "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.");
+        var takeSchema = take.GetProperty("schema");
+        takeSchema.GetProperty("type").GetString().ShouldBe("integer");
+        takeSchema.GetProperty("default").GetInt32().ShouldBe(10);
+        takeSchema.GetProperty("minimum").GetInt32().ShouldBe(1);
+        takeSchema.TryGetProperty("maximum", out _).ShouldBeFalse();
+
+        var responses = operation.GetProperty("responses");
+        var successSchema = responses.GetProperty("200").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        successSchema.GetProperty("type").GetString().ShouldBe("array");
+        successSchema.GetProperty("items").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/RecommendedMovieDto");
+        foreach (var status in new[] { "400", "404" })
+        {
+            var problemSchema = responses.GetProperty(status).GetProperty("content")
+                .GetProperty("application/problem+json").GetProperty("schema");
+            problemSchema.GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
+        }
+
+        var dto = parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("RecommendedMovieDto");
+        var expectedPropertyNames = new[]
+        {
+            "id",
+            "title",
+            "posterUrl",
+            "releaseYear",
+            "runtime",
+            "imdbRating",
+            "enrichmentStatus",
+            "isInWatchlist",
+            "isWatched",
+            "isNotInterested",
+            "score",
+            "reasons",
+        };
+        dto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(expectedPropertyNames, ignoreOrder: true);
+        var properties = dto.GetProperty("properties");
+        properties.EnumerateObject().Select(property => property.Name)
+            .ShouldBe(expectedPropertyNames, ignoreOrder: true);
+        properties.GetProperty("reasons").GetProperty("type").GetString().ShouldBe("array");
+        properties.GetProperty("reasons").GetProperty("items").GetProperty("type").GetString().ShouldBe("string");
+        properties.GetProperty("enrichmentStatus").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/EnrichmentStatus");
+        properties.GetProperty("score").GetProperty("type").EnumerateArray().Select(item => item.GetString())
+            .ShouldContain("number");
     }
 
     [Fact]
@@ -414,5 +494,14 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     {
         parameter.GetProperty("in").GetString().ShouldBe("query");
         return parameter.TryGetProperty("required", out var required) && required.GetBoolean();
+    }
+
+    private static void OptionalQuery(JsonElement parameter)
+    {
+        parameter.GetProperty("in").GetString().ShouldBe("query");
+        if (parameter.TryGetProperty("required", out var required))
+        {
+            required.GetBoolean().ShouldBeFalse();
+        }
     }
 }

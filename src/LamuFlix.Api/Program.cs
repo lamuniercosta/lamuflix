@@ -43,6 +43,7 @@ builder.Services.AddOpenApi("v1", static options =>
         static (document, _, _) => OpenApiDocumentNormalizer.NormalizeAsync(document));
     options.AddSchemaTransformer<EnrichmentStatusSchemaTransformer>();
     options.AddOperationTransformer<BrowseMoviesOperationTransformer>();
+    options.AddOperationTransformer<RecommendationsOperationTransformer>();
 });
 var app = builder.Build();
 if (app.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.ApplyMigrationsOnStartup)
