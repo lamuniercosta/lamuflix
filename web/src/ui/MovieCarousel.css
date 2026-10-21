@@ -1,0 +1,41 @@
+.movie-carousel {
+  display: grid;
+  gap: var(--lamu-space-3);
+  min-width: 0;
+}
+
+.movie-carousel-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--lamu-space-2);
+}
+
+.movie-carousel-viewport {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
+  padding-bottom: var(--lamu-space-2);
+}
+
+.movie-carousel-track {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--lamu-space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.movie-carousel-item {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .movie-carousel-viewport {
+    scroll-behavior: auto;
+  }
+}

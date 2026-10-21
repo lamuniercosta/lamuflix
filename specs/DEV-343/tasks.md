@@ -36,11 +36,11 @@
 
 ### Tests
 
-- [ ] T002 [P] [US3] Write focused Vitest/RTL proofs in `web/src/ui/MovieCarousel.test.tsx`: overflow; both Previous/Next boundaries; no-overflow state with both controls disabled; viewport-only ArrowLeft/ArrowRight when the scroll viewport has focus; normal native link Tab/Enter behavior; reuse mount with non-recommendation children; remeasurement of Previous/Next control boundaries after scroll, resize, and changed children (narrow layout stubs for deterministic RTL). Method names follow existing web conventions. AAA headers only.
+- [X] T002 [P] [US3] Write focused Vitest/RTL proofs in `web/src/ui/MovieCarousel.test.tsx`: overflow; both Previous/Next boundaries; no-overflow state with both controls disabled; viewport-only ArrowLeft/ArrowRight when the scroll viewport has focus; normal native link Tab/Enter behavior; reuse mount with non-recommendation children; remeasurement of Previous/Next control boundaries after scroll, resize, and changed children (narrow layout stubs for deterministic RTL). Method names follow existing web conventions. AAA headers only.
 
 ### Implementation
 
-- [ ] T003 [US3] Add exported presentational `web/src/ui/MovieCarousel.tsx` and `web/src/ui/MovieCarousel.css` accepting an accessible label and rendered card children. Own horizontal layout and scrolling only: labelled region, semantic list, focusable scroll viewport, Previous/Next disabled at boundaries and when content fits, ArrowLeft/ArrowRight only on viewport self-focus, no wraparound/autoplay/roving focus/descendant-key interception, scrolling does not move movie focus, visible focus, native touch/overflow, reduced motion. No fetching, endpoint DTO dependency, or recommendation logic. Reuse existing directional icons from `web/src/ui/icons.tsx` when needed (`recon-DEV-343:47`).
+- [X] T003 [US3] Add exported presentational `web/src/ui/MovieCarousel.tsx` and `web/src/ui/MovieCarousel.css` accepting an accessible label and rendered card children. Own horizontal layout and scrolling only: labelled region, semantic list, focusable scroll viewport, Previous/Next disabled at boundaries and when content fits, ArrowLeft/ArrowRight only on viewport self-focus, no wraparound/autoplay/roving focus/descendant-key interception, scrolling does not move movie focus, visible focus, native touch/overflow, reduced motion. No fetching, endpoint DTO dependency, or recommendation logic. Reuse existing directional icons from `web/src/ui/icons.tsx` when needed (`recon-DEV-343:47`).
 
 **Checkpoint**: Named targeted proofs — `MovieCarousel.test.tsx` green for US3 interaction/reuse contract. Exported for later RelatedMovies and DEV-418 reuse.
 
