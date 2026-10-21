@@ -9,16 +9,26 @@ using LamuFlix.Core.Ports;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
-public sealed record MovieFeaturesPair(string Branch, MovieFeatures First, MovieFeatures Second);
+public sealed record MovieFeaturesPair(MovieFeatures First, MovieFeatures Second);
 
-public sealed record SelfSimilarityProfile(string Branch, MovieFeatures Value);
+public sealed record SelfSimilarityProfile(MovieFeatures Value);
 
 public static class MovieFeaturesArbitraries
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
     private static readonly string[] GenreTokens = ["Drama", "Comedy", "Noir", "Sci-Fi", "Doc", "Thriller"];
     private static readonly string[] PersonTokens = ["Nolan", "Wong", "Campion", "Lee", "Kurosawa", "Miyazaki"];
-    private static readonly string[] BlankTokens = [null!, "", " ", "\t", "  "];
+    private static readonly string[] BlankTokens = BlankTokenPool();
+
+    private static string[] BlankTokenPool()
+    {
+        var tokens = new string[5];
+        tokens[1] = string.Empty;
+        tokens[2] = " ";
+        tokens[3] = "\t";
+        tokens[4] = "  ";
+        return tokens;
+    }
 
     public static Arbitrary<MovieFeatures> Profiles() => Arb.From(GeneralProfile(), ShrinkProfile);
 
@@ -88,7 +98,7 @@ public static class MovieFeaturesArbitraries
         from first in GeneralProfile()
         from branch in Gen.Choose(0, 4)
         from second in SecondProfile(first, branch)
-        select new MovieFeaturesPair(PairLabel(branch), first, second);
+        select new MovieFeaturesPair(first, second);
 
     private static Gen<MovieFeatures> SecondProfile(MovieFeatures first, int branch) =>
         branch switch
@@ -164,7 +174,7 @@ public static class MovieFeaturesArbitraries
     private static Gen<SelfSimilarityProfile> SelfSimilarityProfileGen() =>
         from anchor in Gen.Choose(0, 5)
         from profile in Profile(SelfSimilarityGenres(), NameSet(), NameSet(), NameSet())
-        select new SelfSimilarityProfile(AnchorLabel(anchor), ApplyAnchor(profile, anchor));
+        select new SelfSimilarityProfile(ApplyAnchor(profile, anchor));
 
     private static Gen<string[]> SelfSimilarityGenres() =>
         Gen.OneOf(
@@ -180,14 +190,32 @@ public static class MovieFeaturesArbitraries
     private static MovieFeatures ApplyAnchor(MovieFeatures profile, int anchor) =>
         new(
             profile.Genres,
-            WithToken(profile.Directors, anchor == 0 ? "Anchor" : null),
-            WithToken(profile.Writers, anchor == 1 ? "Anchor" : null),
-            WithToken(profile.Cast, anchor == 2 ? "Anchor" : null),
-            anchor == 3 ? profile.ReleaseYear ?? new ReleaseYear(2000, Now) : profile.ReleaseYear,
-            anchor == 4 ? profile.Runtime ?? new Runtime(90) : profile.Runtime,
-            anchor == 5 ? profile.ImdbRating ?? new ImdbRating(7.0m) : profile.ImdbRating,
+            AnchorDirectors(profile, anchor),
+            AnchorWriters(profile, anchor),
+            AnchorCast(profile, anchor),
+            AnchorYear(profile, anchor),
+            AnchorRuntime(profile, anchor),
+            AnchorRating(profile, anchor),
             profile.MetaScore,
             profile.FullPlot);
+
+    private static string[] AnchorDirectors(MovieFeatures profile, int anchor) =>
+        WithToken(profile.Directors, anchor == 0 ? "Anchor" : null);
+
+    private static string[] AnchorWriters(MovieFeatures profile, int anchor) =>
+        WithToken(profile.Writers, anchor == 1 ? "Anchor" : null);
+
+    private static string[] AnchorCast(MovieFeatures profile, int anchor) =>
+        WithToken(profile.Cast, anchor == 2 ? "Anchor" : null);
+
+    private static ReleaseYear? AnchorYear(MovieFeatures profile, int anchor) =>
+        anchor == 3 ? profile.ReleaseYear ?? new ReleaseYear(2000, Now) : profile.ReleaseYear;
+
+    private static Runtime? AnchorRuntime(MovieFeatures profile, int anchor) =>
+        anchor == 4 ? profile.Runtime ?? new Runtime(90) : profile.Runtime;
+
+    private static ImdbRating? AnchorRating(MovieFeatures profile, int anchor) =>
+        anchor == 5 ? profile.ImdbRating ?? new ImdbRating(7.0m) : profile.ImdbRating;
 
     private static Gen<SimilarityWeights> Weight() =>
         from family in Gen.Choose(0, 5)
@@ -330,7 +358,7 @@ public static class MovieFeaturesArbitraries
     private static Gen<string[]> Recased(ImmutableHashSet<string> values) =>
         from order in Gen.Shuffle(values.ToArray())
         from shape in Gen.Choose(0, 2)
-        select order.Select(value => value is null ? null! : Recase(value, shape)).ToArray();
+        select order.Select(value => value is null ? value : Recase(value, shape)).ToArray();
 
     private static Gen<string[]> SharedAndAdded(ImmutableHashSet<string> source)
     {
@@ -438,36 +466,51 @@ public static class MovieFeaturesArbitraries
         }
     }
 
-    private static IEnumerable<MovieFeatures> ShrinkScalars(MovieFeatures movie)
+    private static IEnumerable<MovieFeatures> ShrinkScalars(MovieFeatures movie) =>
+        ShrinkYear(movie).Concat(ShrinkRuntime(movie)).Concat(ShrinkRating(movie));
+
+    private static IEnumerable<MovieFeatures> ShrinkYear(MovieFeatures movie)
     {
-        if (movie.ReleaseYear is { } year)
+        if (movie.ReleaseYear is not { } year)
         {
-            yield return WithScalars(movie, null, movie.Runtime, movie.ImdbRating);
-
-            if (year.Value > 1888)
-            {
-                yield return WithScalars(movie, new ReleaseYear(1888, Now), movie.Runtime, movie.ImdbRating);
-            }
+            yield break;
         }
 
-        if (movie.Runtime is { } runtime)
-        {
-            yield return WithScalars(movie, movie.ReleaseYear, null, movie.ImdbRating);
+        yield return WithScalars(movie, null, movie.Runtime, movie.ImdbRating);
 
-            if (runtime.Minutes > 1)
-            {
-                yield return WithScalars(movie, movie.ReleaseYear, new Runtime(1), movie.ImdbRating);
-            }
+        if (year.Value > 1888)
+        {
+            yield return WithScalars(movie, new ReleaseYear(1888, Now), movie.Runtime, movie.ImdbRating);
+        }
+    }
+
+    private static IEnumerable<MovieFeatures> ShrinkRuntime(MovieFeatures movie)
+    {
+        if (movie.Runtime is not { } runtime)
+        {
+            yield break;
         }
 
-        if (movie.ImdbRating is { } rating)
-        {
-            yield return WithScalars(movie, movie.ReleaseYear, movie.Runtime, null);
+        yield return WithScalars(movie, movie.ReleaseYear, null, movie.ImdbRating);
 
-            if (rating.Value > 0.0m)
-            {
-                yield return WithScalars(movie, movie.ReleaseYear, movie.Runtime, new ImdbRating(0.0m));
-            }
+        if (runtime.Minutes > 1)
+        {
+            yield return WithScalars(movie, movie.ReleaseYear, new Runtime(1), movie.ImdbRating);
+        }
+    }
+
+    private static IEnumerable<MovieFeatures> ShrinkRating(MovieFeatures movie)
+    {
+        if (movie.ImdbRating is not { } rating)
+        {
+            yield break;
+        }
+
+        yield return WithScalars(movie, movie.ReleaseYear, movie.Runtime, null);
+
+        if (rating.Value > 0.0m)
+        {
+            yield return WithScalars(movie, movie.ReleaseYear, movie.Runtime, new ImdbRating(0.0m));
         }
     }
 
@@ -479,7 +522,7 @@ public static class MovieFeaturesArbitraries
     private static IEnumerable<SelfSimilarityProfile> ShrinkSelfSimilarityProfile(SelfSimilarityProfile profile) =>
         ShrinkProfile(profile.Value)
             .Where(IsSelfSimilarityEligible)
-            .Select(value => profile with { Value = value });
+            .Select(value => new SelfSimilarityProfile(value));
 
     private static IEnumerable<SimilarityWeights> ShrinkWeights(SimilarityWeights weights)
     {
@@ -498,7 +541,7 @@ public static class MovieFeaturesArbitraries
 
     private static IEnumerable<GenreWeights> ShrinkGenreTable(GenreWeights table)
     {
-        if (GenreTokens.Any(genre => table.GetWeight(genre) != 1.0))
+        if (GenreTokens.Any(genre => Math.Abs(table.GetWeight(genre) - 1.0) > 1e-12))
         {
             yield return EmptyTable();
         }
@@ -508,11 +551,16 @@ public static class MovieFeaturesArbitraries
         HasNonBlankScoringToken(movie) && HasEligibleGenres(movie);
 
     private static bool HasNonBlankScoringToken(MovieFeatures movie) =>
+        HasNonBlankSet(movie) || HasScalar(movie);
+
+    private static bool HasNonBlankSet(MovieFeatures movie) =>
         movie.Directors.Any(value => !string.IsNullOrWhiteSpace(value))
         || movie.Writers.Any(value => !string.IsNullOrWhiteSpace(value))
         || movie.Cast.Any(value => !string.IsNullOrWhiteSpace(value))
-        || movie.Genres.Any(value => !string.IsNullOrWhiteSpace(value))
-        || movie.ReleaseYear is not null
+        || movie.Genres.Any(value => !string.IsNullOrWhiteSpace(value));
+
+    private static bool HasScalar(MovieFeatures movie) =>
+        movie.ReleaseYear is not null
         || movie.Runtime is not null
         || movie.ImdbRating is not null;
 
@@ -557,24 +605,4 @@ public static class MovieFeaturesArbitraries
             source.MetaScore,
             source.FullPlot);
 
-    private static string PairLabel(int branch) =>
-        branch switch
-        {
-            0 => "identical",
-            1 => "case-variant",
-            2 => "partial-missing",
-            3 => "overlapping",
-            _ => "disjoint",
-        };
-
-    private static string AnchorLabel(int anchor) =>
-        anchor switch
-        {
-            0 => "director-anchor",
-            1 => "writer-anchor",
-            2 => "cast-anchor",
-            3 => "year-anchor",
-            4 => "runtime-anchor",
-            _ => "rating-anchor",
-        };
 }
