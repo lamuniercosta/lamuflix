@@ -186,20 +186,30 @@ public static class SimilarityScorer
     }
 
     private static bool IsIdenticalProfile(MovieFeatures a, MovieFeatures b) =>
+        AreSetsIdentical(a, b) && AreScalarsIdentical(a, b);
+
+    private static bool AreSetsIdentical(MovieFeatures a, MovieFeatures b) =>
         a.Directors.SetEquals(b.Directors)
         && a.Writers.SetEquals(b.Writers)
         && a.Cast.SetEquals(b.Cast)
-        && a.Genres.SetEquals(b.Genres)
-        && a.ReleaseYear == b.ReleaseYear
+        && a.Genres.SetEquals(b.Genres);
+
+    private static bool AreScalarsIdentical(MovieFeatures a, MovieFeatures b) =>
+        a.ReleaseYear == b.ReleaseYear
         && a.Runtime == b.Runtime
         && a.ImdbRating == b.ImdbRating;
 
     private static bool HasScoringFeature(MovieFeatures movie) =>
+        HasSetFeature(movie) || HasScalarFeature(movie);
+
+    private static bool HasSetFeature(MovieFeatures movie) =>
         movie.Directors.Count > 0
         || movie.Writers.Count > 0
         || movie.Cast.Count > 0
-        || movie.Genres.Count > 0
-        || movie.ReleaseYear is not null
+        || movie.Genres.Count > 0;
+
+    private static bool HasScalarFeature(MovieFeatures movie) =>
+        movie.ReleaseYear is not null
         || movie.Runtime is not null
         || movie.ImdbRating is not null;
 
