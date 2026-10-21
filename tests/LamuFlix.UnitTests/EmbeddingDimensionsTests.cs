@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using LamuFlix.Core.Ports;
-using LamuFlix.Tests.Common;
 using Microsoft.Extensions.AI;
 using NSubstitute;
 

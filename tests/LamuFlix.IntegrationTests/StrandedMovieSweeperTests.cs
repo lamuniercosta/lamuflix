@@ -12,6 +12,7 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
+using LamuFlix.UnitTests;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;

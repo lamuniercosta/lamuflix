@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Ports;
 using Microsoft.Extensions.AI;
 
-namespace LamuFlix.Tests.Common;
+namespace LamuFlix.UnitTests;
 
 public sealed class FakeEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<float>>
 {
