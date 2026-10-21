@@ -1,0 +1,98 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
+using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
+using LamuFlix.Core.Ports;
+using Microsoft.Extensions.Options;
+
+namespace LamuFlix.Core.Features.Recommendations;
+
+public sealed class GetRecommendationsQueryHandler(
+    IMovieRepository movies,
+    IRecommendationCandidateSource candidates,
+    GenreWeightsCalculator genreWeightsCalculator,
+    IOptions<RecommendationOptions> options)
+    : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
+{
+    public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
+        GetRecommendationsQuery query,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var selected = await movies.GetAsync(query.MovieId, cancellationToken)
+            ?? throw new NotFoundException();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var pool = await candidates.GetCandidatesAsync(query.MovieId, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (pool.Count == 0)
+        {
+            return ImmutableList<RecommendedMovie>.Empty;
+        }
+
+        var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var weights = options.Value.Weights;
+        var selectedFeatures = MovieFeaturesMapper.From(selected);
+        var scored = Score(selectedFeatures, pool, weights, genreWeights, cancellationToken);
+
+        return
+        [
+            .. scored
+                .OrderByDescending(item => item.Result.Score)
+                .ThenBy(item => item.Movie.Id.Value)
+                .Take(query.Take)
+                .Select(item => new RecommendedMovie(
+                    Summarize(item.Movie),
+                    item.Result.Score,
+                    item.Result.Reasons)),
+        ];
+    }
+
+    private static List<ScoredCandidate> Score(
+        MovieFeatures selectedFeatures,
+        IReadOnlyList<Movie> pool,
+        SimilarityWeights weights,
+        GenreWeights genreWeights,
+        CancellationToken cancellationToken)
+    {
+        var scored = new List<ScoredCandidate>(pool.Count);
+
+        foreach (var movie in pool)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var result = SimilarityScorer.Score(
+                selectedFeatures,
+                MovieFeaturesMapper.From(movie),
+                weights,
+                genreWeights);
+
+            scored.Add(new ScoredCandidate(movie, result));
+        }
+
+        return scored;
+    }
+
+    private static MovieSummary Summarize(Movie movie) => new(
+        movie.Id,
+        movie.Title,
+        movie.Metadata?.PosterUrl,
+        movie.Metadata?.ReleaseYear?.Value,
+        movie.Metadata?.Runtime?.Minutes,
+        movie.Metadata?.ImdbRating?.Value,
+        movie.Status,
+        movie.IsInWatchlist,
+        movie.IsWatched,
+        movie.IsNotInterested);
+
+    private readonly record struct ScoredCandidate(Movie Movie, SimilarityResult Result);
+}
