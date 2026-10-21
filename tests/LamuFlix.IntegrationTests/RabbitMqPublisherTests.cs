@@ -81,6 +81,61 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLife
     }
 
     [Fact]
+    public async Task EnqueueAsync_AFeaturesRequestedPublish_ReachesTheFeaturesRequestedQueue()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        await host.Topology.EnsureDeclaredAsync(ct);
+
+        await host.Publisher.EnqueueAsync(new FeaturesRequested(new MovieId(61), 1), ct);
+
+        var message = await AwaitFeature(ct, 61);
+        message.ShouldNotBeNull();
+        ReadFeatures(message).Attempt.ShouldBe(1);
+        message.BasicProperties.Persistent.ShouldBe(true);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).MessageCount.ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_AFeaturesRequestedPublish_CarriesTheTraceContext()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        await host.Topology.EnsureDeclaredAsync(ct);
+        var traceId = ActivityTraceId.CreateRandom();
+        var spanId = ActivitySpanId.CreateRandom();
+        using var activity = new Activity("outer")
+            .SetIdFormat(ActivityIdFormat.W3C)
+            .SetParentId($"00-{traceId}-{spanId}-01");
+        activity.Start();
+
+        await host.Publisher.EnqueueAsync(new FeaturesRequested(new MovieId(62), 2), ct);
+
+        var message = await AwaitFeature(ct, 62);
+        message.ShouldNotBeNull();
+        Header(message, TraceContextCarrier.TraceParentHeader).ShouldStartWith("00-");
+        TraceContextCarrier.ExtractContext(message.BasicProperties.Headers).TraceId.ShouldBe(traceId);
+        ReadFeatures(message).Attempt.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_AFeaturesRequestedPublish_WithAnUnreachableBroker_Throws()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var options = fixture.Options with { Port = 1 };
+        await using var owner = new RabbitMqConnectionOwner(Options.Create(options));
+        var publisher = new RabbitMqEnrichmentQueuePublisher(
+            new RabbitMqTopology(
+                owner,
+                Options.Create(options),
+                Options.Create(new EnrichmentOptions())),
+            owner);
+
+        await Should.ThrowAsync<Exception>(
+            () => publisher.EnqueueAsync(new FeaturesRequested(new MovieId(63), 1), ct));
+    }
+
+    [Fact]
     public async Task PublishAsync_AnUnroutablePublish_Throws()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -277,8 +332,19 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLife
             message => Read(message).MovieId.Value == movieId,
             cancellationToken);
 
+    private Task<BasicGetResult?> AwaitFeature(CancellationToken cancellationToken, int movieId) =>
+        probe.PollGetMatchingAsync(
+            RabbitMqTopology.FeaturesRequestedQueue,
+            message => ReadFeatures(message).MovieId.Value == movieId,
+            cancellationToken);
+
     private static EnrichmentRequested Read(BasicGetResult message) =>
         JsonSerializer.Deserialize<EnrichmentRequested>(
+            Encoding.UTF8.GetString(message.Body.Span),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
+
+    private static FeaturesRequested ReadFeatures(BasicGetResult message) =>
+        JsonSerializer.Deserialize<FeaturesRequested>(
             Encoding.UTF8.GetString(message.Body.Span),
             new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
 

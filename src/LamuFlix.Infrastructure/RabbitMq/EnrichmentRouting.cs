@@ -9,6 +9,9 @@ public static class EnrichmentRouting
     public const string Ack = "ack";
     public const string Requeue = "requeue";
     public const string DeadLetter = "dead-letter";
+    public const string FeaturesRequestedRoutingKey = "features.requested";
+    public const string FeaturesRetryRoutingKey = "features.retry";
+    public const string FeaturesDeadLetterRoutingKey = "features.dead-letter";
 
     public static Disposition Decide(ProcessEnrichmentOutcome outcome) =>
         outcome switch

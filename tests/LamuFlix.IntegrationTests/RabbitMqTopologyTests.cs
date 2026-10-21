@@ -117,6 +117,88 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
     }
 
     [Fact]
+    public async Task EnsureDeclaredAsync_DeclaresTheThreeFeaturesQueues()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+
+        foreach (var queue in FeaturesQueues())
+        {
+            var declared = await probe.DeclarePassiveAsync(queue, ct);
+            declared.QueueName.ShouldBe(queue);
+        }
+    }
+
+    [Fact]
+    public async Task EnsureDeclaredAsync_EveryFeaturesRequestedArgumentIsInEffect()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+
+        await AssertEveryArgumentIsEnforcedAsync(
+            RabbitMqTopology.FeaturesRequestedQueue,
+            RabbitMqTopology.FeaturesRequestedArguments(MaxAttempts),
+            ct);
+    }
+
+    [Fact]
+    public async Task EnsureDeclaredAsync_EveryFeaturesRetryArgumentIsInEffect()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+
+        await AssertEveryArgumentIsEnforcedAsync(
+            RabbitMqTopology.FeaturesRetryQueue,
+            RabbitMqTopology.FeaturesRetryArguments(RabbitMqTopology.RetryDelayMilliseconds(fixture.Options)),
+            ct);
+    }
+
+    [Fact]
+    public async Task EnsureDeclaredAsync_EveryFeaturesDeadLetterArgumentIsInEffect()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+
+        await AssertEveryArgumentIsEnforcedAsync(
+            RabbitMqTopology.FeaturesDeadLetterQueue,
+            RabbitMqTopology.DeadLetterArguments(),
+            ct);
+    }
+
+    [Fact]
+    public async Task EnsureDeclaredAsync_BindsEveryFeaturesRoutingKeyToItsOwnQueue()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.FeaturesRequestedQueue, ct);
+        await probe.DrainAsync(RabbitMqTopology.FeaturesDeadLetterQueue, ct);
+
+        await probe.PublishAsync(EnrichmentRouting.FeaturesRequestedRoutingKey, "a"u8.ToArray(), ct);
+        await probe.PublishAsync(EnrichmentRouting.FeaturesDeadLetterRoutingKey, "c"u8.ToArray(), ct);
+
+        (await probe.PollMessageCountAsync(RabbitMqTopology.FeaturesRequestedQueue, ct)).ShouldBe(1U);
+        (await probe.PollMessageCountAsync(RabbitMqTopology.FeaturesDeadLetterQueue, ct)).ShouldBe(1U);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).MessageCount.ShouldBe(0U);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.DeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task EnsureDeclaredAsync_AFeaturesRetryMessageReturnsToTheFeaturesRequestedQueue()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.FeaturesRequestedQueue, ct);
+        await probe.DrainAsync(RabbitMqTopology.FeaturesRetryQueue, ct);
+        await probe.DrainAsync(RabbitMqTopology.RequestedQueue, ct);
+
+        await probe.PublishAsync(EnrichmentRouting.FeaturesRetryRoutingKey, "b"u8.ToArray(), ct);
+
+        (await probe.PollMessageCountAsync(RabbitMqTopology.FeaturesRequestedQueue, ct)).ShouldBe(1U);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).MessageCount.ShouldBe(0U);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.FeaturesDeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
+    }
+
+    [Fact]
     public async Task EnsureDeclaredAsync_CalledTwiceOnOneOwner_KeepsTheSameDeclaration()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -162,6 +244,13 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
         RabbitMqTopology.DeadLetterQueue,
     ];
 
+    private static IEnumerable<string> FeaturesQueues() =>
+    [
+        RabbitMqTopology.FeaturesRequestedQueue,
+        RabbitMqTopology.FeaturesRetryQueue,
+        RabbitMqTopology.FeaturesDeadLetterQueue,
+    ];
+
     private IEnumerable<(string Queue, IDictionary<string, object?> Arguments)> ArgumentsByQueue()
     {
         yield return (RabbitMqTopology.RequestedQueue, RabbitMqTopology.RequestedArguments(MaxAttempts));
@@ -169,6 +258,13 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
             RabbitMqTopology.RetryQueue,
             RabbitMqTopology.RetryArguments(RabbitMqTopology.RetryDelayMilliseconds(fixture.Options)));
         yield return (RabbitMqTopology.DeadLetterQueue, RabbitMqTopology.DeadLetterArguments());
+        yield return (
+            RabbitMqTopology.FeaturesRequestedQueue,
+            RabbitMqTopology.FeaturesRequestedArguments(MaxAttempts));
+        yield return (
+            RabbitMqTopology.FeaturesRetryQueue,
+            RabbitMqTopology.FeaturesRetryArguments(RabbitMqTopology.RetryDelayMilliseconds(fixture.Options)));
+        yield return (RabbitMqTopology.FeaturesDeadLetterQueue, RabbitMqTopology.DeadLetterArguments());
     }
 
     private async Task AssertEveryArgumentIsEnforcedAsync(

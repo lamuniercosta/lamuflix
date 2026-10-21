@@ -74,6 +74,18 @@ public sealed class EnrichmentRoutingTests
     }
 
     [Fact]
+    public void FeaturesRoutingKeys_PointAtTheFeaturesQueuesWithoutTouchingEnrichmentKeys()
+    {
+        // assert
+        EnrichmentRouting.FeaturesRequestedRoutingKey.ShouldBe(RabbitMqTopology.FeaturesRequestedQueue);
+        EnrichmentRouting.FeaturesRetryRoutingKey.ShouldBe(RabbitMqTopology.FeaturesRetryQueue);
+        EnrichmentRouting.FeaturesDeadLetterRoutingKey.ShouldBe(RabbitMqTopology.FeaturesDeadLetterQueue);
+        EnrichmentRouting.FeaturesRequestedRoutingKey.ShouldNotBe(RabbitMqTopology.RequestedRoutingKey);
+        EnrichmentRouting.FeaturesRetryRoutingKey.ShouldNotBe(RabbitMqTopology.RetryRoutingKey);
+        EnrichmentRouting.FeaturesDeadLetterRoutingKey.ShouldNotBe(RabbitMqTopology.DeadLetterRoutingKey);
+    }
+
+    [Fact]
     public void Decide_WithoutAnOutcome_IsRejected()
     {
         // arrange
