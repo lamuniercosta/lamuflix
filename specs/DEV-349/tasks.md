@@ -71,9 +71,9 @@
 
 **Independent Test**: Unfiltered default suite and CI-filter evidence show no Ollama startup/download; README contains the exact opt-in command.
 
-- [ ] T012 [P] [US3] Edit `.github/workflows/ci.yml` Test step to exclude `Category=OllamaIntegration` (for example `--filter "Category!=OllamaIntegration"`) and set no `LAMUFLIX_RUN_OLLAMA_TESTS` variable.
-- [ ] T013 [P] [US3] Update `README.md` with provisioning, health/readiness, first download, settings, failure diagnosis, the exact opt-in invocation from the brief Test contract, and the ADR link to the T001-verified numbered Accepted path after the Phase B rename (`constitution.md:505`). Preserve unrelated README content.
-- [ ] T014 [US3] Collect unfiltered default `dotnet test` evidence showing the OllamaIntegration test skips with no Ollama initialization on default unfiltered discovery/execution, including that eager fixture construction/startup paths do not create container/model/resource objects before the opt-in gate; and CI-filter evidence showing category exclusion without opt-in. Record outcomes for Gauge.
+- [X] T012 [P] [US3] Edit `.github/workflows/ci.yml` Test step to exclude `Category=OllamaIntegration` (for example `--filter "Category!=OllamaIntegration"`) and set no `LAMUFLIX_RUN_OLLAMA_TESTS` variable.
+- [X] T013 [P] [US3] Update `README.md` with provisioning, health/readiness, first download, settings, failure diagnosis, the exact opt-in invocation from the brief Test contract, and the ADR link to the T001-verified numbered Accepted path after the Phase B rename (`constitution.md:505`). Preserve unrelated README content.
+- [X] T014 [US3] Collect unfiltered default `dotnet test` evidence showing the OllamaIntegration test skips with no Ollama initialization on default unfiltered discovery/execution, including that eager fixture construction/startup paths do not create container/model/resource objects before the opt-in gate; and CI-filter evidence showing category exclusion without opt-in. Record outcomes for Gauge.
 
 **Checkpoint**: US3 isolation contract is met. Ticket AC have provisioning, proof, and isolation evidence paths.
 
