@@ -9,7 +9,7 @@ using LamuFlix.Core.Ports;
 using Shouldly;
 using Xunit;
 
-namespace LamuFlix.Test.Features.Recommendations;
+namespace LamuFlix.UnitTests.Features.Recommendations;
 
 public sealed class TasteProfileCalculatorTests
 {
