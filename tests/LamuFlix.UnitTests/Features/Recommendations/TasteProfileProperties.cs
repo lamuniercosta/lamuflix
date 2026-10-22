@@ -2,15 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using FsCheck;
-using FsCheck.Fluent;
 using FsCheck.Xunit;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
