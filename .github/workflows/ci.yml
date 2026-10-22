@@ -28,8 +28,11 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
+      # The opt-in real-model proof (Category=OllamaIntegration) needs Docker plus a
+      # model download, so default CI excludes the category and never sets
+      # LAMUFLIX_RUN_OLLAMA_TESTS. See docs/adr/ADR-0025-isolated-ollama-test.md.
       - name: Test
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: dotnet test --configuration Release --no-build --verbosity normal --filter "Category!=OllamaIntegration"
 
       - name: Format
         run: dotnet format --verify-no-changes

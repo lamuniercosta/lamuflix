@@ -62,6 +62,54 @@ docker compose up -d --build
 
 Applying changes to `docker/api.settings.json` requires restarting the API because some options are read at startup. Open http://localhost:3000. To mount a different library directory, set `LIBRARY_PATH` in `.env` before starting (defaults to `./docker/sample-library`). Imports take the movie folder name relative to the library root (for example `2 Days in New York[2012]`), and full paths still work.
 
+## Ollama embedding model
+
+Compose provisions Ollama with the embedding model the API needs for semantic search. `docker compose up` starts two Ollama services ([ADR-0025](docs/adr/ADR-0025-isolated-ollama-test.md)):
+
+- `ollama` - the server, pinned by digest in `OLLAMA_IMAGE`, serving on the Compose network only. No host port is published.
+- `ollama-model-init` - a one-shot initializer that pulls `OLLAMA_EMBEDDING_MODEL` (default `all-minilm`, which produces 384-dimensional vectors) and exits `0` only when the model is available.
+
+Both share the named volume `ollama-models`, so a downloaded model survives `docker compose down` and restarts without re-downloading. Only a first run (or a removed volume) downloads the model; expect that first pull to take longer than a normal start.
+
+**Health and readiness.** The `ollama` health check is model-aware: it reports healthy only when the server answers *and* the selected model is present (`ollama show "$OLLAMA_EMBEDDING_MODEL"`). The initializer starts as soon as the container is started (`service_started`), never waits for model-aware health before pulling, and enforces finite budgets while it does its own readiness wait and pull. The API does not depend on Ollama, so a slow first download never blocks the library UI.
+
+**Settings.** All Ollama settings are non-secret and live in `.env` (see `.env.example`):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OLLAMA_IMAGE` | pinned `ollama/ollama:0.40.8@sha256:2b8eecdb...` | Image digest shared by both services and the opt-in test |
+| `OLLAMA_EMBEDDING_MODEL` | `all-minilm` | Model pulled by the initializer; must produce 384 dimensions |
+| `OLLAMA_READY_TIMEOUT_SECONDS` | `120` | Initializer budget for server readiness |
+| `OLLAMA_PULL_TIMEOUT_SECONDS` | `900` | Initializer budget for the model pull |
+| `OLLAMA_POLL_INTERVAL_SECONDS` | `2` | Initializer readiness poll interval |
+
+Keep `OLLAMA_IMAGE` in sync between `docker-compose.yml`, `.env.example`, and `tests/LamuFlix.IntegrationTests/OllamaFixture.cs` when upgrading.
+
+**Failure diagnosis.** A failed or interrupted initialization never reports model-ready health:
+
+```bash
+docker compose ps ollama ollama-model-init          # init should exit 0; ollama healthy
+docker compose logs ollama-model-init               # explicit wait/pull failure reason
+docker compose exec ollama ollama list              # confirm the model is present
+```
+
+The initializer exits non-zero with an actionable message when the model variable is empty, the server is not ready within `OLLAMA_READY_TIMEOUT_SECONDS`, or the pull exceeds `OLLAMA_PULL_TIMEOUT_SECONDS`. Re-run it with `docker compose up ollama-model-init --force-recreate`; to start from empty storage, remove the volume with `docker compose down -v`.
+
+### Opt-in real-model test
+
+The real-model proof runs through the DEV-412 embedding adapter against an isolated Testcontainers Ollama instance with fresh storage. It is tagged `Category=OllamaIntegration` and is skipped unless `LAMUFLIX_RUN_OLLAMA_TESTS=1` is set *before* any container is created, so plain `dotnet test` and default CI never start Ollama or download a model. With the opt-in set, Docker or model failures fail the test instead of skipping it:
+
+```powershell
+$env:LAMUFLIX_RUN_OLLAMA_TESTS = '1'
+try {
+    dotnet test tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj --filter "Category=OllamaIntegration"
+} finally {
+    Remove-Item Env:LAMUFLIX_RUN_OLLAMA_TESTS -ErrorAction SilentlyContinue
+}
+```
+
+CI excludes the category with `--filter "Category!=OllamaIntegration"` and sets no opt-in variable.
+
 ## Verification & Building
 
 To build the complete solution and run tests:
@@ -128,6 +176,7 @@ All decisions live in `docs/adr/`:
 - [0018](docs/adr/0018-observability-composition-in-service-defaults.md) — Observability composition in ServiceDefaults
 - [0019](docs/adr/0019-infrastructure-consumer-delivery-proof.md) — Infrastructure consumer delivery proof
 - [0020](docs/adr/0020-request-correlated-import-enrichment-proof.md) — Request-correlated import enrichment proof
+- [ADR-0025](docs/adr/ADR-0025-isolated-ollama-test.md) — Isolate the real-model Ollama test
 
 Product direction is set by [`specs/PRODUCT.md`](specs/PRODUCT.md); shared vocabulary lives in [`CONTEXT.md`](CONTEXT.md).
 
