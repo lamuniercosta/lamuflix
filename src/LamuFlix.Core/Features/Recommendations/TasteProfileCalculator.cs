@@ -106,28 +106,33 @@ public sealed class TasteProfileCalculator
 
         foreach (var movie in movies)
         {
-            var genres = NormalizeGenres(movie.Genres);
-            var embedding = movie.PlotEmbedding.IsDefaultOrEmpty
-                ? ImmutableArray<float>.Empty
-                : movie.PlotEmbedding;
-
-            if (movie.PlayedAt.IsDefaultOrEmpty)
-            {
-                if (movie.IsWatched)
-                {
-                    builder.Add(new Signal(genres, embedding, 0.0));
-                }
-
-                continue;
-            }
-
-            foreach (var playedAt in movie.PlayedAt)
-            {
-                builder.Add(new Signal(genres, embedding, ComputeAge(now, playedAt)));
-            }
+            AddMovieSignals(builder, movie, now);
         }
 
         return builder.ToImmutable();
+    }
+
+    private static void AddMovieSignals(ImmutableArray<Signal>.Builder builder, TasteProfileMovie movie, DateTimeOffset now)
+    {
+        var genres = NormalizeGenres(movie.Genres);
+        var embedding = movie.PlotEmbedding.IsDefaultOrEmpty
+            ? ImmutableArray<float>.Empty
+            : movie.PlotEmbedding;
+
+        if (movie.PlayedAt.IsDefaultOrEmpty)
+        {
+            if (movie.IsWatched)
+            {
+                builder.Add(new Signal(genres, embedding, 0.0));
+            }
+
+            return;
+        }
+
+        foreach (var playedAt in movie.PlayedAt)
+        {
+            builder.Add(new Signal(genres, embedding, ComputeAge(now, playedAt)));
+        }
     }
 
     private static ImmutableArray<string> NormalizeGenres(ImmutableArray<string> genres)
