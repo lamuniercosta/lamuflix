@@ -2,7 +2,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
-using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,7 +40,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
             .InScenario("transient")
             .WhenStateIs("recovered")
             .RespondWith(Response.Create().WithStatusCode(200).WithBody(OllamaEmbeddingProbe.EmbedBody(OllamaEmbeddingProbe.Vector())));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var result = await GenerateAsync(provider, TestContext.Current.CancellationToken);
@@ -56,7 +55,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(429);
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -71,7 +70,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(500);
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -86,7 +85,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(408);
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -104,7 +103,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
         var deadUrl = dead.Urls[0];
         dead.Stop();
         dead.Dispose();
-        using var provider = probe.BuildServices(OllamaEmbeddingProbe.Endpoint(deadUrl));
+        await using var provider = probe.BuildServices(OllamaEmbeddingProbe.Endpoint(deadUrl));
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -123,7 +122,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
                 .WithStatusCode(200)
                 .WithDelay(TimeSpan.FromSeconds(2))
                 .WithBody(OllamaEmbeddingProbe.EmbedBody(OllamaEmbeddingProbe.Vector())));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -141,7 +140,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
             .RespondWith(Response.Create()
                 .WithStatusCode(429)
                 .WithHeader("Retry-After", "30"));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -157,7 +156,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
         // arrange
         probe.StubBody(500);
         var resilience = OllamaEmbeddingProbe.TestResilience() with { MinimumThroughput = 2 };
-        using var provider = probe.BuildServices(resilience: resilience);
+        await using var provider = probe.BuildServices(resilience: resilience);
 
         // act
         var opening = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -176,7 +175,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(400, """{"error":"permanent"}""");
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -191,7 +190,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(404);
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -206,7 +205,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(200, "{");
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
@@ -225,11 +224,13 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
             .RespondWith(Response.Create()
                 .WithStatusCode(503)
                 .WithHeader("Retry-After", "1"));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        var generator = provider.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
+        var cancellationToken = cancellation.Token;
 
         // act
-        var act = () => GenerateAsync(provider, cancellation.Token);
+        var act = () => generator.GenerateAsync(["plot"], cancellationToken: cancellationToken);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
@@ -245,11 +246,13 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
                 .WithStatusCode(200)
                 .WithDelay(TimeSpan.FromSeconds(2))
                 .WithBody(OllamaEmbeddingProbe.EmbedBody(OllamaEmbeddingProbe.Vector())));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        var generator = provider.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
+        var cancellationToken = cancellation.Token;
 
         // act
-        var act = () => GenerateAsync(provider, cancellation.Token);
+        var act = () => generator.GenerateAsync(["plot"], cancellationToken: cancellationToken);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);

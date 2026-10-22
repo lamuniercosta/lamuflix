@@ -18,7 +18,7 @@ public sealed partial class OllamaEmbeddingStartupValidator(
     IOptions<OllamaOptions> options,
     ILogger<OllamaEmbeddingStartupValidator> logger) : IHostedService
 {
-    internal const string ProbeText = "LamuFlix embedding startup verification probe.";
+    private const string ProbeText = "LamuFlix embedding startup verification probe.";
 
     private readonly OllamaOptions ollamaOptions = options.Value;
 

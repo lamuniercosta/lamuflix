@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
-using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Pipeline;
@@ -41,7 +39,7 @@ public sealed class OllamaEmbeddingTelemetryTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         using var activities = new ActivityCapture();
         using var metrics = new ApplicationMetricCapture();
 
@@ -54,6 +52,7 @@ public sealed class OllamaEmbeddingTelemetryTests(OllamaEmbeddingProbe probe)
         metrics.MeasurementsOf(TelemetryConstants.EmbeddingDurationMetricName).ShouldHaveSingleItem();
         var outcome = metrics.MeasurementsOf(TelemetryConstants.EmbeddingOutcomeMetricName).ShouldHaveSingleItem();
         outcome.Tags.ShouldBe([new KeyValuePair<string, object?>(TelemetryConstants.OutcomeTagName, TelemetryConstants.SucceededOutcome)]);
+        outcome.Value.ShouldBe(1L);
         TagCorpus(span).ShouldNotContain(PlotText);
         TagCorpus(span).ShouldNotContain(OllamaEmbeddingProbe.ModelName);
     }
@@ -74,7 +73,7 @@ public sealed class OllamaEmbeddingTelemetryTests(OllamaEmbeddingProbe probe)
             .RespondWith(Response.Create()
                 .WithStatusCode(200)
                 .WithBody(OllamaEmbeddingProbe.EmbedBody(OllamaEmbeddingProbe.Vector())));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         using var activities = new ActivityCapture();
         using var metrics = new ApplicationMetricCapture();
 
@@ -92,7 +91,7 @@ public sealed class OllamaEmbeddingTelemetryTests(OllamaEmbeddingProbe probe)
     public async Task GenerateAsync_LocalRejects_RecordNoLogicalTelemetry()
     {
         // arrange
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         using var activities = new ActivityCapture();
         using var metrics = new ApplicationMetricCapture();
         var generator = provider.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
@@ -113,7 +112,7 @@ public sealed class OllamaEmbeddingTelemetryTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(500);
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         using var activities = new ActivityCapture();
         using var metrics = new ApplicationMetricCapture();
 
@@ -146,7 +145,7 @@ public sealed class OllamaEmbeddingTelemetryTests(OllamaEmbeddingProbe probe)
                 .WithStatusCode(200)
                 .WithDelay(TimeSpan.FromSeconds(2))
                 .WithBody(OllamaEmbeddingProbe.EmbedBody(OllamaEmbeddingProbe.Vector())));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         using var activities = new ActivityCapture();
         using var metrics = new ApplicationMetricCapture();
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
@@ -168,7 +167,7 @@ public sealed class OllamaEmbeddingTelemetryTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         using var activities = new ActivityCapture();
         using var metrics = new ApplicationMetricCapture();
 
@@ -189,7 +188,7 @@ public sealed class OllamaEmbeddingTelemetryTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var requestsBefore = probe.RequestCount;
 
         // act

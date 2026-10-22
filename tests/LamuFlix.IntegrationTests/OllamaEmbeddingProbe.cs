@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Adapters;
@@ -104,7 +103,7 @@ public sealed class OllamaEmbeddingProbe : IAsyncLifetime
         return provider;
     }
 
-    public ServiceCollection NewServices(
+    private ServiceCollection NewServices(
         string? endpoint = null,
         string model = ModelName,
         OllamaResilienceOptions? resilience = null,
@@ -114,11 +113,13 @@ public sealed class OllamaEmbeddingProbe : IAsyncLifetime
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<ILoggerFactory>(Logs);
+        // ReSharper disable once RedundantTypeArgumentsOfMethod - the explicit service type registers the options interface, not the concrete Options<T>.
         services.AddSingleton<IOptions<OllamaOptions>>(Options.Create(new OllamaOptions
         {
             Endpoint = endpoint ?? Endpoint(BaseUrl),
             ModelName = model,
         }));
+        // ReSharper disable once RedundantTypeArgumentsOfMethod - the explicit service type registers the options interface, not the concrete Options<T>.
         services.AddSingleton<IOptions<OllamaResilienceOptions>>(Options.Create(resilience ?? TestResilience()));
         if (clock is not null)
         {
