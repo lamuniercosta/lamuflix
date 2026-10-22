@@ -112,13 +112,13 @@
 
 ### Tests for User Story 4
 
-- [ ] T013 [P] [US4] Extend `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` for future-timestamp age clamp, old-only histories that are not false cold starts, huge finite `RecencyDecayLambda`, relative underflow omitting exact-zero genre entries, and independent oracles that do not copy the production implementation. Same file concerns: do not mark [P] if editing concurrently with T014; prefer completing T013 before T014 if the same helper types are shared.
+- [X] T013 [P] [US4] Extend `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` for future-timestamp age clamp, old-only histories that are not false cold starts, huge finite `RecencyDecayLambda`, relative underflow omitting exact-zero genre entries, and independent oracles that do not copy the production implementation. Same file concerns: do not mark [P] if editing concurrently with T014; prefer completing T013 before T014 if the same helper types are shared.
 
-- [ ] T014 [US4] Write `tests/LamuFlix.Test/Features/Recommendations/TasteProfileProperties.cs` asserting finite outputs, per-channel convex bounds, identical-source idempotence, uniform-replication invariance within floating tolerance, and fixed-clock determinism over valid deterministic bounded generated histories. Respect unique movie rows and Q2 fallback rules; replication concerns watch-signal multiplicity, not duplicate MovieId rows. Use the property-test framework, category trait, and seed conventions verified at T001 (including any required deterministic Replay seed); no `System.Random`, no algorithm restatement, no new package, no property-test opt-out. Compare coordinates and dictionary entries.
+- [X] T014 [US4] Write `tests/LamuFlix.Test/Features/Recommendations/TasteProfileProperties.cs` asserting finite outputs, per-channel convex bounds, identical-source idempotence, uniform-replication invariance within floating tolerance, and fixed-clock determinism over valid deterministic bounded generated histories. Respect unique movie rows and Q2 fallback rules; replication concerns watch-signal multiplicity, not duplicate MovieId rows. Use the property-test framework, category trait, and seed conventions verified at T001 (including any required deterministic Replay seed); no `System.Random`, no algorithm restatement, no new package, no property-test opt-out. Compare coordinates and dictionary entries.
 
 ### Implementation for User Story 4
 
-- [ ] T015 [US4] Adjust `src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs` only as required to satisfy T013–T014 while preserving Q1–Q8 semantics (stabilize with `age - a_min`, omit exact-zero genre entries). No scope expansion.
+- [X] T015 [US4] Adjust `src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs` only as required to satisfy T013–T014 while preserving Q1–Q8 semantics (stabilize with `age - a_min`, omit exact-zero genre entries). No scope expansion.
 
 **Checkpoint**: Unit stability oracles and property tests pass. `./scripts/run-property-tests.ps1` applicable scope is green. Prior phases remain green.
 
