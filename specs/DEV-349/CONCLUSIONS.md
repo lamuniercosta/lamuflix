@@ -167,3 +167,13 @@ ACCEPT L1 and L2 adjudications (`adjudication-DEV-349-plan-round1:12-13,22-23`) 
 - **F1 (§2.3 item 2/6)**: `docker/` is not a new top-level folder — it is already tracked on the base (`git ls-files docker`: `Dockerfile.api`, `Dockerfile.web`, `nginx.conf`, `api.settings.example.json`, `sample-library/`), superseding the intake F1 absence note; adding `docker/ollama-init.sh` follows the Q6-approved envelope (Q6/12 above; `tasks.md` T006) and needs no further folder authorization.
 - **ADR numbering (Plan-challenge L1; `tasks.md` T003)**: `0024` is taken by DEV-413 (`origin/feature/DEV-413`: `docs/adr/0024-movie-features-storage-port.md`, `specs/DEV-413/adr-0024-movie-features-storage-port.md`) and the highest on `origin/main` is `0023` (`recon-DEV-349` DEV-349 note:38), so Anvil must use the next sequential `ADR-0025`, not `0024`, preserving the L1 rename/Accepted lifecycle.
 
+---
+
+## CI e2e isolation — bounded second remediation round (2026-10-22)
+
+[from Patron] APPROVED: authorize narrow envelope expansion for `web/e2e/run.mjs` only, as Keel recommends; Keel persists this in `brief.md` before Cog handoff and no code write is authorized until that record exists.
+
+- **Basis (§2.3 item 6, envelope amendment)**: profile-less e2e `compose up` at `web/e2e/run.mjs:523-525` selects the profile-less Ollama pair at `docker-compose.yml:15,28`, violating authoritative default-CI isolation (`brief.md` Authoritative delivery: default CI does not start Ollama; `recon-DEV-349:60-66,76`). The confirmed Medium Spec/Risk finding is in scope; the exact final Compose exit cause remains unknown (`recon-DEV-349:73,84`), so no registry, timeout, or pull-failure diagnosis is adopted.
+- **Approved change**: in `web/e2e/run.mjs` only, add explicit existing service targets `postgres rabbitmq api web omdb-stub` to the stack `up`, preserving `-d --wait --wait-timeout` and all budgets. No Compose profile change, no `docker-compose.yml` edit, no dependency/budget change, and no change to ticket-required plain `docker compose up` model-ready developer behaviour (Q4/12). `README.md` may clarify only that browser smoke is isolated, only if needed.
+- **Scope and proof**: this is one bounded second remediation round within the Q8 round cap; original Low follow-ups remain untouched and no other file is authorized. Cog must show the e2e `up` no longer selects `ollama`/`ollama-model-init` and that the listed stack starts; failure of the unknown original exit tail is not claimed fixed beyond removing the confirmed Ollama selection.
+
