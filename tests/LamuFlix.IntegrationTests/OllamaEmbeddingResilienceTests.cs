@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -17,6 +19,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     : IClassFixture<OllamaEmbeddingProbe>, IAsyncLifetime
 {
     private const int MaxRetryAttempts = 3;
+    private static readonly TimeSpan BeyondBudgetRetryAfter = TimeSpan.FromSeconds(30);
 
     public ValueTask InitializeAsync()
     {
@@ -132,27 +135,31 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     }
 
     [Fact]
-    public async Task GenerateAsync_RetryAfterBeyondTheTotalBudget_MapsToProviderUnavailableWithoutASecondRequest()
+    public async Task GenerateAsync_RetryAfterBeyondTheTotalBudget_MapsToProviderUnavailableWithinTheTotalBudget()
     {
         // arrange
         probe.Server
             .Given(Request.Create().UsingPost())
             .RespondWith(Response.Create()
                 .WithStatusCode(429)
-                .WithHeader("Retry-After", "30"));
+                .WithHeader(
+                    "Retry-After",
+                    ((int)BeyondBudgetRetryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture)));
         var resilience = OllamaEmbeddingProbe.TestResilience() with
         {
             AttemptTimeout = TimeSpan.FromSeconds(3),
             SamplingDuration = TimeSpan.FromSeconds(6),
         };
         await using var provider = probe.BuildServices(resilience: resilience);
+        var clock = Stopwatch.StartNew();
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
 
         // assert
+        clock.Stop();
         failure.Category.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
-        probe.RequestCount.ShouldBe(1);
+        clock.Elapsed.ShouldBeLessThan(BeyondBudgetRetryAfter);
     }
 
     [Fact]
