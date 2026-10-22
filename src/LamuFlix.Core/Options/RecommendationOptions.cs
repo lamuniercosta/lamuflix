@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
@@ -19,10 +20,23 @@ public sealed record RecommendationOptions : IValidatableObject
     [Range(0.0, 1.0)]
     public double MmrLambda { get; init; } = 0.7;
 
+    public double RecencyDecayLambda { get; init; } = Math.Log(2.0) / 30.0;
+
     public SimilarityWeights Weights { get; init; } = new();
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        if (!double.IsFinite(RecencyDecayLambda) || RecencyDecayLambda <= 0.0)
+        {
+            yield return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} must be finite and greater than 0.0; got {1}.",
+                    nameof(RecencyDecayLambda),
+                    RecencyDecayLambda),
+                [nameof(RecencyDecayLambda)]);
+        }
+
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - configuration binder can set Weights to null via reflection.
         if (Weights is null)
         {

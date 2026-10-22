@@ -34,17 +34,17 @@
 
 ### Tests
 
-- [ ] T002 [P] Write `tests/LamuFlix.Test/Domain/TasteProfileTests.cs` covering `TasteProfile.IsEmpty` true when both channels empty/default, false when either channel is populated, and construction with empty `ImmutableDictionary` / `ImmutableArray<float>.Empty`. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA headers only where the file uses them.
+- [X] T002 [P] Write `tests/LamuFlix.Test/Domain/TasteProfileTests.cs` covering `TasteProfile.IsEmpty` true when both channels empty/default, false when either channel is populated, and construction with empty `ImmutableDictionary` / `ImmutableArray<float>.Empty`. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA headers only where the file uses them.
 
-- [ ] T003 [P] Write `tests/LamuFlix.Test/Options/RecommendationOptionsRecencyTests.cs` covering default `RecencyDecayLambda == Math.Log(2.0) / 30.0`, finite and strictly positive acceptance, rejection of `NaN` / infinities / `0.0` / negative via the options validation path, and unchanged default `MmrLambda == 0.7`. Method names `Method_Condition_Expected`.
+- [X] T003 [P] Write `tests/LamuFlix.Test/Options/RecommendationOptionsRecencyTests.cs` covering default `RecencyDecayLambda == Math.Log(2.0) / 30.0`, finite and strictly positive acceptance, rejection of `NaN` / infinities / `0.0` / negative via the options validation path, and unchanged default `MmrLambda == 0.7`. Method names `Method_Condition_Expected`.
 
 ### Implementation
 
-- [ ] T004 [P] Add `src/LamuFlix.Core/Domain/TasteProfileMovie.cs` as `sealed record TasteProfileMovie(MovieId MovieId, ImmutableArray<string> Genres, ImmutableArray<float> PlotEmbedding, ImmutableArray<DateTimeOffset> PlayedAt, bool IsWatched)`. No comments.
+- [X] T004 [P] Add `src/LamuFlix.Core/Domain/TasteProfileMovie.cs` as `sealed record TasteProfileMovie(MovieId MovieId, ImmutableArray<string> Genres, ImmutableArray<float> PlotEmbedding, ImmutableArray<DateTimeOffset> PlayedAt, bool IsWatched)`. No comments.
 
-- [ ] T005 [P] Add `src/LamuFlix.Core/Domain/TasteProfile.cs` as `sealed record TasteProfile(ImmutableDictionary<string, double> GenrePreferences, ImmutableArray<float> PlotEmbedding)` with computed `bool IsEmpty => GenrePreferences.IsEmpty && PlotEmbedding.IsDefaultOrEmpty`. No comments.
+- [X] T005 [P] Add `src/LamuFlix.Core/Domain/TasteProfile.cs` as `sealed record TasteProfile(ImmutableDictionary<string, double> GenrePreferences, ImmutableArray<float> PlotEmbedding)` with computed `bool IsEmpty => GenrePreferences.IsEmpty && PlotEmbedding.IsDefaultOrEmpty`. No comments.
 
-- [ ] T006 Edit `src/LamuFlix.Core/Options/RecommendationOptions.cs` only to add `RecencyDecayLambda` (default `Math.Log(2.0) / 30.0`) and validate finite strictly `> 0.0` in the existing validation path. Do not change `MmrLambda`, Take, CandidatePoolSize, or Weights semantics. No appsettings edit.
+- [X] T006 Edit `src/LamuFlix.Core/Options/RecommendationOptions.cs` only to add `RecencyDecayLambda` (default `Math.Log(2.0) / 30.0`) and validate finite strictly `> 0.0` in the existing validation path. Do not change `MmrLambda`, Take, CandidatePoolSize, or Weights semantics. No appsettings edit.
 
 **Checkpoint**: Domain and options tests pass. `MmrLambda` default unchanged.
 
