@@ -189,6 +189,19 @@ async function handleProvider(request, response, url, responses) {
   sendJson(response, 200, known.body);
 }
 
+function embedVector() {
+  return Array.from({ length: 384 }, () => 0.5);
+}
+
+async function handleEmbed(request, response) {
+  const body = await readBody(request);
+  const inputs = Array.isArray(body.input) ? body.input : [body.input];
+  sendJson(response, 200, {
+    model: typeof body.model === 'string' ? body.model : 'all-minilm',
+    embeddings: inputs.map(() => embedVector()),
+  });
+}
+
 async function handleControl(request, response, url, responses) {
   const action = url.pathname.slice(CONTROL_PREFIX.length);
 
@@ -260,7 +273,9 @@ function serve() {
     const url = new URL(request.url ?? '/', `http://${HOST}:${PORT}`);
     const handler = url.pathname.startsWith(CONTROL_PREFIX)
       ? handleControl(request, response, url, responses)
-      : handleProvider(request, response, url, responses);
+      : url.pathname === '/api/embed' && request.method === 'POST'
+        ? handleEmbed(request, response)
+        : handleProvider(request, response, url, responses);
 
     Promise.resolve(handler).catch((error) => {
       log('request-error', { message: error.message });

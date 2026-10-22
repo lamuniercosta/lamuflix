@@ -134,6 +134,10 @@ function buildSettings() {
       ApiKey: omdbApiKey,
       BaseUrl: providerBaseUrl(),
     },
+    Ollama: {
+      Endpoint: providerBaseUrl(),
+      ModelName: 'all-minilm',
+    },
     Enrichment: {
       SweepInterval: '00:01:00',
       ClaimLease: '00:00:10',

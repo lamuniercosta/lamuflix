@@ -135,16 +135,17 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     public async Task GenerateAsync_RetryAfterBeyondTheTotalBudget_MapsToProviderUnavailableWithoutASecondRequest()
     {
         // arrange
-        probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        await using var warmProvider = probe.BuildServices();
-        await GenerateAsync(warmProvider, TestContext.Current.CancellationToken);
-        probe.Reset();
         probe.Server
             .Given(Request.Create().UsingPost())
             .RespondWith(Response.Create()
                 .WithStatusCode(429)
                 .WithHeader("Retry-After", "30"));
-        await using var provider = probe.BuildServices();
+        var resilience = OllamaEmbeddingProbe.TestResilience() with
+        {
+            AttemptTimeout = TimeSpan.FromSeconds(3),
+            SamplingDuration = TimeSpan.FromSeconds(6),
+        };
+        await using var provider = probe.BuildServices(resilience: resilience);
 
         // act
         var failure = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
