@@ -1,8 +1,5 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using LamuFlix.Core.Domain;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Domain;
 

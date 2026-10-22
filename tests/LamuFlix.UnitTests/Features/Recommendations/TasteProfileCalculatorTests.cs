@@ -6,8 +6,6 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
@@ -478,6 +476,7 @@ public sealed class TasteProfileCalculatorTests
     public void Constructor_NullTimeProvider_ThrowsArgumentNullException()
     {
         // act / assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed - the null TimeProvider is the case under test; the constructor must reject it.
         Should.Throw<ArgumentNullException>(() => new TasteProfileCalculator(null!, new RecommendationOptions()));
     }
 
@@ -485,6 +484,7 @@ public sealed class TasteProfileCalculatorTests
     public void Constructor_NullOptions_ThrowsArgumentNullException()
     {
         // act / assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed - the null options is the case under test; the constructor must reject it.
         Should.Throw<ArgumentNullException>(() => new TasteProfileCalculator(new CountingTimeProvider(Now), null!));
     }
 
@@ -530,6 +530,7 @@ public sealed class TasteProfileCalculatorTests
             Movie(1, ["gA"], ImmutableArray<float>.Empty, [Now]));
 
         // act / assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed - the null weights is the case under test; Calculate must reject it.
         Should.Throw<ArgumentNullException>(() => Calculator(new CountingTimeProvider(Now)).Calculate(movies, null!));
     }
 
@@ -539,6 +540,7 @@ public sealed class TasteProfileCalculatorTests
         // arrange
         var movies = ImmutableArray.Create(
             Movie(1, ["gA"], ImmutableArray<float>.Empty, [Now]),
+            // ReSharper disable once NullableWarningSuppressionIsUsed - the null row is the case under test; Calculate must reject it.
             null!);
 
         // act / assert

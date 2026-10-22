@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using LamuFlix.Core.Options;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Options;
 
