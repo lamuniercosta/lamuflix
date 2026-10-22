@@ -94,11 +94,11 @@
 
 ### Tests for User Story 3
 
-- [ ] T011 [US3] Extend `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` for: null `TimeProvider` / null `RecommendationOptions` → `ArgumentNullException`; non-finite or `<= 0.0` lambda → `ArgumentOutOfRangeException` in constructor without requiring unrelated Take/MMR validity; null `GenreWeights` → `ArgumentNullException`; null movie rows, duplicate `MovieId`, nonempty embedding length ≠ 384, non-finite embedding floats → `ArgumentException` before accumulation (including unwatched rows); default/empty Genres/PlayedAt/PlotEmbedding succeed; duplicate `PlayedAt` preserved; caller inputs unchanged after success and after failure. Same file (not marked [P]).
+- [X] T011 [US3] Extend `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` for: null `TimeProvider` / null `RecommendationOptions` → `ArgumentNullException`; non-finite or `<= 0.0` lambda → `ArgumentOutOfRangeException` in constructor without requiring unrelated Take/MMR validity; null `GenreWeights` → `ArgumentNullException`; null movie rows, duplicate `MovieId`, nonempty embedding length ≠ 384, non-finite embedding floats → `ArgumentException` before accumulation (including unwatched rows); default/empty Genres/PlayedAt/PlotEmbedding succeed; duplicate `PlayedAt` preserved; caller inputs unchanged after success and after failure. Same file (not marked [P]).
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] Implement constructor and Calculate validation in `src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs` per brief Q7. Validate the full movie collection before accumulation. Do not mutate caller inputs.
+- [X] T012 [US3] Implement constructor and Calculate validation in `src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs` per brief Q7. Validate the full movie collection before accumulation. Do not mutate caller inputs.
 
 **Checkpoint**: All Q7 boundaries covered. Prior phases remain green.
 
