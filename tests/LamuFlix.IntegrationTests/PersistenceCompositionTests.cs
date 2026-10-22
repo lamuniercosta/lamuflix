@@ -102,7 +102,7 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
     }
 
     [Fact]
-    public async Task ComposedRegistration_RoundTripsAParameterizedVectorWithoutLeavingAVectorTable()
+    public async Task ComposedRegistration_RoundTripsAParameterizedVectorAndMovieFeaturesOwnsTheOnlyVectorColumn()
     {
         // arrange
         var services = await ComposeAsync();
@@ -117,7 +117,8 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
 
         // assert
         received.ShouldBe(sent);
-        (await HasVectorColumnAsync(context, cancellationToken)).ShouldBeFalse();
+        (await ListVectorColumnsAsync(context, cancellationToken))
+            .ShouldBe(["movie_features.vector"]);
     }
 
     [Fact]
@@ -183,7 +184,7 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
         return (Vector?)await command.ExecuteScalarAsync(cancellationToken);
     }
 
-    private static async Task<bool> HasVectorColumnAsync(
+    private static async Task<List<string>> ListVectorColumnsAsync(
         LamuFlixDbContext context,
         CancellationToken cancellationToken)
     {
@@ -195,10 +196,15 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
 
         await using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND udt_name = 'vector')";
-        var result = await command.ExecuteScalarAsync(cancellationToken);
-        ArgumentNullException.ThrowIfNull(result);
-        return (bool)result;
+            "SELECT table_name || '.' || column_name FROM information_schema.columns WHERE table_schema = 'public' AND udt_name = 'vector' ORDER BY 1";
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var columns = new List<string>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            columns.Add(reader.GetString(0));
+        }
+
+        return columns;
     }
 
     private Task<ServiceCollection> ComposeAsync()
