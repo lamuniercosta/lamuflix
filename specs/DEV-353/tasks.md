@@ -76,11 +76,11 @@
 
 ### Tests for User Story 2
 
-- [ ] T009 [US2] Extend `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` for: empty/default movies array → empty profile without throw; rows with no launches and `IsWatched == false` even with genres/embeddings → empty profile; genre-only history; plot-only history; missing embeddings omitted from plot denominator; valid zero vectors included; all-zero mean → empty plot with genre preferences preserved; `IsEmpty` semantics. Same file as T007 (not marked [P]).
+- [X] T009 [US2] Extend `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` for: empty/default movies array → empty profile without throw; rows with no launches and `IsWatched == false` even with genres/embeddings → empty profile; genre-only history; plot-only history; missing embeddings omitted from plot denominator; valid zero vectors included; all-zero mean → empty plot with genre preferences preserved; `IsEmpty` semantics. Same file as T007 (not marked [P]).
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Complete empty-channel and cold-start branches in `src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs` per brief Q5 (including all-zero mean → `ImmutableArray<float>.Empty`) without weakening US1 behavior.
+- [X] T010 [US2] Complete empty-channel and cold-start branches in `src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs` per brief Q5 (including all-zero mean → `ImmutableArray<float>.Empty`) without weakening US1 behavior.
 
 **Checkpoint**: US2 cold-start and empty-channel tests pass. US1 remains green.
 
