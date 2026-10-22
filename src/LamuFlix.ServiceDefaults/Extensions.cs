@@ -88,6 +88,8 @@ public static class ServiceDefaultsExtensions
         BindAndValidate<EnrichmentOptions>(services, EnrichmentOptions.SectionName);
         services.AddSingleton<IValidateOptions<EnrichmentOptions>, EnrichmentOptionsValidator>();
         BindAndValidate<RecommendationOptions>(services, RecommendationOptions.SectionName);
+        BindAndValidate<OllamaOptions>(services, OllamaOptions.SectionName);
+        BindAndValidate<OllamaResilienceOptions>(services, OllamaResilienceOptions.SectionName);
         BindAndValidate<FeatureOptions>(services, FeatureOptions.SectionName);
         return services;
     }

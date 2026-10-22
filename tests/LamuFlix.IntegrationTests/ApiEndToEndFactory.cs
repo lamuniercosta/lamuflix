@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using LamuFlix.Core.Options;
+using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.AspNetCore.Hosting;
@@ -72,6 +73,18 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         services.AddSingleton(settings.TimeProvider);
         configureTestServices?.Invoke(services);
         RemoveSweeper(services);
+        RemoveEmbeddingStartupProbe(services);
+    }
+
+    private static void RemoveEmbeddingStartupProbe(IServiceCollection services)
+    {
+        var registration = services.FirstOrDefault(descriptor =>
+            descriptor.ServiceType == typeof(IHostedService)
+            && descriptor.ImplementationType == typeof(OllamaEmbeddingStartupValidator));
+        if (registration is not null)
+        {
+            services.Remove(registration);
+        }
     }
 
     private static void RemoveSweeper(IServiceCollection services)

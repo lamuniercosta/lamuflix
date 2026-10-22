@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
+using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.AspNetCore.Hosting;
@@ -197,6 +198,18 @@ public sealed class HealthEndpointTests
                 .AddCheck(RabbitMqCheck, new StubHealthCheck(rabbitMq), tags: [HealthCheckTags.Ready])
                 .AddCheck(MetadataCheck, new StubHealthCheck(metadataProvider));
             RemoveSweeper(services);
+            RemoveEmbeddingStartupProbe(services);
+        }
+
+        private static void RemoveEmbeddingStartupProbe(IServiceCollection services)
+        {
+            var registration = services.FirstOrDefault(descriptor =>
+                descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(OllamaEmbeddingStartupValidator));
+            if (registration is not null)
+            {
+                services.Remove(registration);
+            }
         }
 
         private static void RemoveSweeper(IServiceCollection services)

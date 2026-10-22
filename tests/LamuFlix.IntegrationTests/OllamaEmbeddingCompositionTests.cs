@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -8,7 +9,9 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
+using LamuFlix.ServiceDefaults;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
@@ -36,7 +39,7 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         await StartAsync(provider);
@@ -54,7 +57,7 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector(768));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<InvalidOperationException>(() => StartAsync(provider));
@@ -74,7 +77,7 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(404);
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<InvalidOperationException>(() => StartAsync(provider));
@@ -92,7 +95,7 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
         var deadUrl = dead.Urls[0];
         dead.Stop();
         dead.Dispose();
-        using var provider = probe.BuildServices(OllamaEmbeddingProbe.Endpoint(deadUrl));
+        await using var provider = probe.BuildServices(OllamaEmbeddingProbe.Endpoint(deadUrl));
 
         // act
         var failure = await Should.ThrowAsync<InvalidOperationException>(() => StartAsync(provider));
@@ -106,7 +109,7 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(200, "{");
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
 
         // act
         var failure = await Should.ThrowAsync<InvalidOperationException>(() => StartAsync(provider));
@@ -125,7 +128,7 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
                 .WithStatusCode(200)
                 .WithDelay(TimeSpan.FromSeconds(2))
                 .WithBody(OllamaEmbeddingProbe.EmbedBody(OllamaEmbeddingProbe.Vector())));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var validator = Validator(provider);
 
         // act
@@ -134,7 +137,8 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
 
         // assert
         completed.ShouldNotBeSameAs(startup);
-        await Should.ThrowAsync<InvalidOperationException>(() => startup);
+        var failure = await Should.ThrowAsync<InvalidOperationException>(() => startup);
+        failure.Message.ShouldContain("provider_unavailable");
     }
 
     [Fact]
@@ -146,7 +150,7 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
         const string bodySentinel = "do-not-leak-body";
         probe.StubBody(500, $"{{\"error\":\"{bodySentinel}\"}}");
         var endpoint = $"http://alice:{credential}@127.0.0.1:{new Uri(probe.BaseUrl).Port}/?token={query}";
-        using var provider = probe.BuildServices(endpoint);
+        await using var provider = probe.BuildServices(endpoint);
 
         // act
         var failure = await Should.ThrowAsync<InvalidOperationException>(() => StartAsync(provider));
@@ -163,14 +167,12 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         await StartAsync(provider);
         var state = provider.GetRequiredService<OllamaEmbeddingModelState>();
         using var handler = new GateHandler();
-        using var httpClient = new HttpClient(handler)
-        {
-            BaseAddress = new Uri(OllamaEmbeddingProbe.Endpoint(probe.BaseUrl)),
-        };
+        using var httpClient = new HttpClient(handler);
+        httpClient.BaseAddress = new Uri(OllamaEmbeddingProbe.Endpoint(probe.BaseUrl));
         var options = Options.Create(new OllamaOptions
         {
             Endpoint = OllamaEmbeddingProbe.Endpoint(probe.BaseUrl),
@@ -181,8 +183,8 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
 
         // act
         var outcomes = await Task.WhenAll(
-            Attempt(() => first.GenerateAsync(["first"])),
-            Attempt(() => second.GenerateAsync(["second"])));
+            Attempt(first, "first"),
+            Attempt(second, "second"));
 
         // assert
         outcomes.Count(succeeded => succeeded).ShouldBe(1);
@@ -196,6 +198,84 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
         entry.Status.ShouldBe(HealthStatus.Healthy);
         probe.RequestCount.ShouldBe(requestsBeforeSuccess + 1);
     }
+
+    [Fact]
+    public void AddLamuFlixOptions_NoOllamaSection_RecordsDefaultsWithoutProviderRegistrationOrNetwork()
+    {
+        // arrange
+        using var provider = BuildBoundOptions(RequiredConfiguration());
+
+        // act
+        ValidateStartup(provider);
+
+        // assert
+        provider.GetRequiredService<IOptions<OllamaOptions>>().Value.ShouldBe(new OllamaOptions());
+        provider.GetRequiredService<IOptions<OllamaResilienceOptions>>().Value
+            .ShouldBe(new OllamaResilienceOptions());
+        provider.GetService<IEmbeddingGenerator<string, Embedding<float>>>().ShouldBeNull();
+        probe.RequestCount.ShouldBe(0);
+    }
+
+    [Theory]
+    [InlineData($"{OllamaOptions.SectionName}:{nameof(OllamaOptions.Endpoint)}", "not-a-url", nameof(OllamaOptions.Endpoint))]
+    [InlineData($"{OllamaOptions.SectionName}:{nameof(OllamaOptions.Endpoint)}", "", nameof(OllamaOptions.Endpoint))]
+    [InlineData($"{OllamaOptions.SectionName}:{nameof(OllamaOptions.ModelName)}", "", nameof(OllamaOptions.ModelName))]
+    [InlineData(
+        $"{OllamaResilienceOptions.SectionName}:{nameof(OllamaResilienceOptions.AttemptTimeout)}",
+        "00:01:00",
+        nameof(OllamaResilienceOptions.AttemptTimeout))]
+    [InlineData(
+        $"{OllamaResilienceOptions.SectionName}:{nameof(OllamaResilienceOptions.FailureRatio)}",
+        "2",
+        nameof(OllamaResilienceOptions.FailureRatio))]
+    public void AddLamuFlixOptions_InvalidOllamaValue_FailsBeforeNetwork(
+        string key,
+        string value,
+        string expectedField)
+    {
+        // arrange
+        var values = RequiredConfiguration();
+        values[key] = value;
+        using var provider = BuildBoundOptions(values);
+
+        // act
+        var failure = Should.Throw<OptionsValidationException>(() => ValidateStartup(provider));
+
+        // assert
+        failure.Message.ShouldContain(expectedField);
+        probe.RequestCount.ShouldBe(0);
+    }
+
+    private static ServiceProvider BuildBoundOptions(Dictionary<string, string?> values)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddLamuFlixOptions();
+        return services.BuildServiceProvider();
+    }
+
+    private static void ValidateStartup(IServiceProvider provider)
+    {
+        var validators = provider.GetServices<IStartupValidator>().ToArray();
+        validators.ShouldNotBeEmpty();
+        foreach (var validator in validators)
+        {
+            validator.Validate();
+        }
+    }
+
+    private static Dictionary<string, string?> RequiredConfiguration() =>
+        new()
+        {
+            [$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}"] = "C:/library",
+            [$"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}"] = "not-a-real-key",
+            [$"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}"] = "https://example.invalid/",
+            [$"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}"] = "localhost",
+            [$"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}"] = "00:05:00",
+            [$"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}"] = "00:01:00",
+            [$"{FeatureOptions.SectionName}:{nameof(FeatureOptions.LocalPlay)}"] = "false",
+        };
 
     private static async Task StartAsync(IServiceProvider provider) =>
     await Validator(provider).StartAsync(TestContext.Current.CancellationToken);
@@ -214,11 +294,11 @@ public sealed class OllamaEmbeddingCompositionTests(OllamaEmbeddingProbe probe)
             TimeProvider.System,
             NullLogger<OllamaSharpEmbeddingGenerator>.Instance);
 
-    private static async Task<bool> Attempt(Func<Task> generate)
+    private static async Task<bool> Attempt(OllamaSharpEmbeddingGenerator generator, string text)
     {
         try
         {
-            await generate();
+            await generator.GenerateAsync([text]);
             return true;
         }
         catch (EmbeddingGenerationException)

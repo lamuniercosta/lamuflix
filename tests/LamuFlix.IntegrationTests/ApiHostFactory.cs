@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Core.Options;
+using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.AspNetCore.Hosting;
@@ -78,6 +79,7 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
             options.ValidateScopes = true;
         });
         builder.ConfigureTestServices(ReplaceHealthChecksWithStub);
+        builder.ConfigureTestServices(RemoveEmbeddingStartupProbe);
         if (timeProvider is not null)
         {
             builder.ConfigureTestServices(services =>
@@ -108,6 +110,17 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
         var registration = services.FirstOrDefault(descriptor =>
             descriptor.ServiceType == typeof(IHostedService)
             && descriptor.ImplementationType == typeof(StrandedMovieSweeper));
+        if (registration is not null)
+        {
+            services.Remove(registration);
+        }
+    }
+
+    private static void RemoveEmbeddingStartupProbe(IServiceCollection services)
+    {
+        var registration = services.FirstOrDefault(descriptor =>
+            descriptor.ServiceType == typeof(IHostedService)
+            && descriptor.ImplementationType == typeof(OllamaEmbeddingStartupValidator));
         if (registration is not null)
         {
             services.Remove(registration);
