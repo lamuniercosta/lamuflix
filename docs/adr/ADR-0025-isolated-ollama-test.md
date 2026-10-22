@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: Accepted
 ---
 
 # Isolate the DEV-349 real-model Ollama test
@@ -8,4 +8,4 @@ DEV-349 explicitly requires one real-model Testcontainers check through the DEV-
 
 Keep the real-model check isolated and explicitly opted in. Default tests and CI must never start Ollama or download its model. DEV-412 owns adapter contract tests; DEV-349 owns the real-model check and Compose provisioning. Phase B requires the DEV-412 runtime adapter merged into main and present on the build base; Ready to build alone does not meet this prerequisite (recon-DEV-349-2:54-60; Patron Q1).
 
-This ADR is proposed until Gate 1. It does not claim implementation, runtime proof, plan freeze, or Gate 1 approval. Full cited decision exchanges: specs/DEV-349/CONCLUSIONS.md Q1-Q2.
+Full cited decision exchanges: specs/DEV-349/CONCLUSIONS.md Q1-Q2.
