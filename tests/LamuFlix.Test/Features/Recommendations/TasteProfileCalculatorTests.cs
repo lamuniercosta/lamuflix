@@ -660,8 +660,111 @@ public sealed class TasteProfileCalculatorTests
         playedAt.ShouldBe([Now, Now, Now.AddDays(-30)]);
     }
 
+    [Fact]
+    public void Calculate_FuturePlayedAt_ClampsAgeToZero()
+    {
+        // arrange
+        var weights = Weights(100, ("gA", 1), ("gB", 9));
+        var rarityA = weights.GetWeight("gA");
+        var rarityB = weights.GetWeight("gB");
+        var future = ImmutableArray.Create(
+            Movie(1, ["gA"], Basis(0, 1.0f), [Now.AddDays(-30)]),
+            Movie(2, ["gB"], Basis(1, 1.0f), [Now.AddDays(5)]));
+        var present = ImmutableArray.Create(
+            Movie(1, ["gA"], Basis(0, 1.0f), [Now.AddDays(-30)]),
+            Movie(2, ["gB"], Basis(1, 1.0f), [Now]));
+
+        // act
+        var futureProfile = Calculator(new CountingTimeProvider(Now)).Calculate(future, weights);
+        var presentProfile = Calculator(new CountingTimeProvider(Now)).Calculate(present, weights);
+
+        // assert
+        futureProfile.GenrePreferences["gB"].ShouldBe((2.0 / 3.0) * rarityB, Tolerance);
+        futureProfile.GenrePreferences["gA"].ShouldBe((1.0 / 3.0) * rarityA, Tolerance);
+        futureProfile.PlotEmbedding[0].ShouldBe(presentProfile.PlotEmbedding[0]);
+        futureProfile.PlotEmbedding[1].ShouldBe(presentProfile.PlotEmbedding[1]);
+    }
+
+    [Fact]
+    public void Calculate_OldOnlyHistory_IsNotAFalseColdStart()
+    {
+        // arrange
+        var weights = Weights(100, ("gA", 1), ("gB", 9));
+        var rarityA = weights.GetWeight("gA");
+        var rarityB = weights.GetWeight("gB");
+        var lambda = new RecommendationOptions().RecencyDecayLambda;
+        var relativeWeight = Math.Exp(-lambda * 30.0);
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], Basis(0, 1.0f), [Now.AddDays(-3650)]),
+            Movie(2, ["gB"], Basis(1, 1.0f), [Now.AddDays(-3680)]));
+
+        // act
+        var profile = Calculator(new CountingTimeProvider(Now)).Calculate(movies, weights);
+
+        // assert
+        profile.IsEmpty.ShouldBeFalse();
+        profile.GenrePreferences.Count.ShouldBe(2);
+        profile.GenrePreferences["gA"].ShouldBe(rarityA / (1.0 + relativeWeight), Tolerance);
+        profile.GenrePreferences["gB"].ShouldBe((relativeWeight / (1.0 + relativeWeight)) * rarityB, Tolerance);
+        profile.PlotEmbedding.IsEmpty.ShouldBeFalse();
+        profile.PlotEmbedding[0].ShouldBe((float)(1.0 / (1.0 + relativeWeight)));
+        profile.PlotEmbedding[1].ShouldBe((float)(relativeWeight / (1.0 + relativeWeight)));
+    }
+
+    [Fact]
+    public void Calculate_HugeFiniteLambda_KeepsDenominatorFiniteAndOmitsZeroGenres()
+    {
+        // arrange
+        var weights = Weights(100, ("gA", 1), ("gB", 9));
+        var rarityA = weights.GetWeight("gA");
+        var options = new RecommendationOptions { RecencyDecayLambda = 1e300 };
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], Basis(0, 1.0f), [Now]),
+            Movie(2, ["gB"], Basis(1, 1.0f), [Now.AddDays(-30)]));
+
+        // act
+        var profile = Calculator(new CountingTimeProvider(Now), options).Calculate(movies, weights);
+
+        // assert
+        profile.IsEmpty.ShouldBeFalse();
+        profile.GenrePreferences.Count.ShouldBe(1);
+        profile.GenrePreferences.ContainsKey("gB").ShouldBeFalse();
+        double.IsFinite(profile.GenrePreferences["gA"]).ShouldBeTrue();
+        profile.GenrePreferences["gA"].ShouldBe(rarityA, Tolerance);
+        profile.PlotEmbedding.IsEmpty.ShouldBeFalse();
+        profile.PlotEmbedding[0].ShouldBe(1.0f);
+        profile.PlotEmbedding[1].ShouldBe(0.0f);
+    }
+
+    [Fact]
+    public void Calculate_RelativeUnderflow_OmitsExactZeroGenreEntries()
+    {
+        // arrange
+        var weights = Weights(100, ("gA", 1), ("gB", 9));
+        var rarityA = weights.GetWeight("gA");
+        var options = new RecommendationOptions { RecencyDecayLambda = 1000.0 };
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], Basis(0, 1.0f), [Now]),
+            Movie(2, ["gB"], Basis(1, 1.0f), [Now.AddDays(-30)]));
+
+        // act
+        var profile = Calculator(new CountingTimeProvider(Now), options).Calculate(movies, weights);
+
+        // assert
+        profile.GenrePreferences.Count.ShouldBe(1);
+        profile.GenrePreferences.ContainsKey("gA").ShouldBeTrue();
+        profile.GenrePreferences.ContainsKey("gB").ShouldBeFalse();
+        profile.GenrePreferences["gA"].ShouldBe(rarityA, Tolerance);
+        profile.GenrePreferences.Values.ShouldAllBe(preference => preference > 0.0);
+        profile.PlotEmbedding[0].ShouldBe(1.0f);
+        profile.PlotEmbedding[1].ShouldBe(0.0f);
+    }
+
     private static TasteProfileCalculator Calculator(TimeProvider clock) =>
         new(clock, new RecommendationOptions());
+
+    private static TasteProfileCalculator Calculator(TimeProvider clock, RecommendationOptions options) =>
+        new(clock, options);
 
     private static TasteProfileMovie Movie(
         int id,
