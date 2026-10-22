@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading;
@@ -127,7 +128,7 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task SharedFactory_RoundTripsAParameterizedVectorWithoutLeavingAVectorTable()
+    public async Task SharedFactory_RoundTripsAParameterizedVectorAndMovieFeaturesOwnsTheOnlyVectorColumn()
     {
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -139,7 +140,8 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
 
         // assert
         received.ShouldBe(sent);
-        (await HasVectorColumnAsync(context, cancellationToken)).ShouldBeFalse();
+        (await ListVectorColumnsAsync(context, cancellationToken))
+            .ShouldBe(["movie_features.vector"]);
     }
 
     private static async Task<Vector?> RoundTripVectorAsync(
@@ -162,7 +164,7 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
         return (Vector?)await command.ExecuteScalarAsync(cancellationToken);
     }
 
-    private static async Task<bool> HasVectorColumnAsync(
+    private static async Task<List<string>> ListVectorColumnsAsync(
         LamuFlixDbContext context,
         CancellationToken cancellationToken)
     {
@@ -174,10 +176,15 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
 
         await using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND udt_name = 'vector')";
-        var result = await command.ExecuteScalarAsync(cancellationToken);
-        ArgumentNullException.ThrowIfNull(result);
-        return (bool)result;
+            "SELECT table_name || '.' || column_name FROM information_schema.columns WHERE table_schema = 'public' AND udt_name = 'vector' ORDER BY 1";
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var columns = new List<string>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            columns.Add(reader.GetString(0));
+        }
+
+        return columns;
     }
 
     private async Task<int> FirstIdentityAsync(CancellationToken cancellationToken)
