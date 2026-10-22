@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# Runs Stryker.NET mutation testing on changed production C# files under src/.
+# Runs Stryker.NET mutation testing on the changed production C# files of a repo.
 # Exits 0 on PASS, 1 on FAIL, 2 on SKIPPED (no production files changed) or NOT
 # APPLICABLE (every changed project listed in gates.mutation.exclusions). -Help
-# prints the exit-code table, and AGENTS.md carries the same table.
+# prints the exit-code table, and the adapters carry the same table.
 #
 # Worktree-safe replacement for `dotnet stryker --since`:
 # In Stryker 4.16.0 the built-in `since` filter resolved linked git worktrees to the
@@ -11,20 +11,21 @@
 # to project-relative mutate globs, generates temporary configs in the system temp
 # directory with since disabled, and executes Stryker sequentially per project.
 #
-# Test runner (DEV-382, docs/adr/0016-stryker-mtp-runner.md): the xUnit v3 test projects
-# are executables, so under VSTest the tests run in a child of testhost that never sees
-# the active mutant and every mutant survives. The tracked config therefore selects the
-# MTP runner with coverage off, and every generated config carries both settings, the
-# additional-timeout allowance (DEV-410), and an
-# explicit test-projects list that excludes *.ArchitectureTests and *.IntegrationTests:
-# the first fails on the Stryker.* types injected into every mutated assembly, which is
-# an artifact kill, and the second holds the real-database tests this run does not drive.
+# Test runner: the tracked stryker-config.json names the runner, and this gate never
+# guesses it. xUnit v3 test projects are executables, so under VSTest their tests run in
+# a child of testhost that never sees the active mutant and every mutant survives; those
+# repos set test-runner=mtp with coverage off, and every generated config carries the
+# additional-timeout allowance and an explicit test-projects list that excludes
+# *.ArchitectureTests and *.IntegrationTests. The first fails on the Stryker.* types
+# injected into every mutated assembly, which is an artifact kill, and the second holds
+# the real-database tests this run does not drive. See harness.yml.example
+# for the config keys this gate reads.
 #
 # Usage:
 #   ./scripts/run-mutation.ps1
 #   ./scripts/run-mutation.ps1 -BaseRef origin/main
 #   ./scripts/run-mutation.ps1 -DryRun
-#   ./scripts/run-mutation.ps1 -Project LamuFlix.Api -OutputRoot <dir outside the repo>
+#   ./scripts/run-mutation.ps1 -Project <name> -OutputRoot <dir outside the repo>
 #   ./scripts/run-mutation.ps1 -WholeProject -OutputRoot <dir outside the repo>
 #   ./scripts/run-mutation.ps1 -EvaluateReport <path/to/mutation-report.json>
 
@@ -47,16 +48,16 @@ $ErrorActionPreference = 'Stop'
 
 $gateStartUtc = [DateTime]::UtcNow
 
-# The exit-code contract of this gate. -Help prints this table and AGENTS.md carries a
-# copy of it, so the three texts stay identical line for line after the leading
-# whitespace on each line is trimmed.
+# The exit-code contract of this gate. -Help prints this table and the host
+# adapters carry a copy of it, so the texts stay identical line for line after the
+# leading whitespace on each line is trimmed.
 <#
 EXIT CODES:
 | Exit | Verdict | Meaning | Blocking |
 |---|---|---|---|
 | 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, no test kills more than `gates.mutation.maxKillShare` percent of tested mutants (or the run tested fewer than 20), no test kills mutants in more than `gates.mutation.maxKillFileSpan` source files, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
 | 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration (including `gates.mutation.maxKillShare` outside 1 to 100 or not an integer, or `gates.mutation.maxKillFileSpan` below 1 or not an integer), a suspected artifact kill (one test killed more than `gates.mutation.maxKillShare` percent of tested mutants, or killed mutants in more than `gates.mutation.maxKillFileSpan` source files), or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
-| 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
+| 2 | `SKIPPED` | No production C# changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
 | 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
 
 The table describes a real run. -DryRun starts no Stryker process, so its exit 0 means
@@ -67,7 +68,7 @@ if ($Help) {
     Write-Output @'
 Usage: run-mutation.ps1 [OPTIONS]
 
-Runs Stryker.NET mutation testing on changed production C# files under src/.
+Runs Stryker.NET mutation testing on the changed production C# files of this repo.
 The threshold is read from harness.yml at gates.mutation.threshold (default: 80).
 The artifact-kill share limit is read from gates.mutation.maxKillShare (default: 50).
 The artifact-kill file-span limit is read from gates.mutation.maxKillFileSpan (default: 15).
@@ -77,9 +78,9 @@ OPTIONS:
   -DryRun                 Classify changed projects and generate temp configs without running Stryker; a clean exit is a classification verdict, never mutation proof
   -EvaluateReport <path>  Evaluate an existing Stryker mutation report without running Stryker (skips changed-file containment checks unless -ScopeFile is set)
   -ScopeFile <path[]>     With -EvaluateReport, repo-relative files that form the diff. Omit it and containment checks stay skipped
-  -Project <name[]>       Only run these changed projects (e.g. LamuFlix.Api or LamuFlix.Api.csproj); a name with no changed files is an error
-  -WholeProject           Mutate the whole of src/LamuFlix.Core/LamuFlix.Core.csproj on every run, ignoring the diff scope (never scope-empty; since never enabled); writes to <output root>/LamuFlix.Core/
-  -OutputRoot <dir>       Where Stryker output goes, one <Project> folder each (default: <system temp>/LamuFlix-stryker/<UTC yyyyMMdd-HHmmss>-<6 hex>, or <system temp>/stryker-core in -WholeProject mode; must be outside the repo)
+  -Project <name[]>       Only run these projects (e.g. Contoso.Api or Contoso.Api.csproj); a name with no changed files is an error
+  -WholeProject           Mutate whole projects on every run, ignoring the diff scope (never scope-empty; since never enabled): the -Project names, else gates.mutation.wholeProject, else the one production project that has an eligible test project and is not excluded
+  -OutputRoot <dir>       Where Stryker output goes, one <Project> folder each (default: <system temp>/stryker/<UTC yyyyMMdd-HHmmss>-<6 hex>, or <system temp>/stryker-whole in -WholeProject mode; must be outside the repo)
   -Help                   Show this help
 
 CONFIGURATION:
@@ -106,18 +107,26 @@ CONFIGURATION:
   files, which can stay under the share limit. A value below 1, or a non-integer, is a
   configuration error that exits 1 before any Stryker run.
 
-  stryker-config.json must set test-runner=mtp, coverage-analysis=off and an integer
-  additional-timeout of at least 30000 (milliseconds); the gate copies all three into the
-  config it generates. A smaller allowance lets a slow machine turn survivors into
-  timeouts, which Stryker counts as detected, so the score rises without any test
-  catching the mutant (DEV-410).
+  stryker-config.json must name its test-runner (vstest or mtp), and - when it names
+  mtp - set coverage-analysis=off and an integer additional-timeout of at least 30000
+  (milliseconds); the gate copies all of them into the config it generates. A smaller
+  allowance lets a slow machine turn survivors into timeouts, which Stryker counts as
+  detected, so the score rises without any test catching the mutant. `harness.yml
+  gates.mutation.runner` is what install.ps1 renders into that file.
 
   gates.mutation.concurrency is an integer of at least 1 (default: half the
   runner's logical cores, Stryker's own default): how many test runners Stryker
   runs in parallel. The gate copies it into the config it generates. Higher
   values over-subscribe the runner and turn surviving mutants into timeouts,
   which Stryker counts as detected, so the score rises without any test
-  catching the mutant (DEV-435 measurement).
+  catching the mutant. It is a measurement knob, not a speed knob.
+
+  Scope: every changed *.cs file that belongs to a project which is not a test
+  project, minus migrations under Persistence/Migrations and anything under
+  bin, obj, node_modules, artifacts or a nested worktree. A changed file in no
+  project at all cannot produce mutants, so it is listed and skipped. A repo
+  whose production code does not live under src/ needs no configuration for
+  this: the layout comes from the project files, not from a path prefix.
 
   Every real run writes mutation-timing.json next to the per-project folders under the
   output root: total and per-project wall time in seconds, mutant counts, score, and
@@ -127,8 +136,8 @@ EXAMPLES:
   ./scripts/run-mutation.ps1
   ./scripts/run-mutation.ps1 -BaseRef origin/main
   ./scripts/run-mutation.ps1 -DryRun
-  ./scripts/run-mutation.ps1 -Project LamuFlix.Infrastructure,LamuFlix.Api
-  ./scripts/run-mutation.ps1 -EvaluateReport <output root>/LamuFlix.Api/reports/mutation-report.json
+  ./scripts/run-mutation.ps1 -Project Contoso.Infrastructure,Contoso.Api
+  ./scripts/run-mutation.ps1 -EvaluateReport <output root>/Contoso.Api/reports/mutation-report.json
 
 EXIT CODES:
   A real run reports these outcomes; -DryRun starts no Stryker process, so its exit 0
@@ -138,7 +147,7 @@ EXIT CODES:
 |---|---|---|---|
 | 0 | `PASSED` | At least one eligible changed project was mutated, every eligible result is at or above `gates.mutation.threshold`, no test kills more than `gates.mutation.maxKillShare` percent of tested mutants (or the run tested fewer than 20), no test kills mutants in more than `gates.mutation.maxKillFileSpan` source files, each configured exclusion is printed as NOT APPLICABLE with its reason, and no unlisted ineligible project exists. | — |
 | 1 | `FAILED` | A score below threshold, a Stryker failure, invalid configuration (including `gates.mutation.maxKillShare` outside 1 to 100 or not an integer, or `gates.mutation.maxKillFileSpan` below 1 or not an integer), a suspected artifact kill (one test killed more than `gates.mutation.maxKillShare` percent of tested mutants, or killed mutants in more than `gates.mutation.maxKillFileSpan` source files), or any changed project with no eligible test project that is not in `gates.mutation.exclusions`. | Yes, on every tier |
-| 2 | `SKIPPED` | No production C# under `src/` changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
+| 2 | `SKIPPED` | No production C# changed (scope-empty). | No; reported as `SKIPPED (scope-empty)`, never PASS |
 | 2 | `NOT APPLICABLE` | Every changed project is explicitly listed in `gates.mutation.exclusions`; nothing was mutated. | No; reported as N/A, never PASS |
 '@
     exit 0
@@ -459,9 +468,10 @@ function Evaluate-MutationReport {
     # File-span rule: a unit test exercises a few related types, so one test killing mutants
     # in more than MaxKillFileSpan distinct source files is a suspected artifact kill. It
     # catches a contaminating mutant that the share rule misses: a test that fails for a
-    # stride of consecutive mutant runs spread across unrelated files (DEV-410: clean whole-Core
-    # runs peaked at 9 files per test, a contaminated run at 26). Unlike the share rule it
-    # needs no sample minimum, because a small run cannot reach the span limit.
+    # stride of consecutive mutant runs spread across unrelated files (measured on a real
+    # repo: clean whole-project runs peaked at 9 files per test, a contaminated run at 26).
+    # Unlike the share rule it needs no sample minimum, because a small run cannot reach
+    # the span limit.
     $topSpan = 0
     $overSpan = [System.Collections.Generic.List[PSCustomObject]]::new()
     foreach ($testId in $killFilesByTest.Keys) {
@@ -592,11 +602,11 @@ catch {
     exit 1
 }
 
-# Test-runner parallelism (DEV-435). Defaults to half the runner's logical cores,
-# Stryker's own default and recommended ceiling: full-core parallelism was
-# measured to turn surviving mutants into timeouts and flip gate verdicts
-# (DEV-435 paired runs), and Stryker itself warns above half cores. An explicit
-# harness value tunes it without touching the threshold.
+# Test-runner parallelism. Defaults to half the runner's logical cores, Stryker's
+# own default and recommended ceiling: full-core parallelism was measured to turn
+# surviving mutants into timeouts and flip gate verdicts, and Stryker itself warns
+# above half cores. An explicit harness value tunes it without touching the
+# threshold.
 try {
     $concurrency = Get-HarnessValue -Key 'gates.mutation.concurrency' -RepoRoot $repoRoot
     if ($null -eq $concurrency) { $concurrency = [Math]::Max(1, [int][Math]::Floor([Environment]::ProcessorCount / 2)) }
@@ -669,36 +679,133 @@ if (-not [string]::IsNullOrWhiteSpace($EvaluateReport)) {
     }
 }
 
-# Whole-project mode (Q3): mutate the whole of one named project on every run. It
-# branches above the base-ref/merge-base resolution and diff discovery below, so a
-# zero-diff run is never scope-empty and no origin/<base> lookup happens (the shallow
-# checkout needs no fetch-depth change). The enumerated files under the project's
-# mutate scope become the changed-file set, so the outside-changed-files and
-# changed-files-none-tested guards in Evaluate-MutationReport still mean something
-# instead of tripping on every file or silently never firing.
-$wholeProjectName = 'LamuFlix.Core'
-if ($WholeProject) {
-    $wholeProjectPath = Join-Path $repoRoot ("src/$wholeProjectName/$wholeProjectName.csproj")
-    if (-not (Test-Path -LiteralPath $wholeProjectPath)) {
-        Write-Host "GATE NOT WIRED: whole-project target is missing at '$wholeProjectPath'."
-        exit 1
-    }
+# Whole-project mode: mutate whole projects on every run. It branches above the
+# base-ref/merge-base resolution and diff discovery below, so a zero-diff run is
+# never scope-empty and no origin/<base> lookup happens (the shallow checkout
+# needs no fetch-depth change). The enumerated files under each project's mutate
+# scope become the changed-file set, so the outside-changed-files and
+# changed-files-none-tested guards in Evaluate-MutationReport still mean
+# something instead of tripping on every file or silently never firing.
+#
+# The target comes from the repo's own project files, never a hardcoded path:
+# -Project names it, else harness.yml gates.mutation.wholeProject does, else the
+# one production project that has an eligible test project and is not excluded is
+# chosen. More than one candidate is an error that names them all, because mutating
+# whichever project happens to sort first would make a failing gate unauditable.
+$projectGroups = [ordered]@{}
+$projectDirs = @{}
+$projectPaths = @{}
+$changedFiles = @()
+# Filled on demand: an empty diff exits before anything needs the solution.
+$allTestProjects = $null
 
-    $wholeProjectDir = Split-Path $wholeProjectPath -Parent
-    $changedFiles = @(
-        Get-ChildItem -LiteralPath $wholeProjectDir -Recurse -File -Filter '*.cs' |
+function Get-ProjectSourceFiles {
+    <#
+      A project's own C# files, as repo-relative mutate paths. Mirrors the diff
+      scope: build output, nested checkouts and migrations are not mutated.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$ProjectPath,
+        [Parameter(Mandatory)][string]$RepoRoot
+    )
+
+    $projectDir = Split-Path $ProjectPath -Parent
+    return @(
+        Get-ChildItem -LiteralPath $projectDir -Recurse -File -Filter '*.cs' |
             Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' } |
+            Where-Object { -not (Test-HarnessExcludedPath -Path $_.FullName -RepoRoot $RepoRoot) } |
             Where-Object { $_.FullName -notmatch 'Persistence[\\/]Migrations[\\/]' } |
-            ForEach-Object { [System.IO.Path]::GetRelativePath($repoRoot, $_.FullName).Replace('\', '/') } |
+            ForEach-Object { [System.IO.Path]::GetRelativePath($RepoRoot, $_.FullName).Replace('\', '/') } |
+            Sort-Object
+    )
+}
+
+function Select-WholeProjectTargets {
+    <#
+      Every .csproj the repo has, minus the test projects, filtered to the ones
+      -Project names or to the single eligible and non-excluded candidate.
+      Emits GATE NOT WIRED lines and exits 1 rather than return an empty choice.
+    #>
+    param(
+        [string[]]$Requested,
+        [string]$ConfiguredTarget,
+        [string]$RepoRoot,
+        [string[]]$TestProjects,
+        [Parameter(Mandatory)][System.Collections.Generic.Dictionary[string, string]]$ExclusionReasons
+    )
+
+    $production = @(
+        Get-ChildItem -LiteralPath $RepoRoot -Recurse -File -Filter '*.csproj' -ErrorAction SilentlyContinue |
+            Where-Object { -not (Test-HarnessExcludedPath -Path $_.FullName -RepoRoot $RepoRoot) } |
+            ForEach-Object { $_.FullName } |
+            Where-Object { $TestProjects -notcontains $_ } |
             Sort-Object
     )
 
-    if ($changedFiles.Count -eq 0) {
-        Write-Host "GATE NOT WIRED: whole-project target '$wholeProjectDir' contains no C# files."
+    # -Project wins over the configured target: the command line is the narrower,
+    # more explicit statement of intent.
+    $named = @($Requested | ForEach-Object { $_ -split ',' } | Where-Object { $_.Trim() } | ForEach-Object { $_.Trim() -replace '\.csproj$', '' })
+    if ($named.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($ConfiguredTarget)) {
+        $named = @($ConfiguredTarget.Trim() -replace '\.csproj$', '')
+    }
+
+    if ($named.Count -gt 0) {
+        $selected = [System.Collections.Generic.List[string]]::new()
+        foreach ($name in $named) {
+            $match = @($production | Where-Object { [System.IO.Path]::GetFileNameWithoutExtension($_) -eq $name })
+            if ($match.Count -eq 0) {
+                Write-Host "Mutation testing: FAILED - -Project '$name' is not a production project in this repo."
+                Write-Host "  Production projects: $((@($production | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_) })) -join ', ')"
+                exit 1
+            }
+            if ($ExclusionReasons.ContainsKey($name)) {
+                Write-Host "Mutation testing: FAILED - -WholeProject names '$name', which gates.mutation.exclusions lists as never mutated: $($ExclusionReasons[$name])"
+                exit 1
+            }
+            $selected.Add($match[0])
+        }
+        return $selected.ToArray()
+    }
+
+    $candidates = @(
+        $production | Where-Object {
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($_)
+            if ($ExclusionReasons.ContainsKey($name)) { return $false }
+            @(Get-EligibleTestProjects -TestProjects $TestProjects -MutatedProjectPath $_).Count -gt 0
+        }
+    )
+
+    if ($candidates.Count -eq 1) { return $candidates }
+    if ($candidates.Count -eq 0) {        Write-Host 'GATE NOT WIRED: -WholeProject found no production project with an eligible test project that gates.mutation.exclusions does not list.'
+        Write-Host '  A test project must reference the mutated project directly, and *.ArchitectureTests and *.IntegrationTests never count.'
         exit 1
     }
 
-    Write-Host "Whole-project mode: $wholeProjectName ($($changedFiles.Count) source file(s)); diff scope not consulted, since disabled."
+    $names = (@($candidates | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_) } | Sort-Object) -join ', ')
+    Write-Host "GATE NOT WIRED: -WholeProject has more than one candidate ($names); name the one to mutate with -Project, or set gates.mutation.wholeProject in harness.yml."
+    exit 1
+}
+
+if ($WholeProject) {
+    $allTestProjects = @(Get-TestProjects -RepoRoot $repoRoot)
+    $configuredWholeProject = Get-HarnessValue -Key 'gates.mutation.wholeProject' -RepoRoot $repoRoot
+    $targets = @(Select-WholeProjectTargets -Requested $Project -ConfiguredTarget $configuredWholeProject -RepoRoot $repoRoot -TestProjects $allTestProjects -ExclusionReasons $exclusionReasons)
+
+    foreach ($targetPath in $targets) {
+        $projName = [System.IO.Path]::GetFileName($targetPath)
+        $files = @(Get-ProjectSourceFiles -ProjectPath $targetPath -RepoRoot $repoRoot)
+        if ($files.Count -eq 0) {
+            Write-Host "GATE NOT WIRED: whole-project target '$targetPath' contains no C# files."
+            exit 1
+        }
+        $projectDirs[$projName] = Split-Path $targetPath -Parent
+        $projectPaths[$projName] = $targetPath
+        $groupFiles = [System.Collections.Generic.List[string]]::new()
+        $groupFiles.AddRange([string[]]$files)
+        $projectGroups[$projName] = $groupFiles
+        $changedFiles += $files
+        Write-Host "Whole-project mode: $projName ($($files.Count) source file(s)); diff scope not consulted, since disabled."
+    }
 }
 else {
     # Resolve base ref and merge-base
@@ -726,27 +833,35 @@ else {
 
     $mergeBase = $mergeBase.Trim()
 
-    # Discover changed production C# files under src/
+    # Every changed C# file the diff touched, wherever the repo keeps its code.
+    # Which of them are production is decided by the project each one belongs to
+    # below, not by a path prefix, so a repo that keeps code under source/ or
+    # beside the solution root needs no configuration for this.
     $changedFiles = @(
-        git -C $repoRoot diff --name-only --diff-filter=AMR $mergeBase HEAD -- 'src/*.cs' 'src/**/*.cs' |
+        git -C $repoRoot diff --name-only --diff-filter=AMR $mergeBase HEAD -- '*.cs' |
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
             ForEach-Object { $_.Trim().Replace('\', '/') } |
             Where-Object { $_ -notmatch 'Persistence[\\/]Migrations[\\/]' } |
+            Where-Object { -not (Test-HarnessExcludedPath -Path (Join-Path $repoRoot $_) -RepoRoot $repoRoot) } |
             Select-Object -Unique
     )
 
     if ($changedFiles.Count -eq 0) {
-        Write-Host 'Mutation testing: SKIPPED - no production C# files modified under src/.'
+        Write-Host 'Mutation testing: SKIPPED - no production C# files changed (scope-empty).'
         exit 2
     }
+
+    $allTestProjects = @(Get-TestProjects -RepoRoot $repoRoot)
 }
 
-# Group changed files by nearest ancestor *.csproj
-$projectGroups = [ordered]@{}
-$projectDirs = @{}
-$projectPaths = @{}
+# Group production files by nearest ancestor *.csproj. A changed file that belongs
+# to a test project is not production scope: mutating tests measures nothing and a
+# test-only change must read as scope-empty, not as a failing gate.
+$unprojectedFiles = [System.Collections.Generic.List[string]]::new()
 
 foreach ($file in $changedFiles) {
+    if ($WholeProject) { break }
+
     $fullPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $file))
     $dir = Split-Path $fullPath -Parent
     $foundCsproj = $null
@@ -766,8 +881,13 @@ foreach ($file in $changedFiles) {
     }
 
     if (-not $foundCsproj) {
-        throw "Could not find ancestor .csproj for changed file '$file'."
+        # No project, no mutants possible. Skip it loudly rather than fail a gate
+        # over a loose .cs file that Stryker could never have measured.
+        $unprojectedFiles.Add($file)
+        continue
     }
+
+    if ($allTestProjects -contains $foundCsproj.FullName) { continue }
 
     $projName = $foundCsproj.Name
     $projDir = $foundCsproj.DirectoryName
@@ -781,6 +901,15 @@ foreach ($file in $changedFiles) {
     $projectGroups[$projName].Add($relToProj)
 }
 
+if ($unprojectedFiles.Count -gt 0) {
+    Write-Host "Not in any project, so no mutants are possible (skipped): $($unprojectedFiles -join ', ')"
+}
+
+if ($projectGroups.Count -eq 0) {
+    Write-Host 'Mutation testing: SKIPPED - no production C# files changed (scope-empty).'
+    exit 2
+}
+
 # Read tracked stryker-config.json
 $strykerConfigPath = Join-Path $repoRoot 'stryker-config.json'
 if (-not (Test-Path -LiteralPath $strykerConfigPath)) {
@@ -791,35 +920,39 @@ if (-not (Test-Path -LiteralPath $strykerConfigPath)) {
 $baseConfigJson = Get-Content -LiteralPath $strykerConfigPath -Raw | ConvertFrom-Json
 $baseStryker = $baseConfigJson.'stryker-config'
 
-# Stryker must run on MTP with coverage off: under VSTest (or with coverage analysis on)
-# no mutant reaches the xUnit v3 test executables and every mutant survives (DEV-382).
-# Require the exact values, not just non-blank ones.
-$requiredSettings = [ordered]@{ 'test-runner' = 'mtp'; 'coverage-analysis' = 'off' }
-foreach ($requiredKey in $requiredSettings.Keys) {
-    $expectedValue = $requiredSettings[$requiredKey]
-    if ($baseStryker.PSObject.Properties.Match($requiredKey).Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$baseStryker.$requiredKey)) {
-        Write-Host "GATE NOT WIRED: stryker-config.json does not set '$requiredKey' (expected test-runner=mtp, coverage-analysis=off; see docs/adr/0016-stryker-mtp-runner.md)."
-        exit 1
-    }
-    $actualValue = ([string]$baseStryker.$requiredKey).Trim()
-    if ($actualValue -ne $expectedValue) {
-        Write-Host "GATE NOT WIRED: stryker-config.json sets '$requiredKey' to '$actualValue' (expected test-runner=mtp, coverage-analysis=off; see docs/adr/0016-stryker-mtp-runner.md)."
+# stryker-config.json names the runner, and this gate never guesses it: a repo on
+# xUnit v3 must say mtp. Under VSTest (or with coverage analysis on where the MTP
+# runner cannot use it) no mutant reaches the xUnit v3 test executables and every
+# mutant survives, which reads as a score of zero rather than as a wiring defect.
+$declaredRunner = if ($baseStryker.PSObject.Properties.Match('test-runner').Count -gt 0) { ([string]$baseStryker.'test-runner').Trim() } else { '' }
+if ([string]::IsNullOrWhiteSpace($declaredRunner)) {
+    Write-Host "GATE NOT WIRED: stryker-config.json does not set 'test-runner' (vstest or mtp; mtp is required by xUnit v3 test projects). Set gates.mutation.runner in harness.yml and re-run install.ps1, or edit the file directly."
+    exit 1
+}
+if ($declaredRunner -notin @('vstest', 'mtp')) {
+    Write-Host "GATE NOT WIRED: stryker-config.json sets 'test-runner' to '$declaredRunner'; this gate knows vstest and mtp."
+    exit 1
+}
+if ($declaredRunner -eq 'mtp') {
+    $coverageAnalysis = if ($baseStryker.PSObject.Properties.Match('coverage-analysis').Count -gt 0) { ([string]$baseStryker.'coverage-analysis').Trim() } else { '' }
+    if ($coverageAnalysis -ne 'off') {
+        Write-Host "GATE NOT WIRED: stryker-config.json sets test-runner=mtp but coverage-analysis is '$coverageAnalysis'; the MTP runner requires 'off'."
         exit 1
     }
 }
 
 # A timeout counts as detected, so with a tight allowance a slow or busy machine turns
-# survivors into timeouts and inflates the score. No Core mutant really hangs, so a large
-# allowance costs nothing on a normal run (DEV-410). Require at least 30 s on top of the
+# survivors into timeouts and inflates the score. No ordinary mutant really hangs, so a
+# large allowance costs nothing on a normal run. Require at least 30 s on top of the
 # measured test time.
 $minAdditionalTimeout = 30000
 $additionalTimeoutValue = if ($baseStryker.PSObject.Properties.Match('additional-timeout').Count -gt 0) { $baseStryker.'additional-timeout' } else { $null }
 if ($additionalTimeoutValue -isnot [long] -and $additionalTimeoutValue -isnot [int]) {
-    Write-Host "GATE NOT WIRED: stryker-config.json does not set 'additional-timeout' to an integer (expected at least $minAdditionalTimeout; see docs/adr/0016-stryker-mtp-runner.md)."
+    Write-Host "GATE NOT WIRED: stryker-config.json does not set 'additional-timeout' to an integer (expected at least $minAdditionalTimeout ms)."
     exit 1
 }
 if ([long]$additionalTimeoutValue -lt $minAdditionalTimeout) {
-    Write-Host "GATE NOT WIRED: stryker-config.json sets 'additional-timeout' to $additionalTimeoutValue (expected at least $minAdditionalTimeout; see docs/adr/0016-stryker-mtp-runner.md)."
+    Write-Host "GATE NOT WIRED: stryker-config.json sets 'additional-timeout' to $additionalTimeoutValue (expected at least $minAdditionalTimeout ms)."
     exit 1
 }
 
@@ -840,7 +973,7 @@ if ($Project.Count -gt 0) {
 # Classify every changed project before any Stryker run, so a project that is unmeasured
 # never stops a project that can be measured. Eligibility is computed for all of them so
 # the lines below say which policy applies before the verdict names what it failed on.
-$allTestProjects = @(Get-TestProjects -RepoRoot $repoRoot)
+if ($null -eq $allTestProjects) { $allTestProjects = @(Get-TestProjects -RepoRoot $repoRoot) }
 $testProjectsByProject = @{}
 $eligibleProjects = [System.Collections.Generic.List[string]]::new()
 $unlistedIneligibleProjects = [System.Collections.Generic.List[string]]::new()
@@ -900,12 +1033,12 @@ $outputRootPath = if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) {
 }
 elseif ($WholeProject) {
     # Deterministic location so CI and local runs write to one stable path under
-    # <output root>/LamuFlix.Core/ instead of a timestamped folder (Q9, recon section 7).
-    Join-Path ([System.IO.Path]::GetTempPath()) 'stryker-core'
+    # <output root>/<Project>/ instead of a timestamped folder.
+    Join-Path ([System.IO.Path]::GetTempPath()) 'stryker-whole'
 }
 else {
     # The GUID suffix keeps two runs started in the same second out of one folder.
-    Join-Path ([System.IO.Path]::GetTempPath()) ("LamuFlix-stryker/" + [System.DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    Join-Path ([System.IO.Path]::GetTempPath()) ("stryker/" + [System.DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
 }
 $outputRootPath = [System.IO.Path]::GetFullPath($outputRootPath)
 $repoRootWithSep = $repoRoot.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
@@ -929,24 +1062,31 @@ try {
         $high = if ($baseStryker.thresholds.high -ne $null) { [int]$baseStryker.thresholds.high } else { 90 }
         $low = if ($baseStryker.thresholds.low -ne $null) { [int]$baseStryker.thresholds.low } else { [int]$threshold }
 
-        $strykerObj = [ordered]@{
-            'stryker-config' = [ordered]@{
-                'mutation-level'    = $baseStryker.'mutation-level'
-                'test-runner'       = $baseStryker.'test-runner'
-                'coverage-analysis' = $baseStryker.'coverage-analysis'
-                'additional-timeout' = [long]$additionalTimeoutValue
-                'concurrency'        = $concurrency
-                'test-projects'     = @($testProjectsByProject[$proj])
-                'since'             = [ordered]@{ 'enabled' = $false }
-                'mutate'         = @($projectGroups[$proj])
-                'thresholds'     = [ordered]@{
-                    'high'  = $high
-                    'low'   = $low
-                    'break' = [int]$threshold
-                }
-                'reporters'      = @($baseStryker.reporters)
-            }
+        # The tracked config is the project's own file, so the generated one is a
+        # copy of it with only the keys this gate owns replaced. Rebuilding from a
+        # fixed key list instead would silently drop whatever the project set -
+        # ignore-methods and a solution path above all - and change the score
+        # without changing the code.
+        $generated = [ordered]@{}
+        foreach ($property in $baseStryker.PSObject.Properties) {
+            $generated[$property.Name] = $property.Value
         }
+        $generated['test-runner'] = $declaredRunner
+        $generated['additional-timeout'] = [long]$additionalTimeoutValue
+        $generated['concurrency'] = $concurrency
+        $generated['test-projects'] = @($testProjectsByProject[$proj])
+        # Since stays disabled: the diff scope is applied through `mutate` instead,
+        # because Stryker's since filter resolves linked worktrees to the main
+        # checkout and then measures nothing.
+        $generated['since'] = [ordered]@{ 'enabled' = $false }
+        $generated['mutate'] = @($projectGroups[$proj])
+        $generated['thresholds'] = [ordered]@{
+            'high'  = $high
+            'low'   = $low
+            'break' = [int]$threshold
+        }
+
+        $strykerObj = [ordered]@{ 'stryker-config' = $generated }
 
         $configJson = $strykerObj | ConvertTo-Json -Depth 6
         [System.IO.File]::WriteAllText($tempConfigPath, $configJson, [System.Text.UTF8Encoding]::new($false))

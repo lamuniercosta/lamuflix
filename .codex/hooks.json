@@ -16,18 +16,6 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -File \"$(git rev-parse --show-toplevel)/scripts/hooks/guard.ps1\"",
-            "commandWindows": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"& (Join-Path (git rev-parse --show-toplevel) 'scripts/hooks/guard.ps1')\"",
-            "timeout": 15,
-            "statusMessage": "Checking repository safety rules"
-          }
-        ]
-      },
-      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -36,6 +24,18 @@
             "commandWindows": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"& (Join-Path (git rev-parse --show-toplevel) 'scripts/hooks/deny-merge.ps1')\"",
             "timeout": 15,
             "statusMessage": "Checking the no-merge rule"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"$(git rev-parse --show-toplevel)/scripts/hooks/guard.ps1\"",
+            "commandWindows": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"& (Join-Path (git rev-parse --show-toplevel) 'scripts/hooks/guard.ps1')\"",
+            "timeout": 15,
+            "statusMessage": "Checking repository safety rules"
           }
         ]
       }

@@ -16,6 +16,10 @@ gates:
 
   mutation:
     threshold: 80
+    # What a bare `-WholeProject` run mutates. ci.yml calls it with no -Project, and
+    # LamuFlix.UnitTests references both Core and ServiceDefaults, so without this the
+    # gate refuses to guess between them and exits 1 with the candidate list.
+    wholeProject: LamuFlix.Core
     # Largest share of tested mutants one test may kill (percent, 1..100). Above it the gate
     # fails as a suspected artifact kill: a test that fails on every run inflates the score.
     maxKillShare: 50

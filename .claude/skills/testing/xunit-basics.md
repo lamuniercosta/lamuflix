@@ -11,7 +11,7 @@ public class OrderServiceTests
     public async Task CreateOrder_WithValidItems_ReturnsSuccessResult()
     {
         // Arrange
-        var db = CreateDb();
+        var db = CreateInMemoryDb();
         var clock = new FakeTimeProvider(new DateTimeOffset(2025, 1, 15, 0, 0, 0, TimeSpan.Zero));
         var service = new OrderService(db, clock);
         var request = new CreateOrderRequest("customer-1", [new("product-1", 2)]);
@@ -20,9 +20,9 @@ public class OrderServiceTests
         var result = await service.CreateAsync(request);
 
         // Assert
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.Id.ShouldNotBe(Guid.Empty);
-        result.Value.CreatedAt.ShouldBe(clock.GetUtcNow());
+        Assert.True(result.IsSuccess);
+        Assert.NotEqual(Guid.Empty, result.Value.Id);
+        Assert.Equal(clock.GetUtcNow(), result.Value.CreatedAt);
     }
 
     [Theory]
@@ -37,7 +37,7 @@ public class OrderServiceTests
         var result = await service.CreateAsync(new CreateOrderRequest(customerId!, []));
 
         // Assert
-        result.IsSuccess.ShouldBeFalse();
+        Assert.False(result.IsSuccess);
     }
 }
 ```

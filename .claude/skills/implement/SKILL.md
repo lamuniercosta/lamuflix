@@ -55,7 +55,7 @@ Feature files are synced from `specs/**/acceptance/` into `Features/` at build t
 4. Production code per `tasks.md` phases
 5. Mark completed tasks `[X]` in `tasks.md`
 
-Reuse existing patterns: NSubstitute, Shouldly, AutoFixture, Faker.Net, WireMock, Testcontainers, WebApplicationFactory.
+Reuse existing patterns: NSubstitute, FluentAssertions, WireMock, Testcontainers, WebApplicationFactory.
 
 ## Mid-Stage Gates
 
