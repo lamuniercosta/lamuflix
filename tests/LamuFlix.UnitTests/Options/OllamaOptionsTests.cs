@@ -79,6 +79,19 @@ public sealed class OllamaOptionsTests
         results.SelectMany(result => result.MemberNames).ShouldContain(nameof(OllamaOptions.Endpoint));
     }
 
+    [Fact]
+    public void TryValidateObject_NonAbsoluteEndpoint_MessageNamesTheHttpOrHttpsRule()
+    {
+        // arrange
+        var options = new OllamaOptions { Endpoint = "ftp://localhost:11434/" };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.Select(result => result.ErrorMessage).ShouldContain("The Endpoint field must be an absolute http or https URL.");
+    }
+
     [Theory]
     [InlineData("all-minilm", true)]
     [InlineData("nomic-embed-text", true)]
