@@ -5,33 +5,39 @@ using System.Globalization;
 
 namespace LamuFlix.Core.Options;
 
-// ReSharper disable UnusedAutoPropertyAccessor.Global
-// Bound from configuration by ServiceDefaultsExtensions.AddLamuFlixOptions
 public sealed record OllamaResilienceOptions : IValidatableObject
 {
     public const string SectionName = "Ollama:Resilience";
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Range(1, int.MaxValue)]
     public int MaxRetryAttempts { get; init; } = 3;
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Range(typeof(TimeSpan), "00:00:00", "1.00:00:00")]
     public TimeSpan BaseDelay { get; init; } = TimeSpan.FromSeconds(1);
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Range(typeof(TimeSpan), "00:00:00.010", "1.00:00:00")]
     public TimeSpan AttemptTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Range(typeof(TimeSpan), "00:00:00.010", "1.00:00:00")]
     public TimeSpan TotalTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Range(0.0, 1.0)]
     public double FailureRatio { get; init; } = 0.1;
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Range(typeof(TimeSpan), "00:00:00.500", "1.00:00:00")]
     public TimeSpan SamplingDuration { get; init; } = TimeSpan.FromSeconds(30);
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Range(2, int.MaxValue)]
     public int MinimumThroughput { get; init; } = 100;
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Range(typeof(TimeSpan), "00:00:00.500", "1.00:00:00")]
     public TimeSpan BreakDuration { get; init; } = TimeSpan.FromSeconds(5);
 
@@ -60,4 +66,3 @@ public sealed record OllamaResilienceOptions : IValidatableObject
         }
     }
 }
-// ReSharper restore UnusedAutoPropertyAccessor.Global
