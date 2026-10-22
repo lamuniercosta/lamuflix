@@ -1,7 +1,8 @@
-using System.Linq;
+﻿using System.Linq;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
+using Pgvector.EntityFrameworkCore;
 
 namespace LamuFlix.UnitTests.Persistence;
 
@@ -12,7 +13,7 @@ public sealed class MovieConfigurationTests
     {
         // arrange
         var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
-            .UseNpgsql("Host=unused;Username=unused;Password=unused;Database=unused")
+            .UseNpgsql("Host=unused;Username=unused;Password=unused;Database=unused", o => o.UseVector())
             .Options;
 
         // act

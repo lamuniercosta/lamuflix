@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -32,7 +32,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "movie_directors",
         "movie_genres",
         "movie_writers",
-        "playback_events"
+        "playback_events",
+        "movie_features"
     ];
 
     private static readonly string[] NullableMoviesColumns =
@@ -79,7 +80,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(7);
+        migrations.Length.ShouldBe(8);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -87,6 +88,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         migrations[4].ShouldEndWith("_AddMovieFeedbackMarks");
         migrations[5].ShouldEndWith("_AddParsedReleaseYear");
         migrations[6].ShouldEndWith("_AddManualImdbId");
+        migrations[7].ShouldEndWith("_AddMovieFeatures");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -121,7 +123,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddManualImdbId");
+        applied[^1].ShouldEndWith("_AddMovieFeatures");
         var rows = await context.Movies.AsNoTracking()
             .OrderBy(movie => movie.Title)
             .ToListAsync(cancellationToken);
@@ -215,7 +217,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddManualImdbId");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddMovieFeatures");
     }
 
     [Fact]
@@ -305,6 +307,50 @@ public sealed class MigrationTests(PostgresFixture fixture)
         (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("playback_events");
         (await context.Movies.CountAsync(cancellationToken)).ShouldBe(1);
         (await context.PlaybackEvents.CountAsync(cancellationToken)).ShouldBe(0);
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MigrateAsync_AddMovieFeaturesUpgradeDowngradeReapply_KeepsMoviesAndVectorExtension()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var catalog = new PostgresCatalog(context);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261019002819_AddManualImdbId", cancellationToken);
+        await InsertLegacyMovieAsync(
+            context,
+            new LegacyMovie("Features Survivor", "C:/library/features-survivor.mkv", "mkv", 0),
+            cancellationToken);
+
+        await migrator.MigrateAsync(null, cancellationToken);
+        context.ChangeTracker.Clear();
+
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("movie_features");
+        (await catalog.ListPostgresExtensionsAsync(cancellationToken)).ShouldContain("vector");
+        await AssertMovieFeaturesColumnsAsync(catalog, cancellationToken);
+        await AssertMovieFeaturesConstraintsAsync(catalog, cancellationToken);
+        await AssertMovieFeaturesIndexAsync(catalog, cancellationToken);
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(1);
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+
+        await migrator.MigrateAsync("20261019002819_AddManualImdbId", cancellationToken);
+        context.ChangeTracker.Clear();
+
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldNotContain("movie_features");
+        (await catalog.ListPostgresExtensionsAsync(cancellationToken)).ShouldContain("vector");
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(1);
+        (await catalog.ListTableIndexesAsync("movie_features", cancellationToken)).ShouldBeEmpty();
+
+        await migrator.MigrateAsync(null, cancellationToken);
+        context.ChangeTracker.Clear();
+
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("movie_features");
+        (await catalog.ListPostgresExtensionsAsync(cancellationToken)).ShouldContain("vector");
+        await AssertMovieFeaturesColumnsAsync(catalog, cancellationToken);
+        await AssertMovieFeaturesConstraintsAsync(catalog, cancellationToken);
+        await AssertMovieFeaturesIndexAsync(catalog, cancellationToken);
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(1);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
     }
 
@@ -488,6 +534,41 @@ public sealed class MigrationTests(PostgresFixture fixture)
         && def.Contains("UNIQUE", StringComparison.Ordinal)
         && def.Contains("IS NOT NULL", StringComparison.Ordinal);
 
+    private static async Task AssertMovieFeaturesColumnsAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
+        var columns = await catalog.ListColumnFormatTypesAsync("movie_features", cancellationToken);
+        columns.ShouldBe(
+        [
+            ("movie_id", "integer"),
+            ("vector", "vector(384)"),
+            ("computed_at", "timestamp with time zone")
+        ]);
+        var details = await catalog.ListColumnDetailsAsync("movie_features", cancellationToken);
+        details.Count.ShouldBe(3);
+        foreach (var column in details)
+        {
+            column.IsNullable.ShouldBeFalse($"Column movie_features.{column.Column} must be NOT NULL.");
+        }
+    }
+
+    private static async Task AssertMovieFeaturesConstraintsAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_features", cancellationToken))
+            .ShouldBe(["movie_id"], ignoreOrder: true);
+        (await catalog.ListForeignKeysAsync("movie_features", cancellationToken))
+            .ShouldContain(("movie_id", "movies", "id", "CASCADE"));
+    }
+
+    private static async Task AssertMovieFeaturesIndexAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
+        var indexes = await catalog.ListTableIndexesAsync("movie_features", cancellationToken);
+        indexes.ShouldContain(def =>
+            def.Contains("IX_movie_features_vector", StringComparison.Ordinal)
+            && def.Contains("USING hnsw", StringComparison.Ordinal)
+            && def.Contains("vector_cosine_ops", StringComparison.Ordinal));
+        indexes.Count(def => def.Contains("IX_movie_features_vector", StringComparison.Ordinal)).ShouldBe(1);
+    }
+
     private sealed class PostgresCatalog(LamuFlixDbContext context)
     {
         public Task<List<string>> ListPublicTablesAsync(CancellationToken cancellationToken) =>
@@ -620,6 +701,33 @@ public sealed class MigrationTests(PostgresFixture fixture)
                     reader.GetString(1),
                     string.Equals(reader.GetString(2), "YES", StringComparison.Ordinal),
                     string.Equals(reader.GetString(3), "YES", StringComparison.Ordinal)));
+            }
+
+            return values;
+        }
+
+        public async Task<List<(string Column, string FormatType)>> ListColumnFormatTypesAsync(
+            string table,
+            CancellationToken cancellationToken)
+        {
+            var values = new List<(string Column, string FormatType)>();
+            await using var command = await CreateCommandAsync(
+                $"""
+                SELECT attribute.attname, format_type(attribute.atttypid, attribute.atttypmod)
+                FROM pg_attribute AS attribute
+                JOIN pg_class AS relation ON relation.oid = attribute.attrelid
+                JOIN pg_namespace AS space ON space.oid = relation.relnamespace
+                WHERE space.nspname = 'public'
+                  AND relation.relname = '{table}'
+                  AND attribute.attnum > 0
+                  AND NOT attribute.attisdropped
+                ORDER BY attribute.attnum
+                """,
+                cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                values.Add((reader.GetString(0), reader.GetString(1)));
             }
 
             return values;

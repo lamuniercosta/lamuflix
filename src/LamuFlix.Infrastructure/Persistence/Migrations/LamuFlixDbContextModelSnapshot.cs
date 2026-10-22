@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 
 #nullable disable
 
@@ -78,6 +79,27 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("genres", (string)null);
+                });
+
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.MovieFeaturesRecord", b =>
+                {
+                    b.Property<int>("MovieId")
+                        .HasColumnType("integer")
+                        .HasColumnName("movie_id");
+
+                    b.Property<DateTimeOffset>("ComputedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("computed_at");
+
+                    b.Property<Vector>("Vector")
+                        .IsRequired()
+                        .HasColumnType("vector(384)")
+                        .HasColumnName("vector");
+
+                    b.HasKey("MovieId")
+                        .HasName("PK_movie_features");
+
+                    b.ToTable("movie_features", (string)null);
                 });
 
             modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.MovieRecord", b =>
@@ -299,6 +321,15 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.HasIndex("writer_id");
 
                     b.ToTable("movie_writers");
+                });
+
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.MovieFeaturesRecord", b =>
+                {
+                    b.HasOne("LamuFlix.Infrastructure.Persistence.Records.MovieRecord", null)
+                        .WithMany()
+                        .HasForeignKey("MovieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.PlaybackEventRecord", b =>
