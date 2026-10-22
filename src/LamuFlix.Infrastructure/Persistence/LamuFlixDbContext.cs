@@ -17,6 +17,8 @@ public sealed class LamuFlixDbContext(DbContextOptions<LamuFlixDbContext> option
 
     public DbSet<PlaybackEventRecord> PlaybackEvents => Set<PlaybackEventRecord>();
 
+    public DbSet<MovieFeaturesRecord> MovieFeatures => Set<MovieFeaturesRecord>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("vector");

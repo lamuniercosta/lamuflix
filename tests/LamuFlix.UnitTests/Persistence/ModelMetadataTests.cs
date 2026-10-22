@@ -88,6 +88,44 @@ public sealed class ModelMetadataTests
         foreignKey.DeleteBehavior.ShouldBe(DeleteBehavior.Cascade);
     }
 
+    [Fact]
+    public void MovieFeatures_MetadataMatchesDatabaseMapping()
+    {
+        using var context = CreateContext();
+        var entity = context.Model.FindEntityType(typeof(MovieFeaturesRecord));
+        entity.ShouldNotBeNull();
+        entity.GetTableName().ShouldBe("movie_features");
+        var table = StoreObjectIdentifier.Table("movie_features");
+
+        var movieId = entity.FindProperty("MovieId");
+        movieId.ShouldNotBeNull();
+        movieId.GetColumnName(table).ShouldBe("movie_id");
+        movieId.GetColumnType().ShouldBe("integer");
+        movieId.IsNullable.ShouldBeFalse();
+        movieId.ValueGenerated.ShouldBe(ValueGenerated.Never);
+        movieId.GetValueConverter().ShouldBeOfType<MovieIdConverter>();
+        entity.FindPrimaryKey().ShouldNotBeNull().Properties.ShouldBe([movieId]);
+
+        var vector = entity.FindProperty("Vector");
+        vector.ShouldNotBeNull();
+        vector.GetColumnName(table).ShouldBe("vector");
+        vector.GetColumnType().ShouldBe("vector(384)");
+        vector.IsNullable.ShouldBeFalse();
+
+        var computedAt = entity.FindProperty("ComputedAt");
+        computedAt.ShouldNotBeNull();
+        computedAt.GetColumnName(table).ShouldBe("computed_at");
+        computedAt.GetColumnType().ShouldBe("timestamptz");
+        computedAt.IsNullable.ShouldBeFalse();
+
+        entity.GetIndexes().ShouldBeEmpty();
+
+        var foreignKey = entity.GetForeignKeys().ShouldHaveSingleItem();
+        foreignKey.PrincipalEntityType.ClrType.ShouldBe(typeof(MovieRecord));
+        foreignKey.Properties.ShouldBe([movieId]);
+        foreignKey.DeleteBehavior.ShouldBe(DeleteBehavior.Cascade);
+    }
+
     private static void AssertNamedEntity<TEntity>(LamuFlixDbContext context, string tableName)
         where TEntity : class
     {
