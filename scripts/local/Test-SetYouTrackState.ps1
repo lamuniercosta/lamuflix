@@ -26,8 +26,8 @@ function Invoke-SetState {
 `$env:YT_TEST_LOG = '$log'
 `$envReader = { param(`$Name, `$Target)
     if (`$Target -ne 'Process') { return `$null }
-    if (`$Name -eq 'YOUTRACK_URL') { return $(if ($NoUrl) { '$null' } else { "'https://yt.example/'" }) }
-    if (`$Name -eq 'YOUTRACK_TOKEN') { return 'perm-test' }
+    if (`$Name -eq 'YOUTRACK_API_URL') { return $(if ($NoUrl) { '$null' } else { "'https://yt.example/'" }) }
+    if (`$Name -eq 'YOUTRACK_API_KEY') { return 'perm-test' }
 }
 `$invoker = { param(`$Method, `$Uri, `$Headers, `$Body)
     Add-Content -LiteralPath `$env:YT_TEST_LOG -Value "`$Method `$Uri `$Body auth=`$(`$Headers.Authorization)"
@@ -74,7 +74,7 @@ $unset = Invoke-SetState -Ticket 'DEV-289' -State 'Done'
 Assert-True 'exit 1 when State is unset' ($unset.ExitCode -eq 1 -and $unset.Output -match '<unset>')
 
 $noUrl = Invoke-SetState -Ticket 'DEV-289' -State 'Done' -ReadBackState 'Done' -NoUrl
-Assert-True 'exit 2 without YOUTRACK_URL' ($noUrl.ExitCode -eq 2 -and $noUrl.Calls.Count -eq 0)
+Assert-True 'exit 2 without YOUTRACK_API_URL' ($noUrl.ExitCode -eq 2 -and $noUrl.Calls.Count -eq 0)
 
 $http = Invoke-SetState -Ticket 'DEV-289' -State 'Done' -Throw
 Assert-True 'exit 2 on HTTP failure' ($http.ExitCode -eq 2)

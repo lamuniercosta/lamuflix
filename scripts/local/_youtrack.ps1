@@ -7,8 +7,8 @@
 # Set $YouTrackTool to the caller's name first; errors are prefixed with it.
 #
 # Credentials, in the same order as scripts/get-task.ps1:
-#   YOUTRACK_URL    process env, then (Windows) User-scope env
-#   YOUTRACK_TOKEN  process env, then (Windows) the DPAPI file
+#   YOUTRACK_API_URL    process env, then (Windows) User-scope env
+#   YOUTRACK_API_KEY  process env, then (Windows) the DPAPI file
 #                   $env:USERPROFILE\.dotnet-agent-harness\youtrack-token,
 #                   then (Windows) User-scope env
 # The token is sent only as Authorization: Bearer and is never printed.
@@ -65,10 +65,10 @@ function Resolve-Setting {
 
 function Connect-YouTrack {
     # Exits 2 when a setting is missing, before any request is made.
-    $url = Resolve-Setting 'YOUTRACK_URL'
-    $token = Resolve-Setting 'YOUTRACK_TOKEN' -AllowTokenFile
-    if (-not $url) { Stop-WithError 'YOUTRACK_URL is not set (process env or User-scope env).' }
-    if (-not $token) { Stop-WithError 'YOUTRACK_TOKEN is not set (process env, the DPAPI token file, or User-scope env).' }
+    $url = Resolve-Setting 'YOUTRACK_API_URL'
+    $token = Resolve-Setting 'YOUTRACK_API_KEY' -AllowTokenFile
+    if (-not $url) { Stop-WithError 'YOUTRACK_API_URL is not set (process env or User-scope env).' }
+    if (-not $token) { Stop-WithError 'YOUTRACK_API_KEY is not set (process env, the DPAPI token file, or User-scope env).' }
     $script:YouTrackConnection = @{
         Base    = $url.TrimEnd('/')
         Headers = @{ Accept = 'application/json'; Authorization = "Bearer $token" }
