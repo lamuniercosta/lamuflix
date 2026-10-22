@@ -19,8 +19,11 @@ public sealed class MovieFeaturesSnapshotTests
     [Fact]
     public void Constructor_DefaultVector_Throws()
     {
-        Should.Throw<ArgumentException>(
+        var exception = Should.Throw<ArgumentException>(
             () => new MovieFeaturesSnapshot(Movie, default, ComputedAt));
+
+        exception.ParamName.ShouldBe("vector");
+        exception.Message.ShouldContain("Vector must be initialized.");
     }
 
     [Theory]
@@ -32,8 +35,11 @@ public sealed class MovieFeaturesSnapshotTests
     {
         var vector = Vector(length, 0f);
 
-        Should.Throw<ArgumentException>(
+        var exception = Should.Throw<ArgumentException>(
             () => new MovieFeaturesSnapshot(Movie, vector, ComputedAt));
+
+        exception.ParamName.ShouldBe("vector");
+        exception.Message.ShouldContain($"Vector must have exactly {EmbeddingDimensions.Value} elements.");
     }
 
     [Theory]
@@ -42,8 +48,11 @@ public sealed class MovieFeaturesSnapshotTests
     {
         var vector = Vector(EmbeddingDimensions.Value, 0f).SetItem(17, value);
 
-        Should.Throw<ArgumentException>(
+        var exception = Should.Throw<ArgumentException>(
             () => new MovieFeaturesSnapshot(Movie, vector, ComputedAt));
+
+        exception.ParamName.ShouldBe("vector");
+        exception.Message.ShouldContain("Vector elements must be finite.");
     }
 
     [Fact]

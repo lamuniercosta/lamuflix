@@ -2,7 +2,6 @@ using System.Linq;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
-using Pgvector.EntityFrameworkCore;
 
 namespace LamuFlix.UnitTests.Persistence;
 
