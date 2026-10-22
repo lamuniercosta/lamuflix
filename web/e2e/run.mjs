@@ -521,7 +521,7 @@ async function main() {
     prepare();
     await assertPortFree();
     await compose(
-      ['up', '-d', '--wait', '--wait-timeout', String(Math.ceil(WAIT_BUDGET_MS / 1000))],
+      ['up', '-d', '--wait', '--wait-timeout', String(Math.ceil(WAIT_BUDGET_MS / 1000)), 'postgres', 'rabbitmq', 'api', 'web', 'omdb-stub'],
       { timeout: STACK_START_TIMEOUT_MS },
     );
     await waitForStub();
