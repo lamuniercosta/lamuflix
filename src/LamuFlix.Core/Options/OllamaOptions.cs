@@ -4,15 +4,15 @@ using System.ComponentModel.DataAnnotations;
 
 namespace LamuFlix.Core.Options;
 
-// ReSharper disable UnusedAutoPropertyAccessor.Global
-// Bound from configuration by ServiceDefaultsExtensions.AddLamuFlixOptions
 public sealed record OllamaOptions : IValidatableObject
 {
     public const string SectionName = "Ollama";
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Required]
     public string Endpoint { get; init; } = "http://localhost:11434/";
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Required]
     public string ModelName { get; init; } = "all-minilm";
 
@@ -31,4 +31,3 @@ public sealed record OllamaOptions : IValidatableObject
         && (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
             || uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase));
 }
-// ReSharper restore UnusedAutoPropertyAccessor.Global
