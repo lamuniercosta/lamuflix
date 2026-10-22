@@ -328,6 +328,152 @@ public sealed class TasteProfileCalculatorTests
         playedAt[2].ShouldBe(Now.AddDays(-30));
     }
 
+    [Fact]
+    public void Calculate_EmptyMoviesArray_ReturnsEmptyProfileWithoutThrow()
+    {
+        // arrange
+        var clock = new CountingTimeProvider(Now);
+        var weights = Weights(10, ("gA", 1));
+
+        // act
+        var profile = Calculator(clock).Calculate(ImmutableArray<TasteProfileMovie>.Empty, weights);
+
+        // assert
+        profile.IsEmpty.ShouldBeTrue();
+        profile.GenrePreferences.IsEmpty.ShouldBeTrue();
+        profile.PlotEmbedding.IsEmpty.ShouldBeTrue();
+        clock.UtcNowCallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Calculate_DefaultMoviesArray_ReturnsEmptyProfileWithoutThrow()
+    {
+        // arrange
+        var clock = new CountingTimeProvider(Now);
+        var weights = Weights(10, ("gA", 1));
+
+        // act
+        var profile = Calculator(clock).Calculate(default, weights);
+
+        // assert
+        profile.IsEmpty.ShouldBeTrue();
+        clock.UtcNowCallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Calculate_RowsWithoutLaunchesOrWatchedMark_ReturnsEmptyProfileEvenWithMetadata()
+    {
+        // arrange
+        var clock = new CountingTimeProvider(Now);
+        var weights = Weights(100, ("gA", 1));
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], Basis(0, 5.0f), ImmutableArray<DateTimeOffset>.Empty, isWatched: false),
+            Movie(2, ["gB"], Basis(1, 4.0f), ImmutableArray<DateTimeOffset>.Empty, isWatched: false));
+
+        // act
+        var profile = Calculator(clock).Calculate(movies, weights);
+
+        // assert
+        profile.IsEmpty.ShouldBeTrue();
+        profile.GenrePreferences.IsEmpty.ShouldBeTrue();
+        profile.PlotEmbedding.IsEmpty.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Calculate_GenreOnlyHistory_LeavesPlotEmpty()
+    {
+        // arrange
+        var clock = new CountingTimeProvider(Now);
+        var weights = Weights(100, ("gA", 1));
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], ImmutableArray<float>.Empty, [Now]),
+            Movie(2, ImmutableArray<string>.Empty, ImmutableArray<float>.Empty, [Now.AddDays(-30)]));
+
+        // act
+        var profile = Calculator(clock).Calculate(movies, weights);
+
+        // assert
+        profile.IsEmpty.ShouldBeFalse();
+        profile.GenrePreferences.Count.ShouldBe(1);
+        profile.GenrePreferences["gA"].ShouldBe(weights.GetWeight("gA"), Tolerance);
+        profile.PlotEmbedding.IsEmpty.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Calculate_PlotOnlyHistory_LeavesGenrePreferencesEmpty()
+    {
+        // arrange
+        var clock = new CountingTimeProvider(Now);
+        var movies = ImmutableArray.Create(
+            Movie(1, ImmutableArray<string>.Empty, Basis(0, 2.0f), [Now]),
+            Movie(2, ImmutableArray<string>.Empty, Basis(0, 4.0f), [Now.AddDays(-30)]));
+
+        // act
+        var profile = Calculator(clock).Calculate(movies, Weights(10));
+
+        // assert
+        profile.IsEmpty.ShouldBeFalse();
+        profile.GenrePreferences.IsEmpty.ShouldBeTrue();
+        profile.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
+        profile.PlotEmbedding[0].ShouldBe((2.0f + (0.5f * 4.0f)) / 1.5f, 1e-6f);
+    }
+
+    [Fact]
+    public void Calculate_MissingEmbeddings_AreOmittedFromPlotDenominator()
+    {
+        // arrange
+        var clock = new CountingTimeProvider(Now);
+        var movies = ImmutableArray.Create(
+            Movie(1, ImmutableArray<string>.Empty, Basis(0, 1.0f), [Now]),
+            Movie(2, ImmutableArray<string>.Empty, ImmutableArray<float>.Empty, [Now]),
+            Movie(3, ImmutableArray<string>.Empty, ImmutableArray<float>.Empty, [Now]));
+
+        // act
+        var profile = Calculator(clock).Calculate(movies, Weights(10));
+
+        // assert
+        profile.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
+        profile.PlotEmbedding[0].ShouldBe(1.0f, 1e-6f);
+    }
+
+    [Fact]
+    public void Calculate_ValidZeroVectors_AreIncludedInPlotDenominator()
+    {
+        // arrange
+        var clock = new CountingTimeProvider(Now);
+        var zero = new float[EmbeddingDimensions.Value];
+        var movies = ImmutableArray.Create(
+            Movie(1, ImmutableArray<string>.Empty, Basis(0, 1.0f), [Now]),
+            Movie(2, ImmutableArray<string>.Empty, [.. zero], [Now]));
+
+        // act
+        var profile = Calculator(clock).Calculate(movies, Weights(10));
+
+        // assert
+        profile.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
+        profile.PlotEmbedding[0].ShouldBe(0.5f, 1e-6f);
+    }
+
+    [Fact]
+    public void Calculate_AllZeroMean_ReturnsEmptyPlotAndKeepsGenrePreferences()
+    {
+        // arrange
+        var clock = new CountingTimeProvider(Now);
+        var weights = Weights(100, ("gA", 1));
+        var zero = new float[EmbeddingDimensions.Value];
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], [.. zero], [Now]));
+
+        // act
+        var profile = Calculator(clock).Calculate(movies, weights);
+
+        // assert
+        profile.IsEmpty.ShouldBeFalse();
+        profile.PlotEmbedding.IsEmpty.ShouldBeTrue();
+        profile.GenrePreferences.Count.ShouldBe(1);
+        profile.GenrePreferences["gA"].ShouldBe(weights.GetWeight("gA"), Tolerance);
+    }
+
     private static TasteProfileCalculator Calculator(TimeProvider clock) =>
         new(clock, new RecommendationOptions());
 
