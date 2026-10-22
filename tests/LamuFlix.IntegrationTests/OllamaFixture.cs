@@ -21,10 +21,10 @@ namespace LamuFlix.IntegrationTests;
 public sealed class OllamaFixture : IAsyncLifetime
 {
     public const string OptInVariable = "LAMUFLIX_RUN_OLLAMA_TESTS";
-    public const string ModelName = "all-minilm";
+    private const string ModelName = "all-minilm";
 
     // Same verified pin as docker-compose.yml, docker/ollama-init.sh consumers, and .env.example.
-    public const string Image =
+    private const string Image =
         "ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8";
 
     private const int OllamaPort = 11434;
@@ -45,7 +45,7 @@ public sealed class OllamaFixture : IAsyncLifetime
 
     public static TimeSpan GenerationBudget => TimeSpan.FromSeconds(120);
 
-    public Uri Endpoint =>
+    private Uri Endpoint =>
         container is null
             ? throw new InvalidOperationException("OllamaFixture has not been initialized.")
             : new Uri(
@@ -96,13 +96,15 @@ public sealed class OllamaFixture : IAsyncLifetime
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
-        services.AddSingleton<IOptions<OllamaOptions>>(Options.Create(new OllamaOptions
+        IOptions<OllamaOptions> ollamaOptions = Options.Create(new OllamaOptions
         {
             Endpoint = Endpoint.ToString(),
             ModelName = ModelName,
-        }));
-        services.AddSingleton<IOptions<OllamaResilienceOptions>>(
-            Options.Create(GenerationResilience()));
+        });
+        services.AddSingleton(ollamaOptions);
+        IOptions<OllamaResilienceOptions> resilienceOptions =
+            Options.Create(GenerationResilience());
+        services.AddSingleton(resilienceOptions);
         services.AddOllamaEmbeddingGenerator();
         return services.BuildServiceProvider();
     }
