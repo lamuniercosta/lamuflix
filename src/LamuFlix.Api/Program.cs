@@ -27,6 +27,7 @@ builder.Services.AddOptions<DatabaseOptions>()
 builder.Services.AddLamuFlixPersistence(builder.Configuration);
 builder.Services.AddMovieCatalog();
 builder.Services.AddMetadataProvider();
+builder.Services.AddOllamaEmbeddingGenerator();
 builder.Services.AddLamuFlixRabbitMq();
 builder.Services.AddLamuFlixPlayback();
 builder.Services.AddLamuFlixHandlers();
