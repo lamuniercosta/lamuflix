@@ -147,13 +147,24 @@ public sealed partial class OllamaSharpEmbeddingGenerator : IEmbeddingGenerator<
     {
         ArgumentNullException.ThrowIfNull(values);
 
+        RejectModelMismatch(options);
+        RejectWireDimensions(options);
+
+        return Materialize(values);
+    }
+
+    private void RejectModelMismatch(EmbeddingGenerationOptions? options)
+    {
         if (options?.ModelId is { } modelId && !string.Equals(modelId, model, StringComparison.Ordinal))
         {
             throw new ArgumentException(
                 "The requested embedding model does not match the configured model.",
                 nameof(options));
         }
+    }
 
+    private static void RejectWireDimensions(EmbeddingGenerationOptions? options)
+    {
         if (options?.Dimensions is { } dimensions && dimensions != EmbeddingDimensions.Value)
         {
             throw new ArgumentOutOfRangeException(
@@ -161,7 +172,10 @@ public sealed partial class OllamaSharpEmbeddingGenerator : IEmbeddingGenerator<
                 dimensions,
                 $"Only the default dimension of {EmbeddingDimensions.Value} is supported.");
         }
+    }
 
+    private static IReadOnlyList<string> Materialize(IEnumerable<string> values)
+    {
         var inputs = new List<string>();
         foreach (var value in values)
         {
@@ -202,6 +216,19 @@ public sealed partial class OllamaSharpEmbeddingGenerator : IEmbeddingGenerator<
 
     private GeneratedEmbeddings<Embedding<float>> Validate(EmbedResponse? response, int expectedCount)
     {
+        var vectors = RequireExpectedCount(response, expectedCount);
+
+        var embeddings = new GeneratedEmbeddings<Embedding<float>>(vectors.Count);
+        foreach (var vector in vectors)
+        {
+            embeddings.Add(RequireVector(vector));
+        }
+
+        return embeddings;
+    }
+
+    private List<float[]> RequireExpectedCount(EmbedResponse? response, int expectedCount)
+    {
         var vectors = response?.Embeddings;
         if (vectors is null || vectors.Count != expectedCount)
         {
@@ -209,24 +236,23 @@ public sealed partial class OllamaSharpEmbeddingGenerator : IEmbeddingGenerator<
                 $"returned {vectors?.Count.ToString(CultureInfo.InvariantCulture) ?? "no"} embeddings for {expectedCount.ToString(CultureInfo.InvariantCulture)} inputs");
         }
 
-        var embeddings = new GeneratedEmbeddings<Embedding<float>>(vectors.Count);
-        foreach (var vector in vectors)
+        return vectors;
+    }
+
+    private Embedding<float> RequireVector(float[]? vector)
+    {
+        if (vector is null || vector.Length != EmbeddingDimensions.Value)
         {
-            if (vector is null || vector.Length != EmbeddingDimensions.Value)
-            {
-                throw InvalidResponse(
-                    $"expected {EmbeddingDimensions.Value.ToString(CultureInfo.InvariantCulture)} dimensions and observed {(vector is null ? "no vector" : vector.Length.ToString(CultureInfo.InvariantCulture))}");
-            }
-
-            if (!vector.All(float.IsFinite))
-            {
-                throw InvalidResponse("the returned vector contained a non-finite value");
-            }
-
-            embeddings.Add(new Embedding<float>(vector));
+            throw InvalidResponse(
+                $"expected {EmbeddingDimensions.Value.ToString(CultureInfo.InvariantCulture)} dimensions and observed {(vector is null ? "no vector" : vector.Length.ToString(CultureInfo.InvariantCulture))}");
         }
 
-        return embeddings;
+        if (!vector.All(float.IsFinite))
+        {
+            throw InvalidResponse("the returned vector contained a non-finite value");
+        }
+
+        return new Embedding<float>(vector);
     }
 
     private static bool IsMapped(Exception exception) =>

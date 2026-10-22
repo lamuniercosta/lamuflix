@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -42,7 +41,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
         // arrange
         var expected = OllamaEmbeddingProbe.IndexedVector();
         probe.StubVectors(expected);
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -68,7 +67,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
         var options = new EmbeddingGenerationOptions
         {
@@ -91,7 +90,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
         var options = new EmbeddingGenerationOptions
         {
@@ -117,7 +116,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
         var first = OllamaEmbeddingProbe.IndexedVector();
         var second = first.Select(value => value + 1).ToArray();
         probe.StubVectors(first, second);
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -138,7 +137,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public async Task GenerateAsync_EmptyBatch_ReturnsEmptyWithoutHttp()
     {
         // arrange
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -153,10 +152,11 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public async Task GenerateAsync_NullBatch_ThrowsArgumentNullExceptionWithoutHttp()
     {
         // arrange
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed - intentional null contract test.
         var act = () => generator.GenerateAsync(null!, cancellationToken: TestContext.Current.CancellationToken);
 
         // assert
@@ -170,7 +170,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public async Task GenerateAsync_BlankItem_ThrowsArgumentExceptionWithoutHttp(string value)
     {
         // arrange
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -185,10 +185,11 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public async Task GenerateAsync_NullItem_ThrowsArgumentExceptionWithoutHttp()
     {
         // arrange
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed - intentional null contract test.
         var act = () => generator.GenerateAsync([null!], cancellationToken: TestContext.Current.CancellationToken);
 
         // assert
@@ -200,7 +201,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public async Task GenerateAsync_ModelMismatch_ThrowsArgumentExceptionWithoutHttp()
     {
         // arrange
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -220,7 +221,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public async Task GenerateAsync_UnsupportedDimensions_ThrowsArgumentOutOfRangeWithoutHttp(int dimensions)
     {
         // arrange
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -238,7 +239,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector(768));
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -257,7 +258,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -273,7 +274,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(Array.Empty<float>());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -290,7 +291,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(200, """{"model":"all-minilm"}""");
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -306,7 +307,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(200, "{");
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -327,7 +328,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
             string.Join(",", Enumerable.Repeat("1e39", EmbeddingDimensions.Value)),
             """]]}""");
         probe.StubBody(200, overflowing);
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -343,7 +344,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubBody(400, """{"error":"do-not-leak-sentinel"}""");
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
         // act
@@ -361,6 +362,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public void GetService_BeforeVerification_ReportsMetadataWithNullDimensions()
     {
         // arrange
+        // ReSharper disable once UseAwaitUsing - sync test disposes the provider synchronously.
         using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
@@ -379,7 +381,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         probe.StubVectors(OllamaEmbeddingProbe.Vector());
-        using var provider = probe.BuildServices();
+        await using var provider = probe.BuildServices();
         var validator = provider.GetServices<IHostedService>().OfType<OllamaEmbeddingStartupValidator>().Single();
 
         // act
@@ -394,9 +396,10 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     }
 
     [Fact]
-    public async Task GetService_KeyedOrUnknown_ReturnsNull()
+    public void GetService_KeyedOrUnknown_ReturnsNull()
     {
         // arrange
+        // ReSharper disable once UseAwaitUsing - sync test disposes the provider synchronously.
         using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
@@ -417,6 +420,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public void GetService_AssignableType_ReturnsTheWrapper()
     {
         // arrange
+        // ReSharper disable once UseAwaitUsing - sync test disposes the provider synchronously.
         using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
@@ -432,7 +436,8 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     {
         // arrange
         using var handler = new TrackingHandler();
-        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri(OllamaEmbeddingProbe.Endpoint(probe.BaseUrl)) };
+        using var httpClient = new HttpClient(handler);
+        httpClient.BaseAddress = new Uri(OllamaEmbeddingProbe.Endpoint(probe.BaseUrl));
         var generator = new OllamaSharpEmbeddingGenerator(
             httpClient,
             Options.Create(new OllamaOptions
@@ -460,7 +465,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
         const string bodySentinel = "do-not-leak-body";
         probe.StubBody(400, $"{{\"error\":\"{bodySentinel}\"}}");
         var endpoint = $"http://alice:{credential}@127.0.0.1:{new Uri(probe.BaseUrl).Port}/?token={query}";
-        using var provider = probe.BuildServices(endpoint);
+        await using var provider = probe.BuildServices(endpoint);
         var generator = Resolve(provider);
 
         // act
@@ -486,6 +491,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     [Trait("Category", "Property")]
     public void GenerateAsync_ArbitraryFiniteBatches_PreserveCountAndOrder()
     {
+        // ReSharper disable once UseAwaitUsing - sync property test disposes the provider synchronously.
         using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 
@@ -515,6 +521,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     [Trait("Category", "Property")]
     public void GenerateAsync_ArbitraryWrongDimensions_AreRejected()
     {
+        // ReSharper disable once UseAwaitUsing - sync property test disposes the provider synchronously.
         using var provider = probe.BuildServices();
         var generator = Resolve(provider);
 

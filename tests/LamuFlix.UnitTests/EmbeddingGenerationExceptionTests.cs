@@ -52,9 +52,10 @@ public sealed class EmbeddingGenerationExceptionTests
     public void Category_IsTheExistingEnrichmentFailureCategoryType()
     {
         // act
-        var categoryType = typeof(EmbeddingGenerationException).GetProperty(nameof(EmbeddingGenerationException.Category))!.PropertyType;
+        var categoryType = typeof(EmbeddingGenerationException).GetProperty(nameof(EmbeddingGenerationException.Category))?.PropertyType;
 
         // assert
+        categoryType.ShouldNotBeNull();
         categoryType.ShouldBe(typeof(EnrichmentFailureCategory));
         categoryType.IsEnum.ShouldBeFalse();
     }
@@ -75,6 +76,7 @@ public sealed class EmbeddingGenerationExceptionTests
     public void Constructor_NullCategory_IsRejected()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed - intentional null contract test.
         var exception = Should.Throw<ArgumentNullException>(
             () => new EmbeddingGenerationException(null!));
 
