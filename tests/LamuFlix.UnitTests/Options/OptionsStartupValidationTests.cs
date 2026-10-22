@@ -138,6 +138,39 @@ public sealed class OptionsStartupValidationTests
         provider.GetRequiredService<IOptions<FeatureOptions>>().Value.LocalPlay.ShouldBeTrue();
     }
 
+    [Fact]
+    public void InvalidOllamaEndpoint_FailsValidation()
+    {
+        var values = ValidRequired();
+        values[$"{OllamaOptions.SectionName}:{nameof(OllamaOptions.Endpoint)}"] = "ftp://localhost:11434/";
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(OllamaOptions.Endpoint));
+    }
+
+    [Fact]
+    public void ZeroOllamaMaxRetryAttempts_FailsValidation()
+    {
+        var values = ValidRequired();
+        values[$"{OllamaResilienceOptions.SectionName}:{nameof(OllamaResilienceOptions.MaxRetryAttempts)}"] = "0";
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(OllamaResilienceOptions.MaxRetryAttempts));
+    }
+
+    [Fact]
+    public void ZeroMetadataProviderMaxRetryAttempts_FailsValidation()
+    {
+        var values = ValidRequired();
+        values[$"{MetadataProviderResilienceOptions.SectionName}:{nameof(MetadataProviderResilienceOptions.MaxRetryAttempts)}"] = "0";
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(MetadataProviderResilienceOptions.MaxRetryAttempts));
+    }
+
     private static OptionsValidationException Validate(Dictionary<string, string?> values)
     {
         using var provider = Build(values);

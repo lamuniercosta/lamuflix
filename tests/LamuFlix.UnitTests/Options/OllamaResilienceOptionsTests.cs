@@ -295,6 +295,42 @@ public sealed class OllamaResilienceOptionsTests
             .Contains(nameof(OllamaResilienceOptions.AttemptTimeout));
     }
 
+    [Fact]
+    public void TryValidateObject_AttemptTimeoutAboveTotalTimeout_MessageNamesBothBounds()
+    {
+        // arrange
+        var options = new OllamaResilienceOptions
+        {
+            AttemptTimeout = TimeSpan.FromSeconds(20),
+            TotalTimeout = TimeSpan.FromSeconds(10),
+            SamplingDuration = TimeSpan.FromDays(1),
+        };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.Select(result => result.ErrorMessage).ShouldContain("AttemptTimeout must be less than or equal to TotalTimeout; got 00:00:20 and 00:00:10.");
+    }
+
+    [Fact]
+    public void TryValidateObject_SamplingDurationBelowTwiceAttemptTimeout_MessageNamesBothBounds()
+    {
+        // arrange
+        var options = new OllamaResilienceOptions
+        {
+            AttemptTimeout = TimeSpan.FromSeconds(10),
+            TotalTimeout = TimeSpan.FromSeconds(30),
+            SamplingDuration = TimeSpan.FromSeconds(10),
+        };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.Select(result => result.ErrorMessage).ShouldContain("SamplingDuration must be at least twice AttemptTimeout; got 00:00:10 and 00:00:10.");
+    }
+
     private static TimeSpan Parse(string value) => TimeSpan.Parse(value, CultureInfo.InvariantCulture);
 
     private static IReadOnlyList<ValidationResult> Validate(OllamaResilienceOptions options)

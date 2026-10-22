@@ -94,4 +94,52 @@ public sealed class EmbeddingGenerationExceptionTests
         exception.Category.ShouldBeSameAs(EnrichmentFailureCategory.ProviderUnavailable);
         exception.Message.ShouldContain(EnrichmentFailureCategory.ProviderUnavailable.Code);
     }
+
+    [Fact]
+    public void Constructor_TwoArguments_NullCategory_IsRejected()
+    {
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed - intentional null contract test.
+        var exception = Should.Throw<ArgumentNullException>(
+            () => new EmbeddingGenerationException(null!, "sanitized message"));
+
+        // assert
+        exception.ParamName.ShouldBe("category");
+    }
+
+    [Fact]
+    public void Constructor_ThreeArguments_NullCategory_IsRejected()
+    {
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed - intentional null contract test.
+        var exception = Should.Throw<ArgumentNullException>(
+            () => new EmbeddingGenerationException(null!, "sanitized message", new TimeoutException("inner")));
+
+        // assert
+        exception.ParamName.ShouldBe("category");
+    }
+
+    [Theory]
+    [MemberData(nameof(DisallowedCategories))]
+    public void Constructor_ThreeArguments_CategoryOutsideTheAllowedSet_IsRejected(EnrichmentFailureCategory category)
+    {
+        // act
+        var exception = Should.Throw<ArgumentException>(
+            () => new EmbeddingGenerationException(category, "sanitized message", new TimeoutException("inner")));
+
+        // assert
+        exception.Message.ShouldContain(nameof(EmbeddingGenerationException.Category));
+    }
+
+    [Theory]
+    [MemberData(nameof(DisallowedCategories))]
+    public void Constructor_CategoryOutsideTheAllowedSet_MessageNamesTheAllowedSet(EnrichmentFailureCategory category)
+    {
+        // act
+        var exception = Should.Throw<ArgumentException>(
+            () => new EmbeddingGenerationException(category, "sanitized message"));
+
+        // assert
+        exception.Message.ShouldBe("Only ProviderUnavailable, RateLimited and InvalidResponse categories are allowed. (Parameter 'category')");
+    }
 }
