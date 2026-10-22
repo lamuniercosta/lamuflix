@@ -13,17 +13,11 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-/// <summary>
-/// Test-local isolated Ollama container for the opt-in real-model proof.
-/// Nothing is constructed, started, or pulled until the opt-in gate has been
-/// satisfied, so default test discovery and execution stay Ollama-free.
-/// </summary>
 public sealed class OllamaFixture : IAsyncLifetime
 {
-    public const string OptInVariable = "LAMUFLIX_RUN_OLLAMA_TESTS";
+    private const string OptInVariable = "LAMUFLIX_RUN_OLLAMA_TESTS";
     private const string ModelName = "all-minilm";
 
-    // Same verified pin as docker-compose.yml, docker/ollama-init.sh consumers, and .env.example.
     private const string Image =
         "ollama/ollama:0.40.8@sha256:2b8eecdb85aa6ea67c381c8ecffec04b2658496cf2821a8f88b0485bdff198e8";
 
@@ -88,10 +82,6 @@ public sealed class OllamaFixture : IAsyncLifetime
 
     public ValueTask DisposeAsync() => CleanupAsync();
 
-    /// <summary>
-    /// Resolves the merged DEV-412 embedding seam through its real registration
-    /// against this isolated endpoint and model.
-    /// </summary>
     public ServiceProvider BuildServices()
     {
         var services = new ServiceCollection();
@@ -142,30 +132,63 @@ public sealed class OllamaFixture : IAsyncLifetime
 
         while (!deadline.IsCancellationRequested)
         {
-            try
+            cancellationToken.ThrowIfCancellationRequested();
+            if (await ProbeReadyAsync(target, deadline.Token, cancellationToken))
             {
-                var probe = await target.ExecAsync(["ollama", "list"], deadline.Token);
-                if (probe.ExitCode == 0)
-                {
-                    return;
-                }
+                return;
             }
-            catch (Exception) when (!cancellationToken.IsCancellationRequested)
-            {
-                if (deadline.IsCancellationRequested)
-                {
-                    break;
-                }
 
-                await Task.Delay(PollInterval, deadline.Token);
+            if (deadline.IsCancellationRequested)
+            {
+                break;
+            }
+
+            if (!await DelayBetweenProbesAsync(deadline.Token, cancellationToken))
+            {
+                break;
             }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var logs = await ReadLogsAsync(target, cancellationToken);
         throw new InvalidOperationException(
             FormattableString.Invariant(
                 $"The Ollama server was not ready within {ReadinessBudget.TotalSeconds} seconds. Logs: {logs}"),
             new TimeoutException());
+    }
+
+    private static async Task<bool> ProbeReadyAsync(IContainer target, CancellationToken deadlineToken, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var probe = await target.ExecAsync(["ollama", "list"], deadlineToken);
+            return probe.ExitCode == 0;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> DelayBetweenProbesAsync(CancellationToken deadlineToken, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(PollInterval, deadlineToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
     }
 
     private static async Task PullModelAsync(IContainer target, CancellationToken cancellationToken)
