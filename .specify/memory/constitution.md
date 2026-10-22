@@ -1,7 +1,19 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.2.0 → 1.3.0 (MINOR — retired `LamuFlix.Worker` host removed; the enrichment
+Version change: 1.3.0 → 1.4.0 (MINOR — Core port enumeration expanded with `IMovieFeaturesRepository`)
+
+Amendment 1.4.0 (2026-10-22):
+  Modified sections:
+    ✏️ I. Ports and Adapters: `IMovieFeaturesRepository` added to the closed named-port
+       enumeration immediately after `IPlaybackHistory` (DEV-413; ADR-0024). The BCL/M.E.AI
+       abstractions and the sentence `Adding a port requires an ADR.` are retained.
+  Added / removed sections: none
+  Templates reviewed:
+    ✅ .specify/templates/*.md — no port-enumeration references; no edits required
+  Follow-up: none
+
+Previous version change: 1.2.0 → 1.3.0 (MINOR — retired `LamuFlix.Worker` host removed; the enrichment
 consumer is named as hosted in the Api)
 
 Amendment 1.3.0 (2026-10-14):
@@ -135,9 +147,9 @@ Project reference rules are strict and unidirectional:
   `Domain/`, `Ports/`, or `Pipeline/`.
 - Ports live in `Core/Ports/`; the only ports are `IMovieRepository`, `IMovieCatalog`,
   `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `IMediaPlayerLauncher`,
-  `IRecommendationCandidateSource`, `IPlaybackHistory`, and the BCL/M.E.AI abstractions
-  `TimeProvider` and `IEmbeddingGenerator<string, Embedding<float>>`. Adding a port requires an
-  ADR.
+  `IRecommendationCandidateSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`, and the
+  BCL/M.E.AI abstractions `TimeProvider` and `IEmbeddingGenerator<string, Embedding<float>>`.
+  Adding a port requires an ADR.
 - These rules MUST be enforced by `LamuFlix.ArchitectureTests`; a violation fails the build.
 
 **Rationale**: One aggregate with eight use cases is the right size for feature folders, and the
@@ -552,4 +564,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.3.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-14
+**Version**: 1.4.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-22
