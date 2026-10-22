@@ -4,7 +4,7 @@ using LamuFlix.Core.Domain;
 using Shouldly;
 using Xunit;
 
-namespace LamuFlix.Test.Domain;
+namespace LamuFlix.UnitTests.Domain;
 
 public sealed class TasteProfileTests
 {

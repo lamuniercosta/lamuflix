@@ -66,11 +66,11 @@ public sealed class TasteProfileCalculator
                     nameof(movies));
             }
 
-            ValidateEmbedding(movie.PlotEmbedding, movies);
+            ValidateEmbedding(movie.PlotEmbedding, nameof(movies));
         }
     }
 
-    private static void ValidateEmbedding(ImmutableArray<float> embedding, ImmutableArray<TasteProfileMovie> movies)
+    private static void ValidateEmbedding(ImmutableArray<float> embedding, string paramName)
     {
         if (embedding.IsDefaultOrEmpty)
         {
@@ -81,14 +81,14 @@ public sealed class TasteProfileCalculator
         {
             throw new ArgumentException(
                 $"Plot embeddings must contain exactly {EmbeddingDimensions.Value} coordinates.",
-                nameof(movies));
+                paramName);
         }
 
         foreach (var coordinate in embedding)
         {
             if (!float.IsFinite(coordinate))
             {
-                throw new ArgumentException("Plot embeddings must contain only finite coordinates.", nameof(movies));
+                throw new ArgumentException("Plot embeddings must contain only finite coordinates.", paramName);
             }
         }
     }

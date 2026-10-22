@@ -6,7 +6,7 @@ using LamuFlix.Core.Options;
 using Shouldly;
 using Xunit;
 
-namespace LamuFlix.Test.Options;
+namespace LamuFlix.UnitTests.Options;
 
 public sealed class RecommendationOptionsRecencyTests
 {
