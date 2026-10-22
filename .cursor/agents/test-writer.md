@@ -17,7 +17,7 @@ than making it.
 
 1. **Read the code under test in full**, plus its public seam.
 2. **Read two existing sibling tests** and mirror them exactly — assertion library, mocking library, fixture pattern, naming, file layout, indentation. Consistency with neighbours beats any idiom you would otherwise prefer.
-3. **Detect, never assume**, the stack. Run `/convention-learner` if the repo is unfamiliar. The constitution (Principle IX) fixes assertions to Shouldly (`Assert.Collection` is the only xUnit assert allowed), mocking to NSubstitute, and test data to AutoFixture and Faker.Net; FluentAssertions, Moq and Bogus are forbidden. See `.claude/rules/pipeline/test-assertions.mdc`. **Adding a second assertion or mocking library is a defect**, and the Standards review axis will flag it.
+3. **Detect, never assume**, the stack. Run `/convention-learner` if the repo is unfamiliar. If the repo uses NSubstitute, do not introduce Moq. If it uses xUnit `Assert`, do not introduce FluentAssertions. **Adding a second assertion or mocking library is a defect**, and the Standards review axis will flag it.
 
 ## Test at the right level
 

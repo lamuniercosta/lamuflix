@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Behaviour fixture for run-mutation.ps1 (DEV-397).
+# Behaviour fixture for run-mutation.ps1.
 #
 # run-mutation.ps1 sorts changed projects into eligible, configured-excluded,
 # and unlisted-ineligible, and those three share exit codes: two of them can
@@ -8,16 +8,21 @@
 # ineligible project apart, so every case here asserts verdict or classification
 # text as well as the exit code.
 #
-# Each case builds a throwaway git worktree, overlays the gate files under test
-# with the tool manifest and stryker-config.json, commits a diff touching
-# exactly the projects that case is about, and drives run-mutation.ps1 through
-# HARNESS_REPO_ROOT. The worktree carries the solution and the test projects, so
-# eligibility is decided by the real project references rather than by a mock.
-# Without that overlay every case exits 1 GATE NOT WIRED for the wrong reason,
-# so the wiring is asserted before any case runs.
+# The fixture is SYNTHESISED, not taken from the repo this runs in: the harness
+# has no C# solution of its own outside fixtures/BadCode, and a test that needed
+# one would not run here. Each case builds a throwaway git repository holding a
+# hand-written Contoso.sln, four production projects, a unit-test project and an
+# architecture-test project, overlays the gate files under test (plus the shipped
+# dotnet-tools.json and stryker-config.json templates, so a template the gate
+# refuses fails here), commits a diff touching exactly the projects that case is
+# about, and drives run-mutation.ps1 through HARNESS_REPO_ROOT.
 #
-# The whole-project cases (Q3/Q4) additionally put a stub `dotnet` first on the
-# child's PATH. The stub answers `dotnet stryker` by copying a fixture-authored
+# Contoso.Infrastructure deliberately sits at the repository root rather than
+# under src/, so the suite proves that diff scope comes from project files and not
+# from a path prefix.
+#
+# The whole-project cases additionally put a stub `dotnet` first on the child's
+# PATH. The stub answers `dotnet stryker` by copying a fixture-authored
 # mutation-report.json into the -O directory and exits 0 - no real Stryker run
 # happens in the fixture - and forwards every other `dotnet` call (the solution
 # listing Get-TestProjects needs) to the real dotnet recorded at setup.
@@ -25,7 +30,7 @@
 # Exits 0 when every case holds, 1 when any case fails.
 #
 # Usage:
-#   pwsh -NoProfile -File ./scripts/Test-RunMutation.ps1
+#   pwsh -NoProfile -File ./packs/dotnet/scripts/Test-RunMutation.ps1 [-KeepWorktree]
 
 [CmdletBinding()]
 param(
@@ -35,26 +40,19 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# What a case needs to reach a classification at all. The two project files are
-# not overlaid: the worktree already carries the solution and every csproj.
-$overlayFiles = @(
-    '.config/dotnet-tools.json',
-    'stryker-config.json',
-    'scripts/run-mutation.ps1',
-    'scripts/_gate-common.ps1',
-    'scripts/_harness-config.ps1'
-)
-
 $gateTimeoutMs = 300000
 
 # One committed marker per selected project: the runner groups changed files by
 # nearest ancestor csproj, so one added file puts exactly one project in the
 # diff without disturbing any existing source.
-$apiMarker = 'src/LamuFlix.Api/MutationFixtureMarker.cs'
-$infraMarker = 'src/LamuFlix.Infrastructure/MutationFixtureMarker.cs'
+$coreMarker = 'src/Contoso.Core/MutationFixtureMarker.cs'
+$webMarker = 'src/Contoso.Web/MutationFixtureMarker.cs'
+$infraMarker = 'Contoso.Infrastructure/MutationFixtureMarker.cs'
+$legacyMarker = 'src/Contoso.Legacy/MutationFixtureMarker.cs'
+$looseMarker = 'scripts/LooseHelper.cs'
 $scriptsMarker = 'scripts/MutationFixtureMarker.txt'
 
-$apiReason = 'host proof lives in IntegrationTests per Constitution IX'
+$webReason = 'host proof lives in integration tests this gate does not drive'
 $infraReason = 'listed only to prove a stale exclusion still warns'
 
 $checks = 0
@@ -76,6 +74,181 @@ function Reset-Fixture {
     Invoke-FixtureGit @('clean', '-fdq') | Out-Null
 }
 
+function Write-FixtureFile {
+    param(
+        [Parameter(Mandatory)][string]$RelativePath,
+        [Parameter(Mandatory)][string]$Content
+    )
+
+    $full = Join-Path $script:checkout $RelativePath
+    New-Item -ItemType Directory -Path (Split-Path $full -Parent) -Force | Out-Null
+    [System.IO.File]::WriteAllText($full, $Content, [System.Text.UTF8Encoding]::new($false))
+}
+
+function New-SolutionFile {
+    <#
+      A hand-written Contoso.sln. The SDK's own `dotnet new sln` would work but
+      pulls in template-engine state and a different format per SDK; the parser
+      reads this form back identically on 8.0 and 10.0, and the fixture needs no
+      restore or build of its own.
+    #>
+    param([Parameter(Mandatory)][System.Collections.Specialized.OrderedDictionary]$Projects)
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add('Microsoft Visual Studio Solution File, Format Version 12.00')
+    $lines.Add('# Visual Studio Version 17')
+    $index = 0
+    $guids = [ordered]@{}
+    foreach ($name in $Projects.Keys) {
+        $index++
+        $guid = '{' + ('00000000-0000-0000-0000-{0:D12}' -f $index) + '}'
+        $guids[$name] = $guid
+        $lines.Add("Project(`"{9A19103F-16F7-4668-BE54-9A1E7A4F7556}`") = `"$name`", `"$($Projects[$name])`", `"$guid`"")
+        $lines.Add('EndProject')
+    }
+    $lines.Add('Global')
+    $lines.Add("`tGlobalSection(SolutionConfigurationPlatforms) = preSolution")
+    $lines.Add("`t`tDebug|Any CPU = Debug|Any CPU")
+    $lines.Add("`tEndGlobalSection")
+    $lines.Add("`tGlobalSection(ProjectConfigurationPlatforms) = postSolution")
+    foreach ($name in $Projects.Keys) {
+        $guid = $guids[$name]
+        $lines.Add("`t`t$guid.Debug|Any CPU.ActiveCfg = Debug|Any CPU")
+        $lines.Add("`t`t$guid.Debug|Any CPU.Build.0 = Debug|Any CPU")
+    }
+    $lines.Add("`tEndGlobalSection")
+    $lines.Add("`tGlobalSection(SolutionProperties) = preSolution")
+    $lines.Add("`t`tHideSolutionNode = FALSE")
+    $lines.Add("`tEndGlobalSection")
+    $lines.Add('EndGlobal')
+    return ($lines -join "`n") + "`n"
+}
+
+function New-FixtureRepo {
+    <#
+      Writes the whole fixture tree and commits it. The gate files under test are
+      then overlaid in a second commit, which becomes the diff base every case
+      diffs against.
+    #>
+    $projects = [ordered]@{
+        'Contoso.Core'               = 'src\Contoso.Core\Contoso.Core.csproj'
+        'Contoso.Infrastructure'     = 'Contoso.Infrastructure\Contoso.Infrastructure.csproj'
+        'Contoso.Web'                = 'src\Contoso.Web\Contoso.Web.csproj'
+        'Contoso.Legacy'             = 'src\Contoso.Legacy\Contoso.Legacy.csproj'
+        'Contoso.UnitTests'          = 'tests\Contoso.UnitTests\Contoso.UnitTests.csproj'
+        'Contoso.ArchitectureTests'  = 'tests\Contoso.ArchitectureTests\Contoso.ArchitectureTests.csproj'
+    }
+
+    $library = '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>'
+    Write-FixtureFile 'src/Contoso.Core/Contoso.Core.csproj' $library
+    Write-FixtureFile 'Contoso.Infrastructure/Contoso.Infrastructure.csproj' $library
+    Write-FixtureFile 'src/Contoso.Web/Contoso.Web.csproj' $library
+    Write-FixtureFile 'src/Contoso.Legacy/Contoso.Legacy.csproj' $library
+
+    Write-FixtureFile 'src/Contoso.Core/ScopeGuard.cs' @'
+namespace Contoso.Core;
+
+public static class ScopeGuard
+{
+    public static int Holds(int value) => value > 0 ? value : -value;
+}
+'@
+    Write-FixtureFile 'src/Contoso.Core/Unchanged.cs' @'
+namespace Contoso.Core;
+
+public static class Unchanged
+{
+    public static string Describe(int value) => $"value {value}";
+}
+'@
+    Write-FixtureFile 'Contoso.Infrastructure/Repository.cs' @'
+namespace Contoso.Infrastructure;
+
+public sealed class Repository
+{
+    public string? ConnectionString { get; init; }
+}
+'@
+    Write-FixtureFile 'src/Contoso.Web/Program.cs' @'
+namespace Contoso.Web;
+
+public static class Program
+{
+    public static string Hello() => "hello";
+}
+'@
+    Write-FixtureFile 'src/Contoso.Legacy/Dead.cs' @'
+namespace Contoso.Legacy;
+
+public static class Dead
+{
+    public static int Legacy(int value) => value + 1;
+}
+'@
+
+    # The unit-test project references the three production projects whose
+    # classification the cases depend on. Contoso.Legacy is referenced by nobody,
+    # which is what makes it the unlisted-ineligible case.
+    Write-FixtureFile 'tests/Contoso.UnitTests/Contoso.UnitTests.csproj' @'
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Contoso.Core\Contoso.Core.csproj" />
+    <ProjectReference Include="..\..\Contoso.Infrastructure\Contoso.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Contoso.Web\Contoso.Web.csproj" />
+  </ItemGroup>
+</Project>
+'@
+    Write-FixtureFile 'tests/Contoso.UnitTests/ScopeGuardTests.cs' @'
+namespace Contoso.UnitTests;
+
+public sealed class ScopeGuardTests
+{
+    public static int Holds() => 1;
+}
+'@
+
+    # ArchitectureTests does reference Core, and must still never be eligible: it
+    # fails on the Stryker.* types injected into the mutated assembly, which is an
+    # artifact kill rather than a test-quality signal.
+    Write-FixtureFile 'tests/Contoso.ArchitectureTests/Contoso.ArchitectureTests.csproj' @'
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Contoso.Core\Contoso.Core.csproj" />
+  </ItemGroup>
+</Project>
+'@
+    Write-FixtureFile 'tests/Contoso.ArchitectureTests/LayerTests.cs' @'
+namespace Contoso.ArchitectureTests;
+
+public sealed class LayerTests
+{
+    public static int Layers() => 1;
+}
+'@
+
+    Write-FixtureFile 'Contoso.sln' (New-SolutionFile -Projects $projects)
+    Write-FixtureFile 'README.md' "# Contoso`n`nSynthesised fixture for Test-RunMutation.ps1.`n"
+
+    Invoke-FixtureGit @('-c', 'user.name=mutation fixture', '-c', 'user.email=fixture@contoso.invalid',
+        '-c', 'commit.gpgsign=false', 'add', '--all') | Out-Null
+    Invoke-FixtureGit @('-c', 'user.name=mutation fixture', '-c', 'user.email=fixture@contoso.invalid',
+        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'fixture repository') | Out-Null
+}
+
 function Set-FixtureHarnessConfig {
     <#
       Writes the harness.yml the case is about. $Exclusions of $null leaves the
@@ -88,11 +261,13 @@ function Set-FixtureHarnessConfig {
         # $null (the default) leaves maxKillFileSpan out, so the gate reads its default of 15.
         [AllowNull()][string]$MaxKillFileSpan = $null,
         # $null (the default) leaves concurrency out, so the gate reads its default of half the runner core count.
-        [AllowNull()][string]$Concurrency = $null
+        [AllowNull()][string]$Concurrency = $null,
+        # $null (the default) leaves wholeProject out, so -WholeProject auto-detects.
+        [AllowNull()][string]$WholeProject = $null
     )
 
     $lines = [System.Collections.Generic.List[string]]::new()
-    foreach ($line in @('harnessVersion: 0.7.1', 'pack: dotnet', 'baseBranch: main', 'tracker: youtrack',
+    foreach ($line in @('harnessVersion: 0.7.1', 'pack: dotnet', 'baseBranch: main', 'tracker: github',
             'solution: null', '', 'gates:', '  mutation:', '    threshold: 80')) {
         $lines.Add($line)
     }
@@ -105,6 +280,9 @@ function Set-FixtureHarnessConfig {
     if ($null -ne $Concurrency) {
         $lines.Add("    concurrency: $Concurrency")
     }
+    if ($null -ne $WholeProject) {
+        $lines.Add("    wholeProject: $WholeProject")
+    }
     if ($null -ne $Exclusions) {
         $lines.Add('    exclusions:')
         foreach ($name in @($Exclusions.Keys | Sort-Object)) {
@@ -116,19 +294,46 @@ function Set-FixtureHarnessConfig {
     [System.IO.File]::WriteAllText($path, ($lines -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
 }
 
+function Set-FixtureStrykerConfig {
+    <#
+      Rewrites the overlaid stryker-config.json: $Set entries replace or add a key,
+      $Remove entries delete one. Reset-Fixture restores the template copy.
+    #>
+    param(
+        [hashtable]$Set = @{},
+        [string[]]$Remove = @()
+    )
+
+    $path = Join-Path $script:checkout 'stryker-config.json'
+    $config = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    foreach ($key in $Remove) {
+        $config.'stryker-config'.PSObject.Properties.Remove($key)
+    }
+    foreach ($key in $Set.Keys) {
+        $config.'stryker-config' | Add-Member -NotePropertyName $key -NotePropertyValue $Set[$key] -Force
+    }
+    [System.IO.File]::WriteAllText($path, ($config | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
+}
+
 function Add-ChangedPaths {
     param([Parameter(Mandatory)][string[]]$Paths)
 
     foreach ($rel in $Paths) {
-        $full = Join-Path $script:checkout $rel
-        New-Item -ItemType Directory -Path (Split-Path $full -Parent) -Force | Out-Null
-        # Comment-only, so a marker can never break a build that a later case
-        # decides to compile.
-        Set-Content -LiteralPath $full -Value "// Mutation fixture marker: selects $rel for the diff under test."
+        Add-MarkerFile -Path $rel
     }
     Invoke-FixtureGit (@('add', '--') + $Paths) | Out-Null
-    Invoke-FixtureGit @('-c', 'user.name=mutation fixture', '-c', 'user.email=fixture@lamuflix.invalid',
+    Invoke-FixtureGit @('-c', 'user.name=mutation fixture', '-c', 'user.email=fixture@contoso.invalid',
         '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', "fixture diff: $($Paths -join ', ')") | Out-Null
+}
+
+function Add-MarkerFile {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $full = Join-Path $script:checkout $Path
+    New-Item -ItemType Directory -Path (Split-Path $full -Parent) -Force | Out-Null
+    # Comment-only, so a marker can never break a build that a later case decides
+    # to compile.
+    Set-Content -LiteralPath $full -Value "// Mutation fixture marker: selects $Path for the diff under test."
 }
 
 function Invoke-MutationGate {
@@ -229,8 +434,8 @@ function Write-ScopeReport {
 $FilesJson
   },
   "testFiles": {
-    "tests/LamuFlix.UnitTests/ScopeGuardTests.cs": {
-      "tests": [ { "id": "t1", "name": "LamuFlix.UnitTests.ScopeGuardTests.Holds" } ]
+    "tests/Contoso.UnitTests/ScopeGuardTests.cs": {
+      "tests": [ { "id": "t1", "name": "Contoso.UnitTests.ScopeGuardTests.Holds" } ]
     }
   }
 }
@@ -264,18 +469,18 @@ function Write-KillShareReport {
                 location     = [ordered]@{ start = [ordered]@{ line = $i + 1 } }
             })
     }
-    $tests = @($testIds | ForEach-Object { [ordered]@{ id = $_; name = "LamuFlix.UnitTests.ScopeGuardTests.$_" } })
+    $tests = @($testIds | ForEach-Object { [ordered]@{ id = $_; name = "Contoso.UnitTests.ScopeGuardTests.$_" } })
     $report = [ordered]@{
         schemaVersion = '2'
         files         = [ordered]@{ $FileKey = [ordered]@{ mutants = @($mutants) } }
-        testFiles     = [ordered]@{ 'tests/LamuFlix.UnitTests/ScopeGuardTests.cs' = [ordered]@{ tests = $tests } }
+        testFiles     = [ordered]@{ 'tests/Contoso.UnitTests/ScopeGuardTests.cs' = [ordered]@{ tests = $tests } }
     }
     [System.IO.File]::WriteAllText($Path, ($report | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
 }
 
 function Write-KillSpanReport {
     <#
-      Writes a schema-2 report spread over $FileCount files, src/LamuFlix.Core/Span<i>.cs.
+      Writes a schema-2 report spread over $FileCount files, src/Contoso.Core/Span<i>.cs.
       Each file holds one mutant killed by the wide test 'wide' and two killed by a test
       local to that file, so 'wide' spans every file while its kill share stays at a third
       and the share rule never fires.
@@ -287,11 +492,11 @@ function Write-KillSpanReport {
 
     $files = [ordered]@{}
     $tests = [System.Collections.Generic.List[object]]::new()
-    $tests.Add([ordered]@{ id = 'wide'; name = 'LamuFlix.UnitTests.ScopeGuardTests.wide' })
+    $tests.Add([ordered]@{ id = 'wide'; name = 'Contoso.UnitTests.ScopeGuardTests.wide' })
     $nextId = 1
     for ($i = 1; $i -le $FileCount; $i++) {
         $local = "f$i"
-        $tests.Add([ordered]@{ id = $local; name = "LamuFlix.UnitTests.ScopeGuardTests.$local" })
+        $tests.Add([ordered]@{ id = $local; name = "Contoso.UnitTests.ScopeGuardTests.$local" })
         $mutants = foreach ($killer in @('wide', $local, $local)) {
             [ordered]@{
                 id          = [string]$nextId
@@ -302,30 +507,14 @@ function Write-KillSpanReport {
             }
             $nextId++
         }
-        $files["src/LamuFlix.Core/Span$i.cs"] = [ordered]@{ mutants = @($mutants) }
+        $files["src/Contoso.Core/Span$i.cs"] = [ordered]@{ mutants = @($mutants) }
     }
     $report = [ordered]@{
         schemaVersion = '2'
         files         = $files
-        testFiles     = [ordered]@{ 'tests/LamuFlix.UnitTests/ScopeGuardTests.cs' = [ordered]@{ tests = @($tests) } }
+        testFiles     = [ordered]@{ 'tests/Contoso.UnitTests/ScopeGuardTests.cs' = [ordered]@{ tests = @($tests) } }
     }
     [System.IO.File]::WriteAllText($Path, ($report | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
-}
-
-function Set-FixtureAdditionalTimeout {
-    <#
-      Rewrites the overlaid stryker-config.json with additional-timeout set to $Value,
-      or removed when $Value is $null. Reset-Fixture restores the committed copy.
-    #>
-    param([AllowNull()][object]$Value)
-
-    $path = Join-Path $script:checkout 'stryker-config.json'
-    $config = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-    $config.'stryker-config'.PSObject.Properties.Remove('additional-timeout')
-    if ($null -ne $Value) {
-        $config.'stryker-config' | Add-Member -NotePropertyName 'additional-timeout' -NotePropertyValue $Value
-    }
-    [System.IO.File]::WriteAllText($path, ($config | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
 }
 
 function New-StrykerStubEnvironment {
@@ -338,7 +527,8 @@ function New-StrykerStubEnvironment {
     #>
     param(
         [Parameter(Mandatory)][string]$OutputRoot,
-        [Parameter(Mandatory)][string]$ReportSource
+        [Parameter(Mandatory)][string]$ReportSource,
+        [string]$Project = 'Contoso.Core'
     )
 
     $separator = [System.IO.Path]::PathSeparator
@@ -346,7 +536,7 @@ function New-StrykerStubEnvironment {
         PATH                     = "$($script:stubDir)$separator$($env:PATH)"
         STRYKER_STUB_REAL_DOTNET = $script:realDotnet
         STRYKER_STUB_REPORT_SRC  = $ReportSource
-        STRYKER_STUB_REPORT_DIR  = Join-Path (Join-Path $OutputRoot 'LamuFlix.Core') 'reports'
+        STRYKER_STUB_REPORT_DIR  = Join-Path (Join-Path $OutputRoot $Project) 'reports'
     }
 }
 
@@ -357,61 +547,100 @@ function Assert-FixtureWiring {
         throw 'overlay .config/dotnet-tools.json does not name dotnet-stryker'
     }
 
+    # The config the fixture overlays is what the gate must accept. In the harness
+    # repo that is the shipped template; in a consumer it is the repo's own file,
+    # so a gate that refuses it fails here rather than at the next gate run.
     $strykerConfig = Join-Path $script:checkout 'stryker-config.json'
     if (-not (Test-Path -LiteralPath $strykerConfig)) { throw "overlay missing: $strykerConfig" }
     $baseStryker = (Get-Content -LiteralPath $strykerConfig -Raw | ConvertFrom-Json).'stryker-config'
-    foreach ($required in @(@('test-runner', 'mtp'), @('coverage-analysis', 'off'))) {
-        if ([string]$baseStryker.($required[0]) -ne $required[1]) {
-            throw "stryker-config.json does not set $($required[0])=$($required[1])"
-        }
+    if ([string]::IsNullOrWhiteSpace([string]$baseStryker.'test-runner')) {
+        throw 'the stryker-config.json under test does not declare test-runner, so the gate would refuse it (harness.yml gates.mutation.runner makes install.ps1 render one)'
     }
     if ([long]$baseStryker.'additional-timeout' -lt 30000) {
-        throw 'stryker-config.json does not set additional-timeout to at least 30000'
+        throw 'the stryker-config.json under test does not set additional-timeout to at least 30000'
     }
 
-    if (-not (Test-Path -LiteralPath (Join-Path $script:checkout 'LamuFlix.sln'))) {
-        throw 'the fixture checkout carries no LamuFlix.sln, so no test project can be resolved'
+    if (-not (Test-Path -LiteralPath (Join-Path $script:checkout 'Contoso.sln'))) {
+        throw 'the fixture checkout carries no Contoso.sln, so no test project can be resolved'
     }
 
-    # Every classification in every case follows from these two references, so a
+    # Every classification in every case follows from these references, so a
     # silent change to them must fail here rather than read as a gate bug.
-    $unitTests = Join-Path $script:checkout 'tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj'
+    $unitTests = Join-Path $script:checkout 'tests/Contoso.UnitTests/Contoso.UnitTests.csproj'
     if (-not (Test-Path -LiteralPath $unitTests)) { throw "the fixture checkout carries no $unitTests" }
     $unitTestsText = Get-Content -LiteralPath $unitTests -Raw
-    if ($unitTestsText -notmatch 'LamuFlix\.Infrastructure\.csproj') {
-        throw 'LamuFlix.UnitTests no longer references LamuFlix.Infrastructure, so no case has an eligible project'
-    }
-    if ($unitTestsText -notmatch 'LamuFlix\.Api\.csproj') {
-        throw 'LamuFlix.UnitTests no longer references LamuFlix.Api, so the listed-Api cases would not warn'
+    foreach ($required in @('Contoso\.Core\.csproj', 'Contoso\.Infrastructure\.csproj', 'Contoso\.Web\.csproj')) {
+        if ($unitTestsText -notmatch $required) {
+            throw "Contoso.UnitTests no longer references $required, so the classifications this suite asserts no longer follow"
+        }
     }
 }
 
-$repoRoot = [System.IO.Path]::GetFullPath((& git rev-parse --show-toplevel).Trim())
-$headSha = ((& git -C $repoRoot rev-parse HEAD).Trim())
+function Find-RepoRoot {
+    <#
+      The nearest ancestor that looks like a repository root. The suite runs from
+      packs/dotnet/scripts inside the harness repo and from scripts/ in a consumer,
+      so neither a fixed number of levels nor $PSScriptRoot alone is right.
+    #>
+    param([Parameter(Mandatory)][string]$Start)
+
+    $dir = $Start
+    for ($i = 0; $i -lt 6; $i++) {
+        if (Test-Path -LiteralPath (Join-Path $dir 'harness.yml')) { return $dir }
+        if (Test-Path -LiteralPath (Join-Path $dir '.git')) { return $dir }
+        $parent = Split-Path $dir -Parent
+        if (-not $parent -or $parent -eq $dir) { break }
+        $dir = $parent
+    }
+    throw "could not find the repository root above '$Start'"
+}
+
+$repoRoot = Find-RepoRoot -Start $PSScriptRoot
+
+# The gate files under test are taken from this script's own directory, so the
+# suite tests the copies that actually run. The two configs come from the harness
+# pack when this runs inside the harness repo, and from the repo's own files when
+# the suite was installed into a consumer - which is the stronger check there,
+# because it proves the consumer's real config is one the gate accepts.
+$overlay = [ordered]@{
+    'scripts/run-mutation.ps1'    = Join-Path $PSScriptRoot 'run-mutation.ps1'
+    'scripts/_gate-common.ps1'    = Join-Path $PSScriptRoot '_gate-common.ps1'
+    'scripts/_harness-config.ps1' = Join-Path $PSScriptRoot '_harness-config.ps1'
+}
+$packTemplates = Join-Path $repoRoot 'packs/dotnet/templates'
+if (Test-Path -LiteralPath (Join-Path $packTemplates 'stryker-config.json')) {
+    $overlay['.config/dotnet-tools.json'] = Join-Path $packTemplates 'dotnet-tools.json'
+    $overlay['stryker-config.json'] = Join-Path $packTemplates 'stryker-config.json'
+    $configSource = 'the shipped template'
+}
+else {
+    $overlay['.config/dotnet-tools.json'] = Join-Path $repoRoot '.config/dotnet-tools.json'
+    $overlay['stryker-config.json'] = Join-Path $repoRoot 'stryker-config.json'
+    $configSource = "this repo's own config"
+}
 
 $script:work = Join-Path ([System.IO.Path]::GetTempPath()) `
-    ('LamuFlix-mutation-fixture/' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    ('stryker-test-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
 $script:checkout = Join-Path $script:work 'checkout'
-$worktreeAdded = $false
 
 try {
-    New-Item -ItemType Directory -Path $script:work -Force | Out-Null
+    New-Item -ItemType Directory -Path $script:checkout -Force | Out-Null
 
-    & git -C $repoRoot worktree add --detach $script:checkout $headSha | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "git worktree add failed with exit $LASTEXITCODE" }
-    $worktreeAdded = $true
+    & git -C $script:checkout init --quiet --initial-branch=main
+    if ($LASTEXITCODE -ne 0) { throw "git init failed with exit $LASTEXITCODE" }
 
-    foreach ($file in $overlayFiles) {
-        $source = Join-Path $repoRoot $file
+    New-FixtureRepo
+
+    foreach ($relativePath in $overlay.Keys) {
+        $source = $overlay[$relativePath]
         if (-not (Test-Path -LiteralPath $source)) { throw "overlay source missing: $source" }
-        Copy-Item -LiteralPath $source -Destination (Join-Path $script:checkout $file) -Force
+        $destination = Join-Path $script:checkout $relativePath
+        New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
+        Copy-Item -LiteralPath $source -Destination $destination -Force
     }
-    Invoke-FixtureGit (@('add', '--') + $overlayFiles) | Out-Null
-    # The overlay is empty whenever the gate files under test are already committed, which
-    # is the case whenever this runs from a clean checkout, so the commit must tolerate it:
-    # the diff base has to exist either way.
-    Invoke-FixtureGit @('-c', 'user.name=mutation fixture', '-c', 'user.email=fixture@lamuflix.invalid',
-        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '--allow-empty', '-m', 'fixture tooling overlay') | Out-Null
+    Invoke-FixtureGit (@('add', '--') + @($overlay.Keys)) | Out-Null
+    Invoke-FixtureGit @('-c', 'user.name=mutation fixture', '-c', 'user.email=fixture@contoso.invalid',
+        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'fixture tooling overlay') | Out-Null
     $script:fixtureBase = (@(Invoke-FixtureGit @('rev-parse', 'HEAD'))[0]).Trim()
 
     # The stub `dotnet` the whole-project cases put first on the child's PATH. It
@@ -451,76 +680,107 @@ exec "$STRYKER_STUB_REAL_DOTNET" "$@"
     Assert-FixtureWiring
 
     Write-Host 'Fixture checkout: ' $script:checkout
-    Write-Host "Diff base: $script:fixtureBase (overlay of the gate files under test)"
+    Write-Host "Diff base: $script:fixtureBase (overlay of the gate files under test, configs from $configSource)"
     Write-Host ''
     Write-Host 'Classification cases:'
 
-    Assert-MutationCase -Name '1 listed Api plus eligible Infrastructure classifies and exits 0' -Setup {
-        Set-FixtureHarnessConfig -Exclusions @{ 'LamuFlix.Api' = $apiReason }
-        Add-ChangedPaths -Paths @($apiMarker, $infraMarker)
+    Assert-MutationCase -Name '1 listed Web plus eligible Core classifies both and exits 0' -Setup {
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Web' = $webReason }
+        Add-ChangedPaths -Paths @($webMarker, $coreMarker)
     } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 0 -MustContain @(
         'NOT APPLICABLE',
-        $apiReason,
-        'LamuFlix.Infrastructure.csproj',
-        'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj'
+        $webReason,
+        'Contoso.Core.csproj',
+        'tests/Contoso.UnitTests/Contoso.UnitTests.csproj'
     )
 
-    $listedApiOnly = {
-        Set-FixtureHarnessConfig -Exclusions @{ 'LamuFlix.Api' = $apiReason }
-        Add-ChangedPaths -Paths @($apiMarker)
+    $listedWebOnly = {
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Web' = $webReason }
+        Add-ChangedPaths -Paths @($webMarker)
     }
-    Assert-MutationCase -Name '2 listed Api only, -DryRun, exits 2 NOT APPLICABLE' -Setup $listedApiOnly `
+    Assert-MutationCase -Name '2 listed Web only, -DryRun, exits 2 NOT APPLICABLE' -Setup $listedWebOnly `
         -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 2 `
-        -MustContain @('NOT APPLICABLE', $apiReason, 'WARNING', 'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj') `
+        -MustContain @('NOT APPLICABLE', $webReason, 'WARNING', 'tests/Contoso.UnitTests/Contoso.UnitTests.csproj') `
         -MustNotContain @('no eligible test project')
 
-    # Api stays listed, so the real run measures nothing and must not start Stryker.
-    Assert-MutationCase -Name '2 listed Api only, real run, exits 2 NOT APPLICABLE' -Setup $listedApiOnly `
+    # Web stays listed, so the real run measures nothing and must not start Stryker.
+    Assert-MutationCase -Name '2 listed Web only, real run, exits 2 NOT APPLICABLE' -Setup $listedWebOnly `
         -Arguments @('-BaseRef', $script:fixtureBase) -ExpectedExit 2 `
-        -MustContain @('NOT APPLICABLE', $apiReason) -MustNotContain @('Stryker native exit')
+        -MustContain @('NOT APPLICABLE', $webReason) -MustNotContain @('Stryker native exit')
 
-    $ineligibleProject = 'src/FixtureIneligible/FixtureIneligible.csproj'
-    $ineligibleMarker = 'src/FixtureIneligible/FixtureMarker.cs'
     Assert-MutationCase -Name '3 unlisted project with no eligible test project exits 1' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null
-        $projectPath = Join-Path $script:checkout $ineligibleProject
-        New-Item -ItemType Directory -Path (Split-Path $projectPath -Parent) -Force | Out-Null
-        Set-Content -LiteralPath $projectPath -Value '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>'
-        Add-ChangedPaths -Paths @($ineligibleMarker)
+        Add-ChangedPaths -Paths @($legacyMarker)
     } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 1 -MustContain @(
-        'FixtureIneligible.csproj',
+        'Contoso.Legacy.csproj',
         'no eligible test project, not in policy'
     )
 
-    Assert-MutationCase -Name '3 unlisted Api plus eligible Infrastructure classifies both and exits 0' -Setup {
+    Assert-MutationCase -Name '3 unlisted Web plus eligible Core classifies both and exits 0' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null
-        Add-ChangedPaths -Paths @($apiMarker, $infraMarker)
+        Add-ChangedPaths -Paths @($webMarker, $coreMarker)
     } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 0 -MustContain @(
-        'LamuFlix.Api.csproj',
-        'LamuFlix.Infrastructure.csproj',
-        'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj'
+        'Contoso.Web.csproj',
+        'Contoso.Core.csproj',
+        'tests/Contoso.UnitTests/Contoso.UnitTests.csproj'
     ) -MustNotContain @('no eligible test project')
+
+    # ArchitectureTests references Core and must still never be listed as an
+    # eligible test project: it fails on the injected Stryker types.
+    Assert-MutationCase -Name '3b ArchitectureTests is never an eligible test project' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @($coreMarker)
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 0 `
+        -MustContain @('Test projects for Contoso.Core.csproj: tests/Contoso.UnitTests/Contoso.UnitTests.csproj') `
+        -MustNotContain @('Contoso.ArchitectureTests')
 
     # The diff touches no production C#, so an invalid policy has to be caught
     # before the scope-empty check instead of hiding behind SKIPPED.
     Assert-MutationCase -Name '4 blank reason exits 1 as a configuration error, ahead of scope-empty' -Setup {
-        Set-FixtureHarnessConfig -Exclusions @{ 'LamuFlix.Api' = '   ' }
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Web' = '   ' }
         Add-ChangedPaths -Paths @($scriptsMarker)
     } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 1 `
         -MustContain @('configuration') -MustNotContain @('SKIPPED')
 
     Assert-MutationCase -Name '5 listed project that has eligible tests warns and stays excluded' -Setup {
-        Set-FixtureHarnessConfig -Exclusions @{ 'LamuFlix.Infrastructure' = $infraReason }
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Infrastructure' = $infraReason }
         Add-ChangedPaths -Paths @($infraMarker)
     } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 2 `
         -MustContain @('WARNING', 'NOT APPLICABLE', $infraReason)
 
-    # Scope guard. The changed file is the diff; HealthCheckResponseWriter.cs is
-    # the file the diff does not touch. -ScopeFile is what makes containment run
-    # under -EvaluateReport, which otherwise skips it.
-    $scopeChanged = 'src/LamuFlix.ServiceDefaults/Extensions.cs'
-    $scopeUnchanged = 'src/LamuFlix.ServiceDefaults/HealthCheckResponseWriter.cs'
-    $scopeReport = Join-Path $script:checkout 'scope-guard-report.json'
+    Write-Host ''
+    Write-Host 'Scope cases:'
+
+    # A change that only touches a test project measures nothing. It must read as
+    # scope-empty rather than as a changed project with no eligible test project.
+    Assert-MutationCase -Name '5b a test-project-only change exits 2 SKIPPED, never 1' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @('tests/Contoso.UnitTests/ScopeGuardTests.cs')
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 2 `
+        -MustContain @('SKIPPED') -MustNotContain @('no eligible test project', 'Contoso.UnitTests.csproj')
+
+    # A loose .cs file in no project can never produce mutants, so it is listed and
+    # skipped instead of tripping the file-to-project mapping.
+    Assert-MutationCase -Name '5c a changed .cs that belongs to no project is listed and skipped' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @($looseMarker)
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 2 `
+        -MustContain @('Not in any project', $looseMarker, 'SKIPPED')
+
+    # Production code outside src/ is in scope: the layout comes from the project
+    # files, not from a path prefix.
+    Assert-MutationCase -Name '5d production code outside src/ is in scope' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @($infraMarker)
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 0 `
+        -MustContain @('Contoso.Infrastructure.csproj', 'tests/Contoso.UnitTests/Contoso.UnitTests.csproj')
+
+    # Scope guard. The changed file is the diff; Unchanged.cs is the file the diff
+    # does not touch. -ScopeFile is what makes containment run under -EvaluateReport,
+    # which otherwise skips it.
+    $scopeChanged = 'src/Contoso.Core/ScopeGuard.cs'
+    $scopeUnchanged = 'src/Contoso.Core/Unchanged.cs'
+    $scopeReport = Join-Path $script:work 'scope-guard-report.json'
     $killedInChangedFile = @"
     "$scopeChanged": {
       "mutants": [
@@ -581,7 +841,7 @@ $killedInChangedFile,
 
     # Artifact-kill share rule (maxKillShare, default 50; exempt below 20 tested). Each
     # case writes a report with the kill counts it needs and evaluates it through -EvaluateReport.
-    $shareReport = Join-Path $script:checkout 'share-report.json'
+    $shareReport = Join-Path $script:work 'share-report.json'
     $shareArgs = @('-EvaluateReport', $shareReport, '-ScopeFile', $scopeChanged)
 
     Write-Host ''
@@ -591,7 +851,7 @@ $killedInChangedFile,
         Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets ((@('t1') * 60) + (@('t2') * 40))
     } -Arguments $shareArgs -ExpectedExit 1 -MustContain @(
         'Suspected artifact kill',
-        'LamuFlix.UnitTests.ScopeGuardTests.t1 killed 60 of 100 tested mutants (60.0%), above the 50% limit',
+        'Contoso.UnitTests.ScopeGuardTests.t1 killed 60 of 100 tested mutants (60.0%), above the 50% limit',
         'FAILED'
     ) -MustNotContain @('Kill share: not applied')
 
@@ -619,8 +879,8 @@ $killedInChangedFile,
     Assert-MutationCase -Name '17 four tests each killing every mutant report three and +1 more' -Setup {
         Write-KillShareReport -Path $shareReport -FileKey $scopeChanged -KillerSets (@('t1|t2|t3|t4') * 100)
     } -Arguments $shareArgs -ExpectedExit 1 -MustContain @(
-        'LamuFlix.UnitTests.ScopeGuardTests.t1 killed 100 of 100 tested mutants (100.0%), above the 50% limit',
-        'LamuFlix.UnitTests.ScopeGuardTests.t3 killed 100 of 100',
+        'Contoso.UnitTests.ScopeGuardTests.t1 killed 100 of 100 tested mutants (100.0%), above the 50% limit',
+        'Contoso.UnitTests.ScopeGuardTests.t3 killed 100 of 100',
         '; +1 more.'
     ) -MustNotContain @('ScopeGuardTests.t4 killed')
 
@@ -655,7 +915,7 @@ $killedInChangedFile,
 
     # Artifact-kill file-span rule (maxKillFileSpan, default 15; no sample minimum). The
     # span reports cover files outside any diff, so they are evaluated without -ScopeFile.
-    $spanReport = Join-Path $script:checkout 'span-report.json'
+    $spanReport = Join-Path $script:work 'span-report.json'
     $spanArgs = @('-EvaluateReport', $spanReport)
 
     Write-Host ''
@@ -665,7 +925,7 @@ $killedInChangedFile,
         Write-KillSpanReport -Path $spanReport -FileCount 16
     } -Arguments $spanArgs -ExpectedExit 1 -MustContain @(
         'Suspected artifact kill',
-        'LamuFlix.UnitTests.ScopeGuardTests.wide killed mutants in 16 files, above the 15-file limit',
+        'Contoso.UnitTests.ScopeGuardTests.wide killed mutants in 16 files, above the 15-file limit',
         'FAILED'
     ) -MustNotContain @('of 48 tested mutants')
 
@@ -697,48 +957,143 @@ $killedInChangedFile,
         'Kill share: not applied (18 tested is below the 20-mutant minimum)'
     )
 
-    # Whole-project mode (Q3/Q4). Classification and the zero-diff contrast run
-    # without the stub; the invocation and both changed-file guards drive a stub
-    # `dotnet stryker` so no real Stryker run happens in the fixture.
-    $coreFileItem = @(
-        Get-ChildItem -LiteralPath (Join-Path $script:checkout 'src/LamuFlix.Core') -Recurse -File -Filter '*.cs' |
-            Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' } |
-            Sort-Object FullName |
-            Select-Object -First 1
-    )[0]
-    if (-not $coreFileItem) { throw 'the fixture checkout carries no C# file under src/LamuFlix.Core' }
-    $coreChangedFile = [System.IO.Path]::GetRelativePath($script:checkout, $coreFileItem.FullName).Replace('\', '/')
+    Assert-MutationCase -Name '27 concurrency 0 is a configuration error that exits 1 before evaluation' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -Concurrency '0'
+        Write-KillSpanReport -Path $spanReport -FileCount 2
+    } -Arguments $spanArgs -ExpectedExit 1 -MustContain @(
+        'invalid mutation configuration in harness.yml gates.mutation.concurrency',
+        'must be an integer of at least 1, got ''0'''
+    ) -MustNotContain @('Suspected artifact kill', 'PASSED')
 
+    # Test-runner wiring. The gate never guesses the runner, so a config that does
+    # not name one - or names mtp without the coverage setting mtp requires - is a
+    # wiring defect and not a score of zero.
     Write-Host ''
-    Write-Host 'Whole-project mode cases:'
+    Write-Host 'Test-runner wiring cases:'
 
-    Assert-MutationCase -Name '10 whole-project mode classifies whole Core on a zero diff and never exits scope-empty' -Setup {
+    Assert-MutationCase -Name '28 a stryker-config.json without test-runner is GATE NOT WIRED' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null
-    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 0 -MustContain @(
-        'Whole-project mode: LamuFlix.Core',
-        'LamuFlix.Core.csproj',
-        'LamuFlix.UnitTests/LamuFlix.UnitTests.csproj',
-        '"additional-timeout": 30000',
-        '"concurrency":'
-    ) -MustNotContain @('SKIPPED')
+        Add-ChangedPaths -Paths @($coreMarker)
+        Set-FixtureStrykerConfig -Remove @('test-runner')
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 1 -MustContain @(
+        'GATE NOT WIRED',
+        'does not set ''test-runner'''
+    ) -MustNotContain @('Generated config', 'Stryker config for')
 
-    Assert-MutationCase -Name '10c a stryker-config.json without additional-timeout is GATE NOT WIRED' -Setup {
+    Assert-MutationCase -Name '29 test-runner mtp with coverage-analysis on is GATE NOT WIRED' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null
-        Set-FixtureAdditionalTimeout -Value $null
-    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 1 -MustContain @(
+        Add-ChangedPaths -Paths @($coreMarker)
+        Set-FixtureStrykerConfig -Set @{ 'test-runner' = 'mtp'; 'coverage-analysis' = 'off' }
+        Set-FixtureStrykerConfig -Set @{ 'coverage-analysis' = 'perTest' }
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 1 -MustContain @(
+        'GATE NOT WIRED',
+        'coverage-analysis is ''perTest'''
+    )
+
+    Assert-MutationCase -Name '30 an unknown test-runner value is GATE NOT WIRED' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @($coreMarker)
+        Set-FixtureStrykerConfig -Set @{ 'test-runner' = 'nunit-console' }
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 1 -MustContain @(
+        'GATE NOT WIRED',
+        'test-runner'' to ''nunit-console'''
+    )
+
+    Assert-MutationCase -Name '30b a stryker-config.json without additional-timeout is GATE NOT WIRED' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @($coreMarker)
+        Set-FixtureStrykerConfig -Remove @('additional-timeout')
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 1 -MustContain @(
         'GATE NOT WIRED',
         'does not set ''additional-timeout'' to an integer'
     ) -MustNotContain @('Generated config')
 
-    Assert-MutationCase -Name '10d an additional-timeout below 30000 is GATE NOT WIRED' -Setup {
+    Assert-MutationCase -Name '30c an additional-timeout below 30000 is GATE NOT WIRED' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null
-        Set-FixtureAdditionalTimeout -Value 5000
-    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 1 -MustContain @(
+        Add-ChangedPaths -Paths @($coreMarker)
+        Set-FixtureStrykerConfig -Set @{ 'additional-timeout' = 5000 }
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 1 -MustContain @(
         'GATE NOT WIRED',
         'sets ''additional-timeout'' to 5000 (expected at least 30000'
     ) -MustNotContain @('Generated config')
 
-    Assert-MutationCase -Name '10b diff-scoped mode on the same zero diff still exits 2 SKIPPED' -Setup {
+    # The generated config is the project's own config with only the gate-owned keys
+    # replaced, so a project setting the gate does not own survives into the run. The
+    # key is injected by the case, so the assertion holds whether the config under
+    # test came from the shipped template or from a consumer repo.
+    Assert-MutationCase -Name '30d the generated config keeps the settings the gate does not own' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @($coreMarker)
+        Set-FixtureStrykerConfig -Set @{ 'ignore-methods' = @('Equals', 'GetHashCode'); 'log-level' = 'debug' }
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 0 -MustContain @(
+        '"ignore-methods"',
+        '"log-level": "debug"',
+        '"additional-timeout": 30000',
+        '"concurrency":',
+        '"enabled": false'
+    )
+
+    # Whole-project mode. Classification and the zero-diff contrast run without the
+    # stub; the invocation and both changed-file guards drive a stub `dotnet stryker`
+    # so no real Stryker run happens in the fixture.
+    #
+    # A committed file, named rather than discovered: whole-project enumeration puts
+    # every source file in the changed set, and discovery would pick up whichever
+    # marker a previous case left behind.
+    $coreChangedFile = 'src/Contoso.Core/ScopeGuard.cs'
+
+    Write-Host ''
+    Write-Host 'Whole-project mode cases:'
+
+    Assert-MutationCase -Name '10 whole-project mode mutates the single non-excluded candidate on a zero diff' -Setup {
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Infrastructure' = $infraReason; 'Contoso.Web' = $webReason }
+    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 0 -MustContain @(
+        'Whole-project mode: Contoso.Core.csproj',
+        'tests/Contoso.UnitTests/Contoso.UnitTests.csproj',
+        '"additional-timeout": 30000',
+        '"concurrency":'
+    ) -MustNotContain @('SKIPPED', 'Contoso.Infrastructure.csproj')
+
+    Assert-MutationCase -Name '10b whole-project mode with two candidates names them and exits 1' -Setup {
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Web' = $webReason }
+    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 1 -MustContain @(
+        'GATE NOT WIRED',
+        'more than one candidate',
+        'Contoso.Core, Contoso.Infrastructure',
+        'gates.mutation.wholeProject'
+    )
+
+    Assert-MutationCase -Name '10g gates.mutation.wholeProject picks the target when two are eligible' -Setup {
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Web' = $webReason } -WholeProject 'Contoso.Core'
+    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 0 `
+        -MustContain @('Whole-project mode: Contoso.Core.csproj') -MustNotContain @('Contoso.Infrastructure.csproj', 'more than one candidate')
+
+    Assert-MutationCase -Name '10h gates.mutation.wholeProject naming an excluded project fails' -Setup {
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Infrastructure' = $infraReason } -WholeProject 'Contoso.Infrastructure'
+    } -Arguments @('-WholeProject', '-DryRun') -ExpectedExit 1 `
+        -MustContain @('FAILED', 'gates.mutation.exclusions lists as never mutated', $infraReason)
+
+    Assert-MutationCase -Name '10i -Project overrides gates.mutation.wholeProject' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null -WholeProject 'Contoso.Web'
+    } -Arguments @('-WholeProject', '-Project', 'Contoso.Core', '-DryRun') -ExpectedExit 0 `
+        -MustContain @('Whole-project mode: Contoso.Core.csproj') -MustNotContain @('Whole-project mode: Contoso.Web.csproj')
+
+    Assert-MutationCase -Name '10c -WholeProject -Project names one candidate and mutates it alone' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+    } -Arguments @('-WholeProject', '-Project', 'Contoso.Infrastructure', '-DryRun') -ExpectedExit 0 `
+        -MustContain @('Whole-project mode: Contoso.Infrastructure.csproj') -MustNotContain @('Whole-project mode: Contoso.Core')
+
+    Assert-MutationCase -Name '10d -WholeProject naming an excluded project fails instead of overriding policy' -Setup {
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Infrastructure' = $infraReason }
+    } -Arguments @('-WholeProject', '-Project', 'Contoso.Infrastructure', '-DryRun') -ExpectedExit 1 `
+        -MustContain @('FAILED', 'gates.mutation.exclusions lists as never mutated', $infraReason)
+
+    Assert-MutationCase -Name '10e -WholeProject naming a test project fails as no production project' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+    } -Arguments @('-WholeProject', '-Project', 'Contoso.UnitTests', '-DryRun') -ExpectedExit 1 `
+        -MustContain @('FAILED', 'is not a production project')
+
+    Assert-MutationCase -Name '10f diff-scoped mode on the same zero diff still exits 2 SKIPPED' -Setup {
         Set-FixtureHarnessConfig -Exclusions $null
     } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 2 -MustContain @('SKIPPED')
 
@@ -752,8 +1107,8 @@ $killedInChangedFile,
     }
 "@
     Assert-MutationCase -Name '11 whole-project invocation via the stub dotnet writes the report and passes' -Setup {
-        Set-FixtureHarnessConfig -Exclusions $null
-    } -Arguments @('-WholeProject', '-OutputRoot', $wpPassOut) -ExpectedExit 0 -MustContain @('PASSED', 'Mutation timing:', 'Stryker native exit for LamuFlix.Core.csproj: 0') `
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Infrastructure' = $infraReason; 'Contoso.Web' = $webReason }
+    } -Arguments @('-WholeProject', '-OutputRoot', $wpPassOut) -ExpectedExit 0 -MustContain @('PASSED', 'Mutation timing:', 'Stryker native exit for Contoso.Core.csproj: 0') `
         -Environment (New-StrykerStubEnvironment -OutputRoot $wpPassOut -ReportSource $wpPassReport)
 
     $script:checks++
@@ -786,8 +1141,8 @@ $killedInChangedFile,
     $script:checks++
     $receiptProblems = [System.Collections.Generic.List[string]]::new()
     foreach ($entry in @(
-        @{ Line = 'Stryker native exit for LamuFlix.Core.csproj: 0 (12.3s wall time)'; Expected = 0 },
-        @{ Line = 'Stryker native exit for LamuFlix.Core.csproj: 0'; Expected = 0 }
+        @{ Line = 'Stryker native exit for Contoso.Core.csproj: 0 (12.3s wall time)'; Expected = 0 },
+        @{ Line = 'Stryker native exit for Contoso.Core.csproj: 0'; Expected = 0 }
     )) {
         if ($entry.Line -match ': (-?\d+)') {
             if ([int]$Matches[1] -ne $entry.Expected) {
@@ -809,27 +1164,19 @@ $killedInChangedFile,
         }
     }
 
-    Assert-MutationCase -Name '27 concurrency 0 is a configuration error that exits 1 before evaluation' -Setup {
-        Set-FixtureHarnessConfig -Exclusions $null -Concurrency '0'
-        Write-KillSpanReport -Path $spanReport -FileCount 2
-    } -Arguments $spanArgs -ExpectedExit 1 -MustContain @(
-        'invalid mutation configuration in harness.yml gates.mutation.concurrency',
-        'must be an integer of at least 1, got ''0'''
-    ) -MustNotContain @('Suspected artifact kill', 'PASSED')
-
     $wpOutsideOut = Join-Path $script:work 'wp-outside-out'
     $wpOutsideReport = Join-Path $script:work 'wp-outside-report.json'
     Write-ScopeReport -Path $wpOutsideReport -FilesJson @"
-    "src/LamuFlix.Api/Program.cs": {
+    "src/Contoso.Web/Program.cs": {
       "mutants": [
         { "id": "1", "status": "Killed", "killedBy": ["t1"], "mutatorName": "Statement", "location": { "start": { "line": 1 } } }
       ]
     }
 "@
     Assert-MutationCase -Name '12 a mutated file outside the whole-project changed set fails the run' -Setup {
-        Set-FixtureHarnessConfig -Exclusions $null
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Infrastructure' = $infraReason; 'Contoso.Web' = $webReason }
     } -Arguments @('-WholeProject', '-OutputRoot', $wpOutsideOut) -ExpectedExit 1 `
-        -MustContain @('outside changed files', 'src/LamuFlix.Api/Program.cs') `
+        -MustContain @('outside changed files', 'src/Contoso.Web/Program.cs') `
         -Environment (New-StrykerStubEnvironment -OutputRoot $wpOutsideOut -ReportSource $wpOutsideReport)
 
     $wpNoneOut = Join-Path $script:work 'wp-nonetested-out'
@@ -842,7 +1189,7 @@ $killedInChangedFile,
     }
 "@
     Assert-MutationCase -Name '13 a changed Core file with mutants but none tested fails the run' -Setup {
-        Set-FixtureHarnessConfig -Exclusions $null
+        Set-FixtureHarnessConfig -Exclusions @{ 'Contoso.Infrastructure' = $infraReason; 'Contoso.Web' = $webReason }
     } -Arguments @('-WholeProject', '-OutputRoot', $wpNoneOut) -ExpectedExit 1 `
         -MustContain @('none were tested', $coreChangedFile) `
         -Environment (New-StrykerStubEnvironment -OutputRoot $wpNoneOut -ReportSource $wpNoneReport)
@@ -852,9 +1199,6 @@ catch {
     $failed = $true
 }
 finally {
-    if ($worktreeAdded -and -not $KeepWorktree) {
-        & git -C $repoRoot worktree remove --force $script:checkout *> $null
-    }
     if ($KeepWorktree) {
         Write-Host "Fixture checkout kept: $script:checkout"
     }

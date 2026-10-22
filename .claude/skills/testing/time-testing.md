@@ -23,7 +23,6 @@ public async Task ExpireOrders_MarksOldPendingOrdersAsExpired()
 
     // Assert
     var updated = await db.Orders.FindAsync(order.Id);
-    updated.ShouldNotBeNull();
-    updated.Status.ShouldBe(OrderStatus.Expired);
+    Assert.Equal(OrderStatus.Expired, updated!.Status);
 }
 ```

@@ -18,13 +18,13 @@ services.AddDbContext<AppDbContext>(options =>
 
 ```csharp
 // BAD — testing that a specific repository method was called
-await repository.Received(1).AddAsync(Arg.Any<Order>());
-await repository.Received(1).SaveChangesAsync();
+mock.Verify(x => x.AddAsync(It.IsAny<Order>()), Times.Once);
+mock.Verify(x => x.SaveChangesAsync(), Times.Once);
 
 // GOOD — test the observable outcome
 var order = await db.Orders.FindAsync(orderId);
-order.ShouldNotBeNull();
-order.Status.ShouldBe(OrderStatus.Created);
+Assert.NotNull(order);
+Assert.Equal(OrderStatus.Created, order.Status);
 ```
 
 ### Don't Share Mutable State Between Tests
@@ -55,7 +55,7 @@ public async Task CreateOrder_PersistsOrderToDatabase()
     var result = await service.CreateAsync(request);
 
     var persisted = await db.Orders.FindAsync(result.Value.Id);
-    persisted.ShouldNotBeNull();
-    persisted.CustomerId.ShouldBe(request.CustomerId);
+    Assert.NotNull(persisted);
+    Assert.Equal(request.CustomerId, persisted.CustomerId);
 }
 ```

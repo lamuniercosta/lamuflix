@@ -4,15 +4,18 @@
     "test-runner": "mtp",
     "coverage-analysis": "off",
     "additional-timeout": 30000,
+    "reporters": [
+      "progress",
+      "html",
+      "json"
+    ],
     "thresholds": {
       "high": 90,
       "low": 80,
       "break": 80
     },
-    "reporters": [
-      "progress",
-      "html",
-      "json"
-    ]
+    "since": {
+      "target": "origin/main"
+    }
   }
 }

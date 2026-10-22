@@ -20,7 +20,9 @@
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git show:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(pwsh -File ./scripts/run-mutation.ps1:*)",
+      "Bash(pwsh -NoProfile -File ./scripts/run-mutation.ps1:*)"
     ],
     "deny": [
       "Bash(gh pr merge:*)",
@@ -40,6 +42,15 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/hooks/deny-merge.ps1\""
+          }
+        ]
+      },
+      {
         "matcher": "Read",
         "hooks": [
           {
@@ -54,15 +65,6 @@
           {
             "type": "command",
             "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/hooks/guard.ps1\""
-          }
-        ]
-      },
-      {
-        "matcher": "Bash|PowerShell",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/hooks/deny-merge.ps1\""
           }
         ]
       }

@@ -39,8 +39,10 @@ $script:HarnessSchema = @{
     'gates.mutation.threshold'                   = 'int'
     'gates.mutation.maxKillShare'                = 'int'
     'gates.mutation.maxKillFileSpan'             = 'int'
-    'gates.mutation.concurrency'               = 'int'
+    'gates.mutation.concurrency'                 = 'int'
+    'gates.mutation.wholeProject'                = 'scalar'
     'gates.mutation.exclusions'                  = 'map'
+    'gates.mutation.runner'                      = 'scalar'
     'gates.analyzers.mode'                       = 'scalar'
     'gates.analyzers.warningsAsErrors'           = 'bool'
     'gates.vulnerablePackages.fail'              = 'bool'
@@ -84,8 +86,10 @@ function Get-HarnessDefaults {
         'gates.mutation.threshold'                   = 80
         'gates.mutation.maxKillShare'                = 50
         'gates.mutation.maxKillFileSpan'             = 15
-        'gates.mutation.concurrency'               = $null   # resolved from the runner core count in run-mutation.ps1
+        'gates.mutation.concurrency'                 = $null   # resolved from the runner core count in run-mutation.ps1
+        'gates.mutation.wholeProject'                = $null   # unset: -WholeProject auto-detects, or names the project on the command line
         'gates.mutation.exclusions'                  = @{}
+        'gates.mutation.runner'                      = $null   # unset: stryker-config.json owns the runner choice
         'gates.analyzers.mode'                       = 'All'
         'gates.analyzers.warningsAsErrors'           = $false
         'gates.vulnerablePackages.fail'              = $true
@@ -226,34 +230,41 @@ function ConvertFrom-HarnessYaml {
             throw "${Path}:${lineNo}: unknown key '$dottedKey'.`n  Known keys: $known"
         }
 
-# 'null' means "unset" to the loader below, so an entry written that way would
-        # vanish from the map instead of naming its reason.
+        # 'null' means "unset" to the loader below, so an entry written that way
+        # would vanish from the map instead of naming its reason.
         if ($schemaType -eq 'map:entry' -and $value -eq 'null') {
             throw "${Path}:${lineNo}: '$dottedKey' needs a reason; 'null' is not one."
         }
 
         # A map entry's reason is coerced exactly like a scalar, so it lands in
-        # the default branch rather than repeating that coercion here.
-        $result[$dottedKey] = switch ($schemaType) {
-            'int' {
-                $parsed = 0
-                if (-not [int]::TryParse($value, [ref]$parsed)) {
-                    throw "${Path}:${lineNo}: '$dottedKey' must be an integer, got '$value'."
+        # the default branch rather than repeating that coercion here. 'null'
+        # means unset for every other type, which is how an optional int or
+        # scalar is written out explicitly instead of being omitted.
+        $result[$dottedKey] = if ($value -eq 'null' -and $schemaType -ne 'map') {
+            $null
+        }
+        else {
+            switch ($schemaType) {
+                'int' {
+                    $parsed = 0
+                    if (-not [int]::TryParse($value, [ref]$parsed)) {
+                        throw "${Path}:${lineNo}: '$dottedKey' must be an integer, got '$value'."
+                    }
+                    $parsed
                 }
-                $parsed
-            }
-            'bool' {
-                switch ($value.ToLowerInvariant()) {
-                    'true' { $true }
-                    'false' { $false }
-                    default { throw "${Path}:${lineNo}: '$dottedKey' must be true or false, got '$value'." }
+                'bool' {
+                    switch ($value.ToLowerInvariant()) {
+                        'true' { $true }
+                        'false' { $false }
+                        default { throw "${Path}:${lineNo}: '$dottedKey' must be true or false, got '$value'." }
+                    }
                 }
-            }
-            'map' {
-                throw "${Path}:${lineNo}: '$dottedKey' must be a map of project names to reasons, got the scalar '$value'."
-            }
-            default {
-                if ($value -eq 'null') { $null } else { $value.Trim('"').Trim("'") }
+                'map' {
+                    throw "${Path}:${lineNo}: '$dottedKey' must be a map of project names to reasons, got the scalar '$value'."
+                }
+                default {
+                    $value.Trim('"').Trim("'")
+                }
             }
         }
     }

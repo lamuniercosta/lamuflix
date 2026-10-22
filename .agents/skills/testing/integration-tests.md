@@ -60,13 +60,12 @@ public class CreateOrderTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var response = await _client.PostAsJsonAsync("/api/orders", request);
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         var order = await response.Content.ReadFromJsonAsync<OrderResponse>();
-        order.ShouldNotBeNull();
-        order.Id.ShouldNotBe(Guid.Empty);
-        response.Headers.Location.ShouldNotBeNull();
-        response.Headers.Location.ToString().ShouldContain("/api/orders/");
+        Assert.NotNull(order);
+        Assert.NotEqual(Guid.Empty, order.Id);
+        Assert.Contains("/api/orders/", response.Headers.Location?.ToString());
     }
 
     [Fact]
@@ -79,7 +78,7 @@ public class CreateOrderTests(ApiFixture fixture) : IClassFixture<ApiFixture>
         var response = await _client.PostAsJsonAsync("/api/orders", request);
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }
 ```

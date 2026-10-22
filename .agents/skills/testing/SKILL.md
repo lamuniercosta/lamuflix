@@ -21,18 +21,12 @@ The examples below use EF Core + Postgres illustratively. **Detect what the repo
 | Concern | What to look for | Common choices |
 |---|---|---|
 | Test projects | the `tests/` layout and what each project is for | unit (+ `[Trait("Category","Property")]` for FsCheck), integration, acceptance |
+| Assertions | the dominant style in existing tests | xUnit `Assert`, FluentAssertions, Shouldly |
+| Mocks | the substitution library already referenced | NSubstitute, Moq, FakeItEasy |
 | Real DB in tests | how integration tests get a database | Testcontainers (preferred), a shared instance (avoid) |
 | External HTTP | how outbound calls are faked | WireMock.NET, a stub `HttpMessageHandler` |
 | Integration host | how the app is booted in-process | `WebApplicationFactory<Program>` |
 | Time | how `TimeProvider` is controlled | `FakeTimeProvider` (`Microsoft.Extensions.TimeProvider.Testing`) |
-
-Three concerns are not detected — the constitution (`.specify/memory/constitution.md`, Principle IX) fixes them, and `.claude/rules/pipeline/test-assertions.mdc` has the details:
-
-| Concern | Use | Forbidden |
-|---|---|---|
-| Assertions | Shouldly (`Assert.Collection` is the one xUnit assert still allowed) | FluentAssertions, raw xUnit `Assert` |
-| Mocks | NSubstitute | Moq, FakeItEasy |
-| Test data | AutoFixture (anonymous values), Faker.Net (realistic values) | Bogus, hand-rolled random values |
 
 **Match the existing choice — do not introduce a second one.** Two assertion libraries or two mocking libraries in one suite is a convention failure the `code-review` Standards axis will flag, and it is the most common way generated tests read as foreign.
 
@@ -61,7 +55,7 @@ Acceptance scenarios, when the repo uses them, come from `$gherkin`.
 | Time-dependent logic | `FakeTimeProvider` |
 | External API dependency | `WireMock.Net` or `HttpMessageHandler` stub |
 | Parameterized test cases | `[Theory]` with `[InlineData]` or `[MemberData]` |
-| Test data setup | AutoFixture (`Fixture`, `[AutoData]`); a builder only for domain invariants it cannot satisfy |
+| Test data setup | Builder pattern |
 | Shared expensive fixture | `IClassFixture<T>` with `IAsyncLifetime` |
 
 ## Topics

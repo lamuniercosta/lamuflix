@@ -39,7 +39,7 @@ Stryker requires `dotnet tool restore` (see `dotnet-tools.json`).
 ## Mutation Score
 
 - Threshold: `gates.mutation.threshold` in `harness.yml` (default **80%**) on mutated code in scope
-- Scope: changed production files under `src/` (grouped by project; Stryker's `--since` filter is unusable from git worktrees)
+- Scope: changed production files (grouped by project; a file that belongs to a test project is not production scope, and Stryker's `--since` filter is unusable from git worktrees)
 - If score below threshold: strengthen unit/property tests or simplify code — re-run Stryker
 
 ## Gherkin Survivors *(only when acceptance tests exist)*
