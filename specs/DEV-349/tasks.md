@@ -41,11 +41,11 @@
 
 **Independent Test**: Fresh-store compose up shows initializer success and model-aware healthy; restart retains the model; controlled failure is not healthy.
 
-- [ ] T004 [US1] Add `ollama` service and persistent volume `ollama-models` to `docker-compose.yml` using the T001 image digest pin. Configure model-aware health requiring server availability and selected-model presence. Preserve existing `postgres`, `rabbitmq`, `api`, and `web` services and their depends_on/health contracts. Do not add API `depends_on` Ollama or require public Ollama port exposure.
-- [ ] T005 [US1] Add one-shot `ollama-model-init` service to `docker-compose.yml` sharing the same image pin and `ollama-models` volume. Start on `service_started` (not model-aware `service_healthy`). Wire configurable model defaulting to `all-minilm` and the Q6 operational budgets from ASSUMPTIONS.
-- [ ] T006 [US1] Add `docker/ollama-init.sh` implementing finite server wait, model pull, explicit failure, and completion status using T001 CLI/probe/pull mechanics. Pass the configured model as one fixed quoted CLI argument; reject unset or empty model values; do not use eval or code interpolation of the model string. Exit 0 only on success. Do not wait on model-aware healthy before pulling. Preserve configurability and the existing file envelope.
-- [ ] T007 [P] [US1] Document non-secret Ollama image/model and operational configuration in `.env.example` without adding secret literals.
-- [ ] T008 [US1] Collect fresh-store Compose evidence: initializer success and model-aware healthy; restart retention; deliberate readiness/pull failure does not claim healthy completion. Record commands and outcomes for Gauge.
+- [X] T004 [US1] Add `ollama` service and persistent volume `ollama-models` to `docker-compose.yml` using the T001 image digest pin. Configure model-aware health requiring server availability and selected-model presence. Preserve existing `postgres`, `rabbitmq`, `api`, and `web` services and their depends_on/health contracts. Do not add API `depends_on` Ollama or require public Ollama port exposure.
+- [X] T005 [US1] Add one-shot `ollama-model-init` service to `docker-compose.yml` sharing the same image pin and `ollama-models` volume. Start on `service_started` (not model-aware `service_healthy`). Wire configurable model defaulting to `all-minilm` and the Q6 operational budgets from ASSUMPTIONS.
+- [X] T006 [US1] Add `docker/ollama-init.sh` implementing finite server wait, model pull, explicit failure, and completion status using T001 CLI/probe/pull mechanics. Pass the configured model as one fixed quoted CLI argument; reject unset or empty model values; do not use eval or code interpolation of the model string. Exit 0 only on success. Do not wait on model-aware healthy before pulling. Preserve configurability and the existing file envelope.
+- [X] T007 [P] [US1] Document non-secret Ollama image/model and operational configuration in `.env.example` without adding secret literals.
+- [X] T008 [US1] Collect fresh-store Compose evidence: initializer success and model-aware healthy; restart retention; deliberate readiness/pull failure does not claim healthy completion. Record commands and outcomes for Gauge.
 
 **Checkpoint**: US1 provisioning contract is met. US2/US3 may proceed.
 
