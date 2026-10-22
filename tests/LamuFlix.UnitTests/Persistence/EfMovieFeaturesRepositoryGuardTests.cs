@@ -5,9 +5,6 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Pgvector.EntityFrameworkCore;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Persistence;
 
@@ -18,9 +15,14 @@ public sealed class EfMovieFeaturesRepositoryGuardTests
     {
         await using var context = CreateContext();
         var repository = new EfMovieFeaturesRepository(context);
+        var upsertAsync = typeof(EfMovieFeaturesRepository).GetMethod(nameof(EfMovieFeaturesRepository.UpsertAsync))
+            ?? throw new InvalidOperationException("EfMovieFeaturesRepository UpsertAsync method was not found.");
 
-        await Should.ThrowAsync<ArgumentNullException>(
-            () => repository.UpsertAsync(null!, CancellationToken.None));
+        var invocation = (Task)(upsertAsync.Invoke(repository, [null, CancellationToken.None])
+            ?? throw new InvalidOperationException("EfMovieFeaturesRepository UpsertAsync invocation returned null."));
+        var exception = await Should.ThrowAsync<ArgumentNullException>(() => invocation);
+
+        exception.ParamName.ShouldBe("features");
     }
 
     [Fact]
