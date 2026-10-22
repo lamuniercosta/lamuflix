@@ -474,6 +474,192 @@ public sealed class TasteProfileCalculatorTests
         profile.GenrePreferences["gA"].ShouldBe(weights.GetWeight("gA"), Tolerance);
     }
 
+    [Fact]
+    public void Constructor_NullTimeProvider_ThrowsArgumentNullException()
+    {
+        // act / assert
+        Should.Throw<ArgumentNullException>(() => new TasteProfileCalculator(null!, new RecommendationOptions()));
+    }
+
+    [Fact]
+    public void Constructor_NullOptions_ThrowsArgumentNullException()
+    {
+        // act / assert
+        Should.Throw<ArgumentNullException>(() => new TasteProfileCalculator(new CountingTimeProvider(Now), null!));
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    [InlineData(0.0)]
+    [InlineData(-0.0001)]
+    public void Constructor_NonFiniteOrNonPositiveLambda_ThrowsArgumentOutOfRangeException(double lambda)
+    {
+        // arrange
+        var options = new RecommendationOptions { RecencyDecayLambda = lambda };
+
+        // act / assert
+        Should.Throw<ArgumentOutOfRangeException>(() => new TasteProfileCalculator(new CountingTimeProvider(Now), options));
+    }
+
+    [Fact]
+    public void Constructor_ValidLambdaWithInvalidUnrelatedOptions_DoesNotThrow()
+    {
+        // arrange
+        var options = new RecommendationOptions
+        {
+            RecencyDecayLambda = 0.01,
+            MmrLambda = -1.0,
+            Take = 0,
+            CandidatePoolSize = 0,
+        };
+
+        // act
+        var calculator = new TasteProfileCalculator(new CountingTimeProvider(Now), options);
+
+        // assert
+        calculator.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void Calculate_NullGenreWeights_ThrowsArgumentNullException()
+    {
+        // arrange
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], ImmutableArray<float>.Empty, [Now]));
+
+        // act / assert
+        Should.Throw<ArgumentNullException>(() => Calculator(new CountingTimeProvider(Now)).Calculate(movies, null!));
+    }
+
+    [Fact]
+    public void Calculate_NullMovieRow_ThrowsArgumentException()
+    {
+        // arrange
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], ImmutableArray<float>.Empty, [Now]),
+            null!);
+
+        // act / assert
+        Should.Throw<ArgumentException>(() => Calculator(new CountingTimeProvider(Now)).Calculate(movies, Weights(10)));
+    }
+
+    [Fact]
+    public void Calculate_DuplicateMovieIdRows_ThrowsArgumentException()
+    {
+        // arrange
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], ImmutableArray<float>.Empty, [Now]),
+            Movie(1, ["gB"], ImmutableArray<float>.Empty, [Now.AddDays(-30)]));
+
+        // act / assert
+        Should.Throw<ArgumentException>(() => Calculator(new CountingTimeProvider(Now)).Calculate(movies, Weights(10)));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(383)]
+    [InlineData(385)]
+    public void Calculate_NonEmptyEmbeddingWithWrongLength_ThrowsArgumentException(int length)
+    {
+        // arrange
+        var movies = ImmutableArray.Create(
+            Movie(1, ImmutableArray<string>.Empty, [.. new float[length]], [Now]));
+
+        // act / assert
+        Should.Throw<ArgumentException>(() => Calculator(new CountingTimeProvider(Now)).Calculate(movies, Weights(10)));
+    }
+
+    [Theory]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    [InlineData(float.NegativeInfinity)]
+    public void Calculate_NonFiniteEmbeddingCoordinate_ThrowsArgumentException(float coordinate)
+    {
+        // arrange
+        var movies = ImmutableArray.Create(
+            Movie(1, ImmutableArray<string>.Empty, Basis(0, coordinate), [Now]));
+
+        // act / assert
+        Should.Throw<ArgumentException>(() => Calculator(new CountingTimeProvider(Now)).Calculate(movies, Weights(10)));
+    }
+
+    [Fact]
+    public void Calculate_CorruptedUnwatchedRowsWithoutWatchSignals_StillThrowBeforeAccumulation()
+    {
+        // arrange
+        var corruptEmbedding = ImmutableArray.Create(
+            Movie(1, ["gA"], ImmutableArray<float>.Empty, [Now]),
+            Movie(2, ["gB"], [.. new float[2]], ImmutableArray<DateTimeOffset>.Empty, isWatched: false));
+        var duplicateIds = ImmutableArray.Create(
+            Movie(1, ["gA"], ImmutableArray<float>.Empty, ImmutableArray<DateTimeOffset>.Empty, isWatched: false),
+            Movie(1, ["gB"], ImmutableArray<float>.Empty, ImmutableArray<DateTimeOffset>.Empty, isWatched: false));
+
+        // act / assert
+        Should.Throw<ArgumentException>(() => Calculator(new CountingTimeProvider(Now)).Calculate(corruptEmbedding, Weights(10)));
+        Should.Throw<ArgumentException>(() => Calculator(new CountingTimeProvider(Now)).Calculate(duplicateIds, Weights(10)));
+    }
+
+    [Fact]
+    public void Calculate_DefaultArraysOnValidRows_SucceedsWithoutThrow()
+    {
+        // arrange
+        var movies = ImmutableArray.Create(
+            new TasteProfileMovie(
+                new MovieId(1),
+                default,
+                default,
+                default,
+                IsWatched: true));
+
+        // act
+        var profile = Calculator(new CountingTimeProvider(Now)).Calculate(movies, Weights(10));
+
+        // assert
+        profile.IsEmpty.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Calculate_DuplicatePlayedAtEntries_ArePreservedByValidation()
+    {
+        // arrange
+        var weights = Weights(100, ("gA", 1));
+        var movies = ImmutableArray.Create(
+            Movie(1, ["gA"], ImmutableArray<float>.Empty, [Now, Now, Now], isWatched: true));
+
+        // act
+        var profile = Calculator(new CountingTimeProvider(Now)).Calculate(movies, weights);
+
+        // assert
+        profile.GenrePreferences["gA"].ShouldBe(weights.GetWeight("gA"), Tolerance);
+    }
+
+    [Fact]
+    public void Calculate_FailedValidation_DoesNotMutateCallerInputs()
+    {
+        // arrange
+        var genres = ImmutableArray.Create(" gA ", "gB");
+        var embedding = Basis(0, float.NaN);
+        var playedAt = ImmutableArray.Create(Now, Now, Now.AddDays(-30));
+        var movies = ImmutableArray.Create(
+            Movie(1, genres, embedding, playedAt));
+
+        // act
+        Should.Throw<ArgumentException>(() => Calculator(new CountingTimeProvider(Now)).Calculate(movies, Weights(10)));
+
+        // assert
+        genres.ShouldBe([" gA ", "gB"]);
+        float.IsNaN(embedding[0]).ShouldBeTrue();
+        for (var index = 1; index < EmbeddingDimensions.Value; index++)
+        {
+            embedding[index].ShouldBe(0.0f);
+        }
+
+        playedAt.ShouldBe([Now, Now, Now.AddDays(-30)]);
+    }
+
     private static TasteProfileCalculator Calculator(TimeProvider clock) =>
         new(clock, new RecommendationOptions());
 

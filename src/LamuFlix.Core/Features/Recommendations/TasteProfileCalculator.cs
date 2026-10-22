@@ -15,18 +15,82 @@ public sealed class TasteProfileCalculator
 
     public TasteProfileCalculator(TimeProvider timeProvider, RecommendationOptions options)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (!double.IsFinite(options.RecencyDecayLambda) || options.RecencyDecayLambda <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.RecencyDecayLambda,
+                "RecencyDecayLambda must be finite and greater than 0.0.");
+        }
+
         _timeProvider = timeProvider;
         _recencyDecayLambda = options.RecencyDecayLambda;
     }
 
     public TasteProfile Calculate(ImmutableArray<TasteProfileMovie> movies, GenreWeights genreWeights)
     {
+        ArgumentNullException.ThrowIfNull(genreWeights);
+        ValidateMovies(movies);
+
         var now = _timeProvider.GetUtcNow();
         var signals = BuildSignals(movies, now);
 
         return new TasteProfile(
             ComputeGenrePreferences(signals, genreWeights),
             ComputePlotCentroid(signals));
+    }
+
+    private static void ValidateMovies(ImmutableArray<TasteProfileMovie> movies)
+    {
+        if (movies.IsDefaultOrEmpty)
+        {
+            return;
+        }
+
+        var movieIds = new HashSet<MovieId>();
+
+        foreach (var movie in movies)
+        {
+            if (movie is null)
+            {
+                throw new ArgumentException("Movie rows cannot contain null entries.", nameof(movies));
+            }
+
+            if (!movieIds.Add(movie.MovieId))
+            {
+                throw new ArgumentException(
+                    $"Movie rows cannot repeat movie id {movie.MovieId.Value}.",
+                    nameof(movies));
+            }
+
+            ValidateEmbedding(movie.PlotEmbedding, movies);
+        }
+    }
+
+    private static void ValidateEmbedding(ImmutableArray<float> embedding, ImmutableArray<TasteProfileMovie> movies)
+    {
+        if (embedding.IsDefaultOrEmpty)
+        {
+            return;
+        }
+
+        if (embedding.Length != EmbeddingDimensions.Value)
+        {
+            throw new ArgumentException(
+                $"Plot embeddings must contain exactly {EmbeddingDimensions.Value} coordinates.",
+                nameof(movies));
+        }
+
+        foreach (var coordinate in embedding)
+        {
+            if (!float.IsFinite(coordinate))
+            {
+                throw new ArgumentException("Plot embeddings must contain only finite coordinates.", nameof(movies));
+            }
+        }
     }
 
     private static ImmutableArray<Signal> BuildSignals(
