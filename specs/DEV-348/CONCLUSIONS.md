@@ -191,5 +191,13 @@ Q10 supersedes only the five-stage ordering in Q8. Final order is A prerequisite
 
 Grill closed at 11/12. All Phase A decisions are settled; concrete prerequisite identifiers and measured numeric default remain mandatory Phase B evidence/checkpoints, not assumptions or owner checkboxes. No new ticket correction, ADR, global glossary edit, gate run or Spec Kit drafting is authorized by this closeout.
 
+## Phase 1 calibration ruling — T002a finding 1, T003/T004 (2026-10-22)
+
+[from Patron] DEV-348 calibration ruling: blocked: structural — should the DEV-348 ticket acceptance criterion requiring a SimilarStoryThreshold default calibrated on the DEV-342 golden set be amended to a named alternative calibration source or expanded scope, or should DEV-348 defer until a semantic golden set with story text, labelled story pairs, and stored vectors exists?
+
+- No numeric default is ratified for T004: recon-DEV-348:98-108 shows the DEV-342 fixture holds cluster metadata only, with no FullPlot text, no labelled similar/dissimilar story pairs, and no stored vectors, so no pair cosine-similarity distribution exists from which a separating threshold could be measured; ratifying any literal now would be the uncalibrated hardcoding barred by brief.md:29 and CONCLUSIONS.md Q4.
+- T003 must not generate or define semantic pairs to manufacture calibration: the only landed generator is OllamaSharpEmbeddingGenerator calling a live Ollama HTTP service for unpinned all-minilm (recon-DEV-348:91-95), golden movies have no story text to embed (recon-DEV-348:103), and inventing fixture text/labels, substituting weighted metadata scores, using live Ollama in tests, or adding an offline-model NuGet dependency would each breach brief.md:29, the frozen nine-file/no-new-dependency scope in brief.md:21, or tasks.md T003.
+- This is a charter section 2.3 owner escalation, not a Patron-decidable care item: every in-scope calibration path above either contradicts the ticket criterion calibrated on DEV-342 or expands what DEV-348 delivers, so T003/T004 and dependent Phase 2 work stop until the owner answers the checkbox above on the spec PR (options: amend the criterion to a named alternative source, expand scope to author a semantic golden set and its generation path, or defer DEV-348).
+
 ---
 
