@@ -113,3 +113,46 @@ Question from Keel: May RelatedMovieCard remain the recommendation host by shari
 - Scope effect: mounting MovieCard in RelatedMovies.tsx, with MovieCarousel.tsx only if needed to pass action/reason props, stays inside brief Q5 envelope at brief.md:56-58; Library already satisfies the shared-card host through LibraryTile mounting MovieCard and LibraryTile need not change; Phase 2 T002-T005 foundation adds no host chrome and is unaffected. Gate 1 frozen scope is binding via user merge of PR 237 per task-pipeline:83 and DEV-355:41, landed content d803a4e proven in recon-DEV-355-2:15-21,39-46.
 
 Recorded in brief.md Phase B pickup and T001 binding before task disposition. No taste ruling or ASSUMPTIONS change.
+
+---
+
+## Phase 4 adjudication at 391f647 — 2026-10-23
+
+### P4-1 — Two Medium store defects block
+
+[from Patron] DEV-355 P4-1 BLOCK: Phase 4 does not pass until both confirmed Medium store defects are fixed — inactive cached errors counted as refresh failures, and failed POST plus failed reconcile emitting `Saved` copy.
+- Basis: Q1 closing bar (this file, Q1) — Critical/High/Medium block; Low blocks only on frozen-acceptance or gate violation.
+- Basis: Q3/ASSUMPTIONS store contract — refresh failure after a successful POST and mutation failure are distinct states; `Saved` copy is reserved for a confirmed mark, so emitting it after a failed POST misstates server state, and counting inactive cached errors as refresh failures misattributes stale cache state to the current refresh.
+- Scope: fix belongs to the store fix round; Patron changes no source or design in this ruling.
+
+### P4-2 — 409 as already-marked success
+
+[from Patron] DEV-355 P4-2 ACCEPT: treating HTTP 409 as already-marked success, with no API change.
+- Basis: existing pattern at `web/src/library/watchlistStore.ts:70-71` treats `204 || 409` as success.
+- Basis: Q2/Q3 and the generated repeat-transition contract — repeat transitions throw server-side, so 409 confirms the mark already exists rather than a new failure; dispatching again or surfacing an error would contradict the already-marked disabled state.
+- No new route, DTO field, or status-code change is introduced; §2.3 API-shape care item is not triggered.
+
+### P4-3 — Details accessible title suffix
+
+[from Patron] DEV-355 P4-3 ACCEPT [assumed]: a movie-title suffix in the Details accessible name is compatible and stands; `design.md:196-197` visible-label-alone wording does not block.
+- Basis: brief Q4 requires the title in accessible names on repeated cards and nowhere forbids it on the single Details instance; a title-suffixed name still contains the settled visible label (`ASSUMPTIONS.md` Q4).
+- Taste ruling logged tagged `[assumed]` in `ASSUMPTIONS.md`; no source or design edit in this round per the adjudication ask.
+
+### P4-4 — design.md:90-92 reasons-inside-link text stale
+
+[from Patron] DEV-355 P4-4 SUPERSEDED: `design.md:90-92` reasons-inside-link text is stale and does not govern; the T001 shared-MovieCard structure governs.
+- Basis: Phase B T001 ruling (this file) retired `RelatedMovieCard` as host and required `RelatedMovies` to mount the shared `MovieCard`; `design.md:109-113` already records that tree with verbatim reasons on `MovieCard` and `MovieFeedbackActions` as sibling footer.
+- Basis: `design.md:90-92` rests on the retired `.related-movie-reasons` rendering, so it cannot override the T001 ruling or brief Q4 verbatim-reasons contract.
+- No design edit in this round per the adjudication ask; the stale lines are noted here as the controlling disposition.
+
+### P4-5 — Low CSS ownership and optional error-block extraction
+
+[from Patron] DEV-355 P4-5 FOLLOW-UP, noted no ticket: the Low CSS ownership suggestion and the optional error-block extraction are follow-ups and do not block Phase 4.
+- Basis: Q1 closing bar — Low blocks only if it violates frozen acceptance or an applicable gate; neither item is shown to do so.
+- Recorded as `noted, no ticket` per the follow-up rule; no YouTrack change is handed to Rigger for these items.
+
+### P4-6 — Modified-click guard is not scope expansion
+
+[from Patron] DEV-355 P4-6 ACCEPT: the modified-click guard preserves retired `RelatedMovieCard` navigation behaviour during the mandatory shared-card integration and is not scope expansion.
+- Basis: T001 made mounting the shared `MovieCard` in `RelatedMovies` mandatory (this file, Phase B T001; `design.md:111-113`), so preserving the prior card navigation behaviour on modified clicks is integration parity, not a new feature.
+- Basis: brief Q4/Q5 envelope — no accidental parent-card navigation on action use, with edits confined to the named shared-card surfaces; the guard adds no route, dependency, layer, or deliverable beyond that envelope.
