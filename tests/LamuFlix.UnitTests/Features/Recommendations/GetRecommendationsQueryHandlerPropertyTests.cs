@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using FsCheck.Xunit;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
@@ -239,6 +240,55 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         return result.All(item => HasStoryReason(item) == (byId[item.Summary.Id.Value] > threshold));
     }
 
+    [Property(MaxTest = 100, Replay = "340110,1100041")]
+    [Trait("Category", "Property")]
+    public bool HandleAsync_NotInterestedCandidates_AreNeverScoredOrReturned(
+        int[] ids,
+        int[] cosineSeeds,
+        bool[] notInterested,
+        int takeSeed)
+    {
+        // arrange
+        var pool = BuildCandidates(ids, cosineSeeds, notInterested);
+        var take = Take(takeSeed);
+        var expectedCount = Math.Min(take, pool.Count(candidate => !candidate.Movie.IsNotInterested));
+
+        // act
+        var result = Handle(pool, take);
+
+        // assert
+        return result.Count == expectedCount
+            && result.All(item => !pool.Any(candidate =>
+                candidate.Movie.IsNotInterested
+                && candidate.Movie.Id.Value == item.Summary.Id.Value));
+    }
+
+    [Property(MaxTest = 100, Replay = "340111,1200043")]
+    [Trait("Category", "Property")]
+    public bool HandleAsync_PositiveNotInterestedPenalty_NeverSubstitutesForExclusion(
+        int[] ids,
+        int[] cosineSeeds,
+        bool[] notInterested,
+        int penaltySeed,
+        int takeSeed)
+    {
+        // arrange
+        var pool = BuildCandidates(ids, cosineSeeds, notInterested);
+        var take = Take(takeSeed);
+        var penalty = Math.Abs((long)penaltySeed % 1000) / 10.0;
+        var options = new RecommendationOptions { NotInterestedPenalty = penalty };
+        var expectedCount = Math.Min(take, pool.Count(candidate => !candidate.Movie.IsNotInterested));
+
+        // act
+        var result = Handle(pool, take, options);
+
+        // assert
+        return result.Count == expectedCount
+            && result.All(item => !pool.Any(candidate =>
+                candidate.Movie.IsNotInterested
+                && candidate.Movie.Id.Value == item.Summary.Id.Value));
+    }
+
     private static ImmutableList<RecommendedMovie> Handle(IReadOnlyList<Movie> pool, int take) =>
         Handle([.. pool.Select((movie, index) => new RecommendationCandidate(movie, Cosine(index)))], take);
 
@@ -262,10 +312,18 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         source.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(pool);
         var catalog = Substitute.For<IMovieCatalog>();
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Counts);
+        var profileSource = Substitute.For<IRecommendationProfileSource>();
+        profileSource
+            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(new RecommendationProfileInputs(
+                ImmutableArray<TasteProfileMovie>.Empty,
+                ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty)));
         var handler = new GetRecommendationsQueryHandler(
             movies,
             source,
+            profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
+            TimeProvider.System,
             Microsoft.Extensions.Options.Options.Create(options));
 
         return handler
@@ -298,7 +356,10 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
     private static Dictionary<int, double> CosinesById(IReadOnlyList<RecommendationCandidate> pool) =>
         pool.ToDictionary(candidate => candidate.Movie.Id.Value, candidate => candidate.CosineSimilarity);
 
-    private static RecommendationCandidate[] BuildCandidates(int[] ids, int[] cosineSeeds)
+    private static RecommendationCandidate[] BuildCandidates(
+        int[] ids,
+        int[] cosineSeeds,
+        bool[]? notInterested = null)
     {
         var distinct = ids
             .Select(value => Math.Abs(value % 900) + 2)
@@ -310,7 +371,10 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         for (var index = 0; index < distinct.Length; index++)
         {
             var seed = cosineSeeds.Length == 0 ? distinct[index] : cosineSeeds[index % cosineSeeds.Length];
-            candidates[index] = new RecommendationCandidate(BuildMovie(distinct[index], seed), SyntheticCosine(seed));
+            var isNotInterested = notInterested is { Length: > 0 } && notInterested[index % notInterested.Length];
+            candidates[index] = new RecommendationCandidate(
+                BuildMovie(distinct[index], seed, isNotInterested),
+                SyntheticCosine(seed));
         }
 
         return candidates;
@@ -364,7 +428,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         return pool;
     }
 
-    private static Movie BuildMovie(int id, int seed)
+    private static Movie BuildMovie(int id, int seed, bool isNotInterested = false)
     {
         var magnitude = Math.Abs((long)seed);
         var title = $"Movie {id}";
@@ -382,7 +446,8 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
                 Now,
                 1,
                 null,
-                null);
+                null,
+                isNotInterested: isNotInterested);
         }
 
         var metadata = new MovieMetadata(
@@ -407,7 +472,8 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             Now,
             1,
             null,
-            null);
+            null,
+            isNotInterested: isNotInterested);
     }
 
     private static string[] Genres(long magnitude)
