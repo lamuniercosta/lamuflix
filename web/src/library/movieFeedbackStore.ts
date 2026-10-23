@@ -70,6 +70,10 @@ export function __resetMovieFeedbackStore(): void {
   notify();
 }
 
+function isBusy(entry: Entry): boolean {
+  return entry.pending !== null || entry.reconciling;
+}
+
 function refreshTargets(
   movieId: FeedbackMovieId,
   clients: MovieFeedbackClients,
@@ -199,7 +203,7 @@ export function useMovieFeedback(
   const start = useCallback(
     (action: MovieFeedbackAction) => {
       const current = entries.get(key);
-      if (current && (current.pending !== null || current.reconciling)) {
+      if (current && isBusy(current)) {
         return;
       }
 
@@ -230,7 +234,7 @@ export function useMovieFeedback(
     if (!current || current.lastAction === null || current.error === null) {
       return;
     }
-    if (current.pending !== null || current.reconciling) {
+    if (isBusy(current)) {
       return;
     }
     dispatch(key, movieId, current.lastAction, current.before, clients);
@@ -241,7 +245,7 @@ export function useMovieFeedback(
     if (!current || current.refreshError === null) {
       return;
     }
-    if (current.pending !== null || current.reconciling) {
+    if (isBusy(current)) {
       return;
     }
     write(key, { ...current, reconciling: true, refreshError: null });

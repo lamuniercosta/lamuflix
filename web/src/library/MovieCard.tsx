@@ -131,7 +131,7 @@ export default function MovieCard({
         <span>{displayValue(movie.releaseYear)}</span>
       </p>
 
-      {reasons && reasons.length > 0 ? (
+      {reasons?.length ? (
         <div className="related-movie-reasons">
           {reasons.map((reason, index) => (
             <span className="related-movie-reason" key={`${index}-${reason}`}>
