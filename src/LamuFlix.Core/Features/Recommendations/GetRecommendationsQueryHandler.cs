@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -22,6 +24,9 @@ public sealed class GetRecommendationsQueryHandler(
     : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
 {
     private const string SimilarStoryReason = "Similar story";
+    private const string NoSharedFeaturesReason = "No shared features identified";
+    private const string ViewingHistoryReason = "Matches your viewing history";
+    private const string GenreInterestTemplate = "Matches your {0} interest";
 
     public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
         GetRecommendationsQuery query,
@@ -119,7 +124,7 @@ public sealed class GetRecommendationsQueryHandler(
                 options.Weights,
                 genreWeights);
 
-            var profileSimilarity = ProfileSimilarityCalculator.Similarity(
+            var profileSimilarity = ProfileSimilarityCalculator.Evaluate(
                 [.. features.Genres.Order(StringComparer.Ordinal)],
                 candidateEmbeddings.GetValueOrDefault(
                     candidate.Movie.Id,
@@ -129,7 +134,7 @@ public sealed class GetRecommendationsQueryHandler(
 
             var score = BlendScorer.Score(
                 similarity.Score,
-                profileSimilarity,
+                profileSimilarity.Similarity,
                 candidate.Movie.IsWatched ? 1.0 : 0.0,
                 0.0,
                 options);
@@ -144,10 +149,62 @@ public sealed class GetRecommendationsQueryHandler(
 
             scored.Add(new ScoredCandidate(
                 candidate.Movie,
-                new SimilarityResult(score, similarity.Reasons)));
+                new SimilarityResult(
+                    score,
+                    BuildReasons(similarity.Reasons, profileSimilarity, options.BlendProfileWeight))));
         }
 
         return scored;
+    }
+
+    private static ImmutableList<Reason> BuildReasons(
+        ImmutableList<Reason> structuralReasons,
+        ProfileSimilarityEvidence profileSimilarity,
+        double profileWeight)
+    {
+        var builder = structuralReasons.ToBuilder();
+
+        if (profileWeight > 0.0)
+        {
+            foreach (var genre in profileSimilarity.OverlappingGenres)
+            {
+                var display = Sanitize(genre);
+                if (display.Length > 0)
+                {
+                    builder.Add(Reason.Personal(
+                        string.Format(CultureInfo.InvariantCulture, GenreInterestTemplate, display)));
+                }
+            }
+
+            if (profileSimilarity.HasPlotChannel && profileSimilarity.PlotSimilarity > 0.0)
+            {
+                builder.Add(Reason.Personal(ViewingHistoryReason));
+            }
+        }
+
+        if (builder.Count == 0)
+        {
+            builder.Add(Reason.Structural(NoSharedFeaturesReason));
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static string Sanitize(string? value)
+    {
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(value.Length);
+
+        foreach (var character in value)
+        {
+            builder.Append(char.IsControl(character) ? ' ' : character);
+        }
+
+        return builder.ToString().Trim();
     }
 
     private static MovieSummary Summarize(Movie movie)

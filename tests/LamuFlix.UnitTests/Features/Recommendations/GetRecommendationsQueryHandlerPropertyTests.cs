@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -134,13 +134,24 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             new RecommendationOptions().Weights,
             genreWeights);
         var story = HasStoryReason(item);
-        return HasExpectedCount(item, expected, story)
-            && PrefixMatches(item, expected)
-            && SuffixMatches(item, story);
-    }
 
-    private static bool HasExpectedCount(RecommendedMovie item, SimilarityResult expected, bool story) =>
-        item.Reasons.Count == expected.Reasons.Count + (story ? 1 : 0);
+        if (story)
+        {
+            return item.Reasons.Count == expected.Reasons.Count + 1
+                && PrefixMatches(item, expected)
+                && SuffixMatches(item, story: true);
+        }
+
+        if (expected.Reasons.Count == 0)
+        {
+            return item.Reasons.Count == 1
+                && item.Reasons[0] == Reason.Structural(FallbackReasonText);
+        }
+
+        return item.Reasons.Count == expected.Reasons.Count
+            && PrefixMatches(item, expected)
+            && SuffixMatches(item, story: false);
+    }
 
     private static bool PrefixMatches(RecommendedMovie item, SimilarityResult expected)
     {
@@ -335,6 +346,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
     private static int Take(int takeSeed) => Math.Abs(takeSeed % 20) + 1;
 
     private const string StoryReasonText = "Similar story";
+    private const string FallbackReasonText = "No shared features identified";
 
     private static double Cosine(int index) => (index % 21 - 10) / 10.0;
 
@@ -399,15 +411,23 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
                 return false;
             }
 
-            var firstReasons = first[index].Reasons.Where(reason => reason.Text != StoryReasonText).Select(reason => reason.Text);
-            var secondReasons = second[index].Reasons.Where(reason => reason.Text != StoryReasonText).Select(reason => reason.Text);
-            if (!firstReasons.SequenceEqual(secondReasons, StringComparer.Ordinal))
+            if (!NonStoryReasonTexts(first[index]).SequenceEqual(NonStoryReasonTexts(second[index]), StringComparer.Ordinal))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private static IEnumerable<string> NonStoryReasonTexts(RecommendedMovie movie)
+    {
+        var texts = movie.Reasons
+            .Where(reason => reason.Text != StoryReasonText)
+            .Select(reason => reason.Text)
+            .ToList();
+
+        return texts.Count == 0 ? [FallbackReasonText] : texts;
     }
 
     private static Movie[] BuildPool(int[] ids, int[] seeds)

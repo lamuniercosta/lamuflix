@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
@@ -109,6 +109,14 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
             "Similar runtime",
             "Similar rating",
         ]);
+        ReasonKinds(identicalItem).ShouldBe(
+        [
+            "structural",
+            "structural",
+            "structural",
+            "structural",
+            "structural",
+        ]);
 
         var partialItem = items[1];
         ShouldCarryExactly(partialItem, DtoFieldNames);
@@ -125,6 +133,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
             $"Shares {genre}",
             "Similar release years",
         ]);
+        ReasonKinds(partialItem).ShouldBe(["structural", "structural"]);
     }
 
     [Fact]
@@ -219,5 +228,8 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         element.EnumerateObject().Select(property => property.Name).ShouldBe(names, ignoreOrder: true);
 
     private static IEnumerable<string?> ReasonTexts(JsonElement item) =>
-        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetString());
+        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetProperty("text").GetString());
+
+    private static IEnumerable<string?> ReasonKinds(JsonElement item) =>
+        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetProperty("kind").GetString());
 }

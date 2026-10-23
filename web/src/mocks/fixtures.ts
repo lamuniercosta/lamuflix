@@ -81,7 +81,10 @@ const relatedMoviesData = [
     isWatched: false,
     isNotInterested: false,
     score: 0.82,
-    reasons: ['Same director', 'Shares the genre Drama'],
+    reasons: [
+      { kind: 'structural', text: 'Same director' },
+      { kind: 'personal', text: 'Matches your Drama interest' },
+    ],
   },
   {
     id: 3,
@@ -109,7 +112,7 @@ const relatedMoviesData = [
     isWatched: false,
     isNotInterested: false,
     score: 0.64,
-    reasons: ['Same director'],
+    reasons: [{ kind: 'structural', text: 'Same director' }],
   },
 ] satisfies Schemas['RecommendedMovieDto'][];
 

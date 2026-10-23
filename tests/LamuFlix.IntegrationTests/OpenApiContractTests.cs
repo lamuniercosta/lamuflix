@@ -63,6 +63,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "BrowseMoviesResponse",
         "MovieDetailsResponse",
         "RecommendedMovieDto",
+        "RecommendedMovieReasonDto",
         "GenreDto",
         "PersonDto",
     ];
@@ -260,7 +261,17 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         properties.EnumerateObject().Select(property => property.Name)
             .ShouldBe(expectedPropertyNames, ignoreOrder: true);
         properties.GetProperty("reasons").GetProperty("type").GetString().ShouldBe("array");
-        properties.GetProperty("reasons").GetProperty("items").GetProperty("type").GetString().ShouldBe("string");
+        properties.GetProperty("reasons").GetProperty("items").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/RecommendedMovieReasonDto");
+        var reasonDto = parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("RecommendedMovieReasonDto");
+        reasonDto.GetProperty("type").GetString().ShouldBe("object");
+        reasonDto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["kind", "text"], ignoreOrder: true);
+        reasonDto.GetProperty("properties").EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["kind", "text"], ignoreOrder: true);
+        reasonDto.GetProperty("properties").GetProperty("kind").GetProperty("type").GetString().ShouldBe("string");
+        reasonDto.GetProperty("properties").GetProperty("text").GetProperty("type").GetString().ShouldBe("string");
         properties.GetProperty("enrichmentStatus").GetProperty("$ref").GetString()
             .ShouldBe("#/components/schemas/EnrichmentStatus");
         properties.GetProperty("score").GetProperty("type").EnumerateArray().Select(item => item.GetString())

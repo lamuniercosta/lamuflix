@@ -1488,8 +1488,23 @@
           "reasons": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/RecommendedMovieReasonDto"
             }
+          }
+        }
+      },
+      "RecommendedMovieReasonDto": {
+        "required": [
+          "kind",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
           }
         }
       }

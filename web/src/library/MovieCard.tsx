@@ -21,13 +21,18 @@ const STATUS_LABELS: Record<string, string> = {
   Failed: 'Failed',
 };
 
+export interface MovieCardReason {
+  kind: string;
+  text: string;
+}
+
 export interface MovieCardProps {
   movie: MovieSummaryResponse;
   onOpenMovie?: (id: number | string) => void;
   onRetry?: (id: number | string) => void;
   retryError?: string | null;
   retryErrorId?: string;
-  reasons?: string[];
+  reasons?: ReadonlyArray<string | MovieCardReason>;
   feedbackClients?: MovieFeedbackClients;
   className?: string;
 }
@@ -133,11 +138,22 @@ export default function MovieCard({
 
       {reasons?.length ? (
         <div className="related-movie-reasons">
-          {reasons.map((reason, index) => (
-            <span className="related-movie-reason" key={`${index}-${reason}`}>
-              {reason}
-            </span>
-          ))}
+          {reasons.map((reason, index) => {
+            const text = typeof reason === 'string' ? reason : reason.text;
+            const kind = typeof reason === 'string' ? null : reason.kind;
+            return (
+              <span
+                className={
+                  kind === null
+                    ? 'related-movie-reason'
+                    : `related-movie-reason related-movie-reason-${kind}`
+                }
+                key={`${kind ?? 'text'}-${text}-${String(index)}`}
+              >
+                {text}
+              </span>
+            );
+          })}
         </div>
       ) : null}
 
