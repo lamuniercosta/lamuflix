@@ -95,7 +95,7 @@ function refreshTargets(
 function hasFailedQuery(client: QueryClient, queryKey: QueryKey): boolean {
   return client
     .getQueryCache()
-    .findAll({ queryKey })
+    .findAll({ queryKey, type: 'active' })
     .some((query) => query.state.status === 'error');
 }
 
@@ -104,6 +104,7 @@ async function reconcile(
   movieId: FeedbackMovieId,
   clients: MovieFeedbackClients,
   broadRefresh: boolean,
+  succeeded: boolean,
 ): Promise<void> {
   const targets = refreshTargets(movieId, clients, broadRefresh);
   await Promise.all(
@@ -116,7 +117,8 @@ async function reconcile(
   if (!current) {
     return;
   }
-  const refreshFailed = targets.some(({ client, queryKey }) => hasFailedQuery(client, queryKey));
+  const refreshFailed =
+    succeeded && targets.some(({ client, queryKey }) => hasFailedQuery(client, queryKey));
   write(key, {
     ...current,
     pending: null,
@@ -168,7 +170,7 @@ function dispatch(
         error: MOVIE_FEEDBACK_SAVE_ERROR,
         broadRefresh: false,
       });
-      await reconcile(key, movieId, clients, false);
+      await reconcile(key, movieId, clients, false, false);
       return;
     }
 
@@ -180,7 +182,7 @@ function dispatch(
       error: null,
       broadRefresh: true,
     });
-    await reconcile(key, movieId, clients, true);
+    await reconcile(key, movieId, clients, true, true);
   })();
 }
 
@@ -249,7 +251,7 @@ export function useMovieFeedback(
       return;
     }
     write(key, { ...current, reconciling: true, refreshError: null });
-    void reconcile(key, movieId, clients, current.broadRefresh);
+    void reconcile(key, movieId, clients, current.broadRefresh, true);
   }, [key, movieId, clients]);
 
   return {
