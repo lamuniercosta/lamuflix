@@ -38,11 +38,6 @@ public sealed record RecommendationOptions : IValidatableObject
             yield return result;
         }
 
-        if (Weights is null)
-        {
-            yield break;
-        }
-
         foreach (var result in ValidatePool())
         {
             yield return result;

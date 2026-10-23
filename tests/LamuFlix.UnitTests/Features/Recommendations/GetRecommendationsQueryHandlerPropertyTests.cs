@@ -112,41 +112,56 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         // assert
         foreach (var item in result)
         {
-            var candidate = byId[item.Summary.Id.Value];
-            var expected = SimilarityScorer.Score(
-                MovieFeaturesMapper.From(SelectedMovie()),
-                MovieFeaturesMapper.From(candidate.Movie),
-                new RecommendationOptions().Weights,
-                genreWeights);
-            var story = HasStoryReason(item);
-
-            if (item.Reasons.Count != expected.Reasons.Count + (story ? 1 : 0))
-            {
-                return false;
-            }
-
-            for (var index = 0; index < expected.Reasons.Count; index++)
-            {
-                if (item.Reasons[index].Text != expected.Reasons[index].Text)
-                {
-                    return false;
-                }
-            }
-
-            if (story)
-            {
-                if (item.Reasons.Count == 0 || item.Reasons[^1].Text != StoryReasonText)
-                {
-                    return false;
-                }
-            }
-            else if (item.Reasons.Any(reason => reason.Text == StoryReasonText))
+            if (!ReasonsMatch(item, byId, genreWeights))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private static bool ReasonsMatch(
+        RecommendedMovie item,
+        IReadOnlyDictionary<int, RecommendationCandidate> byId,
+        GenreWeights genreWeights)
+    {
+        var candidate = byId[item.Summary.Id.Value];
+        var expected = SimilarityScorer.Score(
+            MovieFeaturesMapper.From(SelectedMovie()),
+            MovieFeaturesMapper.From(candidate.Movie),
+            new RecommendationOptions().Weights,
+            genreWeights);
+        var story = HasStoryReason(item);
+        return HasExpectedCount(item, expected, story)
+            && PrefixMatches(item, expected)
+            && SuffixMatches(item, story);
+    }
+
+    private static bool HasExpectedCount(RecommendedMovie item, SimilarityResult expected, bool story) =>
+        item.Reasons.Count == expected.Reasons.Count + (story ? 1 : 0);
+
+    private static bool PrefixMatches(RecommendedMovie item, SimilarityResult expected)
+    {
+        for (var index = 0; index < expected.Reasons.Count; index++)
+        {
+            if (item.Reasons[index].Text != expected.Reasons[index].Text)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool SuffixMatches(RecommendedMovie item, bool story)
+    {
+        if (story)
+        {
+            return item.Reasons.Count != 0 && item.Reasons[^1].Text == StoryReasonText;
+        }
+
+        return !HasStoryReason(item);
     }
 
     [Property(MaxTest = 100, Replay = "340106,600029")]
