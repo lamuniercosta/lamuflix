@@ -201,3 +201,14 @@ Grill closed at 11/12. All Phase A decisions are settled; concrete prerequisite 
 
 ---
 
+## Phase 1 calibration re-ruling — owner unblock, amended criterion (2026-10-23)
+
+[from Patron] DEV-348 amended-calibration ruling: Approved — proceed (not defer) with a configurable default calibrated on deterministic synthetic vector pairs, with no live Ollama dependency; this supersedes the blocked: structural ruling at lines 194-201 above.
+
+- Basis for supersession: the owner explicitly instructed to unblock DEV-348 now and proceed rather than defer (note DEV-348:66-69, 2026-10-23); the owner's word overrides the earlier Patron ruling, so the DEV-342-calibration criterion is amended as below rather than re-escalated.
+- Amended acceptance criterion (replaces calibrated on DEV-342 golden set in spec.md US3/FR-003/FR-007/SC-005 and tasks.md T003/T004): `SimilarStoryThreshold` remains a configurable `RecommendationOptions` property, finite in [-1.0, 1.0] with strict `>` emission (Q3/Q4 unchanged); its default is calibrated on deterministic synthetic 384-dimensional vector pairs with known cosine similarities, constructed in the already-scoped test files (Q7/Q8 nine-file freeze unchanged), requiring no live Ollama service, no new NuGet dependency, no invented `FullPlot` text or semantic labels on the DEV-342 fixture, and no substitution of weighted metadata scores. DEV-342 cannot be the source: it holds cluster metadata only, with no story text, no labelled similar/dissimilar pairs, and no stored vectors (recon-DEV-348:98-108), and the only landed generator needs a live Ollama HTTP service (recon-DEV-348:91-95,107).
+- Ratified numeric default (T004): `SimilarStoryThreshold = 0.5`. T003's receipt must record synthetic pairs at cosine 0.8 and 0.6 (above) and 0.4, 0.0, and -1.0 (at/below), so 0.5 is the separating midpoint of that named synthetic set; it is an engineering default calibrated by construction on synthetic cosines, explicitly not a semantic calibration on real `all-minilm` embeddings, and remains operator-overridable via configuration. `RecommendationOptionsTests` must assert the 0.5 default; handler/property and Testcontainers tests must use deterministic stored vectors at those cosines (no live Ollama, per Q7). Future semantic recalibration against a real labelled golden set: noted, no ticket.
+- Effect: T003 is re-scoped to the synthetic-pair receipt above and T004 is satisfied by this ruling; no other Q1-Q11 decision, file scope, or gate changes, and no schema, dependency, API, or LocalPlay change is authorized.
+
+---
+
