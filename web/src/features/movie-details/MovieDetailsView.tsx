@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useId, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import type { components } from '../../api/types';
+import { MovieFeedbackActions } from '../../library/MovieFeedbackActions';
 import { WatchlistToggleButton } from '../../library/watchlist';
 import { useAmbientPosters } from '../../ui/ambient';
 import {
@@ -381,6 +382,10 @@ function MovieDetailsViewInner({
   const peopleList: readonly PersonDto[] = people.data ?? [];
   const playMutation = usePlayMovie(movieId);
   const deleteMutation = useDeleteMovie(movieId);
+  const feedbackClients = useMemo(
+    () => ({ libraryClient, detailsClient }),
+    [libraryClient, detailsClient],
+  );
   const [playState, setPlayState] = useState<PlayState>('idle');
   const playInFlightRef = useRef(false);
   const [removeOpen, setRemoveOpen] = useState(false);
@@ -544,6 +549,13 @@ function MovieDetailsViewInner({
             <div className="details-watchlist">
               <WatchlistToggleButton movieId={movie.id} isInWatchlist={movie.isInWatchlist} />
             </div>
+            <MovieFeedbackActions
+              movieId={movie.id}
+              title={movie.title}
+              isWatched={movie.isWatched}
+              isNotInterested={movie.isNotInterested}
+              clients={feedbackClients}
+            />
             <button
               ref={removeTriggerRef}
               type="button"
@@ -611,7 +623,7 @@ function MovieDetailsViewInner({
       {selectedActor && selectedIds.length > 0 && (
         <MoreWithPanel actor={selectedActor} actorIds={selectedIds} movieId={movieId} />
       )}
-      <RelatedMovies movieId={movieId} />
+      <RelatedMovies movieId={movieId} libraryClient={libraryClient} />
       <FileSection path={movie.path} imdbId={metadata?.imdbId ?? null} />
     </article>
   );

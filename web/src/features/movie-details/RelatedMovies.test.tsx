@@ -1,9 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../test/server';
 import { problemDetails, relatedMovies } from '../../mocks/fixtures';
+import {
+  __resetMovieFeedbackStore,
+  MOVIE_FEEDBACK_REFRESH_ERROR,
+} from '../../library/movieFeedbackStore';
 import RelatedMovies from './RelatedMovies';
 import { relatedMoviesQueryKey, type RecommendedMovie } from './relatedMoviesApi';
 
@@ -40,10 +44,15 @@ function recommendationsHandler(body: RecommendedMovie[] | object, status = 200)
 }
 
 function reasonTexts(scope: HTMLElement): string[] {
-  return Array.from(scope.querySelectorAll('.related-movie-reason')).map(
+  const card = scope.closest('article') ?? scope;
+  return Array.from(card.querySelectorAll('.related-movie-reason')).map(
     (chip) => chip.textContent ?? '',
   );
 }
+
+beforeEach(() => {
+  __resetMovieFeedbackStore();
+});
 
 afterEach(() => {
   window.history.replaceState({}, '', '/');
@@ -103,7 +112,7 @@ describe('RelatedMovies', () => {
     const region = await screen.findByRole('region', { name: 'Related movies' });
     const items = within(region).getAllByRole('listitem');
     expect(items).toHaveLength(3);
-    expect(items.map((item) => item.querySelector('.related-movie-title')?.textContent)).toEqual([
+    expect(items.map((item) => item.querySelector('.movie-card-title')?.textContent)).toEqual([
       'Arrival',
       'Blade Runner 2049',
       'Prisoners',
@@ -135,9 +144,10 @@ describe('RelatedMovies', () => {
 
     // assert
     const noReasons = await screen.findByRole('link', { name: /Blade Runner 2049/ });
-    expect(reasonTexts(noReasons)).toEqual([]);
-    expect(within(noReasons).getByText('Blade Runner 2049')).toBeInTheDocument();
-    expect(within(noReasons).getByText('2017')).toBeInTheDocument();
+    const card = noReasons.closest('article') as HTMLElement;
+    expect(reasonTexts(card)).toEqual([]);
+    expect(within(card).getByText('Blade Runner 2049')).toBeInTheDocument();
+    expect(within(card).getByText('2017')).toBeInTheDocument();
   });
 
   it('renders the neutral fallback for missing and broken posters', async () => {
@@ -162,7 +172,7 @@ describe('RelatedMovies', () => {
 
     // assert
     expect(container.querySelector('img')).toBeNull();
-    expect(container.querySelectorAll('.related-movie-placeholder')).toHaveLength(2);
+    expect(container.querySelectorAll('.movie-card-placeholder')).toHaveLength(2);
     expect(screen.getByRole('link', { name: /Broken poster/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Missing poster/ })).toBeInTheDocument();
   });
@@ -177,7 +187,7 @@ describe('RelatedMovies', () => {
     // assert
     const arrival = await screen.findByRole('link', { name: /Arrival/ });
     const prisoners = screen.getByRole('link', { name: /Prisoners/ });
-    expect(within(arrival).getByText('2016')).toBeInTheDocument();
+    expect(within(arrival.closest('article') as HTMLElement).getByText('2016')).toBeInTheDocument();
     expect(prisoners.textContent).not.toMatch(/\b(19|20)\d{2}\b/);
   });
 
@@ -368,4 +378,193 @@ describe('RelatedMovies', () => {
       expect(requests).toEqual([]);
     },
   );
+});
+
+describe('RelatedMovies shared-card feedback integration', () => {
+  it('mounts the shared feedback actions on the current recommendation card', async () => {
+    // arrange
+    server.use(recommendationsHandler(relatedMovies as RecommendedMovie[]));
+
+    // act
+    renderRelated(1);
+
+    // assert
+    expect(await screen.findByRole('button', { name: 'Mark Watched, Arrival' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Not Interested, Arrival' })).toBeEnabled();
+  });
+
+  it('refreshes membership, flags and reasons after a successful action', async () => {
+    // arrange
+    let calls = 0;
+    server.use(
+      http.get('*/api/movies/:id/recommendations', () => {
+        calls += 1;
+        if (calls === 1) {
+          return HttpResponse.json([
+            recommendation({ id: 2, title: 'Arrival', reasons: ['Same director'] }),
+            recommendation({ id: 3, title: 'Prisoners' }),
+          ]);
+        }
+        return HttpResponse.json([
+          recommendation({
+            id: 2,
+            title: 'Arrival',
+            isWatched: true,
+            reasons: ['Now watched', 'Same director'],
+          }),
+          recommendation({ id: 4, title: 'Newcomer' }),
+        ]);
+      }),
+    );
+    renderRelated(1);
+    await screen.findByRole('link', { name: /Arrival/ });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Arrival' }));
+
+    // assert
+    expect(await screen.findByRole('link', { name: /Newcomer/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Prisoners/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Watched, Arrival' })).toBeDisabled();
+    const arrivalCard = screen
+      .getByRole('link', { name: /Arrival/ })
+      .closest('article') as HTMLElement;
+    expect(reasonTexts(arrivalCard)).toEqual(['Now watched', 'Same director']);
+    expect(calls).toBe(2);
+  });
+
+  it('stales other recommendation queries for their next fetch after success', async () => {
+    // arrange
+    server.use(recommendationsHandler([recommendation({ id: 3, title: 'Prisoners' })]));
+    const { queryClient } = renderRelated(1);
+    queryClient.setQueryData(relatedMoviesQueryKey(2), []);
+    expect(queryClient.getQueryState(relatedMoviesQueryKey(2))?.isInvalidated).toBe(false);
+    await screen.findByRole('link', { name: /Prisoners/ });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Prisoners' }));
+
+    // assert
+    await waitFor(() =>
+      expect(queryClient.getQueryState(relatedMoviesQueryKey(2))?.isInvalidated).toBe(true),
+    );
+  });
+
+  it('renders a refresh-only error and retries without another POST', async () => {
+    // arrange
+    let posts = 0;
+    let fetches = 0;
+    let refreshFails = true;
+    server.use(
+      http.post('*/api/movies/:id/watched', () => {
+        posts += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get('*/api/movies/:id/recommendations', () => {
+        fetches += 1;
+        if (fetches === 1 || !refreshFails) {
+          return HttpResponse.json([recommendation({ id: 3, title: 'Prisoners' })]);
+        }
+        return HttpResponse.json(problemDetails(500), { status: 500 });
+      }),
+    );
+    renderRelated(1);
+    await screen.findByRole('link', { name: /Prisoners/ });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Prisoners' }));
+
+    // assert
+    expect(await screen.findByText(MOVIE_FEEDBACK_REFRESH_ERROR)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Watched, Prisoners' })).toBeVisible();
+
+    refreshFails = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Retry refresh, Prisoners' }));
+
+    await waitFor(() =>
+      expect(screen.queryByText(MOVIE_FEEDBACK_REFRESH_ERROR)).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: 'Watched, Prisoners' })).toBeVisible();
+    expect(posts).toBe(1);
+    expect(fetches).toBe(3);
+  });
+
+  it('renders every reason verbatim in API order including duplicates and HTML-looking text', async () => {
+    // arrange
+    server.use(
+      recommendationsHandler([
+        recommendation({
+          id: 2,
+          title: 'Arrival',
+          reasons: ['Same director', 'Same director', '<b>Bold</b> & <script>alert(1)</script>'],
+        }),
+      ]),
+    );
+
+    // act
+    renderRelated(1);
+
+    // assert
+    const card = (await screen.findByRole('link', { name: /Arrival/ })).closest(
+      'article',
+    ) as HTMLElement;
+    expect(reasonTexts(card)).toEqual([
+      'Same director',
+      'Same director',
+      '<b>Bold</b> & <script>alert(1)</script>',
+    ]);
+    expect(card.querySelector('b')).toBeNull();
+    expect(card.querySelector('script')).toBeNull();
+  });
+
+  it('renders no chips when reasons are absent', async () => {
+    // arrange
+    const noReasons = recommendation({ id: 2, title: 'Arrival' });
+    delete (noReasons as { reasons?: string[] }).reasons;
+    server.use(recommendationsHandler([noReasons]));
+
+    // act
+    renderRelated(1);
+
+    // assert
+    const card = (await screen.findByRole('link', { name: /Arrival/ })).closest(
+      'article',
+    ) as HTMLElement;
+    expect(reasonTexts(card)).toEqual([]);
+    expect(card.querySelector('.related-movie-reasons')).toBeNull();
+  });
+
+  it('moves focus to the section heading when refresh removes the focused card', async () => {
+    // arrange
+    let calls = 0;
+    server.use(
+      http.get('*/api/movies/:id/recommendations', () => {
+        calls += 1;
+        if (calls === 1) {
+          return HttpResponse.json([
+            recommendation({ id: 2, title: 'Arrival' }),
+            recommendation({ id: 3, title: 'Prisoners' }),
+          ]);
+        }
+        return HttpResponse.json([recommendation({ id: 3, title: 'Prisoners' })]);
+      }),
+    );
+    renderRelated(1);
+    await screen.findByRole('link', { name: /Arrival/ });
+    const watched = screen.getByRole('button', { name: 'Mark Watched, Arrival' });
+    watched.focus();
+    expect(document.activeElement).toBe(watched);
+
+    // act
+    fireEvent.click(watched);
+
+    // assert
+    await waitFor(() =>
+      expect(screen.queryByRole('link', { name: /Arrival/ })).not.toBeInTheDocument(),
+    );
+    const heading = screen.getByRole('heading', { name: 'Related movies' });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(heading).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByRole('link', { name: /Prisoners/ })).toBeInTheDocument();
+  });
 });

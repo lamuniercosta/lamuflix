@@ -8,6 +8,8 @@ import {
   formatRating,
   playErrorMessage,
 } from './movieCardFormat';
+import { MovieFeedbackActions } from './MovieFeedbackActions';
+import type { MovieFeedbackClients } from './movieFeedbackStore';
 import { WatchlistToggleButton } from './watchlist';
 import { useWatchlistToggle } from './watchlistStore';
 
@@ -25,6 +27,9 @@ export interface MovieCardProps {
   onRetry?: (id: number | string) => void;
   retryError?: string | null;
   retryErrorId?: string;
+  reasons?: string[];
+  feedbackClients?: MovieFeedbackClients;
+  className?: string;
 }
 
 export default function MovieCard({
@@ -33,6 +38,9 @@ export default function MovieCard({
   onRetry,
   retryError,
   retryErrorId,
+  reasons,
+  feedbackClients,
+  className,
 }: MovieCardProps) {
   const [posterFailed, setPosterFailed] = useState(false);
   const [playError, setPlayError] = useState<string | null>(null);
@@ -53,6 +61,9 @@ export default function MovieCard({
   };
 
   const handleOpen = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
     if (onOpenMovie) {
       event.preventDefault();
       onOpenMovie(id);
@@ -60,7 +71,7 @@ export default function MovieCard({
   };
 
   return (
-    <article className="movie-card" data-status={status}>
+    <article className={`movie-card${className ? ` ${className}` : ''}`} data-status={status}>
       <div className="movie-card-poster" style={{ aspectRatio: '2 / 3' }}>
         {showPoster ? (
           <img
@@ -119,6 +130,24 @@ export default function MovieCard({
         </span>
         <span>{displayValue(movie.releaseYear)}</span>
       </p>
+
+      {reasons && reasons.length > 0 ? (
+        <div className="related-movie-reasons">
+          {reasons.map((reason, index) => (
+            <span className="related-movie-reason" key={`${index}-${reason}`}>
+              {reason}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      <MovieFeedbackActions
+        movieId={id}
+        title={title}
+        isWatched={movie.isWatched}
+        isNotInterested={movie.isNotInterested}
+        clients={feedbackClients}
+      />
 
       {canRetryEnrichment(status) ? (
         <div className="movie-card-status">

@@ -1,16 +1,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../test/server';
 import {
   browseMovies,
   movieDetails,
   movieDetailsNullMetadata,
   people,
+  problemDetails,
   relatedMovies,
 } from '../../mocks/fixtures';
 import { browseMoviesQueryKey } from '../../library/libraryQueries';
+import {
+  __resetMovieFeedbackStore,
+  MOVIE_FEEDBACK_REFRESH_ERROR,
+  MOVIE_FEEDBACK_SAVE_ERROR,
+} from '../../library/movieFeedbackStore';
 import MovieDetailsView from './MovieDetailsView';
 
 function renderWith(client: QueryClient, movieId: number | string = 1) {
@@ -47,6 +53,10 @@ function movieWithActors(actors: string[]) {
 
 afterEach(() => {
   window.history.replaceState({}, '', '/');
+});
+
+beforeEach(() => {
+  __resetMovieFeedbackStore();
 });
 
 describe('MovieDetailsView', () => {
@@ -460,7 +470,9 @@ describe('MovieDetailsView related movies integration', () => {
     ]);
 
     const arrival = within(region).getByRole('link', { name: /Arrival/ });
-    expect(within(arrival).getByText('Same director')).toBeInTheDocument();
+    expect(
+      within(arrival.closest('article') as HTMLElement).getByText('Same director'),
+    ).toBeInTheDocument();
     expect(within(region).getByRole('link', { name: /Prisoners/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'File' })).toBeInTheDocument();
     expect(screen.getByText('/media/dune.mkv')).toBeInTheDocument();
@@ -544,5 +556,183 @@ describe('MovieDetailsView related movies integration', () => {
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Related movies' })).not.toBeInTheDocument();
     expect(requests).toEqual([]);
+  });
+});
+
+describe('MovieDetailsView feedback actions', () => {
+  function deferred<T = void>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  it('renders both feedback actions on Movie Details', async () => {
+    // arrange
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)));
+
+    // act
+    renderView();
+
+    // assert
+    await screen.findByRole('heading', { name: 'Dune' });
+    expect(screen.getByRole('button', { name: 'Mark Watched, Dune' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Not Interested, Dune' })).toBeEnabled();
+  });
+
+  it('marks the selected flag before the response and preserves the other flag', async () => {
+    // arrange
+    const gate = deferred();
+    let posts = 0;
+    server.use(
+      http.get('*/api/movies/:id', () =>
+        HttpResponse.json({ ...fullMovie, isNotInterested: true }),
+      ),
+      http.post('*/api/movies/:id/watched', async () => {
+        posts += 1;
+        await gate.promise;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderView();
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Dune' }));
+
+    // assert
+    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Not Interested (marked), Dune' })).toBeDisabled();
+    await waitFor(() => expect(posts).toBe(1));
+
+    gate.resolve();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Not Interested (marked), Dune' }),
+      ).not.toHaveAttribute('aria-busy'),
+    );
+    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeDisabled();
+  });
+
+  it('keeps both actions blocked through deferred reconciliation', async () => {
+    // arrange
+    const gate = deferred();
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/watched', async () => {
+        await gate.promise;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderView();
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Dune' }));
+
+    // assert
+    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Not Interested, Dune' })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
+
+    gate.resolve();
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Not Interested, Dune' })).toBeEnabled(),
+    );
+  });
+
+  it('renders an accessible mutation error with an explicit retry', async () => {
+    // arrange
+    let posts = 0;
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/watched', () => {
+        posts += 1;
+        return new HttpResponse(null, { status: posts === 1 ? 500 : 204 });
+      }),
+    );
+    renderView();
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Dune' }));
+
+    // assert
+    expect(await screen.findByText(MOVIE_FEEDBACK_SAVE_ERROR)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark Watched, Dune' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry saving feedback, Dune' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeVisible(),
+    );
+    expect(screen.queryByText(MOVIE_FEEDBACK_SAVE_ERROR)).not.toBeInTheDocument();
+    expect(posts).toBe(2);
+  });
+
+  it('keeps the confirmed mark and retries only the refresh after a refresh failure', async () => {
+    // arrange
+    let posts = 0;
+    let fetches = 0;
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.post('*/api/movies/:id/watched', () => {
+        posts += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get('*/api/movies/:id/recommendations', () => {
+        fetches += 1;
+        if (fetches === 2) {
+          return HttpResponse.json(problemDetails(500), { status: 500 });
+        }
+        return HttpResponse.json([]);
+      }),
+    );
+    renderView();
+    await screen.findByRole('heading', { name: 'Dune' });
+    await screen.findByText('No related movies yet.');
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Dune' }));
+
+    // assert
+    expect(await screen.findByText(MOVIE_FEEDBACK_REFRESH_ERROR)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'Retry saving feedback, Dune' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry refresh, Dune' }));
+
+    await waitFor(() =>
+      expect(screen.queryByText(MOVIE_FEEDBACK_REFRESH_ERROR)).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeVisible();
+    expect(posts).toBe(1);
+    expect(fetches).toBe(3);
+  });
+
+  it('renders no fabricated reasons on ordinary Details data', async () => {
+    // arrange
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.get('*/api/movies/:id/recommendations', () => HttpResponse.json([])),
+    );
+
+    // act
+    const { container } = renderView();
+
+    // assert
+    await screen.findByRole('heading', { name: 'Dune' });
+    await screen.findByText('No related movies yet.');
+    expect(container.querySelector('.related-movie-reason')).toBeNull();
   });
 });
