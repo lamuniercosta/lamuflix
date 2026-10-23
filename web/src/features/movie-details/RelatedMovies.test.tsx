@@ -130,7 +130,16 @@ describe('RelatedMovies', () => {
 
     // assert
     const arrival = await screen.findByRole('link', { name: /Arrival/ });
-    expect(reasonTexts(arrival)).toEqual(['Same director', 'Shares the genre Drama']);
+    expect(reasonTexts(arrival)).toEqual(['Same director', 'Matches your Drama interest']);
+    const arrivalCard = arrival.closest('article') as HTMLElement;
+    expect(
+      Array.from(arrivalCard.querySelectorAll('.related-movie-reason')).map(
+        (chip) => chip.className,
+      ),
+    ).toEqual([
+      'related-movie-reason related-movie-reason-structural',
+      'related-movie-reason related-movie-reason-personal',
+    ]);
     expect(screen.queryByRole('button', { name: 'Same director' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Same director' })).not.toBeInTheDocument();
   });
@@ -401,7 +410,11 @@ describe('RelatedMovies shared-card feedback integration', () => {
         calls += 1;
         if (calls === 1) {
           return HttpResponse.json([
-            recommendation({ id: 2, title: 'Arrival', reasons: ['Same director'] }),
+            recommendation({
+              id: 2,
+              title: 'Arrival',
+              reasons: [{ kind: 'structural', text: 'Same director' }],
+            }),
             recommendation({ id: 3, title: 'Prisoners' }),
           ]);
         }
@@ -410,7 +423,10 @@ describe('RelatedMovies shared-card feedback integration', () => {
             id: 2,
             title: 'Arrival',
             isWatched: true,
-            reasons: ['Now watched', 'Same director'],
+            reasons: [
+              { kind: 'personal', text: 'Now watched' },
+              { kind: 'structural', text: 'Same director' },
+            ],
           }),
           recommendation({ id: 4, title: 'Newcomer' }),
         ]);
@@ -496,7 +512,11 @@ describe('RelatedMovies shared-card feedback integration', () => {
         recommendation({
           id: 2,
           title: 'Arrival',
-          reasons: ['Same director', 'Same director', '<b>Bold</b> & <script>alert(1)</script>'],
+          reasons: [
+            { kind: 'structural', text: 'Same director' },
+            { kind: 'structural', text: 'Same director' },
+            { kind: 'structural', text: '<b>Bold</b> & <script>alert(1)</script>' },
+          ],
         }),
       ]),
     );
@@ -520,7 +540,7 @@ describe('RelatedMovies shared-card feedback integration', () => {
   it('renders no chips when reasons are absent', async () => {
     // arrange
     const noReasons = recommendation({ id: 2, title: 'Arrival' });
-    delete (noReasons as { reasons?: string[] }).reasons;
+    delete (noReasons as { reasons?: RecommendedMovie['reasons'] }).reasons;
     server.use(recommendationsHandler([noReasons]));
 
     // act

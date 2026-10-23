@@ -761,6 +761,185 @@ public sealed class GetRecommendationsQueryHandlerTests
         thrown.ShouldBe(failure);
     }
 
+    [Fact]
+    public async Task HandleAsync_NoStructuralOrPersonalExplanation_EmitsStructuralFallback()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = Selected();
+        var unrelated = NewMovie(12, genres: ["Mystery"]);
+        Arrange(selected, Candidates(unrelated));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result[0].Reasons.ShouldBe([Reason.Structural("No shared features identified")]);
+    }
+
+    [Theory]
+    [InlineData(1.0, 3)]
+    [InlineData(0.0, 0)]
+    public async Task HandleAsync_ProfileOverlap_EmitsPersonalReasonsOnlyWhenProfileWeightPositive(
+        double profileWeight,
+        int expectedPersonalCount)
+    {
+        // arrange
+        var handler = NewHandler(blendProfileWeight: profileWeight);
+        var selected = Selected();
+        var candidate = NewMovie(14, genres: ["Drama", "Comedy", "Horror"]);
+        Arrange(selected, Candidates(candidate));
+        ArrangeProfile(ProfileMovie(90, "Drama", "Comedy", "Horror"));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result[0].Reasons.Count(reason => reason.Kind == ReasonKind.Personal).ShouldBe(expectedPersonalCount);
+        if (expectedPersonalCount == 0)
+        {
+            result[0].Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
+        }
+    }
+
+    [Fact]
+    public async Task HandleAsync_MultiGenreOverlap_EmitsOnePersonalReasonPerCanonicalGenreInCaseInsensitiveThenOrdinalOrder()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = Selected();
+        var candidate = NewMovie(15, genres: ["Horror", "Comedy", "Drama"]);
+        Arrange(selected, Candidates(candidate));
+        ArrangeProfile(ProfileMovie(90, "Drama", "Comedy", "Horror"));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        PersonalTexts(result[0]).ShouldBe(
+        [
+            "Matches your Comedy interest",
+            "Matches your Drama interest",
+            "Matches your Horror interest",
+        ]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_StructuralAndPersonalReasons_KeepStructuralReasonsFirstInScorerOrder()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = Selected();
+        var candidate = NewMovie(16, genres: ["Drama"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"]);
+        Arrange(selected, [new RecommendationCandidate(candidate, 0.9)]);
+        ArrangeProfile(ProfileMovie(90, "Drama"));
+        var expectedStructural = SimilarityScorer.Score(
+            MovieFeaturesMapper.From(selected),
+            MovieFeaturesMapper.From(candidate),
+            Weights,
+            GenreWeights.Calculate(Counts));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        var reasons = result[0].Reasons;
+        reasons.Take(expectedStructural.Reasons.Count).ShouldBe(expectedStructural.Reasons);
+        reasons[expectedStructural.Reasons.Count].ShouldBe(Reason.Structural("Similar story"));
+        var firstPersonal = reasons.Select((reason, index) => (reason, index))
+            .First(item => item.reason.Kind == ReasonKind.Personal).index;
+        reasons.Take(firstPersonal).ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
+        reasons.Skip(firstPersonal).ShouldAllBe(reason => reason.Kind == ReasonKind.Personal);
+    }
+
+    [Fact]
+    public async Task HandleAsync_PersonalReasons_UseGenericTemplatesWithoutNamedTitle()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = Selected();
+        var candidate = NewMovie(17, title: "Untitled Personal Fixture", genres: ["Drama"]);
+        Arrange(selected, Candidates(candidate));
+        ArrangeProfile(ProfileMovie(90, "Drama"));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        PersonalTexts(result[0]).ShouldBe(["Matches your Drama interest"]);
+        result[0].Reasons.ShouldAllBe(reason => !reason.Text.Contains("Untitled Personal Fixture", StringComparison.Ordinal));
+        result[0].Reasons.ShouldAllBe(reason => !reason.Text.Contains("Because you watched", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task HandleAsync_PositivePlotChannel_EmitsViewingHistoryPersonalReason()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = NewMovie(1, genres: ["Drama"]);
+        var candidate = NewMovie(18, genres: ["Mystery"]);
+        Arrange(selected, Candidates(candidate));
+        var vector = PlotVector(primary: 1.0f);
+        ArrangeProfileWith(
+            [new TasteProfileMovie(new MovieId(90), [], vector, [Now], IsWatched: true)],
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
+                .Empty.Add(candidate.Id, vector));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        PersonalTexts(result[0]).ShouldBe(["Matches your viewing history"]);
+        result[0].Reasons.Count(reason => reason.Text == "Matches your viewing history").ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ZeroPlotSimilarity_EmitsNoViewingHistoryReason()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = NewMovie(1, genres: ["Drama"]);
+        var candidate = NewMovie(19, genres: ["Mystery"]);
+        Arrange(selected, Candidates(candidate));
+        ArrangeProfileWith(
+            [new TasteProfileMovie(new MovieId(90), [], PlotVector(primary: 1.0f), [Now], IsWatched: true)],
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
+                .Empty.Add(candidate.Id, PlotVector(primary: 0.0f, secondary: 1.0f)));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result[0].Reasons.ShouldNotContain(reason => reason.Text == "Matches your viewing history");
+        result[0].Reasons.ShouldBe([Reason.Structural("No shared features identified")]);
+    }
+
+    private static string[] PersonalTexts(RecommendedMovie movie) =>
+        [.. movie.Reasons.Where(reason => reason.Kind == ReasonKind.Personal).Select(reason => reason.Text)];
+
+    private static System.Collections.Immutable.ImmutableArray<float> PlotVector(float primary, float secondary = 0.0f)
+    {
+        var builder = System.Collections.Immutable.ImmutableArray.CreateBuilder<float>(EmbeddingDimensions.Value);
+        for (var index = 0; index < EmbeddingDimensions.Value; index++)
+        {
+            builder.Add(index switch
+            {
+                0 => primary,
+                1 => secondary,
+                _ => 0.0f,
+            });
+        }
+
+        return builder.MoveToImmutable();
+    }
+
+    private void ArrangeProfileWith(
+        System.Collections.Immutable.ImmutableArray<TasteProfileMovie> movies,
+        System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>> embeddings) =>
+        profileSource
+            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(new RecommendationProfileInputs(movies, embeddings)));
+
     private GetRecommendationsQueryHandler NewHandler(
         int optionsTake = DefaultTake,
         double threshold = 0.5,

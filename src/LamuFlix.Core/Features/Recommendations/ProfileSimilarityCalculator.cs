@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Ports;
 
@@ -12,6 +13,13 @@ public static class ProfileSimilarityCalculator
         ImmutableArray<string> candidateGenres,
         ImmutableArray<float> candidateEmbedding,
         TasteProfile profile,
+        GenreWeights genreWeights) =>
+        Evaluate(candidateGenres, candidateEmbedding, profile, genreWeights).Similarity;
+
+    public static ProfileSimilarityEvidence Evaluate(
+        ImmutableArray<string> candidateGenres,
+        ImmutableArray<float> candidateEmbedding,
+        TasteProfile profile,
         GenreWeights genreWeights)
     {
         ArgumentNullException.ThrowIfNull(profile);
@@ -20,32 +28,47 @@ public static class ProfileSimilarityCalculator
         ValidateEmbedding(profile.PlotEmbedding, nameof(profile));
 
         var channels = new List<double>(2);
+        var overlappingGenres = ImmutableArray<string>.Empty;
 
-        if (TryGenreSimilarity(candidateGenres, profile.GenrePreferences, genreWeights, out var genreSimilarity))
+        if (TryGenreSimilarity(
+                candidateGenres,
+                profile.GenrePreferences,
+                genreWeights,
+                out var genreSimilarity,
+                out overlappingGenres))
         {
             channels.Add(genreSimilarity);
         }
 
-        if (TryPlotSimilarity(candidateEmbedding, profile.PlotEmbedding, out var plotSimilarity))
+        var hasPlotChannel = TryPlotSimilarity(candidateEmbedding, profile.PlotEmbedding, out var plotSimilarity);
+        if (hasPlotChannel)
         {
             channels.Add(plotSimilarity);
         }
 
-        return channels.Count switch
+        var similarity = channels.Count switch
         {
             0 => 0.0,
             1 => channels[0],
             _ => (channels[0] + channels[1]) / 2.0,
         };
+
+        return new ProfileSimilarityEvidence(
+            similarity,
+            overlappingGenres,
+            hasPlotChannel,
+            hasPlotChannel ? plotSimilarity : 0.0);
     }
 
     private static bool TryGenreSimilarity(
         ImmutableArray<string> candidateGenres,
         ImmutableDictionary<string, double> preferences,
         GenreWeights genreWeights,
-        out double similarity)
+        out double similarity,
+        out ImmutableArray<string> overlappingGenres)
     {
         similarity = 0.0;
+        overlappingGenres = ImmutableArray<string>.Empty;
         var candidateWeights = CandidateWeights(candidateGenres, genreWeights);
 
         if (candidateWeights.Count == 0 || !HasPositiveMass(preferences))
@@ -79,7 +102,38 @@ public static class ProfileSimilarityCalculator
         }
 
         similarity = Math.Clamp(intersectionWeight / unionWeight, 0.0, 1.0);
+        overlappingGenres = OverlappingGenres(union, candidateWeights, preferences);
         return true;
+    }
+
+    private static ImmutableArray<string> OverlappingGenres(
+        HashSet<string> union,
+        Dictionary<string, double> candidateWeights,
+        ImmutableDictionary<string, double> preferences)
+    {
+        var matched = new List<string>();
+
+        foreach (var genre in union)
+        {
+            if (candidateWeights.GetValueOrDefault(genre) <= 0.0)
+            {
+                continue;
+            }
+
+            if (!preferences.TryGetValue(genre, out var preference) || preference <= 0.0)
+            {
+                continue;
+            }
+
+            matched.Add(genre);
+        }
+
+        return
+        [
+            .. matched
+                .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(genre => genre, StringComparer.Ordinal),
+        ];
     }
 
     private static Dictionary<string, double> CandidateWeights(

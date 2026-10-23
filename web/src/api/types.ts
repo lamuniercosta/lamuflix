@@ -165,7 +165,11 @@ export interface components {
       isNotInterested: boolean;
       /** Format: double */
       score: number | string;
-      reasons: string[];
+      reasons: components["schemas"]["RecommendedMovieReasonDto"][];
+    };
+    RecommendedMovieReasonDto: {
+      kind: string;
+      text: string;
     };
   };
   responses: never;

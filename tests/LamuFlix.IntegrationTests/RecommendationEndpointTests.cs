@@ -349,6 +349,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         item.GetProperty("isNotInterested").GetBoolean().ShouldBe(summary.IsNotInterested);
         item.GetProperty("score").GetDouble().ShouldBe(9.75);
         ReasonTexts(item).ShouldBe(["Shares the director.", "Shares two genres."]);
+        ReasonKinds(item).ShouldBe(["structural", "structural"]);
     }
 
     [Fact]
@@ -399,7 +400,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     }
 
     [Fact]
-    public async Task GetRecommendations_ReasonAndScoreCases_MapScoreAndReasonTextVerbatim()
+    public async Task GetRecommendations_ReasonAndScoreCases_MapKindAndTextVerbatim()
     {
         // arrange
         GivenSelectedMovie(EnrichmentStatus.Enriched);
@@ -420,10 +421,49 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         body.GetArrayLength().ShouldBe(3);
         body[0].GetProperty("score").GetDouble().ShouldBe(8.5);
         ReasonTexts(body[0]).ShouldBe(["Shares the director.", "Shares a genre."]);
+        ReasonKinds(body[0]).ShouldBe(["structural", "structural"]);
         body[1].GetProperty("score").GetDouble().ShouldBe(0);
         ReasonTexts(body[1]).ShouldBe(["Zero contribution underflow."]);
         body[2].GetProperty("score").GetDouble().ShouldBe(0);
         ReasonTexts(body[2]).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetRecommendations_MixedReasonKinds_SerialisesLowercaseKindAndTextPairs()
+    {
+        // arrange
+        GivenSelectedMovie(EnrichmentStatus.Enriched);
+        HandlerReturns(new RecommendedMovie(
+            Summary(EnrichmentStatus.Enriched, id: 41),
+            2.5,
+            [
+                Reason.Structural("Shares the director."),
+                Reason.Personal("Matches your Drama interest"),
+                Reason.Personal("Matches your viewing history"),
+            ]));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(Route(KnownId), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var reasons = body[0].GetProperty("reasons").EnumerateArray().ToList();
+        foreach (var reason in reasons)
+        {
+            reason.EnumerateObject().Select(property => property.Name)
+                .ShouldBe(["kind", "text"], ignoreOrder: true);
+        }
+        ReasonKinds(body[0]).ShouldBe(["structural", "personal", "personal"]);
+        ReasonTexts(body[0]).ShouldBe(
+        [
+            "Shares the director.",
+            "Matches your Drama interest",
+            "Matches your viewing history",
+        ]);
     }
 
     [Fact]
@@ -571,7 +611,10 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         item.EnumerateObject().Select(property => property.Name);
 
     private static IEnumerable<string?> ReasonTexts(JsonElement item) =>
-        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetString());
+        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetProperty("text").GetString());
+
+    private static IEnumerable<string?> ReasonKinds(JsonElement item) =>
+        item.GetProperty("reasons").EnumerateArray().Select(reason => reason.GetProperty("kind").GetString());
 
     private static async Task ReadProblemAsync(
         HttpResponseMessage response,
