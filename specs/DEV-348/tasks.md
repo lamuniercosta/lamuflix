@@ -72,13 +72,13 @@
 
 ### Tests
 
-- [ ] T015 [US3] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs` for strict `CosineSimilarity > SimilarStoryThreshold` with default `0.5` (equality at `0.5` emits none), custom threshold overrides, named synthetic cosines 0.8 and 0.6 (emit) and 0.4, 0.0, and -1.0 (no emit), independence from `SimilarityWeights`, retention at/below threshold, unchanged weighted `Score`/final order/`query.Take`, and feature-reason prefix plus optional single `Reason("Similar story")` suffix. Handler substitutes carry known cosine values. Replace obsolete pure reason-pass-through expectations forced by new AC (`recon-DEV-348:84`; brief.md:357; brief Q3/Q7). Coordinated red-green loop with T017. Executable proof in Stage C — not during read-only Stage A.
+- [X] T015 [US3] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs` for strict `CosineSimilarity > SimilarStoryThreshold` with default `0.5` (equality at `0.5` emits none), custom threshold overrides, named synthetic cosines 0.8 and 0.6 (emit) and 0.4, 0.0, and -1.0 (no emit), independence from `SimilarityWeights`, retention at/below threshold, unchanged weighted `Score`/final order/`query.Take`, and feature-reason prefix plus optional single `Reason("Similar story")` suffix. Handler substitutes carry known cosine values. Replace obsolete pure reason-pass-through expectations forced by new AC (`recon-DEV-348:84`; brief.md:357; brief Q3/Q7). Coordinated red-green loop with T017. Executable proof in Stage C — not during read-only Stage A.
 
-- [ ] T016 [US3] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerPropertyTests.cs` for the same story-suffix invariants with FsCheck, including equality and override cases over the named synthetic set (brief.md:357; brief Q7). Coordinated with T017.
+- [X] T016 [US3] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerPropertyTests.cs` for the same story-suffix invariants with FsCheck, including equality and override cases over the named synthetic set (brief.md:357; brief Q7). Coordinated with T017.
 
 ### Implementation
 
-- [ ] T017 [US3] In `src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs`, append a single `Reason("Similar story")` after all existing feature reasons iff `candidate.CosineSimilarity > options.SimilarStoryThreshold`. Do not change `SimilarityScorer`, `SimilarityResult`, `Reason`, or `RecommendedMovie` (brief Q3; ASSUMPTIONS suffix placement). Coordinated loop with T015–T016.
+- [X] T017 [US3] In `src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs`, append a single `Reason("Similar story")` after all existing feature reasons iff `candidate.CosineSimilarity > options.SimilarStoryThreshold`. Do not change `SimilarityScorer`, `SimilarityResult`, `Reason`, or `RecommendedMovie` (brief Q3; ASSUMPTIONS suffix placement). Coordinated loop with T015–T016.
 
 **Checkpoint**: Unit and FsCheck suites green for US3; weighted score/order/feature-prefix preserved; committed.
 
