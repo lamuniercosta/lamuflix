@@ -166,3 +166,11 @@ Full cited ruling from Patron:
 
 ---
 
+
+## Phase 4 MED-1 - Test file placement regularization
+
+[from Patron] RULING (DEV-353 Phase 4 MED-1): REGULARIZE - the four DEV-353 test files remain in existing tests/LamuFlix.UnitTests (Domain/TasteProfileTests.cs, Features/Recommendations/TasteProfileCalculatorTests.cs, Options/RecommendationOptionsRecencyTests.cs, Features/Recommendations/TasteProfileProperties.cs); Q9/Q10 and spec FR-010 are amended accordingly. No move back to tests/LamuFlix.Test, no new project, and no ticket or constitution departure (blocked: structural does not apply).
+
+- Q9 premise falsified: tests/LamuFlix.Test is absent from LamuFlix.sln (verified dotnet sln list at HEAD c4ed877: 8 projects incl. tests/LamuFlix.UnitTests, no LamuFlix.Test), and gate test-project enumeration is solution-based (findings-DEV-353-Compass MED-1), so tests in LamuFlix.Test would never run under dotnet test, property, or mutation gates; the UnitTests placement is what made mutation pass at 98.37% and the property gate execute TasteProfileProperties (task note DEV-353 Phase 3 Steps 5-6, Phase 4 Compass).
+- Ticket/constitution: ticket text names no test paths (task note DEV-353 Phase 1 Scope/AC), so amending the Patron-owned Q9/Q10 envelope and FR-010 changes no ticket delivery and departs from no constitution article; using the existing in-solution UnitTests project adds no project, package, or layer (section 2.3 items 1-2 not triggered).
+- Remediation authorized for Cog: align brief.md (file envelope items 5-8 and Q9/Q10 quotations annotated as superseded by this ruling, not silently rewritten), spec.md FR-010 (and line 85), tasks.md T002-T014 path names (keeping [X] state), and plan.md lines 17, 47, 79-85 where the same LamuFlix.Test paths appear; production code and test file contents/paths on disk are unchanged. The pre-existing undiscovered LamuFlix.Test property tests (Compass follow-up) remain out of DEV-353 scope: noted, no ticket unless Rigger triage under a separate Patron instruction.
