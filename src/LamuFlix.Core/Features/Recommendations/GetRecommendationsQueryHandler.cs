@@ -18,6 +18,8 @@ public sealed class GetRecommendationsQueryHandler(
     IOptions<RecommendationOptions> options)
     : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
 {
+    private const string SimilarStoryReason = "Similar story";
+
     public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
         GetRecommendationsQuery query,
         CancellationToken cancellationToken)
@@ -40,8 +42,9 @@ public sealed class GetRecommendationsQueryHandler(
         cancellationToken.ThrowIfCancellationRequested();
 
         var weights = options.Value.Weights;
+        var storyThreshold = options.Value.SimilarStoryThreshold;
         var selectedFeatures = MovieFeaturesMapper.From(selected);
-        var scored = Score(selectedFeatures, pool, weights, genreWeights, cancellationToken);
+        var scored = Score(selectedFeatures, pool, weights, genreWeights, storyThreshold, cancellationToken);
 
         return
         [
@@ -61,6 +64,7 @@ public sealed class GetRecommendationsQueryHandler(
         IReadOnlyList<RecommendationCandidate> pool,
         SimilarityWeights weights,
         GenreWeights genreWeights,
+        double storyThreshold,
         CancellationToken cancellationToken)
     {
         var scored = new List<ScoredCandidate>(pool.Count);
@@ -74,6 +78,11 @@ public sealed class GetRecommendationsQueryHandler(
                 MovieFeaturesMapper.From(candidate.Movie),
                 weights,
                 genreWeights);
+
+            if (candidate.CosineSimilarity > storyThreshold)
+            {
+                result = result with { Reasons = result.Reasons.Add(new Reason(SimilarStoryReason)) };
+            }
 
             scored.Add(new ScoredCandidate(candidate.Movie, result));
         }

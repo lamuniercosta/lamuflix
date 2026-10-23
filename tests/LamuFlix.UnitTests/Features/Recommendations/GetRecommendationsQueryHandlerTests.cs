@@ -297,13 +297,13 @@ public sealed class GetRecommendationsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_ScoredCandidate_PassesScoreAndReasonsThroughUnchanged()
+    public async Task HandleAsync_ScoredCandidate_PreservesFeatureReasonPrefixAndOmitsStoryBelowThreshold()
     {
         // arrange
         var handler = NewHandler();
         var selected = Selected();
         var candidate = NewMovie(2, genres: ["Drama", "Action"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"], releaseYear: 2000, runtimeMinutes: 120, imdbRating: 8.0m);
-        Arrange(selected, Candidates(candidate));
+        Arrange(selected, [new RecommendationCandidate(candidate, 0.4)]);
         var expected = SimilarityScorer.Score(
             MovieFeaturesMapper.From(selected),
             MovieFeaturesMapper.From(candidate),
@@ -321,6 +321,160 @@ public sealed class GetRecommendationsQueryHandlerTests
         {
             result[0].Reasons[index].ShouldBe(expected.Reasons[index]);
         }
+
+        HasStoryReason(result[0]).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData(0.8, true)]
+    [InlineData(0.6, true)]
+    [InlineData(0.4, false)]
+    [InlineData(0.0, false)]
+    [InlineData(-1.0, false)]
+    public async Task HandleAsync_NamedSyntheticCosine_UsesStrictDefaultThreshold(double cosine, bool expectStory)
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = Selected();
+        var candidate = IdenticalFeatureMovie(2);
+        Arrange(selected, [new RecommendationCandidate(candidate, cosine)]);
+        var expected = SimilarityScorer.Score(
+            MovieFeaturesMapper.From(selected),
+            MovieFeaturesMapper.From(candidate),
+            Weights,
+            GenreWeights.Calculate(Counts));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result[0].Score.ShouldBe(expected.Score);
+        AssertFeaturePrefix(result[0], expected);
+        AssertStorySuffix(result[0], expectStory);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CosineEqualToDefaultThreshold_EmitsNoStoryReason()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = Selected();
+        Arrange(selected, [new RecommendationCandidate(IdenticalFeatureMovie(2), 0.5)]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        AssertStorySuffix(result[0], expectStory: false);
+    }
+
+    [Theory]
+    [InlineData(0.7, 0.8, true)]
+    [InlineData(0.7, 0.6, false)]
+    [InlineData(0.5, 0.6, true)]
+    [InlineData(-0.5, 0.0, true)]
+    [InlineData(-0.5, -1.0, false)]
+    [InlineData(1.0, 1.0, false)]
+    public async Task HandleAsync_CustomThreshold_OverridesDefault(double threshold, double cosine, bool expectStory)
+    {
+        // arrange
+        var handler = NewHandler(threshold: threshold);
+        var selected = Selected();
+        Arrange(selected, [new RecommendationCandidate(IdenticalFeatureMovie(2), cosine)]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        AssertStorySuffix(result[0], expectStory);
+    }
+
+    [Theory]
+    [InlineData(0.6, true)]
+    [InlineData(0.5, false)]
+    public async Task HandleAsync_StoryEmission_IsIndependentOfSimilarityWeights(double cosine, bool expectStory)
+    {
+        // arrange
+        var zeroWeights = new SimilarityWeights
+        {
+            Director = 0.0,
+            Writers = 0.0,
+            Cast = 0.0,
+            Genres = 0.0,
+            YearProximity = 0.0,
+            RuntimeProximity = 0.0,
+            RatingBoost = 0.0,
+        };
+        var selected = Selected();
+        var candidate = NewMovie(2, genres: ["Drama"]);
+        Arrange(selected, [new RecommendationCandidate(candidate, cosine)]);
+
+        // act
+        var defaultWeighted = await NewHandler().HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+        var zeroWeighted = await NewHandler(weights: zeroWeights).HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        AssertStorySuffix(defaultWeighted[0], expectStory);
+        AssertStorySuffix(zeroWeighted[0], expectStory);
+        zeroWeighted[0].Score.ShouldBe(0.0);
+        defaultWeighted[0].Score.ShouldBeGreaterThan(0.0);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CandidatesAtOrBelowThreshold_AreRetainedAndScored()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = Selected();
+        var low = IdenticalFeatureMovie(2);
+        var zero = IdenticalFeatureMovie(3);
+        var negative = IdenticalFeatureMovie(4);
+        Arrange(selected, [
+            new RecommendationCandidate(low, 0.4),
+            new RecommendationCandidate(zero, 0.0),
+            new RecommendationCandidate(negative, -1.0),
+        ]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.Count.ShouldBe(3);
+        result.ShouldAllBe(item => !HasStoryReason(item));
+        var genreWeights = GenreWeights.Calculate(Counts);
+        foreach (var item in result)
+        {
+            var movie = item.Summary.Id.Value switch
+            {
+                2 => low,
+                3 => zero,
+                _ => negative,
+            };
+            var expected = SimilarityScorer.Score(MovieFeaturesMapper.From(selected), MovieFeaturesMapper.From(movie), Weights, genreWeights);
+            item.Score.ShouldBe(expected.Score);
+        }
+    }
+
+    [Fact]
+    public async Task HandleAsync_StorySuffix_DoesNotChangeScoreOrderOrTake()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = Selected();
+        var highCosineLowId = IdenticalFeatureMovie(4);
+        var lowCosineHighId = IdenticalFeatureMovie(9);
+        Arrange(selected, [
+            new RecommendationCandidate(lowCosineHighId, 0.9),
+            new RecommendationCandidate(highCosineLowId, 0.6),
+        ]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 2), CancellationToken.None);
+
+        // assert
+        result.Select(item => item.Summary.Id.Value).ToArray().ShouldBe(new[] { 4, 9 });
+        result[0].Score.ShouldBe(result[1].Score);
+        result.ShouldAllBe(item => HasStoryReason(item));
     }
 
     [Fact]
@@ -463,17 +617,60 @@ public sealed class GetRecommendationsQueryHandlerTests
         thrown.ShouldBe(failure);
     }
 
-    private GetRecommendationsQueryHandler NewHandler(int optionsTake = DefaultTake) =>
+    private GetRecommendationsQueryHandler NewHandler(
+        int optionsTake = DefaultTake,
+        double threshold = 0.5,
+        SimilarityWeights? weights = null) =>
         new(
             movies,
             candidateSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
-            Microsoft.Extensions.Options.Options.Create(new RecommendationOptions { Take = optionsTake, Weights = Weights }));
+            Microsoft.Extensions.Options.Options.Create(new RecommendationOptions
+            {
+                Take = optionsTake,
+                Weights = weights ?? Weights,
+                SimilarStoryThreshold = threshold,
+            }));
 
     private void Arrange(Movie selected, IReadOnlyList<RecommendationCandidate> pool)
     {
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
         candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(pool);
+    }
+
+    private static Movie IdenticalFeatureMovie(int id) => NewMovie(
+        id,
+        genres: ["Drama", "Action"],
+        directors: ["Director A"],
+        actors: ["Actor A"],
+        writers: ["Writer A"],
+        releaseYear: 2000,
+        runtimeMinutes: 120,
+        imdbRating: 8.0m);
+
+    private static bool HasStoryReason(RecommendedMovie movie) =>
+        movie.Reasons.Any(reason => reason.Text == "Similar story");
+
+    private static void AssertFeaturePrefix(RecommendedMovie actual, SimilarityResult expected)
+    {
+        actual.Reasons.Count.ShouldBeGreaterThanOrEqualTo(expected.Reasons.Count);
+        for (var index = 0; index < expected.Reasons.Count; index++)
+        {
+            actual.Reasons[index].ShouldBe(expected.Reasons[index]);
+        }
+    }
+
+    private static void AssertStorySuffix(RecommendedMovie actual, bool expectStory)
+    {
+        if (!expectStory)
+        {
+            HasStoryReason(actual).ShouldBeFalse();
+            return;
+        }
+
+        actual.Reasons.ShouldNotBeEmpty();
+        actual.Reasons[^1].ShouldBe(new Reason("Similar story"));
+        actual.Reasons.Count(reason => reason.Text == "Similar story").ShouldBe(1);
     }
 
     private static Movie Selected() => NewMovie(
