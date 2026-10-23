@@ -101,3 +101,15 @@ Shared understanding reached at Q6 of 12. The proof plan, vocabulary reuse and p
 
 
 
+
+
+## Phase B T001 host-contract ruling - 2026-10-23
+
+Question from Keel: May RelatedMovieCard remain the recommendation host by sharing MovieFeedbackActions, or must RelatedMovies mount MovieCard to satisfy the frozen shared-card requirement?
+
+[from Patron] DEV-355 T001 host-contract ruling: RelatedMovies must mount the shared MovieCard; RelatedMovieCard may not remain the recommendation host merely by sharing MovieFeedbackActions and verbatim reasons.
+- Basis: ticket as recorded in recon-DEV-355:85-96 and accepted at CONCLUSIONS Q1 requires the same card reused by recommendation panels; brief.md:16 and plan.md:11 freeze that wording, and spec.md US2 acceptance is written against the shared card rendering reasons verbatim in API order.
+- Contradiction identified: no contradiction inside the ticket itself; design.md:109-113 contradicts the ticket/brief/plan/spec by keeping local RelatedMovieCard inside MovieCarousel as host with only shared MovieFeedbackActions at design.md:113. Treating shared controls as shared-card reuse would silently substitute a lesser deliverable and change what the ticket delivers; keeping RelatedMovieCard would therefore be blocked: structural and is not approved.
+- Scope effect: mounting MovieCard in RelatedMovies.tsx, with MovieCarousel.tsx only if needed to pass action/reason props, stays inside brief Q5 envelope at brief.md:56-58; Library already satisfies the shared-card host through LibraryTile mounting MovieCard and LibraryTile need not change; Phase 2 T002-T005 foundation adds no host chrome and is unaffected. Gate 1 frozen scope is binding via user merge of PR 237 per task-pipeline:83 and DEV-355:41, landed content d803a4e proven in recon-DEV-355-2:15-21,39-46.
+
+Recorded in brief.md Phase B pickup and T001 binding before task disposition. No taste ruling or ASSUMPTIONS change.

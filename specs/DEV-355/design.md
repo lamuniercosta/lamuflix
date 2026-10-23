@@ -108,8 +108,8 @@ MovieDetailsView (/movies/{id})
 ├── mutation / refresh error strips           (new, existing .details-strip-error pattern)
 └── RelatedMovies
     └── MovieCarousel
-        └── RelatedMovieCard × n
-            ├── link (poster / title / year / ReasonChips)
+        └── MovieCard × n (shared; RelatedMovieCard retired per Patron T001 ruling)
+            ├── poster / title link / meta + ReasonChips (optional verbatim reasons, API order)
             └── MovieFeedbackActions          (new footer, sibling of link)
 
 MovieFeedbackActions (new, web/src/library/MovieFeedbackActions.tsx)

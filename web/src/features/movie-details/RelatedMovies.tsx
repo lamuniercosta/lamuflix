@@ -1,11 +1,11 @@
-import { useState, type MouseEvent } from 'react';
-import { FilmIcon } from '../../ui/icons';
+import { useEffect, useMemo, useRef, type FocusEvent } from 'react';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import MovieCard from '../../library/MovieCard';
 import { MovieCarousel } from '../../ui/MovieCarousel';
 import { readReturnUrl } from '../app-navigation/useAppNavigation';
 import {
   toRecommendationMovieId,
   useRelatedMovies,
-  type RecommendedMovie,
   type RecommendationMovieId,
 } from './relatedMoviesApi';
 import './RelatedMovies.css';
@@ -20,66 +20,64 @@ function navigateTo(href: string, state: unknown = {}): void {
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-function openRecommendedMovie(id: RecommendedMovie['id']): void {
+function openRecommendedMovie(id: number | string): void {
   const returnUrl = readReturnUrl(window.history.state);
   navigateTo(`/movies/${String(id)}`, returnUrl ? { libraryReturnUrl: returnUrl } : {});
 }
 
-function RelatedMovieCard({ movie }: { movie: RecommendedMovie }) {
-  const [posterFailed, setPosterFailed] = useState(false);
-  const posterUrl = movie.posterUrl;
-  const hasYear = movie.releaseYear !== null && String(movie.releaseYear).trim() !== '';
-  const open = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-      return;
-    }
-    event.preventDefault();
-    openRecommendedMovie(movie.id);
-  };
-  return (
-    <article className="related-movie-card">
-      <a className="related-movie-link" href={`/movies/${String(movie.id)}`} onClick={open}>
-        <span className="related-movie-poster">
-          {posterUrl !== null && !posterFailed ? (
-            <img src={posterUrl} alt="" loading="lazy" onError={() => setPosterFailed(true)} />
-          ) : (
-            <span className="related-movie-placeholder lamu-glass" aria-hidden="true">
-              <FilmIcon size={28} />
-            </span>
-          )}
-        </span>
-        <span className="related-movie-title">{movie.title}</span>
-        {hasYear && <span className="related-movie-year">{String(movie.releaseYear)}</span>}
-        {movie.reasons.length > 0 && (
-          <span className="related-movie-reasons">
-            {movie.reasons.map((reason, index) => (
-              <span className="related-movie-reason" key={`${index}-${reason}`}>
-                {reason}
-              </span>
-            ))}
-          </span>
-        )}
-      </a>
-    </article>
-  );
-}
-
 export interface RelatedMoviesProps {
   movieId: RecommendationMovieId | null | undefined;
+  libraryClient?: QueryClient;
 }
 
-export default function RelatedMovies({ movieId }: RelatedMoviesProps) {
+export default function RelatedMovies({ movieId, libraryClient }: RelatedMoviesProps) {
   const id = toRecommendationMovieId(movieId);
+  const detailsClient = useQueryClient();
+  const feedbackClients = useMemo(
+    () => ({ libraryClient: libraryClient ?? detailsClient, detailsClient }),
+    [libraryClient, detailsClient],
+  );
   const query = useRelatedMovies(id);
-  const rows = query.data ?? [];
+  const rows = useMemo(() => query.data ?? [], [query.data]);
+  const sectionRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const lastFocused = lastFocusedRef.current;
+    if (lastFocused && !document.contains(lastFocused)) {
+      lastFocusedRef.current = null;
+      headingRef.current?.focus();
+    }
+  }, [rows]);
+
+  const trackFocus = (event: FocusEvent<HTMLElement>) => {
+    if (event.target instanceof HTMLElement && event.target !== headingRef.current) {
+      lastFocusedRef.current = event.target;
+    }
+  };
+
+  const clearFocusOutside = (event: FocusEvent<HTMLElement>) => {
+    const next = event.relatedTarget;
+    if (next instanceof Node && !sectionRef.current?.contains(next)) {
+      lastFocusedRef.current = null;
+    }
+  };
 
   if (id === null) {
     return null;
   }
 
   return (
-    <section className="details-section related-movies">
-      <h2 className="details-section-heading">{SECTION_LABEL}</h2>
+    <section
+      ref={sectionRef}
+      className="details-section related-movies"
+      onFocus={trackFocus}
+      onBlur={clearFocusOutside}
+    >
+      <h2 ref={headingRef} tabIndex={-1} className="details-section-heading">
+        {SECTION_LABEL}
+      </h2>
       {query.isPending && (
         <p role="status" className="details-status">
           {LOADING_LABEL}
@@ -104,7 +102,14 @@ export default function RelatedMovies({ movieId }: RelatedMoviesProps) {
       {rows.length > 0 && (
         <MovieCarousel label={SECTION_LABEL}>
           {rows.map((movie) => (
-            <RelatedMovieCard key={String(movie.id)} movie={movie} />
+            <MovieCard
+              key={String(movie.id)}
+              movie={movie}
+              reasons={movie.reasons}
+              feedbackClients={feedbackClients}
+              onOpenMovie={openRecommendedMovie}
+              className="related-movie-card"
+            />
           ))}
         </MovieCarousel>
       )}
