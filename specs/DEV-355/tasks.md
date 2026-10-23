@@ -96,7 +96,7 @@
 
 **Purpose**: Diff refactor; full applicable Phase 3 step 5 gate bar for this ui slice.
 
-- [ ] T014 Cog `/refactor` on the delivery diff only (helpers/early returns/guards; no scope expansion; no threshold changes; no new packages; no envelope expansion).
+- [X] T014 Cog `/refactor` on the delivery diff only (helpers/early returns/guards; no scope expansion; no threshold changes; no new packages; no envelope expansion).
 
 - [ ] T015 Gauge gates: configured contract freshness checks; `scripts/run-web-gates.ps1`; and all applicable task-pipeline Phase 3 step 5 gates for the actual diff. Record command, head, and actual exit/verdict. Gauge determines C#-only gate applicability. Report SKIPPED (scope-empty) / SKIP / NOT APPLICABLE verbatim — never as PASS. Exit 1, Could not run, or unaccepted property exit 2 blocks. Do not lower `harness.yml` thresholds. Do not edit CONTEXT.md or add an ADR. Do not claim Phase A gate results.
 

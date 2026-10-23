@@ -16,9 +16,12 @@ function outcome(status: number): MovieFeedbackOutcome {
   return { ok: status === 204 || status === 409, status };
 }
 
-export async function markMovieWatched(movieId: FeedbackMovieId): Promise<MovieFeedbackOutcome> {
+async function postFeedback(
+  path: '/api/movies/{id}/watched' | '/api/movies/{id}/not-interested',
+  movieId: FeedbackMovieId,
+): Promise<MovieFeedbackOutcome> {
   try {
-    const { response } = await client.POST('/api/movies/{id}/watched', {
+    const { response } = await client.POST(path, {
       params: { path: { id: movieId } },
     });
     return outcome(response.status);
@@ -27,15 +30,12 @@ export async function markMovieWatched(movieId: FeedbackMovieId): Promise<MovieF
   }
 }
 
+export async function markMovieWatched(movieId: FeedbackMovieId): Promise<MovieFeedbackOutcome> {
+  return postFeedback('/api/movies/{id}/watched', movieId);
+}
+
 export async function markMovieNotInterested(
   movieId: FeedbackMovieId,
 ): Promise<MovieFeedbackOutcome> {
-  try {
-    const { response } = await client.POST('/api/movies/{id}/not-interested', {
-      params: { path: { id: movieId } },
-    });
-    return outcome(response.status);
-  } catch {
-    return outcome(0);
-  }
+  return postFeedback('/api/movies/{id}/not-interested', movieId);
 }
