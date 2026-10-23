@@ -41,6 +41,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IMovieRepository, EfMovieRepository>();
         services.AddScoped<IPlaybackHistory, EfPlaybackHistory>();
         services.AddScoped<IRecommendationCandidateSource, EfRecommendationCandidateSource>();
+        services.AddScoped<IRecommendationProfileSource, EfRecommendationProfileSource>();
         services.AddScoped<IMovieFeaturesRepository, EfMovieFeaturesRepository>();
 
         return services;
