@@ -3,7 +3,7 @@ using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Core.Features.Recommendations;
 
-public sealed class RecommendationProfileInputs
+public sealed record RecommendationProfileInputs
 {
     public RecommendationProfileInputs(
         ImmutableArray<TasteProfileMovie> movies,
