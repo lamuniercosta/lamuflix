@@ -159,7 +159,7 @@ public static class SimilarityScorer
         {
             if (term.Reason is { } reason)
             {
-                builder.Add(new Reason(reason));
+                builder.Add(Reason.Structural(reason));
             }
         }
 
@@ -168,7 +168,7 @@ public static class SimilarityScorer
 
     private static SimilarityResult ZeroWeightResult(MovieFeatures a, MovieFeatures b) =>
         IsIdenticalProfile(a, b) && HasScoringFeature(a)
-            ? new SimilarityResult(1.0, ImmutableList.Create(new Reason(IdentityReason)))
+            ? new SimilarityResult(1.0, ImmutableList.Create(Reason.Structural(IdentityReason)))
             : new SimilarityResult(0.0, ImmutableList<Reason>.Empty);
 
     private static double MaxWeight(ImmutableArray<Term> terms)

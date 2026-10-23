@@ -731,6 +731,25 @@ public sealed class SimilarityScorerTests
         Text(result).ShouldBe(["Similar release years"]);
     }
 
+    [Fact]
+    public void Score_AllReasons_AreStructural()
+    {
+        // arrange
+        var first = Features(directors: ["Alpha"], writers: ["Beta"]);
+        var second = Features(directors: ["alpha"], writers: ["beta"]);
+
+        // act
+        var result = SimilarityScorer.Score(
+            first,
+            second,
+            Only(director: 1.0, writers: 1.0),
+            GenreTable());
+
+        // assert
+        result.Reasons.ShouldNotBeEmpty();
+        result.Reasons.ShouldAllBe(reason => reason.Kind == ReasonKind.Structural);
+    }
+
     private static string[] Text(SimilarityResult result) =>
         [.. result.Reasons.Select(reason => reason.Text)];
 

@@ -108,6 +108,73 @@ public sealed class RecommendationOptionsTests
     }
 
     [Fact]
+    public void Defaults_BlendCoefficients_MatchTheAgreedValues()
+    {
+        // arrange
+        var options = new RecommendationOptions();
+
+        // act / assert
+        options.BlendSelectedWeight.ShouldBe(1.0);
+        options.BlendProfileWeight.ShouldBe(1.0);
+        options.AlreadyWatchedPenalty.ShouldBe(0.25);
+        options.NotInterestedPenalty.ShouldBe(1.0);
+    }
+
+    public static TheoryData<string, double, bool> BlendCoefficientEdges =>
+        new()
+        {
+            { nameof(RecommendationOptions.BlendSelectedWeight), 0.0, true },
+            { nameof(RecommendationOptions.BlendSelectedWeight), 1.0, true },
+            { nameof(RecommendationOptions.BlendSelectedWeight), -0.0001, false },
+            { nameof(RecommendationOptions.BlendSelectedWeight), double.NaN, false },
+            { nameof(RecommendationOptions.BlendSelectedWeight), double.PositiveInfinity, false },
+            { nameof(RecommendationOptions.BlendProfileWeight), 0.0, true },
+            { nameof(RecommendationOptions.BlendProfileWeight), 2.5, true },
+            { nameof(RecommendationOptions.BlendProfileWeight), -0.0001, false },
+            { nameof(RecommendationOptions.BlendProfileWeight), double.NaN, false },
+            { nameof(RecommendationOptions.AlreadyWatchedPenalty), 0.0, true },
+            { nameof(RecommendationOptions.AlreadyWatchedPenalty), 0.25, true },
+            { nameof(RecommendationOptions.AlreadyWatchedPenalty), -0.0001, false },
+            { nameof(RecommendationOptions.AlreadyWatchedPenalty), double.NegativeInfinity, false },
+            { nameof(RecommendationOptions.NotInterestedPenalty), 0.0, true },
+            { nameof(RecommendationOptions.NotInterestedPenalty), 1.0, true },
+            { nameof(RecommendationOptions.NotInterestedPenalty), -0.0001, false },
+            { nameof(RecommendationOptions.NotInterestedPenalty), double.NaN, false },
+        };
+
+    [Theory]
+    [MemberData(nameof(BlendCoefficientEdges))]
+    public void TryValidateObject_BlendCoefficient_AtEachEdge_MatchesTheNonNegativeFiniteRule(
+        string memberName,
+        double value,
+        bool expectedValid)
+    {
+        // arrange
+        var options = WithBlendCoefficient(memberName, value);
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        AssertEdge(results, memberName, expectedValid);
+    }
+
+    [Fact]
+    public void TryValidateObject_SelectedAndProfileWeightsBothZero_ReportsBothMembers()
+    {
+        // arrange
+        var options = new RecommendationOptions { BlendSelectedWeight = 0.0, BlendProfileWeight = 0.0 };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        var members = results.SelectMany(result => result.MemberNames).ToArray();
+        members.ShouldContain(nameof(RecommendationOptions.BlendSelectedWeight));
+        members.ShouldContain(nameof(RecommendationOptions.BlendProfileWeight));
+    }
+
+    [Fact]
     public void TryValidateObject_Defaults_AreValid()
     {
         // arrange
@@ -248,6 +315,69 @@ public sealed class RecommendationOptionsTests
         bound.MmrLambda.ShouldBe(0.5);
         bound.SimilarStoryThreshold.ShouldBe(0.6);
         bound.Weights.Director.ShouldBe(4);
+        bound.BlendSelectedWeight.ShouldBe(1.0);
+        bound.BlendProfileWeight.ShouldBe(1.0);
+        bound.AlreadyWatchedPenalty.ShouldBe(0.25);
+        bound.NotInterestedPenalty.ShouldBe(1.0);
+    }
+
+    [Fact]
+    public void StartupValidation_BlendCoefficients_BindsConfiguredValues()
+    {
+        // arrange
+        var values = ValidRequired();
+        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.BlendSelectedWeight)}"] = "2.5";
+        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.BlendProfileWeight)}"] = "0.5";
+        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.AlreadyWatchedPenalty)}"] = "0.75";
+        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.NotInterestedPenalty)}"] = "3";
+        using var provider = Build(values);
+
+        // act
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        // assert
+        var bound = provider.GetRequiredService<IOptions<RecommendationOptions>>().Value;
+        bound.BlendSelectedWeight.ShouldBe(2.5);
+        bound.BlendProfileWeight.ShouldBe(0.5);
+        bound.AlreadyWatchedPenalty.ShouldBe(0.75);
+        bound.NotInterestedPenalty.ShouldBe(3.0);
+    }
+
+    [Theory]
+    [InlineData(nameof(RecommendationOptions.BlendSelectedWeight), "-1")]
+    [InlineData(nameof(RecommendationOptions.BlendProfileWeight), "NaN")]
+    [InlineData(nameof(RecommendationOptions.AlreadyWatchedPenalty), "Infinity")]
+    [InlineData(nameof(RecommendationOptions.NotInterestedPenalty), "-0.5")]
+    public void StartupValidation_InvalidBlendCoefficient_FailsValidation(string memberName, string value)
+    {
+        // arrange
+        var values = ValidRequired();
+        values[$"{RecommendationOptions.SectionName}:{memberName}"] = value;
+
+        // act
+        var exception = ValidateStartup(values);
+
+        // assert
+        exception.Message.ShouldContain(memberName);
+    }
+
+    [Fact]
+    public void StartupValidation_SelectedAndProfileWeightsBothZero_FailsValidation()
+    {
+        // arrange
+        var values = ValidRequired();
+        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.BlendSelectedWeight)}"] = "0";
+        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.BlendProfileWeight)}"] = "0";
+
+        // act
+        var exception = ValidateStartup(values);
+
+        // assert
+        exception.Message.ShouldContain(nameof(RecommendationOptions.BlendSelectedWeight));
+        exception.Message.ShouldContain(nameof(RecommendationOptions.BlendProfileWeight));
     }
 
     [Fact]
@@ -312,6 +442,15 @@ public sealed class RecommendationOptionsTests
         // assert
         exception.Message.ShouldContain(nameof(RecommendationOptions.CandidatePoolSize));
     }
+
+    private static RecommendationOptions WithBlendCoefficient(string memberName, double value) =>
+        memberName switch
+        {
+            nameof(RecommendationOptions.BlendSelectedWeight) => new() { BlendSelectedWeight = value },
+            nameof(RecommendationOptions.BlendProfileWeight) => new() { BlendProfileWeight = value },
+            nameof(RecommendationOptions.AlreadyWatchedPenalty) => new() { AlreadyWatchedPenalty = value },
+            _ => new() { NotInterestedPenalty = value },
+        };
 
     private static IReadOnlyList<ValidationResult> Validate(RecommendationOptions options)
     {

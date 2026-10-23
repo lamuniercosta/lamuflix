@@ -24,6 +24,14 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public double SimilarStoryThreshold { get; init; } = 0.5;
 
+    public double BlendSelectedWeight { get; init; } = 1.0;
+
+    public double BlendProfileWeight { get; init; } = 1.0;
+
+    public double AlreadyWatchedPenalty { get; init; } = 0.25;
+
+    public double NotInterestedPenalty { get; init; } = 1.0;
+
     public SimilarityWeights Weights { get; init; } = new();
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -44,6 +52,16 @@ public sealed record RecommendationOptions : IValidatableObject
         }
 
         foreach (var result in ValidateThreshold())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateBlendCoefficients())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateBlendSignal())
         {
             yield return result;
         }
@@ -109,6 +127,57 @@ public sealed record RecommendationOptions : IValidatableObject
                     nameof(SimilarStoryThreshold),
                     SimilarStoryThreshold),
                 [nameof(SimilarStoryThreshold)]);
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateBlendCoefficients()
+    {
+        foreach (var result in ValidateBlendCoefficient(BlendSelectedWeight, nameof(BlendSelectedWeight)))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateBlendCoefficient(BlendProfileWeight, nameof(BlendProfileWeight)))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateBlendCoefficient(AlreadyWatchedPenalty, nameof(AlreadyWatchedPenalty)))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateBlendCoefficient(NotInterestedPenalty, nameof(NotInterestedPenalty)))
+        {
+            yield return result;
+        }
+    }
+
+    private static IEnumerable<ValidationResult> ValidateBlendCoefficient(double value, string memberName)
+    {
+        if (!double.IsFinite(value) || value < 0.0)
+        {
+            yield return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} must be finite and greater than or equal to 0.0; got {1}.",
+                    memberName,
+                    value),
+                [memberName]);
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateBlendSignal()
+    {
+        if (BlendSelectedWeight == 0.0 && BlendProfileWeight == 0.0)
+        {
+            yield return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} and {1} cannot both be 0.0.",
+                    nameof(BlendSelectedWeight),
+                    nameof(BlendProfileWeight)),
+                [nameof(BlendSelectedWeight), nameof(BlendProfileWeight)]);
         }
     }
 }

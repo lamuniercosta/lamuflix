@@ -609,7 +609,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     }
 
     private static RecommendedMovie Recommendation(MovieSummary summary, double score, params string[] reasons) =>
-        new(summary, score, [.. reasons.Select(text => new Reason(text))]);
+        new(summary, score, [.. reasons.Select(Reason.Structural)]);
 
     private MovieSummary Summary(EnrichmentStatus status, int id, bool sparse = false)
     {

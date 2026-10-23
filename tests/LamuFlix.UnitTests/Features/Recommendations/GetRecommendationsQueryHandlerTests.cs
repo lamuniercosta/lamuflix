@@ -669,7 +669,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         }
 
         actual.Reasons.ShouldNotBeEmpty();
-        actual.Reasons[^1].ShouldBe(new Reason("Similar story"));
+        actual.Reasons[^1].ShouldBe(Reason.Structural("Similar story"));
         actual.Reasons.Count(reason => reason.Text == "Similar story").ShouldBe(1);
     }
 
