@@ -20,7 +20,7 @@
 
 **Purpose**: Verify landed predecessor contracts, Epic 7 scheduling, harness settings, and property-test discovery before production edits.
 
-- [ ] T001 In worktree `F:/Dev/LamuFlix.worktrees/feature-353-spec` on `feature/353-spec`, read-only verify current main/landed contracts for `GenreWeights` (`GetWeight(string)`), `EmbeddingDimensions.Value` (384), `RecommendationOptions`, and DEV-413 draft-vs-landed status against `recon-DEV-353` / `recon-DEV-353-2` and brief drift boundary. Confirm Epic 7 sequencing still gates Phase B under `specs/PRODUCT.md:17`. Verify the existing property-test framework, category trait, and seed conventions for `tests/LamuFlix.Test` against the live project and `scripts/run-property-tests.ps1`; do not assume a specific property package, Property category trait, or Replay seed discovery is installed. Read live `harness.yml` for implementation and refactor cyclomatic complexity thresholds and supported command parameters; do not invent numbers. Stop with `needs recon:` or a cited ruling request on missing facts, missing property conventions, or unruled substantive drift. No production edits in this task.
+- [ ] T001 In worktree `F:/Dev/LamuFlix.worktrees/feature-353-spec` on `feature/353-spec`, read-only verify current main/landed contracts for `GenreWeights` (`GetWeight(string)`), `EmbeddingDimensions.Value` (384), `RecommendationOptions`, and DEV-413 draft-vs-landed status against `recon-DEV-353` / `recon-DEV-353-2` and brief drift boundary. Confirm Epic 7 sequencing still gates Phase B under `specs/PRODUCT.md:17`. Verify the existing property-test framework, category trait, and seed conventions for `tests/LamuFlix.UnitTests` against the live project and `scripts/run-property-tests.ps1`; do not assume a specific property package, Property category trait, or Replay seed discovery is installed. Read live `harness.yml` for implementation and refactor cyclomatic complexity thresholds and supported command parameters; do not invent numbers. Stop with `needs recon:` or a cited ruling request on missing facts, missing property conventions, or unruled substantive drift. No production edits in this task.
 
 **Checkpoint**: Drift/scheduling/property-discovery verified or explicitly blocked. Inherited owner/ADR statuses preserved.
 
@@ -34,9 +34,9 @@
 
 ### Tests
 
-- [X] T002 [P] Write `tests/LamuFlix.Test/Domain/TasteProfileTests.cs` covering `TasteProfile.IsEmpty` true when both channels empty/default, false when either channel is populated, and construction with empty `ImmutableDictionary` / `ImmutableArray<float>.Empty`. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA headers only where the file uses them.
+- [X] T002 [P] Write `tests/LamuFlix.UnitTests/Domain/TasteProfileTests.cs` covering `TasteProfile.IsEmpty` true when both channels empty/default, false when either channel is populated, and construction with empty `ImmutableDictionary` / `ImmutableArray<float>.Empty`. Method names `Method_Condition_Expected`. xUnit v3 + Shouldly. AAA headers only where the file uses them.
 
-- [X] T003 [P] Write `tests/LamuFlix.Test/Options/RecommendationOptionsRecencyTests.cs` covering default `RecencyDecayLambda == Math.Log(2.0) / 30.0`, finite and strictly positive acceptance, rejection of `NaN` / infinities / `0.0` / negative via the options validation path, and unchanged default `MmrLambda == 0.7`. Method names `Method_Condition_Expected`.
+- [X] T003 [P] Write `tests/LamuFlix.UnitTests/Options/RecommendationOptionsRecencyTests.cs` covering default `RecencyDecayLambda == Math.Log(2.0) / 30.0`, finite and strictly positive acceptance, rejection of `NaN` / infinities / `0.0` / negative via the options validation path, and unchanged default `MmrLambda == 0.7`. Method names `Method_Condition_Expected`.
 
 ### Implementation
 
@@ -58,7 +58,7 @@
 
 ### Tests for User Story 1
 
-- [X] T007 [US1] Write `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` with a test-local BCL `TimeProvider` subclass that counts `GetUtcNow` calls. Cover: two distinct MovieIds with one launch each at ages 0 and 30 days and different single genres `gA`/`gB`; weights `1.0`/`0.5` and expected `GenrePreferences(gA)=(2.0/3.0)*rA`, `GenrePreferences(gB)=(1.0/3.0)*rB` for independently established supplied GenreWeights rarity values at default lambda (different rarity values not required); fractional days; offset-equivalent timestamps; GenreWeights rarity from supplied `GenreCounts`; unnormalized 384-float basis vectors (no L2 normalization); duplicate same-instant `PlayedAt` retention; undated `IsWatched` fallback without double-counting when launches exist; launches retained when `IsWatched` is false; independent genre/plot denominators; genre trim/case canonicalization (Ordinal minimum within OrdinalIgnoreCase); exactly one clock read; repeated-call bitwise determinism for fixed clock and ordered input; input immutability. Assert scalar coordinates and dictionary entries. Method names `Method_Condition_Expected`. Theory/MemberData where appropriate.
+- [X] T007 [US1] Write `tests/LamuFlix.UnitTests/Features/Recommendations/TasteProfileCalculatorTests.cs` with a test-local BCL `TimeProvider` subclass that counts `GetUtcNow` calls. Cover: two distinct MovieIds with one launch each at ages 0 and 30 days and different single genres `gA`/`gB`; weights `1.0`/`0.5` and expected `GenrePreferences(gA)=(2.0/3.0)*rA`, `GenrePreferences(gB)=(1.0/3.0)*rB` for independently established supplied GenreWeights rarity values at default lambda (different rarity values not required); fractional days; offset-equivalent timestamps; GenreWeights rarity from supplied `GenreCounts`; unnormalized 384-float basis vectors (no L2 normalization); duplicate same-instant `PlayedAt` retention; undated `IsWatched` fallback without double-counting when launches exist; launches retained when `IsWatched` is false; independent genre/plot denominators; genre trim/case canonicalization (Ordinal minimum within OrdinalIgnoreCase); exactly one clock read; repeated-call bitwise determinism for fixed clock and ordered input; input immutability. Assert scalar coordinates and dictionary entries. Method names `Method_Condition_Expected`. Theory/MemberData where appropriate.
 
 ### Implementation for User Story 1
 
@@ -76,7 +76,7 @@
 
 ### Tests for User Story 2
 
-- [X] T009 [US2] Extend `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` for: empty/default movies array → empty profile without throw; rows with no launches and `IsWatched == false` even with genres/embeddings → empty profile; genre-only history; plot-only history; missing embeddings omitted from plot denominator; valid zero vectors included; all-zero mean → empty plot with genre preferences preserved; `IsEmpty` semantics. Same file as T007 (not marked [P]).
+- [X] T009 [US2] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/TasteProfileCalculatorTests.cs` for: empty/default movies array → empty profile without throw; rows with no launches and `IsWatched == false` even with genres/embeddings → empty profile; genre-only history; plot-only history; missing embeddings omitted from plot denominator; valid zero vectors included; all-zero mean → empty plot with genre preferences preserved; `IsEmpty` semantics. Same file as T007 (not marked [P]).
 
 ### Implementation for User Story 2
 
@@ -94,7 +94,7 @@
 
 ### Tests for User Story 3
 
-- [X] T011 [US3] Extend `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` for: null `TimeProvider` / null `RecommendationOptions` → `ArgumentNullException`; non-finite or `<= 0.0` lambda → `ArgumentOutOfRangeException` in constructor without requiring unrelated Take/MMR validity; null `GenreWeights` → `ArgumentNullException`; null movie rows, duplicate `MovieId`, nonempty embedding length ≠ 384, non-finite embedding floats → `ArgumentException` before accumulation (including unwatched rows); default/empty Genres/PlayedAt/PlotEmbedding succeed; duplicate `PlayedAt` preserved; caller inputs unchanged after success and after failure. Same file (not marked [P]).
+- [X] T011 [US3] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/TasteProfileCalculatorTests.cs` for: null `TimeProvider` / null `RecommendationOptions` → `ArgumentNullException`; non-finite or `<= 0.0` lambda → `ArgumentOutOfRangeException` in constructor without requiring unrelated Take/MMR validity; null `GenreWeights` → `ArgumentNullException`; null movie rows, duplicate `MovieId`, nonempty embedding length ≠ 384, non-finite embedding floats → `ArgumentException` before accumulation (including unwatched rows); default/empty Genres/PlayedAt/PlotEmbedding succeed; duplicate `PlayedAt` preserved; caller inputs unchanged after success and after failure. Same file (not marked [P]).
 
 ### Implementation for User Story 3
 
@@ -112,9 +112,9 @@
 
 ### Tests for User Story 4
 
-- [X] T013 [P] [US4] Extend `tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs` for future-timestamp age clamp, old-only histories that are not false cold starts, huge finite `RecencyDecayLambda`, relative underflow omitting exact-zero genre entries, and independent oracles that do not copy the production implementation. Same file concerns: do not mark [P] if editing concurrently with T014; prefer completing T013 before T014 if the same helper types are shared.
+- [X] T013 [P] [US4] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/TasteProfileCalculatorTests.cs` for future-timestamp age clamp, old-only histories that are not false cold starts, huge finite `RecencyDecayLambda`, relative underflow omitting exact-zero genre entries, and independent oracles that do not copy the production implementation. Same file concerns: do not mark [P] if editing concurrently with T014; prefer completing T013 before T014 if the same helper types are shared.
 
-- [X] T014 [US4] Write `tests/LamuFlix.Test/Features/Recommendations/TasteProfileProperties.cs` asserting finite outputs, per-channel convex bounds, identical-source idempotence, uniform-replication invariance within floating tolerance, and fixed-clock determinism over valid deterministic bounded generated histories. Respect unique movie rows and Q2 fallback rules; replication concerns watch-signal multiplicity, not duplicate MovieId rows. Use the property-test framework, category trait, and seed conventions verified at T001 (including any required deterministic Replay seed); no `System.Random`, no algorithm restatement, no new package, no property-test opt-out. Compare coordinates and dictionary entries.
+- [X] T014 [US4] Write `tests/LamuFlix.UnitTests/Features/Recommendations/TasteProfileProperties.cs` asserting finite outputs, per-channel convex bounds, identical-source idempotence, uniform-replication invariance within floating tolerance, and fixed-clock determinism over valid deterministic bounded generated histories. Respect unique movie rows and Q2 fallback rules; replication concerns watch-signal multiplicity, not duplicate MovieId rows. Use the property-test framework, category trait, and seed conventions verified at T001 (including any required deterministic Replay seed); no `System.Random`, no algorithm restatement, no new package, no property-test opt-out. Compare coordinates and dictionary entries.
 
 ### Implementation for User Story 4
 
@@ -166,8 +166,8 @@
 ## Parallel Example: Phase 2
 
 ```text
-Task: "Write tests/LamuFlix.Test/Domain/TasteProfileTests.cs"
-Task: "Write tests/LamuFlix.Test/Options/RecommendationOptionsRecencyTests.cs"
+Task: "Write tests/LamuFlix.UnitTests/Domain/TasteProfileTests.cs"
+Task: "Write tests/LamuFlix.UnitTests/Options/RecommendationOptionsRecencyTests.cs"
 Task: "Add src/LamuFlix.Core/Domain/TasteProfileMovie.cs"
 Task: "Add src/LamuFlix.Core/Domain/TasteProfile.cs"
 ```

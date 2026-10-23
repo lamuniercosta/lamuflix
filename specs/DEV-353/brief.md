@@ -76,7 +76,7 @@ No IsNotInterested field, negative-weight formula or candidate exclusion in this
 
 ## Q9 — Test strategy
 
-Use the existing tests/LamuFlix.Test project, xUnit v3, Shouldly and Theory/MemberData under existing test conventions. No new package, test project, DB or I/O fixture. A test-local BCL TimeProvider subclass counts clock reads. Use existing fixture/data tooling where appropriate. Property-test discovery conventions must be verified mechanically during Phase B; no new library is asserted as installed and no property-test opt-out is authorized.
+Use the existing tests/LamuFlix.UnitTests project, xUnit v3, Shouldly and Theory/MemberData under existing test conventions. No new package, test project, DB or I/O fixture. A test-local BCL TimeProvider subclass counts clock reads. Use existing fixture/data tooling where appropriate. Property-test discovery conventions must be verified mechanically during Phase B; no new library is asserted as installed and no property-test opt-out is authorized.
 
 Independent oracles include 0/30-day watches giving weights 1/0.5 and mixture 2/3 vs 1/3, fractional days, offset-equivalent timestamps, rarity values from supplied GenreCounts, unnormalized 384-coordinate basis vectors, repeated launch timestamps, manual fallback without double-counting, separate channel denominators, missing/zero/opposing vectors, every validation boundary, default/empty input, genre canonicalization, repeated-call determinism, exactly one clock read, unchanged MmrLambda and input immutability. Cover old-only histories, huge finite lambda and relative underflow without copying the implementation as the oracle.
 
@@ -98,10 +98,10 @@ Future Phase B production/test edits, subject to fresh drift recon:
 2. src/LamuFlix.Core/Domain/TasteProfile.cs
 3. src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs
 4. src/LamuFlix.Core/Options/RecommendationOptions.cs — ticket-forced addition/validation only.
-5. tests/LamuFlix.Test/Domain/TasteProfileTests.cs
-6. tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs
-7. tests/LamuFlix.Test/Options/RecommendationOptionsRecencyTests.cs
-8. tests/LamuFlix.Test/Features/Recommendations/TasteProfileProperties.cs
+5. tests/LamuFlix.UnitTests/Domain/TasteProfileTests.cs
+6. tests/LamuFlix.UnitTests/Features/Recommendations/TasteProfileCalculatorTests.cs
+7. tests/LamuFlix.UnitTests/Options/RecommendationOptionsRecencyTests.cs
+8. tests/LamuFlix.UnitTests/Features/Recommendations/TasteProfileProperties.cs
 
 Decision documents authorized for Keel: specs/DEV-353/CONCLUSIONS.md (append-only), ASSUMPTIONS.md, brief.md and feature-local CONTEXT.md. Quill drafts spec.md, plan.md and tasks.md from them and both recon notes. No global glossary edit or L-sized ADR is authorized/needed for this M ticket. No unnamed existing-file rewrite or new dependency/project/architectural layer is approved.
 
@@ -122,6 +122,8 @@ Grill closed by Patron Q10; no unresolved DEV-353 ticket/constitution departure 
 ## Full cited Patron answers Q1-Q10
 
 The following are verbatim copies of the full ruling files received during the grill. They supplement, rather than replace, the full questions and answers in CONCLUSIONS.md.
+
+> **Amendment (Phase 4 MED-1 ruling, `specs/DEV-353/CONCLUSIONS.md:172`):** every `tests/LamuFlix.Test` path quoted in the Q9/Q10 rulings below is superseded and reads as `tests/LamuFlix.UnitTests`. The quoted text is preserved verbatim as history; the four DEV-353 test files live in `tests/LamuFlix.UnitTests` with unchanged file names. No move back to `tests/LamuFlix.Test`, no new project, and no ticket or constitution departure.
 
 ---
 
