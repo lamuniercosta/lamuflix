@@ -127,9 +127,9 @@ public sealed class BlendScorerPropertyTests
         }
     }
 
-    private static double Term(int seed) => Math.Abs((double)seed % 1000.0) / 1000.0;
+    private static double Term(int seed) => Math.Abs(seed % 1000.0) / 1000.0;
 
-    private static double Coefficient(int seed) => Math.Abs((double)seed % 100.0) / 10.0;
+    private static double Coefficient(int seed) => Math.Abs(seed % 100.0) / 10.0;
 
     private static double Binary(int seed) => (seed & 1) == 0 ? 0.0 : 1.0;
 }

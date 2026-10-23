@@ -90,7 +90,7 @@ public sealed class EfRecommendationProfileSource(LamuFlixDbContext db) : IRecom
         var rows = await db.Movies
             .AsNoTracking()
             .Include(movie => movie.Genres)
-            .Where(movie => movie.IsWatched || launchedIds.Contains(movie.Id!))
+            .Where(movie => movie.Id != null && (movie.IsWatched || launchedIds.Contains(movie.Id)))
             .OrderBy(movie => movie.Id)
             .ToListAsync(ct);
 

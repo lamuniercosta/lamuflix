@@ -183,7 +183,7 @@ public sealed class BlendScorerTests
         Should.Throw<InvalidOperationException>(() => BlendScorer.Score(1.0, 1.0, 0.0, 0.0, options));
     }
 
-    internal static RecommendationOptions Options(double a, double b, double c, double d) =>
+    private static RecommendationOptions Options(double a, double b, double c, double d) =>
         new()
         {
             BlendSelectedWeight = a,

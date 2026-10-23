@@ -292,7 +292,7 @@ public sealed class ProfileSimilarityCalculatorTests
             preferences.ToImmutableDictionary(StringComparer.OrdinalIgnoreCase),
             embedding);
 
-    internal static ImmutableArray<float> Vector(params (int Axis, float Value)[] coordinates)
+    private static ImmutableArray<float> Vector(params (int Axis, float Value)[] coordinates)
     {
         var builder = ImmutableArray.CreateBuilder<float>(EmbeddingDimensions.Value);
         var values = new float[EmbeddingDimensions.Value];
@@ -310,5 +310,5 @@ public sealed class ProfileSimilarityCalculatorTests
         return builder.MoveToImmutable();
     }
 
-    internal static ImmutableArray<float> ZeroVector() => Vector();
+    private static ImmutableArray<float> ZeroVector() => Vector();
 }

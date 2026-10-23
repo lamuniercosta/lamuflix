@@ -36,6 +36,19 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        foreach (var result in ValidateCore())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateBlend())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateCore()
+    {
         foreach (var result in ValidateDecay())
         {
             yield return result;
@@ -50,7 +63,10 @@ public sealed record RecommendationOptions : IValidatableObject
         {
             yield return result;
         }
+    }
 
+    private IEnumerable<ValidationResult> ValidateBlend()
+    {
         foreach (var result in ValidateThreshold())
         {
             yield return result;
