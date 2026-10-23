@@ -25,7 +25,7 @@ public sealed class EfRecommendationCandidateSource(
 
     private readonly LamuFlixDbContext db = db ?? throw new ArgumentNullException(nameof(db));
     private readonly RecommendationOptions options =
-        options?.Value ?? throw new ArgumentNullException(nameof(options));
+        (options is null ? throw new ArgumentNullException(nameof(options)) : options.Value);
 
     public async Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(
         MovieId selectedMovieId,
