@@ -81,7 +81,7 @@ public sealed class GetRecommendationsQueryHandler(
 
             if (candidate.CosineSimilarity > storyThreshold)
             {
-                result = result with { Reasons = result.Reasons.Add(new Reason(SimilarStoryReason)) };
+                result = result with { Reasons = result.Reasons.Add(Reason.Structural(SimilarStoryReason)) };
             }
 
             scored.Add(new ScoredCandidate(candidate.Movie, result));

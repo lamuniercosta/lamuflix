@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
@@ -94,6 +95,17 @@ internal static class RecommendationEndpoints
         return take;
     }
 
+    private static RecommendedMovieReasonDto ToReasonDto(Reason reason) =>
+        new(Kind(reason.Kind), reason.Text);
+
+    private static string Kind(ReasonKind kind) =>
+        kind switch
+        {
+            ReasonKind.Structural => "structural",
+            ReasonKind.Personal => "personal",
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown reason kind."),
+        };
+
     private static RecommendedMovieDto ToDto(RecommendedMovie recommendedMovie)
     {
         var summary = recommendedMovie.Summary;
@@ -110,6 +122,6 @@ internal static class RecommendationEndpoints
             summary.IsWatched,
             summary.IsNotInterested,
             recommendedMovie.Score,
-            [.. recommendedMovie.Reasons.Select(reason => reason.Text)]);
+            [.. recommendedMovie.Reasons.Select(ToReasonDto)]);
     }
 }

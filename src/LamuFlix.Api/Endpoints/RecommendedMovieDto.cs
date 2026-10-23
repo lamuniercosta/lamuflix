@@ -16,5 +16,8 @@ internal sealed record RecommendedMovieDto(
     bool IsWatched,
     bool IsNotInterested,
     double Score,
-    ImmutableList<string> Reasons);
+    ImmutableList<RecommendedMovieReasonDto> Reasons);
+
+// ReSharper disable NotAccessedPositionalProperty.Global // Serialized by System.Text.Json as the frozen wire shape, never read in code
+internal sealed record RecommendedMovieReasonDto(string Kind, string Text);
 // ReSharper restore NotAccessedPositionalProperty.Global
