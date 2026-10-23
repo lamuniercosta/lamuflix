@@ -14,7 +14,7 @@ Deliver a pure Core `TasteProfileCalculator` that computes a recency-weighted **
 
 **Language/Version**: C# / .NET 10. Core domain/options/recommendations feature folder and named unit/property tests. No web change.
 
-**Primary Dependencies**: None added. Existing BCL (`TimeProvider`, `System.Collections.Immutable`, `Math`). Existing `GenreWeights` and `EmbeddingDimensions.Value` (384). Tests use existing xUnit v3 and Shouldly under `tests/LamuFlix.Test`. Property-test framework, category trait, and seed conventions are verified at Phase B T001 against the live project and property-test gate; stop for recon or a cited ruling if any are missing. No new package.
+**Primary Dependencies**: None added. Existing BCL (`TimeProvider`, `System.Collections.Immutable`, `Math`). Existing `GenreWeights` and `EmbeddingDimensions.Value` (384). Tests use existing xUnit v3 and Shouldly under `tests/LamuFlix.UnitTests`. Property-test framework, category trait, and seed conventions are verified at Phase B T001 against the live project and property-test gate; stop for recon or a cited ruling if any are missing. No new package.
 
 **Storage**: N/A. No schema, migration, or persistence in this ticket. Caller materializes values; DEV-413/351/352 landing is out of scope.
 
@@ -44,7 +44,7 @@ Deliver a pure Core `TasteProfileCalculator` that computes a recency-weighted **
 - No secret, `Features:LocalPlay`, or `Process.Start` (care list item 5).
 - Options and time: `RecencyDecayLambda` validated; `TimeProvider` injected; no `DateTime.Now` (constitution VII; recon-DEV-353:127).
 - Vocabulary: four terms in feature-local `CONTEXT.md` only; no root glossary edit (brief Q10; constitution VIII).
-- Tests: xUnit v3, Shouldly, and property tests under conventions verified at T001 under existing `tests/LamuFlix.Test` (constitution IX; recon-DEV-353:174-184; brief Q9). Gates from configured scripts; never lower thresholds (brief Gate expectations).
+- Tests: xUnit v3, Shouldly, and property tests under conventions verified at T001 under existing `tests/LamuFlix.UnitTests` (constitution IX; recon-DEV-353:174-184; brief Q9). Gates from configured scripts; never lower thresholds (brief Gate expectations).
 - Immutable collections for record collections (constitution.md:428; recon-DEV-353:130).
 
 Post-design re-check: the design below adds no package, project, new port, route, schema, or file outside the approved set. The same gates hold.
@@ -76,13 +76,13 @@ src/LamuFlix.Core/Domain/TasteProfile.cs
 src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs
 src/LamuFlix.Core/Options/RecommendationOptions.cs
 
-tests/LamuFlix.Test/Domain/TasteProfileTests.cs
-tests/LamuFlix.Test/Features/Recommendations/TasteProfileCalculatorTests.cs
-tests/LamuFlix.Test/Options/RecommendationOptionsRecencyTests.cs
-tests/LamuFlix.Test/Features/Recommendations/TasteProfileProperties.cs
+tests/LamuFlix.UnitTests/Domain/TasteProfileTests.cs
+tests/LamuFlix.UnitTests/Features/Recommendations/TasteProfileCalculatorTests.cs
+tests/LamuFlix.UnitTests/Options/RecommendationOptionsRecencyTests.cs
+tests/LamuFlix.UnitTests/Features/Recommendations/TasteProfileProperties.cs
 ```
 
-**Structure Decision**: Existing Core Domain, Options, and Recommendations feature folder only, plus the four named test files under `tests/LamuFlix.Test`. If the contract cannot be implemented inside this set, stop for a decision. Do not widen the set.
+**Structure Decision**: Existing Core Domain, Options, and Recommendations feature folder only, plus the four named test files under `tests/LamuFlix.UnitTests`. If the contract cannot be implemented inside this set, stop for a decision. Do not widen the set.
 
 ## Design Overview
 
