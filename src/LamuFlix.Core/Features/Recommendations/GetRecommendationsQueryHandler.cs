@@ -58,24 +58,24 @@ public sealed class GetRecommendationsQueryHandler(
 
     private static List<ScoredCandidate> Score(
         MovieFeatures selectedFeatures,
-        IReadOnlyList<Movie> pool,
+        IReadOnlyList<RecommendationCandidate> pool,
         SimilarityWeights weights,
         GenreWeights genreWeights,
         CancellationToken cancellationToken)
     {
         var scored = new List<ScoredCandidate>(pool.Count);
 
-        foreach (var movie in pool)
+        foreach (var candidate in pool)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var result = SimilarityScorer.Score(
                 selectedFeatures,
-                MovieFeaturesMapper.From(movie),
+                MovieFeaturesMapper.From(candidate.Movie),
                 weights,
                 genreWeights);
 
-            scored.Add(new ScoredCandidate(movie, result));
+            scored.Add(new ScoredCandidate(candidate.Movie, result));
         }
 
         return scored;

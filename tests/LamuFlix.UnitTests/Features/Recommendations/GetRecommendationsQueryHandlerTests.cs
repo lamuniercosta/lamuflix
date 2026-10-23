@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,7 +54,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler();
         var selected = NewMovie(1, withMetadata: false, status: EnrichmentStatus.Pending);
-        var pool = new[] { NewMovie(2, genres: ["Drama"]) };
+        var pool = Candidates(NewMovie(2, genres: ["Drama"]));
         Arrange(selected, pool);
 
         // act
@@ -194,7 +194,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     {
         // arrange
         var handler = NewHandler();
-        var pool = new[] { NewMovie(9, genres: ["Drama"]), NewMovie(4, genres: ["Drama"]), NewMovie(11, genres: ["Drama"]), NewMovie(7, genres: ["Drama"]) };
+        var pool = Candidates(NewMovie(9, genres: ["Drama"]), NewMovie(4, genres: ["Drama"]), NewMovie(11, genres: ["Drama"]), NewMovie(7, genres: ["Drama"]));
         Arrange(NewMovie(1, genres: ["Drama"]), pool);
 
         // act
@@ -213,7 +213,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var identical = NewMovie(2, genres: ["Drama", "Action"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"], releaseYear: 2000, runtimeMinutes: 120, imdbRating: 8.0m);
         var partial = NewMovie(4, genres: ["Drama"]);
         var zero = NewMovie(3, withMetadata: false);
-        Arrange(selected, new[] { zero, partial, identical });
+        Arrange(selected, Candidates(zero, partial, identical));
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
@@ -230,7 +230,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler();
         var selected = Selected();
-        var pool = new[] { NewMovie(2, genres: ["Drama", "Action"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"], releaseYear: 2000, runtimeMinutes: 120, imdbRating: 8.0m), NewMovie(3, withMetadata: false) };
+        var pool = Candidates(NewMovie(2, genres: ["Drama", "Action"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"], releaseYear: 2000, runtimeMinutes: 120, imdbRating: 8.0m), NewMovie(3, withMetadata: false));
         Arrange(selected, pool);
 
         // act
@@ -259,7 +259,7 @@ public sealed class GetRecommendationsQueryHandlerTests
             isInWatchlist: true,
             isWatched: true,
             isNotInterested: true);
-        Arrange(selected, new[] { candidate });
+        Arrange(selected, Candidates(candidate));
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
@@ -286,7 +286,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler();
         var selected = Selected();
         var candidate = NewMovie(8, title: "Eight", withMetadata: false);
-        Arrange(selected, new[] { candidate });
+        Arrange(selected, Candidates(candidate));
 
         // act
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
@@ -303,7 +303,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler();
         var selected = Selected();
         var candidate = NewMovie(2, genres: ["Drama", "Action"], directors: ["Director A"], actors: ["Actor A"], writers: ["Writer A"], releaseYear: 2000, runtimeMinutes: 120, imdbRating: 8.0m);
-        Arrange(selected, new[] { candidate });
+        Arrange(selected, Candidates(candidate));
         var expected = SimilarityScorer.Score(
             MovieFeaturesMapper.From(selected),
             MovieFeaturesMapper.From(candidate),
@@ -365,7 +365,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // arrange
         var handler = NewHandler();
         using var cts = new CancellationTokenSource();
-        IReadOnlyList<Movie> pool = Pool(2);
+        IReadOnlyList<RecommendationCandidate> pool = Pool(2);
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(Selected());
         candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
@@ -439,7 +439,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var failure = new InvalidOperationException("candidate load failed");
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(Selected());
         candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<IReadOnlyList<Movie>>(failure));
+            .Returns(Task.FromException<IReadOnlyList<RecommendationCandidate>>(failure));
 
         // act / assert
         var thrown = await Should.ThrowAsync<InvalidOperationException>(
@@ -470,7 +470,7 @@ public sealed class GetRecommendationsQueryHandlerTests
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
             Microsoft.Extensions.Options.Options.Create(new RecommendationOptions { Take = optionsTake, Weights = Weights }));
 
-    private void Arrange(Movie selected, IReadOnlyList<Movie> pool)
+    private void Arrange(Movie selected, IReadOnlyList<RecommendationCandidate> pool)
     {
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
         candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(pool);
@@ -486,8 +486,15 @@ public sealed class GetRecommendationsQueryHandlerTests
         runtimeMinutes: 120,
         imdbRating: 8.0m);
 
-    private static Movie[] Pool(int count) =>
-        [.. Enumerable.Range(2, count).Select(id => NewMovie(id, genres: ["Drama"], directors: ["Director A"]))];
+    private static RecommendationCandidate[] Pool(int count) =>
+        [.. Enumerable.Range(2, count).Select(id => new RecommendationCandidate(
+            NewMovie(id, genres: ["Drama"], directors: ["Director A"]),
+            Cosine(id)))];
+
+    private static RecommendationCandidate[] Candidates(params Movie[] movies) =>
+        [.. movies.Select((movie, index) => new RecommendationCandidate(movie, Cosine(index + 2)))];
+
+    private static double Cosine(int seed) => ((seed % 21) - 10) / 10.0;
 
     private static Movie NewMovie(
         int id,
@@ -564,16 +571,16 @@ public sealed class GetRecommendationsQueryHandlerTests
             writers: writers);
     }
 
-    private sealed class CancellingCandidates(IReadOnlyList<Movie> items, CancellationTokenSource source)
-        : IReadOnlyList<Movie>
+    private sealed class CancellingCandidates(IReadOnlyList<RecommendationCandidate> items, CancellationTokenSource source)
+        : IReadOnlyList<RecommendationCandidate>
     {
         public int Yielded { get; private set; }
 
         public int Count => items.Count;
 
-        public Movie this[int index] => items[index];
+        public RecommendationCandidate this[int index] => items[index];
 
-        public IEnumerator<Movie> GetEnumerator()
+        public IEnumerator<RecommendationCandidate> GetEnumerator()
         {
             for (var index = 0; index < items.Count; index++)
             {

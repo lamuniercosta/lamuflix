@@ -1,5 +1,7 @@
 # DEV-348 — Frozen Grill Brief
 
+Current authority: the 2026-10-23 owner-unblock amendment at the end of this brief supersedes every earlier DEV-342 semantic-calibration requirement and pending numeric-ratification statement below. The original Phase A text and verbatim exchanges remain historical records. Current worktree: F:/Dev/LamuFlix.worktrees/DEV-348; branch: feature/DEV-348. Patron ruling: CONCLUSIONS.md:204-211, committed in 153920dd5a58468a3df3aa31cc269bade16a20ee.
+
 Status: Phase A grill decisions frozen after Patron Q11; 11 of 12 questions used.
 Worktree: F:/Dev/LamuFlix.worktrees/feature-348-spec
 Branch: feature/348-spec
@@ -340,4 +342,38 @@ Grill closed at 11/12. All Phase A decisions are settled; concrete prerequisite 
 
 ---
 
+
+
+## Current Phase B decision amendment — 2026-10-23
+
+This amendment records the existing Patron decision, not another grill round. Authority: note DEV-348:66-74; CONCLUSIONS.md:204-211 at commit 153920dd5a58468a3df3aa31cc269bade16a20ee; facts: recon-DEV-348:63-66,69-82,91-109. It supersedes the calibration portions of Q1/Q4/Q7/Q10/Q11, scope paragraph, measured-default checkpoint, options default, Stage A checkpoint, test-default instruction and answer register wherever they require DEV-342 semantic pairs or future numeric ratification. Other prerequisite, scope, contract, review-cap and gate decisions remain unchanged. The former structural calibration block is superseded; this is not a gate pass, plan freeze, implementation clearance, or merge authorization.
+
+### Operative delivery and ordering
+
+- SimilarStoryThreshold is configurable, defaults to 0.5, rejects non-finite/out-of-range values outside [-1,1], and emits Similar story only for strict >. Equality still emits none.
+- Calibration source is deterministic synthetic 384-dimensional vector pairs, with cosine similarities 0.8 and 0.6 above 0.5, and 0.4, 0.0 and -1.0 at/below 0.5. Record the pairs, construction, computed cosines, separating midpoint and cited rationale in T003. This is calibration by construction for an engineering default, not semantic calibration of real all-minilm embeddings. No invented model provenance or semantic labels.
+- T004 numeric ratification is satisfied by CONCLUSIONS.md:210-211. T003 synthetic receipt remains outstanding unless separately evidenced; the ruling does not claim that any receipt or test ran. Stage A still blocks Stage B on prerequisite receipts, drift/analysis reconciliation, synthetic receipt and baseline evidence. It no longer waits for nonexistent DEV-342 semantic vectors or another numeric ruling.
+- Keep the original prerequisite for landed DEV-342 implementation distinct from calibration: no new DEV-342 fixture text, labels, stored embeddings or semantic model is required. Keep Epic 7, landed DEV-413, Gate 1 and Build-intake prerequisites and their receipts. recon-DEV-348:63-66,69-82 supplies fixture/schema/commit facts; PR-number linkage was not found in the bounded recon and must not be fabricated.
+- Construct pairs only in the already-authorized test files. Options tests assert default 0.5; adapter Testcontainers tests and handler/unit/property proofs exercise the named cosine set, strict comparison, equality at 0.5 and configuration overrides. Preserve signed values, weighted-score independence and candidate retention at/below threshold. Handler substitutes carry known cosine values; actual stored-vector query/serialization proof belongs to real PostgreSQL+pgvector tests.
+- No live Ollama, new dependency, FullPlot/semantic-label changes, weighted-metadata calibration, schema/API/LocalPlay change, or file-envelope expansion. Real semantic recalibration is noted, no ticket. Atomic Stage B and separate story-reason Stage C remain unchanged.
+
+### Quill amendment directives — one consolidated fix list
+
+1. Reconcile plan.md Summary, Constraints, Scope/prerequisites, Options design and Stage A language with the amended synthetic source and default 0.5. Cite this amendment and CONCLUSIONS.md:204-211. Replace pending numeric ratification with the existing T004 ruling; retain other prerequisites and the nine-file envelope.
+2. Re-scope tasks.md T003 to the synthetic-pair receipt above; record T004 as satisfied by the cited ruling, without claiming T003/tests complete. Update the Phase 1 goal/checkpoint, introductory blockers, dependency summary, implementation strategy and numeric-default notes consistently. Keep task IDs and atomic T006-T014 ordering.
+3. Make T008 encode configurable default 0.5; T011 assert it; T012 and T015/T016 explicitly cover the named synthetic set using existing test files, plus equality and overrides. Preserve real database proof, all existing validations/invariants and mandatory gates. Receipt preparation must not authorize production/test writes during the read-only setup stage; executable proofs remain in Stages B/C.
+4. spec.md must also mirror the ruling in US3, FR-003, FR-007, FR-008, SC-005, the numeric-default edge case and related assumptions. Remove active claims of DEV-342 semantic calibration and a still-pending numeric ruling; retain landed-DEV-342 sequencing. Plan/tasks alone cannot restore cross-artifact consistency. Quill should obtain Conductor routing for this companion spec edit if its assignment only names plan.md/tasks.md.
+5. Make current branch/status prose distinguish this Phase B reconciliation on feature/DEV-348 from historical Phase A drafting. Cite only available receipts; do not mark prerequisites, gates or implementation complete from this amendment. Qualify the historical extension-file absence statement in plan.md:13; the analysis read .specify/extensions.yml and it registers no before_analyze/after_analyze hooks. Do not change tooling or rename the branch to repair the prerequisite-script naming limitation.
+
+### Full Patron amendment — verbatim mirror
+## Phase 1 calibration re-ruling — owner unblock, amended criterion (2026-10-23)
+
+[from Patron] DEV-348 amended-calibration ruling: Approved — proceed (not defer) with a configurable default calibrated on deterministic synthetic vector pairs, with no live Ollama dependency; this supersedes the blocked: structural ruling at lines 194-201 above.
+
+- Basis for supersession: the owner explicitly instructed to unblock DEV-348 now and proceed rather than defer (note DEV-348:66-69, 2026-10-23); the owner's word overrides the earlier Patron ruling, so the DEV-342-calibration criterion is amended as below rather than re-escalated.
+- Amended acceptance criterion (replaces calibrated on DEV-342 golden set in spec.md US3/FR-003/FR-007/SC-005 and tasks.md T003/T004): `SimilarStoryThreshold` remains a configurable `RecommendationOptions` property, finite in [-1.0, 1.0] with strict `>` emission (Q3/Q4 unchanged); its default is calibrated on deterministic synthetic 384-dimensional vector pairs with known cosine similarities, constructed in the already-scoped test files (Q7/Q8 nine-file freeze unchanged), requiring no live Ollama service, no new NuGet dependency, no invented `FullPlot` text or semantic labels on the DEV-342 fixture, and no substitution of weighted metadata scores. DEV-342 cannot be the source: it holds cluster metadata only, with no story text, no labelled similar/dissimilar pairs, and no stored vectors (recon-DEV-348:98-108), and the only landed generator needs a live Ollama HTTP service (recon-DEV-348:91-95,107).
+- Ratified numeric default (T004): `SimilarStoryThreshold = 0.5`. T003's receipt must record synthetic pairs at cosine 0.8 and 0.6 (above) and 0.4, 0.0, and -1.0 (at/below), so 0.5 is the separating midpoint of that named synthetic set; it is an engineering default calibrated by construction on synthetic cosines, explicitly not a semantic calibration on real `all-minilm` embeddings, and remains operator-overridable via configuration. `RecommendationOptionsTests` must assert the 0.5 default; handler/property and Testcontainers tests must use deterministic stored vectors at those cosines (no live Ollama, per Q7). Future semantic recalibration against a real labelled golden set: noted, no ticket.
+- Effect: T003 is re-scoped to the synthetic-pair receipt above and T004 is satisfied by this ruling; no other Q1-Q11 decision, file scope, or gate changes, and no schema, dependency, API, or LocalPlay change is authorized.
+
+---
 

@@ -53,6 +53,21 @@ public sealed class RecommendationOptionsTests
         isExpected.ShouldBeTrue();
     }
 
+    public static TheoryData<double, bool> SimilarStoryThresholdEdges =>
+        new()
+        {
+            { -1.0, true },
+            { -0.5, true },
+            { 0.0, true },
+            { 0.5, true },
+            { 1.0, true },
+            { -1.0001, false },
+            { 1.0001, false },
+            { double.NaN, false },
+            { double.PositiveInfinity, false },
+            { double.NegativeInfinity, false },
+        };
+
     [Fact]
     public void Defaults_TakeCandidatePoolSizeAndMmrLambda_MatchTheAgreedValues()
     {
@@ -66,6 +81,16 @@ public sealed class RecommendationOptionsTests
         defaults.Take.ShouldBe(10);
         defaults.CandidatePoolSize.ShouldBe(50);
         defaults.MmrLambda.ShouldBe(0.7);
+    }
+
+    [Fact]
+    public void Defaults_SimilarStoryThreshold_IsTheAmendedCalibratedMidpoint()
+    {
+        // arrange
+        var options = new RecommendationOptions();
+
+        // act / assert
+        options.SimilarStoryThreshold.ShouldBe(0.5);
     }
 
     [Fact]
@@ -139,6 +164,22 @@ public sealed class RecommendationOptionsTests
         AssertEdge(results, nameof(RecommendationOptions.MmrLambda), expectedValid);
     }
 
+    [Theory]
+    [MemberData(nameof(SimilarStoryThresholdEdges))]
+    public void TryValidateObject_SimilarStoryThreshold_AtEachEdge_MatchesTheFiniteUnitRange(
+        double similarStoryThreshold,
+        bool expectedValid)
+    {
+        // arrange
+        var options = new RecommendationOptions { SimilarStoryThreshold = similarStoryThreshold };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        AssertEdge(results, nameof(RecommendationOptions.SimilarStoryThreshold), expectedValid);
+    }
+
     [Fact]
     public void TryValidateObject_CandidatePoolSizeBelowTake_ReportsCandidatePoolSize()
     {
@@ -190,6 +231,7 @@ public sealed class RecommendationOptionsTests
         values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.Take)}"] = "7";
         values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.CandidatePoolSize)}"] = "25";
         values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.MmrLambda)}"] = "0.5";
+        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.SimilarStoryThreshold)}"] = "0.6";
         values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.Weights)}:{nameof(SimilarityWeights.Director)}"] = "4";
         using var provider = Build(values);
 
@@ -204,7 +246,42 @@ public sealed class RecommendationOptionsTests
         bound.Take.ShouldBe(7);
         bound.CandidatePoolSize.ShouldBe(25);
         bound.MmrLambda.ShouldBe(0.5);
+        bound.SimilarStoryThreshold.ShouldBe(0.6);
         bound.Weights.Director.ShouldBe(4);
+    }
+
+    [Fact]
+    public void StartupValidation_SimilarStoryThresholdDefaults_ToTheCalibratedMidpoint()
+    {
+        // arrange
+        var values = ValidRequired();
+        using var provider = Build(values);
+
+        // act
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        // assert
+        provider.GetRequiredService<IOptions<RecommendationOptions>>().Value
+            .SimilarStoryThreshold.ShouldBe(0.5);
+    }
+
+    [Theory]
+    [InlineData("1.0001")]
+    [InlineData("-1.0001")]
+    public void StartupValidation_SimilarStoryThresholdOutsideUnitRange_FailsValidation(string value)
+    {
+        // arrange
+        var values = ValidRequired();
+        values[$"{RecommendationOptions.SectionName}:{nameof(RecommendationOptions.SimilarStoryThreshold)}"] = value;
+
+        // act
+        var exception = ValidateStartup(values);
+
+        // assert
+        exception.Message.ShouldContain(nameof(RecommendationOptions.SimilarStoryThreshold));
     }
 
     [Fact]

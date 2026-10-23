@@ -11,4 +11,12 @@
 
 **Needs decision (for Keel)**: none raised.
 
-**Needs recon**: none raised. Phase B concrete DEV-413 identifiers, DEV-342 fixture paths, and the calibrated numeric default remain explicit gated checkpoints in `tasks.md` Phase 1, not Quill inventions.
+**Needs recon**: none raised. Phase B concrete DEV-413 identifiers and DEV-342 fixture paths (sequencing) remain explicit gated checkpoints in `tasks.md` Phase 1, not Quill inventions. T004 numeric default is satisfied by `CONCLUSIONS.md:210-211`; T003 synthetic-pair receipt remains outstanding until evidenced.
+
+## Phase B analyze fix round — Quill (2026-10-23)
+
+**Ask**: Conductor routed Keel five numbered directives (note DEV-348:105-111; brief.md:360-366).
+
+**Applied**: All five to `specs/DEV-348/spec.md`, `plan.md`, and `tasks.md` on `feature/DEV-348`. No branch rename; no tooling edit. No decisions invented.
+
+**Needs decision (for Keel)**: none raised from this fix round.

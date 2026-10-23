@@ -22,6 +22,8 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public double RecencyDecayLambda { get; init; } = Math.Log(2.0) / 30.0;
 
+    public double SimilarStoryThreshold { get; init; } = 0.5;
+
     public SimilarityWeights Weights { get; init; } = new();
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -64,6 +66,17 @@ public sealed record RecommendationOptions : IValidatableObject
                     CandidatePoolSize,
                     Take),
                 [nameof(CandidatePoolSize), nameof(Take)]);
+        }
+
+        if (!double.IsFinite(SimilarStoryThreshold) || SimilarStoryThreshold is < -1.0 or > 1.0)
+        {
+            yield return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} must be a finite value between -1 and 1; got {1}.",
+                    nameof(SimilarStoryThreshold),
+                    SimilarStoryThreshold),
+                [nameof(SimilarStoryThreshold)]);
         }
     }
 }
