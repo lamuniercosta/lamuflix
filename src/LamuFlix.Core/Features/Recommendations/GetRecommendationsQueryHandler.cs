@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -14,7 +15,9 @@ namespace LamuFlix.Core.Features.Recommendations;
 public sealed class GetRecommendationsQueryHandler(
     IMovieRepository movies,
     IRecommendationCandidateSource candidates,
+    IRecommendationProfileSource profileSource,
     GenreWeightsCalculator genreWeightsCalculator,
+    TimeProvider timeProvider,
     IOptions<RecommendationOptions> options)
     : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
 {
@@ -33,7 +36,9 @@ public sealed class GetRecommendationsQueryHandler(
         var pool = await candidates.GetCandidatesAsync(query.MovieId, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (pool.Count == 0)
+        var eligible = ExcludeNotInterested(pool, cancellationToken);
+
+        if (eligible.Count == 0)
         {
             return ImmutableList<RecommendedMovie>.Empty;
         }
@@ -41,10 +46,24 @@ public sealed class GetRecommendationsQueryHandler(
         var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var weights = options.Value.Weights;
-        var storyThreshold = options.Value.SimilarStoryThreshold;
+        var profileInputs = await profileSource.GetProfileInputsAsync(
+            [.. eligible.Select(candidate => candidate.Movie.Id)],
+            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var recommendationOptions = options.Value;
+        var profile = new TasteProfileCalculator(timeProvider, recommendationOptions).Calculate(
+            profileInputs.Movies,
+            genreWeights);
         var selectedFeatures = MovieFeaturesMapper.From(selected);
-        var scored = Score(selectedFeatures, pool, weights, genreWeights, storyThreshold, cancellationToken);
+        var scored = Score(
+            selectedFeatures,
+            eligible,
+            profile,
+            profileInputs.CandidateEmbeddings,
+            genreWeights,
+            recommendationOptions,
+            cancellationToken);
 
         return
         [
@@ -59,12 +78,32 @@ public sealed class GetRecommendationsQueryHandler(
         ];
     }
 
+    private static List<RecommendationCandidate> ExcludeNotInterested(
+        IReadOnlyList<RecommendationCandidate> pool,
+        CancellationToken cancellationToken)
+    {
+        var eligible = new List<RecommendationCandidate>(pool.Count);
+
+        foreach (var candidate in pool)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!candidate.Movie.IsNotInterested)
+            {
+                eligible.Add(candidate);
+            }
+        }
+
+        return eligible;
+    }
+
     private static List<ScoredCandidate> Score(
         MovieFeatures selectedFeatures,
         IReadOnlyList<RecommendationCandidate> pool,
-        SimilarityWeights weights,
+        TasteProfile profile,
+        ImmutableDictionary<MovieId, ImmutableArray<float>> candidateEmbeddings,
         GenreWeights genreWeights,
-        double storyThreshold,
+        RecommendationOptions options,
         CancellationToken cancellationToken)
     {
         var scored = new List<ScoredCandidate>(pool.Count);
@@ -73,18 +112,39 @@ public sealed class GetRecommendationsQueryHandler(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var result = SimilarityScorer.Score(
+            var features = MovieFeaturesMapper.From(candidate.Movie);
+            var similarity = SimilarityScorer.Score(
                 selectedFeatures,
-                MovieFeaturesMapper.From(candidate.Movie),
-                weights,
+                features,
+                options.Weights,
                 genreWeights);
 
-            if (candidate.CosineSimilarity > storyThreshold)
+            var profileSimilarity = ProfileSimilarityCalculator.Similarity(
+                [.. features.Genres.Order(StringComparer.Ordinal)],
+                candidateEmbeddings.GetValueOrDefault(
+                    candidate.Movie.Id,
+                    ImmutableArray<float>.Empty),
+                profile,
+                genreWeights);
+
+            var score = BlendScorer.Score(
+                similarity.Score,
+                profileSimilarity,
+                candidate.Movie.IsWatched ? 1.0 : 0.0,
+                0.0,
+                options);
+
+            if (candidate.CosineSimilarity > options.SimilarStoryThreshold)
             {
-                result = result with { Reasons = result.Reasons.Add(Reason.Structural(SimilarStoryReason)) };
+                similarity = similarity with
+                {
+                    Reasons = similarity.Reasons.Add(Reason.Structural(SimilarStoryReason)),
+                };
             }
 
-            scored.Add(new ScoredCandidate(candidate.Movie, result));
+            scored.Add(new ScoredCandidate(
+                candidate.Movie,
+                new SimilarityResult(score, similarity.Reasons)));
         }
 
         return scored;
