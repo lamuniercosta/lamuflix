@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
@@ -6,7 +6,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using AutoFixture;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence.Records;
+using Pgvector;
 using Shouldly;
 using Xunit;
 
@@ -70,6 +72,9 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         var selectedId = selectedRecord.Id.ShouldNotBeNull().Value;
         var identicalId = identicalRecord.Id.ShouldNotBeNull().Value;
         var partialId = partialRecord.Id.ShouldNotBeNull().Value;
+        await SeedVectorAsync(selectedId, primary: 1f, secondary: 0f);
+        await SeedVectorAsync(identicalId, primary: 0f, secondary: 1f);
+        await SeedVectorAsync(partialId, primary: 0f, secondary: 1f);
 
         // act
         var response = await client.GetAsync(
@@ -192,6 +197,24 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         }
 
         return movie;
+    }
+
+    // Stored vectors keep cosine similarity at 0.0, below the story threshold, so this end-to-end
+    // proof exercises the real pgvector candidate source without emitting a story reason.
+    private async Task SeedVectorAsync(int movieId, float primary, float secondary)
+    {
+        var vector = new float[EmbeddingDimensions.Value];
+        vector[0] = primary;
+        vector[1] = secondary;
+
+        await using var context = Fixture.Postgres.CreateMigratedContext();
+        context.MovieFeatures.Add(new MovieFeaturesRecord
+        {
+            MovieId = new MovieId(movieId),
+            Vector = new Vector(vector),
+            ComputedAt = MovieCatalogSeed.FixedTime
+        });
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     private static void ShouldCarryExactly(JsonElement element, IEnumerable<string> names) =>

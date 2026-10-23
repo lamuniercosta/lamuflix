@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -72,7 +72,10 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         return SameSequence(forward, reversed) && SameSequence(forward, sorted);
     }
 
-    private static ImmutableList<RecommendedMovie> Handle(IReadOnlyList<Movie> pool, int take)
+    private static ImmutableList<RecommendedMovie> Handle(IReadOnlyList<Movie> pool, int take) =>
+        Handle([.. pool.Select((movie, index) => new RecommendationCandidate(movie, Cosine(index)))], take);
+
+    private static ImmutableList<RecommendedMovie> Handle(IReadOnlyList<RecommendationCandidate> pool, int take)
     {
         var movies = Substitute.For<IMovieRepository>();
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(SelectedMovie());
@@ -93,6 +96,8 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
     }
 
     private static int Take(int takeSeed) => Math.Abs(takeSeed % 20) + 1;
+
+    private static double Cosine(int index) => (index % 21 - 10) / 10.0;
 
     private static Movie[] BuildPool(int[] ids, int[] seeds)
     {
