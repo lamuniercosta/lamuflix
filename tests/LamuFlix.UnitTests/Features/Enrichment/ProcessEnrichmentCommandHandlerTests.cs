@@ -468,17 +468,21 @@ public sealed class ProcessEnrichmentCommandHandlerTests
             EnrichmentFailureCategory.ProviderUnavailable));
     }
 
-    [Fact]
-    public async Task HandleAsync_FoundImdbIdHeldByAnotherMovie_MarksFailedAsDuplicateAndDeadLetters()
+    [Theory]
+    [InlineData(1, 99)]
+    [InlineData(99, 1)]
+    public async Task HandleAsync_FoundImdbIdHeldByAnotherMovie_MarksFailedAsDuplicateAndDeadLetters(
+        int movieId,
+        int holderId)
     {
         // arrange
-        var movie = PendingMovie();
+        var movie = PendingMovie(new MovieId(movieId));
         var imdbId = new ImdbId("tt0083658");
         var ct = CancellationToken.None;
         Claimed(movie, true);
         provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
             .Returns(new MetadataLookupResult.Found(new MovieMetadata("Enriched Title", imdbId: imdbId)));
-        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(new MovieId(99));
+        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(new MovieId(holderId));
         var command = new ProcessEnrichmentCommand(movie.Id, 1);
 
         // act
@@ -517,16 +521,20 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
-    [Fact]
-    public async Task HandleAsync_ManualImdbIdHeldByAnotherMovie_FailsBeforeTheProviderLookup()
+    [Theory]
+    [InlineData(1, 99)]
+    [InlineData(99, 1)]
+    public async Task HandleAsync_ManualImdbIdHeldByAnotherMovie_FailsBeforeTheProviderLookup(
+        int movieId,
+        int holderId)
     {
         // arrange
-        var movie = PendingMovie();
+        var movie = PendingMovie(new MovieId(movieId));
         var manualId = new ImdbId("tt0083658");
         movie.MatchManually(manualId);
         var ct = CancellationToken.None;
         Claimed(movie, true);
-        movies.FindMovieIdByImdbIdAsync(manualId, ct).Returns(new MovieId(99));
+        movies.FindMovieIdByImdbIdAsync(manualId, ct).Returns(new MovieId(holderId));
 
         // act
         var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
@@ -605,11 +613,11 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         movies.GetAsync(movie.Id, ct).Returns(movie);
     }
 
-    private Movie PendingMovie()
+    private Movie PendingMovie(MovieId? id = null)
     {
         var title = Faker.Lorem.GetFirstWord();
         return Movie.Create(
-            NewId(),
+            id ?? NewId(),
             string.IsNullOrWhiteSpace(title) ? "Title" : title,
             new LibraryPath("C:/library/a"),
             new MediaFormat("mkv"));
