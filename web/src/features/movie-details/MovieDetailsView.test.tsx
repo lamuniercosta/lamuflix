@@ -667,9 +667,15 @@ describe('MovieDetailsView feedback actions', () => {
 
     // assert
     expect(await screen.findByText(MOVIE_FEEDBACK_SAVE_ERROR)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Mark Watched, Dune' })).toBeEnabled();
+    const retryButton = await screen.findByRole('button', {
+      name: 'Retry saving feedback, Dune',
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Mark Watched, Dune' })).toBeEnabled(),
+    );
+    await waitFor(() => expect(retryButton).toBeEnabled());
 
-    fireEvent.click(screen.getByRole('button', { name: 'Retry saving feedback, Dune' }));
+    fireEvent.click(retryButton);
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeVisible(),
