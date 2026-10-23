@@ -608,4 +608,63 @@ describe('movieFeedbackStore authoritative refresh', () => {
     expect(fetches).toBe(3);
     expect(posts).toBe(1);
   });
+
+  it('ignores an inactive failed query when the active refresh succeeds', async () => {
+    // arrange
+    server.use(
+      http.post('*/api/movies/:id/watched', () => new HttpResponse(null, { status: 204 })),
+    );
+    const client = makeQueryClient();
+    watch(client, BROWSE_KEY, () => Promise.resolve({ items: [] }));
+    watch(client, ['movieDetails', 2], () => Promise.resolve({ id: 2 }));
+    watch(client, ['relatedMovies', 2], () => Promise.resolve([]));
+    await client.prefetchQuery({
+      queryKey: ['relatedMovies', 1],
+      queryFn: () => Promise.reject(new Error('stale failure')),
+    });
+    expect(client.getQueryState(['relatedMovies', 1])?.status).toBe('error');
+    renderProbes(client, [
+      { movieId: 2, initial: flags(false, false), clients: clientsFor(client) },
+    ]);
+
+    // act
+    click('watched-2-a');
+
+    // assert
+    await waitFor(() => expect(read('2-a', 'blocked')).toBe('open'));
+    expect(read('2-a', 'flags')).toBe('watched/neutral');
+    expect(read('2-a', 'refresh-error')).toBe('');
+
+    click('refresh-2-a');
+    await waitFor(() => expect(read('2-a', 'blocked')).toBe('open'));
+    expect(read('2-a', 'refresh-error')).toBe('');
+  });
+
+  it('never claims Saved when a failed POST meets a failed reconciliation', async () => {
+    // arrange
+    let fetches = 0;
+    server.use(
+      http.post('*/api/movies/:id/watched', () => new HttpResponse(null, { status: 500 })),
+    );
+    const client = makeQueryClient();
+    watch(client, ['relatedMovies', 1], () => {
+      fetches += 1;
+      if (fetches === 1) return Promise.resolve([]);
+      return Promise.reject(new Error('refresh failed'));
+    });
+    renderProbes(client, [
+      { movieId: 1, initial: flags(false, false), clients: clientsFor(client) },
+    ]);
+    await waitFor(() => expect(fetches).toBe(1));
+
+    // act
+    click('watched-1-a');
+
+    // assert
+    await waitFor(() => expect(read('1-a', 'error')).toBe(MOVIE_FEEDBACK_SAVE_ERROR));
+    await waitFor(() => expect(read('1-a', 'blocked')).toBe('open'));
+    expect(read('1-a', 'flags')).toBe('unwatched/neutral');
+    expect(read('1-a', 'refresh-error')).toBe('');
+    expect(fetches).toBe(2);
+  });
 });
