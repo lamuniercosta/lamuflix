@@ -28,6 +28,34 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        foreach (var result in ValidateDecay())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateWeights())
+        {
+            yield return result;
+        }
+
+        if (Weights is null)
+        {
+            yield break;
+        }
+
+        foreach (var result in ValidatePool())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateThreshold())
+        {
+            yield return result;
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateDecay()
+    {
         if (!double.IsFinite(RecencyDecayLambda) || RecencyDecayLambda <= 0.0)
         {
             yield return new ValidationResult(
@@ -38,7 +66,10 @@ public sealed record RecommendationOptions : IValidatableObject
                     RecencyDecayLambda),
                 [nameof(RecencyDecayLambda)]);
         }
+    }
 
+    private IEnumerable<ValidationResult> ValidateWeights()
+    {
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - configuration binder can set Weights to null via reflection.
         if (Weights is null)
         {
@@ -54,7 +85,10 @@ public sealed record RecommendationOptions : IValidatableObject
         {
             yield return failure;
         }
+    }
 
+    private IEnumerable<ValidationResult> ValidatePool()
+    {
         if (CandidatePoolSize < Take)
         {
             yield return new ValidationResult(
@@ -67,7 +101,10 @@ public sealed record RecommendationOptions : IValidatableObject
                     Take),
                 [nameof(CandidatePoolSize), nameof(Take)]);
         }
+    }
 
+    private IEnumerable<ValidationResult> ValidateThreshold()
+    {
         if (!double.IsFinite(SimilarStoryThreshold) || SimilarStoryThreshold is < -1.0 or > 1.0)
         {
             yield return new ValidationResult(
