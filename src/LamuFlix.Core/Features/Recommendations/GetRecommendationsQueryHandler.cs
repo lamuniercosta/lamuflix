@@ -166,28 +166,40 @@ public sealed class GetRecommendationsQueryHandler(
 
         if (profileWeight > 0.0)
         {
-            foreach (var genre in profileSimilarity.OverlappingGenres)
-            {
-                var display = Sanitize(genre);
-                if (display.Length > 0)
-                {
-                    builder.Add(Reason.Personal(
-                        string.Format(CultureInfo.InvariantCulture, GenreInterestTemplate, display)));
-                }
-            }
+            AddPersonalReasons(builder, profileSimilarity);
+        }
 
-            if (profileSimilarity.HasPlotChannel && profileSimilarity.PlotSimilarity > 0.0)
+        EnsureFallbackReason(builder);
+
+        return builder.ToImmutable();
+    }
+
+    private static void AddPersonalReasons(
+        ImmutableList<Reason>.Builder builder,
+        ProfileSimilarityEvidence profileSimilarity)
+    {
+        foreach (var genre in profileSimilarity.OverlappingGenres)
+        {
+            var display = Sanitize(genre);
+            if (display.Length > 0)
             {
-                builder.Add(Reason.Personal(ViewingHistoryReason));
+                builder.Add(Reason.Personal(
+                    string.Format(CultureInfo.InvariantCulture, GenreInterestTemplate, display)));
             }
         }
 
+        if (profileSimilarity is { HasPlotChannel: true, PlotSimilarity: > 0.0 })
+        {
+            builder.Add(Reason.Personal(ViewingHistoryReason));
+        }
+    }
+
+    private static void EnsureFallbackReason(ImmutableList<Reason>.Builder builder)
+    {
         if (builder.Count == 0)
         {
             builder.Add(Reason.Structural(NoSharedFeaturesReason));
         }
-
-        return builder.ToImmutable();
     }
 
     private static string Sanitize(string? value)

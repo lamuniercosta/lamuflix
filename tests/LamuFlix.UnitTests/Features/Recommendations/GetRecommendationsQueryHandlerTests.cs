@@ -9,7 +9,6 @@ using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
-using LamuFlix.UnitTests.Features;
 using NSubstitute;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
@@ -934,11 +933,11 @@ public sealed class GetRecommendationsQueryHandlerTests
     }
 
     private void ArrangeProfileWith(
-        System.Collections.Immutable.ImmutableArray<TasteProfileMovie> movies,
+        System.Collections.Immutable.ImmutableArray<TasteProfileMovie> profileMovies,
         System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>> embeddings) =>
         profileSource
             .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult(new RecommendationProfileInputs(movies, embeddings)));
+            .Returns(_ => Task.FromResult(new RecommendationProfileInputs(profileMovies, embeddings)));
 
     private GetRecommendationsQueryHandler NewHandler(
         int optionsTake = DefaultTake,
@@ -971,11 +970,11 @@ public sealed class GetRecommendationsQueryHandlerTests
         candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(pool);
     }
 
-    private void ArrangeProfile(params TasteProfileMovie[] movies) =>
+    private void ArrangeProfile(params TasteProfileMovie[] profileMovies) =>
         profileSource
             .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(new RecommendationProfileInputs(
-                [.. movies],
+                [.. profileMovies],
                 System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>.Empty)));
 
     private static TasteProfileMovie ProfileMovie(int id, params string[] genres) =>

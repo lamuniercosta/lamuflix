@@ -28,14 +28,13 @@ public static class ProfileSimilarityCalculator
         ValidateEmbedding(profile.PlotEmbedding, nameof(profile));
 
         var channels = new List<double>(2);
-        var overlappingGenres = ImmutableArray<string>.Empty;
 
         if (TryGenreSimilarity(
                 candidateGenres,
                 profile.GenrePreferences,
                 genreWeights,
                 out var genreSimilarity,
-                out overlappingGenres))
+                out var overlappingGenres))
         {
             channels.Add(genreSimilarity);
         }
@@ -67,15 +66,30 @@ public static class ProfileSimilarityCalculator
         out double similarity,
         out ImmutableArray<string> overlappingGenres)
     {
-        similarity = 0.0;
         overlappingGenres = ImmutableArray<string>.Empty;
         var candidateWeights = CandidateWeights(candidateGenres, genreWeights);
 
         if (candidateWeights.Count == 0 || !HasPositiveMass(preferences))
         {
+            similarity = 0.0;
             return false;
         }
 
+        var union = BuildUnion(candidateWeights, preferences);
+
+        if (!TryWeightedJaccard(union, candidateWeights, preferences, out similarity))
+        {
+            return false;
+        }
+
+        overlappingGenres = OverlappingGenres(union, candidateWeights, preferences);
+        return true;
+    }
+
+    private static HashSet<string> BuildUnion(
+        Dictionary<string, double> candidateWeights,
+        ImmutableDictionary<string, double> preferences)
+    {
         var union = new HashSet<string>(candidateWeights.Keys, StringComparer.OrdinalIgnoreCase);
         foreach (var genre in preferences.Keys)
         {
@@ -85,6 +99,16 @@ public static class ProfileSimilarityCalculator
             }
         }
 
+        return union;
+    }
+
+    private static bool TryWeightedJaccard(
+        HashSet<string> union,
+        Dictionary<string, double> candidateWeights,
+        ImmutableDictionary<string, double> preferences,
+        out double similarity)
+    {
+        similarity = 0.0;
         var intersectionWeight = 0.0;
         var unionWeight = 0.0;
 
@@ -102,7 +126,6 @@ public static class ProfileSimilarityCalculator
         }
 
         similarity = Math.Clamp(intersectionWeight / unionWeight, 0.0, 1.0);
-        overlappingGenres = OverlappingGenres(union, candidateWeights, preferences);
         return true;
     }
 

@@ -1,16 +1,15 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Ports;
+using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
-using Microsoft.EntityFrameworkCore;
 using Pgvector;
 using Shouldly;
 using Xunit;
@@ -198,7 +197,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         await using var db = fixture.CreateMigratedContext();
         var source = new EfRecommendationProfileSource(db);
         var inputs = await source.GetProfileInputsAsync([movieId], ct);
-        var calculator = new TasteProfileCalculator(TimeProvider.System, new LamuFlix.Core.Options.RecommendationOptions());
+        var calculator = new TasteProfileCalculator(TimeProvider.System, new RecommendationOptions());
         var weights = GenreWeights.Calculate(new GenreCounts(2, new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)
         {
             ["Drama"] = 1,
@@ -222,11 +221,9 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         await SeedMovieAsync("Watched", isWatched: true, ct);
         await using var db = fixture.CreateMigratedContext();
         var source = new EfRecommendationProfileSource(db);
-        using var cancelled = new CancellationTokenSource();
-        await cancelled.CancelAsync();
 
         // act
-        var act = () => source.GetProfileInputsAsync([], cancelled.Token);
+        var act = () => source.GetProfileInputsAsync([], new CancellationToken(canceled: true));
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);

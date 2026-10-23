@@ -135,13 +135,18 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             genreWeights);
         var story = HasStoryReason(item);
 
-        if (story)
-        {
-            return item.Reasons.Count == expected.Reasons.Count + 1
-                && PrefixMatches(item, expected)
-                && SuffixMatches(item, story: true);
-        }
+        return story
+            ? MatchesStorySuffix(item, expected)
+            : MatchesWithoutStorySuffix(item, expected);
+    }
 
+    private static bool MatchesStorySuffix(RecommendedMovie item, SimilarityResult expected) =>
+        item.Reasons.Count == expected.Reasons.Count + 1
+            && PrefixMatches(item, expected)
+            && SuffixMatches(item, story: true);
+
+    private static bool MatchesWithoutStorySuffix(RecommendedMovie item, SimilarityResult expected)
+    {
         if (expected.Reasons.Count == 0)
         {
             return item.Reasons.Count == 1
