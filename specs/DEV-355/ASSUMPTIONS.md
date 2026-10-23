@@ -1,3 +1,4 @@
 # DEV-355 — Taste assumptions
 
 - [assumed] Q4, Patron ACCEPT: feedback labels are `Mark Watched` / `Watched` and `Not Interested` / `Not Interested (marked)`. Repeated-card accessible names include the movie title. Basis: ticket in `recon-DEV-355:88-96`, `specs/PRODUCT.md` §4. Full exchange: `CONCLUSIONS.md`, Q4. Palette decides placement and visual styling within the accepted accessibility and interaction constraints.
+- [assumed] Phase 2 store error copy: mutation failure renders `Couldn't save feedback. Try again.` and the separate refresh-only failure after a successful POST renders `Saved, but the view could not refresh. Try again.`. Basis: brief Q3/Q4 require an accessible mutation error with explicit retry plus a separate refresh-only error/retry without fixing wording, mirroring the existing watchlist copy pattern at `web/src/library/watchlistStore.ts:4`; Phase 3 owns final rendered wording within the same contract.
