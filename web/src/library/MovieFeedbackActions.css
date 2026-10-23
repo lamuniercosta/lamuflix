@@ -1,0 +1,26 @@
+.movie-feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lamu-space-2);
+}
+
+.movie-feedback-actions .lamu-action-quiet[data-marked='true'] {
+  background-color: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-booth);
+}
+
+.movie-feedback-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lamu-space-2);
+  margin: 0;
+  color: var(--color-dim);
+  font-size: 0.875rem;
+}
+
+.movie-feedback-error p {
+  margin: 0;
+}

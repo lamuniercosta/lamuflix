@@ -56,11 +56,11 @@
 
 ### Tests
 
-- [ ] T006 [P] [US1] [US3] Write Vitest/RTL proofs in `web/src/library/MovieFeedbackActions.test.tsx`: labels `Mark Watched` / `Watched` and `Not Interested` / `Not Interested (marked)` (ASSUMPTIONS.md); disabled marked non-dispatch; Enter/Space activation; accessible names including movie title; visible focus; pending announcement; accessible mutation error with explicit retry under the same per-movie exclusion (double-activate retry dispatches at most one POST; no POST while reconciliation is active); rendered refresh-only error/retry after POST success keeps the confirmed mark and retry performs refresh without another POST; activating feedback does not trigger parent-card navigation. AAA headers only.
+- [X] T006 [P] [US1] [US3] Write Vitest/RTL proofs in `web/src/library/MovieFeedbackActions.test.tsx`: labels `Mark Watched` / `Watched` and `Not Interested` / `Not Interested (marked)` (ASSUMPTIONS.md); disabled marked non-dispatch; Enter/Space activation; accessible names including movie title; visible focus; pending announcement; accessible mutation error with explicit retry under the same per-movie exclusion (double-activate retry dispatches at most one POST; no POST while reconciliation is active); rendered refresh-only error/retry after POST success keeps the confirmed mark and retry performs refresh without another POST; activating feedback does not trigger parent-card navigation. AAA headers only.
 
 ### Implementation
 
-- [ ] T007 [US1] [US3] Add `web/src/library/MovieFeedbackActions.tsx` shared controls wired to `movieFeedbackStore`. Add `web/src/library/MovieFeedbackActions.css` only if Palette `design.md` requires scoped styling. Native keyboard-operable buttons; no undo/toggle UI. Wire explicit mutation retry through the same per-movie exclusion as the initial POST. Expose user-facing refresh-only error/retry that retains the confirmed mark and retries refresh without another POST. Placement/visual styling follow Palette within the settled interaction contract.
+- [X] T007 [US1] [US3] Add `web/src/library/MovieFeedbackActions.tsx` shared controls wired to `movieFeedbackStore`. Add `web/src/library/MovieFeedbackActions.css` only if Palette `design.md` requires scoped styling. Native keyboard-operable buttons; no undo/toggle UI. Wire explicit mutation retry through the same per-movie exclusion as the initial POST. Expose user-facing refresh-only error/retry that retains the confirmed mark and retries refresh without another POST. Placement/visual styling follow Palette within the settled interaction contract.
 
 **Checkpoint**: Shared controls green for US1 labels/actions and US3 accessibility.
 
