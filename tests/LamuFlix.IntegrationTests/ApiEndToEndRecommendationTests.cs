@@ -199,8 +199,6 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         return movie;
     }
 
-    // Stored vectors keep cosine similarity at 0.0, below the story threshold, so this end-to-end
-    // proof exercises the real pgvector candidate source without emitting a story reason.
     private async Task SeedVectorAsync(int movieId, float primary, float secondary)
     {
         var vector = new float[EmbeddingDimensions.Value];

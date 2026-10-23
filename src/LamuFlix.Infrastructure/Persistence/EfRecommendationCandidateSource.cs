@@ -19,8 +19,6 @@ public sealed class EfRecommendationCandidateSource(
     LamuFlixDbContext db,
     IOptions<RecommendationOptions> options) : IRecommendationCandidateSource
 {
-    // Cosine distance is mathematically in [0, 2]. Endpoint tolerance absorbs float32 rounding only;
-    // NaN (for example a zero candidate vector) still fails the upper bound and is excluded.
     private const double CosineDistanceTolerance = 1e-5;
 
     private readonly LamuFlixDbContext db = db ?? throw new ArgumentNullException(nameof(db));

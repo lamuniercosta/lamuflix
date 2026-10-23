@@ -545,7 +545,6 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         return vector;
     }
 
-    // Deterministic synthetic pair: for target cosine c, u = e1 and v = c*e1 + sqrt(1 - c^2)*e2.
     private static float[] CosineVector(double cosine)
     {
         var vector = new float[EmbeddingDimensions.Value];
