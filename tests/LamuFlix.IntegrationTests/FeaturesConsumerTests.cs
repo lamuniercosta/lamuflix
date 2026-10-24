@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
-using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Pipeline;
 using LamuFlix.Infrastructure.RabbitMq;
@@ -87,7 +86,7 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifet
         await host.StartAsync(ct);
         await host.Publisher.EnqueueAsync(new FeaturesRequested(movie, 1), ct);
         await WaitUntilAsync(
-            token => Task.FromResult(log.Messages.Any(entry => entry.Contains("no input", StringComparison.Ordinal))),
+            _ => Task.FromResult(log.Messages.Any(entry => entry.Contains("no input", StringComparison.Ordinal))),
             ct);
         await host.StopAsync(CancellationToken.None);
 

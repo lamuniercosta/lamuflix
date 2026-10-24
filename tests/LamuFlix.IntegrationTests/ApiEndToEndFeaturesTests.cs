@@ -9,7 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
-using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Infrastructure.Persistence;
@@ -249,6 +248,7 @@ public sealed class ApiEndToEndFeaturesTests(ApiEndToEndFixture fixture) : ApiEn
             $"'{activity.OperationName}' ({activity.SpanId}) does not descend from '{ancestor.OperationName}' ({ancestor.SpanId}).");
     }
 
+    // ReSharper disable once NotAccessedPositionalProperty.Local - the metadata-state assertion compares whole records, so equality reads both positions implicitly.
     private sealed record MetadataState(EnrichmentStatus Status, int EnrichmentAttempts);
 
     private sealed record FeatureTrace(

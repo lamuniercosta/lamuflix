@@ -195,20 +195,17 @@ public sealed class FeaturesConsumerPersistenceTests(PostgresFixture postgres, R
             Options.Create(options),
             NullLogger<FeaturesConsumer>.Instance,
             new FeaturesConsumerLiveness());
-        var host = new PersistenceHost(owner, topology, publisher, consumer, built, postgres);
+        var host = new PersistenceHost(owner, publisher, consumer, built, postgres);
         return host;
     }
 
     private sealed class PersistenceHost(
         RabbitMqConnectionOwner owner,
-        RabbitMqTopology topology,
         RabbitMqEnrichmentQueuePublisher publisher,
         FeaturesConsumer consumer,
         ServiceProvider services,
         PostgresFixture postgres) : IAsyncDisposable
     {
-        public RabbitMqTopology Topology { get; } = topology;
-
         public RabbitMqEnrichmentQueuePublisher Publisher { get; } = publisher;
 
         public Task StartAsync(CancellationToken cancellationToken) => consumer.StartAsync(cancellationToken);
