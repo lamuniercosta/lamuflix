@@ -109,14 +109,14 @@
 
 ### Tests for Phase 4
 
-- [ ] T017 [P] [US3] Author/extend integration tests beside existing `EfPlaybackHistoryTests` / movie repository tests in `tests/LamuFlix.IntegrationTests/`: after successful playback persist, next derived-profile read recomputes; failed playback persist does not invalidate.
-- [ ] T018 [P] [US3] Author/extend integration tests for watched set, watched unset, not-interested set, and not-interested unset: each successful `SaveChangesAsync` invalidates and forces recompute; failed save does not invalidate; failed invalidation propagates and does not claim database rollback. Preserve existing `GenreWeightsCache` expectations.
+- [X] T017 [P] [US3] Author/extend integration tests beside existing `EfPlaybackHistoryTests` / movie repository tests in `tests/LamuFlix.IntegrationTests/`: after successful playback persist, next derived-profile read recomputes; failed playback persist does not invalidate.
+- [X] T018 [P] [US3] Author/extend integration tests for watched set, watched unset, not-interested set, and not-interested unset: each successful `SaveChangesAsync` invalidates and forces recompute; failed save does not invalidate; failed invalidation propagates and does not claim database rollback. Preserve existing `GenreWeightsCache` expectations.
 
 ### Implementation for Phase 4
 
-- [ ] T019 [US3] After T017, hook post-successful-persistence invalidation in `src/LamuFlix.Infrastructure/Persistence/EfPlaybackHistory.cs` via the shared singleton adapter; do not invalidate on persistence failure.
-- [ ] T020 [US3] After T018, hook post-successful-save invalidation in `src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs` for watched/not-interested set and unset; preserve existing `GenreWeightsCache` invalidation behavior; do not invalidate on persistence failure; let invalidation failure propagate.
-- [ ] T021 [US3] Drive T017–T018 green.
+- [X] T019 [US3] After T017, hook post-successful-persistence invalidation in `src/LamuFlix.Infrastructure/Persistence/EfPlaybackHistory.cs` via the shared singleton adapter; do not invalidate on persistence failure.
+- [X] T020 [US3] After T018, hook post-successful-save invalidation in `src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs` for watched/not-interested set and unset; preserve existing `GenreWeightsCache` invalidation behavior; do not invalidate on persistence failure; let invalidation failure propagate.
+- [X] T021 [US3] Drive T017–T018 green.
 
 **Checkpoint**: Phase 4 tests green. Commit `DEV-415 - playback and feedback cache invalidation`.
 

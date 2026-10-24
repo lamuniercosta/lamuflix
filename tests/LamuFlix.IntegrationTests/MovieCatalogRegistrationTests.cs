@@ -133,8 +133,10 @@ public sealed class MovieCatalogRegistrationTests
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
+        var configuration = Configuration();
         var services = new ServiceCollection();
-        services.AddLamuFlixPersistence(Configuration());
+        services.AddSingleton<IConfiguration>(_ => configuration);
+        services.AddLamuFlixPersistence(configuration);
         services.AddSingleton(Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(1) }));
         services.AddMovieCatalog();
         await using var provider = services.BuildServiceProvider();
