@@ -334,3 +334,12 @@ Verdict: the combined Sentry F2 / Compass F1 High finding and Compass F2 Medium 
 
 These dispositions do not claim remediation, tests, gates or review closure; the four accepted fixes remain open until implemented and verified.
 
+---
+
+## Phase 5 step 3 - Ship-review signoff ruling (2026-10-24)
+
+Verdict: APPROVED - the surviving `SweepMissingMovieFeaturesCommandHandler.cs:23` `count++` mutant is `noted, no ticket`; Gauge exit 0, Sentry CLEAN and Wisp empty delta satisfy the ship-review split; Keel is authorized to sign off READY. No separate pre-pass or Coverage lane is required.
+- Survivor disposition: the 97.56 percent mutation score exceeds the 80 percent threshold and Gauge exited 0. The residual counter-increment survivor is a non-blocking coverage improvement with no identified broken behavior, so its explicit disposition under the frozen closing bar is `noted, no ticket` (`brief.md:43-46`); no threshold change or extra remediation is authorized.
+- Split basis: task-pipeline Phase 5 step 3 specifies exactly Gauge mechanical, Sentry security and Keel signoff. Gauge exit 0, Sentry CLEAN and Wisp empty delta complete the supplied mechanical/security/drift evidence; the Phase 4 pre-pass is not an additional Phase 5 lane.
+- Signoff limit: Keel may record READY signoff on the reviewed head from this evidence. This ruling does not relabel any gate, waive Phase 5 step 6 merge-bar verification, or authorize a merge.
+
