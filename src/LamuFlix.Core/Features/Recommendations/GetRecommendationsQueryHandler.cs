@@ -70,17 +70,40 @@ public sealed class GetRecommendationsQueryHandler(
             recommendationOptions,
             cancellationToken);
 
+        var relevanceOffset = RelevanceOffset(scored);
+        var selectedIds = MmrSelector.Select(
+            [.. scored.Select(item => new MmrCandidate(item.Movie.Id, item.Result.Score + relevanceOffset, item.Features))],
+            query.Take,
+            recommendationOptions.MmrLambda,
+            recommendationOptions.Weights,
+            genreWeights);
+
+        var byId = scored.ToDictionary(item => item.Movie.Id);
+
         return
         [
-            .. scored
-                .OrderByDescending(item => item.Result.Score)
-                .ThenBy(item => item.Movie.Id.Value)
-                .Take(query.Take)
+            .. selectedIds
+                .Select(id => byId[id])
                 .Select(item => new RecommendedMovie(
                     Summarize(item.Movie),
                     item.Result.Score,
                     item.Result.Reasons)),
         ];
+    }
+
+    private static double RelevanceOffset(List<ScoredCandidate> scored)
+    {
+        var minimum = scored[0].Result.Score;
+
+        foreach (var item in scored)
+        {
+            if (item.Result.Score < minimum)
+            {
+                minimum = item.Result.Score;
+            }
+        }
+
+        return minimum < 0.0 ? -minimum : 0.0;
     }
 
     private static List<RecommendationCandidate> ExcludeNotInterested(
@@ -149,6 +172,7 @@ public sealed class GetRecommendationsQueryHandler(
 
             scored.Add(new ScoredCandidate(
                 candidate.Movie,
+                features,
                 new SimilarityResult(
                     score,
                     BuildReasons(similarity.Reasons, profileSimilarity, options.BlendProfileWeight))));
@@ -244,5 +268,8 @@ public sealed class GetRecommendationsQueryHandler(
 
     private static decimal? ImdbRating(MovieMetadata? metadata) => metadata?.ImdbRating?.Value;
 
-    private readonly record struct ScoredCandidate(Movie Movie, SimilarityResult Result);
+    private readonly record struct ScoredCandidate(
+        Movie Movie,
+        MovieFeatures Features,
+        SimilarityResult Result);
 }

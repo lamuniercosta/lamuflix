@@ -18,6 +18,17 @@ public sealed class GetRecommendationsQueryHandlerTests
     private const int DefaultTake = 10;
     private static readonly DateTimeOffset Now = new(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
     private static readonly SimilarityWeights Weights = new();
+    private static readonly SimilarityWeights GenreOnlyWeights = new()
+    {
+        Director = 0.0,
+        Writers = 0.0,
+        Cast = 0.0,
+        Genres = 3.0,
+        YearProximity = 0.0,
+        RuntimeProximity = 0.0,
+        RatingBoost = 0.0,
+    };
+
     private static readonly GenreCounts Counts = new(
         100,
         new Dictionary<string, long>
@@ -224,6 +235,89 @@ public sealed class GetRecommendationsQueryHandlerTests
         result.Select(item => item.Summary.Id.Value).ToArray().ShouldBe(new[] { 2, 4, 3 });
         result[0].Score.ShouldBe(1.0);
         result[2].Score.ShouldBe(0.0);
+    }
+
+    [Fact]
+    public async Task HandleAsync_PoolLargerThanTake_DiversifyingItemBeyondRelevanceCutoff_IsSelectedBeforeTake()
+    {
+        // arrange
+        var handler = NewHandler(weights: GenreOnlyWeights);
+        var selected = NewMovie(1, genres: ["Drama", "Action", "Comedy", "Horror"]);
+        Arrange(selected, DiversificationPool());
+
+        // act
+        var diversified = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 3), CancellationToken.None);
+        var relevanceOnly = await NewHandler(weights: GenreOnlyWeights, mmrLambda: 1.0)
+            .HandleAsync(new GetRecommendationsQuery(selected.Id, 3), CancellationToken.None);
+
+        // assert
+        relevanceOnly.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 3, 4 });
+        diversified.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 6, 7 });
+        diversified.ShouldContain(item => item.Summary.Id == new MovieId(6));
+    }
+
+    [Fact]
+    public async Task HandleAsync_ConfiguredMmrLambda_ChangesSelectionOrder()
+    {
+        // arrange
+        var selected = NewMovie(1, genres: ["Drama", "Action", "Comedy", "Horror"]);
+        Arrange(selected, DiversificationPool());
+
+        // act
+        var diversified = await NewHandler(weights: GenreOnlyWeights, mmrLambda: 0.7)
+            .HandleAsync(new GetRecommendationsQuery(selected.Id, 5), CancellationToken.None);
+        var relevanceOnly = await NewHandler(weights: GenreOnlyWeights, mmrLambda: 1.0)
+            .HandleAsync(new GetRecommendationsQuery(selected.Id, 5), CancellationToken.None);
+
+        // assert
+        relevanceOnly.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 3, 4, 5, 6 });
+        diversified.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 6, 7, 3, 4 });
+        diversified.Select(item => item.Summary.Id).ShouldNotBe(relevanceOnly.Select(item => item.Summary.Id));
+    }
+
+    [Fact]
+    public async Task HandleAsync_SelectorOrder_IsRetainedWhenScoresAreNotMonotonic()
+    {
+        // arrange
+        var handler = NewHandler(weights: GenreOnlyWeights);
+        var selected = NewMovie(1, genres: ["Drama", "Action", "Comedy", "Horror"]);
+        Arrange(selected, DiversificationPool());
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 5), CancellationToken.None);
+
+        // assert
+        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 6, 7, 3, 4 });
+        result[0].Score.ShouldBeGreaterThan(result[1].Score);
+        result[1].Score.ShouldBe(0.0, 1e-12);
+        result[2].Score.ShouldBe(0.0, 1e-12);
+        result[3].Score.ShouldBeGreaterThan(result[2].Score);
+        result[3].Score.ShouldBe(result[0].Score, 1e-12);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DiversifiedResult_PreservesOriginalMovieScoreAndReasons()
+    {
+        // arrange
+        var selected = NewMovie(1, genres: ["Drama", "Action", "Comedy", "Horror"]);
+        Arrange(selected, DiversificationPool());
+        var relevanceOnly = await NewHandler(weights: GenreOnlyWeights, mmrLambda: 1.0)
+            .HandleAsync(new GetRecommendationsQuery(selected.Id, 6), CancellationToken.None);
+        var original = relevanceOnly.ToDictionary(item => item.Summary.Id);
+
+        // act
+        var diversified = await NewHandler(weights: GenreOnlyWeights, mmrLambda: 0.7)
+            .HandleAsync(new GetRecommendationsQuery(selected.Id, 6), CancellationToken.None);
+
+        // assert
+        diversified.Count.ShouldBe(6);
+        foreach (var item in diversified)
+        {
+            var expected = original[item.Summary.Id];
+            item.Summary.ShouldBe(expected.Summary);
+            item.Score.ShouldBe(expected.Score, 1e-12);
+            item.Reasons.ShouldBe(expected.Reasons);
+        }
     }
 
     [Fact]
@@ -618,6 +712,29 @@ public sealed class GetRecommendationsQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_NegativeAndPositiveScores_RebaseSelectorRelevanceButPreserveRawScores()
+    {
+        // arrange
+        var handler = NewHandler(
+            blendSelectedWeight: 2.0,
+            blendProfileWeight: 0.0,
+            alreadyWatchedPenalty: 5.0);
+        var selected = Selected();
+        var unwatched = IdenticalFeatureMovie(2);
+        var watched = IdenticalFeatureMovie(3, isWatched: true);
+        Arrange(selected, [new RecommendationCandidate(unwatched, 0.0), new RecommendationCandidate(watched, 0.0)]);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 2), CancellationToken.None);
+
+        // assert
+        result.Count.ShouldBe(2);
+        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 3 });
+        result[0].Score.ShouldBe(2.0, 1e-12);
+        result[1].Score.ShouldBe(-3.0, 1e-12);
+    }
+
+    [Fact]
     public async Task HandleAsync_PreCancelledToken_PerformsNoDependencyCalls()
     {
         // arrange
@@ -946,7 +1063,8 @@ public sealed class GetRecommendationsQueryHandlerTests
         double blendSelectedWeight = 1.0,
         double blendProfileWeight = 1.0,
         double alreadyWatchedPenalty = 0.25,
-        double notInterestedPenalty = 1.0) =>
+        double notInterestedPenalty = 1.0,
+        double mmrLambda = 0.7) =>
         new(
             movies,
             candidateSource,
@@ -962,6 +1080,7 @@ public sealed class GetRecommendationsQueryHandlerTests
                 BlendProfileWeight = blendProfileWeight,
                 AlreadyWatchedPenalty = alreadyWatchedPenalty,
                 NotInterestedPenalty = notInterestedPenalty,
+                MmrLambda = mmrLambda,
             }));
 
     private void Arrange(Movie selected, IReadOnlyList<RecommendationCandidate> pool)
@@ -980,7 +1099,7 @@ public sealed class GetRecommendationsQueryHandlerTests
     private static TasteProfileMovie ProfileMovie(int id, params string[] genres) =>
         new(new MovieId(id), [.. genres], [], [Now], IsWatched: true);
 
-    private static Movie IdenticalFeatureMovie(int id) => NewMovie(
+    private static Movie IdenticalFeatureMovie(int id, bool isWatched = false) => NewMovie(
         id,
         genres: ["Drama", "Action"],
         directors: ["Director A"],
@@ -988,7 +1107,8 @@ public sealed class GetRecommendationsQueryHandlerTests
         writers: ["Writer A"],
         releaseYear: 2000,
         runtimeMinutes: 120,
-        imdbRating: 8.0m);
+        imdbRating: 8.0m,
+        isWatched: isWatched);
 
     private static bool HasStoryReason(RecommendedMovie movie) =>
         movie.Reasons.Any(reason => reason.Text == "Similar story");
@@ -1032,6 +1152,16 @@ public sealed class GetRecommendationsQueryHandlerTests
 
     private static RecommendationCandidate[] Candidates(params Movie[] movies) =>
         [.. movies.Select((movie, index) => new RecommendationCandidate(movie, Cosine(index + 2)))];
+
+    private static RecommendationCandidate[] DiversificationPool() =>
+    [
+        new(NewMovie(2, genres: ["Drama"]), 0.0),
+        new(NewMovie(3, genres: ["Drama"]), 0.0),
+        new(NewMovie(4, genres: ["Drama"]), 0.0),
+        new(NewMovie(5, genres: ["Drama"]), 0.0),
+        new(NewMovie(6, genres: ["Mystery"]), 0.0),
+        new(NewMovie(7, genres: ["Western"]), 0.0),
+    ];
 
     private static double Cosine(int seed) => ((seed % 21) - 10) / 10.0;
 

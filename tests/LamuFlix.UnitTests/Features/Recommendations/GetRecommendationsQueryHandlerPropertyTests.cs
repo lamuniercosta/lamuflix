@@ -28,14 +28,14 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
 
     [Property(MaxTest = 100, Replay = "340101,100003")]
     [Trait("Category", "Property")]
-    public bool HandleAsync_GeneratedPool_OrdersByScoreDescendingThenIdAscending(int[] ids, int[] seeds, int takeSeed)
+    public bool HandleAsync_GeneratedPool_AtLambdaOne_OrdersByScoreDescendingThenIdAscending(int[] ids, int[] seeds, int takeSeed)
     {
         // arrange
         var pool = BuildPool(ids, seeds);
         var take = Take(takeSeed);
 
         // act
-        var result = Handle(pool, take);
+        var result = Handle([.. pool.Select((movie, index) => new RecommendationCandidate(movie, Cosine(index)))], take, new RecommendationOptions { MmrLambda = 1.0 });
 
         // assert
         return IsOrdered(result);
