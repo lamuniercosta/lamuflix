@@ -302,6 +302,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
         // assert
         hostedServices.ShouldNotContain(service => service is StrandedMovieSweeper);
         hostedServices.ShouldContain(service => service is EnrichmentConsumer);
+        hostedServices.ShouldContain(service => service is FeaturesConsumer);
     }
 
     [Theory]

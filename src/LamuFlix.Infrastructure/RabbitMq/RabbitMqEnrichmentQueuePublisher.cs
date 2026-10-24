@@ -45,6 +45,20 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         PublishAsync(message, routingKey, NoAdditions, ct);
 
     public async Task PublishAsync(
+        FeaturesRequested message,
+        string routingKey,
+        IReadOnlyDictionary<string, object?> additionalHeaders,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        ArgumentException.ThrowIfNullOrEmpty(routingKey);
+        ArgumentNullException.ThrowIfNull(additionalHeaders);
+        EnsureUsableHeaders(additionalHeaders);
+
+        await PublishCoreAsync(message.MovieId, routingKey, Serialize(message), additionalHeaders, ct);
+    }
+
+    public async Task PublishAsync(
         EnrichmentRequested message,
         string routingKey,
         IReadOnlyDictionary<string, object?> additionalHeaders,
