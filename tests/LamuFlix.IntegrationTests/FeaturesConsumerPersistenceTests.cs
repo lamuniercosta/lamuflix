@@ -194,7 +194,8 @@ public sealed class FeaturesConsumerPersistenceTests(PostgresFixture postgres, R
             built.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(options),
             NullLogger<FeaturesConsumer>.Instance,
-            new FeaturesConsumerLiveness());
+            new FeaturesConsumerLiveness(),
+            built.GetRequiredService<TimeProvider>());
         var host = new PersistenceHost(owner, publisher, consumer, built, postgres);
         return host;
     }

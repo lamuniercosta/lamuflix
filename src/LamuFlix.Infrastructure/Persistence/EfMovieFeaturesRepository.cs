@@ -14,11 +14,6 @@ namespace LamuFlix.Infrastructure.Persistence;
 
 public sealed class EfMovieFeaturesRepository(LamuFlixDbContext db) : IMovieFeaturesRepository
 {
-    /// <summary>
-    /// Every character for which <see cref="char.IsWhiteSpace(char)"/> holds, generated once from the
-    /// canonical .NET predicate so the database predicate cannot drift from the handler's
-    /// <see cref="string.IsNullOrWhiteSpace(string?)"/> decision.
-    /// </summary>
     private static readonly string DotNetWhitespaceCharacters = BuildDotNetWhitespaceCharacters();
 
     public async Task<MovieFeaturesSnapshot?> GetByMovieIdAsync(
@@ -62,12 +57,6 @@ public sealed class EfMovieFeaturesRepository(LamuFlixDbContext db) : IMovieFeat
             cancellationToken);
     }
 
-    /// <summary>
-    /// Selects the movies that have a nonblank plot and no stored features row in one database-side
-    /// anti-join, so no per-movie feature lookup is issued. Eligibility removes every canonical .NET
-    /// whitespace character from the plot and keeps the movie when something remains; it deliberately
-    /// applies no enrichment-status predicate and leaves the stored upsert and schema untouched.
-    /// </summary>
     public async Task<IReadOnlyList<MovieId>> FindMovieIdsMissingFeaturesAsync(
         CancellationToken cancellationToken = default)
     {

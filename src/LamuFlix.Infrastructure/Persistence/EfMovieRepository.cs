@@ -503,11 +503,6 @@ public sealed class EfMovieRepository : IMovieRepository
         return PresentIds(ids);
     }
 
-    /// <summary>
-    /// Reads the stored plot without tracking the movie. A missing movie and a null plot both collapse
-    /// to null on purpose (brief Q3/Q6). The stored value comes back unchanged; whitespace handling is
-    /// the feature handler's decision, not this projection's.
-    /// </summary>
     public async Task<string?> GetPlotAsync(MovieId id, CancellationToken ct) =>
         await db.Movies
             .AsNoTracking()
