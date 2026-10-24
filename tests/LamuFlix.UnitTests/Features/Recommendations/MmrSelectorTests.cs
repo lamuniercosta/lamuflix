@@ -393,8 +393,6 @@ public sealed class MmrSelectorTests
         var result = MmrSelector.Select(candidates, 4, 0.0, Only(genres: 1.0), UniformGenres());
 
         // assert
-        // Latest-only redundancy would pick id 3 at step three, because it is less similar to id 2.
-        // The cumulative maximum retains the earlier id-1 similarity and picks id 4.
         result.ShouldBe([new MovieId(1), new MovieId(2), new MovieId(4), new MovieId(3)]);
     }
 
