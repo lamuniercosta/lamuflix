@@ -49,6 +49,7 @@ public sealed class MmrSelectorTests
     public void Select_NullCandidateItem_ThrowsArgumentException()
     {
         // arrange
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
         var candidates = new List<MmrCandidate> { Candidate(1), null! };
 
         // act
@@ -62,6 +63,7 @@ public sealed class MmrSelectorTests
     public void Select_NullCandidateMovieId_ThrowsArgumentException()
     {
         // arrange
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
         var candidates = Pool(new MmrCandidate(null!, 0.5, Features()));
 
         // act
@@ -75,6 +77,7 @@ public sealed class MmrSelectorTests
     public void Select_NullCandidateFeatures_ThrowsArgumentException()
     {
         // arrange
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard
         var candidates = Pool(new MmrCandidate(new MovieId(1), 0.5, null!));
 
         // act
@@ -166,11 +169,10 @@ public sealed class MmrSelectorTests
     public void Select_InvalidWeightsWithValidEmptyPool_StillThrows()
     {
         // arrange
-        var noCandidates = new List<MmrCandidate>();
         var weights = new SimilarityWeights { Genres = -1.0 };
 
         // act
-        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(noCandidates, 1, 0.7, weights, GenreTable()));
+        var failure = Should.Throw<ArgumentOutOfRangeException>(() => MmrSelector.Select(Pool(), 1, 0.7, weights, GenreTable()));
 
         // assert
         failure.ParamName.ShouldBe("weights");
@@ -192,11 +194,8 @@ public sealed class MmrSelectorTests
     [Fact]
     public void Select_ValidEmptyPool_ReturnsEmpty()
     {
-        // arrange
-        var noCandidates = new List<MmrCandidate>();
-
         // act
-        var result = MmrSelector.Select(noCandidates, 5, 0.7, Only(), GenreTable());
+        var result = MmrSelector.Select(Pool(), 5, 0.7, Only(), GenreTable());
 
         // assert
         result.ShouldBeEmpty();

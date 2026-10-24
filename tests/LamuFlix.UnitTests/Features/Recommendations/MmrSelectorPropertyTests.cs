@@ -261,46 +261,79 @@ public sealed class MmrSelectorPropertyTests
 
         for (var step = 0; step < count; step++)
         {
-            var bestIndex = -1;
-            var bestObjective = 0.0;
-
-            for (var index = 0; index < candidates.Count; index++)
-            {
-                if (selected.Contains(index))
-                {
-                    continue;
-                }
-
-                var maximumSimilarity = 0.0;
-                foreach (var selectedIndex in selected)
-                {
-                    var similarity = SimilarityScorer.Score(
-                        candidates[index].Features,
-                        candidates[selectedIndex].Features,
-                        weights,
-                        genreWeights).Score;
-
-                    if (similarity > maximumSimilarity)
-                    {
-                        maximumSimilarity = similarity;
-                    }
-                }
-
-                var objective = (lambda * candidates[index].Relevance)
-                    - ((1.0 - lambda) * maximumSimilarity);
-
-                if (bestIndex < 0 || IsBetter(candidates[index], objective, candidates[bestIndex], bestObjective))
-                {
-                    bestIndex = index;
-                    bestObjective = objective;
-                }
-            }
-
+            var bestIndex = FindBestUnselected(candidates, selected, lambda, weights, genreWeights);
             selected.Add(bestIndex);
             builder.Add(candidates[bestIndex].MovieId);
         }
 
         return builder.ToImmutable();
+    }
+
+    private static int FindBestUnselected(
+        IReadOnlyList<MmrCandidate> candidates,
+        List<int> selected,
+        double lambda,
+        SimilarityWeights weights,
+        GenreWeights genreWeights)
+    {
+        var bestIndex = -1;
+        var bestObjective = 0.0;
+
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            if (selected.Contains(index))
+            {
+                continue;
+            }
+
+            var objective = ReferenceObjective(candidates, index, selected, lambda, weights, genreWeights);
+
+            if (bestIndex >= 0 && !IsBetter(candidates[index], objective, candidates[bestIndex], bestObjective))
+            {
+                continue;
+            }
+
+            bestIndex = index;
+            bestObjective = objective;
+        }
+
+        return bestIndex;
+    }
+
+    private static double ReferenceObjective(
+        IReadOnlyList<MmrCandidate> candidates,
+        int index,
+        List<int> selected,
+        double lambda,
+        SimilarityWeights weights,
+        GenreWeights genreWeights) =>
+        (lambda * candidates[index].Relevance)
+            - ((1.0 - lambda) * MaximumSimilarity(candidates, index, selected, weights, genreWeights));
+
+    private static double MaximumSimilarity(
+        IReadOnlyList<MmrCandidate> candidates,
+        int index,
+        List<int> selected,
+        SimilarityWeights weights,
+        GenreWeights genreWeights)
+    {
+        var maximumSimilarity = 0.0;
+
+        foreach (var selectedIndex in selected)
+        {
+            var similarity = SimilarityScorer.Score(
+                candidates[index].Features,
+                candidates[selectedIndex].Features,
+                weights,
+                genreWeights).Score;
+
+            if (similarity > maximumSimilarity)
+            {
+                maximumSimilarity = similarity;
+            }
+        }
+
+        return maximumSimilarity;
     }
 
     private static bool IsBetter(
@@ -309,5 +342,6 @@ public sealed class MmrSelectorPropertyTests
         MmrCandidate bestCandidate,
         double bestObjective) =>
         objective > bestObjective
+        // ReSharper disable once CompareOfFloatsByEqualityOperator // mirrors production exact tie-break; no epsilon
         || (objective == bestObjective && candidate.MovieId.Value < bestCandidate.MovieId.Value);
 }
