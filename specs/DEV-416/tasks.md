@@ -71,13 +71,13 @@
 
 ### Tests for Phase 2
 
-- [ ] T006 [US1] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs` for exact-ID ties across input permutations, lambda = 1 (relevance then ID), lambda = 0 (smallest ID then minimize max redundancy), real DEV-338 missing-feature/zero-weight behavior, and a fixture with at least three selections where an earlier selected item supplies the decisive maximum redundancy.
-- [ ] T007 [US1] After or combined with T006 under single ownership of the same file, complete Q10/Q11 focused checks in `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs`: unchanged inputs after Select; interleaved calls over stable inputs with retained prior output; cross-Take prefix for representative `0 <= a <= b` cases including zero/oversized Takes.
+- [x] T006 [US1] Extend `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs` for exact-ID ties across input permutations, lambda = 1 (relevance then ID), lambda = 0 (smallest ID then minimize max redundancy), real DEV-338 missing-feature/zero-weight behavior, and a fixture with at least three selections where an earlier selected item supplies the decisive maximum redundancy.
+- [x] T007 [US1] After or combined with T006 under single ownership of the same file, complete Q10/Q11 focused checks in `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs`: unchanged inputs after Select; interleaved calls over stable inputs with retained prior output; cross-Take prefix for representative `0 <= a <= b` cases including zero/oversized Takes.
 
 ### Implementation for Phase 2
 
-- [ ] T008 [US1] After T006, implement deterministic MMR and Q4 incremental numeric redundancy maxima in `src/LamuFlix.Core/Features/Recommendations/MmrSelector.cs`: project-free Select over provided features; maximize `lambda * relevance - (1 - lambda) * maxSim`; zero redundancy before first pick; after each new pick, update each remaining candidate's running maximum as `max(previous maximum, new pair similarity)` over all prior selections, never latest-only; discard pairwise Reasons; exact equal objectives tie by ascending MovieId.Value with no epsilon or rounding; keep selection state and numeric maxima invocation-owned with no static mutable/cross-request state and no full pairwise matrix, preserving O(n) auxiliary state; treat inputs as read-only; return ordered MovieIds of size min(Take, count). Retain earlier-selected-maximum and independent full-rescan reference proofs.
-- [ ] T009 [US1] Drive T006–T007 green.
+- [x] T008 [US1] After T006, implement deterministic MMR and Q4 incremental numeric redundancy maxima in `src/LamuFlix.Core/Features/Recommendations/MmrSelector.cs`: project-free Select over provided features; maximize `lambda * relevance - (1 - lambda) * maxSim`; zero redundancy before first pick; after each new pick, update each remaining candidate's running maximum as `max(previous maximum, new pair similarity)` over all prior selections, never latest-only; discard pairwise Reasons; exact equal objectives tie by ascending MovieId.Value with no epsilon or rounding; keep selection state and numeric maxima invocation-owned with no static mutable/cross-request state and no full pairwise matrix, preserving O(n) auxiliary state; treat inputs as read-only; return ordered MovieIds of size min(Take, count). Retain earlier-selected-maximum and independent full-rescan reference proofs.
+- [x] T009 [US1] Drive T006–T007 green.
 
 **Checkpoint**: Phase 2 tests green. Commit `DEV-416 - deterministic MMR selection loop`.
 
