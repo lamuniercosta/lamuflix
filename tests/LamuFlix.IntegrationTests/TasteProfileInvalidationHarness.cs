@@ -17,10 +17,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace LamuFlix.IntegrationTests;
 
-/// <summary>
-/// Composes the production persistence registration against the shared PostgreSQL container so
-/// playback and feedback invalidation hooks are exercised through the real singleton cached adapter.
-/// </summary>
 internal sealed class TasteProfileInvalidationHarness : IAsyncDisposable
 {
     private readonly PostgresFixture fixture;
@@ -159,10 +155,6 @@ internal sealed class TasteProfileInvalidationHarness : IAsyncDisposable
     }
 }
 
-/// <summary>
-/// Cancels the supplied token once the tracked save has completed, so a caller can prove that a
-/// post-persistence invalidation failure propagates without the database write being rolled back.
-/// </summary>
 internal sealed class CancelAfterSaveInterceptor(CancellationTokenSource cancellation) : SaveChangesInterceptor
 {
     public override ValueTask<int> SavedChangesAsync(
