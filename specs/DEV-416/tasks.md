@@ -20,10 +20,19 @@
 
 **Independent Test**: Every checklist item below has recorded evidence in the task note (or named owner handoff). Any missing item stops code.
 
-- [ ] TB001 Confirm the spec PR has merged and Gate 1 is established (Rigger / YouTrack `Ready to build` handoff). Checklist mark must reference the recorded receipt.
-- [ ] TB002 Obtain Phase B drift recon against `origin/main` for the authorized file set (Wisp → `recon-DEV-416` refresh). Reconcile handler ranking insertion point, SimilarityScorer signature, MovieFeaturesMapper, RecommendationOptions.MmrLambda, existing handler tests, and DEV-338 weight-validation policy/helper accessibility against recon-DEV-416, recon-DEV-416-2, and frozen Q1–Q12 plus A1. Off-envelope changes stop to Patron.
-- [ ] TB003 Obtain Gauge baseline gate counts for in-scope files (`-Files` / `-BaseRef` mode) recorded in `DEV-416`.
-- [ ] TB004 Keel checks or amends drift against the brief/spec before any Code Phase 1 edit. Missing Keel drift check blocks T001.
+- [x] TB001 Confirm the spec PR has merged and Gate 1 is established (Rigger / YouTrack `Ready to build` handoff). Checklist mark must reference the recorded receipt.
+- [x] TB002 Obtain Phase B drift recon against `origin/main` for the authorized file set (Wisp → `recon-DEV-416` refresh). Reconcile handler ranking insertion point, SimilarityScorer signature, MovieFeaturesMapper, RecommendationOptions.MmrLambda, existing handler tests, and DEV-338 weight-validation policy/helper accessibility against recon-DEV-416, recon-DEV-416-2, and frozen Q1–Q12 plus A1. Off-envelope changes stop to Patron.
+- [x] TB003 Obtain Gauge baseline gate counts for in-scope files (`-Files` / `-BaseRef` mode) recorded in `DEV-416`.
+- [x] TB004 Keel checks or amends drift against the brief/spec before any Code Phase 1 edit. Missing Keel drift check blocks T001.
+
+**Keel Phase B pickup receipt — 2026-10-24**: Checked at `F:/Dev/LamuFlix.worktrees/DEV-416`, branch `feature/DEV-416`, HEAD `22d726948770b601f01bfe715fda2990b57f257b` before code edits.
+
+- TB001: `recon-DEV-416` R2 records spec PR #245 merged at this HEAD and the Rigger `Ready to build` handoff in note `DEV-416:4-10`; this satisfies the named Gate 1 receipt.
+- TB002: `recon-DEV-416` R1/R3 and sections 2–7 establish zero authorized-file drift against local `origin/main` at the same HEAD and reconcile the six required seams against frozen Q1–Q12/A1. The private seven-weight validation policy is source-verified in R3.6; historical note anchors are superseded for pickup evidence by these fresh facts, without changing the decisions. No off-envelope change requires a ruling.
+- TB003: `DEV-416:32-38,49-53`, `recon-DEV-416` R5 and its continuation `recon-DEV-416-2` R5.1–R5.4 record Roslyn, complexity and InspectCode baseline exit 0 / zero findings, each with explicit 37-file scope at this HEAD. Complexity effective threshold 15; InspectCode WARNING+, no `-All`; 16 source and 21 test paths agree across the scope receipts. These are baseline results; implementation gates remain T019 obligations.
+- TB004: Keel compared the refreshed recon with the frozen brief/spec and plan/tasks: handler insertion, scorer signature, feature retention, existing lambda, handler tests, and A1 validation/accessibility remain consistent. No contract amendment is needed. Upstream primary-key evidence remains unverified as already accepted in brief A1; duplicate-ID rejection remains mandatory. Drift is against the recorded local `origin/main`; remote freshness was not independently established.
+
+**Pickup disposition**: TB001–TB004 complete. Cleared for Anvil Code Phase 1, T001–T005 only, under the existing single-owner phase order and Q7 file inventory. All implementation tasks remain unchecked; later phases retain their own checkpoints.
 
 **Checkpoint**: Phase B entry evidence is complete. Only then may Anvil start T001.
 
@@ -39,14 +48,14 @@
 
 ### Tests for Phase 1
 
-- [ ] T001 [US1] Author unit tests in `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs` covering every Q3 invalid category (null list/items/features/weights, duplicate MovieIds, negative Take, non-finite or out-of-[0,1] lambda, negative or non-finite relevance), combined invalid-weight cases with a valid empty pool and with Take = 0 (validation before shortcuts), valid empty pool, Take = 0, oversized Take, and relevance above 1. Minimum compilable contracts when types are absent; behavioral failure before T003 when possible.
-- [ ] T002 [US1] After or combined with T001 under single ownership of the same file, author focused call-isolation stubs/expectations in `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs` (or clearly separated test region) for unchanged input order/content and feature/weight values after Select; full interleaved-call assertions may complete in Phase 2 once selection produces ordered IDs.
+- [x] T001 [US1] Author unit tests in `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs` covering every Q3 invalid category (null list/items/features/weights, duplicate MovieIds, negative Take, non-finite or out-of-[0,1] lambda, negative or non-finite relevance), combined invalid-weight cases with a valid empty pool and with Take = 0 (validation before shortcuts), valid empty pool, Take = 0, oversized Take, and relevance above 1. Minimum compilable contracts when types are absent; behavioral failure before T003 when possible.
+- [x] T002 [US1] After or combined with T001 under single ownership of the same file, author focused call-isolation stubs/expectations in `tests/LamuFlix.UnitTests/Features/Recommendations/MmrSelectorTests.cs` (or clearly separated test region) for unchanged input order/content and feature/weight values after Select; full interleaved-call assertions may complete in Phase 2 once selection produces ordered IDs.
 
 ### Implementation for Phase 1
 
-- [ ] T003 [P] [US1] Add sealed record `MmrCandidate(MovieId MovieId, double Relevance, MovieFeatures Features)` in `src/LamuFlix.Core/Features/Recommendations/MmrCandidate.cs`.
-- [ ] T004 [US1] After T001, add pure static `MmrSelector` in `src/LamuFlix.Core/Features/Recommendations/MmrSelector.cs` with `Select` accepting complete candidate list, Take, lambda, SimilarityWeights, and GenreWeights; implement full-input validation before empty shortcuts; implement identical private seven-property SimilarityWeights rejection (Director, Writers, Cast, Genres, YearProximity, RuntimeProximity, RatingBoost) when < 0.0 or !double.IsFinite via `ArgumentOutOfRangeException` before shortcuts, without editing SimilarityScorer, reflection, or a dummy Score call; implement valid empty/zero/oversized-Take return behavior. Algorithm body for nonempty positive Take may remain incomplete only until Phase 2 if required for compilation of validation paths.
-- [ ] T005 [US1] Drive T001–T002 green for validation and empty/zero/oversized paths; leave algorithm-dependent isolation cases for Phase 2 if still pending.
+- [x] T003 [P] [US1] Add sealed record `MmrCandidate(MovieId MovieId, double Relevance, MovieFeatures Features)` in `src/LamuFlix.Core/Features/Recommendations/MmrCandidate.cs`.
+- [x] T004 [US1] After T001, add pure static `MmrSelector` in `src/LamuFlix.Core/Features/Recommendations/MmrSelector.cs` with `Select` accepting complete candidate list, Take, lambda, SimilarityWeights, and GenreWeights; implement full-input validation before empty shortcuts; implement identical private seven-property SimilarityWeights rejection (Director, Writers, Cast, Genres, YearProximity, RuntimeProximity, RatingBoost) when < 0.0 or !double.IsFinite via `ArgumentOutOfRangeException` before shortcuts, without editing SimilarityScorer, reflection, or a dummy Score call; implement valid empty/zero/oversized-Take return behavior. Algorithm body for nonempty positive Take may remain incomplete only until Phase 2 if required for compilation of validation paths.
+- [x] T005 [US1] Drive T001–T002 green for validation and empty/zero/oversized paths; leave algorithm-dependent isolation cases for Phase 2 if still pending.
 
 **Checkpoint**: Phase 1 tests green for validation/empty paths. Commit `DEV-416 - MmrSelector contract and validation`.
 
