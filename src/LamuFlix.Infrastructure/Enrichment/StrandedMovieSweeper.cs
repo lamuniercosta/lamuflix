@@ -17,24 +17,21 @@ public sealed class StrandedMovieSweeper(
     TimeProvider timeProvider,
     ILogger<StrandedMovieSweeper> logger) : BackgroundService
 {
+    private const string FeaturePassInactiveMessage =
+        "The missing features recovery pass is inactive because the feature composition is not registered.";
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await using var scope = scopeFactory.CreateAsyncScope();
-                var handler = scope.ServiceProvider
-                    .GetRequiredService<ICommandHandler<SweepStrandedMoviesCommand, int>>();
-                await handler.HandleAsync(new SweepStrandedMoviesCommand(), stoppingToken);
+                await RunEnrichmentPassAsync(stoppingToken);
+                await RunFeaturePassAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
-            }
-            catch (Exception exception)
-            {
-                logger.LogError(exception, "Stranded movie sweep failed.");
             }
 
             try
@@ -45,6 +42,50 @@ public sealed class StrandedMovieSweeper(
             {
                 break;
             }
+        }
+    }
+
+    private async Task RunEnrichmentPassAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var handler = scope.ServiceProvider
+                .GetRequiredService<ICommandHandler<SweepStrandedMoviesCommand, int>>();
+            await handler.HandleAsync(new SweepStrandedMoviesCommand(), stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Stranded movie sweep failed.");
+        }
+    }
+
+    private async Task RunFeaturePassAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var handler = scope.ServiceProvider
+                .GetService<ICommandHandler<SweepMissingMovieFeaturesCommand, int>>();
+            if (handler is null)
+            {
+                logger.LogDebug("{Message}", FeaturePassInactiveMessage);
+                return;
+            }
+
+            await handler.HandleAsync(new SweepMissingMovieFeaturesCommand(), stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Missing movie features sweep failed.");
         }
     }
 }
