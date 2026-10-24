@@ -97,6 +97,7 @@ public static class MmrSelector
         MmrCandidate bestCandidate,
         double bestObjective) =>
         objective > bestObjective
+        // ReSharper disable once CompareOfFloatsByEqualityOperator // exact objective equality drives the spec-mandated ID tie-break; no epsilon
         || (objective == bestObjective && candidate.MovieId.Value < bestCandidate.MovieId.Value);
 
     private static void UpdateMaximumRedundancy(
@@ -130,35 +131,43 @@ public static class MmrSelector
 
         for (var index = 0; index < candidates.Count; index++)
         {
-            MmrCandidate? candidate = candidates[index];
+            ValidateCandidate(candidates[index], seen, nameof(candidates));
+        }
+    }
 
-            if (candidate is null)
-            {
-                throw new ArgumentException("Candidates cannot contain null entries.", nameof(candidates));
-            }
+    private static void ValidateCandidate(MmrCandidate? candidate, HashSet<MovieId> seen, string paramName)
+    {
+        if (candidate is null)
+        {
+            throw new ArgumentException("Candidates cannot contain null entries.", paramName);
+        }
 
-            if (candidate.MovieId is null)
-            {
-                throw new ArgumentException("Candidate movie ids cannot be null.", nameof(candidates));
-            }
+        if (candidate.MovieId is null)
+        {
+            throw new ArgumentException("Candidate movie ids cannot be null.", paramName);
+        }
 
-            if (candidate.Features is null)
-            {
-                throw new ArgumentException("Candidate features cannot be null.", nameof(candidates));
-            }
+        if (candidate.Features is null)
+        {
+            throw new ArgumentException("Candidate features cannot be null.", paramName);
+        }
 
-            if (!double.IsFinite(candidate.Relevance) || candidate.Relevance < 0.0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(candidates),
-                    candidate.Relevance,
-                    "Candidate relevance must be non-negative and finite.");
-            }
+        ValidateRelevance(candidate.Relevance, paramName);
 
-            if (!seen.Add(candidate.MovieId))
-            {
-                throw new ArgumentException("Candidate movie ids must be unique.", nameof(candidates));
-            }
+        if (!seen.Add(candidate.MovieId))
+        {
+            throw new ArgumentException("Candidate movie ids must be unique.", paramName);
+        }
+    }
+
+    private static void ValidateRelevance(double relevance, string paramName)
+    {
+        if (!double.IsFinite(relevance) || relevance < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName,
+                relevance,
+                "Candidate relevance must be non-negative and finite.");
         }
     }
 
