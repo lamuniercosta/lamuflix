@@ -133,11 +133,11 @@
 
 ### Tests for Phase 5
 
-- [ ] T022 [P] [US4] Author/extend host composition and E2E tests in `tests/LamuFlix.IntegrationTests/`: active composition delivers enrichment → FeaturesRequested → movie_features; fake embedding; real DB/broker; same trace id across producer → consumer → upsert; vector dimension/timestamp; one row; EnrichmentStatus/EnrichmentAttempts unchanged; inactive/minimal host logs feature consumer inactive without resolving missing deps. Reuse existing host test patterns (ApiHostCompositionTests / ApiEndToEndImportTests family). Minimum compilable contracts when seams are absent; behavioral failure before T023 when possible.
+- [X] T022 [P] [US4] Author/extend host composition and E2E tests in `tests/LamuFlix.IntegrationTests/`: active composition delivers enrichment → FeaturesRequested → movie_features; fake embedding; real DB/broker; same trace id across producer → consumer → upsert; vector dimension/timestamp; one row; EnrichmentStatus/EnrichmentAttempts unchanged; inactive/minimal host logs feature consumer inactive without resolving missing deps. Reuse existing host test patterns (ApiHostCompositionTests / ApiEndToEndImportTests family). Minimum compilable contracts when seams are absent; behavioral failure before T023 when possible.
 
 ### Implementation for Phase 5
 
-- [ ] T023 [US4] Complete any remaining Program/DI/health wiring required for T022 and drive T022 green. Do not add public HTTP contracts. Do not introduce Ollama network dependency.
+- [X] T023 [US4] Complete any remaining Program/DI/health wiring required for T022 and drive T022 green. Do not add public HTTP contracts. Do not introduce Ollama network dependency.
 
 **Checkpoint**: Phase 5 tests green. Commit `DEV-414 - features consumer composition and e2e`.
 

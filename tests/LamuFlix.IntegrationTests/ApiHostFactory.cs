@@ -21,6 +21,7 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
     private const string StubCheckName = "host-harness-stub";
 
     private readonly bool retainSweeper;
+    private readonly bool retainHealthChecks;
     private readonly IEnumerable<KeyValuePair<string, string?>> additionalSettings;
     private readonly TimeProvider? timeProvider;
     private readonly bool disableEnrichmentConsumer;
@@ -33,9 +34,11 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
         bool retainSweeper,
         IEnumerable<KeyValuePair<string, string?>>? additionalSettings = null,
         TimeProvider? timeProvider = null,
-        bool disableEnrichmentConsumer = false)
+        bool disableEnrichmentConsumer = false,
+        bool retainHealthChecks = false)
     {
         this.retainSweeper = retainSweeper;
+        this.retainHealthChecks = retainHealthChecks;
         this.additionalSettings = additionalSettings ?? [];
         this.timeProvider = timeProvider;
         this.disableEnrichmentConsumer = disableEnrichmentConsumer;
@@ -78,7 +81,10 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
             options.ValidateOnBuild = true;
             options.ValidateScopes = true;
         });
-        builder.ConfigureTestServices(ReplaceHealthChecksWithStub);
+        if (!retainHealthChecks)
+        {
+            builder.ConfigureTestServices(ReplaceHealthChecksWithStub);
+        }
         builder.ConfigureTestServices(RemoveEmbeddingStartupProbe);
         if (timeProvider is not null)
         {
