@@ -236,6 +236,8 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
 
         public Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<MovieId>>([]);
+
+        public Task<string?> GetPlotAsync(MovieId id, CancellationToken ct) => Task.FromResult<string?>(null);
     }
 
     private sealed class SingleLoggerFactory(RecordingLogger<EnrichmentConsumer> logger) : ILoggerFactory

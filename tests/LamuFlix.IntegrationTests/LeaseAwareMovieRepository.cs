@@ -75,6 +75,9 @@ public sealed class LeaseAwareMovieRepository(TimeProvider time, TimeSpan claimL
                 && (movie.LastAttemptAt is null || movie.LastAttemptAt < leaseCutoff))
             .Select(movie => movie.Id)]);
 
+    public Task<string?> GetPlotAsync(MovieId id, CancellationToken ct) =>
+        Task.FromResult(movies.GetValueOrDefault(id)?.Metadata?.Synopsis);
+
     private bool LeaseExpired(Movie movie) =>
         movie.LastAttemptAt is null || movie.LastAttemptAt < time.GetUtcNow() - claimLease;
 }

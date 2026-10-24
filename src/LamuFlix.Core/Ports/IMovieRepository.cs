@@ -33,6 +33,13 @@ public interface IMovieRepository
     Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct);
 
     /// <summary>
+    /// Returns the stored plot text for the movie without tracking it, or null when the movie is absent
+    /// or its plot is null. The stored value is returned unchanged: whitespace normalization belongs to
+    /// the feature handler, never to this projection.
+    /// </summary>
+    Task<string?> GetPlotAsync(MovieId id, CancellationToken ct);
+
+    /// <summary>
     /// Returns the id of the movie whose resolved metadata holds this IMDb id (the uniquely indexed imdb_id
     /// column), or null when no movie holds it.
     /// </summary>
