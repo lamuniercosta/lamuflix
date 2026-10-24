@@ -9,7 +9,6 @@ public abstract record ProcessFeaturesOutcome
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Global
-    // Generated is false when the movie or plot was missing/blank, which makes this a successful no-op.
     public sealed record Completed(bool Generated) : ProcessFeaturesOutcome;
     // ReSharper restore NotAccessedPositionalProperty.Global
 

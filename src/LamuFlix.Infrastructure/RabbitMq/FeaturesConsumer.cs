@@ -25,7 +25,8 @@ public sealed class FeaturesConsumer(
     IServiceScopeFactory scopes,
     IOptions<RabbitMqOptions> options,
     ILogger<FeaturesConsumer> logger,
-    FeaturesConsumerLiveness liveness) : BackgroundService
+    FeaturesConsumerLiveness liveness,
+    TimeProvider timeProvider) : BackgroundService
 {
     private const string FailureCategoryHeader = "x-lamuflix-failure-category";
     private const string FailureReasonHeader = "x-lamuflix-failure-reason";
@@ -92,7 +93,7 @@ public sealed class FeaturesConsumer(
 
             try
             {
-                await Task.Delay(ReconnectDelay, stoppingToken);
+                await Task.Delay(ReconnectDelay, timeProvider, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -199,7 +200,7 @@ public sealed class FeaturesConsumer(
             logger.LogWarning(
                 "Feature message could not be read as a request and is dead-lettered redelivered {Redelivered}",
                 delivery.Redelivered);
-            await DeadLetterAsync(consumerChannel, delivery);
+            await SettleMalformedAsync(consumerChannel, delivery);
             return;
         }
 
@@ -264,9 +265,51 @@ public sealed class FeaturesConsumer(
                       && outcome is ProcessFeaturesOutcome.Failed failed
             ? FailureHeaders(failed, request)
             : NoHeaders;
-        await publisher.PublishAsync(next, disposition.RoutingKey, headers, CancellationToken.None);
-        await AckAsync(consumerChannel, delivery);
+        try
+        {
+            await publisher.PublishAsync(next, disposition.RoutingKey, headers, CancellationToken.None);
+            await AckAsync(consumerChannel, delivery);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Feature publication for {MovieId} attempt {Attempt} failed and the original is requeued",
+                request.MovieId.Value,
+                request.Attempt);
+            await RequeueAsync(consumerChannel, delivery);
+        }
     }
+
+    private async Task SettleMalformedAsync(
+        IChannel consumerChannel,
+        BasicDeliverEventArgs delivery)
+    {
+        try
+        {
+            await publisher.PublishRawAsync(
+                delivery.Body,
+                EnrichmentRouting.FeaturesDeadLetterRoutingKey,
+                MalformedHeaders(),
+                CancellationToken.None);
+            await AckAsync(consumerChannel, delivery);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Feature malformed payload publication failed and the original is requeued");
+            await RequeueAsync(consumerChannel, delivery);
+        }
+    }
+
+    private static IReadOnlyDictionary<string, object?> MalformedHeaders() =>
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            [FailureCategoryHeader] = EnrichmentFailureCategory.InvalidResponse.Code,
+            [FailureReasonHeader] = NonRetryableReason,
+            [FailureAttemptHeader] = 0,
+        };
 
     private static IReadOnlyDictionary<string, object?> FailureHeaders(
         ProcessFeaturesOutcome.Failed failed,
@@ -293,6 +336,9 @@ public sealed class FeaturesConsumer(
 
     private static ValueTask DeadLetterAsync(IChannel consumerChannel, BasicDeliverEventArgs delivery) =>
         consumerChannel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, CancellationToken.None);
+
+    private static ValueTask RequeueAsync(IChannel consumerChannel, BasicDeliverEventArgs delivery) =>
+        consumerChannel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: true, CancellationToken.None);
 
     private void LogOutcome(Activity? activity, ProcessFeaturesOutcome outcome, FeaturesRequested request)
     {

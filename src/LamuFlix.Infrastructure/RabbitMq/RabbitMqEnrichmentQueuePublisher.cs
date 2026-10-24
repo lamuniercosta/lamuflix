@@ -72,8 +72,21 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         await PublishCoreAsync(message.MovieId, routingKey, Serialize(message), additionalHeaders, ct);
     }
 
+    public Task PublishRawAsync(
+        ReadOnlyMemory<byte> body,
+        string routingKey,
+        IReadOnlyDictionary<string, object?> additionalHeaders,
+        CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(routingKey);
+        ArgumentNullException.ThrowIfNull(additionalHeaders);
+        EnsureUsableHeaders(additionalHeaders);
+
+        return PublishCoreAsync(null, routingKey, body, additionalHeaders, ct);
+    }
+
     private async Task PublishCoreAsync(
-        MovieId movieId,
+        MovieId? movieId,
         string routingKey,
         ReadOnlyMemory<byte> body,
         IReadOnlyDictionary<string, object?> additionalHeaders,
@@ -85,7 +98,10 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         using var activity = Source.StartActivity(
             TelemetryConstants.EnrichmentEnqueue,
             ActivityKind.Producer);
-        activity?.SetTag(TelemetryConstants.MovieId, movieId.Value);
+        if (movieId is { } id)
+        {
+            activity?.SetTag(TelemetryConstants.MovieId, id.Value);
+        }
 
         var headers = new Dictionary<string, object?>(StringComparer.Ordinal);
         TraceContextCarrier.Inject(headers, activity?.Context);

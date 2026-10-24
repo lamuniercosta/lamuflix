@@ -123,15 +123,56 @@ public sealed class FeaturesConsumerActivationTests
         provider.GetService<IEmbeddingGenerator<string, Embedding<float>>>().ShouldBeNull();
     }
 
+    [Fact]
+    public async Task AddLamuFlixRabbitMq_FeaturesOnlyComposition_InjectsTheRegisteredTimeProviderIntoTheConsumer()
+    {
+        // arrange
+        var services = NewServices(movieRepository: true, featuresRepository: true, embedding: true, metadata: false);
+        var time = new StubTimeProvider();
+        services.AddSingleton<TimeProvider>(time);
+
+        // act
+        services.AddLamuFlixRabbitMq();
+
+        // assert
+        await using var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<TimeProvider>().ShouldBeSameAs(time);
+        provider.GetServices<IHostedService>().OfType<FeaturesConsumer>().ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task AddLamuFlixRabbitMq_FeaturesOnlyCompositionWithoutATimeProvider_RegistersTheSystemDefault()
+    {
+        // arrange
+        var services = NewServices(
+            movieRepository: true,
+            featuresRepository: true,
+            embedding: true,
+            metadata: false,
+            timeProvider: false);
+
+        // act
+        services.AddLamuFlixRabbitMq();
+
+        // assert
+        await using var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<TimeProvider>().ShouldBe(TimeProvider.System);
+        provider.GetServices<IHostedService>().OfType<FeaturesConsumer>().ShouldHaveSingleItem();
+    }
+
     private static ServiceCollection NewServices(
         bool movieRepository,
         bool featuresRepository,
         bool embedding,
-        bool metadata)
+        bool metadata,
+        bool timeProvider = true)
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(TimeProvider.System);
+        if (timeProvider)
+        {
+            services.AddSingleton(TimeProvider.System);
+        }
         var enrichment = new EnrichmentOptions { MaxAttempts = 3, ClaimLease = Lease };
         services.AddSingleton(enrichment);
         services.AddSingleton(Microsoft.Extensions.Options.Options.Create(enrichment));
@@ -205,6 +246,11 @@ public sealed class FeaturesConsumerActivationTests
         public Task<IReadOnlyList<MovieId>> FindMovieIdsMissingFeaturesAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<MovieId>>([]);
+    }
+
+    private sealed class StubTimeProvider : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026, 10, 24, 0, 0, 0, TimeSpan.Zero);
     }
 
     private sealed class SingleLoggerFactory(RecordingLogger<FeaturesConsumer> logger) : ILoggerFactory

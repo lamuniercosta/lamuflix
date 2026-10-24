@@ -73,6 +73,7 @@ public static class RabbitMqServiceCollectionExtensions
 
         if (IsFeaturesConsumerActive(services))
         {
+            services.TryAddSingleton(TimeProvider.System);
             services.AddScoped<ProcessFeaturesCommandHandler>();
             services.AddHandler<ProcessFeaturesCommandHandler, ProcessFeaturesCommand, ProcessFeaturesOutcome>();
             services.AddHandler<SweepMissingMovieFeaturesCommandHandler, SweepMissingMovieFeaturesCommand, int>();
@@ -118,7 +119,6 @@ public static class RabbitMqServiceCollectionExtensions
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    /// Declared here rather than in its own file: no logger exists while the container is being built.
     private sealed class InactiveFeaturesConsumer(ILogger<InactiveFeaturesConsumer> logger) : IHostedService
     {
         public Task StartAsync(CancellationToken cancellationToken)

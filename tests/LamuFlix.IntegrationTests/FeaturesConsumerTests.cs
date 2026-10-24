@@ -201,7 +201,10 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifet
 
         dead.ShouldNotBeNull();
         Encoding.UTF8.GetString(dead.Body.Span).ShouldBe("not json");
-        RawHeader(dead, FailureCategoryHeader).ShouldBeNull();
+        Header(dead, FailureCategoryHeader).ShouldBe("invalid_response");
+        Header(dead, FailureReasonHeader).ShouldBe("non_retryable");
+        RawHeader(dead, FailureAttemptHeader).ShouldBeOfType<int>().ShouldBe(0);
+        Header(dead, TraceContextCarrier.TraceParentHeader).ShouldStartWith("00-");
         host.Features.UpsertCount.ShouldBe(0);
     }
 
@@ -291,7 +294,7 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifet
     }
 
     [Fact]
-    public async Task Consumer_AFailedRetryPublication_DoesNotSuccessAckAndLeavesNoSnapshot()
+    public async Task Consumer_AFailedRetryPublication_RequeuesTheOriginalWithoutALeafInTheDeadLetterQueue()
     {
         var ct = TestContext.Current.CancellationToken;
         var generator = FailingGenerator(
@@ -304,15 +307,54 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifet
         await host.CloseFeaturesRetryQueueAsync(ct);
 
         await host.StartAsync(ct);
-        var dead = await probe.PollGetMatchingAsync(
-            RabbitMqTopology.FeaturesDeadLetterQueue,
+        var requeued = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.FeaturesRequestedQueue,
             candidate => Read(candidate).MovieId.Value == movie.Value,
             ct);
         await host.StopAsync(CancellationToken.None);
 
-        dead.ShouldNotBeNull();
+        requeued.ShouldNotBeNull();
+        Read(requeued).Attempt.ShouldBe(1);
+        RawHeader(requeued, FailureCategoryHeader).ShouldBeNull();
+        RawHeader(requeued, FailureReasonHeader).ShouldBeNull();
+        RawHeader(requeued, FailureAttemptHeader).ShouldBeNull();
         host.Features.UpsertCount.ShouldBe(0);
-        (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesRequestedQueue, ct)).ShouldBe(0U);
+        (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesDeadLetterQueue, ct)).ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_AFailedDeadLetterPublication_RequeuesTheOriginalWithoutALeafInTheDeadLetterQueue()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var generator = FailingGenerator(
+            new EmbeddingGenerationException(EnrichmentFailureCategory.ProviderUnavailable));
+        await fixture.DeleteTopologyAsync(ct);
+        await using var host = NewHost(generator, maxAttempts: SmallMaxAttempts);
+        var movie = host.AddMovie(810, "A stored plot.");
+        await host.Topology.EnsureDeclaredAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.FeaturesRequestedQueue, ct);
+        await host.Publisher.EnqueueAsync(new FeaturesRequested(movie, SmallMaxAttempts), ct);
+        await host.CloseFeaturesDeadLetterQueueAsync(ct);
+
+        await host.StartAsync(ct);
+        var requeued = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.FeaturesRequestedQueue,
+            candidate => Read(candidate).MovieId.Value == movie.Value,
+            ct);
+        await host.StopAsync(CancellationToken.None);
+
+        requeued.ShouldNotBeNull();
+        Read(requeued).Attempt.ShouldBe(SmallMaxAttempts);
+        RawHeader(requeued, FailureCategoryHeader).ShouldBeNull();
+        RawHeader(requeued, FailureReasonHeader).ShouldBeNull();
+        RawHeader(requeued, FailureAttemptHeader).ShouldBeNull();
+        host.Features.UpsertCount.ShouldBe(0);
+        var redeclare = new RabbitMqTopology(
+            host.Owner,
+            Options.Create(fixture.Options),
+            Options.Create(new EnrichmentOptions { MaxAttempts = SmallMaxAttempts, ClaimLease = TimeSpan.FromSeconds(5) }));
+        await redeclare.EnsureDeclaredAsync(ct);
+        (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesDeadLetterQueue, ct)).ShouldBe(0U);
     }
 
     [Fact]
@@ -496,7 +538,8 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifet
             built.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(options),
             loggerFactory.CreateLogger<FeaturesConsumer>(),
-            new FeaturesConsumerLiveness());
+            new FeaturesConsumerLiveness(),
+            built.GetRequiredService<TimeProvider>());
         return new FeaturesHost(owner, topology, publisher, movieRepository, featureRepository, consumer, built);
     }
 
@@ -533,6 +576,13 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifet
             var connection = await Owner.GetAsync(cancellationToken);
             await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
             await channel.QueueDeleteAsync(RabbitMqTopology.FeaturesRetryQueue, cancellationToken: cancellationToken);
+        }
+
+        public async Task CloseFeaturesDeadLetterQueueAsync(CancellationToken cancellationToken)
+        {
+            var connection = await Owner.GetAsync(cancellationToken);
+            await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+            await channel.QueueDeleteAsync(RabbitMqTopology.FeaturesDeadLetterQueue, cancellationToken: cancellationToken);
         }
 
         public ValueTask DisposeAsync()
