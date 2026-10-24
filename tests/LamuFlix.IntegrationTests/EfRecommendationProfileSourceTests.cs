@@ -10,6 +10,7 @@ using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
+using Microsoft.Extensions.Options;
 using Pgvector;
 using Shouldly;
 using Xunit;
@@ -34,7 +35,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var ct = TestContext.Current.CancellationToken;
         var movieId = await SeedMovieAsync("Watched only", isWatched: true, ct, "Drama", "Sci-Fi");
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
 
         // act
         var inputs = await source.GetProfileInputsAsync([], ct);
@@ -57,7 +58,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         await SeedLaunchAsync(movieId, SecondLaunch, ct);
         await SeedLaunchAsync(movieId, FirstLaunch, ct);
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
 
         // act
         var inputs = await source.GetProfileInputsAsync([], ct);
@@ -78,7 +79,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         await SeedLaunchAsync(movieId, FirstLaunch, ct);
         await SeedLaunchAsync(movieId, SecondLaunch, ct);
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
 
         // act
         var inputs = await source.GetProfileInputsAsync([], ct);
@@ -97,7 +98,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var watchedId = await SeedMovieAsync("Watched", isWatched: true, ct);
         await SeedMovieAsync("Untouched", isWatched: false, ct);
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
 
         // act
         var inputs = await source.GetProfileInputsAsync([], ct);
@@ -113,7 +114,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var ct = TestContext.Current.CancellationToken;
         var movieId = await SeedMovieAsync("Genres", isWatched: true, ct, "Sci-Fi", "Drama", "Action");
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
 
         // act
         var inputs = await source.GetProfileInputsAsync([], ct);
@@ -137,7 +138,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         await SeedVectorAsync(secondCandidate, secondVector, ct);
         await SeedVectorAsync(otherMovie, VariedVector(offset: 2000), ct);
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
 
         // act
         var inputs = await source.GetProfileInputsAsync([firstCandidate, secondCandidate], ct);
@@ -157,7 +158,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var vector = VariedVector(offset: 500);
         await SeedVectorAsync(movieId, vector, ct);
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
 
         // act
         var inputs = await source.GetProfileInputsAsync([], ct);
@@ -176,7 +177,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var launchedId = await SeedMovieAsync("No vector", isWatched: false, ct, "Drama");
         await SeedLaunchAsync(launchedId, FirstLaunch, ct);
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
 
         // act
         var inputs = await source.GetProfileInputsAsync([launchedId], ct);
@@ -195,7 +196,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var movieId = await SeedMovieAsync("Profile input", isWatched: true, ct, "Drama", "Sci-Fi");
         await SeedVectorAsync(movieId, VariedVector(offset: 300), ct);
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
         var inputs = await source.GetProfileInputsAsync([movieId], ct);
         var calculator = new TasteProfileCalculator(TimeProvider.System, new RecommendationOptions());
         var weights = GenreWeights.Calculate(new GenreCounts(2, new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)
@@ -220,7 +221,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var ct = TestContext.Current.CancellationToken;
         await SeedMovieAsync("Watched", isWatched: true, ct);
         await using var db = fixture.CreateMigratedContext();
-        var source = new EfRecommendationProfileSource(db);
+        var source = CreateSource(db);
 
         // act
         var act = () => source.GetProfileInputsAsync([], new CancellationToken(canceled: true));
@@ -228,6 +229,82 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
     }
+
+    [Fact]
+    public async Task GetTasteProfileAsync_NoQualifyingHistory_ReturnsEmptyProfile()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var source = CreateSource(db);
+
+        // act
+        var profile = await source.GetTasteProfileAsync(ct);
+
+        // assert
+        profile.IsEmpty.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GetTasteProfileAsync_WatchedHistory_ReturnsComputedProfile()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var movieId = await SeedMovieAsync("Watched profile history", isWatched: true, ct, "Drama", "Sci-Fi");
+        var vector = VariedVector(offset: 700);
+        await SeedVectorAsync(movieId, vector, ct);
+        await using var db = fixture.CreateMigratedContext();
+        var source = CreateSource(db);
+
+        // act
+        var profile = await source.GetTasteProfileAsync(ct);
+
+        // assert
+        profile.IsEmpty.ShouldBeFalse();
+        profile.GenrePreferences.Keys.ShouldBe(["Drama", "Sci-Fi"], ignoreOrder: true);
+        profile.PlotEmbedding.SequenceEqual(vector).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GetTasteProfileAsync_LaunchHistoryWithoutWatched_ReturnsComputedProfile()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var movieId = await SeedMovieAsync("Launched profile history", isWatched: false, ct, "Comedy");
+        await SeedLaunchAsync(movieId, FirstLaunch, ct);
+        await using var db = fixture.CreateMigratedContext();
+        var source = CreateSource(db);
+
+        // act
+        var profile = await source.GetTasteProfileAsync(ct);
+
+        // assert
+        profile.GenrePreferences.Keys.ShouldBe(["Comedy"]);
+        profile.PlotEmbedding.IsEmpty.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GetTasteProfileAsync_CancelledToken_PropagatesCancellation()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedMovieAsync("Watched", isWatched: true, ct);
+        await using var db = fixture.CreateMigratedContext();
+        var source = CreateSource(db);
+
+        // act
+        var act = () => source.GetTasteProfileAsync(new CancellationToken(canceled: true));
+
+        // assert
+        await Should.ThrowAsync<OperationCanceledException>(act);
+    }
+
+    private static EfRecommendationProfileSource CreateSource(LamuFlixDbContext db) =>
+        new(
+            db,
+            new GenreWeightsCalculator(new EfMovieCatalog(db), new GenreWeightsCache()),
+            TimeProvider.System,
+            Options.Create(new RecommendationOptions()));
 
     private async Task<MovieId> SeedMovieAsync(
         string title,

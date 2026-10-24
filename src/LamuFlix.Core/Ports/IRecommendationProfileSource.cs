@@ -11,4 +11,6 @@ public interface IRecommendationProfileSource
     Task<RecommendationProfileInputs> GetProfileInputsAsync(
         IReadOnlyCollection<MovieId> candidateMovieIds,
         CancellationToken ct);
+
+    Task<TasteProfile> GetTasteProfileAsync(CancellationToken ct);
 }
