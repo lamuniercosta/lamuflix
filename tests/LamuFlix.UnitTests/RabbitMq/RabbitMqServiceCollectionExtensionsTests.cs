@@ -64,7 +64,7 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public async Task AddLamuFlixRabbitMq_WithoutEitherPort_LogsExactlyOneInactiveLine()
+    public async Task AddLamuFlixRabbitMq_WithoutEitherPort_LogsOneInactiveLinePerConsumer()
     {
         // arrange
         var services = NewServices(providerPort: false, repositoryPort: false);
@@ -80,10 +80,15 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
         }
 
         // assert
-        logger.Entries.Count.ShouldBe(1);
-        logger.Entries[0].Level.ShouldBe(LogLevel.Information);
-        logger.Entries[0].State.Single(pair => pair.Key == "Message").Value
-            .ShouldBe(RabbitMqServiceCollectionExtensions.InactiveLogMessage);
+        logger.Entries.Count.ShouldBe(2);
+        logger.Entries.ShouldAllBe(entry => entry.Level == LogLevel.Information);
+        logger.Entries.Select(entry => entry.State.Single(pair => pair.Key == "Message").Value)
+            .ShouldBe(
+                [
+                    RabbitMqServiceCollectionExtensions.InactiveLogMessage,
+                    RabbitMqServiceCollectionExtensions.InactiveFeaturesLogMessage,
+                ],
+                ignoreOrder: true);
     }
 
     [Theory]

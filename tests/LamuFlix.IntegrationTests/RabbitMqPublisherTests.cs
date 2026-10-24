@@ -136,6 +136,51 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLife
     }
 
     [Fact]
+    public async Task PublishAsync_AnUnroutableFeaturesRequestedPublish_Throws()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        await host.Topology.EnsureDeclaredAsync(ct);
+
+        await Should.ThrowAsync<PublishException>(
+            () => host.Publisher.PublishAsync(
+                new FeaturesRequested(new MovieId(164), 1),
+                "no-such-key",
+                new Dictionary<string, object?>(),
+                ct));
+    }
+
+    [Fact]
+    public async Task PublishAsync_FeaturesRequestedWithTerminalFailureHeaders_CarriesOnlyWhitelistedHeaders()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        await host.Topology.EnsureDeclaredAsync(ct);
+
+        await host.Publisher.PublishAsync(
+            new FeaturesRequested(new MovieId(165), 2),
+            EnrichmentRouting.FeaturesDeadLetterRoutingKey,
+            new Dictionary<string, object?>
+            {
+                ["x-lamuflix-failure-category"] = "invalid_response",
+                ["x-lamuflix-failure-reason"] = "non_retryable",
+                ["x-lamuflix-failure-attempt"] = 2,
+            },
+            ct);
+
+        var message = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.FeaturesDeadLetterQueue,
+            candidate => ReadFeatures(candidate).MovieId.Value == 165,
+            ct);
+        message.ShouldNotBeNull();
+        ReadFeatures(message).Attempt.ShouldBe(2);
+        Header(message, "x-lamuflix-failure-category").ShouldBe("invalid_response");
+        Header(message, "x-lamuflix-failure-reason").ShouldBe("non_retryable");
+        RawHeader(message, "x-lamuflix-failure-attempt").ShouldBeOfType<int>().ShouldBe(2);
+        Header(message, TraceContextCarrier.TraceParentHeader).ShouldStartWith("00-");
+    }
+
+    [Fact]
     public async Task PublishAsync_AnUnroutablePublish_Throws()
     {
         var ct = TestContext.Current.CancellationToken;

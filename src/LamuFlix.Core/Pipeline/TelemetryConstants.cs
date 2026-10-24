@@ -22,6 +22,10 @@ public static class TelemetryConstants
 
     public const string EnrichmentProcess = "Enrichment.Process";
 
+    public const string FeaturesProcess = "Features.Process";
+
+    public const string FeaturesOutcome = "features.outcome";
+
     public const string MetadataLookup = "Metadata.Lookup";
 
     public const string EnrichmentOutcome = "enrichment.outcome";

@@ -10,6 +10,7 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Pipeline;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -27,6 +28,12 @@ public static class RabbitMqServiceCollectionExtensions
     public const string InactiveLogMessage =
         "The RabbitMQ enrichment consumer is inactive because no IMetadataProvider and IMovieRepository are both registered. Messages wait in " +
         RabbitMqTopology.RequestedQueue +
+        ".";
+
+    public const string InactiveFeaturesLogMessage =
+        "The RabbitMQ features consumer is inactive because IMovieRepository, IMovieFeaturesRepository, " +
+        "IEmbeddingGenerator<string, Embedding<float>>, and the queue publisher are not all registered. Messages wait in " +
+        RabbitMqTopology.FeaturesRequestedQueue +
         ".";
 
     public static IServiceCollection AddLamuFlixRabbitMq(this IServiceCollection services)
@@ -50,8 +57,6 @@ public static class RabbitMqServiceCollectionExtensions
             services.AddScoped<IValidator<ProcessEnrichmentCommand>>(provider =>
                 provider.GetRequiredService<ProcessEnrichmentCommandValidator>());
             services.AddHandler<ProcessEnrichmentCommandHandler, ProcessEnrichmentCommand, ProcessEnrichmentOutcome>();
-            services.AddSingleton<IValidateOptions<RabbitMqOptions>, RabbitMqConsumerOptionsValidator>();
-            services.AddOptions<RabbitMqOptions>().ValidateOnStart();
             services.TryAddSingleton<IFileSystem, System.IO.Abstractions.FileSystem>();
             services.TryAddSingleton(TimeProvider.System);
             services.AddSingleton<IWorkerLiveness>(provider => new WorkerLivenessSignal(
@@ -60,15 +65,42 @@ public static class RabbitMqServiceCollectionExtensions
                 Path.Combine(Path.GetTempPath(), LivenessDirectoryName)));
             services.AddHealthChecks().AddCheck<EnrichmentConsumerHealthCheck>("enrichment-consumer", tags: [HealthCheckTags.Ready]);
             services.AddHostedService<EnrichmentConsumer>();
-            return services;
+        }
+        else
+        {
+            services.AddHostedService<InactiveEnrichmentConsumer>();
         }
 
-        services.AddHostedService<InactiveEnrichmentConsumer>();
+        if (IsFeaturesConsumerActive(services))
+        {
+            services.AddScoped<ProcessFeaturesCommandHandler>();
+            services.AddHandler<ProcessFeaturesCommandHandler, ProcessFeaturesCommand, ProcessFeaturesOutcome>();
+            services.AddSingleton<FeaturesConsumerLiveness>();
+            services.AddHealthChecks().AddCheck<FeaturesConsumerHealthCheck>("features-consumer", tags: [HealthCheckTags.Ready]);
+            services.AddHostedService<FeaturesConsumer>();
+        }
+        else
+        {
+            services.AddHostedService<InactiveFeaturesConsumer>();
+        }
+
+        if (IsConsumerActive(services) || IsFeaturesConsumerActive(services))
+        {
+            services.AddSingleton<IValidateOptions<RabbitMqOptions>, RabbitMqConsumerOptionsValidator>();
+            services.AddOptions<RabbitMqOptions>().ValidateOnStart();
+        }
+
         return services;
     }
 
     private static bool IsConsumerActive(IServiceCollection services) =>
         HasRegistration<IMetadataProvider>(services) && HasRegistration<IMovieRepository>(services);
+
+    private static bool IsFeaturesConsumerActive(IServiceCollection services) =>
+        HasRegistration<IMovieRepository>(services)
+        && HasRegistration<IMovieFeaturesRepository>(services)
+        && HasRegistration<IEmbeddingGenerator<string, Embedding<float>>>(services)
+        && HasRegistration<RabbitMqEnrichmentQueuePublisher>(services);
 
     private static bool HasRegistration<TPort>(IServiceCollection services) =>
         services.Any(descriptor => descriptor.ServiceType == typeof(TPort));
@@ -79,6 +111,18 @@ public static class RabbitMqServiceCollectionExtensions
         public Task StartAsync(CancellationToken cancellationToken)
         {
             logger.LogInformation("{Message}", InactiveLogMessage);
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    /// Declared here rather than in its own file: no logger exists while the container is being built.
+    private sealed class InactiveFeaturesConsumer(ILogger<InactiveFeaturesConsumer> logger) : IHostedService
+    {
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            logger.LogInformation("{Message}", InactiveFeaturesLogMessage);
             return Task.CompletedTask;
         }
 
