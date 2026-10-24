@@ -95,6 +95,7 @@ public sealed class EfMovieRepository : IMovieRepository
             }
 
             cache.Invalidate();
+            await InvalidateTasteProfileAsync(ct);
         }
 
         return rows == 1;
@@ -182,7 +183,11 @@ public sealed class EfMovieRepository : IMovieRepository
         }
 
         cache.Invalidate();
+        await InvalidateTasteProfileAsync(ct);
+    }
 
+    private async Task InvalidateTasteProfileAsync(CancellationToken ct)
+    {
         if (tasteProfileCache is not null)
         {
             await tasteProfileCache.InvalidateAsync(ct);
