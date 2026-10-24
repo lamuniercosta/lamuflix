@@ -12,6 +12,8 @@ using LamuFlix.ArchitectureTests.Fixtures.Violating;
 using LamuFlix.ArchitectureTests.Fixtures.Violating.Features.MediaLibrary;
 using LamuFlix.Core;
 using LamuFlix.Core.Pipeline;
+using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Pipeline;
 using NetArchTest.Rules;
 using Xunit;
@@ -172,6 +174,43 @@ public sealed class ArchitectureTests
             .GetResult();
 
         Assert.True(result.IsSuccessful, Describe(result));
+    }
+
+    [Fact]
+    public void Core_must_not_reference_hybrid_cache()
+    {
+        AssertNoAssemblyReference(Core, "Microsoft.Extensions.Caching.Hybrid");
+        AssertNoDependency(Core, "Microsoft.Extensions.Caching.Hybrid");
+    }
+
+    [Fact]
+    public void Derived_profile_caching_must_stay_behind_the_single_existing_port()
+    {
+        var profilePorts = Types.InAssembly(Core)
+            .That()
+            .ResideInNamespace("LamuFlix.Core.Ports")
+            .And()
+            .HaveNameMatching("RecommendationProfile")
+            .GetTypes()
+            .Select(type => type.FullName)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
+        Assert.Equal(["LamuFlix.Core.Ports.IRecommendationProfileSource"], profilePorts);
+
+        var coreHybridTypes = Types.InAssembly(Core)
+            .That()
+            .HaveNameMatching("Hybrid")
+            .GetTypes()
+            .Select(type => type.FullName)
+            .ToList();
+        Assert.Empty(coreHybridTypes);
+
+        var infrastructure = typeof(HybridCachedRecommendationProfileSource).Assembly;
+        var cachedAdapter = infrastructure.GetType(
+            "LamuFlix.Infrastructure.Persistence.HybridCachedRecommendationProfileSource",
+            throwOnError: false);
+        Assert.NotNull(cachedAdapter);
+        Assert.Contains(typeof(IRecommendationProfileSource), cachedAdapter.GetInterfaces());
     }
 
     [Fact]
