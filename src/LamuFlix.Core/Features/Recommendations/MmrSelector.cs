@@ -29,22 +29,99 @@ public static class MmrSelector
             return ImmutableList<MovieId>.Empty;
         }
 
-        return SelectOrdered(candidates, Math.Min(take, candidates.Count));
+        return SelectOrdered(candidates, Math.Min(take, candidates.Count), lambda, weights, genreWeights);
     }
 
-    // Phase 2 replaces this placeholder with the deterministic MMR selection loop.
     private static ImmutableList<MovieId> SelectOrdered(
         IReadOnlyList<MmrCandidate> candidates,
-        int count)
+        int count,
+        double lambda,
+        SimilarityWeights weights,
+        GenreWeights genreWeights)
     {
+        var selected = new bool[candidates.Count];
+        var maximumRedundancy = new double[candidates.Count];
+        var selectedFeatures = new List<MovieFeatures>(count);
         var builder = ImmutableList.CreateBuilder<MovieId>();
 
-        for (var index = 0; index < count; index++)
+        for (var step = 0; step < count; step++)
         {
-            builder.Add(candidates[index].MovieId);
+            var chosen = ChooseNext(candidates, selected, maximumRedundancy, lambda);
+            selected[chosen] = true;
+            builder.Add(candidates[chosen].MovieId);
+            selectedFeatures.Add(candidates[chosen].Features);
+
+            if (step == count - 1)
+            {
+                break;
+            }
+
+            UpdateMaximumRedundancy(candidates, selected, maximumRedundancy, selectedFeatures, weights, genreWeights);
         }
 
         return builder.ToImmutable();
+    }
+
+    private static int ChooseNext(
+        IReadOnlyList<MmrCandidate> candidates,
+        bool[] selected,
+        double[] maximumRedundancy,
+        double lambda)
+    {
+        var bestIndex = -1;
+        var bestObjective = 0.0;
+
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            if (selected[index])
+            {
+                continue;
+            }
+
+            var objective = (lambda * candidates[index].Relevance)
+                - ((1.0 - lambda) * maximumRedundancy[index]);
+
+            if (bestIndex < 0 || IsBetter(candidates[index], objective, candidates[bestIndex], bestObjective))
+            {
+                bestIndex = index;
+                bestObjective = objective;
+            }
+        }
+
+        return bestIndex;
+    }
+
+    private static bool IsBetter(
+        MmrCandidate candidate,
+        double objective,
+        MmrCandidate bestCandidate,
+        double bestObjective) =>
+        objective > bestObjective
+        || (objective == bestObjective && candidate.MovieId.Value < bestCandidate.MovieId.Value);
+
+    private static void UpdateMaximumRedundancy(
+        IReadOnlyList<MmrCandidate> candidates,
+        bool[] selected,
+        double[] maximumRedundancy,
+        List<MovieFeatures> selectedFeatures,
+        SimilarityWeights weights,
+        GenreWeights genreWeights)
+    {
+        var newest = selectedFeatures[^1];
+
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            if (selected[index])
+            {
+                continue;
+            }
+
+            var similarity = SimilarityScorer.Score(candidates[index].Features, newest, weights, genreWeights).Score;
+            if (similarity > maximumRedundancy[index])
+            {
+                maximumRedundancy[index] = similarity;
+            }
+        }
     }
 
     private static void ValidateCandidates(IReadOnlyList<MmrCandidate> candidates)

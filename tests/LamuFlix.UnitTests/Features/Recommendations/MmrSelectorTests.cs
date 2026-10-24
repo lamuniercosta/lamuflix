@@ -292,6 +292,135 @@ public sealed class MmrSelectorTests
         first.ShouldBe(firstSnapshot);
     }
 
+    [Fact]
+    public void Select_LambdaOne_OrdersByRelevanceDescendingThenId()
+    {
+        // arrange
+        var candidates = Pool(
+            Candidate(3, relevance: 0.5),
+            Candidate(1, relevance: 0.9),
+            Candidate(2, relevance: 0.9),
+            Candidate(4, relevance: 0.2));
+
+        // act
+        var result = MmrSelector.Select(candidates, 4, 1.0, Only(genres: 1.0), GenreTable());
+
+        // assert
+        result.ShouldBe([new MovieId(1), new MovieId(2), new MovieId(3), new MovieId(4)]);
+    }
+
+    [Fact]
+    public void Select_LambdaZero_PicksSmallestIdThenMinimizesMaximumRedundancy()
+    {
+        // arrange
+        var candidates = Pool(
+            Candidate(1, genres: ["A"]),
+            Candidate(2, genres: ["A"]),
+            Candidate(3, genres: ["B"]),
+            Candidate(4, genres: ["B"]));
+
+        // act
+        var result = MmrSelector.Select(candidates, 4, 0.0, Only(genres: 1.0), UniformGenres());
+
+        // assert
+        result.ShouldBe([new MovieId(1), new MovieId(3), new MovieId(2), new MovieId(4)]);
+    }
+
+    [Fact]
+    public void Select_ExactObjectiveTies_AreStableAcrossInputPermutations()
+    {
+        // arrange
+        int[][] permutations =
+        [
+            [1, 2, 3, 4],
+            [4, 3, 2, 1],
+            [2, 4, 1, 3],
+            [3, 1, 4, 2],
+        ];
+        var expected = new[] { new MovieId(1), new MovieId(2), new MovieId(3), new MovieId(4) };
+
+        // act / assert
+        foreach (var permutation in permutations)
+        {
+            var candidates = Pool([.. permutation.Select(id => Candidate(id, relevance: 0.5, genres: ["Shared"]))]);
+            var result = MmrSelector.Select(candidates, 4, 0.7, Only(genres: 1.0), UniformGenres());
+            result.ShouldBe(expected);
+        }
+    }
+
+    [Fact]
+    public void Select_ZeroWeights_ReusesDevice338IdentitySimilarity()
+    {
+        // arrange
+        var candidates = Pool(
+            Candidate(1, genres: ["A"]),
+            Candidate(2, genres: ["A"]),
+            Candidate(3, genres: ["B"]));
+
+        // act
+        var result = MmrSelector.Select(candidates, 3, 0.0, Only(), UniformGenres());
+
+        // assert
+        result.ShouldBe([new MovieId(1), new MovieId(3), new MovieId(2)]);
+    }
+
+    [Fact]
+    public void Select_MissingFeatures_ContributeZeroRedundancy()
+    {
+        // arrange
+        var candidates = Pool(
+            Candidate(1, genres: ["A"]),
+            new MmrCandidate(new MovieId(2), 0.5, Features()),
+            Candidate(3, genres: ["B"]));
+
+        // act
+        var result = MmrSelector.Select(candidates, 3, 0.0, Only(genres: 1.0), UniformGenres());
+
+        // assert
+        result.ShouldBe([new MovieId(1), new MovieId(2), new MovieId(3)]);
+    }
+
+    [Fact]
+    public void Select_EarlierSelectedCandidateSuppliesDecisiveMaximumRedundancy()
+    {
+        // arrange
+        var candidates = Pool(
+            Candidate(1, genres: ["a"]),
+            Candidate(2, genres: ["b"]),
+            Candidate(3, genres: ["a", "c"]),
+            Candidate(4, genres: ["b", "c", "d"]));
+
+        // act
+        var result = MmrSelector.Select(candidates, 4, 0.0, Only(genres: 1.0), UniformGenres());
+
+        // assert
+        // Latest-only redundancy would pick id 3 at step three, because it is less similar to id 2.
+        // The cumulative maximum retains the earlier id-1 similarity and picks id 4.
+        result.ShouldBe([new MovieId(1), new MovieId(2), new MovieId(4), new MovieId(3)]);
+    }
+
+    [Fact]
+    public void Select_CrossTakeResultsArePrefixes()
+    {
+        // arrange
+        var candidates = Pool(
+            Candidate(5, relevance: 0.5, genres: ["A"]),
+            Candidate(2, relevance: 0.9, genres: ["A", "B"]),
+            Candidate(7, relevance: 0.6, genres: ["C"]),
+            Candidate(1, relevance: 0.8, genres: ["B"]),
+            Candidate(9, relevance: 0.7, genres: ["A", "C"]));
+        var weights = Only(genres: 1.0);
+        var genreWeights = UniformGenres();
+        var full = MmrSelector.Select(candidates, 10, 0.7, weights, genreWeights);
+
+        // act / assert
+        foreach (var take in new[] { 0, 1, 2, 3, 4 })
+        {
+            var shorter = MmrSelector.Select(candidates, take, 0.7, weights, genreWeights);
+            shorter.ToArray().ShouldBe([.. full.Take(Math.Min(take, candidates.Count))]);
+        }
+    }
+
     private static List<MmrCandidate> Pool(params MmrCandidate[] items) => [.. items];
 
     private static MmrCandidate Candidate(
@@ -329,6 +458,9 @@ public sealed class MmrSelectorTests
                     ["Comedy"] = 90,
                     ["Shared"] = 50,
                 }));
+
+    private static GenreWeights UniformGenres() =>
+        GenreWeights.Calculate(new GenreCounts(0, new Dictionary<string, long>()));
 
     private static MovieFeatures Features(
         IEnumerable<string>? genres = null,
