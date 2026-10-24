@@ -27,6 +27,7 @@ using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shouldly;
@@ -291,6 +292,27 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
         sweep.ShouldBeOfType<TracingDecorator<SweepStrandedMoviesCommand, int>>();
         requeue.ShouldBeOfType<TracingDecorator<RequeueStrandedMoviesCommand, int>>();
         registrations.ShouldContain(service => service is StrandedMovieSweeper);
+    }
+
+    [Fact]
+    public void Services_StartedComposition_RegistersTheFeaturesConsumerAndItsReadyHealthCheckWithoutMaskingMetadataLiveness()
+    {
+        // arrange
+        using var healthFactory = new ApiHostFactory(retainSweeper: false, retainHealthChecks: true);
+
+        // act
+        var hostedServices = healthFactory.Services.GetServices<IHostedService>().ToArray();
+        var registrations = healthFactory.Services
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
+
+        // assert
+        hostedServices.ShouldContain(service => service is FeaturesConsumer);
+        hostedServices.ShouldContain(service => service is EnrichmentConsumer);
+        healthFactory.Services.GetRequiredService<FeaturesConsumerLiveness>().ShouldNotBeNull();
+        registrations.ShouldContain(registration =>
+            registration.Name == "features-consumer" && registration.Tags.Contains(HealthCheckTags.Ready));
+        registrations.ShouldContain(registration =>
+            registration.Name == "enrichment-consumer" && registration.Tags.Contains(HealthCheckTags.Ready));
     }
 
     [Fact]
