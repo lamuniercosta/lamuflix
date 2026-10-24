@@ -11,3 +11,13 @@ Worktree: `F:/Dev/LamuFlix.worktrees/feature-415-spec`; branch: `feature/415-spe
 **Rationale and implications:** Repeated reads reuse the derived profile while candidate selection remains current. A miss uses persisted profile inputs. No package-version, expiry-value, concurrency, or invalidation-race design is settled by this ruling. Ticket-authorized Microsoft.Extensions.Caching.Hybrid does not need separate PRODUCT dependency approval (PRODUCT section 3; charter section 2.3 ticket-authority rule). Source: Patron Q1 response, 2026-10-23.
 
 **Status:** Q1 settled. Grill remains open pending Wisp documentation recon. No brief or implementation authorization yet.
+
+## Q2 - HybridCache package decision
+
+**Keel question and recommendation:** Use stable .NET 10-compatible Microsoft.Extensions.Caching.Hybrid, with the exact version selected only after Wisp verifies official package metadata; reject treating the API reference 11.0.0 RC label for Caching.Abstractions as proof of Hybrid package availability or compatibility. Ticket DEV-415 lines 17 and 20 authorize the HybridCache dependency; PRODUCT.md sections 1 and 3 and the constitution Technology Stack constrain .NET 10 and central fixed versions. Recon-DEV-415 lines 89-91 and 122 document no stable package metadata, so the exact version cannot freeze yet. Patron is asked whether this is the ruling or whether a prerelease dependency with separately verified package metadata is deliberately wanted.
+
+**Patron answer:** This is the ruling; no prerelease dependency is wanted. Adopt stable .NET 10-compatible Microsoft.Extensions.Caching.Hybrid only, with the exact version frozen after Wisp verifies official package metadata. Do not infer an available version from neighboring package pins, and do not treat the 11.0.0 RC Caching.Abstractions API-reference label as proof of Hybrid package availability or compatibility. If Wisp finds no stable .NET 10-compatible release, return to Patron rather than silently adopting a prerelease.
+
+**Rationale and implications:** Ticket DEV-415 lines 17 and 20 authorize the HybridCache dependency. PRODUCT.md sections 1 and 3 and the constitution Technology Stack constrain the choice to .NET 10 with central fixed versions. Recon-DEV-415 section 7 (lines 89-91 and 122) leaves stable package metadata unverified, so the version stays open pending Wisp; that gap does not block the package decision itself.
+
+**Status:** Q2 settled on the stable-only package decision; exact version open pending Wisp verification of official package metadata. No Quill or implementation authorization yet.
