@@ -99,6 +99,7 @@ public sealed class ProcessFeaturesCommandHandler(
     }
 
     private static bool IsInvalidPayload(ProcessFeaturesCommand command) =>
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - malformed broker payloads can carry a null movie id despite the annotation.
         command.MovieId is null || command.Attempt < 1;
 
     private static EnrichmentFailureCategory Classify(Exception exception)
@@ -140,6 +141,7 @@ public sealed class ProcessFeaturesCommandHandler(
                        ?? DeadLetterDecision;
         logger.LogInformation(
             "Feature processing for {MovieId} attempt {Attempt} failed category {Category}",
+            // ReSharper disable once ConditionalAccessQualifierIsNonNullableAccordingToAPIContract - the invalid-payload path above can carry a null movie id.
             command.MovieId?.Value,
             command.Attempt,
             category.Code);

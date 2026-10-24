@@ -96,7 +96,7 @@ public sealed class FeaturesConsumerHealthCheckTests
 
     private sealed class FixedLiveness(bool isListening) : IWorkerLiveness
     {
-        public bool IsListening { get; set; } = isListening;
+        public bool IsListening { get; private set; } = isListening;
 
         public void MarkListening() => IsListening = true;
 

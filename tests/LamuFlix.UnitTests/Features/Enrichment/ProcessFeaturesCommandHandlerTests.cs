@@ -8,10 +8,8 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
-using LamuFlix.UnitTests.Features;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace LamuFlix.UnitTests.Features.Enrichment;

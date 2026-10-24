@@ -67,13 +67,13 @@ public sealed class MissingMovieFeaturesRecoveryTests(PostgresFixture postgres, 
         await context.SaveChangesAsync(ct);
         context.MovieFeatures.Add(new MovieFeaturesRecord
         {
-            MovieId = existing.Id!,
+            MovieId = Key(existing),
             Vector = new Vector(Enumerable.Repeat(0.1f, 384).ToArray()),
             ComputedAt = MovieCatalogSeed.FixedTime,
         });
         await context.SaveChangesAsync(ct);
 
-        var expected = new[] { pending.Id!, enriched.Id!, failed.Id! };
+        var expected = new[] { Key(pending), Key(enriched), Key(failed) };
         var before = await SnapshotAsync(context, ct);
 
         await using var owner = new RabbitMqConnectionOwner(Options.Create(rabbitMq.Options));
@@ -112,7 +112,7 @@ public sealed class MissingMovieFeaturesRecoveryTests(PostgresFixture postgres, 
         await using var owner = new RabbitMqConnectionOwner(Options.Create(rabbitMq.Options));
         var publisher = CreatePublisher(owner);
         await publisher.PublishAsync(
-            new FeaturesRequested(movie.Id!, 3),
+            new FeaturesRequested(Key(movie), 3),
             EnrichmentRouting.FeaturesDeadLetterRoutingKey,
             new Dictionary<string, object?>(),
             ct);
@@ -126,7 +126,7 @@ public sealed class MissingMovieFeaturesRecoveryTests(PostgresFixture postgres, 
         count.ShouldBe(1);
         var requested = await probe.PollGetAsync(RabbitMqTopology.FeaturesRequestedQueue, ct);
         requested.ShouldNotBeNull();
-        ReadFeatures(requested).MovieId.ShouldBe(movie.Id!);
+        ReadFeatures(requested).MovieId.ShouldBe(Key(movie));
         ReadFeatures(requested).Attempt.ShouldBe(1);
         (await probe.DeclarePassiveAsync(RabbitMqTopology.FeaturesDeadLetterQueue, ct)).MessageCount.ShouldBe(1U);
     }
@@ -157,7 +157,7 @@ public sealed class MissingMovieFeaturesRecoveryTests(PostgresFixture postgres, 
 
         var requested = await probe.PollGetAsync(RabbitMqTopology.FeaturesRequestedQueue, ct);
         requested.ShouldNotBeNull();
-        ReadFeatures(requested).MovieId.ShouldBe(movie.Id!);
+        ReadFeatures(requested).MovieId.ShouldBe(Key(movie));
         ReadFeatures(requested).Attempt.ShouldBe(1);
     }
 
@@ -288,6 +288,9 @@ public sealed class MissingMovieFeaturesRecoveryTests(PostgresFixture postgres, 
                 Options.Create(new EnrichmentOptions { MaxAttempts = 3 })),
             owner);
 
+    // ReSharper disable once NullableWarningSuppressionIsUsed - seeded rows always carry an assigned key.
+    private static MovieId Key(MovieRecord movie) => movie.Id!;
+
     private static MovieRecord Seed(
         LamuFlixDbContext context,
         string title,
@@ -308,9 +311,9 @@ public sealed class MissingMovieFeaturesRecoveryTests(PostgresFixture postgres, 
         var rows = await context.Movies.AsNoTracking().ToArrayAsync(cancellationToken);
         return string.Join(
             "|",
-            rows.OrderBy(movie => movie.Id!.Value).Select(row => string.Create(
+            rows.OrderBy(row => Key(row).Value).Select(row => string.Create(
                 CultureInfo.InvariantCulture,
-                $"{row.Id!.Value}:{row.Status.Name}:{row.EnrichmentAttempts}:{row.LastAttemptAt?.UtcTicks}")));
+                $"{Key(row).Value}:{row.Status.Name}:{row.EnrichmentAttempts}:{row.LastAttemptAt?.UtcTicks}")));
     }
 
     private static FeaturesRequested ReadFeatures(RabbitMQ.Client.BasicGetResult message) =>

@@ -10,10 +10,8 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
-using LamuFlix.UnitTests.Features;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
@@ -95,7 +93,7 @@ public sealed class ProcessFeaturesCommandHandlerFailureTests
             .ThrowsAsync(new IOException("disk unavailable"));
 
         // act
-        var outcome = await CreateHandler(Generator((values, token) => Generated(values)))
+        var outcome = await CreateHandler(Generator((values, _) => Generated(values)))
             .HandleAsync(new ProcessFeaturesCommand(Id, 1), ct);
 
         // assert
@@ -168,7 +166,7 @@ public sealed class ProcessFeaturesCommandHandlerFailureTests
     {
         // arrange
         var ct = CancellationToken.None;
-        var generator = Generator((values, token) => Generated(values));
+        var generator = Generator((values, _) => Generated(values));
 
         // act
         var outcome = await CreateHandler(generator).HandleAsync(new ProcessFeaturesCommand(Id, attempt), ct);
@@ -186,7 +184,7 @@ public sealed class ProcessFeaturesCommandHandlerFailureTests
     {
         // arrange
         var ct = CancellationToken.None;
-        var generator = Generator((values, token) => Generated(values));
+        var generator = Generator((values, _) => Generated(values));
 
         // act
         // ReSharper disable once NullableWarningSuppressionIsUsed - a malformed payload can carry no movie id.
@@ -248,6 +246,7 @@ public sealed class ProcessFeaturesCommandHandlerFailureTests
         using var source = new CancellationTokenSource();
         var token = source.Token;
         movies.GetPlotAsync(Id, token).Returns("A stored plot.");
+        // ReSharper disable once AccessToDisposedClosure - the generator runs inside HandleAsync before the test disposes the source.
         var generator = Generator((_, _) =>
         {
             source.Cancel();
@@ -273,7 +272,7 @@ public sealed class ProcessFeaturesCommandHandlerFailureTests
             .ThrowsAsync(new DuplicateImdbIdException());
 
         // act
-        var outcome = await CreateHandler(Generator((values, token) => Generated(values)))
+        var outcome = await CreateHandler(Generator((values, _) => Generated(values)))
             .HandleAsync(new ProcessFeaturesCommand(Id, 1), ct);
 
         // assert
@@ -325,7 +324,7 @@ public sealed class ProcessFeaturesCommandHandlerFailureTests
 
     private static GeneratedEmbeddings<Embedding<float>> Generated(IReadOnlyList<string> inputs) =>
         new(inputs.Select(input => new Embedding<float>(
-            Enumerable.Repeat((float)Math.Abs(input.Length) + 1f, EmbeddingDimensions.Value).ToArray())));
+            Enumerable.Repeat(input.Length + 1f, EmbeddingDimensions.Value).ToArray())));
 
     private static GeneratedEmbeddings<Embedding<float>> One(float[] vector) =>
         new([new Embedding<float>(vector)]);
