@@ -307,3 +307,30 @@ OllamaEmbeddingResilienceTests.GenerateAsync_ExhaustedServerError_MapsToProvider
 - Basis: brief.md:168-169 and tasks.md:48 require unrelated pre-existing failures to be reported, not silently fixed; the frozen scope excludes unrelated work.
 - Limit: this is not a final gate waiver. Any new or DEV-414-related failure remains blocking, and final `dotnet test` exit 1 still blocks closure under Q1 unless the suite is independently green.
 
+---
+
+## Phase 4 step 3 - Three-axis implementation review dispositions (2026-10-24)
+
+Reviewed HEAD: 42a1b2eeaa58cc531406df8ea3b39d1013bd1898. Patron adjudication of Keel's consolidated Sentry, Compass and Ledger findings.
+
+Verdict: the combined Sentry F2 / Compass F1 High finding and Compass F2 Medium finding block and are fixed in scope; Ledger F1 Medium and Compass F3 Low are also fixed in scope. The proposed dismissals and noted/no-ticket dispositions are confirmed. No topology change, ticket-text change, constitution departure, structural blocker or owner checkbox.
+
+1. **Sentry F2 + Compass F1 - CONFIRMED High; fix in scope.** A retry/DLQ publication throw currently reaches the failure path that nacks without requeue while the live test expects the original in the DLQ. This violates brief Q4 (`brief.md:108-117`) and spec.md:59/FR-009: failed or cancelled publication must never ack or discard the original. Preserve/requeue the original on failed retry or DLQ publication and correct the live test to prove that contract; retain existing topology.
+2. **Compass F2 - CONFIRMED Medium; fix in scope.** Inject `TimeProvider` into `FeaturesConsumer` and use it for reconnect delay, with deterministic reconnect proof. Basis: spec.md:117/FR-001 and brief Q7 (`brief.md:192`), plus the repository `TimeProvider` non-negotiable.
+3. **Ledger F1 - CONFIRMED Medium standards; fix in scope.** Remove only the newly introduced nonexempt explanatory comments identified at `ProcessFeaturesOutcome.cs:12`, `RabbitMqServiceCollectionExtensions.cs:121`, `FeaturesConsumerLiveness.cs:3-7`, the port additions, and `EfMovieFeaturesRepository.cs:17-21,65-70`. Basis: AGENTS.md Non-negotiables permits only AAA headers, intentional empty-block justifications and narrowly scoped warning suppressions.
+4. **Compass F3 - CONFIRMED Low; fix in scope, source severity unchanged.** Unreadable JSON or null MovieId is malformed payload and must follow the permanent `invalid_response` application-DLQ path without inference retry, including the sanitized application headers and corrected test expectation. The broker-limit carveout applies only to broker-generated dead-letter entries, not this application nack. Basis: spec.md:56,124/FR-008 and the application/broker distinction at spec.md:104; brief Q4 (`brief.md:85,98-104`). No topology change.
+
+### Dismissals and non-blocking dispositions
+
+- **Sentry F1, F3, F4, F5:** dismissed as blockers and noted, no ticket; recovery duplicates, no batching, later-sweep eligibility and fresh Attempt 1 are expressly accepted by frozen Q5 (`brief.md:119-136`).
+- **Sentry F6, F7:** dismissed as unsupported questions, no ticket; dependency hang and generator timeout were not proved, and no further recon is required for this review disposition.
+- **Sentry F8:** dismissed; its future-failure premise is false and the feature-specific activation predicate is required by Q7 (`brief.md:176-192`; spec.md:128/FR-012).
+- **Sentry F9 + Ledger F2:** dismissed as duplicate hypothetical allowlist drift, no ticket; there is no present failure and the four-category whitelist is intentional under spec.md:124/FR-008.
+- **Ledger F3:** dismissed; cloned lifecycle follows the approved Q6-Q7 pattern and a generic worker abstraction is expressly excluded (spec.md:109,129,133).
+- **Ledger F4:** dismissed as hypothetical typo, no present defect and no ticket.
+- **Ledger F5:** dismissed; the defensive Core input guard is allowed.
+- **Ledger F6:** noted, no ticket; Attempt 1 wording is cosmetic and does not meet the Q1 follow-up-ticket criteria (`brief.md:43-46`).
+- **Ledger F7:** dismissed; active-only recovery is required by Q7 (`brief.md:184-187`; spec.md:128/FR-012).
+
+These dispositions do not claim remediation, tests, gates or review closure; the four accepted fixes remain open until implemented and verified.
+
