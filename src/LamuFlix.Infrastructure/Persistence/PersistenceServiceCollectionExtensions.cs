@@ -4,9 +4,11 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
@@ -31,8 +33,24 @@ public static class PersistenceServiceCollectionExtensions
 
         services.AddDbContext<LamuFlixDbContext>(options => options.UseNpgsql(connectionString, o => o.UseVector()));
         services.AddHealthChecks().AddDbContextCheck<LamuFlixDbContext>("postgres", tags: [HealthCheckTags.Ready]);
+        services.AddHybridCache();
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<GenreWeightsCache>();
+        services.AddOptions<TasteProfileCacheOptions>()
+            .BindConfiguration(TasteProfileCacheOptions.SectionName)
+            .Validate(
+                options => options.Expiration > TimeSpan.Zero,
+                $"{TasteProfileCacheOptions.SectionName}:{nameof(TasteProfileCacheOptions.Expiration)} must be greater than zero.")
+            .ValidateOnStart();
+        services.AddOptions<HybridCacheOptions>()
+            .Configure<IOptions<TasteProfileCacheOptions>>((hybrid, tasteProfile) =>
+            {
+                hybrid.DefaultEntryOptions = new HybridCacheEntryOptions
+                {
+                    Expiration = tasteProfile.Value.Expiration,
+                    LocalCacheExpiration = tasteProfile.Value.Expiration,
+                };
+            });
         services.AddOptions<EnrichmentOptions>()
             .Validate(
                 options => options.ClaimLease > TimeSpan.Zero,
@@ -41,7 +59,10 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IMovieRepository, EfMovieRepository>();
         services.AddScoped<IPlaybackHistory, EfPlaybackHistory>();
         services.AddScoped<IRecommendationCandidateSource, EfRecommendationCandidateSource>();
-        services.AddScoped<IRecommendationProfileSource, EfRecommendationProfileSource>();
+        services.AddScoped<EfRecommendationProfileSource>();
+        services.AddSingleton<HybridCachedRecommendationProfileSource>();
+        services.AddSingleton<IRecommendationProfileSource>(
+            provider => provider.GetRequiredService<HybridCachedRecommendationProfileSource>());
         services.AddScoped<IMovieFeaturesRepository, EfMovieFeaturesRepository>();
 
         return services;
