@@ -15,8 +15,6 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
 {
     private const string CacheKey = "LamuFlix.Recommendations.TasteProfile";
 
-    private const string CacheTag = "LamuFlix.Recommendations.TasteProfile";
-
     private readonly HybridCache cache;
     private readonly IServiceScopeFactory scopeFactory;
     private readonly TimeProvider timeProvider;
@@ -47,7 +45,7 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
             var entry = await cache.GetOrCreateAsync(
                 CacheKey,
                 CreateEntryAsync,
-                tags: [CacheTag],
+                tags: [CacheKey],
                 cancellationToken: ct);
 
             ct.ThrowIfCancellationRequested();
@@ -68,10 +66,11 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
         ArgumentNullException.ThrowIfNull(candidateMovieIds);
         ct.ThrowIfCancellationRequested();
 
-        await using var scope = scopeFactory.CreateAsyncScope();
-        var uncachedSource = scope.ServiceProvider.GetRequiredService<EfRecommendationProfileSource>();
-
-        return await uncachedSource.GetProfileInputsAsync(candidateMovieIds, ct);
+        var uncachedSource = ResolveUncachedSource(out var scope);
+        await using (scope)
+        {
+            return await uncachedSource.GetProfileInputsAsync(candidateMovieIds, ct);
+        }
     }
 
     internal async Task InvalidateAsync(CancellationToken ct = default)
@@ -80,7 +79,7 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
 
         Interlocked.Increment(ref generation);
 
-        await cache.RemoveByTagAsync(CacheTag, ct);
+        await cache.RemoveByTagAsync(CacheKey, ct);
     }
 
     private async ValueTask<CachedProfile> CreateEntryAsync(CancellationToken factoryToken)
@@ -88,13 +87,21 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
         var generationSnapshot = Interlocked.Read(ref generation);
         var createdAt = timeProvider.GetUtcNow();
 
-        await using var scope = scopeFactory.CreateAsyncScope();
-        var uncachedSource = scope.ServiceProvider.GetRequiredService<EfRecommendationProfileSource>();
-        var profile = await uncachedSource.GetTasteProfileAsync(factoryToken);
+        var uncachedSource = ResolveUncachedSource(out var scope);
+        await using (scope)
+        {
+            var profile = await uncachedSource.GetTasteProfileAsync(factoryToken);
 
-        factoryToken.ThrowIfCancellationRequested();
+            factoryToken.ThrowIfCancellationRequested();
 
-        return new CachedProfile(profile, generationSnapshot, createdAt);
+            return new CachedProfile(profile, generationSnapshot, createdAt);
+        }
+    }
+
+    private EfRecommendationProfileSource ResolveUncachedSource(out AsyncServiceScope scope)
+    {
+        scope = scopeFactory.CreateAsyncScope();
+        return scope.ServiceProvider.GetRequiredService<EfRecommendationProfileSource>();
     }
 
     private bool IsStale(CachedProfile entry) =>
