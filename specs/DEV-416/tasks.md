@@ -115,13 +115,13 @@
 
 ### Tests for Phase 4
 
-- [ ] T014 [P] [US3] Author/extend unit tests in `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs` for pre-Take diversification on a pool larger than Take with a diversifying item beyond the relevance-only cutoff; configured MmrLambda sensitivity; original Movie/Score/Reasons preservation; explicit non-monotonic-score order assertion. Update existing ordering expectations only where they conflict with ratified MMR.
-- [ ] T015 [P] [US3] Author/extend property/unit coverage in `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerPropertyTests.cs` only as required for ratified coverage/order under MMR.
+- [x] T014 [P] [US3] Author/extend unit tests in `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerTests.cs` for pre-Take diversification on a pool larger than Take with a diversifying item beyond the relevance-only cutoff; configured MmrLambda sensitivity; original Movie/Score/Reasons preservation; explicit non-monotonic-score order assertion. Update existing ordering expectations only where they conflict with ratified MMR.
+- [x] T015 [P] [US3] Author/extend property/unit coverage in `tests/LamuFlix.UnitTests/Features/Recommendations/GetRecommendationsQueryHandlerPropertyTests.cs` only as required for ratified coverage/order under MMR.
 
 ### Implementation for Phase 4
 
-- [ ] T016 [US3] After T014, narrowly modify `src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs` to replace only the ranking/truncation stage: project each scored candidate once via `MovieFeaturesMapper.From`, call `MmrSelector.Select` over the full scored pool with `recommendationOptions.MmrLambda` and `query.Take`, map selected IDs to original Movie/blended Score/Reasons in selector order. Do not change RecommendedMovie/OpenAPI shapes. Do not edit RecommendationOptions, SimilarityScorer, BlendScorer, or MovieFeaturesMapper.
-- [ ] T017 [US3] Drive T014–T015 green and confirm Phase 3 selector proofs still pass.
+- [x] T016 [US3] After T014, narrowly modify `src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs` to replace only the ranking/truncation stage: project each scored candidate once via `MovieFeaturesMapper.From`, call `MmrSelector.Select` over the full scored pool with `recommendationOptions.MmrLambda` and `query.Take`, map selected IDs to original Movie/blended Score/Reasons in selector order. Do not change RecommendedMovie/OpenAPI shapes. Do not edit RecommendationOptions, SimilarityScorer, BlendScorer, or MovieFeaturesMapper.
+- [x] T017 [US3] Drive T014–T015 green and confirm Phase 3 selector proofs still pass.
 
 **Checkpoint**: Phase 4 tests green. Commit `DEV-416 - handler MMR before Take`.
 
