@@ -7,7 +7,9 @@ using LamuFlix.Infrastructure.Persistence.Records;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
-public sealed class EfPlaybackHistory(LamuFlixDbContext dbContext) : IPlaybackHistory
+public sealed class EfPlaybackHistory(
+    LamuFlixDbContext dbContext,
+    HybridCachedRecommendationProfileSource? tasteProfileCache = null) : IPlaybackHistory
 {
     public async Task RecordAsync(PlaybackEvent playbackEvent, CancellationToken cancellationToken = default)
     {
@@ -19,5 +21,10 @@ public sealed class EfPlaybackHistory(LamuFlixDbContext dbContext) : IPlaybackHi
             PlayedAt = playbackEvent.PlayedAt,
         });
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (tasteProfileCache is not null)
+        {
+            await tasteProfileCache.InvalidateAsync(cancellationToken);
+        }
     }
 }

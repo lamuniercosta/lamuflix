@@ -28,18 +28,21 @@ public sealed class EfMovieRepository : IMovieRepository
     private readonly TimeProvider timeProvider;
     private readonly TimeSpan claimLease;
     private readonly GenreWeightsCache cache;
+    private readonly HybridCachedRecommendationProfileSource? tasteProfileCache;
     private readonly Dictionary<MovieId, TrackedMovie> identityMap = [];
 
     public EfMovieRepository(
         LamuFlixDbContext db,
         TimeProvider timeProvider,
         IOptions<EnrichmentOptions> options,
-        GenreWeightsCache? cache = null)
+        GenreWeightsCache? cache = null,
+        HybridCachedRecommendationProfileSource? tasteProfileCache = null)
     {
         this.db = db;
         this.timeProvider = timeProvider;
         claimLease = options.Value.ClaimLease;
         this.cache = cache ?? new GenreWeightsCache();
+        this.tasteProfileCache = tasteProfileCache;
         if (claimLease <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(options), claimLease, "Claim lease must be positive.");
@@ -179,6 +182,11 @@ public sealed class EfMovieRepository : IMovieRepository
         }
 
         cache.Invalidate();
+
+        if (tasteProfileCache is not null)
+        {
+            await tasteProfileCache.InvalidateAsync(ct);
+        }
     }
 
     private async Task ApplyAndPersistAsync(CancellationToken ct)
