@@ -334,12 +334,16 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             .Returns(_ => Task.FromResult(new RecommendationProfileInputs(
                 ImmutableArray<TasteProfileMovie>.Empty,
                 ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty)));
+        profileSource
+            .GetTasteProfileAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(new TasteProfile(
+                ImmutableDictionary<string, double>.Empty,
+                ImmutableArray<float>.Empty)));
         var handler = new GetRecommendationsQueryHandler(
             movies,
             source,
             profileSource,
             new GenreWeightsCalculator(catalog, new GenreWeightsCache()),
-            TimeProvider.System,
             Microsoft.Extensions.Options.Options.Create(options));
 
         return handler

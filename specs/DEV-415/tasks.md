@@ -132,13 +132,13 @@
 
 ### Tests for Phase 5
 
-- [ ] T022 [P] [US1] Author/extend unit tests for `GetRecommendationsQueryHandler` in `tests/LamuFlix.UnitTests/` proving derived profile is obtained via `GetTasteProfileAsync` on the port and candidates/other genre work stay outside the TasteProfile cache entry. Minimum compilable contracts when signature changes force them; behavioral failure before T024 when possible.
-- [ ] T023 [P] [US1] Author/extend architecture tests in `tests/LamuFlix.ArchitectureTests/` keeping Hybrid out of Core and forbidding new ports/layers for this change. Retain existing calculator/property regressions in their current locations.
+- [X] T022 [P] [US1] Author/extend unit tests for `GetRecommendationsQueryHandler` in `tests/LamuFlix.UnitTests/` proving derived profile is obtained via `GetTasteProfileAsync` on the port and candidates/other genre work stay outside the TasteProfile cache entry. Minimum compilable contracts when signature changes force them; behavioral failure before T024 when possible.
+- [X] T023 [P] [US1] Author/extend architecture tests in `tests/LamuFlix.ArchitectureTests/` keeping Hybrid out of Core and forbidding new ports/layers for this change. Retain existing calculator/property regressions in their current locations.
 
 ### Implementation for Phase 5
 
-- [ ] T024 [US1] After T022, update `src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs` to consume derived profile through the existing port; leave required uncached genre/candidate work uncached.
-- [ ] T025 [US1] Drive T022–T023 green and confirm existing calculator/property regressions still pass.
+- [X] T024 [US1] After T022, update `src/LamuFlix.Core/Features/Recommendations/GetRecommendationsQueryHandler.cs` to consume derived profile through the existing port; leave required uncached genre/candidate work uncached.
+- [X] T025 [US1] Drive T022–T023 green and confirm existing calculator/property regressions still pass.
 
 **Checkpoint**: Phase 5 tests green. Commit `DEV-415 - handler uses cached TasteProfile port`.
 

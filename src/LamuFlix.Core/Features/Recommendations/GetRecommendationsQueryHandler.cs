@@ -19,7 +19,6 @@ public sealed class GetRecommendationsQueryHandler(
     IRecommendationCandidateSource candidates,
     IRecommendationProfileSource profileSource,
     GenreWeightsCalculator genreWeightsCalculator,
-    TimeProvider timeProvider,
     IOptions<RecommendationOptions> options)
     : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
 {
@@ -51,15 +50,15 @@ public sealed class GetRecommendationsQueryHandler(
         var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
         var profileInputs = await profileSource.GetProfileInputsAsync(
             [.. eligible.Select(candidate => candidate.Movie.Id)],
             cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         var recommendationOptions = options.Value;
-        var profile = new TasteProfileCalculator(timeProvider, recommendationOptions).Calculate(
-            profileInputs.Movies,
-            genreWeights);
         var selectedFeatures = MovieFeaturesMapper.From(selected);
         var scored = Score(
             selectedFeatures,
