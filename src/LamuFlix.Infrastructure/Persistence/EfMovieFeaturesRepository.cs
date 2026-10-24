@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -12,6 +14,13 @@ namespace LamuFlix.Infrastructure.Persistence;
 
 public sealed class EfMovieFeaturesRepository(LamuFlixDbContext db) : IMovieFeaturesRepository
 {
+    /// <summary>
+    /// Every character for which <see cref="char.IsWhiteSpace(char)"/> holds, generated once from the
+    /// canonical .NET predicate so the database predicate cannot drift from the handler's
+    /// <see cref="string.IsNullOrWhiteSpace(string?)"/> decision.
+    /// </summary>
+    private static readonly string DotNetWhitespaceCharacters = BuildDotNetWhitespaceCharacters();
+
     public async Task<MovieFeaturesSnapshot?> GetByMovieIdAsync(
         MovieId movieId,
         CancellationToken cancellationToken = default)
@@ -51,6 +60,58 @@ public sealed class EfMovieFeaturesRepository(LamuFlixDbContext db) : IMovieFeat
                 computed_at = EXCLUDED.computed_at
             """,
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Selects the movies that have a nonblank plot and no stored features row in one database-side
+    /// anti-join, so no per-movie feature lookup is issued. Eligibility removes every canonical .NET
+    /// whitespace character from the plot and keeps the movie when something remains; it deliberately
+    /// applies no enrichment-status predicate and leaves the stored upsert and schema untouched.
+    /// </summary>
+    public async Task<IReadOnlyList<MovieId>> FindMovieIdsMissingFeaturesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var ids = await db.Database
+            .SqlQuery<int?>(
+                $"""
+                SELECT movie.id AS "Value"
+                FROM movies AS movie
+                WHERE movie.plot IS NOT NULL
+                  AND translate(movie.plot, {DotNetWhitespaceCharacters}, '') <> ''
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM movie_features AS features
+                      WHERE features.movie_id = movie.id)
+                ORDER BY movie.id
+                """)
+            .ToArrayAsync(cancellationToken);
+
+        var present = new List<MovieId>(ids.Length);
+        foreach (var id in ids)
+        {
+            if (id is { } value && MovieId.TryCreate(value, out var movieId))
+            {
+                present.Add(movieId);
+            }
+        }
+
+        return present;
+    }
+
+    private static string BuildDotNetWhitespaceCharacters()
+    {
+        var characters = new StringBuilder();
+        for (var code = 0; code <= char.MaxValue; code++)
+        {
+            if (char.IsWhiteSpace((char)code))
+            {
+                characters.Append((char)code);
+            }
+        }
+
+        return characters.ToString();
     }
 
     private static void ValidateVector(ImmutableArray<float> vector)
