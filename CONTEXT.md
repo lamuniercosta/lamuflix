@@ -63,6 +63,18 @@ _Avoid_: a separate host, resurrecting LamuFlix.Worker
 The `StrandedMovieSweeper` hosted service. It re-enqueues stranded movies and never claims.
 _Avoid_: claiming stranded movies, a second consumer
 
+**Feature generation**
+Deriving a movie plot embedding for that movie.
+_Avoid_: treating plot embedding as metadata enrichment
+
+**Feature transport attempt**
+One delivery attempt in a feature-generation retry chain, restarted at 1 by recovery.
+_Avoid_: EnrichmentAttempts, EnrichmentRequested.Attempt
+
+**Feature recovery**
+Identifying movies with a nonblank plot and no stored features and requesting feature generation without claiming metadata enrichment.
+_Avoid_: claiming feature work, enrichment stranded reclaim for features
+
 **Retry Queue**
 `enrichment.retry`. Holds a republished attempt until `RabbitMqOptions.RetryDelay` has passed, then dead-letters it back to `enrichment.requested`. Both `Retry` and `RetryDelayed` go through it.
 _Avoid_: a fixed-delay exchange, backoff queue
