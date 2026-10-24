@@ -287,3 +287,23 @@ Verdict: gate1: provisional - Phase A spec package is ready for provisional Gate
 - Basis: frozen Q1-Q9 brief, proposed ADR 0026 accompanying the spec PR, additive CONTEXT.md vocabulary, and requirements checklist with no unchecked items; no ticket-text change or constitution departure was ruled in Q1-Q9 or F1-F5.
 - Limit: provisional only - no commit, PR, YouTrack state, tests, gates, ADR acceptance, Phase B readiness, or merge approval is claimed; those are Rigger and later-phase work.
 
+---
+
+## Phase B entry rulings - TB000 and TB003 (2026-10-24)
+
+Worktree: F:/Dev/LamuFlix.worktrees/DEV-414. Branch: feature/DEV-414. Entry HEAD: e010de28.
+
+### TB000 - Epic 7 prerequisite: CLEARED
+
+The owner's advancement of the Epic 9 chain and merge of DEV-414 spec PR #243 to main satisfy the Epic 7 prerequisite for DEV-414 build entry. This ruling is the named owner handoff permitted by tasks.md:21; record it in note DEV-414 as the TB000 receipt. It does not assert that Epic 7 itself is complete.
+- Basis: specs/PRODUCT.md:17 defers Epic 9 until Epic 7 completes, while the charter makes the owner's word final; the owner has again advanced this Epic 9 chain by merging PR #243.
+- Basis: specs/DEV-338/CONCLUSIONS.md:129-133 and specs/DEV-342/CONCLUSIONS.md:116-121 record the same owner-advancement prerequisite satisfaction for earlier Epic 9 work, as verified in recon-DEV-414:97-100.
+- Basis: tasks.md:21 accepts a named owner handoff as Phase B entry evidence; no separate SPA completion artifact is required once this handoff is recorded.
+
+### TB003 - Pre-existing baseline failure: ISOLATED FOR BUILD ENTRY
+
+OllamaEmbeddingResilienceTests.GenerateAsync_ExhaustedServerError_MapsToProviderUnavailable (probe.RequestCount expected 4, actual 5 on base 6bd2d427) is an isolated pre-existing baseline artifact and does not block Anvil entry. Cog remediation is not required before Anvil starts, and the unrelated test must not be silently changed under DEV-414.
+- Basis: note DEV-414:31-37 records the failure at baseline before DEV-414 production changes, with Roslyn, complexity and InspectCode all passing; recon-DEV-414:54-75 confirms the Phase A diff is docs-only.
+- Basis: brief.md:168-169 and tasks.md:48 require unrelated pre-existing failures to be reported, not silently fixed; the frozen scope excludes unrelated work.
+- Limit: this is not a final gate waiver. Any new or DEV-414-related failure remains blocking, and final `dotnet test` exit 1 still blocks closure under Q1 unless the suite is independently green.
+
