@@ -111,13 +111,13 @@
 
 ### Tests for Phase 4
 
-- [ ] T018 [P] [US3] Author integration tests for SweepMissingMovieFeatures + StrandedMovieSweeper dual passes: selects only nonblank plot without movie_features; excludes existing features; does not use enrichment status predicate; feature pass runs when enrichment candidates are empty; failure in one pass does not suppress the other except shutdown; after prior feature DLQ, later sweep enqueues Attempt 1; enqueue failure leaves movie eligible next interval. Use real PostgreSQL/RabbitMQ. Minimum compilable contracts when types are absent; behavioral failure before T020 when possible.
+- [X] T018 [P] [US3] Author integration tests for SweepMissingMovieFeatures + StrandedMovieSweeper dual passes: selects only nonblank plot without movie_features; excludes existing features; does not use enrichment status predicate; feature pass runs when enrichment candidates are empty; failure in one pass does not suppress the other except shutdown; after prior feature DLQ, later sweep enqueues Attempt 1; enqueue failure leaves movie eligible next interval. Use real PostgreSQL/RabbitMQ. Minimum compilable contracts when types are absent; behavioral failure before T020 when possible.
 
 ### Implementation for Phase 4
 
-- [ ] T019 [US3] After T018, add `SweepMissingMovieFeaturesCommand.cs` and `SweepMissingMovieFeaturesCommandHandler.cs` under `src/LamuFlix.Core/Features/Enrichment/` (enqueue FeaturesRequested(MovieId, 1) only; no embed/claim/metadata mutation). Register SweepMissingMovieFeaturesCommandHandler under the same feature-active predicate in `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqServiceCollectionExtensions.cs` (and `src/LamuFlix.Api/Program.cs` as needed) before Phase 4 tests/checkpoint, preserving final active-only composition and Q8 order.
-- [ ] T020 [US3] Modify `src/LamuFlix.Infrastructure/Enrichment/StrandedMovieSweeper.cs` to invoke enrichment and feature sweep handlers in independent guarded passes on existing SweepInterval; run feature pass only in active feature composition (logged absence when inactive); preserve existing Pending-plus-lease enrichment pass unchanged.
-- [ ] T021 [US3] Drive T018 green.
+- [X] T019 [US3] After T018, add `SweepMissingMovieFeaturesCommand.cs` and `SweepMissingMovieFeaturesCommandHandler.cs` under `src/LamuFlix.Core/Features/Enrichment/` (enqueue FeaturesRequested(MovieId, 1) only; no embed/claim/metadata mutation). Register SweepMissingMovieFeaturesCommandHandler under the same feature-active predicate in `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqServiceCollectionExtensions.cs` (and `src/LamuFlix.Api/Program.cs` as needed) before Phase 4 tests/checkpoint, preserving final active-only composition and Q8 order.
+- [X] T020 [US3] Modify `src/LamuFlix.Infrastructure/Enrichment/StrandedMovieSweeper.cs` to invoke enrichment and feature sweep handlers in independent guarded passes on existing SweepInterval; run feature pass only in active feature composition (logged absence when inactive); preserve existing Pending-plus-lease enrichment pass unchanged.
+- [X] T021 [US3] Drive T018 green.
 
 **Checkpoint**: Phase 4 tests green. Commit `DEV-414 - missing features recovery sweep`.
 

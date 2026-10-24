@@ -75,6 +75,7 @@ public static class RabbitMqServiceCollectionExtensions
         {
             services.AddScoped<ProcessFeaturesCommandHandler>();
             services.AddHandler<ProcessFeaturesCommandHandler, ProcessFeaturesCommand, ProcessFeaturesOutcome>();
+            services.AddHandler<SweepMissingMovieFeaturesCommandHandler, SweepMissingMovieFeaturesCommand, int>();
             services.AddSingleton<FeaturesConsumerLiveness>();
             services.AddHealthChecks().AddCheck<FeaturesConsumerHealthCheck>("features-consumer", tags: [HealthCheckTags.Ready]);
             services.AddHostedService<FeaturesConsumer>();

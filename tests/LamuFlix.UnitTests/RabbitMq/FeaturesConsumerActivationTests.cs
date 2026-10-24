@@ -42,6 +42,9 @@ public sealed class FeaturesConsumerActivationTests
         services.ShouldContain(descriptor => descriptor.ServiceType == typeof(ProcessFeaturesCommandHandler));
         services.ShouldContain(descriptor =>
             descriptor.ServiceType == typeof(ICommandHandler<ProcessFeaturesCommand, ProcessFeaturesOutcome>));
+        services.ShouldContain(descriptor => descriptor.ServiceType == typeof(SweepMissingMovieFeaturesCommandHandler));
+        services.ShouldContain(descriptor =>
+            descriptor.ServiceType == typeof(ICommandHandler<SweepMissingMovieFeaturesCommand, int>));
         services.ShouldContain(descriptor => descriptor.ServiceType == typeof(FeaturesConsumerLiveness));
         services.ShouldContain(descriptor =>
             descriptor.ServiceType == typeof(IHostedService)
@@ -59,6 +62,9 @@ public sealed class FeaturesConsumerActivationTests
         scope.ServiceProvider
             .GetRequiredService<ICommandHandler<ProcessFeaturesCommand, ProcessFeaturesOutcome>>()
             .ShouldBeOfType<TracingDecorator<ProcessFeaturesCommand, ProcessFeaturesOutcome>>();
+        scope.ServiceProvider
+            .GetRequiredService<ICommandHandler<SweepMissingMovieFeaturesCommand, int>>()
+            .ShouldBeOfType<TracingDecorator<SweepMissingMovieFeaturesCommand, int>>();
     }
 
     [Theory]
@@ -80,6 +86,9 @@ public sealed class FeaturesConsumerActivationTests
         services.ShouldNotContain(descriptor => descriptor.ServiceType == typeof(ProcessFeaturesCommandHandler));
         services.ShouldNotContain(descriptor =>
             descriptor.ServiceType == typeof(ICommandHandler<ProcessFeaturesCommand, ProcessFeaturesOutcome>));
+        services.ShouldNotContain(descriptor => descriptor.ServiceType == typeof(SweepMissingMovieFeaturesCommandHandler));
+        services.ShouldNotContain(descriptor =>
+            descriptor.ServiceType == typeof(ICommandHandler<SweepMissingMovieFeaturesCommand, int>));
         services.ShouldNotContain(descriptor => descriptor.ServiceType == typeof(FeaturesConsumerLiveness));
         services.ShouldNotContain(descriptor => descriptor.ImplementationType == typeof(FeaturesConsumer));
 
@@ -87,6 +96,7 @@ public sealed class FeaturesConsumerActivationTests
         var registrations = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
         registrations.Any(registration => registration.Name == "features-consumer").ShouldBeFalse();
         provider.GetService<ProcessFeaturesCommandHandler>().ShouldBeNull();
+        provider.GetService<SweepMissingMovieFeaturesCommandHandler>().ShouldBeNull();
     }
 
     [Fact]
