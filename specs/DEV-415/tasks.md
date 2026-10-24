@@ -63,14 +63,14 @@
 
 ### Tests for Phase 2
 
-- [ ] T007 [P] [US2] Author tests in existing `EfRecommendationProfileSourceTests` location under `tests/LamuFlix.IntegrationTests/` (or forced adjacent fixture) for uncached `GetTasteProfileAsync`: no qualifying history → empty profile; qualifying history → computed non-empty derived profile; CancellationToken propagation. Real PostgreSQL; no driver mocks. Minimum compilable contracts when method absent; behavioral failure before T009 when possible.
-- [ ] T008 [P] [US1] Author unit/architecture-adjacent coverage as needed proving the port surface retains `GetProfileInputsAsync` and adds cancellation-only derived retrieval (no caller genre weights). Update forced fakes/doubles only.
+- [X] T007 [P] [US2] Author tests in existing `EfRecommendationProfileSourceTests` location under `tests/LamuFlix.IntegrationTests/` (or forced adjacent fixture) for uncached `GetTasteProfileAsync`: no qualifying history → empty profile; qualifying history → computed non-empty derived profile; CancellationToken propagation. Real PostgreSQL; no driver mocks. Minimum compilable contracts when method absent; behavioral failure before T009 when possible.
+- [X] T008 [P] [US1] Author unit/architecture-adjacent coverage as needed proving the port surface retains `GetProfileInputsAsync` and adds cancellation-only derived retrieval (no caller genre weights). Update forced fakes/doubles only.
 
 ### Implementation for Phase 2
 
-- [ ] T009 [US1/US2] After T007–T008, extend `src/LamuFlix.Core/Ports/IRecommendationProfileSource.cs` with `GetTasteProfileAsync(CancellationToken)` returning `Task<TasteProfile>` via the repository-consistent async convention; retain `GetProfileInputsAsync`.
-- [ ] T010 [US2] After T007, implement uncached derived-profile calculation in `src/LamuFlix.Infrastructure/Persistence/EfRecommendationProfileSource.cs` using existing `GenreWeightsCalculator` and `TasteProfileCalculator` (all inputs inside this concrete’s work; cancellation only).
-- [ ] T011 [US1/US2] Drive T007–T008 green. Update only constructor/contract-forced fixtures.
+- [X] T009 [US1/US2] After T007–T008, extend `src/LamuFlix.Core/Ports/IRecommendationProfileSource.cs` with `GetTasteProfileAsync(CancellationToken)` returning `Task<TasteProfile>` via the repository-consistent async convention; retain `GetProfileInputsAsync`.
+- [X] T010 [US2] After T007, implement uncached derived-profile calculation in `src/LamuFlix.Infrastructure/Persistence/EfRecommendationProfileSource.cs` using existing `GenreWeightsCalculator` and `TasteProfileCalculator` (all inputs inside this concrete’s work; cancellation only).
+- [X] T011 [US1/US2] Drive T007–T008 green. Update only constructor/contract-forced fixtures.
 
 **Checkpoint**: Phase 2 tests green. Commit `DEV-415 - uncached GetTasteProfileAsync port`.
 

@@ -12,6 +12,16 @@ namespace LamuFlix.Infrastructure.Persistence;
 public sealed class HybridCachedRecommendationProfileSource(IServiceScopeFactory scopeFactory)
     : IRecommendationProfileSource
 {
+    public async Task<TasteProfile> GetTasteProfileAsync(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var uncachedSource = scope.ServiceProvider.GetRequiredService<EfRecommendationProfileSource>();
+
+        return await uncachedSource.GetTasteProfileAsync(ct);
+    }
+
     public async Task<RecommendationProfileInputs> GetProfileInputsAsync(
         IReadOnlyCollection<MovieId> candidateMovieIds,
         CancellationToken ct)

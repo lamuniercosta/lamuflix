@@ -6,14 +6,38 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
-public sealed class EfRecommendationProfileSource(LamuFlixDbContext db) : IRecommendationProfileSource
+public sealed class EfRecommendationProfileSource(
+    LamuFlixDbContext db,
+    GenreWeightsCalculator genreWeightsCalculator,
+    TimeProvider timeProvider,
+    IOptions<RecommendationOptions> options) : IRecommendationProfileSource
 {
     private readonly LamuFlixDbContext db = db ?? throw new ArgumentNullException(nameof(db));
+    private readonly GenreWeightsCalculator genreWeightsCalculator =
+        genreWeightsCalculator ?? throw new ArgumentNullException(nameof(genreWeightsCalculator));
+    private readonly TimeProvider timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+    private readonly IOptions<RecommendationOptions> options =
+        options ?? throw new ArgumentNullException(nameof(options));
+
+    public async Task<TasteProfile> GetTasteProfileAsync(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var inputs = await GetProfileInputsAsync([], ct);
+        ct.ThrowIfCancellationRequested();
+
+        var genreWeights = await genreWeightsCalculator.GetAsync(ct);
+        ct.ThrowIfCancellationRequested();
+
+        return new TasteProfileCalculator(timeProvider, options.Value).Calculate(inputs.Movies, genreWeights);
+    }
 
     public async Task<RecommendationProfileInputs> GetProfileInputsAsync(
         IReadOnlyCollection<MovieId> candidateMovieIds,

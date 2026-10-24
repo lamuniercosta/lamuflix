@@ -1,5 +1,6 @@
 using System;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
@@ -36,6 +37,8 @@ public static class PersistenceServiceCollectionExtensions
         services.AddHybridCache();
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<GenreWeightsCache>();
+        services.TryAddScoped<IMovieCatalog, EfMovieCatalog>();
+        services.TryAddScoped<GenreWeightsCalculator>();
         services.AddOptions<TasteProfileCacheOptions>()
             .BindConfiguration(TasteProfileCacheOptions.SectionName)
             .Validate(
