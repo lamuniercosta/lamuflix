@@ -5,12 +5,6 @@ using System.Text;
 
 namespace LamuFlix.Evaluation.TestSupport;
 
-/// <summary>
-/// Drives <c>scripts/run-evaluation.ps1</c> exactly as a caller would:
-/// <c>pwsh -NoProfile -File scripts/run-evaluation.ps1 …</c> from a chosen working
-/// directory. The script owns the child evaluation invocation (Mode A), so the
-/// tests observe only the command surface ruled by Q7/FR-002.
-/// </summary>
 internal sealed record CommandResult(int ExitCode, string StandardOutput, string StandardError)
 {
     public string Output => StandardOutput + StandardError;

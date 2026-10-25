@@ -9,11 +9,6 @@ using LamuFlix.Evaluation.TestSupport;
 
 namespace LamuFlix.Evaluation.Output;
 
-/// <summary>
-/// T014/T015 — FR-006 summary contract: exact ordered fields, compact UTF-8
-/// without BOM or trailing newline, finite invariant-culture unrounded numbers,
-/// and no volatile metadata. Serialization is deterministic for identical input.
-/// </summary>
 public sealed class MetricsSummarySerializerTests
 {
     private const string ExpectedJson =
@@ -50,7 +45,7 @@ public sealed class MetricsSummarySerializerTests
     [Fact]
     public void SerializeToUtf8Bytes_KeepsNumbersUnroundedAndInvariantCulture()
     {
-        // arrange: thirds are not representable, so any rounding would show here
+        // arrange
         var summary = Summary() with
         {
             ObservationCount = 3,
@@ -186,7 +181,7 @@ public sealed class MetricsSummarySerializerTests
         // act
         var text = Encoding.UTF8.GetString(MetricsSummarySerializer.SerializeToUtf8Bytes(Summary()));
 
-        // assert: FR-006 field order, no extras
+        // assert
         var positions = new[]
         {
             "\"schemaVersion\"", "\"fixtureId\"", "\"seed\"", "\"cutoff\"", "\"observationCount\"",

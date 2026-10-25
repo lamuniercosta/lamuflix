@@ -10,12 +10,6 @@ using LamuFlix.Evaluation.Metrics;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
-/// <summary>
-/// Deterministic fixture/observation builders for the DEV-356 evaluation
-/// property tests. Every member maps arbitrary FsCheck seeds onto a valid
-/// evaluation input so the invariants are exercised over a wide shape range
-/// without relying on a shared random state.
-/// </summary>
 internal static class EvaluationPropertyFixtures
 {
     private const int MaxEvents = 8;
@@ -70,11 +64,6 @@ internal static class EvaluationPropertyFixtures
         return builder.ToImmutable();
     }
 
-    /// <summary>
-    /// Events that are strictly later than every event produced by
-    /// <see cref="Events"/>, so they can only enter history for observations
-    /// that come after them.
-    /// </summary>
     public static ImmutableArray<EvaluationEvent> FutureEvents(EvaluationFixture fixture, int seed)
     {
         ArgumentNullException.ThrowIfNull(fixture);

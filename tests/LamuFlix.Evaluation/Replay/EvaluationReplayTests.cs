@@ -5,13 +5,6 @@ using LamuFlix.Evaluation.Fixtures;
 
 namespace LamuFlix.Evaluation.Replay;
 
-/// <summary>
-/// T007 — strict as-of replay/history proofs. Traversal is timestamp then
-/// ordinal stable event ID; history is strictly earlier across all users;
-/// equal-time rows cannot teach one another; each target is scored before it
-/// becomes visible to later observations; seed and per-observation clock are
-/// fixed inputs.
-/// </summary>
 public sealed class EvaluationReplayTests
 {
     private static readonly EvaluationEvent[] HistoryEvents =
@@ -24,7 +17,7 @@ public sealed class EvaluationReplayTests
     [Fact]
     public void Run_OrdersObservationsByTimestampThenOrdinalEventId()
     {
-        // arrange: presentation order deliberately scrambled, with an equal-time pair
+        // arrange
         var fixture = ReplayFixtureFactory.Fixture(
         [
             ReplayFixtureFactory.Event("e5", "u1", 1, dayOffset: 2),
@@ -54,14 +47,13 @@ public sealed class EvaluationReplayTests
         second.Score.ShouldBe(0.0);
 
         var third = result.Observations[2];
-        // movie 2 is the most recent earlier play, movie 1 the older one, movie 3 never played
         ReplayFixtureFactory.Ids(third.Ranking).ShouldBe([2, 1, 3]);
     }
 
     [Fact]
     public void Run_EqualTimeEventsCannotTeachOneAnother()
     {
-        // arrange: both rows share one timestamp
+        // arrange
         var fixture = ReplayFixtureFactory.Fixture(
         [
             ReplayFixtureFactory.Event("e1", "u1", 1, dayOffset: 0),
@@ -71,7 +63,7 @@ public sealed class EvaluationReplayTests
         // act
         var result = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options());
 
-        // assert: neither observation sees the other, so all relevance is zero
+        // assert
         foreach (var observation in result.Observations)
         {
             ReplayFixtureFactory.Ids(observation.Ranking).ShouldBe([1, 2, 3]);
@@ -87,7 +79,7 @@ public sealed class EvaluationReplayTests
         var options = ReplayFixtureFactory.Options();
         var full = EvaluationReplay.Run(fixture, options);
 
-        // act and assert: each prefix replay reproduces the full replay's earlier results
+        // act and assert
         for (var prefixLength = 1; prefixLength <= HistoryEvents.Length; prefixLength++)
         {
             var prefix = EvaluationReplay.Run(
@@ -146,7 +138,7 @@ public sealed class EvaluationReplayTests
         var first = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options());
         var second = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options(999));
 
-        // assert: the seeded pool preparation cannot change deterministic MMR selection
+        // assert
         first.Observations.SequenceEqual(second.Observations, ResultComparer.Instance).ShouldBeTrue();
         second.Seed.ShouldBe(999);
     }

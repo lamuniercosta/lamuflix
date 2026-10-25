@@ -6,11 +6,6 @@ using LamuFlix.Evaluation.Metrics;
 
 namespace LamuFlix.Evaluation.Replay;
 
-/// <summary>
-/// T008 — temporal leakage isolation. Every earlier observation's ranking and
-/// score is compared, not just aggregate metrics. Publication is out of scope
-/// here; equality is proven at the in-memory replay/metrics layer.
-/// </summary>
 public sealed class EvaluationLeakageTests
 {
     private static readonly EvaluationEvent[] BaselineEvents =
@@ -64,7 +59,7 @@ public sealed class EvaluationLeakageTests
     [Fact]
     public void Run_TargetEventIsExcludedFromItsOwnHistory()
     {
-        // arrange: the same movie is played twice; the second play only sees the first
+        // arrange
         var fixture = ReplayFixtureFactory.Fixture(
         [
             ReplayFixtureFactory.Event("e1", "u1", 1, dayOffset: 0),
@@ -123,14 +118,14 @@ public sealed class EvaluationLeakageTests
         // act
         var withBurst = Run([.. BaselineEvents, .. burst]);
 
-        // assert: movie 2 would dominate any future-derived profile, but earlier as-of scores cannot move
+        // assert
         ShouldMatchBaseline(baseline, withBurst);
     }
 
     [Fact]
     public void Run_PermutedFixturePresentation_ProducesIdenticalInMemoryResults()
     {
-        // arrange: same catalog/events declared in a different presentation order
+        // arrange
         EvaluationCatalogMovie[] catalog =
         [
             ReplayFixtureFactory.Movie(3),

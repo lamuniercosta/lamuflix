@@ -6,12 +6,6 @@ using LamuFlix.Evaluation.Metrics;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
-/// <summary>
-/// DEV-356 T017 — FsCheck invariants for the pure HR@10/MRR metrics (FR-005,
-/// Q5, Q8): finite <c>[0,1]</c> bounds, count ordering, observation-order
-/// independence, appended-observation monotonicity, and cutoff-prefix
-/// insensitivity.
-/// </summary>
 public sealed class EvaluationMetricPropertyTests
 {
     private const double Tolerance = 1e-12;

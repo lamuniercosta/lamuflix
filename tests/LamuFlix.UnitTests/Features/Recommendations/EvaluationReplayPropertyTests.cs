@@ -9,13 +9,6 @@ using LamuFlix.Evaluation.Replay;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
-/// <summary>
-/// DEV-356 T017 — FsCheck ordering and future-prefix invariants for the
-/// evaluation replay (FR-004/FR-008, Q4, Q8). Presentation order must not
-/// matter, observations must be traversed timestamp then ordinal event ID,
-/// appending future events must leave every earlier observation untouched, and
-/// replaying an ordered prefix must reproduce that prefix of the full replay.
-/// </summary>
 public sealed class EvaluationReplayPropertyTests
 {
     private const double Tolerance = 1e-12;

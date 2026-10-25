@@ -9,13 +9,6 @@ using LamuFlix.Evaluation.Metrics;
 
 namespace LamuFlix.Evaluation.Replay;
 
-/// <summary>
-/// T009 — strict as-of replay over the real DEV-416 final MMR stage
-/// (<see cref="MmrSelector.Select"/>, reconciled in TB002). No replacement
-/// ranker or fake ranking path: the declared lambda, similarity weights and
-/// catalog-derived genre weights are passed straight through, and the returned
-/// MMR selection order is consumed without re-sorting.
-/// </summary>
 public static class EvaluationReplay
 {
     public static EvaluationReplayResult Run(EvaluationFixture fixture, EvaluationReplayOptions options)
@@ -93,11 +86,6 @@ public static class EvaluationReplay
         return minimum < 0.0 ? -minimum : 0.0;
     }
 
-    /// <summary>
-    /// TB002 requires a seeded <see cref="Random"/> reset per evaluation. Candidate
-    /// pool order is the only randomizable preparation input; <see cref="MmrSelector"/>
-    /// is proven input-order independent, so selection and metrics stay deterministic.
-    /// </summary>
     private static ImmutableArray<MovieId> ShuffledPool(ImmutableArray<MovieId> canonicalIds, Random random)
     {
         var pool = canonicalIds.ToArray();
