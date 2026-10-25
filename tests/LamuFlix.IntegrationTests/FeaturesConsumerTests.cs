@@ -337,11 +337,14 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifet
         await host.CloseFeaturesDeadLetterQueueAsync(ct);
 
         await host.StartAsync(ct);
+        await WaitUntilAsync(
+            _ => Task.FromResult(generator.CallCount >= 2),
+            ct);
+        await host.StopAsync(CancellationToken.None);
         var requeued = await probe.PollGetMatchingAsync(
             RabbitMqTopology.FeaturesRequestedQueue,
             candidate => Read(candidate).MovieId.Value == movie.Value,
             ct);
-        await host.StopAsync(CancellationToken.None);
 
         requeued.ShouldNotBeNull();
         Read(requeued).Attempt.ShouldBe(SmallMaxAttempts);
