@@ -57,7 +57,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         var genre = Faker.Lorem.GetFirstWord();
         var director = Faker.Name.FullName();
         var otherDirector = Faker.Name.FullName();
-        while (string.Equals(otherDirector, director, System.StringComparison.Ordinal))
+        while (string.Equals(otherDirector, director, StringComparison.Ordinal))
         {
             otherDirector = Faker.Name.FullName();
         }

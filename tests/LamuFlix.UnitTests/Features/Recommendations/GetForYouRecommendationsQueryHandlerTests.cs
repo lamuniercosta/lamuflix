@@ -705,18 +705,33 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     private static MovieSummary Summary(Movie movie, bool? isNotInterested = null)
     {
         var metadata = movie.Metadata;
+        var notInterested = isNotInterested ?? movie.IsNotInterested;
+        if (metadata is null)
+        {
+            return new MovieSummary(
+                movie.Id,
+                movie.Title,
+                null,
+                null,
+                null,
+                null,
+                movie.Status,
+                movie.IsInWatchlist,
+                movie.IsWatched,
+                notInterested);
+        }
 
         return new MovieSummary(
             movie.Id,
             movie.Title,
-            metadata?.PosterUrl,
-            metadata?.ReleaseYear?.Value,
-            metadata?.Runtime?.Minutes,
-            metadata?.ImdbRating?.Value,
+            metadata.PosterUrl,
+            metadata.ReleaseYear?.Value,
+            metadata.Runtime?.Minutes,
+            metadata.ImdbRating?.Value,
             movie.Status,
             movie.IsInWatchlist,
             movie.IsWatched,
-            isNotInterested ?? movie.IsNotInterested);
+            notInterested);
     }
 
     private static Movie NewMovie(
@@ -922,18 +937,36 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
                 .Add("Drama", 1.0),
             []);
 
-    private static MovieSummary Summary(Movie movie) =>
-        new(
+    private static MovieSummary Summary(Movie movie)
+    {
+        var metadata = movie.Metadata;
+        if (metadata is null)
+        {
+            return new(
+                movie.Id,
+                movie.Title,
+                null,
+                null,
+                null,
+                null,
+                movie.Status,
+                movie.IsInWatchlist,
+                movie.IsWatched,
+                movie.IsNotInterested);
+        }
+
+        return new(
             movie.Id,
             movie.Title,
-            movie.Metadata?.PosterUrl,
-            movie.Metadata?.ReleaseYear?.Value,
-            movie.Metadata?.Runtime?.Minutes,
-            movie.Metadata?.ImdbRating?.Value,
+            metadata.PosterUrl,
+            metadata.ReleaseYear?.Value,
+            metadata.Runtime?.Minutes,
+            metadata.ImdbRating?.Value,
             movie.Status,
             movie.IsInWatchlist,
             movie.IsWatched,
             movie.IsNotInterested);
+    }
 
     private static Movie[] BuildLibrary(int[] ids, bool[]? notInterested = null)
     {
