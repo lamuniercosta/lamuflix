@@ -133,11 +133,11 @@
 
 ### Tests for Phase 5
 
-- [ ] T017 [P] [US1/US2] Author FsCheck property tests under `tests/LamuFlix.UnitTests/Features/Recommendations/` for metric `[0,1]` bounds and ordering/future-prefix invariance per Q8. No property-test opt-out.
+- [X] T017 [P] [US1/US2] Author FsCheck property tests under `tests/LamuFlix.UnitTests/Features/Recommendations/` for metric `[0,1]` bounds and ordering/future-prefix invariance per Q8. No property-test opt-out.
 
 ### Implementation for Phase 5
 
-- [ ] T018 [US1/US2] After T017, add only the required project reference from `tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj` to the evaluation project if needed for the property tests; expose only what those invariants require. Drive T017 green.
+- [X] T018 [US1/US2] After T017, add only the required project reference from `tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj` to the evaluation project if needed for the property tests; expose only what those invariants require. Drive T017 green.
 
 **Checkpoint**: Phase 5 tests green. Commit `DEV-356 - evaluation property invariants`.
 
