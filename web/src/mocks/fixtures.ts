@@ -138,6 +138,7 @@ export const success = Object.freeze({
   BrowseMovies: browseMovies,
   GetMovieDetails: movieDetails,
   GetRecommendations: recommendations,
+  GetForYouRecommendations: recommendations,
   GetGenres: genres,
   GetPeople: people,
 });

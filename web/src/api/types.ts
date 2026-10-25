@@ -64,6 +64,10 @@ export interface paths {
     /** Get recommendations for a library movie */
     get: operations["GetRecommendations"];
   };
+  "/api/recommendations/for-you": {
+    /** Get personalized recommendations from the taste profile */
+    get: operations["GetForYouRecommendations"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -689,6 +693,29 @@ export interface operations {
       };
       /** @description Not Found */
       404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Get personalized recommendations from the taste profile */
+  GetForYouRecommendations: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RecommendedMovieDto"][];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };

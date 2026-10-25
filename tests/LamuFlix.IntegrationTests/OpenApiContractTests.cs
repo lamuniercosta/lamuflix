@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -43,6 +43,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GET /api/movies",
         "GET /api/movies/{id}",
         "GET /api/movies/{id}/recommendations",
+        "GET /api/recommendations/for-you",
         "DELETE /api/movies/{id}",
         "POST /api/movies/import",
         "POST /api/movies/{id}/enrichment",
@@ -74,7 +75,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public static TheoryData<string> DocumentationRoutes => new() { DocumentRoute, ScalarRoute };
 
     [Fact]
-    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheSixteenBusinessOperations()
+    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheSeventeenBusinessOperations()
     {
         // arrange
         await using var development = CreateDevelopmentHost();
@@ -276,6 +277,40 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
             .ShouldBe("#/components/schemas/EnrichmentStatus");
         properties.GetProperty("score").GetProperty("type").EnumerateArray().Select(item => item.GetString())
             .ShouldContain("number");
+    }
+
+    [Fact]
+    public async Task Document_GetForYouRecommendations_DocumentsDtoArrayAndProblemResponses()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        var operation = parsed.RootElement.GetProperty("paths")
+            .GetProperty("/api/recommendations/for-you")
+            .GetProperty("get");
+        operation.GetProperty("operationId").GetString().ShouldBe("GetForYouRecommendations");
+        operation.GetProperty("summary").GetString().ShouldBe(
+            "Get personalized recommendations from the taste profile");
+
+        var responses = operation.GetProperty("responses");
+        var successSchema = responses.GetProperty("200").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        successSchema.GetProperty("type").GetString().ShouldBe("array");
+        successSchema.GetProperty("items").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/RecommendedMovieDto");
+        foreach (var status in new[] { "400", "422" })
+        {
+            var problemSchema = responses.GetProperty(status).GetProperty("content")
+                .GetProperty("application/problem+json").GetProperty("schema");
+            problemSchema.GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
+        }
     }
 
     [Fact]
