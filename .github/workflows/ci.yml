@@ -37,6 +37,38 @@ jobs:
       - name: Format
         run: dotnet format --verify-no-changes
 
+      - name: Run offline evaluation
+        id: evaluation
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ./scripts/run-evaluation.ps1
+          exit $LASTEXITCODE
+
+      - name: Publish evaluation metrics to job summary
+        if: always()
+        shell: pwsh
+        run: |
+          $summaryPath = 'artifacts/evaluation/metrics-summary.json'
+          '## Offline evaluation metrics' >> $env:GITHUB_STEP_SUMMARY
+          '' >> $env:GITHUB_STEP_SUMMARY
+          if (Test-Path $summaryPath) {
+            $metrics = Get-Content $summaryPath -Raw | ConvertFrom-Json
+            "- HR@10: $($metrics.hitRateAt10)" >> $env:GITHUB_STEP_SUMMARY
+            "- MRR: $($metrics.mrr)" >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            'Metrics summary not available; the evaluation run did not publish its metrics file.' >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload evaluation metrics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: evaluation-metrics
+          path: artifacts/evaluation/metrics-summary.json
+          if-no-files-found: warn
+          retention-days: 7
+
   web:
     name: web-lint-typecheck-test-build
     runs-on: ubuntu-latest
