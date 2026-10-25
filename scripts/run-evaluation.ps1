@@ -123,13 +123,10 @@ if ($LASTEXITCODE -ne 0) {
     throw "Selecting the evaluation entry tests failed with exit code $LASTEXITCODE."
 }
 
-$selectedTests = @($selected | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+$entryPrefix = $entryClass + '.'
+$selectedTests = @($selected | Where-Object { ([string]$_).StartsWith($entryPrefix, [System.StringComparison]::Ordinal) })
 if ($selectedTests.Count -ne 1) {
     throw "Expected exactly one selected evaluation entry test; found $($selectedTests.Count)."
-}
-
-if (-not ([string]$selectedTests[0]).StartsWith($entryClass + '.', [System.StringComparison]::Ordinal)) {
-    throw "The selected test '$($selectedTests[0])' is not the dedicated evaluation entry."
 }
 
 $childEnvironment = [ordered]@{
