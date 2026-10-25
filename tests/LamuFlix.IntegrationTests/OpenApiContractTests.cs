@@ -299,6 +299,21 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         operation.GetProperty("summary").GetString().ShouldBe(
             "Get personalized recommendations from the taste profile");
 
+        var parameters = operation.GetProperty("parameters").EnumerateArray()
+            .ToDictionary(
+                parameter => parameter.GetProperty("name").GetString()
+                    ?? throw new InvalidOperationException("OpenAPI parameter is missing a name."),
+                StringComparer.Ordinal);
+        var take = parameters["take"];
+        OptionalQuery(take);
+        take.GetProperty("description").GetString().ShouldBe(
+            "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.");
+        var takeSchema = take.GetProperty("schema");
+        takeSchema.GetProperty("type").GetString().ShouldBe("integer");
+        takeSchema.GetProperty("default").GetInt32().ShouldBe(10);
+        takeSchema.GetProperty("minimum").GetInt32().ShouldBe(1);
+        takeSchema.TryGetProperty("maximum", out _).ShouldBeFalse();
+
         var responses = operation.GetProperty("responses");
         var successSchema = responses.GetProperty("200").GetProperty("content")
             .GetProperty("application/json").GetProperty("schema");

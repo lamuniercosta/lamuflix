@@ -1044,6 +1044,18 @@
         ],
         "summary": "Get personalized recommendations from the taste profile",
         "operationId": "GetForYouRecommendations",
+        "parameters": [
+          {
+            "name": "take",
+            "in": "query",
+            "description": "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",

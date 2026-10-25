@@ -12,6 +12,7 @@ namespace LamuFlix.Api;
 internal sealed class RecommendationsOperationTransformer : IOpenApiOperationTransformer
 {
     private const string GetRecommendationsOperationId = "GetRecommendations";
+    private const string GetForYouRecommendationsOperationId = "GetForYouRecommendations";
     private const string TakeParameterName = "take";
     private const string TakeDescription =
         "The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize.";
@@ -21,7 +22,7 @@ internal sealed class RecommendationsOperationTransformer : IOpenApiOperationTra
         ArgumentNullException.ThrowIfNull(operation);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (!string.Equals(operation.OperationId, GetRecommendationsOperationId, StringComparison.Ordinal))
+        if (!IsRecommendationsOperation(operation.OperationId))
         {
             return Task.CompletedTask;
         }
@@ -49,6 +50,10 @@ internal sealed class RecommendationsOperationTransformer : IOpenApiOperationTra
 
         return Task.CompletedTask;
     }
+
+    private static bool IsRecommendationsOperation(string? operationId) =>
+        string.Equals(operationId, GetRecommendationsOperationId, StringComparison.Ordinal)
+        || string.Equals(operationId, GetForYouRecommendationsOperationId, StringComparison.Ordinal);
 
     private static bool ContainsTakeParameter(IList<IOpenApiParameter> parameters) =>
         parameters.OfType<OpenApiParameter>().Any(static parameter =>

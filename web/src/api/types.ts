@@ -701,6 +701,12 @@ export interface operations {
   };
   /** Get personalized recommendations from the taste profile */
   GetForYouRecommendations: {
+    parameters: {
+      query?: {
+        /** @description The inclusive upper bound is the configured RecommendationOptions.CandidatePoolSize. */
+        take?: number;
+      };
+    };
     responses: {
       /** @description OK */
       200: {
