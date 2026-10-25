@@ -91,12 +91,12 @@
 
 ### Tests for Phase 3
 
-- [ ] T011 [P] [US1] Author real DEV-416 fixed-fixture integration tests in `tests/LamuFlix.Evaluation/` using nonempty `tests/LamuFlix.Evaluation/Fixtures/baseline.json` with independently worked expected HR@10/MRR; prove duplicate ranking IDs fail. Do not require summary serialization, publication, or published-byte identity (Phase 4). Use Testcontainers only if real persistence/translation is exercised; never mock driver behavior.
+- [X] T011 [P] [US1] Author real DEV-416 fixed-fixture integration tests in `tests/LamuFlix.Evaluation/` using nonempty `tests/LamuFlix.Evaluation/Fixtures/baseline.json` with independently worked expected HR@10/MRR; prove duplicate ranking IDs fail. Do not require summary serialization, publication, or published-byte identity (Phase 4). Use Testcontainers only if real persistence/translation is exercised; never mock driver behavior.
 
 ### Implementation for Phase 3
 
-- [ ] T012 [US1] After T011 and TB002, add/complete nonempty `tests/LamuFlix.Evaluation/Fixtures/baseline.json` (fixtureId, immutable catalog/ranking inputs, event rows) and wire real DEV-416 final-ranking integration per reconciled contract. Record independently derived expected HR@10/MRR with the fixture or adjacent expected-results artifact under `tests/LamuFlix.Evaluation/`.
-- [ ] T013 [US1] Drive T011 green on real DEV-416.
+- [X] T012 [US1] After T011 and TB002, add/complete nonempty `tests/LamuFlix.Evaluation/Fixtures/baseline.json` (fixtureId, immutable catalog/ranking inputs, event rows) and wire real DEV-416 final-ranking integration per reconciled contract. Record independently derived expected HR@10/MRR with the fixture or adjacent expected-results artifact under `tests/LamuFlix.Evaluation/`.
+- [X] T013 [US1] Drive T011 green on real DEV-416.
 
 **Checkpoint**: Phase 3 tests green (independently expected real-ranker metrics). Commit `DEV-356 - real DEV-416 baseline evaluation`.
 
