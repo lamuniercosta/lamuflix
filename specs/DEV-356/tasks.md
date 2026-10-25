@@ -42,18 +42,18 @@
 
 ### Scaffolding for Phase 1 (before or alongside compilable test authoring)
 
-- [ ] T003 [US1] After TB001–TB005 (all entry checks), create `tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj` as net10.0 xUnit v3 executable using only existing CPM packages as needed and only necessary project references required by the reconciled DEV-416 contract. Register the project in `LamuFlix.sln`. No new NuGet dependencies. No blanket UnitTests reference copy. Scaffold before or alongside T001/T002 so those tests can compile; behavior still follows at T004/T005 (Compass F3).
+- [X] T003 [US1] After TB001–TB005 (all entry checks), create `tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj` as net10.0 xUnit v3 executable using only existing CPM packages as needed and only necessary project references required by the reconciled DEV-416 contract. Register the project in `LamuFlix.sln`. No new NuGet dependencies. No blanket UnitTests reference copy. Scaffold before or alongside T001/T002 so those tests can compile; behavior still follows at T004/T005 (Compass F3).
 
 ### Tests for Phase 1
 
-- [ ] T001 [P] [US1] After or alongside T003, author fixture-validation tests in `tests/LamuFlix.Evaluation/` covering required declarations (`fixtureId`, immutable catalog/ranking inputs, event rows with unique stable event ID, user/movie identities, UTC timestamp), rejection of duplicate event IDs / malformed / nonfinite / unresolved movie-catalog references, preservation of valid rows without deduplication, and acceptance of empty event arrays. Minimum compilable contracts when types are absent; behavioral failure before T004 when possible.
-- [ ] T002 [P] [US1] After or alongside T003, author pure metric unit tests in `tests/LamuFlix.Evaluation/` for HR@10 and MRR truncated at 10: ranks 1, 10, 11 or absent; repeated plays; short/empty rankings; zero observations (`observationCount` and both metrics zero); duplicate movie IDs in ranking output fail rather than silent repair. Minimum compilable contracts when absent; behavioral failure before T005 when possible.
+- [X] T001 [P] [US1] After or alongside T003, author fixture-validation tests in `tests/LamuFlix.Evaluation/` covering required declarations (`fixtureId`, immutable catalog/ranking inputs, event rows with unique stable event ID, user/movie identities, UTC timestamp), rejection of duplicate event IDs / malformed / nonfinite / unresolved movie-catalog references, preservation of valid rows without deduplication, and acceptance of empty event arrays. Minimum compilable contracts when types are absent; behavioral failure before T004 when possible.
+- [X] T002 [P] [US1] After or alongside T003, author pure metric unit tests in `tests/LamuFlix.Evaluation/` for HR@10 and MRR truncated at 10: ranks 1, 10, 11 or absent; repeated plays; short/empty rankings; zero observations (`observationCount` and both metrics zero); duplicate movie IDs in ranking output fail rather than silent repair. Minimum compilable contracts when absent; behavioral failure before T005 when possible.
 
 ### Implementation for Phase 1
 
-- [ ] T004 [US1] After T001 (and T003), implement fixture load/validation types under `tests/LamuFlix.Evaluation/` per FR-003 / Q7 (exact JSON property mapping for DEV-416 predecessor inputs follows TB002 reconciliation; UTC parsing per TB002).
-- [ ] T005 [US1] After T002 (and T003), implement pure metric computation under `tests/LamuFlix.Evaluation/` per FR-005 / Q5.
-- [ ] T006 [US1] Drive T001–T002 green.
+- [X] T004 [US1] After T001 (and T003), implement fixture load/validation types under `tests/LamuFlix.Evaluation/` per FR-003 / Q7 (exact JSON property mapping for DEV-416 predecessor inputs follows TB002 reconciliation; UTC parsing per TB002).
+- [X] T005 [US1] After T002 (and T003), implement pure metric computation under `tests/LamuFlix.Evaluation/` per FR-005 / Q5.
+- [X] T006 [US1] Drive T001–T002 green.
 
 **Checkpoint**: Phase 1 tests green. Commit `DEV-356 - evaluation project fixture validation and metrics`.
 
