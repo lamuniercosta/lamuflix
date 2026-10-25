@@ -91,6 +91,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
     private async Task<List<Movie>> AcquireEligibleMoviesAsync(CancellationToken cancellationToken)
     {
         var eligible = new List<Movie>();
+        var seen = new HashSet<MovieId>();
 
         for (var pageNumber = 1; ; pageNumber++)
         {
@@ -112,7 +113,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
 
                 if (!summary.IsNotInterested)
                 {
-                    await AddEligibleAsync(eligible, summary.Id, cancellationToken);
+                    await AddEligibleAsync(eligible, seen, summary.Id, cancellationToken);
                 }
             }
 
@@ -125,9 +126,15 @@ public sealed class GetForYouRecommendationsQueryHandler(
 
     private async Task AddEligibleAsync(
         List<Movie> eligible,
+        HashSet<MovieId> seen,
         MovieId id,
         CancellationToken cancellationToken)
     {
+        if (!seen.Add(id))
+        {
+            return;
+        }
+
         var movie = await movies.GetAsync(id, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
