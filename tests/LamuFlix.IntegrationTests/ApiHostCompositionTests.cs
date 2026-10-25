@@ -52,6 +52,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string GetGenresRoute = "/api/genres";
     private const string GetPeopleRoute = "/api/people";
     private const string GetRecommendationsRoute = "/api/movies/{id:int}/recommendations";
+    private const string ForYouRecommendationsRoute = "/api/recommendations/for-you";
 
     public static TheoryData<Type, Type, Type> ManifestContracts =>
         new()
@@ -104,6 +105,11 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
             {
                 typeof(IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>),
                 typeof(GetRecommendationsQuery),
+                typeof(ImmutableList<RecommendedMovie>)
+            },
+            {
+                typeof(IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>),
+                typeof(GetForYouRecommendationsQuery),
                 typeof(ImmutableList<RecommendedMovie>)
             },
         };
@@ -221,6 +227,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     NotInterestedRoute,
                     NotInterestedRoute,
                     GetRecommendationsRoute,
+                    ForYouRecommendationsRoute,
                 ]);
     }
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -19,6 +20,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
 {
     private const string BrowseRoute = "/api/movies";
     private const string RecommendationsSuffix = "/recommendations";
+    private const string ForYouRoute = "/api/recommendations/for-you";
     private const string ApplicationJson = "application/json";
     private const string ProblemDetailsJson = "application/problem+json";
     private const int UnknownId = 999999;
@@ -177,6 +179,141 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
         body.ValueKind.ShouldBe(JsonValueKind.Array);
         body.EnumerateArray().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetForYou_PositiveHistory_ReturnsPersonalReasonsAndRetainsVectorlessCandidates()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var data = new Fixture();
+        var genre = Faker.Lorem.GetFirstWord();
+        var watched = EnrichedMovie(
+            data.Create<string>(),
+            "for-you-watched",
+            genre,
+            Faker.Name.FullName(),
+            SelectedYear,
+            SelectedRuntime,
+            SelectedRating);
+        watched.IsWatched = true;
+        var enrichedCandidate = EnrichedMovie(
+            data.Create<string>(), "for-you-enriched", genre, Faker.Name.FullName(), OtherYear, null, null);
+        var vectorlessCandidate = EnrichedMovie(
+            data.Create<string>(), "for-you-vectorless", genre, Faker.Name.FullName(), OtherYear, null, null);
+        var excluded = EnrichedMovie(
+            data.Create<string>(), "for-you-excluded", genre, Faker.Name.FullName(), OtherYear, null, null);
+        excluded.IsNotInterested = true;
+
+        var watchedId = (await SeedAsync(watched)).Id.ShouldNotBeNull().Value;
+        var enrichedId = (await SeedAsync(enrichedCandidate)).Id.ShouldNotBeNull().Value;
+        var vectorlessId = (await SeedAsync(vectorlessCandidate)).Id.ShouldNotBeNull().Value;
+        var excludedId = (await SeedAsync(excluded)).Id.ShouldNotBeNull().Value;
+        await SeedVectorAsync(watchedId, primary: 1f, secondary: 0f);
+        await SeedVectorAsync(enrichedId, primary: 0f, secondary: 1f);
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var repeated = await client.GetAsync(ForYouRoute, cancellationToken);
+        var repeatedBody = await repeated.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
+        repeated.StatusCode.ShouldBe(HttpStatusCode.OK);
+        repeatedBody.GetRawText().ShouldBe(body.GetRawText());
+        var items = body.EnumerateArray().ToList();
+        var ids = items.Select(item => item.GetProperty("id").GetInt32()).ToList();
+        ids.ShouldContain(enrichedId);
+        ids.ShouldContain(vectorlessId);
+        ids.ShouldNotContain(excludedId);
+
+        var enrichedItem = items.Single(item => item.GetProperty("id").GetInt32() == enrichedId);
+        ShouldCarryExactly(enrichedItem, DtoFieldNames);
+        ReasonKinds(enrichedItem).ShouldContain("personal");
+        ReasonTexts(enrichedItem).ShouldContain($"Matches your {genre} interest");
+
+        var vectorlessItem = items.Single(item => item.GetProperty("id").GetInt32() == vectorlessId);
+        ShouldCarryExactly(vectorlessItem, DtoFieldNames);
+        ReasonTexts(vectorlessItem).ShouldContain($"Matches your {genre} interest");
+    }
+
+    [Fact]
+    public async Task GetForYou_NoPositiveHistory_ReturnsOkEmptyArray()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var data = new Fixture();
+        var genre = Faker.Lorem.GetFirstWord();
+        var unwatched = EnrichedMovie(
+            data.Create<string>(), "for-you-cold-unwatched", genre, Faker.Name.FullName(), OtherYear, null, null);
+        var notInterested = EnrichedMovie(
+            data.Create<string>(), "for-you-cold-not-interested", genre, Faker.Name.FullName(), OtherYear, null, null);
+        notInterested.IsNotInterested = true;
+        var unwatchedId = (await SeedAsync(unwatched)).Id.ShouldNotBeNull().Value;
+        await SeedAsync(notInterested);
+        await SeedVectorAsync(unwatchedId, primary: 1f, secondary: 0f);
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
+        body.ValueKind.ShouldBe(JsonValueKind.Array);
+        body.EnumerateArray().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetForYou_FeedbackInvalidatesTheCachedProfile()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var data = new Fixture();
+        var historyGenre = $"history-{Guid.NewGuid():N}";
+        var candidateGenre = $"candidate-{Guid.NewGuid():N}";
+
+        var watched = EnrichedMovie(
+            data.Create<string>(),
+            "for-you-cache-history",
+            historyGenre,
+            Faker.Name.FullName(),
+            SelectedYear,
+            SelectedRuntime,
+            SelectedRating);
+        watched.IsWatched = true;
+        var candidate = EnrichedMovie(
+            data.Create<string>(), "for-you-cache-candidate", candidateGenre, Faker.Name.FullName(), OtherYear, null, null);
+        var watchedId = (await SeedAsync(watched)).Id.ShouldNotBeNull().Value;
+        var candidateId = (await SeedAsync(candidate)).Id.ShouldNotBeNull().Value;
+        await SeedVectorAsync(watchedId, primary: 1f, secondary: 0f);
+
+        var before = await client.GetAsync(ForYouRoute, cancellationToken);
+        var beforeBody = await before.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // act
+        var marked = await client.PostAsync(
+            $"{BrowseRoute}/{candidateId}/watched",
+            content: null,
+            cancellationToken);
+        var after = await client.GetAsync(ForYouRoute, cancellationToken);
+        var afterBody = await after.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        before.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var cachedItem = beforeBody.EnumerateArray()
+            .Single(item => item.GetProperty("id").GetInt32() == candidateId);
+        ReasonKinds(cachedItem).ShouldNotContain("personal");
+        marked.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        after.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var invalidatedItem = afterBody.EnumerateArray()
+            .Single(item => item.GetProperty("id").GetInt32() == candidateId);
+        ReasonTexts(invalidatedItem).ShouldContain($"Matches your {candidateGenre} interest");
     }
 
     private static MovieRecord EnrichedMovie(

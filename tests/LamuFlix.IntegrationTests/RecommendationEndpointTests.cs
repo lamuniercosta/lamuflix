@@ -15,6 +15,7 @@ using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Pipeline;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
@@ -32,6 +33,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     private const int UnknownId = 999;
     private const int DefaultCandidatePoolSize = 50;
     private const string ProblemDetailsJson = "application/problem+json";
+    private const string ForYouRoute = "/api/recommendations/for-you";
 
     private static readonly string[] DtoFieldNames =
     [
@@ -53,8 +55,12 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>> handler =
         Substitute.For<IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>>();
+    private readonly IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>> forYouHandler =
+        Substitute.For<IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>>();
 
     private GetRecommendationsQuery? DispatchedQuery { get; set; }
+
+    private GetForYouRecommendationsQuery? DispatchedForYouQuery { get; set; }
 
     [Fact]
     public async Task GetRecommendations_OmittedTake_DefaultsToTenIndependentlyOfConfiguredTake()
@@ -605,6 +611,195 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         await movies.Received(1).GetAsync(new MovieId(KnownId), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task GetForYouRecommendations_RankedResult_MapsTypedLowercasePersonalReasonsInHandlerOrder()
+    {
+        // arrange
+        var first = new RecommendedMovie(
+            Summary(EnrichmentStatus.Enriched, id: 51),
+            4.5,
+            [
+                Reason.Personal("Matches your Drama interest"),
+                Reason.Personal("Matches your viewing history"),
+            ]);
+        var second = new RecommendedMovie(
+            Summary(EnrichmentStatus.Enriched, id: 52),
+            -1.25,
+            [Reason.Structural("No shared features identified")]);
+        ForYouHandlerReturns(first, second);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
+        body.GetArrayLength().ShouldBe(2);
+        body.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldBe([51, 52]);
+        body[0].GetProperty("score").GetDouble().ShouldBe(4.5);
+        PropertyNames(body[0]).ShouldBe(DtoFieldNames);
+        ReasonKinds(body[0]).ShouldBe(["personal", "personal"]);
+        ReasonTexts(body[0]).ShouldBe(["Matches your Drama interest", "Matches your viewing history"]);
+        body[1].GetProperty("score").GetDouble().ShouldBe(-1.25);
+        ReasonKinds(body[1]).ShouldBe(["structural"]);
+        ReasonTexts(body[1]).ShouldBe(["No shared features identified"]);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task GetForYouRecommendations_NoEligibleRecommendations_ReturnsOkEmptyArray(int itemCount)
+    {
+        // arrange
+        ForYouHandlerReturns([.. Enumerable.Range(0, itemCount)
+            .Select(index => Recommendation(Summary(EnrichmentStatus.Enriched, id: 60 + index), index))]);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        body.ValueKind.ShouldBe(JsonValueKind.Array);
+        body.GetArrayLength().ShouldBe(itemCount);
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_NoHistoryOrNotInterestedOnly_ReturnsOkEmptyArray()
+    {
+        // arrange
+        ForYouHandlerReturns();
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
+        body.ValueKind.ShouldBe(JsonValueKind.Array);
+        body.GetArrayLength().ShouldBe(0);
+        DispatchedForYouQuery.ShouldNotBeNull().Take.ShouldBe(10);
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_OmittedTake_DefaultsToTenIndependentlyOfConfiguredTake()
+    {
+        // arrange
+        ForYouHandlerReturns();
+        await using var host = CreateHost(configuredTake: 7, candidatePoolSize: DefaultCandidatePoolSize);
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        DispatchedForYouQuery.ShouldNotBeNull().Take.ShouldBe(10);
+    }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(5, 5)]
+    [InlineData(5, 1)]
+    [InlineData(50, 50)]
+    public async Task GetForYouRecommendations_TakeInsideInclusiveConfiguredBound_DispatchesThatTake(
+        int candidatePoolSize,
+        int take)
+    {
+        // arrange
+        ForYouHandlerReturns();
+        await using var host = CreateHost(configuredTake: 1, candidatePoolSize: candidatePoolSize);
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(
+            $"{ForYouRoute}?take={take.ToString(CultureInfo.InvariantCulture)}",
+            cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        DispatchedForYouQuery.ShouldNotBeNull().Take.ShouldBe(take);
+    }
+
+    [Theory]
+    [InlineData("take=")]
+    [InlineData("take=%20")]
+    [InlineData("take=abc")]
+    [InlineData("take=1.5")]
+    [InlineData("take=2147483648")]
+    [InlineData("take=0")]
+    [InlineData("take=-1")]
+    [InlineData("take=51")]
+    [InlineData("take=3&take=4")]
+    public async Task GetForYouRecommendations_InvalidTake_ReturnsBadRequestProblemWithoutDispatching(string query)
+    {
+        // arrange
+        ForYouHandlerReturns();
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{ForYouRoute}?{query}", cancellationToken);
+
+        // assert
+        await ReadProblemAsync(response, HttpStatusCode.BadRequest, cancellationToken);
+        await forYouHandler.DidNotReceiveWithAnyArgs()
+            .HandleAsync(Arg.Any<GetForYouRecommendationsQuery>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_OmittedTakeAboveSmallerValidPool_ReturnsBadRequestProblem()
+    {
+        // arrange
+        ForYouHandlerReturns();
+        await using var host = CreateHost(configuredTake: 5, candidatePoolSize: 5);
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(ForYouRoute, cancellationToken);
+
+        // assert
+        await ReadProblemAsync(response, HttpStatusCode.BadRequest, cancellationToken);
+        await forYouHandler.DidNotReceiveWithAnyArgs()
+            .HandleAsync(Arg.Any<GetForYouRecommendationsQuery>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task GetForYouRecommendations_DirectQueryOutsideBounds_FailsThroughTheComposedValidationDecorator()
+    {
+        // arrange
+        await using var host = CreateHost(composeForYouHandler: true);
+        using var scope = host.Services.CreateScope();
+        var composed = scope.ServiceProvider
+            .GetRequiredService<IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>>();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var failure = await Should.ThrowAsync<ValidationException>(() => composed.HandleAsync(
+            new GetForYouRecommendationsQuery(DefaultCandidatePoolSize + 1),
+            cancellationToken));
+
+        // assert
+        composed.ShouldBeOfType<TracingDecorator<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>>();
+        failure.Errors.Keys.ShouldContain("Take");
+    }
+
     private static string Route(int id) => $"/api/movies/{id.ToString(CultureInfo.InvariantCulture)}/recommendations";
 
     private static IEnumerable<string> PropertyNames(JsonElement item) =>
@@ -625,6 +820,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
         problem.GetProperty("status").GetInt32().ShouldBe((int)expected);
+        problem.TryGetProperty("traceId", out _).ShouldBeTrue(problem.GetRawText());
     }
 
     private static Movie MovieIn(EnrichmentStatus status)
@@ -686,9 +882,19 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
             .Returns(results);
     }
 
+    private void ForYouHandlerReturns(params RecommendedMovie[] items)
+    {
+        ImmutableList<RecommendedMovie> results = [.. items];
+        forYouHandler.HandleAsync(
+                Arg.Do<GetForYouRecommendationsQuery>(query => DispatchedForYouQuery = query),
+                Arg.Any<CancellationToken>())
+            .Returns(results);
+    }
+
     private WebApplicationFactory<Program> CreateHost(
         int configuredTake = 10,
-        int candidatePoolSize = DefaultCandidatePoolSize) =>
+        int candidatePoolSize = DefaultCandidatePoolSize,
+        bool composeForYouHandler = false) =>
         factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
@@ -703,6 +909,11 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
             {
                 services.Replace(ServiceDescriptor.Singleton(movies));
                 services.Replace(ServiceDescriptor.Singleton(handler));
+
+                if (!composeForYouHandler)
+                {
+                    services.Replace(ServiceDescriptor.Singleton(forYouHandler));
+                }
             });
         });
 }
