@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import type { components } from '../api/types';
 import FilterPanel from '../features/library/FilterPanel';
+import ForYouRail from '../features/for-you/ForYouRail';
 import {
   currentYearExtent,
   isRuntimeActive,
@@ -300,6 +301,7 @@ function LibraryBrowseView({
   });
 
   const queryClient = useQueryClient();
+  const feedbackClients = useMemo(() => ({ libraryClient: queryClient }), [queryClient]);
   useEffect(() => {
     if (browse.data) {
       queryClient.setQueryData(lastGoodQueryKey, browse.data);
@@ -654,6 +656,10 @@ function LibraryBrowseView({
           />
         </div>
       </div>
+
+      {!activeFilters && !watchlistActive ? (
+        <ForYouRail onOpenMovie={openMovie} feedbackClients={feedbackClients} />
+      ) : null}
 
       <section aria-label="Results">
         {refreshFailed ? <p role="alert">Movies could not be refreshed.</p> : null}
