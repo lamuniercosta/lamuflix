@@ -50,7 +50,7 @@ internal static class AsOfHistory
 
     public static GenreWeights CatalogGenreWeights(ImmutableArray<EvaluationCatalogMovie> catalog)
     {
-        var counts = new Dictionary<string, long>(StringComparer.Ordinal);
+        var counts = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var movie in catalog)
         {
