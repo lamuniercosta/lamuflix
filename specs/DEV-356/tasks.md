@@ -69,13 +69,13 @@
 
 ### Tests for Phase 2
 
-- [ ] T007 [P] [US1] Author strict as-of replay/history tests in `tests/LamuFlix.Evaluation/`: timestamp then ordinal stable event-ID traversal per TB002; history uses only timestamp < target across applicable users; equal-time rows cannot teach one another; score before target visibility to later observations; fixed seed/`TimeProvider` inputs per TB002.
-- [ ] T008 [P] [US2] Author leakage tests in `tests/LamuFlix.Evaluation/` comparing each earlier observation ranking and score when future events are appended or shuffled; cover target exclusion, equal-time events, cross-user future history, future-derived profiles, and full-fixture permutation invariance via in-memory metrics/model equality. Aggregate-only assertions are insufficient. Do not require published summary bytes here (Phase 4 owns published-byte permutation proof).
+- [X] T007 [P] [US1] Author strict as-of replay/history tests in `tests/LamuFlix.Evaluation/`: timestamp then ordinal stable event-ID traversal per TB002; history uses only timestamp < target across applicable users; equal-time rows cannot teach one another; score before target visibility to later observations; fixed seed/`TimeProvider` inputs per TB002.
+- [X] T008 [P] [US2] Author leakage tests in `tests/LamuFlix.Evaluation/` comparing each earlier observation ranking and score when future events are appended or shuffled; cover target exclusion, equal-time events, cross-user future history, future-derived profiles, and full-fixture permutation invariance via in-memory metrics/model equality. Aggregate-only assertions are insufficient. Do not require published summary bytes here (Phase 4 owns published-byte permutation proof).
 
 ### Implementation for Phase 2
 
-- [ ] T009 [US1/US2] After T007–T008, implement strict as-of replay orchestration under `tests/LamuFlix.Evaluation/` per FR-004 / Q4, exercising the real Phase B–reconciled DEV-416 invocation surface from TB002 (no invented replacement ranker, stub, temporary compile seam, or fake ranking path; Sentry F1).
-- [ ] T010 [US1/US2] Drive T007–T008 green against that real TB002-reconciled invocation.
+- [X] T009 [US1/US2] After T007–T008, implement strict as-of replay orchestration under `tests/LamuFlix.Evaluation/` per FR-004 / Q4, exercising the real Phase B–reconciled DEV-416 invocation surface from TB002 (no invented replacement ranker, stub, temporary compile seam, or fake ranking path; Sentry F1).
+- [X] T010 [US1/US2] Drive T007–T008 green against that real TB002-reconciled invocation.
 
 **Checkpoint**: Phase 2 tests green. Commit `DEV-356 - strict as-of replay and leakage proofs`.
 
