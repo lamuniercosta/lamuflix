@@ -1,0 +1,19 @@
+.for-you-rail {
+  display: grid;
+  gap: var(--lamu-space-3);
+  min-width: 0;
+}
+
+.for-you-heading {
+  margin: 0;
+  color: var(--color-boundary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.for-you-card {
+  width: clamp(8.5rem, 22vw, 10.5rem);
+  min-width: 0;
+}
