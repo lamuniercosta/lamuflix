@@ -116,6 +116,68 @@ const relatedMoviesData = [
   },
 ] satisfies Schemas['RecommendedMovieDto'][];
 
+const forYouRecommendationsData = [
+  {
+    id: 7,
+    title: 'The Batman',
+    posterUrl: '/posters/the-batman.jpg',
+    releaseYear: 2022,
+    runtime: 176,
+    imdbRating: 7.8,
+    enrichmentStatus: 'Enriched',
+    isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
+    score: 0.91,
+    reasons: [
+      { kind: 'personal', text: 'Because you watched Dune' },
+      { kind: 'structural', text: 'Same director' },
+    ],
+  },
+  {
+    id: 8,
+    title: 'Sicario',
+    posterUrl: '/posters/sicario.jpg',
+    releaseYear: 2015,
+    runtime: 121,
+    imdbRating: 7.6,
+    enrichmentStatus: 'Enriched',
+    isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
+    score: 0.84,
+    reasons: [],
+  },
+  {
+    id: 9,
+    title: 'Nightcrawler',
+    posterUrl: '/posters/nightcrawler.jpg',
+    releaseYear: 2014,
+    runtime: 117,
+    imdbRating: 7.8,
+    enrichmentStatus: 'Enriched',
+    isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
+    score: 0.72,
+    reasons: [{ kind: 'structural', text: 'Same genre' }],
+  },
+  {
+    id: 10,
+    title: 'Enemy',
+    posterUrl: null,
+    releaseYear: null,
+    runtime: null,
+    imdbRating: null,
+    enrichmentStatus: 'Pending',
+    isInWatchlist: false,
+    isWatched: false,
+    isNotInterested: false,
+    score: 0.61,
+    reasons: [{ kind: 'personal', text: 'Matches your Thriller interest' }],
+  },
+] satisfies Schemas['RecommendedMovieDto'][];
+
 const genresData = [
   { id: 1, name: 'Action', movieCount: 10 },
   { id: 2, name: 'Sci-Fi', movieCount: 5 },
@@ -131,6 +193,7 @@ export const movieDetails = Object.freeze(movieDetailsData);
 export const movieDetailsNullMetadata = Object.freeze(movieDetailsNullMetadataData);
 export const recommendations = Object.freeze(recommendationsData);
 export const relatedMovies = Object.freeze(relatedMoviesData);
+export const forYouRecommendations = Object.freeze(forYouRecommendationsData);
 export const genres = Object.freeze(genresData);
 export const people = Object.freeze(peopleData);
 
@@ -138,7 +201,7 @@ export const success = Object.freeze({
   BrowseMovies: browseMovies,
   GetMovieDetails: movieDetails,
   GetRecommendations: recommendations,
-  GetForYouRecommendations: recommendations,
+  GetForYouRecommendations: forYouRecommendations,
   GetGenres: genres,
   GetPeople: people,
 });
