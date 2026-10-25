@@ -1,0 +1,43 @@
+{
+  "fixtureId": "dev-356-baseline",
+  "ranking": {
+    "lambda": 0.5,
+    "similarityWeights": {
+      "director": 3.0,
+      "writers": 2.0,
+      "cast": 2.0,
+      "genres": 3.0,
+      "yearProximity": 1.0,
+      "runtimeProximity": 0.5,
+      "ratingBoost": 0.5
+    }
+  },
+  "catalog": [
+    { "movieId": 1, "features": { "genres": ["Drama"] } },
+    { "movieId": 2, "features": { "genres": ["Drama"] } },
+    { "movieId": 3, "features": { "genres": ["Drama"] } },
+    { "movieId": 4, "features": { "genres": ["Comedy"] } },
+    { "movieId": 5, "features": { "genres": ["Comedy"] } },
+    { "movieId": 6, "features": { "genres": ["Comedy"] } },
+    { "movieId": 7, "features": { "genres": ["Horror"] } },
+    { "movieId": 8, "features": { "genres": ["Horror"] } },
+    { "movieId": 9, "features": { "genres": ["Horror"] } },
+    { "movieId": 10, "features": { "genres": ["SciFi"] } },
+    { "movieId": 11, "features": { "genres": ["SciFi"] } },
+    { "movieId": 12, "features": { "genres": ["SciFi"] } }
+  ],
+  "events": [
+    { "eventId": "e01", "userId": "u1", "movieId": 1, "timestamp": "2026-01-01T00:00:00Z" },
+    { "eventId": "e02", "userId": "u1", "movieId": 4, "timestamp": "2026-01-02T00:00:00Z" },
+    { "eventId": "e03", "userId": "u1", "movieId": 7, "timestamp": "2026-01-03T00:00:00Z" },
+    { "eventId": "e04", "userId": "u1", "movieId": 10, "timestamp": "2026-01-04T00:00:00Z" },
+    { "eventId": "e05", "userId": "u1", "movieId": 2, "timestamp": "2026-01-05T00:00:00Z" },
+    { "eventId": "e06", "userId": "u1", "movieId": 5, "timestamp": "2026-01-06T00:00:00Z" },
+    { "eventId": "e07", "userId": "u1", "movieId": 8, "timestamp": "2026-01-07T00:00:00Z" },
+    { "eventId": "e08", "userId": "u1", "movieId": 11, "timestamp": "2026-01-08T00:00:00Z" },
+    { "eventId": "e09", "userId": "u1", "movieId": 3, "timestamp": "2026-01-09T00:00:00Z" },
+    { "eventId": "e10", "userId": "u1", "movieId": 6, "timestamp": "2026-01-10T00:00:00Z" },
+    { "eventId": "e11", "userId": "u1", "movieId": 9, "timestamp": "2026-01-11T00:00:00Z" },
+    { "eventId": "e12", "userId": "u1", "movieId": 12, "timestamp": "2026-01-12T00:00:00Z" }
+  ]
+}
