@@ -32,7 +32,30 @@ internal static class RecommendationEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        api.MapGet("/recommendations/for-you", GetForYouRecommendationsAsync)
+            .WithName("GetForYouRecommendations")
+            .WithSummary("Get personalized recommendations from the taste profile")
+            .Produces<List<RecommendedMovieDto>>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return api;
+    }
+
+    private static async Task<Results<Ok<List<RecommendedMovieDto>>, BadRequest>> GetForYouRecommendationsAsync(
+        HttpRequest request,
+        IQueryHandler<GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>> handler,
+        IOptions<RecommendationOptions> options,
+        CancellationToken cancellationToken)
+    {
+        var take = ParseTake(request.Query, options.Value.CandidatePoolSize);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var recommended = await handler.HandleAsync(new GetForYouRecommendationsQuery(take), cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return TypedResults.Ok<List<RecommendedMovieDto>>([.. recommended.Select(ToDto)]);
     }
 
     private static async Task<Results<Ok<List<RecommendedMovieDto>>, BadRequest, NotFound>> GetRecommendationsAsync(
