@@ -5,11 +5,6 @@ using LamuFlix.Evaluation.TestSupport;
 
 namespace LamuFlix.Evaluation.Entry;
 
-/// <summary>
-/// T014/T015 — publication is intentional. The mode marker plus validated
-/// transported parameters are required before anything is written, so ordinary
-/// suite execution of the dedicated entry never publishes (Mode A, TB002).
-/// </summary>
 public sealed class EvaluationEntryModeTests
 {
     [Fact]

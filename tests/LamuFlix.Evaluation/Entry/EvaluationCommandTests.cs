@@ -7,14 +7,6 @@ using LamuFlix.Evaluation.TestSupport;
 
 namespace LamuFlix.Evaluation.Entry;
 
-/// <summary>
-/// T014/T016 — the single intentional publication command of Q7/FR-002 driven
-/// exactly as a caller runs it. Covers Q7 defaults and overrides, help, exit 0
-/// only after complete publication, nonzero without truncated/partial success on
-/// invalid/missing fixtures, ordinary write failure, native child nonzero exit and
-/// script-error propagation, empty event arrays, and the Q8 published-byte proofs
-/// (repeated identical-fixture runs and equivalent original/permuted fixtures).
-/// </summary>
 public sealed class EvaluationCommandTests
 {
     private const string DefaultSeed = "356";
@@ -154,7 +146,7 @@ public sealed class EvaluationCommandTests
             "-OutputPath",
             output);
 
-        // assert: the native child fails, the script propagates it, nothing is published
+        // assert
         result.ExitCode.ShouldNotBe(0, result.Describe());
         File.Exists(output).ShouldBeFalse();
         Directory.GetFiles(directory.FullPath).ShouldBe([fixture]);
@@ -219,7 +211,7 @@ public sealed class EvaluationCommandTests
             "-OutputPath",
             output);
 
-        // assert: nonzero, and no truncated summary or leftover partial file
+        // assert
         result.ExitCode.ShouldNotBe(0, result.Describe());
         if (kind == "output-is-a-directory")
         {
@@ -254,7 +246,7 @@ public sealed class EvaluationCommandTests
             "-Seed",
             seed);
 
-        // assert: script-level parameter/validation error, never a published summary
+        // assert
         result.ExitCode.ShouldNotBe(0, result.Describe());
         File.Exists(output).ShouldBeFalse();
     }
@@ -281,7 +273,7 @@ public sealed class EvaluationCommandTests
     [Fact]
     public void RepeatedSuccessfulRuns_PublishByteIdenticalSummaries()
     {
-        // arrange: Q8 proof (a) on the Phase 3 nonempty real-ranker baseline
+        // arrange
         using var directory = new TemporaryDirectory();
         var output = directory.Combine("summary.json");
         var arguments = new[]
@@ -306,7 +298,7 @@ public sealed class EvaluationCommandTests
     [Fact]
     public void PresentationPermutedFixture_PublishesByteIdenticalSummary()
     {
-        // arrange: Q8 proof (b), same complete baseline presented in another order
+        // arrange
         using var directory = new TemporaryDirectory();
         var permutedFixture =
             EvaluationCommandFixtures.WritePresentationPermutedBaseline(directory.Combine("permuted.json"));

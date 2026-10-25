@@ -6,13 +6,6 @@ using LamuFlix.Evaluation.Metrics;
 
 namespace LamuFlix.Evaluation.Output;
 
-/// <summary>
-/// TB002 serializer contract: valid compact System.Text.Json, indentation
-/// disabled, UTF-8 without BOM or trailing newline, exact FR-006 field order,
-/// finite invariant-culture JSON numbers with no manual rounding and no volatile
-/// metadata. Writing goes through a sibling partial file so an ordinary write
-/// failure can never leave a truncated summary at the target path.
-/// </summary>
 public static class MetricsSummarySerializer
 {
     private const string PartialSuffix = ".partial";

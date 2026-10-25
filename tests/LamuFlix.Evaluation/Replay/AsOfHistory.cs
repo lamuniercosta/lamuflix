@@ -7,10 +7,6 @@ using LamuFlix.Evaluation.Fixtures;
 
 namespace LamuFlix.Evaluation.Replay;
 
-/// <summary>
-/// Builds the history-dependent ranking inputs strictly from rows whose
-/// timestamp is before the target timestamp, across all users (Q4/TB002).
-/// </summary>
 internal static class AsOfHistory
 {
     public static ImmutableDictionary<MovieId, double> RelevanceScores(

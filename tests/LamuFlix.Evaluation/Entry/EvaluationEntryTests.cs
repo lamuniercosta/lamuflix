@@ -3,12 +3,6 @@ using System.IO;
 
 namespace LamuFlix.Evaluation.Entry;
 
-/// <summary>
-/// The dedicated evaluation entry (TB002 Mode A). `scripts/run-evaluation.ps1`
-/// selects exactly this class with the runner's `-class` filter and transports the
-/// fixture path, output path, evaluation seed and mode marker through child-scoped
-/// environment variables. Ordinary suite execution never publishes.
-/// </summary>
 public sealed class EvaluationEntryTests
 {
     [Fact]

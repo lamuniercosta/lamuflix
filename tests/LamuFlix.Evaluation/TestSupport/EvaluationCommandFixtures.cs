@@ -5,11 +5,6 @@ using System.Text.Json.Nodes;
 
 namespace LamuFlix.Evaluation.TestSupport;
 
-/// <summary>
-/// Fixture payloads exercised by the command and publication tests. Every
-/// payload is derived from the Phase 3 nonempty baseline or is a deliberately
-/// invalid/empty variant of it; nothing here re-derives expected metrics.
-/// </summary>
 internal static class EvaluationCommandFixtures
 {
     public const string BaselineFixtureId = "dev-356-baseline";
@@ -91,11 +86,6 @@ internal static class EvaluationCommandFixtures
         return path;
     }
 
-    /// <summary>
-    /// Reverses the presentation order of the baseline events (and of the catalog
-    /// entries) without changing any identity, timestamp or feature value. This is
-    /// the "equivalent original/permuted fixture" of the same complete baseline.
-    /// </summary>
     public static string WritePresentationPermutedBaseline(string path)
     {
         var root = JsonNode.Parse(BaselineJson())

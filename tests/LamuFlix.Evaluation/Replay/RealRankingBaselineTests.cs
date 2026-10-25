@@ -9,12 +9,6 @@ using LamuFlix.Evaluation.Metrics;
 
 namespace LamuFlix.Evaluation.Replay;
 
-/// <summary>
-/// T011/T012 — real DEV-416 fixed-fixture integration on the nonempty baseline.
-/// The expected per-observation rankings and HR@10/MRR are independently worked
-/// from the Q4/Q5 semantics and recorded in
-/// <c>Fixtures/baseline.expected.json</c> before this test ever ran.
-/// </summary>
 public sealed class RealRankingBaselineTests
 {
     private static readonly int Seed = EvaluationBaselineFixture.DefaultSeed;
@@ -87,13 +81,13 @@ public sealed class RealRankingBaselineTests
         var fixture = EvaluationBaselineFixture.Load();
         var result = EvaluationReplay.Run(fixture, EvaluationReplayOptions.Default(Seed));
 
-        // assert: the real DEV-416 output never repeats a movie id
+        // assert
         foreach (var observation in result.Observations)
         {
             observation.Ranking.Distinct().Count().ShouldBe(observation.Ranking.Length);
         }
 
-        // act: a duplicate final-ranking id must fail, never be silently repaired
+        // act
         var first = result.Observations[0];
         var duplicated = first with { Ranking = [.. first.Ranking, first.Ranking[0]] };
         var failure = Should.Throw<ArgumentException>(

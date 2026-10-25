@@ -7,12 +7,6 @@ using LamuFlix.Evaluation.Replay;
 
 namespace LamuFlix.Evaluation.Entry;
 
-/// <summary>
-/// The intentional evaluation entry selected by <c>scripts/run-evaluation.ps1</c>
-/// (TB002 Mode A). Publication requires the mode marker and the transported,
-/// validated parameters, so ordinary suite execution of the evaluation project
-/// never publishes. The child performs validation, replay and publication itself.
-/// </summary>
 public static class EvaluationEntry
 {
     public const string ModeVariable = "LAMUFLIX_EVALUATION_MODE";
@@ -28,11 +22,6 @@ public static class EvaluationEntry
         return string.Equals(readVariable(ModeVariable), ModeValue, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Validates, replays and publishes when the mode marker is present.
-    /// Returns the published path, or <see langword="null"/> when this execution
-    /// was ordinary suite execution and therefore published nothing.
-    /// </summary>
     public static string? Publish(Func<string, string?> readVariable)
     {
         ArgumentNullException.ThrowIfNull(readVariable);
@@ -46,8 +35,6 @@ public static class EvaluationEntry
         var outputPath = Required(readVariable, OutputPathVariable);
         var seed = ReadSeed(readVariable);
 
-        // The parse clock only bounds movie release-year plausibility; replay reads
-        // every history-dependent input from a clock fixed to each target timestamp.
         var fixture = EvaluationFixtureLoader.LoadFromJson(
             File.ReadAllText(fixturePath),
             TimeProvider.System);

@@ -4,10 +4,6 @@ using LamuFlix.Evaluation.Replay;
 
 namespace LamuFlix.Evaluation.Output;
 
-/// <summary>
-/// FR-006 / Q6 metrics summary. Field order is fixed by the serializer, not by
-/// this record's declaration order.
-/// </summary>
 public sealed record MetricsSummary(
     int SchemaVersion,
     string FixtureId,
