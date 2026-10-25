@@ -35,13 +35,14 @@ public sealed class EvaluationReplayPropertyTests
 
         // assert
         return metrics.ObservationCount == fixture.Events.Length
-            && double.IsFinite(metrics.HitRateAt10)
-            && double.IsFinite(metrics.Mrr)
-            && metrics.HitRateAt10 >= 0.0
-            && metrics.HitRateAt10 <= 1.0
-            && metrics.Mrr >= 0.0
-            && metrics.Mrr <= 1.0;
+            && IsUnitInterval(metrics.HitRateAt10)
+            && IsUnitInterval(metrics.Mrr);
     }
+
+    private static bool IsUnitInterval(double value) =>
+        double.IsFinite(value)
+        && value >= 0.0
+        && value <= 1.0;
 
     [Property(MaxTest = 60, Replay = "356102,300001")]
     [Trait("Category", "Property")]

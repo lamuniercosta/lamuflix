@@ -2,7 +2,6 @@ using System;
 using System.Collections.Immutable;
 using System.Linq;
 using FsCheck.Xunit;
-using LamuFlix.Core.Domain;
 using LamuFlix.Evaluation.Metrics;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
@@ -51,16 +50,25 @@ public sealed class EvaluationMetricPropertyTests
         var metrics = MetricCalculator.Compute(observations);
 
         // assert
-        return metrics.ObservationCount == observations.Length
-            && metrics.HitCount >= 0
-            && metrics.HitCount <= metrics.ObservationCount
-            && double.IsFinite(metrics.ReciprocalRankSum)
-            && metrics.ReciprocalRankSum >= 0.0
-            && metrics.ReciprocalRankSum <= metrics.HitCount + Tolerance
-            && metrics.Mrr <= metrics.HitRateAt10 + Tolerance
-            && Within(metrics.HitRateAt10, Average(metrics.HitCount, metrics.ObservationCount))
-            && Within(metrics.Mrr, Average(metrics.ReciprocalRankSum, metrics.ObservationCount));
+        return HasExpectedCounts(metrics, observations)
+            && HasBoundedRankSum(metrics)
+            && HasConsistentAverages(metrics);
     }
+
+    private static bool HasExpectedCounts(EvaluationMetrics metrics, ImmutableArray<EvaluationObservation> observations) =>
+        metrics.ObservationCount == observations.Length
+        && metrics.HitCount >= 0
+        && metrics.HitCount <= metrics.ObservationCount;
+
+    private static bool HasBoundedRankSum(EvaluationMetrics metrics) =>
+        double.IsFinite(metrics.ReciprocalRankSum)
+        && metrics.ReciprocalRankSum >= 0.0
+        && metrics.ReciprocalRankSum <= metrics.HitCount + Tolerance;
+
+    private static bool HasConsistentAverages(EvaluationMetrics metrics) =>
+        metrics.Mrr <= metrics.HitRateAt10 + Tolerance
+        && Within(metrics.HitRateAt10, Average(metrics.HitCount, metrics.ObservationCount))
+        && Within(metrics.Mrr, Average(metrics.ReciprocalRankSum, metrics.ObservationCount));
 
     [Property(MaxTest = 150, Replay = "356003,300011")]
     [Trait("Category", "Property")]
