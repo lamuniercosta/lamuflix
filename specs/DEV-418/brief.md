@@ -200,3 +200,30 @@ Basis for no remediation: Q8 closing bar expressly permits recorded Low findings
 Disposition: PLAN CHALLENGE CLOSED; reviewed Phase A plan is FROZEN under the existing Q1-Q8 scope and loop terms, including Palette design and the already-remediated C1/U1 controls. This append-only status supersedes earlier draft/not-frozen status statements for the reviewed working artifacts; it does not rewrite their historical drafting receipts. No other artifact correction is requested.
 
 Gate 1 remains separate and is not established by this adjudication. Proceed only to the spec PR / Gate 1 process. Phase B remains STOP until DEV-357 lands with verified generated C# DTO -> OpenAPI -> TypeScript/MSW contract, MovieCard assignability, and pickup drift checks/Keel clearance at the picked HEAD (Q1/Q7; tasks T001). No implementation, tests, gates, commits, publishing, build clearance or merge clearance occurred in this ask. Maximum two review/remediation rounds and two fix commits per round remain unchanged.
+
+## Phase 4 step 4 - Patron M2 ruling (Round 1 remediation, 2026-10-25)
+
+Deliberate cited Patron ruling received during review adjudication at
+`5b3bc391523e7ca6787a2125fb64fc8dae003ffe` (verbatim text preserved in
+`C:/Users/lamun/AppData/Local/Temp/patron-DEV-418-phase4-m2.txt`):
+
+The narrow `<section aria-label="Results">`-scoping edits to
+`web/src/library/LibraryView.composed.test.tsx`,
+`web/src/library/LibraryView.toolbar.test.tsx`, and
+`web/src/library/watchlist.integration.test.tsx` are accepted within DEV-418
+under Charter §2.3 item 6 (charter line 24 forced-edit exemption) as
+gate- and AC-forced test adjustments, superseding only the literal "no other
+tracked source/config rewrite" freeze in Q6 above without requiring remediation.
+
+- Forced-edit basis: mounting ForYouRail above `<section aria-label="Results">`
+  in unfiltered browse with typed default MSW handlers (Q6, spec FR-002, FR-010)
+  adds For You cards alongside Results cards in unfiltered LibraryView renders,
+  directly forcing existing global browse assertions in those three tests to scope
+  queries to Results so `scripts/run-web-gates.ps1` and the full existing web
+  suite pass (spec SC-006, FR-013).
+- No precedent against gates: an earlier Patron Q6 ruling is never precedent
+  against a mandatory verification gate or acceptance criterion (FR-002, FR-013,
+  SC-006).
+- Strict scope: only the verified narrow Results-scoping query adjustments in
+  those three test files are authorized; all other unnamed tracked source,
+  config, and store files remain frozen.

@@ -105,3 +105,28 @@ Patron answer (verbatim):
 
 ---
 
+## Phase 4 step 4 - Patron M2 ruling record (Round 1 remediation, 2026-10-25)
+
+Patron ruling (verbatim, preserved in
+`C:/Users/lamun/AppData/Local/Temp/patron-DEV-418-phase4-m2.txt`):
+Accepted — the narrow `<section aria-label="Results">`-scoping edits to
+`web/src/library/LibraryView.composed.test.tsx`,
+`web/src/library/LibraryView.toolbar.test.tsx`, and
+`web/src/library/watchlist.integration.test.tsx` at
+`5b3bc391523e7ca6787a2125fb64fc8dae003ffe` are accepted within DEV-418 under
+Charter §2.3 item 6 as gate- and AC-forced test adjustments, superseding only
+the literal "no other tracked source/config rewrite" freeze in Q6
+(brief.md / this file) without requiring remediation.
+- Charter §2.3 item 6 forced-edit exemption (charter line 24): mounting
+  ForYouRail above `<section aria-label="Results">` in unfiltered browse with
+  typed default MSW handlers (Q6, FR-002, FR-010) forces the three existing
+  global browse assertions to scope queries to Results so
+  `scripts/run-web-gates.ps1` and the full web suite pass (SC-006, FR-013).
+- Precedence (charter §2.3; spec SC-006, FR-002, FR-013): an earlier Patron Q6
+  ruling is never precedent against a mandatory verification gate or acceptance
+  criterion.
+- Strict scope (Q6, Q8; spec FR-010, FR-014): only the verified narrow
+  Results-scoping query adjustments in those three test files; all other
+  unnamed tracked source, config, and store files remain frozen.
+
+---
