@@ -21,12 +21,20 @@ internal sealed class ResultComparer : IEqualityComparer<EvaluationObservationRe
             return false;
         }
 
+        return HasSameIdentity(x, y) && HasSameRanking(x, y);
+    }
+
+    private static bool HasSameIdentity(EvaluationObservationResult x, EvaluationObservationResult y)
+    {
         return string.Equals(x.EventId, y.EventId, StringComparison.Ordinal)
             && string.Equals(x.UserId, y.UserId, StringComparison.Ordinal)
             && x.Target == y.Target
-            && x.Timestamp == y.Timestamp
-            && x.Ranking.SequenceEqual(y.Ranking)
-            && x.Score.Equals(y.Score);
+            && x.Timestamp == y.Timestamp;
+    }
+
+    private static bool HasSameRanking(EvaluationObservationResult x, EvaluationObservationResult y)
+    {
+        return x.Ranking.SequenceEqual(y.Ranking) && x.Score.Equals(y.Score);
     }
 
     public int GetHashCode(EvaluationObservationResult obj)

@@ -75,6 +75,13 @@ public static class MetricsSummarySerializer
 
     private static void Validate(MetricsSummary summary)
     {
+        ValidateHeader(summary);
+        ValidateCounts(summary);
+        ValidateMetrics(summary);
+    }
+
+    private static void ValidateHeader(MetricsSummary summary)
+    {
         if (summary.SchemaVersion != MetricsSummary.CurrentSchemaVersion)
         {
             throw new ArgumentException(
@@ -93,14 +100,25 @@ public static class MetricsSummarySerializer
                 $"The metrics summary cutoff must be {MetricCalculator.Cutoff}.",
                 nameof(summary));
         }
+    }
 
-        if (summary.ObservationCount < 0 || summary.HitCount < 0 || summary.HitCount > summary.ObservationCount)
+    private static void ValidateCounts(MetricsSummary summary)
+    {
+        if (IsCountOutOfRange(summary))
         {
             throw new ArgumentException(
                 "The metrics summary counts must be non-negative and hits cannot exceed observations.",
                 nameof(summary));
         }
+    }
 
+    private static bool IsCountOutOfRange(MetricsSummary summary)
+    {
+        return summary.ObservationCount < 0 || summary.HitCount < 0 || summary.HitCount > summary.ObservationCount;
+    }
+
+    private static void ValidateMetrics(MetricsSummary summary)
+    {
         EnsureFinite(summary.ReciprocalRankSum, nameof(summary.ReciprocalRankSum));
         EnsureFinite(summary.HitRateAt10, nameof(summary.HitRateAt10));
         EnsureFinite(summary.Mrr, nameof(summary.Mrr));
