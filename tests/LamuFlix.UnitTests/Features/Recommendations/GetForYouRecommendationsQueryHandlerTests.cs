@@ -314,6 +314,39 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_RepeatedIdAcrossPages_IsDeDuplicated()
+    {
+        // arrange
+        var handler = NewHandler(candidatePoolSize: 200);
+        var library = Enumerable.Range(1, 101)
+            .Select(id => NewMovie(id, genres: ["Drama"]))
+            .ToArray();
+        var pageOne = library.Take(100).Select(movie => Summary(movie)).ToImmutableArray();
+        var repeated = library[0];
+        var pageTwo = new[] { Summary(repeated), Summary(library[100]) }.ToImmutableArray();
+        catalog.BrowseAsync(Arg.Any<MovieQuery>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var query = call.Arg<MovieQuery>();
+                browseQueries.Add(query);
+                var items = query.Page.Number == 1 ? pageOne : pageTwo;
+                return Task.FromResult(new PagedResult<MovieSummary>(items, 1000));
+            });
+        ArrangeMovies(library);
+        ArrangeProfile(Inputs(WatchedHistory(900, "Drama")), Profile(("Drama", 1.0)));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(150), CancellationToken.None);
+
+        // assert
+        result.Count.ShouldBe(101);
+        result.Select(item => item.Summary.Id.Value).Distinct().Count().ShouldBe(101);
+        await profileSource.Received(1).GetProfileInputsAsync(
+            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 101),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_NotInterestedDomainRow_IsRecheckedAndExcluded()
     {
         // arrange
