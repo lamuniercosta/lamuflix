@@ -294,7 +294,7 @@ public static class EvaluationFixtureLoader
                 throw Invalid($"{description} must contain only strings.");
             }
 
-            values.Add(item.GetString()!);
+            values.Add(item.GetString() ?? throw Invalid($"{description} must contain only strings."));
         }
 
         return [.. values];

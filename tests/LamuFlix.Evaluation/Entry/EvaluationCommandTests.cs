@@ -3,9 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using LamuFlix.Evaluation.Metrics;
-using LamuFlix.Evaluation.Tests.TestSupport;
+using LamuFlix.Evaluation.TestSupport;
 
-namespace LamuFlix.Evaluation.Tests.Entry;
+namespace LamuFlix.Evaluation.Entry;
 
 /// <summary>
 /// T014/T016 — the single intentional publication command of Q7/FR-002 driven

@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using LamuFlix.Evaluation.Replay;
 
-namespace LamuFlix.Evaluation.Tests.Replay;
+namespace LamuFlix.Evaluation.Replay;
 
 internal sealed class ResultComparer : IEqualityComparer<EvaluationObservationResult>
 {

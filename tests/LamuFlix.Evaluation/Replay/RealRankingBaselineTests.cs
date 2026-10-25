@@ -6,10 +6,8 @@ using System.Text.Json;
 using LamuFlix.Core.Domain;
 using LamuFlix.Evaluation.Fixtures;
 using LamuFlix.Evaluation.Metrics;
-using LamuFlix.Evaluation.Replay;
-using Shouldly;
 
-namespace LamuFlix.Evaluation.Tests.Replay;
+namespace LamuFlix.Evaluation.Replay;
 
 /// <summary>
 /// T011/T012 — real DEV-416 fixed-fixture integration on the nonempty baseline.
@@ -153,12 +151,17 @@ internal static class EvaluationBaselineFixture
         return 0;
     }
 
-    private static ExpectedObservation ReadObservation(JsonElement entry) =>
-        new(
-            entry.GetProperty("eventId").GetString()!,
+    private static ExpectedObservation ReadObservation(JsonElement entry)
+    {
+        var eventId = entry.GetProperty("eventId").GetString()
+            ?? throw new InvalidOperationException("Expected baseline observations declare an eventId.");
+
+        return new(
+            eventId,
             entry.GetProperty("target").GetInt32(),
             entry.GetProperty("rank").GetInt32(),
             [.. entry.GetProperty("ranking").EnumerateArray().Select(item => item.GetInt32())]);
+    }
 
     private static double Rational(JsonElement element) =>
         (double)element.GetProperty("numerator").GetInt32()

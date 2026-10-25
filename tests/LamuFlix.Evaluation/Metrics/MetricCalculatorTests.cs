@@ -2,10 +2,8 @@ using System;
 using System.Collections.Immutable;
 using System.Linq;
 using LamuFlix.Core.Domain;
-using LamuFlix.Evaluation.Metrics;
-using Shouldly;
 
-namespace LamuFlix.Evaluation.Tests.Metrics;
+namespace LamuFlix.Evaluation.Metrics;
 
 public sealed class MetricCalculatorTests
 {

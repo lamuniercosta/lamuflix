@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 
-namespace LamuFlix.Evaluation.Tests.TestSupport;
+namespace LamuFlix.Evaluation.TestSupport;
 
 /// <summary>
 /// Fixture payloads exercised by the command and publication tests. Every
@@ -65,7 +65,7 @@ internal static class EvaluationCommandFixtures
         }
         """;
 
-    public static string BaselineJson() => File.ReadAllText(EvaluationCommand.FixturePath);
+    private static string BaselineJson() => File.ReadAllText(EvaluationCommand.FixturePath);
 
     public static string WriteEmptyEventsFixture(string path)
     {
@@ -100,8 +100,12 @@ internal static class EvaluationCommandFixtures
     {
         var root = JsonNode.Parse(BaselineJson())
             ?? throw new InvalidOperationException("The baseline fixture could not be parsed.");
-        root["events"] = Reverse(root["events"]!.AsArray());
-        root["catalog"] = Reverse(root["catalog"]!.AsArray());
+        var events = root["events"]
+            ?? throw new InvalidOperationException("The baseline fixture could not be parsed.");
+        var catalog = root["catalog"]
+            ?? throw new InvalidOperationException("The baseline fixture could not be parsed.");
+        root["events"] = Reverse(events.AsArray());
+        root["catalog"] = Reverse(catalog.AsArray());
         File.WriteAllText(path, root.ToJsonString());
         return path;
     }
@@ -110,7 +114,7 @@ internal static class EvaluationCommandFixtures
     {
         var copies = source
             .Select(item => JsonNode.Parse(
-                item!.ToJsonString(),
+                (item ?? throw new InvalidOperationException("Fixture node could not be copied.")).ToJsonString(),
                 documentOptions: default,
                 nodeOptions: default) ?? throw new InvalidOperationException("Fixture node could not be copied."))
             .ToList();

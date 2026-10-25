@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace LamuFlix.Evaluation.Tests.TestSupport;
+namespace LamuFlix.Evaluation.TestSupport;
 
 /// <summary>
 /// Disposable scratch directory for command/publication tests. Nothing outside
