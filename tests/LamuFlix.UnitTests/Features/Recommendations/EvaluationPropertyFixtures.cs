@@ -18,9 +18,9 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 /// </summary>
 internal static class EvaluationPropertyFixtures
 {
-    public const int MaxEvents = 8;
-    public const int MaxCatalogSize = 6;
-    public const int MinCatalogSize = 3;
+    private const int MaxEvents = 8;
+    private const int MaxCatalogSize = 6;
+    private const int MinCatalogSize = 3;
 
     private const int MaxObservationCount = 12;
     private const int MaxRankingLength = 12;
@@ -38,7 +38,7 @@ internal static class EvaluationPropertyFixtures
         return new EvaluationFixture("property-fixture", catalog, inputs, events);
     }
 
-    public static ImmutableArray<EvaluationCatalogMovie> Catalog(int seed)
+    private static ImmutableArray<EvaluationCatalogMovie> Catalog(int seed)
     {
         var size = MinCatalogSize + (int)((uint)seed % (MaxCatalogSize - MinCatalogSize + 1));
         var builder = ImmutableArray.CreateBuilder<EvaluationCatalogMovie>(size);
@@ -51,7 +51,7 @@ internal static class EvaluationPropertyFixtures
         return builder.ToImmutable();
     }
 
-    public static ImmutableArray<EvaluationEvent> Events(int[] seeds, int catalogSize)
+    private static ImmutableArray<EvaluationEvent> Events(int[] seeds, int catalogSize)
     {
         var count = Math.Min(seeds.Length, MaxEvents);
         var builder = ImmutableArray.CreateBuilder<EvaluationEvent>(count);
@@ -114,7 +114,7 @@ internal static class EvaluationPropertyFixtures
         return builder.ToImmutable();
     }
 
-    public static double Lambda(int seed) => ((uint)seed % 101) / 100.0;
+    private static double Lambda(int seed) => ((uint)seed % 101) / 100.0;
 
     private static ImmutableArray<MovieId> Ranking(int seed)
     {

@@ -6,13 +6,12 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Evaluation.Fixtures;
-using LamuFlix.Evaluation.Replay;
 
-namespace LamuFlix.Evaluation.Tests.Replay;
+namespace LamuFlix.Evaluation.Replay;
 
 internal static class ReplayFixtureFactory
 {
-    public static readonly DateTimeOffset BaseTime = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset BaseTime = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     public static EvaluationEvent Event(
         string eventId,

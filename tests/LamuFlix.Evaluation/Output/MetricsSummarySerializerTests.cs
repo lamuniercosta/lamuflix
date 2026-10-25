@@ -4,11 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using LamuFlix.Evaluation.Metrics;
-using LamuFlix.Evaluation.Output;
 using LamuFlix.Evaluation.Replay;
-using LamuFlix.Evaluation.Tests.TestSupport;
+using LamuFlix.Evaluation.TestSupport;
 
-namespace LamuFlix.Evaluation.Tests.Output;
+namespace LamuFlix.Evaluation.Output;
 
 /// <summary>
 /// T014/T015 — FR-006 summary contract: exact ordered fields, compact UTF-8
@@ -120,7 +119,9 @@ public sealed class MetricsSummarySerializerTests
 
         // assert
         File.ReadAllBytes(path).ShouldBe(MetricsSummarySerializer.SerializeToUtf8Bytes(summary));
-        Directory.GetFiles(Path.GetDirectoryName(path)!).ShouldBe([path]);
+        var directoryPath = Path.GetDirectoryName(path);
+        directoryPath.ShouldNotBeNull();
+        Directory.GetFiles(directoryPath).ShouldBe([path]);
     }
 
     [Fact]

@@ -2,10 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Evaluation.Fixtures;
-using LamuFlix.Evaluation.Replay;
-using Shouldly;
 
-namespace LamuFlix.Evaluation.Tests.Replay;
+namespace LamuFlix.Evaluation.Replay;
 
 /// <summary>
 /// T007 — strict as-of replay/history proofs. Traversal is timestamp then
@@ -129,8 +127,8 @@ public sealed class EvaluationReplayTests
         var fixture = ReplayFixtureFactory.Fixture(HistoryEvents);
 
         // act
-        var first = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options(356));
-        var second = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options(356));
+        var first = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options());
+        var second = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options());
 
         // assert
         first.Seed.ShouldBe(356);
@@ -145,7 +143,7 @@ public sealed class EvaluationReplayTests
         var fixture = ReplayFixtureFactory.Fixture(HistoryEvents);
 
         // act
-        var first = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options(356));
+        var first = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options());
         var second = EvaluationReplay.Run(fixture, ReplayFixtureFactory.Options(999));
 
         // assert: the seeded pool preparation cannot change deterministic MMR selection

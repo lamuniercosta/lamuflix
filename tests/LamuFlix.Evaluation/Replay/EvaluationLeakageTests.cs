@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Evaluation.Fixtures;
 using LamuFlix.Evaluation.Metrics;
-using LamuFlix.Evaluation.Replay;
-using Shouldly;
 
-namespace LamuFlix.Evaluation.Tests.Replay;
+namespace LamuFlix.Evaluation.Replay;
 
 /// <summary>
 /// T008 — temporal leakage isolation. Every earlier observation's ranking and

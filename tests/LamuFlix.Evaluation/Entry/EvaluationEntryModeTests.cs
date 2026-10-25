@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using LamuFlix.Evaluation.Entry;
-using LamuFlix.Evaluation.Output;
-using LamuFlix.Evaluation.Tests.TestSupport;
+using LamuFlix.Evaluation.TestSupport;
 
-namespace LamuFlix.Evaluation.Tests.Entry;
+namespace LamuFlix.Evaluation.Entry;
 
 /// <summary>
 /// T014/T015 — publication is intentional. The mode marker plus validated

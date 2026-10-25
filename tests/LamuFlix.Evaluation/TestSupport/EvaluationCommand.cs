@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace LamuFlix.Evaluation.Tests.TestSupport;
+namespace LamuFlix.Evaluation.TestSupport;
 
 /// <summary>
 /// Drives <c>scripts/run-evaluation.ps1</c> exactly as a caller would:
@@ -27,7 +27,7 @@ internal static class EvaluationCommand
 
     public static string RepositoryRoot { get; } = FindRepositoryRoot();
 
-    public static string ScriptPath => Path.Combine(RepositoryRoot, "scripts", "run-evaluation.ps1");
+    private static string ScriptPath => Path.Combine(RepositoryRoot, "scripts", "run-evaluation.ps1");
 
     public static string FixturePath =>
         Path.Combine(RepositoryRoot, "tests", "LamuFlix.Evaluation", "Fixtures", "baseline.json");

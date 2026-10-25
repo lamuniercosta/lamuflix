@@ -1,8 +1,6 @@
 using System;
-using LamuFlix.Evaluation.Fixtures;
-using Shouldly;
 
-namespace LamuFlix.Evaluation.Tests.Fixtures;
+namespace LamuFlix.Evaluation.Fixtures;
 
 public sealed class EvaluationFixtureLoaderTests
 {
@@ -42,9 +40,9 @@ public sealed class EvaluationFixtureLoaderTests
         movie.Features.Directors.ShouldBe(["Ada"], ignoreOrder: true);
         movie.Features.Writers.ShouldBe(["Bea"], ignoreOrder: true);
         movie.Features.Cast.ShouldBe(["Cy"], ignoreOrder: true);
-        movie.Features.ReleaseYear!.Value.ShouldBe(2010);
-        movie.Features.Runtime!.Minutes.ShouldBe(102);
-        movie.Features.ImdbRating!.Value.ShouldBe(7.5m);
+        movie.Features.ReleaseYear.ShouldNotBeNull().Value.ShouldBe(2010);
+        movie.Features.Runtime.ShouldNotBeNull().Minutes.ShouldBe(102);
+        movie.Features.ImdbRating.ShouldNotBeNull().Value.ShouldBe(7.5m);
         movie.Features.MetaScore.ShouldBe(81);
         movie.Features.FullPlot.ShouldBe("Plot");
     }
