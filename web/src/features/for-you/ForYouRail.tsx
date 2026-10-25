@@ -44,7 +44,7 @@ export default function ForYouRail({ onOpenMovie, feedbackClients }: ForYouRailP
 
   const handleBlur = (event: FocusEvent<HTMLElement>) => {
     const next = event.relatedTarget;
-    if (!(next instanceof Node) || !sectionRef.current?.contains(next)) {
+    if (next instanceof Node && !sectionRef.current?.contains(next)) {
       lastFocusedRef.current = null;
     }
   };

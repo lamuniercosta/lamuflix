@@ -14,6 +14,12 @@
 }
 
 .for-you-card {
-  width: clamp(8.5rem, 22vw, 10.5rem);
+  width: 10.5rem;
   min-width: 0;
+}
+
+@media (max-width: 47.9375rem) {
+  .for-you-card {
+    width: 8.5rem;
+  }
 }
