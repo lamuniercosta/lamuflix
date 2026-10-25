@@ -115,11 +115,11 @@ Shared-file edits are serialized (no conflicting `[P]`). Exact authorized paths 
 
 ### Implementation and verification
 
-- [ ] T033 [US3] Extend assertions in `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` for the for-you route as needed while **reusing** existing `OpenApiRegeneration_OptInEnabled_WritesTheBaselineAndDerivedSnapshotTogether` — no new exporter
-- [ ] T034 [US3] Run opt-in paired regeneration using the exact commands confirmed in T012 (`LAMUFLIX_REGENERATE_OPENAPI=true`); clear env even on failure; update `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json`
-- [ ] T035 [US3] Final ordinary no-export OpenAPI drift/equality/no-write checks with env unset
-- [ ] T036 [US3] Run existing `web generate:api` per T012 after the paired OpenAPI/snapshot export; refresh both `web/src/api/types.ts` and `web/src/mocks/handlers.ts` (Patron DEV-357:254-255; brief.md:83,93-100,122; recon-DEV-357:107-108; recon-DEV-357-2:79-81,96); never hand-edit generated outputs, replace the generator, or claim each run must change bytes; invent no flags
-- [ ] T037 Commit OpenAPI/generated-contract phase; report for Build-stage refactor/gates/review
+- [X] T033 [US3] Extend assertions in `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` for the for-you route as needed while **reusing** existing `OpenApiRegeneration_OptInEnabled_WritesTheBaselineAndDerivedSnapshotTogether` — no new exporter
+- [X] T034 [US3] Run opt-in paired regeneration using the exact commands confirmed in T012 (`LAMUFLIX_REGENERATE_OPENAPI=true`); clear env even on failure; update `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json`
+- [X] T035 [US3] Final ordinary no-export OpenAPI drift/equality/no-write checks with env unset
+- [X] T036 [US3] Run existing `web generate:api` per T012 after the paired OpenAPI/snapshot export; refresh both `web/src/api/types.ts` and `web/src/mocks/handlers.ts` (Patron DEV-357:254-255; brief.md:83,93-100,122; recon-DEV-357:107-108; recon-DEV-357-2:79-81,96); never hand-edit generated outputs, replace the generator, or claim each run must change bytes; invent no flags
+- [X] T037 Commit OpenAPI/generated-contract phase; report for Build-stage refactor/gates/review
 
 **Checkpoint**: SC-003 / OpenAPI no-drift satisfied; contract chain intact for both generator outputs.
 
