@@ -28,6 +28,8 @@
 
 **Checkpoint**: Phase B entry evidence is complete, including Q2 STOP. Only then may Anvil start T003/T001.
 
+**Keel reconciliation, 2026-10-25:** TB002/TB003/TB005 receipts and verdicts are recorded in note DEV-356. The concrete mapping for T004/T007/T009/T012/T014/T015 is now `brief.md` section "Phase B reconciliation" and the corresponding plan addendum, under Patron ruling `8fedb011` and Wisp receipts `recon-DEV-356:67-127`, `recon-DEV-356-2:1-81`. Mode A includes an exact dedicated entry filter, child-scoped environment parameter/marker transport, no publication from ordinary suite execution, and command failure on zero selected entry tests. Q2 clearance alone does not satisfy TB004; obtain Gauge baseline evidence before T003/T001. Checklist boxes above remain receipt pointers to be reconciled by the Conductor, not implicit permission to start code.
+
 ---
 
 ## Phase 1: Evaluation project, fixture validation, and pure metrics (US1 foundational)
@@ -221,4 +223,4 @@ One implementer is the expected path, in phase order. Do not split two writers o
 - Plan challenge/freeze remains a separate later claim and is not cleared here.
 - New unanticipated files or decisions return to Keel; recon gaps return to Wisp; do not invent requirements.
 - Spec workspace does not run gates, tests, or analyzers for this ask.
-- Preserve `.specify/feature.json` pin to `specs/DEV-356`.
+- Preserve `.specify/feature.json` pin to `specs/DEV-356` if present. Wisp found it absent in this Build worktree (`recon-DEV-356:17,64,127`); do not create it or make absence a new entry blocker (brief Phase B reconciliation).
