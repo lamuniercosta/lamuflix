@@ -253,7 +253,8 @@ describe('Filters toggle and inline collapsible panel', () => {
     const { container } = renderApp();
     await waitForLibrary();
 
-    expect(container.querySelectorAll('.movie-card')).toHaveLength(2);
+    const results = screen.getByRole('region', { name: 'Results' });
+    expect(results.querySelectorAll('.movie-card')).toHaveLength(2);
 
     fireEvent.click(screen.getByRole('button', { name: 'List' }));
     expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
@@ -263,7 +264,7 @@ describe('Filters toggle and inline collapsible panel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Grid' }));
     expect(screen.getByRole('button', { name: 'Grid' })).toHaveAttribute('aria-pressed', 'true');
-    expect(container.querySelectorAll('.movie-card')).toHaveLength(2);
+    expect(results.querySelectorAll('.movie-card')).toHaveLength(2);
   });
 
   it('keeps the panel open across query changes', async () => {

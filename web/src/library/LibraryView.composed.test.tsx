@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -69,7 +69,9 @@ describe('LibraryView composition', () => {
     expect(await screen.findByText('Dune')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Arrival' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: /filters/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(
+      within(screen.getByRole('region', { name: 'Results' })).getAllByRole('article'),
+    ).toHaveLength(2);
     expect(screen.getByRole('navigation', { name: /pagination/i })).toBeInTheDocument();
   });
 
@@ -255,7 +257,11 @@ describe('LibraryView composition', () => {
     renderLibraryView();
     await screen.findByText('Dune');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(
+      within(screen.getByRole('navigation', { name: /pagination/i })).getByRole('button', {
+        name: 'Next',
+      }),
+    );
 
     await waitFor(() => {
       expect(requests.at(-1)).toBe('sort=Title&direction=Ascending&page=2&pageSize=20');
@@ -287,7 +293,9 @@ describe('LibraryView composition', () => {
     renderLibraryView();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Movies could not be refreshed.');
-    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('region', { name: 'Results' })).queryByRole('article'),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps prior tiles when a refetch fails', async () => {
