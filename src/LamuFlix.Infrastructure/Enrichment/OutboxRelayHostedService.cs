@@ -68,46 +68,15 @@ public partial class OutboxRelayHostedService(
                     break;
                 }
 
-                var cleanupDue = timeProvider.GetUtcNow() >= nextCleanupDueAt;
-                if (cleanupDue)
+                var nextDue = await RunCleanupIfDueAsync(nextCleanupDueAt, stoppingToken);
+                if (nextDue is null)
                 {
-                    var cleanup = await RunCleanupAsync(stoppingToken);
-                    if (cleanup.Result == OutboxRelayCleanupResult.Shutdown)
-                    {
-                        break;
-                    }
-
-                    if (cleanup.Result == OutboxRelayCleanupResult.Succeeded)
-                    {
-                        state.RecordCleanupSucceeded(cleanup.DeletedCount, timeProvider.GetUtcNow());
-                        metrics.RecordRetentionDeleted(cleanup.DeletedCount);
-                    }
-                    else
-                    {
-                        state.RecordCleanupFailed(timeProvider.GetUtcNow());
-                        metrics.RecordRetentionFailure();
-                    }
-
-                    nextCleanupDueAt = timeProvider.GetUtcNow() + options.Value.CleanupInterval;
+                    break;
                 }
 
-                TimeSpan delay;
-                if (outcome == OutboxRelayPassResult.Succeeded)
-                {
-                    consecutiveFailures = 0;
-                    delay = options.Value.PollInterval;
-                }
-                else
-                {
-                    consecutiveFailures++;
-                    delay = FailureDelay(consecutiveFailures);
-                }
-
-                try
-                {
-                    await Task.Delay(delay, timeProvider, stoppingToken);
-                }
-                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                nextCleanupDueAt = nextDue.Value;
+                var delay = NextDelay(outcome, ref consecutiveFailures);
+                if (!await DelayAsync(delay, stoppingToken))
                 {
                     break;
                 }
@@ -116,6 +85,60 @@ public partial class OutboxRelayHostedService(
         finally
         {
             state.MarkStopped();
+        }
+    }
+
+    private async Task<DateTimeOffset?> RunCleanupIfDueAsync(
+        DateTimeOffset nextCleanupDueAt,
+        CancellationToken stoppingToken)
+    {
+        if (timeProvider.GetUtcNow() < nextCleanupDueAt)
+        {
+            return nextCleanupDueAt;
+        }
+
+        var cleanup = await RunCleanupAsync(stoppingToken);
+        if (cleanup.Result == OutboxRelayCleanupResult.Shutdown)
+        {
+            return null;
+        }
+
+        if (cleanup.Result == OutboxRelayCleanupResult.Succeeded)
+        {
+            state.RecordCleanupSucceeded(cleanup.DeletedCount, timeProvider.GetUtcNow());
+            metrics.RecordRetentionDeleted(cleanup.DeletedCount);
+        }
+        else
+        {
+            state.RecordCleanupFailed(timeProvider.GetUtcNow());
+            metrics.RecordRetentionFailure();
+        }
+
+        return timeProvider.GetUtcNow() + options.Value.CleanupInterval;
+    }
+
+    private TimeSpan NextDelay(OutboxRelayPassResult outcome, ref int consecutiveFailures)
+    {
+        if (outcome == OutboxRelayPassResult.Succeeded)
+        {
+            consecutiveFailures = 0;
+            return options.Value.PollInterval;
+        }
+
+        consecutiveFailures++;
+        return FailureDelay(consecutiveFailures);
+    }
+
+    private async Task<bool> DelayAsync(TimeSpan delay, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await Task.Delay(delay, timeProvider, stoppingToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return false;
         }
     }
 

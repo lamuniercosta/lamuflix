@@ -34,49 +34,68 @@ public sealed record OutboxRelayOptions : IValidatableObject
     {
         ArgumentNullException.ThrowIfNull(validationContext);
 
+        List<ValidationResult> results = [];
+        ValidateCounts(results);
+        ValidatePolling(results);
+        ValidateRetention(results);
+        ValidateBackoffOrder(results);
+        return results;
+    }
+
+    private void ValidateCounts(List<ValidationResult> results)
+    {
         if (BatchSize is < 1 or > 1000)
         {
-            yield return Range(nameof(BatchSize), BatchSize, 1, 1000);
+            results.Add(Range(nameof(BatchSize), BatchSize, 1, 1000));
         }
 
         if (CleanupBatchSize is < 1 or > 10000)
         {
-            yield return Range(nameof(CleanupBatchSize), CleanupBatchSize, 1, 10000);
+            results.Add(Range(nameof(CleanupBatchSize), CleanupBatchSize, 1, 10000));
         }
+    }
 
+    private void ValidatePolling(List<ValidationResult> results)
+    {
         if (PollInterval <= TimeSpan.Zero)
         {
-            yield return Positive(nameof(PollInterval), PollInterval);
+            results.Add(Positive(nameof(PollInterval), PollInterval));
         }
 
         if (PublishTimeout <= TimeSpan.Zero)
         {
-            yield return Positive(nameof(PublishTimeout), PublishTimeout);
+            results.Add(Positive(nameof(PublishTimeout), PublishTimeout));
         }
 
         if (FailureBackoffMin <= TimeSpan.Zero)
         {
-            yield return Positive(nameof(FailureBackoffMin), FailureBackoffMin);
+            results.Add(Positive(nameof(FailureBackoffMin), FailureBackoffMin));
         }
+    }
 
+    private void ValidateRetention(List<ValidationResult> results)
+    {
         if (ProcessedRetention <= TimeSpan.Zero)
         {
-            yield return Positive(nameof(ProcessedRetention), ProcessedRetention);
+            results.Add(Positive(nameof(ProcessedRetention), ProcessedRetention));
         }
 
         if (CleanupInterval <= TimeSpan.Zero)
         {
-            yield return Positive(nameof(CleanupInterval), CleanupInterval);
+            results.Add(Positive(nameof(CleanupInterval), CleanupInterval));
         }
 
         if (BacklogAgeWarning <= TimeSpan.Zero)
         {
-            yield return Positive(nameof(BacklogAgeWarning), BacklogAgeWarning);
+            results.Add(Positive(nameof(BacklogAgeWarning), BacklogAgeWarning));
         }
+    }
 
+    private void ValidateBackoffOrder(List<ValidationResult> results)
+    {
         if (FailureBackoffMax < FailureBackoffMin)
         {
-            yield return new ValidationResult(
+            results.Add(new ValidationResult(
                 string.Format(
                     CultureInfo.InvariantCulture,
                     "{0} ({1}) must be at least {2} ({3}).",
@@ -84,7 +103,7 @@ public sealed record OutboxRelayOptions : IValidatableObject
                     FailureBackoffMax,
                     nameof(FailureBackoffMin),
                     FailureBackoffMin),
-                [nameof(FailureBackoffMax), nameof(FailureBackoffMin)]);
+                [nameof(FailureBackoffMax), nameof(FailureBackoffMin)]));
         }
     }
 
