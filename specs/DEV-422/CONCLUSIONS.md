@@ -105,3 +105,9 @@ Approved — ratify all six Phase 2 challenge dispositions (Sentry M1/M2/L1–L5
 - **Concrete acceptance proofs & standing closing-bar deferrals (Item 6; `specs/DEV-422/spec.md:40,71-73,118,120,126-127`, `specs/DEV-422/tasks.md:71,91`, `CONCLUSIONS.md` Q6)**: Accept Compass L2/L3 as concrete acceptance proofs (`T007` explicit no-event initial-start/reconnect details reconciliation; `T010` explicit `aria-live="polite"` assertion), clarify in `T003` that the connection fake is hand-written with no new package (Ledger L7) and that failed refetches retain the in-place event patch until subsequent event/recovery refetch without rollback machinery (Sentry L3), and defer/acknowledge Ledger L5/L6 and Sentry L1/L2/L5 plus all Informational items under the standing Q6 closing bar (`notes: noted, no ticket`); the Q2 owner checkbox and Phase B upstream DEV-330 prerequisites remain unchanged.
 
 
+
+## Phase 2 Gate 1 Ruling — 2026-10-26
+
+**Patron ruling:** `gate1: provisional` set in `specs/DEV-422/spec.md:7` (`/speckit-analyze` clean and plan challenge adjudicated in `specs/DEV-422/PLAN_CHALLENGE_ADJUDICATION.md`). Gate 1 remains CLOSED pending user resolution of the structural owner checkbox on the spec PR:
+- Exact spec PR owner checkbox text (`brief.md:11`, `spec.md:13`): `- [ ] **blocked: structural — replace ticket-mandated hand-typed hub payload types with the generated DEV-330 schema type?**`
+- Only the user can check this box before merging the spec PR; Patron's `gate1: provisional` ruling does not close the owner checkbox or authorize Phase B implementation.
