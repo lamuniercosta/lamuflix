@@ -706,11 +706,7 @@ public sealed class OutboxRelayHostedServiceTests
         }
     }
 
-    // ReSharper disable once NotAccessedPositionalProperty.Global // Entries read by failure assertions.
-    internal sealed record RecordedLogEntry(
-        string Category,
-        LogLevel Level,
-        EventId EventId,
-        string Message,
-        Exception? Exception);
+    // ReSharper disable NotAccessedPositionalProperty.Global // Entries read by failure assertions.
+    internal sealed record RecordedLogEntry(string Category, LogLevel Level, EventId EventId, string Message, Exception? Exception);
+    // ReSharper restore NotAccessedPositionalProperty.Global
 }
