@@ -50,6 +50,7 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         var hostedServices = host.Services.GetServices<IHostedService>().ToArray();
         hostedServices.ShouldNotContain(service => service is StrandedMovieSweeper);
         hostedServices.ShouldContain(service => service is EnrichmentConsumer);
+        hostedServices.ShouldContain(service => service is OutboxRelayHostedService);
         return host;
     }
 
@@ -73,7 +74,6 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         services.AddSingleton(settings.TimeProvider);
         configureTestServices?.Invoke(services);
         RemoveSweeper(services);
-        RemoveOutboxRelay(services);
         RemoveEmbeddingStartupProbe(services);
     }
 
@@ -93,17 +93,6 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         var registration = services.FirstOrDefault(descriptor =>
             descriptor.ServiceType == typeof(IHostedService)
             && descriptor.ImplementationType == typeof(StrandedMovieSweeper));
-        if (registration is not null)
-        {
-            services.Remove(registration);
-        }
-    }
-
-    private static void RemoveOutboxRelay(IServiceCollection services)
-    {
-        var registration = services.FirstOrDefault(descriptor =>
-            descriptor.ServiceType == typeof(IHostedService)
-            && descriptor.ImplementationType == typeof(OutboxRelayHostedService));
         if (registration is not null)
         {
             services.Remove(registration);

@@ -315,7 +315,7 @@ public sealed class ApiEndToEndFeaturesTests(ApiEndToEndFixture fixture) : ApiEn
         }
 
         public Task WaitForArrivalAsync(CancellationToken cancellationToken) =>
-            arrival.Task.WaitAsync(cancellationToken);
+            arrival.Task.WaitAsync(ArrivalTimeout, cancellationToken);
 
         public void Release() => release.TrySetResult();
 

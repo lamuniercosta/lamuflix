@@ -138,6 +138,9 @@ public sealed class OutboxRelayHostedServiceTests
         later.ProcessedAt.ShouldBeNull();
     }
 
+    private static Task<IReadOnlyList<OutboxMessageRecord>> FailReadAsync() =>
+        Task.FromException<IReadOnlyList<OutboxMessageRecord>>(new InvalidOperationException("read failed"));
+
     [Fact]
     public async Task RelayLoop_AppliesCappedExponentialBackoffAndResetsAfterASuccessfulEmptyPoll()
     {
@@ -149,35 +152,36 @@ public sealed class OutboxRelayHostedServiceTests
             [$"{OutboxRelayOptions.SectionName}:FailureBackoffMax"] = "00:00:04",
         });
         var worker = harness.CreateScriptedWorker();
-        var failing = true;
-        worker.Read = _ => failing
-            ? Task.FromException<IReadOnlyList<OutboxMessageRecord>>(new InvalidOperationException("read failed"))
-            : Task.FromResult<IReadOnlyList<OutboxMessageRecord>>([]);
+        worker.Read = static _ => FailReadAsync();
         using var cancellation = new CancellationTokenSource();
         await worker.StartAsync(cancellation.Token);
         await harness.WaitForScheduledDelayAsync();
 
-        async Task expectDelayAsync(TimeSpan expectedDelay, int readsAfter)
+        static async Task expectDelayAsync(
+            OutboxRelayHarness relayHarness,
+            ScriptedOutboxRelayWorker scriptedWorker,
+            TimeSpan expectedDelay,
+            int readsAfter)
         {
-            await harness.AdvanceAndWaitAsync(expectedDelay - TimeSpan.FromMilliseconds(1), waitForNextDelay: false);
-            worker.ReadCalls.ShouldBe(readsAfter - 1);
-            await harness.AdvanceAndWaitAsync(TimeSpan.FromMilliseconds(1), waitForNextDelay: true);
-            worker.ReadCalls.ShouldBe(readsAfter);
+            await relayHarness.AdvanceAndWaitAsync(expectedDelay - TimeSpan.FromMilliseconds(1), waitForNextDelay: false);
+            scriptedWorker.ReadCalls.ShouldBe(readsAfter - 1);
+            await relayHarness.AdvanceAndWaitAsync(TimeSpan.FromMilliseconds(1), waitForNextDelay: true);
+            scriptedWorker.ReadCalls.ShouldBe(readsAfter);
         }
 
         // act / assert
         worker.ReadCalls.ShouldBe(1);
-        await expectDelayAsync(TimeSpan.FromSeconds(1), 2);
-        await expectDelayAsync(TimeSpan.FromSeconds(2), 3);
-        await expectDelayAsync(TimeSpan.FromSeconds(4), 4);
-        await expectDelayAsync(TimeSpan.FromSeconds(4), 5);
+        await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(1), 2);
+        await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(2), 3);
+        await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(4), 4);
+        await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(4), 5);
 
-        failing = false;
-        await expectDelayAsync(TimeSpan.FromSeconds(4), 6);
+        worker.Read = static _ => Task.FromResult<IReadOnlyList<OutboxMessageRecord>>([]);
+        await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(4), 6);
 
-        failing = true;
-        await expectDelayAsync(TimeSpan.FromSeconds(1), 7);
-        await expectDelayAsync(TimeSpan.FromSeconds(1), 8);
+        worker.Read = static _ => FailReadAsync();
+        await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(1), 7);
+        await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(1), 8);
 
         await worker.StopAsync(cancellation.Token);
     }
@@ -510,10 +514,8 @@ public sealed class OutboxRelayHostedServiceTests
         public Func<CancellationToken, Task<IReadOnlyList<OutboxMessageRecord>>> Read { get; set; } =
             _ => Task.FromResult<IReadOnlyList<OutboxMessageRecord>>([]);
 
-        public Func<OutboxRelayBacklogSample> Sample { get; set; } = () => new OutboxRelayBacklogSample(0, null);
-
-        public Func<Exception>? SampleFault { get; set; }
-
+        internal override Task<OutboxRelayBacklogSample> SampleBacklogAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new OutboxRelayBacklogSample(0, null));
         public Func<OutboxMessageRecord, DateTimeOffset, CancellationToken, Task> Save { get; set; } =
             (_, _, _) => Task.CompletedTask;
 
@@ -531,11 +533,6 @@ public sealed class OutboxRelayHostedServiceTests
         public int CleanupCalls => Volatile.Read(ref cleanupCalls);
 
         public Task FirstRead => firstRead.Task;
-
-        internal override Task<OutboxRelayBacklogSample> SampleBacklogAsync(CancellationToken cancellationToken) =>
-            SampleFault is null
-                ? Task.FromResult(Sample())
-                : Task.FromException<OutboxRelayBacklogSample>(SampleFault());
 
         internal override Task<IReadOnlyList<long>> ReadExpiredProcessedRowIdsAsync(
             IServiceProvider scopedProvider,
@@ -707,10 +704,13 @@ public sealed class OutboxRelayHostedServiceTests
         }
     }
 
+    // ReSharper disable NotAccessedPositionalProperty.Global
+    // Entries keep category, level, and event id for failure triage; assertions read message and exception.
     internal sealed record RecordedLogEntry(
         string Category,
         LogLevel Level,
         EventId EventId,
         string Message,
         Exception? Exception);
+    // ReSharper restore NotAccessedPositionalProperty.Global
 }

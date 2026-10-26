@@ -10,11 +10,11 @@ public sealed class OutboxRelayHealthCheck(OutboxRelayState state, IOptions<Outb
 {
     public const string HealthCheckName = "outbox-relay";
 
-    public const string HealthyDescription = "The outbox relay is sampling a current backlog below the warning age.";
+    private const string HealthyDescription = "The outbox relay is sampling a current backlog below the warning age.";
 
-    public const string DegradedDescription = "The outbox relay backlog is older than the warning age or its last cleanup failed.";
+    private const string DegradedDescription = "The outbox relay backlog is older than the warning age or its last cleanup failed.";
 
-    public const string UnhealthyDescription = "The outbox relay has no successful backlog sample or is not running.";
+    private const string UnhealthyDescription = "The outbox relay has no successful backlog sample or is not running.";
 
     public Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
