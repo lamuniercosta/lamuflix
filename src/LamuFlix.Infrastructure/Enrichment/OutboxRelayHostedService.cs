@@ -331,8 +331,6 @@ public partial class OutboxRelayHostedService(
             return 0;
         }
 
-        // The eligibility predicate is rechecked in the delete so a row whose marker advanced after
-        // the batch was read is never deleted.
         var db = scopedProvider.GetRequiredService<LamuFlixDbContext>();
         return await db.OutboxMessages
             .Where(message => rowIds.Contains(message.Id)

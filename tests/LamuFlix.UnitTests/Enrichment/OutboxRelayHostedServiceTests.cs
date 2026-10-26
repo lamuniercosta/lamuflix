@@ -169,8 +169,10 @@ public sealed class OutboxRelayHostedServiceTests
             scriptedWorker.ReadCalls.ShouldBe(readsAfter);
         }
 
-        // act / assert
+        // assert
         worker.ReadCalls.ShouldBe(1);
+
+        // act
         await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(1), 2);
         await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(2), 3);
         await expectDelayAsync(harness, worker, TimeSpan.FromSeconds(4), 4);
@@ -383,7 +385,7 @@ public sealed class OutboxRelayHostedServiceTests
         await worker.StartAsync(cancellation.Token);
         await harness.WaitForScheduledDelayAsync();
 
-        // assert startup cleanup happens once and retries only at the next interval
+        // assert
         worker.CleanupCalls.ShouldBe(1);
         worker.ReadCalls.ShouldBe(1);
 
@@ -704,13 +706,11 @@ public sealed class OutboxRelayHostedServiceTests
         }
     }
 
-    // ReSharper disable NotAccessedPositionalProperty.Global
-    // Entries keep category, level, and event id for failure triage; assertions read message and exception.
+    // ReSharper disable once NotAccessedPositionalProperty.Global // Entries read by failure assertions.
     internal sealed record RecordedLogEntry(
         string Category,
         LogLevel Level,
         EventId EventId,
         string Message,
         Exception? Exception);
-    // ReSharper restore NotAccessedPositionalProperty.Global
 }

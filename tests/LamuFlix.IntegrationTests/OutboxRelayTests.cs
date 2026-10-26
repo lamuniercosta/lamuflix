@@ -211,7 +211,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
             });
         var worker = CreateWorker(provider);
 
-        // act / assert
+        // act
         foreach (var mode in new[]
                  {
                      QueueBehaviourMode.ConnectionFailure,
@@ -225,6 +225,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
 
             var outcome = await worker.RunPassAsync(cancellationToken);
 
+            // assert
             outcome.ShouldBe(OutboxRelayPassResult.Failed);
             (await ReadProcessedAtAsync(row, cancellationToken)).ShouldBeNull();
         }
@@ -320,7 +321,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
             1024L);
         scanner.Scan(folder).Returns(scanned);
 
-        // act - the request path no longer depends on IEnrichmentQueue, so it succeeds while the broker is down
+        // act
         MovieId movieId;
         await using (var handlerContext = postgres.CreateMigratedContext())
         {
@@ -328,7 +329,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
                 .HandleAsync(new ImportMovieFolderCommand(folder), cancellationToken);
         }
 
-        // assert durable movie and unprocessed outbox row with no direct enqueue possibility
+        // assert
         await using (var verificationContext = postgres.CreateMigratedContext())
         {
             (await verificationContext.Movies.CountAsync(cancellationToken)).ShouldBe(1);
@@ -338,7 +339,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
                 .ShouldBe(new EnrichmentRequested(movieId, 1));
         }
 
-        // act - broker unavailable during a relay pass
+        // act
         OutboxRelayPassResult downPass;
         await using (var downProvider = CreateRelayProvider(
             queueDecorator: inner => new FaultedQueue(inner)
@@ -349,7 +350,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
             downPass = await CreateWorker(downProvider).RunPassAsync(cancellationToken);
         }
 
-        // assert the durable row survives the broker outage unprocessed
+        // assert
         downPass.ShouldBe(OutboxRelayPassResult.Failed);
         await using (var stillPending = postgres.CreateMigratedContext())
         {
@@ -357,11 +358,11 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
                 .ShouldBeNull();
         }
 
-        // act - broker returns and the relay publishes through the real confirmed mandatory path
+        // act
         await using var recoveredProvider = CreateRelayProvider();
         var recoveredPass = await CreateWorker(recoveredProvider).RunPassAsync(cancellationToken);
 
-        // assert wire parity and ProcessedAt only after the confirm settles
+        // assert
         recoveredPass.ShouldBe(OutboxRelayPassResult.Succeeded);
         var delivered = await DrainAsync(1, cancellationToken);
         delivered.ShouldHaveSingleItem().ShouldBe(new EnrichmentRequested(movieId, 1));
@@ -377,7 +378,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
         var cancellationToken = TestContext.Current.CancellationToken;
         var movieId = await SeedNotFoundMovieAsync(cancellationToken);
 
-        // act - the request path no longer depends on IEnrichmentQueue, so it succeeds while the broker is down
+        // act
         await using (var handlerContext = postgres.CreateMigratedContext())
         {
             var result = await new RequestEnrichmentCommandHandler(
@@ -387,7 +388,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
             result.ShouldBe(movieId);
         }
 
-        // assert durable status change and unprocessed outbox row
+        // assert
         await using (var verificationContext = postgres.CreateMigratedContext())
         {
             var stored = await NewRepository(verificationContext).GetAsync(movieId, cancellationToken);
@@ -398,7 +399,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
                 .ShouldBe(new EnrichmentRequested(movieId, 1));
         }
 
-        // act - broker unavailable during a relay pass
+        // act
         OutboxRelayPassResult downPass;
         await using (var downProvider = CreateRelayProvider(
             queueDecorator: inner => new FaultedQueue(inner)
@@ -409,7 +410,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
             downPass = await CreateWorker(downProvider).RunPassAsync(cancellationToken);
         }
 
-        // assert the durable row survives the broker outage unprocessed
+        // assert
         downPass.ShouldBe(OutboxRelayPassResult.Failed);
         await using (var stillPending = postgres.CreateMigratedContext())
         {
@@ -417,11 +418,11 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
                 .ShouldBeNull();
         }
 
-        // act - broker returns and the relay publishes through the real confirmed mandatory path
+        // act
         await using var recoveredProvider = CreateRelayProvider();
         var recoveredPass = await CreateWorker(recoveredProvider).RunPassAsync(cancellationToken);
 
-        // assert wire parity and ProcessedAt only after the confirm settles
+        // assert
         recoveredPass.ShouldBe(OutboxRelayPassResult.Succeeded);
         var delivered = await DrainAsync(1, cancellationToken);
         delivered.ShouldHaveSingleItem().ShouldBe(new EnrichmentRequested(movieId, 1));
@@ -437,7 +438,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
         var cancellationToken = TestContext.Current.CancellationToken;
         var movieId = await SeedNotFoundMovieAsync(cancellationToken);
 
-        // act - explicit rollback of a save that would otherwise commit both writes
+        // act
         await using (var handlerContext = postgres.CreateMigratedContext())
         {
             await using var transaction = await handlerContext.Database.BeginTransactionAsync(cancellationToken);
@@ -448,7 +449,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
             await transaction.RollbackAsync(cancellationToken);
         }
 
-        // assert both-or-neither: no status change and no outbox row
+        // assert
         await using var verificationContext = postgres.CreateMigratedContext();
         var stored = await NewRepository(verificationContext).GetAsync(movieId, cancellationToken);
         stored.ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.NotFound);
@@ -458,8 +459,10 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
     [Fact]
     public void CutoverHostComposition_RetainsTheSweeper()
     {
-        // arrange / act
+        // arrange
         using var host = new ApiHostFactory(retainSweeper: true);
+
+        // act
         var hostedServices = host.Services.GetServices<IHostedService>();
 
         // assert

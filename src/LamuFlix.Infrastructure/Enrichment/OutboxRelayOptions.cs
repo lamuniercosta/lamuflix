@@ -6,8 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.Enrichment;
 
-// ReSharper disable UnusedAutoPropertyAccessor.Global
-// Bound from configuration under the "OutboxRelay" section by AddLamuFlixOutboxRelay.
+// ReSharper disable once UnusedAutoPropertyAccessor.Global // Bound from configuration.
 public sealed record OutboxRelayOptions : IValidatableObject
 {
     public const string SectionName = "OutboxRelay";
@@ -127,7 +126,6 @@ public sealed record OutboxRelayOptions : IValidatableObject
                 value),
             [memberName]);
 }
-// ReSharper restore UnusedAutoPropertyAccessor.Global
 
 public sealed class OutboxRelayOptionsValidator : IValidateOptions<OutboxRelayOptions>
 {

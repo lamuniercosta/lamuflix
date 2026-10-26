@@ -144,7 +144,7 @@ public sealed class OutboxRetentionTests(PostgresFixture postgres) : IAsyncLifet
         failed.DeletedCount.ShouldBe(0);
         (await ReadIdsAsync(cancellationToken)).ShouldBe([expired]);
 
-        // act: publication keeps working while cleanup is failing
+        // act
         var pending = await InsertRowAsync(StartedAt, processedAt: null, cancellationToken);
         var pass = await worker.RunPassAsync(cancellationToken);
 
@@ -153,7 +153,7 @@ public sealed class OutboxRetentionTests(PostgresFixture postgres) : IAsyncLifet
         (await ReadProcessedAtAsync(pending, cancellationToken)).ShouldBe(StartedAt);
         (await ReadIdsAsync(cancellationToken)).ShouldContain(expired);
 
-        // act: a later cleanup retries and drains the expired row
+        // act
         worker.DeleteFault = null;
         var retried = await worker.RunCleanupAsync(cancellationToken);
 
