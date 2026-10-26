@@ -259,3 +259,19 @@ No unmet Phase A freeze criterion. ADR-0028 remains Draft; Gate 1 and gate1: pro
 - Standing charter §2.3 (item 6) and `specs/DEV-420/CONCLUSIONS.md:36-39,150-152` (`specs/DEV-420/brief.md:21,43,78,158-159,176`): removing `IEnrichmentQueue` from `ImportMovieFolderCommandHandler` and `RequestEnrichmentCommandHandler` is explicitly required by the ticket's acceptance criteria and Q2/FR-007 cutover, and resolving the resulting `CS1729` compilation error in existing callers is a forced edit required by the build and `dotnet test` verification gates.
 - `recon-DEV-420-2:11,18,23` and `DEV-420:23-35`: verifies that DEV-329 landed on `origin/main` (`329edd18`) after the Phase A base (`8063eed0`) and added/modified `EnrichmentOutboxPersistenceTests.cs` and `EfMovieRepositoryTests.cs` outside the original Q9 list to test handler staging and shared-save persistence.
 - `specs/DEV-420/brief.md:43,147,176,250` (`FR-009` and `CONCLUSIONS.md:146,150,218-221`): explicitly reserves cited Patron scope rulings before editing any additional tracked file required by post-base main drift; full `spec.md`, `tasks.md`, and the two test files are not in the four named roots for this ask and were not read.
+
+
+---
+
+## Phase B remediation scope ruling — asynchronous relay trace assertions in `ApiEndToEndFeaturesTests.cs` and `ApiEndToEndImportTests.cs` (2026-10-26)
+
+### Question
+
+[from Conductor] Because the outbox relay publishes asynchronously from a background hosted service without ambient HTTP trace context, and DEV-420 strictly forbids schema changes to `outbox_messages` or editing `Stage`, rule under charter 2.3 item 6 on whether to authorize updating `tests/LamuFlix.IntegrationTests/ApiEndToEndFeaturesTests.cs` (line 130) and `tests/LamuFlix.IntegrationTests/ApiEndToEndImportTests.cs` (line 420) so they assert completion under asynchronous relay execution without requiring the consumer spans to share the HTTP request `TraceId`.
+
+### Patron ruling
+
+[from Patron] Ruling: Approved — extend the DEV-420 Q9 delivery boundary from 26 to 28 files under charter §2.3 item 6 by authorizing narrow updates to `tests/LamuFlix.IntegrationTests/ApiEndToEndFeaturesTests.cs` (file 27) and `tests/LamuFlix.IntegrationTests/ApiEndToEndImportTests.cs` (file 28) solely so their E2E assertions verify enrichment completion under asynchronous `OutboxRelayHostedService` execution without requiring downstream consumer spans to share the originating HTTP request `TraceId`.
+- Standing charter §2.3 (item 6) and `specs/DEV-420/CONCLUSIONS.md:36-39,150-152,258-261` (`specs/DEV-420/brief.md:21,43,78,147,176,202-203` and `DEV-420:106-108`): removing synchronous `IEnrichmentQueue.EnqueueAsync` from `ImportMovieFolderCommandHandler` and `RequestEnrichmentCommandHandler` and relaying via `OutboxRelayHostedService` is explicitly required by the ticket's acceptance criteria, making this narrow E2E expectation adjustment a forced edit required by the cutover AC and `dotnet test` verification gate.
+- `specs/DEV-420/brief.md:36-37,50-61,84-88,178` and `specs/DEV-420/CONCLUSIONS.md:36-39,54-58,150`: `OutboxRelayHostedService` polls and publishes in a background hosted-service scope without ambient HTTP request trace context, and DEV-420 strictly forbids altering the frozen DEV-329 four-column `outbox_messages` schema (`id`, `payload`, `created_at`, `processed_at`), `EnrichmentRequested(MovieId, Attempt)` payload contract, or `IEnrichmentOutbox.Stage` adapter to persist trace metadata.
+- Root-boundary compliance: `ApiEndToEndFeaturesTests.cs` and `ApiEndToEndImportTests.cs` are outside the three named roots for this ask (`DEV-420`, `specs/DEV-420/brief.md`, `specs/DEV-420/CONCLUSIONS.md`) and were not read (not found in roots).
