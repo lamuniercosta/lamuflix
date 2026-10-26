@@ -144,7 +144,7 @@
 
 - [ ] T025 Run configured backend build/format and relevant then full `dotnet test` (unit/integration). Fix only in-scope failures; do not invent gate flags, thresholds, or exemptions. Preliminary verification only — does not satisfy final post-T026 evidence.
 - [X] T026 Cog `/refactor` on the delivery diff only (helpers/early returns/guards; no scope expansion; no threshold changes; no new packages; no publisher/Stage/schema edits).
-- [ ] T027 After T026 Cog `/refactor`, on the final changed HEAD, first run configured backend build/format and full `dotnet test`; then Gauge gates on exact changed C# paths including new files: `./scripts/run-roslyn-analyzers.ps1`, `./scripts/run-cyclomatic-complexity.ps1`, `./scripts/run-jetbrains-inspectcode.ps1`; `./scripts/run-property-tests.ps1`; `./scripts/run-vulnerable-packages.ps1`; pre-PR `./scripts/run-mutation.ps1` with worktree-valid invocation **without** `--since`. Record command, head, and actual exit/verdict. Report SKIPPED (scope-empty) / SKIP / N/A / Could not run verbatim — never as PASS. Exit 1 or Could not run blocks. Do not lower `harness.yml` thresholds. Do not edit CONTEXT.md or author the dedicated L ADR here. Do not claim Phase A gate results. No web/OpenAPI gates for this backend-only scope. Review checkpoint follows only after this post-refactor verification and the listed gates.
+- [X] T027 After T026 Cog `/refactor`, on the final changed HEAD, first run configured backend build/format and full `dotnet test`; then Gauge gates on exact changed C# paths including new files: `./scripts/run-roslyn-analyzers.ps1`, `./scripts/run-cyclomatic-complexity.ps1`, `./scripts/run-jetbrains-inspectcode.ps1`; `./scripts/run-property-tests.ps1`; `./scripts/run-vulnerable-packages.ps1`; pre-PR `./scripts/run-mutation.ps1` with worktree-valid invocation **without** `--since`. Record command, head, and actual exit/verdict. Report SKIPPED (scope-empty) / SKIP / N/A / Could not run verbatim — never as PASS. Exit 1 or Could not run blocks. Do not lower `harness.yml` thresholds. Do not edit CONTEXT.md or author the dedicated L ADR here. Do not claim Phase A gate results. No web/OpenAPI gates for this backend-only scope. Review checkpoint follows only after this post-refactor verification and the listed gates.
 
 **Checkpoint**: Delivery ready for review loops under brief Q11–Q12 (Critical/High/Medium block; Low recorded; three axes required; plan-challenge and code/ship-review each at most two numbered full rounds; at cap report blocked with exact evidence).
 
@@ -226,3 +226,26 @@ Task: "OutboxRelayTests Postgres/RabbitMQ harness scaffold"
 Target: F:/Dev/LamuFlix.worktrees/feature-420-spec, feature/420-spec, HEAD/base 8063eed0d5cc4b5bb3a8eb0c68b8990acf7a8cd3. The eight reviewed artifacts remain untracked working bytes, not HEAD-pinned content. All preceding text is preserved as historical stage content; this append supersedes only its pending-freeze status. No design, Q9 24-file boundary, Q7 policy, task completion mark or round-cap change is made.
 
 No unmet Phase A freeze criterion. ADR-0028 remains Draft; Gate 1 and gate1: provisional remain unset. Phase B entry TB000-TB003 still requires its own evidence. No implementation, tests/gates, commit, PR or tracker action is performed. Phase 2 step 7 remains the later Conductor/Patron/Rigger action; user merge remains separate.
+
+### T027 gate receipt — Gauge — 2026-10-26
+
+Worktree: `F:/Dev/LamuFlix.worktrees/feature-DEV-420-relay-outbox-rows-to-rabbitmq-with-publisher-confirms-and-re`
+Branch: `feature/DEV-420-relay-outbox-rows-to-rabbitmq-with-publisher-confirms-and-re`
+Head: `f34f97e4` (DEV-420 - fix E2E trace assertions)
+Base for diff scope: `origin/main` = `329edd185155ea1fc3aa1ec14e118c6a3e2efa2d` (28 changed `.cs` files; no `web/` files)
+
+| Command (cwd = worktree) | Exit | Verdict (verbatim) |
+|---|---|---|
+| `dotnet format --verify-no-changes` | 0 | exit 0, no changes reported |
+| `dotnet test` | 0 | `Aprovado!` — UnitTests 1824 passed, IntegrationTests 920 passed / 2 skipped (922), ArchitectureTests 15 passed, Evaluation 82 passed; 0 failed |
+| `pwsh -NoProfile -File scripts/run-roslyn-analyzers.ps1` | 0 | `Roslyn analyzers: passed (no CA/IDE warnings on target files).` (28 files, base origin/main) |
+| `pwsh -NoProfile -File scripts/run-cyclomatic-complexity.ps1` | 0 | `Cyclomatic complexity: passed (no methods exceed threshold of 15).` (28 files) |
+| `pwsh -NoProfile -File scripts/run-jetbrains-inspectcode.ps1` | 0 | `InspectCode: passed (no WARNING+ issues).` |
+| `pwsh -NoProfile -File scripts/run-property-tests.ps1` | 0 | `Property tests: passed (100 test(s) executed across 4 project(s)).` |
+| `pwsh -NoProfile -File scripts/run-vulnerable-packages.ps1` | 0 | `PASS: no vulnerable packages.` |
+| `pwsh -NoProfile -File scripts/run-mutation.ps1` | 0 | `Mutation testing: PASSED (all projects scored at or above threshold 80%, total tested: 12).` `LamuFlix.Core.csproj`: Mutants 15, Killed 12, Survived 0, Score 100,00% (Threshold 80%). `Kill share: not applied (12 tested is below the 20-mutant minimum)`. `Kill file span: largest single-test file span 2 file(s) (limit 15)`. |
+| `pwsh -NoProfile -File scripts/run-web-gates.ps1` | 2 | `Web gates: SKIPPED - no web/ files changed (re-run with -All to check the whole frontend).` — SKIPPED (scope-empty), non-blocking, NOT a PASS. Backend-only scope; no OpenAPI/web contract change in the diff. |
+
+No threshold was lowered; no `-All` was used; mutation was run without `--since`. No web/OpenAPI gate applies to this backend-only scope.
+
+T027 result: PASSED (all applicable gates exit 0; the only non-zero exit is the web gate's scope-empty SKIPPED, which is non-blocking and is not reported as PASS). Review checkpoint may proceed.
