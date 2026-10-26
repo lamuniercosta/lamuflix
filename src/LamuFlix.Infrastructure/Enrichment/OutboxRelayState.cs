@@ -25,22 +25,15 @@ public enum OutboxRelayCleanupOutcome
 // ReSharper disable once NotAccessedPositionalProperty.Global // Snapshot read by health and metrics.
 public sealed record OutboxRelayPassSnapshot(OutboxRelayPassOutcome Outcome, DateTimeOffset CompletedAt);
 
-public sealed record OutboxRelayBacklogSnapshot(
-    long PendingCount,
-    DateTimeOffset? OldestPendingCreatedAt,
-    DateTimeOffset SampledAt);
+// ReSharper disable once NotAccessedPositionalProperty.Global // Snapshot read by health and metrics.
+public sealed record OutboxRelayBacklogSnapshot(long PendingCount, DateTimeOffset? OldestPendingCreatedAt, DateTimeOffset SampledAt);
 
-// ReSharper disable once NotAccessedPositionalProperty.Global // Snapshot read by health checks.
-public sealed record OutboxRelayCleanupSnapshot(
-    OutboxRelayCleanupOutcome Outcome,
-    int DeletedCount,
-    DateTimeOffset CompletedAt);
+// ReSharper disable NotAccessedPositionalProperty.Global // Snapshot read by health checks.
+public sealed record OutboxRelayCleanupSnapshot(OutboxRelayCleanupOutcome Outcome, int DeletedCount, DateTimeOffset CompletedAt);
+// ReSharper restore NotAccessedPositionalProperty.Global
 
-public sealed record OutboxRelaySnapshot(
-    OutboxRelayLifecycle Lifecycle,
-    OutboxRelayPassSnapshot? LastPass,
-    OutboxRelayBacklogSnapshot? Backlog,
-    OutboxRelayCleanupSnapshot? LastCleanup)
+// ReSharper disable once NotAccessedPositionalProperty.Global // Snapshot read by health and metrics.
+public sealed record OutboxRelaySnapshot(OutboxRelayLifecycle Lifecycle, OutboxRelayPassSnapshot? LastPass, OutboxRelayBacklogSnapshot? Backlog, OutboxRelayCleanupSnapshot? LastCleanup)
 {
     public static OutboxRelaySnapshot Initial { get; } = new(OutboxRelayLifecycle.NotStarted, null, null, null);
 }
