@@ -243,3 +243,19 @@ All 12 questions are answered; no thirteenth question was asked. Q1 evidence blo
 Target: F:/Dev/LamuFlix.worktrees/feature-420-spec, feature/420-spec, HEAD/base 8063eed0d5cc4b5bb3a8eb0c68b8990acf7a8cd3. The eight reviewed artifacts remain untracked working bytes, not HEAD-pinned content. All preceding text is preserved as historical stage content; this append supersedes only its pending-freeze status. No design, Q9 24-file boundary, Q7 policy, task completion mark or round-cap change is made.
 
 No unmet Phase A freeze criterion. ADR-0028 remains Draft; Gate 1 and gate1: provisional remain unset. Phase B entry TB000-TB003 still requires its own evidence. No implementation, tests/gates, commit, PR or tracker action is performed. Phase 2 step 7 remains the later Conductor/Patron/Rigger action; user merge remains separate.
+
+
+---
+
+## Phase B post-rebase scope ruling — T023 constructor cutover in `EnrichmentOutboxPersistenceTests.cs` and `EfMovieRepositoryTests.cs` (2026-10-26)
+
+### Question
+
+[from Conductor] Under charter section 2.3 item 6 and FR-009, authorize extending the Q9 file boundary to edit `tests/LamuFlix.IntegrationTests/EnrichmentOutboxPersistenceTests.cs` and `tests/LamuFlix.IntegrationTests/EfMovieRepositoryTests.cs` to resolve `CS1729` compilation failures caused by T023 removing `IEnrichmentQueue` from `ImportMovieFolderCommandHandler` and `RequestEnrichmentCommandHandler`?
+
+### Patron ruling
+
+[from Patron] Ruling: Approved — extend the DEV-420 Q9 delivery boundary from 24 to 26 files by authorizing narrow edits to `tests/LamuFlix.IntegrationTests/EnrichmentOutboxPersistenceTests.cs` (file 25) and `tests/LamuFlix.IntegrationTests/EfMovieRepositoryTests.cs` (file 26) solely to update `ImportMovieFolderCommandHandler` and `RequestEnrichmentCommandHandler` constructor call sites (and remove unused `IEnrichmentQueue` constructor arguments) to match the T023 cutover signatures while preserving all DEV-329 outbox staging and shared-save persistence assertions unchanged.
+- Standing charter §2.3 (item 6) and `specs/DEV-420/CONCLUSIONS.md:36-39,150-152` (`specs/DEV-420/brief.md:21,43,78,158-159,176`): removing `IEnrichmentQueue` from `ImportMovieFolderCommandHandler` and `RequestEnrichmentCommandHandler` is explicitly required by the ticket's acceptance criteria and Q2/FR-007 cutover, and resolving the resulting `CS1729` compilation error in existing callers is a forced edit required by the build and `dotnet test` verification gates.
+- `recon-DEV-420-2:11,18,23` and `DEV-420:23-35`: verifies that DEV-329 landed on `origin/main` (`329edd18`) after the Phase A base (`8063eed0`) and added/modified `EnrichmentOutboxPersistenceTests.cs` and `EfMovieRepositoryTests.cs` outside the original Q9 list to test handler staging and shared-save persistence.
+- `specs/DEV-420/brief.md:43,147,176,250` (`FR-009` and `CONCLUSIONS.md:146,150,218-221`): explicitly reserves cited Patron scope rulings before editing any additional tracked file required by post-base main drift; full `spec.md`, `tasks.md`, and the two test files are not in the four named roots for this ask and were not read.

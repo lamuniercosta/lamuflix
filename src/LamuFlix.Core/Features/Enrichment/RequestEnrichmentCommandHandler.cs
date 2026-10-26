@@ -8,7 +8,6 @@ namespace LamuFlix.Core.Features.Enrichment;
 
 public sealed class RequestEnrichmentCommandHandler(
     IMovieRepository movies,
-    IEnrichmentQueue queue,
     IEnrichmentOutbox outbox)
     : ICommandHandler<RequestEnrichmentCommand, MovieId>
 {
@@ -25,7 +24,6 @@ public sealed class RequestEnrichmentCommandHandler(
         movie.RequestEnrichment();
         outbox.Stage(new EnrichmentRequested(command.Id, 1));
         await movies.SaveChangesAsync(cancellationToken);
-        await queue.EnqueueAsync(new EnrichmentRequested(command.Id, 1), cancellationToken);
         return command.Id;
     }
 }

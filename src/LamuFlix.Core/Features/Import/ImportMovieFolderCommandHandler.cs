@@ -9,7 +9,6 @@ namespace LamuFlix.Core.Features.Import;
 public sealed class ImportMovieFolderCommandHandler(
     IMediaLibraryScanner scanner,
     IMovieRepository movies,
-    IEnrichmentQueue queue,
     IEnrichmentOutbox outbox)
     : ICommandHandler<ImportMovieFolderCommand, MovieId>
 {
@@ -22,7 +21,6 @@ public sealed class ImportMovieFolderCommandHandler(
         outbox.Stage(new EnrichmentRequested(id, 1));
         await movies.SaveChangesAsync(cancellationToken);
         EnrichmentMetrics.ImportCount.Add(1);
-        await queue.EnqueueAsync(new EnrichmentRequested(id, 1), cancellationToken);
         return id;
     }
 }

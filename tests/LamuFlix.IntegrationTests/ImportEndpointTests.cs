@@ -54,8 +54,9 @@ public sealed class ImportEndpointTests(ApiHostFactory factory) : IClassFixture<
         response.Headers.Location.ShouldNotBeNull().ToString().ShouldBe("/api/movies/42");
         (await response.Content.ReadAsStringAsync(cancellationToken)).ShouldBe(string.Empty);
         scanner.Received(1).Scan(new LibraryPath("C:/library/Heat"));
-        await queue.Received(1)
-            .EnqueueAsync(new EnrichmentRequested(new MovieId(42), 1), Arg.Any<CancellationToken>());
+        await movies.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await queue.DidNotReceive()
+            .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]

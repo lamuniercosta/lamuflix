@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -541,7 +542,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     }
 
     [Fact]
-    public async Task ManualRetry_SavesAndEnqueuesWireOneAtSameCountNextClaimAddsOneFinalOutcomeAddsNothing()
+    public async Task ManualRetry_SavesAndStagesWireOneAtSameCountNextClaimAddsOneFinalOutcomeAddsNothing()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var db = fixture.CreateMigratedContext();
@@ -549,12 +550,15 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         var id = await repository.NextIdentityAsync(ct);
         await SeedAsync(id, EnrichmentStatus.Failed, 3, Now.AddDays(-1));
 
-        var queue = new RecordingQueue();
-        var handler = new RequestEnrichmentCommandHandler(repository, queue, new EfEnrichmentOutbox(db, TimeProvider.System));
+        var handler = new RequestEnrichmentCommandHandler(repository, new EfEnrichmentOutbox(db, TimeProvider.System));
         await handler.HandleAsync(new RequestEnrichmentCommand(id), ct);
 
-        queue.Messages.Count.ShouldBe(1);
-        queue.Messages[0].ShouldBe(new EnrichmentRequested(id, 1));
+        var staged = await db.OutboxMessages.AsNoTracking().SingleAsync(ct);
+        staged.ProcessedAt.ShouldBeNull();
+        var wire = JsonSerializer.Deserialize<EnrichmentRequested>(
+            staged.Payload,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        wire.ShouldNotBeNull().ShouldBe(new EnrichmentRequested(id, 1));
 
         await using (var afterRequest = OpenSibling(db))
         {

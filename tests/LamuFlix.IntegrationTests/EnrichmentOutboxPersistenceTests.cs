@@ -171,13 +171,11 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
             2048L);
         var scanner = Substitute.For<IMediaLibraryScanner>();
         scanner.Scan(folder).Returns(scanned);
-        var queue = Substitute.For<IEnrichmentQueue>();
         var timeProvider = new FixedTimeProvider(StagedAt);
         await using var context = fixture.CreateMigratedContext();
         var handler = new ImportMovieFolderCommandHandler(
             scanner,
             CreateRepository(context, timeProvider),
-            queue,
             new EfEnrichmentOutbox(context, timeProvider));
 
         // act
@@ -196,9 +194,6 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         roundTripped.ShouldNotBeNull();
         roundTripped.MovieId.ShouldBe(id);
         roundTripped.Attempt.ShouldBe(1);
-        await queue.Received(1).EnqueueAsync(
-            new EnrichmentRequested(id, 1),
-            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -207,12 +202,10 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
         var timeProvider = new FixedTimeProvider(StagedAt);
-        var queue = Substitute.For<IEnrichmentQueue>();
         var id = await SeedNotFoundMovieAsync(timeProvider, "Request Atomic", cancellationToken);
         await using var context = fixture.CreateMigratedContext();
         var handler = new RequestEnrichmentCommandHandler(
             CreateRepository(context, timeProvider),
-            queue,
             new EfEnrichmentOutbox(context, timeProvider));
 
         // act
@@ -229,9 +222,6 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         roundTripped.ShouldNotBeNull();
         roundTripped.MovieId.ShouldBe(id);
         roundTripped.Attempt.ShouldBe(1);
-        await queue.Received(1).EnqueueAsync(
-            new EnrichmentRequested(id, 1),
-            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -248,12 +238,10 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
             1024L);
         var scanner = Substitute.For<IMediaLibraryScanner>();
         scanner.Scan(folder).Returns(scanned);
-        var queue = Substitute.For<IEnrichmentQueue>();
         await using var context = CreateContextWithOutboxInsertFailure();
         var handler = new ImportMovieFolderCommandHandler(
             scanner,
             CreateRepository(context, TimeProvider.System),
-            queue,
             new EfEnrichmentOutbox(context, TimeProvider.System));
 
         // act
@@ -266,9 +254,6 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         await using var verification = fixture.CreateMigratedContext();
         (await verification.Movies.AsNoTracking().CountAsync(cancellationToken)).ShouldBe(0);
         (await verification.OutboxMessages.AsNoTracking().CountAsync(cancellationToken)).ShouldBe(0);
-        await queue.DidNotReceive().EnqueueAsync(
-            Arg.Any<EnrichmentRequested>(),
-            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -285,13 +270,11 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
             512L);
         var scanner = Substitute.For<IMediaLibraryScanner>();
         scanner.Scan(folder).Returns(scanned);
-        var queue = Substitute.For<IEnrichmentQueue>();
         await using var context = fixture.CreateMigratedContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         var handler = new ImportMovieFolderCommandHandler(
             scanner,
             CreateRepository(context, TimeProvider.System),
-            queue,
             new EfEnrichmentOutbox(context, TimeProvider.System));
         await handler.HandleAsync(new ImportMovieFolderCommand(folder), cancellationToken);
 
@@ -310,13 +293,11 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
         var timeProvider = new FixedTimeProvider(StagedAt);
-        var queue = Substitute.For<IEnrichmentQueue>();
         var id = await SeedNotFoundMovieAsync(timeProvider, "Request Rollback", cancellationToken);
         await using var context = fixture.CreateMigratedContext();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         var handler = new RequestEnrichmentCommandHandler(
             CreateRepository(context, timeProvider),
-            queue,
             new EfEnrichmentOutbox(context, timeProvider));
         await handler.HandleAsync(new RequestEnrichmentCommand(id), cancellationToken);
 
@@ -335,7 +316,7 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
     }
 
     [Fact]
-    public async Task ImportMovieFolderHandler_WhenTheBrokerFailsAfterCommit_RetainsMovieAndUnprocessedOutbox()
+    public async Task ImportMovieFolderHandler_WhenTheBrokerIsUnavailable_StillCommitsMovieAndUnprocessedOutbox()
     {
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
@@ -348,33 +329,24 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
             4096L);
         var scanner = Substitute.For<IMediaLibraryScanner>();
         scanner.Scan(folder).Returns(scanned);
-        var brokerFailure = new InvalidOperationException("broker unavailable");
-        var queue = Substitute.For<IEnrichmentQueue>();
-        queue.EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException(brokerFailure));
         var timeProvider = new FixedTimeProvider(StagedAt);
         await using var context = fixture.CreateMigratedContext();
         var handler = new ImportMovieFolderCommandHandler(
             scanner,
             CreateRepository(context, timeProvider),
-            queue,
             new EfEnrichmentOutbox(context, timeProvider));
 
         // act
-        var thrown = await Should.ThrowAsync<InvalidOperationException>(
-            () => handler.HandleAsync(new ImportMovieFolderCommand(folder), cancellationToken));
+        var id = await handler.HandleAsync(new ImportMovieFolderCommand(folder), cancellationToken);
 
         // assert
-        thrown.ShouldBeSameAs(brokerFailure);
         await using var verification = fixture.CreateMigratedContext();
         var storedMovie = await verification.Movies.AsNoTracking().SingleAsync(cancellationToken);
+        storedMovie.Id.ShouldBe(id);
         storedMovie.Title.ShouldBe(scanned.Title);
         var stored = await verification.OutboxMessages.AsNoTracking().SingleAsync(cancellationToken);
         stored.CreatedAt.ShouldBe(StagedAt);
         stored.ProcessedAt.ShouldBeNull();
-        await queue.Received(1).EnqueueAsync(
-            Arg.Any<EnrichmentRequested>(),
-            Arg.Any<CancellationToken>());
     }
 
     private static EfMovieRepository CreateRepository(LamuFlixDbContext context, TimeProvider timeProvider) =>

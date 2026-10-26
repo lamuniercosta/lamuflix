@@ -59,8 +59,9 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
         response.Headers.Location.ShouldNotBeNull().ToString().ShouldBe($"/api/movies/{KnownId}");
         (await response.Content.ReadAsStringAsync(cancellationToken)).ShouldBe(string.Empty);
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
-        await queue.Received(1)
-            .EnqueueAsync(new EnrichmentRequested(new MovieId(KnownId), 1), Arg.Any<CancellationToken>());
+        await movies.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await queue.DidNotReceive()
+            .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
