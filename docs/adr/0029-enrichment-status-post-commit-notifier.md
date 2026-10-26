@@ -1,0 +1,16 @@
+# Enrichment status notifications after movie persistence commits
+
+Status: Proposed; owner Gate 1 constitution amendment remains open.
+
+Ticket: DEV-330. Decisions: `specs/DEV-330/CONCLUSIONS.md`, Q1–Q5. This supplements accepted ADR-0022; it does not introduce a different transport.
+
+The ticket requires `IEnrichmentStatusNotifier` and an Api implementation. Add this Core port with `Task NotifyAsync(MovieId movieId, EnrichmentStatus status, CancellationToken cancellationToken)`; Core depends on neither SignalR nor Api DTOs. `EfMovieRepository` detects persisted-before versus committed-after status and invokes the port only after the actual persistence transaction commits. Include insertion into Pending; exclude unchanged statuses, unrelated saves, and failed saves. Retain the assigned movie identifier for inserted rows and discard failed-attempt notifications before a recovery save.
+
+The Api adapter broadcasts one `EnrichmentStatusChanged` invocation to all connected clients with one `EnrichmentStatusChangedDto(int Id, EnrichmentStatus EnrichmentStatus)` argument. JSON uses camelCase fields and the four status names. A document transformer exposes the C# DTO in OpenAPI components for generated TypeScript without adding a REST route. SignalR JSON must receive the name-converter configuration independently of HTTP JSON.
+
+Use one awaited, ephemeral post-commit send attempt. Log and isolate send failures so they cannot undo persistence or cause enrichment retries. Pass CancellationToken.None into each post-commit NotifyAsync call so caller cancellation cannot suppress the attempt. Catch and log exceptions per movie at the repository dispatch boundary and continue attempts for every remaining transitioned movie, in addition to adapter send isolation. Adapter attempt-start and failure logs carry movie id and committed status. Sequential awaited attempts have no application-level timeout or fan-out bound in this ticket; post-commit latency can be unbounded. No notification outbox, replay, backplane, event bus, interceptor, or database schema is added; reconnect and refetch belong to DEV-422 under ADR-0022. Disconnected clients and process failure can lose live events; guaranteed client receipt is not claimed.
+
+Repository invocation covers every repository caller without duplicating notifications across handlers or registering unused handlers. This keeps the commit boundary authoritative at the cost of direct repository constructor/DI and fixture adaptation. Require IEnrichmentStatusNotifier in the repository constructor; fixtures supply explicit test doubles. Api DI must supply the real notifier, proven by a named live-host integration test. No optional constructor fallback is permitted.
+
+Constitution Principle I closes the Core port list and requires an ADR for additions. The proposed v1.5.0 amendment adds this port, aligns polling-only enrichment wording with ADR-0022, and requires the architecture whitelist update. These changes require the explicit unchecked owner approval recorded by Q1; Patron has not cleared Gate 1. Recon provenance and cited source locations are recorded in recon-DEV-330 sections 3–7 and recon-DEV-330-2 sections Q1–Q3.
+
