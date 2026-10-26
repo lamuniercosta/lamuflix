@@ -33,7 +33,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "movie_genres",
         "movie_writers",
         "playback_events",
-        "movie_features"
+        "movie_features",
+        "outbox_messages"
     ];
 
     private static readonly string[] NullableMoviesColumns =
@@ -80,7 +81,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(8);
+        migrations.Length.ShouldBe(9);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -89,6 +90,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         migrations[5].ShouldEndWith("_AddParsedReleaseYear");
         migrations[6].ShouldEndWith("_AddManualImdbId");
         migrations[7].ShouldEndWith("_AddMovieFeatures");
+        migrations[8].ShouldEndWith("_AddEnrichmentOutbox");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -123,7 +125,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddMovieFeatures");
+        applied[^1].ShouldEndWith("_AddEnrichmentOutbox");
         var rows = await context.Movies.AsNoTracking()
             .OrderBy(movie => movie.Title)
             .ToListAsync(cancellationToken);
@@ -217,7 +219,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddMovieFeatures");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddEnrichmentOutbox");
     }
 
     [Fact]
@@ -350,6 +352,51 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await AssertMovieFeaturesColumnsAsync(catalog, cancellationToken);
         await AssertMovieFeaturesConstraintsAsync(catalog, cancellationToken);
         await AssertMovieFeaturesIndexAsync(catalog, cancellationToken);
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(1);
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MigrateAsync_AddEnrichmentOutboxUpgradeDowngradeReapply_AddsOnlyTheFourColumnOutboxAndPendingIndex()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var catalog = new PostgresCatalog(context);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261022101541_AddMovieFeatures", cancellationToken);
+        await InsertLegacyMovieAsync(
+            context,
+            new LegacyMovie("Outbox Survivor", "C:/library/outbox-survivor.mkv", "mkv", 0),
+            cancellationToken);
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldNotContain("outbox_messages");
+
+        // act
+        await migrator.MigrateAsync(null, cancellationToken);
+        context.ChangeTracker.Clear();
+
+        // assert
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("outbox_messages");
+        await AssertOutboxColumnsAsync(catalog, cancellationToken);
+        await AssertOutboxPendingIndexAsync(catalog, cancellationToken);
+        (await catalog.ListPublicTablesAsync(cancellationToken))
+            .Except(["__EFMigrationsHistory"])
+            .ShouldBe(ApplicationTables, ignoreOrder: true);
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(1);
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+
+        await migrator.MigrateAsync("20261022101541_AddMovieFeatures", cancellationToken);
+        context.ChangeTracker.Clear();
+
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldNotContain("outbox_messages");
+        (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(1);
+        (await catalog.ListTableIndexesAsync("outbox_messages", cancellationToken)).ShouldBeEmpty();
+
+        await migrator.MigrateAsync(null, cancellationToken);
+        context.ChangeTracker.Clear();
+
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("outbox_messages");
+        (await context.OutboxMessages.CountAsync(cancellationToken)).ShouldBe(0);
         (await ReadLegacyMovieCountAsync(context, cancellationToken)).ShouldBe(1);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
     }
@@ -557,6 +604,36 @@ public sealed class MigrationTests(PostgresFixture fixture)
             .ShouldBe(["movie_id"], ignoreOrder: true);
         (await catalog.ListForeignKeysAsync("movie_features", cancellationToken))
             .ShouldContain(("movie_id", "movies", "id", "CASCADE"));
+    }
+
+    private static async Task AssertOutboxColumnsAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
+        var columns = await catalog.ListColumnFormatTypesAsync("outbox_messages", cancellationToken);
+        columns.ShouldBe(
+        [
+            ("id", "bigint"),
+            ("payload", "bytea"),
+            ("created_at", "timestamp with time zone"),
+            ("processed_at", "timestamp with time zone")
+        ]);
+        var details = await catalog.ListColumnDetailsAsync("outbox_messages", cancellationToken);
+        details.Count.ShouldBe(4);
+        details.ShouldContain(("id", "bigint", false, true));
+        details.ShouldContain(("payload", "bytea", false, false));
+        details.ShouldContain(("created_at", "timestamp with time zone", false, false));
+        details.ShouldContain(("processed_at", "timestamp with time zone", true, false));
+        (await catalog.ListPrimaryKeyColumnsAsync("outbox_messages", cancellationToken))
+            .ShouldBe(["id"]);
+    }
+
+    private static async Task AssertOutboxPendingIndexAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
+    {
+        var indexes = await catalog.ListTableIndexesAsync("outbox_messages", cancellationToken);
+        indexes.ShouldContain(def =>
+            def.Contains("created_at", StringComparison.Ordinal)
+            && def.Contains("processed_at IS NULL", StringComparison.Ordinal)
+            && def.Contains("WHERE", StringComparison.Ordinal)
+            && !def.Contains("UNIQUE", StringComparison.Ordinal));
     }
 
     private static async Task AssertMovieFeaturesIndexAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
