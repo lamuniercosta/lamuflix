@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -282,8 +282,9 @@ public sealed class OutboxRetentionTests(PostgresFixture postgres) : IAsyncLifet
         TimeProvider timeProvider,
         IEnrichmentQueue queue,
         OutboxRelayState state,
+        OutboxRelayMetrics metrics,
         ILogger<OutboxRelayHostedService> logger)
-        : OutboxRelayHostedService(scopeFactory, options, timeProvider, queue, state, logger)
+        : OutboxRelayHostedService(scopeFactory, options, timeProvider, queue, state, metrics, logger)
     {
         public Func<IReadOnlyList<long>, Task> AfterReadExpired { get; set; } = _ => Task.CompletedTask;
 

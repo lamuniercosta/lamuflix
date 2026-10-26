@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -451,8 +451,9 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
         TimeProvider timeProvider,
         IEnrichmentQueue queue,
         OutboxRelayState state,
+        OutboxRelayMetrics metrics,
         ILogger<OutboxRelayHostedService> logger)
-        : OutboxRelayHostedService(scopeFactory, options, timeProvider, queue, state, logger)
+        : OutboxRelayHostedService(scopeFactory, options, timeProvider, queue, state, metrics, logger)
     {
         private readonly ConcurrentQueue<long> savedRowIds = new();
         private int saveCalls;

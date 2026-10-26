@@ -1,4 +1,5 @@
 using System;
+using LamuFlix.Core.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -17,6 +18,10 @@ public static class OutboxRelayServiceCollectionExtensions
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IValidateOptions<OutboxRelayOptions>, OutboxRelayOptionsValidator>());
         services.TryAddSingleton<OutboxRelayState>();
+        services.TryAddSingleton<OutboxRelayMetrics>();
+        services.AddHostedService<OutboxRelayHostedService>();
+        services.AddHealthChecks()
+            .AddCheck<OutboxRelayHealthCheck>(OutboxRelayHealthCheck.HealthCheckName, tags: [HealthCheckTags.Ready]);
 
         return services;
     }
