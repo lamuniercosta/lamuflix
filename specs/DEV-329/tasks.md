@@ -82,7 +82,7 @@
 
 ### Tests
 
-- [ ] T016 [US1] [US2] Extend `tests/LamuFlix.IntegrationTests/EnrichmentOutboxPersistenceTests.cs` for both handler atomic path-A commits; controlled outbox-insert failure rolling back the movie write; explicit ambient rollback; RequestEnrichment rollback preserving pre-existing movie state (not asserting zero movies); successful commit followed by broker failure retaining movie + unprocessed outbox. Assert zero durable changes only for deterministic pre-commit failures and explicit rollbacks (brief Q6a). No provider-specific failure taxonomy. AAA headers only.
+- [X] T016 [US1] [US2] Extend `tests/LamuFlix.IntegrationTests/EnrichmentOutboxPersistenceTests.cs` for both handler atomic path-A commits; controlled outbox-insert failure rolling back the movie write; explicit ambient rollback; RequestEnrichment rollback preserving pre-existing movie state (not asserting zero movies); successful commit followed by broker failure retaining movie + unprocessed outbox. Assert zero durable changes only for deterministic pre-commit failures and explicit rollbacks (brief Q6a). No provider-specific failure taxonomy. AAA headers only.
 
 **Checkpoint**: Full Q8 real-DB atomicity/rollback/broker-failure matrix green; migration/composition/architecture proofs from Phase 2 still green.
 
