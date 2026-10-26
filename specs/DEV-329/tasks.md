@@ -36,18 +36,18 @@
 
 ### Tests
 
-- [ ] T002 [P] [US3] Add real-Postgres proofs in `tests/LamuFlix.IntegrationTests/EnrichmentOutboxPersistenceTests.cs` for: Web-default byte parity vs publisher defaults; consumer-default round-trip; Attempt preservation; injected TimeProvider CreatedAt; null ProcessedAt; distinct rows on repeated Stage; no pre-save DB persistence of staged rows; scoped shared-context save of outbox with movie write as needed for adapter-level proof. AAA headers only. Do not invent relay tests or path B/C support tests.
-- [ ] T003 [P] [US3] Extend `tests/LamuFlix.IntegrationTests/MigrationTests.cs` for empty/upgrade/down covering only four column types/nullability, pending partial index `(created_at, id) WHERE processed_at IS NULL`, and no other-table delta.
-- [ ] T004 [P] [US3] Extend `tests/LamuFlix.IntegrationTests/PersistenceCompositionTests.cs` proving scoped `IEnrichmentOutbox` shares the repository DbContext within a scope and differs across scopes.
-- [ ] T005 [P] [US3] Extend `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` PortWhitelistPattern to allow only the new `IEnrichmentOutbox` port (whitelist extension, not a threshold change).
+- [X] T002 [P] [US3] Add real-Postgres proofs in `tests/LamuFlix.IntegrationTests/EnrichmentOutboxPersistenceTests.cs` for: Web-default byte parity vs publisher defaults; consumer-default round-trip; Attempt preservation; injected TimeProvider CreatedAt; null ProcessedAt; distinct rows on repeated Stage; no pre-save DB persistence of staged rows; scoped shared-context save of outbox with movie write as needed for adapter-level proof. AAA headers only. Do not invent relay tests or path B/C support tests.
+- [X] T003 [P] [US3] Extend `tests/LamuFlix.IntegrationTests/MigrationTests.cs` for empty/upgrade/down covering only four column types/nullability, pending partial index `(created_at, id) WHERE processed_at IS NULL`, and no other-table delta.
+- [X] T004 [P] [US3] Extend `tests/LamuFlix.IntegrationTests/PersistenceCompositionTests.cs` proving scoped `IEnrichmentOutbox` shares the repository DbContext within a scope and differs across scopes.
+- [X] T005 [P] [US3] Extend `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` PortWhitelistPattern to allow only the new `IEnrichmentOutbox` port (whitelist extension, not a threshold change).
 
 ### Implementation
 
-- [ ] T006 [P] [US3] Add `src/LamuFlix.Core/Ports/IEnrichmentOutbox.cs` with `void Stage(EnrichmentRequested request)` (no CancellationToken; EF-free).
-- [ ] T007 [P] [US3] Add `src/LamuFlix.Infrastructure/Persistence/Records/OutboxMessageRecord.cs` and `src/LamuFlix.Infrastructure/Persistence/Configurations/OutboxMessageConfiguration.cs` for four-column `outbox_messages` + pending index (brief Q5).
-- [ ] T008 [US3] Update `src/LamuFlix.Infrastructure/Persistence/LamuFlixDbContext.cs` to include the outbox DbSet/configuration surface required by the record.
-- [ ] T009 [US3] Generate exactly one EF-tooling migration `AddEnrichmentOutbox` (timestamp from tooling) producing `src/LamuFlix.Infrastructure/Persistence/Migrations/<EF timestamp>_AddEnrichmentOutbox.cs`, matching Designer, and updating `LamuFlixDbContextModelSnapshot.cs`. Never hand-edit generated files.
-- [ ] T010 [US3] Implement `src/LamuFlix.Infrastructure/Persistence/EfEnrichmentOutbox.cs`: serialize once with adapter-local `JsonSerializerDefaults.Web` into lossless UTF-8 Payload; assign CreatedAt via injected TimeProvider; leave ProcessedAt null; track Added row on shared context only (no save/commit/broker/retry). Register scoped in `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs`.
+- [X] T006 [P] [US3] Add `src/LamuFlix.Core/Ports/IEnrichmentOutbox.cs` with `void Stage(EnrichmentRequested request)` (no CancellationToken; EF-free).
+- [X] T007 [P] [US3] Add `src/LamuFlix.Infrastructure/Persistence/Records/OutboxMessageRecord.cs` and `src/LamuFlix.Infrastructure/Persistence/Configurations/OutboxMessageConfiguration.cs` for four-column `outbox_messages` + pending index (brief Q5).
+- [X] T008 [US3] Update `src/LamuFlix.Infrastructure/Persistence/LamuFlixDbContext.cs` to include the outbox DbSet/configuration surface required by the record.
+- [X] T009 [US3] Generate exactly one EF-tooling migration `AddEnrichmentOutbox` (timestamp from tooling) producing `src/LamuFlix.Infrastructure/Persistence/Migrations/<EF timestamp>_AddEnrichmentOutbox.cs`, matching Designer, and updating `LamuFlixDbContextModelSnapshot.cs`. Never hand-edit generated files.
+- [X] T010 [US3] Implement `src/LamuFlix.Infrastructure/Persistence/EfEnrichmentOutbox.cs`: serialize once with adapter-local `JsonSerializerDefaults.Web` into lossless UTF-8 Payload; assign CreatedAt via injected TimeProvider; leave ProcessedAt null; track Added row on shared context only (no save/commit/broker/retry). Register scoped in `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs`.
 
 **Checkpoint**: Named targeted proofs — EnrichmentOutboxPersistenceTests (wire/no-pre-save), MigrationTests, PersistenceCompositionTests, ArchitectureTests green for foundation surfaces.
 

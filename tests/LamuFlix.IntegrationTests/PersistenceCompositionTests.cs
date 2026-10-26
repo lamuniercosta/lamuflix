@@ -8,6 +8,7 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
+using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.ServiceDefaults;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +54,37 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
         ReferenceEquals(first, sameScope).ShouldBeTrue();
         ReferenceEquals(firstContext, sameContext).ShouldBeTrue();
         ReferenceEquals(firstContext, secondContext).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ComposedRegistration_ScopedOutboxSharesTheRepositoryContextAndDiffersAcrossScopes()
+    {
+        // arrange
+        var services = await ComposeAsync();
+        await using var provider = services.BuildServiceProvider(Validating());
+        await using var firstScope = provider.CreateAsyncScope();
+        await using var secondScope = provider.CreateAsyncScope();
+
+        // act
+        var firstOutbox = firstScope.ServiceProvider.GetRequiredService<IEnrichmentOutbox>();
+        var sameOutbox = firstScope.ServiceProvider.GetRequiredService<IEnrichmentOutbox>();
+        var repository = firstScope.ServiceProvider.GetRequiredService<IMovieRepository>();
+        var sharedContext = firstScope.ServiceProvider.GetRequiredService<LamuFlixDbContext>();
+        firstOutbox.Stage(new EnrichmentRequested(new MovieId(1), 1));
+        var stagedOnSharedContext = sharedContext.ChangeTracker
+            .Entries<OutboxMessageRecord>()
+            .Count();
+        var secondOutbox = secondScope.ServiceProvider.GetRequiredService<IEnrichmentOutbox>();
+        var secondContext = secondScope.ServiceProvider.GetRequiredService<LamuFlixDbContext>();
+
+        // assert
+        firstOutbox.ShouldBeOfType<EfEnrichmentOutbox>();
+        repository.ShouldBeOfType<EfMovieRepository>();
+        ReferenceEquals(firstOutbox, sameOutbox).ShouldBeTrue();
+        ReferenceEquals(secondOutbox, firstOutbox).ShouldBeFalse();
+        ReferenceEquals(sharedContext, secondContext).ShouldBeFalse();
+        stagedOnSharedContext.ShouldBe(1);
+        secondContext.ChangeTracker.Entries<OutboxMessageRecord>().ShouldBeEmpty();
     }
 
     [Fact]

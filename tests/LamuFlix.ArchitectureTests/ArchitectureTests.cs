@@ -28,7 +28,7 @@ public sealed class ArchitectureTests
     private static readonly Assembly Fixtures = typeof(SealedCommandFixture).Assembly;
 
     private const string PortWhitelistPattern =
-        "^(IMovieRepository|IMovieCatalog|IMetadataProvider|IEnrichmentQueue|IMediaLibraryScanner|IMediaPlayerLauncher|IRecommendationCandidateSource|IRecommendationProfileSource|IPlaybackHistory|IMovieFeaturesRepository)$";
+        "^(IMovieRepository|IMovieCatalog|IMetadataProvider|IEnrichmentQueue|IMediaLibraryScanner|IMediaPlayerLauncher|IRecommendationCandidateSource|IRecommendationProfileSource|IPlaybackHistory|IMovieFeaturesRepository|IEnrichmentOutbox)$";
 
     [Fact]
     public void Core_must_not_reference_entity_framework_core()
