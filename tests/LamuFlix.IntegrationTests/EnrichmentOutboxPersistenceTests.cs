@@ -52,7 +52,8 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         stored.Payload.ShouldBe(publisherBytes);
         var roundTripped = JsonSerializer.Deserialize<EnrichmentRequested>(stored.Payload, WebDefaults);
         roundTripped.ShouldBe(request);
-        roundTripped!.MovieId.Value.ShouldBe(42);
+        roundTripped.ShouldNotBeNull();
+        roundTripped.MovieId.Value.ShouldBe(42);
         roundTripped.Attempt.ShouldBe(3);
     }
 
