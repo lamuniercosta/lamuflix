@@ -22,6 +22,7 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
 
     private readonly bool retainSweeper;
     private readonly bool retainHealthChecks;
+    private readonly bool retainOutboxRelay;
     private readonly IEnumerable<KeyValuePair<string, string?>> additionalSettings;
     private readonly TimeProvider? timeProvider;
     private readonly bool disableEnrichmentConsumer;
@@ -35,10 +36,12 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
         IEnumerable<KeyValuePair<string, string?>>? additionalSettings = null,
         TimeProvider? timeProvider = null,
         bool disableEnrichmentConsumer = false,
-        bool retainHealthChecks = false)
+        bool retainHealthChecks = false,
+        bool retainOutboxRelay = false)
     {
         this.retainSweeper = retainSweeper;
         this.retainHealthChecks = retainHealthChecks;
+        this.retainOutboxRelay = retainOutboxRelay;
         this.additionalSettings = additionalSettings ?? [];
         this.timeProvider = timeProvider;
         this.disableEnrichmentConsumer = disableEnrichmentConsumer;
@@ -99,6 +102,11 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
             builder.ConfigureTestServices(RemoveSweeper);
         }
 
+        if (!retainOutboxRelay)
+        {
+            builder.ConfigureTestServices(RemoveOutboxRelay);
+        }
+
         if (disableEnrichmentConsumer)
         {
             builder.ConfigureTestServices(RemoveEnrichmentConsumer);
@@ -116,6 +124,17 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
         var registration = services.FirstOrDefault(descriptor =>
             descriptor.ServiceType == typeof(IHostedService)
             && descriptor.ImplementationType == typeof(StrandedMovieSweeper));
+        if (registration is not null)
+        {
+            services.Remove(registration);
+        }
+    }
+
+    private static void RemoveOutboxRelay(IServiceCollection services)
+    {
+        var registration = services.FirstOrDefault(descriptor =>
+            descriptor.ServiceType == typeof(IHostedService)
+            && descriptor.ImplementationType == typeof(OutboxRelayHostedService));
         if (registration is not null)
         {
             services.Remove(registration);

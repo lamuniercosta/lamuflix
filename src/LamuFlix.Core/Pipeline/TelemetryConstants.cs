@@ -65,4 +65,16 @@ public static class TelemetryConstants
     public const string FailedOutcome = "failed";
 
     public const string OmdbProviderName = "omdb";
+
+    public const string OutboxPendingMetricName = "lamuflix.outbox.pending";
+
+    public const string OutboxOldestPendingAgeMetricName = "lamuflix.outbox.oldest_pending_age";
+
+    public const string OutboxPublishedMetricName = "lamuflix.outbox.published";
+
+    public const string OutboxFailuresMetricName = "lamuflix.outbox.failures";
+
+    public const string OutboxRetentionDeletedMetricName = "lamuflix.outbox.retention.deleted";
+
+    public const string OutboxRetentionFailuresMetricName = "lamuflix.outbox.retention.failures";
 }

@@ -446,6 +446,7 @@ public sealed class OutboxRelayHostedServiceTests
         harness.Published.Select(message => message.MovieId.Value).ShouldBe([51]);
         worker.CleanupCalls.ShouldBe(1);
 
+        await harness.WaitForScheduledDelayAsync();
         harness.Time.Advance(TimeSpan.FromSeconds(1));
         await secondSave.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
@@ -495,8 +496,9 @@ public sealed class OutboxRelayHostedServiceTests
         TimeProvider timeProvider,
         IEnrichmentQueue queue,
         OutboxRelayState state,
+        OutboxRelayMetrics metrics,
         ILogger<OutboxRelayHostedService> logger)
-        : OutboxRelayHostedService(scopeFactory, options, timeProvider, queue, state, logger)
+        : OutboxRelayHostedService(scopeFactory, options, timeProvider, queue, state, metrics, logger)
     {
         private readonly ConcurrentQueue<long> savedRows = new();
         private readonly ConcurrentQueue<IServiceProvider> scopedProviders = new();
@@ -507,6 +509,10 @@ public sealed class OutboxRelayHostedServiceTests
 
         public Func<CancellationToken, Task<IReadOnlyList<OutboxMessageRecord>>> Read { get; set; } =
             _ => Task.FromResult<IReadOnlyList<OutboxMessageRecord>>([]);
+
+        public Func<OutboxRelayBacklogSample> Sample { get; set; } = () => new OutboxRelayBacklogSample(0, null);
+
+        public Func<Exception>? SampleFault { get; set; }
 
         public Func<OutboxMessageRecord, DateTimeOffset, CancellationToken, Task> Save { get; set; } =
             (_, _, _) => Task.CompletedTask;
@@ -525,6 +531,11 @@ public sealed class OutboxRelayHostedServiceTests
         public int CleanupCalls => Volatile.Read(ref cleanupCalls);
 
         public Task FirstRead => firstRead.Task;
+
+        internal override Task<OutboxRelayBacklogSample> SampleBacklogAsync(CancellationToken cancellationToken) =>
+            SampleFault is null
+                ? Task.FromResult(Sample())
+                : Task.FromException<OutboxRelayBacklogSample>(SampleFault());
 
         internal override Task<IReadOnlyList<long>> ReadExpiredProcessedRowIdsAsync(
             IServiceProvider scopedProvider,

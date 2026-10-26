@@ -323,6 +323,29 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     }
 
     [Fact]
+    public void Services_RelayComposition_RegistersExactlyOneWorkerAndItsReadyCheckAndRetainsTheSweeper()
+    {
+        // arrange
+        using var relayFactory = new ApiHostFactory(
+            retainSweeper: true,
+            retainHealthChecks: true,
+            retainOutboxRelay: true);
+
+        // act
+        var hostedServices = relayFactory.Services.GetServices<IHostedService>().ToArray();
+        var registrations = relayFactory.Services
+            .GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
+
+        // assert
+        hostedServices.Where(service => service is OutboxRelayHostedService).ShouldHaveSingleItem();
+        hostedServices.ShouldContain(service => service is StrandedMovieSweeper);
+        var relayRegistration = registrations
+            .Where(registration => registration.Name == OutboxRelayHealthCheck.HealthCheckName)
+            .ShouldHaveSingleItem();
+        relayRegistration.Tags.ShouldContain(HealthCheckTags.Ready);
+    }
+
+    [Fact]
     public void UnrelatedHost_RemovesOnlyTheSweeper()
     {
         // arrange
@@ -330,6 +353,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
 
         // assert
         hostedServices.ShouldNotContain(service => service is StrandedMovieSweeper);
+        hostedServices.ShouldNotContain(service => service is OutboxRelayHostedService);
         hostedServices.ShouldContain(service => service is EnrichmentConsumer);
         hostedServices.ShouldContain(service => service is FeaturesConsumer);
     }

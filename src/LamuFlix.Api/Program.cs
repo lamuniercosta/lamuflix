@@ -31,6 +31,7 @@ builder.Services.AddOllamaEmbeddingGenerator();
 builder.Services.AddLamuFlixRabbitMq();
 builder.Services.AddLamuFlixPlayback();
 builder.Services.AddLamuFlixHandlers();
+builder.Services.AddLamuFlixOutboxRelay();
 builder.Services.AddHostedService<StrandedMovieSweeper>();
 builder.Services.AddCors(options => options.AddPolicy(
     CorsPolicyName,

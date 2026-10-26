@@ -31,15 +31,19 @@ internal enum OutboxRelayCleanupResult
 
 internal readonly record struct OutboxRelayCleanupCompletion(OutboxRelayCleanupResult Result, int DeletedCount);
 
+internal readonly record struct OutboxRelayBacklogSample(long PendingCount, DateTimeOffset? OldestPendingCreatedAt);
+
 public partial class OutboxRelayHostedService(
     IServiceScopeFactory scopeFactory,
     IOptions<OutboxRelayOptions> options,
     TimeProvider timeProvider,
     IEnrichmentQueue queue,
     OutboxRelayState state,
+    OutboxRelayMetrics metrics,
     ILogger<OutboxRelayHostedService> logger) : BackgroundService
 {
     private const string ReadCategory = "read";
+    private const string SampleCategory = "sample";
     private const string DeserializeCategory = "deserialize";
     private const string PublishCategory = "publish";
     private const string PublishTimeoutCategory = "publish-timeout";
@@ -71,6 +75,17 @@ public partial class OutboxRelayHostedService(
                     if (cleanup.Result == OutboxRelayCleanupResult.Shutdown)
                     {
                         break;
+                    }
+
+                    if (cleanup.Result == OutboxRelayCleanupResult.Succeeded)
+                    {
+                        state.RecordCleanupSucceeded(cleanup.DeletedCount, timeProvider.GetUtcNow());
+                        metrics.RecordRetentionDeleted(cleanup.DeletedCount);
+                    }
+                    else
+                    {
+                        state.RecordCleanupFailed(timeProvider.GetUtcNow());
+                        metrics.RecordRetentionFailure();
                     }
 
                     nextCleanupDueAt = timeProvider.GetUtcNow() + options.Value.CleanupInterval;
@@ -106,6 +121,46 @@ public partial class OutboxRelayHostedService(
 
     internal async Task<OutboxRelayPassResult> RunPassAsync(CancellationToken stoppingToken)
     {
+        var publishedCount = 0;
+        var (outcome, backlog) = await ExecutePassAsync(stoppingToken, () => publishedCount++);
+
+        if (publishedCount > 0)
+        {
+            metrics.RecordPublished(publishedCount);
+        }
+
+        if (outcome == OutboxRelayPassResult.Failed)
+        {
+            metrics.RecordPassFailure();
+            state.RecordPassFailed(timeProvider.GetUtcNow());
+        }
+        else if (outcome == OutboxRelayPassResult.Succeeded && backlog is { } sample)
+        {
+            state.RecordPassSucceeded(sample.PendingCount, sample.OldestPendingCreatedAt, timeProvider.GetUtcNow());
+        }
+
+        return outcome;
+    }
+
+    internal virtual async Task<OutboxRelayBacklogSample> SampleBacklogAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<LamuFlixDbContext>();
+        long pendingCount = await db.OutboxMessages
+            .CountAsync(message => message.ProcessedAt == null, cancellationToken);
+        DateTimeOffset? oldestCreatedAt = pendingCount == 0
+            ? null
+            : await db.OutboxMessages
+                .Where(message => message.ProcessedAt == null)
+                .MinAsync(message => (DateTimeOffset?)message.CreatedAt, cancellationToken);
+
+        return new OutboxRelayBacklogSample(pendingCount, oldestCreatedAt);
+    }
+
+    private async Task<(OutboxRelayPassResult Outcome, OutboxRelayBacklogSample? Backlog)> ExecutePassAsync(
+        CancellationToken stoppingToken,
+        Action onRowPublished)
+    {
         try
         {
             await using var scope = scopeFactory.CreateAsyncScope();
@@ -117,33 +172,52 @@ public partial class OutboxRelayHostedService(
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                return OutboxRelayPassResult.Shutdown;
+                return (OutboxRelayPassResult.Shutdown, null);
             }
             catch (Exception exception)
             {
                 Log.PassFailure(logger, ReadCategory, ExceptionTypeName(exception));
-                return OutboxRelayPassResult.Failed;
+                return (OutboxRelayPassResult.Failed, null);
             }
 
             foreach (var row in rows)
             {
                 var outcome = await TryRelayRowAsync(scope.ServiceProvider, row, stoppingToken);
-                if (outcome is { } failed)
+                if (outcome == OutboxRelayPassResult.Failed)
                 {
-                    return failed;
+                    return (OutboxRelayPassResult.Failed, null);
                 }
+
+                if (outcome == OutboxRelayPassResult.Shutdown)
+                {
+                    return (OutboxRelayPassResult.Shutdown, null);
+                }
+
+                onRowPublished();
             }
 
-            return OutboxRelayPassResult.Succeeded;
+            try
+            {
+                return (OutboxRelayPassResult.Succeeded, await SampleBacklogAsync(stoppingToken));
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return (OutboxRelayPassResult.Shutdown, null);
+            }
+            catch (Exception exception)
+            {
+                Log.PassFailure(logger, SampleCategory, ExceptionTypeName(exception));
+                return (OutboxRelayPassResult.Failed, null);
+            }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            return OutboxRelayPassResult.Shutdown;
+            return (OutboxRelayPassResult.Shutdown, null);
         }
         catch (Exception exception)
         {
             Log.PassFailure(logger, PassCategory, ExceptionTypeName(exception));
-            return OutboxRelayPassResult.Failed;
+            return (OutboxRelayPassResult.Failed, null);
         }
     }
 

@@ -137,6 +137,32 @@ public sealed class HealthEndpointTests
             .ShouldBe([PostgresCheck, RabbitMqCheck], ignoreOrder: true);
     }
 
+    [Fact]
+    public async Task Ready_RealRelayCheckDegraded_Returns200AndReportsDegraded()
+    {
+        // arrange
+        await using var host = new ReadyApiHostFactory(
+            HealthCheckResult.Healthy(),
+            HealthCheckResult.Healthy(),
+            HealthCheckResult.Healthy(),
+            useRealRelayCheck: true);
+        var sampledAt = new DateTimeOffset(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
+        var relayState = host.Services.GetRequiredService<OutboxRelayState>();
+        relayState.MarkRunning();
+        relayState.RecordPassSucceeded(1, sampledAt.AddMinutes(-10), sampledAt);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(ReadyRoute, TestContext.Current.CancellationToken);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        payload.GetProperty("status").GetString().ShouldBe(nameof(HealthStatus.Degraded));
+        CheckNamed(payload.GetProperty("checks"), OutboxRelayHealthCheck.HealthCheckName)
+            .GetProperty("status").GetString().ShouldBe(nameof(HealthStatus.Degraded));
+    }
+
     private static ReadyApiHostFactory CreateHost(string? failingCheck) =>
         new(
             Result(failingCheck, PostgresCheck),
@@ -155,7 +181,8 @@ public sealed class HealthEndpointTests
     private sealed class ReadyApiHostFactory(
         HealthCheckResult postgres,
         HealthCheckResult rabbitMq,
-        HealthCheckResult metadataProvider) : WebApplicationFactory<Program>
+        HealthCheckResult metadataProvider,
+        bool useRealRelayCheck = false) : WebApplicationFactory<Program>
     {
         private static readonly KeyValuePair<string, string?>[] HostSettings =
         [
@@ -197,8 +224,27 @@ public sealed class HealthEndpointTests
                 .AddCheck(PostgresCheck, new StubHealthCheck(postgres), tags: [HealthCheckTags.Ready])
                 .AddCheck(RabbitMqCheck, new StubHealthCheck(rabbitMq), tags: [HealthCheckTags.Ready])
                 .AddCheck(MetadataCheck, new StubHealthCheck(metadataProvider));
+            if (useRealRelayCheck)
+            {
+                services.AddHealthChecks().AddCheck<OutboxRelayHealthCheck>(
+                    OutboxRelayHealthCheck.HealthCheckName,
+                    tags: [HealthCheckTags.Ready]);
+            }
+
             RemoveSweeper(services);
+            RemoveOutboxRelay(services);
             RemoveEmbeddingStartupProbe(services);
+        }
+
+        private static void RemoveOutboxRelay(IServiceCollection services)
+        {
+            var registration = services.FirstOrDefault(descriptor =>
+                descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(OutboxRelayHostedService));
+            if (registration is not null)
+            {
+                services.Remove(registration);
+            }
         }
 
         private static void RemoveEmbeddingStartupProbe(IServiceCollection services)
