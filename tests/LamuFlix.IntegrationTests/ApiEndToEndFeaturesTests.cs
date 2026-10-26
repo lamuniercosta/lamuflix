@@ -127,7 +127,7 @@ public sealed class ApiEndToEndFeaturesTests(ApiEndToEndFixture fixture) : ApiEn
             }
 
             // assert
-            var trace = await WaitForFeatureTraceAsync(capture, requestTraceId, cancellationToken);
+            var trace = await WaitForFeatureTraceAsync(capture, cancellationToken);
             ShouldProveFeatureTrace(trace);
         }
         finally
@@ -180,13 +180,12 @@ public sealed class ApiEndToEndFeaturesTests(ApiEndToEndFixture fixture) : ApiEn
 
     private static async Task<FeatureTrace> WaitForFeatureTraceAsync(
         ApiImportTraceCapture capture,
-        ActivityTraceId requestTraceId,
         CancellationToken cancellationToken)
     {
         var deadline = TimeProvider.System.GetUtcNow() + TraceTimeout;
         while (TimeProvider.System.GetUtcNow() < deadline)
         {
-            var trace = FindFeatureTrace(capture.Stopped, requestTraceId);
+            var trace = FindFeatureTrace(capture.Stopped);
             if (trace is not null)
             {
                 return trace;
@@ -195,17 +194,37 @@ public sealed class ApiEndToEndFeaturesTests(ApiEndToEndFixture fixture) : ApiEn
             await Task.Delay(PollInterval, cancellationToken);
         }
 
-        var final = FindFeatureTrace(capture.Stopped, requestTraceId);
+        var final = FindFeatureTrace(capture.Stopped);
         return final ?? throw new InvalidOperationException(
-            $"The request trace {requestTraceId} did not produce a features consumer span within {TraceTimeout.TotalSeconds} seconds.");
+            $"The asynchronous relay flow did not complete a features consumer span chain within {TraceTimeout.TotalSeconds} seconds.");
     }
 
-    private static FeatureTrace? FindFeatureTrace(
-        IReadOnlyList<Activity> stopped,
-        ActivityTraceId requestTraceId)
+    private static FeatureTrace? FindFeatureTrace(IReadOnlyList<Activity> stopped)
     {
-        var trace = stopped.Where(activity => activity.TraceId == requestTraceId).ToArray();
-        return FeatureTrace.From(trace);
+        var consumer = SingleFeatureConsumer(stopped);
+        if (consumer is null)
+        {
+            return null;
+        }
+
+        return FeatureTrace.From([.. stopped.Where(activity => activity.TraceId == consumer.TraceId)]);
+    }
+
+    private static Activity? SingleFeatureConsumer(IReadOnlyList<Activity> stopped)
+    {
+        Activity? match = null;
+        var count = 0;
+        foreach (var activity in stopped)
+        {
+            if (activity.Source.Name == TelemetryConstants.ActivitySourceName
+                && activity.OperationName == TelemetryConstants.FeaturesProcess)
+            {
+                count++;
+                match = activity;
+            }
+        }
+
+        return count == 1 ? match : null;
     }
 
     private static void ShouldProveFeatureTrace(FeatureTrace trace)

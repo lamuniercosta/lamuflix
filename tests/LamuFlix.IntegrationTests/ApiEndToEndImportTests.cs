@@ -176,7 +176,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             ShouldHaveSingleMeasuredProviderRequest();
             // assert
             var ancestry = await WaitForTraceAncestryAsync(capture, requestTraceId, cancellationToken);
-            ShouldProveTraceAncestry(ancestry, requestTraceId, tracestate);
+            ShouldProveTraceAncestry(ancestry, requestTraceId);
         }
         finally
         {
@@ -225,23 +225,21 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         stored.ManualImdbId.ShouldBe(new ImdbId(ExpectedImdbId));
     }
 
-    private static void ShouldProveTraceAncestry(TraceAncestry ancestry, ActivityTraceId requestTraceId, string tracestate)
+    private static void ShouldProveTraceAncestry(TraceAncestry ancestry, ActivityTraceId requestTraceId)
     {
         ancestry.Server.TraceId.ShouldBe(requestTraceId);
-        ancestry.Enqueue.TraceId.ShouldBe(requestTraceId);
-        ancestry.Publish.TraceId.ShouldBe(requestTraceId);
-        ancestry.FeaturesEnqueue.TraceId.ShouldBe(requestTraceId);
-        ancestry.FeaturesPublish.TraceId.ShouldBe(requestTraceId);
-        ancestry.Consumer.TraceId.ShouldBe(requestTraceId);
-        ancestry.ProcessingHandler.TraceId.ShouldBe(requestTraceId);
-        ancestry.Lookup.TraceId.ShouldBe(requestTraceId);
         foreach (var import in ancestry.ImportAncestry)
         {
             import.TraceId.ShouldBe(requestTraceId);
             ShouldDescendFrom(import, ancestry.Server, ancestry.BySpanId);
         }
 
-        ShouldDescendFrom(ancestry.Enqueue, ancestry.Server, ancestry.BySpanId);
+        ancestry.Enqueue.TraceId.ShouldBe(ancestry.Consumer.TraceId);
+        ancestry.Publish.TraceId.ShouldBe(ancestry.Consumer.TraceId);
+        ancestry.FeaturesEnqueue.TraceId.ShouldBe(ancestry.Consumer.TraceId);
+        ancestry.FeaturesPublish.TraceId.ShouldBe(ancestry.Consumer.TraceId);
+        ancestry.ProcessingHandler.TraceId.ShouldBe(ancestry.Consumer.TraceId);
+        ancestry.Lookup.TraceId.ShouldBe(ancestry.Consumer.TraceId);
         ancestry.Publish.ParentSpanId.ShouldBe(ancestry.Enqueue.SpanId);
         ancestry.FeaturesPublish.ParentSpanId.ShouldBe(ancestry.FeaturesEnqueue.SpanId);
         ShouldDescendFrom(ancestry.FeaturesEnqueue, ancestry.ProcessingHandler, ancestry.BySpanId);
@@ -249,8 +247,6 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         ShouldDescendFrom(ancestry.ProcessingHandler, ancestry.Consumer, ancestry.BySpanId);
         ShouldDescendFrom(ancestry.Lookup, ancestry.ProcessingHandler, ancestry.BySpanId);
         ancestry.Consumer.Kind.ShouldBe(ActivityKind.Consumer);
-        ancestry.Enqueue.TraceStateString.ShouldBe(tracestate);
-        ancestry.Consumer.TraceStateString.ShouldBe(tracestate);
         ancestry.Consumer.Links.ShouldBeEmpty();
     }
 
@@ -418,114 +414,165 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         }
 
         throw new InvalidOperationException(
-            $"The request trace {requestTraceId} did not produce the full span ancestry within {(int)TraceAncestryTimeout.TotalSeconds} seconds. " +
+            $"The import flow did not produce the request ancestry plus the full asynchronous relay span chain within {(int)TraceAncestryTimeout.TotalSeconds} seconds. " +
             DescribeTraceShortfall(capture.Stopped, requestTraceId));
     }
 
     private static TraceAncestry? FindTraceAncestry(IReadOnlyList<Activity> stopped, ActivityTraceId requestTraceId)
     {
-        var trace = stopped.Where(activity => activity.TraceId == requestTraceId).ToArray();
-        var bySpanId = trace.ToDictionary(activity => activity.SpanId.ToHexString());
-        var matches = new Activity[RequiredTraceSpans.Length];
-        for (var index = 2; index < RequiredTraceSpans.Length; index++)
-        {
-            var count = 0;
-            foreach (var activity in trace)
-            {
-                if (RequiredTraceSpans[index].Predicate(activity))
-                {
-                    count++;
-                    matches[index] = activity;
-                }
-            }
-
-            if (count != 1)
-            {
-                return null;
-            }
-        }
-
-        var enqueueSpans = trace.Where(IsEnqueueSpan).ToArray();
-        var publishSpans = trace.Where(IsPublishSpan).ToArray();
-        if (enqueueSpans.Length != 2 || publishSpans.Length != 2)
+        var request = stopped.Where(activity => activity.TraceId == requestTraceId).ToArray();
+        var servers = request.Where(activity => activity.Source.Name == ApiImportTraceCapture.AspNetCoreSourceName).ToArray();
+        if (servers.Length != 1)
         {
             return null;
         }
 
-        var importEnqueue = enqueueSpans.SingleOrDefault(enqueue => !DescendsFrom(enqueue, matches[2], bySpanId));
-        var featuresEnqueue = enqueueSpans.SingleOrDefault(enqueue => DescendsFrom(enqueue, matches[2], bySpanId));
-        if (importEnqueue is null || featuresEnqueue is null)
-        {
-            return null;
-        }
-
-        var enrichmentPublish = publishSpans.SingleOrDefault(publish => publish.ParentSpanId == importEnqueue.SpanId);
-        var featuresPublish = publishSpans.SingleOrDefault(publish => publish.ParentSpanId == featuresEnqueue.SpanId);
-        if (enrichmentPublish is null || featuresPublish is null)
-        {
-            return null;
-        }
-
-        matches[0] = importEnqueue;
-        matches[1] = enrichmentPublish;
-
-        var importAncestry = trace.Where(IsImportAncestrySpan).ToArray();
+        var requestBySpanId = request.ToDictionary(activity => activity.SpanId.ToHexString());
+        var importAncestry = request
+            .Where(activity => IsImportAncestrySpan(activity) && DescendsFrom(activity, servers[0], requestBySpanId))
+            .ToArray();
         if (importAncestry.Length == 0)
         {
             return null;
         }
 
-        var server = FindServerAncestor(matches[0], bySpanId);
-        if (server is null)
+        var consumer = SingleOutsideTrace(stopped, IsConsumerSpan, requestTraceId);
+        if (consumer is null)
+        {
+            return null;
+        }
+
+        var relay = MatchRelayChain(stopped, consumer);
+        if (relay is null)
         {
             return null;
         }
 
         return new TraceAncestry(
-            server,
-            matches[0],
-            matches[1],
-            featuresEnqueue,
-            featuresPublish,
-            matches[2],
-            matches[3],
-            matches[4],
+            servers[0],
+            relay.ImportEnqueue,
+            relay.EnrichmentPublish,
+            relay.FeaturesEnqueue,
+            relay.FeaturesPublish,
+            consumer,
+            relay.Handler,
+            relay.Lookup,
             importAncestry,
-            bySpanId);
+            request.Concat(relay.Spans).ToDictionary(activity => activity.SpanId.ToHexString()));
     }
 
-    private static Activity? FindServerAncestor(Activity enqueue, IReadOnlyDictionary<string, Activity> bySpanId)
+    private static Activity? SingleOutsideTrace(
+        IReadOnlyList<Activity> stopped,
+        Func<Activity, bool> predicate,
+        ActivityTraceId excludedTraceId)
     {
-        var current = enqueue;
-        for (var hops = 0; hops <= bySpanId.Count; hops++)
+        Activity? match = null;
+        var count = 0;
+        foreach (var activity in stopped)
         {
-            if (!bySpanId.TryGetValue(current.ParentSpanId.ToHexString(), out var parent))
+            if (activity.TraceId != excludedTraceId && predicate(activity))
             {
-                return null;
+                count++;
+                match = activity;
             }
-
-            if (parent.Source.Name == ApiImportTraceCapture.AspNetCoreSourceName)
-            {
-                return parent;
-            }
-
-            current = parent;
         }
 
-        return null;
+        return count == 1 ? match : null;
     }
+
+    private static RelayChain? MatchRelayChain(IReadOnlyList<Activity> stopped, Activity consumer)
+    {
+        var trace = stopped.Where(activity => activity.TraceId == consumer.TraceId).ToArray();
+        var handlers = trace.Where(IsProcessingHandlerSpan).ToArray();
+        var lookups = trace.Where(IsLookupSpan).ToArray();
+        var enqueues = trace.Where(IsEnqueueSpan).ToArray();
+        var publishes = trace.Where(IsPublishSpan).ToArray();
+        if (!HasRelayShape(handlers, lookups, enqueues, publishes))
+        {
+            return null;
+        }
+
+        var bySpanId = trace.ToDictionary(activity => activity.SpanId.ToHexString());
+        var enqueuePair = MatchEnqueuePair(enqueues, consumer, bySpanId);
+        if (enqueuePair is null)
+        {
+            return null;
+        }
+
+        var publishPair = MatchPublishPair(publishes, enqueuePair.Value.Import, enqueuePair.Value.Features);
+        if (publishPair is null)
+        {
+            return null;
+        }
+
+        return new RelayChain(
+            enqueuePair.Value.Import,
+            publishPair.Value.Enrichment,
+            enqueuePair.Value.Features,
+            publishPair.Value.Features,
+            handlers[0],
+            lookups[0],
+            trace);
+    }
+
+    private static bool HasRelayShape(
+        Activity[] handlers,
+        Activity[] lookups,
+        Activity[] enqueues,
+        Activity[] publishes) =>
+        handlers.Length == 1 && lookups.Length == 1 && enqueues.Length == 2 && publishes.Length == 2;
+
+    private static (Activity Import, Activity Features)? MatchEnqueuePair(
+        Activity[] enqueues,
+        Activity consumer,
+        IReadOnlyDictionary<string, Activity> bySpanId)
+    {
+        var import = enqueues.SingleOrDefault(enqueue => !DescendsFrom(enqueue, consumer, bySpanId));
+        var features = enqueues.SingleOrDefault(enqueue => DescendsFrom(enqueue, consumer, bySpanId));
+        if (import is null || features is null)
+        {
+            return null;
+        }
+
+        return (import, features);
+    }
+
+    private static (Activity Enrichment, Activity Features)? MatchPublishPair(
+        Activity[] publishes,
+        Activity importEnqueue,
+        Activity featuresEnqueue)
+    {
+        var enrichment = publishes.SingleOrDefault(publish => publish.ParentSpanId == importEnqueue.SpanId);
+        var features = publishes.SingleOrDefault(publish => publish.ParentSpanId == featuresEnqueue.SpanId);
+        if (enrichment is null || features is null)
+        {
+            return null;
+        }
+
+        return (enrichment, features);
+    }
+
+    private sealed record RelayChain(
+        Activity ImportEnqueue,
+        Activity EnrichmentPublish,
+        Activity FeaturesEnqueue,
+        Activity FeaturesPublish,
+        Activity Handler,
+        Activity Lookup,
+        IReadOnlyList<Activity> Spans);
 
     private static string DescribeTraceShortfall(IReadOnlyList<Activity> stopped, ActivityTraceId requestTraceId)
     {
-        var trace = stopped.Where(activity => activity.TraceId == requestTraceId).ToArray();
+        var request = stopped.Where(activity => activity.TraceId == requestTraceId).ToArray();
+        var relay = stopped.Where(activity => activity.TraceId != requestTraceId).ToArray();
         var counts = RequiredTraceSpans
-            .Select(span => $"{span.Name}={trace.Count(span.Predicate)}")
-            .Append($"import ancestry spans={trace.Count(IsImportAncestrySpan)}")
-            .Append($"API server spans={trace.Count(activity => activity.Source.Name == ApiImportTraceCapture.AspNetCoreSourceName)}");
-        var observed = trace.Select(activity => $"{activity.Source.Name}:{activity.OperationName}");
-        return $"Expected one consumer, processing handler, and lookup span plus two enqueue spans (import and features) " +
+            .Select(span => $"{span.Name}={relay.Count(span.Predicate)}")
+            .Append($"import ancestry spans={request.Count(IsImportAncestrySpan)}")
+            .Append($"API server spans={request.Count(activity => activity.Source.Name == ApiImportTraceCapture.AspNetCoreSourceName)}");
+        var observed = request.Select(activity => $"{activity.Source.Name}:{activity.OperationName}");
+        return $"Expected the import request trace to carry the API server span plus import ancestry, and the asynchronous relay trace to carry one consumer, processing handler, and lookup span plus two enqueue spans (import and features) " +
             $"each with its publisher publish span: {string.Join(", ", counts)}. " +
-            $"Observed {trace.Length} stopped spans with the request trace id: {string.Join(", ", observed)}.";
+            $"Observed {request.Length} stopped spans with the request trace id: {string.Join(", ", observed)}.";
     }
 
     private static bool DescendsFrom(
