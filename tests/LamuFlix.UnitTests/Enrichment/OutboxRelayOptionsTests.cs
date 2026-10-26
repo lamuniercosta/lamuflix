@@ -153,6 +153,7 @@ public sealed class OutboxRelayOptionsTests
 
         // act
         // assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed // the null argument exercises the guard clause under test.
         Should.Throw<ArgumentNullException>(() => options.Validate(null!).ToArray());
     }
 
@@ -164,6 +165,7 @@ public sealed class OutboxRelayOptionsTests
 
         // act
         // assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed // the null argument exercises the guard clause under test.
         var thrown = Should.Throw<ArgumentNullException>(() => validator.Validate(null, null!));
         thrown.ParamName.ShouldBe("options");
     }
@@ -285,6 +287,7 @@ public sealed class OutboxRelayOptionsTests
         // arrange
         // act
         // assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed // the null argument exercises the guard clause under test.
         Should.Throw<ArgumentNullException>(() => OutboxRelayServiceCollectionExtensions.AddLamuFlixOutboxRelay(null!));
     }
 

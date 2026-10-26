@@ -22,17 +22,23 @@ public enum OutboxRelayCleanupOutcome
     Failed = 1,
 }
 
+// ReSharper disable NotAccessedPositionalProperty.Global
+// The pass timing stays on the public snapshot for diagnostics; health and metrics decide on Outcome.
 public sealed record OutboxRelayPassSnapshot(OutboxRelayPassOutcome Outcome, DateTimeOffset CompletedAt);
+// ReSharper restore NotAccessedPositionalProperty.Global
 
 public sealed record OutboxRelayBacklogSnapshot(
     long PendingCount,
     DateTimeOffset? OldestPendingCreatedAt,
     DateTimeOffset SampledAt);
 
+// ReSharper disable NotAccessedPositionalProperty.Global
+// The cleanup count and timing stay on the public snapshot for diagnostics; health decides on Outcome.
 public sealed record OutboxRelayCleanupSnapshot(
     OutboxRelayCleanupOutcome Outcome,
     int DeletedCount,
     DateTimeOffset CompletedAt);
+// ReSharper restore NotAccessedPositionalProperty.Global
 
 public sealed record OutboxRelaySnapshot(
     OutboxRelayLifecycle Lifecycle,

@@ -23,7 +23,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using RabbitMQ.Client;
 using Shouldly;
 using Xunit;
 
@@ -39,6 +38,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
     private static readonly DateTimeOffset StartedAt = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
+    // ReSharper disable once NullableWarningSuppressionIsUsed // InitializeAsync assigns the probe before any test runs.
     private RabbitMqProbe probe = null!;
     private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
 
@@ -619,7 +619,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
     {
         public QueueBehaviourMode Mode { get; set; }
 
-        public Task PublishAsync(EnrichmentRequested message, CancellationToken cancellationToken) => Mode switch
+        public Task PublishAsync(EnrichmentRequested _, CancellationToken cancellationToken) => Mode switch
         {
             QueueBehaviourMode.ConnectionFailure => Task.FromException(
                 new IOException("broker connection lost")),
