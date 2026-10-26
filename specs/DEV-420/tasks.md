@@ -41,15 +41,15 @@
 
 ### Tests
 
-- [ ] T001 [P] [US1] Add `tests/LamuFlix.UnitTests/Enrichment/OutboxRelayOptionsTests.cs` proving defaults/bounds/startup validation for all `OutboxRelayOptions` fields (brief Q5). AAA headers only. Existing assertion libraries only.
-- [ ] T002 [P] [US1] [US2] Scaffold deterministic TimeProvider-backed harness in `tests/LamuFlix.UnitTests/Enrichment/OutboxRelayHostedServiceTests.cs` for immediate polling, success delays, backoff saturation/reset, linked timeout vs shutdown, clean cancellation, and no-overlapping-passes mapped to FR-001 (in-flight pass prevents a second pass despite elapsed due time; fail red until worker implements). Reuse available TimeProvider test support; no new package; no wall-clock sleeps.
-- [ ] T003 [P] [US1] Scaffold real Postgres + RabbitMQ integration harness in `tests/LamuFlix.IntegrationTests/OutboxRelayTests.cs` using existing shared fixtures/packages (fail red until relay implements). Never mock the data-access driver.
+- [X] T001 [P] [US1] Add `tests/LamuFlix.UnitTests/Enrichment/OutboxRelayOptionsTests.cs` proving defaults/bounds/startup validation for all `OutboxRelayOptions` fields (brief Q5). AAA headers only. Existing assertion libraries only.
+- [X] T002 [P] [US1] [US2] Scaffold deterministic TimeProvider-backed harness in `tests/LamuFlix.UnitTests/Enrichment/OutboxRelayHostedServiceTests.cs` for immediate polling, success delays, backoff saturation/reset, linked timeout vs shutdown, clean cancellation, and no-overlapping-passes mapped to FR-001 (in-flight pass prevents a second pass despite elapsed due time; fail red until worker implements). Reuse available TimeProvider test support; no new package; no wall-clock sleeps.
+- [X] T003 [P] [US1] Scaffold real Postgres + RabbitMQ integration harness in `tests/LamuFlix.IntegrationTests/OutboxRelayTests.cs` using existing shared fixtures/packages (fail red until relay implements). Never mock the data-access driver.
 
 ### Implementation
 
-- [ ] T004 [P] [US1] Add `src/LamuFlix.Infrastructure/Enrichment/OutboxRelayOptions.cs` with approved defaults/bounds and startup validation under section `OutboxRelay`.
-- [ ] T005 [P] [US4] Add `src/LamuFlix.Infrastructure/Enrichment/OutboxRelayState.cs` as a thread-safe worker snapshot (lifecycle, pass outcome, backlog sample, cleanup outcome).
-- [ ] T006 [US1] Add `src/LamuFlix.Infrastructure/Enrichment/OutboxRelayServiceCollectionExtensions.cs` registering options/state (worker/metrics/health wiring completes in later phases). Drive T001 green.
+- [X] T004 [P] [US1] Add `src/LamuFlix.Infrastructure/Enrichment/OutboxRelayOptions.cs` with approved defaults/bounds and startup validation under section `OutboxRelay`.
+- [X] T005 [P] [US4] Add `src/LamuFlix.Infrastructure/Enrichment/OutboxRelayState.cs` as a thread-safe worker snapshot (lifecycle, pass outcome, backlog sample, cleanup outcome).
+- [X] T006 [US1] Add `src/LamuFlix.Infrastructure/Enrichment/OutboxRelayServiceCollectionExtensions.cs` registering options/state (worker/metrics/health wiring completes in later phases). Drive T001 green.
 
 **Checkpoint**: Options validation green; harnesses compile and fail for unimplemented behavior where expected.
 
