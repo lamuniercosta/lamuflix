@@ -83,12 +83,12 @@
 
 ### Tests
 
-- [ ] T011 [P] [US3] Add `tests/LamuFlix.IntegrationTests/OutboxRetentionTests.cs` proving: preserve all unprocessed, recent/future ProcessedAt, and cutoff-equal rows; delete only strictly older processed rows in bounded ordered batches; CreatedAt irrelevant; no schema delta; cleanup failure isolation and next-interval retry semantics observable without blocking publication. AAA headers only.
-- [ ] T012 [P] [US3] Extend `tests/LamuFlix.UnitTests/Enrichment/OutboxRelayHostedServiceTests.cs` for due cleanup at startup/interval even after publish failure, separate-scope cleanup, and failure isolation.
+- [X] T011 [P] [US3] Add `tests/LamuFlix.IntegrationTests/OutboxRetentionTests.cs` proving: preserve all unprocessed, recent/future ProcessedAt, and cutoff-equal rows; delete only strictly older processed rows in bounded ordered batches; CreatedAt irrelevant; no schema delta; cleanup failure isolation and next-interval retry semantics observable without blocking publication. AAA headers only.
+- [X] T012 [P] [US3] Extend `tests/LamuFlix.UnitTests/Enrichment/OutboxRelayHostedServiceTests.cs` for due cleanup at startup/interval even after publish failure, separate-scope cleanup, and failure isolation.
 
 ### Implementation
 
-- [ ] T013 [US3] Extend `OutboxRelayHostedService` retention path per brief Q6 (independent schedule; separate fresh scope; CleanupBatchSize; rechecked cutoff predicate; never delete unprocessed). Drive T011–T012 green.
+- [X] T013 [US3] Extend `OutboxRelayHostedService` retention path per brief Q6 (independent schedule; separate fresh scope; CleanupBatchSize; rechecked cutoff predicate; never delete unprocessed). Drive T011–T012 green.
 
 **Checkpoint**: Retention proofs green; publish proofs from Phase 2 still green.
 

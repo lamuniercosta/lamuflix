@@ -22,6 +22,15 @@ internal enum OutboxRelayPassResult
     Shutdown = 2,
 }
 
+internal enum OutboxRelayCleanupResult
+{
+    Succeeded = 0,
+    Failed = 1,
+    Shutdown = 2,
+}
+
+internal readonly record struct OutboxRelayCleanupCompletion(OutboxRelayCleanupResult Result, int DeletedCount);
+
 public partial class OutboxRelayHostedService(
     IServiceScopeFactory scopeFactory,
     IOptions<OutboxRelayOptions> options,
@@ -36,6 +45,7 @@ public partial class OutboxRelayHostedService(
     private const string PublishTimeoutCategory = "publish-timeout";
     private const string MarkerSaveCategory = "marker-save";
     private const string PassCategory = "pass";
+    private const string CleanupCategory = "cleanup";
 
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
@@ -45,12 +55,25 @@ public partial class OutboxRelayHostedService(
         try
         {
             var consecutiveFailures = 0;
+            var nextCleanupDueAt = timeProvider.GetUtcNow();
             while (!stoppingToken.IsCancellationRequested)
             {
                 var outcome = await RunPassAsync(stoppingToken);
                 if (outcome == OutboxRelayPassResult.Shutdown)
                 {
                     break;
+                }
+
+                var cleanupDue = timeProvider.GetUtcNow() >= nextCleanupDueAt;
+                if (cleanupDue)
+                {
+                    var cleanup = await RunCleanupAsync(stoppingToken);
+                    if (cleanup.Result == OutboxRelayCleanupResult.Shutdown)
+                    {
+                        break;
+                    }
+
+                    nextCleanupDueAt = timeProvider.GetUtcNow() + options.Value.CleanupInterval;
                 }
 
                 TimeSpan delay;
@@ -153,6 +176,74 @@ public partial class OutboxRelayHostedService(
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    internal async Task<OutboxRelayCleanupCompletion> RunCleanupAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var cutoff = timeProvider.GetUtcNow() - options.Value.ProcessedRetention;
+            var rowIds = await ReadExpiredProcessedRowIdsAsync(scope.ServiceProvider, cutoff, stoppingToken);
+            var deleted = await DeleteExpiredProcessedRowsAsync(
+                scope.ServiceProvider,
+                rowIds,
+                cutoff,
+                stoppingToken);
+
+            return new OutboxRelayCleanupCompletion(OutboxRelayCleanupResult.Succeeded, deleted);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return new OutboxRelayCleanupCompletion(OutboxRelayCleanupResult.Shutdown, 0);
+        }
+        catch (Exception exception)
+        {
+            Log.CleanupFailure(logger, CleanupCategory, ExceptionTypeName(exception));
+            return new OutboxRelayCleanupCompletion(OutboxRelayCleanupResult.Failed, 0);
+        }
+    }
+
+    internal virtual async Task<IReadOnlyList<long>> ReadExpiredProcessedRowIdsAsync(
+        IServiceProvider scopedProvider,
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(scopedProvider);
+
+        var db = scopedProvider.GetRequiredService<LamuFlixDbContext>();
+        return await db.OutboxMessages
+            .AsNoTracking()
+            .Where(message => message.ProcessedAt != null && message.ProcessedAt < cutoff)
+            .OrderBy(message => message.ProcessedAt)
+            .ThenBy(message => message.Id)
+            .Take(options.Value.CleanupBatchSize)
+            .Select(message => message.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    internal virtual async Task<int> DeleteExpiredProcessedRowsAsync(
+        IServiceProvider scopedProvider,
+        IReadOnlyList<long> rowIds,
+        DateTimeOffset cutoff,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(scopedProvider);
+        ArgumentNullException.ThrowIfNull(rowIds);
+
+        if (rowIds.Count == 0)
+        {
+            return 0;
+        }
+
+        // The eligibility predicate is rechecked in the delete so a row whose marker advanced after
+        // the batch was read is never deleted.
+        var db = scopedProvider.GetRequiredService<LamuFlixDbContext>();
+        return await db.OutboxMessages
+            .Where(message => rowIds.Contains(message.Id)
+                              && message.ProcessedAt != null
+                              && message.ProcessedAt < cutoff)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
     private async Task<OutboxRelayPassResult?> TryRelayRowAsync(
         IServiceProvider scopedProvider,
         OutboxMessageRecord row,
@@ -243,5 +334,11 @@ public partial class OutboxRelayHostedService(
             Level = LogLevel.Error,
             Message = "Outbox relay row {RowId} failed. Category {Category}. Exception type {ExceptionType}.")]
         public static partial void RowFailure(ILogger logger, long rowId, string category, string exceptionType);
+
+        [LoggerMessage(
+            EventId = 3,
+            Level = LogLevel.Error,
+            Message = "Outbox relay cleanup failed. Category {Category}. Exception type {ExceptionType}.")]
+        public static partial void CleanupFailure(ILogger logger, string category, string exceptionType);
     }
 }

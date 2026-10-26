@@ -340,6 +340,121 @@ public sealed class OutboxRelayHostedServiceTests
         deserializeEntry.Message.ShouldContain(nameof(JsonException));
     }
 
+    [Fact]
+    public async Task Cleanup_IsDueAtStartupInASeparateScopeEvenAfterAFailedPass()
+    {
+        // arrange
+        await using var harness = OutboxRelayHarness.Create();
+        var worker = harness.CreateScriptedWorker();
+        worker.Read = _ => Task.FromException<IReadOnlyList<OutboxMessageRecord>>(
+            new InvalidOperationException("read failed"));
+        using var cancellation = new CancellationTokenSource();
+
+        // act
+        await worker.StartAsync(cancellation.Token);
+        await harness.WaitForScheduledDelayAsync();
+
+        // assert
+        worker.CleanupCalls.ShouldBe(1);
+        var passScope = worker.ScopedProviders.ShouldHaveSingleItem();
+        var cleanupScope = worker.CleanupScopes.ShouldHaveSingleItem();
+        cleanupScope.ShouldNotBeSameAs(passScope);
+        harness.Published.ShouldBeEmpty();
+        await worker.StopAsync(cancellation.Token);
+    }
+
+    [Fact]
+    public async Task Cleanup_RetriesAtTheNextIntervalAndNeverBlocksPublication()
+    {
+        // arrange
+        await using var harness = OutboxRelayHarness.Create(new Dictionary<string, string?>
+        {
+            [$"{OutboxRelayOptions.SectionName}:PollInterval"] = "00:00:01",
+            [$"{OutboxRelayOptions.SectionName}:CleanupInterval"] = "00:00:10",
+        });
+        var worker = harness.CreateScriptedWorker();
+        worker.DeleteExpired = (_, _, _, _) =>
+            Task.FromException<int>(new InvalidOperationException("cleanup failed"));
+        using var cancellation = new CancellationTokenSource();
+        await worker.StartAsync(cancellation.Token);
+        await harness.WaitForScheduledDelayAsync();
+
+        // assert startup cleanup happens once and retries only at the next interval
+        worker.CleanupCalls.ShouldBe(1);
+        worker.ReadCalls.ShouldBe(1);
+
+        for (var second = 1; second < 10; second++)
+        {
+            await harness.AdvanceAndWaitAsync(TimeSpan.FromSeconds(1), waitForNextDelay: true);
+            worker.ReadCalls.ShouldBe(second + 1);
+            worker.CleanupCalls.ShouldBe(1);
+        }
+
+        // act
+        await harness.AdvanceAndWaitAsync(TimeSpan.FromSeconds(1), waitForNextDelay: true);
+
+        // assert
+        worker.CleanupCalls.ShouldBe(2);
+        worker.ReadCalls.ShouldBe(11);
+        harness.Logs.Entries.Count.ShouldBe(2);
+        foreach (var entry in harness.Logs.Entries)
+        {
+            entry.Exception.ShouldBeNull();
+            entry.Message.ShouldContain("cleanup");
+            entry.Message.ShouldContain(nameof(InvalidOperationException));
+            entry.Message.ShouldNotContain("RowId");
+        }
+
+        await worker.StopAsync(cancellation.Token);
+    }
+
+    [Fact]
+    public async Task CleanupFailure_DoesNotUndoMarkersOrBlockLaterPublication()
+    {
+        // arrange
+        await using var harness = OutboxRelayHarness.Create(new Dictionary<string, string?>
+        {
+            [$"{OutboxRelayOptions.SectionName}:PollInterval"] = "00:00:01",
+        });
+        var worker = harness.CreateScriptedWorker();
+        worker.Read = _ => Task.FromResult<IReadOnlyList<OutboxMessageRecord>>([Rows.Valid(51, movieId: 51)]);
+        var cleanupAttempted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        worker.DeleteExpired = (_, _, _, _) =>
+        {
+            cleanupAttempted.TrySetResult();
+            return Task.FromException<int>(new InvalidOperationException("cleanup failed"));
+        };
+        var saves = 0;
+        var secondSave = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        worker.Save = (_, _, _) =>
+        {
+            if (Interlocked.Increment(ref saves) == 2)
+            {
+                secondSave.TrySetResult();
+            }
+
+            return Task.CompletedTask;
+        };
+        using var cancellation = new CancellationTokenSource();
+
+        // act
+        await worker.StartAsync(cancellation.Token);
+        await cleanupAttempted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // assert
+        worker.SavedRows.ShouldBe([51L]);
+        harness.Published.Select(message => message.MovieId.Value).ShouldBe([51]);
+        worker.CleanupCalls.ShouldBe(1);
+
+        harness.Time.Advance(TimeSpan.FromSeconds(1));
+        await secondSave.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        worker.ReadCalls.ShouldBe(2);
+        worker.SavedRows.Count.ShouldBe(2);
+        harness.Logs.Entries.ShouldContain(entry => entry.Message.Contains("cleanup", StringComparison.Ordinal));
+        await worker.StopAsync(cancellation.Token);
+    }
+
     private static void assertAllowlisted(
         IEnumerable<RecordedLogEntry> entries,
         IReadOnlyCollection<string> forbiddenValues)
@@ -385,8 +500,10 @@ public sealed class OutboxRelayHostedServiceTests
     {
         private readonly ConcurrentQueue<long> savedRows = new();
         private readonly ConcurrentQueue<IServiceProvider> scopedProviders = new();
+        private readonly ConcurrentQueue<IServiceProvider> cleanupScopes = new();
         private readonly TaskCompletionSource firstRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int readCalls;
+        private int cleanupCalls;
 
         public Func<CancellationToken, Task<IReadOnlyList<OutboxMessageRecord>>> Read { get; set; } =
             _ => Task.FromResult<IReadOnlyList<OutboxMessageRecord>>([]);
@@ -394,13 +511,37 @@ public sealed class OutboxRelayHostedServiceTests
         public Func<OutboxMessageRecord, DateTimeOffset, CancellationToken, Task> Save { get; set; } =
             (_, _, _) => Task.CompletedTask;
 
+        public Func<IServiceProvider, IReadOnlyList<long>, DateTimeOffset, CancellationToken, Task<int>> DeleteExpired
+        { get; set; } = (_, _, _, _) => Task.FromResult(0);
+
         public IReadOnlyCollection<long> SavedRows => [.. savedRows];
 
         public IReadOnlyCollection<IServiceProvider> ScopedProviders => [.. scopedProviders];
 
+        public IReadOnlyCollection<IServiceProvider> CleanupScopes => [.. cleanupScopes];
+
         public int ReadCalls => Volatile.Read(ref readCalls);
 
+        public int CleanupCalls => Volatile.Read(ref cleanupCalls);
+
         public Task FirstRead => firstRead.Task;
+
+        internal override Task<IReadOnlyList<long>> ReadExpiredProcessedRowIdsAsync(
+            IServiceProvider scopedProvider,
+            DateTimeOffset cutoff,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<long>>([]);
+
+        internal override Task<int> DeleteExpiredProcessedRowsAsync(
+            IServiceProvider scopedProvider,
+            IReadOnlyList<long> rowIds,
+            DateTimeOffset cutoff,
+            CancellationToken cancellationToken)
+        {
+            cleanupScopes.Enqueue(scopedProvider);
+            Interlocked.Increment(ref cleanupCalls);
+            return DeleteExpired(scopedProvider, rowIds, cutoff, cancellationToken);
+        }
 
         internal override Task<IReadOnlyList<OutboxMessageRecord>> ReadPendingRowsAsync(
             IServiceProvider scopedProvider,
