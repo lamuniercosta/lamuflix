@@ -6,7 +6,10 @@ using LamuFlix.Core.Pipeline;
 
 namespace LamuFlix.Core.Features.Enrichment;
 
-public sealed class RequestEnrichmentCommandHandler(IMovieRepository movies, IEnrichmentQueue queue)
+public sealed class RequestEnrichmentCommandHandler(
+    IMovieRepository movies,
+    IEnrichmentQueue queue,
+    IEnrichmentOutbox outbox)
     : ICommandHandler<RequestEnrichmentCommand, MovieId>
 {
     public async Task<MovieId> HandleAsync(RequestEnrichmentCommand command, CancellationToken cancellationToken)
@@ -20,6 +23,7 @@ public sealed class RequestEnrichmentCommandHandler(IMovieRepository movies, IEn
         }
 
         movie.RequestEnrichment();
+        outbox.Stage(new EnrichmentRequested(command.Id, 1));
         await movies.SaveChangesAsync(cancellationToken);
         await queue.EnqueueAsync(new EnrichmentRequested(command.Id, 1), cancellationToken);
         return command.Id;
