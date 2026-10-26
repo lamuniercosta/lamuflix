@@ -7,6 +7,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Enrichment;
+using LamuFlix.Core.Features.Import;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Enrichment;
@@ -20,6 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 using RabbitMQ.Client;
 using Shouldly;
 using Xunit;
@@ -37,6 +40,7 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     private RabbitMqProbe probe = null!;
+    private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
 
     public async ValueTask InitializeAsync()
     {
@@ -302,8 +306,199 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
         (await ReadProcessedAtAsync(second, cancellationToken)).ShouldBe(StartedAt);
     }
 
+    [Fact]
+    public async Task ImportCutover_BrokerDownAtRequestThenRecoveryCommitsDurablyAndRelaysWithParity()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var folder = new LibraryPath("C:/library/cutover-import");
+        var scanned = new ScannedMovie(
+            new LibraryPath("C:/library/cutover-import/file"),
+            "Cutover import",
+            new MediaFormat("mkv"),
+            null,
+            1024L);
+        scanner.Scan(folder).Returns(scanned);
+
+        // act - the request path no longer depends on IEnrichmentQueue, so it succeeds while the broker is down
+        MovieId movieId;
+        await using (var handlerContext = postgres.CreateMigratedContext())
+        {
+            movieId = await CreateImportHandler(handlerContext)
+                .HandleAsync(new ImportMovieFolderCommand(folder), cancellationToken);
+        }
+
+        // assert durable movie and unprocessed outbox row with no direct enqueue possibility
+        await using (var verificationContext = postgres.CreateMigratedContext())
+        {
+            (await verificationContext.Movies.CountAsync(cancellationToken)).ShouldBe(1);
+            var row = await verificationContext.OutboxMessages.SingleAsync(cancellationToken);
+            row.ProcessedAt.ShouldBeNull();
+            JsonSerializer.Deserialize<EnrichmentRequested>(row.Payload, SerializerOptions)
+                .ShouldBe(new EnrichmentRequested(movieId, 1));
+        }
+
+        // act - broker unavailable during a relay pass
+        OutboxRelayPassResult downPass;
+        await using (var downProvider = CreateRelayProvider(
+            queueDecorator: inner => new FaultedQueue(inner)
+            {
+                Publish = (_, _) => Task.FromException(new IOException("broker unavailable")),
+            }))
+        {
+            downPass = await CreateWorker(downProvider).RunPassAsync(cancellationToken);
+        }
+
+        // assert the durable row survives the broker outage unprocessed
+        downPass.ShouldBe(OutboxRelayPassResult.Failed);
+        await using (var stillPending = postgres.CreateMigratedContext())
+        {
+            (await stillPending.OutboxMessages.Select(message => message.ProcessedAt).SingleAsync(cancellationToken))
+                .ShouldBeNull();
+        }
+
+        // act - broker returns and the relay publishes through the real confirmed mandatory path
+        await using var recoveredProvider = CreateRelayProvider();
+        var recoveredPass = await CreateWorker(recoveredProvider).RunPassAsync(cancellationToken);
+
+        // assert wire parity and ProcessedAt only after the confirm settles
+        recoveredPass.ShouldBe(OutboxRelayPassResult.Succeeded);
+        var delivered = await DrainAsync(1, cancellationToken);
+        delivered.ShouldHaveSingleItem().ShouldBe(new EnrichmentRequested(movieId, 1));
+        await using var markedContext = postgres.CreateMigratedContext();
+        (await markedContext.OutboxMessages.Select(message => message.ProcessedAt).SingleAsync(cancellationToken))
+            .ShouldBe(StartedAt);
+    }
+
+    [Fact]
+    public async Task RequestEnrichmentCutover_BrokerDownAtRequestThenRecoveryCommitsDurablyAndRelaysWithParity()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var movieId = await SeedNotFoundMovieAsync(cancellationToken);
+
+        // act - the request path no longer depends on IEnrichmentQueue, so it succeeds while the broker is down
+        await using (var handlerContext = postgres.CreateMigratedContext())
+        {
+            var result = await new RequestEnrichmentCommandHandler(
+                    NewRepository(handlerContext),
+                    new EfEnrichmentOutbox(handlerContext, TimeProvider.System))
+                .HandleAsync(new RequestEnrichmentCommand(movieId), cancellationToken);
+            result.ShouldBe(movieId);
+        }
+
+        // assert durable status change and unprocessed outbox row
+        await using (var verificationContext = postgres.CreateMigratedContext())
+        {
+            var stored = await NewRepository(verificationContext).GetAsync(movieId, cancellationToken);
+            stored.ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
+            var row = await verificationContext.OutboxMessages.SingleAsync(cancellationToken);
+            row.ProcessedAt.ShouldBeNull();
+            JsonSerializer.Deserialize<EnrichmentRequested>(row.Payload, SerializerOptions)
+                .ShouldBe(new EnrichmentRequested(movieId, 1));
+        }
+
+        // act - broker unavailable during a relay pass
+        OutboxRelayPassResult downPass;
+        await using (var downProvider = CreateRelayProvider(
+            queueDecorator: inner => new FaultedQueue(inner)
+            {
+                Publish = (_, _) => Task.FromException(new IOException("broker unavailable")),
+            }))
+        {
+            downPass = await CreateWorker(downProvider).RunPassAsync(cancellationToken);
+        }
+
+        // assert the durable row survives the broker outage unprocessed
+        downPass.ShouldBe(OutboxRelayPassResult.Failed);
+        await using (var stillPending = postgres.CreateMigratedContext())
+        {
+            (await stillPending.OutboxMessages.Select(message => message.ProcessedAt).SingleAsync(cancellationToken))
+                .ShouldBeNull();
+        }
+
+        // act - broker returns and the relay publishes through the real confirmed mandatory path
+        await using var recoveredProvider = CreateRelayProvider();
+        var recoveredPass = await CreateWorker(recoveredProvider).RunPassAsync(cancellationToken);
+
+        // assert wire parity and ProcessedAt only after the confirm settles
+        recoveredPass.ShouldBe(OutboxRelayPassResult.Succeeded);
+        var delivered = await DrainAsync(1, cancellationToken);
+        delivered.ShouldHaveSingleItem().ShouldBe(new EnrichmentRequested(movieId, 1));
+        await using var markedContext = postgres.CreateMigratedContext();
+        (await markedContext.OutboxMessages.Select(message => message.ProcessedAt).SingleAsync(cancellationToken))
+            .ShouldBe(StartedAt);
+    }
+
+    [Fact]
+    public async Task RequestEnrichmentCutover_ExplicitRollback_LeavesNeitherStatusChangeNorOutboxDurable()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var movieId = await SeedNotFoundMovieAsync(cancellationToken);
+
+        // act - explicit rollback of a save that would otherwise commit both writes
+        await using (var handlerContext = postgres.CreateMigratedContext())
+        {
+            await using var transaction = await handlerContext.Database.BeginTransactionAsync(cancellationToken);
+            await new RequestEnrichmentCommandHandler(
+                    NewRepository(handlerContext),
+                    new EfEnrichmentOutbox(handlerContext, TimeProvider.System))
+                .HandleAsync(new RequestEnrichmentCommand(movieId), cancellationToken);
+            await transaction.RollbackAsync(cancellationToken);
+        }
+
+        // assert both-or-neither: no status change and no outbox row
+        await using var verificationContext = postgres.CreateMigratedContext();
+        var stored = await NewRepository(verificationContext).GetAsync(movieId, cancellationToken);
+        stored.ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.NotFound);
+        (await verificationContext.OutboxMessages.CountAsync(cancellationToken)).ShouldBe(0);
+    }
+
+    [Fact]
+    public void CutoverHostComposition_RetainsTheSweeper()
+    {
+        // arrange / act
+        using var host = new ApiHostFactory(retainSweeper: true);
+        var hostedServices = host.Services.GetServices<IHostedService>();
+
+        // assert
+        hostedServices.ShouldContain(service => service is StrandedMovieSweeper);
+    }
+
     private static Type? RelayWorkerType() =>
         typeof(OutboxRelayState).Assembly.GetType(WorkerTypeName, throwOnError: false);
+
+    private async Task<MovieId> SeedNotFoundMovieAsync(CancellationToken cancellationToken)
+    {
+        await using var context = postgres.CreateMigratedContext();
+        var repository = NewRepository(context);
+        var movieId = await repository.NextIdentityAsync(cancellationToken);
+        var movie = Movie.Rehydrate(
+            movieId,
+            "Cutover enrichment",
+            new LibraryPath("C:/library/cutover-enrichment"),
+            new MediaFormat("mkv"),
+            false,
+            null,
+            EnrichmentStatus.NotFound,
+            null,
+            0,
+            null,
+            null);
+        await repository.AddAsync(movie, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+        return movieId;
+    }
+
+    private ImportMovieFolderCommandHandler CreateImportHandler(LamuFlixDbContext context) =>
+        new(scanner, NewRepository(context), new EfEnrichmentOutbox(context, TimeProvider.System));
+
+    private static EfMovieRepository NewRepository(LamuFlixDbContext context) =>
+        new(
+            context,
+            TimeProvider.System,
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(5) }));
 
     private static ScriptedOutboxRelayWorker CreateWorker(ServiceProvider provider) =>
         ActivatorUtilities.CreateInstance<ScriptedOutboxRelayWorker>(provider);

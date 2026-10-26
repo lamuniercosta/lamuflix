@@ -28,7 +28,6 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
     private const string DuplicateIndexName = "IX_movies_library_path";
 
     private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
-    private readonly IEnrichmentQueue queue = Substitute.For<IEnrichmentQueue>();
 
     [Fact]
     public async Task HandleAsync_DuplicateLibraryPath_RealDatabaseRejectsSecondImport_RecordsOneImport()
@@ -48,7 +47,6 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
             var firstHandler = new ImportMovieFolderCommandHandler(
                 scanner,
                 NewRepository(firstContext),
-                queue,
                 new EfEnrichmentOutbox(firstContext, TimeProvider.System));
             firstId = await firstHandler.HandleAsync(new ImportMovieFolderCommand(folder), ct);
         }
@@ -61,7 +59,6 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
             var secondHandler = new ImportMovieFolderCommandHandler(
                 scanner,
                 NewRepository(secondContext),
-                queue,
                 new EfEnrichmentOutbox(secondContext, TimeProvider.System));
             rejection = await Should.ThrowAsync<DbUpdateException>(
                 () => secondHandler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
@@ -71,18 +68,46 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
         var uniqueViolation = rejection.InnerException.ShouldBeOfType<PostgresException>();
         uniqueViolation.SqlState.ShouldBe(PostgresErrorCodes.UniqueViolation);
         uniqueViolation.ConstraintName.ShouldBe(DuplicateIndexName);
-        await queue.Received(1).EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
         await using var verificationContext = postgres.CreateMigratedContext();
         var persisted = await verificationContext.Movies.ToListAsync(ct);
         var stored = persisted.ShouldHaveSingleItem();
         stored.Id.ShouldBe(firstId);
         stored.LibraryPath.ShouldBe(scanned.Path);
+        (await verificationContext.OutboxMessages.CountAsync(ct)).ShouldBe(1);
         baseline.ShouldBe(1);
         capture.Measurements.Count.ShouldBe(baseline);
         var measured = capture.Measurements.ShouldHaveSingleItem();
         measured.InstrumentName.ShouldBe(ImportInstrumentName);
         measured.Value.ShouldBe(1L);
         measured.Tags.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ExplicitRollback_LeavesNeitherMovieNorOutboxDurable()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await postgres.ResetAsync(ct);
+        var folder = new LibraryPath("C:/library/rolled-back");
+        var scanned = new ScannedMovie(new LibraryPath("C:/library/rolled-back/file"), "RolledBack", new MediaFormat("mkv"), null, 1024L);
+        scanner.Scan(folder).Returns(scanned);
+        await using var context = postgres.CreateMigratedContext();
+        var handler = new ImportMovieFolderCommandHandler(
+            scanner,
+            NewRepository(context),
+            new EfEnrichmentOutbox(context, TimeProvider.System));
+
+        // act
+        await using (var transaction = await context.Database.BeginTransactionAsync(ct))
+        {
+            await handler.HandleAsync(new ImportMovieFolderCommand(folder), ct);
+            await transaction.RollbackAsync(ct);
+        }
+
+        // assert
+        await using var verificationContext = postgres.CreateMigratedContext();
+        (await verificationContext.Movies.CountAsync(ct)).ShouldBe(0);
+        (await verificationContext.OutboxMessages.CountAsync(ct)).ShouldBe(0);
     }
 
     private static EfMovieRepository NewRepository(LamuFlixDbContext context)

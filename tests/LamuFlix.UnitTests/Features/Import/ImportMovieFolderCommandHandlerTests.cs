@@ -26,18 +26,17 @@ public sealed class ImportMovieFolderCommandHandlerTests
 
     private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
-    private readonly IEnrichmentQueue queue = Substitute.For<IEnrichmentQueue>();
     private readonly IEnrichmentOutbox outbox = Substitute.For<IEnrichmentOutbox>();
     private readonly ImportMovieFolderCommandHandler handler;
     private readonly Fixture fixture = new();
 
     public ImportMovieFolderCommandHandlerTests()
     {
-        handler = new ImportMovieFolderCommandHandler(scanner, movies, queue, outbox);
+        handler = new ImportMovieFolderCommandHandler(scanner, movies, outbox);
     }
 
     [Fact]
-    public async Task HandleAsync_HappyPath_ScanCreateAddSaveEnqueue()
+    public async Task HandleAsync_HappyPath_ScanCreateAddStageSave()
     {
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
@@ -60,7 +59,6 @@ public sealed class ImportMovieFolderCommandHandlerTests
             movies.AddAsync(Arg.Is<Movie>(movie => movie.Id == id && movie.Title == scanned.Title), ct);
             outbox.Stage(Arg.Is<EnrichmentRequested>(message => message.MovieId == id && message.Attempt == 1));
             movies.SaveChangesAsync(ct);
-            queue.EnqueueAsync(Arg.Is<EnrichmentRequested>(message => message.MovieId == id && message.Attempt == 1), ct);
         });
         outbox.Received(1).Stage(Arg.Is<EnrichmentRequested>(message => message.MovieId == id && message.Attempt == 1));
         var measured = capture.Measurements.ShouldHaveSingleItem();
@@ -91,33 +89,7 @@ public sealed class ImportMovieFolderCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_QueueFailure_PropagatesAfterSave()
-    {
-        // arrange
-        var folder = new LibraryPath("C:/library/incoming");
-        var id = NewId();
-        var scanned = new ScannedMovie(new LibraryPath("C:/library/incoming/file"), "Imported", new MediaFormat("mkv"), null, 1024L);
-        var ct = CancellationToken.None;
-        scanner.Scan(folder).Returns(scanned);
-        movies.NextIdentityAsync(ct).Returns(id);
-        queue.EnqueueAsync(Arg.Any<EnrichmentRequested>(), ct)
-            .ThrowsAsync(new InvalidOperationException("broker"));
-        using var capture = new ImportCountCapture();
-
-        // act
-        await Should.ThrowAsync<InvalidOperationException>(
-            () => handler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
-
-        // assert
-        await movies.Received(1).SaveChangesAsync(ct);
-        var measured = capture.Measurements.ShouldHaveSingleItem();
-        measured.InstrumentName.ShouldBe(ImportInstrumentName);
-        measured.Value.ShouldBe(1L);
-        measured.Tags.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public async Task HandleAsync_AddThrows_DoesNotSaveOrEnqueue()
+    public async Task HandleAsync_AddThrows_DoesNotSaveOrStage()
     {
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
@@ -136,12 +108,11 @@ public sealed class ImportMovieFolderCommandHandlerTests
         // assert
         outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
         capture.Measurements.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task HandleAsync_StageThrows_DoesNotSaveOrEnqueue()
+    public async Task HandleAsync_StageThrows_DoesNotSave()
     {
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
@@ -162,12 +133,11 @@ public sealed class ImportMovieFolderCommandHandlerTests
         outbox.Received(1).Stage(Arg.Is<EnrichmentRequested>(message => message.MovieId == id && message.Attempt == 1));
         await movies.Received(1).AddAsync(Arg.Any<Movie>(), ct);
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
         capture.Measurements.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task HandleAsync_SaveThrows_DoesNotEnqueue()
+    public async Task HandleAsync_SaveThrows_PropagatesAndRecordsNoImport()
     {
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
@@ -186,12 +156,11 @@ public sealed class ImportMovieFolderCommandHandlerTests
         // assert
         await movies.Received(1).AddAsync(Arg.Any<Movie>(), ct);
         outbox.Received(1).Stage(Arg.Any<EnrichmentRequested>());
-        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
         capture.Measurements.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task HandleAsync_SaveCancelled_SkipsEnqueueAndPropagates()
+    public async Task HandleAsync_SaveCancelled_Propagates()
     {
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
@@ -209,7 +178,6 @@ public sealed class ImportMovieFolderCommandHandlerTests
 
         // assert
         outbox.Received(1).Stage(Arg.Any<EnrichmentRequested>());
-        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
         capture.Measurements.ShouldBeEmpty();
     }
 
@@ -230,7 +198,6 @@ public sealed class ImportMovieFolderCommandHandlerTests
         await movies.DidNotReceive().AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>());
         outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
         capture.Measurements.ShouldBeEmpty();
     }
 
