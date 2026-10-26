@@ -18,12 +18,13 @@ public sealed class RequestEnrichmentCommandHandlerTests
 
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IEnrichmentQueue queue = Substitute.For<IEnrichmentQueue>();
+    private readonly IEnrichmentOutbox outbox = Substitute.For<IEnrichmentOutbox>();
     private readonly RequestEnrichmentCommandHandler handler;
     private readonly Fixture fixture = new();
 
     public RequestEnrichmentCommandHandlerTests()
     {
-        handler = new RequestEnrichmentCommandHandler(movies, queue);
+        handler = new RequestEnrichmentCommandHandler(movies, queue, outbox);
     }
 
     [Theory]
@@ -47,6 +48,7 @@ public sealed class RequestEnrichmentCommandHandlerTests
             thrown.State.ShouldBe(status.ToString());
             movie.Status.ShouldBe(status);
             movie.EnrichmentAttempts.ShouldBe(PriorAttempts);
+            outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
             await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
             await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
             return;
@@ -59,11 +61,14 @@ public sealed class RequestEnrichmentCommandHandlerTests
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
         movie.EnrichmentAttempts.ShouldBe(PriorAttempts);
         await movies.Received(1).SaveChangesAsync(ct);
+        outbox.Received(1).Stage(
+            Arg.Is<EnrichmentRequested>(message => message.MovieId == movie.Id && message.Attempt == 1));
         await queue.Received(1).EnqueueAsync(
             Arg.Is<EnrichmentRequested>(message => message.MovieId == movie.Id && message.Attempt == 1),
             ct);
         Received.InOrder(() =>
         {
+            outbox.Stage(Arg.Any<EnrichmentRequested>());
             movies.SaveChangesAsync(ct);
             queue.EnqueueAsync(Arg.Any<EnrichmentRequested>(), ct);
         });
@@ -85,6 +90,7 @@ public sealed class RequestEnrichmentCommandHandlerTests
 
         // assert
         movie.EnrichmentAttempts.ShouldBe(PriorAttempts);
+        outbox.Received(1).Stage(Arg.Any<EnrichmentRequested>());
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
@@ -101,7 +107,66 @@ public sealed class RequestEnrichmentCommandHandlerTests
             () => handler.HandleAsync(new RequestEnrichmentCommand(id), ct));
 
         // assert
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_StageThrows_DoesNotSaveOrEnqueue()
+    {
+        // arrange
+        var movie = MovieIn(EnrichmentStatus.Failed);
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+        outbox.When(stage => stage.Stage(Arg.Any<EnrichmentRequested>()))
+            .Throw(new InvalidOperationException("stage"));
+
+        // act
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => handler.HandleAsync(new RequestEnrichmentCommand(movie.Id), ct));
+
+        // assert
+        movie.Status.ShouldBe(EnrichmentStatus.Pending);
+        movie.EnrichmentAttempts.ShouldBe(PriorAttempts);
+        outbox.Received(1).Stage(Arg.Is<EnrichmentRequested>(message => message.MovieId == movie.Id && message.Attempt == 1));
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_SaveThrows_DoesNotEnqueue()
+    {
+        // arrange
+        var movie = MovieIn(EnrichmentStatus.NotFound);
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+        movies.SaveChangesAsync(ct).ThrowsAsync(new InvalidOperationException("save"));
+
+        // act
+        await Should.ThrowAsync<InvalidOperationException>(
+            () => handler.HandleAsync(new RequestEnrichmentCommand(movie.Id), ct));
+
+        // assert
+        outbox.Received(1).Stage(Arg.Any<EnrichmentRequested>());
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_SaveCancelled_SkipsEnqueueAndPropagates()
+    {
+        // arrange
+        var movie = MovieIn(EnrichmentStatus.NotFound);
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+        movies.SaveChangesAsync(ct).ThrowsAsync(new OperationCanceledException("cancelled"));
+
+        // act
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => handler.HandleAsync(new RequestEnrichmentCommand(movie.Id), ct));
+
+        // assert
+        outbox.Received(1).Stage(Arg.Any<EnrichmentRequested>());
         await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
     }
 

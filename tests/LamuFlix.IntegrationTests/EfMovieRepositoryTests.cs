@@ -550,7 +550,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         await SeedAsync(id, EnrichmentStatus.Failed, 3, Now.AddDays(-1));
 
         var queue = new RecordingQueue();
-        var handler = new RequestEnrichmentCommandHandler(repository, queue);
+        var handler = new RequestEnrichmentCommandHandler(repository, queue, new EfEnrichmentOutbox(db, TimeProvider.System));
         await handler.HandleAsync(new RequestEnrichmentCommand(id), ct);
 
         queue.Messages.Count.ShouldBe(1);

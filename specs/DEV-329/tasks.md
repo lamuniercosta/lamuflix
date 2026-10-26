@@ -61,14 +61,14 @@
 
 ### Tests
 
-- [ ] T011 [P] [US1] [US2] Extend `tests/LamuFlix.UnitTests/Features/Import/ImportMovieFolderCommandHandlerTests.cs` for Stage(request) → SaveChangesAsync → EnqueueAsync exactly once on success with identical MovieId/Attempt; no staging on scan/add failures; Stage throw ⇒ no save/enqueue; save throw/cancel ⇒ no enqueue; post-save queue throw propagates; existing metrics/status retained. AAA headers only.
-- [ ] T012 [P] [US1] [US2] Extend `tests/LamuFlix.UnitTests/Features/Enrichment/RequestEnrichmentCommandHandlerTests.cs` with the same orchestration/failure matrix and existing status/metric semantics; explicitly assert no `Stage`, `SaveChangesAsync`, or `EnqueueAsync` on both missing-movie and guard/state-rejected RequestEnrichment paths. AAA headers only.
+- [X] T011 [P] [US1] [US2] Extend `tests/LamuFlix.UnitTests/Features/Import/ImportMovieFolderCommandHandlerTests.cs` for Stage(request) → SaveChangesAsync → EnqueueAsync exactly once on success with identical MovieId/Attempt; no staging on scan/add failures; Stage throw ⇒ no save/enqueue; save throw/cancel ⇒ no enqueue; post-save queue throw propagates; existing metrics/status retained. AAA headers only.
+- [X] T012 [P] [US1] [US2] Extend `tests/LamuFlix.UnitTests/Features/Enrichment/RequestEnrichmentCommandHandlerTests.cs` with the same orchestration/failure matrix and existing status/metric semantics; explicitly assert no `Stage`, `SaveChangesAsync`, or `EnqueueAsync` on both missing-movie and guard/state-rejected RequestEnrichment paths. AAA headers only.
 
 ### Implementation
 
-- [ ] T013 [US1] Wire `IEnrichmentOutbox` into `src/LamuFlix.Core/Features/Import/ImportMovieFolderCommandHandler.cs`: Stage once before SaveChangesAsync; retain direct enqueue after successful save; no FeaturesRequested; no retry/coordinator.
-- [ ] T014 [US1] Wire `IEnrichmentOutbox` into `src/LamuFlix.Core/Features/Enrichment/RequestEnrichmentCommandHandler.cs` with the same Stage → Save → enqueue contract.
-- [ ] T015 [US1] Adapt constructors/fixtures within Q7 only: `tests/LamuFlix.IntegrationTests/EfMovieRepositoryTests.cs`, `ImportMovieFolderCommandHandlerPersistenceTests.cs`, `EnrichmentEndpointTests.cs`, `ImportEndpointTests.cs` so the solution builds with the new port. Do not edit HandlerRegistration.cs. Do not edit EfMovieRepository.cs. Do not change API shape.
+- [X] T013 [US1] Wire `IEnrichmentOutbox` into `src/LamuFlix.Core/Features/Import/ImportMovieFolderCommandHandler.cs`: Stage once before SaveChangesAsync; retain direct enqueue after successful save; no FeaturesRequested; no retry/coordinator.
+- [X] T014 [US1] Wire `IEnrichmentOutbox` into `src/LamuFlix.Core/Features/Enrichment/RequestEnrichmentCommandHandler.cs` with the same Stage → Save → enqueue contract.
+- [X] T015 [US1] Adapt constructors/fixtures within Q7 only: `tests/LamuFlix.IntegrationTests/EfMovieRepositoryTests.cs`, `ImportMovieFolderCommandHandlerPersistenceTests.cs`, `EnrichmentEndpointTests.cs`, `ImportEndpointTests.cs` so the solution builds with the new port. Do not edit HandlerRegistration.cs. Do not edit EfMovieRepository.cs. Do not change API shape.
 
 **Checkpoint**: Solution builds; unit orchestration proofs green; fixture adaptations compile without out-of-boundary edits.
 

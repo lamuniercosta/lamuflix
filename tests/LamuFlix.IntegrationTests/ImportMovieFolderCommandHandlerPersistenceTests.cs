@@ -45,7 +45,11 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
         MovieId firstId;
         await using (var firstContext = postgres.CreateMigratedContext())
         {
-            var firstHandler = new ImportMovieFolderCommandHandler(scanner, NewRepository(firstContext), queue);
+            var firstHandler = new ImportMovieFolderCommandHandler(
+                scanner,
+                NewRepository(firstContext),
+                queue,
+                new EfEnrichmentOutbox(firstContext, TimeProvider.System));
             firstId = await firstHandler.HandleAsync(new ImportMovieFolderCommand(folder), ct);
         }
 
@@ -54,7 +58,11 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
         DbUpdateException rejection;
         await using (var secondContext = postgres.CreateMigratedContext())
         {
-            var secondHandler = new ImportMovieFolderCommandHandler(scanner, NewRepository(secondContext), queue);
+            var secondHandler = new ImportMovieFolderCommandHandler(
+                scanner,
+                NewRepository(secondContext),
+                queue,
+                new EfEnrichmentOutbox(secondContext, TimeProvider.System));
             rejection = await Should.ThrowAsync<DbUpdateException>(
                 () => secondHandler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
         }
