@@ -90,7 +90,6 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
             builder.ConfigureTestServices(ReplaceHealthChecksWithStub);
         }
         builder.ConfigureTestServices(RemoveEmbeddingStartupProbe);
-        builder.ConfigureTestServices(AddEnrichmentStatusNotifierDouble);
         if (timeProvider is not null)
         {
             builder.ConfigureTestServices(services =>
@@ -113,13 +112,6 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
         {
             builder.ConfigureTestServices(RemoveEnrichmentConsumer);
         }
-    }
-
-    private static void AddEnrichmentStatusNotifierDouble(IServiceCollection services)
-    {
-        // Phase 3 supplies an explicit repository notifier double; the live Api adapter registration
-        // added by the hub delivery story wins because TryAdd keeps the first registration.
-        services.TryAddSingleton<IEnrichmentStatusNotifier, RecordingEnrichmentStatusNotifier>();
     }
 
     private static void ReplaceHealthChecksWithStub(IServiceCollection services)
