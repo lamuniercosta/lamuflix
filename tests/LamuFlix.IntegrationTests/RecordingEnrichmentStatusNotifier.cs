@@ -7,10 +7,6 @@ using LamuFlix.Core.Ports;
 
 namespace LamuFlix.IntegrationTests;
 
-/// <summary>
-/// Explicit <see cref="IEnrichmentStatusNotifier"/> test double: records every post-commit attempt,
-/// including the token it was called with, and can run caller-supplied behavior per attempt.
-/// </summary>
 internal sealed class RecordingEnrichmentStatusNotifier : IEnrichmentStatusNotifier
 {
     private readonly List<Notification> notifications = [];

@@ -221,7 +221,6 @@ public sealed class HealthEndpointTests
 
         private void ReplaceChecksWithStubs(IServiceCollection services)
         {
-            services.TryAddSingleton<IEnrichmentStatusNotifier, RecordingEnrichmentStatusNotifier>();
             services.Configure<HealthCheckServiceOptions>(static options => options.Registrations.Clear());
             services.AddHealthChecks()
                 .AddCheck(PostgresCheck, new StubHealthCheck(postgres), tags: [HealthCheckTags.Ready])

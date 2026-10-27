@@ -69,7 +69,6 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
 
     private void ReplaceHealthChecksAndTimeProvider(IServiceCollection services)
     {
-        services.TryAddSingleton<IEnrichmentStatusNotifier, RecordingEnrichmentStatusNotifier>();
         services.Configure<HealthCheckServiceOptions>(static options => options.Registrations.Clear());
         services.AddHealthChecks().AddCheck(StubCheckName, static () => HealthCheckResult.Healthy());
         services.RemoveAll<TimeProvider>();
