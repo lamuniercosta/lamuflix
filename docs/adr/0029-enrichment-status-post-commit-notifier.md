@@ -1,6 +1,6 @@
 # Enrichment status notifications after movie persistence commits
 
-Status: Proposed; owner Gate 1 constitution amendment remains open.
+Status: Accepted. Constitution v1.5.0 (MINOR) adds the `IEnrichmentStatusNotifier` port (DEV-330; owner Gate 1 approved per PR #264).
 
 Ticket: DEV-330. Decisions: `specs/DEV-330/CONCLUSIONS.md`, Q1–Q5. This supplements accepted ADR-0022; it does not introduce a different transport.
 
@@ -12,5 +12,5 @@ Use one awaited, ephemeral post-commit send attempt. Log and isolate send failur
 
 Repository invocation covers every repository caller without duplicating notifications across handlers or registering unused handlers. This keeps the commit boundary authoritative at the cost of direct repository constructor/DI and fixture adaptation. Require IEnrichmentStatusNotifier in the repository constructor; fixtures supply explicit test doubles. Api DI must supply the real notifier, proven by a named live-host integration test. No optional constructor fallback is permitted.
 
-Constitution Principle I closes the Core port list and requires an ADR for additions. The proposed v1.5.0 amendment adds this port, aligns polling-only enrichment wording with ADR-0022, and requires the architecture whitelist update. These changes require the explicit unchecked owner approval recorded by Q1; Patron has not cleared Gate 1. Recon provenance and cited source locations are recorded in recon-DEV-330 sections 3–7 and recon-DEV-330-2 sections Q1–Q3.
+Constitution Principle I closes the Core port list and requires an ADR for additions. Constitution v1.5.0 adds this port, aligns polling-only enrichment wording with ADR-0022, and requires the architecture whitelist update; the owner approved that structural change at Gate 1 (PR #264). Recon provenance and cited source locations are recorded in recon-DEV-330 sections 3–7 and recon-DEV-330-2 sections Q1–Q3.
 
