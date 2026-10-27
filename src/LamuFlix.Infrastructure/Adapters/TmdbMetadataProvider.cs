@@ -91,7 +91,7 @@ public sealed partial class TmdbMetadataProvider(
 
     private async Task<MetadataLookupResult> SearchThenFetchAsync(MetadataLookup lookup, CancellationToken ct)
     {
-        var fetch = await FetchAsync(BuildSearchUri(lookup), ct);
+        var fetch = await FetchAsync(BuildSearchUri(lookup), RequestKind.Search, ct);
         if (fetch is Fetch.Rejected rejected)
         {
             return rejected.Failure;
@@ -129,11 +129,14 @@ public sealed partial class TmdbMetadataProvider(
         return best;
     }
 
-    private static bool IsBetter(Candidate candidate, Candidate current) =>
-        candidate.Score > current.Score
-        || (candidate.Score == current.Score
-            && candidate.Id is { } id
-            && (current.Id is not { } currentId || id < currentId));
+    private static bool IsBetter(Candidate candidate, Candidate current)
+    {
+        var comparison = candidate.Score.CompareTo(current.Score);
+        return comparison > 0 || (comparison == 0 && HasLowerId(candidate.Id, current.Id));
+    }
+
+    private static bool HasLowerId(int? candidateId, int? currentId) =>
+        candidateId is { } id && (currentId is not { } other || id < other);
 
     private static Candidate? ScoreCandidate(MetadataLookup lookup, SearchHit hit) =>
         hit.Title is null
@@ -148,7 +151,7 @@ public sealed partial class TmdbMetadataProvider(
 
     private async Task<MetadataLookupResult> FindThenFetchAsync(ImdbId imdbId, CancellationToken ct)
     {
-        var fetch = await FetchAsync(BuildFindUri(imdbId), ct);
+        var fetch = await FetchAsync(BuildFindUri(imdbId), RequestKind.Find, ct);
         if (fetch is Fetch.Rejected rejected)
         {
             return rejected.Failure;
@@ -173,7 +176,7 @@ public sealed partial class TmdbMetadataProvider(
             return Failure(EnrichmentFailureCategory.InvalidResponse);
         }
 
-        var fetch = await FetchAsync(BuildDetailsUri(movieId), ct);
+        var fetch = await FetchAsync(BuildDetailsUri(movieId), RequestKind.Details, ct);
         if (fetch is Fetch.Rejected rejected)
         {
             return rejected.Failure;
@@ -196,14 +199,18 @@ public sealed partial class TmdbMetadataProvider(
         return new MetadataLookupResult.Found(metadata);
     }
 
-    private async Task<Fetch> FetchAsync(Uri uri, CancellationToken ct)
+    private async Task<Fetch> FetchAsync(Uri uri, RequestKind kind, CancellationToken ct)
     {
         try
         {
             using var response = await httpClient.GetAsync(uri, ct);
-            return await ReadAsync(response, ct);
+            return await ReadAsync(response, kind, ct);
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
         {
             return new Fetch.Rejected(UnavailableFailure(statusCode: null, exception: null));
         }
@@ -213,11 +220,11 @@ public sealed partial class TmdbMetadataProvider(
         }
     }
 
-    private async Task<Fetch> ReadAsync(HttpResponseMessage response, CancellationToken ct)
+    private async Task<Fetch> ReadAsync(HttpResponseMessage response, RequestKind kind, CancellationToken ct)
     {
         if (!response.IsSuccessStatusCode)
         {
-            return new Fetch.Rejected(StatusFailure(response.StatusCode));
+            return new Fetch.Rejected(StatusFailure(response.StatusCode, kind));
         }
 
         Response? body;
@@ -253,10 +260,43 @@ public sealed partial class TmdbMetadataProvider(
         return Failure(EnrichmentFailureCategory.InvalidResponse);
     }
 
-    private MetadataLookupResult StatusFailure(HttpStatusCode statusCode)
+    private MetadataLookupResult StatusFailure(HttpStatusCode statusCode, RequestKind kind)
     {
+        if (statusCode == HttpStatusCode.Unauthorized)
+        {
+            return UnauthorizedFailure();
+        }
+
+        if (statusCode == HttpStatusCode.TooManyRequests)
+        {
+            Log.RateLimited(logger, StatusText(statusCode));
+            return Failure(EnrichmentFailureCategory.RateLimited);
+        }
+
+        if (IsTransient(statusCode))
+        {
+            Log.ProviderUnavailable(
+                logger,
+                StatusText(statusCode),
+                EnrichmentFailureCategory.ProviderUnavailable.Code,
+                string.Empty);
+            return Failure(EnrichmentFailureCategory.ProviderUnavailable);
+        }
+
+        if (statusCode == HttpStatusCode.NotFound && kind is not RequestKind.Search)
+        {
+            return NotFoundOutcome();
+        }
+
         Log.InvalidResponse(logger, StatusText(statusCode));
         return Failure(EnrichmentFailureCategory.InvalidResponse);
+    }
+
+    private MetadataLookupResult UnauthorizedFailure()
+    {
+        Log.InvalidApiKey(logger);
+        healthState.Record(EnrichmentFailureCategory.InvalidResponse, wasUnauthorized: true);
+        return new MetadataLookupResult.Failed(EnrichmentFailureCategory.InvalidResponse);
     }
 
     private MetadataLookupResult UnavailableFailure(HttpStatusCode? statusCode, Exception? exception)
@@ -292,6 +332,9 @@ public sealed partial class TmdbMetadataProvider(
         activity.SetStatus(ActivityStatusCode.Error);
     }
 
+    private static bool IsTransient(HttpStatusCode statusCode) =>
+        statusCode == HttpStatusCode.RequestTimeout || (int)statusCode >= 500;
+
     private static string StatusText(HttpStatusCode? statusCode) =>
         statusCode is null
             ? NoStatus
@@ -313,13 +356,23 @@ public sealed partial class TmdbMetadataProvider(
         ComposeUri(
             string.Concat("find/", Uri.EscapeDataString(imdbId.Value), QueryKey(), "&external_source=imdb_id"));
 
-    private Uri ComposeUri(string relativePath) => new(new Uri(tmdbOptions.BaseUrl), relativePath);
+    private Uri ComposeUri(string relativePath) => new(BaseUri(), relativePath);
+
+    private Uri BaseUri() =>
+        new(tmdbOptions.BaseUrl.EndsWith('/') ? tmdbOptions.BaseUrl : string.Concat(tmdbOptions.BaseUrl, "/"));
 
     private string QueryKey() =>
         string.Concat("?api_key=", Uri.EscapeDataString(tmdbOptions.ApiKey));
 
     private static string PrimaryReleaseYear(ReleaseYear year) =>
         string.Concat("&primary_release_year=", year.Value.ToString(CultureInfo.InvariantCulture));
+
+    private enum RequestKind
+    {
+        Search,
+        Details,
+        Find,
+    }
 
     private abstract record Fetch
     {
