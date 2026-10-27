@@ -17,6 +17,8 @@ public static class MovieQueryString
     private const string RuntimeIncludeUnknownKey = "runtimeIncludeUnknown";
     private const string YearMinKey = "yearMin";
     private const string YearMaxKey = "yearMax";
+    private const string MinRatingKey = "minRating";
+    private const string MaxRatingKey = "maxRating";
     private const string StatusesKey = "statuses";
     private const string InWatchlistKey = "inWatchlist";
     private const string SortKey = "sort";
@@ -33,6 +35,7 @@ public static class MovieQueryString
         AppendInts(pairs, ActorIdsKey, query.ActorIds);
         AppendRuntime(pairs, query.Runtime);
         AppendYear(pairs, query.Year);
+        AppendRating(pairs, query.Rating);
         AppendStatuses(pairs, query.Statuses);
         AppendOptionalBool(pairs, query.InWatchlist);
         pairs.Add(Pair(SortKey, RequiredName(query.Sort, SortKey)));
@@ -67,6 +70,25 @@ public static class MovieQueryString
         return true;
     }
 
+    public static bool TryParseRatingBound(string? raw, out decimal? bound)
+    {
+        bound = null;
+        if (string.IsNullOrEmpty(raw))
+        {
+            return true;
+        }
+
+        if (!HasRatingBoundShape(raw)
+            || !decimal.TryParse(raw, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var parsed)
+            || !ImdbRating.TryCreate(parsed, out _))
+        {
+            return false;
+        }
+
+        bound = parsed;
+        return true;
+    }
+
     private static bool TryApplyKey(string key, string raw, ParseState state) => key switch
     {
         TextKey => TryApplyText(raw, state),
@@ -77,6 +99,8 @@ public static class MovieQueryString
         RuntimeIncludeUnknownKey => TryApplyRuntimeIncludeUnknown(raw, state),
         YearMinKey => TryApplyYearMin(raw, state),
         YearMaxKey => TryApplyYearMax(raw, state),
+        MinRatingKey => TryApplyMinRating(raw, state),
+        MaxRatingKey => TryApplyMaxRating(raw, state),
         StatusesKey => TryApplyStatus(raw, state),
         InWatchlistKey => TryApplyInWatchlist(raw, state),
         SortKey => TryApplySort(raw, state),
@@ -117,6 +141,12 @@ public static class MovieQueryString
 
     private static bool TryApplyYearMax(string raw, ParseState state) =>
         TryApplyOptionalInt(raw, state, YearMaxKey, value => state.YearMax = value);
+
+    private static bool TryApplyMinRating(string raw, ParseState state) =>
+        TryApplyOptionalRating(raw, state, MinRatingKey, value => state.MinRating = value);
+
+    private static bool TryApplyMaxRating(string raw, ParseState state) =>
+        TryApplyOptionalRating(raw, state, MaxRatingKey, value => state.MaxRating = value);
 
     private static bool TryApplyStatus(string raw, ParseState state)
     {
@@ -182,6 +212,50 @@ public static class MovieQueryString
         return true;
     }
 
+    private static bool TryApplyOptionalRating(string raw, ParseState state, string key, Action<decimal?> assign)
+    {
+        if (!state.Seen.Add(key) || !TryParseRatingBound(raw, out var parsed))
+        {
+            return false;
+        }
+
+        assign(parsed);
+        return true;
+    }
+
+    private static bool HasRatingBoundShape(string raw)
+    {
+        var separator = raw.IndexOf('.', StringComparison.Ordinal);
+        if (separator < 0)
+        {
+            return AreAsciiDigits(raw);
+        }
+
+        return raw.Length - separator == 2
+            && AreAsciiDigits(raw[..separator])
+            && IsAsciiDigit(raw[separator + 1]);
+    }
+
+    private static bool AreAsciiDigits(string value)
+    {
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        foreach (var character in value)
+        {
+            if (!IsAsciiDigit(character))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsAsciiDigit(char character) => character >= '0' && character <= '9';
+
     private static bool TryApplyRequiredInt(string raw, ParseState state, string key, Action<int> assign)
     {
         if (!state.Seen.Add(key) || raw.Length == 0 || !TryParseInt(raw, out var parsed))
@@ -221,12 +295,12 @@ public static class MovieQueryString
             return false;
         }
 
-        if (!TryRuntime(state, out var runtime) || !TryYear(state, out var year))
+        if (!TryRuntime(state, out var runtime) || !TryYear(state, out var year) || !TryRating(state, out var rating))
         {
             return false;
         }
 
-        query = CreateQuery(state, runtime, year);
+        query = CreateQuery(state, runtime, year, rating);
         return true;
     }
 
@@ -264,13 +338,35 @@ public static class MovieQueryString
         return true;
     }
 
+    private static bool TryRating(ParseState state, out RatingRange? rating)
+    {
+        rating = null;
+        if (!HasAnyRatingValue(state))
+        {
+            return true;
+        }
+
+        if (!HasCompleteRatingValues(state))
+        {
+            return false;
+        }
+
+        if (state.MinRating is { } min && state.MaxRating is { } max && min > max)
+        {
+            return false;
+        }
+
+        rating = new RatingRange(state.MinRating, state.MaxRating);
+        return true;
+    }
+
     private static bool HasRequiredValues(ParseState state) =>
         state.Sort is not null
         && state.Direction is not null
         && state.Page is not null
         && state.PageSize is not null;
 
-    private static MovieQuery CreateQuery(ParseState state, RuntimeRange? runtime, YearRange? year) =>
+    private static MovieQuery CreateQuery(ParseState state, RuntimeRange? runtime, YearRange? year, RatingRange? rating) =>
         new()
         {
             Text = state.Text,
@@ -278,6 +374,7 @@ public static class MovieQueryString
             ActorIds = [.. state.ActorIds],
             Runtime = runtime,
             Year = year,
+            Rating = rating,
             Statuses = [.. state.Statuses],
             InWatchlist = state.InWatchlist,
             Sort = state.Sort,
@@ -300,6 +397,12 @@ public static class MovieQueryString
 
     private static bool HasCompleteYearValues(ParseState state) =>
         state.Seen.Contains(YearMinKey) && state.Seen.Contains(YearMaxKey);
+
+    private static bool HasAnyRatingValue(ParseState state) =>
+        state.Seen.Contains(MinRatingKey) || state.Seen.Contains(MaxRatingKey);
+
+    private static bool HasCompleteRatingValues(ParseState state) =>
+        state.Seen.Contains(MinRatingKey) && state.Seen.Contains(MaxRatingKey);
 
     private static bool TrySplit(string segment, out string key, out string value)
     {
@@ -355,6 +458,17 @@ public static class MovieQueryString
         pairs.Add(Pair(YearMaxKey, Bound(year.Max)));
     }
 
+    private static void AppendRating(List<string> pairs, RatingRange? rating)
+    {
+        if (rating is null)
+        {
+            return;
+        }
+
+        pairs.Add(Pair(MinRatingKey, RatingBound(rating.Min)));
+        pairs.Add(Pair(MaxRatingKey, RatingBound(rating.Max)));
+    }
+
     private static void AppendStatuses(List<string> pairs, ImmutableArray<EnrichmentStatus> statuses)
     {
         foreach (var status in statuses)
@@ -373,6 +487,9 @@ public static class MovieQueryString
 
     private static string Bound(int? value) =>
         value?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private static string RatingBound(decimal? value) =>
+        value?.ToString("0.#", CultureInfo.InvariantCulture) ?? string.Empty;
 
     private static string RequiredName<TEnum>(TEnum? value, string key)
         where TEnum : Ardalis.SmartEnum.SmartEnum<TEnum, int> =>
@@ -400,6 +517,10 @@ public static class MovieQueryString
         public int? YearMin { get; set; }
 
         public int? YearMax { get; set; }
+
+        public decimal? MinRating { get; set; }
+
+        public decimal? MaxRating { get; set; }
 
         public List<EnrichmentStatus> Statuses { get; } = [];
 

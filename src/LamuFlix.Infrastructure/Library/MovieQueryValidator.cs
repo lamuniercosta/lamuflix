@@ -1,4 +1,5 @@
 using FluentValidation;
+using LamuFlix.Core.Domain;
 using LamuFlix.Core.Library;
 
 namespace LamuFlix.Infrastructure.Library;
@@ -13,6 +14,7 @@ public sealed class MovieQueryValidator : AbstractValidator<MovieQuery>
         RuleFor(query => query.Direction).NotNull();
         RuleFor(query => query.Runtime).Must(IsValidRuntime);
         RuleFor(query => query.Year).Must(IsValidYear);
+        RuleFor(query => query.Rating).Must(IsValidRating);
     }
 
     private static bool IsValidRuntime(RuntimeRange? runtime)
@@ -38,4 +40,22 @@ public sealed class MovieQueryValidator : AbstractValidator<MovieQuery>
         var max = year.Max;
         return min <= max;
     }
+
+    private static bool IsValidRating(RatingRange? rating)
+    {
+        if (rating is null)
+        {
+            return true;
+        }
+
+        if (!IsValidRatingBound(rating.Min) || !IsValidRatingBound(rating.Max))
+        {
+            return false;
+        }
+
+        return rating.Min is not { } min || rating.Max is not { } max || min <= max;
+    }
+
+    private static bool IsValidRatingBound(decimal? bound) =>
+        bound is not { } value || ImdbRating.TryCreate(value, out _);
 }
