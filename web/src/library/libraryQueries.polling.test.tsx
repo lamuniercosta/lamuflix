@@ -235,18 +235,24 @@ describe('event and mutation reconciliation without polling', () => {
   function holdBrowseAfterFirst() {
     let calls = 0;
     let hold = false;
+    let inflight = 0;
     const releases: Array<() => void> = [];
     let serverStatus: MovieSummary['enrichmentStatus'] = 'NotFound';
 
     server.use(
       http.get('/api/movies', async () => {
         calls += 1;
-        if (hold) {
-          await new Promise<void>((resolve) => {
-            releases.push(resolve);
-          });
+        inflight += 1;
+        try {
+          if (hold) {
+            await new Promise<void>((resolve) => {
+              releases.push(resolve);
+            });
+          }
+          return HttpResponse.json(browseBody([lostFilmRow(serverStatus)]), { status: 200 });
+        } finally {
+          inflight -= 1;
         }
-        return HttpResponse.json(browseBody([lostFilmRow(serverStatus)]), { status: 200 });
       }),
     );
 
@@ -263,24 +269,34 @@ describe('event and mutation reconciliation without polling', () => {
         }
       },
       calls: () => calls,
+      inflight: () => inflight,
     };
   }
 
   async function settle(browse: ReturnType<typeof holdBrowseAfterFirst>) {
+    browse.setHold(false);
     let previous = -1;
-    for (let attempt = 0; attempt < 20 && browse.calls() !== previous; attempt += 1) {
-      previous = browse.calls();
+    let stableRuns = 0;
+    for (let attempt = 0; attempt < 40; attempt += 1) {
       browse.releaseAll();
-      await new Promise((resolve) => setTimeout(resolve, 25));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      browse.releaseAll();
+      if (browse.calls() === previous && browse.inflight() === 0) {
+        stableRuns += 1;
+        if (stableRuns >= 2) {
+          break;
+        }
+      } else {
+        stableRuns = 0;
+      }
+      previous = browse.calls();
     }
     browse.releaseAll();
     return browse.calls();
   }
 
   async function expectNoIntervalRequests(browse: ReturnType<typeof holdBrowseAfterFirst>) {
-    console.log('E');
     const settledCalls = await settle(browse);
-    console.log('F', settledCalls);
     vi.useFakeTimers({ toFake: ['setInterval'] });
     await vi.advanceTimersByTimeAsync(10_000);
     expect(browse.calls()).toBe(settledCalls);
