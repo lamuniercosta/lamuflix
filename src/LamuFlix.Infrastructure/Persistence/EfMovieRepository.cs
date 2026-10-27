@@ -15,7 +15,7 @@ using Npgsql;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
-public sealed class EfMovieRepository : IMovieRepository
+public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDisposable
 {
     private const string ImdbIdIndexName = "IX_movies_imdb_id";
 
@@ -34,12 +34,8 @@ public sealed class EfMovieRepository : IMovieRepository
     private readonly HybridCachedRecommendationProfileSource? tasteProfileCache;
     private readonly Dictionary<MovieId, TrackedMovie> identityMap = [];
 
-    /// <summary>
-    /// Status transitions whose enclosing persistence transaction commits outside this repository.
-    /// They stay here until a later save observes that the ambient transaction is gone and the
-    /// committed row confirms the new status (rolled-back writes are dropped without notifying).
-    /// </summary>
     private List<StatusTransition> pendingAmbientTransitions = [];
+    private bool disposed;
 
     public EfMovieRepository(
         LamuFlixDbContext db,
@@ -109,7 +105,7 @@ public sealed class EfMovieRepository : IMovieRepository
             }
 
             cache.Invalidate();
-            await InvalidateTasteProfileAsync(ct);
+            await InvalidateTasteProfileBestEffortAsync();
         }
 
         return rows == 1;
@@ -184,6 +180,7 @@ public sealed class EfMovieRepository : IMovieRepository
     public async Task SaveChangesAsync(CancellationToken ct)
     {
         var transitions = CaptureStatusTransitions();
+        var committedDeferred = await TakeCommittedDeferredAsync();
 
         if (!HasMetadataWrites())
         {
@@ -199,14 +196,46 @@ public sealed class EfMovieRepository : IMovieRepository
         }
 
         cache.Invalidate();
-        await InvalidateTasteProfileAsync(ct);
-        await DispatchStatusTransitionsAsync(transitions);
+        await InvalidateTasteProfileBestEffortAsync();
+        await DispatchStatusTransitionsAsync(transitions, committedDeferred);
     }
 
-    /// <summary>
-    /// Persisted-before status comes from the per-movie baseline; a new insert has no persisted
-    /// status yet, so its committed status always counts as a transition.
-    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        disposed = true;
+        try
+        {
+            await FlushPendingAsync();
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Flushing deferred enrichment status notifications failed while disposing the movie repository.");
+        }
+    }
+
+    public void Dispose()
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        disposed = true;
+        try
+        {
+            FlushPendingAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Flushing deferred enrichment status notifications failed while disposing the movie repository.");
+        }
+    }
+
     private List<StatusTransition> CaptureStatusTransitions()
     {
         var transitions = new List<StatusTransition>();
@@ -223,35 +252,79 @@ public sealed class EfMovieRepository : IMovieRepository
         return transitions;
     }
 
-    private async Task DispatchStatusTransitionsAsync(IReadOnlyList<StatusTransition> transitions)
+    private async Task DispatchStatusTransitionsAsync(
+        IReadOnlyList<StatusTransition> transitions,
+        IReadOnlyList<StatusTransition> committedDeferred)
+    {
+        if (db.Database.CurrentTransaction is not null)
+        {
+            foreach (var transition in transitions)
+            {
+                DeferOrReplace(pendingAmbientTransitions, transition);
+            }
+
+            return;
+        }
+
+        foreach (var transition in committedDeferred)
+        {
+            await NotifyAsync(transition);
+        }
+
+        foreach (var transition in transitions)
+        {
+            await NotifyAsync(transition);
+        }
+    }
+
+    private async Task<List<StatusTransition>> TakeCommittedDeferredAsync()
     {
         var deferred = pendingAmbientTransitions;
         pendingAmbientTransitions = [];
-
         if (db.Database.CurrentTransaction is not null)
         {
-            // The enclosing commit belongs to someone else: hold the candidates until a later save
-            // can prove the transaction outcome instead of treating this write as the boundary.
-            foreach (var transition in transitions)
-            {
-                DeferOrReplace(deferred, transition);
-            }
+            pendingAmbientTransitions = deferred;
+            return [];
+        }
 
+        var committed = new List<StatusTransition>(deferred.Count);
+        foreach (var transition in deferred)
+        {
+            if (await IsStatusCommittedAsync(transition))
+            {
+                committed.Add(transition);
+            }
+        }
+
+        return committed;
+    }
+
+    private async Task FlushPendingAsync()
+    {
+        var deferred = pendingAmbientTransitions;
+        pendingAmbientTransitions = [];
+        if (db.Database.CurrentTransaction is not null)
+        {
             pendingAmbientTransitions = deferred;
             return;
         }
 
         foreach (var transition in deferred)
         {
-            if (await IsStatusCommittedAsync(transition))
+            try
             {
-                await NotifyAsync(transition);
+                if (await IsStatusCommittedAsync(transition))
+                {
+                    await NotifyAsync(transition);
+                }
             }
-        }
-
-        foreach (var transition in transitions)
-        {
-            await NotifyAsync(transition);
+            catch (Exception exception)
+            {
+                logger.LogError(
+                    exception,
+                    "Deferred enrichment status notification failed for movie {MovieId}.",
+                    transition.MovieId.Value);
+            }
         }
     }
 
@@ -281,8 +354,6 @@ public sealed class EfMovieRepository : IMovieRepository
     {
         try
         {
-            // Post-commit dispatch ignores the caller token so a cancellation after commit cannot
-            // silently skip the send attempt.
             await notifier.NotifyAsync(transition.MovieId, transition.Status, CancellationToken.None);
         }
         catch (Exception exception)
@@ -295,11 +366,20 @@ public sealed class EfMovieRepository : IMovieRepository
         }
     }
 
-    private async Task InvalidateTasteProfileAsync(CancellationToken ct)
+    private async Task InvalidateTasteProfileBestEffortAsync()
     {
-        if (tasteProfileCache is not null)
+        if (tasteProfileCache is null)
         {
-            await tasteProfileCache.InvalidateAsync(ct);
+            return;
+        }
+
+        try
+        {
+            await tasteProfileCache.InvalidateAsync(CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Taste profile cache invalidation failed after a committed movie save.");
         }
     }
 
