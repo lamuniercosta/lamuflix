@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { components } from './api/types';
 import {
@@ -148,6 +149,7 @@ export interface AppProps {
 }
 
 export default function App({ enrichmentStatus }: AppProps) {
+  const queryClient = useQueryClient();
   const [importOpen, setImportOpen] = useState(false);
   const [importedRow, setImportedRow] = useState<MovieSummary | null>(null);
   const importFolderButtonRef = useRef<HTMLButtonElement>(null);
@@ -168,7 +170,7 @@ export default function App({ enrichmentStatus }: AppProps) {
 
   function prependImportedMovie(id: string, title: string) {
     setImportedRow(pendingRow(id, title));
-    armImportPlaceholder(() => setImportedRow(null));
+    armImportPlaceholder(queryClient, () => setImportedRow(null));
   }
 
   const applyLibraryQuery = useCallback(

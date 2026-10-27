@@ -88,13 +88,13 @@
 
 ### Tests
 
-- [ ] T010 [US4] Repurpose `web/src/library/libraryQueries.polling.test.tsx` in place: remove `browseRefetchInterval` / 2s cadence assertions; prove no interval-driven browse requests; cover event/invalidation reconciliation including event-before-mutation-response and mutation-before-event; concretely assert `aria-live="polite"` remains present/green after polling removal (not merely coverage intent). AAA headers only. Do not delete the file.
+- [X] T010 [US4] Repurpose `web/src/library/libraryQueries.polling.test.tsx` in place: remove `browseRefetchInterval` / 2s cadence assertions; prove no interval-driven browse requests; cover event/invalidation reconciliation including event-before-mutation-response and mutation-before-event; concretely assert `aria-live="polite"` remains present/green after polling removal (not merely coverage intent). AAA headers only. Do not delete the file.
 
-- [ ] T011 [P] [US4] Update `web/src/library/LibraryView.retry.test.tsx` in place: replace assertions that `browseRefetchInterval(...) === 2000` with no-polling / invalidation reconciliation expectations after retry marks Pending. Preserve status label/visual expectations.
+- [X] T011 [P] [US4] Update `web/src/library/LibraryView.retry.test.tsx` in place: replace assertions that `browseRefetchInterval(...) === 2000` with no-polling / invalidation reconciliation expectations after retry marks Pending. Preserve status label/visual expectations.
 
 ### Implementation
 
-- [ ] T012 [US4] In `web/src/library/libraryQueries.ts`, remove `browseRefetchInterval` and browse `refetchInterval` / `refetchIntervalInBackground` options. Preserve `pendingRow`, `markRowPending`, `armImportPlaceholder` / `reconcileImportPlaceholder` / row-id reconciliation. On successful import and retry/request-enrichment/match mutations, immediately `invalidateQueries({ queryKey: ['browseMovies'] })` (coordinate with `web/src/App.tsx` and `web/src/features/movie-details/movieDetailsQueries.ts` call sites as required by brief Q5). Do not restore HTTP polling timers.
+- [X] T012 [US4] In `web/src/library/libraryQueries.ts`, remove `browseRefetchInterval` and browse `refetchInterval` / `refetchIntervalInBackground` options. Preserve `pendingRow`, `markRowPending`, `armImportPlaceholder` / `reconcileImportPlaceholder` / row-id reconciliation. On successful import and retry/request-enrichment/match mutations, immediately `invalidateQueries({ queryKey: ['browseMovies'] })` (coordinate with `web/src/App.tsx` and `web/src/features/movie-details/movieDetailsQueries.ts` call sites as required by brief Q5). Do not restore HTTP polling timers.
 
 **Checkpoint**: No-polling and mutation-race named proofs green; Pending visuals and live region preserved.
 

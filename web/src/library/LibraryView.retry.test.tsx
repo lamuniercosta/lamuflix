@@ -8,12 +8,7 @@ import type { components, paths } from '../api/types';
 import App from '../App';
 import { retryAcceptedHandler, retryConflictHandler, retryNotFoundHandler } from '../test/handlers';
 import { server } from '../test/server';
-import {
-  browseMoviesQueryKey,
-  browseRefetchInterval,
-  GENERIC_RETRY_ERROR,
-  standingBrowseQuery,
-} from './libraryQueries';
+import { browseMoviesQueryKey, GENERIC_RETRY_ERROR, standingBrowseQuery } from './libraryQueries';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
@@ -109,9 +104,21 @@ describe('LibraryView retry', () => {
     expect(screen.queryByRole('button', { name: 'Retry Arrival' })).not.toBeInTheDocument();
   });
 
-  it('sets the retried row to Pending on 202 so polling re-arms', async () => {
-    useRetryableBrowse();
-    server.use(retryAcceptedHandler);
+  it('marks the retried row Pending on 202 and refetches browse without polling', async () => {
+    let browseCalls = 0;
+    let releaseRefetch: (() => void) | undefined;
+    server.use(
+      http.get('/api/movies', async () => {
+        browseCalls += 1;
+        if (browseCalls > 1) {
+          await new Promise<void>((resolve) => {
+            releaseRefetch = resolve;
+          });
+        }
+        return HttpResponse.json(browseBody([dune, arrival, lostFilm, brokenCut]), { status: 200 });
+      }),
+      retryAcceptedHandler,
+    );
     const { client } = renderApp();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Retry Lost Film' }));
@@ -125,10 +132,18 @@ describe('LibraryView retry', () => {
       .find((item) => item.textContent?.includes('Lost Film'));
     expect(row).toHaveTextContent('Pending');
     expect(
-      browseRefetchInterval({
-        state: { data: client.getQueryData(browseMoviesQueryKey) },
-      }),
-    ).toBe(2000);
+      client
+        .getQueryData<BrowseMoviesResponse>(browseMoviesQueryKey)
+        ?.items.find((item) => item.id === 3)?.enrichmentStatus,
+    ).toBe('Pending');
+
+    await waitFor(() => {
+      expect(browseCalls).toBe(2);
+    });
+    releaseRefetch?.();
+    await waitFor(() => {
+      expect(browseCalls).toBe(2);
+    });
   });
 
   it('shows a described inline row alert on 404 and invalidates browse', async () => {
@@ -181,12 +196,20 @@ describe('LibraryView retry', () => {
 describe('LibraryView filtered watchlist retry', () => {
   const watchlistedFailed: MovieSummary = { ...brokenCut, isInWatchlist: true };
 
-  it('marks the filtered watchlist row Pending on 202', async () => {
+  it('marks the filtered watchlist row Pending on 202 without polling', async () => {
     window.history.replaceState({}, '', '/?watchlist=true');
+    let browseCalls = 0;
+    let releaseRefetch: (() => void) | undefined;
     server.use(
-      http.get('/api/movies', () =>
-        HttpResponse.json(browseBody([watchlistedFailed]), { status: 200 }),
-      ),
+      http.get('/api/movies', async () => {
+        browseCalls += 1;
+        if (browseCalls > 1) {
+          await new Promise<void>((resolve) => {
+            releaseRefetch = resolve;
+          });
+        }
+        return HttpResponse.json(browseBody([watchlistedFailed]), { status: 200 });
+      }),
       retryAcceptedHandler,
     );
     const { client } = renderApp();
@@ -201,8 +224,16 @@ describe('LibraryView filtered watchlist retry', () => {
       .find((item) => item.textContent?.includes('Broken Cut'));
     expect(row).toHaveTextContent('Pending');
 
+    await waitFor(() => {
+      expect(browseCalls).toBe(2);
+    });
     const filteredKey = ['browseMovies', { ...standingBrowseQuery, InWatchlist: 'true' as const }];
     const data = client.getQueryData<BrowseMoviesResponse>(filteredKey);
     expect(data?.items.find((item) => item.id === 4)?.enrichmentStatus).toBe('Pending');
+
+    releaseRefetch?.();
+    await waitFor(() => {
+      expect(browseCalls).toBe(2);
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import type { components, paths } from '../api/types';
 
@@ -65,10 +66,11 @@ let importPlaceholderPending = false;
 let importPlaceholderToken = 0;
 let onImportPlaceholderReconciled: (() => void) | null = null;
 
-export function armImportPlaceholder(onReconciled: () => void): void {
+export function armImportPlaceholder(queryClient: QueryClient, onReconciled: () => void): void {
   importPlaceholderToken += 1;
   importPlaceholderPending = true;
   onImportPlaceholderReconciled = onReconciled;
+  void queryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
 }
 
 export function isImportPlaceholderPending(): boolean {
@@ -90,17 +92,6 @@ function reconcileImportPlaceholder(): void {
   const notify = onImportPlaceholderReconciled;
   onImportPlaceholderReconciled = null;
   notify?.();
-}
-
-export function browseRefetchInterval(query: {
-  state: { data?: BrowseMoviesResponse };
-}): number | false {
-  if (importPlaceholderPending) {
-    return 2000;
-  }
-
-  const items = query.state.data?.items ?? [];
-  return items.some((item) => item.enrichmentStatus === 'Pending') ? 2000 : false;
 }
 
 export function pendingRow(id: string, title: string): MovieSummary {
@@ -139,11 +130,7 @@ export interface BrowseMoviesQueryError extends Error {
   invalidFilter?: boolean;
 }
 
-export function useBrowseMoviesQuery(
-  placeholderPending = false,
-  inWatchlist = false,
-  filters: Record<string, unknown> = {},
-) {
+export function useBrowseMoviesQuery(inWatchlist = false, filters: Record<string, unknown> = {}) {
   const merged = {
     ...standingBrowseQuery,
     ...filters,
@@ -190,10 +177,6 @@ export function useBrowseMoviesQuery(
     retry: false,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
-    refetchInterval: placeholderPending
-      ? (query: { state: { data?: BrowseMoviesResponse } }) => browseRefetchInterval(query)
-      : browseRefetchInterval,
-    refetchIntervalInBackground: false,
   });
 }
 
@@ -259,6 +242,7 @@ export function useRetryEnrichmentMutation() {
       queryClient.setQueriesData<BrowseMoviesResponse>({ queryKey: ['browseMovies'] }, (current) =>
         markRowPending(current, id),
       );
+      void queryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
     },
     onError: () => {
       void queryClient.invalidateQueries({ queryKey: browseMoviesQueryKey });
