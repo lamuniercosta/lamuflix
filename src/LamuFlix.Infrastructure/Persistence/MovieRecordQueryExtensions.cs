@@ -110,32 +110,57 @@ public static class MovieRecordQueryExtensions
 
     private static IQueryable<MovieRecord> ApplyRatingBounds(IQueryable<MovieRecord> query, RatingRange range)
     {
-        if (!TryResolveRatingLower(range.Min, out var lower))
+        if (!TryResolveRatingBounds(range, out var lower, out var upper))
         {
             return NoMovies(query);
         }
 
-        if (!TryResolveRatingUpper(range.Max, out var upper))
+        if (IsImpossibleRatingRange(lower, upper))
         {
             return NoMovies(query);
         }
 
-        if (lower is not null && upper is not null && lower.Value > upper.Value)
+        return FilterByRating(query, lower, upper);
+    }
+
+    private static bool TryResolveRatingBounds(RatingRange range, out ImdbRating? lower, out ImdbRating? upper)
+    {
+        if (!TryResolveRatingLower(range.Min, out lower))
         {
-            return NoMovies(query);
+            upper = null;
+            return false;
         }
 
+        return TryResolveRatingUpper(range.Max, out upper);
+    }
+
+    private static bool IsImpossibleRatingRange(ImdbRating? lower, ImdbRating? upper) =>
+        lower is not null && upper is not null && lower.Value > upper.Value;
+
+    private static IQueryable<MovieRecord> FilterByRating(IQueryable<MovieRecord> query, ImdbRating? lower, ImdbRating? upper)
+    {
         if (lower is null && upper is null)
         {
             return query;
         }
 
-        var allowed = RatingValues
-            .Where(value => (lower is null || value >= lower.Value) && (upper is null || value <= upper.Value))
-            .Select(value => new ImdbRating(value))
-            .ToArray();
+        var allowed = BuildAllowedRatings(lower, upper);
         return query.Where(movie => allowed.Contains(movie.ImdbRating));
     }
+
+    private static ImdbRating[] BuildAllowedRatings(ImdbRating? lower, ImdbRating? upper) =>
+        [.. RatingValues
+            .Where(value => IsRatingAllowed(value, lower, upper))
+            .Select(value => new ImdbRating(value))];
+
+    private static bool IsRatingAllowed(decimal value, ImdbRating? lower, ImdbRating? upper) =>
+        IsAboveRatingLower(value, lower) && IsBelowRatingUpper(value, upper);
+
+    private static bool IsAboveRatingLower(decimal value, ImdbRating? lower) =>
+        lower is null || value >= lower.Value;
+
+    private static bool IsBelowRatingUpper(decimal value, ImdbRating? upper) =>
+        upper is null || value <= upper.Value;
 
     private static decimal[] CreateRatingValues()
     {
