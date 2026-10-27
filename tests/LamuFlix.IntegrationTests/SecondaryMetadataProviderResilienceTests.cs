@@ -223,11 +223,14 @@ public sealed class SecondaryMetadataProviderResilienceTests(SecondaryMetadataPr
             SecondaryMetadataProviderProbe.Fixture("Search", "found.json"),
             delay: TimeSpan.FromSeconds(2));
         var services = probe.BuildServices();
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
         var provider = services.GetRequiredService<TmdbMetadataProvider>();
 
         // act
-        var act = () => provider.FindAsync(new MetadataLookup("The Matrix", null), cancellation.Token);
+        var act = async () =>
+        {
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+            await provider.FindAsync(new MetadataLookup("The Matrix", null), cancellation.Token);
+        };
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
@@ -239,11 +242,14 @@ public sealed class SecondaryMetadataProviderResilienceTests(SecondaryMetadataPr
         // arrange
         probe.StubSearch(string.Empty, statusCode: 500, retryAfter: RetryAfterDelay);
         var services = probe.BuildServices();
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
         var provider = services.GetRequiredService<TmdbMetadataProvider>();
 
         // act
-        var act = () => provider.FindAsync(new MetadataLookup("The Matrix", null), cancellation.Token);
+        var act = async () =>
+        {
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+            await provider.FindAsync(new MetadataLookup("The Matrix", null), cancellation.Token);
+        };
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
