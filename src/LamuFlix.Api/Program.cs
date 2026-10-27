@@ -2,6 +2,7 @@ using LamuFlix.Api;
 using LamuFlix.Api.Endpoints;
 using LamuFlix.Api.ExceptionHandling;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.Persistence;
@@ -37,6 +38,9 @@ builder.Services.AddCors(options => options.AddPolicy(
     CorsPolicyName,
     policy => policy.WithOrigins(DevServerOrigin).AllowAnyMethod().AllowAnyHeader().WithExposedHeaders("Location")));
 builder.Services.ConfigureHttpJsonOptions(options => HttpJsonConfiguration.Apply(options.SerializerOptions));
+builder.Services.AddSignalR()
+    .AddJsonProtocol(static options => HttpJsonConfiguration.Apply(options.PayloadSerializerOptions));
+builder.Services.AddSingleton<IEnrichmentStatusNotifier, SignalREnrichmentStatusNotifier>();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi("v1", static options =>
@@ -62,6 +66,7 @@ app.UseStatusCodePages();
 app.UseCors(CorsPolicyName);
 app.MapDefaultEndpoints();
 app.MapApiEndpoints();
+app.MapHub<EnrichmentHub>("/hubs/enrichment");
 
 if (app.Environment.IsDevelopment())
 {
