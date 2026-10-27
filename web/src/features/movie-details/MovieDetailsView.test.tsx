@@ -12,6 +12,10 @@ import {
   relatedMovies,
 } from '../../mocks/fixtures';
 import { browseMoviesQueryKey } from '../../library/libraryQueries';
+import type {
+  EnrichmentStatusNotification,
+  EnrichmentStatusSubscription,
+} from '../../library/useEnrichmentStatus';
 import {
   __resetMovieFeedbackStore,
   MOVIE_FEEDBACK_REFRESH_ERROR,
@@ -740,5 +744,223 @@ describe('MovieDetailsView feedback actions', () => {
     await screen.findByRole('heading', { name: 'Dune' });
     await screen.findByText('No related movies yet.');
     expect(container.querySelector('.related-movie-reason')).toBeNull();
+  });
+});
+
+describe('MovieDetailsView enrichment hub bridge', () => {
+  function createSubscriptionSeam() {
+    const listeners = new Set<(notification: EnrichmentStatusNotification) => void>();
+    const subscribe = vi.fn((listener: (notification: EnrichmentStatusNotification) => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    });
+    return {
+      seam: { subscribe } satisfies EnrichmentStatusSubscription,
+      subscribe,
+      publish(notification: EnrichmentStatusNotification) {
+        for (const listener of [...listeners]) {
+          listener(notification);
+        }
+      },
+      listenerCount: () => listeners.size,
+    };
+  }
+
+  function renderWithSeam(
+    client: QueryClient,
+    seam: EnrichmentStatusSubscription,
+    movieId: number | string = 1,
+  ) {
+    return render(
+      <QueryClientProvider client={client}>
+        <MovieDetailsView movieId={movieId} enrichmentStatus={seam} />
+      </QueryClientProvider>,
+    );
+  }
+
+  function countingDetailsHandler(counter: { calls: number }) {
+    return http.get('*/api/movies/:id', () => {
+      counter.calls += 1;
+      return HttpResponse.json(fullMovie);
+    });
+  }
+
+  it('reconciles mounted details for an id absent from every browse cache', async () => {
+    // arrange
+    const counter = { calls: 0 };
+    server.use(countingDetailsHandler(counter));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { seam, publish } = createSubscriptionSeam();
+    renderWithSeam(client, seam);
+    await screen.findByRole('heading', { name: 'Dune' });
+    const before = counter.calls;
+
+    // act
+    act(() => {
+      publish({ kind: 'event', payload: { id: 1, enrichmentStatus: 'Enriched' } });
+    });
+
+    // assert
+    await waitFor(() => expect(counter.calls).toBeGreaterThan(before));
+    expect(client.getQueryCache().find({ queryKey: ['browseMovies'] })).toBeUndefined();
+  });
+
+  it('reconciles on every status transition and stays independent of status diffs', async () => {
+    // arrange
+    const counter = { calls: 0 };
+    server.use(countingDetailsHandler(counter));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { seam, publish } = createSubscriptionSeam();
+    renderWithSeam(client, seam);
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    // act
+    for (const status of ['Pending', 'Enriched', 'NotFound', 'Failed', 'Failed'] as const) {
+      const before = counter.calls;
+      act(() => {
+        publish({ kind: 'event', payload: { id: 1, enrichmentStatus: status } });
+      });
+
+      // assert
+      await waitFor(() => expect(counter.calls).toBeGreaterThan(before));
+    }
+  });
+
+  it('reconciles on successful initial start and on reconnect with no event', async () => {
+    // arrange
+    const counter = { calls: 0 };
+    server.use(countingDetailsHandler(counter));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { seam, publish } = createSubscriptionSeam();
+    renderWithSeam(client, seam);
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    // act
+    const startBefore = counter.calls;
+    act(() => {
+      publish({ kind: 'recovery' });
+    });
+
+    // assert
+    await waitFor(() => expect(counter.calls).toBeGreaterThan(startBefore));
+
+    const reconnectBefore = counter.calls;
+    act(() => {
+      publish({ kind: 'recovery' });
+    });
+    await waitFor(() => expect(counter.calls).toBeGreaterThan(reconnectBefore));
+  });
+
+  it('ignores events for a different movie id', async () => {
+    // arrange
+    const counter = { calls: 0 };
+    server.use(countingDetailsHandler(counter));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { seam, publish } = createSubscriptionSeam();
+    renderWithSeam(client, seam);
+    await screen.findByRole('heading', { name: 'Dune' });
+    const before = counter.calls;
+
+    // act
+    act(() => {
+      publish({ kind: 'event', payload: { id: 2, enrichmentStatus: 'Enriched' } });
+    });
+    await Promise.resolve();
+
+    // assert
+    expect(counter.calls).toBe(before);
+  });
+
+  it('unsubscribes on cleanup without leaving a second hub connection', async () => {
+    // arrange
+    const counter = { calls: 0 };
+    server.use(countingDetailsHandler(counter));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { seam, publish, subscribe, listenerCount } = createSubscriptionSeam();
+    const { unmount } = renderWithSeam(client, seam);
+    await screen.findByRole('heading', { name: 'Dune' });
+    expect(subscribe).toHaveBeenCalledTimes(1);
+
+    // act
+    unmount();
+    const before = counter.calls;
+    act(() => {
+      publish({ kind: 'recovery' });
+    });
+    await Promise.resolve();
+
+    // assert
+    expect(listenerCount()).toBe(0);
+    expect(counter.calls).toBe(before);
+  });
+
+  it('does not invalidate root browse caches from the details bridge alone', async () => {
+    // arrange
+    server.use(countingDetailsHandler({ calls: 0 }));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(browseMoviesQueryKey, browseMovies);
+    const { seam, publish } = createSubscriptionSeam();
+    renderWithSeam(client, seam);
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    // act
+    act(() => {
+      publish({ kind: 'event', payload: { id: 1, enrichmentStatus: 'Enriched' } });
+      publish({ kind: 'recovery' });
+    });
+    await waitFor(() =>
+      expect(client.getQueryState(browseMoviesQueryKey)?.isInvalidated ?? false).toBe(false),
+    );
+
+    // assert
+    expect(client.getQueryState(browseMoviesQueryKey)?.isInvalidated ?? false).toBe(false);
+  });
+
+  it('yields a fresh details pass when an event arrives during an older refetch', async () => {
+    // arrange
+    const responses = [
+      fullMovie,
+      { ...fullMovie, title: 'Dune Stale' },
+      { ...fullMovie, title: 'Dune Part Two' },
+    ];
+    const resolvers: Array<() => void> = [];
+    let detailsCalls = 0;
+    server.use(
+      http.get('*/api/movies/:id', () => {
+        const pass = detailsCalls;
+        detailsCalls += 1;
+        if (pass === 0) {
+          return HttpResponse.json(responses[0]);
+        }
+        return new Promise((resolve) => {
+          resolvers.push(() => resolve(HttpResponse.json(responses[pass])));
+        });
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { seam, publish } = createSubscriptionSeam();
+    renderWithSeam(client, seam);
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    // act
+    act(() => {
+      publish({ kind: 'event', payload: { id: 1, enrichmentStatus: 'Enriched' } });
+    });
+    await waitFor(() => expect(detailsCalls).toBe(2));
+    act(() => {
+      publish({ kind: 'event', payload: { id: 1, enrichmentStatus: 'NotFound' } });
+    });
+    await waitFor(() => expect(detailsCalls).toBe(3));
+    resolvers[0]();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    resolvers[1]();
+
+    // assert
+    expect(await screen.findByRole('heading', { name: 'Dune Part Two' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Dune Stale' })).not.toBeInTheDocument();
   });
 });

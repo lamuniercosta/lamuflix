@@ -26,6 +26,7 @@ import {
 import { libraryHrefForActors, matchPersonIds } from './movieDetailsLabels';
 import {
   EnrichmentRequestError,
+  useDetailsEnrichmentBridge,
   useLibraryEnrichmentStatus,
   useMoreWithActors,
   usePeopleLookup,
@@ -339,7 +340,7 @@ function FileSection({ path, imdbId }: { path: string; imdbId: string | null }) 
   );
 }
 
-export default function MovieDetailsView({ movieId }: MovieDetailsViewProps) {
+export default function MovieDetailsView({ movieId, enrichmentStatus }: MovieDetailsViewProps) {
   const libraryClient = useQueryClient();
   const [detailsClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
@@ -349,6 +350,7 @@ export default function MovieDetailsView({ movieId }: MovieDetailsViewProps) {
       <MovieDetailsViewInner
         key={String(movieId)}
         movieId={movieId}
+        enrichmentStatus={enrichmentStatus}
         detailsClient={detailsClient}
         libraryClient={libraryClient}
       />
@@ -363,6 +365,7 @@ interface MovieDetailsViewInnerProps extends MovieDetailsViewProps {
 
 function MovieDetailsViewInner({
   movieId,
+  enrichmentStatus,
   detailsClient,
   libraryClient,
 }: MovieDetailsViewInnerProps) {
@@ -371,6 +374,8 @@ function MovieDetailsViewInner({
   const metadata = movie?.metadata ?? null;
   const posterUrl = metadata?.posterUrl ?? null;
   useAmbientPosters([posterUrl]);
+
+  useDetailsEnrichmentBridge(enrichmentStatus, detailsClient, movieId);
 
   const libraryStatus = useLibraryEnrichmentStatus(libraryClient, movieId);
   const hasMetadata = metadata !== null;
