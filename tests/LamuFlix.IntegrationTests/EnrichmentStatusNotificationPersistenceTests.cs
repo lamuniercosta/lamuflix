@@ -394,7 +394,7 @@ public sealed class EnrichmentStatusNotificationPersistenceTests(PostgresFixture
     }
 
     [Fact]
-    public async Task SaveChanges_TasteCacheFailsAfterCommit_StillNotifies()
+    public async Task SaveChanges_TasteCacheFailsAfterCommit_PropagatesAndStillNotifies()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -405,16 +405,20 @@ public sealed class EnrichmentStatusNotificationPersistenceTests(PostgresFixture
         await repository.AddAsync(PendingMovie(id, "CacheFail", "cache-fail"), ct);
 
         // act
-        await repository.SaveChangesAsync(ct);
+        var failure = await Should.ThrowAsync<InvalidOperationException>(() => repository.SaveChangesAsync(ct));
 
         // assert
+        failure.Message.ShouldBe("cache down");
         notifier.Notifications.Count.ShouldBe(1);
         notifier.Notifications[0].MovieId.ShouldBe(id);
         notifier.Notifications[0].Status.ShouldBe(EnrichmentStatus.Pending);
+        notifier.Notifications[0].CancellationToken.ShouldBe(CancellationToken.None);
+        await using var verification = fixture.CreateMigratedContext();
+        (await verification.Movies.SingleAsync(ct)).Status.ShouldBe(EnrichmentStatus.Pending);
     }
 
     [Fact]
-    public async Task SaveChanges_TasteCacheCancelledAfterCommit_StillNotifies()
+    public async Task SaveChanges_TasteCacheCancelledAfterCommit_PropagatesAndStillNotifies()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -425,12 +429,49 @@ public sealed class EnrichmentStatusNotificationPersistenceTests(PostgresFixture
         await repository.AddAsync(PendingMovie(id, "CacheCancelled", "cache-cancelled"), ct);
 
         // act
-        await repository.SaveChangesAsync(ct);
+        await Should.ThrowAsync<OperationCanceledException>(() => repository.SaveChangesAsync(ct));
 
         // assert
         notifier.Notifications.Count.ShouldBe(1);
         notifier.Notifications[0].MovieId.ShouldBe(id);
         notifier.Notifications[0].Status.ShouldBe(EnrichmentStatus.Pending);
+        notifier.Notifications[0].CancellationToken.ShouldBe(CancellationToken.None);
+        await using var verification = fixture.CreateMigratedContext();
+        (await verification.Movies.SingleAsync(ct)).Status.ShouldBe(EnrichmentStatus.Pending);
+    }
+
+    [Fact]
+    public async Task SaveChanges_TasteCacheFailsWithThrowingNotifier_PropagatesCacheFailureAndAttemptsEveryMovieOnce()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var notifier = new RecordingEnrichmentStatusNotifier
+        {
+            OnNotify = (_, _) => throw new InvalidOperationException("notifier exploded"),
+        };
+        await using var db = fixture.CreateMigratedContext();
+        var repository = CreateRepository(db, notifier, TasteCache(new InvalidOperationException("cache down")));
+        var firstId = await repository.NextIdentityAsync(ct);
+        var secondId = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(PendingMovie(firstId, "CacheNotifierFirst", "cache-notifier-first"), ct);
+        await repository.AddAsync(PendingMovie(secondId, "CacheNotifierSecond", "cache-notifier-second"), ct);
+
+        // act
+        var failure = await Should.ThrowAsync<InvalidOperationException>(() => repository.SaveChangesAsync(ct));
+
+        // assert
+        failure.Message.ShouldBe("cache down");
+        notifier.Notifications.Count.ShouldBe(2);
+        notifier.Notifications.Select(notification => notification.MovieId).ShouldBe([firstId, secondId]);
+        notifier.Notifications.ShouldAllBe(notification => notification.CancellationToken == CancellationToken.None);
+        await using var verification = fixture.CreateMigratedContext();
+        (await verification.Movies.CountAsync(ct)).ShouldBe(2);
+
+        // act
+        await Should.ThrowAsync<InvalidOperationException>(() => repository.SaveChangesAsync(ct));
+
+        // assert
+        notifier.Notifications.Count.ShouldBe(2);
     }
 
     [Fact]
@@ -516,20 +557,20 @@ public sealed class EnrichmentStatusNotificationPersistenceTests(PostgresFixture
             string key,
             TState state,
             Func<TState, CancellationToken, ValueTask<T>> factory,
-            HybridCacheEntryOptions? options,
-            IEnumerable<string>? tags,
-            CancellationToken cancellationToken) => throw failure;
+            HybridCacheEntryOptions? options = null,
+            IEnumerable<string>? tags = null,
+            CancellationToken cancellationToken = default) => throw failure;
 
         public override ValueTask SetAsync<T>(
             string key,
             T value,
-            HybridCacheEntryOptions? options,
-            IEnumerable<string>? tags,
-            CancellationToken cancellationToken) => throw failure;
+            HybridCacheEntryOptions? options = null,
+            IEnumerable<string>? tags = null,
+            CancellationToken cancellationToken = default) => throw failure;
 
-        public override ValueTask RemoveAsync(string key, CancellationToken cancellationToken) => throw failure;
+        public override ValueTask RemoveAsync(string key, CancellationToken cancellationToken = default) => throw failure;
 
-        public override ValueTask RemoveByTagAsync(string tag, CancellationToken cancellationToken) => throw failure;
+        public override ValueTask RemoveByTagAsync(string tag, CancellationToken cancellationToken = default) => throw failure;
     }
 
     private static Movie PendingMovie(MovieId id, string title, string pathSuffix) =>
