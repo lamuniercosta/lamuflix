@@ -9,6 +9,47 @@ public static class MovieQueryFixture
 {
     public static Arbitrary<MovieQuery> Queries() => Arb.From(Generator());
 
+    public static Arbitrary<MovieQuery> RatingQueries() =>
+        Arb.From(RatingGen().Select(rating => FixedBase() with { Rating = rating }));
+
+    public static Arbitrary<MovieQuery> ScalarQueries() =>
+        Arb.From(
+            from text in TextGen()
+            from genres in IdList()
+            from actors in IdList()
+            from statuses in StatusGen()
+            from watchlist in Gen.Elements<bool?>(null, true, false)
+            from sort in Gen.Elements(MovieSort.List.ToArray())
+            from direction in Gen.Elements(SortDirection.List.ToArray())
+            from number in Gen.Choose(1, 8)
+            from size in Gen.Choose(1, 100)
+            select FixedBase() with
+            {
+                Text = text,
+                GenreIds = genres,
+                ActorIds = actors,
+                Statuses = statuses,
+                InWatchlist = watchlist,
+                Sort = sort,
+                Direction = direction,
+                Page = new Page(number, size),
+            });
+
+    public static Arbitrary<MovieQuery> RangeQueries() =>
+        Arb.From(
+            from runtime in RuntimeGen()
+            from year in YearGen()
+            select FixedBase() with { Runtime = runtime, Year = year });
+
+    private static MovieQuery FixedBase() =>
+        new()
+        {
+            Sort = MovieSort.Title,
+            Direction = SortDirection.Ascending,
+            Page = new Page(1, 20),
+            Statuses = [EnrichmentStatus.Pending],
+        };
+
     private static Gen<MovieQuery> Generator() =>
         from text in TextGen()
         from genres in IdList()

@@ -260,13 +260,56 @@ public sealed class MovieQueryStringTests
 
     [Fact]
     [Trait("Category", "Property")]
-    public void Format_RoundTripsValidatorAcceptedQueries()
+    public void Format_RoundTripsRatingQueries()
     {
-        Prop.ForAll(MovieQueryFixture.Queries(), query =>
+        // arrange
+        var ratings = MovieQueryFixture.RatingQueries();
+
+        // act
+        var holds = Prop.ForAll(ratings, query =>
         {
             var formatted = MovieQueryString.Format(query);
             return MovieQueryString.TryParse(formatted, out var parsed) && query.Equals(parsed);
-        }).QuickCheckThrowOnFailure();
+        });
+
+        // assert
+        holds.QuickCheckThrowOnFailure();
+    }
+
+    [Fact]
+    [Trait("Category", "Property")]
+    public void Format_RoundTripsScalarQueries()
+    {
+        // arrange
+        var scalars = MovieQueryFixture.ScalarQueries();
+
+        // act
+        var holds = Prop.ForAll(scalars, query =>
+        {
+            var formatted = MovieQueryString.Format(query);
+            return MovieQueryString.TryParse(formatted, out var parsed) && query.Equals(parsed);
+        });
+
+        // assert
+        holds.QuickCheckThrowOnFailure();
+    }
+
+    [Fact]
+    [Trait("Category", "Property")]
+    public void Format_RoundTripsRangeQueries()
+    {
+        // arrange
+        var ranges = MovieQueryFixture.RangeQueries();
+
+        // act
+        var holds = Prop.ForAll(ranges, query =>
+        {
+            var formatted = MovieQueryString.Format(query);
+            return MovieQueryString.TryParse(formatted, out var parsed) && query.Equals(parsed);
+        });
+
+        // assert
+        holds.QuickCheckThrowOnFailure();
     }
 
     public static TheoryData<string> RuntimeRangeIsPartialCases => new()
