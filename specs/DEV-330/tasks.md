@@ -144,15 +144,15 @@ Repository root `src/`, `tests/`, `web/` as in plan.md Project Structure.
 
 ### Tests for User Story 3
 
-- [ ] T025 [US3] Extend `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` for required schema fields, four-name string enum, and unchanged exact `ExpectedOperations`
+- [x] T025 [US3] Extend `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` for required schema fields, four-name string enum, and unchanged exact `ExpectedOperations`
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Create `src/LamuFlix.Api/EnrichmentHubSchemaTransformer.cs` (`IOpenApiDocumentTransformer`) inserting unreferenced C#-derived `EnrichmentStatusChangedDto` into `components.schemas` without a REST path — distinct from existing discovered-type `EnrichmentStatusSchemaTransformer` (recon-DEV-330-2:30-33; Ledger L1 / PC2)
-- [ ] T027 [US3] Register the document transformer in `src/LamuFlix.Api/Program.cs` OpenAPI setup alongside existing transformers/normalizer without replacing the discovered-type schema transformer
-- [ ] T028 [US3] Regenerate `web/src/api/openapi.json` + Verify snapshot via `quickstart.md` (`LAMUFLIX_REGENERATE_OPENAPI=true`); never hand-edit
-- [ ] T029 [US3] Run `npm run generate:api` then `npm run check:api` under `web/` for `types.ts` / mocks; confirm no new hub MSW path handler is required
-- [ ] T030 [US3] Drive T025 (required fields, four-name string enum, unchanged exact `ExpectedOperations`) and web drift checks green; run incremental gates with exact touched-file `-Files` lists recorded
+- [x] T026 [US3] Create `src/LamuFlix.Api/EnrichmentHubSchemaTransformer.cs` (`IOpenApiDocumentTransformer`) inserting unreferenced C#-derived `EnrichmentStatusChangedDto` into `components.schemas` without a REST path — distinct from existing discovered-type `EnrichmentStatusSchemaTransformer` (recon-DEV-330-2:30-33; Ledger L1 / PC2)
+- [x] T027 [US3] Register the document transformer in `src/LamuFlix.Api/Program.cs` OpenAPI setup alongside existing transformers/normalizer without replacing the discovered-type schema transformer
+- [x] T028 [US3] Regenerate `web/src/api/openapi.json` + Verify snapshot via `quickstart.md` (`LAMUFLIX_REGENERATE_OPENAPI=true`); never hand-edit
+- [x] T029 [US3] Run `npm run generate:api` then `npm run check:api` under `web/` for `types.ts` / mocks; confirm no new hub MSW path handler is required
+- [x] T030 [US3] Drive T025 (required fields, four-name string enum, unchanged exact `ExpectedOperations`) and web drift checks green; run incremental gates with exact touched-file `-Files` lists recorded
 
 **Checkpoint**: DEV-422 can consume generated components type; contract drift clean.
 

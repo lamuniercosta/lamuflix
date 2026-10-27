@@ -48,6 +48,7 @@ builder.Services.AddOpenApi("v1", static options =>
     options.AddDocumentTransformer(
         static (document, _, _) => OpenApiDocumentNormalizer.NormalizeAsync(document));
     options.AddSchemaTransformer<EnrichmentStatusSchemaTransformer>();
+    options.AddDocumentTransformer<EnrichmentHubSchemaTransformer>();
     options.AddOperationTransformer<BrowseMoviesOperationTransformer>();
     options.AddOperationTransformer<RecommendationsOperationTransformer>();
 });

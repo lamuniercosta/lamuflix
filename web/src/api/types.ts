@@ -81,6 +81,11 @@ export interface components {
     };
     /** @enum {string} */
     EnrichmentStatus: "Pending" | "Enriched" | "NotFound" | "Failed";
+    EnrichmentStatusChangedDto: {
+      /** Format: int32 */
+      id: number;
+      enrichmentStatus: components["schemas"]["EnrichmentStatus"];
+    };
     GenreDto: {
       /** Format: int32 */
       id: number | string;
