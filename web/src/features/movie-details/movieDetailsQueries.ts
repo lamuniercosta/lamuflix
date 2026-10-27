@@ -108,6 +108,7 @@ export function useRequestEnrichment(movieId: ActorId, libraryClient: QueryClien
         { queryKey: ['browseMovies'] },
         (current) => markRowPending(current, id),
       );
+      void libraryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
       void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
     },
   });
@@ -162,6 +163,7 @@ export function useMatchImdbId(movieId: ActorId, libraryClient: QueryClient) {
         { queryKey: ['browseMovies'] },
         (current) => markRowPending(current, id),
       );
+      void libraryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
       void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
     },
   });

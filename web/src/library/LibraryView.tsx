@@ -276,7 +276,7 @@ function LibraryBrowseView({
 }: LibraryBrowseViewProps) {
   const filters = useMemo(() => buildBrowseParams(query, currentYear), [query, currentYear]);
   const watchlistActive = inWatchlist || isWatchlistFlag(query.inWatchlist);
-  const browse = useBrowseMoviesQuery(leadingItem != null, watchlistActive, filters);
+  const browse = useBrowseMoviesQuery(watchlistActive, filters);
 
   const genresQuery = useQuery({
     queryKey: ['genres'],
