@@ -3,7 +3,11 @@ import type { components } from '../../api/types';
 import { CloseIcon } from '../../ui/icons';
 import {
   currentYearExtent,
+  isRatingActive,
+  normalizeRatingValue,
   parseFilterQuery,
+  RATING_MAX_EXTENT,
+  RATING_MIN_EXTENT,
   RUNTIME_MAX_EXTENT,
   RUNTIME_MIN_EXTENT,
   toUrlQuery,
@@ -147,6 +151,8 @@ export function FilterPanel(props: FilterPanelProps) {
   const runtimeMaxId = `${ids}-runtime-max`;
   const yearMinId = `${ids}-year-min`;
   const yearMaxId = `${ids}-year-max`;
+  const ratingMinId = `${ids}-rating-min`;
+  const ratingMaxId = `${ids}-rating-max`;
   const unknownId = `${ids}-unknown`;
 
   const [internalQuery, setInternalQuery] = useState<FilterQuery>(() => readQuery(queryProp));
@@ -249,6 +255,15 @@ export function FilterPanel(props: FilterPanelProps) {
   const runtimeMaxValue = numberOr(query.runtimeMax, RUNTIME_MAX_EXTENT);
   const yearMinValue = numberOr(query.yearMin, YEAR_MIN_EXTENT);
   const yearMaxValue = numberOr(query.yearMax, currentYear);
+  const ratingActive = isRatingActive(query.minRating, query.maxRating);
+  const ratingMinValue = ratingActive
+    ? numberOr(query.minRating, RATING_MIN_EXTENT)
+    : RATING_MIN_EXTENT;
+  const ratingMaxValue = ratingActive
+    ? numberOr(query.maxRating, RATING_MAX_EXTENT)
+    : RATING_MAX_EXTENT;
+  const ratingMinText = ratingMinValue.toFixed(1);
+  const ratingMaxText = ratingMaxValue.toFixed(1);
   const selectedStatuses = new Set(query.statuses.map(String));
   const direction = query.direction === 'Descending' ? 'Descending' : 'Ascending';
   const genreFailed = Boolean(props.genreError ?? props.genresError);
@@ -305,6 +320,8 @@ export function FilterPanel(props: FilterPanelProps) {
       next.runtimeIncludeUnknown = false;
       next.yearMin = '';
       next.yearMax = '';
+      next.minRating = null;
+      next.maxRating = null;
       next.statuses = [];
     });
     onClear?.();
@@ -497,6 +514,37 @@ export function FilterPanel(props: FilterPanelProps) {
             onValueChange: (value) =>
               update((next) => {
                 next.yearMax = value;
+              }),
+          }}
+        />
+      </fieldset>
+
+      <fieldset className="lamu-filter-group">
+        <legend className="lamu-filter-legend">IMDb rating</legend>
+        <DualRangeField
+          min={RATING_MIN_EXTENT}
+          max={RATING_MAX_EXTENT}
+          step={0.1}
+          low={{
+            id: ratingMinId,
+            accessibleName: 'IMDb rating minimum',
+            valueText: ratingMinText,
+            value: ratingMinValue,
+            onValueChange: (value) =>
+              update((next) => {
+                next.minRating = normalizeRatingValue(value);
+                next.maxRating = normalizeRatingValue(ratingMaxValue);
+              }),
+          }}
+          high={{
+            id: ratingMaxId,
+            accessibleName: 'IMDb rating maximum',
+            valueText: ratingMaxText,
+            value: ratingMaxValue,
+            onValueChange: (value) =>
+              update((next) => {
+                next.minRating = normalizeRatingValue(ratingMinValue);
+                next.maxRating = normalizeRatingValue(value);
               }),
           }}
         />

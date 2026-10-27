@@ -54,6 +54,27 @@ function countMoviesRequests(handler: (request: Request) => void) {
   );
 }
 
+function ratingAwareMovies(request: Request) {
+  const min = new URL(request.url).searchParams.get('minRating');
+  const max = new URL(request.url).searchParams.get('maxRating');
+  const items = browseMovies.items.filter((item) => {
+    if (min === null && max === null) {
+      return true;
+    }
+    if (item.imdbRating == null) {
+      return false;
+    }
+    if (min !== null && min !== '' && item.imdbRating < Number(min)) {
+      return false;
+    }
+    if (max !== null && max !== '' && item.imdbRating > Number(max)) {
+      return false;
+    }
+    return true;
+  });
+  return HttpResponse.json({ items, totalCount: items.length });
+}
+
 beforeEach(() => {
   window.history.replaceState({}, '', '/');
 });
@@ -398,5 +419,97 @@ describe('LibraryView composition', () => {
     renderLibraryViewWithBoundary();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid filters');
+  });
+
+  it('drives the visible grid and count from the IMDb rating slider', async () => {
+    window.history.replaceState({}, '', '/?text=dune&foo=bar');
+    const seen: string[] = [];
+    server.use(
+      http.get('*/api/movies', ({ request }) => {
+        seen.push(new URL(request.url).search.slice(1));
+        return ratingAwareMovies(request);
+      }),
+    );
+
+    renderLibraryView();
+    await screen.findByText('Dune');
+    expect(seen.at(-1)).toBe('text=dune&sort=Title&direction=Ascending&page=1&pageSize=20');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    fireEvent.change(screen.getByLabelText('IMDb rating minimum'), { target: { value: '9' } });
+
+    await waitFor(() => {
+      expect(seen.at(-1)).toBe(
+        'text=dune&minRating=9&maxRating=10&sort=Title&direction=Ascending&page=1&pageSize=20',
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByText('0 movies')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Dune')).not.toBeInTheDocument();
+    expect(window.location.search).toBe('?text=dune&minRating=9&maxRating=10&foo=bar');
+  });
+
+  it('counts an active rating group once in the filter badge', async () => {
+    window.history.replaceState({}, '', '/?minRating=0&maxRating=10');
+
+    renderLibraryView();
+    await screen.findByText('Dune');
+
+    const toggle = screen.getByRole('button', { name: /^Filters/ });
+    expect(within(toggle).getByText(/1 filter group active/)).toBeInTheDocument();
+  });
+
+  it('shows no filter group badge when the rating group is absent', async () => {
+    renderLibraryView();
+    await screen.findByText('Dune');
+
+    const toggle = screen.getByRole('button', { name: /^Filters/ });
+    expect(within(toggle).queryByText(/filter group active/)).not.toBeInTheDocument();
+  });
+
+  it('surfaces the invalid filter UI for a malformed rating URL without rewriting it', async () => {
+    window.history.replaceState({}, '', '/?minRating=abc&maxRating=5');
+    let observed = '';
+    server.use(
+      http.get('*/api/movies', ({ request }) => {
+        observed = new URL(request.url).search.slice(1);
+        return HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Invalid filters',
+            status: 422,
+            detail: 'Invalid filters',
+            instance: null,
+          },
+          { status: 422 },
+        );
+      }),
+    );
+
+    renderLibraryViewWithBoundary();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid filters');
+    expect(observed).toBe(
+      'minRating=abc&maxRating=5&sort=Title&direction=Ascending&page=1&pageSize=20',
+    );
+    expect(window.location.search).toBe('?minRating=abc&maxRating=5');
+  });
+
+  it('forwards a partial rating URL without inventing the missing pair', async () => {
+    window.history.replaceState({}, '', '/?minRating=7');
+    let observed = '';
+    server.use(
+      http.get('*/api/movies', ({ request }) => {
+        observed = new URL(request.url).search.slice(1);
+        return HttpResponse.json({ title: 'Invalid filters' }, { status: 422 });
+      }),
+    );
+
+    renderLibraryViewWithBoundary();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid filters');
+    expect(observed).toBe('minRating=7&sort=Title&direction=Ascending&page=1&pageSize=20');
+    expect(window.location.search).toBe('?minRating=7');
   });
 });

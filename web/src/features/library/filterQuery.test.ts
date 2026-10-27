@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseFilterQuery, toUrlQuery, toApiQuery } from './filterQuery';
+import {
+  isRatingActive,
+  normalizeRatingValue,
+  parseFilterQuery,
+  toApiQuery,
+  toUrlQuery,
+} from './filterQuery';
 
 describe('filterQuery compact URL and canonical API query', () => {
   it('omits defaults and inactive groups for an empty URL', () => {
@@ -64,5 +70,80 @@ describe('filterQuery compact URL and canonical API query', () => {
     // filter changes reset page at the call site; serializer omits default page
     query.page = 1;
     expect(toUrlQuery(query)).toBe('text=dune2');
+  });
+});
+
+describe('filterQuery rating range', () => {
+  it('omits both rating keys when the group is absent', () => {
+    expect(toUrlQuery('')).toBe('');
+    expect(toApiQuery('')).toBe('sort=Title&direction=Ascending&page=1&pageSize=20');
+    expect(parseFilterQuery('').minRating).toBeNull();
+    expect(parseFilterQuery('').maxRating).toBeNull();
+  });
+
+  it('preserves absent versus present-with-empty rating bounds', () => {
+    expect(parseFilterQuery('minRating=7&maxRating=').minRating).toBe('7');
+    expect(parseFilterQuery('minRating=7&maxRating=').maxRating).toBe('');
+    expect(parseFilterQuery('minRating=&maxRating=').minRating).toBe('');
+    expect(parseFilterQuery('minRating=&maxRating=').maxRating).toBe('');
+    expect(parseFilterQuery('yearMin=2000').minRating).toBeNull();
+  });
+
+  it('emits both canonical rating keys for an active full span', () => {
+    expect(toUrlQuery('minRating=0&maxRating=10')).toBe('minRating=0&maxRating=10');
+    expect(toUrlQuery('minRating=&maxRating=')).toBe('minRating=&maxRating=');
+  });
+
+  it('preserves an open maximum rating bound', () => {
+    expect(toUrlQuery('minRating=7&maxRating=')).toBe('minRating=7&maxRating=');
+  });
+
+  it('emits the shortest invariant form with at most one fractional digit', () => {
+    expect(toUrlQuery('minRating=07.0&maxRating=7.5')).toBe('minRating=7&maxRating=7.5');
+    expect(toUrlQuery('minRating=0&maxRating=10')).toBe('minRating=0&maxRating=10');
+    expect(toUrlQuery('minRating=10&maxRating=10')).toBe('minRating=10&maxRating=10');
+  });
+
+  it('sends paired rating keys in the canonical API query', () => {
+    expect(toApiQuery('minRating=7&maxRating=')).toBe(
+      'minRating=7&maxRating=&sort=Title&direction=Ascending&page=1&pageSize=20',
+    );
+  });
+
+  it('normalizes slider float noise on interaction only', () => {
+    expect(normalizeRatingValue('7.300000000000001')).toBe('7.3');
+    expect(normalizeRatingValue(7.3)).toBe('7.3');
+    expect(normalizeRatingValue(10)).toBe('10');
+    expect(normalizeRatingValue('')).toBe('');
+    expect(normalizeRatingValue(null)).toBe('');
+    expect(normalizeRatingValue('7.300000000000001')).not.toBe('7.300000000000001');
+  });
+
+  it('passes raw invalid and partial rating groups through without repair', () => {
+    expect(toUrlQuery('minRating=abc&maxRating=5')).toBe('minRating=abc&maxRating=5');
+    expect(toUrlQuery('minRating=7')).toBe('minRating=7');
+    expect(toUrlQuery('maxRating=9')).toBe('maxRating=9');
+    expect(toUrlQuery('minRating=7.00&maxRating=9')).toBe('minRating=7.00&maxRating=9');
+    expect(toUrlQuery('minRating=8&maxRating=7')).toBe('minRating=8&maxRating=7');
+    expect(toUrlQuery('minRating=11&maxRating=10')).toBe('minRating=11&maxRating=10');
+    expect(toUrlQuery('minRating=%207&maxRating=9')).toBe('minRating=+7&maxRating=9');
+  });
+
+  it('preserves unknown keys and unrelated filters alongside a rating group', () => {
+    expect(toUrlQuery('foo=bar&minRating=7&maxRating=9')).toBe('minRating=7&maxRating=9&foo=bar');
+    expect(toUrlQuery('text=dune&minRating=7&maxRating=9&statuses=Pending')).toBe(
+      'text=dune&minRating=7&maxRating=9&statuses=Pending',
+    );
+  });
+
+  it('uses presence rather than value or extent comparison for activation', () => {
+    expect(isRatingActive(0, 10)).toBe(true);
+    expect(isRatingActive('', '')).toBe(true);
+    expect(isRatingActive('0', '10')).toBe(true);
+    expect(isRatingActive(7, null)).toBe(false);
+    expect(isRatingActive(null, null)).toBe(false);
+    expect(isRatingActive('abc', 5)).toBe(false);
+    expect(isRatingActive(8, 7)).toBe(false);
+    expect(isRatingActive('7.00', 9)).toBe(false);
   });
 });
