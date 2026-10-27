@@ -115,6 +115,38 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task Document_EnrichmentStatusChangedDto_IsAComponentSchemaWithoutARestOperation()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+        var schemas = parsed.RootElement.GetProperty("components").GetProperty("schemas");
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        PathNames(parsed.RootElement).ShouldNotContain(
+            path => path.Contains("/hubs", StringComparison.Ordinal));
+        schemas.TryGetProperty("EnrichmentStatusChangedDto", out var dto).ShouldBeTrue(
+            "components.schemas must expose the hub payload EnrichmentStatusChangedDto.");
+        SchemaTypes(dto).ShouldContain("object");
+        dto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["id", "enrichmentStatus"], ignoreOrder: true);
+        var properties = dto.GetProperty("properties");
+        properties.EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["id", "enrichmentStatus"], ignoreOrder: true);
+        SchemaTypes(properties.GetProperty("id")).ShouldContain("integer");
+
+        var statusSchema = ResolveSchema(parsed.RootElement, properties.GetProperty("enrichmentStatus"));
+        SchemaTypes(statusSchema).ShouldContain("string");
+        statusSchema.GetProperty("enum").EnumerateArray().Select(item => item.GetString()).ShouldBe(
+            ["Pending", "Enriched", "NotFound", "Failed"]);
+    }
+
+    [Fact]
     public async Task Document_MovieResponseSchemas_RequireTheIsInWatchlistBoolean()
     {
         // arrange
@@ -542,6 +574,28 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     private static IEnumerable<string> ResponseStatuses(JsonElement document) =>
         OperationEntries(document)
             .SelectMany(entry => entry.Operation.GetProperty("responses").EnumerateObject().Select(response => response.Name));
+
+    private static IReadOnlyList<string> SchemaTypes(JsonElement schema)
+    {
+        var type = schema.GetProperty("type");
+        return type.ValueKind == JsonValueKind.Array
+            ? type.EnumerateArray().Select(item => item.GetString().ShouldNotBeNull()).ToList()
+            : [type.GetString().ShouldNotBeNull()];
+    }
+
+    private static JsonElement ResolveSchema(JsonElement document, JsonElement schema)
+    {
+        if (!schema.TryGetProperty("$ref", out var reference))
+        {
+            return schema;
+        }
+
+        var referenceValue = reference.GetString().ShouldNotBeNull();
+        const string ComponentPrefix = "#/components/schemas/";
+        referenceValue.ShouldStartWith(ComponentPrefix);
+        return document.GetProperty("components").GetProperty("schemas")
+            .GetProperty(referenceValue[ComponentPrefix.Length..]);
+    }
 
     private static IEnumerable<string> Schemas(JsonElement document) =>
         document.GetProperty("components").GetProperty("schemas").EnumerateObject().Select(schema => schema.Name);

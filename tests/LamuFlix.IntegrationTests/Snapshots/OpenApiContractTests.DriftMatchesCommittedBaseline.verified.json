@@ -1128,6 +1128,22 @@
         ],
         "type": "string"
       },
+      "EnrichmentStatusChangedDto": {
+        "required": [
+          "id",
+          "enrichmentStatus"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "enrichmentStatus": {
+            "$ref": "#/components/schemas/EnrichmentStatus"
+          }
+        }
+      },
       "GenreDto": {
         "required": [
           "id",
