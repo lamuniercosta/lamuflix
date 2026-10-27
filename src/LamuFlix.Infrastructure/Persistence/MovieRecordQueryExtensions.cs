@@ -10,6 +10,8 @@ namespace LamuFlix.Infrastructure.Persistence;
 
 public static class MovieRecordQueryExtensions
 {
+    private static readonly decimal[] RatingValues = CreateRatingValues();
+
     public static IQueryable<MovieRecord> WhereText(this IQueryable<MovieRecord> query, string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -48,6 +50,16 @@ public static class MovieRecordQueryExtensions
         }
 
         return ApplyYearBounds(query.Where(movie => movie.ReleaseYear != null), range);
+    }
+
+    public static IQueryable<MovieRecord> WhereRating(this IQueryable<MovieRecord> query, RatingRange? range)
+    {
+        if (range is null)
+        {
+            return query;
+        }
+
+        return ApplyRatingBounds(query.Where(movie => movie.ImdbRating != null), range);
     }
 
     public static IQueryable<MovieRecord> WhereStatuses(this IQueryable<MovieRecord> query, ImmutableArray<EnrichmentStatus> statuses) =>
@@ -94,6 +106,46 @@ public static class MovieRecordQueryExtensions
         }
 
         return FilterByYear(query, lower, upper);
+    }
+
+    private static IQueryable<MovieRecord> ApplyRatingBounds(IQueryable<MovieRecord> query, RatingRange range)
+    {
+        if (!TryResolveRatingLower(range.Min, out var lower))
+        {
+            return NoMovies(query);
+        }
+
+        if (!TryResolveRatingUpper(range.Max, out var upper))
+        {
+            return NoMovies(query);
+        }
+
+        if (lower is not null && upper is not null && lower.Value > upper.Value)
+        {
+            return NoMovies(query);
+        }
+
+        if (lower is null && upper is null)
+        {
+            return query;
+        }
+
+        var allowed = RatingValues
+            .Where(value => (lower is null || value >= lower.Value) && (upper is null || value <= upper.Value))
+            .Select(value => new ImdbRating(value))
+            .ToArray();
+        return query.Where(movie => allowed.Contains(movie.ImdbRating));
+    }
+
+    private static decimal[] CreateRatingValues()
+    {
+        var values = new decimal[101];
+        for (var index = 0; index < values.Length; index++)
+        {
+            values[index] = index / 10m;
+        }
+
+        return values;
     }
 
     private static IQueryable<MovieRecord> NoMovies(IQueryable<MovieRecord> query) =>
@@ -175,6 +227,28 @@ public static class MovieRecordQueryExtensions
         return upper is not null
             ? query.Where(movie => movie.ReleaseYear <= upper)
             : query;
+    }
+
+    private static bool TryResolveRatingLower(decimal? min, out ImdbRating? lower)
+    {
+        if (min is null)
+        {
+            lower = null;
+            return true;
+        }
+
+        return ImdbRating.TryCreate(min.Value, out lower);
+    }
+
+    private static bool TryResolveRatingUpper(decimal? max, out ImdbRating? upper)
+    {
+        if (max is null)
+        {
+            upper = null;
+            return true;
+        }
+
+        return ImdbRating.TryCreate(max.Value, out upper);
     }
 
     private static IOrderedQueryable<MovieRecord> OrderByTitle(IQueryable<MovieRecord> query, SortDirection direction) =>

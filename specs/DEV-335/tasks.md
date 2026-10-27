@@ -60,13 +60,13 @@
 
 ### Tests for User Story 1
 
-- [ ] T010 [US1] Extend `tests/LamuFlix.IntegrationTests/EfMovieCatalogBrowseTests.cs` on real Testcontainers PostgreSQL (no data-driver mocks): minimum 7 with open maximum; inclusive endpoints including 0, 7, 10 and fractional/equal bounds; unrated excluded for present range and retained with absent range; defensive empty for invalid/inverted bounds proving total 0 and empty-page handling; AND filtering with another filter; total count reflects filtered set before paging. Retain the existing suite translation posture — do not invent client-evaluation harness switches. Name methods `Method_Condition_Expected`. If mutation requires, also extend only `tests/LamuFlix.IntegrationTests/EfMovieCatalogSurvivorTests.cs` with rating-specific proof (no new task ID).
+- [X] T010 [US1] Extend `tests/LamuFlix.IntegrationTests/EfMovieCatalogBrowseTests.cs` on real Testcontainers PostgreSQL (no data-driver mocks): minimum 7 with open maximum; inclusive endpoints including 0, 7, 10 and fractional/equal bounds; unrated excluded for present range and retained with absent range; defensive empty for invalid/inverted bounds proving total 0 and empty-page handling; AND filtering with another filter; total count reflects filtered set before paging. Retain the existing suite translation posture — do not invent client-evaluation harness switches. Name methods `Method_Condition_Expected`. If mutation requires, also extend only `tests/LamuFlix.IntegrationTests/EfMovieCatalogSurvivorTests.cs` with rating-specific proof (no new task ID).
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Add a small `WhereRating` to `src/LamuFlix.Infrastructure/Persistence/MovieRecordQueryExtensions.cs` mirroring `WhereYear`: when `query.Rating` is non-null, require non-null `ImdbRating`, apply inclusive min/max for non-null ends using `ImdbRating.TryCreate` for defensive numeric domain/precision, and map invalid/inverted bounds to the existing defensive empty-set path (total 0 / empty page). Decimal-specific private helpers only if required; no generic range framework. Depends on T006–T009 and T010 authored.
+- [X] T011 [US1] Add a small `WhereRating` to `src/LamuFlix.Infrastructure/Persistence/MovieRecordQueryExtensions.cs` mirroring `WhereYear`: when `query.Rating` is non-null, require non-null `ImdbRating`, apply inclusive min/max for non-null ends using `ImdbRating.TryCreate` for defensive numeric domain/precision, and map invalid/inverted bounds to the existing defensive empty-set path (total 0 / empty page). Decimal-specific private helpers only if required; no generic range framework. Depends on T006–T009 and T010 authored.
 
-- [ ] T012 [US1] Chain `.WhereRating(...)` in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` `BrowseAsync` with the existing predicate chain before `CountAsync` and paging. Do not change sort/order dispatch. Depends on T011.
+- [X] T012 [US1] Chain `.WhereRating(...)` in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` `BrowseAsync` with the existing predicate chain before `CountAsync` and paging. Do not change sort/order dispatch. Depends on T011.
 
 **Checkpoint**: US1 integration tests pass. Catalog-level minRating=7 and unrated exclusion are proven.
 
