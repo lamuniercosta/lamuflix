@@ -105,7 +105,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             }
 
             cache.Invalidate();
-            await InvalidateTasteProfileBestEffortAsync();
+            await InvalidateTasteProfileAsync(ct);
         }
 
         return rows == 1;
@@ -196,8 +196,14 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         }
 
         cache.Invalidate();
-        await InvalidateTasteProfileBestEffortAsync();
-        await DispatchStatusTransitionsAsync(transitions, committedDeferred);
+        try
+        {
+            await InvalidateTasteProfileAsync(ct);
+        }
+        finally
+        {
+            await DispatchStatusTransitionsAsync(transitions, committedDeferred);
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -366,20 +372,11 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         }
     }
 
-    private async Task InvalidateTasteProfileBestEffortAsync()
+    private async Task InvalidateTasteProfileAsync(CancellationToken ct)
     {
-        if (tasteProfileCache is null)
+        if (tasteProfileCache is not null)
         {
-            return;
-        }
-
-        try
-        {
-            await tasteProfileCache.InvalidateAsync(CancellationToken.None);
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(exception, "Taste profile cache invalidation failed after a committed movie save.");
+            await tasteProfileCache.InvalidateAsync(ct);
         }
     }
 
