@@ -66,7 +66,6 @@ test.describe('pending import', () => {
   }, testInfo) => {
     const folderPath =
       testInfo.retry > 0 ? context.reservedFolders.retry : context.reservedFolders.initial;
-    const folderTitle = folderPath.split('/').at(-1) ?? folderPath;
 
     await stubControl('arm', [context.reservedMovie.title]);
     try {
@@ -89,9 +88,9 @@ test.describe('pending import', () => {
       expect(response.status()).toBe(202);
 
       const grid = page.getByRole('list', { name: 'Movies' });
-      const row = grid
-        .getByRole('listitem')
-        .filter({ has: page.getByRole('link', { name: folderTitle, exact: true }) });
+      const row = grid.getByRole('listitem').filter({
+        has: page.getByRole('link', { name: context.reservedMovie.title, exact: true }),
+      });
       await expect(row).toBeVisible({ timeout: context.waitBudgetMs });
       await expect(row).toContainText('Pending', { timeout: context.waitBudgetMs });
     } finally {
