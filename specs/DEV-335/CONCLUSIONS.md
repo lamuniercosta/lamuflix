@@ -186,3 +186,12 @@ Verdict: **gate1: provisional** granted for DEV-335 (`feature/335-spec`).
 - Plan frozen by Keel after `/speckit-analyze`, Palette UI design (`specs/DEV-335/design.md`), and full adjudication of all 21 3-axis plan challenge findings with zero unresolved blocking findings (`specs/DEV-335/PLAN_CHALLENGE_ADJUDICATION.md`).
 - Zero `blocked: structural` items or owner checkboxes required (Basis: Grill Q1-Q8, Plan Challenge Round 1 & Round 2 rulings in `specs/DEV-335/CONCLUSIONS.md`).
 - `**Status**: gate1: provisional` set in `specs/DEV-335/spec.md`; final Gate 1 clearance awaits user merge of the spec PR.
+
+---
+
+## Phase 4 review adjudication — Patron ruling at `a5c37a8c` (2026-10-27)
+
+Verdict: APPROVED — retain Compass F1 (Medium) as blocking, fold the three rating properties from `tests/LamuFlix.UnitTests/Library/MovieQueryRatingPropertyTests.cs` into authorized `tests/LamuFlix.UnitTests/Library/MovieQueryStringTests.cs` and delete `MovieQueryRatingPropertyTests.cs`; record Ledger L5 shared range-helper deduplication as out-of-scope (`noted, no ticket`).
+
+- **Compass F1 deletion & proof folding**: Delete newly introduced `tests/LamuFlix.UnitTests/Library/MovieQueryRatingPropertyTests.cs` after folding its three rating properties into `tests/LamuFlix.UnitTests/Library/MovieQueryStringTests.cs` with no new abstraction, restoring strict conformance with the frozen file envelope while preserving property proof (Basis: Charter §2.3 item 6 deletion authority; Grill Q6 & Q8; Plan Challenge Round 1 clause 5; `specs/DEV-335/spec.md` FR-010, FR-011; `findings-DEV-335-Compass` F1).
+- **Ledger L5 shared range-helper deduplication**: `noted, no ticket` — deduplicating the `TryRating`/`HasAnyRatingValue`/`HasCompleteRatingValues` and `Year` range-helper trios is a Low out-of-scope structural refactoring outside the frozen Q8/FR-011 envelope and is neither Critical/High, broken behaviour, nor user-requested (Basis: Charter §2.3 follow-up ticket rule; Grill Q5, Q8; `specs/DEV-335/spec.md` FR-006, FR-011; `findings-DEV-335-Ledger` item 5).
