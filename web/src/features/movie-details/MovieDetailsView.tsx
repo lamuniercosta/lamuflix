@@ -34,6 +34,7 @@ import {
 } from './movieDetailsQueries';
 import MatchManuallyDialog from './MatchManuallyDialog';
 import RelatedMovies from './RelatedMovies';
+import type { EnrichmentStatusSubscription } from '../../library/useEnrichmentStatus';
 import './MovieDetailsView.css';
 
 type PersonDto = components['schemas']['PersonDto'];
@@ -44,6 +45,7 @@ type CopyState = 'idle' | 'copied' | 'failed';
 
 export interface MovieDetailsViewProps {
   movieId: number | string;
+  enrichmentStatus?: EnrichmentStatusSubscription;
 }
 
 function navigateTo(href: string, state: unknown = {}): void {

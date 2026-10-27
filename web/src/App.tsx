@@ -21,6 +21,7 @@ import ImportDialog from './library/ImportDialog';
 import LibraryErrorBoundary from './library/LibraryErrorBoundary';
 import { armImportPlaceholder, pendingRow } from './library/libraryQueries';
 import LibraryView from './library/LibraryView';
+import type { EnrichmentStatusSubscription } from './library/useEnrichmentStatus';
 import { AmbientProvider } from './ui/AmbientProvider';
 import { FolderPlusIcon, SearchIcon } from './ui/icons';
 
@@ -142,7 +143,11 @@ function DetailsSearch({
   );
 }
 
-export default function App() {
+export interface AppProps {
+  enrichmentStatus?: EnrichmentStatusSubscription;
+}
+
+export default function App({ enrichmentStatus }: AppProps) {
   const [importOpen, setImportOpen] = useState(false);
   const [importedRow, setImportedRow] = useState<MovieSummary | null>(null);
   const importFolderButtonRef = useRef<HTMLButtonElement>(null);
@@ -314,7 +319,7 @@ export default function App() {
             {isDetails && movieId !== null ? (
               <main>
                 <DetailsBackLink href={detailsReturnTarget ?? '/'} onClick={handleDetailsBack} />
-                <MovieDetailsView movieId={movieId} />
+                <MovieDetailsView movieId={movieId} enrichmentStatus={enrichmentStatus} />
               </main>
             ) : (
               <main>
