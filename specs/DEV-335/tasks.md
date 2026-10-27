@@ -18,7 +18,7 @@
 
 **Purpose**: Confirm the implementation base before any production edit.
 
-- [ ] T001 Verify dependencies DEV-322, DEV-297, and DEV-302 have landed on the authorized implementation base and recheck current-main drift for the planned file envelope in `specs/DEV-335/plan.md`. If either check fails, stop and report; do not begin Phase 2. Record the verified base commit in the work notes. No production file edits in this task.
+- [X] T001 Verify dependencies DEV-322, DEV-297, and DEV-302 have landed on the authorized implementation base and recheck current-main drift for the planned file envelope in `specs/DEV-335/plan.md`. If either check fails, stop and report; do not begin Phase 2. Record the verified base commit in the work notes. No production file edits in this task.
 
 ---
 
