@@ -26,6 +26,8 @@ internal static class LibraryEndpoints
     private const string RuntimeIncludeUnknownKey = "runtimeIncludeUnknown";
     private const string YearMinKey = "yearMin";
     private const string YearMaxKey = "yearMax";
+    private const string MinRatingKey = "minRating";
+    private const string MaxRatingKey = "maxRating";
     private const string StatusesKey = "statuses";
     private const string InWatchlistKey = "inWatchlist";
     private const string SortKey = "sort";
@@ -37,6 +39,7 @@ internal static class LibraryEndpoints
 
     private static readonly string[] RuntimeKeys = [RuntimeMinKey, RuntimeMaxKey, RuntimeIncludeUnknownKey];
     private static readonly string[] YearKeys = [YearMinKey, YearMaxKey];
+    private static readonly string[] RatingKeys = [MinRatingKey, MaxRatingKey];
 
     internal static RouteGroupBuilder MapLibraryEndpoints(this RouteGroupBuilder api)
     {
@@ -137,6 +140,8 @@ internal static class LibraryEndpoints
         ReadNumber(rawQuery, RuntimeMaxKey, request.RuntimeMax, EmptyMeansNull, state);
         ReadNumber(rawQuery, YearMinKey, request.YearMin, EmptyMeansNull, state);
         ReadNumber(rawQuery, YearMaxKey, request.YearMax, EmptyMeansNull, state);
+        ReadRating(rawQuery, MinRatingKey, request.MinRating, state);
+        ReadRating(rawQuery, MaxRatingKey, request.MaxRating, state);
         ReadBoolean(rawQuery, RuntimeIncludeUnknownKey, request.RuntimeIncludeUnknown, state);
         ReadBoolean(rawQuery, InWatchlistKey, request.InWatchlist, state);
     }
@@ -219,6 +224,22 @@ internal static class LibraryEndpoints
         }
 
         state.Fail(key, IntegerMessage(key));
+    }
+
+    private static void ReadRating(IQueryCollection rawQuery, string key, string? raw, MappingState state)
+    {
+        if (raw is null || !MarkSeenOnce(rawQuery, key, state))
+        {
+            return;
+        }
+
+        if (!MovieQueryString.TryParseRatingBound(raw, out var bound))
+        {
+            state.Fail(key, RatingMessage(key));
+            return;
+        }
+
+        state.Ratings[key] = bound;
     }
 
     private static void ReadBoolean(IQueryCollection rawQuery, string key, string? raw, MappingState state)
@@ -308,6 +329,9 @@ internal static class LibraryEndpoints
 
     private static string EmptyMessage(string key) => $"'{key}' must not be empty.";
 
+    private static string RatingMessage(string key) =>
+        $"'{key}' must be a rating from 0.0 to 10.0 with at most one decimal place.";
+
     private static string NamesMessage(string key, IEnumerable<string> names) =>
         $"'{key}' must be one of: {string.Join(", ", names)}.";
 
@@ -319,6 +343,8 @@ internal static class LibraryEndpoints
 
         private YearRange? Year { get; set; }
 
+        private RatingRange? Rating { get; set; }
+
         public HashSet<string> Seen { get; } = new(StringComparer.Ordinal);
 
         private Dictionary<string, List<string>> Errors { get; } = new(StringComparer.Ordinal);
@@ -326,6 +352,8 @@ internal static class LibraryEndpoints
         public Dictionary<string, int> Ints { get; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, bool> Bools { get; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, decimal?> Ratings { get; } = new(StringComparer.Ordinal);
 
         public List<int> GenreIds { get; } = [];
 
@@ -354,6 +382,7 @@ internal static class LibraryEndpoints
         {
             ApplyRuntime();
             ApplyYear();
+            ApplyRating();
         }
 
         public void ThrowIfInvalid()
@@ -374,6 +403,7 @@ internal static class LibraryEndpoints
             ActorIds = [.. ActorIds],
             Runtime = Runtime,
             Year = Year,
+            Rating = Rating,
             Statuses = [.. Statuses],
             InWatchlist = LookupBoolean(InWatchlistKey),
             Sort = Sort,
@@ -403,6 +433,19 @@ internal static class LibraryEndpoints
 
             Year = new YearRange(LookupNumber(YearMinKey), LookupNumber(YearMaxKey));
         }
+
+        private void ApplyRating()
+        {
+            if (!SeenOverlaps(RatingKeys) || !RequireSeen(RatingKeys))
+            {
+                return;
+            }
+
+            Rating = new RatingRange(LookupRating(MinRatingKey), LookupRating(MaxRatingKey));
+        }
+
+        private decimal? LookupRating(string key) =>
+            Ratings.TryGetValue(key, out var value) ? value : null;
 
         private int? LookupNumber(string key) =>
             Ints.TryGetValue(key, out var value) ? value : null;

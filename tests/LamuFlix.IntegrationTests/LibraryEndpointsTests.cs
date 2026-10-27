@@ -189,6 +189,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         var dispatched = catalog.Queries.ShouldHaveSingleItem();
         dispatched.Runtime.ShouldBeNull();
         dispatched.Year.ShouldBeNull();
+        dispatched.Rating.ShouldBeNull();
         dispatched.InWatchlist.ShouldBeNull();
     }
 
@@ -227,6 +228,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     [InlineData("runtimeMin=1&sort=Title&direction=Ascending&page=1&pageSize=20", "runtimeIncludeUnknown")]
     [InlineData("runtimeMax=2&sort=Title&direction=Ascending&page=1&pageSize=20", "runtimeMin")]
     [InlineData("yearMin=1990&sort=Title&direction=Ascending&page=1&pageSize=20", "yearMax")]
+    [InlineData("minRating=7&sort=Title&direction=Ascending&page=1&pageSize=20", "maxRating")]
+    [InlineData("maxRating=8.5&sort=Title&direction=Ascending&page=1&pageSize=20", "minRating")]
     public async Task BrowseMovies_PartialRange_FailsFieldKeyedOnTheMissingMembers(
         string rawQuery,
         string field)
@@ -286,6 +289,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
     [Theory]
     [InlineData("yearMin=2000&yearMax=1990", "Query.Year")]
     [InlineData("runtimeMin=20&runtimeMax=10&runtimeIncludeUnknown=false", "Query.Runtime")]
+    [InlineData("minRating=8&maxRating=7", "Query.Rating")]
     public async Task BrowseMovies_InvertedBounds_ReachTheDecoratedValidator(string range, string field)
     {
         // arrange
@@ -297,6 +301,66 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         var response = await client.GetAsync(
             $"{BrowseRoute}?{range}&{RequiredQuery}",
             cancellationToken);
+        var problem = await ReadProblemAsync(response, cancellationToken);
+
+        // assert
+        ShouldFailField(problem, field);
+        catalog.Queries.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("minRating=7&maxRating=", 7.0, null)]
+    [InlineData("minRating=&maxRating=8.5", null, 8.5)]
+    [InlineData("minRating=0&maxRating=10", 0.0, 10.0)]
+    [InlineData("minRating=07.0&maxRating=7.1", 7.0, 7.1)]
+    [InlineData("minRating=&maxRating=", null, null)]
+    [InlineData("minRating=7&maxRating=7.0", 7.0, 7.0)]
+    public async Task BrowseMovies_PairedRatingKeys_DispatchTheCanonicalRange(
+        string range,
+        double? min,
+        double? max)
+    {
+        // arrange
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{BrowseRoute}?{range}&{RequiredQuery}", cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var dispatched = catalog.Queries.ShouldHaveSingleItem();
+        dispatched.Rating.ShouldBe(new RatingRange((decimal?)min, (decimal?)max));
+    }
+
+    [Theory]
+    [InlineData("minRating=%2B7&maxRating=", "minRating")]
+    [InlineData("minRating=-0&maxRating=", "minRating")]
+    [InlineData("minRating=1e1&maxRating=", "minRating")]
+    [InlineData("minRating=%207&maxRating=", "minRating")]
+    [InlineData("minRating=7%20&maxRating=", "minRating")]
+    [InlineData("minRating=7,0&maxRating=", "minRating")]
+    [InlineData("minRating=7.&maxRating=", "minRating")]
+    [InlineData("minRating=.5&maxRating=", "minRating")]
+    [InlineData("minRating=7.00&maxRating=", "minRating")]
+    [InlineData("minRating=7.10&maxRating=", "minRating")]
+    [InlineData("minRating=NaN&maxRating=", "minRating")]
+    [InlineData("minRating=10.1&maxRating=", "minRating")]
+    [InlineData("minRating=11&maxRating=", "minRating")]
+    [InlineData("minRating=7.5.5&maxRating=", "minRating")]
+    [InlineData("minRating=7&minRating=8&maxRating=", "minRating")]
+    public async Task BrowseMovies_InvalidRatingText_FailsFieldKeyedWithoutReachingTheCatalog(
+        string range,
+        string field)
+    {
+        // arrange
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{BrowseRoute}?{range}&{RequiredQuery}", cancellationToken);
         var problem = await ReadProblemAsync(response, cancellationToken);
 
         // assert

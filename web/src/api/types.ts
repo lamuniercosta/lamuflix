@@ -206,6 +206,8 @@ export interface operations {
         RuntimeIncludeUnknown?: string;
         YearMin?: string;
         YearMax?: string;
+        MinRating?: string;
+        MaxRating?: string;
         Statuses?: string[];
         InWatchlist?: string;
         sort: "Title" | "Year" | "Rating" | "Runtime";

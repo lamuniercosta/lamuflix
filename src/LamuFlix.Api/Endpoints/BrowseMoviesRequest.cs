@@ -19,6 +19,10 @@ internal sealed record BrowseMoviesRequest
 
     public string? YearMax { get; set; }
 
+    public string? MinRating { get; set; }
+
+    public string? MaxRating { get; set; }
+
     public string[]? Statuses { get; set; }
 
     public string? InWatchlist { get; set; }

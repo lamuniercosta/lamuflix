@@ -81,6 +81,20 @@
             }
           },
           {
+            "name": "MinRating",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "MaxRating",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "Statuses",
             "in": "query",
             "schema": {

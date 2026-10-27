@@ -188,6 +188,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
 
         // assert
         Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        // Documented/generated names stay PascalCase; canonical raw wire keys stay camelCase minRating/maxRating.
         parameters.Keys.ShouldBe(
             [
                 "Text",
@@ -198,6 +199,8 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
                 "RuntimeIncludeUnknown",
                 "YearMin",
                 "YearMax",
+                "MinRating",
+                "MaxRating",
                 "Statuses",
                 "InWatchlist",
                 "sort",
