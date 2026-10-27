@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Linq;
 using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Core.Library;
@@ -226,7 +227,7 @@ public static class MovieQueryString
     private static bool HasRatingBoundShape(string raw)
     {
         var separator = raw.IndexOf('.', StringComparison.Ordinal);
-        if (separator < 0)
+        if (separator == -1)
         {
             return AreAsciiDigits(raw);
         }
@@ -243,18 +244,10 @@ public static class MovieQueryString
             return false;
         }
 
-        foreach (var character in value)
-        {
-            if (!IsAsciiDigit(character))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return value.All(IsAsciiDigit);
     }
 
-    private static bool IsAsciiDigit(char character) => character >= '0' && character <= '9';
+    private static bool IsAsciiDigit(char character) => char.IsAsciiDigit(character);
 
     private static bool TryApplyRequiredInt(string raw, ParseState state, string key, Action<int> assign)
     {
@@ -409,8 +402,8 @@ public static class MovieQueryString
         var separator = segment.IndexOf('=');
         if (separator <= 0)
         {
-            key = string.Empty;
-            value = string.Empty;
+            key = segment;
+            value = segment;
             return false;
         }
 

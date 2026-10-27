@@ -327,4 +327,40 @@ public sealed class MovieQueryStringSurvivorTests
         parsed.ShouldBeFalse();
         query.ShouldBeNull();
     }
+
+    [Fact]
+    public void TryParseRatingBound_LeadingDotFraction_ReturnsFalse()
+    {
+        // arrange
+        // act
+        var parsed = MovieQueryString.TryParseRatingBound(".5", out var bound);
+
+        // assert
+        parsed.ShouldBeFalse();
+        bound.ShouldBeNull();
+    }
+
+    [Fact]
+    public void TryParseRatingBound_TrailingDot_ReturnsFalse()
+    {
+        // arrange
+        // act
+        var parsed = MovieQueryString.TryParseRatingBound("7.", out var bound);
+
+        // assert
+        parsed.ShouldBeFalse();
+        bound.ShouldBeNull();
+    }
+
+    [Fact]
+    public void TryParseRatingBound_LeadingSign_ReturnsFalse()
+    {
+        // arrange
+        // act
+        var parsed = MovieQueryString.TryParseRatingBound("+7", out var bound);
+
+        // assert
+        parsed.ShouldBeFalse();
+        bound.ShouldBeNull();
+    }
 }
