@@ -187,6 +187,194 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture) : IAsyncL
         { null, null, ["Low", "Edge", "High"] }
     };
 
+    [Theory]
+    [MemberData(nameof(RatingCases))]
+    public async Task WhereRating_RangeCondition_ReturnsInclusiveRatedMatches(decimal? min, decimal? max, string[] expected)
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        context.Movies.AddRange(
+            MovieCatalogSeed.Create("Unrated", "rating-unrated"),
+            Rated("Zero", "rating-zero", 0.0m),
+            Rated("Low", "rating-low", 6.9m),
+            Rated("Edge", "rating-edge", 7.0m),
+            Rated("Fraction", "rating-fraction", 7.1m),
+            Rated("High", "rating-high", 8.5m),
+            Rated("Top", "rating-top", 10.0m));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // act
+        var actual = await context.Movies.WhereRating(new RatingRange(min, max))
+            .Select(movie => movie.Title).ToArrayAsync(TestContext.Current.CancellationToken);
+        var inactive = await context.Movies.WhereRating(null).CountAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        actual.Order().ShouldBe(expected.Order());
+        inactive.ShouldBe(7);
+    }
+
+    public static TheoryData<decimal?, decimal?, string[]> RatingCases => new()
+    {
+        { 7m, null, ["Edge", "Fraction", "High", "Top"] },
+        { null, 7m, ["Zero", "Low", "Edge"] },
+        { 7m, 7m, ["Edge"] },
+        { 7.1m, 7.1m, ["Fraction"] },
+        { 0m, 10m, ["Zero", "Low", "Edge", "Fraction", "High", "Top"] },
+        { null, null, ["Zero", "Low", "Edge", "Fraction", "High", "Top"] },
+        { 9m, 10m, ["Top"] },
+        { 0m, 0m, ["Zero"] },
+        { 7.05m, 8m, [] },
+        { -0.1m, null, [] }
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidRatingCases))]
+    public async Task WhereRating_InvalidOrInvertedBounds_ReturnsEmpty(decimal? min, decimal? max)
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        context.Movies.AddRange(
+            Rated("Low", "rating-invalid-low", 6.9m),
+            Rated("Edge", "rating-invalid-edge", 7.0m),
+            Rated("High", "rating-invalid-high", 8.5m));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // act
+        var actual = await context.Movies.WhereRating(new RatingRange(min, max))
+            .CountAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        actual.ShouldBe(0);
+    }
+
+    public static TheoryData<decimal?, decimal?> InvalidRatingCases => new()
+    {
+        { -0.1m, null },
+        { null, 10.1m },
+        { 7.05m, null },
+        { null, 6.99m },
+        { 8m, 7m },
+        { 5m, 5.5m },
+        { 10.1m, 10.1m }
+    };
+
+    [Fact]
+    public async Task BrowseAsync_RatingPresent_ExcludesUnratedAndRetainsThemWhenAbsent()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        context.Movies.AddRange(
+            MovieCatalogSeed.Create("Unrated", "rating-unrated-browse"),
+            Rated("Rated", "rating-rated-browse", 8.0m));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var withRange = await catalog.BrowseAsync(
+            new MovieQuery { Rating = new RatingRange(7m, null), Sort = MovieSort.Title, Direction = SortDirection.Ascending, Page = new Page(1, 10) },
+            TestContext.Current.CancellationToken);
+        var withoutRange = await catalog.BrowseAsync(
+            new MovieQuery { Sort = MovieSort.Title, Direction = SortDirection.Ascending, Page = new Page(1, 10) },
+            TestContext.Current.CancellationToken);
+
+        // assert
+        var ratedOnly = withRange.Items.ShouldHaveSingleItem();
+        ratedOnly.Title.ShouldBe("Rated");
+        withRange.TotalCount.ShouldBe(1);
+        withoutRange.TotalCount.ShouldBe(2);
+        withoutRange.Items.Select(item => item.Title).ShouldBe(["Rated", "Unrated"]);
+    }
+
+    [Fact]
+    public async Task BrowseAsync_InvalidRatingBounds_ReturnsDefensiveEmptyPage()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        context.Movies.AddRange(Rated("High", "rating-defensive-high", 8.5m));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var result = await catalog.BrowseAsync(
+            new MovieQuery { Rating = new RatingRange(9m, 8m), Sort = MovieSort.Title, Direction = SortDirection.Ascending, Page = new Page(1, 10) },
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.TotalCount.ShouldBe(0);
+        result.Items.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task BrowseAsync_RatingWithOtherFilters_AppliesAndAcrossFilters()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var genre = new GenreRecord { Name = "Drama" };
+        var match = Rated("Matching Film", "rating-combine-match", 8.1m);
+        match.Genres.Add(genre);
+        var ratingDecoy = Rated("Matching Film", "rating-combine-rating", 6.5m);
+        ratingDecoy.Genres.Add(genre);
+        var genreDecoy = Rated("Matching Film", "rating-combine-genre", 8.1m);
+        var unratedDecoy = MovieCatalogSeed.Create("Matching Film", "rating-combine-unrated");
+        unratedDecoy.Genres.Add(genre);
+        context.Movies.AddRange(match, ratingDecoy, genreDecoy, unratedDecoy);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+        var request = new MovieQuery
+        {
+            Text = "Matching",
+            GenreIds = [genre.Id],
+            Rating = new RatingRange(8m, 9m),
+            Sort = MovieSort.Title,
+            Direction = SortDirection.Ascending,
+            Page = new Page(1, 10)
+        };
+
+        // act
+        var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
+
+        // assert
+        var item = result.Items.ShouldHaveSingleItem();
+        item.Title.ShouldBe("Matching Film");
+        item.ImdbRating.ShouldBe(8.1m);
+        result.TotalCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task BrowseAsync_RatingRange_CountsFilteredSetBeforePaging()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        context.Movies.AddRange(
+            Rated("Alpha", "rating-paging-alpha", 7.0m),
+            Rated("Beta", "rating-paging-beta", 8.0m),
+            Rated("Gamma", "rating-paging-gamma", 9.0m),
+            Rated("Delta", "rating-paging-delta", 6.0m));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+        var request = new MovieQuery
+        {
+            Rating = new RatingRange(7m, null),
+            Sort = MovieSort.Title,
+            Direction = SortDirection.Ascending,
+            Page = new Page(1, 2)
+        };
+
+        // act
+        var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
+
+        // assert
+        result.TotalCount.ShouldBe(3);
+        result.Items.Select(item => item.Title).ShouldBe(["Alpha", "Beta"]);
+    }
+
+    private static MovieRecord Rated(string title, string pathSuffix, decimal rating)
+    {
+        var movie = MovieCatalogSeed.Create(title, pathSuffix);
+        movie.ImdbRating = new ImdbRating(rating);
+        return movie;
+    }
+
     [Fact]
     public async Task WhereStatuses_StatusCondition_ReturnsAnyStatusAndLeavesEmptyUnfiltered()
     {

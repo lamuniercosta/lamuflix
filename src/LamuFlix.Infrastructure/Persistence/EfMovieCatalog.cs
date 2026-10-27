@@ -20,6 +20,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .WhereActors(query.ActorIds)
             .WhereRuntime(query.Runtime)
             .WhereYear(query.Year)
+            .WhereRating(query.Rating)
             .WhereStatuses(query.Statuses)
             .WhereInWatchlist(query.InWatchlist);
         var totalCount = await filtered.CountAsync(ct);
