@@ -25,9 +25,9 @@
 
 ## Phase 2: Isolated health types
 
-- [ ] T007 Create `src/LamuFlix.Infrastructure/Adapters/SecondaryMetadataProviderHealthState.cs`: public sealed singleton-friendly type, internal members, single-reference atomic immutable snapshot (failure category + wasUnauthorized) with last-write-wins Volatile publish/read, no network, no timestamp (FR-010; Q4, Q6; Sentry F5)
-- [ ] T008 Create `src/LamuFlix.Infrastructure/Adapters/SecondaryMetadataProviderHealthCheck.cs`: internal sealed IHealthCheck with explicit `IOptions<TmdbOptions>` constructor dependency implementing Q4 Healthy/Degraded/Unhealthy rules including blank ApiKey and last-401 Unhealthy with safe configuration advice; no HTTP probe (FR-010; Q4; PC6 / Compass F2)
-- [ ] T009 [US5] Create `tests/LamuFlix.UnitTests/Adapters/SecondaryMetadataProviderHealthCheckTests.cs` covering initial blank-key Unhealthy, disabled blank-key Unhealthy, unauthorized/degraded/recovery mappings (supply `IOptions<TmdbOptions>` in arrange) (FR-014; Q4; PC6 / Compass F2 — after T007→T008)
+- [X] T007 Create `src/LamuFlix.Infrastructure/Adapters/SecondaryMetadataProviderHealthState.cs`: public sealed singleton-friendly type, internal members, single-reference atomic immutable snapshot (failure category + wasUnauthorized) with last-write-wins Volatile publish/read, no network, no timestamp (FR-010; Q4, Q6; Sentry F5)
+- [X] T008 Create `src/LamuFlix.Infrastructure/Adapters/SecondaryMetadataProviderHealthCheck.cs`: internal sealed IHealthCheck with explicit `IOptions<TmdbOptions>` constructor dependency implementing Q4 Healthy/Degraded/Unhealthy rules including blank ApiKey and last-401 Unhealthy with safe configuration advice; no HTTP probe (FR-010; Q4; PC6 / Compass F2)
+- [X] T009 [US5] Create `tests/LamuFlix.UnitTests/Adapters/SecondaryMetadataProviderHealthCheckTests.cs` covering initial blank-key Unhealthy, disabled blank-key Unhealthy, unauthorized/degraded/recovery mappings (supply `IOptions<TmdbOptions>` in arrange) (FR-014; Q4; PC6 / Compass F2 — after T007→T008)
 
 ## Phase 3: User Story 1 — Adapter mapping and lookup flow (P1)
 
