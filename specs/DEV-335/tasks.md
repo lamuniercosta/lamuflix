@@ -80,17 +80,17 @@
 
 ### Tests for User Story 2
 
-- [ ] T013 [P] [US2] Extend `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` for paired canonical camelCase wire keys `minRating`/`maxRating`, decimals and open values (including accepted `07.0`), and 422 for partial, duplicate, out-of-domain, inverted, and the same lexical rejects as T003 (`+7`, `-0`, `1e1`, whitespace, `7,0`, `7.`, `.5`, `7.00`, `7.10`, `NaN`). Name methods `Method_Condition_Expected`.
+- [X] T013 [P] [US2] Extend `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` for paired canonical camelCase wire keys `minRating`/`maxRating`, decimals and open values (including accepted `07.0`), and 422 for partial, duplicate, out-of-domain, inverted, and the same lexical rejects as T003 (`+7`, `-0`, `1e1`, whitespace, `7,0`, `7.`, `.5`, `7.00`, `7.10`, `NaN`). Name methods `Method_Condition_Expected`.
 
-- [ ] T014 [P] [US2] Extend `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` exact BrowseMovies parameter-list equality assertion to include documented/generated PascalCase `MinRating`/`MaxRating` while clarifying canonical raw wire keys remain camelCase `minRating`/`maxRating` (no rename, no new DTO, no subset match).
+- [X] T014 [P] [US2] Extend `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` exact BrowseMovies parameter-list equality assertion to include documented/generated PascalCase `MinRating`/`MaxRating` while clarifying canonical raw wire keys remain camelCase `minRating`/`maxRating` (no rename, no new DTO, no subset match).
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Update `src/LamuFlix.Api/Endpoints/BrowseMoviesRequest.cs` with string-bound `MinRating` and `MaxRating` documenting canonical `minRating`/`maxRating`. Place new properties inside the existing scoped ReSharper disable/restore pair; preserve existing comments; add no new explanatory comments. Leave existing parameter names unchanged; no new DTO.
+- [X] T015 [US2] Update `src/LamuFlix.Api/Endpoints/BrowseMoviesRequest.cs` with string-bound `MinRating` and `MaxRating` documenting canonical `minRating`/`maxRating`. Place new properties inside the existing scoped ReSharper disable/restore pair; preserve existing comments; add no new explanatory comments. Leave existing parameter names unchanged; no new DTO.
 
-- [ ] T016 [US2] Update `src/LamuFlix.Api/Endpoints/LibraryEndpoints.cs` with decimal rating parse path that shares T008's Round 1 lexical rule, paired-key require-both semantics, duplicate MarkSeenOnce → 422, and mapping into `MovieQuery.Rating`. No silent rounding/clamping. Depends on T015 and Phase 2 codec rules.
+- [X] T016 [US2] Update `src/LamuFlix.Api/Endpoints/LibraryEndpoints.cs` with decimal rating parse path that shares T008's Round 1 lexical rule, paired-key require-both semantics, duplicate MarkSeenOnce → 422, and mapping into `MovieQuery.Rating`. No silent rounding/clamping. Depends on T015 and Phase 2 codec rules.
 
-- [ ] T017 [US2] After T015–T016 compile: regenerate `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` with `LAMUFLIX_REGENERATE_OPENAPI=true`, clear the flag, then run `npm run generate:api` so `web/src/api/types.ts` and `web/src/mocks/handlers.ts` update. Never hand-edit generated files. Confirm T013–T014 and drift tests pass.
+- [X] T017 [US2] After T015–T016 compile: regenerate `web/src/api/openapi.json` and `tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json` with `LAMUFLIX_REGENERATE_OPENAPI=true`, clear the flag, then run `npm run generate:api` so `web/src/api/types.ts` and `web/src/mocks/handlers.ts` update. Never hand-edit generated files. Confirm T013–T014 and drift tests pass.
 
 **Checkpoint**: HTTP accepts valid paired rating keys, rejects invalid input with 422, and contract drift is green on regenerated artifacts.
 
