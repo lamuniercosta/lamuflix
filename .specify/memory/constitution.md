@@ -1,7 +1,29 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.3.0 → 1.4.0 (MINOR — Core port enumeration expanded with `IMovieFeaturesRepository`)
+Version change: 1.4.0 → 1.5.0 (MINOR — Core port enumeration expanded with
+`IEnrichmentStatusNotifier`; enrichment status delivery wording aligned to ADR-0022)
+
+Amendment 1.5.0 (2026-10-27):
+  Modified sections:
+    ✏️ I. Ports and Adapters: `IEnrichmentStatusNotifier` added to the closed named-port
+       enumeration immediately after `IMovieFeaturesRepository` (DEV-330; ADR-0029).
+       The BCL/M.E.AI abstractions and the sentence `Adding a port requires an ADR.`
+       are retained.
+    ✏️ API and Contract Rules: enrichment status delivery sentence updated from
+       polling-only P1 / SignalR stretch (ADR-0008) to SignalR push per ADR-0022
+       (polling superseded for this channel only).
+    ✏️ Known Technical Debt: removed the standalone “Polling for enrichment
+       status instead of push (ADR-0008)” debt item so it no longer contradicts
+       ADR-0022 / ADR-0029 (supersession already recorded on ADR-0008).
+  Added / removed sections: none
+  Templates reviewed:
+    ✅ .specify/templates/*.md — no port-enumeration references; no edits required
+  Follow-up: update `PortWhitelistPattern` in
+    `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` to include
+    `|IEnrichmentStatusNotifier` while preserving existing whitelist tokens
+
+Previous version change: 1.3.0 → 1.4.0 (MINOR — Core port enumeration expanded with `IMovieFeaturesRepository`)
 
 Amendment 1.4.0 (2026-10-22):
   Modified sections:
@@ -147,9 +169,9 @@ Project reference rules are strict and unidirectional:
   `Domain/`, `Ports/`, or `Pipeline/`.
 - Ports live in `Core/Ports/`; the only ports are `IMovieRepository`, `IMovieCatalog`,
   `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `IMediaPlayerLauncher`,
-  `IRecommendationCandidateSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`, and the
-  BCL/M.E.AI abstractions `TimeProvider` and `IEmbeddingGenerator<string, Embedding<float>>`.
-  Adding a port requires an ADR.
+  `IRecommendationCandidateSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`,
+  `IEnrichmentStatusNotifier`, and the BCL/M.E.AI abstractions `TimeProvider` and
+  `IEmbeddingGenerator<string, Embedding<float>>`. Adding a port requires an ADR.
 - These rules MUST be enforced by `LamuFlix.ArchitectureTests`; a violation fails the build.
 
 **Rationale**: One aggregate with eight use cases is the right size for feature folders, and the
@@ -504,7 +526,9 @@ Code MUST follow `.claude/rules/vendor/aaron-csharp-coding-style.md` and these p
 - The OpenAPI document is committed at `web/src/api/openapi.json`, snapshot-tested with Verify,
   and regenerated in CI; drift fails the build. The TypeScript client and MSW handlers are
   generated from that document, never hand-written.
-- Enrichment status is delivered by polling in P1 (ADR-0008); SignalR is a stretch item.
+- Enrichment status is delivered by SignalR push from the Api host (ADR-0022; port and
+  post-commit semantics in ADR-0029). Client reconnect refetches pending movies rather
+  than replaying missed events. Polling (ADR-0008) is superseded for this channel only.
 
 ### Documentation Rules
 
@@ -531,7 +555,6 @@ worked around or extended; retiring them follows the epic order in the architect
   paths) are known violations of Principle VII, retired in Epics 1–3. They MUST NOT be copied.
 - **Dual write on import** (insert, then enqueue) is mitigated by the sweeper; a transactional
   outbox is Epic 8 (ADR-0005).
-- **Polling** for enrichment status instead of push (ADR-0008).
 - **OMDb free tier** (1,000 requests/day): bulk cutover is slow by design; `RateLimited`
   retries MUST be delayed, never tight loops.
 - **Single user**: no cross-user signal, so collaborative filtering is excluded (ADR-0011).
@@ -564,4 +587,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.4.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-22
+**Version**: 1.5.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-27

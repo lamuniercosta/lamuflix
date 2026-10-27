@@ -50,13 +50,22 @@ Repository root `src/`, `tests/`, `web/` as in plan.md Project Structure.
 
 **⚠️ CRITICAL**: No US1–US3 production behavior until this phase completes. T006/T007 blocked until T001 records the owner Gate 1 answer.
 
-- [ ] T006 Apply approved Constitution v1.5.0 text from `specs/DEV-330/constitution-amendment-v1.5.0.md` into `.specify/memory/constitution.md` (Sync Impact Report, Principle I port list, API/Contract Rules enrichment wording, Known Technical Debt polling item, Version/Last Amended); review `.specify/templates/*.md` and record no-edit or follow-up — only after T001 Gate 1 evidence
-- [ ] T007 [P] Publish ADR-0029 as Accepted at `docs/adr/0029-enrichment-status-post-commit-notifier.md` (Keel-authored content; status bump only if still Proposed) in the same delivery PR constraints as the amendment — only after T001 Gate 1 evidence
-- [ ] T008 [P] Add `|IEnrichmentStatusNotifier` to `PortWhitelistPattern` in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` preserving existing tokens
-- [ ] T009 [P] Create `src/LamuFlix.Core/Ports/IEnrichmentStatusNotifier.cs` with `Task NotifyAsync(MovieId movieId, EnrichmentStatus status, CancellationToken cancellationToken)`
-- [ ] T010 Add central pin `Microsoft.AspNetCore.SignalR.Client` 10.0.14 in `Directory.Packages.props` and PackageReference in `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` only (no server NuGet, no npm)
+- [x] T006 Apply approved Constitution v1.5.0 text from `specs/DEV-330/constitution-amendment-v1.5.0.md` into `.specify/memory/constitution.md` (Sync Impact Report, Principle I port list, API/Contract Rules enrichment wording, Known Technical Debt polling item, Version/Last Amended); review `.specify/templates/*.md` and record no-edit or follow-up — only after T001 Gate 1 evidence
+- [x] T007 [P] Publish ADR-0029 as Accepted at `docs/adr/0029-enrichment-status-post-commit-notifier.md` (Keel-authored content; status bump only if still Proposed) in the same delivery PR constraints as the amendment — only after T001 Gate 1 evidence
+- [x] T008 [P] Add `|IEnrichmentStatusNotifier` to `PortWhitelistPattern` in `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` preserving existing tokens
+- [x] T009 [P] Create `src/LamuFlix.Core/Ports/IEnrichmentStatusNotifier.cs` with `Task NotifyAsync(MovieId movieId, EnrichmentStatus status, CancellationToken cancellationToken)`
+- [x] T010 Add central pin `Microsoft.AspNetCore.SignalR.Client` 10.0.14 in `Directory.Packages.props` and PackageReference in `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` only (no server NuGet, no npm)
 
-**Checkpoint**: Constitution, ADR, whitelist, port, and test client dependency are in place; architecture tests expect the new port token.
+**Anvil Phase 2 receipt — 2026-10-27**: Applied at `F:/Dev/LamuFlix.worktrees/DEV-330`, branch `feature/DEV-330`, base `32912979`.
+
+- T006: `.specify/memory/constitution.md` amended exactly per `constitution-amendment-v1.5.0.md`: Sync Impact Report entry prepended (1.4.0 → 1.5.0 MINOR, 2026-10-27), Principle I closed port list now reads `… IPlaybackHistory, IMovieFeaturesRepository, IEnrichmentStatusNotifier, and the BCL/M.E.AI abstractions …` with `Adding a port requires an ADR.` retained, the API/Contract Rules polling sentence replaced with the ADR-0022 SignalR-push wording, the Known Technical Debt `Polling … (ADR-0008)` bullet deleted, footer now `Version: 1.5.0 | Ratified: 2026-09-21 | Last Amended: 2026-10-27`. No unrelated rule touched; the whitelist-only ports `IRecommendationProfileSource` and `IEnrichmentOutbox` were left in place per the amendment constraint not to silently drop whitelist tokens. Templates: `.specify/templates/{checklist,constitution,plan,spec,tasks}-template.md` contain no port-enumeration or enrichment-delivery references (grep for `IMovieFeaturesRepository`/port) → no edits required; Sync Impact Report records that. `constitution-amendment-v1.5.0.md` is left untouched as Phase A history.
+- T007: `docs/adr/0029-enrichment-status-post-commit-notifier.md` status line is now `Status: Accepted. Constitution v1.5.0 (MINOR) adds the … port (owner Gate 1 approved per PR #264).` The closing paragraph that still claimed Gate 1 was closed was updated to record the approval; no decision content was altered (Keel-authored body preserved).
+- T008: `PortWhitelistPattern` gained `|IEnrichmentStatusNotifier` as the final alternative; all 11 pre-existing tokens, anchors, and the `ports.Count >= 6` anti-vacuity floor are unchanged.
+- T009: `src/LamuFlix.Core/Ports/IEnrichmentStatusNotifier.cs` — `Task NotifyAsync(MovieId movieId, EnrichmentStatus status, CancellationToken cancellationToken)`, namespace `LamuFlix.Core.Ports`, no default argument, no SignalR/Api dependency. Core references unchanged.
+- T010: `Directory.Packages.props` (test group, after `Microsoft.AspNetCore.Mvc.Testing`) and `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` pin `Microsoft.AspNetCore.SignalR.Client` `10.0.14`; `dotnet list package` confirms 10.0.14 resolved. No server-side SignalR NuGet added (shared framework), no npm package, no other csproj touched.
+- Verification: `dotnet build LamuFlix.sln` exit 0, 0 warnings / 0 errors; `dotnet test LamuFlix.ArchitectureTests` 15 passed / 0 failed (whitelist now accepts the new port); `dotnet format --verify-no-changes` exit 0. Changed-file set: the six files above only.
+
+**Checkpoint**: Constitution, ADR, whitelist, port, and test-client dependency in place.
 
 ---
 
