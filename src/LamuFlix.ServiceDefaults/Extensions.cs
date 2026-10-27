@@ -83,6 +83,7 @@ public static class ServiceDefaultsExtensions
         BindAndValidate<LibraryOptions>(services, LibraryOptions.SectionName);
         BindAndValidate<PlaybackOptions>(services, PlaybackOptions.SectionName);
         BindAndValidate<OmdbOptions>(services, OmdbOptions.SectionName);
+        BindAndValidate<TmdbOptions>(services, TmdbOptions.SectionName);
         BindAndValidate<MetadataProviderResilienceOptions>(services, MetadataProviderResilienceOptions.SectionName);
         BindAndValidate<RabbitMqOptions>(services, RabbitMqOptions.SectionName);
         BindAndValidate<EnrichmentOptions>(services, EnrichmentOptions.SectionName);

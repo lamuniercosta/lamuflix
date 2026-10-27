@@ -66,6 +66,8 @@ public static class TelemetryConstants
 
     public const string OmdbProviderName = "omdb";
 
+    public const string TmdbProviderName = "tmdb";
+
     public const string OutboxPendingMetricName = "lamuflix.outbox.pending";
 
     public const string OutboxOldestPendingAgeMetricName = "lamuflix.outbox.oldest_pending_age";

@@ -1,0 +1,26 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/icmmSD4vTTDKOq2vvdulafOGw93.jpg",
+      "genre_ids": [
+        28,
+        878
+      ],
+      "id": 329,
+      "original_language": "en",
+      "original_title": "Jurassic Park",
+      "overview": "Set in the 22nd century, The Matrix tells the story of a computer hacker who joins a group of underground insurgents fighting the vast and powerful computers who now rule the earth.",
+      "popularity": 83.9455,
+      "poster_path": "/oU7Oq2kFAAlGqbU4VoAE36g4hoI.jpg",
+      "release_date": "1993-06-11",
+      "title": "Jurassic Park",
+      "video": false,
+      "vote_average": 7.9,
+      "vote_count": 25400
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 1
+}

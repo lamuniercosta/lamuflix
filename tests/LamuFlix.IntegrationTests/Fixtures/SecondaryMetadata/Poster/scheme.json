@@ -1,0 +1,72 @@
+{
+  "adult": false,
+  "backdrop_path": "/icmmSD4vTTDKOq2vvdulafOGw93.jpg",
+  "belongs_to_collection": {
+    "id": 2344,
+    "name": "The Matrix Collection",
+    "poster_path": "/bRmPqBy0paZfzUFp5pb0VzPeQ4h.jpg",
+    "backdrop_path": "/dO1fF4X9N9oQv0F9L6b3sV0n2z4.jpg"
+  },
+  "budget": 63000000,
+  "genres": [
+    {
+      "id": 28,
+      "name": "Action"
+    },
+    {
+      "id": 878,
+      "name": "Science Fiction"
+    }
+  ],
+  "homepage": "https://www.warnerbros.com/movies/matrix",
+  "id": 603,
+  "imdb_id": "tt0133093",
+  "origin_country": [
+    "US"
+  ],
+  "original_language": "en",
+  "original_title": "The Matrix",
+  "overview": "Set in the 22nd century, The Matrix tells the story of a computer hacker who joins a group of underground insurgents fighting the vast and powerful computers who now rule the earth.",
+  "popularity": 83.9455,
+  "poster_path": "https://evil.example/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg",
+  "production_companies": [
+    {
+      "id": 79,
+      "logo_path": "/atgC4L0X9w8j6T3g5A0j4r1d7Hq.png",
+      "name": "Village Roadshow Pictures",
+      "origin_country": "US"
+    },
+    {
+      "id": 172,
+      "logo_path": null,
+      "name": "Silver Pictures",
+      "origin_country": "US"
+    }
+  ],
+  "production_countries": [
+    {
+      "iso_3166_1": "US",
+      "name": "United States of America"
+    },
+    {
+      "iso_3166_1": "AU",
+      "name": "Australia"
+    }
+  ],
+  "release_date": "1999-03-30",
+  "revenue": 463517383,
+  "runtime": 136,
+  "spoken_languages": [
+    {
+      "english_name": "English",
+      "iso_639_1": "en",
+      "name": "English"
+    }
+  ],
+  "status": "Released",
+  "tagline": "Welcome to the Real World.",
+  "title": "The Matrix",
+  "video": false,
+  "vote_average": 8.218,
+  "vote_count": 25400
+}

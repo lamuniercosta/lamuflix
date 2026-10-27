@@ -28,6 +28,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Fixtures/SecondaryMetadata/**/*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\LamuFlix.Api\LamuFlix.Api.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.Infrastructure\LamuFlix.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\LamuFlix.ServiceDefaults\LamuFlix.ServiceDefaults.csproj" />
