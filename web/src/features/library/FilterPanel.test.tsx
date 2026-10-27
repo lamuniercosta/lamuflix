@@ -601,4 +601,146 @@ describe('FilterPanel', () => {
     expect(last.statuses).toEqual([]);
     expect(window.location.search).toBe('');
   });
+
+  it('renders the IMDb rating group with extent 0..10 step 0.1 and one-decimal captions', () => {
+    render(<FilterPanel />);
+
+    expect(screen.getByRole('group', { name: 'IMDb rating' })).toBeInTheDocument();
+    const ratingMin = screen.getByLabelText('IMDb rating minimum');
+    const ratingMax = screen.getByLabelText('IMDb rating maximum');
+
+    expect(ratingMin).toHaveAttribute('type', 'range');
+    expect(ratingMax).toHaveAttribute('type', 'range');
+    expect(ratingMin).toHaveAttribute('min', '0');
+    expect(ratingMin).toHaveAttribute('max', '10');
+    expect(ratingMin).toHaveAttribute('step', '0.1');
+    expect(ratingMax).toHaveAttribute('min', '0');
+    expect(ratingMax).toHaveAttribute('max', '10');
+    expect(ratingMax).toHaveAttribute('step', '0.1');
+    expect(screen.getByText('0.0')).toBeInTheDocument();
+    expect(screen.getByText('10.0')).toBeInTheDocument();
+  });
+
+  it('activates the rating group on the first thumb move and sends both bounds', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel query={{}} onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText('IMDb rating minimum'), {
+      target: { value: '7.3' },
+    });
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.minRating).toBe('7.3');
+    expect(last.maxRating).toBe('10');
+    expect(window.location.search).toBe('?minRating=7.3&maxRating=10');
+  });
+
+  it('normalizes slider float noise when a rating thumb moves', () => {
+    render(<FilterPanel query={{}} />);
+
+    fireEvent.change(screen.getByLabelText('IMDb rating minimum'), {
+      target: { value: '7.300000000000001' },
+    });
+
+    expect(window.location.search).toBe('?minRating=7.3&maxRating=10');
+  });
+
+  it('clamps the rating thumbs so they cannot cross', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel query={parseFilterQuery('minRating=3&maxRating=5')} onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText('IMDb rating minimum'), { target: { value: '9' } });
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.minRating).toBe('5');
+    expect(last.maxRating).toBe('5');
+  });
+
+  function RatingHost({ onChange }: { onChange: (value: unknown) => void }) {
+    const [q, setQ] = React.useState(parseFilterQuery('minRating=3&maxRating=8'));
+    return (
+      <FilterPanel
+        query={q}
+        onChange={(next) => {
+          onChange(next);
+          setQ(next as ReturnType<typeof parseFilterQuery>);
+        }}
+      />
+    );
+  }
+
+  it('keeps the rating group active after returning to the full span', () => {
+    const onChange = vi.fn();
+    render(<RatingHost onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText('IMDb rating minimum'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('IMDb rating maximum'), { target: { value: '10' } });
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.minRating).toBe('0');
+    expect(last.maxRating).toBe('10');
+    expect(window.location.search).toBe('?minRating=0&maxRating=10');
+  });
+
+  it('hydrates an open-bound rating group without rewriting the URL', () => {
+    window.history.replaceState({}, '', '/?minRating=7&maxRating=');
+    render(<FilterPanel />);
+
+    expect((screen.getByLabelText('IMDb rating minimum') as HTMLInputElement).value).toBe('7');
+    expect((screen.getByLabelText('IMDb rating maximum') as HTMLInputElement).value).toBe('10');
+    expect(window.location.search).toBe('?minRating=7&maxRating=');
+  });
+
+  it('materializes both finite bounds on an open-bound group after interaction', () => {
+    window.history.replaceState({}, '', '/?minRating=7&maxRating=');
+    render(<FilterPanel />);
+
+    fireEvent.change(screen.getByLabelText('IMDb rating maximum'), { target: { value: '9' } });
+
+    expect(window.location.search).toBe('?minRating=7&maxRating=9');
+  });
+
+  it.each([
+    '?minRating=abc&maxRating=5',
+    '?minRating=7',
+    '?minRating=11&maxRating=10',
+    '?minRating=7.00&maxRating=9',
+    '?minRating=8&maxRating=7',
+  ])('shows a safe full span for invalid rating input %s without URL rewrite', (search) => {
+    window.history.replaceState({}, '', '/' + search);
+    render(<FilterPanel />);
+
+    expect((screen.getByLabelText('IMDb rating minimum') as HTMLInputElement).value).toBe('0');
+    expect((screen.getByLabelText('IMDb rating maximum') as HTMLInputElement).value).toBe('10');
+    expect(window.location.search).toBe(search);
+  });
+
+  it('resets page to 1 and writes the URL when a rating thumb moves', () => {
+    window.history.replaceState({}, '', '/?page=3');
+    const onChange = vi.fn();
+    render(<FilterPanel onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText('IMDb rating minimum'), { target: { value: '7' } });
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.page).toBe(1);
+    expect(window.location.search).toBe('?minRating=7&maxRating=10');
+  });
+
+  it('clears the rating group on Clear all', () => {
+    const onChange = vi.fn();
+    render(
+      <FilterPanel
+        query={parseFilterQuery('text=dune&minRating=7&maxRating=9')}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.minRating).toBeNull();
+    expect(last.maxRating).toBeNull();
+    expect(window.location.search).toBe('');
+  });
 });

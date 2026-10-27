@@ -7,6 +7,7 @@ import FilterPanel from '../features/library/FilterPanel';
 import ForYouRail from '../features/for-you/ForYouRail';
 import {
   currentYearExtent,
+  isRatingActive,
   isRuntimeActive,
   isYearActive,
   parseFilterQuery,
@@ -71,6 +72,7 @@ function activeFilterGroups(query: FilterQuery, currentYear: number): number {
     (query.actorIds ?? []).length > 0,
     isRuntimeActive(query.runtimeMin, query.runtimeMax, query.runtimeIncludeUnknown),
     isYearActive(query.yearMin, query.yearMax, currentYear),
+    isRatingActive(query.minRating, query.maxRating),
     (query.statuses ?? []).length > 0,
   ];
   return groups.filter(Boolean).length;

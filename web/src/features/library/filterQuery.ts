@@ -16,7 +16,11 @@ export const DEFAULT_PAGE_SIZE = 20;
 export const RUNTIME_MIN_EXTENT = 0;
 export const RUNTIME_MAX_EXTENT = 240;
 export const YEAR_MIN_EXTENT = 1900;
+export const RATING_MIN_EXTENT = 0;
+export const RATING_MAX_EXTENT = 10;
 export const DEBOUNCE_MS = 300;
+
+const RATING_BOUND_PATTERN = /^[0-9]+(?:\.[0-9])?$/;
 
 const RECOGNIZED_KEYS = new Set([
   'text',
@@ -27,6 +31,8 @@ const RECOGNIZED_KEYS = new Set([
   'runtimeIncludeUnknown',
   'yearMin',
   'yearMax',
+  'minRating',
+  'maxRating',
   'statuses',
   'sort',
   'direction',
@@ -44,6 +50,8 @@ export interface FilterQuery {
   runtimeIncludeUnknown: boolean | string | null;
   yearMin: string | number | null;
   yearMax: string | number | null;
+  minRating: string | number | null;
+  maxRating: string | number | null;
   statuses: Array<string>;
   sort: string;
   direction: string;
@@ -149,6 +157,8 @@ function fromParams(params: URLSearchParams): FilterQuery {
     : '';
   const yearMin = params.has('yearMin') ? (params.get('yearMin') ?? '') : '';
   const yearMax = params.has('yearMax') ? (params.get('yearMax') ?? '') : '';
+  const minRating = params.has('minRating') ? (params.get('minRating') ?? '') : null;
+  const maxRating = params.has('maxRating') ? (params.get('maxRating') ?? '') : null;
   const statuses = params.getAll('statuses');
   const sort = mapSort(params.has('sort') ? params.get('sort') : DEFAULT_SORT);
   const direction = mapDirection(
@@ -183,6 +193,8 @@ function fromParams(params: URLSearchParams): FilterQuery {
     runtimeIncludeUnknown: params.has('runtimeIncludeUnknown') ? runtimeIncludeUnknown : false,
     yearMin,
     yearMax,
+    minRating,
+    maxRating,
     statuses,
     sort,
     direction,
@@ -207,6 +219,8 @@ function fromPartial(value: unknown): FilterQuery {
         : (partial.runtimeIncludeUnknown as boolean | string),
     yearMin: partial.yearMin == null ? '' : (partial.yearMin as string | number),
     yearMax: partial.yearMax == null ? '' : (partial.yearMax as string | number),
+    minRating: partial.minRating == null ? null : (partial.minRating as string | number),
+    maxRating: partial.maxRating == null ? null : (partial.maxRating as string | number),
     statuses: toStringArray(partial.statuses).map(String),
     sort: mapSort(partial.sort),
     direction: mapDirection(partial.direction),
@@ -277,6 +291,58 @@ export function isYearActive(minRaw: unknown, maxRaw: unknown, currentYear: numb
   return false;
 }
 
+export function isRatingBoundValid(raw: unknown): boolean {
+  if (raw == null) {
+    return true;
+  }
+  const text = String(raw);
+  if (text === '') {
+    return true;
+  }
+  if (!RATING_BOUND_PATTERN.test(text)) {
+    return false;
+  }
+  const value = Number(text);
+  return value >= RATING_MIN_EXTENT && value <= RATING_MAX_EXTENT;
+}
+
+function isRatingBoundEmpty(raw: unknown): boolean {
+  return raw == null || String(raw) === '';
+}
+
+export function isRatingActive(minRaw: unknown, maxRaw: unknown): boolean {
+  if (minRaw == null || maxRaw == null) {
+    return false;
+  }
+  if (!isRatingBoundValid(minRaw) || !isRatingBoundValid(maxRaw)) {
+    return false;
+  }
+  if (isRatingBoundEmpty(minRaw) || isRatingBoundEmpty(maxRaw)) {
+    return true;
+  }
+  return Number(minRaw) <= Number(maxRaw);
+}
+
+export function normalizeRatingValue(raw: unknown): string {
+  const value = toNumberOrNull(raw);
+  if (value === null) {
+    return '';
+  }
+  const clamped = Math.min(Math.max(value, RATING_MIN_EXTENT), RATING_MAX_EXTENT);
+  return String(Math.round(clamped * 10) / 10);
+}
+
+export function formatRatingBound(raw: unknown): string {
+  if (raw == null || String(raw) === '') {
+    return '';
+  }
+  const value = toNumberOrNull(raw);
+  if (value === null) {
+    return String(raw);
+  }
+  return String(Math.round(value * 10) / 10);
+}
+
 function serializeRuntimeMin(raw: unknown): string {
   const number = toNumberOrNull(raw);
   if (number === null || number === RUNTIME_MIN_EXTENT) {
@@ -345,6 +411,20 @@ function serialize(input: unknown, options: SerializeOptions, yearExtentInput?: 
   if (isYearActive(query.yearMin, query.yearMax, currentYear)) {
     pairs.push(['yearMin', serializeYearMin(query.yearMin)]);
     pairs.push(['yearMax', serializeYearMax(query.yearMax, currentYear)]);
+  }
+
+  if (query.minRating != null || query.maxRating != null) {
+    if (isRatingActive(query.minRating, query.maxRating)) {
+      pairs.push(['minRating', formatRatingBound(query.minRating)]);
+      pairs.push(['maxRating', formatRatingBound(query.maxRating)]);
+    } else {
+      if (query.minRating != null) {
+        pairs.push(['minRating', String(query.minRating)]);
+      }
+      if (query.maxRating != null) {
+        pairs.push(['maxRating', String(query.maxRating)]);
+      }
+    }
   }
 
   for (const value of query.statuses ?? []) {

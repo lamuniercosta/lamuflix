@@ -1,5 +1,8 @@
+import type { paths } from '../api/types';
 import {
   currentYearExtent,
+  formatRatingBound,
+  isRatingActive,
   isRuntimeActive,
   isYearActive,
   parseFilterQuery,
@@ -7,6 +10,8 @@ import {
   RUNTIME_MIN_EXTENT,
   YEAR_MIN_EXTENT,
 } from '../features/library/filterQuery';
+
+type BrowseMoviesQuery = paths['/api/movies']['get']['parameters']['query'];
 
 export type BrowseParams = {
   sort: string;
@@ -21,6 +26,8 @@ export type BrowseParams = {
   runtimeIncludeUnknown?: string;
   yearMin?: string;
   yearMax?: string;
+  minRating?: BrowseMoviesQuery['MinRating'];
+  maxRating?: BrowseMoviesQuery['MaxRating'];
   statuses?: string[];
 };
 
@@ -82,6 +89,20 @@ export function buildBrowseParams(
   if (isYearActive(query.yearMin, query.yearMax, currentYear)) {
     params.yearMin = formatBound(query.yearMin, YEAR_MIN_EXTENT);
     params.yearMax = formatBound(query.yearMax, currentYear);
+  }
+
+  if (query.minRating != null || query.maxRating != null) {
+    if (isRatingActive(query.minRating, query.maxRating)) {
+      params.minRating = formatRatingBound(query.minRating);
+      params.maxRating = formatRatingBound(query.maxRating);
+    } else {
+      if (query.minRating != null) {
+        params.minRating = String(query.minRating);
+      }
+      if (query.maxRating != null) {
+        params.maxRating = String(query.maxRating);
+      }
+    }
   }
 
   if (query.statuses.length > 0) {
