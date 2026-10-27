@@ -58,6 +58,27 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
         provider.ShouldBeOfType<OmdbMetadataProvider>();
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AddMetadataProvider_UnderEitherSecondaryEnabledValue_KeepsOmdbOnThePort(bool enabled)
+    {
+        // arrange
+        var overrides = new Dictionary<string, string?>
+        {
+            [$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.Enabled)}"] = enabled ? "true" : "false",
+        };
+        var services = probe.BuildServices(overrides);
+
+        // act
+        var port = services.GetRequiredService<IMetadataProvider>();
+        var secondary = services.GetRequiredService<TmdbMetadataProvider>();
+
+        // assert
+        port.ShouldBeOfType<OmdbMetadataProvider>();
+        secondary.ShouldNotBeNull();
+    }
+
     [Fact]
     public void AddMetadataProvider_WithoutPersistence_StillResolvesATimeProvider()
     {

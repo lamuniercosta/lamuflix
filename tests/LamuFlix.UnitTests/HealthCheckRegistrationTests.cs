@@ -29,12 +29,15 @@ public sealed class HealthCheckRegistrationTests
         var registrations = provider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
         var ready = registrations.Where(registration => registration.Tags.Contains(HealthCheckTags.Ready)).ToArray();
         var metadata = registrations.Single(registration => registration.Name == "metadata-provider");
+        var secondary = registrations.Single(registration => registration.Name == "metadata-provider-tmdb");
 
         // assert
         ready.Length.ShouldBe(3);
         ready.Select(registration => registration.Name).OrderBy(name => name)
             .ShouldBe(["enrichment-consumer", "postgres", "rabbitmq"]);
+        ready.ShouldNotContain(registration => registration.Name == "metadata-provider-tmdb");
         metadata.Tags.ShouldBeEmpty();
+        secondary.Tags.ShouldBeEmpty();
     }
 
     private static ServiceCollection ComposeProductionHealthRegistrations()
