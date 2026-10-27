@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import {
   useMutation,
   useQuery,
@@ -9,6 +9,7 @@ import {
 import { client } from '../../api/client';
 import type { components } from '../../api/types';
 import { markRowPending } from '../../library/libraryQueries';
+import type { EnrichmentStatusSubscription } from '../../library/useEnrichmentStatus';
 
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
@@ -188,4 +189,23 @@ export function useLibraryEnrichmentStatus(
   const subscribe = useCallback((onChange: () => void) => cache.subscribe(onChange), [cache]);
   const snapshot = useCallback(() => readLibraryEnrichmentStatus(cache, movieId), [cache, movieId]);
   return useSyncExternalStore(subscribe, snapshot, snapshot);
+}
+
+/** One-way bridge: root hub notifications reconcile the mounted details query without a second connection. */
+export function useDetailsEnrichmentBridge(
+  subscription: EnrichmentStatusSubscription | undefined,
+  detailsClient: QueryClient,
+  movieId: ActorId,
+): void {
+  useEffect(() => {
+    if (!subscription) {
+      return undefined;
+    }
+    return subscription.subscribe((notification) => {
+      if (notification.kind === 'event' && String(notification.payload.id) !== String(movieId)) {
+        return;
+      }
+      void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] }).catch(() => {});
+    });
+  }, [subscription, detailsClient, movieId]);
 }

@@ -1,5 +1,8 @@
 import { HubConnectionBuilder } from '@microsoft/signalr';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
+import { z } from 'zod';
+import type { components } from '../api/types';
 
 export interface EnrichmentConnectionOptions {
   readonly url: string;
@@ -19,8 +22,12 @@ export type EnrichmentConnectionFactory = (
   options: EnrichmentConnectionOptions,
 ) => EnrichmentHubConnection;
 
+type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
+export type EnrichmentStatusEvent = components['schemas']['EnrichmentStatusChangedDto'];
+
 export type EnrichmentStatusNotification =
-  { readonly kind: 'event'; readonly args: readonly unknown[] } | { readonly kind: 'recovery' };
+  | { readonly kind: 'event'; readonly payload: EnrichmentStatusEvent }
+  | { readonly kind: 'recovery' };
 
 export type EnrichmentStatusListener = (notification: EnrichmentStatusNotification) => void;
 
@@ -30,7 +37,46 @@ export interface EnrichmentStatusSubscription {
 
 const ENRICHMENT_STATUS_EVENT = 'EnrichmentStatusChanged';
 const ENRICHMENT_HUB_PATH = '/hubs/enrichment';
+const BROWSE_MOVIES_QUERY_KEY = ['browseMovies'] as const;
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16000, 30000] as const;
+
+const enrichmentStatusChangedSchema = z.object({
+  id: z.number().int().finite(),
+  enrichmentStatus: z.enum(['Pending', 'Enriched', 'NotFound', 'Failed']),
+});
+
+function parseEnrichmentStatusEvent(args: readonly unknown[]): EnrichmentStatusEvent | null {
+  if (args.length !== 1) {
+    return null;
+  }
+  const parsed = enrichmentStatusChangedSchema.safeParse(args[0]);
+  return parsed.success ? parsed.data : null;
+}
+
+function patchBrowseEnrichmentStatus(
+  current: BrowseMoviesResponse | undefined,
+  event: EnrichmentStatusEvent,
+): BrowseMoviesResponse | undefined {
+  if (!current) {
+    return current;
+  }
+  let changed = false;
+  const items = current.items.map((item) => {
+    if (String(item.id) !== String(event.id)) {
+      return item;
+    }
+    if (item.enrichmentStatus === event.enrichmentStatus) {
+      return item;
+    }
+    changed = true;
+    return { ...item, enrichmentStatus: event.enrichmentStatus };
+  });
+  return changed ? { ...current, items } : current;
+}
+
+function invalidateBrowse(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: BROWSE_MOVIES_QUERY_KEY }).catch(() => {});
+}
 
 function enrichmentHubUrl(): string {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
@@ -51,6 +97,7 @@ function createEnrichmentConnection(options: EnrichmentConnectionOptions): Enric
 export function useEnrichmentStatus(
   createConnection: EnrichmentConnectionFactory = createEnrichmentConnection,
 ): EnrichmentStatusSubscription {
+  const queryClient = useQueryClient();
   const [registry] = useState(() => ({ listeners: new Set<EnrichmentStatusListener>() }));
   const [subscription] = useState<EnrichmentStatusSubscription>(() => ({
     subscribe(listener) {
@@ -103,7 +150,16 @@ export function useEnrichmentStatus(
       if (disposed) {
         return;
       }
-      publish({ kind: 'event', args });
+      const event = parseEnrichmentStatusEvent(args);
+      if (!event) {
+        return;
+      }
+      queryClient.setQueriesData<BrowseMoviesResponse>(
+        { queryKey: BROWSE_MOVIES_QUERY_KEY },
+        (current) => patchBrowseEnrichmentStatus(current, event),
+      );
+      invalidateBrowse(queryClient);
+      publish({ kind: 'event', payload: event });
     };
 
     const onReconnected = () => {
@@ -111,6 +167,7 @@ export function useEnrichmentStatus(
         return;
       }
       retryAttempt = 0;
+      invalidateBrowse(queryClient);
       publish({ kind: 'recovery' });
     };
 
@@ -145,6 +202,7 @@ export function useEnrichmentStatus(
             return;
           }
           retryAttempt = 0;
+          invalidateBrowse(queryClient);
           publish({ kind: 'recovery' });
         },
         () => {
@@ -174,7 +232,7 @@ export function useEnrichmentStatus(
         stopQuietly(current);
       }
     };
-  }, [createConnection, publish, registry]);
+  }, [createConnection, publish, queryClient, registry]);
 
   return subscription;
 }
