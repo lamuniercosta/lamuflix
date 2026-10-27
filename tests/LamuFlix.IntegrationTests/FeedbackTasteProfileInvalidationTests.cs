@@ -7,6 +7,7 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
@@ -157,6 +158,8 @@ public sealed class FeedbackTasteProfileInvalidationTests(PostgresFixture fixtur
             db,
             TimeProvider.System,
             Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance,
             harness.GenreWeights,
             harness.CachedProfileSource);
 

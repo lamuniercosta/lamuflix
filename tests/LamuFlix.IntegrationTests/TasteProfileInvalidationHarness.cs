@@ -60,6 +60,7 @@ internal sealed class TasteProfileInvalidationHarness : IAsyncDisposable
         services.AddSingleton<IConfiguration>(configuration);
         services.AddLamuFlixOptions();
         services.AddLogging();
+        services.AddSingleton<IEnrichmentStatusNotifier, RecordingEnrichmentStatusNotifier>();
         services.AddLamuFlixPersistence(configuration);
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions

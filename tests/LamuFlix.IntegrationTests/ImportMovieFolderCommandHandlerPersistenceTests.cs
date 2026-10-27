@@ -10,6 +10,7 @@ using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Npgsql;
 using Shouldly;
@@ -113,7 +114,12 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
     {
         var options = Microsoft.Extensions.Options.Options.Create(
             new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) });
-        return new EfMovieRepository(context, TimeProvider.System, options);
+        return new EfMovieRepository(
+            context,
+            TimeProvider.System,
+            options,
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
     }
 
     private sealed class ImportCountCapture : IDisposable

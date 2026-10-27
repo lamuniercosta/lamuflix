@@ -9,6 +9,7 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
@@ -199,5 +200,10 @@ public sealed class EfMovieRepositoryDeleteTests(PostgresFixture fixture) : IAsy
     }
 
     private static EfMovieRepository Repository(LamuFlixDbContext db) =>
-        new(db, TimeProvider.System, Options.Create(new EnrichmentOptions { ClaimLease = ClaimLease }));
+        new(
+            db,
+            TimeProvider.System,
+            Options.Create(new EnrichmentOptions { ClaimLease = ClaimLease }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 }

@@ -12,6 +12,7 @@ using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
@@ -446,7 +447,12 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         };
 
     private EfMovieRepository Repository(LamuFlixDbContext db) =>
-        new(db, Clock, Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+        new(
+            db,
+            Clock,
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 
     private async Task<MovieRecord> SeedFlagsAsync(bool[] flags, string pathSuffix)
     {

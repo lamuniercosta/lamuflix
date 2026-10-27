@@ -13,6 +13,7 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Shouldly;
@@ -131,7 +132,12 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         await using var context = fixture.CreateMigratedContext();
         var timeProvider = new FixedTimeProvider(StagedAt);
         var options = Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) });
-        var repository = new EfMovieRepository(context, timeProvider, options);
+        var repository = new EfMovieRepository(
+            context,
+            timeProvider,
+            options,
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
         var outbox = new EfEnrichmentOutbox(context, timeProvider);
         var id = await repository.NextIdentityAsync(cancellationToken);
         var movie = Movie.Create(
@@ -353,7 +359,9 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         new(
             context,
             timeProvider,
-            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 
     private async Task<MovieId> SeedNotFoundMovieAsync(
         TimeProvider timeProvider,

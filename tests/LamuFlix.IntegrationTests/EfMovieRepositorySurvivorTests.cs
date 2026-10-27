@@ -13,6 +13,7 @@ using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using Shouldly;
 using Xunit;
@@ -46,7 +47,12 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
 
         // act
         var failure = Should.Throw<ArgumentOutOfRangeException>(
-            () => new EfMovieRepository(db, TimeProvider.System, options));
+            () => new EfMovieRepository(
+                db,
+                TimeProvider.System,
+                options,
+                new RecordingEnrichmentStatusNotifier(),
+                NullLogger<EfMovieRepository>.Instance));
 
         // assert
         failure.ParamName.ShouldBe("options");
@@ -94,7 +100,9 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
         var repository = new EfMovieRepository(
             db,
             TimeProvider.System,
-            Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+            Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 
         // act
         var id = await repository.NextIdentityAsync(ct);
@@ -2119,13 +2127,24 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
     }
 
     private static EfMovieRepository Repository(LamuFlixDbContext db) =>
-        new(db, new FixedTimeProvider(Now), Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+        Repository(db, new FixedTimeProvider(Now));
 
     private static EfMovieRepository Repository(LamuFlixDbContext db, TimeProvider clock) =>
-        new(db, clock, Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+        new(
+            db,
+            clock,
+            Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 
     private static EfMovieRepository Repository(LamuFlixDbContext db, GenreWeightsCache cache) =>
-        new(db, new FixedTimeProvider(Now), Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }), cache);
+        new(
+            db,
+            new FixedTimeProvider(Now),
+            Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance,
+            cache);
 
     private static MovieRecord Record(
         MovieId id, EnrichmentStatus status, DateTimeOffset? lastAttemptAt, int attempts = 0) =>

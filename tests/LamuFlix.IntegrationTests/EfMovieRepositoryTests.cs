@@ -14,6 +14,7 @@ using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Shouldly;
@@ -1077,10 +1078,20 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     }
 
     private static EfMovieRepository Repository(LamuFlixDbContext db, DateTimeOffset? now = null) =>
-        new(db, new FixedTimeProvider(now ?? Now), Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+        new(
+            db,
+            new FixedTimeProvider(now ?? Now),
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 
     private static EfMovieRepository RepositoryAt(LamuFlixDbContext db, LeaseClock clock) =>
-        new(db, clock, Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+        new(
+            db,
+            clock,
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 
     private static async Task<(EfMovieRepository Repository, Movie Movie)> SeedPendingMovieAsync(
         LamuFlixDbContext db, string title, string pathSuffix)

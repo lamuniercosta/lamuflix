@@ -9,6 +9,7 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
@@ -26,20 +27,33 @@ public sealed class EfMovieRepository : IMovieRepository
 
     private readonly LamuFlixDbContext db;
     private readonly TimeProvider timeProvider;
+    private readonly IEnrichmentStatusNotifier notifier;
+    private readonly ILogger<EfMovieRepository> logger;
     private readonly TimeSpan claimLease;
     private readonly GenreWeightsCache cache;
     private readonly HybridCachedRecommendationProfileSource? tasteProfileCache;
     private readonly Dictionary<MovieId, TrackedMovie> identityMap = [];
 
+    /// <summary>
+    /// Status transitions whose enclosing persistence transaction commits outside this repository.
+    /// They stay here until a later save observes that the ambient transaction is gone and the
+    /// committed row confirms the new status (rolled-back writes are dropped without notifying).
+    /// </summary>
+    private List<StatusTransition> pendingAmbientTransitions = [];
+
     public EfMovieRepository(
         LamuFlixDbContext db,
         TimeProvider timeProvider,
         IOptions<EnrichmentOptions> options,
+        IEnrichmentStatusNotifier notifier,
+        ILogger<EfMovieRepository> logger,
         GenreWeightsCache? cache = null,
         HybridCachedRecommendationProfileSource? tasteProfileCache = null)
     {
         this.db = db;
         this.timeProvider = timeProvider;
+        this.notifier = notifier;
+        this.logger = logger;
         claimLease = options.Value.ClaimLease;
         this.cache = cache ?? new GenreWeightsCache();
         this.tasteProfileCache = tasteProfileCache;
@@ -77,7 +91,7 @@ public sealed class EfMovieRepository : IMovieRepository
 
         var record = ToRecord(movie);
         db.Movies.Add(record);
-        identityMap.Add(movie.Id, new TrackedMovie(movie, record, Baseline.From(movie)));
+        identityMap.Add(movie.Id, new TrackedMovie(movie, record, Baseline.From(movie)) { IsNew = true });
         return Task.CompletedTask;
     }
 
@@ -169,6 +183,8 @@ public sealed class EfMovieRepository : IMovieRepository
 
     public async Task SaveChangesAsync(CancellationToken ct)
     {
+        var transitions = CaptureStatusTransitions();
+
         if (!HasMetadataWrites())
         {
             await ApplyAndPersistAsync(ct);
@@ -184,6 +200,99 @@ public sealed class EfMovieRepository : IMovieRepository
 
         cache.Invalidate();
         await InvalidateTasteProfileAsync(ct);
+        await DispatchStatusTransitionsAsync(transitions);
+    }
+
+    /// <summary>
+    /// Persisted-before status comes from the per-movie baseline; a new insert has no persisted
+    /// status yet, so its committed status always counts as a transition.
+    /// </summary>
+    private List<StatusTransition> CaptureStatusTransitions()
+    {
+        var transitions = new List<StatusTransition>();
+        foreach (var tracked in identityMap.Values)
+        {
+            if (!tracked.IsNew && tracked.Baseline.Status == tracked.Movie.Status)
+            {
+                continue;
+            }
+
+            transitions.Add(new StatusTransition(tracked.Movie.Id, tracked.Movie.Status));
+        }
+
+        return transitions;
+    }
+
+    private async Task DispatchStatusTransitionsAsync(IReadOnlyList<StatusTransition> transitions)
+    {
+        var deferred = pendingAmbientTransitions;
+        pendingAmbientTransitions = [];
+
+        if (db.Database.CurrentTransaction is not null)
+        {
+            // The enclosing commit belongs to someone else: hold the candidates until a later save
+            // can prove the transaction outcome instead of treating this write as the boundary.
+            foreach (var transition in transitions)
+            {
+                DeferOrReplace(deferred, transition);
+            }
+
+            pendingAmbientTransitions = deferred;
+            return;
+        }
+
+        foreach (var transition in deferred)
+        {
+            if (await IsStatusCommittedAsync(transition))
+            {
+                await NotifyAsync(transition);
+            }
+        }
+
+        foreach (var transition in transitions)
+        {
+            await NotifyAsync(transition);
+        }
+    }
+
+    private static void DeferOrReplace(List<StatusTransition> deferred, StatusTransition transition)
+    {
+        var index = deferred.FindIndex(candidate => candidate.MovieId == transition.MovieId);
+        if (index >= 0)
+        {
+            deferred[index] = transition;
+            return;
+        }
+
+        deferred.Add(transition);
+    }
+
+    private async Task<bool> IsStatusCommittedAsync(StatusTransition transition)
+    {
+        var status = await db.Movies
+            .AsNoTracking()
+            .Where(movie => movie.Id == transition.MovieId)
+            .Select(movie => movie.Status)
+            .SingleOrDefaultAsync(CancellationToken.None);
+        return status == transition.Status;
+    }
+
+    private async Task NotifyAsync(StatusTransition transition)
+    {
+        try
+        {
+            // Post-commit dispatch ignores the caller token so a cancellation after commit cannot
+            // silently skip the send attempt.
+            await notifier.NotifyAsync(transition.MovieId, transition.Status, CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                exception,
+                "Post-commit enrichment status notification failed for movie {MovieId} at {EnrichmentStatus}.",
+                transition.MovieId.Value,
+                transition.Status.Name);
+        }
     }
 
     private async Task InvalidateTasteProfileAsync(CancellationToken ct)
@@ -203,9 +312,15 @@ public sealed class EfMovieRepository : IMovieRepository
 
         await db.SaveChangesAsync(ct);
 
+        RefreshBaselines();
+    }
+
+    private void RefreshBaselines()
+    {
         foreach (var tracked in identityMap.Values)
         {
             tracked.Baseline = Baseline.From(tracked.Movie);
+            tracked.IsNew = false;
         }
     }
 
@@ -286,10 +401,7 @@ public sealed class EfMovieRepository : IMovieRepository
 
         await db.SaveChangesAsync(ct);
 
-        foreach (var tracked in identityMap.Values)
-        {
-            tracked.Baseline = Baseline.From(tracked.Movie);
-        }
+        RefreshBaselines();
     }
 
     private async Task RebuildTrackingAsync(CancellationToken ct)
@@ -664,7 +776,10 @@ public sealed class EfMovieRepository : IMovieRepository
         public Movie Movie { get; } = movie;
         public MovieRecord Record { get; set; } = record;
         public Baseline Baseline { get; set; } = baseline;
+        public bool IsNew { get; set; }
     }
+
+    private readonly record struct StatusTransition(MovieId MovieId, EnrichmentStatus Status);
 
     private sealed record Baseline(
         bool IsInWatchlist,

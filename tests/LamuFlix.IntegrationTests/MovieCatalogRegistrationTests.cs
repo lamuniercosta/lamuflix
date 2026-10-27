@@ -136,6 +136,8 @@ public sealed class MovieCatalogRegistrationTests
         var configuration = Configuration();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(_ => configuration);
+        services.AddLogging();
+        services.AddSingleton<IEnrichmentStatusNotifier, RecordingEnrichmentStatusNotifier>();
         services.AddLamuFlixPersistence(configuration);
         services.AddSingleton(Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(1) }));
         services.AddMovieCatalog();

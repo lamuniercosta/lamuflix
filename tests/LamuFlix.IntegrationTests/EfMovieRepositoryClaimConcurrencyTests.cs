@@ -7,6 +7,7 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
@@ -87,5 +88,10 @@ public sealed class EfMovieRepositoryClaimConcurrencyTests(PostgresFixture fixtu
     }
 
     private static EfMovieRepository Repository(LamuFlixDbContext db) =>
-        new(db, new FixedTimeProvider(Now), Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+        new(
+            db,
+            new FixedTimeProvider(Now),
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 }

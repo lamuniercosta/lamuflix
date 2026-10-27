@@ -10,6 +10,7 @@ using LamuFlix.UnitTests.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 
 namespace LamuFlix.UnitTests.Persistence;
 
@@ -143,6 +144,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         services.AddSingleton(configuration);
         services.AddLamuFlixOptions();
         services.AddLogging();
+        services.AddSingleton(Substitute.For<IEnrichmentStatusNotifier>());
 
         // act
         services.AddLamuFlixPersistence(configuration);
@@ -200,6 +202,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         services.AddSingleton(configuration);
         services.AddLamuFlixOptions();
         services.AddLogging();
+        services.AddSingleton(Substitute.For<IEnrichmentStatusNotifier>());
         services.AddLamuFlixPersistence(configuration);
         return services;
     }
