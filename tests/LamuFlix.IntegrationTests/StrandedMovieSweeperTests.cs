@@ -12,8 +12,8 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
-using LamuFlix.UnitTests;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using Xunit;
@@ -56,7 +56,9 @@ public sealed class StrandedMovieSweeperTests(PostgresFixture fixture) : IAsyncL
             var repository = new EfMovieRepository(
                 context,
                 new FixedTimeProvider(now),
-                Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+                Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+                new RecordingEnrichmentStatusNotifier(),
+                NullLogger<EfMovieRepository>.Instance);
 
             var actual = await repository.FindStrandedMovieIdsAsync(cutoff, TestContext.Current.CancellationToken);
 
@@ -117,7 +119,9 @@ public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitM
         var repository = new EfMovieRepository(
             claimContext,
             clock,
-            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }));
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
         Assert.True(await repository.TryClaimForEnrichmentAsync(RequiredMovieId.From(movie), ct));
     }
 
@@ -138,7 +142,9 @@ public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitM
             var repository = new EfMovieRepository(
                 claimContext,
                 clock,
-                Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }));
+                Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }),
+                new RecordingEnrichmentStatusNotifier(),
+                NullLogger<EfMovieRepository>.Instance);
             Assert.True(await repository.TryClaimForEnrichmentAsync(RequiredMovieId.From(movie), ct));
         }
 
@@ -164,7 +170,9 @@ public sealed class StrandedMovieRecoveryTests(PostgresFixture postgres, RabbitM
         var nextClaim = new EfMovieRepository(
             nextClaimContext,
             clock,
-            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }));
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(10) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
         Assert.True(await nextClaim.TryClaimForEnrichmentAsync(RequiredMovieId.From(movie), ct));
     }
 

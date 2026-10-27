@@ -13,6 +13,7 @@ using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Pgvector;
 using Shouldly;
 using Xunit;
@@ -674,10 +675,15 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
     }
 
     private static EfMovieRepository Repository(LamuFlixDbContext db) =>
-        new(db, TimeProvider.System, Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions
-        {
-            ClaimLease = TimeSpan.FromMinutes(5)
-        }));
+        new(
+            db,
+            TimeProvider.System,
+            Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions
+            {
+                ClaimLease = TimeSpan.FromMinutes(5)
+            }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 
     private static MovieRecord Record(int id, string title, EnrichmentStatus status) =>
         new()

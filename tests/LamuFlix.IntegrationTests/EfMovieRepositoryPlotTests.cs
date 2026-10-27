@@ -5,6 +5,7 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Tests.Common;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
@@ -99,7 +100,12 @@ public sealed class EfMovieRepositoryPlotTests(PostgresFixture fixture) : IAsync
     }
 
     private static EfMovieRepository Repository(LamuFlixDbContext db) =>
-        new(db, TimeProvider.System, Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+        new(
+            db,
+            TimeProvider.System,
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 
     private async Task<MovieId> SeedMovieAsync(string pathSuffix, string? plot, CancellationToken cancellationToken)
     {

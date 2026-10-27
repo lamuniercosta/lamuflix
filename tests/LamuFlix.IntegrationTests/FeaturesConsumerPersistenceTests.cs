@@ -178,6 +178,7 @@ public sealed class FeaturesConsumerPersistenceTests(PostgresFixture postgres, R
         services.AddSingleton(enrichment);
         services.AddSingleton(enrichment.Value);
         services.AddSingleton<TimeProvider>(new FixedTimeProvider(ComputedAt));
+        services.AddSingleton<IEnrichmentStatusNotifier, RecordingEnrichmentStatusNotifier>();
         services.AddScoped<IMovieRepository, EfMovieRepository>();
         services.AddScoped<IMovieFeaturesRepository, EfMovieFeaturesRepository>();
         services.AddSingleton(generator);

@@ -1,7 +1,10 @@
 using System;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 
 namespace LamuFlix.UnitTests.Persistence;
 
@@ -21,6 +24,8 @@ public sealed class EfMovieRepositoryConstructorTests
             db,
             TimeProvider.System,
             Microsoft.Extensions.Options.Options.Create(
-                new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(seconds) })));
+                new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(seconds) }),
+            Substitute.For<IEnrichmentStatusNotifier>(),
+            NullLogger<EfMovieRepository>.Instance));
     }
 }

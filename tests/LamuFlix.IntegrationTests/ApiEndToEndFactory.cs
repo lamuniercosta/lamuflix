@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.RabbitMq;
@@ -68,6 +69,7 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
 
     private void ReplaceHealthChecksAndTimeProvider(IServiceCollection services)
     {
+        services.TryAddSingleton<IEnrichmentStatusNotifier, RecordingEnrichmentStatusNotifier>();
         services.Configure<HealthCheckServiceOptions>(static options => options.Registrations.Clear());
         services.AddHealthChecks().AddCheck(StubCheckName, static () => HealthCheckResult.Healthy());
         services.RemoveAll<TimeProvider>();

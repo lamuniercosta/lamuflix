@@ -16,10 +16,10 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
-using LamuFlix.UnitTests;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Pgvector;
 using Shouldly;
@@ -246,7 +246,9 @@ public sealed class MissingMovieFeaturesRecoveryTests(PostgresFixture postgres, 
         services.AddScoped<IMovieRepository>(provider => new EfMovieRepository(
             provider.GetRequiredService<LamuFlixDbContext>(),
             clock,
-            Options.Create(enrichment)));
+            Options.Create(enrichment),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance));
         services.AddScoped<IMovieFeaturesRepository>(provider =>
             new EfMovieFeaturesRepository(provider.GetRequiredService<LamuFlixDbContext>()));
 

@@ -21,6 +21,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Shouldly;
@@ -501,7 +502,9 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
         new(
             context,
             TimeProvider.System,
-            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(5) }));
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromSeconds(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
 
     private static ScriptedOutboxRelayWorker CreateWorker(ServiceProvider provider) =>
         ActivatorUtilities.CreateInstance<ScriptedOutboxRelayWorker>(provider);

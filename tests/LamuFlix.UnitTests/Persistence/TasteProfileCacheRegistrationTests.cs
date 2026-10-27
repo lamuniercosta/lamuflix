@@ -9,6 +9,7 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 
 namespace LamuFlix.UnitTests.Persistence;
 
@@ -116,6 +117,7 @@ public sealed class TasteProfileCacheRegistrationTests
         services.AddSingleton(configuration);
         services.AddLamuFlixOptions();
         services.AddLogging();
+        services.AddSingleton(Substitute.For<IEnrichmentStatusNotifier>());
         services.AddLamuFlixPersistence(configuration);
         return services;
     }

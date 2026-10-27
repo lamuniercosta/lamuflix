@@ -11,6 +11,7 @@ using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
@@ -140,7 +141,9 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
         var repository = new EfMovieRepository(
             context,
             TimeProvider.System,
-            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }));
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
+            new RecordingEnrichmentStatusNotifier(),
+            NullLogger<EfMovieRepository>.Instance);
         var id = await repository.NextIdentityAsync(TestContext.Current.CancellationToken);
         var movie = Movie.Create(id, "Facet persisted", new LibraryPath("C:/library/facet-persisted.mkv"), new MediaFormat("mkv"));
         await repository.AddAsync(movie, TestContext.Current.CancellationToken);
