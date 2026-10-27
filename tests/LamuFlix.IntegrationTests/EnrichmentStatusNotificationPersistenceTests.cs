@@ -9,6 +9,8 @@ using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Tests.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
@@ -391,13 +393,144 @@ public sealed class EnrichmentStatusNotificationPersistenceTests(PostgresFixture
         notifier.Notifications[1].Status.ShouldBe(EnrichmentStatus.Enriched);
     }
 
-    private static EfMovieRepository CreateRepository(LamuFlixDbContext db, IEnrichmentStatusNotifier notifier) =>
+    [Fact]
+    public async Task SaveChanges_TasteCacheFailsAfterCommit_StillNotifies()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var notifier = new RecordingEnrichmentStatusNotifier();
+        await using var db = fixture.CreateMigratedContext();
+        var repository = CreateRepository(db, notifier, TasteCache(new InvalidOperationException("cache down")));
+        var id = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(PendingMovie(id, "CacheFail", "cache-fail"), ct);
+
+        // act
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        notifier.Notifications.Count.ShouldBe(1);
+        notifier.Notifications[0].MovieId.ShouldBe(id);
+        notifier.Notifications[0].Status.ShouldBe(EnrichmentStatus.Pending);
+    }
+
+    [Fact]
+    public async Task SaveChanges_TasteCacheCancelledAfterCommit_StillNotifies()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var notifier = new RecordingEnrichmentStatusNotifier();
+        await using var db = fixture.CreateMigratedContext();
+        var repository = CreateRepository(db, notifier, TasteCache(new OperationCanceledException()));
+        var id = await repository.NextIdentityAsync(ct);
+        await repository.AddAsync(PendingMovie(id, "CacheCancelled", "cache-cancelled"), ct);
+
+        // act
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        notifier.Notifications.Count.ShouldBe(1);
+        notifier.Notifications[0].MovieId.ShouldBe(id);
+        notifier.Notifications[0].Status.ShouldBe(EnrichmentStatus.Pending);
+    }
+
+    [Fact]
+    public async Task Dispose_CommittedAmbientTransition_NotifiesWithoutAnotherSave()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var notifier = new RecordingEnrichmentStatusNotifier();
+        await using var db = fixture.CreateMigratedContext();
+        var repository = CreateRepository(db, notifier);
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = PendingMovie(id, "DisposeCommit", "dispose-commit");
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+        notifier.Notifications.Count.ShouldBe(1);
+        movie.MarkEnriched(Metadata("DisposeCommit", "tt0000110"), Now);
+        await using (var transaction = await db.Database.BeginTransactionAsync(ct))
+        {
+            await repository.SaveChangesAsync(ct);
+            notifier.Notifications.Count.ShouldBe(1);
+            await transaction.CommitAsync(ct);
+        }
+
+        // act
+        await repository.DisposeAsync();
+
+        // assert
+        notifier.Notifications.Count.ShouldBe(2);
+        notifier.Notifications[1].MovieId.ShouldBe(id);
+        notifier.Notifications[1].Status.ShouldBe(EnrichmentStatus.Enriched);
+    }
+
+    [Fact]
+    public async Task Dispose_RolledBackAmbientTransition_NotifiesNothing()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var notifier = new RecordingEnrichmentStatusNotifier();
+        await using var db = fixture.CreateMigratedContext();
+        var repository = CreateRepository(db, notifier);
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = PendingMovie(id, "DisposeRollback", "dispose-rollback");
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+        notifier.Notifications.Count.ShouldBe(1);
+        movie.MarkEnriched(Metadata("DisposeRollback", "tt0000111"), Now);
+        await using (var transaction = await db.Database.BeginTransactionAsync(ct))
+        {
+            await repository.SaveChangesAsync(ct);
+            notifier.Notifications.Count.ShouldBe(1);
+            await transaction.RollbackAsync(ct);
+        }
+
+        // act
+        await repository.DisposeAsync();
+
+        // assert
+        notifier.Notifications.Count.ShouldBe(1);
+    }
+
+    private static EfMovieRepository CreateRepository(LamuFlixDbContext db, IEnrichmentStatusNotifier notifier, HybridCachedRecommendationProfileSource? tasteProfileCache = null) =>
         new(
             db,
             TimeProvider.System,
             Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) }),
             notifier,
-            NullLogger<EfMovieRepository>.Instance);
+            NullLogger<EfMovieRepository>.Instance,
+            tasteProfileCache: tasteProfileCache);
+
+    private static HybridCachedRecommendationProfileSource TasteCache(Exception failure)
+    {
+        using var provider = new ServiceCollection().BuildServiceProvider();
+        return new HybridCachedRecommendationProfileSource(
+            new FailingHybridCache(failure),
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            TimeProvider.System,
+            Options.Create(new TasteProfileCacheOptions { Expiration = TimeSpan.FromMinutes(5) }));
+    }
+
+    private sealed class FailingHybridCache(Exception failure) : HybridCache
+    {
+        public override ValueTask<T> GetOrCreateAsync<TState, T>(
+            string key,
+            TState state,
+            Func<TState, CancellationToken, ValueTask<T>> factory,
+            HybridCacheEntryOptions? options,
+            IEnumerable<string>? tags,
+            CancellationToken cancellationToken) => throw failure;
+
+        public override ValueTask SetAsync<T>(
+            string key,
+            T value,
+            HybridCacheEntryOptions? options,
+            IEnumerable<string>? tags,
+            CancellationToken cancellationToken) => throw failure;
+
+        public override ValueTask RemoveAsync(string key, CancellationToken cancellationToken) => throw failure;
+
+        public override ValueTask RemoveByTagAsync(string tag, CancellationToken cancellationToken) => throw failure;
+    }
 
     private static Movie PendingMovie(MovieId id, string title, string pathSuffix) =>
         Movie.Create(id, title, new LibraryPath($"C:/library/{pathSuffix}.mkv"), new MediaFormat("mkv"));
