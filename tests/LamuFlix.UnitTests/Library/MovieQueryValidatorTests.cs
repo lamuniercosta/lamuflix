@@ -89,6 +89,67 @@ public sealed class MovieQueryValidatorTests
         validator.Validate(Accepted() with { Direction = null }).IsValid.ShouldBeFalse();
     }
 
+    [Fact]
+    public void Rating_MinEqualsMax_IsValid()
+    {
+        validator.Validate(Accepted() with { Rating = new RatingRange(7m, 7m) }).IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Rating_MinGreaterThanMax_IsInvalid()
+    {
+        validator.Validate(Accepted() with { Rating = new RatingRange(8m, 7m) }).IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Rating_OneBoundNull_IsValid()
+    {
+        validator.Validate(Accepted() with { Rating = new RatingRange(7m, null) }).IsValid.ShouldBeTrue();
+        validator.Validate(Accepted() with { Rating = new RatingRange(null, 7m) }).IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Rating_EmptyRange_IsValid()
+    {
+        validator.Validate(Accepted() with { Rating = new RatingRange(null, null) }).IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Rating_Absent_IsValid()
+    {
+        validator.Validate(Accepted() with { Rating = null }).IsValid.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(7, true)]
+    [InlineData(7.1, true)]
+    [InlineData(10, true)]
+    [InlineData(-0.1, false)]
+    [InlineData(10.1, false)]
+    [InlineData(7.55, false)]
+    [InlineData(7.05, false)]
+    public void Rating_MinBoundNumericDomain_MatchesImdbRatingValidity(double bound, bool valid)
+    {
+        var rating = new RatingRange((decimal)bound, null);
+
+        validator.Validate(Accepted() with { Rating = rating }).IsValid.ShouldBe(valid);
+    }
+
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(7.1, true)]
+    [InlineData(10, true)]
+    [InlineData(-0.1, false)]
+    [InlineData(10.1, false)]
+    [InlineData(7.55, false)]
+    public void Rating_MaxBoundNumericDomain_MatchesImdbRatingValidity(double bound, bool valid)
+    {
+        var rating = new RatingRange(null, (decimal)bound);
+
+        validator.Validate(Accepted() with { Rating = rating }).IsValid.ShouldBe(valid);
+    }
+
     private static MovieQuery Accepted() => new()
     {
         Sort = MovieSort.Title,

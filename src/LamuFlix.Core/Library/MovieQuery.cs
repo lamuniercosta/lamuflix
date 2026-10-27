@@ -29,6 +29,8 @@ public sealed record MovieQuery
 
     public YearRange? Year { get; init; }
 
+    public RatingRange? Rating { get; init; }
+
     public ImmutableArray<EnrichmentStatus> Statuses
     {
         get => statuses;
@@ -63,6 +65,7 @@ public sealed record MovieQuery
         AddSequence(ref hash, ActorIds);
         hash.Add(Runtime);
         hash.Add(Year);
+        hash.Add(Rating);
         AddSequence(ref hash, Statuses);
         hash.Add(InWatchlist);
         hash.Add(Sort);
@@ -77,7 +80,8 @@ public sealed record MovieQuery
     private bool HasSameCoreValues(MovieQuery other) =>
         Text == other.Text
         && Runtime == other.Runtime
-        && Year == other.Year;
+        && Year == other.Year
+        && Rating == other.Rating;
 
     private bool HasSameCollectionValues(MovieQuery other) =>
         Enumerable.SequenceEqual(GenreIds, other.GenreIds)

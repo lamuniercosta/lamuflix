@@ -30,23 +30,23 @@
 
 ### Tests
 
-- [ ] T002 [P] Extend `tests/LamuFlix.UnitTests/Library/MovieQueryTests.cs` so `MovieQuery.Rating` participates in equality and hash: queries that differ only by rating range compare unequal; equivalent rating ranges compare equal and share a hash; `HasSameCoreValues` includes Rating with Text/Runtime/Year. Name methods `Method_Condition_Expected`. AAA comments only. If pre-PR mutation requires rating mutants killed here, also extend only `tests/LamuFlix.UnitTests/Library/MovieQuerySurvivorTests.cs` with rating-specific proof (no new task ID; no unrelated survivor sweep).
+- [X] T002 [P] Extend `tests/LamuFlix.UnitTests/Library/MovieQueryTests.cs` so `MovieQuery.Rating` participates in equality and hash: queries that differ only by rating range compare unequal; equivalent rating ranges compare equal and share a hash; `HasSameCoreValues` includes Rating with Text/Runtime/Year. Name methods `Method_Condition_Expected`. AAA comments only. If pre-PR mutation requires rating mutants killed here, also extend only `tests/LamuFlix.UnitTests/Library/MovieQuerySurvivorTests.cs` with rating-specific proof (no new task ID; no unrelated survivor sweep).
 
-- [ ] T003 [P] Extend `tests/LamuFlix.UnitTests/Library/MovieQueryStringTests.cs` for invariant decimal round trips; absent group; open bounds; full-span present group; Format shortest ≤1 fractional digit (`7`, `7.1`, `0`, `10`); `7`/`7.0`/accepted `07.0` equivalent. Failure matrix MUST cover duplicate, partial, out-of-domain, inverted, and the shared lexical rejects: `+7`, `-0`, `1e1`, surrounding whitespace, `7,0`, `7.`, `.5`, `7.00`, `7.10`, `NaN`. Preserve absent versus present-with-null-bounds. Name methods `Method_Condition_Expected`. If mutation requires, also extend only `tests/LamuFlix.UnitTests/Library/MovieQueryStringSurvivorTests.cs` with rating-specific proof (no new task ID).
+- [X] T003 [P] Extend `tests/LamuFlix.UnitTests/Library/MovieQueryStringTests.cs` for invariant decimal round trips; absent group; open bounds; full-span present group; Format shortest ≤1 fractional digit (`7`, `7.1`, `0`, `10`); `7`/`7.0`/accepted `07.0` equivalent. Failure matrix MUST cover duplicate, partial, out-of-domain, inverted, and the shared lexical rejects: `+7`, `-0`, `1e1`, surrounding whitespace, `7,0`, `7.`, `.5`, `7.00`, `7.10`, `NaN`. Preserve absent versus present-with-null-bounds. Name methods `Method_Condition_Expected`. If mutation requires, also extend only `tests/LamuFlix.UnitTests/Library/MovieQueryStringSurvivorTests.cs` with rating-specific proof (no new task ID).
 
-- [ ] T004 [P] Extend `tests/LamuFlix.UnitTests/Library/MovieQueryValidatorTests.cs` for numeric domain via `ImdbRating.TryCreate` semantics (0.0..10.0, one decimal), null/open bounds valid, each non-null bound independently valid, and min <= max only when both bounds exist. Name methods `Method_Condition_Expected`.
+- [X] T004 [P] Extend `tests/LamuFlix.UnitTests/Library/MovieQueryValidatorTests.cs` for numeric domain via `ImdbRating.TryCreate` semantics (0.0..10.0, one decimal), null/open bounds valid, each non-null bound independently valid, and min <= max only when both bounds exist. Name methods `Method_Condition_Expected`.
 
-- [ ] T005 [P] Extend `tests/LamuFlix.UnitTests/Library/MovieQueryFixture.cs` so the existing property suite can generate valid `RatingRange` values (inclusive 0.0–10.0, ≤1 decimal; open bounds allowed) without inventing a new test framework.
+- [X] T005 [P] Extend `tests/LamuFlix.UnitTests/Library/MovieQueryFixture.cs` so the existing property suite can generate valid `RatingRange` values (inclusive 0.0–10.0, ≤1 decimal; open bounds allowed) without inventing a new test framework.
 
 ### Implementation
 
-- [ ] T006 Add `src/LamuFlix.Core/Library/RatingRange.cs` as `public sealed record RatingRange(decimal? Min, decimal? Max)`.
+- [X] T006 Add `src/LamuFlix.Core/Library/RatingRange.cs` as `public sealed record RatingRange(decimal? Min, decimal? Max)`.
 
-- [ ] T007 Update `src/LamuFlix.Core/Library/MovieQuery.cs`: add `RatingRange? Rating`; include Rating in `Equals` / `GetHashCode` / `HasSameCoreValues`. No comments.
+- [X] T007 Update `src/LamuFlix.Core/Library/MovieQuery.cs`: add `RatingRange? Rating`; include Rating in `Equals` / `GetHashCode` / `HasSameCoreValues`. No comments.
 
-- [ ] T008 Update `src/LamuFlix.Core/Library/MovieQueryString.cs`: canonical keys `minRating`/`maxRating`; shared Round 1 lexical parse (ASCII unsigned `[0-9]+(?:\.[0-9])?`, leading zeros accepted, reject sign/whitespace/exponent/comma/leading-trailing-dot/`7.00`/`7.10`); Format shortest invariant ≤1 fractional digit; HasAny/HasComplete/Append wiring; reject invalid and duplicate rating keys via existing `Seen` pattern. No new parser layer/file. Depends on T006–T007.
+- [X] T008 Update `src/LamuFlix.Core/Library/MovieQueryString.cs`: canonical keys `minRating`/`maxRating`; shared Round 1 lexical parse (ASCII unsigned `[0-9]+(?:\.[0-9])?`, leading zeros accepted, reject sign/whitespace/exponent/comma/leading-trailing-dot/`7.00`/`7.10`); Format shortest invariant ≤1 fractional digit; HasAny/HasComplete/Append wiring; reject invalid and duplicate rating keys via existing `Seen` pattern. No new parser layer/file. Depends on T006–T007.
 
-- [ ] T009 Update `src/LamuFlix.Infrastructure/Library/MovieQueryValidator.cs`: reuse public `ImdbRating.TryCreate` for numeric domain/precision (do not expose/edit private `IsValid`; no `ImdbRating.cs` edit); null bounds valid; validate each non-null bound; compare min <= max only when both exist. Depends on T007.
+- [X] T009 Update `src/LamuFlix.Infrastructure/Library/MovieQueryValidator.cs`: reuse public `ImdbRating.TryCreate` for numeric domain/precision (do not expose/edit private `IsValid`; no `ImdbRating.cs` edit); null bounds valid; validate each non-null bound; compare min <= max only when both exist. Depends on T007.
 
 **Checkpoint**: Unit and fixture tests for model/codec/validator pass. No catalog or HTTP change yet.
 

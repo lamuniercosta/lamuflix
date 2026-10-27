@@ -15,6 +15,7 @@ public static class MovieQueryFixture
         from actors in IdList()
         from runtime in RuntimeGen()
         from year in YearGen()
+        from rating in RatingGen()
         from statuses in StatusGen()
         from watchlist in Gen.Elements<bool?>(null, true, false)
         from sort in Gen.Elements(MovieSort.List.ToArray())
@@ -28,6 +29,7 @@ public static class MovieQueryFixture
             ActorIds = actors,
             Runtime = runtime,
             Year = year,
+            Rating = rating,
             Statuses = statuses,
             InWatchlist = watchlist,
             Sort = sort,
@@ -79,6 +81,22 @@ public static class MovieQueryFixture
                 0 => new YearRange(min, null),
                 1 => new YearRange(null, min + span),
                 _ => new YearRange(min, min + span),
+            };
+        return Gen.OneOf(absentOrEmpty, bounded);
+    }
+
+    private static Gen<RatingRange?> RatingGen()
+    {
+        var absentOrEmpty = Gen.Elements(null, new RatingRange(null, null));
+        var bounded =
+            from minTenths in Gen.Choose(0, 100)
+            from maxTenths in Gen.Choose(minTenths, 100)
+            from shape in Gen.Choose(0, 2)
+            select shape switch
+            {
+                0 => new RatingRange(minTenths / 10m, null),
+                1 => new RatingRange(null, maxTenths / 10m),
+                _ => new RatingRange(minTenths / 10m, maxTenths / 10m),
             };
         return Gen.OneOf(absentOrEmpty, bounded);
     }

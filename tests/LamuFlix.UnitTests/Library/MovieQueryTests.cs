@@ -69,6 +69,7 @@ public sealed class MovieQueryTests
         { "Text", BaseQuery(), BaseQuery() with { Text = "other" } },
         { "Runtime", BaseQuery(), BaseQuery() with { Runtime = new RuntimeRange(11, null, true) } },
         { "Year", BaseQuery(), BaseQuery() with { Year = new YearRange(1999, null) } },
+        { "Rating", BaseQuery(), BaseQuery() with { Rating = new RatingRange(1m, 2m) } },
         { "GenreIds", BaseQuery(), BaseQuery() with { GenreIds = [4, 5] } },
         { "ActorIds", BaseQuery(), BaseQuery() with { ActorIds = [7, 8] } },
         { "Statuses", BaseQuery(), BaseQuery() with { Statuses = [EnrichmentStatus.Pending, EnrichmentStatus.Failed] } },
@@ -78,6 +79,26 @@ public sealed class MovieQueryTests
         { "Page", BaseQuery(), BaseQuery() with { Page = new Page(2, 20) } },
     };
 
+    [Fact]
+    public void Equals_EquivalentRatingRanges_AreEqualAndShareHash()
+    {
+        var left = BaseQuery() with { Rating = new RatingRange(7.0m, 9.00m) };
+        var right = BaseQuery() with { Rating = new RatingRange(7m, 9m) };
+
+        left.Equals(right).ShouldBeTrue();
+        left.GetHashCode().ShouldBe(right.GetHashCode());
+    }
+
+    [Fact]
+    public void Equals_RatingDifferingOnlyInBounds_AreNotEqual()
+    {
+        var left = BaseQuery() with { Rating = new RatingRange(7m, null) };
+        var right = BaseQuery() with { Rating = new RatingRange(null, 7m) };
+
+        left.Equals(right).ShouldBeFalse();
+        right.Equals(left).ShouldBeFalse();
+    }
+
     private static MovieQuery BaseQuery() =>
         new()
         {
@@ -86,6 +107,7 @@ public sealed class MovieQueryTests
             ActorIds = [3, 4],
             Runtime = new RuntimeRange(10, 20, true),
             Year = new YearRange(1998, 2000),
+            Rating = new RatingRange(7m, 9m),
             Statuses = [EnrichmentStatus.Pending, EnrichmentStatus.Enriched],
             InWatchlist = true,
             Sort = MovieSort.Title,
