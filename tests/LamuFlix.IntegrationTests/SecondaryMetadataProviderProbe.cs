@@ -7,7 +7,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Adapters;
@@ -45,7 +44,7 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
     // ReSharper disable once NullableWarningSuppressionIsUsed - xUnit constructs the fixture; the server starts in InitializeAsync before any test reads it.
     public WireMockServer Server { get; private set; } = null!;
 
-    public string BaseUrl => Server.Urls[0];
+    private string BaseUrl => Server.Urls[0];
 
     public string ApiBaseUrl => string.Concat(BaseUrl, "/3");
 
@@ -100,12 +99,12 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
         return provider;
     }
 
-    public ServiceCollection NewServices(
+    private ServiceCollection NewServices(
         IDictionary<string, string?>? overrides = null,
         TimeProvider? clock = null)
     {
         var services = NewServicesWithoutOptions(clock);
-        services.AddSingleton<IConfiguration>(Configuration(overrides));
+        services.AddSingleton(Configuration(overrides));
         services.AddLamuFlixOptions();
         return services;
     }
@@ -127,10 +126,10 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
         StubPath("/3/search/movie", statusCode, body, delay, retryAfter);
 
     public void StubDetails(int movieId, string body, int statusCode = 200, TimeSpan? delay = null) =>
-        StubPath(string.Concat("/3/movie/", movieId.ToString(CultureInfo.InvariantCulture)), statusCode, body, delay, null);
+        StubPath(string.Concat("/3/movie/", movieId.ToString(CultureInfo.InvariantCulture)), statusCode, body, delay);
 
     public void StubFind(string imdbId, string body, int statusCode = 200) =>
-        StubPath(string.Concat("/3/find/", imdbId), statusCode, body, null, null);
+        StubPath(string.Concat("/3/find/", imdbId), statusCode, body);
 
     public void StubFoundLookup(string? searchBody = null, string? detailsBody = null)
     {
@@ -218,7 +217,7 @@ internal sealed class SecondaryActivityCapture : IDisposable
         listener = new ActivityListener
         {
             ShouldListenTo = source => Array.IndexOf(sourceNames, source.Name) >= 0,
-            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            Sample = static (ref _) => ActivitySamplingResult.AllData,
             ActivityStopped = activity => activities.Add(activity),
         };
         ActivitySource.AddActivityListener(listener);
@@ -228,7 +227,7 @@ internal sealed class SecondaryActivityCapture : IDisposable
 
     public IReadOnlyList<Activity> LookupSpans(string traceId) =>
         [.. activities.Where(activity =>
-            string.Equals(activity.DisplayName, LamuFlix.Core.Pipeline.TelemetryConstants.MetadataLookup, StringComparison.Ordinal)
+            string.Equals(activity.DisplayName, Core.Pipeline.TelemetryConstants.MetadataLookup, StringComparison.Ordinal)
             && string.Equals(activity.TraceId.ToHexString(), traceId, StringComparison.Ordinal))];
 
     public void Dispose() => listener.Dispose();

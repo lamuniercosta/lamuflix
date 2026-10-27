@@ -93,15 +93,15 @@ public sealed class SecondaryMetadataProviderTelemetryTests(SecondaryMetadataPro
 
         // act
         probe.StubFoundLookup();
-        await FindAsync(services, ct);
+        _ = await FindAsync(services, ct);
 
         probe.Reset();
         probe.StubSearch(string.Empty, statusCode: 401);
-        await FindAsync(services, ct);
+        _ = await FindAsync(services, ct);
 
         probe.Reset();
         probe.StubSearch(string.Empty, statusCode: 503);
-        await FindAsync(services, ct);
+        _ = await FindAsync(services, ct);
 
         // assert
         var corpus = string.Join("\n", activities.Activities.SelectMany(Fragments));
