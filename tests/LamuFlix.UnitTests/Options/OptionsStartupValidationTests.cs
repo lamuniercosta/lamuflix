@@ -106,6 +106,64 @@ public sealed class OptionsStartupValidationTests
     }
 
     [Fact]
+    public void InvalidTmdbBaseUrl_FailsValidation()
+    {
+        var values = ValidRequired();
+        values[$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.BaseUrl)}"] = "not-a-url";
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(TmdbOptions.BaseUrl));
+    }
+
+    [Fact]
+    public void NonLoopbackHttpTmdbBaseUrl_FailsValidation()
+    {
+        var values = ValidRequired();
+        values[$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.BaseUrl)}"] = "http://example.com/3/";
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(TmdbOptions.BaseUrl));
+    }
+
+    [Fact]
+    public void TmdbDefaults_BindAndPassWithoutAnApiKey()
+    {
+        using var provider = Build(ValidRequired());
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        var options = provider.GetRequiredService<IOptions<TmdbOptions>>().Value;
+        options.Enabled.ShouldBeFalse();
+        options.BaseUrl.ShouldBe("https://api.themoviedb.org/3/");
+        options.ApiKey.ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void ConfiguredTmdbValues_BindThroughTheStartupPath()
+    {
+        var values = ValidRequired();
+        values[$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.Enabled)}"] = "true";
+        values[$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.BaseUrl)}"] = "http://127.0.0.1:8080/3/";
+        values[$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.ApiKey)}"] = "not-a-real-key";
+        using var provider = Build(values);
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        var options = provider.GetRequiredService<IOptions<TmdbOptions>>().Value;
+        options.Enabled.ShouldBeTrue();
+        options.BaseUrl.ShouldBe("http://127.0.0.1:8080/3/");
+        options.ApiKey.ShouldBe("not-a-real-key");
+    }
+
+    [Fact]
     public void MissingHostName_FailsValidation()
     {
         var exception = Validate(ValidRequired(hostName: ""));

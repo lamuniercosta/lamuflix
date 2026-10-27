@@ -17,6 +17,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
 
@@ -75,6 +76,28 @@ public sealed class HealthEndpointTests
         // assert
         hostedServices.ShouldNotContain(service => service is StrandedMovieSweeper);
         hostedServices.ShouldContain(service => service is EnrichmentConsumer);
+    }
+
+    [Fact]
+    public void ReadyHost_RegistersTheSecondaryProviderCheckUntaggedOutsideReadiness()
+    {
+        // arrange
+        using var host = new ApiHostFactory(retainSweeper: false, retainHealthChecks: true);
+
+        // act
+        var registrations = host.Services.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations;
+
+        // assert
+        var secondary = registrations.Single(registration => registration.Name == "metadata-provider-tmdb");
+        secondary.Tags.ShouldBeEmpty();
+        var ready = registrations
+            .Where(registration => registration.Tags.Contains(HealthCheckTags.Ready))
+            .Select(registration => registration.Name)
+            .ToArray();
+        ready.ShouldContain("postgres");
+        ready.ShouldContain("rabbitmq");
+        ready.ShouldNotContain("metadata-provider");
+        ready.ShouldNotContain("metadata-provider-tmdb");
     }
 
     [Fact]
