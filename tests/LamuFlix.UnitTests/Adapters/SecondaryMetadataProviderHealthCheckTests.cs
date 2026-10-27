@@ -6,7 +6,6 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Adapters;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Options;
 
 namespace LamuFlix.UnitTests.Adapters;
 

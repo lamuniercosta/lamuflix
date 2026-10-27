@@ -27,14 +27,28 @@ public static class MetadataProviderServiceCollectionExtensions
                 target,
                 provider.GetRequiredService<IOptions<MetadataProviderResilienceOptions>>().Value));
 
+        services
+            .AddHttpClient<TmdbMetadataProvider>((provider, client) =>
+                client.BaseAddress = NormalizeBaseUrl(provider.GetRequiredService<IOptions<TmdbOptions>>().Value.BaseUrl))
+            .AddStandardResilienceHandler()
+            .Configure((target, provider) => Configure(
+                target,
+                provider.GetRequiredService<IOptions<MetadataProviderResilienceOptions>>().Value));
+
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<MetadataProviderHealthState>();
+        services.TryAddSingleton<SecondaryMetadataProviderHealthState>();
 
         // The matching AddCheck lives in MetadataProviderServiceCollectionExtensions; AddHealthChecks() is in ServiceDefaults.
-        services.AddHealthChecks().AddCheck<MetadataProviderHealthCheck>("metadata-provider");
+        services.AddHealthChecks()
+            .AddCheck<MetadataProviderHealthCheck>("metadata-provider")
+            .AddCheck<SecondaryMetadataProviderHealthCheck>("metadata-provider-tmdb");
 
         return services;
     }
+
+    private static Uri NormalizeBaseUrl(string baseUrl) =>
+        new(baseUrl.EndsWith('/') ? baseUrl : string.Concat(baseUrl, "/"));
 
     private static void Configure(HttpStandardResilienceOptions target, MetadataProviderResilienceOptions options)
     {

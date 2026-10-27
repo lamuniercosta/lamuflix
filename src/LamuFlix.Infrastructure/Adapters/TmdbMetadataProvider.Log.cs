@@ -23,5 +23,17 @@ public sealed partial class TmdbMetadataProvider
             Level = LogLevel.Warning,
             Message = "The secondary metadata provider returned an unusable response: {Reason}.")]
         public static partial void InvalidResponse(ILogger logger, string reason);
+
+        [LoggerMessage(
+            EventId = 4,
+            Level = LogLevel.Warning,
+            Message = "The secondary metadata provider is rate limiting this library: HTTP {StatusCode} after exhausting the retry budget.")]
+        public static partial void RateLimited(ILogger logger, string statusCode);
+
+        [LoggerMessage(
+            EventId = 5,
+            Level = LogLevel.Warning,
+            Message = "The secondary metadata provider rejected the API key with HTTP 401. Check the TMDb API key configuration.")]
+        public static partial void InvalidApiKey(ILogger logger);
     }
 }
