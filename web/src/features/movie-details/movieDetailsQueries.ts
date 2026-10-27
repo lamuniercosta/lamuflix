@@ -8,7 +8,7 @@ import {
 } from '@tanstack/react-query';
 import { client } from '../../api/client';
 import type { components } from '../../api/types';
-import { markRowPending } from '../../library/libraryQueries';
+import { invalidateBrowseMovies, markRowPending } from '../../library/libraryQueries';
 import type { EnrichmentStatusSubscription } from '../../library/useEnrichmentStatus';
 
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
@@ -104,12 +104,7 @@ export function useRequestEnrichment(movieId: ActorId, libraryClient: QueryClien
       return { id: movieId };
     },
     onSuccess: ({ id }) => {
-      libraryClient.setQueriesData<BrowseMoviesResponse>(
-        { queryKey: ['browseMovies'] },
-        (current) => markRowPending(current, id),
-      );
-      void libraryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
-      void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
+      refreshAfterPendingMark(libraryClient, detailsClient, id, movieId);
     },
   });
 }
@@ -159,14 +154,22 @@ export function useMatchImdbId(movieId: ActorId, libraryClient: QueryClient) {
       return { id: movieId };
     },
     onSuccess: ({ id }) => {
-      libraryClient.setQueriesData<BrowseMoviesResponse>(
-        { queryKey: ['browseMovies'] },
-        (current) => markRowPending(current, id),
-      );
-      void libraryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
-      void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
+      refreshAfterPendingMark(libraryClient, detailsClient, id, movieId);
     },
   });
+}
+
+function refreshAfterPendingMark(
+  libraryClient: QueryClient,
+  detailsClient: QueryClient,
+  id: ActorId,
+  movieId: ActorId,
+): void {
+  libraryClient.setQueriesData<BrowseMoviesResponse>({ queryKey: ['browseMovies'] }, (current) =>
+    markRowPending(current, id),
+  );
+  invalidateBrowseMovies(libraryClient);
+  void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
 }
 
 export function readLibraryEnrichmentStatus(
