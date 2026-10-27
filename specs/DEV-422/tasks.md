@@ -32,7 +32,7 @@
 
 **Purpose**: Add the exact published pin and lockfile entry identified in T001. No hook yet.
 
-- [ ] T002 Pin exact published `@microsoft/signalr` `10.0.x` (patch from T001) with `--save-exact` in `web/package.json` and update `web/package-lock.json` so neither package nor lock root carries a caret/tilde range. No other dependency changes. No server NuGet package. After pin, run existing `npm audit` and record DEV-422-introduced findings with disposition; do not blanket-fail unrelated historical advisories or alter thresholds. Confirm browser runtime imports and `import type` for type-only symbols will be used by consumers; Node-only transports must not enter browser runtime (verified with T013).
+- [X] T002 Pin exact published `@microsoft/signalr` `10.0.x` (patch from T001) with `--save-exact` in `web/package.json` and update `web/package-lock.json` so neither package nor lock root carries a caret/tilde range. No other dependency changes. No server NuGet package. After pin, run existing `npm audit` and record DEV-422-introduced findings with disposition; do not blanket-fail unrelated historical advisories or alter thresholds. Confirm browser runtime imports and `import type` for type-only symbols will be used by consumers; Node-only transports must not enter browser runtime (verified with T013).
 
 **Checkpoint**: Lockfile contains the exact pin with no ranges at package/lock root; `npm` install/resolves cleanly in `web/`; audit disposition for introduced findings recorded.
 
