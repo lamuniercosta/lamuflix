@@ -2,21 +2,80 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { createOpenApiHttp } from 'openapi-msw';
-import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import type { ComponentType, ReactNode } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { paths } from './api/types';
 import App from './App';
+import type { MovieDetailsViewProps } from './features/movie-details/MovieDetailsView';
+import type {
+  EnrichmentConnectionFactory,
+  EnrichmentHubConnection,
+  EnrichmentStatusSubscription,
+} from './library/useEnrichmentStatus';
+import { useEnrichmentStatus } from './library/useEnrichmentStatus';
 import { retryAcceptedHandler, standingBrowseQuery } from './test/handlers';
 import { server } from './test/server';
 
+const recordedDetailsProps = vi.hoisted(() => [] as MovieDetailsViewProps[]);
+
+vi.mock('./features/movie-details/MovieDetailsView', async (importOriginal) => {
+  const actual = await importOriginal<{ default: ComponentType<MovieDetailsViewProps> }>();
+  function RecordingMovieDetailsView(props: MovieDetailsViewProps) {
+    recordedDetailsProps.push(props);
+    return <actual.default {...props} />;
+  }
+  return { default: RecordingMovieDetailsView };
+});
+
 const http = createOpenApiHttp<paths>({ baseUrl: '*' });
 
-function renderApp() {
+interface ShellFakeConnection extends EnrichmentHubConnection {
+  startCalls: number;
+  stopCalls: number;
+}
+
+function createShellFakeHub() {
+  const connections: ShellFakeConnection[] = [];
+  const factory: EnrichmentConnectionFactory = () => {
+    const connection: ShellFakeConnection = {
+      startCalls: 0,
+      stopCalls: 0,
+      start: async () => {
+        connection.startCalls += 1;
+      },
+      stop: async () => {
+        connection.stopCalls += 1;
+      },
+      on: () => {},
+      off: () => {},
+      onreconnected: () => {},
+      onclose: () => {},
+    };
+    connections.push(connection);
+    return connection;
+  };
+  return { factory, connections };
+}
+
+function ShellHarness({ factory }: { factory: EnrichmentConnectionFactory }) {
+  const enrichmentStatus = useEnrichmentStatus(factory);
+  return <App enrichmentStatus={enrichmentStatus} />;
+}
+
+function renderShell(factory: EnrichmentConnectionFactory) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   }
-  return render(<App />, { wrapper: Wrapper });
+  return render(<ShellHarness factory={factory} />, { wrapper: Wrapper });
+}
+
+function renderApp(enrichmentStatus?: EnrichmentStatusSubscription) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  }
+  return render(<App enrichmentStatus={enrichmentStatus} />, { wrapper: Wrapper });
 }
 
 function detailsBackLink() {
@@ -29,6 +88,7 @@ function detailsBackLink() {
 
 afterEach(() => {
   window.history.replaceState({}, '', '/');
+  recordedDetailsProps.length = 0;
   cleanup();
 });
 
@@ -473,5 +533,38 @@ describe('App layout shell', () => {
       { timeout: 3000 },
     );
     expect(new URLSearchParams(window.location.search).getAll('statuses')).toContain('Pending');
+  });
+});
+
+describe('App enrichment hub shell', () => {
+  it('keeps one session connection while navigating between Library and Details', async () => {
+    window.history.replaceState({}, '', '/');
+    const { factory, connections } = createShellFakeHub();
+
+    renderShell(factory);
+
+    await screen.findByText('Dune', {}, { timeout: 5000 });
+    expect(connections).toHaveLength(1);
+    expect(connections[0].startCalls).toBe(1);
+
+    fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
+    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+
+    fireEvent.click(detailsBackLink());
+    expect(await screen.findByText('Dune')).toBeInTheDocument();
+
+    expect(connections).toHaveLength(1);
+    expect(connections[0].startCalls).toBe(1);
+    expect(connections[0].stopCalls).toBe(0);
+  });
+
+  it('forwards the subscription seam to the mounted details view', async () => {
+    window.history.replaceState({}, '', '/movies/1');
+    const seam: EnrichmentStatusSubscription = { subscribe: () => () => {} };
+
+    renderApp(seam);
+
+    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(recordedDetailsProps.at(-1)?.enrichmentStatus).toBe(seam);
   });
 });
