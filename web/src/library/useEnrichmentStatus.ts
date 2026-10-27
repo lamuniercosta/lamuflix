@@ -87,6 +87,14 @@ function stopQuietly(connection: EnrichmentHubConnection): void {
   void connection.stop().catch(() => {});
 }
 
+function shutdownConnection(
+  target: EnrichmentHubConnection,
+  handler: (...args: unknown[]) => void,
+): void {
+  target.off(ENRICHMENT_STATUS_EVENT, handler);
+  stopQuietly(target);
+}
+
 function createEnrichmentConnection(options: EnrichmentConnectionOptions): EnrichmentHubConnection {
   return new HubConnectionBuilder()
     .withUrl(options.url, { withCredentials: options.withCredentials })
@@ -130,8 +138,8 @@ export function useEnrichmentStatus(
       }
     };
 
-    const detach = (target: EnrichmentHubConnection) => {
-      target.off(ENRICHMENT_STATUS_EVENT, onEvent);
+    const shutdown = (target: EnrichmentHubConnection) => {
+      shutdownConnection(target, onEvent);
     };
 
     const scheduleRetry = () => {
@@ -178,8 +186,7 @@ export function useEnrichmentStatus(
       const current = connection;
       connection = null;
       if (current) {
-        detach(current);
-        stopQuietly(current);
+        shutdown(current);
       }
       scheduleRetry();
     };
@@ -209,8 +216,7 @@ export function useEnrichmentStatus(
           if (disposed) {
             return;
           }
-          detach(next);
-          stopQuietly(next);
+          shutdown(next);
           if (connection === next) {
             connection = null;
           }
@@ -228,8 +234,7 @@ export function useEnrichmentStatus(
       const current = connection;
       connection = null;
       if (current) {
-        detach(current);
-        stopQuietly(current);
+        shutdown(current);
       }
     };
   }, [createConnection, publish, queryClient, registry]);

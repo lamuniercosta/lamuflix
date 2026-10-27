@@ -66,11 +66,15 @@ let importPlaceholderPending = false;
 let importPlaceholderToken = 0;
 let onImportPlaceholderReconciled: (() => void) | null = null;
 
+export function invalidateBrowseMovies(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
+}
+
 export function armImportPlaceholder(queryClient: QueryClient, onReconciled: () => void): void {
   importPlaceholderToken += 1;
   importPlaceholderPending = true;
   onImportPlaceholderReconciled = onReconciled;
-  void queryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
+  invalidateBrowseMovies(queryClient);
 }
 
 export function isImportPlaceholderPending(): boolean {
@@ -242,7 +246,7 @@ export function useRetryEnrichmentMutation() {
       queryClient.setQueriesData<BrowseMoviesResponse>({ queryKey: ['browseMovies'] }, (current) =>
         markRowPending(current, id),
       );
-      void queryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
+      invalidateBrowseMovies(queryClient);
     },
     onError: () => {
       void queryClient.invalidateQueries({ queryKey: browseMoviesQueryKey });
