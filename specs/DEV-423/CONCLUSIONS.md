@@ -124,3 +124,13 @@ Patron:
 - **Phase A freeze & adjudication closure (`specs/DEV-423/PLAN_CHALLENGE_ADJUDICATION.md` lines 15–92; `specs/DEV-423/DRAFTING_RECEIPT.md` lines 25–45; task note `DEV-423` lines 39–60)**: Q1–Q7 brief decisions and PC1–PC6 plan-challenge rulings are faithfully encoded across `spec.md`, `plan.md`, and `tasks.md`, with 0 unresolved Critical/High/Medium findings, 0 `[NEEDS CLARIFICATION]` markers, and no new DEV-423 constitution departure or owner checkbox.
 - **Preserved Phase B STOP (`specs/DEV-423/CONCLUSIONS.md` Q1; `specs/DEV-423/spec.md` lines 27–29, FR-009; `specs/DEV-423/tasks.md` T000–T001)**: provisional Gate 1 clears Phase A spec PR publication only; it does not close DEV-331's owner Q7 checkbox, authorize owner merge, or lift the Phase B implementation stop on T000 (DEV-331 owner Q7 resolution, amendment/ADR, and TMDb adapter landing on `main`) and T001 (pickup drift check and read-only `/speckit-analyze`).
 
+---
+
+## T000 upstream readiness ruling — Phase B (2026-10-28)
+
+Patron:
+[from Patron] Verdict: blocked — T000 is only partially satisfied; Phase B implementation (Phase 1 T002+) is NOT unblocked and must not proceed on the landed DEV-331 code alone.
+- Implementation leg satisfied: DEV-331 PR #272 merged to main with `TmdbMetadataProvider` and `TmdbOptions` landed (`recon-DEV-423` lines 87–89; note `DEV-423` lines 76–80).
+- Constitution leg not satisfied: no constitution amendment or ADR was committed with that merge; the constitution remains at 1.5.0/OMDb-only and `docs/adr/` has no TMDb ADR (`recon-DEV-423` lines 90–91).
+- Owner-resolution leg not satisfied in scope: DEV-331 owner Q7 checkbox remains unchecked with no in-repo resolution record, so the departure is not cleared (`recon-DEV-423` line 92); under brief Q1 DEV-423 inherits that upstream resolution as an explicit prerequisite without a duplicate checkbox or silent clearing (`specs/DEV-423/brief.md` lines 13, 89–91), and Phase B ordering requires proving owner resolution, amendment/ADR, and implementation all landed before implementation (`specs/DEV-423/brief.md` line 61). T001 zero drift (`recon-DEV-423` lines 95–98) does not cure the T000 gap (line 93). Unblock condition: the DEV-331 owner Q7 resolution is recorded and the applicable constitution amendment/ADR land on main, then T000 is re-verified; only then may T002+ proceed. No new DEV-423 checkbox is created.
+
