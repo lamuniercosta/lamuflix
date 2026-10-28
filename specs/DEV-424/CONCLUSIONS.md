@@ -8,6 +8,12 @@ Status: Draft — grill in progress.
 
 ## Q1 — Scope and data path
 
+**Keel — question and recommendation (verbatim from first ask):**
+
+/grill-with-docs DEV-424. Worktree F:/Dev/LamuFlix.worktrees/feature-424-spec branch feature/424-spec. Max 12 questions, one at a time. I read DEV-424 and recon-DEV-424. Q1: Confirm scope and data path: extend TMDb response mapping and MovieMetadata to carry optional collection id and name into the existing enrichment write path; persist CollectionRecord and nullable MovieRecord.CollectionId, with no backfill or grid grouping. I recommend treating these data-path additions and the recon-listed supporting files as necessary consequences of the ticket, with no new dependency or layer. DEV-331 explicitly deferred collections here (recon lines 68-74), and ticket scope is DEV-424 note lines 27-30. Please rule with cited basis whether this stays within ticket scope and authorize the supporting-file edits under section 2.3 item 6. No production edits in this grill. Please reply directly with the ruling.
+
+**Patron — ruling:**
+
 [from Patron] DEV-424 Q1 ruling: ACCEPT — extending TMDb response mapping and MovieMetadata to carry optional collection id/name into the existing enrichment write path, persisting CollectionRecord and nullable MovieRecord.CollectionId, stays within ticket scope; the recon-listed supporting-file edits are authorized as necessary consequences under §2.3 item 6, with no new dependency or layer, no backfill, and no grid grouping.
 
 - Ticket authority (note DEV-424 lines 27-30; specs/PRODUCT.md:23-24): scope is CollectionRecord + MovieRecord.CollectionId migration, EfMovieRepository upsert, facet and pill filter; data from TMDb adapter DEV-331; out of scope is grid grouping and backfill (next enrichment only).
@@ -29,3 +35,19 @@ I recommend collection identity is the positive TMDb collection id, with the ret
 - Ticket authority (note DEV-424 lines 27-30; specs/PRODUCT.md:23-24): CollectionRecord + nullable MovieRecord.CollectionId and EfMovieRepository upsert are the ticket's named persistence path, and backfill is out of scope (next enrichment only) — so membership changes only on a successful enrichment.
 - Existing write-path basis (recon-DEV-424 lines 31-33, 68-74; Q1 ruling above): EfMovieRepository.CopyMetadata is the enrichment write seam authorized in Q1; applying replace/clear only on success and preserving data on failure follows that path's semantics and sound engineering practice — a failed lookup is absence of evidence, not evidence of no collection.
 - Scope containment (recon-DEV-424 lines 93-100; specs/PRODUCT.md:41-48): a single nullable FK with retained, facet-hidden zero-member rows needs no join table, cascade, or lifecycle job; dormant rows are the accepted cost and add no schema beyond the ticket's named tables, no dependency, and no layer.
+
+---
+
+## Q3 — Public API shape (§2.3 item 4)
+
+**Keel — question and recommendation:**
+
+I recommend GET /api/collections named GetCollections returning CollectionDto[] with id, name, movieCount (same types and response conventions as genres); count distinct current library members, omit empty collections, and mirror existing genre facet count/sort behavior rather than counts narrowed by active filters. Add nullable positive integer collectionId to browse request and MovieQuery, ANDed with existing filters; valid unknown id returns an empty page, absent means no constraint, malformed/nonpositive/repeated single-valued input follows existing browse validation conventions with 400 for invalid input. Preserve pagination conventions and include CollectionId in value equality/hash and query codecs. This uses the existing genre chain; cost is wiring the field across all query state paths. Do you accept this explicit public API shape under section 2.3 item 4? Cite basis and record full exchange. Also append the original Q1 question verbatim from my first ask so its full exchange is preserved.
+
+**Patron — ruling:**
+
+[from Patron] DEV-424 Q3 ruling: ACCEPT under §2.3 item 4 — GET /api/collections (operation GetCollections) returns CollectionDto[] of id, name, movieCount mirroring genre facet types, count/sort and response conventions, counting distinct current library members and omitting empty collections without narrowing by active filters; nullable positive-integer collectionId on the browse request and MovieQuery is ANDed with existing filters, absent means unconstrained, a valid unknown id returns an empty page, malformed/nonpositive/repeated input follows existing browse validation with 400, pagination is preserved, and CollectionId joins MovieQuery equality/hash and query codecs.
+
+- Item 4 trigger and cure (recon-DEV-424 lines 93-100 at item 4; specs/PRODUCT.md:46): the ticket implies a collections facet and collectionId filter in substance but spells neither the literal route, DTO fields, nor parameter validation, so this explicit ruling — not a silent assumption — fixes that public shape.
+- Mirror basis (recon-DEV-424 lines 47-55, 57-66; note DEV-424 lines 27-30): FacetEndpoints /api/genres, GenreFacet/CollectionDto chain, and the MovieQuery/MovieQueryString/LibraryEndpoints browse pipeline are the existing chain the ticket names (FacetEndpoints collections mirror genres; MovieQuery collectionId); following it adds no new layer, route family, or pagination convention.
+- Contract chain (recon-DEV-424 line 89): the new route/DTO flows C# DTO → regenerated openapi.json → generated types.ts via npm run generate:api, never hand-edited, per the Q1 §2.3 item 6 authorization.
