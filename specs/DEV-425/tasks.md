@@ -6,7 +6,7 @@
 
 **Tests**: Required per brief Q6. Write failing tests before the implementation they drive where TDD applies. Real Postgres for query translation; no mocked EF driver for facet/browse behavior. Seeded property roundtrips in scope.
 
-**Organization**: Phases preserve brief Q6 binding order (Core then Persistence then API then Contract then Web) while merging Core+Persistence into one executable Build phase so `IMovieCatalog.GetDirectorsAsync` and its EF adapter land before the green checkpoint (task-pipeline Phase 3 step 2). Story tags retain acceptance traceability (US1 facet, US2 browse filter, US3 FilterPanel hosts).
+**Organization**: Phases preserve brief Q6 binding order (Core then Persistence then API then Contract then Web) while merging Core+Persistence into one executable Build phase so `IMovieCatalog.GetDirectorsAsync` and its EF adapter land before the one green checkpoint (task-pipeline Phase 3 step 2). Core dependency order inside that phase is T003 → T005 → T004 → T006 (IDs preserved, not numeric T001–T006 execution). Temporary compile-failure red is allowed while required symbols/port land; after compile closure, behavioral red is required before the green checkpoint. No placeholder/default-throwing implementation. Story tags retain acceptance traceability (US1 facet, US2 browse filter, US3 FilterPanel hosts).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -21,23 +21,25 @@
 **Goal**: `DirectorId` on MovieQuery; MovieQueryString parse/format; port + GetDirectors query/handler; EF director facet projection and `WhereDirector` browse predicate on existing schema.
 **Checkpoint**: Core tests green for equality/hash/parse; handler coverage green; real-database facet and browse proofs green; solution compiles with `GetDirectorsAsync` implemented on the EF adapter. No migration.
 
-### Core (Q6 step 1) — preserve task order T001–T006
+### Core (Q6 step 1) — dependency order T003, T005, T004, T006 (IDs preserved; not numeric T001–T006)
 
-- [ ] T001 [P] [US2] Write failing Core tests in `tests/LamuFlix.UnitTests/` following existing `MovieQueryTests` / `MovieQueryStringTests` patterns: `DirectorId` equality and hash difference; null/default behavior; parse/format roundtrips including seeded property roundtrips; empty/valid/duplicate/malformed/overflowing `directorId`; unknown identities without extra validator rules (FR-004, FR-005, FR-017; Q2, Q6)
+Compile-failure red is acceptable while introducing required symbols/port; after compile closure, behavioral red evidence is required before the one Phase 1 green checkpoint. No placeholder/default-throwing implementation.
+
+- [ ] T001 [P] [US2] Write failing Core tests in `tests/LamuFlix.UnitTests/Library/MovieQueryTests.cs` and `MovieQueryStringTests.cs`: `DirectorId` equality and hash difference; null/default behavior; parse/format roundtrips including seeded property roundtrips. Update `tests/LamuFlix.UnitTests/Library/MovieQueryFixture.cs` and `MovieQueryGeneratorTests.cs` so the FsCheck generator emits non-null `DirectorId` (non-vacuous property proof). Touch `MovieQuerySurvivorTests.cs` / `MovieQueryStringSurvivorTests.cs` only if needed for non-null `DirectorId` survivor paths. Cover empty/valid/duplicate/malformed/overflowing `directorId`; unknown identities without extra validator rules (FR-004, FR-005, FR-017; Q2, Q6; PC1)
 - [ ] T002 [US2] Add `int? DirectorId` to `src/LamuFlix.Core/Library/MovieQuery.cs` (equality and hashing) and singular `directorId` support in `src/LamuFlix.Core/Library/MovieQueryString.cs` per Q2 strict rules so T001 passes (depends on T001; FR-004, FR-005)
-- [ ] T003 [P] [US1] Extend `src/LamuFlix.Core/Ports/IMovieCatalog.cs` with `DirectorFacet` and `GetDirectorsAsync` following existing genre/people facet port shape (FR-002; Q1, Q6)
-- [ ] T005 [P] [US1] Write failing handler unit coverage following existing facet handler tests for empty and passthrough facet results (depends on T003; FR-017; Q6)
-- [ ] T004 [US1] Add `src/LamuFlix.Core/Features/Library/GetDirectorsQuery.cs` and `GetDirectorsQueryHandler.cs` following existing facet handlers so T005 passes (depends on T005; FR-002; Q6)
+- [ ] T003 [P] [US1] Extend `src/LamuFlix.Core/Ports/IMovieCatalog.cs` with `DirectorFacet` and `GetDirectorsAsync` (including `CancellationToken`) following existing genre/people facet port shape (FR-002; Q1, Q6)
+- [ ] T005 [P] [US1] Write failing handler unit coverage in new `tests/LamuFlix.UnitTests/Features/Library/GetDirectorsQueryHandlerTests.cs` following existing GetGenres/GetPeople handler-test convention: empty and passthrough facet results; assert `CancellationToken` forwarded to the catalog port. Edit `tests/LamuFlix.Test/AddHandlerTests.cs` only if needed to assert existing registration; otherwise leave untouched. No mandatory `BrowseMoviesQueryHandlerTests.cs` edit (depends on T003; FR-017; Q6; PC1)
+- [ ] T004 [US1] Add `src/LamuFlix.Core/Features/Library/GetDirectorsQuery.cs` and `GetDirectorsQueryHandler.cs` following existing facet handlers, forwarding `CancellationToken` to `GetDirectorsAsync`, so T005 passes (depends on T005; FR-002; Q6)
 - [ ] T006 Update existing catalog test fakes only as required for the new `IMovieCatalog` member to compile (depends on T003; FR-017; Q6)
 
 ### Persistence (Q6 step 2) — preserve task order T010–T013
 
-- [ ] T010 [P] [US1] Write failing Postgres facet tests in `tests/LamuFlix.IntegrationTests/EfMovieCatalogFacetsTests.cs`: orphan exclusion, empty list, distinct counts for shared movies, same-name identities, deterministic Name-then-Id order, full-library counts independent of filters (FR-001, FR-003, FR-017; Q1, Q4)
-- [ ] T011 [P] [US2] Write failing Postgres browse tests in `tests/LamuFlix.IntegrationTests/EfMovieCatalogBrowseTests.cs`: null passthrough, matching director, unmatched/zero/negative → empty, AND composition including watchlist, no duplicate movie rows (FR-006, FR-017; Q2, Q3)
-- [ ] T012 [US1] Implement `GetDirectorsAsync` projection in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` over existing Directors / movie_directors (at-least-one-movie filter, distinct counts, Name then Id) so T010 passes (depends on T003, T010; FR-002, FR-003; Q6 — no schema/ingest change)
-- [ ] T013 [US2] Implement `WhereDirector` in `src/LamuFlix.Infrastructure/Persistence/MovieRecordQueryExtensions.cs` (and wire through `EfMovieCatalog.cs` browse) using existing Directors navigation `Any` so T011 passes (depends on T002, T011; FR-006; Q6)
+- [ ] T010 [P] [US1] Write failing Postgres facet tests in `tests/LamuFlix.IntegrationTests/EfMovieCatalogFacetsTests.cs`: orphan exclusion, empty list, distinct linked library movie counts for shared movies, same-name identities, deterministic Name-then-Id order, full-library counts independent of filters (FR-001, FR-003, FR-017; Q1, Q4)
+- [ ] T011 [P] [US2] Write failing Postgres browse tests in `tests/LamuFlix.IntegrationTests/EfMovieCatalogBrowseTests.cs`: null passthrough (null `DirectorId` returns the query unchanged), matching director, unmatched/zero/negative → empty, AND composition including watchlist, no duplicate movie rows (FR-006, FR-017; Q2, Q3)
+- [ ] T012 [US1] Implement `GetDirectorsAsync` projection in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` over existing Directors / movie_directors (at-least-one-movie filter, distinct linked library movie count, Name then Id; forward `CancellationToken`) so T010 passes — exact EF expression chosen and proven at Build (depends on T003, T010; FR-002, FR-003; Q6 — no schema/ingest change)
+- [ ] T013 [US2] Implement `WhereDirector` in `src/LamuFlix.Infrastructure/Persistence/MovieRecordQueryExtensions.cs` (and wire through `EfMovieCatalog.cs` browse) using existing Directors navigation `Any`; null `DirectorId` returns the query unchanged so T011 passes (depends on T002, T011; FR-006; Q6)
 
-**Checkpoint**: Core contract, handler, and real-database facet/browse proofs green together; no migration.
+**Checkpoint**: After compile closure and behavioral red, Core contract, handler, and real-database facet/browse proofs green together in one checkpoint; no migration.
 
 ---
 
@@ -47,9 +49,9 @@
 **Independent Test**: FacetEndpointsTests / LibraryEndpointsTests.
 
 - [ ] T020 [P] [US1] Write failing API facet tests in `tests/LamuFlix.IntegrationTests/FacetEndpointsTests.cs`: field set/types, empty array HTTP 200, no required role parameter (FR-001, FR-017; Q1)
-- [ ] T021 [P] [US2] Write failing browse API tests in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs`: director filter applied; duplicate/malformed/overflowing `directorId` → 422 (FR-005, FR-007, FR-017; Q2)
-- [ ] T022 [US1] Add `src/LamuFlix.Api/Endpoints/DirectorDto.cs` and register/map `GET /api/directors` in `src/LamuFlix.Api/Endpoints/FacetEndpoints.cs` plus `src/LamuFlix.Api/HandlerRegistration.cs` so T020 passes (depends on T004, T012, T020; FR-001, FR-002; Q6)
-- [ ] T023 [US2] Map singular `directorId` through `src/LamuFlix.Api/Endpoints/BrowseMoviesRequest.cs` and `src/LamuFlix.Api/Endpoints/LibraryEndpoints.cs` with existing validation/problem handling and cancellation so T021 passes (depends on T002, T013, T021; FR-005, FR-007; Q6)
+- [ ] T021 [P] [US2] Write failing browse API tests in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs`: director filter applied; absent and empty `directorId` → null (no filter); duplicate raw-query keys, malformed, and overflowing `directorId` → 422 (FR-005, FR-007, FR-017; Q2; PC1)
+- [ ] T022 [US1] Add `src/LamuFlix.Api/Endpoints/DirectorDto.cs` and register/map `GET /api/directors` in `src/LamuFlix.Api/Endpoints/FacetEndpoints.cs` plus `src/LamuFlix.Api/HandlerRegistration.cs`, forwarding `CancellationToken` through endpoint → handler → port → EF, so T020 passes (depends on T004, T012, T020; FR-001, FR-002, FR-007; Q6)
+- [ ] T023 [US2] Map singular `string? DirectorId` on `src/LamuFlix.Api/Endpoints/BrowseMoviesRequest.cs` through `src/LamuFlix.Api/Endpoints/LibraryEndpoints.cs` using `ReadNumber(rawQuery, "directorId", EmptyMeansNull)` and raw `IQueryCollection` value-count duplicate rejection (before model-bound scalars can hide duplicates), with existing validation/problem handling and cancellation, so T021 passes (depends on T002, T013, T021; FR-005, FR-007; Q2, PC1)
 
 **Checkpoint**: HTTP facet and browse contracts match Q1–Q2.
 
@@ -73,10 +75,10 @@
 **Independent Test**: Vitest/RTL extensions named in brief Q6.
 **Note**: Shared `FilterPanel.tsx` / `FilterPanel.test.tsx` edits stay serial. Palette `design.md` may inform placement/visuals but must not change settled behavior.
 
-- [ ] T040 [P] [US3] Write failing `web/src/features/library/filterQuery.test.ts` cases: raw nonempty `directorId` preserved; first occurrence wins on duplicate keys; empty clears/omits; recognized in serialization (FR-009, FR-010, FR-017; Q2)
-- [ ] T041 [P] [US3] Write failing `web/src/library/` browseParams tests (or extend existing browseParams coverage): nonempty scalar forwarded to API params; empty omitted (FR-009, FR-017; Q2)
-- [ ] T042 [US3] Implement `directorId` in `web/src/features/library/filterQuery.ts` and `web/src/library/browseParams.ts` per Q2 live-web rules so T040/T041 pass (depends on T040, T041; FR-009, FR-010; do not wire `libraryUrl`)
-- [ ] T043 [US3] Write failing FilterPanel tests in `web/src/features/library/FilterPanel.test.tsx`: label/placeholder/empty copy from ASSUMPTIONS.md; select/replace/clear/Clear all; page reset to 1 with other filters preserved; client search (case-insensitive substring, name/id order, ≤8 suggestions, count badges); typing does not change predicate; same-name identities; missing-selection `Director <id>` retained/clearable; keyboard/ARIA combobox semantics; local loading/error/retry copy and disabled suggestions (depends on T042, T030; FR-010–FR-015, FR-017; Q4, Q5)
+- [ ] T040 [P] [US3] Write failing `web/src/features/library/filterQuery.test.ts` cases: raw nonempty `directorId` preserved; first occurrence wins on duplicate keys; empty clears/omits; recognized in serialization; malformed raw scalar `abc` parse/serialize/commit roundtrip survives without numeric empty fallback (FR-009, FR-010, FR-017; Q2; PC1)
+- [ ] T041 [P] [US3] Write failing new `web/src/library/browseParams.test.ts`: every nonempty raw scalar forwarded verbatim to API params, including malformed `abc` and fractional `12.5`; empty omitted; never a `formatBound`-style empty fallback for `directorId` (FR-009, FR-017; Q2; PC1)
+- [ ] T042 [US3] Implement `directorId` in `web/src/features/library/filterQuery.ts` and `web/src/library/browseParams.ts` per Q2 live-web rules (verbatim nonempty raw forward including `abc`/`12.5`; no numeric empty fallback; empty omits) so T040/T041 pass (depends on T040, T041; FR-009, FR-010; do not wire `libraryUrl`)
+- [ ] T043 [US3] Write failing FilterPanel tests in `web/src/features/library/FilterPanel.test.tsx`: label/placeholder/empty copy from ASSUMPTIONS.md; select/replace/clear/Clear all; page reset to 1 with other filters preserved; client search (case-insensitive substring, name/id order, ≤8 suggestions, count badges); typing does not change predicate; same-name identities; missing-selection `Director <id>` retained/clearable; query the input as `combobox` role; assert `aria-expanded=false` when closed and `true` when open; `aria-controls` only when the listbox is mounted; `aria-activedescendant` only when an active descendant exists; Arrow navigation per Q5 without wrap-at-ends; local loading/error/retry copy and disabled suggestions (depends on T042, T030; FR-010–FR-015, FR-017; Q4, Q5; PC1)
 - [ ] T044 [US3] Implement Director single-select combobox in `web/src/features/library/FilterPanel.tsx` consuming generated types (no hand-rolled DTO) so T043 passes (depends on T043, T030; FR-011–FR-015; Q5, Q6)
 - [ ] T045 [US3] Wire both Library and Watchlist hosts in `web/src/library/LibraryView.tsx` with independent director facet fetch; narrow `web/src/library/libraryQueries.ts` only if required by existing browse/facet path (depends on T044; FR-011; Q3, Q6)
 - [ ] T046 [US3] Extend `web/src/library/browseWatchlist.test.tsx` (and Library host coverage as existing conventions require) for both hosts: URL reload/navigation restore, page reset, independent loading/error/retry, selection retention (depends on T045; FR-010, FR-011, FR-015, FR-017; Q3, Q5)
@@ -101,8 +103,8 @@
 
 ## Dependencies & Execution Order
 
-- Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 (do not reverse Q6 dependencies). Phase 1 is one Build ask: Core tasks then Persistence tasks before its green checkpoint.
-- T001 then T002; T003 then T005 then T004; T006 after T003.
+- Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 (do not reverse Q6 dependencies). Phase 1 is one Build ask: Core then Persistence before its single green checkpoint.
+- T001 then T002; Core port/handler dependency order is T003 → T005 → T004 → T006 (IDs preserved; not numeric T001–T006). Compile-red allowed until symbols close; behavioral red required after compile closure; then the one green checkpoint.
 - Within Phase 1 after T003: T010/T011 may run in parallel; T012 after T003+T010; T013 after T002+T011.
 - T020/T021 may run in parallel; T022 after T004+T012+T020; T023 after T002+T013+T021.
 - T030 after T022 and T023; T031 after T030. Web UI must not consume DirectorDto until T030.
@@ -122,15 +124,15 @@ T021 LibraryEndpointsTests
 
 # After contract:
 T040 filterQuery.test.ts
-T041 browseParams tests
+T041 web/src/library/browseParams.test.ts
 ```
 
 ## Implementation Strategy
 
-1. Core DirectorId + GetDirectors (failing Core/handler tests first) then EF facet and WhereDirector against real Postgres — one executable phase so the required port member and its adapter compile together.
-2. API DTO/endpoints and 422/200 proofs.
+1. Core DirectorId + GetDirectors in dependency order T003, T005, T004, T006 (compile-red then behavioral-red) then EF facet (distinct linked count + token) and WhereDirector (null unchanged) against real Postgres — one executable phase, one green checkpoint, no stubs.
+2. API DTO/endpoints with `string? DirectorId` + EmptyMeansNull + raw-query duplicate count; absent/empty and 422 proofs; CancellationToken end-to-end on facet.
 3. Regenerate OpenAPI then TypeScript/mocks/typecheck.
-4. Web URL scalar + FilterPanel + both hosts with Vitest/RTL.
+4. Web URL scalar (abc serialize/commit) + browseParams.test.ts verbatim forward + FilterPanel combobox/ARIA + both hosts with Vitest/RTL.
 5. Gates and three-axis review at later pipeline stages.
 
 ## Traceability (brief Q → tasks)
