@@ -67,3 +67,19 @@ I recommend a Collection section in the existing Filter Panel using existing chi
 - Ticket authority (note DEV-424 lines 27-30; specs/PRODUCT.md:23-24): single-select pills in URL in the Filter Panel (DEV-322) is the ticket's named UI scope; single-select toggle, one-value URL key, and page-reset-on-change are its direct consequences, and no grid grouping is introduced.
 - Existing-pattern basis (recon-DEV-424 lines 76-91): lamu-chip controls in FilterPanel.tsx, LibraryView active-filter chips and clear behaviour, filterQuery/libraryUrl/browseParams URL state, and the useQuery client.GET facet fetch with generated types are the seams to reuse; no new component vocabulary, state library, or hand-rolled DTO is introduced (§2.3 items 2 and 6 remain clear).
 - Taste logging (specs/PRODUCT.md:26-30): the section label Collection, fallback label Collection <id>, and no-options empty facet are logged tagged [assumed] in specs/DEV-424/ASSUMPTIONS.md; visual layout stays with Palette and design.md is still required before plan challenge, so no visual decision is taken here.
+
+---
+
+## Q5 — Edge-case semantics: atomicity, whole-metadata replacement, malformed collections
+
+**Keel — question and recommendation:**
+
+I recommend applying collection row upsert and movie membership atomically inside the existing repository save/transaction boundary, with unique identity by TMDb id and coverage for two movies enriched into the same collection. The new optional metadata value follows existing whole-metadata replacement semantics: successful metadata without collection clears membership, including a successful non-TMDb fallback; do not introduce provider provenance or partial-field merging. A malformed collection object (nonpositive id or blank name) follows existing TMDb malformed-response handling, not a persisted invalid row or an invented collection. Cost: no preservation of collection through a successful provider result that lacks it; this keeps absence distinct from failure without a new abstraction. Do you accept these edge-case semantics, or does ticket intent require a different ruling? Cite basis and record full exchange.
+
+**Patron — ruling:**
+
+[from Patron] DEV-424 Q5 ruling: ACCEPT — collection row upsert and movie membership are applied atomically inside the existing repository save/transaction boundary with unique identity by TMDb id (including two movies enriched into the same collection); the optional collection value follows existing whole-metadata replacement, so successful metadata without a collection clears membership including a successful non-TMDb fallback, with no provider provenance and no partial-field merging; a malformed collection object (nonpositive id or blank name) follows existing TMDb malformed-response handling and is never persisted as an invalid or invented row. Ticket intent requires no different ruling.
+
+- Consistency with Q2 (specs/DEV-424/CONCLUSIONS.md Q2 ruling): success replaces/clears and failure preserves were already ruled; Q5 only extends that same success/failure line to whole-metadata replacement and fallback success, so absence on success stays distinct from failure without a provenance abstraction.
+- Existing-path basis (recon-DEV-424 lines 31-33, 68-74; note DEV-424 lines 27-30): EfMovieRepository upsert/CopyMetadata is the ticket's named write seam and the enrichment save boundary; atomic upsert-by-TMDb-id inside it prevents partial collection/membership states and duplicate rows when movies share a collection, using the ticket's own tables only.
+- Malformed-input basis (Q3 ruling; specs/PRODUCT.md:23-24): collection identity was ruled a positive id with a returned name, so a nonpositive id or blank name cannot form a valid row; routing it through existing TMDb malformed-response handling reuses settled provider behaviour instead of inventing a persisted invalid state or a new error path.
