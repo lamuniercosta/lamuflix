@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-28
 
-**Status**: Draft
+**Status**: gate1: provisional
 
 **Input**: Ticket DEV-425 (parent DEV-100, `size:M`, `ui:`; depends DEV-411, DEV-322); frozen grill brief `specs/DEV-425/brief.md` (Q1–Q8, grill closed); `CONTEXT.md`; Patron rulings `CONCLUSIONS.md`; taste `ASSUMPTIONS.md`; Maestri notes `DEV-425`, `recon-DEV-425` (Q2 URL evidence; intake facts cited in brief/CONCLUSIONS); `specs/PRODUCT.md`. No decisions beyond the brief.
 

@@ -84,3 +84,18 @@ Quill drafts spec.md, plan.md and tasks.md from this brief and evidence; a missi
 Patron reviewed the four brief artifacts and confirmed shared understanding and faithful transcription of Q1–Q7, with no unresolved structural owner checkbox. The full closure exchange and cited basis are appended in CONCLUSIONS.md. Eight questions were used; Q2 resumed after bounded recon without consuming a new question.
 
 The settled vocabulary and decisions are ready to feed speckit-specify and Palette design. Spec and plan must not contradict them. Gate 1 remains closed until the user merges the later spec PR. This brief does not freeze an unwritten plan, clear plan challenge, authorize Build or imply merge approval.
+
+## Plan challenge clarification PC1 — Patron ruling, Phase 2 step 6
+
+This append-only clarification completes Q6 test-file scope and executable ordering; Q1-Q7 delivery remains unchanged. Full cited Patron ruling is in CONCLUSIONS.md, Plan challenge decision PC1.
+
+- Q6 matching tests explicitly include `tests/LamuFlix.UnitTests/Library/MovieQueryFixture.cs` and `MovieQueryGeneratorTests.cs` so generators emit non-null DirectorId. `MovieQuerySurvivorTests.cs` and `MovieQueryStringSurvivorTests.cs` in that directory are allowed only if needed for non-null DirectorId survivor paths.
+- Add `tests/LamuFlix.UnitTests/Features/Library/GetDirectorsQueryHandlerTests.cs`. `tests/LamuFlix.Test/AddHandlerTests.cs` is allowed only if needed to assert existing registration; otherwise leave it untouched. `BrowseMoviesQueryHandlerTests.cs` has no additional work authorized merely by mention in Ledger M2.
+- T041 concretely creates `web/src/library/browseParams.test.ts`, testing raw nonempty scalars including malformed `abc` and fractional `12.5`, with empty omission. T040 also proves malformed raw scalar serialization survives a commit cycle. Do not use numeric formatting fallbacks that turn a malformed directorId into empty.
+- Combined Core+Persistence Phase 1 remains one Build ask. After T001/T002, Core dependency order is T003, T005, T004, T006; preserve IDs, not numeric execution order. Compile-failure red while introducing required symbols/port is allowed; after compile closure require behavioral red evidence before the one green checkpoint. No placeholder/default-throwing implementation.
+- Q2 API pin: singular `string? DirectorId` on BrowseMoviesRequest; use the existing ReadNumber empty-means-null mode and reject duplicate values from raw IQueryCollection counts, before model-bound scalar information can hide them. Absent/empty is null; duplicate/malformed/overflowing is 422. C# parser follows Q2.
+- Q5 Arrow navigation remains as settled; remove the unapproved wrap-at-ends design claim. No wrap behavior is added and no new taste assumption is recorded.
+- Closed combobox retains `aria-expanded=false`; `aria-controls` exists only when its listbox is mounted; `aria-activedescendant` exists only when the active descendant exists. Tests query the input as combobox.
+- Design component names are a conceptual tree inside FilterPanel.tsx; no extracted files or new abstraction are mandated or authorized.
+
+No delivery change, new dependency/layer/schema/API shape, constitution departure, owner checkbox, implementation authorization, or Gate 1 approval follows. Plan freeze requires separate saved fix read-back in PLAN_CHALLENGE.md.

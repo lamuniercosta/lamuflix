@@ -126,3 +126,40 @@ Basis (max 3):
 - Closure cost accepted as recommended: any later genuine gap returns as needs decision through Keel to Patron rather than Quill inventing it; this closure authorizes no Build, closes no later gate, and implies no merge approval.
 
 Disposition: grill closed after eight questions (Q2 recon continuation is the same question), within the twelve-question budget. All Q1-Q7 decisions are in brief.md; Q8 confirms faithful transcription and shared understanding. No unresolved structural owner checkbox. Quill and Palette may proceed with their later Phase A work; Gate 1, plan challenge and Build remain separate and uncleared.
+
+---
+
+## Plan challenge decision PC1 — Phase 2 step 6
+
+Keel request: explicitly name the property generator, handler and browse-parameter test targets; clarify combined Phase 1 red semantics and dependency order; remove unapproved wrap behavior; fix closed-state ARIA references; keep the design tree conceptual in FilterPanel.tsx. Evidence: all three findings-DEV-425 axis notes; brief Q2/Q5/Q6/Q7. Patron supplied the following complete ruling without edits:
+
+[from Patron] DEV-425 Phase 2 step 6 ruling: APPROVED as recommended, with the Compass 3 refinement below. Test-only clarification of Q6 frozen scope; no delivery change; no implementation authorized by this ruling; no owner escalation.
+
+1. Q6 frozen-scope clarification (Ledger M1/M2, Compass 1/5) — allowed test files, and only these additions:
+   - tests/LamuFlix.UnitTests/Library/MovieQueryFixture.cs and tests/LamuFlix.UnitTests/Library/MovieQueryGeneratorTests.cs: allowed, so the FsCheck generator actually emits non-null DirectorId and the seeded property roundtrips are non-vacuous.
+   - tests/LamuFlix.UnitTests/Library/MovieQuerySurvivorTests.cs and MovieQueryStringSurvivorTests.cs: allowed only if needed to exercise non-null DirectorId in the survivor paths; not a blanket authorization.
+   - New tests/LamuFlix.UnitTests/Features/Library/GetDirectorsQueryHandlerTests.cs: allowed, following the existing GetGenres/GetPeople handler-test convention.
+   - tests/LamuFlix.Test/AddHandlerTests.cs: allowed only if required to assert the existing handler registration; otherwise untouched.
+   - New web/src/library/browseParams.test.ts: allowed as the concrete T041 target, replacing the vague browseParams tests wording.
+   Basis: brief Q6 step 6 (matching tests and test fakes forced by the added IMovieCatalog member) plus Q6 test plan (seeded property roundtrips; handler coverage following existing facet handlers; web URL/browse-parameter tests); brief Q7 frozen scope expressly includes necessary existing-chain test edits; ticket Scope (DEV-425 note lines 28-30) authorizes MovieQuery.DirectorId/directorId and the combobox. AGENTS.md non-negotiable: a surviving mutant is a missing test — a generator that never emits DirectorId would leave the roundtrip proof vacuous. No section 2.3 care item is triggered: no new dependency, project, layer, schema, or API shape beyond the ticket; no LocalPlay, secrets, or Process.Start; the named test files are now explicitly in scope, so no unnamed tracked-file rewrite.
+
+2. Phase 1 order and red/green (Ledger M3) — approved:
+   - Keep the single combined Core+Persistence Phase 1 (analyze I1 closure stands; no placeholder or default-throwing port implementation).
+   - Compile-failure red is acceptable while the new required symbols/port member are being introduced; behavioral red is required after compile closure; one green checkpoint closes the phase.
+   - State the actual execution order explicitly as T003, T005, T004, T006 (dependency order), not numeric T001-T006.
+   Basis: brief Q6 binding sequence (Core, then Persistence, in one executable phase per analyze fix I1/I2: T005 depends on T003, T004 depends on T005) and Q6 prohibition on placeholder implementations; plan/tasks text clarification only.
+
+3. Compass 2 (wrap-at-ends) — approved: remove the Palette wrap-at-ends claim from design.md; Arrow-key navigation remains exactly as settled in brief Q5, with no wrap behaviour added and no ASSUMPTIONS.md entry.
+   Basis: brief Q5 settles Arrow navigation, Enter, Escape only; wrap is unsettled interactive behaviour and may not enter through design text.
+
+4. Compass 3 (ARIA) — approved as refined: retain aria-expanded=false when closed; render aria-controls only when the mounted listbox exists; render aria-activedescendant only when an active descendant is present. T043 asserts exactly this.
+   Basis: brief Q5 requires combobox/listbox/option semantics including expanded state; aria-expanded=false is the valid closed-state expression of that settled contract, while controls/activedescendant must reference elements that exist.
+
+5. Ledger L1 (component tree) — approved: the design.md component tree stays conceptual within FilterPanel.tsx; no extracted subcomponent files or new abstraction are mandated or authorized.
+   Basis: brief Q6 step 5/Q7 frozen scope allows FilterPanel.tsx edits only in the web host files, with no new layer or files; section 2.3 care items 2/6 are not triggered by in-file structure.
+
+6. All other Ledger/Compass/Sentry Low and Informational items remain recorded and non-blocking per brief Q7; they authorize no scope expansion. The 7 Medium findings are closed by items 1-2 above once Quill folds them into plan.md/tasks.md/design.md text and Keel read-back confirms. Gate 1 provisional marking remains a separate later step after that read-back; this ruling does not mark it.
+
+Disposition: proceed with documentation fixes only on this ruling. No blocked: structural question; no constitution departure identified.
+
+Keel application: Patron item 6 is not a closure receipt. All seven Medium entries remain open until direct read-back, including Sentry R1 and R2, which require the separate API empty/duplicate parsing and raw web forwarding pins. No above-bar finding is waived. Low items are recorded individually in PLAN_CHALLENGE.md. No ticket write requested.
