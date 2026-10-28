@@ -265,6 +265,9 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifet
             await entered.WaitAsync(PollDeadline, ct);
             await host.StopAsync(CancellationToken.None);
 
+            await WaitUntilAsync(
+                async _ => await ReadyMessageCountAsync(RabbitMqTopology.FeaturesRequestedQueue, ct) >= 1U,
+                ct);
             (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesRequestedQueue, ct))
                 .ShouldBeGreaterThanOrEqualTo(1U, $"cycle {cycle} did not leave the delivery on features.requested");
             (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesDeadLetterQueue, ct))
