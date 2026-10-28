@@ -2,7 +2,7 @@
 
 Worktree: F:/Dev/LamuFlix.worktrees/feature-424-spec; branch: feature/424-spec.
 Authority: DEV-424 ticket text (Maestri note DEV-424), recon-DEV-424, specs/PRODUCT.md, assigned Patron §2.3 rules.
-Status: Draft — grill in progress.
+Status: Grill closed — Q1–Q8 ruled, no owner escalation. Keel authorized to write brief.md; Palette design.md, analyze/challenge, and Gate 1 remain separate and pending.
 
 ---
 
@@ -115,3 +115,26 @@ I recommend Critical, High and Medium findings block code-review/ship-review clo
 - Scope basis (note DEV-424 lines 27-30; specs/PRODUCT.md:23-24; Q1–Q6 rulings above): the frozen scope is exactly the ticket's named delivery plus its ruled necessary consequences; exclusions (backfill, grid grouping) are the ticket's own out-of-scope lines, and provenance/merging/cleanup were excluded in Q2/Q5, so widening in review would contradict the ticket rather than complete it.
 - Closing-bar basis (Q6 ruling; AGENTS.md gate rules): gates and the three M-tier review axes were already ruled mandatory at their stages with no threshold lowered and no exit-2 folded into PASS; a severity bar where Critical/High/Medium block and every finding gets a recorded disposition is the same no-silent-waiver principle applied to review findings.
 - Cap basis (assigned Patron §2.3 standing-ruling rule; specs/PRODUCT.md:19): two rounds bound the loop without weakening any gate — a surviving blocker after the cap is reported blocked to Conductor, and neither Gate 1 nor the user-owned merge (never Patron's or any agent's to perform) is affected by review closure.
+
+---
+
+## Q8 — Shared understanding, glossary, and grill closure
+
+**Keel — question and recommendation:**
+
+I will write brief.md containing the Q1-Q7 decisions, full grill exchanges, closing bar/frozen scope/two-round cap, recon-bounded affected-file manifest, ordered approach/test/gate plan, and handoff to Quill for spec/plan/tasks plus M-tier clarify/checklist. Vocabulary: Collection means TMDb named grouping identified by positive TMDb id; Collection membership means one optional movie association; Collection facet means nonempty library collections with counts. This is distinct from generic sequence equality helpers such as HasSameCollectionValues; no helper rename or unrelated rewrite is authorized. Recommend feature-local CONTEXT.md for these glossary terms; no ADR is needed for this M-sized extension of existing patterns. Record no owner escalation from the grill; Palette design remains pending before plan challenge, analyze/challenge and Gate 1 stay separate, dependencies rechecked at Phase B. Do you confirm shared understanding and close the grill on Q1-Q8, authorizing me to write the final brief? Please record full exchange and glossary, then report directly when your files are complete so I can write without concurrent edits.
+
+**Patron — ruling:**
+
+[from Patron] DEV-424 Q8 ruling: CONFIRMED — shared understanding on Q1–Q7 stands as recorded, the grill is closed on Q1–Q8 with no owner escalation, and Keel is authorized to write brief.md (Q1–Q7 decisions and full exchanges, closing bar/frozen scope/two-round cap, recon-bounded affected-file manifest, ordered approach/test/gate plan, Quill handoff for spec/plan/tasks plus M-tier clarify/checklist) once this record is committed; a feature-local CONTEXT.md carries the glossary below, no ADR is required, Palette design.md remains pending before plan challenge, analyze/challenge and Gate 1 stay separate, and dependencies are rechecked at Phase B.
+
+- Closure basis (note DEV-424 lines 27-30; specs/PRODUCT.md:23-24, 36-39): every question was answered from the ticket, recon, or ruled §2.3 items 4/6; nothing contradicts the ticket text and no constitution departure was judged necessary, so neither owner-escalation condition is met and Gate 1 is neither opened nor closed by this grill.
+- No-ADR basis (recon-DEV-424 lines 93-100; Q1–Q7 rulings): the feature extends existing records, repository, facet, query, and chip patterns with no new dependency, project, layer, or provider — an M-sized extension of settled patterns, so a feature-local glossary suffices and dead or unrelated helpers (including HasSameCollectionValues, recon-DEV-424 line 60) are not renamed or rewritten under this ticket.
+- Handoff basis (Q4/Q6 rulings): Keel writes brief.md without concurrent Patron edits; Quill, Palette design.md, analyze/challenge, and Gate 1 proceed as separate pipeline stages, with dependency state rechecked at Phase B.
+
+**Glossary (for feature-local CONTEXT.md):**
+
+- **Collection**: a TMDb named grouping of movies, identified by its positive TMDb collection id and carrying the returned name.
+- **Collection membership**: the single optional association from one movie to one Collection (nullable MovieRecord.CollectionId); a movie has zero or one membership.
+- **Collection facet**: the library facet listing nonempty Collections with their distinct current member counts, exposed by GET /api/collections and selected through the single-select Filter Panel chips.
+- Not a Collection: generic sequence-comparison helpers such as HasSameCollectionValues use collection in the programming sense only and are unrelated to TMDb Collections.
