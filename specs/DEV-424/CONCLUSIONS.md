@@ -138,3 +138,19 @@ I will write brief.md containing the Q1-Q7 decisions, full grill exchanges, clos
 - **Collection membership**: the single optional association from one movie to one Collection (nullable MovieRecord.CollectionId); a movie has zero or one membership.
 - **Collection facet**: the library facet listing nonempty Collections with their distinct current member counts, exposed by GET /api/collections and selected through the single-select Filter Panel chips.
 - Not a Collection: generic sequence-comparison helpers such as HasSameCollectionValues use collection in the programming sense only and are unrelated to TMDb Collections.
+
+---
+
+## C1 — speckit-analyze CRITICAL: collectionId invalid-input status (400 vs 422)
+
+**Keel — question:** speckit-analyze found C1 CRITICAL: brief Q3/frozen scope 6 requires malformed, nonpositive, repeated collectionId input return 400; constitution Principle V mandates FluentValidation semantic validation failures return 422. spec.md:83,125 and tasks.md:59 copy 400. Give a deliberate cited ruling: reconcile within existing constitution if supported, or judge necessary constitution departure and carry blocked: structural owner checkbox under section 2.3(b). Do not silently override ticket/brief or declare no departure. Quill is repairing TDD ordering and wording but must retain C1 needs decision until ruled.
+
+**Patron — ruling:**
+
+[from Patron] DEV-424 C1 ruling: RESOLVED WITHIN CONSTITUTION, NO DEPARTURE — malformed, nonpositive, and repeated single-valued collectionId all return 422, not 400; the 400 in brief Q3/frozen scope 6, spec.md and tasks.md is corrected, and no blocked: structural owner checkbox is carried.
+
+- Constitution basis (.specify/memory/constitution.md Principle V, lines 273-290): all commands, queries and request contracts MUST be validated through FluentValidation in the validation decorator and validation failures MUST return 422; ValidationException maps to 422 in the sole IExceptionHandler, and endpoints MUST NOT return BadRequest(ex.Message).
+- Existing-convention basis (src/LamuFlix.Api/Endpoints/LibraryEndpoints.cs MappingState.Fail/ThrowIfInvalid throwing LamuFlix.Core.Pipeline.ValidationException; src/LamuFlix.Api/ExceptionHandling/GlobalExceptionHandler.cs): the existing browse raw-query parse/validation path already throws ValidationException, which maps to 422, and the browse endpoint declares only ProducesProblem 422; 400 there is reserved for BadHttpRequestException, which this manually parsed query key never raises. So existing browse validation conventions yield 422, and Q3's 400 was an erroneous status in Patron's own Q3 ruling, not a ticket requirement.
+- Authority basis (brief.md Q3 record; Q3 ruling above): the ticket names CollectionRecord, MovieRecord.CollectionId and MovieQuery collectionId but spells no status code; Q3 fixed validation status under §2.3 item 4 (public API shape), which is Patron's to correct. Correcting 400 to 422 changes no ticket delivery (same parameter, AND filter, empty page for a valid unknown id), so §2.3(a) is not triggered, and because 422 follows Principle V, no constitution departure exists for §2.3(b). Retaining 400 would require a BadRequest-style path Principle V forbids; that departure is not judged necessary and is rejected.
+
+**Required artifact changes (Quill; C1 needs decision cleared):** brief.md frozen scope 6 (line 22) and Q3 ruling paragraph (line 120) read 422, annotated superseded in that part only by this ruling, without rewriting Keel's original Q3 question; spec.md every 400 for this input (lines 18, 76, 83, 125, 144 and any other occurrence) becomes 422, keeping line 32 no constitution departure citing this ruling; tasks.md T017 (line 59) and dependent test wording assert 422 ProblemDetails; analyze report marks C1 resolved by this ruling; no constitution amendment, no owner checkbox in the spec PR, and this ruling alone does not mark gate1 provisional.
