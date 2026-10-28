@@ -51,3 +51,19 @@ I recommend GET /api/collections named GetCollections returning CollectionDto[] 
 - Item 4 trigger and cure (recon-DEV-424 lines 93-100 at item 4; specs/PRODUCT.md:46): the ticket implies a collections facet and collectionId filter in substance but spells neither the literal route, DTO fields, nor parameter validation, so this explicit ruling — not a silent assumption — fixes that public shape.
 - Mirror basis (recon-DEV-424 lines 47-55, 57-66; note DEV-424 lines 27-30): FacetEndpoints /api/genres, GenreFacet/CollectionDto chain, and the MovieQuery/MovieQueryString/LibraryEndpoints browse pipeline are the existing chain the ticket names (FacetEndpoints collections mirror genres; MovieQuery collectionId); following it adds no new layer, route family, or pagination convention.
 - Contract chain (recon-DEV-424 line 89): the new route/DTO flows C# DTO → regenerated openapi.json → generated types.ts via npm run generate:api, never hand-edited, per the Q1 §2.3 item 6 authorization.
+
+---
+
+## Q4 — Filter Panel interaction contract
+
+**Keel — question and recommendation:**
+
+I recommend a Collection section in the existing Filter Panel using existing chip controls with single-select toggle semantics: select one id, selecting another replaces it, selecting the active chip clears it. Canonical URL key collectionId carries a single positive id; reload/back/forward restore selection; changing or clearing it resets page as other filters do and preserves other filters/sort. Add a removable active-filter chip and include collection in clear-all. Keep an unknown but valid URL id applied even when absent from facets, with fallback label Collection <id>, so the UI never silently broadens results; an empty facet has no selectable options. Facet fetch uses the existing query/client pattern and generated DTO, with existing loading/error behavior. These labels are taste assumptions to log in ASSUMPTIONS.md. Palette owns visual layout and design.md remains required before plan challenge. Do you accept this interaction contract? Cite basis and record full exchange plus taste assumptions.
+
+**Patron — ruling:**
+
+[from Patron] DEV-424 Q4 ruling: ACCEPT — a Collection section in the existing Filter Panel uses existing chip controls with single-select toggle semantics (select, replace on another, clear on re-select); canonical URL key collectionId carries one positive id restored on reload/back/forward, changing or clearing resets page like other filters and preserves other filters/sort; a removable active-filter chip and clear-all inclusion are added; a valid unknown URL id stays applied with fallback label Collection <id> rather than silently broadening results, and an empty facet offers no selectable options; facet fetch follows the existing query/client pattern with the generated DTO and existing loading/error behavior; Palette owns visual layout and design.md remains required before plan challenge.
+
+- Ticket authority (note DEV-424 lines 27-30; specs/PRODUCT.md:23-24): single-select pills in URL in the Filter Panel (DEV-322) is the ticket's named UI scope; single-select toggle, one-value URL key, and page-reset-on-change are its direct consequences, and no grid grouping is introduced.
+- Existing-pattern basis (recon-DEV-424 lines 76-91): lamu-chip controls in FilterPanel.tsx, LibraryView active-filter chips and clear behaviour, filterQuery/libraryUrl/browseParams URL state, and the useQuery client.GET facet fetch with generated types are the seams to reuse; no new component vocabulary, state library, or hand-rolled DTO is introduced (§2.3 items 2 and 6 remain clear).
+- Taste logging (specs/PRODUCT.md:26-30): the section label Collection, fallback label Collection <id>, and no-options empty facet are logged tagged [assumed] in specs/DEV-424/ASSUMPTIONS.md; visual layout stays with Palette and design.md is still required before plan challenge, so no visual decision is taken here.
