@@ -356,7 +356,8 @@ public sealed partial class TmdbMetadataProvider(
         ComposeUri(
             string.Concat("find/", Uri.EscapeDataString(imdbId.Value), QueryKey(), "&external_source=imdb_id"));
 
-    private Uri ComposeUri(string relativePath) => new(httpClient.BaseAddress!, relativePath);
+    private Uri ComposeUri(string relativePath) =>
+        new(httpClient.BaseAddress ?? throw new InvalidOperationException("TMDB HttpClient BaseAddress is not configured."), relativePath);
 
     private string QueryKey() =>
         string.Concat("?api_key=", Uri.EscapeDataString(tmdbOptions.ApiKey));
