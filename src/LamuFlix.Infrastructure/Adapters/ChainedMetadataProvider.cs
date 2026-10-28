@@ -28,21 +28,30 @@ public sealed class ChainedMetadataProvider : IMetadataProvider
         foreach (var provider in providers)
         {
             var result = await provider.FindAsync(lookup, ct);
-            switch (result)
+            var immediate = ResolveImmediate(result, ref rememberedFailure);
+            if (immediate is not null)
             {
-                case MetadataLookupResult.Found:
-                    return result;
-                case MetadataLookupResult.Failed failed when IsEligible(failed.Category):
-                    rememberedFailure ??= failed;
-                    break;
-                case MetadataLookupResult.Failed:
-                    return result;
-                case MetadataLookupResult.NotFound:
-                    break;
+                return immediate;
             }
         }
 
         return rememberedFailure ?? new MetadataLookupResult.NotFound();
+    }
+
+    private static MetadataLookupResult? ResolveImmediate(MetadataLookupResult result, ref MetadataLookupResult? rememberedFailure)
+    {
+        switch (result)
+        {
+            case MetadataLookupResult.Found:
+                return result;
+            case MetadataLookupResult.Failed failed when IsEligible(failed.Category):
+                rememberedFailure ??= failed;
+                return null;
+            case MetadataLookupResult.Failed:
+                return result;
+            default:
+                return null;
+        }
     }
 
     private static bool IsEligible(EnrichmentFailureCategory category) =>

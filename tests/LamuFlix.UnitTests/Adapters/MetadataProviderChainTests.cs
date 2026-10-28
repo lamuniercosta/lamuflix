@@ -246,28 +246,22 @@ public sealed class MetadataProviderChainTests
         MetadataLookupResult primary,
         MetadataLookupResult secondary)
     {
-        if (primary is MetadataLookupResult.Found)
+        if (IsTerminal(primary))
         {
             return (primary, false);
         }
 
-        if (primary is MetadataLookupResult.Failed primaryFailure && !IsEligible(primaryFailure.Category))
-        {
-            return (primary, false);
-        }
-
-        if (secondary is MetadataLookupResult.Found)
+        if (IsTerminal(secondary))
         {
             return (secondary, true);
         }
 
-        if (secondary is MetadataLookupResult.Failed secondaryFailure && !IsEligible(secondaryFailure.Category))
-        {
-            return (secondary, true);
-        }
-
-        return primary is MetadataLookupResult.Failed eligiblePrimary ? (eligiblePrimary, true) : (secondary, true);
+        return primary is MetadataLookupResult.Failed ? (primary, true) : (secondary, true);
     }
+
+    private static bool IsTerminal(MetadataLookupResult result) =>
+        result is MetadataLookupResult.Found
+        || (result is MetadataLookupResult.Failed failed && !IsEligible(failed.Category));
 
     private static bool IsEligible(EnrichmentFailureCategory category) =>
         category == EnrichmentFailureCategory.RateLimited

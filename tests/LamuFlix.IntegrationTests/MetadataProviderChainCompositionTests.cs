@@ -84,7 +84,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
     {
         // arrange
         var services = probe.NewServicesWithoutOptions();
-        services.AddSingleton<IConfiguration>(Configuration(secondaryEnabled: false));
+        services.AddSingleton(Configuration(secondaryEnabled: false));
         services.AddSingleton<IMovieRepository, UnusedMovieRepository>();
         services.AddMetadataProvider();
 
@@ -127,7 +127,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
     {
         // arrange
         var services = probe.NewServicesWithoutOptions();
-        services.AddSingleton<IConfiguration>(Configuration(secondaryEnabled: false));
+        services.AddSingleton(Configuration(secondaryEnabled: false));
         services.AddLamuFlixOptions();
         services.AddMetadataProvider();
         var secondaryResolved = false;
@@ -136,7 +136,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
             secondaryResolved = true;
             throw new InvalidOperationException("The disabled secondary provider must not be resolved.");
         });
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         StubPrimary(200, OmdbFoundBody);
 
         // act
