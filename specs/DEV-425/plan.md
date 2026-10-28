@@ -18,7 +18,7 @@ Deliver a director facet (`GET /api/directors` → `DirectorDto[]` with id, name
 
 **Storage**: Existing PostgreSQL via EF Core; `directors` and `movie_directors` already present. No migration or schema change (Q6).
 
-**Testing**: Backend xUnit + Testcontainers/real Postgres for facet and browse; Core unit tests including seeded property roundtrips; API integration following existing FacetEndpointsTests / LibraryEndpointsTests / MovieQuery* patterns. Frontend Vitest + RTL extending FilterPanel.test.tsx, filterQuery.test.ts, browseWatchlist.test.tsx. Mutation via `scripts/run-mutation.ps1` (never Stryker `--since` from a worktree).
+**Testing**: Backend xUnit + Testcontainers/real Postgres for facet and browse; Core unit tests including seeded property roundtrips via `MovieQueryFixture` / `MovieQueryGeneratorTests` (and survivor fixtures only if needed for non-null `DirectorId`); API integration following existing FacetEndpointsTests / LibraryEndpointsTests / MovieQuery* patterns; handler coverage in `GetDirectorsQueryHandlerTests` (and `AddHandlerTests` only if registration assertion is required). Frontend Vitest + RTL extending FilterPanel.test.tsx, filterQuery.test.ts, browseWatchlist.test.tsx, plus new `web/src/library/browseParams.test.ts`. Mutation via `scripts/run-mutation.ps1` (never Stryker `--since` from a worktree).
 
 **Target Platform**: Web API + Vite SPA (same as repo).
 
@@ -111,16 +111,22 @@ web/src/
   library/libraryQueries.ts                 # only if required by existing browse/facet path
 
 tests/
-  LamuFlix.UnitTests/ … MovieQueryTests, MovieQueryStringTests, GetDirectors handler coverage
+  LamuFlix.UnitTests/Library/MovieQueryTests.cs, MovieQueryStringTests.cs
+  LamuFlix.UnitTests/Library/MovieQueryFixture.cs, MovieQueryGeneratorTests.cs
+    # MovieQuerySurvivorTests.cs / MovieQueryStringSurvivorTests.cs only if needed for non-null DirectorId
+  LamuFlix.UnitTests/Features/Library/GetDirectorsQueryHandlerTests.cs   # new
+  LamuFlix.Test/AddHandlerTests.cs          # only if needed to assert existing registration; else untouched
   LamuFlix.IntegrationTests/ … FacetEndpointsTests, EfMovieCatalogFacetsTests,
     EfMovieCatalogBrowseTests, LibraryEndpointsTests (+ OpenAPI drift/snapshot via established path)
   catalog test fakes                        # only as IMovieCatalog compilation requires
+  # BrowseMoviesQueryHandlerTests.cs: no additional work authorized merely by mention
 
 web tests:
   FilterPanel.test.tsx, filterQuery.test.ts, browseWatchlist.test.tsx (extend existing)
+  web/src/library/browseParams.test.ts     # new; concrete T041 target
 ```
 
-**Structure Decision**: Follow brief Q6 binding order; Core+Persistence share one executable `tasks.md` phase for the Build green checkpoint without reversing Core-then-Persistence task IDs. New files limited to GetDirectors query/handler and DirectorDto (and tests forced by those). All other work is narrow edit of named existing paths.
+**Structure Decision**: Follow brief Q6 binding order; Core+Persistence share one executable `tasks.md` phase for the Build green checkpoint without reversing Core-then-Persistence task IDs. Actual Core dependency order inside the phase is T003 → T005 → T004 → T006 (IDs preserved, not numeric T001–T006 execution). Temporary compile-failure red is allowed while required symbols/port land; after compile closure, behavioral red is required before the one green checkpoint. No placeholder/default-throwing implementation. New files limited to GetDirectors query/handler, DirectorDto, GetDirectorsQueryHandlerTests, and browseParams.test.ts (plus generator/survivor edits forced by non-null DirectorId). All other work is narrow edit of named existing paths.
 
 ### Frozen file scope
 
@@ -130,17 +136,17 @@ Authorized creates/edits are those named in brief Q6. Genre/cast behavior must n
 
 Brief Q6 steps 1–2 stay Core-then-Persistence task order, but Build executes them as **one** `tasks.md` phase so the required `IMovieCatalog.GetDirectorsAsync` member and its EF adapter share one green checkpoint (task-pipeline Phase 3 step 2). No placeholder/default-throwing implementations.
 
-1. Core then Persistence (one executable phase): `MovieQuery` / `MovieQueryString` / `IMovieCatalog` + `GetDirectorsQuery` / handler (failing Core/handler tests first), then `EfMovieCatalog` + `MovieRecordQueryExtensions` (`WhereDirector` via existing navigation `Any`).
-2. API: `DirectorDto`, FacetEndpoints, BrowseMoviesRequest, LibraryEndpoints, HandlerRegistration.
+1. Core then Persistence (one executable phase): `MovieQuery` / `MovieQueryString` / `IMovieCatalog` + `GetDirectorsQuery` / handler (Core dependency order T003, T005, T004, T006 — compile-red allowed until symbols close, then behavioral red before the shared green checkpoint), then `EfMovieCatalog` + `MovieRecordQueryExtensions` (`WhereDirector` via existing navigation `Any`). CancellationToken forwards through handler → port → EF facet call.
+2. API: `DirectorDto`, FacetEndpoints, BrowseMoviesRequest (`string? DirectorId`), LibraryEndpoints (`ReadNumber` EmptyMeansNull + raw `IQueryCollection` duplicate-count rejection), HandlerRegistration; endpoint forwards CancellationToken.
 3. Contract: generate OpenAPI then TypeScript/mocks/typecheck; never hand-edit generated files.
 4. Web: filterQuery, FilterPanel, browseParams, LibraryView, optional libraryQueries wiring; both hosts; interactions per Q2–Q5.
 5. Matching tests interleaved (fail first where TDD applies) covering the Q6 proof list; gates/review at later pipeline stages.
 
 ## Approach
 
-- **Facet (Q1, Q4)**: Project directors with `Movies.Count` (or equivalent distinct linked-movie count) where count ≥ 1; order Name then Id; map to `DirectorDto`.
-- **Browse filter (Q2, Q3)**: Singular `DirectorId`; ReadNumber/Seen-set style duplicate rejection at API; MovieQueryString same; EF `Any` on Directors; AND with existing fluent browse including watchlist.
-- **Web scalar split (Q2)**: Live filterQuery retains raw string; first `params.get` wins; browseParams forwards nonempty scalar; empty omits; FilterPanel commit already resets page=1 — keep that for director select/replace/clear.
+- **Facet (Q1, Q4)**: Project a distinct linked library movie count per director where count ≥ 1; order Name then Id; map to `DirectorDto`. Exact EF expression is chosen and proven at Build (no invented measured expression here); T010 proves shared-movie distinct counts and same-name identities.
+- **Browse filter (Q2, Q3)**: Singular `int? DirectorId` on MovieQuery; API request property is singular `string? DirectorId` on `BrowseMoviesRequest`; parse with existing `ReadNumber(rawQuery, key, EmptyMeansNull)` and reject duplicates from raw `IQueryCollection` value counts before model-bound scalars can hide them — absent/empty → null; duplicate/malformed/overflow → 422. MovieQueryString follows the same Q2 rules. EF `Any` on Directors; AND with existing fluent browse including watchlist. Null `DirectorId` leaves the browse query unchanged.
+- **Web scalar split (Q2)**: Live filterQuery retains raw string (including malformed `abc` and fractional `12.5`); first `params.get` wins; browseParams forwards every nonempty raw scalar verbatim — never a `formatBound`-style empty fallback that would silently broaden; empty omits; serialize/commit roundtrip preserves malformed raw scalars. FilterPanel commit already resets page=1 — keep that for director select/replace/clear.
 - **UI (Q3–Q5)**: Dependency-free combobox mirroring cast suggestion limit (8) and genre count-badge precedent; independent facet query state per host; local error/retry; ASSUMPTIONS.md copy.
 - **Contract (Q6)**: Established opt-in OpenAPI regeneration then inherited TypeScript generation; `client.typecheck.ts` coverage; no hand-rolled DTOs.
 
@@ -150,10 +156,10 @@ Brief Q6 steps 1–2 stay Core-then-Persistence task order, but Build executes t
 |---|---|
 | Postgres facet | Orphan exclusion, empty list, distinct counts, shared-name identities, Name/Id order |
 | Postgres browse | Null passthrough, match, unmatched/zero/negative, AND with watchlist, no duplicate rows |
-| Core | Equality/hash for DirectorId; null/default; parse/format roundtrips including seeded property roundtrips; empty/valid/duplicate/malformed/overflow; unknown without extra validator |
-| API | Facet field set/types and empty array; no required role; browse filter; 422 failures |
-| Web | Raw scalar + first-wins; empty omission + API forwarding; generated contract/typecheck; URL reload/navigation; page reset with other filters preserved; select/replace/clear/Clear all; same-name/counts; typing without predicate change; keyboard/ARIA; missing selection; independent loading/error/retry; both hosts |
-| Fakes | Update existing catalog test fakes only as compilation requires; handler coverage following existing facet handlers |
+| Core | Equality/hash for DirectorId; null/default; parse/format roundtrips including seeded property roundtrips that emit non-null DirectorId via MovieQueryFixture/MovieQueryGeneratorTests (survivor files only if needed); empty/valid/duplicate/malformed/overflow; unknown without extra validator |
+| API | Facet field set/types and empty array; no required role; CancellationToken forwarded; browse absent/empty → null; duplicate/malformed/overflow → 422 |
+| Web | Raw scalar + first-wins; malformed abc serialize/commit survival; browseParams.test.ts verbatim nonempty abc/12.5 forward + empty omission (no numeric empty fallback); generated contract/typecheck; URL reload/navigation; page reset with other filters preserved; select/replace/clear/Clear all; same-name/counts; typing without predicate change; combobox role + aria-expanded false/true + mounted aria-controls/activedescendant only; missing selection; independent loading/error/retry; both hosts |
+| Fakes | Update existing catalog test fakes only as compilation requires; GetDirectorsQueryHandlerTests; AddHandlerTests only if registration assertion required |
 
 No Gherkin unless separately opted in (acceptance-tests policy).
 
@@ -184,4 +190,4 @@ Phase A (this draft) runs none of these and claims no gate result. Intake baseli
 
 ## Ordering
 
-See `tasks.md`: Phase 1 merges Core+Persistence into one Build ask (Core tasks then Persistence tasks, IDs preserved); then API → Contract → Web → verification at pipeline stages. Q6 step order inside Phase 1 is not reversed. Same-file edits are serial. Palette design precedes plan challenge; Gate 1 remains user-owned.
+See `tasks.md`: Phase 1 merges Core+Persistence into one Build ask (Core dependency order T003, T005, T004, T006 with IDs preserved — not numeric T001–T006 execution — then Persistence tasks); compile-red then behavioral-red before the one green checkpoint; then API → Contract → Web → verification at pipeline stages. Q6 step order inside Phase 1 is not reversed. Same-file edits are serial. Palette design precedes plan challenge; Gate 1 remains user-owned.
