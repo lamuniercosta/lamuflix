@@ -109,50 +109,61 @@ public sealed partial class TmdbMetadataProvider
         }
     }
 
-    // ReSharper disable UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
     private sealed class Response
     {
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("results")]
         public List<SearchHit>? Results { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("movie_results")]
         public List<SearchHit>? MovieResults { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("title")]
         public string? Title { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("release_date")]
         public string? ReleaseDate { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("runtime")]
         public int? Runtime { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("overview")]
         public string? Overview { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("poster_path")]
         public string? PosterPath { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("imdb_id")]
         public string? ImdbId { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("success")]
         public bool? Success { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("status_code")]
         public int? StatusCode { get; init; }
     }
 
     private sealed class SearchHit
     {
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("id")]
         public int? Id { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("title")]
         public string? Title { get; init; }
 
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("release_date")]
         public string? ReleaseDate { get; init; }
     }
-    // ReSharper restore UnusedAutoPropertyAccessor.Local
 }
