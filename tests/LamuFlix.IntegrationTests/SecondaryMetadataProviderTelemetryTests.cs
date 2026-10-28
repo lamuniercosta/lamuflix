@@ -175,7 +175,10 @@ public sealed class SecondaryMetadataProviderTelemetryTests(SecondaryMetadataPro
             httpClient = new HttpClient(new TransportBoundary(AdvanceAtBoundary)
             {
                 InnerHandler = new SocketsHttpHandler(),
-            });
+            })
+            {
+                BaseAddress = new Uri(string.Concat(probe.ApiBaseUrl, "/")),
+            };
             Provider = new TmdbMetadataProvider(
                 httpClient,
                 Options.Create(new TmdbOptions
