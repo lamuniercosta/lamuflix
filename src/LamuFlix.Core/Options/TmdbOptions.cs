@@ -3,19 +3,20 @@ using System.ComponentModel.DataAnnotations;
 
 namespace LamuFlix.Core.Options;
 
-// ReSharper disable UnusedAutoPropertyAccessor.Global
-// Bound from configuration by ServiceDefaultsExtensions.AddLamuFlixOptions
 public sealed record TmdbOptions
 {
     public const string SectionName = "Tmdb";
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     public bool Enabled { get; init; }
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     [Required]
     [Url]
     [AllowedBaseUrl]
     public string BaseUrl { get; init; } = "https://api.themoviedb.org/3/";
 
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global // set via configuration binding.
     public string ApiKey { get; init; } = string.Empty;
 
     [AttributeUsage(AttributeTargets.Property)]
@@ -41,4 +42,3 @@ public sealed record TmdbOptions
             || (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && uri.IsLoopback);
     }
 }
-// ReSharper restore UnusedAutoPropertyAccessor.Global
