@@ -55,7 +55,7 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
         var provider = services.GetRequiredService<IMetadataProvider>();
 
         // assert
-        provider.ShouldBeOfType<OmdbMetadataProvider>();
+        provider.ShouldBeOfType<ChainedMetadataProvider>();
     }
 
     [Theory]
@@ -75,7 +75,7 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
         var secondary = services.GetRequiredService<TmdbMetadataProvider>();
 
         // assert
-        port.ShouldBeOfType<OmdbMetadataProvider>();
+        port.ShouldBeOfType<ChainedMetadataProvider>();
         secondary.ShouldNotBeNull();
     }
 

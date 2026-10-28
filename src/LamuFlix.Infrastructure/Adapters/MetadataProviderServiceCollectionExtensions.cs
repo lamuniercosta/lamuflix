@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -20,7 +22,7 @@ public static class MetadataProviderServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services
-            .AddHttpClient<IMetadataProvider, OmdbMetadataProvider>((provider, client) =>
+            .AddHttpClient<OmdbMetadataProvider>((provider, client) =>
                 client.BaseAddress = new Uri(provider.GetRequiredService<IOptions<OmdbOptions>>().Value.BaseUrl))
             .AddStandardResilienceHandler()
             .Configure((target, provider) => Configure(
@@ -34,6 +36,28 @@ public static class MetadataProviderServiceCollectionExtensions
             .Configure((target, provider) => Configure(
                 target,
                 provider.GetRequiredService<IOptions<MetadataProviderResilienceOptions>>().Value));
+
+        services.AddKeyedTransient<IMetadataProvider>(
+            TelemetryConstants.OmdbProviderName,
+            (provider, _) => provider.GetRequiredService<OmdbMetadataProvider>());
+        services.AddKeyedTransient<IMetadataProvider>(
+            TelemetryConstants.TmdbProviderName,
+            (provider, _) => provider.GetRequiredService<TmdbMetadataProvider>());
+
+        services.AddTransient<IMetadataProvider>(provider =>
+        {
+            var chain = new List<IMetadataProvider>
+            {
+                provider.GetRequiredKeyedService<IMetadataProvider>(TelemetryConstants.OmdbProviderName),
+            };
+
+            if (provider.GetRequiredService<IOptions<TmdbOptions>>().Value.Enabled)
+            {
+                chain.Add(provider.GetRequiredKeyedService<IMetadataProvider>(TelemetryConstants.TmdbProviderName));
+            }
+
+            return new ChainedMetadataProvider(chain);
+        });
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<MetadataProviderHealthState>();
