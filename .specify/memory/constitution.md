@@ -1,7 +1,29 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.4.0 → 1.5.0 (MINOR — Core port enumeration expanded with
+Version change: 1.5.0 → 1.6.0 (MINOR: TMDb secondary metadata provider permitted beside
+OMDb; `TmdbOptions` and the provider tag-value constants permitted in Core)
+
+Amendment 1.6.0 (2026-10-28):
+  Modified sections:
+    ✏️ Technology Stack Constraints: Metadata provider row names the TMDb secondary adapter
+       `TmdbMetadataProvider : IMetadataProvider` beside OMDb; OMDb stays the production
+       provider; TMDb is disabled by default; provider selection is not defined by the row.
+    ✏️ VII. Configuration Isolation and Deterministic Time: `TmdbOptions` added to the
+       options-record list beside `OmdbOptions`.
+    ✏️ VIII. Ubiquitous Language in English: vendor-name exception adds the options record
+       `TmdbOptions` in `LamuFlix.Core.Options` and the provider tag-value constants
+       `OmdbProviderName` and `TmdbProviderName` in `TelemetryConstants`.
+  Added / removed sections: none
+  Templates reviewed:
+    ✅ .specify/templates/*.md: no reference to the metadata provider row or the vendor-name
+       exception; no change
+  Follow-up:
+    ✅ ADR-0030 accepted in the same PR (`docs/adr/0030-tmdb-secondary-metadata-provider.md`).
+    ✅ Owner approval recorded from PR #272 (`specs/DEV-331/constitution-amendment-v1.6.0.md`).
+       PR #272 merged under 1.5.0; this amendment is the remedy under Governance, Compliance.
+
+Previous version change: 1.4.0 → 1.5.0 (MINOR — Core port enumeration expanded with
 `IEnrichmentStatusNotifier`; enrichment status delivery wording aligned to ADR-0022)
 
 Amendment 1.5.0 (2026-10-27):
@@ -300,7 +322,7 @@ Secrets and machine-specific paths MUST NOT appear in source. There are NO hard-
 for connection strings, API keys, library roots, or player paths.
 
 - All configuration is bound to options records (`LibraryOptions`, `PlaybackOptions`,
-  `OmdbOptions`, `RabbitMqOptions`, `EnrichmentOptions`, `FeatureOptions`,
+  `OmdbOptions`, `TmdbOptions`, `RabbitMqOptions`, `EnrichmentOptions`, `FeatureOptions`,
   `RecommendationOptions`) with data-annotation validation and `ValidateOnStart()`. Reading
   `IConfiguration` by magic string outside options binding is forbidden.
 - Local values live in `dotnet user-secrets` or `appsettings.Development.json` (git-ignored);
@@ -328,8 +350,10 @@ terms. Portuguese identifiers (`Filme`, `CriarFilme`, `AssistirFilme`, `ExcluirF
   **Recommendation** · **Reason** · **Taste Profile** · **Playback Event** · **Feedback**.
 - Types, members, and telemetry identifiers MUST be named by functionality, not by vendor
   (`IMetadataProvider` and `Metadata.Lookup`, not `IOmdbClient` and `Omdb.Lookup`). Vendor
-  names are permitted only on the Infrastructure adapter class itself and on vendor-mandated
-  configuration keys.
+  names are permitted only on the Infrastructure adapter class itself, on vendor-mandated
+  configuration keys, on the options record `TmdbOptions` in `LamuFlix.Core.Options`, and on
+  the provider tag-value constants `OmdbProviderName` and `TmdbProviderName` in
+  `TelemetryConstants`.
 - A new domain term MUST be added to `CONTEXT.md` in the same PR that introduces it.
 
 **Rationale**: A single vocabulary shared by code, docs, API, and UI is what makes the bounded
@@ -376,7 +400,7 @@ and an ADR.
 | Database | PostgreSQL via `Npgsql.EntityFrameworkCore.PostgreSQL` | One `IEntityTypeConfiguration<T>` per entity; skip navigations; single fresh `Initial` migration |
 | Vector store | pgvector via `Pgvector.EntityFrameworkCore` | HNSW index on cosine distance (Recommendations Phase B) |
 | Message queue | RabbitMQ via `RabbitMQ.Client` 7.x (`IChannel`, `AsyncEventingBasicConsumer`) | Quorum queues; publisher confirms; topology in one `RabbitMqTopology` class |
-| Metadata provider | OMDb behind `IMetadataProvider`, typed `HttpClient` | `Microsoft.Extensions.Http.Resilience`: retry with jitter, `Retry-After`, timeout, circuit breaker |
+| Metadata provider | OMDb behind `IMetadataProvider`, typed `HttpClient`, is the production provider; TMDb secondary adapter `TmdbMetadataProvider : IMetadataProvider`, typed `HttpClient`, is registered beside it and is disabled by default (`Tmdb:Enabled` false); provider selection is not defined by this row (ADR-0030) | `Microsoft.Extensions.Http.Resilience`: retry with jitter, `Retry-After`, timeout, circuit breaker; each typed client owns its own pipeline |
 | Embeddings | `IEmbeddingGenerator<string, Embedding<float>>` (Microsoft.Extensions.AI) | Ollama via OllamaSharp at runtime; deterministic `FakeEmbeddingGenerator` in tests |
 | File system | `System.IO.Abstractions` | `MockFileSystem` in unit tests |
 | Time | `TimeProvider` | `DateTime.Now` family banned |
@@ -587,4 +611,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.5.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-27
+**Version**: 1.6.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-28

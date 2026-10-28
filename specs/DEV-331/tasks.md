@@ -12,7 +12,9 @@
 
 ## Phase 0: Owner landing (blocks all implementation)
 
-- [ ] T026 Confirm constitution amendment + ADR covering Q7 adapter row and Core TmdbOptions are landed as owner-approved before any T001–T025 work; do not invent ADR ids in feature code tasks (Q7; brief; PC6 — precedes implementation, not only gates)
+- [X] T026 Confirm constitution amendment + ADR covering Q7 adapter row and Core TmdbOptions are landed as owner-approved before any T001–T025 work; do not invent ADR ids in feature code tasks (Q7; brief; PC6 — precedes implementation, not only gates)
+
+  - T026: Owner answer for the Q7 constitution + ADR checkbox is **APPROVED** on PR #272 (box ticked `2026-10-27T21:51:09Z`, comment `Accepted.` `2026-10-27T21:51:20Z`). PR #272 merged `2026-10-28T02:56:16Z` before the amendment landed; constitution v1.6.0 and ADR-0030 land afterwards as the Compliance remedy (`specs/DEV-331/constitution-amendment-v1.6.0.md`). `spec.md:10` keeps the packet checkbox unchecked.
 
 ## Phase 1: Foundational options, telemetry constant, fixtures (blocks stories)
 
