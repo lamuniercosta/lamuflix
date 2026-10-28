@@ -179,3 +179,18 @@ All 21 Sentry/Ledger/Compass findings have explicit dispositions in PLAN_CHALLEN
 PROVISIONAL (`gate1: provisional` in `specs/DEV-331/spec.md`) — Technical spec, plan, tasks, read-only cross-artifact analysis, and 3-axis plan challenge (PC1–PC7) are ratified; Gate 1 stays CLOSED pending owner resolution of the Q7 checkbox (`- [ ] blocked: structural - constitution amendment plus ADR covers OMDb-only stack and Core TmdbOptions`) before merge or Phase B implementation.
 - **Technical ratification (`specs/DEV-331/PLAN_CHALLENGE_ADJUDICATION.md:72-115`; `specs/DEV-331/CONCLUSIONS.md` Q1–Q9, PC1–PC7)**: All 21 Sentry/Ledger/Compass plan-challenge findings are resolved across two verified repair rounds and all 16 FRs and 6 SCs map cleanly across T001–T034 (`recon-DEV-331:137-175`, `recon-DEV-331-2:T1-T9`).
 - **Owner gate boundary (`.specify/memory/constitution.md:280-282, 307-310, 347-348, 357`; `specs/PRODUCT.md:36-39`; Q7)**: Permitting `TmdbMetadataProvider : IMetadataProvider` beside `OmdbMetadataProvider` and `TmdbOptions` in `LamuFlix.Core.Options` requires an owner-approved constitution amendment and ADR; Patron ratification marks `gate1: provisional` only and does not close the owner checkbox.
+
+
+---
+
+## Code Review Adjudication — Ledger Item 5 (at b40d065a)
+
+**Keel — question and recommendation:**
+[from Keel] DEV-331 review adjudication at b40d065a, all three axes read. Need narrow ruling on Ledger item 5: Medium duplicated FetchAsync/ReadAsync/status handling copied from OMDb (~150 lines). No concrete behavioral failure; proposed shared abstraction expands frozen scope, while spec FR-006 explicitly requires existing OMDb exception-family pattern and forbids OMDb edits. Recommend drop as code defect and record optional out-of-scope follow-up only, no fix commit or retained blocker.
+
+**Patron — complete ruling:**
+[from Patron] DEV-331 Ledger 5 ruling:
+ACCEPT — Drop Ledger item 5 (duplicated `FetchAsync`/`ReadAsync`/status-handling shape between `TmdbMetadataProvider` and `OmdbMetadataProvider`) as a code defect in DEV-331 with no fix commit or retained blocker; `noted, no ticket`.
+- **Mandated OMDb pattern & forbidden OMDb edit (`specs/DEV-331/spec.md` FR-006, FR-015; `specs/DEV-331/CONCLUSIONS.md` Q5, Q8; §2.3 item 6)**: FR-006 explicitly requires `TmdbMetadataProvider` to follow the existing `OmdbMetadataProvider` transport/deserialize exception-family and status-classification pattern while explicitly forbidding edits to `OmdbMetadataProvider.cs`.
+- **Frozen scope & no shared abstraction (`specs/DEV-331/spec.md` Scope; `specs/DEV-331/CONCLUSIONS.md` Q6, Q8, PC5; §2.3 item 2)**: Extracting a shared HTTP fetch/classification abstraction across providers would rewrite `OmdbMetadataProvider.cs` and introduce an unapproved abstraction layer outside DEV-331's frozen scope; ratifying the PC5/PC6/Q3a rejections of Ledger 3/4/7/8 follows the same boundary.
+- **Out-of-scope follow-up rule (§2.3 Patron rules)**: Because Ledger item 5 has no concrete behavioral failure, is Medium rather than Critical/High, and was not requested by the user, it requires no follow-up YouTrack ticket (`noted, no ticket`).
