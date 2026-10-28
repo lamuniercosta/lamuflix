@@ -32,6 +32,7 @@ public sealed partial class TmdbMetadataProvider(
     private const string UnusableBody = "unusable body";
     private const string MissingTitle = "missing or unusable title";
     private const string MissingMovieId = "missing or unusable movie id";
+    private const string ErrorBody = "error body";
     private const int NoResultStatusCode = 21;
 
     private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
@@ -158,7 +159,17 @@ public sealed partial class TmdbMetadataProvider(
         }
 
         var body = ((Fetch.Succeeded)fetch).Body;
-        if (ResponseMapper.IsNoResult(body) || body.MovieResults is { Count: 0 })
+        if (ResponseMapper.IsNoResult(body))
+        {
+            return NotFoundOutcome();
+        }
+
+        if (ResponseMapper.IsFailed(body))
+        {
+            return ErrorBodyFailure();
+        }
+
+        if (body.MovieResults is { Count: 0 })
         {
             return NotFoundOutcome();
         }
@@ -186,6 +197,11 @@ public sealed partial class TmdbMetadataProvider(
         if (ResponseMapper.IsNoResult(body))
         {
             return NotFoundOutcome();
+        }
+
+        if (ResponseMapper.IsFailed(body))
+        {
+            return ErrorBodyFailure();
         }
 
         var metadata = ResponseMapper.Map(body, timeProvider.GetUtcNow());
@@ -251,6 +267,12 @@ public sealed partial class TmdbMetadataProvider(
     private MetadataLookupResult UnusableBodyFailure()
     {
         Log.InvalidResponse(logger, UnusableBody);
+        return Failure(EnrichmentFailureCategory.InvalidResponse);
+    }
+
+    private MetadataLookupResult ErrorBodyFailure()
+    {
+        Log.InvalidResponse(logger, ErrorBody);
         return Failure(EnrichmentFailureCategory.InvalidResponse);
     }
 

@@ -20,6 +20,9 @@ public sealed partial class TmdbMetadataProvider
         public static bool IsNoResult(Response response) =>
             response.Success == false && response.StatusCode == NoResultStatusCode;
 
+        public static bool IsFailed(Response response) =>
+            response.Success == false && !IsNoResult(response);
+
         public static int? MapYear(string? releaseDate) =>
             TryLeadingDigits(releaseDate, out var value) ? value : null;
 
