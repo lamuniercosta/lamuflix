@@ -6,7 +6,7 @@
 
 **Tests**: Required per brief Q6. Write failing tests before the implementation they drive where TDD applies. Real Postgres for query translation; no mocked EF driver for facet/browse behavior. Seeded property roundtrips in scope.
 
-**Organization**: Phases follow brief Q6 binding order (Core → Persistence → API → Contract → Web). Story tags retain acceptance traceability (US1 facet, US2 browse filter, US3 FilterPanel hosts).
+**Organization**: Phases preserve brief Q6 binding order (Core then Persistence then API then Contract then Web) while merging Core+Persistence into one executable Build phase so `IMovieCatalog.GetDirectorsAsync` and its EF adapter land before the green checkpoint (task-pipeline Phase 3 step 2). Story tags retain acceptance traceability (US1 facet, US2 browse filter, US3 FilterPanel hosts).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -16,37 +16,32 @@
 
 ---
 
-## Phase 1: Core value and query contract (Q6 step 1)
+## Phase 1: Core and Persistence (Q6 steps 1–2)
 
-**Goal**: `DirectorId` on MovieQuery; MovieQueryString parse/format; port + GetDirectors query/handler.
-**Checkpoint**: Core tests green for equality/hash/parse; handler ready for persistence.
+**Goal**: `DirectorId` on MovieQuery; MovieQueryString parse/format; port + GetDirectors query/handler; EF director facet projection and `WhereDirector` browse predicate on existing schema.
+**Checkpoint**: Core tests green for equality/hash/parse; handler coverage green; real-database facet and browse proofs green; solution compiles with `GetDirectorsAsync` implemented on the EF adapter. No migration.
+
+### Core (Q6 step 1) — preserve task order T001–T006
 
 - [ ] T001 [P] [US2] Write failing Core tests in `tests/LamuFlix.UnitTests/` following existing `MovieQueryTests` / `MovieQueryStringTests` patterns: `DirectorId` equality and hash difference; null/default behavior; parse/format roundtrips including seeded property roundtrips; empty/valid/duplicate/malformed/overflowing `directorId`; unknown identities without extra validator rules (FR-004, FR-005, FR-017; Q2, Q6)
 - [ ] T002 [US2] Add `int? DirectorId` to `src/LamuFlix.Core/Library/MovieQuery.cs` (equality and hashing) and singular `directorId` support in `src/LamuFlix.Core/Library/MovieQueryString.cs` per Q2 strict rules so T001 passes (depends on T001; FR-004, FR-005)
 - [ ] T003 [P] [US1] Extend `src/LamuFlix.Core/Ports/IMovieCatalog.cs` with `DirectorFacet` and `GetDirectorsAsync` following existing genre/people facet port shape (FR-002; Q1, Q6)
-- [ ] T004 [US1] Add `src/LamuFlix.Core/Features/Library/GetDirectorsQuery.cs` and `GetDirectorsQueryHandler.cs` following existing facet handlers (depends on T003; FR-002; Q6)
-- [ ] T005 [P] [US1] Write failing handler unit coverage following existing facet handler tests for empty and passthrough facet results (depends on T004; FR-017; Q6)
+- [ ] T005 [P] [US1] Write failing handler unit coverage following existing facet handler tests for empty and passthrough facet results (depends on T003; FR-017; Q6)
+- [ ] T004 [US1] Add `src/LamuFlix.Core/Features/Library/GetDirectorsQuery.cs` and `GetDirectorsQueryHandler.cs` following existing facet handlers so T005 passes (depends on T005; FR-002; Q6)
 - [ ] T006 Update existing catalog test fakes only as required for the new `IMovieCatalog` member to compile (depends on T003; FR-017; Q6)
 
-**Checkpoint**: Core contract and port compile; MovieQueryString proofs green.
-
----
-
-## Phase 2: Persistence (Q6 step 2)
-
-**Goal**: EF director facet projection and `WhereDirector` browse predicate on existing schema.
-**Independent Test**: EfMovieCatalogFacetsTests / EfMovieCatalogBrowseTests against real Postgres.
+### Persistence (Q6 step 2) — preserve task order T010–T013
 
 - [ ] T010 [P] [US1] Write failing Postgres facet tests in `tests/LamuFlix.IntegrationTests/EfMovieCatalogFacetsTests.cs`: orphan exclusion, empty list, distinct counts for shared movies, same-name identities, deterministic Name-then-Id order, full-library counts independent of filters (FR-001, FR-003, FR-017; Q1, Q4)
 - [ ] T011 [P] [US2] Write failing Postgres browse tests in `tests/LamuFlix.IntegrationTests/EfMovieCatalogBrowseTests.cs`: null passthrough, matching director, unmatched/zero/negative → empty, AND composition including watchlist, no duplicate movie rows (FR-006, FR-017; Q2, Q3)
 - [ ] T012 [US1] Implement `GetDirectorsAsync` projection in `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` over existing Directors / movie_directors (at-least-one-movie filter, distinct counts, Name then Id) so T010 passes (depends on T003, T010; FR-002, FR-003; Q6 — no schema/ingest change)
 - [ ] T013 [US2] Implement `WhereDirector` in `src/LamuFlix.Infrastructure/Persistence/MovieRecordQueryExtensions.cs` (and wire through `EfMovieCatalog.cs` browse) using existing Directors navigation `Any` so T011 passes (depends on T002, T011; FR-006; Q6)
 
-**Checkpoint**: Real-database facet and browse proofs green; no migration.
+**Checkpoint**: Core contract, handler, and real-database facet/browse proofs green together; no migration.
 
 ---
 
-## Phase 3: API endpoints (Q6 step 3)
+## Phase 2: API endpoints (Q6 step 3)
 
 **Goal**: Facet endpoint + browse mapping with existing validation/problem handling.
 **Independent Test**: FacetEndpointsTests / LibraryEndpointsTests.
@@ -60,7 +55,7 @@
 
 ---
 
-## Phase 4: Generated contract chain (Q6 step 4)
+## Phase 3: Generated contract chain (Q6 step 4)
 
 **Goal**: OpenAPI → generated TypeScript/mocks/typecheck; no hand edits.
 **Checkpoint**: Generated types expose DirectorDto and browse `directorId`.
@@ -72,7 +67,7 @@
 
 ---
 
-## Phase 5: Web FilterPanel and hosts (Q6 step 5) — US3
+## Phase 4: Web FilterPanel and hosts (Q6 step 5) — US3
 
 **Goal**: URL/state, both hosts, combobox interactions, a11y, local loading/error.
 **Independent Test**: Vitest/RTL extensions named in brief Q6.
@@ -90,7 +85,7 @@
 
 ---
 
-## Phase 6: Polish and pipeline verification
+## Phase 5: Polish and pipeline verification
 
 **Purpose**: Cross-cutting confirmation and gates at their pipeline stages (not during Phase A drafting).
 
@@ -106,9 +101,9 @@
 
 ## Dependencies & Execution Order
 
-- Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 (do not reverse Q6 dependencies).
-- T001 then T002; T003 then T004/T006; T005 after T004.
-- T010/T011 may run in parallel; T012 after T003+T010; T013 after T002+T011.
+- Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 (do not reverse Q6 dependencies). Phase 1 is one Build ask: Core tasks then Persistence tasks before its green checkpoint.
+- T001 then T002; T003 then T005 then T004; T006 after T003.
+- Within Phase 1 after T003: T010/T011 may run in parallel; T012 after T003+T010; T013 after T002+T011.
 - T020/T021 may run in parallel; T022 after T004+T012+T020; T023 after T002+T013+T021.
 - T030 after T022 and T023; T031 after T030. Web UI must not consume DirectorDto until T030.
 - T040/T041 parallel; T042 after both; T043 → T044 → T045 → T046 serial on shared panel/host files.
@@ -117,11 +112,11 @@
 ## Parallel opportunities
 
 ```text
-# After Phase 1 port exists:
+# After Core port T003 (still inside Phase 1):
 T010 EfMovieCatalogFacetsTests
 T011 EfMovieCatalogBrowseTests
 
-# After persistence:
+# After Phase 1 (Core+Persistence) checkpoint:
 T020 FacetEndpointsTests
 T021 LibraryEndpointsTests
 
@@ -132,12 +127,11 @@ T041 browseParams tests
 
 ## Implementation Strategy
 
-1. Core DirectorId + GetDirectors query/handler with failing Core tests first.
-2. EF facet and WhereDirector against real Postgres.
-3. API DTO/endpoints and 422/200 proofs.
-4. Regenerate OpenAPI then TypeScript/mocks/typecheck.
-5. Web URL scalar + FilterPanel + both hosts with Vitest/RTL.
-6. Gates and three-axis review at later pipeline stages.
+1. Core DirectorId + GetDirectors (failing Core/handler tests first) then EF facet and WhereDirector against real Postgres — one executable phase so the required port member and its adapter compile together.
+2. API DTO/endpoints and 422/200 proofs.
+3. Regenerate OpenAPI then TypeScript/mocks/typecheck.
+4. Web URL scalar + FilterPanel + both hosts with Vitest/RTL.
+5. Gates and three-axis review at later pipeline stages.
 
 ## Traceability (brief Q → tasks)
 

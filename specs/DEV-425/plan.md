@@ -32,21 +32,35 @@ Deliver a director facet (`GET /api/directors` → `DirectorDto[]` with id, name
 
 ## Constitution Check
 
-*GATE: analysis only for Phase A; Gate 1 remains user-owned.*
+*GATE: analysis only for Phase A; Gate 1 remains user-owned. Every Constitution Check gate cites a numbered Core Principle (I–IX) per `.specify/memory/constitution.md` Governance Compliance (constitution:609-612). Charter §2.3 cares are not constitution principles — they are listed separately under **Charter §2.3 cares** below. No constitution departure is requested or authorized.*
 
-| Care / principle | Response |
+- **Principle I** (ports and adapters, feature-organised Core; `.specify/memory/constitution.md:171-203`): Extend existing `IMovieCatalog` with `DirectorFacet` / `GetDirectorsAsync`; handlers live in Core Features; EF adapter implements the port — no new port type, generic repository, or UnitOfWork (Q1, Q6).
+- **Principle II** (explicit handlers and decorators; `.specify/memory/constitution.md:205-222`): `GetDirectorsQuery` / `GetDirectorsQueryHandler` are sealed following existing facet handlers; register via existing `AddHandler<…>` so Tracing → Logging → Validation → handler decorator chain is unchanged; no MediatR or alternate dispatch (Q1, Q6).
+- **Principle III** (typed filter model and query-string roundtrip; `.specify/memory/constitution.md:224-244`): Add typed `DirectorId` on sealed `MovieQuery`; singular `WhereDirector` extension; seeded property roundtrips prove MovieQueryString fidelity for `directorId` (Q2, Q6).
+- **Principle V** (validated inputs, ProblemDetails with traceId; `.specify/memory/constitution.md:273-293`): Browse `directorId` validation failures use existing FluentValidation + validation decorator → 422; error bodies remain RFC 7807 `ProblemDetails` from `AddProblemDetails()` / single `IExceptionHandler` including `traceId`; no new exception-mapping path or leaked exception text (Q2, Q6).
+- **Principle VII** (configuration isolation and deterministic time; `.specify/memory/constitution.md:319-338`): No new options, secrets, hard-coded paths, `Features:LocalPlay`, or `Process.Start`; no new time reads — existing `TimeProvider` / BannedSymbols posture unchanged (Q6).
+- **Principle VIII** (ubiquitous language; `.specify/memory/constitution.md:340-360`): Terms Director / Director facet / Director filter from `CONTEXT.md` (Q1).
+- **Principle IX** (test pyramid with real infrastructure; `.specify/memory/constitution.md:362-389`): Approved stack only — xUnit v3, Shouldly, NSubstitute, FsCheck property roundtrips, Testcontainers Postgres for EF facet/browse; no mocked EF driver, no second assertion/mocking framework (Q6).
+
+### Unnumbered constitution authority checks
+
+Binding constraints from unnumbered constitution sections. **Numbered principle: none** for these items; do not invent I–IX mappings.
+
+- **API and Contract Rules** (`.specify/memory/constitution.md:541-555`): OpenAPI committed at `web/src/api/openapi.json`; regenerate then consume generated TypeScript — never hand-edit generated files (Q6).
+- **Pull Request Quality Gates / Static-Analysis Gates** (`.specify/memory/constitution.md:426-478`): Roslyn, complexity, InspectCode, mutation, property, format, and full test gates run at later pipeline stages using harness thresholds; exit 2 SKIPPED/N/A/SKIP never reported as PASS; Could not run blocks (brief Gate expectations).
+
+### Charter §2.3 cares (not Constitution Check gates)
+
+Team-charter structural cares. These are owner/process constraints, not numbered constitution principles.
+
+| Care | Response |
 |---|---|
-| §2.3 care 1 (dependencies) | No new NuGet/npm; no package swap (Q6). PASS. |
-| §2.3 care 2 (architecture) | Reuse existing query/handler/port/facet and FilterPanel; no new project, top-level folder, repository/mediator/services abstraction, or state library (Q6). PASS. |
-| §2.3 care 3 (schema) | No schema beyond ticket tables; directors/movie_directors already exist; no migration (Q6). PASS. |
-| §2.3 care 4 (public API) | Ticket-authorized `GET /api/directors`, `DirectorDto`, and browse `directorId` (Q1–Q2). PASS. |
-| §2.3 care 5 (LocalPlay/secrets/Process.Start) | Untouched (Q6). PASS. |
-| §2.3 care 6 (file deletion/rewrite) | Only narrow named-chain edits; no tracked-file deletion or broad rewrite (Q6). PASS. |
-| I Ports and Adapters | `GetDirectorsAsync` / `DirectorFacet` on existing `IMovieCatalog`; handlers in Core Features; EF adapter (Q1, Q6). |
-| III / API and Contract Rules | Strict MovieQueryString + API 422; OpenAPI committed and regenerated; web consumes generated types (Q2, Q6). |
-| VIII Ubiquitous Language | Terms Director / Director facet / Director filter from `CONTEXT.md` (Q1). |
-| IX Test Pyramid | Real Postgres for query translation; no mocked driver for EF behavior (Q6). |
-| Static-Analysis / mutation gates | Run later at pipeline stages; exit 2 SKIPPED/N/A/SKIP never PASS; Could not run blocks (brief Gate expectations). |
+| §2.3 care 1 (dependencies) | No new NuGet/npm; no package swap (Q6). |
+| §2.3 care 2 (architecture) | Reuse existing query/handler/port/facet and FilterPanel; no new project, top-level folder, repository/mediator/services abstraction, or state library (Q6). |
+| §2.3 care 3 (schema) | No schema beyond ticket tables; directors/movie_directors already exist; no migration (Q6). |
+| §2.3 care 4 (public API) | Ticket-authorized `GET /api/directors`, `DirectorDto`, and browse `directorId` (Q1–Q2). |
+| §2.3 care 5 (LocalPlay/secrets/Process.Start) | Untouched (Q6). |
+| §2.3 care 6 (file deletion/rewrite) | Only narrow named-chain edits; no tracked-file deletion or broad rewrite (Q6). |
 
 No constitution departure or ticket-text change is authorized. No structural owner checkbox (Q8).
 
@@ -106,7 +120,7 @@ web tests:
   FilterPanel.test.tsx, filterQuery.test.ts, browseWatchlist.test.tsx (extend existing)
 ```
 
-**Structure Decision**: Follow brief Q6 binding order. New files limited to GetDirectors query/handler and DirectorDto (and tests forced by those). All other work is narrow edit of named existing paths.
+**Structure Decision**: Follow brief Q6 binding order; Core+Persistence share one executable `tasks.md` phase for the Build green checkpoint without reversing Core-then-Persistence task IDs. New files limited to GetDirectors query/handler and DirectorDto (and tests forced by those). All other work is narrow edit of named existing paths.
 
 ### Frozen file scope
 
@@ -114,12 +128,13 @@ Authorized creates/edits are those named in brief Q6. Genre/cast behavior must n
 
 ### Implementation order (binding; brief Q6)
 
-1. Core: `MovieQuery` / `MovieQueryString` / `IMovieCatalog` + `GetDirectorsQuery` / handler.
-2. Persistence: `EfMovieCatalog` + `MovieRecordQueryExtensions` (`WhereDirector` via existing navigation `Any`).
-3. API: `DirectorDto`, FacetEndpoints, BrowseMoviesRequest, LibraryEndpoints, HandlerRegistration.
-4. Contract: generate OpenAPI then TypeScript/mocks/typecheck; never hand-edit generated files.
-5. Web: filterQuery, FilterPanel, browseParams, LibraryView, optional libraryQueries wiring; both hosts; interactions per Q2–Q5.
-6. Matching tests interleaved (fail first where TDD applies) covering the Q6 proof list.
+Brief Q6 steps 1–2 stay Core-then-Persistence task order, but Build executes them as **one** `tasks.md` phase so the required `IMovieCatalog.GetDirectorsAsync` member and its EF adapter share one green checkpoint (task-pipeline Phase 3 step 2). No placeholder/default-throwing implementations.
+
+1. Core then Persistence (one executable phase): `MovieQuery` / `MovieQueryString` / `IMovieCatalog` + `GetDirectorsQuery` / handler (failing Core/handler tests first), then `EfMovieCatalog` + `MovieRecordQueryExtensions` (`WhereDirector` via existing navigation `Any`).
+2. API: `DirectorDto`, FacetEndpoints, BrowseMoviesRequest, LibraryEndpoints, HandlerRegistration.
+3. Contract: generate OpenAPI then TypeScript/mocks/typecheck; never hand-edit generated files.
+4. Web: filterQuery, FilterPanel, browseParams, LibraryView, optional libraryQueries wiring; both hosts; interactions per Q2–Q5.
+5. Matching tests interleaved (fail first where TDD applies) covering the Q6 proof list; gates/review at later pipeline stages.
 
 ## Approach
 
@@ -169,4 +184,4 @@ Phase A (this draft) runs none of these and claims no gate result. Intake baseli
 
 ## Ordering
 
-See `tasks.md`: Core → Persistence → API → Contract → Web → verification tasks at pipeline stages. Quill divided phases without reversing Q6 dependencies. Same-file edits are serial. Palette design precedes plan challenge; Keel analyze is the next read-only step after this draft.
+See `tasks.md`: Phase 1 merges Core+Persistence into one Build ask (Core tasks then Persistence tasks, IDs preserved); then API → Contract → Web → verification at pipeline stages. Q6 step order inside Phase 1 is not reversed. Same-file edits are serial. Palette design precedes plan challenge; Gate 1 remains user-owned.
