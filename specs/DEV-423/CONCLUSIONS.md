@@ -144,3 +144,13 @@ Patron:
 - ADR and owner-resolution legs satisfied: `docs/adr/0030-tmdb-secondary-metadata-provider.md` is Accepted and leaves the chain/fallback rule to DEV-423; the DEV-331 owner Q7 resolution is recorded in `specs/DEV-331/constitution-amendment-v1.6.0.md` (Owner approval: PR #272 checkbox ticked 2026-10-27T21:51:09Z, owner comment `Accepted.` 21:51:20Z, plus the 2026-10-28 sequencing remedy), with `specs/DEV-331/tasks.md` T026 ticked and `spec.md` unticked per the DEV-330 convention.
 - Implementation leg unchanged and satisfied: `src/LamuFlix.Core/Options/TmdbOptions.cs`, `src/LamuFlix.Infrastructure/Adapters/TmdbMetadataProvider.cs`, and `TmdbMetadataProvider.Mapping.cs` are present on `origin/main`; `f52c83f1..313249fd` touches only the four constitution/ADR/amendment/tasks docs files, so there is no code drift. Conditions: run `./scripts/rebase-task-branch.ps1` on `feature/DEV-423` (ahead 1 / behind 1) before work continues, then complete T001 pickup drift/`/speckit-analyze` before T002+. Open owner items D4/D5/D7 and follow-up DEV-436 do not touch DEV-423's chain scope; no new DEV-423 checkbox is created.
 
+---
+
+## Phase 3 test-gate block — FeaturesConsumerTests follow-up (2026-10-28)
+
+Patron:
+[from Patron] Verdict: blocked — park DEV-423 as Blocked (Phase 3 test closure only; no PASS, waiver, or threshold change), and file one separately scoped follow-up ticket to stabilize `FeaturesConsumerTests`; do not fix it in DEV-423 and do not rerun the DEV-423 test gate.
+- Basis (note `DEV-423` lines 141-152): Keel ruled one bounded full `dotnet test` rerun at HEAD `170f1cef`, baseline reproduction does not convert exit 1 to PASS, and stabilization is outside FR-008 scope; Gauge rerun exited 1 on `Consumer_RepeatedShutdownRequeue_RecordsResidenceHeadersAndApplicationAttempt` (`ReadyMessageCountAsync` 0u), all other assemblies green, file outside DEV-423 diff and reproduced on `origin/main` `313249fd`.
+- Follow-up (Rigger, once): one ticket, summary `Stabilize FeaturesConsumerTests repeated-shutdown requeue flake`, Type `Bug`, `size:S`, parent copied verbatim from DEV-423's parent epic, estimate per that parent's convention as confirmed by Rigger before create; scope is that single test/flake on main, acceptance is a complete `dotnet test` exit 0 without weakening assertions. First check open/closed duplicates per charter and use the existing ticket if Rigger reports one.
+- Unblock: follow-up lands/verifies on main, DEV-423 picks up main, then Gauge does one new bounded full rerun at the then-current DEV-423 HEAD; DEV-423 stays Blocked until that run exits 0. Third blocked report exhausts reruns in this round — no third rerun, no Cog stabilization task inside DEV-423.
+
