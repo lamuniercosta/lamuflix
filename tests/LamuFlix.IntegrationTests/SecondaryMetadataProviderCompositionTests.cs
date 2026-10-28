@@ -48,7 +48,7 @@ public sealed class SecondaryMetadataProviderCompositionTests(SecondaryMetadataP
 
         // assert
         concrete.ShouldNotBeNull();
-        port.ShouldBeOfType<OmdbMetadataProvider>();
+        port.ShouldBeOfType<ChainedMetadataProvider>();
     }
 
     [Theory]
