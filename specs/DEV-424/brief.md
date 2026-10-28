@@ -19,7 +19,7 @@ Status: Phase 2 step 1 complete. Patron closed the grill on Q1-Q8 (8 of maximum 
 3. Upsert the collection/name and replace membership atomically in the existing repository save boundary. Shared collection ids must not create duplicate records, including concurrent enrichment. Successful metadata without a collection clears membership, including successful non-TMDb fallback. Failed/unavailable enrichment preserves metadata. No provider provenance or partial-field merging. Invalid collection id/name uses existing TMDb malformed-response handling and is never persisted.
 4. Retain unused collection rows but hide them from facets; no collection deletion cascades into movies. No orphan cleanup job.
 5. GET /api/collections, operation GetCollections, returns CollectionDto[] containing id, name, movieCount with the genre facet types/response/count/sort conventions. Count distinct current library members, omit zero-member collections, and do not narrow counts by active filters.
-6. Add nullable positive integer collectionId to browse request, MovieQuery, predicates, equality/hash, and query codecs. AND it with other filters. Absence means unconstrained; a valid unknown id gives an empty page; malformed, nonpositive, or repeated single-valued API input returns 400. Preserve existing pagination conventions.
+6. Add nullable positive integer collectionId to browse request, MovieQuery, predicates, equality/hash, and query codecs. AND it with other filters. Absence means unconstrained; a valid unknown id gives an empty page; malformed, nonpositive, or repeated single-valued API input returns 422 ProblemDetails. Preserve existing pagination conventions. The original Q3 status is superseded by Patron C1 in CONCLUSIONS.md; the ticket delivery is unchanged.
 7. Use existing Filter Panel chips in a Collection section. One selected id at a time: selecting another replaces it, reselecting clears it. URL key collectionId restores through reload and back/forward. Changes/clear reset page and preserve other filters/sort. Include a removable active chip and clear-all. A valid unknown id remains applied with fallback label Collection <id>; empty facets provide no selectable options. Reuse existing facet fetching/loading/error patterns and generated DTOs. Palette owns visual layout.
 8. Contract generation is strictly C# DTO -> OpenAPI -> generated TypeScript. Never hand-edit generated contracts or create duplicate frontend DTOs.
 
@@ -209,3 +209,61 @@ I will write brief.md containing the Q1-Q7 decisions, full grill exchanges, clos
 - **Collection membership**: the single optional association from one movie to one Collection (nullable MovieRecord.CollectionId); a movie has zero or one membership.
 - **Collection facet**: the library facet listing nonempty Collections with their distinct current member counts, exposed by GET /api/collections and selected through the single-select Filter Panel chips.
 - Not a Collection: generic sequence-comparison helpers such as HasSameCollectionValues use collection in the programming sense only and are unrelated to TMDb Collections.
+
+---
+
+## C1 decision amendment — invalid collectionId status
+
+Patron corrected the original Q3 status on 2026-10-28, recorded in CONCLUSIONS.md C1 at commit 2754a161. Malformed, nonpositive, and repeated single-valued collectionId return 422 ProblemDetails. This amendment supersedes only the 400 status in the historical Q3 exchange above; the original questions and answers remain preserved as historical evidence.
+
+Basis: constitution Principle V requires validation failures to return 422 through the single exception handler. Patron C1 cites the existing browse raw-query ValidationException path and confirms that the ticket specifies no status code. The correction is within Patron authority over public API shape under section 2.3 item 4, changes no ticket delivery, and requires neither a constitution departure nor an owner checkbox. Quill must propagate 422 through spec/plan/tasks and validation tests. All other Q1-Q8 decisions, review cap, and phase boundaries stand.
+
+---
+
+## Phase 2 step 6 decision amendment
+
+Authority: Patron CONCLUSIONS.md commit 7a335ac3. These rulings amend the implementation decisions above; historical grill exchanges remain intact. Challenge disposition and plan freeze are separate and still pending.
+
+[from Patron] DEV-424 Phase 2 step 6 challenge rulings: all recommendations ACCEPTED as specified below; no ticket contradiction, no constitution departure, no owner checkbox. Patron edits CONCLUSIONS.md only; Quill applies these to plan/tasks/spec wording.
+
+1. Sentry F1 + Ledger F7 (atomic natural-key upsert): CollectionRecord uses the TMDb int id as primary key with ValueGeneratedNever, no surrogate key. Inside the existing EfMovieRepository save/transaction boundary, a collection unique/PK conflict from a concurrent insert is handled by rolling back/resetting the failed unit, re-reading the now-existing collection row, and retrying the whole atomic save (collection upsert plus movie membership) - never a partial catch-and-continue in the same change tracker. This retry is a required mechanism to implement and prove, not a recon-confirmed existing behaviour; do not claim it already works. The Testcontainers oracle must force the race (two movies enriched concurrently into the same new collection id) and assert exactly one collection row and both movies members, with no conflict surfaced.
+Basis: Q5 ruling (specs/DEV-424/CONCLUSIONS.md lines 81-85) already requires atomic upsert by TMDb id inside the existing repository save boundary including two movies sharing a collection; Keel ask records that existing retry applicability is not recon-confirmed.
+
+2. Sentry F2 (fallback clear): Q5 is RECONFIRMED - a successful non-TMDb fallback is a successful whole-metadata replacement without a collection, so it clears prior MovieRecord.CollectionId; failed or unavailable enrichment still preserves membership. Residual accepted and to be recorded: membership can stay cleared until a later successful TMDb enrichment restores it. Require an explicit fallback-clear test (prior member, successful fallback without collection, membership null; plus failure-preserves coverage). No new release-note scope is added.
+Basis: Q5 ruling and whole-metadata replacement basis (CONCLUSIONS.md lines 81-85); Sentry F2 as put by Keel.
+
+3. Ledger F1/F5 (Filter Panel semantics): Use the existing Genre fieldset/legend structure and label.lamu-chip with an sr-only checkbox input, controlled: checking a chip selects or replaces the single collection, unchecking the active chip clears it. Not radio inputs, because reselect-to-clear is required Q4 toggle semantics. Add no new loading skeleton and no aria-busy; reuse the existing facet loading/error patterns. An empty facet renders the section heading only, with no chips and no helper copy. The unknown-id fallback chip (Collection <id>) appears only in the active-filter toolbar, never as a Collection section option, and remains present in the toolbar during facet loading, error, and empty states so the applied selection is never silently dropped or broadened.
+Basis: Q4 ruling (CONCLUSIONS.md lines 65-69) single-select toggle, unknown id stays applied with fallback label, existing facet fetch/loading/error patterns, Palette owns visual layout in design.md.
+
+4. Sentry F3 + Ledger F2 (collectionId parsing and validation, per C1): BrowseMoviesRequest.CollectionId is string? (raw), with a CollectionIdKey const for collectionId in LibraryEndpoints, read through the existing single-value ReadNumber path plus repeated-key detection on the raw query. Malformed, repeated, nonpositive, and empty API values are collected as validation failures and return 422 via the existing ValidationException mapping; absent remains unconstrained, positive remains valid including unknown ids returning an empty page. MovieQueryValidator carries the positive nullable rule (null or greater than zero) for MovieQuery.CollectionId, and the MovieQueryString codecs reject nonpositive or otherwise invalid values rather than encoding them as valid state, so direct query construction and URL round-trip cannot bypass validation.
+Basis: C1 ruling (CONCLUSIONS.md lines 150-154), constitution Principle V, and Q3 nullable positive collectionId as ruled there.
+
+5. Ledger F6 (facet types and handler chain): CollectionFacet and CollectionDto are (int Id, string Name, int MovieCount). Ledger's long count assertion is rejected. Create no validator for the parameterless GetCollectionsQuery, and preserve the existing AddHandler registration chain unchanged.
+Basis: recon line 52 and Compass line 21 as reported by Keel (genre facet count is int) and Q3 genre-mirroring (CONCLUSIONS.md Q3 ruling); a parameterless query has no input for Principle V validation to reject, so no empty validator is invented.
+
+6. Ledger F3 (test sequencing): Backend tests are written alongside each backend task (Core, Infrastructure, API in the same phase) and the backend suite is all green before the contract-generation and web handoff checkpoint. Web work remains red-first TDD, unchanged. This sequencing waives no configured gate.
+Basis: Q6 ruling (CONCLUSIONS.md lines 99-100) task order, Testcontainers where translation matters, and gates at their stages with no threshold lowered.
+
+Recorded at specs/DEV-424/CONCLUSIONS.md (Phase 2 step 6 challenge section).
+
+
+## Sentry F7 final decision amendment
+
+Authority: CONCLUSIONS.md commit 10ffc9c1; recon-DEV-424-2. This supersedes pending inherited-fail-scope wording only.
+
+[from Patron] DEV-424 Sentry F7 ruling: ACCEPT - a present belongs_to_collection object with a nonpositive id or blank name rejects the whole TMDb details response as Failed InvalidResponse through the existing failure seam; missing or null belongs_to_collection remains a valid absent collection.
+
+- The malformed case must not be returned as Found with the collection silently dropped, and must not persist an invalid or invented collection row. A final failed or unavailable enrichment preserves prior metadata and prior membership.
+- A successful non-TMDb fallback is not this failure case: under Q5 it remains a successful whole-metadata replacement without a collection and still clears prior membership.
+- This is a deliberate new-field mapping rule for belongs_to_collection within the DEV-424 ticket. It does not claim that all existing optional fields fail wholesale; the general omission or unusable-value mapping reported in recon stays undisturbed for other fields.
+- Required tests: malformed present collection proves Failed InvalidResponse and not Found; missing/null proves valid absent collection; failed enrichment proves prior membership preserved; the already-ruled fallback-clear test remains.
+
+Basis: recon-DEV-424-2 lines 11-20 as reported by Keel (malformed JSON returns Failed InvalidResponse via MalformedFailure, optional omission/unusable values normally map null, and the title gate fails the whole details response, so the inherited fail scope is not singular for a new field); Q5 ruling at specs/DEV-424/CONCLUSIONS.md lines 81-85 (malformed collection object follows existing TMDb malformed-response handling and is never persisted; successful metadata without a collection clears membership including successful non-TMDb fallback); step 6 ruling 2 (fallback clear reconfirmed, failure preserves).
+Recorded at specs/DEV-424/CONCLUSIONS.md, Sentry F7 section. Patron edited CONCLUSIONS.md only.
+
+
+## Phase 2 step 6 final freeze receipt — 2026-10-28
+
+Keel verified both correction rounds against all three original axis reports, Patron step 6 rulings (7a335ac3) and final F7 ruling (10ffc9c1), recon-DEV-424-2, and Palette design corrections. All 17 findings plus the informational status item have explicit dispositions in PLAN_CHALLENGE.md. No retained Critical, High, or Medium blocker; no open decision or missing axis. Accepted fallback-clear residual and retained orphan rows remain deliberate Q2/Q5 behavior; no scope expansion or owner checkbox.
+
+Verdict: PLAN FROZEN for Gate 1 review. The hard two-round cap was honored. Gate 1 remains closed; no implementation, test/gate rerun, spec PR approval, or merge is authorized by this freeze. Phase B must recheck dependency landing and main/contract drift. PLAN_CHALLENGE.md records the frozen artifact SHA256 values and working-tree identity; this freeze includes saved uncommitted/untracked artifacts, not only HEAD.
