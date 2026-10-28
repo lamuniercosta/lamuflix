@@ -329,6 +329,37 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
     }
 
     [Fact]
+    public async Task FindAsync_DetailsSuccessFalseWithTitle_ReturnsFailedInvalidResponse()
+    {
+        // arrange
+        probe.StubSearch(SecondaryMetadataProviderProbe.Fixture("Search", "found.json"));
+        probe.StubDetails(603, SecondaryMetadataProviderProbe.Fixture("Details", "success-false.json"));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "The Matrix", TestContext.Current.CancellationToken);
+
+        // assert
+        Category(result).ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        probe.RequestPaths.ShouldBe(["/3/search/movie", "/3/movie/603"]);
+    }
+
+    [Fact]
+    public async Task FindAsync_FindSuccessFalseWithEmptyResults_ReturnsFailedInvalidResponse()
+    {
+        // arrange
+        probe.StubFind("tt0133093", SecondaryMetadataProviderProbe.Fixture("Find", "success-false-empty.json"));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindByImdbAsync(services, "tt0133093", TestContext.Current.CancellationToken);
+
+        // assert
+        Category(result).ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        probe.RequestPaths.ShouldBe(["/3/find/tt0133093"]);
+    }
+
+    [Fact]
     public async Task FindAsync_SearchNotFound_ReturnsFailedInvalidResponse()
     {
         // arrange
