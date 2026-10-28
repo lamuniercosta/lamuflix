@@ -47,6 +47,8 @@ Responsive placement: inherits the panel's single-column stack at narrow widths 
 
 ## Component tree
 
+Conceptual structure within `FilterPanel.tsx` only — names below are in-file groupings, not extracted files; no new files or abstraction are mandated or authorized.
+
 ```text
 FilterPanel
   DirectorFilterGroup (fieldset, new; props: directors, directorId,
@@ -54,8 +56,9 @@ FilterPanel
     SelectedDirectorChip (only when directorId set)
       name text (or "Director <id>" fallback) + count sr-only when known
       ClearDirectorButton ("Clear Director" — clears only directorId)
-    DirectorSearchInput (search textbox, aria-controls + aria-expanded,
-      aria-autocomplete=list)
+    DirectorSearchInput (input[type=search] with explicit role=combobox;
+      aria-expanded false when closed / true when open; aria-controls only
+      when listbox mounted; aria-autocomplete=list)
     DirectorSuggestionList (listbox, only while user-typed needle nonempty
       and not loading/error)
       DirectorSuggestionOption (option, up to 8; aria-selected; count badge
@@ -69,7 +72,7 @@ Same-name directors render as separate rows with identical names and distinct co
 
 ## Component states
 
-- Default (no selection, no text): label + empty search input. No listbox rendered, `aria-expanded=false`.
+- Default (no selection, no text): label + empty search input. No listbox rendered, `aria-expanded=false`, no `aria-controls`.
 - Typing with matches: case-insensitive substring filter over facet names, deterministic name/id order, at most 8 rows. Each row shows the name and a `lamu-chip-count`-style badge with `movieCount`. Arrow highlight moves `aria-activedescendant`; list stays open until Enter, Escape, or focus leaves.
 - Typing with no matches: `No directors found`. Predicate unchanged.
 - Selected: chip with resolved name (or `Director <id>` fallback when the id is absent from facet results, including during loading/error) plus Clear Director. Selection stays selected and clearable in every state; it is never silently dropped.
@@ -92,9 +95,9 @@ Copy source: `ASSUMPTIONS.md` — label `Director`, placeholder `Search director
 
 Pattern: dependency-free combobox that upgrades the cast text-plus-buttons precedent to proper `combobox` / `listbox` / `option` semantics per brief Q5 (cast group currently has no combobox roles; Director must not copy that gap):
 
-- Input uses `role=combobox`, `aria-controls=<listbox id>`, `aria-expanded`, `aria-autocomplete=list`, `aria-activedescendant` while open, with an associated visible `label`.
+- Input (`type=search`) uses explicit `role=combobox`, with an associated visible `label`. `aria-expanded=false` when closed / `true` when open; `aria-controls=<listbox id>` only when the listbox is mounted; `aria-activedescendant` only when an active descendant exists; `aria-autocomplete=list`.
 - List container uses `role=listbox`; rows use `role=option` with `aria-selected` on the active/selected row.
-- ArrowDown/ArrowUp move through at most 8 suggestions (wrap at ends); Enter commits the highlighted row as the sole selection; Escape closes the listbox without changing selection and returns focus to the input; focus is always visible.
+- ArrowDown/ArrowUp move through at most 8 suggestions; Enter commits the highlighted row as the sole selection; Escape closes the listbox without changing selection and returns focus to the input; focus is always visible.
 - Status/empty/error text lives in a polite live region; the selected chip and Retry button are reachable by Tab in logical order.
 - Count badges are `aria-hidden` visual with an `sr-only` ", N movies" equivalent so same-name rows differ by name.
 - Reduced motion: no animation on open/select beyond the panel default; nothing auto-plays or traps focus.
