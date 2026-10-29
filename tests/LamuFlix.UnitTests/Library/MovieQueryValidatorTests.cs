@@ -1,4 +1,4 @@
-using LamuFlix.Core.Library;
+﻿using LamuFlix.Core.Library;
 using LamuFlix.Infrastructure.Library;
 
 namespace LamuFlix.UnitTests.Library;
@@ -148,6 +148,28 @@ public sealed class MovieQueryValidatorTests
         var rating = new RatingRange(null, (decimal)bound);
 
         validator.Validate(Accepted() with { Rating = rating }).IsValid.ShouldBe(valid);
+    }
+
+    [Fact]
+    public void CollectionId_Absent_IsValid()
+    {
+        validator.Validate(Accepted() with { CollectionId = null }).IsValid.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(424)]
+    public void CollectionId_Positive_IsValid(int collectionId)
+    {
+        validator.Validate(Accepted() with { CollectionId = collectionId }).IsValid.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void CollectionId_NonPositive_IsInvalid(int collectionId)
+    {
+        validator.Validate(Accepted() with { CollectionId = collectionId }).IsValid.ShouldBeFalse();
     }
 
     private static MovieQuery Accepted() => new()

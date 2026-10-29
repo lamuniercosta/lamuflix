@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Library;
 
@@ -362,5 +362,107 @@ public sealed class MovieQueryStringSurvivorTests
         // assert
         parsed.ShouldBeFalse();
         bound.ShouldBeNull();
+    }
+
+    [Fact]
+    public void TryParse_ValidCollectionId_SetsCollectionId()
+    {
+        // arrange
+        var raw = $"collectionId=42&{Required}";
+
+        // act
+        var parsed = MovieQueryString.TryParse(raw, out var query);
+
+        // assert
+        parsed.ShouldBeTrue();
+        query.ShouldNotBeNull();
+        query.CollectionId.ShouldBe(42);
+    }
+
+    [Fact]
+    public void TryParse_AbsentCollectionId_LeavesCollectionIdNull()
+    {
+        // arrange
+        // act
+        var parsed = MovieQueryString.TryParse(Required, out var query);
+
+        // assert
+        parsed.ShouldBeTrue();
+        query.ShouldNotBeNull();
+        query.CollectionId.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("abc")]
+    [InlineData("0")]
+    [InlineData("-3")]
+    [InlineData("1.5")]
+    public void TryParse_InvalidCollectionId_ReturnsFalse(string raw)
+    {
+        // arrange
+        var queryString = $"collectionId={raw}&{Required}";
+
+        // act
+        var parsed = MovieQueryString.TryParse(queryString, out var query);
+
+        // assert
+        parsed.ShouldBeFalse();
+        query.ShouldBeNull();
+    }
+
+    [Fact]
+    public void TryParse_RepeatedCollectionId_ReturnsFalse()
+    {
+        // arrange
+        var raw = $"collectionId=1&collectionId=2&{Required}";
+
+        // act
+        var parsed = MovieQueryString.TryParse(raw, out var query);
+
+        // assert
+        parsed.ShouldBeFalse();
+        query.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Format_PositiveCollectionId_EmitsCollectionIdKey()
+    {
+        // arrange
+        var query = new MovieQuery { Sort = MovieSort.Title, Direction = SortDirection.Ascending, Page = new Page(1, 20), CollectionId = 42 };
+
+        // act
+        var formatted = MovieQueryString.Format(query);
+
+        // assert
+        formatted.Split('&').ShouldContain("collectionId=42");
+    }
+
+    [Fact]
+    public void Format_AbsentCollectionId_OmitsCollectionIdKey()
+    {
+        // arrange
+        var query = new MovieQuery { Sort = MovieSort.Title, Direction = SortDirection.Ascending, Page = new Page(1, 20) };
+
+        // act
+        var formatted = MovieQueryString.Format(query);
+
+        // assert
+        formatted.ShouldNotContain("collectionId");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void Format_NonPositiveCollectionId_Throws(int collectionId)
+    {
+        // arrange
+        var query = new MovieQuery { Sort = MovieSort.Title, Direction = SortDirection.Ascending, Page = new Page(1, 20), CollectionId = collectionId };
+
+        // act
+        var thrown = Should.Throw<ArgumentException>(() => MovieQueryString.Format(query));
+
+        // assert
+        thrown.Message.ShouldStartWith("'collectionId' must be positive to format a query.");
     }
 }

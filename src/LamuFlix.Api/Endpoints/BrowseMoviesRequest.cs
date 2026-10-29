@@ -27,6 +27,8 @@ internal sealed record BrowseMoviesRequest
 
     public string? InWatchlist { get; set; }
 
+    public string? CollectionId { get; set; }
+
     public string? Sort { get; set; }
 
     public string? Direction { get; set; }

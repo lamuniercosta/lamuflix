@@ -53,6 +53,7 @@ internal static class HandlerRegistration
         services.AddHandler<GetForYouRecommendationsQueryHandler, GetForYouRecommendationsQuery, ImmutableList<RecommendedMovie>>();
         services.AddHandler<DeleteMovieCommandHandler, DeleteMovieCommand, Unit>();
         services.AddHandler<GetGenresQueryHandler, GetGenresQuery, IReadOnlyList<GenreFacet>>();
+        services.AddHandler<GetCollectionsQueryHandler, GetCollectionsQuery, IReadOnlyList<CollectionFacet>>();
         services.AddHandler<GetPeopleQueryHandler, GetPeopleQuery, IReadOnlyList<PersonFacet>>();
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();

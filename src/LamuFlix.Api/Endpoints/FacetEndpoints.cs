@@ -25,6 +25,11 @@ internal static class FacetEndpoints
             .WithSummary("List the stored genres.")
             .Produces<GenreDto[]>();
 
+        api.MapGet("/collections", GetCollectionsAsync)
+            .WithName("GetCollections")
+            .WithSummary("List the stored collections with current members.")
+            .Produces<CollectionDto[]>();
+
         api.MapGet("/people", GetPeopleAsync)
             .WithName("GetPeople")
             .WithSummary("List the stored actor people.")
@@ -40,6 +45,14 @@ internal static class FacetEndpoints
     {
         var genres = await handler.HandleAsync(new GetGenresQuery(), cancellationToken);
         return TypedResults.Ok(genres.Select(genre => new GenreDto(genre.Id, genre.Name, genre.MovieCount)).ToArray());
+    }
+
+    private static async Task<Ok<CollectionDto[]>> GetCollectionsAsync(
+        IQueryHandler<GetCollectionsQuery, IReadOnlyList<CollectionFacet>> handler,
+        CancellationToken cancellationToken)
+    {
+        var collections = await handler.HandleAsync(new GetCollectionsQuery(), cancellationToken);
+        return TypedResults.Ok(collections.Select(collection => new CollectionDto(collection.Id, collection.Name, collection.MovieCount)).ToArray());
     }
 
     private static async Task<Ok<PersonDto[]>> GetPeopleAsync(

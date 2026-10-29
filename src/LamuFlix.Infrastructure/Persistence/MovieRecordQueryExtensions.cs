@@ -68,6 +68,9 @@ public static class MovieRecordQueryExtensions
     public static IQueryable<MovieRecord> WhereInWatchlist(this IQueryable<MovieRecord> query, bool? inWatchlist) =>
         inWatchlist is null ? query : query.Where(movie => movie.IsInWatchlist == inWatchlist.Value);
 
+    public static IQueryable<MovieRecord> WhereCollection(this IQueryable<MovieRecord> query, int? collectionId) =>
+        collectionId is null ? query : query.Where(movie => movie.CollectionId == collectionId.Value);
+
     public static IOrderedQueryable<MovieRecord> OrderByMovieSort(
         this IQueryable<MovieRecord> query,
         MovieSort sort,

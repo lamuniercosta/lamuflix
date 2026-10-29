@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Library;
@@ -19,6 +19,7 @@ public static class MovieQueryFixture
             from actors in IdList()
             from statuses in StatusGen()
             from watchlist in Gen.Elements<bool?>(null, true, false)
+            from collectionId in CollectionIdGen()
             from sort in Gen.Elements(MovieSort.List.ToArray())
             from direction in Gen.Elements(SortDirection.List.ToArray())
             from number in Gen.Choose(1, 8)
@@ -30,6 +31,7 @@ public static class MovieQueryFixture
                 ActorIds = actors,
                 Statuses = statuses,
                 InWatchlist = watchlist,
+                CollectionId = collectionId,
                 Sort = sort,
                 Direction = direction,
                 Page = new Page(number, size),
@@ -59,6 +61,7 @@ public static class MovieQueryFixture
         from rating in RatingGen()
         from statuses in StatusGen()
         from watchlist in Gen.Elements<bool?>(null, true, false)
+        from collectionId in CollectionIdGen()
         from sort in Gen.Elements(MovieSort.List.ToArray())
         from direction in Gen.Elements(SortDirection.List.ToArray())
         from number in Gen.Choose(1, 8)
@@ -73,10 +76,14 @@ public static class MovieQueryFixture
             Rating = rating,
             Statuses = statuses,
             InWatchlist = watchlist,
+            CollectionId = collectionId,
             Sort = sort,
             Direction = direction,
             Page = new Page(number, size),
         };
+
+    private static Gen<int?> CollectionIdGen() =>
+        Gen.Elements<int?>(null, 1, 7, 42, 424);
 
     private static Gen<string?> TextGen() =>
         Gen.Elements(null, string.Empty, "matrix", "a&b", "x=y", "q \"z", "a b", "ü&=");
