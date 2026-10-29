@@ -30,6 +30,7 @@ internal static class LibraryEndpoints
     private const string MaxRatingKey = "maxRating";
     private const string StatusesKey = "statuses";
     private const string InWatchlistKey = "inWatchlist";
+    private const string CollectionIdKey = "collectionId";
     private const string SortKey = "sort";
     private const string DirectionKey = "direction";
     private const string PageKey = "page";
@@ -144,6 +145,7 @@ internal static class LibraryEndpoints
         ReadRating(rawQuery, MaxRatingKey, request.MaxRating, state);
         ReadBoolean(rawQuery, RuntimeIncludeUnknownKey, request.RuntimeIncludeUnknown, state);
         ReadBoolean(rawQuery, InWatchlistKey, request.InWatchlist, state);
+        ReadNumber(rawQuery, CollectionIdKey, request.CollectionId, EmptyMeansInvalid, state);
     }
 
     private static void ReadOrderingAndPagination(
@@ -406,6 +408,7 @@ internal static class LibraryEndpoints
             Rating = Rating,
             Statuses = [.. Statuses],
             InWatchlist = LookupBoolean(InWatchlistKey),
+            CollectionId = LookupNumber(CollectionIdKey),
             Sort = Sort,
             Direction = Direction,
             Page = new Page(Ints.GetValueOrDefault(PageKey), Ints.GetValueOrDefault(PageSizeKey)),

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -191,6 +191,62 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         dispatched.Year.ShouldBeNull();
         dispatched.Rating.ShouldBeNull();
         dispatched.InWatchlist.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task BrowseMovies_CollectionId_DispatchesTheFilter()
+    {
+        // arrange
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{BrowseRoute}?collectionId=42&{RequiredQuery}", cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        catalog.Queries.ShouldHaveSingleItem().CollectionId.ShouldBe(42);
+    }
+
+    [Fact]
+    public async Task BrowseMovies_AbsentCollectionId_LeavesCollectionIdNull()
+    {
+        // arrange
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{BrowseRoute}?{RequiredQuery}", cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        catalog.Queries.ShouldHaveSingleItem().CollectionId.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("collectionId=", "collectionId")]
+    [InlineData("collectionId=abc", "collectionId")]
+    [InlineData("collectionId=0", "Query.CollectionId")]
+    [InlineData("collectionId=-3", "Query.CollectionId")]
+    [InlineData("collectionId=1&collectionId=2", "collectionId")]
+    public async Task BrowseMovies_InvalidCollectionId_FailsFieldKeyedWithoutReachingTheCatalog(
+        string collection,
+        string field)
+    {
+        // arrange
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{BrowseRoute}?{collection}&{RequiredQuery}", cancellationToken);
+        var problem = await ReadProblemAsync(response, cancellationToken);
+
+        // assert
+        ShouldFailField(problem, field);
+        catalog.Queries.ShouldBeEmpty();
     }
 
     [Theory]
@@ -688,6 +744,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "RemoveFromWatchlist",
                 "PlayMovie",
                 "GetGenres",
+                "GetCollections",
                 "GetPeople",
                 "MarkWatched",
                 "UnmarkWatched",
@@ -877,6 +934,12 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         {
             ct.ThrowIfCancellationRequested();
             return Task.FromResult<IReadOnlyList<GenreFacet>>([]);
+        }
+
+        public Task<IReadOnlyList<CollectionFacet>> GetCollectionsAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult<IReadOnlyList<CollectionFacet>>([]);
         }
 
         public Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct)

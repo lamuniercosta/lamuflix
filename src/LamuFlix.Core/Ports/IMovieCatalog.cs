@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -14,10 +14,13 @@ public interface IMovieCatalog
 
     Task<IReadOnlyList<GenreFacet>> GetGenresAsync(CancellationToken ct);
 
+    Task<IReadOnlyList<CollectionFacet>> GetCollectionsAsync(CancellationToken ct);
+
     Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct);
 
     Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct);
 }
 
 public sealed record GenreFacet(int Id, string Name, int MovieCount);
+public sealed record CollectionFacet(int Id, string Name, int MovieCount);
 public sealed record PersonFacet(int Id, string Name);

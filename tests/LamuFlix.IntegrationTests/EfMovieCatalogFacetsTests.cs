@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
@@ -298,6 +299,13 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
         counts.MoviesWithGenre[comedy.Name].ShouldBe(1);
     }
 
+    private static MovieRecord Member(string title, string pathSuffix, int collectionId)
+    {
+        var record = MovieCatalogSeed.Create(title, pathSuffix);
+        record.CollectionId = collectionId;
+        return record;
+    }
+
     [Fact]
     public async Task GetPeopleAsync_StoredActors_ReturnsActorRowsSortedNameThenId()
     {
@@ -333,6 +341,74 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
 
         // assert
         facets.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetCollectionsAsync_MembersAndOrphans_ReturnsOnlyMemberCollectionsOrderedByNameThenId()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var alien = new CollectionRecord { Id = 10, Name = "Alien" };
+        var alienAgain = new CollectionRecord { Id = 11, Name = "Alien" };
+        var orphan = new CollectionRecord { Id = 20, Name = "Drama" };
+        var zoe = new CollectionRecord { Id = 30, Name = "Zoe" };
+        context.Collections.AddRange(alien, alienAgain, orphan, zoe);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        context.Movies.AddRange(
+            Member("Alien one", "collections-alien-1", alien.Id),
+            Member("Alien two", "collections-alien-2", alien.Id),
+            Member("Alien again", "collections-alien-again", alienAgain.Id),
+            Member("Zoe one", "collections-zoe-1", zoe.Id),
+            MovieCatalogSeed.Create("No collection", "collections-none"));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetCollectionsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.Select(facet => facet.Name).ShouldBe(["Alien", "Alien", "Zoe"]);
+        facets.Select(facet => facet.Id).ShouldBe([alien.Id, alienAgain.Id, zoe.Id]);
+        facets.Select(facet => facet.MovieCount).ShouldBe([2, 1, 1]);
+        facets.ShouldNotContain(facet => facet.Id == orphan.Id);
+    }
+
+    [Fact]
+    public async Task GetCollectionsAsync_EmptyTable_ReturnsEmpty()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetCollectionsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetCollectionsAsync_CollectionLeftWithoutMembers_IsOmittedAfterReassignment()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var first = new CollectionRecord { Id = 10, Name = "First" };
+        var second = new CollectionRecord { Id = 20, Name = "Second" };
+        context.Collections.AddRange(first, second);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var moved = Member("Moved", "collections-moved", first.Id);
+        var stays = Member("Stays", "collections-stays", second.Id);
+        context.Movies.AddRange(moved, stays);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        moved.CollectionId = second.Id;
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetCollectionsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.ShouldHaveSingleItem().ShouldBe(new CollectionFacet(second.Id, "Second", 2));
     }
 
     private sealed class CommandCaptureInterceptor : DbCommandInterceptor

@@ -15,7 +15,11 @@ public sealed class MovieQueryValidator : AbstractValidator<MovieQuery>
         RuleFor(query => query.Runtime).Must(IsValidRuntime);
         RuleFor(query => query.Year).Must(IsValidYear);
         RuleFor(query => query.Rating).Must(IsValidRating);
+        RuleFor(query => query.CollectionId).Must(IsValidCollectionId);
     }
+
+    private static bool IsValidCollectionId(int? collectionId) =>
+        collectionId is null or > 0;
 
     private static bool IsValidRuntime(RuntimeRange? runtime)
     {

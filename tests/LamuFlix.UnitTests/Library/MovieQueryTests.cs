@@ -1,4 +1,4 @@
-using LamuFlix.Core.Domain;
+﻿using LamuFlix.Core.Domain;
 using LamuFlix.Core.Library;
 
 namespace LamuFlix.UnitTests.Library;
@@ -74,6 +74,7 @@ public sealed class MovieQueryTests
         { "ActorIds", BaseQuery(), BaseQuery() with { ActorIds = [7, 8] } },
         { "Statuses", BaseQuery(), BaseQuery() with { Statuses = [EnrichmentStatus.Pending, EnrichmentStatus.Failed] } },
         { "InWatchlist", BaseQuery(), BaseQuery() with { InWatchlist = false } },
+        { "CollectionId", BaseQuery(), BaseQuery() with { CollectionId = 42 } },
         { "Sort", BaseQuery(), BaseQuery() with { Sort = MovieSort.Year } },
         { "Direction", BaseQuery(), BaseQuery() with { Direction = SortDirection.Descending } },
         { "Page", BaseQuery(), BaseQuery() with { Page = new Page(2, 20) } },
@@ -110,6 +111,7 @@ public sealed class MovieQueryTests
             Rating = new RatingRange(7m, 9m),
             Statuses = [EnrichmentStatus.Pending, EnrichmentStatus.Enriched],
             InWatchlist = true,
+            CollectionId = 7,
             Sort = MovieSort.Title,
             Direction = SortDirection.Ascending,
             Page = new Page(1, 20),

@@ -22,6 +22,7 @@ public static class MovieQueryString
     private const string MaxRatingKey = "maxRating";
     private const string StatusesKey = "statuses";
     private const string InWatchlistKey = "inWatchlist";
+    private const string CollectionIdKey = "collectionId";
     private const string SortKey = "sort";
     private const string DirectionKey = "direction";
     private const string PageKey = "page";
@@ -39,6 +40,7 @@ public static class MovieQueryString
         AppendRating(pairs, query.Rating);
         AppendStatuses(pairs, query.Statuses);
         AppendOptionalBool(pairs, query.InWatchlist);
+        AppendCollectionId(pairs, query.CollectionId);
         pairs.Add(Pair(SortKey, RequiredName(query.Sort, SortKey)));
         pairs.Add(Pair(DirectionKey, RequiredName(query.Direction, DirectionKey)));
         pairs.Add(Pair(PageKey, query.Page.Number.ToString(CultureInfo.InvariantCulture)));
@@ -104,6 +106,7 @@ public static class MovieQueryString
         MaxRatingKey => TryApplyMaxRating(raw, state),
         StatusesKey => TryApplyStatus(raw, state),
         InWatchlistKey => TryApplyInWatchlist(raw, state),
+        CollectionIdKey => TryApplyCollectionId(raw, state),
         SortKey => TryApplySort(raw, state),
         DirectionKey => TryApplyDirection(raw, state),
         PageKey => TryApplyPage(raw, state),
@@ -162,6 +165,20 @@ public static class MovieQueryString
 
     private static bool TryApplyInWatchlist(string raw, ParseState state) =>
         TryApplyRequiredBool(raw, state, InWatchlistKey, value => state.InWatchlist = value);
+
+    private static bool TryApplyCollectionId(string raw, ParseState state)
+    {
+        if (!state.Seen.Add(CollectionIdKey)
+            || raw.Length == 0
+            || !TryParseInt(raw, out var collectionId)
+            || collectionId <= 0)
+        {
+            return false;
+        }
+
+        state.CollectionId = collectionId;
+        return true;
+    }
 
     private static bool TryApplySort(string raw, ParseState state)
     {
@@ -370,6 +387,7 @@ public static class MovieQueryString
             Rating = rating,
             Statuses = [.. state.Statuses],
             InWatchlist = state.InWatchlist,
+            CollectionId = state.CollectionId,
             Sort = state.Sort,
             Direction = state.Direction,
             Page = new Page(state.Page.GetValueOrDefault(), state.PageSize.GetValueOrDefault()),
@@ -478,6 +496,21 @@ public static class MovieQueryString
         }
     }
 
+    private static void AppendCollectionId(List<string> pairs, int? collectionId)
+    {
+        if (collectionId is null)
+        {
+            return;
+        }
+
+        if (collectionId <= 0)
+        {
+            throw new ArgumentException("'collectionId' must be positive to format a query.", nameof(collectionId));
+        }
+
+        pairs.Add(Pair(CollectionIdKey, collectionId.Value.ToString(CultureInfo.InvariantCulture)));
+    }
+
     private static string Bound(int? value) =>
         value?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
 
@@ -518,6 +551,8 @@ public static class MovieQueryString
         public List<EnrichmentStatus> Statuses { get; } = [];
 
         public bool? InWatchlist { get; set; }
+
+        public int? CollectionId { get; set; }
 
         public MovieSort? Sort { get; set; }
 

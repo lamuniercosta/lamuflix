@@ -22,7 +22,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .WhereYear(query.Year)
             .WhereRating(query.Rating)
             .WhereStatuses(query.Statuses)
-            .WhereInWatchlist(query.InWatchlist);
+            .WhereInWatchlist(query.InWatchlist)
+            .WhereCollection(query.CollectionId);
         var totalCount = await filtered.CountAsync(ct);
         // ReSharper disable NullableWarningSuppressionIsUsed
         var items = await filtered.OrderByMovieSort(query.Sort!, query.Direction!)
@@ -109,6 +110,17 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .OrderBy(genre => genre.Name)
             .ThenBy(genre => genre.Id)
             .Select(genre => new GenreFacet(genre.Id, genre.Name, genre.Movies.Count)).ToArrayAsync(ct);
+        return facets;
+    }
+
+    public async Task<IReadOnlyList<CollectionFacet>> GetCollectionsAsync(CancellationToken ct)
+    {
+        var facets = await dbContext.Collections.AsNoTracking()
+            .Where(collection => collection.Movies.Any())
+            .OrderBy(collection => collection.Name)
+            .ThenBy(collection => collection.Id)
+            .Select(collection => new CollectionFacet(collection.Id, collection.Name, collection.Movies.Count))
+            .ToArrayAsync(ct);
         return facets;
     }
 

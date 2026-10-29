@@ -52,6 +52,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "DELETE /api/movies/{id}/watchlist",
         "POST /api/movies/{id}/play",
         "GET /api/genres",
+        "GET /api/collections",
         "GET /api/people",
         "POST /api/movies/{id}/watched",
         "DELETE /api/movies/{id}/watched",
@@ -66,6 +67,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "RecommendedMovieDto",
         "RecommendedMovieReasonDto",
         "GenreDto",
+        "CollectionDto",
         "PersonDto",
     ];
 
@@ -75,7 +77,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     public static TheoryData<string> DocumentationRoutes => new() { DocumentRoute, ScalarRoute };
 
     [Fact]
-    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheSeventeenBusinessOperations()
+    public async Task Document_DevelopmentHost_ServesOpenApi31WithTheExpectedBusinessOperations()
     {
         // arrange
         await using var development = CreateDevelopmentHost();
@@ -202,6 +204,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
                 "MaxRating",
                 "Statuses",
                 "InWatchlist",
+                "CollectionId",
                 "sort",
                 "direction",
                 "page",

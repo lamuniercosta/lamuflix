@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Library;
@@ -419,6 +419,98 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture) : IAsyncL
     }
 
     [Fact]
+    public async Task WhereCollection_PresentAndAbsentIds_ReturnsMembersAndLeavesUnfiltered()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var collection = new CollectionRecord { Id = 10, Name = "Alien" };
+        context.Collections.Add(collection);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        context.Movies.AddRange(
+            CollectionMember("Member one", "collection-member-1", collection.Id),
+            CollectionMember("Member two", "collection-member-2", collection.Id),
+            MovieCatalogSeed.Create("Unattached", "collection-unattached"));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // act
+        var matching = await context.Movies.WhereCollection(collection.Id)
+            .Select(movie => movie.Title).ToArrayAsync(TestContext.Current.CancellationToken);
+        var unknown = await context.Movies.WhereCollection(999)
+            .CountAsync(TestContext.Current.CancellationToken);
+        var absent = await context.Movies.WhereCollection(null)
+            .CountAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        matching.Order().ShouldBe(new[] { "Member one", "Member two" });
+        unknown.ShouldBe(0);
+        absent.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task BrowseAsync_CollectionWithOtherFilters_AppliesAndAcrossFilters()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var genre = new GenreRecord { Name = "Drama" };
+        var collection = new CollectionRecord { Id = 10, Name = "Alien" };
+        var other = new CollectionRecord { Id = 20, Name = "Matrix" };
+        context.Collections.AddRange(collection, other);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var match = CollectionMember("Matching Film", "collection-combine-match", collection.Id);
+        match.Genres.Add(genre);
+        var genreDecoy = CollectionMember("Matching Film", "collection-combine-genre", other.Id);
+        genreDecoy.Genres.Add(genre);
+        var collectionDecoy = CollectionMember("Matching Film", "collection-combine-collection", collection.Id);
+        context.Movies.AddRange(match, genreDecoy, collectionDecoy);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+        var request = new MovieQuery
+        {
+            Text = "Matching",
+            GenreIds = [genre.Id],
+            CollectionId = collection.Id,
+            Sort = MovieSort.Title,
+            Direction = SortDirection.Ascending,
+            Page = new Page(1, 10)
+        };
+
+        // act
+        var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
+
+        // assert
+        var item = result.Items.ShouldHaveSingleItem();
+        item.Title.ShouldBe("Matching Film");
+        result.TotalCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task BrowseAsync_UnknownCollectionId_ReturnsEmptyPage()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var collection = new CollectionRecord { Id = 10, Name = "Alien" };
+        context.Collections.Add(collection);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        context.Movies.Add(CollectionMember("Member", "collection-unknown-member", collection.Id));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+        var request = new MovieQuery
+        {
+            CollectionId = 999,
+            Sort = MovieSort.Title,
+            Direction = SortDirection.Ascending,
+            Page = new Page(1, 10)
+        };
+
+        // act
+        var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
+
+        // assert
+        result.Items.ShouldBeEmpty();
+        result.TotalCount.ShouldBe(0);
+    }
+
+    [Fact]
     public async Task BrowseAsync_MultipleFilters_AppliesAndAcrossFilters()
     {
         // arrange
@@ -499,6 +591,13 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture) : IAsyncL
         item.Title.ShouldBe("Matching Film");
         item.EnrichmentStatus.ShouldBe(EnrichmentStatus.Pending);
         result.TotalCount.ShouldBe(1);
+    }
+
+    private static MovieRecord CollectionMember(string title, string pathSuffix, int collectionId)
+    {
+        var record = MovieCatalogSeed.Create(title, pathSuffix);
+        record.CollectionId = collectionId;
+        return record;
     }
 
     [Fact]

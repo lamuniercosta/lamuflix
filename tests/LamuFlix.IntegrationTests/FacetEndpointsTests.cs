@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http.Json;
@@ -18,6 +18,7 @@ namespace LamuFlix.IntegrationTests;
 public sealed class FacetEndpointsTests(ApiHostFactory factory) : IClassFixture<ApiHostFactory>
 {
     private const string GenresRoute = "/api/genres";
+    private const string CollectionsRoute = "/api/collections";
     private const string PeopleRoute = "/api/people";
     private const string ProblemDetailsJson = "application/problem+json";
 
@@ -70,6 +71,56 @@ public sealed class FacetEndpointsTests(ApiHostFactory factory) : IClassFixture<
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
         body.ValueKind.ShouldBe(JsonValueKind.Array);
         body.GetArrayLength().ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetCollections_WithStoredCollections_ReturnsScalarArrayOfIdNameAndCount()
+    {
+        // arrange
+        IReadOnlyList<CollectionFacet> collections = [new CollectionFacet(10, "Alien", 4), new CollectionFacet(20, "Matrix", 1)];
+        catalog.GetCollectionsAsync(Arg.Any<CancellationToken>()).Returns(collections);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(CollectionsRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
+        var items = body.EnumerateArray().ToList();
+        items.Count.ShouldBe(2);
+        items[0].GetProperty("id").GetInt32().ShouldBe(10);
+        items[0].GetProperty("name").GetString().ShouldBe("Alien");
+        items[0].GetProperty("movieCount").GetInt32().ShouldBe(4);
+        items[1].GetProperty("id").GetInt32().ShouldBe(20);
+        items[1].GetProperty("name").GetString().ShouldBe("Matrix");
+        items[1].GetProperty("movieCount").GetInt32().ShouldBe(1);
+        PropertyNames(items[0]).ShouldBe(["id", "name", "movieCount"], ignoreOrder: true);
+        await catalog.Received(1).GetCollectionsAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetCollections_WithNoStoredCollections_ReturnsEmptyArray()
+    {
+        // arrange
+        catalog.GetCollectionsAsync(Arg.Any<CancellationToken>()).Returns([]);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(CollectionsRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
+        body.ValueKind.ShouldBe(JsonValueKind.Array);
+        body.GetArrayLength().ShouldBe(0);
+        await catalog.Received(1).GetCollectionsAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
