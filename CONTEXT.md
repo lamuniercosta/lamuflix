@@ -18,6 +18,10 @@ _Avoid_: Filme, Film
 **Library**
 A set of movies on disk under LibraryOptions.RootPath.
 
+**Candidate Movie Folder**
+A directory at or below the Library root, including the root itself, containing at least one supported video file directly in it. It is imported exactly once as one Movie, and traversal continues into its subdirectories. A directory with no supported video file directly in it is only traversed, never imported. Directories reached through a link below the root are never candidates.
+_Avoid_: scan folder, movie directory, container folder (for a candidate)
+
 **Import**
 _Avoid_: Criar, Create, Scan (for single folder case)
 
