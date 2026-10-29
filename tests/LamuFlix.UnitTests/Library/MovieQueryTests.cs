@@ -78,7 +78,18 @@ public sealed class MovieQueryTests
         { "Sort", BaseQuery(), BaseQuery() with { Sort = MovieSort.Year } },
         { "Direction", BaseQuery(), BaseQuery() with { Direction = SortDirection.Descending } },
         { "Page", BaseQuery(), BaseQuery() with { Page = new Page(2, 20) } },
+        { "DirectorId", BaseQuery(), BaseQuery() with { DirectorId = 42 } },
     };
+
+    [Fact]
+    public void Equals_NullAndDefaultDirectorId_AreEqual()
+    {
+        var left = new MovieQuery();
+        var right = new MovieQuery { DirectorId = null };
+
+        left.Equals(right).ShouldBeTrue();
+        left.GetHashCode().ShouldBe(right.GetHashCode());
+    }
 
     [Fact]
     public void Equals_EquivalentRatingRanges_AreEqualAndShareHash()
@@ -112,6 +123,7 @@ public sealed class MovieQueryTests
             Statuses = [EnrichmentStatus.Pending, EnrichmentStatus.Enriched],
             InWatchlist = true,
             CollectionId = 7,
+            DirectorId = 7,
             Sort = MovieSort.Title,
             Direction = SortDirection.Ascending,
             Page = new Page(1, 20),

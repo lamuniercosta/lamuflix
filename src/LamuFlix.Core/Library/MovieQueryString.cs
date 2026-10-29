@@ -13,6 +13,7 @@ public static class MovieQueryString
     private const string TextKey = "text";
     private const string GenreIdsKey = "genreIds";
     private const string ActorIdsKey = "actorIds";
+    private const string DirectorIdKey = "directorId";
     private const string RuntimeMinKey = "runtimeMin";
     private const string RuntimeMaxKey = "runtimeMax";
     private const string RuntimeIncludeUnknownKey = "runtimeIncludeUnknown";
@@ -35,6 +36,7 @@ public static class MovieQueryString
         AppendText(pairs, query.Text);
         AppendInts(pairs, GenreIdsKey, query.GenreIds);
         AppendInts(pairs, ActorIdsKey, query.ActorIds);
+        AppendOptionalInt(pairs, DirectorIdKey, query.DirectorId);
         AppendRuntime(pairs, query.Runtime);
         AppendYear(pairs, query.Year);
         AppendRating(pairs, query.Rating);
@@ -97,6 +99,7 @@ public static class MovieQueryString
         TextKey => TryApplyText(raw, state),
         GenreIdsKey => TryApplyGenreId(raw, state),
         ActorIdsKey => TryApplyActorId(raw, state),
+        DirectorIdKey => TryApplyOptionalInt(raw, state, DirectorIdKey, value => state.DirectorId = value),
         RuntimeMinKey => TryApplyRuntimeMin(raw, state),
         RuntimeMaxKey => TryApplyRuntimeMax(raw, state),
         RuntimeIncludeUnknownKey => TryApplyRuntimeIncludeUnknown(raw, state),
@@ -382,6 +385,7 @@ public static class MovieQueryString
             Text = state.Text,
             GenreIds = [.. state.GenreIds],
             ActorIds = [.. state.ActorIds],
+            DirectorId = state.DirectorId,
             Runtime = runtime,
             Year = year,
             Rating = rating,
@@ -509,6 +513,14 @@ public static class MovieQueryString
         }
 
         pairs.Add(Pair(CollectionIdKey, collectionId.Value.ToString(CultureInfo.InvariantCulture)));
+    }
+
+    private static void AppendOptionalInt(List<string> pairs, string key, int? value)
+    {
+        if (value is not null)
+        {
+            pairs.Add(Pair(key, value.Value.ToString(CultureInfo.InvariantCulture)));
+        }
     }
 
     private static string Bound(int? value) =>

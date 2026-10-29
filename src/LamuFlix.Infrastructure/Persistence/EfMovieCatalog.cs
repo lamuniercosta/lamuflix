@@ -18,6 +18,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .WhereText(query.Text)
             .WhereGenres(query.GenreIds)
             .WhereActors(query.ActorIds)
+            .WhereDirector(query.DirectorId)
             .WhereRuntime(query.Runtime)
             .WhereYear(query.Year)
             .WhereRating(query.Rating)
@@ -163,6 +164,20 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
             .OrderBy(actor => actor.Name)
             .ThenBy(actor => actor.Id)
             .Select(actor => new PersonFacet(actor.Id, actor.Name))
+            .ToArrayAsync(ct);
+        return facets;
+    }
+
+    public async Task<IReadOnlyList<DirectorFacet>> GetDirectorsAsync(CancellationToken ct)
+    {
+        var facets = await dbContext.Directors.AsNoTracking()
+            .Where(director => director.Movies.Any())
+            .OrderBy(director => director.Name)
+            .ThenBy(director => director.Id)
+            .Select(director => new DirectorFacet(
+                director.Id,
+                director.Name,
+                director.Movies.Select(movie => movie.Id).Distinct().Count()))
             .ToArrayAsync(ct);
         return facets;
     }

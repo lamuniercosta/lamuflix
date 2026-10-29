@@ -17,6 +17,7 @@ public static class MovieQueryFixture
             from text in TextGen()
             from genres in IdList()
             from actors in IdList()
+            from directorId in DirectorIdGen()
             from statuses in StatusGen()
             from watchlist in Gen.Elements<bool?>(null, true, false)
             from collectionId in CollectionIdGen()
@@ -29,6 +30,7 @@ public static class MovieQueryFixture
                 Text = text,
                 GenreIds = genres,
                 ActorIds = actors,
+                DirectorId = directorId,
                 Statuses = statuses,
                 InWatchlist = watchlist,
                 CollectionId = collectionId,
@@ -36,6 +38,11 @@ public static class MovieQueryFixture
                 Direction = direction,
                 Page = new Page(number, size),
             });
+
+    public static Arbitrary<MovieQuery> DirectorQueries() =>
+        Arb.From(
+            from directorId in DirectorIdGen()
+            select FixedBase() with { DirectorId = directorId });
 
     public static Arbitrary<MovieQuery> RangeQueries() =>
         Arb.From(
@@ -56,6 +63,7 @@ public static class MovieQueryFixture
         from text in TextGen()
         from genres in IdList()
         from actors in IdList()
+        from directorId in DirectorIdGen()
         from runtime in RuntimeGen()
         from year in YearGen()
         from rating in RatingGen()
@@ -71,6 +79,7 @@ public static class MovieQueryFixture
             Text = text,
             GenreIds = genres,
             ActorIds = actors,
+            DirectorId = directorId,
             Runtime = runtime,
             Year = year,
             Rating = rating,
@@ -87,6 +96,9 @@ public static class MovieQueryFixture
 
     private static Gen<string?> TextGen() =>
         Gen.Elements(null, string.Empty, "matrix", "a&b", "x=y", "q \"z", "a b", "ü&=");
+
+    private static Gen<int?> DirectorIdGen() =>
+        Gen.Choose(int.MinValue, int.MaxValue).Select(value => (int?)value);
 
     private static Gen<ImmutableArray<int>> IdList() =>
         Gen.Choose(0, 4).SelectMany(count =>

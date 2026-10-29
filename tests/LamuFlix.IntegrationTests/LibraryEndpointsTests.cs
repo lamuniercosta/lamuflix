@@ -953,5 +953,11 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             ct.ThrowIfCancellationRequested();
             return Task.FromResult<IReadOnlyList<PersonFacet>>([]);
         }
+
+        public Task<IReadOnlyList<DirectorFacet>> GetDirectorsAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult<IReadOnlyList<DirectorFacet>>([]);
+        }
     }
 }

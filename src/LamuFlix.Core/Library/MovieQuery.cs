@@ -41,6 +41,8 @@ public sealed record MovieQuery
 
     public int? CollectionId { get; init; }
 
+    public int? DirectorId { get; init; }
+
     public MovieSort? Sort { get; init; }
 
     public SortDirection? Direction { get; init; }
@@ -72,6 +74,7 @@ public sealed record MovieQuery
         AddSequence(ref hash, Statuses);
         hash.Add(InWatchlist);
         hash.Add(CollectionId);
+        hash.Add(DirectorId);
         hash.Add(Sort);
         hash.Add(Direction);
         hash.Add(Page);
@@ -85,7 +88,8 @@ public sealed record MovieQuery
         Text == other.Text
         && Runtime == other.Runtime
         && Year == other.Year
-        && Rating == other.Rating;
+        && Rating == other.Rating
+        && DirectorId == other.DirectorId;
 
     private bool HasSameCollectionValues(MovieQuery other) =>
         Enumerable.SequenceEqual(GenreIds, other.GenreIds)

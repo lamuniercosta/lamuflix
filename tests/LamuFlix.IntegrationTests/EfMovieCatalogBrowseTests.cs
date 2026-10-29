@@ -642,4 +642,103 @@ public sealed class EfMovieCatalogBrowseTests(PostgresFixture fixture) : IAsyncL
         emptyItem.ImdbRating.ShouldBeNull();
         emptyItem.EnrichmentStatus.ShouldBe(EnrichmentStatus.Pending);
     }
+
+    [Fact]
+    public async Task WhereDirector_Null_ReturnsQueryUnchanged()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var director = new DirectorRecord { Name = "Ann" };
+        var directed = MovieCatalogSeed.Create("Directed", "where-director-null-1");
+        directed.Directors.Add(director);
+        context.Movies.AddRange(directed, MovieCatalogSeed.Create("Undirected", "where-director-null-2"));
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // act
+        var count = await context.Movies.WhereDirector(null).CountAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task WhereDirector_MatchingDirector_ReturnsOnlyLinkedMoviesOnce()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var ann = new DirectorRecord { Name = "Ann" };
+        var bob = new DirectorRecord { Name = "Bob" };
+        var both = MovieCatalogSeed.Create("Both", "where-director-both");
+        both.Directors.Add(ann);
+        both.Directors.Add(bob);
+        var annOnly = MovieCatalogSeed.Create("Ann only", "where-director-ann");
+        annOnly.Directors.Add(ann);
+        var unrelated = MovieCatalogSeed.Create("Unrelated", "where-director-none");
+        context.Movies.AddRange(both, annOnly, unrelated);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // act
+        var titles = await context.Movies.WhereDirector(ann.Id)
+            .Select(movie => movie.Title).ToArrayAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        titles.Order().ShouldBe(new[] { "Ann only", "Both" });
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(999999)]
+    public async Task WhereDirector_UnknownZeroOrNegative_ReturnsEmpty(int directorId)
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var director = new DirectorRecord { Name = "Ann" };
+        var movie = MovieCatalogSeed.Create("Directed", $"where-director-unknown-{directorId}");
+        movie.Directors.Add(director);
+        context.Movies.Add(movie);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // act
+        var count = await context.Movies.WhereDirector(directorId).CountAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        count.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task BrowseAsync_DirectorAndWatchlist_ComposesAndWithoutDuplicateRows()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var ann = new DirectorRecord { Name = "Ann" };
+        var bob = new DirectorRecord { Name = "Bob" };
+        var match = MovieCatalogSeed.Create("Match", "browse-director-watchlist-match");
+        match.Directors.Add(ann);
+        match.Directors.Add(bob);
+        match.IsInWatchlist = true;
+        var notWatchlisted = MovieCatalogSeed.Create("Ann not watchlisted", "browse-director-watchlist-other");
+        notWatchlisted.Directors.Add(ann);
+        var watchlistedOther = MovieCatalogSeed.Create("Other director", "browse-director-watchlist-none");
+        watchlistedOther.Directors.Add(bob);
+        watchlistedOther.IsInWatchlist = true;
+        context.Movies.AddRange(match, notWatchlisted, watchlistedOther);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+        var request = new MovieQuery
+        {
+            DirectorId = ann.Id,
+            InWatchlist = true,
+            Sort = MovieSort.Title,
+            Direction = SortDirection.Ascending,
+            Page = new Page(1, 10)
+        };
+
+        // act
+        var result = await catalog.BrowseAsync(request, TestContext.Current.CancellationToken);
+
+        // assert
+        result.TotalCount.ShouldBe(1);
+        result.Items.ShouldHaveSingleItem().Title.ShouldBe("Match");
+    }
 }
