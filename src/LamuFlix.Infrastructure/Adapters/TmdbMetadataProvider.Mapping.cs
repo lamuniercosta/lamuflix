@@ -26,16 +26,31 @@ public sealed partial class TmdbMetadataProvider
         public static int? MapYear(string? releaseDate) =>
             TryLeadingDigits(releaseDate, out var value) ? value : null;
 
-        public static MovieMetadata? Map(Response response, DateTimeOffset now) =>
-            TryTitle(response.Title, out var title)
-                ? new MovieMetadata(
-                    title,
-                    synopsis: MapSynopsis(response.Overview),
-                    releaseYear: MapReleaseYear(response.ReleaseDate, now),
-                    runtime: MapRuntime(response.Runtime),
-                    imdbId: MapImdbId(response.ImdbId),
-                    posterUrl: MapPosterUrl(response.PosterPath))
-                : null;
+        public static bool IsMalformedCollection(Response response) =>
+            response.BelongsToCollection is { } collection
+            && (collection.Id is not { } id || id <= 0 || string.IsNullOrWhiteSpace(collection.Name));
+
+        public static MovieMetadata? Map(Response response, DateTimeOffset now)
+        {
+            if (!TryTitle(response.Title, out var title))
+            {
+                return null;
+            }
+
+            var collection = MapCollection(response.BelongsToCollection);
+            return new MovieMetadata(
+                title,
+                synopsis: MapSynopsis(response.Overview),
+                releaseYear: MapReleaseYear(response.ReleaseDate, now),
+                runtime: MapRuntime(response.Runtime),
+                imdbId: MapImdbId(response.ImdbId),
+                posterUrl: MapPosterUrl(response.PosterPath),
+                collectionId: collection.Id,
+                collectionName: collection.Name);
+        }
+
+        private static (int? Id, string? Name) MapCollection(CollectionPayload? collection) =>
+            collection is null ? (null, null) : (collection.Id, collection.Name);
 
         private static bool TryTitle(string? value, [NotNullWhen(true)] out string? title)
         {
@@ -147,12 +162,27 @@ public sealed partial class TmdbMetadataProvider
         public string? ImdbId { get; init; }
 
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("belongs_to_collection")]
+        public CollectionPayload? BelongsToCollection { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("success")]
         public bool? Success { get; init; }
 
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("status_code")]
         public int? StatusCode { get; init; }
+    }
+
+    private sealed class CollectionPayload
+    {
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("id")]
+        public int? Id { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("name")]
+        public string? Name { get; init; }
     }
 
     private sealed class SearchHit

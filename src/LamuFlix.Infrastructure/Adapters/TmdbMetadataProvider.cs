@@ -31,6 +31,7 @@ public sealed partial class TmdbMetadataProvider(
     private const string MalformedBody = "malformed body";
     private const string UnusableBody = "unusable body";
     private const string MissingTitle = "missing or unusable title";
+    private const string MalformedCollection = "malformed collection";
     private const string MissingMovieId = "missing or unusable movie id";
     private const string ErrorBody = "error body";
     private const int NoResultStatusCode = 21;
@@ -202,6 +203,12 @@ public sealed partial class TmdbMetadataProvider(
         if (ResponseMapper.IsFailed(body))
         {
             return ErrorBodyFailure();
+        }
+
+        if (ResponseMapper.IsMalformedCollection(body))
+        {
+            Log.InvalidResponse(logger, MalformedCollection);
+            return Failure(EnrichmentFailureCategory.InvalidResponse);
         }
 
         var metadata = ResponseMapper.Map(body, timeProvider.GetUtcNow());

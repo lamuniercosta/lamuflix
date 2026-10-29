@@ -12,7 +12,7 @@
 
 **Purpose**: Confirm worktree and feature pin; no new packages or projects.
 
-- [ ] T001 Confirm worktree `F:/Dev/LamuFlix.worktrees/feature-424-spec` on `feature/424-spec`, `.specify/feature.json` → `specs/DEV-424`, and no new NuGet/npm dependency or project is introduced (Q1; FR-009)
+- [X] T001 Confirm worktree `F:/Dev/LamuFlix.worktrees/feature-424-spec` on `feature/424-spec`, `.specify/feature.json` → `specs/DEV-424`, and no new NuGet/npm dependency or project is introduced (Q1; FR-009)
 
 ---
 
@@ -22,9 +22,9 @@
 **Checkpoint**: US1 mapping/malformed cases green against adapter + `MovieMetadata` without DB.
 **Note (Sentry F7 @ `10ffc9c1`)**: Present `belongs_to_collection` with nonpositive id or blank name rejects the whole TMDb details response as Failed InvalidResponse (not Found with field silently dropped); missing/null is valid absent; does not claim all existing optional fields fail wholesale.
 
-- [ ] T002 [P] [US1] Extend `src/LamuFlix.Core/Domain/MovieMetadata.cs` with optional collection identity (positive id + name) and equality coverage that does not rename or overload `SameCollections` (FR-001; Q1, Q8)
-- [ ] T003 [US1] Extend `src/LamuFlix.Infrastructure/Adapters/TmdbMetadataProvider.Mapping.cs` response DTO and mapper to carry valid collection id/name; when `belongs_to_collection` is present with nonpositive id or blank name, reject the whole details response as Failed InvalidResponse through the existing failure seam (never Found with collection silently dropped; never persist an invented row); treat missing/null as valid absent collection (FR-001; Q5; Sentry F7 @ `10ffc9c1` — after T002)
-- [ ] T004 [P] [US1] Add focused adapter/domain tests **alongside** T002/T003 beside existing TMDb/metadata tests proving with-collection; missing/null as valid-absent; and malformed-present Failed InvalidResponse **not** Found (FR-001, FR-010; Q5; Q6; Sentry F7 @ `10ffc9c1`; step 6 ruling 6)
+- [X] T002 [P] [US1] Extend `src/LamuFlix.Core/Domain/MovieMetadata.cs` with optional collection identity (positive id + name) and equality coverage that does not rename or overload `SameCollections` (FR-001; Q1, Q8)
+- [X] T003 [US1] Extend `src/LamuFlix.Infrastructure/Adapters/TmdbMetadataProvider.Mapping.cs` response DTO and mapper to carry valid collection id/name; when `belongs_to_collection` is present with nonpositive id or blank name, reject the whole details response as Failed InvalidResponse through the existing failure seam (never Found with collection silently dropped; never persist an invented row); treat missing/null as valid absent collection (FR-001; Q5; Sentry F7 @ `10ffc9c1` — after T002)
+- [X] T004 [P] [US1] Add focused adapter/domain tests **alongside** T002/T003 beside existing TMDb/metadata tests proving with-collection; missing/null as valid-absent; and malformed-present Failed InvalidResponse **not** Found (FR-001, FR-010; Q5; Q6; Sentry F7 @ `10ffc9c1`; step 6 ruling 6)
 
 **Checkpoint**: Mapping proven; persistence can consume the metadata shape.
 
