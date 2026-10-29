@@ -55,6 +55,7 @@ internal static class HandlerRegistration
         services.AddHandler<GetGenresQueryHandler, GetGenresQuery, IReadOnlyList<GenreFacet>>();
         services.AddHandler<GetCollectionsQueryHandler, GetCollectionsQuery, IReadOnlyList<CollectionFacet>>();
         services.AddHandler<GetPeopleQueryHandler, GetPeopleQuery, IReadOnlyList<PersonFacet>>();
+        services.AddHandler<GetDirectorsQueryHandler, GetDirectorsQuery, IReadOnlyList<DirectorFacet>>();
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();

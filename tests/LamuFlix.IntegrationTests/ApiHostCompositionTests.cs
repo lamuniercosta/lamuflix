@@ -52,6 +52,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string GetGenresRoute = "/api/genres";
     private const string GetCollectionsRoute = "/api/collections";
     private const string GetPeopleRoute = "/api/people";
+    private const string GetDirectorsRoute = "/api/directors";
     private const string GetRecommendationsRoute = "/api/movies/{id:int}/recommendations";
     private const string ForYouRecommendationsRoute = "/api/recommendations/for-you";
 
@@ -229,6 +230,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     GetGenresRoute,
                     GetCollectionsRoute,
                     GetPeopleRoute,
+                    GetDirectorsRoute,
                     WatchedRoute,
                     WatchedRoute,
                     NotInterestedRoute,

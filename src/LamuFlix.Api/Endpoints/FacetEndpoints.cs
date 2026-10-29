@@ -36,6 +36,11 @@ internal static class FacetEndpoints
             .Produces<PersonDto[]>()
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        api.MapGet("/directors", GetDirectorsAsync)
+            .WithName("GetDirectors")
+            .WithSummary("List the stored directors linked to at least one movie.")
+            .Produces<DirectorDto[]>();
+
         return api;
     }
 
@@ -64,6 +69,15 @@ internal static class FacetEndpoints
 
         var people = await handler.HandleAsync(new GetPeopleQuery(), cancellationToken);
         return TypedResults.Ok(people.Select(person => new PersonDto(person.Id, person.Name)).ToArray());
+    }
+
+    private static async Task<Ok<DirectorDto[]>> GetDirectorsAsync(
+        IQueryHandler<GetDirectorsQuery, IReadOnlyList<DirectorFacet>> handler,
+        CancellationToken cancellationToken)
+    {
+        var directors = await handler.HandleAsync(new GetDirectorsQuery(), cancellationToken);
+        return TypedResults.Ok(
+            directors.Select(director => new DirectorDto(director.Id, director.Name, director.MovieCount)).ToArray());
     }
 
     private static void EnsureActorRole(IQueryCollection query)

@@ -21,6 +21,7 @@ internal static class LibraryEndpoints
     private const string TextKey = "text";
     private const string GenreIdsKey = "genreIds";
     private const string ActorIdsKey = "actorIds";
+    private const string DirectorIdKey = "directorId";
     private const string RuntimeMinKey = "runtimeMin";
     private const string RuntimeMaxKey = "runtimeMax";
     private const string RuntimeIncludeUnknownKey = "runtimeIncludeUnknown";
@@ -123,6 +124,7 @@ internal static class LibraryEndpoints
         ReadText(rawQuery, request.Text, state);
         ReadRepeated(request.GenreIds, GenreIdsKey, IntegerMessage(GenreIdsKey), TryParseId, state.GenreIds, state);
         ReadRepeated(request.ActorIds, ActorIdsKey, IntegerMessage(ActorIdsKey), TryParseId, state.ActorIds, state);
+        ReadNumber(rawQuery, DirectorIdKey, request.DirectorId, EmptyMeansNull, state);
         ReadRepeated(
             request.Statuses,
             StatusesKey,
@@ -409,6 +411,7 @@ internal static class LibraryEndpoints
             Statuses = [.. Statuses],
             InWatchlist = LookupBoolean(InWatchlistKey),
             CollectionId = LookupNumber(CollectionIdKey),
+            DirectorId = LookupNumber(DirectorIdKey),
             Sort = Sort,
             Direction = Direction,
             Page = new Page(Ints.GetValueOrDefault(PageKey), Ints.GetValueOrDefault(PageSizeKey)),
