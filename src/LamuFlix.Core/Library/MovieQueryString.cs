@@ -566,6 +566,8 @@ public static class MovieQueryString
 
         public int? CollectionId { get; set; }
 
+        public int? DirectorId { get; set; }
+
         public MovieSort? Sort { get; set; }
 
         public SortDirection? Direction { get; set; }

@@ -20,6 +20,7 @@ public sealed class FacetEndpointsTests(ApiHostFactory factory) : IClassFixture<
     private const string GenresRoute = "/api/genres";
     private const string CollectionsRoute = "/api/collections";
     private const string PeopleRoute = "/api/people";
+    private const string DirectorsRoute = "/api/directors";
     private const string ProblemDetailsJson = "application/problem+json";
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
@@ -172,6 +173,73 @@ public sealed class FacetEndpointsTests(ApiHostFactory factory) : IClassFixture<
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
         Fields(problem).ShouldContain("role");
         await catalog.DidNotReceive().GetPeopleAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetDirectors_WithLinkedDirectors_ReturnsScalarArrayOfIdNameAndMovieCount()
+    {
+        // arrange
+        IReadOnlyList<DirectorFacet> directors = [new DirectorFacet(1, "Nolan", 3), new DirectorFacet(2, "Nolan", 1)];
+        catalog.GetDirectorsAsync(Arg.Any<CancellationToken>()).Returns(directors);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DirectorsRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
+        var items = body.EnumerateArray().ToList();
+        items.Count.ShouldBe(2);
+        items[0].GetProperty("id").GetInt32().ShouldBe(1);
+        items[0].GetProperty("name").GetString().ShouldBe("Nolan");
+        items[0].GetProperty("movieCount").GetInt32().ShouldBe(3);
+        items[1].GetProperty("id").GetInt32().ShouldBe(2);
+        items[1].GetProperty("name").GetString().ShouldBe("Nolan");
+        items[1].GetProperty("movieCount").GetInt32().ShouldBe(1);
+        PropertyNames(items[0]).ShouldBe(["id", "name", "movieCount"], ignoreOrder: true);
+        await catalog.Received(1).GetDirectorsAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetDirectors_WithNoLinkedDirectors_ReturnsEmptyArray()
+    {
+        // arrange
+        IReadOnlyList<DirectorFacet> directors = [];
+        catalog.GetDirectorsAsync(Arg.Any<CancellationToken>()).Returns(directors);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DirectorsRoute, cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        body.ValueKind.ShouldBe(JsonValueKind.Array);
+        body.GetArrayLength().ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetDirectors_WithoutRoleParameter_DoesNotRequireARole()
+    {
+        // arrange
+        IReadOnlyList<DirectorFacet> directors = [new DirectorFacet(4, "Bigelow", 2)];
+        catalog.GetDirectorsAsync(Arg.Any<CancellationToken>()).Returns(directors);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(DirectorsRoute, cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        await catalog.Received(1).GetDirectorsAsync(Arg.Any<CancellationToken>());
     }
 
     private WebApplicationFactory<Program> CreateHost() =>

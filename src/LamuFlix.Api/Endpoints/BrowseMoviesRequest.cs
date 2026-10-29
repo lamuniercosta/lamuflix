@@ -9,6 +9,8 @@ internal sealed record BrowseMoviesRequest
 
     public string[]? ActorIds { get; set; }
 
+    public string? DirectorId { get; set; }
+
     public string? RuntimeMin { get; set; }
 
     public string? RuntimeMax { get; set; }

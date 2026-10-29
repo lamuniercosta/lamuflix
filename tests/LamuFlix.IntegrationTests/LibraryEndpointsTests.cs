@@ -249,6 +249,68 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         catalog.Queries.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task BrowseMovies_DirectorId_DispatchesTheSingularDirectorFilter()
+    {
+        // arrange
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync($"{BrowseRoute}?directorId=7&{RequiredQuery}", cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        catalog.Queries.ShouldHaveSingleItem().DirectorId.ShouldBe(7);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("directorId=")]
+    public async Task BrowseMovies_AbsentOrEmptyDirectorId_LeavesTheDirectorNull(string directorQuery)
+    {
+        // arrange
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(
+            directorQuery.Length == 0
+                ? $"{BrowseRoute}?{RequiredQuery}"
+                : $"{BrowseRoute}?{directorQuery}&{RequiredQuery}",
+            cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        catalog.Queries.ShouldHaveSingleItem().DirectorId.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("directorId=1&directorId=2", "directorId")]
+    [InlineData("directorId=nope", "directorId")]
+    [InlineData("directorId=2147483648", "directorId")]
+    public async Task BrowseMovies_InvalidDirectorId_FailsFieldKeyedWithoutReachingTheCatalog(
+        string directorQuery,
+        string field)
+    {
+        // arrange
+        await using var catalogFactory = WithCatalog();
+        using var client = catalogFactory.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.GetAsync(
+            $"{BrowseRoute}?{directorQuery}&{RequiredQuery}",
+            cancellationToken);
+        var problem = await ReadProblemAsync(response, cancellationToken);
+
+        // assert
+        ShouldFailField(problem, field);
+        catalog.Queries.ShouldBeEmpty();
+    }
+
     [Theory]
     [InlineData("page=1&page=2&sort=Title&direction=Ascending&pageSize=20", "page")]
     [InlineData("sort=title&direction=Ascending&page=1&pageSize=20", "sort")]
@@ -746,6 +808,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "GetGenres",
                 "GetCollections",
                 "GetPeople",
+                "GetDirectors",
                 "MarkWatched",
                 "UnmarkWatched",
                 "MarkNotInterested",

@@ -48,10 +48,10 @@ Compile-failure red is acceptable while introducing required symbols/port; after
 **Goal**: Facet endpoint + browse mapping with existing validation/problem handling.
 **Independent Test**: FacetEndpointsTests / LibraryEndpointsTests.
 
-- [ ] T020 [P] [US1] Write failing API facet tests in `tests/LamuFlix.IntegrationTests/FacetEndpointsTests.cs`: field set/types, empty array HTTP 200, no required role parameter (FR-001, FR-017; Q1)
-- [ ] T021 [P] [US2] Write failing browse API tests in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs`: director filter applied; absent and empty `directorId` → null (no filter); duplicate raw-query keys, malformed, and overflowing `directorId` → 422 (FR-005, FR-007, FR-017; Q2; PC1)
-- [ ] T022 [US1] Add `src/LamuFlix.Api/Endpoints/DirectorDto.cs` and register/map `GET /api/directors` in `src/LamuFlix.Api/Endpoints/FacetEndpoints.cs` plus `src/LamuFlix.Api/HandlerRegistration.cs`, forwarding `CancellationToken` through endpoint → handler → port → EF, so T020 passes (depends on T004, T012, T020; FR-001, FR-002, FR-007; Q6)
-- [ ] T023 [US2] Map singular `string? DirectorId` on `src/LamuFlix.Api/Endpoints/BrowseMoviesRequest.cs` through `src/LamuFlix.Api/Endpoints/LibraryEndpoints.cs` using `ReadNumber(rawQuery, "directorId", EmptyMeansNull)` and raw `IQueryCollection` value-count duplicate rejection (before model-bound scalars can hide duplicates), with existing validation/problem handling and cancellation, so T021 passes (depends on T002, T013, T021; FR-005, FR-007; Q2, PC1)
+- [X] T020 [P] [US1] Write failing API facet tests in `tests/LamuFlix.IntegrationTests/FacetEndpointsTests.cs`: field set/types, empty array HTTP 200, no required role parameter (FR-001, FR-017; Q1)
+- [X] T021 [P] [US2] Write failing browse API tests in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs`: director filter applied; absent and empty `directorId` → null (no filter); duplicate raw-query keys, malformed, and overflowing `directorId` → 422 (FR-005, FR-007, FR-017; Q2; PC1)
+- [X] T022 [US1] Add `src/LamuFlix.Api/Endpoints/DirectorDto.cs` and register/map `GET /api/directors` in `src/LamuFlix.Api/Endpoints/FacetEndpoints.cs` plus `src/LamuFlix.Api/HandlerRegistration.cs`, forwarding `CancellationToken` through endpoint → handler → port → EF, so T020 passes (depends on T004, T012, T020; FR-001, FR-002, FR-007; Q6)
+- [X] T023 [US2] Map singular `string? DirectorId` on `src/LamuFlix.Api/Endpoints/BrowseMoviesRequest.cs` through `src/LamuFlix.Api/Endpoints/LibraryEndpoints.cs` using `ReadNumber(rawQuery, "directorId", EmptyMeansNull)` and raw `IQueryCollection` value-count duplicate rejection (before model-bound scalars can hide duplicates), with existing validation/problem handling and cancellation, so T021 passes (depends on T002, T013, T021; FR-005, FR-007; Q2, PC1)
 
 **Checkpoint**: HTTP facet and browse contracts match Q1–Q2.
 
