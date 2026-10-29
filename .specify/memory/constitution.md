@@ -1,6 +1,33 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.6.0 → 1.7.0 (MINOR: Core port IOmdbRequestGate added to Principle I;
+OmdbQuotaOptions added to Principle VII; IOmdbRequestGate and OmdbQuotaOptions added to
+Principle VIII vendor-name exceptions; ADR-0031)
+
+Amendment 1.7.0 (2026-10-28):
+  Modified sections:
+    ✏️ I. Ports and Adapters: `IOmdbRequestGate` added to the closed named-port
+       enumeration immediately after `IEnrichmentStatusNotifier` (DEV-426; ADR-0031).
+       The BCL/M.E.AI abstractions and the sentence `Adding a port requires an ADR.`
+       are retained.
+    ✏️ VII. Configuration Isolation and Deterministic Time: `OmdbQuotaOptions` added to
+       the options-record list beside `OmdbOptions` / `TmdbOptions`.
+    ✏️ VIII. Ubiquitous Language in English: vendor-name exception adds the Core port
+       `IOmdbRequestGate` and the options record `OmdbQuotaOptions` in
+       `LamuFlix.Core.Options` (ticket-named; DEV-426; ADR-0031). Existing
+       `TmdbOptions` and provider tag-value constant exceptions are retained.
+  Added / removed sections: none
+  Templates reviewed:
+    ✅ .specify/templates/*.md — review at apply time; no port-enumeration, options-list,
+       or vendor-exception references expected; record no-edit or required follow-up
+  Follow-up:
+    ✅ ADR-0031 accepted in the same delivery constraints as this amendment
+       (`docs/adr/0031-omdb-request-gate.md`).
+    ✅ Update `PortWhitelistPattern` in
+       `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` to include
+       `|IOmdbRequestGate` while preserving existing whitelist tokens.
+
 Version change: 1.5.0 → 1.6.0 (MINOR: TMDb secondary metadata provider permitted beside
 OMDb; `TmdbOptions` and the provider tag-value constants permitted in Core)
 
@@ -192,7 +219,7 @@ Project reference rules are strict and unidirectional:
 - Ports live in `Core/Ports/`; the only ports are `IMovieRepository`, `IMovieCatalog`,
   `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `IMediaPlayerLauncher`,
   `IRecommendationCandidateSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`,
-  `IEnrichmentStatusNotifier`, and the BCL/M.E.AI abstractions `TimeProvider` and
+  `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, and the BCL/M.E.AI abstractions `TimeProvider` and
   `IEmbeddingGenerator<string, Embedding<float>>`. Adding a port requires an ADR.
 - These rules MUST be enforced by `LamuFlix.ArchitectureTests`; a violation fails the build.
 
@@ -322,7 +349,7 @@ Secrets and machine-specific paths MUST NOT appear in source. There are NO hard-
 for connection strings, API keys, library roots, or player paths.
 
 - All configuration is bound to options records (`LibraryOptions`, `PlaybackOptions`,
-  `OmdbOptions`, `TmdbOptions`, `RabbitMqOptions`, `EnrichmentOptions`, `FeatureOptions`,
+  `OmdbOptions`, `OmdbQuotaOptions`, `TmdbOptions`, `RabbitMqOptions`, `EnrichmentOptions`, `FeatureOptions`,
   `RecommendationOptions`) with data-annotation validation and `ValidateOnStart()`. Reading
   `IConfiguration` by magic string outside options binding is forbidden.
 - Local values live in `dotnet user-secrets` or `appsettings.Development.json` (git-ignored);
@@ -351,9 +378,9 @@ terms. Portuguese identifiers (`Filme`, `CriarFilme`, `AssistirFilme`, `ExcluirF
 - Types, members, and telemetry identifiers MUST be named by functionality, not by vendor
   (`IMetadataProvider` and `Metadata.Lookup`, not `IOmdbClient` and `Omdb.Lookup`). Vendor
   names are permitted only on the Infrastructure adapter class itself, on vendor-mandated
-  configuration keys, on the options record `TmdbOptions` in `LamuFlix.Core.Options`, and on
-  the provider tag-value constants `OmdbProviderName` and `TmdbProviderName` in
-  `TelemetryConstants`.
+  configuration keys, on the Core port `IOmdbRequestGate`, on the options records
+  `OmdbQuotaOptions` and `TmdbOptions` in `LamuFlix.Core.Options`, and on the provider
+  tag-value constants `OmdbProviderName` and `TmdbProviderName` in `TelemetryConstants`.
 - A new domain term MUST be added to `CONTEXT.md` in the same PR that introduces it.
 
 **Rationale**: A single vocabulary shared by code, docs, API, and UI is what makes the bounded
@@ -611,4 +638,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.6.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-28
+**Version**: 1.7.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-28

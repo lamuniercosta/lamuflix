@@ -1,0 +1,47 @@
+[from Quill] DEV-426 ready: plan-challenge ROUND 1 of cap 2 remediation applied. PLAN FROZEN not declared; owner approval not claimed.
+
+Worktree: F:/Dev/LamuFlix.worktrees/feature-426-spec
+Branch verified: feature/426-spec
+PYTHONUTF8=1
+
+Owned files updated only:
+- specs/DEV-426/spec.md
+- specs/DEV-426/plan.md
+- specs/DEV-426/tasks.md
+- specs/DEV-426/DRAFTING_RECEIPT.md
+- specs/DEV-426/checklists/requirements.md
+- specs/DEV-426/constitution-amendment-v1.7.0.md
+
+Not edited: brief.md, CONCLUSIONS.md, PLAN_CHALLENGE.md, ADR-0031, constitution.md, production.
+
+Fix map (numbered list -> PLAN_CHALLENGE IDs) and precise passages:
+
+(1) PC1 names — Ledger H1/L5: Renamed throughout Quill artifacts to EfMetadataRequestGate, DailyRequestUsageRecord, DailyRequestUsageConfiguration, MetadataQuotaHandler; split signals to MetadataQuotaExhaustedException.cs + MetadataQuotaPersistenceException.cs. Retained IOmdbRequestGate, OmdbQuotaOptions, omdb_daily_usage. No wider VIII exception. Passages: spec Scope/FR-003-006/Key Entities; plan Structure/Approach/VIII row; tasks T006-T010/T015-T017; amendment VIII note.
+
+(2) PC2 health+partials — Compass M1/M2: Both signals leave MetadataProviderHealthState unchanged; later interruption discards partial candidates, returns mapped failure, stops OMDb variants, preserves chain. Acceptance US3 scenarios 6-8; FR-006; Edge Cases; SC-005; tasks T018/T020/T024.
+
+(3) PC2 gate docs — Compass M3/L2, Ledger M2: T034 Keel records checkbox answer + verified spec-PR merge receipt in CONCLUSIONS.md. T035 verify-only with NO constitution edit including dates; date-only difference recorded in CONCLUSIONS; substantive mismatch blocks. ADR Accepted status-only by Keel in implementation PR after verified owner approval and before code merge. Removed all date-reconcile/apply implications from FR-008/FR-010, plan Governance, tasks T034/T035, amendment Staging/Footer/Sync Impact, checklist Notes.
+
+(4) Sentry H1/H2: Ambient SendAsync token into gate (FR-005, T016, US3.1). Exclude OCE/TaskCanceledException before fault-to-signal (FR-004/006, T009/T016). No increment/dispatch without true. In-flight committed/no-refund caveat retained. Slow-gate shipped-composition bounds commits/invocations by attempt/total budgets; no retry-policy change; no commits-equal-wire under timeout (US3.12, FR-007, T024).
+
+(5) Sentry M1: Zero affected/returned rows=false; one committed row=true; SQL errors=faults (US2, FR-004, T009/T014). First-row and lowered-positive-limit cases retained.
+
+(6) Sentry M3: Bounded async scope ends before transport; disposal asserted on true/false/fault/cancellation; fresh scopes/no scoped capture (US3.11, FR-005, T016/T020).
+
+(7) Sentry M4 / Ledger L4: Safe outcome/category logs; no URI/key/raw exception/unsafe scope fields; inner in memory; existing movie id; no invented gate id; leakage tests (US3.13, FR-006, T019/T020).
+
+(8) Ledger M3: Exact recon-backed disjoint ownership table in plan Structure and tasks T004/T012/T020/T021/T022 (+T023/T024 probe/resilience). Quota-only config/registration/isolation + named migration guards. Paths verified against worktree (incl. UnitTests/Persistence/ for ModelMetadataTests, PersistenceServiceCollectionExtensionsTests, TasteProfileCacheRegistrationTests). No open-ended suite sweep. needs recon: none for enumerated set.
+
+(9) Ledger M4/L5, Sentry L3: AutoFixture/Faker; Theory+MemberData T004/T023/T024; T013 async coordinated start + Task.WhenAll; explicit phase dependency table; stable IDs retained.
+
+(10) Ledger L1/L2/L3: T002 sealed record, SectionName, Range(1,int.MaxValue); T003 BindAndValidate/annotations/ValidateOnStart. Constitution Check rows for VII time, II/V internal signals never reach API, async token gate.
+
+(11) Compass L1; Sentry L1/M2/L2 carry: Exact counts detail=1, search+detail=2, +1 per extra physical request; midnight retry samples per acquisition; denied-attempt DB cost and mismatched-host precondition carried; no cache/startup-log feature.
+
+Unresolved / out of Quill ownership:
+- PLAN FROZEN not declared (Keel).
+- Owner Gate 1 checkbox remains open.
+- Keel re-read of repaired passages vs PLAN_CHALLENGE dispositions; ROUND 2 residuals if any.
+- needs decision: none. needs recon: none for enumerated files.
+
+Receipt: DRAFTING_RECEIPT.md carries full fix-to-PLAN_CHALLENGE ID table. Checklist aligned.
