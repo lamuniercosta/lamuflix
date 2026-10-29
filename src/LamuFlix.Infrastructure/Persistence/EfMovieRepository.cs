@@ -487,6 +487,17 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
 
     private async Task ApplyCollectionsAsync(IReadOnlyList<TrackedMovie> metadataTracked, CancellationToken ct)
     {
+        var desired = CollectDesiredCollections(metadataTracked);
+        if (desired.Count == 0)
+        {
+            return;
+        }
+
+        await UpsertCollectionsAsync(desired, ct);
+    }
+
+    private static Dictionary<int, string> CollectDesiredCollections(IReadOnlyList<TrackedMovie> metadataTracked)
+    {
         var desired = new Dictionary<int, string>();
         foreach (var tracked in metadataTracked)
         {
@@ -496,28 +507,32 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             }
         }
 
-        if (desired.Count == 0)
-        {
-            return;
-        }
+        return desired;
+    }
 
+    private async Task UpsertCollectionsAsync(Dictionary<int, string> desired, CancellationToken ct)
+    {
         var ids = desired.Keys.Order().ToArray();
         var existing = await db.Collections
             .Where(collection => ids.Contains(collection.Id))
             .ToDictionaryAsync(collection => collection.Id, ct);
         foreach (var id in ids)
         {
-            if (existing.TryGetValue(id, out var collection))
-            {
-                if (!string.Equals(collection.Name, desired[id], StringComparison.Ordinal))
-                {
-                    collection.Name = desired[id];
-                }
+            ApplyCollection(id, desired[id], existing);
+        }
+    }
 
-                continue;
-            }
+    private void ApplyCollection(int id, string name, Dictionary<int, CollectionRecord> existing)
+    {
+        if (!existing.TryGetValue(id, out var collection))
+        {
+            db.Collections.Add(new CollectionRecord { Id = id, Name = name });
+            return;
+        }
 
-            db.Collections.Add(new CollectionRecord { Id = id, Name = desired[id] });
+        if (!string.Equals(collection.Name, name, StringComparison.Ordinal))
+        {
+            collection.Name = name;
         }
     }
 
