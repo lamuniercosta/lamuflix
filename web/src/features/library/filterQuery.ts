@@ -21,6 +21,7 @@ export const RATING_MAX_EXTENT = 10;
 export const DEBOUNCE_MS = 300;
 
 const RATING_BOUND_PATTERN = /^[0-9]+(?:\.[0-9])?$/;
+const COLLECTION_ID_PATTERN = /^[0-9]+$/;
 
 const RECOGNIZED_KEYS = new Set([
   'text',
@@ -34,6 +35,7 @@ const RECOGNIZED_KEYS = new Set([
   'minRating',
   'maxRating',
   'statuses',
+  'collectionId',
   'sort',
   'direction',
   'page',
@@ -53,6 +55,7 @@ export interface FilterQuery {
   minRating: string | number | null;
   maxRating: string | number | null;
   statuses: Array<string>;
+  collectionId: string | number | null;
   sort: string;
   direction: string;
   page: string | number;
@@ -124,6 +127,18 @@ function toNumberOrNull(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
+function readCollectionId(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+  const text = String(value).trim();
+  if (!COLLECTION_ID_PATTERN.test(text)) {
+    return null;
+  }
+  const number = Number(text);
+  return Number.isInteger(number) && number > 0 ? text : null;
+}
+
 function mapSort(value: unknown): string {
   const text = String(value ?? '').trim();
   if (text === '') {
@@ -160,6 +175,9 @@ function fromParams(params: URLSearchParams): FilterQuery {
   const minRating = params.has('minRating') ? (params.get('minRating') ?? '') : null;
   const maxRating = params.has('maxRating') ? (params.get('maxRating') ?? '') : null;
   const statuses = params.getAll('statuses');
+  const collectionId = readCollectionId(
+    params.getAll('collectionId').length === 1 ? params.get('collectionId') : null,
+  );
   const sort = mapSort(params.has('sort') ? params.get('sort') : DEFAULT_SORT);
   const direction = mapDirection(
     params.has('direction') ? params.get('direction') : DEFAULT_DIRECTION,
@@ -196,6 +214,7 @@ function fromParams(params: URLSearchParams): FilterQuery {
     minRating,
     maxRating,
     statuses,
+    collectionId,
     sort,
     direction,
     page: normalizedPage,
@@ -222,6 +241,7 @@ function fromPartial(value: unknown): FilterQuery {
     minRating: partial.minRating == null ? null : (partial.minRating as string | number),
     maxRating: partial.maxRating == null ? null : (partial.maxRating as string | number),
     statuses: toStringArray(partial.statuses).map(String),
+    collectionId: readCollectionId(partial.collectionId),
     sort: mapSort(partial.sort),
     direction: mapDirection(partial.direction),
     page: partial.page == null ? DEFAULT_PAGE : (partial.page as string | number),
@@ -431,6 +451,10 @@ function serialize(input: unknown, options: SerializeOptions, yearExtentInput?: 
     if (String(value).trim() !== '') {
       pairs.push(['statuses', String(value)]);
     }
+  }
+
+  if (query.collectionId != null) {
+    pairs.push(['collectionId', String(query.collectionId)]);
   }
 
   const sort = mapSort(query.sort ?? DEFAULT_SORT);

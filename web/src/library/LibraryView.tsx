@@ -42,6 +42,10 @@ function GenreDtoList(value: unknown): GenreDto[] {
   return Array.isArray(value) ? (value as GenreDto[]) : [];
 }
 
+function CollectionDtoList(value: unknown): components['schemas']['CollectionDto'][] {
+  return Array.isArray(value) ? (value as components['schemas']['CollectionDto'][]) : [];
+}
+
 function PersonDtoList(value: unknown): components['schemas']['PersonDto'][] {
   return Array.isArray(value) ? (value as components['schemas']['PersonDto'][]) : [];
 }
@@ -74,6 +78,7 @@ function activeFilterGroups(query: FilterQuery, currentYear: number): number {
     isYearActive(query.yearMin, query.yearMax, currentYear),
     isRatingActive(query.minRating, query.maxRating),
     (query.statuses ?? []).length > 0,
+    query.collectionId != null,
   ];
   return groups.filter(Boolean).length;
 }
@@ -289,6 +294,17 @@ function LibraryBrowseView({
     },
   });
 
+  const collectionsQuery = useQuery({
+    queryKey: ['collections'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/collections');
+      if (error) {
+        throw new Error('Collections could not be loaded.');
+      }
+      return data;
+    },
+  });
+
   const actorsQuery = useQuery({
     queryKey: ['people', 'actor'],
     queryFn: async () => {
@@ -422,6 +438,16 @@ function LibraryBrowseView({
       ),
     [actorsQuery.data],
   );
+  const collectionNameById = useMemo(
+    () =>
+      new Map(
+        CollectionDtoList(collectionsQuery.data).map((item) => [
+          String(item.id),
+          String(item.name ?? ''),
+        ]),
+      ),
+    [collectionsQuery.data],
+  );
 
   const chips: Chip[] = useMemo(() => {
     const list: Chip[] = [];
@@ -459,6 +485,15 @@ function LibraryBrowseView({
           if (position >= 0) {
             next.actorIds = next.actorIds.filter((_, itemIndex) => itemIndex !== position);
           }
+        }),
+      );
+    }
+    if (query.collectionId != null) {
+      const value = String(query.collectionId);
+      const name = collectionNameById.get(value) ?? `Collection ${value}`;
+      pushChip(list, 'collection', `Collection: ${name}`, `Remove collection filter ${name}`, () =>
+        removeValue((next) => {
+          next.collectionId = null;
         }),
       );
     }
@@ -533,7 +568,7 @@ function LibraryBrowseView({
       );
     }
     return list;
-  }, [query, removeValue, currentYear, genreNameById, actorNameById]);
+  }, [query, removeValue, currentYear, genreNameById, actorNameById, collectionNameById]);
 
   const prevRoutePathRef = useRef(routePath);
   useEffect(() => {
@@ -646,9 +681,11 @@ function LibraryBrowseView({
           <FilterPanel
             query={query}
             genres={GenreDtoList(genresQuery.data)}
+            collections={CollectionDtoList(collectionsQuery.data)}
             actors={PersonDtoList(actorsQuery.data)}
             onChange={onQueryChange}
             genresError={genresQuery.error}
+            collectionsError={collectionsQuery.error}
             actorsError={actorsQuery.error}
             integrated={integrated}
             showTitleSearch={!integrated}

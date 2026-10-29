@@ -16,6 +16,7 @@ export interface LibraryUrlState {
   yearMin: number | null;
   yearMax: number | null;
   statuses: EnrichmentStatusName[];
+  collectionId: number | null;
   inWatchlist: boolean | null;
   sort: LibrarySort;
   direction: LibraryDirection;
@@ -33,6 +34,7 @@ export const LIBRARY_DEFAULTS = {
   yearMin: null,
   yearMax: null,
   statuses: [] as EnrichmentStatusName[],
+  collectionId: null,
   inWatchlist: null,
   sort: 'Title' as LibrarySort,
   direction: 'Ascending' as LibraryDirection,
@@ -332,6 +334,16 @@ export function parseLibraryUrl(input?: unknown): LibraryUrlState {
   const runtime = parseRuntimeGroup(params);
   const year = parseYearGroup(params);
 
+  // collectionId: single positive integer, repeated/invalid absent
+  let collectionId: number | null = null;
+  if (hasKey(params, 'collectionId')) {
+    const all = getAll(params, 'collectionId');
+    if (all.length === 1) {
+      const n = parseIntValue(all[0]);
+      collectionId = n !== null && n > 0 ? n : null;
+    }
+  }
+
   return {
     text,
     genreIds,
@@ -342,6 +354,7 @@ export function parseLibraryUrl(input?: unknown): LibraryUrlState {
     yearMin: year.yearMin,
     yearMax: year.yearMax,
     statuses,
+    collectionId,
     inWatchlist,
     sort,
     direction,
@@ -386,6 +399,10 @@ export function serializeLibraryUrl(state: Partial<LibraryUrlState> | LibraryUrl
     params.append('statuses', st);
   }
 
+  if (s.collectionId !== null) {
+    params.append('collectionId', String(s.collectionId));
+  }
+
   if (s.inWatchlist !== null) {
     params.append('inWatchlist', s.inWatchlist ? 'true' : 'false');
   }
@@ -424,6 +441,7 @@ export function toApiParams(
   if (s.yearMin !== null) out.YearMin = String(s.yearMin);
   if (s.yearMax !== null) out.YearMax = String(s.yearMax);
   if (s.statuses && s.statuses.length) out.Statuses = s.statuses.slice();
+  if (s.collectionId !== null) out.CollectionId = String(s.collectionId);
   if (s.inWatchlist !== null) out.InWatchlist = s.inWatchlist ? 'true' : 'false';
   out.Sort = s.sort;
   out.Direction = s.direction;

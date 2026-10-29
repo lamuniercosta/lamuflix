@@ -147,3 +147,40 @@ describe('filterQuery rating range', () => {
     expect(isRatingActive('7.00', 9)).toBe(false);
   });
 });
+
+describe('filterQuery collectionId', () => {
+  it('parses a single positive collection id', () => {
+    expect(String(parseFilterQuery('collectionId=7').collectionId)).toBe('7');
+    expect(parseFilterQuery('').collectionId).toBeNull();
+  });
+
+  it('rejects malformed, nonpositive, empty and repeated collection ids', () => {
+    for (const input of [
+      'collectionId=0',
+      'collectionId=-3',
+      'collectionId=abc',
+      'collectionId=',
+      'collectionId=1&collectionId=2',
+    ]) {
+      expect(parseFilterQuery(input).collectionId).toBeNull();
+    }
+  });
+
+  it('keeps collectionId in the compact URL and the canonical API query', () => {
+    expect(toUrlQuery('collectionId=7')).toBe('collectionId=7');
+    expect(toUrlQuery('collectionId=7&page=1&sort=Title')).toBe('collectionId=7');
+    expect(toUrlQuery('collectionId=0')).toBe('');
+    expect(toApiQuery('collectionId=7')).toBe(
+      'collectionId=7&sort=Title&direction=Ascending&page=1&pageSize=20',
+    );
+    expect(toApiQuery('collectionId=abc')).toBe(
+      'sort=Title&direction=Ascending&page=1&pageSize=20',
+    );
+  });
+
+  it('preserves collectionId alongside other filters', () => {
+    expect(toUrlQuery('text=dune&collectionId=7&statuses=Pending')).toBe(
+      'text=dune&statuses=Pending&collectionId=7',
+    );
+  });
+});

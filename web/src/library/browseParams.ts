@@ -29,6 +29,7 @@ export type BrowseParams = {
   minRating?: BrowseMoviesQuery['MinRating'];
   maxRating?: BrowseMoviesQuery['MaxRating'];
   statuses?: string[];
+  collectionId?: string;
 };
 
 function toNumberOrNull(value: unknown): number | null {
@@ -107,6 +108,10 @@ export function buildBrowseParams(
 
   if (query.statuses.length > 0) {
     params.statuses = query.statuses.map((value) => String(value));
+  }
+
+  if (query.collectionId != null) {
+    params.collectionId = String(query.collectionId);
   }
 
   params.sort = query.sort || 'Title';
