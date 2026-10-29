@@ -44,6 +44,10 @@ export interface paths {
     /** List the stored genres. */
     get: operations["GetGenres"];
   };
+  "/api/collections": {
+    /** List the stored collections with current members. */
+    get: operations["GetCollections"];
+  };
   "/api/people": {
     /** List the stored actor people. */
     get: operations["GetPeople"];
@@ -78,6 +82,13 @@ export interface components {
       items: components["schemas"]["MovieSummaryResponse"][];
       /** Format: int32 */
       totalCount: number | string;
+    };
+    CollectionDto: {
+      /** Format: int32 */
+      id: number | string;
+      name: string;
+      /** Format: int32 */
+      movieCount: number | string;
     };
     /** @enum {string} */
     EnrichmentStatus: "Pending" | "Enriched" | "NotFound" | "Failed";
@@ -210,6 +221,7 @@ export interface operations {
         MaxRating?: string;
         Statuses?: string[];
         InWatchlist?: string;
+        CollectionId?: string;
         sort: "Title" | "Year" | "Rating" | "Runtime";
         direction: "Ascending" | "Descending";
         page: number;
@@ -501,6 +513,17 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["GenreDto"][];
+        };
+      };
+    };
+  };
+  /** List the stored collections with current members. */
+  GetCollections: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["CollectionDto"][];
         };
       };
     };
