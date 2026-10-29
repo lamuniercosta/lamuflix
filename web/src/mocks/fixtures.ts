@@ -187,6 +187,14 @@ const collectionsData = [
   { id: 1, name: 'Dune Collection', movieCount: 2 },
 ] satisfies Schemas['CollectionDto'][];
 
+const hostileCollectionsData = [
+  { id: 101, name: '<img src=x onerror=alert(1)> & "Dune"', movieCount: 2 },
+] satisfies Schemas['CollectionDto'][];
+
+const overlongCollectionsData = [
+  { id: 102, name: 'C'.repeat(180), movieCount: 2 },
+] satisfies Schemas['CollectionDto'][];
+
 const peopleData = [
   { id: 1, name: 'Timothée Chalamet' },
   { id: 2, name: 'Rebecca Ferguson' },
@@ -200,6 +208,8 @@ export const relatedMovies = Object.freeze(relatedMoviesData);
 export const forYouRecommendations = Object.freeze(forYouRecommendationsData);
 export const genres = Object.freeze(genresData);
 export const collections = Object.freeze(collectionsData);
+export const hostileCollections = Object.freeze(hostileCollectionsData);
+export const overlongCollections = Object.freeze(overlongCollectionsData);
 export const people = Object.freeze(peopleData);
 
 export const success = Object.freeze({

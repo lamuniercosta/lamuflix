@@ -1,8 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { http, HttpResponse, delay } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import App from '../App';
+import { hostileCollections, overlongCollections } from '../mocks/fixtures';
+import { server } from '../test/server';
 
 function renderApp() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -341,5 +344,128 @@ describe('Library section heading', () => {
     await waitForLibrary();
 
     expect(screen.getByRole('heading', { level: 2, name: 'All movies' })).toBeInTheDocument();
+  });
+});
+
+describe('Library collection filter', () => {
+  it('shows a removable Collection chip for a known id and clears the page', async () => {
+    window.history.replaceState({}, '', '/?collectionId=1&page=3&sort=Year');
+    renderApp();
+    await waitForLibrary();
+
+    expect(await screen.findByText('Collection: Dune Collection')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove collection filter Dune Collection' }),
+    );
+
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('collectionId')).toBeNull();
+    expect(params.get('sort')).toBe('Year');
+    expect(params.get('page') ?? '1').toBe('1');
+    expect(screen.queryByText('Collection: Dune Collection')).not.toBeInTheDocument();
+  });
+
+  it('selects a collection through the panel, preserving other filters and resetting page', async () => {
+    window.history.replaceState({}, '', '/?page=2&sort=Year&text=dune');
+    renderApp();
+    await waitForLibrary();
+
+    openFilters();
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Dune Collection/ }));
+
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('collectionId')).toBe('1');
+    expect(params.get('text')).toBe('dune');
+    expect(params.get('sort')).toBe('Year');
+    expect(params.get('page') ?? '1').toBe('1');
+    expect(screen.getByRole('checkbox', { name: /Dune Collection/ })).toBeChecked();
+  });
+
+  it('keeps the unknown-id fallback chip during fact loading', async () => {
+    server.use(
+      http.get('*/api/collections', async () => {
+        await delay(100);
+        return HttpResponse.json([]);
+      }),
+    );
+    window.history.replaceState({}, '', '/?collectionId=999');
+    renderApp();
+
+    expect(screen.getByText('Collection: Collection 999')).toBeInTheDocument();
+    await waitForLibrary();
+    expect(screen.getByText('Collection: Collection 999')).toBeInTheDocument();
+  });
+
+  it('keeps the unknown-id fallback chip on an empty facet and never as a section option', async () => {
+    server.use(http.get('*/api/collections', () => HttpResponse.json([])));
+    window.history.replaceState({}, '', '/?collectionId=999');
+    renderApp();
+    await waitForLibrary();
+
+    expect(await screen.findByText('Collection: Collection 999')).toBeInTheDocument();
+
+    openFilters();
+    const group = screen.getByRole('group', { name: 'Collection' });
+    expect(group.querySelectorAll('[role="checkbox"]')).toHaveLength(0);
+  });
+
+  it('keeps the unknown-id fallback chip when the facet fails', async () => {
+    server.use(
+      http.get('*/api/collections', () =>
+        HttpResponse.json({ title: 'HTTP 500', status: 500 }, { status: 500 }),
+      ),
+    );
+    window.history.replaceState({}, '', '/?collectionId=999');
+    renderApp();
+    await waitForLibrary();
+
+    expect(await screen.findByText('Collection: Collection 999')).toBeInTheDocument();
+    openFilters();
+    expect(screen.getByText(/Collections could not be loaded/i)).toBeInTheDocument();
+  });
+
+  it('clears the collection filter through Clear all while keeping unknown keys', async () => {
+    window.history.replaceState({}, '', '/?collectionId=1&foo=bar&page=2');
+    const { container } = renderApp();
+    await waitForLibrary();
+    await screen.findByText('Collection: Dune Collection');
+
+    const chipRow = container.querySelector('.library-chips');
+    fireEvent.click(within(chipRow as HTMLElement).getByRole('button', { name: 'Clear all' }));
+
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('collectionId')).toBeNull();
+    expect(params.get('foo')).toBe('bar');
+    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument();
+  });
+
+  it('renders hostile collection names as plain text in the toolbar chip', async () => {
+    server.use(http.get('*/api/collections', () => HttpResponse.json(hostileCollections)));
+    window.history.replaceState({}, '', '/?collectionId=101');
+    const { container } = renderApp();
+    await waitForLibrary();
+
+    expect(
+      await screen.findByText(`Collection: ${hostileCollections[0].name}`),
+    ).toBeInTheDocument();
+    const chipRow = container.querySelector('.library-chips');
+    expect(chipRow?.querySelector('img')).toBeNull();
+    expect(
+      screen.getByRole('button', {
+        name: `Remove collection filter ${hostileCollections[0].name}`,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('renders an overlong collection name in a single toolbar chip', async () => {
+    server.use(http.get('*/api/collections', () => HttpResponse.json(overlongCollections)));
+    window.history.replaceState({}, '', '/?collectionId=102');
+    const { container } = renderApp();
+    await waitForLibrary();
+
+    const chip = await screen.findByText(`Collection: ${overlongCollections[0].name}`);
+    expect(chip).toBeInTheDocument();
+    const chipRow = container.querySelector('.library-chips');
+    expect(chipRow?.querySelectorAll('.lamu-chip')).toHaveLength(1);
   });
 });

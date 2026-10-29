@@ -17,6 +17,7 @@ import {
 import { useDebouncedSearch } from './useDebouncedSearch';
 
 type GenreDto = components['schemas']['GenreDto'];
+type CollectionDto = components['schemas']['CollectionDto'];
 type PersonDto = components['schemas']['PersonDto'];
 
 export interface FilterPanelProps {
@@ -27,9 +28,12 @@ export interface FilterPanelProps {
   onCollapse?: () => void;
   matchCount?: number;
   genres?: GenreDto[];
+  collections?: CollectionDto[];
   actors?: PersonDto[];
   genreError?: unknown;
   genresError?: unknown;
+  collectionError?: unknown;
+  collectionsError?: unknown;
   castError?: unknown;
   actorsError?: unknown;
   integrated?: boolean;
@@ -62,6 +66,15 @@ function numberOr(value: unknown, fallback: number): number {
 
 function sortByName<T extends { name?: string | null }>(items: readonly T[]): T[] {
   return [...items].sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')));
+}
+
+function sortCollections<T extends { id?: string | number; name?: string | null }>(
+  items: readonly T[],
+): T[] {
+  return [...items].sort((a, b) => {
+    const byName = String(a.name ?? '').localeCompare(String(b.name ?? ''));
+    return byName !== 0 ? byName : Number(a.id) - Number(b.id);
+  });
 }
 
 interface RangeThumb {
@@ -160,6 +173,10 @@ export function FilterPanel(props: FilterPanelProps) {
   const query = isControlled ? readQuery(queryProp) : internalQuery;
 
   const sortedGenres = useMemo(() => sortByName(props.genres ?? []), [props.genres]);
+  const sortedCollections = useMemo(
+    () => sortCollections(props.collections ?? []),
+    [props.collections],
+  );
   const sortedActors = useMemo(() => sortByName(props.actors ?? []), [props.actors]);
   const actorNameById = useMemo(
     () => new Map(sortedActors.map((actor) => [String(actor.id), String(actor.name ?? '')])),
@@ -267,6 +284,7 @@ export function FilterPanel(props: FilterPanelProps) {
   const selectedStatuses = new Set(query.statuses.map(String));
   const direction = query.direction === 'Descending' ? 'Descending' : 'Ascending';
   const genreFailed = Boolean(props.genreError ?? props.genresError);
+  const collectionFailed = Boolean(props.collectionError ?? props.collectionsError);
   const castFailed = Boolean(props.castError ?? props.actorsError);
   const runtimeMaxText = runtimeMaxValue >= RUNTIME_MAX_EXTENT ? '240+' : String(runtimeMaxValue);
 
@@ -275,6 +293,11 @@ export function FilterPanel(props: FilterPanelProps) {
       next.genreIds = on
         ? [...next.genreIds, id]
         : next.genreIds.filter((item) => String(item) !== String(id));
+    });
+
+  const toggleCollection = (id: string | number, on: boolean) =>
+    update((next) => {
+      next.collectionId = on ? id : null;
     });
 
   const addActor = (id: string | number) => {
@@ -314,6 +337,7 @@ export function FilterPanel(props: FilterPanelProps) {
     update((next) => {
       next.text = '';
       next.genreIds = [];
+      next.collectionId = null;
       next.actorIds = [];
       next.runtimeMin = '';
       next.runtimeMax = '';
@@ -374,6 +398,39 @@ export function FilterPanel(props: FilterPanelProps) {
                     {genre.movieCount}
                   </span>
                   <span className="sr-only">, {genre.movieCount} movies</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </fieldset>
+
+      <fieldset className="lamu-filter-group">
+        <legend className="lamu-filter-legend">Collection</legend>
+        {collectionFailed ? (
+          <p role="alert" className="lamu-filter-error">
+            Collections could not be loaded.
+          </p>
+        ) : (
+          <div className="lamu-chip-row">
+            {sortedCollections.map((item) => {
+              const checked = String(query.collectionId) === String(item.id);
+              return (
+                <label
+                  key={String(item.id)}
+                  className={checked ? 'lamu-chip lamu-chip-selected' : 'lamu-chip'}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={checked}
+                    onChange={(event) => toggleCollection(item.id, event.target.checked)}
+                  />
+                  <span>{item.name}</span>
+                  <span className="lamu-chip-count" aria-hidden="true">
+                    {item.movieCount}
+                  </span>
+                  <span className="sr-only">, {item.movieCount} movies</span>
                 </label>
               );
             })}

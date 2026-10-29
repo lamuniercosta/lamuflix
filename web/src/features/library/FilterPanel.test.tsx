@@ -744,3 +744,181 @@ describe('FilterPanel', () => {
     expect(window.location.search).toBe('');
   });
 });
+
+describe('FilterPanel collection section', () => {
+  type CollectionDto = components['schemas']['CollectionDto'];
+
+  function collection(value: Partial<CollectionDto>): CollectionDto {
+    return { id: 1, name: 'Collection', movieCount: 0, ...value } as CollectionDto;
+  }
+
+  function CollectionHost({ onChange }: { onChange: (value: unknown) => void }) {
+    const [q, setQ] = React.useState(parseFilterQuery(''));
+    return (
+      <FilterPanel
+        query={q}
+        collections={[
+          collection({ id: 3, name: 'Dune Collection', movieCount: 2 }),
+          collection({ id: 4, name: 'Arrival Collection', movieCount: 1 }),
+        ]}
+        genres={[genre({ id: 1, name: 'Action', movieCount: 4 })]}
+        onChange={(next) => {
+          onChange(next);
+          setQ(next as ReturnType<typeof parseFilterQuery>);
+        }}
+      />
+    );
+  }
+
+  it('renders the Collection fieldset with sorted sr-only checkboxes and count suffixes', () => {
+    render(
+      <FilterPanel
+        collections={[
+          collection({ id: 4, name: 'Zeta', movieCount: 1 }),
+          collection({ id: 3, name: 'Alpha', movieCount: 2 }),
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Collection' });
+    const alpha = within(group).getByRole('checkbox', { name: /Alpha/ });
+    const zeta = within(group).getByRole('checkbox', { name: /Zeta/ });
+    expect(alpha).toHaveAttribute('type', 'checkbox');
+    expect(alpha).not.toHaveAttribute('checked');
+    expect(alpha.compareDocumentPosition(zeta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(group).getByText(', 2 movies')).toBeInTheDocument();
+    expect(alpha.parentElement).toHaveClass('lamu-chip');
+  });
+
+  it('breaks equal names by id', () => {
+    render(
+      <FilterPanel
+        collections={[
+          collection({ id: 9, name: 'Same', movieCount: 1 }),
+          collection({ id: 2, name: 'Same', movieCount: 2 }),
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Collection' });
+    const boxes = within(group).getAllByRole('checkbox');
+    expect(boxes[0]).toHaveAccessibleName(/2 movies/);
+    expect(boxes[1]).toHaveAccessibleName(/1 movies/);
+  });
+
+  it('selects a single collection, writes the URL key and resets page', () => {
+    const onChange = vi.fn();
+    render(
+      <FilterPanel
+        query={parseFilterQuery('page=3&text=dune')}
+        collections={[collection({ id: 3, name: 'Dune Collection', movieCount: 2 })]}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Dune Collection/ }));
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(String(last.collectionId)).toBe('3');
+    expect(last.page).toBe(1);
+    expect(last.text).toBe('dune');
+    expect(new URLSearchParams(window.location.search).get('collectionId')).toBe('3');
+    expect(new URLSearchParams(window.location.search).get('page')).toBeNull();
+  });
+
+  it('replaces the selection when another chip is checked', () => {
+    const onChange = vi.fn();
+    render(<CollectionHost onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Dune Collection/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Arrival Collection/ }));
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(String(last.collectionId)).toBe('4');
+    expect(screen.getByRole('checkbox', { name: /Dune Collection/ })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /Arrival Collection/ })).toBeChecked();
+    expect(new URLSearchParams(window.location.search).getAll('collectionId')).toEqual(['4']);
+  });
+
+  it('clears the selection when the active chip is unchecked', () => {
+    const onChange = vi.fn();
+    render(
+      <FilterPanel
+        query={parseFilterQuery('collectionId=3&page=2')}
+        collections={[collection({ id: 3, name: 'Dune Collection', movieCount: 2 })]}
+        onChange={onChange}
+      />,
+    );
+
+    const box = screen.getByRole('checkbox', { name: /Dune Collection/ });
+    expect(box).toBeChecked();
+    fireEvent.click(box);
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.collectionId).toBeNull();
+    expect(last.page).toBe(1);
+    expect(new URLSearchParams(window.location.search).get('collectionId')).toBeNull();
+  });
+
+  it('clears the collection selection on Clear all while preserving sort', () => {
+    const onChange = vi.fn();
+    render(
+      <FilterPanel
+        query={parseFilterQuery('collectionId=3&sort=Year&direction=Descending')}
+        collections={[collection({ id: 3, name: 'Dune Collection', movieCount: 2 })]}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.collectionId).toBeNull();
+    expect(last.sort).toBe('Year');
+    expect(new URLSearchParams(window.location.search).get('collectionId')).toBeNull();
+  });
+
+  it('renders legend only for an empty facet without helper copy or busy state', () => {
+    const { container } = render(<FilterPanel collections={[]} />);
+
+    const group = screen.getByRole('group', { name: 'Collection' });
+    expect(within(group).queryAllByRole('checkbox')).toHaveLength(0);
+    expect(group.querySelector('p')).toBeNull();
+    expect(group).toHaveTextContent(/^Collection$/);
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(container.querySelector('.lamu-skeleton')).toBeNull();
+  });
+
+  it('shows an independent collection error and keeps genres usable', () => {
+    render(
+      <FilterPanel
+        collectionsError={new Error('collections failed')}
+        genres={[genre({ id: 1, name: 'Action', movieCount: 4 })]}
+      />,
+    );
+
+    expect(screen.getByText(/Collections could not be loaded/i)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Action/ })).toBeInTheDocument();
+  });
+
+  it('renders hostile collection names as plain text', () => {
+    const hostile = '<img src=x onerror=alert(1)> & "Dune"';
+    const { container } = render(
+      <FilterPanel collections={[collection({ id: 3, name: hostile, movieCount: 1 })]} />,
+    );
+
+    expect(screen.getByText(hostile)).toBeInTheDocument();
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('script')).toBeNull();
+  });
+
+  it('renders an overlong name inside a single chip', () => {
+    const overlong = 'C'.repeat(180);
+    render(<FilterPanel collections={[collection({ id: 3, name: overlong, movieCount: 1 })]} />);
+
+    const group = screen.getByRole('group', { name: 'Collection' });
+    expect(within(group).getAllByRole('checkbox')).toHaveLength(1);
+    expect(group.querySelectorAll('.lamu-chip-row .lamu-chip')).toHaveLength(1);
+    expect(within(group).getByText(overlong)).toBeInTheDocument();
+  });
+});
