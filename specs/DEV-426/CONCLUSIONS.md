@@ -181,3 +181,13 @@ Shared understanding: Keel closes the grill on these terms, appends this ruling 
 - C2: constitution VIII (`:351-356`) vendor-name exceptions and VII (`:324-326`) options-record list; ticket (note DEV-426:11) explicitly names `IOmdbRequestGate` and `OmdbQuotaOptions`, so names are ticket-decided and not renamed; 1.6.0/`TmdbOptions` precedent (`:7-16`). Same amendment adds `OmdbQuotaOptions` to VII and VIII, and `IOmdbRequestGate` to VIII.
 - Keel/Quill update `spec.md`/`plan.md` Constitution Check to cite I/VII/VIII plus ADR-0031 and the 1.7.0 amendment; no other constitution text changes.
 
+---
+
+## I2 — Constitution 1.7.0 staging (speckit-analyze residual, post-remediation)
+
+[from Patron] DEV-426 I2 ruling: I2 is valid and retained; YES, stage the proposed 1.7.0 text into `.specify/memory/constitution.md` on `feature/426-spec` for the spec PR — owner approval remains the Gate 1 spec-PR merge, with the owner checkbox unchecked until then, and Phase B verifies the merged approved artifact instead of applying it.
+
+- Basis: C1/C2 ruling above (`CONCLUSIONS.md:178`) places the amendment in the DEV-426 spec PR with approval via Gate 1 merge; Governance (`.specify/memory/constitution.md:597-602`) requires the version bump, Sync Impact Report, and template review before merging, and Compliance (`:609-612`) requires a simultaneously submitted and approved amendment — deferring the actual `constitution.md` edit to Phase B (current `constitution-amendment-v1.7.0.md:8,108`; `tasks.md` T034/T035) splits approval from application and contradicts that ruling.
+- Staging scope (Conductor-assigned operator, Rigger per Keel recommendation; `brief.md:102` reserves constitution edits to that operator): apply only the exact I/VII/VIII, Version 1.7.0, Sync Impact Report, and Last Amended text already specified in `constitution-amendment-v1.7.0.md`; no unrelated constitution text, no production code, ADR-0031 stays Proposed, and the Gate 1 checkbox in `spec.md` stays unchecked — staging on the branch claims no present owner approval.
+- Consequential doc fix: Keel/Quill rewrite T034/T035 and every Phase B apply-only reference as verify-only (confirm the merged constitution is 1.7.0 with the staged I/VII/VIII text and reconcile the apply date if the merge date differs; any other mismatch or a non-1.6.0 baseline stops as `blocked: structural — ticket-named port/types vs constitution`); `constitution-amendment-v1.7.0.md` remains the proposal record.
+
