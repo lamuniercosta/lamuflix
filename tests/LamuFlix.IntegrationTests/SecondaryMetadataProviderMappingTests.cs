@@ -71,6 +71,59 @@ public sealed class SecondaryMetadataProviderMappingTests(SecondaryMetadataProvi
         metadata.Writers.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task FindAsync_DetailsWithCollection_MapsCollectionIdentity()
+    {
+        // arrange
+        probe.StubFoundLookup();
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "The Matrix", TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.CollectionId.ShouldBe(2344);
+        metadata.CollectionName.ShouldBe("The Matrix Collection");
+    }
+
+    [Theory]
+    [InlineData("optional-fields-absent.json")]
+    [InlineData("optional-fields-null.json")]
+    [InlineData("collection-null.json")]
+    public async Task FindAsync_MissingOrNullCollection_StaysFoundWithCollectionAbsent(string fixtureName)
+    {
+        // arrange
+        probe.StubFoundLookup(detailsBody: SecondaryMetadataProviderProbe.Fixture("Details", fixtureName));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "The Matrix", TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.CollectionId.ShouldBeNull();
+        metadata.CollectionName.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("collection-nonpositive-id.json")]
+    [InlineData("collection-negative-id.json")]
+    [InlineData("collection-blank-name.json")]
+    public async Task FindAsync_MalformedPresentCollection_ReturnsFailedInvalidResponseNotFound(string fixtureName)
+    {
+        // arrange
+        probe.StubFoundLookup(detailsBody: SecondaryMetadataProviderProbe.Fixture("Details", fixtureName));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "The Matrix", TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldNotBeOfType<MetadataLookupResult.Found>();
+        Category(result).ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+    }
+
     [Theory]
     [MemberData(nameof(OptionalAbsentFixtures))]
     public async Task FindAsync_AbsentOrNullOptionalFields_StaysFoundWithThoseFieldsAbsent(

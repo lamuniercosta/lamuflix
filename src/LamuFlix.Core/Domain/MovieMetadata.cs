@@ -20,12 +20,16 @@ public sealed record MovieMetadata
         IEnumerable<string>? directors = null,
         IEnumerable<string>? actors = null,
         IEnumerable<string>? genres = null,
-        IEnumerable<string>? writers = null)
+        IEnumerable<string>? writers = null,
+        int? collectionId = null,
+        string? collectionName = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
             throw new ArgumentException("Title is required.", nameof(title));
         }
+
+        ValidateCollection(collectionId, collectionName);
 
         Title = title;
         Synopsis = synopsis;
@@ -40,6 +44,31 @@ public sealed record MovieMetadata
         Actors = CopyStrings(actors);
         Genres = FreezeStrings(genres);
         Writers = FreezeStrings(writers);
+        CollectionId = collectionId;
+        CollectionName = collectionName;
+    }
+
+    private static void ValidateCollection(int? collectionId, string? collectionName)
+    {
+        if (collectionId is null && collectionName is null)
+        {
+            return;
+        }
+
+        if (collectionId is null || collectionName is null)
+        {
+            throw new ArgumentException("Collection id and name are required together.");
+        }
+
+        if (collectionId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(collectionId), "Collection id must be positive.");
+        }
+
+        if (string.IsNullOrWhiteSpace(collectionName))
+        {
+            throw new ArgumentException("Collection name is required.", nameof(collectionName));
+        }
     }
 
     private static IReadOnlyList<string> CopyStrings(IEnumerable<string>? source) =>
@@ -74,11 +103,16 @@ public sealed record MovieMetadata
 
     public ImmutableArray<string> Writers { get; }
 
+    public int? CollectionId { get; }
+
+    public string? CollectionName { get; }
+
     public bool Equals(MovieMetadata? other) =>
         other is not null
         && SameScalars(this, other)
         && SameOptionals(this, other)
-        && SameCollections(this, other);
+        && SameCollections(this, other)
+        && SameCollectionIdentity(this, other);
 
     private static bool SameScalars(MovieMetadata left, MovieMetadata right) =>
         left.Title == right.Title
@@ -99,6 +133,10 @@ public sealed record MovieMetadata
         && left.Genres.SequenceEqual(right.Genres)
         && left.Writers.SequenceEqual(right.Writers);
 
+    private static bool SameCollectionIdentity(MovieMetadata left, MovieMetadata right) =>
+        left.CollectionId == right.CollectionId
+        && left.CollectionName == right.CollectionName;
+
     public override int GetHashCode()
     {
         var hash = new HashCode();
@@ -111,6 +149,8 @@ public sealed record MovieMetadata
         hash.Add(PosterUrl);
         hash.Add(RottenTomatoesRating);
         hash.Add(MetaScore);
+        hash.Add(CollectionId);
+        hash.Add(CollectionName);
         foreach (var director in Directors)
         {
             hash.Add(director);
