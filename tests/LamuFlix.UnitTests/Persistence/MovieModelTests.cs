@@ -51,6 +51,7 @@ public sealed class MovieModelTests
         AssertColumn(entity, table, nameof(MovieRecord.MetaScore), "meta_score", "smallint", true);
         AssertColumn(entity, table, nameof(MovieRecord.Plot), "plot", "text", true);
         AssertColumn(entity, table, nameof(MovieRecord.PosterUrl), "poster_url", "text", true);
+        AssertColumn(entity, table, nameof(MovieRecord.CollectionId), "collection_id", "integer", true);
     }
 
     [Fact]
@@ -63,6 +64,7 @@ public sealed class MovieModelTests
         AssertSinglePropertyIndex(entity, nameof(MovieRecord.ReleaseYear), false);
         AssertSinglePropertyIndex(entity, nameof(MovieRecord.Status), false);
         AssertSinglePropertyIndex(entity, nameof(MovieRecord.LibraryPath), true);
+        AssertSinglePropertyIndex(entity, nameof(MovieRecord.CollectionId), false);
         AssertFilteredUniqueImdbIdIndex(FindUniqueSinglePropertyIndex(entity, nameof(MovieRecord.ImdbId)));
     }
 
@@ -80,12 +82,12 @@ public sealed class MovieModelTests
     }
 
     [Fact]
-    public void MoviesIndexes_HaveExactlyFive()
+    public void MoviesIndexes_HaveExactlySix()
     {
         using var context = CreateContext();
         var entity = RequireEntity(context, typeof(MovieRecord));
 
-        entity.GetIndexes().Count().ShouldBe(5);
+        entity.GetIndexes().Count().ShouldBe(6);
     }
 
     [Fact]

@@ -39,6 +39,32 @@ public sealed class ModelMetadataTests
     }
 
     [Fact]
+    public void Collection_MetadataMatchesDatabaseMappingAndNaturalKey()
+    {
+        // arrange
+        using var context = CreateContext();
+        var entity = context.Model.FindEntityType(typeof(CollectionRecord));
+        entity.ShouldNotBeNull();
+        entity.GetTableName().ShouldBe("collections");
+        var table = StoreObjectIdentifier.Table("collections");
+
+        // act
+        var id = entity.FindProperty("Id");
+        var name = entity.FindProperty("Name");
+
+        // assert
+        id.ShouldNotBeNull();
+        id.GetColumnName(table).ShouldBe("id");
+        id.GetColumnType().ShouldBe("integer");
+        id.ValueGenerated.ShouldBe(ValueGenerated.Never);
+        entity.FindPrimaryKey().ShouldNotBeNull().Properties.ShouldContain(id);
+        name.ShouldNotBeNull();
+        name.GetColumnName(table).ShouldBe("name");
+        name.GetColumnType().ShouldBe("text");
+        name.IsNullable.ShouldBeFalse();
+    }
+
+    [Fact]
     public void Writer_IdIsValueGeneratedOnAdd()
     {
         using var context = CreateContext();

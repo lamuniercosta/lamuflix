@@ -15,6 +15,8 @@ public sealed class LamuFlixDbContext(DbContextOptions<LamuFlixDbContext> option
 
     public DbSet<WriterRecord> Writers => Set<WriterRecord>();
 
+    public DbSet<CollectionRecord> Collections => Set<CollectionRecord>();
+
     public DbSet<PlaybackEventRecord> PlaybackEvents => Set<PlaybackEventRecord>();
 
     public DbSet<MovieFeaturesRecord> MovieFeatures => Set<MovieFeaturesRecord>();

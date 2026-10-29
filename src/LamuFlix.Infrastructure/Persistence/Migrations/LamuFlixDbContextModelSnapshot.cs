@@ -18,7 +18,7 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.13")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
@@ -41,6 +41,22 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("actors", (string)null);
+                });
+
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.CollectionRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("collections", (string)null);
                 });
 
             modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.DirectorRecord", b =>
@@ -110,6 +126,10 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CollectionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("collection_id");
 
                     b.Property<DateTimeOffset?>("EnrichedAt")
                         .HasColumnType("timestamptz")
@@ -203,6 +223,8 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnName("title");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CollectionId");
 
                     b.HasIndex("ImdbId")
                         .IsUnique()
@@ -362,6 +384,16 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.MovieRecord", b =>
+                {
+                    b.HasOne("LamuFlix.Infrastructure.Persistence.Records.CollectionRecord", "Collection")
+                        .WithMany("Movies")
+                        .HasForeignKey("CollectionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Collection");
+                });
+
             modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.PlaybackEventRecord", b =>
                 {
                     b.HasOne("LamuFlix.Infrastructure.Persistence.Records.MovieRecord", null)
@@ -429,6 +461,11 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasForeignKey("writer_id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.CollectionRecord", b =>
+                {
+                    b.Navigation("Movies");
                 });
 #pragma warning restore 612, 618
         }

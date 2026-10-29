@@ -52,6 +52,10 @@ public sealed class MovieRecord
 
     public string? PosterUrl { get; set; }
 
+    public int? CollectionId { get; set; }
+
+    public CollectionRecord? Collection { get; set; }
+
     public ICollection<ActorRecord> Actors { get; } = new HashSet<ActorRecord>();
 
     public ICollection<DirectorRecord> Directors { get; } = new HashSet<DirectorRecord>();

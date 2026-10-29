@@ -30,6 +30,16 @@ public sealed class SqlStateTests
         retryable.ShouldBeTrue();
     }
 
+    [Fact]
+    public void IsRetryableSqlState_UniqueViolationOnCollectionKey_ReturnsTrue()
+    {
+        // act
+        var retryable = EfMovieRepository.IsRetryableSqlState("23505", "PK_collections");
+
+        // assert
+        retryable.ShouldBeTrue();
+    }
+
     [Theory]
     [InlineData("23505", "IX_movies_imdb_id")]
     [InlineData("23505", null)]
@@ -62,6 +72,7 @@ public sealed class SqlStateTests
     [Theory]
     [InlineData("IX_movies_imdb_id")]
     [InlineData("PK_directors")]
+    [InlineData("PK_collections")]
     [InlineData("")]
     [InlineData(null)]
     public void IsMovieOrJoinPrimaryKey_OtherOrMissingKey_ReturnsFalse(string? constraint)
