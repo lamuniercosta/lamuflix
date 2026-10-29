@@ -52,6 +52,10 @@ export interface paths {
     /** List the stored actor people. */
     get: operations["GetPeople"];
   };
+  "/api/directors": {
+    /** List the stored directors linked to at least one movie. */
+    get: operations["GetDirectors"];
+  };
   "/api/movies/{id}/watched": {
     /** Mark a movie as watched. */
     post: operations["MarkWatched"];
@@ -84,6 +88,13 @@ export interface components {
       totalCount: number | string;
     };
     CollectionDto: {
+      /** Format: int32 */
+      id: number | string;
+      name: string;
+      /** Format: int32 */
+      movieCount: number | string;
+    };
+    DirectorDto: {
       /** Format: int32 */
       id: number | string;
       name: string;
@@ -212,6 +223,7 @@ export interface operations {
         Text?: string;
         GenreIds?: string[];
         ActorIds?: string[];
+        DirectorId?: string;
         RuntimeMin?: string;
         RuntimeMax?: string;
         RuntimeIncludeUnknown?: string;
@@ -541,6 +553,17 @@ export interface operations {
       422: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** List the stored directors linked to at least one movie. */
+  GetDirectors: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DirectorDto"][];
         };
       };
     };

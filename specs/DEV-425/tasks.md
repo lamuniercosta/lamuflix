@@ -62,8 +62,8 @@ Compile-failure red is acceptable while introducing required symbols/port; after
 **Goal**: OpenAPI → generated TypeScript/mocks/typecheck; no hand edits.
 **Checkpoint**: Generated types expose DirectorDto and browse `directorId`.
 
-- [ ] T030 [US1] Regenerate in contract-chain order after T022/T023: established opt-in OpenAPI workflow writes `web/src/api/openapi.json` and Verify drift snapshot together; then regenerate `web/src/api/types.ts` and update generated mocks through the established path; exercise `web/src/api/client.typecheck.ts` coverage; never hand-edit generated files (FR-008, FR-017; Q6; SC-003)
-- [ ] T031 Confirm OpenAPI drift enforcement (`OpenApiContractTests` / committed baseline) passes without replacing enforcement by regeneration alone (depends on T030; brief Gate expectations)
+- [X] T030 [US1] Regenerate in contract-chain order after T022/T023: established opt-in OpenAPI workflow writes `web/src/api/openapi.json` and Verify drift snapshot together; then regenerate `web/src/api/types.ts` and update generated mocks through the established path; exercise `web/src/api/client.typecheck.ts` coverage; never hand-edit generated files (FR-008, FR-017; Q6; SC-003)
+- [X] T031 Confirm OpenAPI drift enforcement (`OpenApiContractTests` / committed baseline) passes without replacing enforcement by regeneration alone (depends on T030; brief Gate expectations)
 
 **Checkpoint**: Web may consume generated DirectorDto and browse params only after T030.
 

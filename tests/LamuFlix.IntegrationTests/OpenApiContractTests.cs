@@ -54,6 +54,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GET /api/genres",
         "GET /api/collections",
         "GET /api/people",
+        "GET /api/directors",
         "POST /api/movies/{id}/watched",
         "DELETE /api/movies/{id}/watched",
         "POST /api/movies/{id}/not-interested",
@@ -69,6 +70,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GenreDto",
         "CollectionDto",
         "PersonDto",
+        "DirectorDto",
     ];
 
     private static readonly string[] OperationMethods =
@@ -195,6 +197,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
                 "Text",
                 "GenreIds",
                 "ActorIds",
+                "DirectorId",
                 "RuntimeMin",
                 "RuntimeMax",
                 "RuntimeIncludeUnknown",

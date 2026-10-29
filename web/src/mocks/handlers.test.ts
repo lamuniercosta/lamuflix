@@ -5,6 +5,7 @@ import { importAcceptedLocation, standingBrowseQuery } from '../test/handlers';
 import { server } from '../test/server';
 import {
   browseMovies,
+  directors,
   genres,
   movieDetails,
   movieDetailsNullMetadata,
@@ -56,6 +57,7 @@ describe('generated MSW handlers', () => {
     });
     const genreList = await client.GET('/api/genres');
     const peopleList = await client.GET('/api/people');
+    const directorList = await client.GET('/api/directors');
 
     // assert
     expect(browse.data).toEqual(browseMovies);
@@ -73,6 +75,7 @@ describe('generated MSW handlers', () => {
     expect(unmarkedNotInterested.response.status).toBe(204);
     expect(genreList.data).toEqual(genres);
     expect(peopleList.data).toEqual(people);
+    expect(directorList.data).toEqual(directors);
   });
 
   it('serves the null-metadata details variant through an override', async () => {
