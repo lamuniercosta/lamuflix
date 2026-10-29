@@ -183,6 +183,10 @@ const genresData = [
   { id: 2, name: 'Sci-Fi', movieCount: 5 },
 ] satisfies Schemas['GenreDto'][];
 
+const collectionsData = [
+  { id: 1, name: 'Dune Collection', movieCount: 2 },
+] satisfies Schemas['CollectionDto'][];
+
 const peopleData = [
   { id: 1, name: 'Timothée Chalamet' },
   { id: 2, name: 'Rebecca Ferguson' },
@@ -195,6 +199,7 @@ export const recommendations = Object.freeze(recommendationsData);
 export const relatedMovies = Object.freeze(relatedMoviesData);
 export const forYouRecommendations = Object.freeze(forYouRecommendationsData);
 export const genres = Object.freeze(genresData);
+export const collections = Object.freeze(collectionsData);
 export const people = Object.freeze(peopleData);
 
 export const success = Object.freeze({
@@ -203,6 +208,7 @@ export const success = Object.freeze({
   GetRecommendations: recommendations,
   GetForYouRecommendations: forYouRecommendations,
   GetGenres: genres,
+  GetCollections: collections,
   GetPeople: people,
 });
 

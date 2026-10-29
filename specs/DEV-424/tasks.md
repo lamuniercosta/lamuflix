@@ -69,7 +69,7 @@
 
 **Purpose**: C# DTO → OpenAPI → generated TypeScript only. Prerequisite: Phase 4 backend green (step 6 ruling 6).
 
-- [ ] T020 Regenerate `web/src/api/openapi.json` and `web/src/api/types.ts` via `npm run generate:api` from the C# contract **after** backend tests are green; never hand-edit; confirm `npm run check:api` (FR-007; brief scope 8; step 6 ruling 6)
+- [X] T020 Regenerate `web/src/api/openapi.json` and `web/src/api/types.ts` via `npm run generate:api` from the C# contract **after** backend tests are green; never hand-edit; confirm `npm run check:api` (FR-007; brief scope 8; step 6 ruling 6)
 
 **Checkpoint**: Generated `CollectionDto` / `GetCollections` / browse `collectionId` available to web.
 
