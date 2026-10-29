@@ -34,7 +34,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "movie_writers",
         "playback_events",
         "movie_features",
-        "outbox_messages"
+        "outbox_messages",
+        "collections"
     ];
 
     private static readonly string[] NullableMoviesColumns =
@@ -52,7 +53,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "enrichment_failure_category",
         "last_attempt_at",
         "parsed_release_year",
-        "manual_imdb_id"
+        "manual_imdb_id",
+        "collection_id"
     ];
 
     private static readonly Regex SnakeCase = new(
@@ -81,7 +83,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(9);
+        migrations.Length.ShouldBe(10);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -91,6 +93,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         migrations[6].ShouldEndWith("_AddManualImdbId");
         migrations[7].ShouldEndWith("_AddMovieFeatures");
         migrations[8].ShouldEndWith("_AddEnrichmentOutbox");
+        migrations[9].ShouldEndWith("_AddMovieCollections");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -125,7 +128,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddEnrichmentOutbox");
+        applied[^1].ShouldEndWith("_AddMovieCollections");
         var rows = await context.Movies.AsNoTracking()
             .OrderBy(movie => movie.Title)
             .ToListAsync(cancellationToken);
@@ -191,7 +194,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         applied[1].ShouldEndWith("_AddMovieWriters");
         var priorColumns = await catalog.ListColumnsAsync("movies", cancellationToken);
         priorColumns.ShouldBe(
-            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id"),
+            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id"),
             ignoreOrder: true);
         priorColumns.ShouldNotContain("is_watched");
         priorColumns.ShouldNotContain("is_not_interested");
@@ -219,7 +222,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddEnrichmentOutbox");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddMovieCollections");
     }
 
     [Fact]

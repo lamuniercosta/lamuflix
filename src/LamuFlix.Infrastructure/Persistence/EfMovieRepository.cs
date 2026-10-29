@@ -150,6 +150,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         record.ImdbId = metadata.ImdbId;
         record.PosterUrl = metadata.PosterUrl;
         record.MetaScore = metadata.MetaScore;
+        record.CollectionId = metadata.CollectionId;
     }
 
     private static void ClearMetadata(MovieRecord record)
@@ -162,6 +163,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         record.ImdbId = null;
         record.PosterUrl = null;
         record.MetaScore = null;
+        record.CollectionId = null;
     }
 
     public async Task<MovieId> NextIdentityAsync(CancellationToken ct)
@@ -476,9 +478,47 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             await ReplaceAssociationsAsync(tracked.Record, tracked.Movie.Metadata, ct);
         }
 
+        await ApplyCollectionsAsync(metadataTracked, ct);
+
         await db.SaveChangesAsync(ct);
 
         RefreshBaselines();
+    }
+
+    private async Task ApplyCollectionsAsync(IReadOnlyList<TrackedMovie> metadataTracked, CancellationToken ct)
+    {
+        var desired = new Dictionary<int, string>();
+        foreach (var tracked in metadataTracked)
+        {
+            if (tracked.Movie.Metadata is { CollectionId: { } id, CollectionName: { } name })
+            {
+                desired[id] = name;
+            }
+        }
+
+        if (desired.Count == 0)
+        {
+            return;
+        }
+
+        var ids = desired.Keys.Order().ToArray();
+        var existing = await db.Collections
+            .Where(collection => ids.Contains(collection.Id))
+            .ToDictionaryAsync(collection => collection.Id, ct);
+        foreach (var id in ids)
+        {
+            if (existing.TryGetValue(id, out var collection))
+            {
+                if (!string.Equals(collection.Name, desired[id], StringComparison.Ordinal))
+                {
+                    collection.Name = desired[id];
+                }
+
+                continue;
+            }
+
+            db.Collections.Add(new CollectionRecord { Id = id, Name = desired[id] });
+        }
     }
 
     private async Task RebuildTrackingAsync(CancellationToken ct)
@@ -662,7 +702,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         sqlState switch
         {
             "40001" or "40P01" => true,
-            "23505" => IsMovieOrJoinPrimaryKey(constraintName),
+            "23505" => IsMovieOrJoinPrimaryKey(constraintName) || IsCollectionPrimaryKey(constraintName),
             _ => false,
         };
 
@@ -670,6 +710,9 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         constraintName is not null
         && (string.Equals(constraintName, "PK_movies", StringComparison.Ordinal)
             || constraintName.StartsWith("PK_movie_", StringComparison.Ordinal));
+
+    private static bool IsCollectionPrimaryKey(string? constraintName) =>
+        string.Equals(constraintName, "PK_collections", StringComparison.Ordinal);
 
     private static bool IsRetryableSqlState(PostgresException exception) =>
         IsRetryableSqlState(exception.SqlState, exception.ConstraintName);

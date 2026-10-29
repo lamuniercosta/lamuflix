@@ -144,6 +144,14 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
             .HasColumnName("poster_url")
             .HasColumnType("text")
             .IsRequired(false);
+        builder.Property(movie => movie.CollectionId)
+            .HasColumnName("collection_id")
+            .HasColumnType("integer")
+            .IsRequired(false);
+        builder.HasOne(movie => movie.Collection)
+            .WithMany(collection => collection.Movies)
+            .HasForeignKey(movie => movie.CollectionId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 
     private static void ConfigureIndexes(EntityTypeBuilder<MovieRecord> builder)
@@ -155,6 +163,7 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
         builder.HasIndex(movie => movie.ImdbId)
             .IsUnique()
             .HasFilter("imdb_id IS NOT NULL");
+        builder.HasIndex(movie => movie.CollectionId);
     }
 
     private static void ConfigureSkipNavigations(EntityTypeBuilder<MovieRecord> builder)

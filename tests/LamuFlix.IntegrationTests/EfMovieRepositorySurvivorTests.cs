@@ -573,6 +573,58 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task SaveChanges_CollectionMetadata_PersistsCollectionRowAndMembership()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Franchise", "collection-upsert", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+
+        // act
+        movie.MarkEnriched(CollectionMetadata("Franchise", "tt0000091", 778, "The Franchise"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.CollectionId.ShouldBe(778);
+        var collection = await verify.Collections.AsNoTracking().SingleAsync(ct);
+        collection.Id.ShouldBe(778);
+        collection.Name.ShouldBe("The Franchise");
+    }
+
+    [Fact]
+    public async Task SaveChanges_CollectionNameChanged_UpdatesExistingCollectionRow()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Rename", "collection-rename", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.MarkEnriched(CollectionMetadata("Rename", "tt0000092", 779, "Old Franchise"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        // act
+        movie.RequestEnrichment();
+        movie.MarkEnriched(CollectionMetadata("Rename", "tt0000092", 779, "New Franchise"), Now.AddMinutes(1));
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.CollectionId.ShouldBe(779);
+        var collection = await verify.Collections.AsNoTracking().SingleAsync(ct);
+        collection.Name.ShouldBe("New Franchise");
+    }
+
+    [Fact]
     public async Task SaveChanges_MarkFailed_PersistsFailureCategory()
     {
         // arrange
@@ -1875,6 +1927,25 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
             actors,
             genres,
             writers);
+
+    private static MovieMetadata CollectionMetadata(
+        string title, string imdbId, int collectionId, string collectionName) =>
+        new(
+            title,
+            "Full synopsis",
+            new ReleaseYear(2024, Now),
+            new Runtime(121),
+            new ImdbRating(8.1m),
+            new ImdbId(imdbId),
+            "https://example.test/poster.jpg",
+            null,
+            82,
+            [],
+            [],
+            [],
+            [],
+            collectionId,
+            collectionName);
 
     private static LamuFlixDbContext OpenInstrumentedContext(string connectionString, DbCommandInterceptor interceptor)
     {
