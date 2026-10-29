@@ -224,4 +224,3 @@ describe('filterQuery director scalar', () => {
     expect(toApiQuery('directorId=abc')).toContain('directorId=abc');
   });
 });
-
