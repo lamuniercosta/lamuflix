@@ -195,6 +195,25 @@ public sealed partial class TmdbMetadataProvider(
         }
 
         var body = ((Fetch.Succeeded)fetch).Body;
+        var rejectedBody = TryRejectDetailsBody(body);
+        if (rejectedBody is not null)
+        {
+            return rejectedBody;
+        }
+
+        var metadata = ResponseMapper.Map(body, timeProvider.GetUtcNow());
+        if (metadata is null)
+        {
+            Log.InvalidResponse(logger, MissingTitle);
+            return Failure(EnrichmentFailureCategory.InvalidResponse);
+        }
+
+        healthState.Record(category: null, wasUnauthorized: false);
+        return new MetadataLookupResult.Found(metadata);
+    }
+
+    private MetadataLookupResult? TryRejectDetailsBody(Response body)
+    {
         if (ResponseMapper.IsNoResult(body))
         {
             return NotFoundOutcome();
@@ -211,15 +230,7 @@ public sealed partial class TmdbMetadataProvider(
             return Failure(EnrichmentFailureCategory.InvalidResponse);
         }
 
-        var metadata = ResponseMapper.Map(body, timeProvider.GetUtcNow());
-        if (metadata is null)
-        {
-            Log.InvalidResponse(logger, MissingTitle);
-            return Failure(EnrichmentFailureCategory.InvalidResponse);
-        }
-
-        healthState.Record(category: null, wasUnauthorized: false);
-        return new MetadataLookupResult.Found(metadata);
+        return null;
     }
 
     private async Task<Fetch> FetchAsync(Uri uri, RequestKind kind, CancellationToken ct)

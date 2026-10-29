@@ -55,16 +55,29 @@ public sealed record MovieMetadata
             return;
         }
 
+        RequireCollectionPair(collectionId, collectionName);
+        RequirePositiveCollectionId(collectionId);
+        RequireCollectionName(collectionName);
+    }
+
+    private static void RequireCollectionPair(int? collectionId, string? collectionName)
+    {
         if (collectionId is null || collectionName is null)
         {
             throw new ArgumentException("Collection id and name are required together.");
         }
+    }
 
-        if (collectionId <= 0)
+    private static void RequirePositiveCollectionId(int? collectionId)
+    {
+        if (collectionId is not > 0)
         {
             throw new ArgumentOutOfRangeException(nameof(collectionId), "Collection id must be positive.");
         }
+    }
 
+    private static void RequireCollectionName(string? collectionName)
+    {
         if (string.IsNullOrWhiteSpace(collectionName))
         {
             throw new ArgumentException("Collection name is required.", nameof(collectionName));
