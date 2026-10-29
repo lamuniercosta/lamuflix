@@ -19,8 +19,11 @@ public interface IMovieCatalog
     Task<GenreCounts> GetGenreCountsAsync(CancellationToken ct);
 
     Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct);
+
+    Task<IReadOnlyList<DirectorFacet>> GetDirectorsAsync(CancellationToken ct);
 }
 
 public sealed record GenreFacet(int Id, string Name, int MovieCount);
 public sealed record CollectionFacet(int Id, string Name, int MovieCount);
 public sealed record PersonFacet(int Id, string Name);
+public sealed record DirectorFacet(int Id, string Name, int MovieCount);

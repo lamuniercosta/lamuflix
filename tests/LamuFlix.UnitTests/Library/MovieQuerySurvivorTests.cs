@@ -119,6 +119,7 @@ public sealed class MovieQuerySurvivorTests
         { "Sort", BaseQuery() with { Sort = MovieSort.Year } },
         { "Direction", BaseQuery() with { Direction = SortDirection.Descending } },
         { "Page", BaseQuery() with { Page = new Page(2, 20) } },
+        { "DirectorId", BaseQuery() with { DirectorId = 42 } },
     };
 
     private static MovieQuery BaseQuery() =>
@@ -132,6 +133,7 @@ public sealed class MovieQuerySurvivorTests
             Statuses = [EnrichmentStatus.Pending, EnrichmentStatus.Enriched],
             InWatchlist = true,
             CollectionId = 7,
+            DirectorId = 7,
             Sort = MovieSort.Title,
             Direction = SortDirection.Ascending,
             Page = new Page(1, 20),

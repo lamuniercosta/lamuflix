@@ -29,6 +29,9 @@ public static class MovieRecordQueryExtensions
     public static IQueryable<MovieRecord> WhereActors(this IQueryable<MovieRecord> query, ImmutableArray<int> ids) =>
         ids.IsDefaultOrEmpty ? query : query.Where(movie => movie.Actors.Any(actor => ids.Contains(actor.Id)));
 
+    public static IQueryable<MovieRecord> WhereDirector(this IQueryable<MovieRecord> query, int? directorId) =>
+        directorId is null ? query : query.Where(movie => movie.Directors.Any(director => director.Id == directorId.Value));
+
     public static IQueryable<MovieRecord> WhereRuntime(this IQueryable<MovieRecord> query, RuntimeRange? range)
     {
         if (range is null)

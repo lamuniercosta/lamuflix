@@ -411,6 +411,143 @@ public sealed class EfMovieCatalogFacetsTests(PostgresFixture fixture) : IAsyncL
         facets.ShouldHaveSingleItem().ShouldBe(new CollectionFacet(second.Id, "Second", 2));
     }
 
+    [Fact]
+    public async Task GetDirectorsAsync_DirectorWithoutMovies_IsExcluded()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var linked = new DirectorRecord { Name = "Linked" };
+        var orphan = new DirectorRecord { Name = "Orphan" };
+        context.Directors.AddRange(linked, orphan);
+        var movie = MovieCatalogSeed.Create("Directed", "directors-orphan");
+        movie.Directors.Add(linked);
+        context.Movies.Add(movie);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetDirectorsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.Select(facet => facet.Name).ShouldBe(["Linked"]);
+        facets.ShouldNotContain(facet => facet.Id == orphan.Id);
+    }
+
+    [Fact]
+    public async Task GetDirectorsAsync_EmptyTable_ReturnsEmpty()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetDirectorsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetDirectorsAsync_SharedMovie_CountsOncePerDirector()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var ann = new DirectorRecord { Name = "Ann" };
+        var bob = new DirectorRecord { Name = "Bob" };
+        context.Directors.AddRange(ann, bob);
+        var shared = MovieCatalogSeed.Create("Shared", "directors-shared");
+        shared.Directors.Add(ann);
+        shared.Directors.Add(bob);
+        context.Movies.Add(shared);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetDirectorsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.Single(facet => facet.Id == ann.Id).MovieCount.ShouldBe(1);
+        facets.Single(facet => facet.Id == bob.Id).MovieCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetDirectorsAsync_SameNameDirectors_ReturnsSeparateIdentitiesWithOwnCounts()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var first = new DirectorRecord { Name = "Alex Doe" };
+        var second = new DirectorRecord { Name = "Alex Doe" };
+        context.Directors.AddRange(first, second);
+        var firstMovie = MovieCatalogSeed.Create("First", "directors-same-name-1");
+        firstMovie.Directors.Add(first);
+        var secondMovie = MovieCatalogSeed.Create("Second", "directors-same-name-2");
+        secondMovie.Directors.Add(second);
+        var thirdMovie = MovieCatalogSeed.Create("Third", "directors-same-name-3");
+        thirdMovie.Directors.Add(second);
+        context.Movies.AddRange(firstMovie, secondMovie, thirdMovie);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetDirectorsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.Count.ShouldBe(2);
+        facets.Single(facet => facet.Id == first.Id).MovieCount.ShouldBe(1);
+        facets.Single(facet => facet.Id == second.Id).MovieCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task GetDirectorsAsync_StoredDirectors_ReturnsRowsSortedNameThenId()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var zoe = new DirectorRecord { Name = "Zoe" };
+        var ann = new DirectorRecord { Name = "Ann" };
+        var annAgain = new DirectorRecord { Name = "Ann" };
+        context.Directors.AddRange(zoe, ann, annAgain);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var zoeMovie = MovieCatalogSeed.Create("Zoe film", "directors-order-zoe");
+        zoeMovie.Directors.Add(zoe);
+        var annMovie = MovieCatalogSeed.Create("Ann film", "directors-order-ann");
+        annMovie.Directors.Add(ann);
+        var annAgainMovie = MovieCatalogSeed.Create("Ann again", "directors-order-ann-again");
+        annAgainMovie.Directors.Add(annAgain);
+        context.Movies.AddRange(zoeMovie, annMovie, annAgainMovie);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetDirectorsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.Select(facet => facet.Name).ShouldBe(["Ann", "Ann", "Zoe"]);
+        facets.Select(facet => facet.Id).ShouldBe([ann.Id, annAgain.Id, zoe.Id]);
+    }
+
+    [Fact]
+    public async Task GetDirectorsAsync_WatchlistedAndPendingMovies_CountsFullLibrary()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var ann = new DirectorRecord { Name = "Ann" };
+        context.Directors.Add(ann);
+        var watchlisted = MovieCatalogSeed.Create("Watchlisted", "directors-full-library-1");
+        watchlisted.Directors.Add(ann);
+        watchlisted.IsInWatchlist = true;
+        var pending = MovieCatalogSeed.Create("Pending", "directors-full-library-2");
+        pending.Directors.Add(ann);
+        context.Movies.AddRange(watchlisted, pending);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var catalog = new EfMovieCatalog(context);
+
+        // act
+        var facets = await catalog.GetDirectorsAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        facets.Single(facet => facet.Id == ann.Id).MovieCount.ShouldBe(2);
+    }
+
     private sealed class CommandCaptureInterceptor : DbCommandInterceptor
     {
         internal List<string> Commands { get; } = [];

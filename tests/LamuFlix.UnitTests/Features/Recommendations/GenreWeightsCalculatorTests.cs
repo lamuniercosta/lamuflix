@@ -212,5 +212,8 @@ public sealed class GenreWeightsCalculatorTests
 
         public Task<IReadOnlyList<PersonFacet>> GetPeopleAsync(CancellationToken ct) =>
             throw new NotSupportedException();
+
+        public Task<IReadOnlyList<DirectorFacet>> GetDirectorsAsync(CancellationToken ct) =>
+            throw new NotSupportedException();
     }
 }

@@ -315,6 +315,107 @@ public sealed class MovieQueryStringTests
         holds.QuickCheckThrowOnFailure();
     }
 
+    [Fact]
+    public void Format_NonNullDirectorId_EmitsDirectorId()
+    {
+        var formatted = MovieQueryString.Format(Valid(directorId: 42));
+
+        formatted.ShouldContain("directorId=42");
+    }
+
+    [Fact]
+    public void Format_NullDirectorId_OmitsDirectorIdKey()
+    {
+        var formatted = MovieQueryString.Format(Valid());
+
+        formatted.ShouldNotContain("directorId=");
+    }
+
+    [Fact]
+    public void TryParse_ValidDirectorId_RoundTrips()
+    {
+        MovieQueryString.TryParse(WithRequiredQuery("directorId=42"), out var parsed).ShouldBeTrue();
+
+        parsed.ShouldNotBeNull();
+        parsed.DirectorId.ShouldBe(42);
+        MovieQueryString.TryParse(MovieQueryString.Format(parsed), out var again).ShouldBeTrue();
+        again.ShouldBe(parsed);
+    }
+
+    [Fact]
+    public void TryParse_AbsentDirectorId_LeavesNull()
+    {
+        MovieQueryString.TryParse(WithRequiredQuery("text=matrix"), out var parsed).ShouldBeTrue();
+
+        parsed.ShouldNotBeNull();
+        parsed.DirectorId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void TryParse_EmptyDirectorId_IsNull()
+    {
+        MovieQueryString.TryParse(WithRequiredQuery("directorId="), out var parsed).ShouldBeTrue();
+
+        parsed.ShouldNotBeNull();
+        parsed.DirectorId.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("directorId=1&directorId=2")]
+    [InlineData("directorId=&directorId=")]
+    public void TryParse_DuplicateDirectorId_ReturnsFalse(string raw)
+    {
+        MovieQueryString.TryParse(WithRequiredQuery(raw), out _).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("12.5")]
+    public void TryParse_MalformedDirectorId_ReturnsFalse(string raw)
+    {
+        MovieQueryString.TryParse(WithRequiredQuery($"directorId={raw}"), out _).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("2147483648")]
+    [InlineData("-2147483649")]
+    public void TryParse_OverflowingDirectorId_ReturnsFalse(string raw)
+    {
+        MovieQueryString.TryParse(WithRequiredQuery($"directorId={raw}"), out _).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-5")]
+    [InlineData("999999")]
+    public void TryParse_UnknownZeroOrNegativeDirectorId_ParsesWithoutValidation(string raw)
+    {
+        MovieQueryString.TryParse(WithRequiredQuery($"directorId={raw}"), out var parsed).ShouldBeTrue();
+
+        parsed.ShouldNotBeNull();
+        parsed.DirectorId.ShouldBe(int.Parse(raw, CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    [Trait("Category", "Property")]
+    public void Format_RoundTripsDirectorQueries()
+    {
+        // arrange
+        var directors = MovieQueryFixture.DirectorQueries();
+
+        // act
+        var holds = Prop.ForAll(directors, query =>
+        {
+            var formatted = MovieQueryString.Format(query);
+            return MovieQueryString.TryParse(formatted, out var parsed)
+                && query.Equals(parsed)
+                && parsed.DirectorId == query.DirectorId;
+        });
+
+        // assert
+        holds.QuickCheckThrowOnFailure();
+    }
+
     public static TheoryData<string> RuntimeRangeIsPartialCases => new()
     {
         WithRequiredQuery("runtimeMin=1"),
@@ -408,11 +509,13 @@ public sealed class MovieQueryStringTests
         int[]? genres = null,
         RuntimeRange? runtime = null,
         YearRange? year = null,
-        RatingRange? rating = null) =>
+        RatingRange? rating = null,
+        int? directorId = null) =>
         new()
         {
             Text = text,
             GenreIds = genres is null ? [] : [.. genres],
+            DirectorId = directorId,
             Sort = MovieSort.Title,
             Direction = SortDirection.Ascending,
             Page = new Page(1, 20),
