@@ -184,3 +184,44 @@ describe('filterQuery collectionId', () => {
     );
   });
 });
+describe('filterQuery director scalar', () => {
+  it('preserves a raw nonempty directorId', () => {
+    expect(parseFilterQuery('directorId=7').directorId).toBe('7');
+    expect(toUrlQuery('directorId=7')).toBe('directorId=7');
+  });
+
+  it('keeps the first occurrence when duplicate directorId keys appear', () => {
+    expect(parseFilterQuery('directorId=7&directorId=9').directorId).toBe('7');
+    expect(toUrlQuery('directorId=7&directorId=9')).toBe('directorId=7');
+  });
+
+  it('omits an empty directorId and clears it on commit', () => {
+    const query = parseFilterQuery('directorId=&text=dune');
+    expect(query.directorId).toBe('');
+    expect(toUrlQuery(query)).toBe('text=dune');
+
+    query.directorId = '';
+    query.page = 1;
+    expect(toUrlQuery(query)).toBe('text=dune');
+  });
+
+  it('serializes directorId alongside other recognized keys', () => {
+    expect(toUrlQuery('text=dune&genreIds=2&directorId=7')).toBe(
+      'text=dune&genreIds=2&directorId=7',
+    );
+  });
+
+  it('survives a malformed raw scalar parse/serialize/commit roundtrip', () => {
+    const query = parseFilterQuery('directorId=abc&page=3');
+    expect(query.directorId).toBe('abc');
+
+    query.page = 1;
+    expect(toUrlQuery(query)).toBe('directorId=abc');
+    expect(parseFilterQuery(toUrlQuery(query)).directorId).toBe('abc');
+  });
+
+  it('forwards the raw scalar into the canonical API query', () => {
+    expect(toApiQuery('directorId=abc')).toContain('directorId=abc');
+  });
+});
+

@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import App from '../App';
+import { directors as directorFixtures } from '../mocks/fixtures';
 import { server } from '../test/server';
 import { __resetWatchlistStore } from './watchlistStore';
 
@@ -93,5 +94,113 @@ describe('browse watchlist filter translation', () => {
 
     await waitFor(() => expect(requests.length).toBe(2));
     expect(watchlistParam(requests[1])).toBeNull();
+  });
+});
+
+describe('director filter hosts', () => {
+  it('restores a director selection from the URL and forwards it on the library host', async () => {
+    window.history.replaceState({}, '', '/?directorId=2');
+    const requests = captureBrowse();
+
+    renderApp();
+
+    await screen.findByText('Christopher Nolan');
+    await waitFor(() => expect(requests.length).toBeGreaterThan(0));
+    expect(new URLSearchParams(requests[0]).get('directorId')).toBe('2');
+    expect(watchlistParam(requests[0])).toBeNull();
+  });
+
+  it('restores a director selection and AND-composes it on the watchlist host', async () => {
+    window.history.replaceState({}, '', '/?watchlist=true&directorId=2');
+    const requests = captureBrowse();
+
+    renderApp();
+
+    await screen.findByText('Christopher Nolan');
+    await waitFor(() => expect(requests.length).toBeGreaterThan(0));
+    const params = new URLSearchParams(requests[0]);
+    expect(params.get('directorId')).toBe('2');
+    expect(watchlistParam(requests[0])).toBe('true');
+  });
+
+  it('restores a new director selection on back/forward navigation', async () => {
+    window.history.replaceState({}, '', '/?directorId=2');
+    const requests = captureBrowse();
+
+    renderApp();
+    await screen.findByText('Christopher Nolan');
+
+    window.history.replaceState({}, '', '/?directorId=1');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    await screen.findByText('Denis Villeneuve');
+    await waitFor(() =>
+      expect(requests.some((search) => new URLSearchParams(search).get('directorId') === '1')).toBe(
+        true,
+      ),
+    );
+  });
+
+  it('resets page to 1 and preserves other filters when the director changes', async () => {
+    window.history.replaceState({}, '', '/?directorId=2&genreIds=1&page=3');
+    const requests = captureBrowse();
+
+    renderApp();
+    await screen.findByText('Christopher Nolan');
+    await waitFor(() => expect(requests.length).toBe(1));
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Director' }), {
+      target: { value: 'Denis' },
+    });
+    fireEvent.click(screen.getByRole('option', { name: /Denis Villeneuve/ }));
+
+    await waitFor(() => expect(requests.length).toBeGreaterThan(1));
+    const next = new URLSearchParams(requests.at(-1)!);
+    expect(next.get('directorId')).toBe('1');
+    expect(next.get('genreIds')).toBe('1');
+    expect(next.get('page')).toBe('1');
+  });
+
+  it('shows a local loading state without blocking other filters', async () => {
+    server.use(
+      http.get('/api/directors', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return HttpResponse.json(directorFixtures, { status: 200 });
+      }),
+    );
+
+    renderApp();
+
+    expect(await screen.findByText('Loading directors')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('Loading directors')).not.toBeInTheDocument());
+  });
+
+  it('keeps the selection clearable and retries a failed director fetch', async () => {
+    let attempts = 0;
+    server.use(
+      http.get('/api/directors', () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return HttpResponse.json({}, { status: 500 });
+        }
+        return HttpResponse.json(directorFixtures, { status: 200 });
+      }),
+    );
+    window.history.replaceState({}, '', '/?directorId=2');
+
+    renderApp();
+
+    expect(await screen.findByText('Could not load directors')).toBeInTheDocument();
+    expect(screen.getByText('Director 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => expect(attempts).toBeGreaterThan(1));
+    await waitFor(() =>
+      expect(screen.queryByText('Could not load directors')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('Christopher Nolan')).toBeInTheDocument();
   });
 });
