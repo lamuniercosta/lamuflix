@@ -35,6 +35,7 @@ import { ChevronDownIcon, GridIcon, ListIcon } from '../ui/icons';
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
 type GenreDto = components['schemas']['GenreDto'];
+type DirectorDto = components['schemas']['DirectorDto'];
 
 const lastGoodQueryKey = ['libraryLastGoodBrowse'];
 
@@ -48,6 +49,10 @@ function CollectionDtoList(value: unknown): components['schemas']['CollectionDto
 
 function PersonDtoList(value: unknown): components['schemas']['PersonDto'][] {
   return Array.isArray(value) ? (value as components['schemas']['PersonDto'][]) : [];
+}
+
+function DirectorDtoList(value: unknown): DirectorDto[] {
+  return Array.isArray(value) ? (value as DirectorDto[]) : [];
 }
 
 function isWatchlistFlag(value: unknown): boolean {
@@ -300,6 +305,17 @@ function LibraryBrowseView({
       const { data, error } = await client.GET('/api/collections');
       if (error) {
         throw new Error('Collections could not be loaded.');
+      }
+      return data;
+    },
+  });
+
+  const directorsQuery = useQuery({
+    queryKey: ['directors'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/directors');
+      if (error) {
+        throw new Error('Directors could not be loaded.');
       }
       return data;
     },
@@ -683,10 +699,14 @@ function LibraryBrowseView({
             genres={GenreDtoList(genresQuery.data)}
             collections={CollectionDtoList(collectionsQuery.data)}
             actors={PersonDtoList(actorsQuery.data)}
+            directors={DirectorDtoList(directorsQuery.data)}
             onChange={onQueryChange}
             genresError={genresQuery.error}
             collectionsError={collectionsQuery.error}
             actorsError={actorsQuery.error}
+            directorError={directorsQuery.error}
+            directorLoading={directorsQuery.isLoading}
+            onRetryDirectors={() => void directorsQuery.refetch()}
             integrated={integrated}
             showTitleSearch={!integrated}
             matchCount={totalCount}

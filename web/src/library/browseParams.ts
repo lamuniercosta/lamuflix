@@ -21,6 +21,7 @@ export type BrowseParams = {
   text?: string;
   genreIds?: string[];
   actorIds?: string[];
+  directorId?: string;
   runtimeMin?: string;
   runtimeMax?: string;
   runtimeIncludeUnknown?: string;
@@ -79,6 +80,10 @@ export function buildBrowseParams(
 
   if (query.actorIds.length > 0) {
     params.actorIds = query.actorIds.map((value) => String(value));
+  }
+
+  if (query.directorId != null && String(query.directorId) !== '') {
+    params.directorId = String(query.directorId);
   }
 
   if (isRuntimeActive(query.runtimeMin, query.runtimeMax, query.runtimeIncludeUnknown)) {

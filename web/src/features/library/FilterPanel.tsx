@@ -1,4 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react';
 import type { components } from '../../api/types';
 import { CloseIcon } from '../../ui/icons';
 import {
@@ -19,6 +27,7 @@ import { useDebouncedSearch } from './useDebouncedSearch';
 type GenreDto = components['schemas']['GenreDto'];
 type CollectionDto = components['schemas']['CollectionDto'];
 type PersonDto = components['schemas']['PersonDto'];
+type DirectorDto = components['schemas']['DirectorDto'];
 
 export interface FilterPanelProps {
   query?: Partial<FilterQuery>;
@@ -30,12 +39,17 @@ export interface FilterPanelProps {
   genres?: GenreDto[];
   collections?: CollectionDto[];
   actors?: PersonDto[];
+  directors?: DirectorDto[];
   genreError?: unknown;
   genresError?: unknown;
   collectionError?: unknown;
   collectionsError?: unknown;
   castError?: unknown;
   actorsError?: unknown;
+  directorError?: unknown;
+  directorsError?: unknown;
+  directorLoading?: boolean;
+  onRetryDirectors?: () => void;
   integrated?: boolean;
   showTitleSearch?: boolean;
   showSort?: boolean;
@@ -51,6 +65,7 @@ const STATUS_OPTIONS = [
 
 const SORT_FIELDS = ['Title', 'Year', 'Rating', 'Runtime'] as const;
 const CAST_SUGGESTION_LIMIT = 8;
+const DIRECTOR_SUGGESTION_LIMIT = 8;
 
 function readQuery(input: Partial<FilterQuery> | undefined): FilterQuery {
   return input === undefined ? parseFilterQuery(window.location.search) : parseFilterQuery(input);
@@ -160,6 +175,9 @@ export function FilterPanel(props: FilterPanelProps) {
   const searchId = `${ids}-search`;
   const castInputId = `${ids}-cast`;
   const castListId = `${ids}-cast-list`;
+  const directorInputId = `${ids}-director`;
+  const directorListId = `${ids}-director-list`;
+  const directorOptionId = (index: number) => `${ids}-director-option-${index}`;
   const runtimeMinId = `${ids}-runtime-min`;
   const runtimeMaxId = `${ids}-runtime-max`;
   const yearMinId = `${ids}-year-min`;
@@ -178,6 +196,16 @@ export function FilterPanel(props: FilterPanelProps) {
     [props.collections],
   );
   const sortedActors = useMemo(() => sortByName(props.actors ?? []), [props.actors]);
+  const sortedDirectors = useMemo(() => {
+    const items = [...(props.directors ?? [])];
+    return items.sort((a, b) => {
+      const byName = String(a.name ?? '').localeCompare(String(b.name ?? ''));
+      if (byName !== 0) {
+        return byName;
+      }
+      return Number(a.id) - Number(b.id);
+    });
+  }, [props.directors]);
   const actorNameById = useMemo(
     () => new Map(sortedActors.map((actor) => [String(actor.id), String(actor.name ?? '')])),
     [sortedActors],
@@ -247,6 +275,30 @@ export function FilterPanel(props: FilterPanelProps) {
   }, [integrated, isControlled, cancelSearchText]);
 
   const [castText, setCastText] = useState('');
+  const [directorText, setDirectorText] = useState('');
+  const [directorActiveIndex, setDirectorActiveIndex] = useState(-1);
+  const directorInputRef = useRef<HTMLInputElement>(null);
+
+  const selectedDirectorId =
+    query.directorId == null || String(query.directorId) === '' ? '' : String(query.directorId);
+  const selectedDirector = sortedDirectors.find((item) => String(item.id) === selectedDirectorId);
+  const directorFailed = Boolean(props.directorError ?? props.directorsError);
+  const directorNeedle = directorText.trim().toLowerCase();
+  const directorSuggestions =
+    directorNeedle === '' || props.directorLoading || directorFailed
+      ? []
+      : sortedDirectors
+          .filter((item) =>
+            String(item.name ?? '')
+              .toLowerCase()
+              .includes(directorNeedle),
+          )
+          .slice(0, DIRECTOR_SUGGESTION_LIMIT);
+  const directorListOpen = directorSuggestions.length > 0;
+  const activeDirectorId =
+    directorListOpen && directorActiveIndex >= 0 && directorActiveIndex < directorSuggestions.length
+      ? directorOptionId(directorActiveIndex)
+      : undefined;
 
   const selectedGenreIds = new Set(query.genreIds.map(String));
   const selectedActorIds = new Set(query.actorIds.map(String));
@@ -315,6 +367,62 @@ export function FilterPanel(props: FilterPanelProps) {
     castInputRef.current?.focus();
   };
 
+  const selectDirector = (id: string | number) => {
+    setDirectorText('');
+    setDirectorActiveIndex(-1);
+    update((next) => {
+      next.directorId = String(id);
+    });
+    directorInputRef.current?.focus();
+  };
+
+  const clearDirector = () => {
+    setDirectorText('');
+    setDirectorActiveIndex(-1);
+    update((next) => {
+      next.directorId = '';
+    });
+    directorInputRef.current?.focus();
+  };
+
+  const handleDirectorKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (directorSuggestions.length === 0) {
+        return;
+      }
+      event.preventDefault();
+      setDirectorActiveIndex((current) => {
+        if (current < 0) {
+          return 0;
+        }
+        if (event.key === 'ArrowDown') {
+          return Math.min(current + 1, directorSuggestions.length - 1);
+        }
+        return Math.max(current - 1, 0);
+      });
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      if (activeDirectorId === undefined) {
+        return;
+      }
+      event.preventDefault();
+      const suggestion = directorSuggestions[directorActiveIndex];
+      if (suggestion) {
+        selectDirector(suggestion.id);
+      }
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setDirectorText('');
+      setDirectorActiveIndex(-1);
+      directorInputRef.current?.focus();
+    }
+  };
+
   const toggleStatus = (wire: string, on: boolean) =>
     update((next) => {
       next.statuses = on ? [...next.statuses, wire] : next.statuses.filter((item) => item !== wire);
@@ -334,11 +442,14 @@ export function FilterPanel(props: FilterPanelProps) {
     cancelSearchText();
     setSearchText('');
     setCastText('');
+    setDirectorText('');
+    setDirectorActiveIndex(-1);
     update((next) => {
       next.text = '';
       next.genreIds = [];
       next.collectionId = null;
       next.actorIds = [];
+      next.directorId = '';
       next.runtimeMin = '';
       next.runtimeMax = '';
       next.runtimeIncludeUnknown = false;
@@ -501,6 +612,107 @@ export function FilterPanel(props: FilterPanelProps) {
             </div>
           </>
         )}
+      </fieldset>
+
+      <fieldset className="lamu-filter-group">
+        <legend className="lamu-filter-legend">Director</legend>
+        {selectedDirectorId !== '' ? (
+          <div className="lamu-chip-row">
+            <span className="lamu-chip lamu-chip-selected">
+              <span>
+                {selectedDirector
+                  ? String(selectedDirector.name)
+                  : `Director ${selectedDirectorId}`}
+              </span>
+              {selectedDirector ? (
+                <>
+                  <span className="lamu-chip-count" aria-hidden="true">
+                    {selectedDirector.movieCount}
+                  </span>
+                  <span className="sr-only">, {selectedDirector.movieCount} movies</span>
+                </>
+              ) : null}
+              <button
+                type="button"
+                className="lamu-chip-remove"
+                aria-label="Clear Director"
+                onClick={clearDirector}
+              >
+                <CloseIcon />
+              </button>
+            </span>
+          </div>
+        ) : null}
+        <label htmlFor={directorInputId} className="lamu-filter-sublabel">
+          Director
+        </label>
+        <input
+          ref={directorInputRef}
+          id={directorInputId}
+          type="search"
+          role="combobox"
+          className="lamu-field-input"
+          placeholder="Search directors"
+          autoComplete="off"
+          aria-autocomplete="list"
+          aria-expanded={directorListOpen}
+          aria-controls={directorListOpen ? directorListId : undefined}
+          aria-activedescendant={activeDirectorId}
+          value={directorText}
+          onChange={(event) => {
+            setDirectorText(event.target.value);
+            setDirectorActiveIndex(-1);
+          }}
+          onKeyDown={handleDirectorKeyDown}
+          onBlur={(event) => {
+            const group = event.currentTarget.closest('fieldset');
+            if (
+              group &&
+              event.relatedTarget instanceof Node &&
+              group.contains(event.relatedTarget)
+            ) {
+              return;
+            }
+            setDirectorText('');
+            setDirectorActiveIndex(-1);
+          }}
+        />
+        <div aria-live="polite">
+          {props.directorLoading ? (
+            <p className="lamu-filter-note">Loading directors</p>
+          ) : directorFailed ? (
+            <div className="lamu-filter-note">
+              <p className="lamu-filter-error">Could not load directors</p>
+              <button type="button" className="lamu-link" onClick={props.onRetryDirectors}>
+                Retry
+              </button>
+            </div>
+          ) : directorListOpen ? (
+            <ul id={directorListId} role="listbox" className="lamu-chip-row">
+              {directorSuggestions.map((item, index) => (
+                <li
+                  key={String(item.id)}
+                  id={directorOptionId(index)}
+                  role="option"
+                  aria-selected={directorActiveIndex === index}
+                  className={
+                    directorActiveIndex === index ? 'lamu-chip lamu-chip-selected' : 'lamu-chip'
+                  }
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => selectDirector(item.id)}
+                >
+                  <span>{item.name}</span>
+                  <span className="lamu-chip-count" aria-hidden="true">
+                    {item.movieCount}
+                  </span>
+                  <span className="sr-only">, {item.movieCount} movies</span>
+                </li>
+              ))}
+            </ul>
+          ) : directorNeedle !== '' ? (
+            <p className="lamu-filter-note">No directors found</p>
+          ) : null}
+        </div>
       </fieldset>
 
       <fieldset className="lamu-filter-group">

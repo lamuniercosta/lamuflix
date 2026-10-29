@@ -27,6 +27,7 @@ const RECOGNIZED_KEYS = new Set([
   'text',
   'genreIds',
   'actorIds',
+  'directorId',
   'runtimeMin',
   'runtimeMax',
   'runtimeIncludeUnknown',
@@ -47,6 +48,7 @@ export interface FilterQuery {
   text: string;
   genreIds: Array<string | number>;
   actorIds: Array<string | number>;
+  directorId: string | number | null;
   runtimeMin: string | number | null;
   runtimeMax: string | number | null;
   runtimeIncludeUnknown: boolean | string | null;
@@ -165,6 +167,7 @@ function fromParams(params: URLSearchParams): FilterQuery {
   const text = params.has('text') ? (params.get('text') ?? '') : '';
   const genreIds = params.getAll('genreIds');
   const actorIds = params.getAll('actorIds');
+  const directorId = params.has('directorId') ? (params.get('directorId') ?? '') : '';
   const runtimeMin = params.has('runtimeMin') ? (params.get('runtimeMin') ?? '') : '';
   const runtimeMax = params.has('runtimeMax') ? (params.get('runtimeMax') ?? '') : '';
   const runtimeIncludeUnknown = params.has('runtimeIncludeUnknown')
@@ -206,6 +209,7 @@ function fromParams(params: URLSearchParams): FilterQuery {
     text,
     genreIds,
     actorIds,
+    directorId,
     runtimeMin,
     runtimeMax,
     runtimeIncludeUnknown: params.has('runtimeIncludeUnknown') ? runtimeIncludeUnknown : false,
@@ -230,6 +234,7 @@ function fromPartial(value: unknown): FilterQuery {
     text: normalizeText(partial.text),
     genreIds: toStringArray(partial.genreIds),
     actorIds: toStringArray(partial.actorIds),
+    directorId: partial.directorId == null ? '' : (partial.directorId as string | number),
     runtimeMin: partial.runtimeMin == null ? '' : (partial.runtimeMin as string | number),
     runtimeMax: partial.runtimeMax == null ? '' : (partial.runtimeMax as string | number),
     runtimeIncludeUnknown:
@@ -419,6 +424,10 @@ function serialize(input: unknown, options: SerializeOptions, yearExtentInput?: 
     if (String(value).trim() !== '') {
       pairs.push(['actorIds', String(value)]);
     }
+  }
+
+  if (query.directorId != null && String(query.directorId) !== '') {
+    pairs.push(['directorId', String(query.directorId)]);
   }
 
   const includeUnknown = toBool(query.runtimeIncludeUnknown);

@@ -922,3 +922,244 @@ describe('FilterPanel collection section', () => {
     expect(within(group).getByText(overlong)).toBeInTheDocument();
   });
 });
+type DirectorDto = components['schemas']['DirectorDto'];
+
+function director(value: Partial<DirectorDto>): DirectorDto {
+  return { id: 1, name: 'Director', movieCount: 0, ...value } as DirectorDto;
+}
+
+const directorFixtures = [
+  director({ id: 1, name: 'Denis Villeneuve', movieCount: 2 }),
+  director({ id: 2, name: 'Christopher Nolan', movieCount: 1 }),
+  director({ id: 3, name: 'Christopher Nolan', movieCount: 5 }),
+];
+
+describe('FilterPanel director combobox', () => {
+  beforeEach(() => {
+    window.history.replaceState({}, '', '/');
+  });
+
+  it('renders the Director group with a labelled closed combobox', () => {
+    render(<FilterPanel directors={directorFixtures} />);
+
+    const input = screen.getByRole('combobox', { name: 'Director' });
+    expect(input).toHaveAttribute('placeholder', 'Search directors');
+    expect(input).toHaveAttribute('aria-expanded', 'false');
+    expect(input).not.toHaveAttribute('aria-controls');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('searches directors case-insensitively, sorts by name then id, and caps at eight', () => {
+    const many = Array.from({ length: 10 }, (_, index) =>
+      director({
+        id: index + 10,
+        name: `Director ${String.fromCharCode(65 + index)}`,
+        movieCount: index,
+      }),
+    );
+    const { rerender } = render(<FilterPanel directors={many} />);
+
+    const input = screen.getByRole('combobox', { name: 'Director' });
+    fireEvent.change(input, { target: { value: 'director' } });
+    expect(screen.getAllByRole('option')).toHaveLength(8);
+
+    rerender(<FilterPanel directors={directorFixtures} />);
+    fireEvent.change(input, { target: { value: 'NOLAN' } });
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(2);
+    expect(options[0]).toHaveTextContent('Christopher Nolan');
+    expect(options[1]).toHaveTextContent('Christopher Nolan');
+    expect(options[0]).toHaveAttribute('id');
+    expect(options[0].id).not.toBe(options[1].id);
+
+    fireEvent.change(input, { target: { value: 'den' } });
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    expect(screen.getByRole('option')).toHaveTextContent('Denis Villeneuve');
+    expect(screen.getByRole('option')).toHaveTextContent(', 2 movies');
+  });
+
+  it('does not change the predicate while typing', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel directors={directorFixtures} onChange={onChange} />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Director' }), {
+      target: { value: 'nolan' },
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('selects a suggestion and resets page while preserving other filters', () => {
+    const onChange = vi.fn();
+    render(
+      <FilterPanel
+        query={parseFilterQuery('directorId=1&page=3&genreIds=2')}
+        directors={directorFixtures}
+        onChange={onChange}
+      />,
+    );
+
+    const input = screen.getByRole('combobox', { name: 'Director' });
+    fireEvent.change(input, { target: { value: 'nolan' } });
+    fireEvent.click(screen.getAllByRole('option')[1]);
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.directorId).toBe('3');
+    expect(last.page).toBe(1);
+    expect(last.genreIds.map(String)).toEqual(['2']);
+    expect(input).toHaveValue('');
+  });
+
+  it('shows the selected director chip and clears only directorId', () => {
+    const onChange = vi.fn();
+    render(
+      <FilterPanel
+        query={parseFilterQuery('directorId=1&genreIds=2')}
+        directors={directorFixtures}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByText('Denis Villeneuve')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Director' }));
+
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.directorId).toBe('');
+    expect(last.genreIds.map(String)).toEqual(['2']);
+  });
+
+  it('includes directorId in Clear all', () => {
+    const onChange = vi.fn();
+    render(
+      <FilterPanel
+        query={parseFilterQuery('directorId=1&text=x')}
+        directors={directorFixtures}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.directorId).toBe('');
+  });
+
+  it('retains a selected identity missing from facets with a clearable fallback', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel query={{ directorId: 99 }} directors={[]} onChange={onChange} />);
+
+    expect(screen.getByText('Director 99')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Director' }));
+    expect(
+      (onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>).directorId,
+    ).toBe('');
+  });
+
+  it('exposes combobox, listbox and option state', () => {
+    render(<FilterPanel directors={directorFixtures} />);
+    const input = screen.getByRole('combobox', { name: 'Director' });
+
+    fireEvent.change(input, { target: { value: 'nolan' } });
+    expect(input).toHaveAttribute('aria-expanded', 'true');
+    const listbox = screen.getByRole('listbox');
+    expect(input).toHaveAttribute('aria-controls', listbox.id);
+    expect(input).not.toHaveAttribute('aria-activedescendant');
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const activeId = input.getAttribute('aria-activedescendant');
+    expect(activeId).toBeTruthy();
+    expect(document.getElementById(activeId!)).toHaveAttribute('role', 'option');
+    expect(document.getElementById(activeId!)).toHaveAttribute('aria-selected', 'true');
+    expect(document.getElementById(listbox.id)).toBe(listbox);
+  });
+
+  it('moves with arrows without wrapping and commits the highlighted option on Enter', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel directors={directorFixtures} onChange={onChange} />);
+    const input = screen.getByRole('combobox', { name: 'Director' });
+
+    fireEvent.change(input, { target: { value: 'nolan' } });
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    const first = input.getAttribute('aria-activedescendant');
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(input.getAttribute('aria-activedescendant')).toBe(first);
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const last = input.getAttribute('aria-activedescendant');
+    expect(last).not.toBe(first);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(input.getAttribute('aria-activedescendant')).toBe(last);
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    const committed = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(committed.directorId).toBe('3');
+  });
+
+  it('closes on Escape without changing selection or predicate', () => {
+    const onChange = vi.fn();
+    render(
+      <FilterPanel query={{ directorId: 1 }} directors={directorFixtures} onChange={onChange} />,
+    );
+    const input = screen.getByRole('combobox', { name: 'Director' });
+
+    fireEvent.change(input, { target: { value: 'nolan' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(input).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Denis Villeneuve')).toBeInTheDocument();
+  });
+
+  it('reports no matches without changing the predicate', () => {
+    const onChange = vi.fn();
+    render(<FilterPanel directors={directorFixtures} onChange={onChange} />);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Director' }), {
+      target: { value: 'zzz' },
+    });
+    expect(screen.getByText('No directors found')).toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('shows local loading state while keeping other groups usable', () => {
+    render(<FilterPanel directors={directorFixtures} directorLoading />);
+
+    expect(screen.getByText('Loading directors')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Director' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+  });
+
+  it('shows local error state with Retry and keeps the selection clearable', () => {
+    const onRetry = vi.fn();
+    render(
+      <FilterPanel
+        query={{ directorId: 1 }}
+        directors={directorFixtures}
+        directorError={new Error('directors failed')}
+        onRetryDirectors={onRetry}
+      />,
+    );
+
+    expect(screen.getByText('Could not load directors')).toBeInTheDocument();
+    expect(screen.getByText('Denis Villeneuve')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Director' }));
+  });
+
+  it('closes the listbox when focus leaves the group', () => {
+    render(<FilterPanel directors={directorFixtures} />);
+    const input = screen.getByRole('combobox', { name: 'Director' });
+
+    fireEvent.change(input, { target: { value: 'nolan' } });
+    fireEvent.blur(input, { relatedTarget: document.body });
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+});
