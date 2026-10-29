@@ -200,6 +200,11 @@ const peopleData = [
   { id: 2, name: 'Rebecca Ferguson' },
 ] satisfies Schemas['PersonDto'][];
 
+const directorsData = [
+  { id: 1, name: 'Denis Villeneuve', movieCount: 2 },
+  { id: 2, name: 'Christopher Nolan', movieCount: 1 },
+] satisfies Schemas['DirectorDto'][];
+
 export const browseMovies = Object.freeze(browseMoviesData);
 export const movieDetails = Object.freeze(movieDetailsData);
 export const movieDetailsNullMetadata = Object.freeze(movieDetailsNullMetadataData);
@@ -211,6 +216,7 @@ export const collections = Object.freeze(collectionsData);
 export const hostileCollections = Object.freeze(hostileCollectionsData);
 export const overlongCollections = Object.freeze(overlongCollectionsData);
 export const people = Object.freeze(peopleData);
+export const directors = Object.freeze(directorsData);
 
 export const success = Object.freeze({
   BrowseMovies: browseMovies,
@@ -220,6 +226,7 @@ export const success = Object.freeze({
   GetGenres: genres,
   GetCollections: collections,
   GetPeople: people,
+  GetDirectors: directors,
 });
 
 export const acceptedLocation = '/api/movies/1';

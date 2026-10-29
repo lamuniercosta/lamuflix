@@ -8,6 +8,7 @@ export async function positiveCalls() {
       query: {
         Text: 'dune',
         GenreIds: ['1'],
+        DirectorId: '7',
         sort: 'Title',
         direction: 'Ascending',
         page: 1,
@@ -30,6 +31,7 @@ export async function positiveCalls() {
   await client.DELETE('/api/movies/{id}/not-interested', { params: { path: { id: 1 } } });
   await client.GET('/api/genres');
   await client.GET('/api/people');
+  await client.GET('/api/directors');
 }
 
 export async function idUnionDistinction() {
