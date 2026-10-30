@@ -187,3 +187,14 @@ Verdict: Approved — all 20 plan-challenge findings (Sentry F1–F11, Ledger L1
 18. **Compass Low-1 (Low — Explicit `SC-006` task citation)**: Optionally append `SC-006` to the requirement citations on tasks `T021`–`T024` in `tasks.md` during Quill's repair pass for explicit traceability completeness (`findings-DEV-428-Compass:24-25`, `specs/DEV-428/tasks.md:105-108`).
 19. **Compass Low-2 (Low — Conditional `Program.cs` / `ServiceDefaults` wiring proof)**: Subsume verification of DI registration and option-validator wiring into `T006`/`T007`/`T013` host-composition and endpoint tests (`ApiHostCompositionTests` / `ApiEndToEndFactory`) whether or not `Program.cs` or `ServiceDefaults/Extensions.cs` requires a touch after T000 (`findings-DEV-428-Compass:27-28`, `specs/DEV-428/tasks.md:55-56,79-80`).
 20. **Compass Low-3 (Low — Informational ProblemDetails 404 refinement record)**: Recorded as informational with no action or owner checkbox: returning RFC 7807 `ProblemDetails` with `traceId` on 404 misses (plus `X-Content-Type-Options: nosniff` on 200 hits per F8) refines the HTTP contract per Constitution Principle V while preserving the ticket's verbatim 404 miss status (`findings-DEV-428-Compass:30-31`, `specs/DEV-428/spec.md:14,139`).
+
+
+---
+
+## Phase 2 Step 7 — Gate 1 Provisional Ruling
+
+Verdict: Approved — `gate1: provisional` stamped in `specs/DEV-428/spec.md`; 0 owner checkboxes (`§2.3a`) and 0 constitution departures (`§2.3b`) confirmed.
+
+- **Clean analyze & PLAN FROZEN verified**: `/speckit-analyze` findings (`C1`, `C2`, `U1`) and all 20 plan-challenge findings (`Sentry F1–F11`, `Ledger L1–L6`, `Compass Low-1–Low-3`) are closed and verified under Keel's `PLAN FROZEN` receipt (`specs/DEV-428/brief.md:247-280`, `adjudication-DEV-428-plan:99-132`).
+- **Zero owner escalations**: All scope, architecture, security, and contract rulings remain within ticket `DEV-428` Scope & Technical Design items 1–6, AC 1–3 (`recon-DEV-428:80-104`), and Constitution Principles I–VII; 0 owner structural checkboxes and 0 constitution departures exist.
+- **Gate 1 provisional stamp**: `specs/DEV-428/spec.md:5` updated to `**Status**: gate1: provisional` pending owner review and merge of the Phase A spec PR.
