@@ -415,7 +415,9 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
         var services = probe.BuildServices(SecondaryOverrides(secondary.Urls[0]), gate);
 
         // act
-        var result = await FindAsync(services, TestContext.Current.CancellationToken);
+        var result = await services
+            .GetRequiredService<IMetadataProvider>()
+            .FindAsync(new MetadataLookup("The Matrix", null), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.Title.ShouldBe("The Matrix");

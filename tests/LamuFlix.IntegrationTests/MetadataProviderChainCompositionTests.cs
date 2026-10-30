@@ -129,6 +129,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         var services = probe.NewServicesWithoutOptions();
         services.AddSingleton(Configuration(secondaryEnabled: false));
         services.AddLamuFlixOptions();
+        services.AddSingleton<IOmdbRequestGate>(MetadataProviderProbe.RecordingRequestGate.Admitting());
         services.AddMetadataProvider();
         var secondaryResolved = false;
         services.AddKeyedTransient<IMetadataProvider>(TelemetryConstants.TmdbProviderName, (_, _) =>
