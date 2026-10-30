@@ -115,6 +115,33 @@ public sealed class ModelMetadataTests
     }
 
     [Fact]
+    public void DailyRequestUsage_MetadataMatchesDatabaseMapping()
+    {
+        using var context = CreateContext();
+        var entity = context.Model.FindEntityType(typeof(DailyRequestUsageRecord));
+        entity.ShouldNotBeNull();
+        entity.GetTableName().ShouldBe("omdb_daily_usage");
+        var table = StoreObjectIdentifier.Table("omdb_daily_usage");
+
+        var usageDate = entity.FindProperty("UsageDate");
+        usageDate.ShouldNotBeNull();
+        usageDate.GetColumnName(table).ShouldBe("usage_date");
+        usageDate.GetColumnType().ShouldBe("date");
+        usageDate.IsNullable.ShouldBeFalse();
+        usageDate.ValueGenerated.ShouldBe(ValueGenerated.Never);
+        entity.FindPrimaryKey().ShouldNotBeNull().Properties.ShouldBe([usageDate]);
+
+        var requestCount = entity.FindProperty("RequestCount");
+        requestCount.ShouldNotBeNull();
+        requestCount.GetColumnName(table).ShouldBe("request_count");
+        requestCount.GetColumnType().ShouldBe("integer");
+        requestCount.IsNullable.ShouldBeFalse();
+
+        entity.GetIndexes().ShouldBeEmpty();
+        entity.GetForeignKeys().ShouldBeEmpty();
+    }
+
+    [Fact]
     public void MovieFeatures_MetadataMatchesDatabaseMapping()
     {
         using var context = CreateContext();

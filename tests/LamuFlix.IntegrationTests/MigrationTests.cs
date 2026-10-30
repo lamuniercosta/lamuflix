@@ -35,7 +35,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "playback_events",
         "movie_features",
         "outbox_messages",
-        "collections"
+        "collections",
+        "omdb_daily_usage"
     ];
 
     private static readonly string[] NullableMoviesColumns =
@@ -83,7 +84,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(10);
+        migrations.Length.ShouldBe(11);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -94,6 +95,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         migrations[7].ShouldEndWith("_AddMovieFeatures");
         migrations[8].ShouldEndWith("_AddEnrichmentOutbox");
         migrations[9].ShouldEndWith("_AddMovieCollections");
+        migrations[10].ShouldEndWith("_AddOmdbDailyUsage");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -128,7 +130,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddMovieCollections");
+        applied[^1].ShouldEndWith("_AddOmdbDailyUsage");
         var rows = await context.Movies.AsNoTracking()
             .OrderBy(movie => movie.Title)
             .ToListAsync(cancellationToken);
@@ -222,7 +224,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddMovieCollections");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddOmdbDailyUsage");
     }
 
     [Fact]

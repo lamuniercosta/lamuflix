@@ -185,6 +185,38 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
         }
     }
 
+    [Fact]
+    public void DesignTimeFactory_GeneratesOmdbDailyUsageMigrationWithDateKeyAndNonNegativeCount()
+    {
+        // arrange
+        var previous = Environment.GetEnvironmentVariable(
+            LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable,
+                fixture.ConnectionString);
+            using var context = new LamuFlixDesignTimeDbContextFactory().CreateDbContext([]);
+
+            // act
+            var script = GenerateMigrationScript(context, "_AddMovieCollections", "_AddOmdbDailyUsage");
+
+            // assert
+            script.ShouldContain("CREATE TABLE omdb_daily_usage");
+            script.ShouldContain("usage_date date NOT NULL");
+            script.ShouldContain("request_count integer NOT NULL");
+            script.ShouldContain("CONSTRAINT \"PK_omdb_daily_usage\" PRIMARY KEY (usage_date)");
+            script.ShouldContain("CONSTRAINT ck_omdb_daily_usage_request_count_nonnegative CHECK (request_count >= 0)");
+            script.ShouldNotContain("1000");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable,
+                previous);
+        }
+    }
+
     private static string GenerateMigrationScript(
         LamuFlixDbContext context,
         string fromSuffix,
