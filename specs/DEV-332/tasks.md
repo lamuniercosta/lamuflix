@@ -34,8 +34,8 @@
 
 **⚠️ CRITICAL**: User-story resource wiring starts after this phase.
 
-- [ ] T005 Create `src/LamuFlix.AppHost/Program.cs` with `DistributedApplication.CreateBuilder(args)` / `builder.Build().Run()` skeleton ready for resource registration (FR-003; Q1)
-- [ ] T006 In `src/LamuFlix.AppHost/Program.cs`, design single-source credential wiring: each `AddPostgres`/`AddRabbitMQ` uses its own single resource-generated credential set once (no duplicate password parameters); Api RabbitMQ username/password come from that same broker `UserNameReference`/`PasswordParameter`; never hardcode, log, commit, or read/copy Api store values — AppHost persistence uses the distinct AppHost `UserSecretsId` from T001 (FR-007; Q5; PC4; Ledger L2; recon-5:14-19)
+- [X] T005 Create `src/LamuFlix.AppHost/Program.cs` with `DistributedApplication.CreateBuilder(args)` / `builder.Build().Run()` skeleton ready for resource registration (FR-003; Q1)
+- [X] T006 In `src/LamuFlix.AppHost/Program.cs`, design single-source credential wiring: each `AddPostgres`/`AddRabbitMQ` uses its own single resource-generated credential set once (no duplicate password parameters); Api RabbitMQ username/password come from that same broker `UserNameReference`/`PasswordParameter`; never hardcode, log, commit, or read/copy Api store values — AppHost persistence uses the distinct AppHost `UserSecretsId` from T001 (FR-007; Q5; PC4; Ledger L2; recon-5:14-19)
 
 **Checkpoint**: Project builds as an AppHost shell with pins and harness exclusion present.
 
