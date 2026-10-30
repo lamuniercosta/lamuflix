@@ -1,6 +1,30 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.7.0 → 1.8.0 (MINOR: Core thumbnail port and options enumeration extension;
+DEV-17; ADR-0033)
+
+Amendment 1.8.0 (2026-10-30), proposed for Phase A spec review:
+  Authority: specs/DEV-17/brief.md Q3/Q8/Q9; Patron rulings recorded in
+    specs/DEV-17/CONCLUSIONS.md. ADR: docs/adr/0033-thumbnail-generator-port.md (Proposed).
+  Modified sections:
+    I. Ports and Adapters: add IThumbnailGenerator after IOmdbRequestGate, retaining
+       every existing port, BCL/M.E.AI abstraction and the ADR requirement.
+    VII. Configuration Isolation and Deterministic Time: add ThumbnailOptions to the
+       options-record list; retain validation, process-launch and LocalPlay rules.
+  Added / removed sections: none
+  Templates reviewed:
+    .specify/templates/plan-template.md — principle-based Constitution Check; no edit needed.
+    .specify/templates/spec-template.md — no named-port/options list; no edit needed.
+    .specify/templates/tasks-template.md — generic ADR/constitution tasks; no edit needed.
+  Migration / follow-up:
+    Phase B adds the new Core port/options and extends PortWhitelistPattern in
+    tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs before adapter composition;
+    preserve existing whitelist entries. No production/test code changes in this draft.
+    Recheck the landed constitution and dependency contracts at Phase B pickup.
+    This is the permitted enumeration-extension procedure, not a constitution departure;
+    plan freeze, ordinary owner Gate 1 and implementation gates remain outstanding.
+
 Version change: 1.6.0 → 1.7.0 (MINOR: Core port IOmdbRequestGate added to Principle I;
 OmdbQuotaOptions added to Principle VII; IOmdbRequestGate and OmdbQuotaOptions added to
 Principle VIII vendor-name exceptions; ADR-0031)
@@ -219,7 +243,7 @@ Project reference rules are strict and unidirectional:
 - Ports live in `Core/Ports/`; the only ports are `IMovieRepository`, `IMovieCatalog`,
   `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `IMediaPlayerLauncher`,
   `IRecommendationCandidateSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`,
-  `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, and the BCL/M.E.AI abstractions `TimeProvider` and
+  `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, `IThumbnailGenerator`, and the BCL/M.E.AI abstractions `TimeProvider` and
   `IEmbeddingGenerator<string, Embedding<float>>`. Adding a port requires an ADR.
 - These rules MUST be enforced by `LamuFlix.ArchitectureTests`; a violation fails the build.
 
@@ -350,7 +374,7 @@ for connection strings, API keys, library roots, or player paths.
 
 - All configuration is bound to options records (`LibraryOptions`, `PlaybackOptions`,
   `OmdbOptions`, `OmdbQuotaOptions`, `TmdbOptions`, `RabbitMqOptions`, `EnrichmentOptions`, `FeatureOptions`,
-  `RecommendationOptions`) with data-annotation validation and `ValidateOnStart()`. Reading
+  `RecommendationOptions`, `ThumbnailOptions`) with data-annotation validation and `ValidateOnStart()`. Reading
   `IConfiguration` by magic string outside options binding is forbidden.
 - Local values live in `dotnet user-secrets` or `appsettings.Development.json` (git-ignored);
   containers receive them as environment variables.
@@ -638,4 +662,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.7.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-28
+**Version**: 1.8.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-30
