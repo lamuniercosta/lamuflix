@@ -241,3 +241,27 @@ Date reconciliation is documentary only: the staged amendment/Last Amended date 
 Reviewed all `.specify/templates/*.md`: `checklist-template.md`, `constitution-template.md`, `plan-template.md`, `spec-template.md`, and `tasks-template.md`. They contain no closed port list, concrete options list or vendor exception requiring synchronization for this amendment. **No template edit or template follow-up required.** The architecture `PortWhitelistPattern` follow-up remains implementation task T005.
 
 Gate 1 prerequisite is satisfied for the frozen scope. ADR-0031 remains **Proposed** in this Phase 0 commit; its status-only change to Accepted remains Keel work in the implementation PR after this verified approval and before code merge, per PC2. T001–T033 remain incomplete. This receipt claims no implementation, pickup analysis clearance, runtime proof, analyzer/test/mutation gate, review clearance or merge bar. Phase 0 stops here.
+
+
+---
+
+## Phase 4 fixture-scope supplement — SecondaryMetadataProviderProbe (2026-10-29)
+
+Context: Conductor reports Phase 4 at b912ef13 on feature/DEV-426. The implementation failure and file locations below are reported evidence, not a Keel test rerun. This explicit Patron ruling supersedes the enumerated-file restriction only for the single registration edit specified below; every other scope and closing-bar restriction remains in force.
+
+[from Patron] DEV-426 Phase 4 fixture-scope ruling: PERMITTED — narrowly extend frozen fixture scope to `tests/LamuFlix.IntegrationTests/SecondaryMetadataProviderProbe.cs` for `IOmdbRequestGate` registration only.
+
+- **Basis (§2.3 item 6; Q5 step 4 / Q6)**: `SecondaryMetadataProviderResilienceTests.FindAsync_WhenTheSecondaryBreakerOpens_LeavesOmdbCallableAndItsBreakerUntouched` (`SecondaryMetadataProviderResilienceTests.cs:188-216`) resolves `IMetadataProvider` through `SecondaryMetadataProviderProbe.BuildServices()` (`SecondaryMetadataProviderProbe.cs:92-99`), which calls shipped `AddMetadataProvider()`. Because DEV-426 wires `MetadataQuotaHandler` (which resolves `IOmdbRequestGate`) onto the OMDb typed client inside `AddMetadataProvider()`, any composition probe calling `AddMetadataProvider()` without Persistence DI requires an `IOmdbRequestGate` registration for test-suite integrity. Q5 step 4 (`CONCLUSIONS.md:130`, `brief.md:52,59`) mandates adapting affected provider/composition fixtures so existing provider, resilience, and chain regressions remain green. This is a gate/regression-forced fixture adaptation, not ticket scope expansion.
+- **Exact bounds**: Edit `tests/LamuFlix.IntegrationTests/SecondaryMetadataProviderProbe.cs` solely to register an admitting test `IOmdbRequestGate` (e.g., `MetadataProviderProbe.RecordingRequestGate.Admitting()`) in `BuildServices` alongside `AddMetadataProvider()`. Do not edit `SecondaryMetadataProviderResilienceTests.cs`, do not alter resilience assertions, production behavior, or retry policy, and perform no whole-file rewrite or test bypass.
+- **Record & handoff**: Keel appends this ruling to `specs/DEV-426/brief.md` and `specs/DEV-426/CONCLUSIONS.md`.
+
+
+---
+
+## Phase 4 test-suite integrity ruling — MetadataProviderResilienceTests & MetadataProviderChainCompositionTests (2026-10-29)
+
+[from Patron] DEV-426 ruling: PERMITTED — narrow test-only edits to `tests/LamuFlix.IntegrationTests/MetadataProviderResilienceTests.cs` and `tests/LamuFlix.IntegrationTests/MetadataProviderChainCompositionTests.cs` are authorised for test-suite integrity.
+
+- **Basis (§2.3 item 6; Q3 / Q5 step 4 / Q6, `CONCLUSIONS.md:68-69,130,135,162`)**: Both edits are forced by the full-suite `dotnet test` gate (`spec.md` FR-007/FR-009) and Q5 step 4 composition/test adaptation after wiring `MetadataQuotaHandler` into `AddMetadataProvider()`.
+- **`MetadataProviderResilienceTests.cs` (`:402-425`, `:446-449`)**: Already in DEV-426's enumerated test scope (`spec.md` FR-007); edit `FindAsync_SignalInterruption_PreservesChainFallbackToTheSecondaryProvider` only to pass lookup title `"The Matrix"` so it aligns with `SecondaryMetadataProviderProbe.Fixture("Search"|"Details", "found.json")` (matching `MetadataProviderChainCompositionTests.cs:188,221`), preserving `"Solaris"` for all other tests in the file.
+- **`MetadataProviderChainCompositionTests.cs` (`:126-149`)**: Narrowly extend frozen fixture scope to register an admitting test `IOmdbRequestGate` (e.g. `MetadataProviderProbe.RecordingRequestGate.Admitting()`) in `FindAsync_WithSecondaryDisabled_NeverResolvesTheSecondaryAndReturnsThePrimaryResult`, where `services.AddMetadataProvider()` is called on `probe.NewServicesWithoutOptions()` outside `probe.BuildServices()`; do not alter assertions, production code, or any other test.
