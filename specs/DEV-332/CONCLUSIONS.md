@@ -273,3 +273,12 @@ PC4 refines Q5/Q6/T006 without expanding file scope: one resource-owned generate
 - **Plan Challenge & ADR Closure (`specs/DEV-332/PLAN_CHALLENGE.md:3, 168-176`, `docs/adr/0031-local-aspire-apphost.md:1-3`)**: All 25 findings across Sentry, Ledger, and Compass are closed at the planning level within the two-round cap, `PLAN FROZEN` is issued, and `docs/adr/0031-local-aspire-apphost.md` is `Accepted` per PC1.
 - **Care-List & Constitutional Rulings (`specs/DEV-332/CONCLUSIONS.md` Q1–Q10, PC1–PC4)**: All §2.3 care-list items (dependencies, new `LamuFlix.AppHost` project, Postgres/RabbitMQ/Vite configuration and executable boundaries, secret store separation, and `harness.yml` mutation exclusion reason) are explicitly ruled with zero owner structural checkboxes (`§2.3(a)/(b)`).
 - **Phase B Boundary (`specs/DEV-332/PLAN_CHALLENGE.md:176`)**: `gate1: provisional` authorizes Phase A spec PR progression only; owner merge of the spec PR closes Gate 1, and all live host/runtime proofs and Phase B gates remain mandatory blocking obligations.
+
+---
+
+## Phase B — AppHost README host prerequisite ruling (Ollama `all-minilm` at `localhost:11434`)
+
+[from Patron] Approved: Document a locally reachable Ollama service (`http://localhost:11434`) with the `all-minilm` model as a host prerequisite in `src/LamuFlix.AppHost/README.md`, while keeping the AppHost topology strictly limited to the four ticket-named resources (`postgres`, `rabbitmq`, `api`, `web`) with no Ollama resource added and no Api startup validation weakened.
+- **Ticket Topology & Already-Landed Startup Contract (`DEV-332:27-31`, `specs/PRODUCT.md` §§2-3, `specs/DEV-332/CONCLUSIONS.md` Q1/Q4/Q6)**: Just as Q4 clarified that deferring new Epic 9 scope excludes adding an Ollama AppHost resource (`Q1`) while honoring already-landed vector artifacts, `LamuFlix.Api`'s existing `OllamaEmbeddingStartupValidator` (`specs/DEV-332/ACCEPTANCE_RECEIPTS.md:172-180`) runs before the Api binds its HTTP listener and must not be bypassed or disabled (`Q6`, `specs/DEV-332/spec.md` FR-010/US6).
+- **In-Allowlist Documentation Accuracy (`specs/DEV-332/CONCLUSIONS.md` Q6/Q8, `specs/DEV-332/spec.md` FR-011/SC-001)**: `src/LamuFlix.AppHost/README.md` is already inside the Q8 new-file allowlist, and documenting `all-minilm` on `http://localhost:11434` alongside the .NET SDK, OCI runtime, Node, and Api user secrets makes the single-command startup contract (`SC-001`) truthful on a developer host without changing ticket scope, `Program.cs`, `docker-compose.yml`, or `LamuFlix.Api`.
+
