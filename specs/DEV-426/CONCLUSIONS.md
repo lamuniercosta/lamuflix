@@ -209,3 +209,35 @@ Shared understanding: Keel closes the grill on these terms, appends this ruling 
 - Ledger M2 + Compass M3/L2 CONFIRMED AS REFINED: T034 — Keel records the owner checkbox answer plus spec-PR merge receipt in `CONCLUSIONS.md`. T035 — verify-only, no constitution edit at all (including no date edit): record staged-vs-merge dates in `CONCLUSIONS.md`; only a substantive mismatch (version, Principle I/VII/VIII text, Sync Impact Report) stops as `blocked: structural — ticket-named port/types vs constitution`; a date-only difference is recorded, not fixed. ADR-0031 status changes to Accepted only by Keel in the implementation PR, after verified owner approval and before code merge; no write to `main`. This supersedes `CONCLUSIONS.md:192` and `tasks.md` T035 insofar as they allowed a Phase B date reconcile or same-delivery ADR publish.
 - Sentry H1 CONFIRMED: retain Q2/Q3 conservative loss and unchanged retry policies (`CONCLUSIONS.md:43,66,70`). Handler passes the `SendAsync` ambient cancellation token to the gate; no dispatch without a returned `true`. A pre-cancelled or not-yet-committed cancelled/timeout admission adds no increment; the Q2 in-flight caveat stands (a statement committed before cancellation took effect is spent and unusable, `CONCLUSIONS.md:44`). The injected slow-gate shipped-chain test bounds commits by admission invocations and configured attempt/total budgets, not by wire count when admission times out.
 - Sentry M4/Ledger L4 CONFIRMED: structured outcome/category log fields only; no request URI, no API key, no raw exception serialization in logs. The persistence signal preserves the original exception as inner exception in memory only. Existing enrichment processing scope carries the movie id where available; no identifier is invented at the gate. Basis Q3 (`CONCLUSIONS.md:68-69`: signals carry no API key or URI) and constitution VI.
+
+---
+
+## Phase 0 — Gate 1 receipt and constitution 1.7.0 verification (2026-10-29)
+
+Keel completed T034 and T035 in `F:/Dev/LamuFlix.worktrees/DEV-426`, branch `feature/DEV-426`, from clean pickup HEAD `d261f813aece3a31223d240997d9db0d7e1dc383`. This dated receipt supersedes historical statements that owner approval is pending; earlier planning records and unchecked source-spec wording are preserved.
+
+### T034 — Verified owner answer and spec-PR merge
+
+Owner answer, using the exact checkbox wording from `brief.md` and `spec.md`, is **approved**:
+
+- [x] Owner approves ADR-0031 and constitution amendment 1.7.0 for the ticket-named IOmdbRequestGate and OmdbQuotaOptions; approval occurs through the Gate 1 spec-PR merge.
+
+Evidence read live with `gh pr view 279`: [spec PR #279](https://github.com/lamuniercosta/lamuflix/pull/279) is `MERGED`; its Owner gate checkbox above is checked. The PR was merged by `lamuniercosta` (Lamunier Costa) at `2026-10-29T13:02:23Z`, with merge commit `3591a07e4dffe801ddb2b53229e77028a164b038`. The final spec-PR head is `fee5c7a838808dda91fe96c1d95ac40a23d1ef82`. `git merge-base --is-ancestor 3591a07e4dffe801ddb2b53229e77028a164b038 HEAD` returned exit 0 at pickup. Approval is established by the checked owner gate and owner merge, not inferred from the frozen plan. The merged `spec.md` still contains its historical unchecked checkbox; the live PR owner answer is recorded here as required by C1/C2 and PC2.
+
+### T035 — Verify-only constitution receipt
+
+Compared the actual staged `.specify/memory/constitution.md` at final spec-PR head `fee5c7a838808dda91fe96c1d95ac40a23d1ef82` against merge `3591a07e4dffe801ddb2b53229e77028a164b038` and pickup HEAD. All three have the identical Git blob ID `0a33b152db704a6d5b02082fe59d2f4d2bb377cd`. This establishes equality of the entire actual staged artifact, including the Sync Impact Report; the illustrative proposal summary was not used as the comparison baseline.
+
+Read-back confirmed:
+
+- Version **1.7.0**; Ratified **2026-09-21**; Last Amended **2026-10-28**.
+- Principle I closed named-port list includes `IOmdbRequestGate` and retains the requirement that adding a port requires an ADR.
+- Principle VII options-record list includes `OmdbQuotaOptions` beside `OmdbOptions` and `TmdbOptions`.
+- Principle VIII vendor-name exceptions include Core port `IOmdbRequestGate` and options record `OmdbQuotaOptions`.
+- The staged Sync Impact Report records the MINOR 1.6.0 to 1.7.0 amendment for I/VII/VIII, ADR-0031, template review and the architecture whitelist follow-up. It is unchanged in the merge and pickup artifact.
+
+Date reconciliation is documentary only: the staged amendment/Last Amended date is **2026-10-28**; the spec-PR merge date is **2026-10-29 UTC**. Staged and merged file dates are identical; the one-day difference from the merge date needs no correction under PC2. No constitution content or date was edited.
+
+Reviewed all `.specify/templates/*.md`: `checklist-template.md`, `constitution-template.md`, `plan-template.md`, `spec-template.md`, and `tasks-template.md`. They contain no closed port list, concrete options list or vendor exception requiring synchronization for this amendment. **No template edit or template follow-up required.** The architecture `PortWhitelistPattern` follow-up remains implementation task T005.
+
+Gate 1 prerequisite is satisfied for the frozen scope. ADR-0031 remains **Proposed** in this Phase 0 commit; its status-only change to Accepted remains Keel work in the implementation PR after this verified approval and before code merge, per PC2. T001–T033 remain incomplete. This receipt claims no implementation, pickup analysis clearance, runtime proof, analyzer/test/mutation gate, review clearance or merge bar. Phase 0 stops here.
