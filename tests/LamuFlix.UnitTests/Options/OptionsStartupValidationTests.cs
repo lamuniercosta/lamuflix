@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using LamuFlix.Core.Options;
 using LamuFlix.ServiceDefaults;
@@ -161,6 +162,48 @@ public sealed class OptionsStartupValidationTests
         options.Enabled.ShouldBeTrue();
         options.BaseUrl.ShouldBe("http://127.0.0.1:8080/3/");
         options.ApiKey.ShouldBe("not-a-real-key");
+    }
+
+    [Fact]
+    public void DefaultOmdbDailyLimit_BindsTo1000AndPassesValidation()
+    {
+        using var provider = Build(ValidRequired());
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        provider.GetRequiredService<IOptions<OmdbQuotaOptions>>().Value.DailyLimit.ShouldBe(1000);
+    }
+
+    [Fact]
+    public void OmdbDailyLimitOne_PassesValidation()
+    {
+        var values = ValidRequired();
+        values[$"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}"] = "1";
+        using var provider = Build(values);
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        provider.GetRequiredService<IOptions<OmdbQuotaOptions>>().Value.DailyLimit.ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void NonPositiveOmdbDailyLimit_FailsValidation(int dailyLimit)
+    {
+        var values = ValidRequired();
+        values[$"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}"] =
+            dailyLimit.ToString(CultureInfo.InvariantCulture);
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(OmdbQuotaOptions.DailyLimit));
     }
 
     [Fact]
