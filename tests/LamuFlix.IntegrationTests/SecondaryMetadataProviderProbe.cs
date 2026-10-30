@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.ServiceDefaults;
 using Microsoft.Extensions.Configuration;
@@ -92,6 +93,7 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
     public ServiceProvider BuildServices(IDictionary<string, string?>? overrides = null, TimeProvider? clock = null)
     {
         var services = NewServices(overrides, clock);
+        services.AddSingleton<IOmdbRequestGate>(MetadataProviderProbe.RecordingRequestGate.Admitting());
         services.AddMetadataProvider();
 
         var provider = services.BuildServiceProvider();
