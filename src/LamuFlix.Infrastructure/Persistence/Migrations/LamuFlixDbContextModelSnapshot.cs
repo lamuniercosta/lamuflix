@@ -59,6 +59,25 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.ToTable("collections", (string)null);
                 });
 
+            modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.DailyRequestUsageRecord", b =>
+                {
+                    b.Property<DateOnly>("UsageDate")
+                        .HasColumnType("date")
+                        .HasColumnName("usage_date");
+
+                    b.Property<int>("RequestCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("request_count");
+
+                    b.HasKey("UsageDate")
+                        .HasName("PK_omdb_daily_usage");
+
+                    b.ToTable("omdb_daily_usage", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_omdb_daily_usage_request_count_nonnegative", "request_count >= 0");
+                        });
+                });
+
             modelBuilder.Entity("LamuFlix.Infrastructure.Persistence.Records.DirectorRecord", b =>
                 {
                     b.Property<int>("Id")

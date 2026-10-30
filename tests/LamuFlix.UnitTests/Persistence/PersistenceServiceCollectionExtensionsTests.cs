@@ -193,6 +193,30 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         scoped.ShouldBeSameAs(root);
     }
 
+    [Fact]
+    public void AddLamuFlixPersistence_RegistersScopedOmdbRequestGateReadingTheConfiguredDailyLimit()
+    {
+        // arrange
+        var services = Compose(Configuration(WithDailyLimit(25)));
+
+        // act
+        var descriptor = services.Single(item => item.ServiceType == typeof(IOmdbRequestGate));
+        using var provider = services.BuildServiceProvider(Validating());
+        using var firstScope = provider.CreateScope();
+        using var secondScope = provider.CreateScope();
+        var first = firstScope.ServiceProvider.GetRequiredService<IOmdbRequestGate>();
+        var sameScope = firstScope.ServiceProvider.GetRequiredService<IOmdbRequestGate>();
+        var second = secondScope.ServiceProvider.GetRequiredService<IOmdbRequestGate>();
+
+        // assert
+        descriptor.ImplementationType.ShouldBe(typeof(EfMetadataRequestGate));
+        descriptor.Lifetime.ShouldBe(ServiceLifetime.Scoped);
+        first.ShouldBeOfType<EfMetadataRequestGate>();
+        ReferenceEquals(first, sameScope).ShouldBeTrue();
+        ReferenceEquals(first, second).ShouldBeFalse();
+        provider.GetRequiredService<IOptions<OmdbQuotaOptions>>().Value.DailyLimit.ShouldBe(25);
+    }
+
     private static List<ServiceDescriptor> RegisteredServices(IConfiguration configuration) =>
         [.. Compose(configuration)];
 
@@ -256,6 +280,14 @@ public sealed class PersistenceServiceCollectionExtensionsTests
         return values;
     }
 
+    private static Dictionary<string, string?> WithDailyLimit(int dailyLimit)
+    {
+        var values = Valid();
+        values[$"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}"] =
+            dailyLimit.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return values;
+    }
+
     private static Dictionary<string, string?> Valid() =>
         new()
         {
@@ -263,6 +295,7 @@ public sealed class PersistenceServiceCollectionExtensionsTests
             [$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}"] = "C:/library",
             [$"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}"] = "not-a-real-key",
             [$"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}"] = "https://example.invalid/",
+            [$"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}"] = "25",
             [$"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}"] = "localhost",
             [ClaimLeaseKey] = "00:05:00",
             ["Enrichment:SweepInterval"] = "00:01:00",
