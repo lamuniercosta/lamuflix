@@ -208,6 +208,16 @@ public sealed partial class OmdbMetadataProvider(
             using var response = await httpClient.GetAsync(uri, ct);
             return await ReadAsync(response, ct);
         }
+        catch (MetadataQuotaExhaustedException)
+        {
+            Log.QuotaExhausted(logger);
+            return new Fetch.Rejected(QuotaFailure(EnrichmentFailureCategory.RateLimited));
+        }
+        catch (MetadataQuotaPersistenceException exception)
+        {
+            Log.QuotaPersistenceFailed(logger, InnerFailureType(exception));
+            return new Fetch.Rejected(QuotaFailure(EnrichmentFailureCategory.ProviderUnavailable));
+        }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             return new Fetch.Rejected(UnavailableFailure(statusCode: null, exception: null));
@@ -320,6 +330,12 @@ public sealed partial class OmdbMetadataProvider(
             exception is null ? string.Empty : exception.GetType().Name);
         return Failure(EnrichmentFailureCategory.ProviderUnavailable);
     }
+
+    private static MetadataLookupResult QuotaFailure(EnrichmentFailureCategory category) =>
+        new MetadataLookupResult.Failed(category);
+
+    private static string InnerFailureType(MetadataQuotaPersistenceException exception) =>
+        exception.InnerException is { } inner ? inner.GetType().Name : exception.GetType().Name;
 
     private MetadataLookupResult Failure(EnrichmentFailureCategory category)
     {

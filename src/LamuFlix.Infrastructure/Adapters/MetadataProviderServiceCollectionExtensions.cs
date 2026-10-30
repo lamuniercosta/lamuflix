@@ -21,13 +21,16 @@ public static class MetadataProviderServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services
+        var omdbClient = services
             .AddHttpClient<OmdbMetadataProvider>((provider, client) =>
-                client.BaseAddress = new Uri(provider.GetRequiredService<IOptions<OmdbOptions>>().Value.BaseUrl))
+                client.BaseAddress = new Uri(provider.GetRequiredService<IOptions<OmdbOptions>>().Value.BaseUrl));
+
+        omdbClient
             .AddStandardResilienceHandler()
             .Configure((target, provider) => Configure(
                 target,
                 provider.GetRequiredService<IOptions<MetadataProviderResilienceOptions>>().Value));
+        omdbClient.AddHttpMessageHandler<MetadataQuotaHandler>();
 
         services
             .AddHttpClient<TmdbMetadataProvider>((provider, client) =>

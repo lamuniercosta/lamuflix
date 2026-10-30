@@ -35,5 +35,17 @@ public sealed partial class OmdbMetadataProvider
             Level = LogLevel.Information,
             Message = "Metadata lookup for {Title} matched search candidate {CandidateTitle} ({ImdbId}) with score {Score}; fetching details.")]
         public static partial void FallbackMatched(ILogger logger, string title, string candidateTitle, string imdbId, double score);
+
+        [LoggerMessage(
+            EventId = 6,
+            Level = LogLevel.Warning,
+            Message = "The OMDb daily request quota is exhausted; the request was not dispatched.")]
+        public static partial void QuotaExhausted(ILogger logger);
+
+        [LoggerMessage(
+            EventId = 7,
+            Level = LogLevel.Warning,
+            Message = "The OMDb request quota could not be recorded, so the request was not dispatched; failure {FailureType}.")]
+        public static partial void QuotaPersistenceFailed(ILogger logger, string failureType);
     }
 }
