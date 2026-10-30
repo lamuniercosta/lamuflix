@@ -174,6 +174,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             }
 
             ShouldHaveSingleMeasuredProviderRequest();
+            await ShouldHaveIsolatedQuotaUsageAsync(1, cancellationToken);
             // assert
             var ancestry = await WaitForTraceAncestryAsync(capture, requestTraceId, cancellationToken);
             ShouldProveTraceAncestry(ancestry, requestTraceId);
@@ -223,6 +224,15 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         var stored = await persisted.Movies.AsNoTracking()
             .SingleAsync(item => item.Id == new MovieId(id), cancellationToken);
         stored.ManualImdbId.ShouldBe(new ImdbId(ExpectedImdbId));
+        await ShouldHaveIsolatedQuotaUsageAsync(1, cancellationToken);
+    }
+
+    private async Task ShouldHaveIsolatedQuotaUsageAsync(int expected, CancellationToken cancellationToken)
+    {
+        await using var context = Fixture.Postgres.CreateMigratedContext();
+        var row = (await context.DailyRequestUsages.AsNoTracking().ToListAsync(cancellationToken)).ShouldHaveSingleItem();
+        row.UsageDate.ShouldBe(DateOnly.FromDateTime(Clock.GetUtcNow().UtcDateTime));
+        row.RequestCount.ShouldBe(expected);
     }
 
     private static void ShouldProveTraceAncestry(TraceAncestry ancestry, ActivityTraceId requestTraceId)

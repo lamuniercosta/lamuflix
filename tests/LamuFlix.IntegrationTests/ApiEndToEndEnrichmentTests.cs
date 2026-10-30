@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -133,6 +134,8 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
             stored.Writers.Select(writer => writer.Name).ShouldBe([ExpectedWriter], ignoreOrder: true);
         }
 
+        await ShouldHaveIsolatedQuotaUsageAsync(1, cancellationToken);
+
         // act
         var browse = await client.GetAsync(
             $"{BrowseRoute}?sort=Title&direction=Ascending&page=1&pageSize=20",
@@ -191,6 +194,14 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
     }
 
     private static string DetailsRoute(int id) => $"{DetailsRoutePrefix}{id}";
+    private async Task ShouldHaveIsolatedQuotaUsageAsync(int expected, CancellationToken cancellationToken)
+    {
+        await using var context = Fixture.Postgres.CreateMigratedContext();
+        var row = (await context.DailyRequestUsages.AsNoTracking().ToListAsync(cancellationToken)).ShouldHaveSingleItem();
+        row.UsageDate.ShouldBe(DateOnly.FromDateTime(Clock.GetUtcNow().UtcDateTime));
+        row.RequestCount.ShouldBe(expected);
+    }
+
 
     private static string RetryRoute(int id) => $"{DetailsRoutePrefix}{id}{RetryRouteSuffix}";
 

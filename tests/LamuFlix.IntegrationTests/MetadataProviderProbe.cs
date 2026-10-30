@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.ServiceDefaults;
 using Microsoft.Extensions.Configuration;
@@ -79,9 +80,12 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
             .SelectMany(pair => pair.Value)
             .Distinct(StringComparer.Ordinal)];
 
-    public ServiceProvider BuildServices(IDictionary<string, string?>? overrides = null)
+    public ServiceProvider BuildServices(
+        IDictionary<string, string?>? overrides = null,
+        IOmdbRequestGate? gate = null)
     {
         var services = NewServices(overrides, new FixedTimeProvider(Now));
+        services.AddSingleton(gate ?? RecordingRequestGate.Admitting());
         services.AddMetadataProvider();
 
         var provider = services.BuildServiceProvider();
@@ -140,6 +144,44 @@ public sealed class MetadataProviderProbe : IAsyncLifetime
 
     public static string Resilience(string member) =>
         $"{MetadataProviderResilienceOptions.SectionName}:{member}";
+
+    public sealed class RecordingRequestGate(Func<CancellationToken, Task<bool>> admission) : IOmdbRequestGate
+    {
+        private int invocations;
+        private int commitments;
+
+        public int Invocations => Volatile.Read(ref invocations);
+
+        public int Commitments => Volatile.Read(ref commitments);
+
+        public static RecordingRequestGate Admitting() => new(_ => Task.FromResult(true));
+
+        public static RecordingRequestGate AdmittingOnly(int admissions)
+        {
+            var granted = 0;
+            return new(_ => Task.FromResult(Interlocked.Increment(ref granted) <= admissions));
+        }
+
+        public static RecordingRequestGate Faulting(Exception failure) => new(_ => Task.FromException<bool>(failure));
+
+        public static RecordingRequestGate Slow(TimeSpan delay) => new(async _ =>
+        {
+            await Task.Delay(delay, CancellationToken.None);
+            return true;
+        });
+
+        public async Task<bool> TryAcquireAsync(CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref invocations);
+            var admitted = await admission(cancellationToken);
+            if (admitted)
+            {
+                Interlocked.Increment(ref commitments);
+            }
+
+            return admitted;
+        }
+    }
 
     public sealed record CapturedLog(
         string CategoryName,

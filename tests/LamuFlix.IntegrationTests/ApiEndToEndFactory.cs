@@ -31,6 +31,7 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
     private const string ClaimLease = "00:00:01";
     private const string LocalPlay = "false";
     private const string OtlpTimeout = "1000";
+    private const string QuotaDailyLimit = "1000";
 
     private readonly ApiEndToEndHostSettings settings;
     private readonly Action<IServiceCollection>? configureTestServices;
@@ -110,6 +111,7 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.RetryDelay)}", settings.RabbitMq.RetryDelay.ToString("c", CultureInfo.InvariantCulture)),
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", settings.OmdbBaseUrl),
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}", MetadataProviderProbe.SentinelApiKey),
+        new($"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}", QuotaDailyLimit),
         new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", ClaimLease),
         new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}", "00:01:00"),
         new($"{FeatureOptions.SectionName}:{nameof(FeatureOptions.LocalPlay)}", LocalPlay),
