@@ -66,9 +66,9 @@
 **Goal**: Api `/health/ready`, AppHost-only timing defaults, Development/F5 profile; four-resource topology without worker/Ollama.
 **Independent Test**: Api ready probe configured; F5 profile present; no worker resource (brief proof items 3, 5).
 
-- [ ] T011 [US1] In `src/LamuFlix.AppHost/Program.cs`, configure Api `WithHttpHealthCheck` `/health/ready` on `api.GetEndpoint("http")` (same endpoint as `VITE_API_BASE_URL`; no Api file changes; recon-4:35-42), require built-in Postgres/database and RabbitMQ health (Running plus Healthy via `WaitFor`, not `WaitForStart`) before Api and healthy Api before web `WaitFor(api)`, and ensure application resources are exactly postgres, rabbitmq, api, and (later) web — no worker, no Ollama; four-resource healthy timing proven in T016 (FR-003, FR-010; Q1, Q6; Compass H1/M2; Sentry M1/M4; recon-4:25-31)
-- [ ] T012 [US5] In `src/LamuFlix.AppHost/Program.cs`, inject `Enrichment__ClaimLease=00:00:30`, `Enrichment__SweepInterval=00:00:10`, and `RabbitMq__RetryDelay=00:01:00` into the AppHost-launched Api (retry 60s > lease 30s; positive sweep 10s; no further sweep-vs-lease invariant) (FR-008; Q6; Sentry L1)
-- [ ] T013 [P] [US5] Create `src/LamuFlix.AppHost/Properties/launchSettings.json` Development/F5 profile for the AppHost with SDK dashboard startup (FR-011; Q6)
+- [X] T011 [US1] In `src/LamuFlix.AppHost/Program.cs`, configure Api `WithHttpHealthCheck` `/health/ready` on `api.GetEndpoint("http")` (same endpoint as `VITE_API_BASE_URL`; no Api file changes; recon-4:35-42), require built-in Postgres/database and RabbitMQ health (Running plus Healthy via `WaitFor`, not `WaitForStart`) before Api and healthy Api before web `WaitFor(api)`, and ensure application resources are exactly postgres, rabbitmq, api, and (later) web — no worker, no Ollama; four-resource healthy timing proven in T016 (FR-003, FR-010; Q1, Q6; Compass H1/M2; Sentry M1/M4; recon-4:25-31)
+- [X] T012 [US5] In `src/LamuFlix.AppHost/Program.cs`, inject `Enrichment__ClaimLease=00:00:30`, `Enrichment__SweepInterval=00:00:10`, and `RabbitMq__RetryDelay=00:01:00` into the AppHost-launched Api (retry 60s > lease 30s; positive sweep 10s; no further sweep-vs-lease invariant) (FR-008; Q6; Sentry L1)
+- [X] T013 [P] [US5] Create `src/LamuFlix.AppHost/Properties/launchSettings.json` Development/F5 profile for the AppHost with SDK dashboard startup (FR-011; Q6)
 
 ---
 
