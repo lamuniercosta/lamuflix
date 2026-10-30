@@ -33,6 +33,9 @@ gates:
       # mutating Infrastructure had pulled Testcontainers into UnitTests.
       LamuFlix.Api: "host proof lives in IntegrationTests per Constitution IX"
       LamuFlix.Infrastructure: "persistence proof lives in IntegrationTests per Constitution IX"
+      # DEV-332: the AppHost is local orchestration wiring; its acceptance proof is
+      # real-host receipts, which neither Stryker nor a unit test can produce.
+      LamuFlix.AppHost: "local orchestration wiring; real-host acceptance receipts required; Core mutation retained per Constitution IX"
 
   analyzers:
     mode: All
