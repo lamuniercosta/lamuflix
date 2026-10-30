@@ -77,7 +77,7 @@
 **Goal**: Core `AddExecutable` Vite with `VITE_API_BASE_URL`, strict 5173, proxy disabled, wait for Api.
 **Independent Test**: Browser SPA reaches Api/CORS/SignalR; occupied 5173 fails (brief proof items 4–6).
 
-- [ ] T014 [US4] In `src/LamuFlix.AppHost/Program.cs`, add web via core `AddExecutable` PATH-resolved `node`, absolute `web` working directory from `builder.AppHostDirectory`, argument array `["node_modules/vite/bin/vite.js", "--port", "5173", "--strictPort"]`, fixed localhost 5173 with `WithEndpointProxySupport(false)`, `VITE_API_BASE_URL` from `api.GetEndpoint("http")`, `WaitFor` healthy Api, and HTTP `/` probe — `npm install` remains prerequisite; forbid `cmd.exe`/shell/`Process.Start`/`npm` shim/`web/` edits (PC3; recon-4:46-54); no JavaScript hosting package; separate live T016 proofs for Windows node/Vite, proxy-disabled fixed-port, occupied-port failure, and browser (FR-009, FR-010; Q3, Q6; Sentry M2; Ledger M3)
+- [X] T014 [US4] In `src/LamuFlix.AppHost/Program.cs`, add web via core `AddExecutable` PATH-resolved `node`, absolute `web` working directory from `builder.AppHostDirectory`, argument array `["node_modules/vite/bin/vite.js", "--port", "5173", "--strictPort"]`, fixed localhost 5173 with `WithEndpointProxySupport(false)`, `VITE_API_BASE_URL` from `api.GetEndpoint("http")`, `WaitFor` healthy Api, and HTTP `/` probe — `npm install` remains prerequisite; forbid `cmd.exe`/shell/`Process.Start`/`npm` shim/`web/` edits (PC3; recon-4:46-54); no JavaScript hosting package; separate live T016 proofs for Windows node/Vite, proxy-disabled fixed-port, occupied-port failure, and browser (FR-009, FR-010; Q3, Q6; Sentry M2; Ledger M3)
 
 ---
 
