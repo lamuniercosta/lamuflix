@@ -6,7 +6,7 @@ namespace LamuFlix.Infrastructure.Persistence.Configurations;
 
 public sealed class DailyRequestUsageConfiguration : IEntityTypeConfiguration<DailyRequestUsageRecord>
 {
-    public const string NonNegativeRequestCountConstraint = "ck_omdb_daily_usage_request_count_nonnegative";
+    private const string NonNegativeRequestCountConstraint = "ck_omdb_daily_usage_request_count_nonnegative";
 
     public void Configure(EntityTypeBuilder<DailyRequestUsageRecord> builder)
     {
