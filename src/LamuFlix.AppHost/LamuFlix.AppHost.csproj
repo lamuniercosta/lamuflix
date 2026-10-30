@@ -1,0 +1,19 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.4">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AspireUseCliBundle>false</AspireUseCliBundle>
+    <UserSecretsId>006aa019-f02b-46f1-8a92-a51b3abd573c</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LamuFlix.Api\LamuFlix.Api.csproj" />
+  </ItemGroup>
+
+</Project>
