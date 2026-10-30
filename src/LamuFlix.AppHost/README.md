@@ -13,6 +13,7 @@ This AppHost is a separate local entrypoint from Docker Compose. It does not cha
 | Node.js | `>=24 <25` on `PATH`, per `web/package.json` `engines`. The AppHost launches `node` directly. |
 | Web dependencies | Run `npm install` in `web/` once (and after dependency changes). The AppHost runs `node_modules/vite/bin/vite.js` and never installs packages. |
 | Private Api secrets | `Library:RootPath` and `Omdb:ApiKey` in the Api user-secrets store (see below). |
+| Ollama (host prerequisite, no AppHost resource) | Locally reachable Ollama at `http://localhost:11434` with the `all-minilm` model pulled. The Api startup validator requires it before binding its HTTP listener; the AppHost starts no Ollama container. |
 
 ## Private Api user secrets
 
