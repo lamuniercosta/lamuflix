@@ -86,7 +86,7 @@
 **Goal**: Prerequisites, private secrets guidance, disposable-data and compose-boundary documentation.
 **Independent Test**: README contains required prerequisite and boundary content without secret values (brief proof item 7).
 
-- [ ] T015 [US5] Create `src/LamuFlix.AppHost/README.md` documenting .NET SDK per `global.json`, OCI runtime, Node `>=24 <25`, npm install prerequisite, private Api user secrets for `Library:RootPath` and `Omdb:ApiKey` (never committed values; AppHost sets Api Development env so Api entry assembly loads its unchanged store — do not copy secret values into AppHost; PC4; actual loading proven in T016), launch command `dotnet run --project src/LamuFlix.AppHost`, disposable local data, and AppHost-vs-compose boundary (FR-011; Q6, Q8; Sentry H2)
+- [X] T015 [US5] Create `src/LamuFlix.AppHost/README.md` documenting .NET SDK per `global.json`, OCI runtime, Node `>=24 <25`, npm install prerequisite, private Api user secrets for `Library:RootPath` and `Omdb:ApiKey` (never committed values; AppHost sets Api Development env so Api entry assembly loads its unchanged store — do not copy secret values into AppHost; PC4; actual loading proven in T016), launch command `dotnet run --project src/LamuFlix.AppHost`, disposable local data, and AppHost-vs-compose boundary (FR-011; Q6, Q8; Sentry H2)
 
 ---
 
