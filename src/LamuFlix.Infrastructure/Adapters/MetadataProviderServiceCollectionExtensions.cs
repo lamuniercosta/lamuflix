@@ -30,6 +30,7 @@ public static class MetadataProviderServiceCollectionExtensions
             .Configure((target, provider) => Configure(
                 target,
                 provider.GetRequiredService<IOptions<MetadataProviderResilienceOptions>>().Value));
+        services.AddTransient<MetadataQuotaHandler>();
         omdbClient.AddHttpMessageHandler<MetadataQuotaHandler>();
 
         services

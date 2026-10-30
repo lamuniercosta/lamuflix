@@ -116,6 +116,7 @@ public sealed class ApiEndToEndFeaturesTests(ApiEndToEndFixture fixture) : ApiEn
 
             var metadataAfter = await ReadMetadataStateAsync(movieId, cancellationToken);
             metadataAfter.ShouldBe(metadataBefore);
+            await ShouldHaveIsolatedQuotaUsageAsync(1, cancellationToken);
 
             await using (var context = Fixture.Postgres.CreateMigratedContext())
             {
@@ -134,6 +135,14 @@ public sealed class ApiEndToEndFeaturesTests(ApiEndToEndFixture fixture) : ApiEn
         {
             gate.Release();
         }
+    }
+
+    private async Task ShouldHaveIsolatedQuotaUsageAsync(int expected, CancellationToken cancellationToken)
+    {
+        await using var context = Fixture.Postgres.CreateMigratedContext();
+        var row = (await context.DailyRequestUsages.AsNoTracking().ToListAsync(cancellationToken)).ShouldHaveSingleItem();
+        row.UsageDate.ShouldBe(DateOnly.FromDateTime(Clock.GetUtcNow().UtcDateTime));
+        row.RequestCount.ShouldBe(expected);
     }
 
     private static DateTimeOffset ToDatabasePrecision(DateTimeOffset value) =>
