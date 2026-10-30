@@ -14,6 +14,7 @@ var rabbitmq = builder.AddRabbitMQ("rabbitmq")
 
 builder.AddProject<Projects.LamuFlix_Api>("api")
     .WithHttpEndpoint(name: "http")
+    .WithHttpHealthCheck(path: "/health/ready", endpointName: "http")
     .WithReference(database)
     .WithReference(rabbitmq)
     .WaitFor(postgres)
@@ -25,6 +26,9 @@ builder.AddProject<Projects.LamuFlix_Api>("api")
     .WithEnvironment("RabbitMq__HostName", rabbitmq.Resource.PrimaryEndpoint.Property(EndpointProperty.Host))
     .WithEnvironment("RabbitMq__Port", rabbitmq.Resource.PrimaryEndpoint.Property(EndpointProperty.Port))
     .WithEnvironment("RabbitMq__UserName", rabbitmq.Resource.UserNameReference)
-    .WithEnvironment("RabbitMq__Password", rabbitmq.Resource.PasswordParameter);
+    .WithEnvironment("RabbitMq__Password", rabbitmq.Resource.PasswordParameter)
+    .WithEnvironment("Enrichment__ClaimLease", "00:00:30")
+    .WithEnvironment("Enrichment__SweepInterval", "00:00:10")
+    .WithEnvironment("RabbitMq__RetryDelay", "00:01:00");
 
 builder.Build().Run();
