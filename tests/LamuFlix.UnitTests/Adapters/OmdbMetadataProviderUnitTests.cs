@@ -500,6 +500,95 @@ public sealed class OmdbMetadataProviderUnitTests
     }
 
     [Fact]
+    public async Task FindAsync_QuotaExhausted_ReturnsRateLimitedAndLeavesHealthUnchanged()
+    {
+        // arrange
+        var state = new MetadataProviderHealthState();
+        var provider = Provider(new ThrowingHandler(new MetadataQuotaExhaustedException()), state);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.RateLimited);
+        Snapshot(state).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_QuotaPersistenceFailure_ReturnsProviderUnavailableAndLeavesHealthUnchanged()
+    {
+        // arrange
+        var state = new MetadataProviderHealthState();
+        var provider = Provider(
+            new ThrowingHandler(new MetadataQuotaPersistenceException(new InvalidOperationException("database unavailable"))),
+            state);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
+        Snapshot(state).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_QuotaExhausted_LogsDedicatedEventWithoutLeakingRequestSecrets()
+    {
+        // arrange
+        var logger = new CapturingLogger();
+        var provider = Provider(new ThrowingHandler(new MetadataQuotaExhaustedException()), logger);
+
+        // act
+        await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        logger.Messages.ShouldContain(message => message.Contains("daily request quota is exhausted", StringComparison.Ordinal));
+        logger.Messages.ShouldAllBe(message =>
+            !message.Contains("apikey", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("https://", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("example.test", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("quota is exhausted.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task FindAsync_QuotaPersistenceFailure_LogsDedicatedEventWithoutLeakingSecretsOrRawException()
+    {
+        // arrange
+        var logger = new CapturingLogger();
+        var inner = new InvalidOperationException("raw-inner-detail https://example.test/private");
+        var provider = Provider(new ThrowingHandler(new MetadataQuotaPersistenceException(inner)), logger);
+
+        // act
+        await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        logger.Messages.ShouldContain(message => message.Contains("could not be recorded", StringComparison.Ordinal)
+            && message.Contains(nameof(InvalidOperationException), StringComparison.Ordinal));
+        logger.Messages.ShouldAllBe(message =>
+            !message.Contains("raw-inner-detail", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("apikey", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("https://", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("example.test", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task FindAsync_QuotaSignals_DoNotInterceptCallerCancellation()
+    {
+        // arrange
+        var provider = Provider(new ThrowingHandler(new OperationCanceledException("caller cancelled")));
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        // act
+        var failure = await Should.ThrowAsync<OperationCanceledException>(
+            () => provider.FindAsync(new MetadataLookup("Blade Runner", null), cancelled.Token));
+
+        // assert
+        failure.ShouldNotBeOfType<MetadataQuotaExhaustedException>();
+        failure.ShouldNotBeOfType<MetadataQuotaPersistenceException>();
+    }
+
+    [Fact]
     public async Task FindAsync_HttpRequestException_ReturnsProviderUnavailable()
     {
         // arrange
@@ -776,11 +865,21 @@ public sealed class OmdbMetadataProviderUnitTests
         return new OmdbMetadataProvider(http, options, new FixedTimeProvider(Now), logger, new MetadataProviderHealthState());
     }
 
-    private static (EnrichmentFailureCategory? Category, bool WasUnauthorized) Health(MetadataProviderHealthState state)
+    private static OmdbMetadataProvider Provider(ThrowingHandler handler, MetadataProviderHealthState state)
     {
-        var current = typeof(MetadataProviderHealthState).GetProperty(
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var options = Microsoft.Extensions.Options.Options.Create(new OmdbOptions { ApiKey = "key", BaseUrl = "https://example.test/" });
+        return new OmdbMetadataProvider(http, options, new FixedTimeProvider(Now), NullLogger<OmdbMetadataProvider>.Instance, state);
+    }
+
+    private static object? Snapshot(MetadataProviderHealthState state) =>
+        typeof(MetadataProviderHealthState).GetProperty(
             "Current",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.GetValue(state);
+
+    private static (EnrichmentFailureCategory? Category, bool WasUnauthorized) Health(MetadataProviderHealthState state)
+    {
+        var current = Snapshot(state);
         current.ShouldNotBeNull();
         var category = (EnrichmentFailureCategory?)current.GetType().GetProperty("Category")?.GetValue(current);
         var wasUnauthorized = (bool)(current.GetType().GetProperty("WasUnauthorized")?.GetValue(current) ?? throw new InvalidOperationException("WasUnauthorized missing."));

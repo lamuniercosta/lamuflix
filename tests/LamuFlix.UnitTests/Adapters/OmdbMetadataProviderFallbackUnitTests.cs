@@ -411,6 +411,66 @@ public sealed class OmdbMetadataProviderFallbackUnitTests
         handler.Requests[0]["y"].ShouldBe("1975");
     }
 
+    [Fact]
+    public async Task FindAsync_QuotaExhaustedAfterPartialCandidates_DiscardsPartialAndStopsVariants()
+    {
+        // arrange
+        var searches = 0;
+        var handler = new RoutingHandler(p =>
+        {
+            if (p.ContainsKey("t"))
+            {
+                return Ok(MovieNotFound);
+            }
+
+            searches++;
+            return searches == 1
+                ? Ok(SearchBody(Hit("Blade Runner 2049", "2017", "tt1856101")))
+                : throw new MetadataQuotaExhaustedException();
+        });
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.RateLimited);
+        handler.Requests.Count.ShouldBe(3);
+        handler.Requests.ShouldAllBe(p => !p.ContainsKey("i"));
+    }
+
+    [Fact]
+    public async Task FindAsync_QuotaPersistenceFailureAfterPartialCandidates_DiscardsPartialAndStopsVariants()
+    {
+        // arrange
+        var searches = 0;
+        var handler = new RoutingHandler(p =>
+        {
+            if (p.ContainsKey("t"))
+            {
+                return Ok(MovieNotFound);
+            }
+
+            searches++;
+            return searches == 1
+                ? Ok(SearchBody(Hit("Blade Runner 2049", "2017", "tt1856101")))
+                : throw new MetadataQuotaPersistenceException(new InvalidOperationException("database unavailable"));
+        });
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
+        handler.Requests.Count.ShouldBe(3);
+        handler.Requests.ShouldAllBe(p => !p.ContainsKey("i"));
+    }
+
     private static Reply Ok(string body) => new(HttpStatusCode.OK, body);
 
     private static string Hit(string title, string year, string id) =>
