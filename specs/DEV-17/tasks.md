@@ -93,8 +93,8 @@ description: "Ordered implementation tasks for DEV-17"
 
 **Independent Test**: Category RequiresFfmpeg test writes JPEG with width ≤ MaxWidth; fails if tools missing.
 
-- [ ] T050 [US4] Commit tiny synthetic fixture at `tests/LamuFlix.IntegrationTests/Fixtures/Thumbnails/short-video.mp4`; adjust IntegrationTests csproj for copy-to-output if needed (no new packages) (FR-010; ASSUMPTIONS Q7). May share the same Fixtures/Thumbnails tree as T035 `pwsh` scripts.
-- [ ] T051 [US4] Add `[Trait("Category", "RequiresFfmpeg")]` integration test using enabled options + temp cache; assert Success, valid JPEG (Length ≥ 2 + SOI `0xFF, 0xD8`), width ≤ MaxWidth; missing ffmpeg/ffprobe fails the test (FR-010; SC-003). Runs only after T040.
+- [X] T050 [US4] Commit tiny synthetic fixture at `tests/LamuFlix.IntegrationTests/Fixtures/Thumbnails/short-video.mp4`; adjust IntegrationTests csproj for copy-to-output if needed (no new packages) (FR-010; ASSUMPTIONS Q7). May share the same Fixtures/Thumbnails tree as T035 `pwsh` scripts.
+- [X] T051 [US4] Add `[Trait("Category", "RequiresFfmpeg")]` integration test using enabled options + temp cache; assert Success, valid JPEG (Length ≥ 2 + SOI `0xFF, 0xD8`), width ≤ MaxWidth; missing ffmpeg/ffprobe fails the test (FR-010; SC-003). Runs only after T040.
 
 **Checkpoint**: AC3 earned when tools present; missing tools do not count as acceptance passed.
 
