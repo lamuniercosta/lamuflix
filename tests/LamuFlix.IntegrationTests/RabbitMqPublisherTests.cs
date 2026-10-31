@@ -24,7 +24,13 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLife
 
     private readonly RabbitMqProbe probe = new(fixture);
 
-    public async ValueTask InitializeAsync() => await fixture.ResetTopologyAsync(TestContext.Current.CancellationToken);
+    public async ValueTask InitializeAsync()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetTopologyAsync(ct);
+        await RabbitMqThumbnailQueues.PurgeThumbnailQueuesAsync(fixture, ct);
+    }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
