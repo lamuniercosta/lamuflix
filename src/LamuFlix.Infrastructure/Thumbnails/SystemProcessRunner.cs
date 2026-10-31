@@ -54,9 +54,11 @@ public sealed class SystemProcessRunner : IProcessRunner
             return LaunchFailed();
         }
 
+        using var job = WindowsJobObject.TryAttach(process);
+
         var standardOutput = ReadStreamAsync(process.StandardOutput.BaseStream);
         var standardError = ReadStreamAsync(process.StandardError.BaseStream);
-        var timedOut = await WaitWithTimeoutAsync(process, timeout, cancellationToken).ConfigureAwait(false);
+        var timedOut = await WaitWithTimeoutAsync(process, job, timeout, cancellationToken).ConfigureAwait(false);
 
         var stdout = await DrainAsync(standardOutput).ConfigureAwait(false);
         var stderr = await DrainAsync(standardError).ConfigureAwait(false);
@@ -101,6 +103,7 @@ public sealed class SystemProcessRunner : IProcessRunner
 
     private async Task<bool> WaitWithTimeoutAsync(
         Process process,
+        WindowsJobObject? job,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -116,8 +119,22 @@ public sealed class SystemProcessRunner : IProcessRunner
         }
         catch (OperationCanceledException)
         {
+            var callerCancelled = cancellationToken.IsCancellationRequested;
+            job?.Terminate();
             KillTree(process);
-            return !cancellationToken.IsCancellationRequested;
+            if (!callerCancelled)
+            {
+                try
+                {
+                    await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    callerCancelled = true;
+                }
+            }
+
+            return !callerCancelled;
         }
     }
 
