@@ -105,3 +105,13 @@ Confirmed: all 9 DEV-427 plan challenge recommendations (Compass F1-F3, Ledger M
 ## Gate 1 Provisional Confirmation (2026-10-30)
 
 - **Ruling**: `gate1: provisional` confirmed and marked on `specs/DEV-427/spec.md:7` (`adjudication-DEV-427-plan:9`, `specs/DEV-427/brief.md`, `CONCLUSIONS.md` Q1-Q9). Ready for Rigger to commit `specs/DEV-427/`, open the spec PR, and set YouTrack state to Gate 1.
+
+
+---
+
+## Phase 3 Scope Ruling — Explicit `sort=Title&direction=Ascending` on k6 Requests (2026-10-31)
+
+- **Verdict**: Authorize `scripts/load/movies.js` (and `scripts/load/README.md`) to send explicit `sort=Title&direction=Ascending` on all `GET /api/movies` browse and search requests; no owner PR checkbox escalation.
+- **Contract basis**: Live `MovieQueryValidator` (`src/LamuFlix.Infrastructure/Library/MovieQueryValidator.cs:13-14`, tested in `tests/LamuFlix.UnitTests/Library/MovieQueryValidatorTests.cs:81-90`) requires `RuleFor(query => query.Sort).NotNull()` and `RuleFor(query => query.Direction).NotNull()`, and `LibraryEndpoints` (`src/LamuFlix.Api/Endpoints/LibraryEndpoints.cs:265-283,326-330`) parses `sort` and `direction` by SmartEnum name (`Title`, `Ascending`), returning HTTP 422 when omitted.
+- **Prior ruling & spec consistency**: Patron's original Q3 grill ruling (`specs/DEV-427/CONCLUSIONS.md:30`) already authorized `sort=Title&direction=Ascending` for the 80/20 browse/search cycle; adopting it aligns the k6 workload with the existing consumed endpoint contract as-is (`specs/DEV-427/CONCLUSIONS.md:28,50`; `specs/DEV-427/spec.md:114,121` FR-004/FR-011).
+- **No §2.3 escalation**: Sending the required canonical query parameters neither contradicts the DEV-427 ticket text nor departs from the constitution (`note DEV-427` lines 8, 39; Charter §2.3), so no owner checkbox is opened.

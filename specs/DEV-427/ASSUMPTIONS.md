@@ -27,3 +27,8 @@ Use collision-safe per-run summary JSON and an operator receipt (counts after ea
 ## Q9 - Plan challenge bounded implementation selections
 
 [assumed] Patron ratified leaving deterministic page-wrap and concrete mixed-case Group00-Group09 probe spellings to implementation, recorded in scripts/load/README.md and run evidence within FR-005/FR-006. No new scope or test budget. Basis: CONCLUSIONS.md Q9; recon-DEV-427 lines 13-16,26-34. Database provisioning and all other Q9 decisions are recorded in brief.md; this note does not freeze an uncorrected plan.
+
+
+## Phase 3 Scope Ruling [assumed] - Explicit sort=Title&direction=Ascending (2026-10-31)
+
+Patron authorized sending explicit `sort=Title&direction=Ascending` on all `GET /api/movies` browse and search requests in `scripts/load/movies.js` (and `scripts/load/README.md`), superseding the earlier omission alternative because live `MovieQueryValidator` (`src/LamuFlix.Infrastructure/Library/MovieQueryValidator.cs:13-14`) requires non-null `Sort` and `Direction`. Basis: `CONCLUSIONS.md` Q3 and Phase 3 Scope Ruling; `LibraryEndpoints.cs:265-283,326-330`; `MovieQueryValidatorTests.cs:81-90`.
