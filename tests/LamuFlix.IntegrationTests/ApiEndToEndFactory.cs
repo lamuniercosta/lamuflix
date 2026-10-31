@@ -35,12 +35,17 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
 
     private readonly ApiEndToEndHostSettings settings;
     private readonly Action<IServiceCollection>? configureTestServices;
+    private readonly IEnumerable<KeyValuePair<string, string?>> additionalSettings;
 
-    public ApiEndToEndFactory(ApiEndToEndHostSettings settings, Action<IServiceCollection>? configureTestServices = null)
+    public ApiEndToEndFactory(
+        ApiEndToEndHostSettings settings,
+        Action<IServiceCollection>? configureTestServices = null,
+        IEnumerable<KeyValuePair<string, string?>>? additionalSettings = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         this.settings = settings;
         this.configureTestServices = configureTestServices;
+        this.additionalSettings = additionalSettings ?? [];
     }
 
     protected override IHost CreateHost(IHostBuilder builder)
@@ -117,5 +122,6 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         new($"{FeatureOptions.SectionName}:{nameof(FeatureOptions.LocalPlay)}", LocalPlay),
         new($"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}", RootPath),
         new("OTEL_EXPORTER_OTLP_TIMEOUT", OtlpTimeout),
+        .. additionalSettings,
     ];
 }
