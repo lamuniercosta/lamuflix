@@ -37,24 +37,8 @@ public sealed class SystemProcessRunner : IProcessRunner
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(executable);
-        ArgumentNullException.ThrowIfNull(arguments);
-        if (timeout <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be greater than zero.");
-        }
-
-        var startInfo = new ProcessStartInfo(executable)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
+        ValidateRunArguments(executable, arguments, timeout);
+        var startInfo = CreateStartInfo(executable, arguments);
 
         using var process = new Process { StartInfo = startInfo };
         try
@@ -71,22 +55,7 @@ public sealed class SystemProcessRunner : IProcessRunner
 
         var standardOutput = ReadStreamAsync(process.StandardOutput.BaseStream);
         var standardError = ReadStreamAsync(process.StandardError.BaseStream);
-
-        using var timeoutSource = new CancellationTokenSource(timeout, timeProvider);
-        using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            timeoutSource.Token);
-
-        var timedOut = false;
-        try
-        {
-            await process.WaitForExitAsync(linkedSource.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            timedOut = !cancellationToken.IsCancellationRequested;
-            KillTree(process);
-        }
+        var timedOut = await WaitWithTimeoutAsync(process, timeout, cancellationToken).ConfigureAwait(false);
 
         var stdout = await DrainAsync(standardOutput).ConfigureAwait(false);
         var stderr = await DrainAsync(standardError).ConfigureAwait(false);
@@ -96,6 +65,67 @@ public sealed class SystemProcessRunner : IProcessRunner
             throw new OperationCanceledException(cancellationToken);
         }
 
+        return MapToResult(stdout, stderr, process.ExitCode, timedOut);
+    }
+
+    private static void ValidateRunArguments(
+        string executable,
+        IReadOnlyList<string> arguments,
+        TimeSpan timeout)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executable);
+        ArgumentNullException.ThrowIfNull(arguments);
+        if (timeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be greater than zero.");
+        }
+    }
+
+    private static ProcessStartInfo CreateStartInfo(string executable, IReadOnlyList<string> arguments)
+    {
+        var startInfo = new ProcessStartInfo(executable)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        return startInfo;
+    }
+
+    private async Task<bool> WaitWithTimeoutAsync(
+        Process process,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        using var timeoutSource = new CancellationTokenSource(timeout, timeProvider);
+        using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutSource.Token);
+
+        try
+        {
+            await process.WaitForExitAsync(linkedSource.Token).ConfigureAwait(false);
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            KillTree(process);
+            return !cancellationToken.IsCancellationRequested;
+        }
+    }
+
+    private static ProcessResult MapToResult(
+        StreamCapture stdout,
+        StreamCapture stderr,
+        int exitCode,
+        bool timedOut)
+    {
         if (timedOut)
         {
             return new ProcessResult(false, null, stdout.Value, stderr.Value, "TimedOut");
@@ -105,17 +135,17 @@ public sealed class SystemProcessRunner : IProcessRunner
         {
             return new ProcessResult(
                 false,
-                process.ExitCode,
+                exitCode,
                 stdout.Value,
                 stderr.Value,
                 "OutputTruncated");
         }
 
-        if (process.ExitCode != 0)
+        if (exitCode != 0)
         {
             return new ProcessResult(
                 false,
-                process.ExitCode,
+                exitCode,
                 stdout.Value,
                 stderr.Value,
                 "NonZeroExit");
