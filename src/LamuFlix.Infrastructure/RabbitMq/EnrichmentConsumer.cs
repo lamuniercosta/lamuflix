@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
@@ -275,7 +276,7 @@ public sealed class EnrichmentConsumer(
         ProcessEnrichmentOutcome outcome,
         CancellationToken cancellationToken)
     {
-        if (outcome is not ProcessEnrichmentOutcome.Completed { Claimed: true } || !thumbnailOptions.Value.Enabled)
+        if (!IsThumbnailPublishEnabled(outcome))
         {
             return;
         }
@@ -283,9 +284,7 @@ public sealed class EnrichmentConsumer(
         await using var scope = scopes.CreateAsyncScope();
         var movies = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
         var movie = await movies.GetAsync(request.MovieId, cancellationToken);
-        if (movie is null
-            || !string.IsNullOrWhiteSpace(movie.Metadata?.PosterUrl)
-            || string.IsNullOrWhiteSpace(movie.Path.Value))
+        if (movie is null || !IsThumbnailCandidate(movie))
         {
             return;
         }
@@ -294,6 +293,14 @@ public sealed class EnrichmentConsumer(
             new ThumbnailRequested(movie.Id, movie.Path.Value),
             cancellationToken);
     }
+
+    private bool IsThumbnailPublishEnabled(ProcessEnrichmentOutcome outcome) =>
+        outcome is ProcessEnrichmentOutcome.Completed { Claimed: true }
+        && thumbnailOptions.Value.Enabled;
+
+    private static bool IsThumbnailCandidate(Movie movie) =>
+        string.IsNullOrWhiteSpace(movie.Metadata?.PosterUrl)
+        && !string.IsNullOrWhiteSpace(movie.Path.Value);
 
     private static IReadOnlyDictionary<string, object?> FailureHeaders(
         ProcessEnrichmentOutcome.Failed failed,

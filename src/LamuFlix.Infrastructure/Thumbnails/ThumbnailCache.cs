@@ -69,10 +69,7 @@ public sealed class ThumbnailCache
 
         try
         {
-            if (!TryResolveCanonicalPath(movieId, out var canonicalPath)
-                || !TryResolveContainedPath(generatedPath, out var generatedFullPath)
-                || IsSamePath(generatedFullPath, canonicalPath)
-                || !HasValidJpeg(generatedFullPath))
+            if (!IsPromotable(generatedPath, movieId, out var generatedFullPath, out var canonicalPath))
             {
                 return false;
             }
@@ -88,6 +85,16 @@ public sealed class ThumbnailCache
         {
             DeleteTemporary(generatedPath);
         }
+    }
+
+    private bool IsPromotable(string generatedPath, MovieId movieId, out string generatedFullPath, out string canonicalPath)
+    {
+        generatedFullPath = string.Empty;
+        canonicalPath = string.Empty;
+        return TryResolveCanonicalPath(movieId, out canonicalPath)
+            && TryResolveContainedPath(generatedPath, out generatedFullPath)
+            && !IsSamePath(generatedFullPath, canonicalPath)
+            && HasValidJpeg(generatedFullPath);
     }
 
     public void DeleteTemporary(string generatedPath)
