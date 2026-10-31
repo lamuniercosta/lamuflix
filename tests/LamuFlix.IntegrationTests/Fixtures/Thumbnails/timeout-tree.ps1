@@ -6,7 +6,7 @@ param(
     [int]$Seconds = 30
 )
 
-Start-Process -FilePath "pwsh" -ArgumentList @(
+Start-Process -FilePath "pwsh" -NoNewWindow -ArgumentList @(
     "-NoProfile",
     "-NonInteractive",
     "-File",
