@@ -80,13 +80,14 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
         }
 
         // assert
-        logger.Entries.Count.ShouldBe(2);
+        logger.Entries.Count.ShouldBe(3);
         logger.Entries.ShouldAllBe(entry => entry.Level == LogLevel.Information);
         logger.Entries.Select(entry => entry.State.Single(pair => pair.Key == "Message").Value)
             .ShouldBe(
                 [
                     RabbitMqServiceCollectionExtensions.InactiveLogMessage,
                     RabbitMqServiceCollectionExtensions.InactiveFeaturesLogMessage,
+                    InactiveThumbnailConsumer.InactiveLogMessage,
                 ],
                 ignoreOrder: true);
     }

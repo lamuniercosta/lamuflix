@@ -199,6 +199,62 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
     }
 
     [Fact]
+    public async Task EnsureDeclaredAsync_DeclaresTheTwoThumbnailQueues()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+
+        foreach (var queue in ThumbnailQueues())
+        {
+            var declared = await probe.DeclarePassiveAsync(queue, ct);
+            declared.QueueName.ShouldBe(queue);
+        }
+
+        await Should.ThrowAsync<OperationInterruptedException>(
+            () => probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailQueue + ".retry", ct));
+    }
+
+    [Fact]
+    public async Task EnsureDeclaredAsync_EveryThumbnailRequestedArgumentIsInEffect()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+
+        await AssertEveryArgumentIsEnforcedAsync(
+            RabbitMqTopology.ThumbnailQueue,
+            RabbitMqTopology.ThumbnailRequestedArguments(),
+            ct);
+    }
+
+    [Fact]
+    public async Task EnsureDeclaredAsync_EveryThumbnailDeadLetterArgumentIsInEffect()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+
+        await AssertEveryArgumentIsEnforcedAsync(
+            RabbitMqTopology.ThumbnailDeadLetterQueue,
+            RabbitMqTopology.DeadLetterArguments(),
+            ct);
+    }
+
+    [Fact]
+    public async Task EnsureDeclaredAsync_BindsTheThumbnailRoutingKeysToTheirOwnQueues()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await DeclareAsync(ct);
+        await probe.DrainAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct);
+
+        await probe.PublishAsync(RabbitMqTopology.ThumbnailRoutingKey, "a"u8.ToArray(), ct);
+        await probe.PublishAsync(RabbitMqTopology.ThumbnailDeadLetterRoutingKey, "c"u8.ToArray(), ct);
+
+        (await probe.PollMessageCountAsync(RabbitMqTopology.ThumbnailQueue, ct)).ShouldBe(1U);
+        (await probe.PollMessageCountAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct)).ShouldBe(1U);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).MessageCount.ShouldBe(0U);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.DeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
+    }
+
+    [Fact]
     public async Task EnsureDeclaredAsync_CalledTwiceOnOneOwner_KeepsTheSameDeclaration()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -244,6 +300,12 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
         RabbitMqTopology.DeadLetterQueue,
     ];
 
+    private static IEnumerable<string> ThumbnailQueues() =>
+    [
+        RabbitMqTopology.ThumbnailQueue,
+        RabbitMqTopology.ThumbnailDeadLetterQueue,
+    ];
+
     private static IEnumerable<string> FeaturesQueues() =>
     [
         RabbitMqTopology.FeaturesRequestedQueue,
@@ -265,6 +327,8 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
             RabbitMqTopology.FeaturesRetryQueue,
             RabbitMqTopology.FeaturesRetryArguments(RabbitMqTopology.RetryDelayMilliseconds(fixture.Options)));
         yield return (RabbitMqTopology.FeaturesDeadLetterQueue, RabbitMqTopology.DeadLetterArguments());
+        yield return (RabbitMqTopology.ThumbnailQueue, RabbitMqTopology.ThumbnailRequestedArguments());
+        yield return (RabbitMqTopology.ThumbnailDeadLetterQueue, RabbitMqTopology.DeadLetterArguments());
     }
 
     private async Task AssertEveryArgumentIsEnforcedAsync(
@@ -290,6 +354,7 @@ public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifet
         {
             string text => text + "-perturbed",
             int number => number + 1,
+            bool flag => !flag,
             _ => throw new InvalidOperationException($"Unexpected argument '{key}'."),
         };
         return copy;

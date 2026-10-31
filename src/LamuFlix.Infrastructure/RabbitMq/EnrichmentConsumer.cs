@@ -23,6 +23,8 @@ public sealed class EnrichmentConsumer(
     RabbitMqEnrichmentQueuePublisher publisher,
     IServiceScopeFactory scopes,
     IOptions<RabbitMqOptions> options,
+    IOptions<ThumbnailOptions> thumbnailOptions,
+    RabbitMqThumbnailQueuePublisher thumbnailPublisher,
     ILogger<EnrichmentConsumer> logger,
     IWorkerLiveness liveness) : BackgroundService
 {
@@ -252,6 +254,7 @@ public sealed class EnrichmentConsumer(
 
         if (disposition.Action == EnrichmentRouting.Ack)
         {
+            await PublishThumbnailAsync(request, outcome, CancellationToken.None);
             await AckAsync(consumerChannel, delivery);
             return;
         }
@@ -265,6 +268,31 @@ public sealed class EnrichmentConsumer(
             : NoHeaders;
         await publisher.PublishAsync(next, disposition.RoutingKey, headers, CancellationToken.None);
         await AckAsync(consumerChannel, delivery);
+    }
+
+    private async Task PublishThumbnailAsync(
+        EnrichmentRequested request,
+        ProcessEnrichmentOutcome outcome,
+        CancellationToken cancellationToken)
+    {
+        if (outcome is not ProcessEnrichmentOutcome.Completed { Claimed: true } || !thumbnailOptions.Value.Enabled)
+        {
+            return;
+        }
+
+        await using var scope = scopes.CreateAsyncScope();
+        var movies = scope.ServiceProvider.GetRequiredService<IMovieRepository>();
+        var movie = await movies.GetAsync(request.MovieId, cancellationToken);
+        if (movie is null
+            || !string.IsNullOrWhiteSpace(movie.Metadata?.PosterUrl)
+            || string.IsNullOrWhiteSpace(movie.Path.Value))
+        {
+            return;
+        }
+
+        await thumbnailPublisher.PublishAsync(
+            new ThumbnailRequested(movie.Id, movie.Path.Value),
+            cancellationToken);
     }
 
     private static IReadOnlyDictionary<string, object?> FailureHeaders(

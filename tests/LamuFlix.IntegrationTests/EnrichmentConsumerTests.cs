@@ -157,6 +157,86 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
     }
 
     [Fact]
+    public async Task Consumer_AnEligibleEnrichmentWithThumbnailsEnabled_PublishesBeforeAck()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")),
+            thumbnailOptions: new ThumbnailOptions { Enabled = true });
+        var movie = host.AddPendingMovie(1101);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        var published = await probe.PollConsumeAsync(
+            RabbitMqTopology.ThumbnailQueue,
+            candidate => ReadThumbnail(candidate).MovieId.Value == 1101,
+            ct);
+        await host.StopAsync(CancellationToken.None);
+
+        published.ShouldNotBeNull();
+        ReadThumbnail(published).FilePath.ShouldBe(host.Repository.Find(movie).ShouldNotBeNull().Path.Value);
+        ThumbnailTraceParent(published).ShouldStartWith("00-");
+        (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_APosterPresentMovie_DoesNotPublishAThumbnail()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(
+                new MovieMetadata("Enriched", posterUrl: "https://example.test/poster.jpg")),
+            thumbnailOptions: new ThumbnailOptions { Enabled = true });
+        var movie = host.AddPendingMovie(1102);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await host.WaitForStatusAsync(ct, movie, EnrichmentStatus.Enriched);
+        await host.StopAsync(CancellationToken.None);
+
+        (await ReadyMessageCountAsync(RabbitMqTopology.ThumbnailQueue, ct)).ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_ACompletedEnrichmentWithThumbnailsDisabled_DoesNotPublishAThumbnail()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost(_ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")));
+        var movie = host.AddPendingMovie(1103);
+
+        await host.StartAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await host.WaitForStatusAsync(ct, movie, EnrichmentStatus.Enriched);
+        await host.StopAsync(CancellationToken.None);
+
+        (await ReadyMessageCountAsync(RabbitMqTopology.ThumbnailQueue, ct)).ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_AThumbnailPublicationFailure_DoesNotAckAndDeadLettersTheEnrichment()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var liveness = new RecordingLiveness();
+        await using var host = NewHost(
+            _ => new MetadataLookupResult.Found(new MovieMetadata("Enriched")),
+            liveness: liveness,
+            thumbnailOptions: new ThumbnailOptions { Enabled = true });
+        var movie = host.AddPendingMovie(1104);
+
+        await host.StartAsync(ct);
+        await WaitUntilListeningAsync(liveness, ct);
+        await host.DeleteThumbnailQueueAsync(ct);
+        await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        var dead = await probe.PollGetMatchingAsync(
+            RabbitMqTopology.DeadLetterQueue,
+            candidate => Read(candidate).MovieId.Value == 1104,
+            ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+    }
+
+    [Fact]
     public async Task Consumer_ASuccessfulOutcome_IsAckedAndTheMovieIsEnriched()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -1148,6 +1228,17 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         (await ReadyMessageCountAsync(RabbitMqTopology.FeaturesDeadLetterQueue, ct)).ShouldBe(0U);
     }
 
+    private static async Task WaitUntilListeningAsync(RecordingLiveness liveness, CancellationToken ct)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(30);
+        while (!liveness.IsListening && TimeProvider.System.GetUtcNow() < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50), ct);
+        }
+
+        liveness.IsListening.ShouldBeTrue();
+    }
+
     private static async Task HoldTheGate(
         TaskCompletionSource entered,
         TaskCompletionSource release,
@@ -1178,6 +1269,19 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         JsonSerializer.Deserialize<EnrichmentRequested>(
             Encoding.UTF8.GetString(message.Body.Span),
             new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
+
+    private static ThumbnailRequested ReadThumbnail(ConsumedMessage message) =>
+        JsonSerializer.Deserialize<ThumbnailRequested>(
+            Encoding.UTF8.GetString(message.Body),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
+
+    private static string? ThumbnailTraceParent(ConsumedMessage message) =>
+        TraceContextCarrier.TryReadHeader(
+            message.Headers,
+            TraceContextCarrier.TraceParentHeader,
+            out var value)
+            ? value
+            : null;
 
     private static FeaturesRequested ReadFeatures(BasicGetResult message) =>
         JsonSerializer.Deserialize<FeaturesRequested>(
@@ -1279,7 +1383,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         Func<MetadataLookup, CancellationToken, Task>? beforeLookup = null,
         IWorkerLiveness? liveness = null,
         ILogger<EnrichmentConsumer>? logger = null,
-        Func<RabbitMqEnrichmentQueuePublisher, FeaturesRequested, CancellationToken, Task>? featuresPublish = null)
+        Func<RabbitMqEnrichmentQueuePublisher, FeaturesRequested, CancellationToken, Task>? featuresPublish = null,
+        ThumbnailOptions? thumbnailOptions = null)
     {
         var clock = new AdjustableTimeProvider(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero));
         var provider = new ScriptedMetadataProvider(script);
@@ -1292,6 +1397,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         var enrichment = Options.Create(new EnrichmentOptions { MaxAttempts = maxAttempts, ClaimLease = ClaimLease });
         var topology = new RabbitMqTopology(owner, Options.Create(options), enrichment);
         var publisher = new RabbitMqEnrichmentQueuePublisher(topology, owner);
+        var thumbnailPublisher = new RabbitMqThumbnailQueuePublisher(topology, owner);
         var services = new ServiceCollection();
         services.AddSingleton(options);
         services.AddSingleton(enrichment.Value);
@@ -1332,6 +1438,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
             publisher,
             built.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(options),
+            Options.Create(thumbnailOptions ?? new ThumbnailOptions()),
+            thumbnailPublisher,
             logger ?? NullLogger<EnrichmentConsumer>.Instance,
             liveness ?? NoOpLiveness.Instance);
         return new ConsumerHost(owner, topology, publisher, repository, provider, clock, consumer, built);
@@ -1407,6 +1515,9 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
 
         public Task CloseRetryQueueAsync(CancellationToken cancellationToken) =>
             CloseQueueAsync(RabbitMqTopology.RetryQueue, cancellationToken);
+
+        public Task DeleteThumbnailQueueAsync(CancellationToken cancellationToken) =>
+            CloseQueueAsync(RabbitMqTopology.ThumbnailQueue, cancellationToken);
 
         public Task CloseFeaturesRequestedQueueAsync(CancellationToken cancellationToken) =>
             CloseQueueAsync(RabbitMqTopology.FeaturesRequestedQueue, cancellationToken);

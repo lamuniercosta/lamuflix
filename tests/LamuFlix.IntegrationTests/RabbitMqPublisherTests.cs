@@ -29,6 +29,28 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLife
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     [Fact]
+    public async Task PublishAsync_AThumbnailRequest_ReachesTheThumbnailQueueWithTheTraceContext()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = NewHost();
+        await host.Topology.EnsureDeclaredAsync(ct);
+
+        await host.ThumbnailPublisher.PublishAsync(
+            new ThumbnailRequested(new MovieId(71), "C:/library/a/movie.mkv"),
+            ct);
+
+        var message = await probe.PollConsumeAsync(
+            RabbitMqTopology.ThumbnailQueue,
+            candidate => ReadThumbnail(candidate).MovieId.Value == 71,
+            ct);
+        message.ShouldNotBeNull();
+        ReadThumbnail(message).FilePath.ShouldBe("C:/library/a/movie.mkv");
+        Header(message, TraceContextCarrier.TraceParentHeader).ShouldStartWith("00-");
+        message.Persistent.ShouldBe(true);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).MessageCount.ShouldBe(0U);
+    }
+
+    [Fact]
     public async Task EnqueueAsync_ARoutablePublish_ReachesTheRequestedQueue()
     {
         TestContext.Current.TestOutputHelper?.WriteLine($"[rabbitmq-container-id] {fixture.Container.Id}");
@@ -393,6 +415,14 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLife
             Encoding.UTF8.GetString(message.Body.Span),
             new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
 
+    private static ThumbnailRequested ReadThumbnail(ConsumedMessage message) =>
+        JsonSerializer.Deserialize<ThumbnailRequested>(
+            Encoding.UTF8.GetString(message.Body),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
+
+    private static string? Header(ConsumedMessage message, string name) =>
+        TraceContextCarrier.TryReadHeader(message.Headers, name, out var value) ? value : null;
+
     private static string? Header(BasicGetResult message, string name) =>
         TraceContextCarrier.TryReadHeader(message.BasicProperties.Headers, name, out var value) ? value : null;
 
@@ -409,17 +439,24 @@ public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLife
             owner,
             Options.Create(options),
             Options.Create(new EnrichmentOptions { MaxAttempts = 3 }));
-        return new PublisherHost(owner, topology, new RabbitMqEnrichmentQueuePublisher(topology, owner));
+        return new PublisherHost(
+            owner,
+            topology,
+            new RabbitMqEnrichmentQueuePublisher(topology, owner),
+            new RabbitMqThumbnailQueuePublisher(topology, owner));
     }
 
     private sealed class PublisherHost(
         RabbitMqConnectionOwner owner,
         RabbitMqTopology topology,
-        RabbitMqEnrichmentQueuePublisher publisher) : IAsyncDisposable
+        RabbitMqEnrichmentQueuePublisher publisher,
+        RabbitMqThumbnailQueuePublisher thumbnailPublisher) : IAsyncDisposable
     {
         public RabbitMqTopology Topology { get; } = topology;
 
         public RabbitMqEnrichmentQueuePublisher Publisher { get; } = publisher;
+
+        public RabbitMqThumbnailQueuePublisher ThumbnailPublisher { get; } = thumbnailPublisher;
 
         public ValueTask DisposeAsync() => owner.DisposeAsync();
     }

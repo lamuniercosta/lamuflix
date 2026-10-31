@@ -116,7 +116,7 @@ public sealed class FeaturesConsumerActivationTests
         }
 
         // assert
-        logger.Entries.Count.ShouldBe(1);
+        logger.Entries.Count.ShouldBe(2);
         logger.Entries[0].State.Single(pair => pair.Key == "Message").Value
             .ShouldBe(RabbitMqServiceCollectionExtensions.InactiveFeaturesLogMessage);
         provider.GetService<ProcessFeaturesCommandHandler>().ShouldBeNull();
