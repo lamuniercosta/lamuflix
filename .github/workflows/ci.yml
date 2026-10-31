@@ -28,6 +28,9 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
       # The opt-in real-model proof (Category=OllamaIntegration) needs Docker plus a
       # model download, so default CI excludes the category and never sets
       # LAMUFLIX_RUN_OLLAMA_TESTS. See docs/adr/ADR-0025-isolated-ollama-test.md.
