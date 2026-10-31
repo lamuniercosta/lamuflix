@@ -179,13 +179,22 @@ jobs:
       - name: Build docker/Dockerfile.web
         run: docker build -f docker/Dockerfile.web .
 
-  # Whole-Core mutation takes ~25 min, so it runs after merge to main (or on manual
-  # dispatch), not on PRs. The diff-scoped gate (run-mutation.ps1) still runs pre-PR.
+  # Whole-Core mutation runs after merge to main (or on manual dispatch), not on PRs; the
+  # diff-scoped gate (run-mutation.ps1) still runs pre-PR. With coverage-analysis=off every
+  # mutant runs the whole eligible unit suite, so one job outgrew its limit (cancelled at 2 h).
+  # The Core source files are therefore split over parallel shards (scripts/ci-stryker-shard.sh,
+  # balanced by line count) with a 60 minute cap each; stryker-core-gate then merges the shard
+  # reports and applies the one real gate (run-mutation.ps1 -EvaluateReport) to all of Core:
+  # the score threshold, kill-share and file-span rules are unchanged, not per-shard.
   stryker-core:
-    name: stryker-core
+    name: stryker-core (shard ${{ matrix.shard }}/8)
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v7
 
@@ -197,21 +206,58 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
-      - name: Run whole-Core Stryker
+      - name: Run Stryker on Core shard
+        run: bash ./scripts/ci-stryker-shard.sh run ${{ matrix.shard }} 8 "${{ runner.temp }}/stryker-core"
+
+      - name: Upload shard report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: stryker-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/stryker-core/reports/mutation-report.json
+          if-no-files-found: error
+          retention-days: 7
+
+  stryker-core-gate:
+    name: stryker-core-gate
+    needs: stryker-core
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download shard reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: stryker-shard-*
+          path: ${{ runner.temp }}/shards
+
+      - name: Merge shard reports
+        run: |
+          set -euo pipefail
+          bash ./scripts/ci-stryker-shard.sh merge "${{ runner.temp }}/mutation-report.json" \
+            "${{ runner.temp }}"/shards/stryker-shard-*/mutation-report.json
+
+      - name: Evaluate whole-Core mutation gate
         shell: pwsh
         run: |
-          pwsh -NoProfile -File ./scripts/run-mutation.ps1 -WholeProject -OutputRoot "${{ runner.temp }}/stryker-core"
+          pwsh -NoProfile -File ./scripts/run-mutation.ps1 -EvaluateReport "${{ runner.temp }}/mutation-report.json"
           exit $LASTEXITCODE
 
-      - name: Upload Stryker report
+      - name: Upload merged Stryker report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: stryker-report-core
-          path: |
-            ${{ runner.temp }}/stryker-core/LamuFlix.Core/reports/mutation-report.html
-            ${{ runner.temp }}/stryker-core/LamuFlix.Core/reports/mutation-report.json
+          path: ${{ runner.temp }}/mutation-report.json
           if-no-files-found: error
+          retention-days: 14
 
   property-tests:
     name: property-tests

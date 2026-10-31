@@ -58,3 +58,22 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
   The second is `gates.mutation.maxKillFileSpan` (default 15): no test may kill mutants in more
   than that many source files. Clean whole-Core runs peak at 9 files per test. A run
   contaminated by a mutated static initializer reached 26.
+
+## Amendment: sharded whole-Core run in CI
+
+- The single `stryker-core` CI job ran past its 2 h limit on every push to main and was cancelled
+  (runs 41160737459, 41160767088, 41160801922; the report upload then failed with no files).
+  With `coverage-analysis: off` each mutant runs every eligible test project, so wall time is
+  mutants x suite time / concurrency. The eligible set for Core is `LamuFlix.UnitTests`,
+  `LamuFlix.Test` and `LamuFlix.Evaluation`.
+- CI now splits the Core source files over 8 parallel jobs (`scripts/ci-stryker-shard.sh run`,
+  balanced by line count, 60 minute cap each). Shards report only (`thresholds.break` 0). The
+  `stryker-core-gate` job merges the reports and runs `run-mutation.ps1 -EvaluateReport` once,
+  so the score threshold, kill-share and file-span rules still apply to the whole of Core.
+  Merging rewrites test ids to `<test file>|<test name>` so one test stays one test across shards.
+- Not changed, deliberately: `coverage-analysis`. Stryker 5.0.0's MTP runner also contains the
+  `all` and `perTestInIsolation` modes; only `perTest` was measured here (E6, rejected). `all`
+  (skip mutants no test covers) is unmeasured and is the next experiment, not a default.
+- Open observation: `LamuFlix.Test` registers an assembly fixture that starts Postgres and
+  RabbitMQ Testcontainers, and no test in that project uses them. Every Stryker test server for
+  that project pays the container start-up. Removing the fixture needs its own ticket.

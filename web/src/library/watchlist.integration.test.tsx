@@ -359,7 +359,13 @@ describe('watchlist filter accessibility in the delivered header', () => {
     await waitFor(() =>
       expect(screen.queryByRole('heading', { name: 'Dune' })).not.toBeInTheDocument(),
     );
-    expect(document.activeElement).toBe(screen.getByRole('list', { name: 'Movies' }));
+    // Focus moves in a later commit than the tile removal: LibraryTile's passive effect calls
+    // onRemoved, which bumps focusSignal, and MovieGrid focuses the list in a layout effect.
+    // waitFor can resolve on the removal's DOM mutation before that second commit lands, so
+    // asserting focus synchronously raced it (CI run 41160737459 saw document.body focused).
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('list', { name: 'Movies' })),
+    );
     expect(document.activeElement).not.toBe(document.body);
   });
 });
