@@ -272,6 +272,80 @@ public sealed class OptionsStartupValidationTests
         exception.Message.ShouldContain(nameof(MetadataProviderResilienceOptions.MaxRetryAttempts));
     }
 
+    [Fact]
+    public void ThumbnailsDefaults_BindDisabledWithApprovedValues()
+    {
+        using var provider = Build(ValidRequired());
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        var options = provider.GetRequiredService<IOptions<ThumbnailOptions>>().Value;
+        options.Enabled.ShouldBeFalse();
+        options.FfmpegPath.ShouldBe("ffmpeg");
+        options.CacheDirectory.ShouldBe("cache/thumbnails");
+        options.MaxWidth.ShouldBe(320);
+        options.ProcessTimeoutSeconds.ShouldBe(30);
+    }
+
+    [Fact]
+    public void ThumbnailsDisabledWithBlankPathsAndZeroBounds_PassesValidation()
+    {
+        var values = ValidRequired();
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.Enabled)}"] = "false";
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.FfmpegPath)}"] = " ";
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.CacheDirectory)}"] = string.Empty;
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.MaxWidth)}"] = "0";
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.ProcessTimeoutSeconds)}"] = "0";
+
+        using var provider = Build(values);
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        provider.GetRequiredService<IOptions<ThumbnailOptions>>().Value.Enabled.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ThumbnailsEnabledWithBlankFfmpegPath_FailsValidation()
+    {
+        var values = ValidRequired();
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.Enabled)}"] = "true";
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.FfmpegPath)}"] = " ";
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(ThumbnailOptions.FfmpegPath));
+    }
+
+    [Fact]
+    public void ThumbnailsEnabledWithZeroMaxWidth_FailsValidation()
+    {
+        var values = ValidRequired();
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.Enabled)}"] = "true";
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.MaxWidth)}"] = "0";
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(ThumbnailOptions.MaxWidth));
+    }
+
+    [Fact]
+    public void ThumbnailsEnabledWithZeroProcessTimeout_FailsValidation()
+    {
+        var values = ValidRequired();
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.Enabled)}"] = "true";
+        values[$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.ProcessTimeoutSeconds)}"] = "0";
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(ThumbnailOptions.ProcessTimeoutSeconds));
+    }
+
     private static OptionsValidationException Validate(Dictionary<string, string?> values)
     {
         using var provider = Build(values);
