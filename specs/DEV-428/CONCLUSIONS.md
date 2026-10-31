@@ -198,3 +198,19 @@ Verdict: Approved — `gate1: provisional` stamped in `specs/DEV-428/spec.md`; 0
 - **Clean analyze & PLAN FROZEN verified**: `/speckit-analyze` findings (`C1`, `C2`, `U1`) and all 20 plan-challenge findings (`Sentry F1–F11`, `Ledger L1–L6`, `Compass Low-1–Low-3`) are closed and verified under Keel's `PLAN FROZEN` receipt (`specs/DEV-428/brief.md:247-280`, `adjudication-DEV-428-plan:99-132`).
 - **Zero owner escalations**: All scope, architecture, security, and contract rulings remain within ticket `DEV-428` Scope & Technical Design items 1–6, AC 1–3 (`recon-DEV-428:80-104`), and Constitution Principles I–VII; 0 owner structural checkboxes and 0 constitution departures exist.
 - **Gate 1 provisional stamp**: `specs/DEV-428/spec.md:5` updated to `**Status**: gate1: provisional` pending owner review and merge of the Phase A spec PR.
+
+
+---
+
+## Phase 3 Step 3 — Scope Ruling on `LibraryEndpointsTests.cs` (`GetMovieThumbnail` Endpoint List)
+
+### Request (Conductor)
+
+DEV-428 scope ruling: Adding `GET /api/movies/{id}/thumbnail` in `ApiEndpoints.cs` caused `LibraryEndpointsTests.cs` test `DeclareNamesSummariesAndMatchingProblemMetadata` to fail because it asserts the complete list of endpoint names mapped under `/api` and expects the old list without `GetMovieThumbnail`. `LibraryEndpointsTests.cs` is a tracked file not named in the ticket. Do you approve Cog updating `LibraryEndpointsTests.cs` to add `GetMovieThumbnail` to the expected endpoint list so full `dotnet test` passes?
+
+### Patron full ruling
+
+Verdict: Approved — Cog may update `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` (`LibraryEndpoints_StartedComposition_DeclareNamesSummariesAndMatchingProblemMetadata`) to include `"GetMovieThumbnail"` in the expected endpoint-name list.
+
+- **Forced edit in scope (§2.3.6)**: Updating `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs:784-820` to include `"GetMovieThumbnail"` is directly forced by ticket Scope item 3 (`GET /api/movies/{id}/thumbnail` mapped in `ApiEndpoints.cs` with `.WithName("GetMovieThumbnail")` at `src/LamuFlix.Api/Endpoints/ThumbnailEndpoints.cs:24-25`) and the mandatory `dotnet test` gate (`specs/DEV-428/spec.md:14`, `specs/DEV-428/CONCLUSIONS.md:130-132`).
+- **Bounded change**: Confine the edit in `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` strictly to adding `"GetMovieThumbnail"` to the expected endpoint names in `LibraryEndpoints_StartedComposition_DeclareNamesSummariesAndMatchingProblemMetadata`; no deletion or rewrite of existing test coverage is permitted (§2.3.6).
