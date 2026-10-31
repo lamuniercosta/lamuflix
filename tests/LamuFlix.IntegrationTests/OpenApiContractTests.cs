@@ -42,6 +42,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     [
         "GET /api/movies",
         "GET /api/movies/{id}",
+        "GET /api/movies/{id}/thumbnail",
         "GET /api/movies/{id}/recommendations",
         "GET /api/recommendations/for-you",
         "DELETE /api/movies/{id}",
@@ -98,6 +99,47 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         ResponseStatuses(parsed.RootElement).Where(status => !IsStatusCode(status)).ShouldBeEmpty();
         ExpectedSchemas.Except(Schemas(parsed.RootElement)).ShouldBeEmpty();
         PathNames(parsed.RootElement).ShouldNotContain(path => path.StartsWith(HealthPathPrefix, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Document_GetMovieThumbnail_DocumentsJpegSuccessAndProblemDetailsNotFound()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        var operation = parsed.RootElement.GetProperty("paths")
+            .GetProperty("/api/movies/{id}/thumbnail")
+            .GetProperty("get");
+        operation.GetProperty("operationId").GetString().ShouldBe("GetMovieThumbnail");
+        operation.GetProperty("summary").GetString().ShouldBe(
+            "Stream the cached thumbnail JPEG for a movie.");
+
+        var parameter = operation.GetProperty("parameters").EnumerateArray().ShouldHaveSingleItem();
+        parameter.GetProperty("name").GetString().ShouldBe("id");
+        parameter.GetProperty("in").GetString().ShouldBe("path");
+        parameter.GetProperty("required").GetBoolean().ShouldBeTrue();
+        parameter.GetProperty("schema").GetProperty("type").GetString().ShouldBe("integer");
+        parameter.GetProperty("schema").GetProperty("format").GetString().ShouldBe("int32");
+
+        var responses = operation.GetProperty("responses");
+        responses.EnumerateObject().Select(response => response.Name)
+            .ShouldBe(["200", "404"], ignoreOrder: true);
+        var success = responses.GetProperty("200").GetProperty("content");
+        success.EnumerateObject().Select(content => content.Name).ShouldBe(["image/jpeg"]);
+        var successSchema = success.GetProperty("image/jpeg").GetProperty("schema");
+        successSchema.GetProperty("type").GetString().ShouldBe("string");
+        successSchema.GetProperty("format").GetString().ShouldBe("byte");
+
+        var problem = responses.GetProperty("404").GetProperty("content")
+            .GetProperty("application/problem+json").GetProperty("schema");
+        problem.GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
     }
 
     [Fact]

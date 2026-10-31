@@ -9,6 +9,7 @@ import {
   genres,
   movieDetails,
   movieDetailsNullMetadata,
+  movieThumbnail,
   people,
   problemDetails,
   acceptedLocation,
@@ -58,6 +59,9 @@ describe('generated MSW handlers', () => {
     const genreList = await client.GET('/api/genres');
     const peopleList = await client.GET('/api/people');
     const directorList = await client.GET('/api/directors');
+    const thumbnail = await client.GET('/api/movies/{id}/thumbnail', {
+      params: { path: { id: 1 } },
+    });
 
     // assert
     expect(browse.data).toEqual(browseMovies);
@@ -76,6 +80,7 @@ describe('generated MSW handlers', () => {
     expect(genreList.data).toEqual(genres);
     expect(peopleList.data).toEqual(people);
     expect(directorList.data).toEqual(directors);
+    expect(thumbnail.data).toEqual(movieThumbnail);
   });
 
   it('serves the null-metadata details variant through an override', async () => {
@@ -222,6 +227,13 @@ describe('generated MSW handlers', () => {
       status: 422,
       register: () => server.use(http.post('*/api/movies/:id/play', () => problemResponse(422))),
       invoke: () => client.POST('/api/movies/{id}/play', { params: { path: { id: 1 } } }),
+    },
+    {
+      label: 'GetMovieThumbnail 404',
+      status: 404,
+      register: () =>
+        server.use(http.get('*/api/movies/:id/thumbnail', () => problemResponse(404))),
+      invoke: () => client.GET('/api/movies/{id}/thumbnail', { params: { path: { id: 1 } } }),
     },
     {
       label: 'GetPeople 422',

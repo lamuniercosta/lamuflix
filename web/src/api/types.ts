@@ -18,6 +18,10 @@ export interface paths {
     /** Remove a movie from the library, leaving the file on disk. */
     delete: operations["DeleteMovie"];
   };
+  "/api/movies/{id}/thumbnail": {
+    /** Stream the cached thumbnail JPEG for a movie. */
+    get: operations["GetMovieThumbnail"];
+  };
   "/api/movies/import": {
     /** Import a movie folder into the library. */
     post: operations["ImportMovie"];
@@ -288,6 +292,28 @@ export interface operations {
       /** @description No Content */
       204: {
         content: never;
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Stream the cached thumbnail JPEG for a movie. */
+  GetMovieThumbnail: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "image/jpeg": string;
+        };
       };
       /** @description Not Found */
       404: {

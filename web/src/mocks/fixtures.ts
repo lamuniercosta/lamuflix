@@ -205,6 +205,8 @@ const directorsData = [
   { id: 2, name: 'Christopher Nolan', movieCount: 1 },
 ] satisfies Schemas['DirectorDto'][];
 
+const movieThumbnailData = '/9j/4AAQSkZJRg==';
+
 export const browseMovies = Object.freeze(browseMoviesData);
 export const movieDetails = Object.freeze(movieDetailsData);
 export const movieDetailsNullMetadata = Object.freeze(movieDetailsNullMetadataData);
@@ -217,6 +219,7 @@ export const hostileCollections = Object.freeze(hostileCollectionsData);
 export const overlongCollections = Object.freeze(overlongCollectionsData);
 export const people = Object.freeze(peopleData);
 export const directors = Object.freeze(directorsData);
+export const movieThumbnail = movieThumbnailData;
 
 export const success = Object.freeze({
   BrowseMovies: browseMovies,
@@ -227,6 +230,7 @@ export const success = Object.freeze({
   GetCollections: collections,
   GetPeople: people,
   GetDirectors: directors,
+  GetMovieThumbnail: movieThumbnail,
 });
 
 export const acceptedLocation = '/api/movies/1';
