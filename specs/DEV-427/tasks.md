@@ -84,7 +84,7 @@
 
 ### Implementation for User Story 4
 
-- [ ] T011 [US4] Exercise bounded negatives using `scripts/load/movies.js` / runbook paths: unreachable target exits nonzero; invalid fixture exits nonzero; empty metrics or missing browse/search traffic do not yield a passing acceptance result. Record outcomes in the operator evidence. Do not commit broken fixtures. Depends on T009.
+- [X] T011 [US4] Exercise bounded negatives using `scripts/load/movies.js` / runbook paths: unreachable target exits nonzero; invalid fixture exits nonzero; empty metrics or missing browse/search traffic do not yield a passing acceptance result. Record outcomes in the operator evidence. Do not commit broken fixtures. Depends on T009.
 - [ ] T012 [US4] Run applicable harness gates for this no-production-C# change and record script verdicts. Report empty C# mutation scope as `SKIPPED (scope-empty)`, disabled gates as `SKIP`, unreachable runtime as `Could not run`, and budget miss as `FAILED`. Never report those as PASS. Do not substitute `dotnet build` or unrelated suites for load acceptance. Depends on T010.
 
 **Checkpoint**: False-green paths are closed; gate vocabulary matches AGENTS.md / brief Gate expectations.

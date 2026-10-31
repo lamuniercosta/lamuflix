@@ -5,11 +5,12 @@ enrolled in CI. Scope is frozen by ticket DEV-427 and `specs/DEV-427/` (`spec.md
 FR-012, `plan.md`, `tasks.md`, `brief.md`).
 
 **Status: Phases 1-4 built (scripts/load skeleton, idempotent seed, workload and preflight,
-measured baseline and evidence).** Sections marked *(pending)* are completed by their named
-tasks; this file must not claim a gate result or acceptance outcome before those tasks have
-produced real receipts. Seed-twice, preflight, and measured-baseline receipts exist only when
-an operator has actually produced them. The measured baseline receipt recorded in this file
-came from one real operator run; Phase 5 negatives and gate reporting remain outstanding.
+measured baseline and evidence), and the Phase 5 bounded negatives are exercised and recorded
+below.** Sections marked *(pending)* are completed by their named tasks; this file must not
+claim a gate result or acceptance outcome before those tasks have produced real receipts.
+Seed-twice, preflight, and measured-baseline receipts exist only when an operator has actually
+produced them. The measured baseline receipt recorded in this file and the negative receipts
+below came from real operator runs; T012 harness gate reporting remains outstanding.
 
 ## Scope and files
 
@@ -413,10 +414,40 @@ This receipt is environment-specific: the p95 value is the baseline for this hos
 portable guarantee. The Phase 4 scripts were run from the worktree before their commit; the
 recorded git HEAD is the base revision of that run.
 
-## Bounded negatives *(pending T011)*
+## Bounded negatives (T011 exercised 2026-10-31)
 
 An unreachable target and an invalid fixture must each exit nonzero, and empty metrics or a
-missing browse/search traffic type must not yield a passing acceptance result.
+missing browse/search traffic type must not yield a passing acceptance result. Four real
+bounded negatives were run after the recorded baseline, with `docker/api.settings.json` already
+restored to the operator's `lamuflix` database (0 movies at the time), so the acceptance
+fixture was deliberately absent for the invalid-fixture case. No seed row was inserted,
+changed, or deleted for these runs and no broken fixture was committed. The full receipt is the
+untracked `artifacts/load/dev427-negatives-20261031T040100Z.json`.
+
+k6 exit codes observed: `99` means at least one blocking threshold was crossed; `107` means a
+script exception, here the preflight failure thrown from `setup()`. Neither is `0`.
+
+- **Unreachable target, preflight.** `BASE_URL=http://web:9999`, `PREFLIGHT_ONLY=1` on
+  `dev427_default`: exit `107`. `setup()` threw `preflight failed: ... http status 0` for every
+  browse page and search probe because the port refused connections. Acceptance remains open
+  and this path is `Could not run`, never PASS.
+- **Unreachable target, measured path.** `BASE_URL=http://web:9999` with `--no-setup --vus 1
+  --duration 10s`: exit `99`, measured error rate `1`, `request_errors` threshold crossed,
+  `acceptance: FAILED`. Summary JSON:
+  `artifacts/load/dev427-negative-unreachable-measured-20261031T040100Z.json`.
+- **Invalid fixture.** `BASE_URL=http://web:8080`, `PREFLIGHT_ONLY=1` against the reachable
+  stack whose API database held 0 movies: exit `107`. `setup()` threw
+  `browse page 1: totalCount 0 (expected 500), items 0 (expected 20)` and the matching search
+  failures. A reachable-but-wrong library cannot produce a passing baseline.
+- **Empty metrics.** A real measurement scenario with zero admitted VUs
+  (`--no-setup --vus 1 --execution-segment 50%:100%`, required run identity variables set):
+  exit `99`, `browse samples: 0`, `search samples: 0`, and both `browse_samples` and
+  `search_samples` `count>0` thresholds crossed, `acceptance: FAILED`. Summary JSON:
+  `artifacts/load/dev427-negative-empty-20261031T035830Z.json`.
+
+Both request types have their own blocking `count>0` threshold, so a run that produces only one
+of browse or search traffic fails the same way the empty run does; it cannot be reported as a
+passing acceptance result. Syntax checks and synthetic JSON remain excluded as evidence.
 
 ## Gate reporting *(pending T012)*
 
