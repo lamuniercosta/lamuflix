@@ -99,6 +99,10 @@ _Avoid_: correlation id, trace header
 Membership of a Movie aggregate, independent of enrichment status. `AddToWatchlist` throws when the movie is already in the watchlist. `RemoveFromWatchlist` throws when it is absent.
 _Avoid_: MinhaLista, My List
 
+**Thumbnail**
+A JPEG frame extracted at ten percent of a movie duration into the thumbnail cache by the thumbnail generator.
+_Avoid_: poster, cover, preview image
+
 **Playback**
 _Avoid_: Assistir, Watch
 

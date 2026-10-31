@@ -93,6 +93,8 @@ public static class ServiceDefaultsExtensions
         BindAndValidate<OllamaOptions>(services, OllamaOptions.SectionName);
         BindAndValidate<OllamaResilienceOptions>(services, OllamaResilienceOptions.SectionName);
         BindAndValidate<FeatureOptions>(services, FeatureOptions.SectionName);
+        BindAndValidate<ThumbnailOptions>(services, ThumbnailOptions.SectionName);
+        services.AddSingleton<IValidateOptions<ThumbnailOptions>, ThumbnailOptionsValidator>();
         return services;
     }
 

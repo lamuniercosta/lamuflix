@@ -46,11 +46,11 @@ description: "Ordered implementation tasks for DEV-17"
 
 **Independent Test**: ArchitectureTests whitelist includes `IThumbnailGenerator`; options bind with Enabled=false defaults; Core still has no process API references.
 
-- [ ] T020 [US2] Add `src/LamuFlix.Core/Ports/IThumbnailGenerator.cs` and `ThumbnailResult.cs` per FR-003 / contract (Q4). Must be committed/verified together with T022 as an atomic buildable slice (`ArchitectureTests.cs:155-177`).
-- [ ] T021 [P] [US2] Add `src/LamuFlix.Core/Options/ThumbnailOptions.cs` and `ThumbnailOptionsValidator.cs` per FR-007 (Q5 + ASSUMPTIONS).
-- [ ] T022 [US2] Extend `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` `PortWhitelistPattern` with `IThumbnailGenerator` (Q3/Q8). Atomic with T020 — do not land the port without the whitelist entry (or vice versa).
-- [ ] T023 [US2] Wire bind + conditional validator in `src/LamuFlix.ServiceDefaults/Extensions.cs`; extend `tests/LamuFlix.UnitTests/Options/OptionsStartupValidationTests.cs` and add ThumbnailOptions unit/property/survivor tests under `tests/LamuFlix.UnitTests/Options/` (FR-007–FR-009).
-- [ ] T024 [US2] Reconcile/add `Thumbnail` in `CONTEXT.md` in the introducing PR; completion check MUST verify the entry contains `term`, `definition`, and `avoid` fields/columns per `.specify/memory/constitution.md:408`; reconcile Principle VIII summary list in `.specify/memory/constitution.md` only if needed; do not assume existing glossary contents (FR-011; brief Phase 2 correction 2).
+- [X] T020 [US2] Add `src/LamuFlix.Core/Ports/IThumbnailGenerator.cs` and `ThumbnailResult.cs` per FR-003 / contract (Q4). Must be committed/verified together with T022 as an atomic buildable slice (`ArchitectureTests.cs:155-177`).
+- [X] T021 [P] [US2] Add `src/LamuFlix.Core/Options/ThumbnailOptions.cs` and `ThumbnailOptionsValidator.cs` per FR-007 (Q5 + ASSUMPTIONS).
+- [X] T022 [US2] Extend `tests/LamuFlix.ArchitectureTests/ArchitectureTests.cs` `PortWhitelistPattern` with `IThumbnailGenerator` (Q3/Q8). Atomic with T020 — do not land the port without the whitelist entry (or vice versa).
+- [X] T023 [US2] Wire bind + conditional validator in `src/LamuFlix.ServiceDefaults/Extensions.cs`; extend `tests/LamuFlix.UnitTests/Options/OptionsStartupValidationTests.cs` and add ThumbnailOptions unit/property/survivor tests under `tests/LamuFlix.UnitTests/Options/` (FR-007–FR-009).
+- [X] T024 [US2] Reconcile/add `Thumbnail` in `CONTEXT.md` in the introducing PR; completion check MUST verify the entry contains `term`, `definition`, and `avoid` fields/columns per `.specify/memory/constitution.md:408`; reconcile Principle VIII summary list in `.specify/memory/constitution.md` only if needed; do not assume existing glossary contents (FR-011; brief Phase 2 correction 2).
 
 **Checkpoint**: Core port/options + whitelist + options startup coverage compile; CONTEXT.md Thumbnail language tasked; no Infrastructure Thumbnails yet required for this checkpoint beyond compile references if any.
 
