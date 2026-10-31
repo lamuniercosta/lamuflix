@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    End-to-end tests of scripts/run-evaluation.ps1. Each test starts pwsh, which builds and runs
+    an unmutated copy of LamuFlix.Evaluation, so these tests can never see a Stryker mutant. The
+    *IntegrationTests name keeps them out of mutation runs (run-mutation.ps1, ci-stryker-shard.sh);
+    see docs/adr/0016-stryker-mtp-runner.md.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LamuFlix.Evaluation\LamuFlix.Evaluation.csproj" />
+  </ItemGroup>
+
+</Project>

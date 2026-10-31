@@ -3,7 +3,7 @@
     "mutation-level": "Standard",
     "test-runner": "mtp",
     "coverage-analysis": "off",
-    "additional-timeout": 30000,
+    "additional-timeout": 90000,
     "reporters": [
       "progress",
       "html",

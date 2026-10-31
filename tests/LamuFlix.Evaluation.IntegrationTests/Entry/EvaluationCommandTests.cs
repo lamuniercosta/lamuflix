@@ -2,10 +2,11 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using LamuFlix.Evaluation.IntegrationTests.TestSupport;
 using LamuFlix.Evaluation.Metrics;
 using LamuFlix.Evaluation.TestSupport;
 
-namespace LamuFlix.Evaluation.Entry;
+namespace LamuFlix.Evaluation.IntegrationTests.Entry;
 
 public sealed class EvaluationCommandTests
 {

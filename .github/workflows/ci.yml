@@ -185,19 +185,20 @@ jobs:
   # Whole-Core mutation runs after merge to main (or on manual dispatch), not on PRs; the
   # diff-scoped gate (run-mutation.ps1) still runs pre-PR. With coverage-analysis=off every
   # mutant runs the whole eligible unit suite, so one job outgrew its limit (cancelled at 2 h).
-  # The Core source files are therefore split over parallel shards (scripts/ci-stryker-shard.sh,
-  # balanced by line count) with a 60 minute cap each; stryker-core-gate then merges the shard
-  # reports and applies the one real gate (run-mutation.ps1 -EvaluateReport) to all of Core:
-  # the score threshold, kill-share and file-span rules are unchanged, not per-shard.
+  # Core is therefore split over 20 parallel shards (scripts/ci-stryker-shard.sh, balanced by
+  # line count, large files cut into mutate spans) with a 60 minute cap each; stryker-core-gate
+  # then merges the shard reports and applies the one real gate (run-mutation.ps1 -EvaluateReport)
+  # to all of Core: the score threshold, kill-share and file-span rules are unchanged, not
+  # per-shard. Measurements behind the shard count: ADR 0016.
   stryker-core:
-    name: stryker-core (shard ${{ matrix.shard }}/8)
+    name: stryker-core (shard ${{ matrix.shard }}/20)
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
       - uses: actions/checkout@v7
 
@@ -210,7 +211,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Run Stryker on Core shard
-        run: bash ./scripts/ci-stryker-shard.sh run ${{ matrix.shard }} 8 "${{ runner.temp }}/stryker-core"
+        run: bash ./scripts/ci-stryker-shard.sh run ${{ matrix.shard }} 20 "${{ runner.temp }}/stryker-core"
 
       - name: Upload shard report
         if: always()
@@ -236,7 +237,7 @@ jobs:
           global-json-file: global.json
 
       - name: Download shard reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: stryker-shard-*
           path: ${{ runner.temp }}/shards

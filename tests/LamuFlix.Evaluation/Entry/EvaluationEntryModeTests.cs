@@ -101,7 +101,7 @@ public sealed class EvaluationEntryModeTests
     private static Dictionary<string, string?> Parameters(string output) =>
         new(StringComparer.Ordinal)
         {
-            [EvaluationEntry.FixturePathVariable] = EvaluationCommand.FixturePath,
+            [EvaluationEntry.FixturePathVariable] = Path.Combine(AppContext.BaseDirectory, "Fixtures", "baseline.json"),
             [EvaluationEntry.OutputPathVariable] = output,
             [EvaluationEntry.SeedVariable] = "356",
         };

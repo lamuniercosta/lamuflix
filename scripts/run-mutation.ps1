@@ -181,7 +181,8 @@ function Test-ArchitectureTestKiller {
 function Get-EligibleTestProjects {
     # Test projects that directly reference the mutated project, minus ArchitectureTests and IntegrationTests.
     # Stryker's project mode needs a direct reference; listing them explicitly keeps
-    # ArchitectureTests (artifact kills) and IntegrationTests (real-database tests) out of the run.
+    # ArchitectureTests (artifact kills) and IntegrationTests (real-database or out-of-process tests,
+    # which cannot see a mutant) out of the run.
     param(
         [string[]]$TestProjects,
         [string]$MutatedProjectPath
