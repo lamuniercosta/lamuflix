@@ -15,6 +15,14 @@ public sealed class ThumbnailOptionsValidator : IValidateOptions<ThumbnailOption
         }
 
         var failures = new List<string>();
+        AddPathFailures(options, failures);
+        AddRangeFailures(options, failures);
+
+        return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
+    }
+
+    private static void AddPathFailures(ThumbnailOptions options, List<string> failures)
+    {
         if (string.IsNullOrWhiteSpace(options.FfmpegPath))
         {
             failures.Add($"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.FfmpegPath)} must not be blank.");
@@ -24,7 +32,10 @@ public sealed class ThumbnailOptionsValidator : IValidateOptions<ThumbnailOption
         {
             failures.Add($"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.CacheDirectory)} must not be blank.");
         }
+    }
 
+    private static void AddRangeFailures(ThumbnailOptions options, List<string> failures)
+    {
         if (options.MaxWidth <= 0)
         {
             failures.Add($"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.MaxWidth)} must be greater than zero.");
@@ -34,7 +45,5 @@ public sealed class ThumbnailOptionsValidator : IValidateOptions<ThumbnailOption
         {
             failures.Add($"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.ProcessTimeoutSeconds)} must be greater than zero.");
         }
-
-        return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }
 }
