@@ -180,11 +180,15 @@ public sealed class ThumbnailCache
 
         try
         {
-            File.Replace(source, destination, destinationBackupFileName: null, ignoreMetadataErrors: true);
+            File.Move(source, destination, overwrite: true);
         }
         catch (FileNotFoundException)
         {
             File.Move(source, destination, overwrite: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            File.Replace(source, destination, destinationBackupFileName: null, ignoreMetadataErrors: true);
         }
     }
 
