@@ -10,6 +10,7 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Pipeline;
+using LamuFlix.Infrastructure.Thumbnails;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -46,6 +47,8 @@ public static class RabbitMqServiceCollectionExtensions
         services.AddSingleton<RabbitMqTopology>();
         services.AddSingleton<RabbitMqEnrichmentQueuePublisher>();
         services.AddSingleton<IEnrichmentQueue>(provider => provider.GetRequiredService<RabbitMqEnrichmentQueuePublisher>());
+        services.AddSingleton<RabbitMqThumbnailQueuePublisher>();
+        services.AddSingleton<ThumbnailCache>();
 
         // The matching AddCheck lives in RabbitMqServiceCollectionExtensions; AddHealthChecks() is in ServiceDefaults.
         services.AddHealthChecks().AddCheck<RabbitMqHealthCheck>("rabbitmq", tags: [HealthCheckTags.Ready]);
@@ -91,6 +94,11 @@ public static class RabbitMqServiceCollectionExtensions
             services.AddSingleton<IValidateOptions<RabbitMqOptions>, RabbitMqConsumerOptionsValidator>();
             services.AddOptions<RabbitMqOptions>().ValidateOnStart();
         }
+
+        services.AddSingleton<IHostedService>(static provider =>
+            provider.GetService<IOptions<ThumbnailOptions>>() is { Value.Enabled: true }
+                ? ActivatorUtilities.CreateInstance<ThumbnailConsumer>(provider)
+                : ActivatorUtilities.CreateInstance<InactiveThumbnailConsumer>(provider));
 
         return services;
     }

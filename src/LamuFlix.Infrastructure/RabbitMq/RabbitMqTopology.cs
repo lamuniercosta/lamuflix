@@ -23,6 +23,12 @@ public sealed class RabbitMqTopology(
     public const string FeaturesRequestedQueue = "features.requested";
     public const string FeaturesRetryQueue = "features.retry";
     public const string FeaturesDeadLetterQueue = "features.dead-letter";
+    public const string ThumbnailQueue = "thumbnail";
+    public const string ThumbnailDeadLetterQueue = "thumbnail.dead-letter";
+    public const string ThumbnailRoutingKey = "thumbnail";
+    public const string ThumbnailDeadLetterRoutingKey = "thumbnail.dead-letter";
+    private const string QueueTypeArgument = "x-queue-type";
+    private const string SingleActiveConsumerArgument = "x-single-active-consumer";
     private const string QuorumQueueType = "quorum";
     private const string DeadLetterStrategyAtLeastOnce = "at-least-once";
     private const string OverflowRejectPublish = "reject-publish";
@@ -57,7 +63,7 @@ public sealed class RabbitMqTopology(
     public static IDictionary<string, object?> RequestedArguments(int maxAttempts) =>
         new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["x-queue-type"] = QuorumQueueType,
+            [QueueTypeArgument] = QuorumQueueType,
             ["x-dead-letter-exchange"] = ExchangeName,
             ["x-dead-letter-routing-key"] = DeadLetterRoutingKey,
             ["x-delivery-limit"] = maxAttempts,
@@ -68,7 +74,7 @@ public sealed class RabbitMqTopology(
     public static IDictionary<string, object?> RetryArguments(int retryDelayMilliseconds) =>
         new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["x-queue-type"] = QuorumQueueType,
+            [QueueTypeArgument] = QuorumQueueType,
             ["x-message-ttl"] = retryDelayMilliseconds,
             ["x-dead-letter-exchange"] = ExchangeName,
             ["x-dead-letter-routing-key"] = RequestedRoutingKey,
@@ -85,7 +91,16 @@ public sealed class RabbitMqTopology(
     public static IDictionary<string, object?> DeadLetterArguments() =>
         new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["x-queue-type"] = QuorumQueueType,
+            [QueueTypeArgument] = QuorumQueueType,
+        };
+
+    public static IDictionary<string, object?> ThumbnailRequestedArguments() =>
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            [QueueTypeArgument] = QuorumQueueType,
+            [SingleActiveConsumerArgument] = true,
+            ["x-dead-letter-exchange"] = ExchangeName,
+            ["x-dead-letter-routing-key"] = ThumbnailDeadLetterRoutingKey,
         };
 
     public static int RetryDelayMilliseconds(RabbitMqOptions options) =>
@@ -125,6 +140,8 @@ public sealed class RabbitMqTopology(
             FeaturesRetryArguments(RetryDelayMilliseconds(rabbitMq.Value)),
             cancellationToken);
         await DeclareQueueAsync(channel, FeaturesDeadLetterQueue, DeadLetterArguments(), cancellationToken);
+        await DeclareQueueAsync(channel, ThumbnailQueue, ThumbnailRequestedArguments(), cancellationToken);
+        await DeclareQueueAsync(channel, ThumbnailDeadLetterQueue, DeadLetterArguments(), cancellationToken);
 
         await channel.QueueBindAsync(RequestedQueue, ExchangeName, RequestedRoutingKey, cancellationToken: cancellationToken);
         await channel.QueueBindAsync(RetryQueue, ExchangeName, RetryRoutingKey, cancellationToken: cancellationToken);
@@ -143,6 +160,16 @@ public sealed class RabbitMqTopology(
             FeaturesDeadLetterQueue,
             ExchangeName,
             EnrichmentRouting.FeaturesDeadLetterRoutingKey,
+            cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(
+            ThumbnailQueue,
+            ExchangeName,
+            ThumbnailRoutingKey,
+            cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(
+            ThumbnailDeadLetterQueue,
+            ExchangeName,
+            ThumbnailDeadLetterRoutingKey,
             cancellationToken: cancellationToken);
     }
 

@@ -5,9 +5,15 @@ using System.Threading.Tasks;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 using Xunit;
 
 namespace LamuFlix.IntegrationTests;
+
+internal sealed record ConsumedMessage(
+    byte[] Body,
+    IDictionary<string, object?> Headers,
+    bool Persistent);
 
 internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
 {
@@ -170,6 +176,59 @@ internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
 
         return found;
     }
+
+    public async Task<ConsumedMessage?> PollConsumeAsync(
+        string queue,
+        Func<ConsumedMessage, bool> accept,
+        CancellationToken cancellationToken)
+    {
+        var clock = TimeProvider.System;
+        var deadline = clock.GetUtcNow() + Bound;
+        while (clock.GetUtcNow() < deadline)
+        {
+            await using var channel = await OpenChannelAsync(cancellationToken);
+            var received = new TaskCompletionSource<ConsumedMessage?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var consumer = new AsyncEventingBasicConsumer(channel);
+            consumer.ReceivedAsync += (_, delivery) =>
+            {
+                var snapshot = Snapshot(delivery);
+                if (accept(snapshot))
+                {
+                    received.TrySetResult(snapshot);
+                }
+
+                return Task.CompletedTask;
+            };
+            var tag = await channel.BasicConsumeAsync(queue, autoAck: true, consumer, cancellationToken);
+            try
+            {
+                var delay = Task.Delay(PollInterval, cancellationToken);
+                if (await Task.WhenAny(received.Task, delay) == received.Task)
+                {
+                    return await received.Task;
+                }
+
+                await delay;
+            }
+            finally
+            {
+                if (channel.IsOpen)
+                {
+                    await channel.BasicCancelAsync(tag, cancellationToken: CancellationToken.None);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static ConsumedMessage Snapshot(BasicDeliverEventArgs delivery) =>
+        new(
+            delivery.Body.ToArray(),
+            delivery.BasicProperties.Headers is { } headers
+                ? new Dictionary<string, object?>(headers, StringComparer.Ordinal)
+                : new Dictionary<string, object?>(StringComparer.Ordinal),
+            delivery.BasicProperties.Persistent);
 
     public async Task DrainAsync(string queue, CancellationToken cancellationToken)
     {

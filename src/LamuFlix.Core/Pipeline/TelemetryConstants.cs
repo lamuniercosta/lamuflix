@@ -24,6 +24,10 @@ public static class TelemetryConstants
 
     public const string FeaturesProcess = "Features.Process";
 
+    public const string ThumbnailEnqueue = "Thumbnail.Enqueue";
+
+    public const string ThumbnailProcess = "Thumbnail.Process";
+
     public const string FeaturesOutcome = "features.outcome";
 
     public const string MetadataLookup = "Metadata.Lookup";
