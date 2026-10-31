@@ -42,7 +42,6 @@ public sealed class FfmpegThumbnailGeneratorRequiresFfmpegTests
             TestContext.Current.CancellationToken);
 
         // assert
-        // A missing ffmpeg/ffprobe surfaces as BinaryNotFound here and must fail this required test.
         result.FailureReason.ShouldBeNull(
             "ffmpeg and ffprobe must be installed for the RequiresFfmpeg proof; got failure "
             + result.FailureReason);
