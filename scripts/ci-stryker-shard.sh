@@ -163,8 +163,25 @@ cmd_run() {
     }) }' > "$cfg"
 
   echo "Shard $shard/$count: ${#files[@]} Core file(s), concurrency $concurrency, tests: ${tests[*]}"
+  # Restore first, one project at a time. On a fresh checkout Stryker's analysis restores the test
+  # projects in parallel, and a lost race drops a project with only a warning: one CI shard ran
+  # 68 Evaluation tests instead of 2105 and reported 91 survivors.
+  local test
+  for test in "${tests[@]}"; do dotnet restore "$test" --nologo -v q; done
   cd "$project_dir"
-  dotnet stryker -f "$cfg" -p "$(basename "$project_file")" -O "$out"
+  dotnet stryker -f "$cfg" -p "$(basename "$project_file")" -O "$out" | tee "$out/stryker.log"
+
+  if grep -E 'Analysis of project .* failed' "$out/stryker.log"; then
+    echo "Stryker dropped a test project; the shard report would undercount kills" >&2
+    exit 1
+  fi
+  # Stamp the whole-Core mutant count (the same in every shard) so the merge can prove that the
+  # shards together listed every mutant, a file no shard mutated included.
+  local created report="$out/reports/mutation-report.json"
+  created="$(sed -nE 's/.*INF\] ([0-9]+) mutants created.*/\1/p' "$out/stryker.log" | head -n1)"
+  [[ -n "$created" ]] || { echo "no 'mutants created' line in the Stryker output" >&2; exit 1; }
+  jq --argjson created "$created" '. + { lamuflixMutantsCreated: $created }' "$report" > "$report.tmp"
+  mv "$report.tmp" "$report"
 }
 
 # Merge shard reports into one schema-2 report. Test ids are only unique within a run, so each
@@ -172,12 +189,15 @@ cmd_run() {
 # One test then stays one test across shards, which keeps the kill-share and file-span rules
 # whole-run rules instead of per-shard ones.
 #
-# A file cut into spans appears in several reports; each lists every mutant of the file, and the
-# ones outside that shard's spans are Ignored "Removed by mutate filter". The merge keeps the
-# other copies and fails unless every mutant (location, mutator, replacement) is kept exactly as
-# many times as one report lists it: once per mutant, never zero (lost at a cut) or twice.
-# CompileError mutants are the exception: Stryker lists them unfiltered in every report of the
-# file whatever the spans (they are never tested), so they are taken from the first report only.
+# Every report lists every Core file, but a file outside the shard's mutate list has no mutants
+# there. A file cut into spans has mutants in several reports; each lists every mutant of the
+# file, and the ones outside that shard's spans are Ignored "Removed by mutate filter". The merge
+# keeps the other copies and fails unless every mutant (location, mutator, replacement) is kept
+# exactly as many times as one listing report lists it: once per mutant, never zero (lost at a
+# cut) or twice. CompileError mutants are the exception: Stryker lists them unfiltered in every
+# report of the file whatever the spans (they are never tested), so they are taken from the first
+# listing report only. Finally the files' mutant counts must add up to the mutants Stryker created
+# (stamped by cmd_run, equal in every shard), so a file no shard mutated cannot drop out unseen.
 # Mutant ids are prefixed with the shard's position so kept copies cannot collide.
 cmd_merge() {
   local merged="$1"; shift
@@ -196,6 +216,7 @@ cmd_merge() {
         | ([ ($r.testFiles // {}) | to_entries[] | .key as $f | .value.tests[]?
              | { key: (.id | tostring), value: canon($f; .) } ] | from_entries) as $m
         | {
+            created: $r.lamuflixMutantsCreated,
             meta: ({ schemaVersion: $r.schemaVersion, thresholds: $r.thresholds, projectRoot: $r.projectRoot }
                    | with_entries(select(.value != null))),
             files: (($r.files // {}) | map_values(.mutants |= map(
@@ -210,6 +231,8 @@ cmd_merge() {
     | [ $p[].files | to_entries[] ] | group_by(.key)
     | map(
         .[0].key as $f
+        | . as $all
+        | (map(select(.value.mutants | length > 0)) | if length > 0 then . else [ $all[0] ] end)
         | (.[0].value.mutants | counts) as $listed
         | (.[0].value.mutants | map(select(compileError))) as $broken
         | ($broken | counts) as $brokenCount
@@ -226,7 +249,14 @@ cmd_merge() {
                         | select($brokenCount[.] == null) ] | unique
                        | map("\($f) \(.): CompileError in a later report but not the first")))
           }) as $merged
-    | ([ $merged[].errors[] ]) as $errors
+    | ([ $p[].created ] | unique) as $created
+    | ([ $merged[].file.value.mutants | length ] | add // 0) as $total
+    | ([ $merged[].errors[] ]
+       + (if ($created | length) != 1 or ($created[0] | type) != "number"
+          then [ "shards disagree on (or lack) the mutants-created count: \($created | tostring)" ]
+          elif $total != $created[0]
+          then [ "files list \($total) mutants, Stryker created \($created[0])" ]
+          else [] end)) as $errors
     | if ($errors | length) > 0
       then error("mutants not tested exactly once across shards:\n" + ($errors | join("\n")))
       else
