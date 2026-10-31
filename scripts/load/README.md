@@ -4,18 +4,19 @@ Runbook for the manual `GET /api/movies` load baseline. Manual only: this suite 
 enrolled in CI. Scope is frozen by ticket DEV-427 and `specs/DEV-427/` (`spec.md` FR-001 to
 FR-012, `plan.md`, `tasks.md`, `brief.md`).
 
-**Status: Phases 1-2 built (scripts/load skeleton and idempotent seed).** Sections marked
-*(pending)* are completed by their named tasks; this file must not claim a baseline, gate
-result, or acceptance outcome before those tasks have produced real receipts. Seed-twice
-receipts for Phase 2 exist only when an operator has actually produced them.
+**Status: Phases 1-3 built (scripts/load skeleton, idempotent seed, workload and preflight).**
+Sections marked *(pending)* are completed by their named tasks; this file must not claim a
+baseline, gate result, or acceptance outcome before those tasks have produced real receipts.
+Seed-twice receipts for Phase 2 and preflight receipts for Phase 3 exist only when an operator
+has actually produced them.
 
 ## Scope and files
 
 Tracked delivery is exactly three files:
 
 - `scripts/load/seed.sql` - deterministic idempotent 500-movie fixture
-- `scripts/load/movies.js` - k6 workload, preflight/checks, tagged measurement, summary JSON
-  *(pending T004-T008)*
+- `scripts/load/movies.js` - k6 workload and preflight/response checks *(measurement and
+  summary JSON pending T007-T008)*
 - `scripts/load/README.md` - this runbook
 
 No tracked compose, CI, API, schema, manifest, generated-contract, or harness file is edited.
@@ -38,7 +39,8 @@ metrics, product dependencies, and manual-only scope prevail over any example th
 - The host-facing target is compose nginx at `http://localhost:3000` (the `web` service
   publishes `3000:8080`). The script supports a `BASE_URL` override. How the k6 container
   reaches that same nginx entry through a verified Docker host/network mapping is documented
-  in *(pending T006)*; container `localhost` must never be assumed to reach the host.
+  under "Docker mapping for the k6 container" below; container `localhost` must never be
+  assumed to reach the host.
 - `artifacts/load/` is bind-mounted for per-run summary JSON. It is already covered by the
   root `artifacts/` ignore, so runtime output is never committed.
 
@@ -216,14 +218,96 @@ contaminated/mixed library and is not an acceptance baseline, even if it contain
 rows among others. The operator's real `lamuflix` library is never queried for deletion or
 modified, and the DEV-334 Playwright runner is never reused.
 
-## Workload and preflight *(pending T003-T006)*
+## Workload and preflight
 
-Four browse requests then one search per VU cycle, one request per iteration, 1s sleep after
-each request, deterministic counters/seed terms only, explicit `page`/`pageSize=20`, optional
-`sort`/`direction` omitted. Browse pages cycle 1-25; search rotates Group00-Group09 including
-mixed-case probes at `page=1&pageSize=20`. Deterministic page-wrap order and the concrete
-mixed-case probe spellings are recorded here once selected. Preflight validates the exact
-fixture and response expectations before any load.
+`scripts/load/movies.js` drives `GET /api/movies`. Every request sends explicit `page`,
+`pageSize=20`, `sort=Title`, and `direction=Ascending`. The endpoint's `MovieQueryValidator`
+requires non-null sort and direction, so omitting them returns HTTP 422; the explicit values
+follow the Phase 3 scope ruling in `specs/DEV-427/CONCLUSIONS.md`. There are no explanatory
+comments in the script; this section is the rationale.
+
+Each VU iteration is one 80/20 cycle: four browse requests, then one title search, with a 1s
+sleep after each request. Request and fixture selection use only the deterministic k6 `__VU`
+and `__ITER` counters; there is no ambient clock and no `Math.random`. `BASE_URL` defaults to
+`http://localhost:3000` and trailing slashes are trimmed.
+
+### Deterministic page-wrap order
+
+For VU `v` (`1..50`), iteration `t` (`0..`), and browse index `i` (`0..3`):
+
+```text
+page = (((v - 1) + t * 4 + i) mod 25) + 1
+```
+
+So VU 1 starts at pages 1, 2, 3, 4; VU 2 starts at 2, 3, 4, 5; the sequence advances by four
+pages per iteration and wraps 25 -> 1. Each VU still cycles pages 1-25 with no random source.
+
+### Deterministic search rotation and probe spellings
+
+For the same VU and iteration, the searched group is
+`Group((v - 1 + t) mod 10)` padded to two digits. The mixed-case probe spelling on top of that
+group cycles `Group`, `group`, `GROUP`, `gRoUp` by `(group index + t) mod 4`, so the fixture's
+case-insensitive title match is exercised without changing expectations. Preflight fixes the
+concrete spellings `Group00`, `group01`, `GROUP02`, `gRoUp03`, `Group04`, `group05`, `GROUP06`,
+`gRoUp07`, `Group08`, `group09`. Measured traffic rotates the same four spellings
+continuously; both spellings are bounded implementation selections under FR-005/FR-006, not
+new expectations.
+
+### Preflight and response checks
+
+Preflight runs in the k6 `setup()` stage before any VU traffic, so a wrong fixture or contract
+fails the process nonzero instead of producing a measured result. It requests browse pages
+1-25 and one search for each of the ten probe spellings above, and for every response checks:
+
+- HTTP 200 and JSON shape with an `items` array and integer `totalCount`.
+- Browse: `totalCount=500` and exactly 20 items with unique IDs within that page.
+- Search: `totalCount=50` and exactly 20 items whose titles are seeded titles from the
+  requested group.
+- Every item carries an integer `id` and a title matching `DEV427 GroupNN MovieNNNN`.
+
+No cross-page ordering or cross-page uniqueness is claimed. Measured requests run the same
+checks and count at most one failure per request into the custom `request_errors` rate (tagged
+`type=browse` or `type=search`); a transport failure, non-200 response, invalid JSON/contract,
+or seed mismatch is therefore never counted twice for the same request.
+
+Run a readiness-only pass (setup/preflight; no VU cycle) with `PREFLIGHT_ONLY=1`. Without that
+variable the default function runs the four-browse/one-search cycle; the tagged measurement
+scenario and summary JSON arrive in T007-T008.
+
+## Docker mapping for the k6 container
+
+Container `localhost` is the container itself, never the host or compose nginx. Select and
+record one mapping before running:
+
+- **Compose network (selected default).** Attach k6 to the compose project network and target
+the nginx service directly at `http://web:8080`, which is the same nginx container the host
+reaches through `3000:8080`. Resolve the network from the running stack rather than guessing
+the project name:
+
+  ```bash
+  docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$(docker compose ps -q web)"
+  ```
+
+- **Host gateway.** From a container, reach the host-published port through
+  `host.docker.internal:3000` (Docker Desktop resolves it; on Linux add
+  `--add-host=host.docker.internal:host-gateway`). Use only after confirming it resolves.
+
+Verification is the preflight run itself: a `PREFLIGHT_ONLY=1` run exits 0 only when every
+browse and search expectation is met through the selected mapping. A wrong mapping, an
+unreachable stack, or a wrong fixture exits nonzero and is recorded as `Could not run`, never
+as PASS. Establish the mapping once per environment, then pass it as `BASE_URL`:
+
+```bash
+NETWORK="$(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$(docker compose ps -q web)")"
+docker run --rm -i --network "$NETWORK" \
+  -e BASE_URL=http://web:8080 \
+  -e PREFLIGHT_ONLY=1 \
+  grafana/k6@sha256:... run - < scripts/load/movies.js
+```
+
+The exact `image@sha256:...` digest is recorded by T009; any version tag is a label only.
+Stdin execution (`run -`) keeps the container free of a copied checkout and needs no extra
+helper file. Bind-mounting `artifacts/load/` is measurement work (T008/T009).
 
 ## Measured baseline and evidence *(pending T007-T009)*
 
