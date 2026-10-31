@@ -2,7 +2,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Tests.Common;
-using RabbitMQ.Client;
 
 namespace LamuFlix.IntegrationTests;
 
