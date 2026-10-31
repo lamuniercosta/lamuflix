@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -35,12 +36,13 @@ public abstract class ApiEndToEndTestBase(ApiEndToEndFixture fixture) : IAsyncLi
 
     protected async Task<HttpClient> StartHostAsync(
         Action<WireMockServer>? installStubs = null,
-        Action<IServiceCollection>? configureTestServices = null)
+        Action<IServiceCollection>? configureTestServices = null,
+        IEnumerable<KeyValuePair<string, string?>>? additionalSettings = null)
     {
         await StopHostAsync();
         await fixture.PrepareAsync(TestContext.Current.CancellationToken);
         installStubs?.Invoke(fixture.Server);
-        var started = new ApiEndToEndFactory(fixture.HostSettings(time), configureTestServices);
+        var started = new ApiEndToEndFactory(fixture.HostSettings(time), configureTestServices, additionalSettings);
         host = started;
         var client = started.CreateClient();
         Services.GetRequiredService<TimeProvider>().ShouldBeSameAs(time);

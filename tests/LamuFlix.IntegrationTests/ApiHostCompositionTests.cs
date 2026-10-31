@@ -24,6 +24,7 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Pipeline;
 using LamuFlix.Infrastructure.Playback;
 using LamuFlix.Infrastructure.RabbitMq;
+using LamuFlix.Infrastructure.Thumbnails;
 using LamuFlix.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +43,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string BrowseMoviesRoute = "/api/movies";
     private const string GetMovieDetailsRoute = "/api/movies/{id:int}";
     private const string DeleteMovieRoute = "/api/movies/{id:int}";
+    private const string ThumbnailRoute = "/api/movies/{id:int}/thumbnail";
     private const string ImportMovieRoute = "/api/movies/import";
     private const string RequestEnrichmentRoute = "/api/movies/{id}/enrichment";
     private const string MatchImdbIdRoute = "/api/movies/{id}/imdb";
@@ -221,6 +223,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     BrowseMoviesRoute,
                     GetMovieDetailsRoute,
                     DeleteMovieRoute,
+                    ThumbnailRoute,
                     ImportMovieRoute,
                     RequestEnrichmentRoute,
                     MatchImdbIdRoute,
@@ -238,6 +241,31 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     GetRecommendationsRoute,
                     ForYouRecommendationsRoute,
                 ]);
+    }
+
+    [Fact]
+    public async Task Thumbnails_StartedComposition_SharesOneCacheAndServesTheRouteWithoutBrokerDependency()
+    {
+        // arrange
+        using var scope = factory.Services.CreateScope();
+        using var otherScope = factory.Services.CreateScope();
+        using var client = factory.CreateClient();
+
+        // act
+        var cache = scope.ServiceProvider.GetRequiredService<ThumbnailCache>();
+        var sameCache = scope.ServiceProvider.GetRequiredService<ThumbnailCache>();
+        var otherCache = otherScope.ServiceProvider.GetRequiredService<ThumbnailCache>();
+        var options = scope.ServiceProvider.GetRequiredService<IOptions<ThumbnailOptions>>();
+        var validators = scope.ServiceProvider.GetServices<IValidateOptions<ThumbnailOptions>>();
+        using var response = await client.GetAsync(ThumbnailRoute, TestContext.Current.CancellationToken);
+
+        // assert
+        cache.ShouldBeSameAs(sameCache);
+        cache.ShouldBeSameAs(otherCache);
+        options.Value.Enabled.ShouldBeFalse();
+        validators.ShouldContain(validator => validator is ThumbnailOptionsValidator);
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/problem+json");
     }
 
     [Theory]
