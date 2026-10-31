@@ -287,9 +287,9 @@ public sealed class FfmpegThumbnailGeneratorTests
         using var temporary = new TemporaryDirectory();
         var runner = new ScriptedRunner { Responder = (_, _) => Succeeded(ProbeOutput("100")) };
         var generator = CreateGenerator(temporary, runner);
-        runner.Responder = (executable, _) => executable == "ffprobe"
+        runner.Responder = (executable, arguments) => executable == "ffprobe"
             ? Succeeded(ProbeOutput("100"))
-            : new ProcessResult(false, null, string.Empty, string.Empty, processFailure);
+            : WritePartialAndFail(arguments[^1], processFailure);
 
         // act
         var result = await generator.GenerateAsync(Path.Combine(temporary.Path, "movie.mkv"), TestContext.Current.CancellationToken);
@@ -297,6 +297,7 @@ public sealed class FfmpegThumbnailGeneratorTests
         // assert
         result.FailureReason.ShouldBe(expectedFailure);
         runner.Invocations.Count.ShouldBe(2);
+        File.Exists(runner.Invocations[1].Arguments[^1]).ShouldBeFalse();
     }
 
     [Fact]
@@ -415,6 +416,12 @@ public sealed class FfmpegThumbnailGeneratorTests
 
     private static ProcessResult Succeeded(string standardOutput = "") =>
         new(true, 0, standardOutput, string.Empty, null);
+
+    private static ProcessResult WritePartialAndFail(string outputPath, string processFailure)
+    {
+        File.WriteAllBytes(outputPath, ValidJpeg);
+        return new ProcessResult(false, null, string.Empty, string.Empty, processFailure);
+    }
 
     private static string ProbeOutput(string duration) =>
         "{\"streams\":[{\"codec_type\":\"video\",\"duration\":\""

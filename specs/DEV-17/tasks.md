@@ -34,7 +34,7 @@ description: "Ordered implementation tasks for DEV-17"
 
 **⚠️ CRITICAL**: No user-story coding until this phase completes.
 
-- [ ] T010 Fresh recon and drift-against-main evidence after Gate 1; verify DEV-304 and DEV-314 landing/baseline alignment; re-run cross-artifact analysis; reconcile drift against `brief.md` and constitution 1.8.0 before coding (recon:57 is not landing proof). Explicit pre-coding hosted-runner `ffmpeg`/`ffprobe` availability proof blocker: verify tools are available on hosted `ubuntu-latest` CI (or equivalent path used by `.github/workflows/ci.yml`); MUST NOT claim availability is already proven; MUST NOT add test skips, category filters, or workflow edits; if hosted tools are unavailable, stop for bounded recon + Patron ruling. Full suite / RequiresFfmpeg fail-if-missing remains.
+- [X] T010 Fresh recon and drift-against-main evidence after Gate 1; verify DEV-304 and DEV-314 landing/baseline alignment; re-run cross-artifact analysis; reconcile drift against `brief.md` and constitution 1.8.0 before coding (recon:57 is not landing proof). Explicit pre-coding hosted-runner `ffmpeg`/`ffprobe` availability proof blocker: verify tools are available on hosted `ubuntu-latest` CI (or equivalent path used by `.github/workflows/ci.yml`); MUST NOT claim availability is already proven; MUST NOT add test skips, category filters, or workflow edits; if hosted tools are unavailable, stop for bounded recon + Patron ruling. Full suite / RequiresFfmpeg fail-if-missing remains. See CONCLUSIONS.md:194-200 for the Phase B T010 closure disposition.
 
 **Checkpoint**: Drift clear; hosted-tool availability disposition recorded; build worktree ready.
 

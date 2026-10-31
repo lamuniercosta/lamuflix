@@ -83,6 +83,7 @@ public sealed class FfmpegThumbnailGenerator : IThumbnailGenerator
 
             if (!extraction.Success)
             {
+                DeleteQuietly(outputPath);
                 return Failed(MapExtractionFailure(extraction.FailureReason));
             }
 
