@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace LamuFlix.Evaluation.TestSupport;
+namespace LamuFlix.Evaluation.IntegrationTests.TestSupport;
 
 internal sealed record CommandResult(int ExitCode, string StandardOutput, string StandardError)
 {

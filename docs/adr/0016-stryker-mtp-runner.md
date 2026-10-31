@@ -77,3 +77,55 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
 - Open observation: `LamuFlix.Test` registers an assembly fixture that starts Postgres and
   RabbitMQ Testcontainers, and no test in that project uses them. Every Stryker test server for
   that project pays the container start-up. Removing the fixture needs its own ticket.
+
+## Amendment: measured speed-up of the whole-Core run (perf/stryker-speed)
+
+- Two failures on main. Every shard failed in under 2 minutes because Stryker's initial test run
+  found more than half of `LamuFlix.Test` failing. That retired project is deleted, so the open
+  observation above about its Testcontainers fixture is gone with it. Before that, run
+  41220833451 (8 shards) hit the 60 minute cap on every shard. The shards held 219, 256, 250, 180,
+  164, 187, 153 and 207 mutants, 1616 in total.
+- Measured on shard 1 of 8 (219 mutants), local Windows box, concurrency 8 (cores/2). A run is
+  the same mutants with one setting changed. Diffs compare per-mutant status with the baseline.
+
+  | Run | Change | Tests | Killed | Survived | Timeout | Score | Wall |
+  |---|---|---|---|---|---|---|---|
+  | baseline | main config | 2278 | 217 | 2 | 0 | 99.09 | 75.5 min |
+  | E1 | `coverage-analysis: all` | 2278 | 216 | 3 | 0 | 98.63 | 78.1 min |
+  | E2 | without `LamuFlix.Test` | 2119 | 216 | 3 | 0 | 98.63 | 64.4 min |
+  | E3 | E1 + E2 | 2119 | 216 | 3 | 0 | 98.63 | 66.4 min |
+  | E4 | E2 without `EvaluationCommandTests` | 2105 | 216 | 0 | 3 | 100.00 | 24.5 min |
+  | E5 | E4 + `additional-timeout` 90000 | 2105 | 216 | 3 | 0 | 98.63 | 22.8 min |
+
+- The only status that changed between baseline and E1, E2 and E3 is MovieQueryString.cs 257:33,
+  which went from Killed to Survived. A test in `EvaluationCommandTests` killed it, and that test
+  starts pwsh, which builds and runs an unmutated copy of `LamuFlix.Evaluation`. So that kill was
+  an artifact, and it is the only one. `LamuFlix.Test` killed no mutant that the other projects
+  missed.
+- `coverage-analysis: all` was slower and changed nothing, so it is rejected. The setting stays `off`.
+- `EvaluationCommandTests` (14 tests, each running `dotnet build` through pwsh) and its helpers
+  move to the new `tests/LamuFlix.Evaluation.IntegrationTests`. The `*IntegrationTests` name keeps
+  them out of both mutation scripts. The eligible set for Core is now `LamuFlix.UnitTests` and
+  `LamuFlix.Evaluation`. They were taking about two thirds of every mutant's run time without
+  ever seeing a mutant.
+- `additional-timeout` goes from 30000 to 90000. In E4, the 30000 allowance turned three real
+  survivors (MovieQueryString.cs 223:13, 257:33, 267:16) into Timeouts, which Stryker counts as
+  detected and which inflated the score to 100. E5 is status-for-status identical to E2 and 3.3x
+  faster than the baseline. The larger allowance only costs time on a mutant that really hangs.
+  The gate's floor of 30000 is unchanged.
+- Sharding: one file used to stay on one shard, and MovieQueryString.cs alone has about 190
+  mutants, which is at least 80 minutes on CI however many shards there are. The planner in
+  `ci-stryker-shard.sh` now cuts any file longer than half a shard's line share into Stryker mutate
+  spans (`path{start..end}`) at member boundaries. The merge fails unless every mutant is tested
+  by exactly one shard. CompileError mutants are the one exception: Stryker lists them in every
+  shard of the file whatever the spans, so the merge takes them from the first report. Checked on
+  MovieQueryString.cs with the planner's 20-shard spans: the whole file and the two halves (spans
+  1+3, spans 2+4) list the same 303 mutants, and the merged halves match the whole-file run
+  status for status (191 tested, 44 block-filtered, 68 CompileError). Merging a shard with itself,
+  or one half alone, fails. CI runs 20 shards.
+- Extrapolated, not measured: E5 is about 50 s per mutant per test session. Full Core is
+  1616 x 50 / 8, about 2.8 h on the local box. On CI (4 vCPU, concurrency 2), 20 shards average
+  about 81 mutants each, about 34 to 45 minutes of mutation plus about 5 minutes of setup per
+  shard. The first CI run of this branch replaces the extrapolation with measured times.
+- `stryker-core-gate` downloads the shard reports with `actions/download-artifact@v8`, to match
+  the `upload-artifact@v7` that writes them.

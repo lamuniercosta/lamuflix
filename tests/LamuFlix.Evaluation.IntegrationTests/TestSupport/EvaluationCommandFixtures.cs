@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 
-namespace LamuFlix.Evaluation.TestSupport;
+namespace LamuFlix.Evaluation.IntegrationTests.TestSupport;
 
 internal static class EvaluationCommandFixtures
 {
