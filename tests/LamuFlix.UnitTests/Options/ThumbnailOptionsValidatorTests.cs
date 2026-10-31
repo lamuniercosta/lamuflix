@@ -1,4 +1,3 @@
-using System;
 using LamuFlix.Core.Options;
 using LamuFlix.ServiceDefaults;
 using Microsoft.Extensions.DependencyInjection;
@@ -99,28 +98,55 @@ public sealed class ThumbnailOptionsValidatorTests
     }
 
     [Fact]
-    public void Validate_EnabledWithEveryInvalidValue_FailsNamingEachField()
+    public void Validate_EnabledWithEveryInvalidValue_FailsNamingFfmpegPath()
     {
         // arrange
-        var options = new ThumbnailOptions
-        {
-            Enabled = true,
-            FfmpegPath = string.Empty,
-            CacheDirectory = string.Empty,
-            MaxWidth = 0,
-            ProcessTimeoutSeconds = 0,
-        };
+        var options = AllInvalid();
 
         // act
         var result = Validate(options);
 
         // assert
-        result.Failed.ShouldBeTrue();
-        var failures = string.Join("; ", result.Failures);
-        failures.ShouldContain(nameof(ThumbnailOptions.FfmpegPath));
-        failures.ShouldContain(nameof(ThumbnailOptions.CacheDirectory));
-        failures.ShouldContain(nameof(ThumbnailOptions.MaxWidth));
-        failures.ShouldContain(nameof(ThumbnailOptions.ProcessTimeoutSeconds));
+        ShouldFailNaming(result, nameof(ThumbnailOptions.FfmpegPath));
+    }
+
+    [Fact]
+    public void Validate_EnabledWithEveryInvalidValue_FailsNamingCacheDirectory()
+    {
+        // arrange
+        var options = AllInvalid();
+
+        // act
+        var result = Validate(options);
+
+        // assert
+        ShouldFailNaming(result, nameof(ThumbnailOptions.CacheDirectory));
+    }
+
+    [Fact]
+    public void Validate_EnabledWithEveryInvalidValue_FailsNamingMaxWidth()
+    {
+        // arrange
+        var options = AllInvalid();
+
+        // act
+        var result = Validate(options);
+
+        // assert
+        ShouldFailNaming(result, nameof(ThumbnailOptions.MaxWidth));
+    }
+
+    [Fact]
+    public void Validate_EnabledWithEveryInvalidValue_FailsNamingProcessTimeoutSeconds()
+    {
+        // arrange
+        var options = AllInvalid();
+
+        // act
+        var result = Validate(options);
+
+        // assert
+        ShouldFailNaming(result, nameof(ThumbnailOptions.ProcessTimeoutSeconds));
     }
 
     [Fact]
@@ -137,6 +163,15 @@ public sealed class ThumbnailOptionsValidatorTests
             && descriptor.ImplementationType == typeof(ThumbnailOptionsValidator));
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(IStartupValidator));
     }
+
+    private static ThumbnailOptions AllInvalid() => new()
+    {
+        Enabled = true,
+        FfmpegPath = string.Empty,
+        CacheDirectory = string.Empty,
+        MaxWidth = 0,
+        ProcessTimeoutSeconds = 0,
+    };
 
     private static ValidateOptionsResult Validate(ThumbnailOptions options) =>
         new ThumbnailOptionsValidator().Validate(global::Microsoft.Extensions.Options.Options.DefaultName, options);

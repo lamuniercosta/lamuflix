@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Thumbnails;
@@ -49,7 +48,7 @@ public sealed class FfmpegThumbnailGeneratorRequiresFfmpegTests
             + result.FailureReason);
         result.Success.ShouldBeTrue();
         result.CachePath.ShouldNotBeNullOrWhiteSpace();
-        var cachePath = result.CachePath!;
+        var cachePath = result.CachePath.ShouldNotBeNull();
         cachePath.ShouldStartWith(Path.Combine(temporary.Path, "cache"));
         File.Exists(cachePath).ShouldBeTrue();
 

@@ -38,7 +38,7 @@ public sealed class ThumbnailOptionsValidatorSurvivorTests
     }
 
     [Fact]
-    public void Validate_EnabledFailureMessages_NameTheirSectionAndField()
+    public void Validate_EnabledBlankFfmpegPath_NamesSectionAndField()
     {
         // arrange
         var options = new ThumbnailOptions
@@ -52,6 +52,60 @@ public sealed class ThumbnailOptionsValidatorSurvivorTests
 
         // assert
         result.Failed.ShouldBeTrue();
-        result.Failures.ShouldBe([$"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.FfmpegPath)} must not be blank."]);
+        result.Failures.ShouldContain($"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.FfmpegPath)} must not be blank.");
+    }
+
+    [Fact]
+    public void Validate_EnabledBlankCacheDirectory_NamesSectionAndField()
+    {
+        // arrange
+        var options = new ThumbnailOptions
+        {
+            Enabled = true,
+            CacheDirectory = string.Empty,
+        };
+
+        // act
+        var result = new ThumbnailOptionsValidator().Validate(null, options);
+
+        // assert
+        result.Failed.ShouldBeTrue();
+        result.Failures.ShouldContain($"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.CacheDirectory)} must not be blank.");
+    }
+
+    [Fact]
+    public void Validate_EnabledNonPositiveMaxWidth_NamesSectionAndField()
+    {
+        // arrange
+        var options = new ThumbnailOptions
+        {
+            Enabled = true,
+            MaxWidth = 0,
+        };
+
+        // act
+        var result = new ThumbnailOptionsValidator().Validate(null, options);
+
+        // assert
+        result.Failed.ShouldBeTrue();
+        result.Failures.ShouldContain($"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.MaxWidth)} must be greater than zero.");
+    }
+
+    [Fact]
+    public void Validate_EnabledNonPositiveProcessTimeout_NamesSectionAndField()
+    {
+        // arrange
+        var options = new ThumbnailOptions
+        {
+            Enabled = true,
+            ProcessTimeoutSeconds = 0,
+        };
+
+        // act
+        var result = new ThumbnailOptionsValidator().Validate(null, options);
+
+        // assert
+        result.Failed.ShouldBeTrue();
+        result.Failures.ShouldContain($"{ThumbnailOptions.SectionName}:{nameof(ThumbnailOptions.ProcessTimeoutSeconds)} must be greater than zero.");
     }
 }

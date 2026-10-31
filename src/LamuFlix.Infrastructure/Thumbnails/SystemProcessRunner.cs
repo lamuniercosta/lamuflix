@@ -20,7 +20,7 @@ public interface IProcessRunner
 
 public sealed class SystemProcessRunner : IProcessRunner
 {
-    public const int MaxRetainedBytes = 64 * 1024;
+    private const int MaxRetainedBytes = 64 * 1024;
 
     private const int ReadBufferSize = 8192;
 
@@ -40,7 +40,8 @@ public sealed class SystemProcessRunner : IProcessRunner
         ValidateRunArguments(executable, arguments, timeout);
         var startInfo = CreateStartInfo(executable, arguments);
 
-        using var process = new Process { StartInfo = startInfo };
+        using var process = new Process();
+        process.StartInfo = startInfo;
         try
         {
             if (!process.Start())
