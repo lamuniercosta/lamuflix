@@ -4,19 +4,20 @@ Runbook for the manual `GET /api/movies` load baseline. Manual only: this suite 
 enrolled in CI. Scope is frozen by ticket DEV-427 and `specs/DEV-427/` (`spec.md` FR-001 to
 FR-012, `plan.md`, `tasks.md`, `brief.md`).
 
-**Status: Phases 1-3 built (scripts/load skeleton, idempotent seed, workload and preflight).**
-Sections marked *(pending)* are completed by their named tasks; this file must not claim a
-baseline, gate result, or acceptance outcome before those tasks have produced real receipts.
-Seed-twice receipts for Phase 2 and preflight receipts for Phase 3 exist only when an operator
-has actually produced them.
+**Status: Phases 1-4 built (scripts/load skeleton, idempotent seed, workload and preflight,
+measured baseline and evidence).** Sections marked *(pending)* are completed by their named
+tasks; this file must not claim a gate result or acceptance outcome before those tasks have
+produced real receipts. Seed-twice, preflight, and measured-baseline receipts exist only when
+an operator has actually produced them. The measured baseline receipt recorded in this file
+came from one real operator run; Phase 5 negatives and gate reporting remain outstanding.
 
 ## Scope and files
 
 Tracked delivery is exactly three files:
 
 - `scripts/load/seed.sql` - deterministic idempotent 500-movie fixture
-- `scripts/load/movies.js` - k6 workload and preflight/response checks *(measurement and
-  summary JSON pending T007-T008)*
+- `scripts/load/movies.js` - k6 workload, preflight/response checks, the tagged 50-VU /
+  120s measurement scenario, blocking thresholds, and per-run summary JSON
 - `scripts/load/README.md` - this runbook
 
 No tracked compose, CI, API, schema, manifest, generated-contract, or harness file is edited.
@@ -34,8 +35,10 @@ metrics, product dependencies, and manual-only scope prevail over any example th
 - No NuGet, npm, or package-manifest change is needed for this delivery.
 - Seeding and SQL verification run in-container: `docker compose exec -T postgres psql`.
 - Load runs use a digest-pinned `grafana/k6` image, referenced as `image@sha256:...`. A version
-  tag may be shown as a label only, never as the immutable identity. The exact verified digest
-  is selected and recorded during implementation *(pending T009)*.
+  tag may be shown as a label only, never as the immutable identity. The verified digest used
+  for the recorded baseline is
+  `grafana/k6@sha256:2dd4756ec6e14e62778916e1eb850108e4b499304c02df56760fa0bdb0fba0b8`
+  (`k6 v2.3.0` as a tag label only).
 - The host-facing target is compose nginx at `http://localhost:3000` (the `web` service
   publishes `3000:8080`). The script supports a `BASE_URL` override. How the k6 container
   reaches that same nginx entry through a verified Docker host/network mapping is documented
@@ -271,8 +274,8 @@ checks and count at most one failure per request into the custom `request_errors
 or seed mismatch is therefore never counted twice for the same request.
 
 Run a readiness-only pass (setup/preflight; no VU cycle) with `PREFLIGHT_ONLY=1`. Without that
-variable the default function runs the four-browse/one-search cycle; the tagged measurement
-scenario and summary JSON arrive in T007-T008.
+variable the script runs only the tagged fixed 50-VU / 120s measurement scenario; see
+"Measured baseline and evidence" below.
 
 ## Docker mapping for the k6 container
 
@@ -298,25 +301,117 @@ unreachable stack, or a wrong fixture exits nonzero and is recorded as `Could no
 as PASS. Establish the mapping once per environment, then pass it as `BASE_URL`:
 
 ```bash
+K6_IMAGE="grafana/k6@sha256:2dd4756ec6e14e62778916e1eb850108e4b499304c02df56760fa0bdb0fba0b8"
 NETWORK="$(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$(docker compose ps -q web)")"
 docker run --rm -i --network "$NETWORK" \
   -e BASE_URL=http://web:8080 \
   -e PREFLIGHT_ONLY=1 \
-  grafana/k6@sha256:... run - < scripts/load/movies.js
+  "$K6_IMAGE" run - < scripts/load/movies.js
 ```
 
-The exact `image@sha256:...` digest is recorded by T009; any version tag is a label only.
-Stdin execution (`run -`) keeps the container free of a copied checkout and needs no extra
-helper file. Bind-mounting `artifacts/load/` is measurement work (T008/T009).
+The digest above is the immutable identity used for the recorded baseline; any version tag is
+a label only. Stdin execution (`run -`) keeps the container free of a copied checkout and
+needs no extra helper file. On Git Bash for Windows, prefix `docker run` with
+`MSYS_NO_PATHCONV=1` and pass the artifact bind mount as an absolute Windows path (see below),
+otherwise the mount source is rewritten and the summary file cannot be written.
 
-## Measured baseline and evidence *(pending T007-T009)*
+## Measured baseline and evidence
 
-Fixed 50-VU, exactly 120s steady measurement with no ramp in that window; setup, teardown,
-preflight, and any warm-up are excluded by the measurement scenario tag. Acceptance uses the
-combined measured browse+search population: p95 <=200ms inclusive, custom request-level error
-rate <0.01 strict, and nonzero browse and search samples. Full image digest, artifact
-bind-mount, env-supplied run ID/UTC/HEAD inputs, and the operator receipt fields are recorded
-in T009.
+A measured run is a single tagged scenario: `executor: constant-vus`, `vus: 50`, `duration:
+120s`, `gracefulStop: 0s`, so there is no ramp inside the window and no request is admitted
+after it. Setup and preflight run under the `phase=preflight` tag, measured requests under
+`phase=measure`; only the measured population feeds acceptance. Acceptance is blocking:
+
+- `measured_duration` p95 `<=200` ms inclusive;
+- `request_errors` rate `<0.01` strict over the combined browse+search population;
+- `browse_samples` and `search_samples` each `count>0`.
+
+Per-type `browse_*` / `search_*` latency, error, and sample metrics are emitted as
+non-blocking diagnostics and do not add budgets. The script fails before measurement if the
+required run identity variables are missing, and preflight failures exit nonzero.
+
+### Per-run evidence file
+
+`handleSummary` writes a collision-safe file into the bind-mounted directory:
+`$SUMMARY_DIR/$RUN_ID-$RUN_UTC.json`, where `SUMMARY_DIR` defaults to `/artifacts/load` inside
+the container and `RUN_UTC` is stripped to filename-safe characters. The JSON contains the
+schema version, explicit run id/UTC/git HEAD/k6 image, target, configured VUs and duration,
+measured p95 and error rate, browse/search sample counts and p95/error diagnostics, check
+counts, each threshold's outcome, and the final `acceptance` value (`PASSED` or `FAILED`). The
+file is untracked because `artifacts/` is ignored.
+
+Required environment inputs (all explicit, never read from an ambient clock for workload
+selection):
+
+- `RUN_ID` - operator-chosen baseline identifier.
+- `RUN_UTC` - operator-supplied UTC timestamp, for example `2026-10-31T03:48:38Z`.
+- `GIT_HEAD` - `git rev-parse HEAD` for the revision the script was run from.
+- `K6_IMAGE` - the full `grafana/k6@sha256:...` digest used for the run.
+- `BASE_URL` - `http://web:8080` on the compose network (or the verified host mapping).
+
+### Measurement command
+
+```bash
+K6_IMAGE="grafana/k6@sha256:2dd4756ec6e14e62778916e1eb850108e4b499304c02df56760fa0bdb0fba0b8"
+NETWORK="$(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$(docker compose ps -q web)")"
+RUN_ID="dev427-baseline-YYYYMMDD"
+RUN_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+GIT_HEAD="$(git rev-parse HEAD)"
+mkdir -p artifacts/load
+MSYS_NO_PATHCONV=1 docker run --rm -i --network "$NETWORK" \
+  -v "$PWD/artifacts/load:/artifacts/load" \
+  -e BASE_URL=http://web:8080 \
+  -e RUN_ID="$RUN_ID" -e RUN_UTC="$RUN_UTC" \
+  -e GIT_HEAD="$GIT_HEAD" -e K6_IMAGE="$K6_IMAGE" \
+  "$K6_IMAGE" run - < scripts/load/movies.js
+```
+
+On Git Bash for Windows use the absolute Windows form of the mount source, for example
+`-v "F:/Dev/LamuFlix.worktrees/DEV-427/artifacts/load:/artifacts/load"`, with
+`MSYS_NO_PATHCONV=1`. On Linux, `$PWD` is correct as written. k6 exits `0` when every
+threshold passes and `99` when a threshold fails; a budget miss is `FAILED` with the JSON
+retained, not a scope change.
+
+### Operator receipt fields
+
+Record, and keep the runtime file untracked:
+
+- both seed receipts: command (redacted), per-run output (`INSERT 0 500` / `INSERT 0 0`),
+exit code, and the post-run 500/500/10x50 assertions;
+- the measured command (redacted), process exit code, and summary JSON path;
+- run id, UTC identity, git HEAD, and full `image@sha256:...` k6 digest;
+- environment/hardware notes (Docker host, compose project, network, target);
+- measured p95, error rate, browse/search sample counts, and threshold outcomes, including
+the first valid measured p95 when the budget misses;
+- the temporary `lamuflix_dev427` redirection notice and the restored-settings receipt.
+
+The first valid measured p95 goes to Rigger for YouTrack recording and verified read-back.
+Keel and the Builder never write YouTrack.
+
+### Recorded baseline receipt (2026-10-31)
+
+One real operator run on the Finding 4 B disposable database, after two seed runs and a
+passing preflight:
+
+```text
+database: lamuflix_dev427 (API and SQL target verified; 11 committed migrations applied)
+seed run 1: BEGIN / INSERT 0 500 / COMMIT, exit 0 -> 500 total / 500 seed paths / 10 groups x 50
+seed run 2: BEGIN / INSERT 0 0 / COMMIT, exit 0 -> 500 total / 500 seed paths / 10 groups x 50
+target: http://web:8080 via dev427_default
+run: dev427-baseline-20261031 (2026-10-31T03:48:38Z)
+git head: 6782ac241f105bf7e5dd74f2ea23c299a29d5760
+k6 image: grafana/k6@sha256:2dd4756ec6e14e62778916e1eb850108e4b499304c02df56760fa0bdb0fba0b8
+configured: 50 vus / 120s steady
+measured: p95 13.178 ms, error rate 0, browse 4800 samples (p95 9.859 ms), search 1200 samples (p95 21.787 ms)
+checks: 6000/6000 passed
+thresholds: all pass; acceptance: PASSED; process exit 0
+summary json: artifacts/load/dev427-baseline-20261031-20261031T034838Z.json (untracked)
+restore: docker/api.settings.json restored in place to Database=lamuflix and api restarted healthy
+```
+
+This receipt is environment-specific: the p95 value is the baseline for this host, not a
+portable guarantee. The Phase 4 scripts were run from the worktree before their commit; the
+recorded git HEAD is the base revision of that run.
 
 ## Bounded negatives *(pending T011)*
 
