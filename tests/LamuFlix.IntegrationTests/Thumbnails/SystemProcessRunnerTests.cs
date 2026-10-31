@@ -134,7 +134,7 @@ public sealed class SystemProcessRunnerTests
         await WaitForFileAsync(marker, TimeSpan.FromSeconds(10));
 
         // act
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(async () => await run);

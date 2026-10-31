@@ -5,10 +5,8 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
-using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Thumbnails;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace LamuFlix.UnitTests.Thumbnails;
@@ -122,6 +120,8 @@ public sealed class FfmpegThumbnailGeneratorTests
         // assert
         result.Success.ShouldBeTrue();
         var arguments = runner.Invocations[1].Arguments;
+        runner.Invocations[1].Executable.ShouldBe("ffmpeg");
+        runner.Invocations[1].Timeout.ShouldBe(TimeSpan.FromSeconds(30));
         arguments.Count.ShouldBe(13);
         arguments[0].ShouldBe("-nostdin");
         arguments[1].ShouldBe("-y");
@@ -344,7 +344,7 @@ public sealed class FfmpegThumbnailGeneratorTests
         // arrange
         using var temporary = new TemporaryDirectory();
         var cachePath = Path.Combine(temporary.Path, "cache-is-a-file");
-        File.WriteAllText(cachePath, "not a directory");
+        await File.WriteAllTextAsync(cachePath, "not a directory", TestContext.Current.CancellationToken);
         var options = new ThumbnailOptions
         {
             Enabled = true,
