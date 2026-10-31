@@ -4,7 +4,6 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Thumbnails;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace LamuFlix.UnitTests.Thumbnails;
@@ -180,10 +179,10 @@ public sealed class ThumbnailCacheTests
         opened.ShouldBeTrue();
         using (stream)
         {
-            stream.ShouldNotBeNull();
-            stream!.Length.ShouldBe(4);
-            stream.ReadByte().ShouldBe(SoiFirstByte);
-            stream.ReadByte().ShouldBe(SoiSecondByte);
+            var open = stream.ShouldNotBeNull();
+            open.Length.ShouldBe(4);
+            open.ReadByte().ShouldBe(SoiFirstByte);
+            open.ReadByte().ShouldBe(SoiSecondByte);
         }
     }
 
@@ -216,7 +215,7 @@ public sealed class ThumbnailCacheTests
         using (stream)
         {
             sharingViolated.ShouldBeFalse();
-            stream!.ReadByte().ShouldBe(SoiFirstByte);
+            stream.ShouldNotBeNull().ReadByte().ShouldBe(SoiFirstByte);
         }
     }
 
@@ -315,7 +314,7 @@ public sealed class ThumbnailCacheTests
         cache.TryOpenCanonical(movieId, out var refreshed).ShouldBeTrue();
         using (refreshed)
         {
-            ReadByteAt(refreshed!, ContentOffset).ShouldBe(0x22);
+            ReadByteAt(refreshed.ShouldNotBeNull(), ContentOffset).ShouldBe(0x22);
         }
     }
 

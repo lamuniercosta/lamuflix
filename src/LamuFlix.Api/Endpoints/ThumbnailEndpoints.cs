@@ -24,7 +24,7 @@ internal static class ThumbnailEndpoints
         api.MapGet("/movies/{id:int}/thumbnail", GetThumbnailAsync)
             .WithName("GetMovieThumbnail")
             .WithSummary("Stream the cached thumbnail JPEG for a movie.")
-            .Produces<byte[]>(StatusCodes.Status200OK, contentType: JpegContentType)
+            .Produces<byte[]>(contentType: JpegContentType)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return api;

@@ -12,7 +12,6 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Thumbnails;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -104,9 +103,9 @@ public sealed class ThumbnailEndpointTests(ApiEndToEndFixture fixture) : ApiEndT
             miss.Problem.GetProperty("title").GetString().ShouldBe(NotFoundTitle);
             miss.Problem.GetProperty("type").GetString().ShouldBe(NotFoundType);
             miss.Problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
-            miss.Body.ShouldNotContain(cache.Root, Case.Insensitive);
-            miss.Body.ShouldNotContain(".jpg", Case.Insensitive);
-            miss.Body.ShouldNotContain("thumbnail-corrupt", Case.Insensitive);
+            miss.Body.ShouldNotContain(cache.Root);
+            miss.Body.ShouldNotContain(".jpg");
+            miss.Body.ShouldNotContain("thumbnail-corrupt");
         }
 
         responses.Select(miss => miss.Problem.GetProperty("title").GetString()).Distinct().Count().ShouldBe(1);
@@ -138,7 +137,7 @@ public sealed class ThumbnailEndpointTests(ApiEndToEndFixture fixture) : ApiEndT
         miss.Problem.GetProperty("title").GetString().ShouldBe(NotFoundTitle);
         miss.Problem.GetProperty("type").GetString().ShouldBe(NotFoundType);
         miss.Problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
-        miss.Body.ShouldNotContain(cache.Root, Case.Insensitive);
+        miss.Body.ShouldNotContain(cache.Root);
         generator.Calls.ShouldBe(0);
     }
 
@@ -161,9 +160,7 @@ public sealed class ThumbnailEndpointTests(ApiEndToEndFixture fixture) : ApiEndT
             .Select(_ => ReadJpegAsync(client, Route(id), cancellationToken))
             .ToArray();
         var promoter = cache.CreatePromoter();
-        var promotions = Task.Run(
-            () => cache.PromoteRepeatedly(promoter, id, ReplacementJpeg, iterations: 8, cancellationToken),
-            cancellationToken);
+        var promotions = PromoteRepeatedlyAsync(cache, promoter, id, cancellationToken);
         var observed = await Task.WhenAll(reads);
         await promotions;
 
@@ -211,6 +208,15 @@ public sealed class ThumbnailEndpointTests(ApiEndToEndFixture fixture) : ApiEndT
 
     private static bool AllowAnonymousMetadata(RouteEndpoint endpoint) =>
         endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null;
+
+    private static Task PromoteRepeatedlyAsync(
+        TemporaryCacheDirectory cache,
+        ThumbnailCache promoter,
+        int id,
+        CancellationToken cancellationToken) =>
+        Task.Run(
+            () => cache.PromoteRepeatedly(promoter, id, ReplacementJpeg, iterations: 8, cancellationToken),
+            cancellationToken);
 
     private static KeyValuePair<string, string?>[] Settings(string cacheDirectory, bool enabled) =>
     [

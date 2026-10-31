@@ -236,26 +236,36 @@ public sealed class ThumbnailConsumer(
             return UnauthorizedSourcePath;
         }
 
-        var result = await generator.GenerateAsync(authorizedSource, cancellationToken);
+        return await GenerateAndPromoteAsync(authorizedSource, request.MovieId, cancellationToken);
+    }
 
+    private async Task<string?> GenerateAndPromoteAsync(string authorizedSource, MovieId movieId, CancellationToken cancellationToken)
+    {
+        var result = await generator.GenerateAsync(authorizedSource, cancellationToken);
         if (cancellationToken.IsCancellationRequested)
         {
             cache.DeleteTemporary(result.CachePath ?? string.Empty);
             cancellationToken.ThrowIfCancellationRequested();
         }
 
-        if (!result.Success)
+        var generatorFailure = ToGeneratorFailure(result);
+        if (generatorFailure is not null)
         {
-            return string.IsNullOrWhiteSpace(result.FailureReason)
-                ? MissingGeneratorReason
-                : result.FailureReason;
+            return generatorFailure;
         }
 
         return !string.IsNullOrWhiteSpace(result.CachePath)
-               && cache.TryPromote(result.CachePath, request.MovieId)
+               && cache.TryPromote(result.CachePath, movieId)
             ? null
             : CachePromotionFailed;
     }
+
+    private static string? ToGeneratorFailure(ThumbnailResult result) =>
+        !result.Success
+            ? string.IsNullOrWhiteSpace(result.FailureReason)
+                ? MissingGeneratorReason
+                : result.FailureReason
+            : null;
 
     private async Task<Movie?> LoadMovieAsync(MovieId movieId, CancellationToken cancellationToken)
     {
