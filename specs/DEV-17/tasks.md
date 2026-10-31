@@ -80,8 +80,8 @@ description: "Ordered implementation tasks for DEV-17"
 
 **Independent Test**: `docker build` of `docker/Dockerfile.api`; both `-version` commands succeed as `app`; exact version outputs and size delta captured for Rigger.
 
-- [ ] T040 [US1] Edit `docker/Dockerfile.api` runtime stage: single `RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*` layer as root before `USER app` (FR-001; recon:83,105).
-- [ ] T041 [US1] Build image; run `ffmpeg -version` and `ffprobe -version` as `app`; capture the exact version command outputs alongside the image size increase vs comparable baseline; route verified receipt to Rigger for YouTrack DEV-17 recording (FR-002; SC-001). No CI workflow edits.
+- [X] T040 [US1] Edit `docker/Dockerfile.api` runtime stage: single `RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*` layer as root before `USER app` (FR-001; recon:83,105).
+- [X] T041 [US1] Build image; run `ffmpeg -version` and `ffprobe -version` as `app`; capture the exact version command outputs alongside the image size increase vs comparable baseline; route verified receipt to Rigger for YouTrack DEV-17 recording (FR-002; SC-001). No CI workflow edits.
 
 **Checkpoint**: AC1 and Scope 1 image-size recording satisfied (Rigger owns tracker write).
 

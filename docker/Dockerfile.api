@@ -15,6 +15,7 @@ RUN dotnet publish src/LamuFlix.Api/LamuFlix.Api.csproj -c Release -o /app/publi
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/publish ./
 USER app
 EXPOSE 8080
