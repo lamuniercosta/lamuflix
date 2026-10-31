@@ -87,8 +87,8 @@ Phase 6  T016 → T017…T024
 **Checkpoint**: Drift checks green; no hand-edits.
 **User story**: US5.
 
-- [ ] T014 [US5] Regenerate `web/src/api/openapi.json` (and Verify drift snapshot) via established opt-in OpenAPI workflow after the route exists; confirm OpenAPI documents 200 `image/jpeg` and ProblemDetails 404 (FR-010; Q3, Q7; precedent DEV-80/DEV-425; P12)
-- [ ] T015 [US5] Regenerate `web/src/api/types.ts` via `npm run generate:api` (and established mocks/typecheck path as required); never hand-edit generated files; no web UI work; confirm API drift checks (FR-010; Q7)
+- [X] T014 [US5] Regenerate `web/src/api/openapi.json` (and Verify drift snapshot) via established opt-in OpenAPI workflow after the route exists; confirm OpenAPI documents 200 `image/jpeg` and ProblemDetails 404 (FR-010; Q3, Q7; precedent DEV-80/DEV-425; P12)
+- [X] T015 [US5] Regenerate `web/src/api/types.ts` via `npm run generate:api` (and established mocks/typecheck path as required); never hand-edit generated files; no web UI work; confirm API drift checks (FR-010; Q7)
 
 ---
 

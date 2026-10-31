@@ -17,6 +17,7 @@ export async function positiveCalls() {
     },
   });
   await client.GET('/api/movies/{id}', { params: { path: { id: 1 } } });
+  await client.GET('/api/movies/{id}/thumbnail', { params: { path: { id: 1 } } });
   await client.GET('/api/movies/{id}/recommendations', {
     params: { path: { id: 1 }, query: { take: 10 } },
   });

@@ -272,6 +272,50 @@
         }
       }
     },
+    "/api/movies/{id}/thumbnail": {
+      "get": {
+        "tags": [
+          "ThumbnailEndpoints"
+        ],
+        "summary": "Stream the cached thumbnail JPEG for a movie.",
+        "operationId": "GetMovieThumbnail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/movies/import": {
       "post": {
         "tags": [
@@ -1719,6 +1763,9 @@
   "tags": [
     {
       "name": "LibraryEndpoints"
+    },
+    {
+      "name": "ThumbnailEndpoints"
     },
     {
       "name": "ImportEndpoints"
