@@ -30,6 +30,7 @@
   <ItemGroup>
     <None Update="Fixtures/SecondaryMetadata/**/*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures/Thumbnails/**/*.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures/Thumbnails/**/*.mp4" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
