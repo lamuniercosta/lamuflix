@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.RabbitMq;
 using LamuFlix.Infrastructure.Thumbnails;
 using Microsoft.Extensions.DependencyInjection;
@@ -88,7 +90,7 @@ public sealed class ThumbnailCompositionTests
     [Theory]
     [InlineData(false, typeof(InactiveThumbnailConsumer))]
     [InlineData(true, typeof(ThumbnailConsumer))]
-    public void AddLamuFlixRabbitMq_UsesTheStartupThumbnailFlagToChooseTheConsumer(
+    public async Task AddLamuFlixRabbitMq_UsesTheStartupThumbnailFlagToChooseTheConsumer(
         bool enabled,
         Type expected)
     {
@@ -97,7 +99,7 @@ public sealed class ThumbnailCompositionTests
         services.AddLamuFlixRabbitMq();
 
         // act
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         var selected = provider.GetServices<IHostedService>()
             .Where(service => service is ThumbnailConsumer or InactiveThumbnailConsumer)
             .ToArray();
@@ -112,7 +114,12 @@ public sealed class ThumbnailCompositionTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Substitute.For<IHostEnvironment>());
+        services.AddSingleton(Substitute.For<IThumbnailGenerator>());
         services.AddSingleton(Microsoft.Extensions.Options.Options.Create(thumbnailOptions));
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new LibraryOptions
+        {
+            RootPath = "library",
+        }));
         services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new RabbitMqOptions
         {
             HostName = "broker",
