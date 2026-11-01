@@ -1,0 +1,9 @@
+# DEV-429 Conclusions
+
+## Phase 3 Gate Scope Ruling — Pre-existing `SecondaryMetadataProviderResilienceTests` Flake
+
+Verdict: Out of scope for Cog in DEV-429 — do not edit C# files on `feature/DEV-429`; route to Gauge to re-run `dotnet test` standalone for exit 0, and record the pre-existing load flake as `noted, no ticket`.
+
+- **Out of scope for Cog (`lamuflix-team-charter` §2.3.6, `DEV-429:5,9,20,38`)**: `DEV-429` is a `size:S` frontend-only ticket (`Show cached thumbnail on movie tile when the poster is missing`) whose diff (`origin/main...HEAD`) touches only `web/src/**` with all C# files byte-identical to `origin/main`. Editing `tests/LamuFlix.IntegrationTests/SecondaryMetadataProviderResilienceTests.cs` (`DEV-331`) in `DEV-429` is out of scope and would contaminate a `/web`-only PR with unrelated C# changes while re-triggering C# gates that are currently `SKIPPED (scope-empty)` (`DEV-429:44`).
+- **Routing to achieve `dotnet test` exit 0 (`task-pipeline` Phase 3 step 5 & Phase 5 step 6, `DEV-429:48-50`)**: `dotnet test` exit 1 cannot be waived (`Exit 1 and Could not run never meet the bar`, `task-pipeline:108,133`). Because `SecondaryMetadataProviderResilienceTests.FindAsync_RetryAfterBeyondTheTotalBudget_ReturnsFailedProviderUnavailableWithoutASecondRequest` passes `6/6` in isolation and failed only due to a pre-existing loopback WireMock timing race (`AttemptTimeout = 500ms`, `TotalTimeout = 3s` in `SecondaryMetadataProviderProbe.cs:205-206`) under machine load (`DEV-429:49`), route to **Gauge** to re-run `dotnet test` standalone (with no concurrent gate processes) to obtain exit 0, then advance to Phase 4 (`size:S` Sentry Risk review on diff).
+- **Follow-up disposition (`lamuflix-team-charter` §2.3)**: A transient pre-existing test timing race under machine load is neither broken production behaviour nor a Critical/High defect: `noted, no ticket`.
