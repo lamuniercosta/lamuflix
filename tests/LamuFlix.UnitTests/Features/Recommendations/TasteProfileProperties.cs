@@ -19,7 +19,7 @@ public sealed class TasteProfileProperties
 
     private static readonly string[] GenrePool = ["Action", " action", "Drama ", "SciFi", "sci-fi", "Comedy"];
 
-    private static readonly GenreWeights Weights = GenreWeights.Calculate(
+    private static GenreWeights Weights => GenreWeights.Calculate(
         new GenreCounts(
             1000,
             new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)

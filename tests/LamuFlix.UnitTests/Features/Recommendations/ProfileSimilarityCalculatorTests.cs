@@ -11,7 +11,7 @@ public sealed class ProfileSimilarityCalculatorTests
 {
     private const double Tolerance = 1e-9;
 
-    private static readonly GenreWeights Table = GenreWeights.Calculate(
+    private static GenreWeights Table => GenreWeights.Calculate(
         new GenreCounts(
             100,
             new Dictionary<string, long>

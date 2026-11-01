@@ -21,7 +21,7 @@ public sealed class ProcessFeaturesCommandHandlerFailureTests
 {
     private const int MaxAttempts = 3;
     private static readonly DateTimeOffset Now = new(2026, 10, 23, 10, 0, 0, TimeSpan.Zero);
-    private static readonly MovieId Id = new(11);
+    private static MovieId Id => new(11);
 
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IMovieFeaturesRepository features = Substitute.For<IMovieFeaturesRepository>();

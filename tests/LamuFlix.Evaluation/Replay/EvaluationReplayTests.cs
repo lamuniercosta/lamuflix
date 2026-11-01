@@ -7,7 +7,7 @@ namespace LamuFlix.Evaluation.Replay;
 
 public sealed class EvaluationReplayTests
 {
-    private static readonly EvaluationEvent[] HistoryEvents =
+    private static EvaluationEvent[] HistoryEvents =>
     [
         ReplayFixtureFactory.Event("e1", "u1", 1, dayOffset: 0),
         ReplayFixtureFactory.Event("e2", "u2", 2, dayOffset: 1),
