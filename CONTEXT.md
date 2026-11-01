@@ -40,6 +40,10 @@ _Avoid_: duplicate movie, collision, conflict (unqualified)
 A caller-safe taxonomy.
 _Avoid_: error type, raw exception
 
+**QuotaExhausted**
+QuotaExhausted is an enrichment failure caused by denial of admission under the local OMDb daily request quota; it is distinct from provider HTTP 429 and does not itself imply deferral.
+_Avoid_: RateLimited (for local quota admission denial), next-day deferral (as implied by this category alone)
+
 **Metadata Provider**
 _Avoid_: hardcoding OMDb in Core names
 

@@ -1,6 +1,27 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.8.0 → 1.9.0 (MINOR: Principle IV EnrichmentFailureCategory closed list adds
+QuotaExhausted; DEV-439)
+
+Amendment 1.9.0 (2026-11-01), proposed for Phase A spec review:
+  Authority: ticket DEV-439 Scope item 6 / AC 6; specs/DEV-439/brief.md Q1/Q6;
+    specs/DEV-439/CONCLUSIONS.md Q1/Q6. ADR: none (Patron Q6 — no new ADR).
+  Modified sections:
+    IV. Enrichment: EnrichmentFailureCategory closed list adds QuotaExhausted;
+       retry parenthetical notes QuotaExhausted shares the TTL retry-queue path with
+       RateLimited until DEV-333. Classifier single-home rule retained.
+  Added / removed sections: none
+  Templates reviewed:
+    .specify/templates/plan-template.md — principle-based Constitution Check; no edit needed.
+    .specify/templates/spec-template.md — no EnrichmentFailureCategory list; no edit needed.
+    .specify/templates/tasks-template.md — generic ADR/constitution tasks; no edit needed.
+  Migration / follow-up:
+    Phase B implements QuotaExhausted category/mapping/eligibility after owner Gate 1
+    approval of this amendment. No production code changes in this draft.
+    Owner Gate 1 remains open; Patron cannot close it. Owner rejection blocks DEV-333
+    Scope 3 as blocked: structural.
+
 Version change: 1.7.0 → 1.8.0 (MINOR: Core thumbnail port and options enumeration extension;
 DEV-17; ADR-0033)
 
@@ -307,11 +328,12 @@ state is provably faithful.
   `UPDATE … WHERE Status = Pending` (`ExecuteUpdateAsync`). Exactly one of two concurrent claims
   wins; an integration test MUST prove it. A claim older than the lease window is free.
 - Failures are classified into the `EnrichmentFailureCategory` Enumeration (`ProviderUnavailable`,
-  `RateLimited`, `InvalidResponse`, `Unknown`); each member carries its own `IsRetryable` and
-  caller-safe message. Classification
+  `RateLimited`, `InvalidResponse`, `Unknown`, `QuotaExhausted`); each member carries its own
+  `IsRetryable` and caller-safe message. Classification
   from the root-cause exception lives in exactly one `EnrichmentFailureClassifier`.
 - Retry is category-driven: retryable and attempts < max → republish with `Attempt + 1`
-  (`RateLimited` via the TTL retry queue); otherwise `MarkFailed(category)` and dead-letter.
+  (`RateLimited` and `QuotaExhausted` via the TTL retry queue); otherwise `MarkFailed(category)`
+  and dead-letter.
 - A `StrandedMovieSweeper` MUST periodically re-enqueue `Pending` rows whose last attempt is
   null or older than the lease, covering lost messages, failed publishes, and claim-then-crash.
 - Raw exception text MUST NOT be persisted to the row or returned from the API. It goes to logs
@@ -662,4 +684,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.8.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-30
+**Version**: 1.9.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-01
