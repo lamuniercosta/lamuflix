@@ -91,6 +91,7 @@ public sealed class ThumbnailCacheTests
     [Fact]
     public void TryPromote_WhenCanonicalIsHeldWithoutSharing_PreservesPriorCanonicalJpeg()
     {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "FileShare.None locking is Windows-specific.");
         // arrange
         using var temporary = new TemporaryDirectory();
         var cache = CreateCache(temporary.Path);
