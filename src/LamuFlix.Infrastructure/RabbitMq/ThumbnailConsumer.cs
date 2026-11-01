@@ -183,6 +183,13 @@ public sealed class ThumbnailConsumer(
             return;
         }
 
+        if (stoppingToken.IsCancellationRequested)
+        {
+            logger.LogInformation(ShutdownLogMessage, request.MovieId.Value);
+            await RequeueAsync(consumerChannel, delivery);
+            return;
+        }
+
         using var activity = StartActivity(delivery, request);
         try
         {
