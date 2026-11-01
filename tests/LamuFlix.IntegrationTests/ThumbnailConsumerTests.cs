@@ -404,6 +404,37 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
     }
 
     [Fact]
+    public async Task Consumer_ADeliveryDispatchedAfterShutdownBegins_RequeuesWithoutGenerating()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var generator = BlockingGenerator(temporary, entered, release);
+        await using var host = NewHost(temporary, generator, prefetch: 2);
+        var inFlight = host.AddMovie(515, temporary.LibraryFile("in-flight.mp4"));
+        var buffered = host.AddMovie(516, temporary.LibraryFile("buffered.mp4"));
+
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(inFlight, host.SourcePath(inFlight)), ct);
+        await entered.Task.WaitAsync(PollDeadline, ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(buffered, host.SourcePath(buffered)), ct);
+        await WaitUntilAsync(async token =>
+            (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailQueue, token)).MessageCount == 0U, ct);
+        var stopping = host.StopAsync(CancellationToken.None);
+        release.TrySetResult();
+        await stopping;
+
+        generator.CallCount.ShouldBe(1);
+        generator.Sources.ShouldHaveSingleItem().ShouldBe(host.SourcePath(inFlight));
+        File.Exists(generator.OutputPaths.ShouldHaveSingleItem()).ShouldBeFalse();
+        await WaitUntilAsync(async token =>
+            (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailQueue, token)).MessageCount == 2U, ct);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
+        host.Log.Entries.Any(entry => HasState(entry, "FailureReason")).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Consumer_ARedelivery_StartsTheActivityWithALinkAndClosedTags()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -580,9 +611,12 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
             return Successful(output);
         });
 
-    private ThumbnailHost NewHost(TemporaryDirectory temporary, ScriptedThumbnailGenerator generator)
+    private ThumbnailHost NewHost(
+        TemporaryDirectory temporary,
+        ScriptedThumbnailGenerator generator,
+        ushort prefetch = 1)
     {
-        var options = fixture.Options;
+        var options = fixture.Options with { Prefetch = prefetch };
         var owner = new RabbitMqConnectionOwner(Options.Create(options));
         var topology = new RabbitMqTopology(
             owner,
