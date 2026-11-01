@@ -30,7 +30,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             ["Horror"] = 5,
         });
 
-    private static readonly double DramaPreferenceWeight = GenreWeights.Calculate(Counts).GetWeight("Drama");
+    private static double DramaPreferenceWeight => GenreWeights.Calculate(Counts).GetWeight("Drama");
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();

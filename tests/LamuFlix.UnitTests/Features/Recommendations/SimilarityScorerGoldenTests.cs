@@ -6,7 +6,7 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 
 public sealed class SimilarityScorerGoldenTests
 {
-    private static readonly GenreWeights GenreTable =
+    private static GenreWeights GenreTable =>
         GenreWeights.Calculate(SimilarityScorerGoldenFixture.LibraryGenreCounts);
 
     [Fact]

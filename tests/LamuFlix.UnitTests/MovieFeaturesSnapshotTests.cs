@@ -9,7 +9,7 @@ namespace LamuFlix.UnitTests;
 
 public sealed class MovieFeaturesSnapshotTests
 {
-    private static readonly MovieId Movie = new(7);
+    private static MovieId Movie => new(7);
     private static readonly DateTimeOffset ComputedAt = new(2026, 10, 22, 10, 30, 0, TimeSpan.Zero);
 
     private static readonly float[] NonFinite = [float.NaN, float.PositiveInfinity, float.NegativeInfinity];

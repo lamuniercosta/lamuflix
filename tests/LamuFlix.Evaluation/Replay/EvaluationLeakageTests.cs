@@ -8,14 +8,14 @@ namespace LamuFlix.Evaluation.Replay;
 
 public sealed class EvaluationLeakageTests
 {
-    private static readonly EvaluationEvent[] BaselineEvents =
+    private static EvaluationEvent[] BaselineEvents =>
     [
         ReplayFixtureFactory.Event("e1", "u1", 1, dayOffset: 0),
         ReplayFixtureFactory.Event("e2", "u2", 2, dayOffset: 1),
         ReplayFixtureFactory.Event("e3", "u1", 2, dayOffset: 2),
     ];
 
-    private static readonly EvaluationEvent[] FutureEvents =
+    private static EvaluationEvent[] FutureEvents =>
     [
         ReplayFixtureFactory.Event("f1", "u1", 3, dayOffset: 3),
         ReplayFixtureFactory.Event("f2", "u2", 3, dayOffset: 4),

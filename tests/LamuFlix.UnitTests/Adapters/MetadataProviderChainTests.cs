@@ -12,7 +12,7 @@ namespace LamuFlix.UnitTests.Adapters;
 
 public sealed class MetadataProviderChainTests
 {
-    private static readonly MetadataLookup Query = new("Blade Runner", null, new ImdbId("tt0083658"));
+    private static MetadataLookup Query => new("Blade Runner", null, new ImdbId("tt0083658"));
 
     public static TheoryData<string, string, MetadataLookupResult, MetadataLookupResult> ResultMatrix()
     {
@@ -134,14 +134,15 @@ public sealed class MetadataProviderChainTests
         var secondary = StubMetadataProvider.Returning(new MetadataLookupResult.NotFound());
         var chain = new ChainedMetadataProvider([primary, secondary]);
         using var cancellation = new CancellationTokenSource();
+        var query = Query;
 
         // act
-        var result = await chain.FindAsync(Query, cancellation.Token);
+        var result = await chain.FindAsync(query, cancellation.Token);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.NotFound>();
-        primary.LastLookup.ShouldBeSameAs(Query);
-        secondary.LastLookup.ShouldBeSameAs(Query);
+        primary.LastLookup.ShouldBeSameAs(query);
+        secondary.LastLookup.ShouldBeSameAs(query);
         primary.LastLookup.ShouldNotBeNull().ManualImdbId.ShouldBe(new ImdbId("tt0083658"));
         primary.LastCancellationToken.ShouldBe(cancellation.Token);
         secondary.LastCancellationToken.ShouldBe(cancellation.Token);

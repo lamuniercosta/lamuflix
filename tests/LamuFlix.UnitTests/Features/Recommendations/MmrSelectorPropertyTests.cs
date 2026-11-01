@@ -14,7 +14,7 @@ public sealed class MmrSelectorPropertyTests
 {
     private static readonly string[] GenreTokens = ["Drama", "Comedy", "Noir", "Sci-Fi", "Doc"];
 
-    private static readonly SimilarityWeights Weights = new()
+    private static SimilarityWeights Weights => new()
     {
         Director = 1.0,
         Writers = 0.0,
@@ -25,7 +25,7 @@ public sealed class MmrSelectorPropertyTests
         RatingBoost = 0.0,
     };
 
-    private static readonly GenreWeights GenreTable = GenreWeights.Calculate(
+    private static GenreWeights GenreTable => GenreWeights.Calculate(
         new GenreCounts(
             120,
             new Dictionary<string, long>

@@ -152,8 +152,24 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
   three mutants are killed only by `AddToWatchlistCommandHandlerTests` and
   `NotFoundExceptionTests`. So shard 20's results are contaminated: its tests fail for a reason
   outside the active mutant, and the 93.01% score is inflated by up to 112 mutants. Leaving shard
-  20 out, the widest test still spans 17 files, so the gate would still fail; whether those 17 are
-  real kills is not established. `maxKillFileSpan` stays at 15. Finding what poisons shard 20's
-  test server is a follow-up.
+  20 out, the widest test still spans 17 files, so the gate would still fail. `maxKillFileSpan`
+  stays at 15.
+- Cause: test classes held `static readonly` fields that call mutated Core code, such as
+  `GenreTable = GenreWeights.Calculate(...)`. Stryker's MTP runner keeps one test server per
+  session, and a static is computed once per server process, under whichever mutant is active
+  when the class first loads. Shard 20 mutates GenreWeights.cs, so a GenreWeights mutant was
+  baked into those fields, and every later mutant in that server "failed" the same 69 tests.
+  The fast 4.6 s per mutant is consistent with tests failing early. The fix turns each such static into a
+  computed property (`static X => ...`), so it is evaluated under the active mutant on every
+  call. That covers 16 test files across `LamuFlix.UnitTests` and `LamuFlix.Evaluation`. Statics
+  built only from test data or plain records (`GenreCounts`, enum arrays, `Regex`) stay as they
+  are. Rule for new tests: no `static readonly` field or `static X { get; } =` initializer may
+  call Core code.
+- Verified locally on shard 20's mutate set (concurrency 8, same config): the three mutants
+  above are now killed only by `AddToWatchlistCommandHandlerTests` and `NotFoundExceptionTests`,
+  and the widest test spans 2 files instead of 21. MmrSelector.cs's span matched no mutants in
+  that run, all 133 removed by the mutate filter. The likely cause is line endings: the Windows
+  checkout uses CRLF and the CI checkout uses LF. So the local run
+  covers 50 of shard 20's 112 mutants, and CI covers the rest.
 - `stryker-core-gate` downloads the shard reports with `actions/download-artifact@v8`, to match
   the `upload-artifact@v7` that writes them.

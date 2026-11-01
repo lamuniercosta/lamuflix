@@ -11,7 +11,7 @@ namespace LamuFlix.UnitTests.Features.Recommendations;
 
 public sealed class ProfileSimilarityCalculatorPropertyTests
 {
-    private static readonly GenreWeights Table = GenreWeights.Calculate(
+    private static GenreWeights Table => GenreWeights.Calculate(
         new GenreCounts(
             100,
             new Dictionary<string, long>

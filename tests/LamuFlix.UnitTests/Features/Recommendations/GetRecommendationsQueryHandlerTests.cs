@@ -17,8 +17,8 @@ public sealed class GetRecommendationsQueryHandlerTests
 {
     private const int DefaultTake = 10;
     private static readonly DateTimeOffset Now = new(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
-    private static readonly SimilarityWeights Weights = new();
-    private static readonly SimilarityWeights GenreOnlyWeights = new()
+    private static SimilarityWeights Weights => new();
+    private static SimilarityWeights GenreOnlyWeights => new()
     {
         Director = 0.0,
         Writers = 0.0,

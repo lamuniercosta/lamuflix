@@ -17,7 +17,7 @@ namespace LamuFlix.UnitTests.Features.Enrichment;
 public sealed class ProcessFeaturesCommandHandlerTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 23, 9, 30, 0, TimeSpan.Zero);
-    private static readonly MovieId Id = new(7);
+    private static MovieId Id => new(7);
 
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IMovieFeaturesRepository features = Substitute.For<IMovieFeaturesRepository>();

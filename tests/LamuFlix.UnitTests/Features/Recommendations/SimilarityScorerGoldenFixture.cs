@@ -19,7 +19,7 @@ public static class SimilarityScorerGoldenFixture
     private static readonly MovieCluster Comedy = new("Comedy", 2000, 120, 8.0m);
     private static readonly MovieCluster Horror = new("Horror", 2010, 140, 6.0m);
 
-    public static SimilarityWeights Weights { get; } = new()
+    public static SimilarityWeights Weights => new()
     {
         Director = 3.0,
         Writers = 2.0,
@@ -30,7 +30,7 @@ public static class SimilarityScorerGoldenFixture
         RatingBoost = 0.5,
     };
 
-    public static IReadOnlyList<GoldenMovie> Movies { get; } =
+    public static IReadOnlyList<GoldenMovie> Movies =>
     [
         Movie(Drama, "A-01", ["Ana"], ["Dora", "Emil"], ["Fay"]),
         Movie(Drama, "A-02", ["Ana", "Bruno"], ["Dora", "Emil"], ["Fay"]),
@@ -71,7 +71,7 @@ public static class SimilarityScorerGoldenFixture
         new("C-06", ["C-09", "C-01", "C-04"]),
     ];
 
-    public static GenreCounts LibraryGenreCounts { get; } = BuildGenreCounts();
+    public static GenreCounts LibraryGenreCounts => BuildGenreCounts();
 
     private static GoldenMovie Movie(
         MovieCluster cluster,

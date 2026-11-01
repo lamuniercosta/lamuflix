@@ -13,7 +13,7 @@ public sealed class SimilarityScorerPropertyTests
 {
     private const double SymmetryTolerance = 1e-12;
     private static readonly DateTimeOffset Now = new(2026, 10, 20, 12, 0, 0, TimeSpan.Zero);
-    private static readonly GenreWeights Table = GenreWeights.Calculate(
+    private static GenreWeights Table => GenreWeights.Calculate(
         new GenreCounts(
             100,
             new Dictionary<string, long>
