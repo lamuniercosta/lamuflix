@@ -146,3 +146,27 @@ _Avoid_: user taste weights, recommendation option weights
 **Genre similarity**
 The overlap of two movies genre sets, weighted by library rarity.
 _Avoid_: unweighted genre overlap, overall recommendation score
+
+**Keyword**
+Positive external metadata keyword ID with a trimmed display name; identity and overlap use the ID.
+_Avoid_: Tag, genre, free-text keyword label without ID
+
+**Full cast**
+All valid actor names returned by the extended credits cast payload, without billing cutoff; excludes crew and character/order features.
+_Avoid_: Top-billed cast, credits with crew, character list
+
+**Base cast**
+Existing primary-provider `Actors` names, retained separately for disabled/ablation parity.
+_Avoid_: Overwritten cast, merged-only cast
+
+**Franchise collection**
+Exact positive `belongs_to_collection` ID with display name; never inferred from title or collection-name similarity.
+_Avoid_: Title-prefix franchise, fuzzy collection match, user playlist
+
+**Unavailable signal**
+No authoritative replacement from the provider lookup: preserve the corresponding persisted signal.
+_Avoid_: Empty signal, cleared signal
+
+**Known empty**
+A valid empty payload (or valid no-collection) from the provider: replace/clear that signal.
+_Avoid_: Unavailable signal, failed lookup
