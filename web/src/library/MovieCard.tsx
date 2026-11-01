@@ -48,6 +48,7 @@ export default function MovieCard({
   className,
 }: MovieCardProps) {
   const [posterFailed, setPosterFailed] = useState(false);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const [playError, setPlayError] = useState<string | null>(null);
   const playErrorId = useId();
   const playMutation = usePlayMovie(movie.id);
@@ -55,6 +56,8 @@ export default function MovieCard({
 
   const { id, title, enrichmentStatus: status } = movie;
   const showPoster = Boolean(movie.posterUrl) && !posterFailed;
+  const showThumbnail = !showPoster && !thumbnailFailed;
+  const thumbnailUrl = `/api/movies/${id}/thumbnail`;
   const ratingText = formatRating(movie.imdbRating);
   const statusLabel = STATUS_LABELS[status];
 
@@ -84,6 +87,13 @@ export default function MovieCard({
             alt={title}
             loading="lazy"
             onError={() => setPosterFailed(true)}
+          />
+        ) : showThumbnail ? (
+          <img
+            src={thumbnailUrl}
+            alt={title}
+            loading="lazy"
+            onError={() => setThumbnailFailed(true)}
           />
         ) : (
           <div className="movie-card-placeholder" role="img" aria-label={title}>
