@@ -123,9 +123,37 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
   1+3, spans 2+4) list the same 303 mutants, and the merged halves match the whole-file run
   status for status (191 tested, 44 block-filtered, 68 CompileError). Merging a shard with itself,
   or one half alone, fails. CI runs 20 shards.
-- Extrapolated, not measured: E5 is about 50 s per mutant per test session. Full Core is
-  1616 x 50 / 8, about 2.8 h on the local box. On CI (4 vCPU, concurrency 2), 20 shards average
-  about 81 mutants each, about 34 to 45 minutes of mutation plus about 5 minutes of setup per
-  shard. The first CI run of this branch replaces the extrapolation with measured times.
+- Extrapolated before CI: E5 is about 50 s per mutant per test session, so full Core is about
+  2.8 h on the local box (1616 x 50 / 8). On CI (4 vCPU, concurrency 2), 20 shards would take
+  about 34 to 45 minutes of mutation plus about 5 minutes of setup each.
+- Measured on CI, run 41253628381 (20 shards, concurrency 2): every shard found 2105 tests and
+  created 2246 mutants. The slowest shard took 31.5 minutes, the fastest 5.8, and the whole
+  workflow 32 minutes including the 16 s gate job. Merged: 1616 tested, 1497 killed, 113
+  survived, 6 timeout, score 93.01%, top kill share 14.73%. The earlier run 41250950142 took
+  27 minutes, slowest shard 26.6. Both are under the 1 hour goal and under the extrapolation.
+- Three fixes came out of those runs. Each shard restores its test projects one at a time
+  before Stryker starts: Stryker's parallel restore lost `LamuFlix.UnitTests` on one shard,
+  which then tested against `LamuFlix.Evaluation` alone, and the shard now fails on Stryker's
+  "Analysis of project ... failed" line. The merge takes each file's mutant listing only from
+  reports that list mutants for it, so a shard that tested no span of a file cannot blank it.
+  Each shard stamps Stryker's mutants-created count into its report, and the merge fails unless
+  the merged total equals it.
+- The gate fails on run 41253628381, on the file-span rule (21 files against a limit of 15).
+  It is right to. The same 69 recommendation tests (`SimilarityScorer*`, `MmrSelector*`,
+  `ProfileSimilarityCalculator*`, `TasteProfileProperties`, `GetForYouRecommendationsQueryHandlerTests`)
+  "kill" AddToWatchlistCommandHandler.cs 15 and 16 and NotFoundException.cs 8, code those tests
+  never reach. All three mutants sit in shard 20, and shard 20 of run 41250950142 shows the same
+  kills, so the merge did not make them. Shard 20 also ran about 4.6 s per mutant against about
+  20 s elsewhere. In shard 20 the widest test,
+  `GetForYouRecommendationsQueryHandlerTests.HandleAsync_ResultSummary_CarriesEveryField`, kills
+  109 of the 112 tested mutants, all 62 MmrSelector.cs mutants among them; shard 16 tests the
+  other half of MmrSelector.cs and the same test kills 14 of its 45. Run locally on just
+  AddToWatchlistCommandHandler.cs and NotFoundException.cs (concurrency 1, same config), the
+  three mutants are killed only by `AddToWatchlistCommandHandlerTests` and
+  `NotFoundExceptionTests`. So shard 20's results are contaminated: its tests fail for a reason
+  outside the active mutant, and the 93.01% score is inflated by up to 112 mutants. Leaving shard
+  20 out, the widest test still spans 17 files, so the gate would still fail; whether those 17 are
+  real kills is not established. `maxKillFileSpan` stays at 15. Finding what poisons shard 20's
+  test server is a follow-up.
 - `stryker-core-gate` downloads the shard reports with `actions/download-artifact@v8`, to match
   the `upload-artifact@v7` that writes them.
