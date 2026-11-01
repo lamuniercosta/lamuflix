@@ -18,6 +18,7 @@ using LamuFlix.Tests.Common;
 using LamuFlix.UnitTests.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using RabbitMQ.Client;
@@ -325,6 +326,56 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         AssertTerminalFailure(host.Log, movie.Value, "CachePromotionFailed");
         generator.OutputPaths.ShouldHaveSingleItem();
         File.Exists(generator.OutputPaths[0]).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Consumer_AnUnexpectedGeneratorException_DeadLettersWithErrorActivityAndClosedLogFields()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var generator = new ScriptedThumbnailGenerator((sourcePath, _) =>
+            Task.FromException<ThumbnailResult>(
+                new InvalidOperationException("generator blew up at " + sourcePath)));
+        await using var host = NewHost(temporary, generator);
+        var movie = host.AddMovie(514, temporary.LibraryFile("movie.mp4"));
+        var source = host.SourcePath(movie);
+        var activities = new ConcurrentQueue<Activity>();
+        using var listener = ListenForActivities(activities);
+
+        // act
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, source), ct);
+        var dead = await probe.PollGetAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        // assert
+        dead.ShouldNotBeNull();
+        generator.CallCount.ShouldBe(1);
+        var failure = host.Log.Entries.Single(entry =>
+            entry.Level == LogLevel.Error && HasState(entry, "ErrorType"));
+        State(failure, "MovieId").ShouldBe(movie.Value);
+        State(failure, "ErrorType").ShouldBe(nameof(InvalidOperationException));
+        State(failure, "Redelivered").ShouldNotBeNull();
+        failure.State
+            .Select(pair => pair.Key)
+            .Where(key => !string.Equals(key, "{OriginalFormat}", StringComparison.Ordinal))
+            .OrderBy(key => key, StringComparer.Ordinal)
+            .ShouldBe(["ErrorType", "MovieId", "Redelivered"]);
+        var process = activities.Single(activity => activity.DisplayName == TelemetryConstants.ThumbnailProcess);
+        process.Status.ShouldBe(ActivityStatusCode.Error);
+        process.GetTagItem(TelemetryConstants.MovieId).ShouldBe(movie.Value);
+        process.GetTagItem(TelemetryConstants.ErrorType).ShouldBe(nameof(InvalidOperationException));
+        var errorEvent = process.Events.Single(evt => evt.Name == "error");
+        errorEvent.Tags.Single(tag => tag.Key == TelemetryConstants.MovieId).Value.ShouldBe(movie.Value);
+        errorEvent.Tags.Single(tag => tag.Key == TelemetryConstants.ErrorType).Value
+            .ShouldBe(nameof(InvalidOperationException));
+        AssertNoSensitiveValues(host.Log, temporary, source);
+        process.Tags
+            .Select(tag => tag.Value ?? string.Empty)
+            .Concat(errorEvent.Tags.Select(tag => tag.Value?.ToString() ?? string.Empty))
+            .Any(value => value.Contains(temporary.Root, StringComparison.OrdinalIgnoreCase))
+            .ShouldBeFalse();
     }
 
     [Fact]
