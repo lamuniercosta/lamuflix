@@ -56,7 +56,7 @@ export default function MovieCard({
 
   const { id, title, enrichmentStatus: status } = movie;
   const showPoster = Boolean(movie.posterUrl) && !posterFailed;
-  const showThumbnail = !showPoster && !thumbnailFailed;
+  const showThumbnail = !showPoster && !thumbnailFailed && status === 'Enriched';
   const thumbnailUrl = `/api/movies/${id}/thumbnail`;
   const ratingText = formatRating(movie.imdbRating);
   const statusLabel = STATUS_LABELS[status];

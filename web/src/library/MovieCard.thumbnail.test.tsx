@@ -41,6 +41,17 @@ describe('MovieCard thumbnail fallback', () => {
     expect(container.querySelector('.movie-card-poster')).toHaveStyle({ aspectRatio: '2 / 3' });
   });
 
+  it('shows the placeholder without requesting a thumbnail before enrichment', () => {
+    // arrange / act
+    const { container } = renderWithClient(
+      <MovieCard movie={{ ...base, posterUrl: null, enrichmentStatus: 'Pending' }} />,
+    );
+
+    // assert
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByRole('img', { name: 'Heat' })).toBeInTheDocument();
+  });
+
   it('shows the placeholder when the thumbnail is missing', () => {
     // arrange
     server.use(
