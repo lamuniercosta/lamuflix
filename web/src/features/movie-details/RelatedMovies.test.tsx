@@ -175,9 +175,20 @@ describe('RelatedMovies', () => {
     // assert
     const image = container.querySelector('img');
     expect(image).not.toBeNull();
+    expect(image).toHaveAttribute('src', '/posters/gone.jpg');
+    expect(container.querySelector('img[src="/api/movies/3/thumbnail"]')).not.toBeNull();
 
     // act
     fireEvent.error(image as HTMLImageElement);
+
+    // assert
+    expect(container.querySelector('img[src="/api/movies/2/thumbnail"]')).not.toBeNull();
+    expect(container.querySelector('img[src="/posters/gone.jpg"]')).toBeNull();
+
+    // act
+    for (const thumbnail of container.querySelectorAll('img')) {
+      fireEvent.error(thumbnail);
+    }
 
     // assert
     expect(container.querySelector('img')).toBeNull();

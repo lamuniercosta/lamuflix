@@ -91,14 +91,19 @@ describe('MovieCard', () => {
       />,
     );
 
+    fireEvent.error(screen.getByAltText('Heat'));
+
     expect(screen.getByRole('img', { name: 'Heat' })).toBeInTheDocument();
     expect(screen.queryByAltText('Heat')).not.toBeInTheDocument();
     expect(screen.getAllByText('—')).toHaveLength(2);
     expect(screen.getByText('Pending')).toBeInTheDocument();
   });
 
-  it('replaces the poster with the placeholder when the image fails to load', () => {
+  it('falls back through the thumbnail to the placeholder when images fail to load', () => {
     renderCard(<MovieCard movie={movie} />);
+
+    fireEvent.error(screen.getByAltText('Heat'));
+    expect(screen.getByAltText('Heat')).toHaveAttribute('src', '/api/movies/1/thumbnail');
 
     fireEvent.error(screen.getByAltText('Heat'));
 
