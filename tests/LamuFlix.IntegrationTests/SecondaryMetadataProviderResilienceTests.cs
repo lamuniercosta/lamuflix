@@ -219,10 +219,16 @@ public sealed class SecondaryMetadataProviderResilienceTests(SecondaryMetadataPr
     public async Task FindAsync_CancelledDuringTheRequest_ThrowsOperationCanceled()
     {
         // arrange
-        probe.StubSearch(
-            SecondaryMetadataProviderProbe.Fixture("Search", "found.json"),
-            delay: TimeSpan.FromSeconds(2));
-        var services = probe.BuildServices();
+        using var slow = LoopbackWireMock.Start();
+        slow.Given(Request.Create().WithPath("/3/search/movie").UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithBody(SecondaryMetadataProviderProbe.Fixture("Search", "found.json"))
+                .WithDelay(TimeSpan.FromSeconds(2)));
+        var services = probe.BuildServices(new Dictionary<string, string?>
+        {
+            [$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.BaseUrl)}"] = string.Concat(slow.Urls[0], "/3"),
+        });
         var provider = services.GetRequiredService<TmdbMetadataProvider>();
 
         // act
