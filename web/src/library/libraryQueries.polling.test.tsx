@@ -150,7 +150,7 @@ describe('browse query without polling', () => {
   });
 
   it('does not issue interval-driven browse requests for a Pending row', async () => {
-    vi.useFakeTimers({ toFake: ['setInterval'] });
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     let calls = 0;
     server.use(
       http.get('/api/movies', () => {
@@ -297,7 +297,7 @@ describe('event and mutation reconciliation without polling', () => {
 
   async function expectNoIntervalRequests(browse: ReturnType<typeof holdBrowseAfterFirst>) {
     const settledCalls = await settle(browse);
-    vi.useFakeTimers({ toFake: ['setInterval'] });
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     await vi.advanceTimersByTimeAsync(10_000);
     expect(browse.calls()).toBe(settledCalls);
     vi.useRealTimers();

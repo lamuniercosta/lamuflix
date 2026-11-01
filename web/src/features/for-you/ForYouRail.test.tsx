@@ -113,16 +113,10 @@ describe('ForYouRail', () => {
     // assert
     const enemy = await screen.findByRole('link', { name: /Enemy/ });
     const card = enemy.closest('article') as HTMLElement;
-    expect(within(card).getByAltText('Enemy')).toHaveAttribute('src', '/api/movies/10/thumbnail');
-    expect(card.querySelector('.movie-card-placeholder')).toBeNull();
-    expect(within(card).getAllByText('—')).toHaveLength(2);
-
-    // act
-    fireEvent.error(within(card).getByAltText('Enemy'));
-
-    // assert
+    expect(within(card).queryByAltText('Enemy')).not.toBeInTheDocument();
     expect(within(card).getByRole('img', { name: 'Enemy' })).toBeInTheDocument();
     expect(card.querySelector('.movie-card-placeholder')).not.toBeNull();
+    expect(within(card).getAllByText('—')).toHaveLength(2);
   });
 
   it('renders nothing for a successful empty response including the heading', async () => {

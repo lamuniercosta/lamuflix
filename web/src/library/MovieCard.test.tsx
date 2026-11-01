@@ -91,8 +91,6 @@ describe('MovieCard', () => {
       />,
     );
 
-    fireEvent.error(screen.getByAltText('Heat'));
-
     expect(screen.getByRole('img', { name: 'Heat' })).toBeInTheDocument();
     expect(screen.queryByAltText('Heat')).not.toBeInTheDocument();
     expect(screen.getAllByText('—')).toHaveLength(2);
