@@ -152,8 +152,8 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
   three mutants are killed only by `AddToWatchlistCommandHandlerTests` and
   `NotFoundExceptionTests`. So shard 20's results are contaminated: its tests fail for a reason
   outside the active mutant, and the 93.01% score is inflated by up to 112 mutants. Leaving shard
-  20 out, the widest test still spans 17 files, so the gate would still fail. `maxKillFileSpan`
-  stays at 15.
+  20 out, the widest test still spans 17 files, so the gate would still fail; see the
+  `killFileSpanExempt` entry below for how that was resolved.
 - Cause: test classes held `static readonly` fields that call mutated Core code, such as
   `GenreTable = GenreWeights.Calculate(...)`. Stryker's MTP runner keeps one test server per
   session, and a static is computed once per server process, under whichever mutant is active
@@ -171,5 +171,20 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
   that run, all 133 removed by the mutate filter. The likely cause is line endings: the Windows
   checkout uses CRLF and the CI checkout uses LF. So the local run
   covers 50 of shard 20's 112 mutants, and CI covers the rest.
+- CI run 41277335738, with the fix: every shard green, about 36 minutes for the workflow, 1616
+  mutants tested, score 90.97%, top kill share 11.94%. The contaminated kills are gone. The gate
+  still failed on file span alone: the widest tests span 16 to 20 files, all of them in four
+  recommendation-handler test classes. Those spans are real reach. Each test drives a handler end
+  to end, and the 22 distinct files they kill in all sit on the handler's call path
+  (scorers, selectors, the taste profile, the handler itself).
+- Resolution: `gates.mutation.killFileSpanExempt` in `harness.yml` names test classes the
+  file-span rule skips, each with a written reason. It lists `GetRecommendationsQueryHandlerTests`,
+  `GetRecommendationsQueryHandlerPropertyTests`, `GetForYouRecommendationsQueryHandlerTests` and
+  `GetForYouRecommendationsQueryHandlerPropertyTests`. A test is exempt only when its name starts
+  with a listed class name plus `.`, so a class whose name merely begins the same way is not.
+  `maxKillShare` still applies to every test, exempt or not, and `maxKillFileSpan` stays at 15
+  for everything else; the gate note reports how many exempt tests it skipped and their widest
+  span. Raising the limit to 22 instead was rejected: it would also have passed the 21-file
+  contaminated kill above, which is the failure the rule exists to catch.
 - `stryker-core-gate` downloads the shard reports with `actions/download-artifact@v8`, to match
   the `upload-artifact@v7` that writes them.
