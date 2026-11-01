@@ -122,7 +122,10 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
   MovieQueryString.cs with the planner's 20-shard spans: the whole file and the two halves (spans
   1+3, spans 2+4) list the same 303 mutants, and the merged halves match the whole-file run
   status for status (191 tested, 44 block-filtered, 68 CompileError). Merging a shard with itself,
-  or one half alone, fails. CI runs 20 shards.
+  or one half alone, fails. CI ran 20 shards at first and now runs 16: GitHub's free plan runs
+  20 jobs at once per account, so 20 shards held every slot for a main run's half hour and queued
+  all PR jobs behind it. 16 leave 4 slots free; the slowest shard is expected to go from about 33
+  to about 41 minutes.
 - Extrapolated before CI: E5 is about 50 s per mutant per test session, so full Core is about
   2.8 h on the local box (1616 x 50 / 8). On CI (4 vCPU, concurrency 2), 20 shards would take
   about 34 to 45 minutes of mutation plus about 5 minutes of setup each.
