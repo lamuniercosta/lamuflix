@@ -20,6 +20,7 @@ using LamuFlix.Core.Ports;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.FileSystem;
+using LamuFlix.Infrastructure.Import;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Pipeline;
 using LamuFlix.Infrastructure.Playback;
@@ -70,6 +71,11 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                 typeof(ICommandHandler<ImportMovieFolderCommand, MovieId>),
                 typeof(ImportMovieFolderCommand),
                 typeof(MovieId)
+            },
+            {
+                typeof(ICommandHandler<ImportLibraryCommand, ImportLibraryResult>),
+                typeof(ImportLibraryCommand),
+                typeof(ImportLibraryResult)
             },
             {
                 typeof(IQueryHandler<BrowseMoviesQuery, PagedResult<MovieSummary>>),
@@ -172,6 +178,27 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
         calculator.ShouldBeOfType<GenreWeightsCalculator>();
         options.Value.ShouldNotBeNull();
         options.Value.Weights.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void Handlers_StartedComposition_ResolveTheOneShotLibraryImportInAFreshCallerScope()
+    {
+        // arrange
+        using var firstScope = factory.Services.CreateScope();
+        using var secondScope = factory.Services.CreateScope();
+
+        // act
+        var handler = firstScope.ServiceProvider
+            .GetRequiredService<ICommandHandler<ImportLibraryCommand, ImportLibraryResult>>();
+        var discovery = firstScope.ServiceProvider.GetRequiredService<ILibraryFolderDiscovery>();
+        var importer = firstScope.ServiceProvider.GetRequiredService<IMovieFolderImporter>();
+        var otherDiscovery = secondScope.ServiceProvider.GetRequiredService<ILibraryFolderDiscovery>();
+
+        // assert
+        handler.ShouldBeOfType<TracingDecorator<ImportLibraryCommand, ImportLibraryResult>>();
+        discovery.ShouldBeOfType<FileSystemLibraryFolderDiscovery>();
+        importer.ShouldBeOfType<ScopedMovieFolderImporter>();
+        discovery.ShouldNotBeSameAs(otherDiscovery);
     }
 
     [Fact]

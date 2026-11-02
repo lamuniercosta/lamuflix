@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO.Abstractions;
@@ -14,6 +14,7 @@ using LamuFlix.Core.Features.Watchlist;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.FileSystem;
+using LamuFlix.Infrastructure.Import;
 using LamuFlix.Infrastructure.Library;
 using LamuFlix.Infrastructure.Pipeline;
 using LamuFlix.Infrastructure.Recommendations;
@@ -30,11 +31,14 @@ internal static class HandlerRegistration
 
         services.TryAddSingleton<IFileSystem, FileSystem>();
         services.AddScoped<IMediaLibraryScanner, DirectoryMediaLibraryScanner>();
+        services.AddScoped<ILibraryFolderDiscovery, FileSystemLibraryFolderDiscovery>();
+        services.AddScoped<IMovieFolderImporter, ScopedMovieFolderImporter>();
         services.AddHandler<RequestEnrichmentCommandHandler, RequestEnrichmentCommand, MovieId>();
         services.AddHandler<MatchMovieImdbIdCommandHandler, MatchMovieImdbIdCommand, MovieId>();
         services.AddHandler<RequeueStrandedMoviesCommandHandler, RequeueStrandedMoviesCommand, int>();
         services.AddHandler<SweepStrandedMoviesCommandHandler, SweepStrandedMoviesCommand, int>();
         services.AddHandler<ImportMovieFolderCommandHandler, ImportMovieFolderCommand, MovieId>();
+        services.AddHandler<ImportLibraryCommandHandler, ImportLibraryCommand, ImportLibraryResult>();
         services.AddScoped<BrowseMoviesQueryValidator>();
         services.AddScoped<IValidator<BrowseMoviesQuery>>(
             serviceProvider => serviceProvider.GetRequiredService<BrowseMoviesQueryValidator>());
