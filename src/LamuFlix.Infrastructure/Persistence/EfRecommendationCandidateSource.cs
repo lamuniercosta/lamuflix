@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -203,27 +202,11 @@ public sealed class EfRecommendationCandidateSource(
             ? (id, collection.Name)
             : null;
 
-    private static MovieSignalSnapshot? Signals(MovieRecord record)
-    {
-        var keywords = record.Keywords
-            .OrderBy(keyword => keyword.Id)
-            .Select(keyword => new MovieKeyword(keyword.Id, keyword.Name))
-            .ToImmutableArray();
-        var fullCast = record.FullCast.Select(actor => actor.Name).ToImmutableArray();
-        var collectionAvailable = record.CollectionId is not null;
-
-        if (keywords.IsEmpty && fullCast.IsEmpty && !collectionAvailable)
-        {
-            return null;
-        }
-
-        return new MovieSignalSnapshot(
-            keywordAvailability: keywords.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
-            keywords: keywords,
-            fullCastAvailability: fullCast.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
-            fullCast: fullCast,
-            collectionAvailability: collectionAvailable
-                ? SignalAvailability.Available
-                : SignalAvailability.Unavailable);
-    }
+    private static MovieSignalSnapshot? Signals(MovieRecord record) =>
+        MovieSignalSnapshot.FromPersisted(
+            record.Keywords
+                .OrderBy(keyword => keyword.Id)
+                .Select(keyword => new MovieKeyword(keyword.Id, keyword.Name)),
+            record.FullCast.Select(actor => actor.Name),
+            record.CollectionId is not null);
 }

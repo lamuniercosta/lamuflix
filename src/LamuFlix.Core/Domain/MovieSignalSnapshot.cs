@@ -45,6 +45,29 @@ public sealed record MovieSignalSnapshot
 
     public SignalAvailability CollectionAvailability { get; }
 
+    public static MovieSignalSnapshot? FromPersisted(
+        IEnumerable<MovieKeyword> keywords,
+        IEnumerable<string> fullCast,
+        bool collectionAvailable)
+    {
+        var keywordValues = keywords.ToImmutableArray();
+        var castValues = fullCast.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return HasAnySignal(keywordValues.IsEmpty, castValues.IsEmpty, collectionAvailable)
+            ? new MovieSignalSnapshot(
+                keywordAvailability: keywordValues.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
+                keywords: keywordValues,
+                fullCastAvailability: castValues.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
+                fullCast: castValues,
+                collectionAvailability: collectionAvailable
+                    ? SignalAvailability.Available
+                    : SignalAvailability.Unavailable)
+            : null;
+    }
+
+    private static bool HasAnySignal(bool keywordsEmpty, bool fullCastEmpty, bool collectionAvailable) =>
+        !keywordsEmpty || !fullCastEmpty || collectionAvailable;
+
     public bool Equals(MovieSignalSnapshot? other) =>
         other is not null
         && KeywordAvailability == other.KeywordAvailability
@@ -72,6 +95,7 @@ public sealed record MovieSignalSnapshot
         }
 
         var values = source.ToImmutableArray();
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract // runtime guard for suppressed-null entries, covered by null-entry tests.
         if (values.Any(keyword => keyword is null))
         {
             throw new ArgumentException("Keyword entries must not be null.", nameof(source));
@@ -88,6 +112,7 @@ public sealed record MovieSignalSnapshot
         }
 
         var values = source.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract // runtime guard for suppressed-null entries, covered by null-entry tests.
         if (values.Any(name => name is null))
         {
             throw new ArgumentException("Full cast names must not be null.", nameof(source));
@@ -137,6 +162,7 @@ public sealed record MovieSignalSnapshot
         foreach (var value in values)
         {
             // ReSharper disable once ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract // defensive null slot for sets built outside the guarded constructor path.
             hash = unchecked(hash + (value is null ? 0 : StringComparer.OrdinalIgnoreCase.GetHashCode(value)));
         }
 

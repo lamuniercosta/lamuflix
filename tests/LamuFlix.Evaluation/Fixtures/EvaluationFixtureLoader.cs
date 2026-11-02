@@ -179,17 +179,22 @@ public static class EvaluationFixtureLoader
         var values = new List<int>();
         foreach (var item in property.EnumerateArray())
         {
-            if (item.ValueKind != JsonValueKind.Number
-                || !item.TryGetInt32(out var value)
-                || value <= 0)
-            {
-                throw Invalid($"{description} keywords must be an array of positive integers.");
-            }
-
-            values.Add(value);
+            values.Add(ReadKeywordId(item, description));
         }
 
         return [.. values];
+    }
+
+    private static int ReadKeywordId(JsonElement item, string description)
+    {
+        if (item.ValueKind != JsonValueKind.Number
+            || !item.TryGetInt32(out var value)
+            || value <= 0)
+        {
+            throw Invalid($"{description} keywords must be an array of positive integers.");
+        }
+
+        return value;
     }
 
     private static int? ReadCollectionId(JsonElement features, string description)

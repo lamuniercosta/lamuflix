@@ -109,20 +109,31 @@ public static class SeedCollectionGrouper
 
         foreach (var movieId in block)
         {
-            if (builder.Count < take && seen.Add(movieId))
-            {
-                builder.Add(movieId);
-            }
+            AppendUnique(builder, seen, movieId, take);
         }
 
         foreach (var movieId in mmrOrder)
         {
-            if (builder.Count < take && seen.Add(movieId))
-            {
-                builder.Add(movieId);
-            }
+            AppendUnique(builder, seen, movieId, take);
         }
 
         return builder.ToImmutable();
+    }
+
+    private static void AppendUnique(
+        ImmutableList<MovieId>.Builder builder,
+        HashSet<MovieId> seen,
+        MovieId movieId,
+        int take)
+    {
+        if (builder.Count >= take)
+        {
+            return;
+        }
+
+        if (seen.Add(movieId))
+        {
+            builder.Add(movieId);
+        }
     }
 }

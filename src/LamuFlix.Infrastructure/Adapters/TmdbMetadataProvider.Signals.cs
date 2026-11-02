@@ -48,28 +48,17 @@ public sealed partial class TmdbMetadataProvider
 
     private KeywordSignal MapKeywords(Response? body, int movieId)
     {
-        if (body is null || body.Success == false || body.Id != movieId || body.Keywords is null)
+        if (SignalKeywords(body, movieId) is not { } keywords)
         {
             return MalformedKeywordsSignal();
         }
 
         var names = new Dictionary<int, string>();
-        foreach (var keyword in body.Keywords)
+        foreach (var keyword in keywords)
         {
-            if (keyword.Id is not { } id || id <= 0)
+            if (!TryAddKeyword(names, keyword))
             {
                 return MalformedKeywordsSignal();
-            }
-
-            if (string.IsNullOrWhiteSpace(keyword.Name))
-            {
-                return MalformedKeywordsSignal();
-            }
-
-            var name = keyword.Name.Trim();
-            if (!names.TryGetValue(id, out var existing) || string.CompareOrdinal(name, existing) < 0)
-            {
-                names[id] = name;
             }
         }
 
@@ -83,30 +72,60 @@ public sealed partial class TmdbMetadataProvider
 
     private CastSignal MapCredits(Response? body, int movieId)
     {
-        if (body is null || body.Success == false || body.Id != movieId || body.Cast is null)
+        if (SignalCast(body, movieId) is not { } cast)
         {
             return MalformedCreditsSignal();
         }
 
         var names = ImmutableHashSet.CreateBuilder<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var credit in body.Cast)
+        foreach (var credit in cast)
         {
-            if (credit.Id is not { } id || id <= 0)
+            if (!TryAddCredit(names, credit))
             {
                 return MalformedCreditsSignal();
             }
-
-            if (string.IsNullOrWhiteSpace(credit.Name))
-            {
-                return MalformedCreditsSignal();
-            }
-
-            names.Add(credit.Name.Trim());
         }
 
         return names.Count == 0
             ? new CastSignal(SignalAvailability.KnownEmpty, EmptyCast(), Failed: false)
             : new CastSignal(SignalAvailability.Available, names.ToImmutable(), Failed: false);
+    }
+
+    private static List<KeywordPayload>? SignalKeywords(Response? body, int movieId) =>
+        body is not null && body.Success != false && body.Id == movieId
+            ? body.Keywords
+            : null;
+
+    private static List<CastPayload>? SignalCast(Response? body, int movieId) =>
+        body is not null && body.Success != false && body.Id == movieId
+            ? body.Cast
+            : null;
+
+    private static bool TryAddKeyword(Dictionary<int, string> names, KeywordPayload keyword)
+    {
+        if (keyword.Id is not { } id || id <= 0 || string.IsNullOrWhiteSpace(keyword.Name))
+        {
+            return false;
+        }
+
+        var name = keyword.Name.Trim();
+        if (!names.TryGetValue(id, out var existing) || string.CompareOrdinal(name, existing) < 0)
+        {
+            names[id] = name;
+        }
+
+        return true;
+    }
+
+    private static bool TryAddCredit(ImmutableHashSet<string>.Builder names, CastPayload credit)
+    {
+        if (credit.Id is not { } id || id <= 0 || string.IsNullOrWhiteSpace(credit.Name))
+        {
+            return false;
+        }
+
+        names.Add(credit.Name.Trim());
+        return true;
     }
 
     private KeywordSignal MalformedKeywordsSignal()
