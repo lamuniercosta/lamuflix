@@ -45,6 +45,10 @@ gates:
       # DEV-332: the AppHost is local orchestration wiring; its acceptance proof is
       # real-host receipts, which neither Stryker nor a unit test can produce.
       LamuFlix.AppHost: "local orchestration wiring; real-host acceptance receipts required; Core mutation retained per Constitution IX"
+      # DEV-333: test-support fixture library (IsTestProject false), so the gate
+      # treats its files as production scope; its sole direct referrer is
+      # IntegrationTests, which the gate excludes by design, leaving no eligible unit-test project.
+      LamuFlix.Tests.Common: "test-support fixtures only; sole direct referrer is IntegrationTests, which the gate excludes by design; no unit-test project observes its mutants"
 
   analyzers:
     mode: All
