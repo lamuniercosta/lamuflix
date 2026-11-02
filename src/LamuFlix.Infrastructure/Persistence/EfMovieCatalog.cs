@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -76,7 +77,11 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.Directors.Select(director => director.Name).ToList(),
                 movie.Actors.Select(actor => actor.Name).ToList(),
                 movie.Genres.Select(genre => genre.Name).ToList(),
-                movie.Writers.Select(writer => writer.Name).ToList()))
+                movie.Writers.Select(writer => writer.Name).ToList(),
+                movie.Keywords.Select(keyword => new KeywordRow(keyword.Id, keyword.Name)).ToList(),
+                movie.FullCast.Select(actor => actor.Name).ToList(),
+                movie.CollectionId,
+                movie.Collection == null ? null : movie.Collection.Name))
             .FirstOrDefaultAsync(ct);
         if (record is null)
         {
@@ -100,7 +105,10 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 record.Directors,
                 record.Actors,
                 record.Genres,
-                record.Writers)
+                record.Writers,
+                record.CollectionName is null ? null : record.CollectionId,
+                record.CollectionName,
+                Signals(record))
             : null;
         return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist, record.IsWatched, record.IsNotInterested);
     }
@@ -204,6 +212,30 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         record.Directors.Count > 0
         || record.Actors.Count > 0;
 
+    private static MovieSignalSnapshot? Signals(MovieDetailsRecord record)
+    {
+        var keywords = record.Keywords
+            .OrderBy(keyword => keyword.Id)
+            .Select(keyword => new MovieKeyword(keyword.Id, keyword.Name))
+            .ToImmutableArray();
+        var fullCast = record.FullCast.ToImmutableArray();
+        var collectionAvailable = record.CollectionName is not null;
+
+        if (keywords.IsEmpty && fullCast.IsEmpty && !collectionAvailable)
+        {
+            return null;
+        }
+
+        return new MovieSignalSnapshot(
+            keywordAvailability: keywords.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
+            keywords: keywords,
+            fullCastAvailability: fullCast.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
+            fullCast: fullCast,
+            collectionAvailability: collectionAvailable
+                ? SignalAvailability.Available
+                : SignalAvailability.Unavailable);
+    }
+
     private sealed record MovieDetailsRecord(
         MovieId? Id,
         string Title,
@@ -224,7 +256,13 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         List<string> Directors,
         List<string> Actors,
         List<string> Genres,
-        List<string> Writers);
+        List<string> Writers,
+        List<KeywordRow> Keywords,
+        List<string> FullCast,
+        int? CollectionId,
+        string? CollectionName);
+
+    private sealed record KeywordRow(int Id, string Name);
 }
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global // EF SqlQueryRaw materialization sets these properties reflectively.

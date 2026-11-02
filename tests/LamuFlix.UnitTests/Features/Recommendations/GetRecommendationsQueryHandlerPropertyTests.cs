@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -317,15 +317,75 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         double threshold) =>
         Handle(pool, take, new RecommendationOptions { SimilarStoryThreshold = threshold });
 
+    [Property(MaxTest = 100, Replay = "340112,130007")]
+    [Trait("Category", "Property")]
+    public bool HandleAsync_SeedCollection_LeadsWithFranchiseBlockWithinCapacity(
+        int[] ids,
+        int[] cosineSeeds,
+        int franchiseSeed,
+        int takeSeed)
+    {
+        // arrange
+        var pool = FranchiseCandidates(ids, cosineSeeds, franchiseSeed);
+        var take = Take(takeSeed);
+        var collectionId = FranchiseCandidatesCollectionId;
+        var franchiseCount = pool.Count(candidate => candidate.Movie.Metadata?.CollectionId == collectionId);
+        var expectedBlockSize = Math.Min(Math.Min(10, take), franchiseCount);
+
+        // act
+        var result = Handle(SelectedMovie(collectionId), pool, take);
+
+        // assert
+        var poolIds = pool.Select(candidate => candidate.Movie.Id).ToHashSet();
+        return result.Count <= take
+            && result.Select(item => item.Summary.Id).Distinct().Count() == result.Count
+            && result.All(item => poolIds.Contains(item.Summary.Id))
+            && result.Take(expectedBlockSize).All(item =>
+                pool.Single(candidate => candidate.Movie.Id == item.Summary.Id).Movie.Metadata?.CollectionId == collectionId);
+    }
+
+    private const int FranchiseCandidatesCollectionId = 900;
+
+    private static RecommendationCandidate[] FranchiseCandidates(int[] ids, int[] cosineSeeds, int franchiseSeed)
+    {
+        var distinct = ids
+            .Select(value => Math.Abs(value % 900) + 2)
+            .Distinct()
+            .Take(12)
+            .ToArray();
+        var candidates = new RecommendationCandidate[distinct.Length];
+
+        for (var index = 0; index < distinct.Length; index++)
+        {
+            var seed = cosineSeeds.Length == 0 ? distinct[index] : cosineSeeds[index % cosineSeeds.Length];
+            var inFranchise = franchiseSeed % 3 != 0 && index % 3 == 0;
+            candidates[index] = new RecommendationCandidate(
+                BuildMovie(distinct[index], seed, collectionId: inFranchise ? FranchiseCandidatesCollectionId : null),
+                SyntheticCosine(seed));
+        }
+
+        return candidates;
+    }
+
+    private static ImmutableList<RecommendedMovie> Handle(Movie selected, IReadOnlyList<RecommendationCandidate> pool, int take) =>
+        Handle(selected, pool, take, new RecommendationOptions());
+
     private static ImmutableList<RecommendedMovie> Handle(
+        IReadOnlyList<RecommendationCandidate> pool,
+        int take,
+        RecommendationOptions options) =>
+        Handle(SelectedMovie(), pool, take, options);
+
+    private static ImmutableList<RecommendedMovie> Handle(
+        Movie selected,
         IReadOnlyList<RecommendationCandidate> pool,
         int take,
         RecommendationOptions options)
     {
         var movies = Substitute.For<IMovieRepository>();
-        movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(SelectedMovie());
+        movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
         var source = Substitute.For<IRecommendationCandidateSource>();
-        source.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(pool);
+        source.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).Returns(pool);
         var catalog = Substitute.For<IMovieCatalog>();
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Counts);
         var profileSource = Substitute.For<IRecommendationProfileSource>();
@@ -457,7 +517,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         return pool;
     }
 
-    private static Movie BuildMovie(int id, int seed, bool isNotInterested = false)
+    private static Movie BuildMovie(int id, int seed, bool isNotInterested = false, int? collectionId = null)
     {
         var magnitude = Math.Abs((long)seed);
         var title = $"Movie {id}";
@@ -488,7 +548,9 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             directors: [(magnitude & 1) == 0 ? "Director A" : "Director B"],
             actors: [(magnitude & 2) == 0 ? "Actor A" : "Actor B"],
             genres: Genres(magnitude),
-            writers: [(magnitude & 4) == 0 ? "Writer A" : "Writer B"]);
+            writers: [(magnitude & 4) == 0 ? "Writer A" : "Writer B"],
+            collectionId: collectionId,
+            collectionName: collectionId is null ? null : $"Franchise {collectionId}");
 
         return Movie.Rehydrate(
             new MovieId(id),
@@ -511,7 +573,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         return [.. palette.Where((_, index) => ((magnitude >> index) & 1) == 1)];
     }
 
-    private static Movie SelectedMovie() => Movie.Rehydrate(
+    private static Movie SelectedMovie(int? collectionId = null) => Movie.Rehydrate(
         new MovieId(SelectedMovieId),
         "Selected",
         new LibraryPath("C:/library/selected.mkv"),
@@ -525,7 +587,9 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             directors: ["Director A"],
             actors: ["Actor A"],
             genres: ["Drama", "Action"],
-            writers: ["Writer A"]),
+            writers: ["Writer A"],
+            collectionId: collectionId,
+            collectionName: collectionId is null ? null : $"Franchise {collectionId}"),
         EnrichmentStatus.Enriched,
         Now,
         1,

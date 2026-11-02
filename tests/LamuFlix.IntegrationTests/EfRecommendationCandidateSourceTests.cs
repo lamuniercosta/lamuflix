@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
@@ -55,7 +55,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(selected, ct);
+        var candidates = await source.GetCandidatesAsync(selected, null, ct);
 
         // assert
         candidates.Select(candidate => candidate.Movie.Title).ShouldBe(["Enriched"]);
@@ -130,7 +130,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(4), ct);
+        var candidates = await source.GetCandidatesAsync(new MovieId(4), null, ct);
 
         // assert
         candidates.Count.ShouldBe(3);
@@ -198,7 +198,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var repository = Repository(repositoryDb);
 
         // act
-        var candidates = await source.GetCandidatesAsync(selectedId, ct);
+        var candidates = await source.GetCandidatesAsync(selectedId, null, ct);
         var expectedFull = await repository.GetAsync(fullId, ct);
         var expectedBare = await repository.GetAsync(bareId, ct);
 
@@ -218,7 +218,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), ct);
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         candidates.Count.ShouldBe(50);
@@ -237,7 +237,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db, new RecommendationOptions { Take = 1, CandidatePoolSize = 7 });
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), ct);
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         candidates.Count.ShouldBe(7);
@@ -265,7 +265,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), ct);
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         candidates.Select(candidate => candidate.Movie.Id.Value).ShouldBe([5, 10]);
@@ -297,7 +297,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), ct);
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         candidates.Select(candidate => candidate.Movie.Id.Value).ShouldBe([10, 11, 12, 13, 14]);
@@ -332,7 +332,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db, new RecommendationOptions { Take = 1, CandidatePoolSize = 2 });
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), ct);
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         candidates.Select(candidate => candidate.Movie.Id.Value).ShouldBe([12, 13]);
@@ -353,7 +353,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(9999), ct);
+        var candidates = await source.GetCandidatesAsync(new MovieId(9999), null, ct);
 
         // assert
         candidates.ShouldBeEmpty();
@@ -378,7 +378,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), ct);
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         candidates.ShouldBeEmpty();
@@ -403,7 +403,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), ct);
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         candidates.Count.ShouldBe(24);
@@ -421,7 +421,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        await source.GetCandidatesAsync(new MovieId(1), ct);
+        await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         var candidateCommand = interceptor.ReaderCommands
@@ -450,7 +450,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        await source.GetCandidatesAsync(new MovieId(1), ct);
+        await source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         db.ChangeTracker.Entries().ShouldBeEmpty();
@@ -470,7 +470,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var token = cancelled.Token;
 
         // act
-        var act = () => source.GetCandidatesAsync(new MovieId(1), token);
+        var act = () => source.GetCandidatesAsync(new MovieId(1), null, token);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
@@ -492,7 +492,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         using var caller = new CancellationTokenSource();
 
         // act
-        var candidates = await source.GetCandidatesAsync(new MovieId(1), caller.Token);
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), null, caller.Token);
 
         // assert
         candidates.Count.ShouldBe(1);
@@ -515,7 +515,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         var source = Source(db);
 
         // act
-        var act = () => source.GetCandidatesAsync(new MovieId(1), ct);
+        var act = () => source.GetCandidatesAsync(new MovieId(1), null, ct);
 
         // assert
         var failure = await Should.ThrowAsync<InvalidOperationException>(act);
@@ -532,6 +532,117 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             ct,
             [(1, UnitVector()), .. Enumerable.Range(0, 60)
                 .Select(index => (100 + index, CosineVector(-0.9 + (index * 0.03))))]);
+    }
+
+    [Fact]
+    public async Task GetCandidatesAsync_SeedCollection_UnionsEmbeddinglessMembersBeforeCutoff()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Selected", EnrichmentStatus.Enriched),
+            Record(2, "Franchise vectorless", EnrichmentStatus.Enriched, collectionId: 900),
+            Record(3, "Franchise second", EnrichmentStatus.Enriched, collectionId: 900),
+            Record(4, "Other collection", EnrichmentStatus.Enriched, collectionId: 901),
+            Record(5, "Franchise pending", EnrichmentStatus.Pending, collectionId: 900));
+        await SeedVectorsAsync(
+            ct,
+            (1, UnitVector()),
+            (4, CosineVector(0.6)));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db, new RecommendationOptions { Take = 1, CandidatePoolSize = 1 });
+
+        // act
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), 900, ct);
+
+        // assert
+        candidates.Select(candidate => candidate.Movie.Id.Value).Order().ShouldBe([2, 3, 4]);
+        candidates.ShouldNotContain(candidate => candidate.Movie.Id == new MovieId(1));
+        candidates.ShouldNotContain(candidate => candidate.Movie.Id == new MovieId(5));
+        candidates.Where(candidate => candidate.Movie.Id.Value is 2 or 3)
+            .ShouldAllBe(candidate => candidate.CosineSimilarity == 0.0);
+    }
+
+    [Fact]
+    public async Task GetCandidatesAsync_FranchiseMemberWithoutFeaturesRow_RehydratesBaseStateAndSignals()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Selected", EnrichmentStatus.Enriched),
+            SignalRecord(2));
+        await SeedVectorsAsync(ct, (1, UnitVector()));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+
+        // act
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), 900, ct);
+
+        // assert
+        var candidate = candidates.ShouldHaveSingleItem().Movie;
+        var metadata = candidate.Metadata.ShouldNotBeNull();
+        metadata.Title.ShouldBe("Signal member");
+        metadata.Actors.ShouldBe(["Base Actor"]);
+        metadata.Genres.ShouldBe(["Drama"]);
+        metadata.CollectionId.ShouldBe(900);
+        metadata.CollectionName.ShouldBe("Franchise 900");
+        var signals = metadata.Signals.ShouldNotBeNull();
+        signals.KeywordAvailability.ShouldBe(SignalAvailability.Available);
+        signals.Keywords.Select(keyword => (keyword.Id, keyword.Name)).ShouldBe([(101, "Heist"), (202, "Noir")]);
+        signals.FullCastAvailability.ShouldBe(SignalAvailability.Available);
+        signals.FullCast.Order(StringComparer.Ordinal).ShouldBe(["Base Actor", "Guest Actor"]);
+        signals.CollectionAvailability.ShouldBe(SignalAvailability.Available);
+    }
+
+    [Fact]
+    public async Task GetCandidatesAsync_FranchiseMemberAlsoInVectorPool_AppearsOnce()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Selected", EnrichmentStatus.Enriched),
+            Record(2, "Franchise", EnrichmentStatus.Enriched, collectionId: 900),
+            Record(3, "Only vector", EnrichmentStatus.Enriched));
+        await SeedVectorsAsync(
+            ct,
+            (1, UnitVector()),
+            (2, CosineVector(0.7)),
+            (3, CosineVector(0.5)));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+
+        // act
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), 900, ct);
+
+        // assert
+        candidates.Select(candidate => candidate.Movie.Id.Value).Order().ShouldBe([2, 3]);
+        candidates.Count(candidate => candidate.Movie.Id == new MovieId(2)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetCandidatesAsync_CollectionUnionCancelled_PropagatesCancellation()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Selected", EnrichmentStatus.Enriched),
+            Record(2, "Franchise", EnrichmentStatus.Enriched, collectionId: 900));
+        await SeedVectorsAsync(ct, (1, UnitVector()));
+        await using var db = fixture.CreateMigratedContext();
+        var source = Source(db);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        var token = cancelled.Token;
+
+        // act
+        var act = () => source.GetCandidatesAsync(new MovieId(1), 900, token);
+
+        // assert
+        await Should.ThrowAsync<OperationCanceledException>(act);
     }
 
     private static EfRecommendationCandidateSource Source(
@@ -605,6 +716,14 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
     private async Task SeedRecordsAsync(CancellationToken ct, params MovieRecord[] records)
     {
         await using var db = fixture.CreateMigratedContext();
+        var collections = records
+            .Select(record => record.CollectionId)
+            .OfType<int>()
+            .Distinct()
+            .Select(id => new CollectionRecord { Id = id, Name = $"Franchise {id}" })
+            .ToList();
+        db.Collections.AddRange(collections);
+        await db.SaveChangesAsync(ct);
         db.Movies.AddRange(records);
         await db.SaveChangesAsync(ct);
     }
@@ -685,15 +804,37 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             new RecordingEnrichmentStatusNotifier(),
             NullLogger<EfMovieRepository>.Instance);
 
-    private static MovieRecord Record(int id, string title, EnrichmentStatus status) =>
+    private static MovieRecord Record(int id, string title, EnrichmentStatus status, int? collectionId = null) =>
         new()
         {
             Id = new MovieId(id),
             Title = title,
             LibraryPath = new LibraryPath($"C:/library/candidate-{id}.mkv"),
             Format = new MediaFormat("mkv"),
-            Status = status
+            Status = status,
+            CollectionId = collectionId
         };
+
+    private static MovieRecord SignalRecord(int id)
+    {
+        var record = new MovieRecord
+        {
+            Id = new MovieId(id),
+            Title = "Signal member",
+            LibraryPath = new LibraryPath($"C:/library/candidate-signal-{id}.mkv"),
+            Format = new MediaFormat("mkv"),
+            Status = EnrichmentStatus.Enriched,
+            MetadataTitle = "Signal member",
+            CollectionId = 900
+        };
+        record.Actors.Add(new ActorRecord { Name = "Base Actor" });
+        record.Genres.Add(new GenreRecord { Name = "Drama" });
+        record.Keywords.Add(new KeywordRecord { Id = 202, Name = "Noir" });
+        record.Keywords.Add(new KeywordRecord { Id = 101, Name = "Heist" });
+        record.FullCast.Add(new ActorRecord { Name = "Base Actor" });
+        record.FullCast.Add(new ActorRecord { Name = "Guest Actor" });
+        return record;
+    }
 
     private static MovieMetadata FullMetadata() =>
         new(

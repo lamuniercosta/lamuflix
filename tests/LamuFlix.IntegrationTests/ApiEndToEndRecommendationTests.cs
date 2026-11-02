@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -314,6 +314,71 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         var invalidatedItem = afterBody.EnumerateArray()
             .Single(item => item.GetProperty("id").GetInt32() == candidateId);
         ReasonTexts(invalidatedItem).ShouldContain($"Matches your {candidateGenre} interest");
+    }
+
+    [Fact]
+    public async Task GetRecommendations_SeedFranchiseMembers_AreGroupedContiguouslyAtFront()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var data = new Fixture();
+        const int franchiseId = 900;
+        await SeedCollectionAsync(franchiseId, "Franchise 900");
+
+        var genre = Faker.Lorem.GetFirstWord();
+        var director = Faker.Name.FullName();
+        var selected = EnrichedMovie(
+            data.Create<string>(), "franchise-selected", genre, director, SelectedYear, SelectedRuntime, SelectedRating);
+        selected.CollectionId = franchiseId;
+        var franchiseA = EnrichedMovie(
+            data.Create<string>(), "franchise-first", genre, director, SelectedYear, SelectedRuntime, SelectedRating);
+        franchiseA.CollectionId = franchiseId;
+        var franchiseB = EnrichedMovie(
+            data.Create<string>(), "franchise-second", genre, director, SelectedYear, SelectedRuntime, SelectedRating);
+        franchiseB.CollectionId = franchiseId;
+
+        var selectedRecord = await SeedAsync(selected);
+        var franchiseARecord = await SeedAsync(franchiseA);
+        var franchiseBRecord = await SeedAsync(franchiseB);
+        var selectedId = selectedRecord.Id.ShouldNotBeNull().Value;
+        int[] franchiseIds = [franchiseARecord.Id.ShouldNotBeNull().Value, franchiseBRecord.Id.ShouldNotBeNull().Value];
+        await SeedVectorAsync(selectedId, primary: 1f, secondary: 0f);
+
+        for (var index = 0; index < 8; index++)
+        {
+            var other = EnrichedMovie(
+                data.Create<string>(),
+                $"franchise-other-{index}",
+                $"{genre}-{index}",
+                Faker.Name.FullName(),
+                OtherYear,
+                SelectedRuntime,
+                SelectedRating);
+            var otherRecord = await SeedAsync(other);
+            await SeedVectorAsync(otherRecord.Id.ShouldNotBeNull().Value, primary: 0f, secondary: 1f);
+        }
+
+        // act
+        var response = await client.GetAsync(
+            $"{BrowseRoute}/{selectedId}{RecommendationsSuffix}",
+            cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var ids = body.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ToList();
+        ids.Count.ShouldBe(10);
+        ids.ShouldNotBeEmpty();
+        ids.Take(2).ShouldBe(franchiseIds.Order());
+        ids.Skip(2).ShouldNotContain(id => franchiseIds.Contains(id));
+    }
+
+    private async Task SeedCollectionAsync(int id, string name)
+    {
+        await using var context = Fixture.Postgres.CreateMigratedContext();
+        context.Collections.Add(new CollectionRecord { Id = id, Name = name });
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     private static MovieRecord EnrichedMovie(

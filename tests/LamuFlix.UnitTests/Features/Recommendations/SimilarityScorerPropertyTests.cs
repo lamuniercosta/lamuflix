@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using FsCheck.Xunit;
 using LamuFlix.Core.Domain;
@@ -146,6 +147,84 @@ public sealed class SimilarityScorerPropertyTests
 
         // assert
         return result.Score <= 0.0 || result.Reasons.Count > 0;
+    }
+
+    [Property(MaxTest = 100, Replay = "338007,700001")]
+    [Trait("Category", "Property")]
+    public bool Score_KeywordSets_ProducesJaccardOfDistinctIdsAndIsSymmetric(int[] firstIds, int[] secondIds)
+    {
+        // arrange
+        var first = KeywordProfile(firstIds);
+        var second = KeywordProfile(secondIds);
+        var weights = OnlyKeyword();
+        var expected = first.Keywords.Count == 0 || second.Keywords.Count == 0
+            ? 0.0
+            : Jaccard(first.Keywords, second.Keywords);
+
+        // act
+        var forward = SimilarityScorer.Score(first, second, weights, Table).Score;
+        var reverse = SimilarityScorer.Score(second, first, weights, Table).Score;
+
+        // assert
+        return Math.Abs(forward - expected) <= SymmetryTolerance
+            && Math.Abs(forward - reverse) <= SymmetryTolerance
+            && forward is >= 0.0 and <= 1.0;
+    }
+
+    [Property(MaxTest = 100, Replay = "338008,800003")]
+    [Trait("Category", "Property")]
+    public bool Score_CollectionIds_IsOneWhenEqualAndZeroWhenDifferent(int firstId, int secondId)
+    {
+        // arrange
+        var first = new MovieFeatures(collectionId: Positive(firstId));
+        var second = new MovieFeatures(collectionId: Positive(secondId));
+        var weights = OnlyCollection();
+
+        // act
+        var score = SimilarityScorer.Score(first, second, weights, Table).Score;
+
+        // assert
+        return score.Equals(Positive(firstId) == Positive(secondId) ? 1.0 : 0.0);
+    }
+
+    private static int Positive(int value) => (int)(Math.Abs((long)value) % 5000) + 1;
+
+    private static MovieFeatures KeywordProfile(int[] ids) =>
+        new(keywords: ids.Where(id => id > 0));
+
+    private static SimilarityWeights OnlyKeyword() =>
+        new()
+        {
+            Director = 0.0,
+            Writers = 0.0,
+            Cast = 0.0,
+            Genres = 0.0,
+            YearProximity = 0.0,
+            RuntimeProximity = 0.0,
+            RatingBoost = 0.0,
+            Keyword = 1.0,
+            Collection = 0.0,
+        };
+
+    private static SimilarityWeights OnlyCollection() =>
+        new()
+        {
+            Director = 0.0,
+            Writers = 0.0,
+            Cast = 0.0,
+            Genres = 0.0,
+            YearProximity = 0.0,
+            RuntimeProximity = 0.0,
+            RatingBoost = 0.0,
+            Keyword = 0.0,
+            Collection = 1.0,
+        };
+
+    private static double Jaccard(ImmutableHashSet<int> first, ImmutableHashSet<int> second)
+    {
+        var intersection = first.Count(value => second.Contains(value));
+        var union = first.Count + second.Count - intersection;
+        return (double)intersection / union;
     }
 
     private static MovieFeatures Profile(

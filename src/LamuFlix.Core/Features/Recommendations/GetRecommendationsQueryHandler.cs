@@ -37,7 +37,11 @@ public sealed class GetRecommendationsQueryHandler(
             ?? throw new NotFoundException();
         cancellationToken.ThrowIfCancellationRequested();
 
-        var pool = await candidates.GetCandidatesAsync(query.MovieId, cancellationToken);
+        var selectedFeatures = MovieFeaturesMapper.From(selected, includeSignals: true);
+        var pool = await candidates.GetCandidatesAsync(
+            query.MovieId,
+            selectedFeatures.CollectionId,
+            cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         var eligible = ExcludeNotInterested(pool, cancellationToken);
@@ -59,7 +63,6 @@ public sealed class GetRecommendationsQueryHandler(
         cancellationToken.ThrowIfCancellationRequested();
 
         var recommendationOptions = options.Value;
-        var selectedFeatures = MovieFeaturesMapper.From(selected);
         var scored = Score(
             selectedFeatures,
             eligible,
@@ -70,10 +73,21 @@ public sealed class GetRecommendationsQueryHandler(
             cancellationToken);
 
         var relevanceOffset = RelevanceOffset(scored);
+        var mmrCandidates = scored
+            .Select(item => new MmrCandidate(item.Movie.Id, item.Result.Score + relevanceOffset, item.Features))
+            .ToList();
         var selectedIds = MmrSelector.Select(
-            [.. scored.Select(item => new MmrCandidate(item.Movie.Id, item.Result.Score + relevanceOffset, item.Features))],
+            mmrCandidates,
             query.Take,
             recommendationOptions.MmrLambda,
+            recommendationOptions.Weights,
+            genreWeights);
+
+        var groupedIds = SeedCollectionGrouper.Group(
+            mmrCandidates,
+            selectedIds,
+            selectedFeatures,
+            query.Take,
             recommendationOptions.Weights,
             genreWeights);
 
@@ -81,7 +95,7 @@ public sealed class GetRecommendationsQueryHandler(
 
         return
         [
-            .. selectedIds
+            .. groupedIds
                 .Select(id => byId[id])
                 .Select(item => new RecommendedMovie(
                     Summarize(item.Movie),
@@ -139,7 +153,7 @@ public sealed class GetRecommendationsQueryHandler(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var features = MovieFeaturesMapper.From(candidate.Movie);
+            var features = MovieFeaturesMapper.From(candidate.Movie, includeSignals: true);
             var similarity = SimilarityScorer.Score(
                 selectedFeatures,
                 features,

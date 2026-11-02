@@ -8,5 +8,8 @@ namespace LamuFlix.Core.Ports;
 
 public interface IRecommendationCandidateSource
 {
-    Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(MovieId selectedMovieId, CancellationToken ct);
+    Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(
+        MovieId selectedMovieId,
+        int? collectionId,
+        CancellationToken ct);
 }
