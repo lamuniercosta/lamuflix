@@ -207,6 +207,7 @@ public sealed class ValueConverterTests
     [InlineData("invalid_response")]
     [InlineData("unknown")]
     [InlineData("duplicate_imdb_id")]
+    [InlineData("quota_exhausted")]
     public void EnrichmentFailureCategory_KnownCode_ResolvesSingleton(string code)
     {
         var converter = new EnrichmentFailureCategoryConverter();
@@ -246,6 +247,7 @@ public sealed class ValueConverterTests
         "invalid_response" => EnrichmentFailureCategory.InvalidResponse,
         "unknown" => EnrichmentFailureCategory.Unknown,
         "duplicate_imdb_id" => EnrichmentFailureCategory.DuplicateImdbId,
+        "quota_exhausted" => EnrichmentFailureCategory.QuotaExhausted,
         _ => throw new ArgumentOutOfRangeException(nameof(code), code, null),
     };
 }

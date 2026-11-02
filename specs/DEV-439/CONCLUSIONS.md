@@ -173,3 +173,40 @@ The sole unresolved owner checkbox remains the ticket-mandated Principle IV clos
 - **Zero new constitution departures & zero ticket contradictions**: Provider quota mapping preserves the existing `OmdbMetadataProvider.FetchAsync` catch boundary before `EnrichmentFailureClassifier`, and `EnrichmentRetryPolicy.cs:19-21` is an AC-forced supporting edit under charter §2.3 item 6 (`recon-DEV-439:64-78`, `recon-DEV-439-2:9-23,42-48,71`, `lamuflix-team-charter:18-28`).
 - **Owner Gate 1 checkbox open**: The ticket-mandated Principle IV closed `EnrichmentFailureCategory` list amendment (`.specify/memory/constitution.md:309-314`, v1.8.0 → v1.9.0) remains unchecked at `specs/DEV-439/spec.md:10`; Gate 1 stays closed until owner spec-PR merge (`recon-DEV-439:69,78,101`, `specs/PRODUCT.md:36-39`).
 
+---
+
+## T021 — Verified owner Gate 1 answer and spec-PR merge receipt
+
+Recorded by Keel for Phase B pickup in `F:/Dev/LamuFlix.worktrees/DEV-439`, branch `feature/DEV-439`, picked HEAD `993eeebb3068608e232503aaef84422af8885b32`.
+
+**Verified owner answer: approved [x].** The owner checkbox in the body of [spec PR #301](https://github.com/lamuniercosta/lamuflix/pull/301) is checked for the Principle IV `QuotaExhausted` closed-list amendment, constitution 1.8.0 to 1.9.0. Repository owner `lamuniercosta` merged that PR at `2026-11-02T00:50:57Z`; state `MERGED`; merge commit `6e1ce27b4340a2ec85f38fa5965b5f68303877e7`. Source: Conductor live verification recorded in `recon-DEV-439:91-97`, read back by Keel. Landed-main ancestry and picked identity are recorded at `recon-DEV-439:5-9,18-19`.
+
+This records the actual owner answer and merge receipt required by Q1, FR-008, SC-006 and R7; it introduces no Patron ruling or inferred approval. The unchecked checkbox and provisional/open statuses in the Phase A documents and `recon-DEV-439:86` are historical drafting state, superseded for Gate 1 by this verified receipt. **T021 complete; Gate 1 approved.** T000 pickup analysis follows before implementation clearance.
+
+
+---
+
+## T000 — Phase B pickup and cross-artifact consistency clearance
+
+Performed after recording and reading back T021 above. Picked HEAD and origin/main were confirmed equal at `993eeebb3068608e232503aaef84422af8885b32` on `feature/DEV-439` in `F:/Dev/LamuFlix.worktrees/DEV-439`. Fresh Phase B evidence is the current `recon-DEV-439`, not the historical Phase A recon with the same note name. Its intake-only disclaimer at lines 86-87 is not a clearance; this analysis supplies the required post-T021 clearance using that refreshed evidence, as directed by Conductor.
+
+**Drift disposition:** recon lines 18-26 show zero C# drift from Phase A base `c2d78146b359bd17ab36ecaa9f33342272d47ebf` to picked main, and no web/project/build-contract drift. Constitution and glossary changes are the landed Phase A deliverables. The constitution list citation moved from 309-314 to 330-331 (retry parenthetical 335, version 687); recon lines 47-48 refresh that locator without changing the contract. No implementation task repair is required. The historical unrelated FeaturesConsumerTests diff is absent at this pickup (line 70); preserve unrelated work if encountered later.
+
+**Read-only speckit-analyze result: no unresolved cross-artifact or constitution blocker.** Reviewed frozen brief Q1-Q6/P1-P2, spec requirements/stories/criteria, plan approach/files/tests/gates/order and tasks against the fresh identity and contract map at recon lines 28-71. The standard prerequisite helper could not resolve the tracker-style branch `feature/DEV-439` because it expects a numeric feature prefix; analysis used the explicitly assigned `specs/DEV-439` paths. No before_analyze or after_analyze hook is registered. This helper failure is disclosed, not reported as a passing executable gate.
+
+| Requirement | Task coverage | Picked-head evidence / consistency |
+|---|---|---|
+| FR-001 | T001, T003 | Category code, exact description, retryability and existing values; recon 32,60. |
+| FR-002 | T002-T004 | Known registration, converter and real DB round-trip; recon 33,61,71. |
+| FR-003 | T005-T006, T017 | Exhaustion caught in provider before classifier; 429 stays RateLimited, persistence failure stays ProviderUnavailable; gate/handler unchanged; recon 34,37,42,55,62-63,69. |
+| FR-004 | T007-T008 | QuotaExhausted added beside existing fallback eligibility only; recon 35,53,64. |
+| FR-005 | T009-T011 | Mandatory red RetryDelayed parity, minimal Decide edit, green reproof across both handlers/routing/consumer; shared TTL transport and category header preserved; recon 36,38-41,52,56,65-68. |
+| FR-006 | T003-T004, T006, T008-T011, T017 | Mandatory suites and real-handler/denied-gate/recording-transport composition retained; composed provider zero-transport proof remains to implement, never replaced by handler-only tests; recon 58-71. |
+| FR-007 | Landed Phase A, T012 | Exact glossary wording present; recon 47. |
+| FR-008 | Landed Phase A, T021, T012 | Constitution 1.9.0 list and owner approval receipt verified; recon 48,91-97. |
+| FR-009 | T000, T012 | Frozen edit boundary and unchanged public contracts; recon 24,43,70,73-82. |
+| FR-010 | T000, T013-T020 | Gates, three review axes, explicit exit dispositions and two-round cap preserved. |
+
+SC-001 maps to T006; SC-002 to T006/T017; SC-003 to T008; SC-004 to T009-T011; SC-005 to T003-T004; SC-006 to T021; SC-007 to T013-T020. Coverage: all 10 functional requirements and 7 success criteria have delivery or verification coverage; all 22 task IDs map to requirements or prerequisite evidence. No retained ambiguity, duplication, uncovered requirement or new constitution conflict was identified. Phase A open/draft status prose is historical and is superseded by this receipt and T021 for present pickup state; frozen delivery decisions remain intact.
+
+**T000 complete; Phase B pickup CLEARED at the pinned HEAD.** T021 precedes T000, and T001-T020 may now proceed in the frozen dependency order. This clears pickup only: implementation, runnable gates, Sentry/Ledger/Compass review, hosted checks and merge-bar evidence remain outstanding. No production code was edited and no executable gate pass is claimed.
