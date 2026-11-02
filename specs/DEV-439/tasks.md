@@ -71,8 +71,8 @@ Phase A already drafted glossary (`CONTEXT.md`) and constitution staging; those 
 **Goal**: `QuotaExhausted` is fallback-eligible with `RateLimited`; TMDb success completes.
 **Independent Test**: `MetadataProviderChainTests` (and composition coverage if required).
 
-- [ ] T007 [US3] Edit `src/LamuFlix.Infrastructure/Adapters/ChainedMetadataProvider.cs` `IsEligible` to include `QuotaExhausted` wherever `RateLimited` is eligible; do not newly admit other categories (FR-004; Q3)
-- [ ] T008 [US3] Extend `tests/LamuFlix.UnitTests/Adapters/MetadataProviderChainTests.cs` (and composition tests only if AC requires) proving OMDb `QuotaExhausted` + TMDb success completes, and noneligible categories stay noneligible (FR-006; Q4; SC-003)
+- [x] T007 [US3] Edit `src/LamuFlix.Infrastructure/Adapters/ChainedMetadataProvider.cs` `IsEligible` to include `QuotaExhausted` wherever `RateLimited` is eligible; do not newly admit other categories (FR-004; Q3)
+- [x] T008 [US3] Extend `tests/LamuFlix.UnitTests/Adapters/MetadataProviderChainTests.cs` (and composition tests only if AC requires) proving OMDb `QuotaExhausted` + TMDb success completes, and noneligible categories stay noneligible (FR-006; Q4; SC-003)
 
 ---
 

@@ -221,6 +221,77 @@ public sealed class MetadataProviderChainTests
     }
 
     [Fact]
+    public async Task FindAsync_PrimaryQuotaExhaustedSecondaryFound_ReturnsSecondaryFound()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Failed(EnrichmentFailureCategory.QuotaExhausted));
+        var secondaryResult = new MetadataLookupResult.Found(new MovieMetadata("Secondary"));
+        var secondary = StubMetadataProvider.Returning(secondaryResult);
+        var chain = new ChainedMetadataProvider([primary, secondary]);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBe(secondaryResult);
+        primary.CallCount.ShouldBe(1);
+        secondary.CallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryQuotaExhaustedSecondaryNotFound_ReturnsPrimaryQuotaExhausted()
+    {
+        // arrange
+        var primaryFailure = new MetadataLookupResult.Failed(EnrichmentFailureCategory.QuotaExhausted);
+        var primary = StubMetadataProvider.Returning(primaryFailure);
+        var secondary = StubMetadataProvider.Returning(new MetadataLookupResult.NotFound());
+        var chain = new ChainedMetadataProvider([primary, secondary]);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBe(primaryFailure);
+        primary.CallCount.ShouldBe(1);
+        secondary.CallCount.ShouldBe(1);
+    }
+
+    public static TheoryData<string, EnrichmentFailureCategory> NonEligibleCategories()
+    {
+        var data = new TheoryData<string, EnrichmentFailureCategory>();
+        foreach (var category in new[]
+        {
+            EnrichmentFailureCategory.InvalidResponse,
+            EnrichmentFailureCategory.Unknown,
+            EnrichmentFailureCategory.DuplicateImdbId,
+        })
+        {
+            data.Add(category.Code, category);
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(NonEligibleCategories))]
+    public async Task FindAsync_PrimaryNonEligibleFailure_DoesNotFallBack(string categoryCode, EnrichmentFailureCategory category)
+    {
+        // arrange
+        var primaryFailure = new MetadataLookupResult.Failed(category);
+        var primary = StubMetadataProvider.Returning(primaryFailure);
+        var secondary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(new MovieMetadata("Secondary")));
+        var chain = new ChainedMetadataProvider([primary, secondary]);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBe(primaryFailure, $"noneligible category {categoryCode}");
+        primary.CallCount.ShouldBe(1);
+        secondary.CallCount.ShouldBe(0);
+    }
+
+    [Fact]
     public async Task FindAsync_BothProvidersNotFound_ReturnsNotFound()
     {
         // arrange
@@ -266,6 +337,7 @@ public sealed class MetadataProviderChainTests
 
     private static bool IsEligible(EnrichmentFailureCategory category) =>
         category == EnrichmentFailureCategory.RateLimited
+        || category == EnrichmentFailureCategory.QuotaExhausted
         || category == EnrichmentFailureCategory.ProviderUnavailable;
 
     private static IReadOnlyList<(string Name, Func<MetadataLookupResult> Create)> Outcomes(string foundTitle) =>
