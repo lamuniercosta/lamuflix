@@ -35,5 +35,11 @@ public sealed partial class TmdbMetadataProvider
             Level = LogLevel.Warning,
             Message = "The secondary metadata provider rejected the API key with HTTP 401. Check the TMDb API key configuration.")]
         public static partial void InvalidApiKey(ILogger logger);
+
+        [LoggerMessage(
+            EventId = 6,
+            Level = LogLevel.Warning,
+            Message = "The secondary metadata provider keeps the movie result with one supplemental signal unavailable: {Reason}.")]
+        public static partial void SignalUnavailable(ILogger logger, string reason);
     }
 }

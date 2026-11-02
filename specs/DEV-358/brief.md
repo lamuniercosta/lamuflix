@@ -161,7 +161,7 @@ tests/LamuFlix.UnitTests/Domain/{MovieMetadataSignalTests.cs}
 tests/LamuFlix.UnitTests/Adapters/{MetadataProviderChainTests.cs}
 tests/LamuFlix.UnitTests/Features/Recommendations/{MovieFeaturesTests.cs,MovieFeaturesPropertyTests.cs,MovieFeaturesArbitraries.cs,MovieFeaturesMapperTests.cs,SimilarityScorerTests.cs,SimilarityScorerPropertyTests.cs,SimilarityScorerInvariantPropertyTests.cs,SeedCollectionGrouperTests.cs,SeedCollectionGrouperPropertyTests.cs,GetRecommendationsQueryHandlerTests.cs,GetRecommendationsQueryHandlerPropertyTests.cs,EvaluationReplayPropertyTests.cs}
 tests/LamuFlix.UnitTests/Persistence/{ModelMetadataTests.cs}
-tests/LamuFlix.IntegrationTests/{MetadataProviderTmdbSignalTests.cs,MetadataProviderChainCompositionTests.cs,EfMovieRepositoryTmdbSignalTests.cs,EfMovieRepositoryCollectionTests.cs,EfRecommendationCandidateSourceTests.cs,EfRecommendationProfileSourceTests.cs,ApiEndToEndRecommendationTests.cs,MigrationTests.cs,PersistenceCompositionTests.cs}
+tests/LamuFlix.IntegrationTests/{MetadataProviderTmdbSignalTests.cs,MetadataProviderChainCompositionTests.cs,SecondaryMetadataProviderLookupTests.cs,SecondaryMetadataProviderResilienceTests.cs,MetadataProviderResilienceTests.cs,EfMovieRepositoryTmdbSignalTests.cs,EfMovieRepositoryCollectionTests.cs,EfRecommendationCandidateSourceTests.cs,EfRecommendationProfileSourceTests.cs,ApiEndToEndRecommendationTests.cs,MigrationTests.cs,PersistenceCompositionTests.cs}
 tests/LamuFlix.Evaluation/Fixtures/{EvaluationFixtureLoader.cs,EvaluationCatalogMovie.cs,baseline.tmdb.json,baseline.tmdb.sources.json}
 tests/LamuFlix.Evaluation/Replay/{EvaluationReplayOptions.cs,EvaluationReplay.cs,TmdbSignalReplayTests.cs,ReplayFixtureFactory.cs}
 tests/LamuFlix.Evaluation/Entry/{EvaluationEntry.cs}
@@ -398,3 +398,17 @@ Round 1 repaired R1-R10. Closure read-back identified one residual R7 wording er
 Q6 was compared case-sensitively across brief.md, CONCLUSIONS.md, ASSUMPTIONS.md, spec.md and DRAFTING_RECEIPT.md: six copies across five artifacts, all exactly identical and unticked. Carry the same checkbox onto the spec PR. Patron recommendation is not owner approval; a join-table answer requires the recorded boundary amendment before build.
 
 Earlier repair-pending and not-frozen statements are historical drafting receipts, superseded only by this closure for plan status. The Q6 blocker, build-HEAD recon and all Phase B proof/gate obligations remain active.
+
+---
+
+## Phase B Package 3 — Q11 bounded test manifest correction (2026-11-02)
+
+Patron approves option (a), recorded in `specs/DEV-358/CONCLUSIONS.md:366-371`: extend the Q11 manifest for T009/T010 to these three existing suites only:
+
+- `tests/LamuFlix.IntegrationTests/SecondaryMetadataProviderLookupTests.cs`
+- `tests/LamuFlix.IntegrationTests/SecondaryMetadataProviderResilienceTests.cs`
+- `tests/LamuFlix.IntegrationTests/MetadataProviderResilienceTests.cs`
+
+Only request-count/sequence assertions and embedded WireMock stubs may change, as forced by the approved details/keywords/credits sequence within one logical TMDb invocation. Preserve every existing lookup/resilience behavioral assertion and coverage obligation; no test deletion, skipping, weakened expectation, or production behavior change is authorized by this correction. `MetadataProviderTmdbSignalTests.cs` remains complementary coverage; option (b), superseding the existing suites, is rejected.
+
+Basis: Role §2.3 Care item 6; Q7/Q11 and R4/R5; `spec.md` FR-001/FR-003/FR-014; mandatory `dotnet test` gate. This is a bounded Package 3 test edit-set correction, not a ticket delivery change. Package ordering, checkpoints, gate obligations, and the hard two-round review cap remain unchanged. Anvil may resume Package 3 within this boundary; this ruling does not claim passing tests, package completion, or later-package clearance.

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -50,17 +49,14 @@ public static class MetadataProviderServiceCollectionExtensions
 
         services.AddTransient<IMetadataProvider>(provider =>
         {
-            var chain = new List<IMetadataProvider>
+            var primary = provider.GetRequiredKeyedService<IMetadataProvider>(TelemetryConstants.OmdbProviderName);
+            if (!provider.GetRequiredService<IOptions<TmdbOptions>>().Value.Enabled)
             {
-                provider.GetRequiredKeyedService<IMetadataProvider>(TelemetryConstants.OmdbProviderName),
-            };
-
-            if (provider.GetRequiredService<IOptions<TmdbOptions>>().Value.Enabled)
-            {
-                chain.Add(provider.GetRequiredKeyedService<IMetadataProvider>(TelemetryConstants.TmdbProviderName));
+                return new ChainedMetadataProvider([primary]);
             }
 
-            return new ChainedMetadataProvider(chain);
+            var secondary = provider.GetRequiredKeyedService<IMetadataProvider>(TelemetryConstants.TmdbProviderName);
+            return new ChainedMetadataProvider([primary, secondary], secondary);
         });
 
         services.TryAddSingleton(TimeProvider.System);

@@ -422,7 +422,7 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.Title.ShouldBe("The Matrix");
         probe.RequestCount.ShouldBe(0);
-        secondary.LogEntries.Count().ShouldBe(2);
+        secondary.LogEntries.Count().ShouldBe(4);
         gate.Invocations.ShouldBe(1);
     }
 

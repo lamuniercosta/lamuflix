@@ -208,8 +208,8 @@ public sealed partial class TmdbMetadataProvider(
             return Failure(EnrichmentFailureCategory.InvalidResponse);
         }
 
-        healthState.Record(category: null, wasUnauthorized: false);
-        return new MetadataLookupResult.Found(metadata);
+        var signals = await FetchSignalsAsync(movieId, metadata.CollectionId is not null, ct);
+        return new MetadataLookupResult.Found(metadata.WithSignals(signals));
     }
 
     private MetadataLookupResult? TryRejectDetailsBody(Response body)
@@ -396,6 +396,12 @@ public sealed partial class TmdbMetadataProvider(
         ComposeUri(
             string.Concat("find/", Uri.EscapeDataString(imdbId.Value), QueryKey(), "&external_source=imdb_id"));
 
+    private Uri BuildKeywordsUri(int movieId) =>
+        ComposeUri(string.Concat("movie/", movieId.ToString(CultureInfo.InvariantCulture), "/keywords", QueryKey()));
+
+    private Uri BuildCreditsUri(int movieId) =>
+        ComposeUri(string.Concat("movie/", movieId.ToString(CultureInfo.InvariantCulture), "/credits", QueryKey()));
+
     private Uri ComposeUri(string relativePath) =>
         new(httpClient.BaseAddress ?? throw new InvalidOperationException("TMDB HttpClient BaseAddress is not configured."), relativePath);
 
@@ -410,6 +416,8 @@ public sealed partial class TmdbMetadataProvider(
         Search,
         Details,
         Find,
+        Keywords,
+        Credits,
     }
 
     private abstract record Fetch
