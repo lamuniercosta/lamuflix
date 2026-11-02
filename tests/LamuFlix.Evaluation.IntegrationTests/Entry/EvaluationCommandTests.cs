@@ -324,6 +324,161 @@ public sealed class EvaluationCommandTests
         File.ReadAllBytes(permutedOutput).ShouldBe(File.ReadAllBytes(originalOutput));
     }
 
+    [Fact]
+    public void Help_DocumentsTheTmdbSignalsMode()
+    {
+        // arrange
+        using var directory = new TemporaryDirectory();
+
+        // act
+        var result = EvaluationCommand.Run(directory.FullPath, "-Help");
+
+        // assert
+        result.ExitCode.ShouldBe(0, result.Describe());
+        result.StandardOutput.ShouldContain("-TmdbSignals");
+        result.StandardOutput.ShouldContain("Disabled");
+        result.StandardOutput.ShouldContain("Enabled");
+    }
+
+    [Fact]
+    public void TmdbSignalsUnset_UsesTheDisabledMode()
+    {
+        // arrange
+        using var directory = new TemporaryDirectory();
+        var fixture = WriteSignalModeFixture(directory.Combine("fixture.json"));
+        var output = directory.Combine("summary.json");
+
+        // act
+        var result = EvaluationCommand.Run(
+            directory.FullPath,
+            "-FixturePath",
+            fixture,
+            "-OutputPath",
+            output,
+            "-Seed",
+            DefaultSeed);
+
+        // assert
+        result.ExitCode.ShouldBe(0, result.Describe());
+        var summary = ReadSummary(output);
+        summary.GetProperty("observationCount").GetInt32().ShouldBe(1);
+        summary.GetProperty("hitCount").GetInt32().ShouldBe(1);
+        summary.GetProperty("mrr").GetDouble().ShouldBe(0.5, 1e-12);
+    }
+
+    [Fact]
+    public void ExplicitDisabledMode_MatchesTheDefaultRunByteForByte()
+    {
+        // arrange
+        using var directory = new TemporaryDirectory();
+        var fixture = WriteSignalModeFixture(directory.Combine("fixture.json"));
+        var defaultOutput = directory.Combine("default-summary.json");
+        var disabledOutput = directory.Combine("disabled-summary.json");
+
+        // act
+        var defaultRun = EvaluationCommand.Run(
+            directory.FullPath,
+            "-FixturePath", fixture,
+            "-OutputPath", defaultOutput,
+            "-Seed", DefaultSeed);
+        var disabledRun = EvaluationCommand.Run(
+            directory.FullPath,
+            "-FixturePath", fixture,
+            "-OutputPath", disabledOutput,
+            "-Seed", DefaultSeed,
+            "-TmdbSignals", "Disabled");
+
+        // assert
+        defaultRun.ExitCode.ShouldBe(0, defaultRun.Describe());
+        disabledRun.ExitCode.ShouldBe(0, disabledRun.Describe());
+        File.ReadAllBytes(disabledOutput).ShouldBe(File.ReadAllBytes(defaultOutput));
+    }
+
+    [Fact]
+    public void EnabledMode_ReachesTheReplayAndChangesThePublishedMetrics()
+    {
+        // arrange
+        using var directory = new TemporaryDirectory();
+        var fixture = WriteSignalModeFixture(directory.Combine("fixture.json"));
+        var disabledOutput = directory.Combine("disabled-summary.json");
+        var enabledOutput = directory.Combine("enabled-summary.json");
+
+        // act
+        var disabled = EvaluationCommand.Run(
+            directory.FullPath,
+            "-FixturePath", fixture,
+            "-OutputPath", disabledOutput,
+            "-Seed", DefaultSeed);
+        var enabled = EvaluationCommand.Run(
+            directory.FullPath,
+            "-FixturePath", fixture,
+            "-OutputPath", enabledOutput,
+            "-Seed", DefaultSeed,
+            "-TmdbSignals", "Enabled");
+
+        // assert
+        disabled.ExitCode.ShouldBe(0, disabled.Describe());
+        enabled.ExitCode.ShouldBe(0, enabled.Describe());
+
+        var disabledSummary = ReadSummary(disabledOutput);
+        var enabledSummary = ReadSummary(enabledOutput);
+        enabledSummary.GetProperty("observationCount").GetInt32()
+            .ShouldBe(disabledSummary.GetProperty("observationCount").GetInt32());
+        enabledSummary.GetProperty("hitCount").GetInt32()
+            .ShouldBe(disabledSummary.GetProperty("hitCount").GetInt32());
+        enabledSummary.GetProperty("mrr").GetDouble().ShouldBe(1.0 / 3.0, 1e-12);
+    }
+
+    [Theory]
+    [InlineData("enabled")]
+    [InlineData("On")]
+    [InlineData("1")]
+    public void InvalidTmdbSignals_ExitsNonzeroWithoutPublishing(string mode)
+    {
+        // arrange
+        using var directory = new TemporaryDirectory();
+        var output = directory.Combine("summary.json");
+
+        // act
+        var result = EvaluationCommand.Run(
+            directory.FullPath,
+            "-FixturePath", EvaluationCommand.FixturePath,
+            "-OutputPath", output,
+            "-TmdbSignals", mode);
+
+        // assert
+        result.ExitCode.ShouldNotBe(0, result.Describe());
+        File.Exists(output).ShouldBeFalse();
+    }
+
+    private static string WriteSignalModeFixture(string path)
+    {
+        const string fixture = """
+            {
+              "fixtureId": "dev-358-signal-mode",
+              "ranking": {
+                "lambda": 0.5,
+                "similarityWeights": {
+                  "genres": 3.0,
+                  "keyword": 1.0,
+                  "collection": 2.0
+                }
+              },
+              "catalog": [
+                { "movieId": 1, "features": { "genres": ["Drama"], "keywords": [5001], "collectionId": 201 } },
+                { "movieId": 2, "features": { "genres": ["Comedy"], "keywords": [5001], "collectionId": 201 } },
+                { "movieId": 3, "features": { "genres": ["Comedy"], "keywords": [5002], "collectionId": 202 } }
+              ],
+              "events": [
+                { "eventId": "e1", "userId": "u1", "movieId": 2, "timestamp": "2026-01-01T00:00:00Z" }
+              ]
+            }
+            """;
+
+        File.WriteAllText(path, fixture);
+        return path;
+    }
+
     private static JsonElement ReadSummary(string path)
     {
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));

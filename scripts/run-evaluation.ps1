@@ -7,9 +7,9 @@
 .DESCRIPTION
     The single intentional publication path (DEV-356 Q3/Q7, FR-002). It builds the
     LamuFlix.Evaluation executable, selects the dedicated evaluation entry with an
-    exact runner filter, transports the fixture path, output path, evaluation seed
-    and an explicit evaluation-mode marker through child-scoped environment
-    variables, then restores the caller environment. The child performs fixture
+    exact runner filter, transports the fixture path, output path, evaluation seed,
+    TMDb signals mode and an explicit evaluation-mode marker through child-scoped
+    environment variables, then restores the caller environment. The child performs fixture
     validation, replay and the complete summary write.
 
     Ordinary `dotnet test` execution of the evaluation project never publishes:
@@ -23,6 +23,8 @@ param(
     [string]$FixturePath = '',
     [string]$OutputPath = '',
     [int]$Seed = 356,
+    [ValidateSet('Disabled', 'Enabled')]
+    [string]$TmdbSignals = 'Disabled',
     [switch]$Help
 )
 
@@ -40,6 +42,7 @@ $modeValue = 'publish'
 $fixtureVariable = 'LAMUFLIX_EVALUATION_FIXTURE_PATH'
 $outputVariable = 'LAMUFLIX_EVALUATION_OUTPUT_PATH'
 $seedVariable = 'LAMUFLIX_EVALUATION_SEED'
+$tmdbSignalsVariable = 'LAMUFLIX_EVALUATION_TMDB_SIGNALS'
 
 function Write-Usage {
     Write-Output @"
@@ -54,6 +57,8 @@ OPTIONS:
   -OutputPath <path>    Published summary path. Default, resolved from the
                         repository root: $defaultOutputRelative
   -Seed <int>           Evaluation seed. Default: $defaultSeed
+  -TmdbSignals <mode>   TMDb signal mode for the replay: Disabled or Enabled.
+                        Default: Disabled
   -Help                 Show this help.
 
 Relative paths are resolved against the caller's current location. Exit code 0
@@ -134,6 +139,7 @@ $childEnvironment = [ordered]@{
     $fixtureVariable = $fixtureFullPath
     $outputVariable = $outputFullPath
     $seedVariable = [string]$Seed
+    $tmdbSignalsVariable = $TmdbSignals
 }
 
 $previousEnvironment = @{}

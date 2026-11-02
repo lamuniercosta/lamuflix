@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "dev-356-baseline",
+  "provenance": "offline-q7-contract",
+  "movies": [
+    {
+      "movieId": 1,
+      "tmdbMovieId": 1001,
+      "endpoints": {
+        "details": "/3/movie/1001",
+        "keywords": "/3/movie/1001/keywords",
+        "credits": "/3/movie/1001/credits"
+      },
+      "detailsSha256": "20caf1a985b46228f63363f1f6343d92e3064c6a479b4812787e04a6a0f4fd55",
+      "keywordsSha256": "5fdf70fa1f8ef3617fc72002b81a896e6956a9c34474888d3079287a175af948",
+      "creditsSha256": "96fa765498301282abd9e48ee96cebbcb2a3d0f62afe409d2096f1f8413ac5f1"
+    },
+    {
+      "movieId": 2,
+      "tmdbMovieId": 1002,
+      "endpoints": {
+        "details": "/3/movie/1002",
+        "keywords": "/3/movie/1002/keywords",
+        "credits": "/3/movie/1002/credits"
+      },
+      "detailsSha256": "fd8dce0e32d84ef9f766867518756ecaee7ddbbb6552d28dac7cee8e46695e10",
+      "keywordsSha256": "a80a50b4004ed0c64da1ee5c162f429d371764967c4f0a0df1eb0f72eae0a034",
+      "creditsSha256": "6d2d7b6ba2bf520f368715e2ed051710bf51037f9b656996ab7fc127785f333b"
+    },
+    {
+      "movieId": 3,
+      "tmdbMovieId": 1003,
+      "endpoints": {
+        "details": "/3/movie/1003",
+        "keywords": "/3/movie/1003/keywords",
+        "credits": "/3/movie/1003/credits"
+      },
+      "detailsSha256": "95539698c5061dc11575ae6dd1bb996e72ce120e76b5824433842b63cbf64d63",
+      "keywordsSha256": "09347d33a55a580aca0ae84ea592a991fcdc0846dfea0a834383b8395910209f",
+      "creditsSha256": "c121fb4126d10e612f14c3feb5607bf3e9b23231d3bebcaabea626d36ec5ccc5"
+    },
+    {
+      "movieId": 4,
+      "tmdbMovieId": 1004,
+      "endpoints": {
+        "details": "/3/movie/1004",
+        "keywords": "/3/movie/1004/keywords",
+        "credits": "/3/movie/1004/credits"
+      },
+      "detailsSha256": "3ec936624384439ca0dd240a609d1dc6ef0ecf3c2393fdd1d3622ca9f2754a5c",
+      "keywordsSha256": "f866d9785a4c4970994651eddefb1fa26a8a1267708fc284f7d2edcf6b18194f",
+      "creditsSha256": "238ef7420ab8f3bd8e148bfa5fad0de47653b395708942ac37eba8a072d31e1c"
+    },
+    {
+      "movieId": 5,
+      "tmdbMovieId": 1005,
+      "endpoints": {
+        "details": "/3/movie/1005",
+        "keywords": "/3/movie/1005/keywords",
+        "credits": "/3/movie/1005/credits"
+      },
+      "detailsSha256": "6c75c8832f96d03502d2b6b142b5e9542ae46d141db6efd07a6f96caa086fdfe",
+      "keywordsSha256": "4244e54901ecc722075a013604c70f79bf706519f1095e5318a2a3a1381c59ac",
+      "creditsSha256": "3f2d8bf117fdf6ff5d130fbf70b5507957c2cfb7e20ca4bcbd35bdd55d624718"
+    },
+    {
+      "movieId": 6,
+      "tmdbMovieId": 1006,
+      "endpoints": {
+        "details": "/3/movie/1006",
+        "keywords": "/3/movie/1006/keywords",
+        "credits": "/3/movie/1006/credits"
+      },
+      "detailsSha256": "d04887c93396f112fb11dd4313b266e1564367324921aab6048d407d19cf26b0",
+      "keywordsSha256": "642d8c03cb643f7f5918534d9ed19900792094e45c66e843b9ba682a1135c59b",
+      "creditsSha256": "067bad5bfd8c86d20031ceed5f2246500f01049b0b320e94a81334b7aef69ad2"
+    },
+    {
+      "movieId": 7,
+      "tmdbMovieId": 1007,
+      "endpoints": {
+        "details": "/3/movie/1007",
+        "keywords": "/3/movie/1007/keywords",
+        "credits": "/3/movie/1007/credits"
+      },
+      "detailsSha256": "fb690c36bbe63a23f0db620a16700c43a3be8fe08a0e7d735761d660371958a1",
+      "keywordsSha256": "035217fb8b2a5f3539ece683c45c9083fbfc042a060f48c42839adfad7614260",
+      "creditsSha256": "47357fb799f2b5f804fe9419139063ecb017cb13493ee56305672a2365ff949a"
+    },
+    {
+      "movieId": 8,
+      "tmdbMovieId": 1008,
+      "endpoints": {
+        "details": "/3/movie/1008",
+        "keywords": "/3/movie/1008/keywords",
+        "credits": "/3/movie/1008/credits"
+      },
+      "detailsSha256": "bfdf20f3b80e79e5ec4e882b68215a71a241700899a1b9855a28ee49ac1cb260",
+      "keywordsSha256": "b45b1fd5ec6f52fcd489e1530d2fe7804e34540b6db49fbbde6a22da087970d0",
+      "creditsSha256": "05818f1638ff6977d3a704c1ec7e5421f4d9480e0e187fdc71a7868af686cfe3"
+    },
+    {
+      "movieId": 9,
+      "tmdbMovieId": 1009,
+      "endpoints": {
+        "details": "/3/movie/1009",
+        "keywords": "/3/movie/1009/keywords",
+        "credits": "/3/movie/1009/credits"
+      },
+      "detailsSha256": "9d4ec95cf776f6e7c60c04a0febbd63ded9d8855f2761f5488237d8727817c9f",
+      "keywordsSha256": "86b3fb4b4920177247934df335f0a4753c0142564796ae8d6d0c8071dc4f88bb",
+      "creditsSha256": "8624bcf72c71033700090a4f2e9848c2c280f953ab1f5e660251dc001eff84b4"
+    },
+    {
+      "movieId": 10,
+      "tmdbMovieId": 1010,
+      "endpoints": {
+        "details": "/3/movie/1010",
+        "keywords": "/3/movie/1010/keywords",
+        "credits": "/3/movie/1010/credits"
+      },
+      "detailsSha256": "75f53d2c844a7ff4dc7a453af42526c7d7d555178ce943b3c988bca6109c79a6",
+      "keywordsSha256": "f7979125dd77891a1770a79f11b2ddd461fdd1c02517040e012cec5d5d8d4b9c",
+      "creditsSha256": "5aeb0c3d4bb6a6559eff5e7f65b1ea064d732a3e3c493ceeda3fba77564e050a"
+    },
+    {
+      "movieId": 11,
+      "tmdbMovieId": 1011,
+      "endpoints": {
+        "details": "/3/movie/1011",
+        "keywords": "/3/movie/1011/keywords",
+        "credits": "/3/movie/1011/credits"
+      },
+      "detailsSha256": "ed5658662d12a15bdf1e4d4388700681c054af5731e2e01b4b9d447e3c4116fc",
+      "keywordsSha256": "61c8566821253fdedc1342112a730189e0a5fa72b292f1350a3dedb0a160dc6e",
+      "creditsSha256": "226c3a805ee4670874e10df5d31d1ca2cb7b79ef7394f9cc7e35dbb2e652eaf2"
+    },
+    {
+      "movieId": 12,
+      "tmdbMovieId": 1012,
+      "endpoints": {
+        "details": "/3/movie/1012",
+        "keywords": "/3/movie/1012/keywords",
+        "credits": "/3/movie/1012/credits"
+      },
+      "detailsSha256": "cba99f8b9b7d65e8d9bf1df64dc827cea6f1c61b997a2be833d1c774ae63b51e",
+      "keywordsSha256": "3718fc2293ac7f0e00bef3c2d7ae444b52ca666d39e13c120da04c328917edab",
+      "creditsSha256": "041948841eb99a201f282f73393e88a889c8a306af994ae5ce6a82782cbc82f4"
+    }
+  ]
+}
