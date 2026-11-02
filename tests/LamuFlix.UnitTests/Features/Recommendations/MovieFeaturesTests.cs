@@ -27,6 +27,8 @@ public sealed class MovieFeaturesTests
         features.ImdbRating.ShouldBeNull();
         features.MetaScore.ShouldBeNull();
         features.FullPlot.ShouldBeNull();
+        features.Keywords.ShouldBeEmpty();
+        features.CollectionId.ShouldBeNull();
     }
 
     [Fact]
@@ -47,6 +49,8 @@ public sealed class MovieFeaturesTests
         features.ImdbRating.ShouldBeNull();
         features.MetaScore.ShouldBeNull();
         features.FullPlot.ShouldBeNull();
+        features.Keywords.ShouldBeEmpty();
+        features.CollectionId.ShouldBeNull();
     }
 
     [Fact]
@@ -203,11 +207,15 @@ public sealed class MovieFeaturesTests
             typeof(ImdbRating),
             typeof(int?),
             typeof(string),
+            typeof(IEnumerable<int>),
+            typeof(int?),
         ]);
         typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Genres)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
         typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Directors)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
         typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Writers)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
         typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Cast)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<string>));
+        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.Keywords)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(ImmutableHashSet<int>));
+        typeof(MovieFeatures).GetProperty(nameof(MovieFeatures.CollectionId)).ShouldNotBeNull().PropertyType.ShouldBe(typeof(int?));
     }
 
     [Fact]
@@ -288,7 +296,9 @@ public sealed class MovieFeaturesTests
             runtime: new Runtime(116),
             imdbRating: new ImdbRating(8.0m),
             metaScore: 94,
-            fullPlot: "A linguist works with the military.");
+            fullPlot: "A linguist works with the military.",
+            keywords: new[] { 2, 1 },
+            collectionId: 600);
 
         // act & assert
         left.ShouldBe(right);
@@ -379,7 +389,9 @@ public sealed class MovieFeaturesTests
     [InlineData(nameof(MovieFeatures.ImdbRating))]
     [InlineData(nameof(MovieFeatures.MetaScore))]
     [InlineData(nameof(MovieFeatures.FullPlot))]
-    public void Equality_EachOfNineFieldsChanged_AreNotEqual(string changedField)
+    [InlineData(nameof(MovieFeatures.Keywords))]
+    [InlineData(nameof(MovieFeatures.CollectionId))]
+    public void Equality_EachOfElevenFieldsChanged_AreNotEqual(string changedField)
     {
         // arrange
         var baseline = CreateBaseline();
@@ -431,6 +443,79 @@ public sealed class MovieFeaturesTests
         upper.ShouldNotBe(lower);
     }
 
+    [Fact]
+    public void Constructor_KeywordSourceMutatedAfterConstruction_DoesNotChangeSet()
+    {
+        // arrange
+        var keywords = new List<int> { 1 };
+
+        // act
+        var features = new MovieFeatures(keywords: keywords);
+        keywords.Add(2);
+
+        // assert
+        features.Keywords.Count.ShouldBe(1);
+        features.Keywords.ShouldContain(1);
+        features.Keywords.ShouldNotContain(2);
+    }
+
+    [Fact]
+    public void Constructor_RepeatedKeywords_CollapseToSingleMember()
+    {
+        // act
+        var features = new MovieFeatures(keywords: new[] { 3, 1, 3, 1 });
+
+        // assert
+        features.Keywords.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void Constructor_PositiveCollectionId_IsPreserved()
+    {
+        // act
+        var features = new MovieFeatures(collectionId: 2344);
+
+        // assert
+        features.CollectionId.ShouldBe(2344);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-7)]
+    public void Constructor_NonPositiveCollectionId_ThrowsArgumentOutOfRangeException(int collectionId)
+    {
+        // act
+        var thrown = Should.Throw<ArgumentOutOfRangeException>(() => new MovieFeatures(collectionId: collectionId));
+
+        // assert
+        thrown.ParamName.ShouldBe("collectionId");
+    }
+
+    [Fact]
+    public void Equality_EquivalentKeywordSetsInDifferentOrder_AreEqualWithEqualHash()
+    {
+        // arrange
+        var left = new MovieFeatures(keywords: new[] { 1, 2, 3 }, collectionId: 10);
+        var right = new MovieFeatures(keywords: new[] { 3, 1, 2 }, collectionId: 10);
+
+        // act & assert
+        left.ShouldBe(right);
+        right.ShouldBe(left);
+        left.GetHashCode().ShouldBe(right.GetHashCode());
+    }
+
+    [Fact]
+    public void Equality_DifferingCollectionId_IsUnequal()
+    {
+        // arrange
+        var without = new MovieFeatures();
+        var with = new MovieFeatures(collectionId: 10);
+
+        // act & assert
+        without.ShouldNotBe(with);
+        with.ShouldNotBe(without);
+    }
+
     private static MovieFeatures CreateBaseline() =>
         new(
             genres: new[] { "Drama", "Sci-Fi" },
@@ -441,7 +526,9 @@ public sealed class MovieFeaturesTests
             runtime: new Runtime(116),
             imdbRating: new ImdbRating(8.0m),
             metaScore: 94,
-            fullPlot: "A linguist works with the military.");
+            fullPlot: "A linguist works with the military.",
+            keywords: new[] { 1, 2 },
+            collectionId: 600);
 
     private static MovieFeatures ChangeField(MovieFeatures baseline, string field) =>
         field switch
@@ -455,6 +542,8 @@ public sealed class MovieFeaturesTests
             nameof(MovieFeatures.ImdbRating) => Copy(baseline, imdbRating: new ImdbRating(8.1m)),
             nameof(MovieFeatures.MetaScore) => Copy(baseline, metaScore: 95),
             nameof(MovieFeatures.FullPlot) => Copy(baseline, fullPlot: "Another plot."),
+            nameof(MovieFeatures.Keywords) => Copy(baseline, keywords: new[] { 9 }),
+            nameof(MovieFeatures.CollectionId) => Copy(baseline, collectionId: 601),
             _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown field."),
         };
 
@@ -476,7 +565,9 @@ public sealed class MovieFeaturesTests
         Runtime? runtime = null,
         ImdbRating? imdbRating = null,
         int? metaScore = null,
-        string? fullPlot = null) =>
+        string? fullPlot = null,
+        IEnumerable<int>? keywords = null,
+        int? collectionId = null) =>
         new(
             genres ?? baseline.Genres,
             directors ?? baseline.Directors,
@@ -486,5 +577,7 @@ public sealed class MovieFeaturesTests
             runtime ?? baseline.Runtime,
             imdbRating ?? baseline.ImdbRating,
             metaScore ?? baseline.MetaScore,
-            fullPlot ?? baseline.FullPlot);
+            fullPlot ?? baseline.FullPlot,
+            keywords ?? baseline.Keywords,
+            collectionId ?? baseline.CollectionId);
 }

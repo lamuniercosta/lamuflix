@@ -22,7 +22,8 @@ public sealed record MovieMetadata
         IEnumerable<string>? genres = null,
         IEnumerable<string>? writers = null,
         int? collectionId = null,
-        string? collectionName = null)
+        string? collectionName = null,
+        MovieSignalSnapshot? signals = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -46,6 +47,7 @@ public sealed record MovieMetadata
         Writers = FreezeStrings(writers);
         CollectionId = collectionId;
         CollectionName = collectionName;
+        Signals = signals;
     }
 
     private static void ValidateCollection(int? collectionId, string? collectionName)
@@ -120,6 +122,8 @@ public sealed record MovieMetadata
 
     public string? CollectionName { get; }
 
+    public MovieSignalSnapshot? Signals { get; }
+
     public bool Equals(MovieMetadata? other) =>
         other is not null
         && SameScalars(this, other)
@@ -144,7 +148,8 @@ public sealed record MovieMetadata
         left.Directors.SequenceEqual(right.Directors)
         && left.Actors.SequenceEqual(right.Actors)
         && left.Genres.SequenceEqual(right.Genres)
-        && left.Writers.SequenceEqual(right.Writers);
+        && left.Writers.SequenceEqual(right.Writers)
+        && Equals(left.Signals, right.Signals);
 
     private static bool SameCollectionIdentity(MovieMetadata left, MovieMetadata right) =>
         left.CollectionId == right.CollectionId
@@ -164,6 +169,7 @@ public sealed record MovieMetadata
         hash.Add(MetaScore);
         hash.Add(CollectionId);
         hash.Add(CollectionName);
+        hash.Add(Signals);
         foreach (var director in Directors)
         {
             hash.Add(director);
