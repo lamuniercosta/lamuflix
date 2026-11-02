@@ -122,6 +122,7 @@ public sealed class RabbitMqFixture : IAsyncLifetime
         await channel.QueueDeleteAsync(RabbitMqTopology.RequestedQueue, cancellationToken: cancellationToken);
         await channel.QueueDeleteAsync(RabbitMqTopology.RetryQueue, cancellationToken: cancellationToken);
         await channel.QueueDeleteAsync(RabbitMqTopology.DeadLetterQueue, cancellationToken: cancellationToken);
+        await channel.QueueDeleteAsync(RabbitMqTopology.QuotaDeferredQueue, cancellationToken: cancellationToken);
         await channel.QueueDeleteAsync(RabbitMqTopology.FeaturesRequestedQueue, cancellationToken: cancellationToken);
         await channel.QueueDeleteAsync(RabbitMqTopology.FeaturesRetryQueue, cancellationToken: cancellationToken);
         await channel.QueueDeleteAsync(RabbitMqTopology.FeaturesDeadLetterQueue, cancellationToken: cancellationToken);

@@ -50,6 +50,9 @@ public sealed class Movie
 
     public DateTimeOffset? LastAttemptAt { get; private set; }
 
+    /// <summary>The UTC instant before which quota-deferred enrichment must not be claimed again.</summary>
+    public DateTimeOffset? EnrichmentDeferredUntil { get; private set; }
+
     /// <summary>An IMDb id supplied by the user when automatic matching cannot find the movie; used instead of title search.</summary>
     public ImdbId? ManualImdbId { get; private set; }
 
@@ -79,7 +82,8 @@ public sealed class Movie
         ReleaseYear? parsedReleaseYear = null,
         ImdbId? manualImdbId = null,
         bool isWatched = false,
-        bool isNotInterested = false)
+        bool isNotInterested = false,
+        DateTimeOffset? enrichmentDeferredUntil = null)
     {
         RequireTitle(title);
         return new Movie(id, title, path, format, parsedReleaseYear)
@@ -94,6 +98,7 @@ public sealed class Movie
             LastFailureCategory = lastFailureCategory,
             LastAttemptAt = lastAttemptAt,
             ManualImdbId = manualImdbId,
+            EnrichmentDeferredUntil = enrichmentDeferredUntil,
         };
     }
 
@@ -117,6 +122,12 @@ public sealed class Movie
         BeginPendingAttempt(nameof(MarkFailed), now);
         LastFailureCategory = category;
         Status = EnrichmentStatus.Failed;
+    }
+
+    public void DeferEnrichmentUntil(DateTimeOffset until)
+    {
+        RequirePending(nameof(DeferEnrichmentUntil));
+        EnrichmentDeferredUntil = until;
     }
 
     public void RequestEnrichment()

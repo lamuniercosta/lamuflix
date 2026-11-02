@@ -1,3 +1,4 @@
+using System;
 using LamuFlix.Core.Domain;
 
 namespace LamuFlix.Core.Features.Enrichment;
@@ -15,5 +16,9 @@ public abstract record ProcessEnrichmentOutcome
 
     // ReSharper disable NotAccessedPositionalProperty.Global
     public sealed record Failed(EnrichmentFailureDecision Decision, EnrichmentFailureCategory Category) : ProcessEnrichmentOutcome;
+    // ReSharper restore NotAccessedPositionalProperty.Global
+
+    // ReSharper disable once NotAccessedPositionalProperty.Global
+    public sealed record QuotaDeferred(DateTimeOffset DeferredUntil) : ProcessEnrichmentOutcome;
     // ReSharper restore NotAccessedPositionalProperty.Global
 }

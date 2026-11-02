@@ -44,6 +44,18 @@ _Avoid_: error type, raw exception
 QuotaExhausted is an enrichment failure caused by denial of admission under the local OMDb daily request quota; it is distinct from provider HTTP 429 and does not itself imply deferral.
 _Avoid_: RateLimited (for local quota admission denial), next-day deferral (as implied by this category alone)
 
+**QuotaDeferred**
+The settlement outcome for a movie whose metadata lookup stopped on provider quota exhaustion: it stays Pending, keeps its attempt, and is re-dispatched at `EnrichmentDeferredUntil`. It is not a failure and never enters retry.
+_Avoid_: quota failure, quota retry, paused import
+
+**EnrichmentDeferredUntil**
+The persisted next-UTC-midnight instant (from the injected TimeProvider) before which a QuotaDeferred movie must not be claimed, swept, or dispatched.
+_Avoid_: retry-after, next retry time, pause timestamp
+
+**quota-deferred** (routing)
+The routing action and durable queue (`enrichment.quota-deferred`) carrying the same-attempt `EnrichmentRequested` until `EnrichmentDeferredUntil`, when it dead-letters into requested.
+_Avoid_: retry queue, delayed retry
+
 **Metadata Provider**
 _Avoid_: hardcoding OMDb in Core names
 

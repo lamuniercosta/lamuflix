@@ -9,6 +9,7 @@ public static class EnrichmentRouting
     public const string Ack = "ack";
     public const string Requeue = "requeue";
     public const string DeadLetter = "dead-letter";
+    public const string QuotaDeferred = "quota-deferred";
     public const string FeaturesRequestedRoutingKey = "features.requested";
     public const string FeaturesRetryRoutingKey = "features.retry";
     public const string FeaturesDeadLetterRoutingKey = "features.dead-letter";
@@ -18,6 +19,11 @@ public static class EnrichmentRouting
         {
             ProcessEnrichmentOutcome.Completed => new Disposition(Ack, RabbitMqTopology.RequestedRoutingKey, null),
             ProcessEnrichmentOutcome.Failed failed => From(failed.Decision),
+            ProcessEnrichmentOutcome.QuotaDeferred deferred => new Disposition(
+                QuotaDeferred,
+                RabbitMqTopology.QuotaDeferredRoutingKey,
+                null,
+                deferred.DeferredUntil),
             _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Unknown enrichment outcome."),
         };
 
@@ -32,5 +38,9 @@ public static class EnrichmentRouting
     private static Disposition Retry(EnrichmentFailureDecision decision) =>
         new(RabbitMqTopology.RetryRoutingKey, RabbitMqTopology.RetryRoutingKey, decision.NextAttempt);
 
-    public sealed record Disposition(string Action, string RoutingKey, int? NextAttempt);
+    public sealed record Disposition(
+        string Action,
+        string RoutingKey,
+        int? NextAttempt,
+        DateTimeOffset? DeferredUntil = null);
 }

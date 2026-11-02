@@ -62,14 +62,21 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         EnrichmentRequested message,
         string routingKey,
         IReadOnlyDictionary<string, object?> additionalHeaders,
-        CancellationToken ct)
+        CancellationToken ct,
+        int? expirationMilliseconds = null)
     {
         ArgumentNullException.ThrowIfNull(message);
         ArgumentException.ThrowIfNullOrEmpty(routingKey);
         ArgumentNullException.ThrowIfNull(additionalHeaders);
         EnsureUsableHeaders(additionalHeaders);
 
-        await PublishCoreAsync(message.MovieId, routingKey, Serialize(message), additionalHeaders, ct);
+        await PublishCoreAsync(
+            message.MovieId,
+            routingKey,
+            Serialize(message),
+            additionalHeaders,
+            ct,
+            expirationMilliseconds);
     }
 
     public Task PublishRawAsync(
@@ -90,7 +97,8 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         string routingKey,
         ReadOnlyMemory<byte> body,
         IReadOnlyDictionary<string, object?> additionalHeaders,
-        CancellationToken ct)
+        CancellationToken ct,
+        int? expirationMilliseconds = null)
     {
         await topology.EnsureDeclaredAsync(ct);
 
@@ -110,7 +118,12 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
             headers[key] = value;
         }
 
-        var properties = new BasicProperties { Persistent = true, Headers = headers };
+        var properties = new BasicProperties
+        {
+            Persistent = true,
+            Headers = headers,
+            Expiration = expirationMilliseconds?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        };
 
         var connection = await owner.GetAsync(ct);
         await using var channel = await connection.CreateChannelAsync(

@@ -90,7 +90,6 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         {
             EnrichmentFailureCategory.ProviderUnavailable,
             EnrichmentFailureCategory.RateLimited,
-            EnrichmentFailureCategory.QuotaExhausted,
         };
 
     [Theory]
@@ -314,12 +313,6 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
                 EnrichmentFailureCategory.ProviderUnavailable,
                 SmallMaxAttempts + 1,
                 "provider_unavailable",
-                "max_attempts_exhausted"
-            },
-            {
-                EnrichmentFailureCategory.QuotaExhausted,
-                SmallMaxAttempts,
-                "quota_exhausted",
                 "max_attempts_exhausted"
             },
         };
@@ -1452,7 +1445,8 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
             Options.Create(thumbnailOptions ?? new ThumbnailOptions()),
             thumbnailPublisher,
             logger ?? NullLogger<EnrichmentConsumer>.Instance,
-            liveness ?? NoOpLiveness.Instance);
+            liveness ?? NoOpLiveness.Instance,
+            clock);
         return new ConsumerHost(owner, topology, publisher, repository, provider, clock, consumer, built);
     }
 

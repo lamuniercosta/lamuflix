@@ -17,9 +17,11 @@ public sealed class RabbitMqTopology(
     public const string RequestedQueue = "enrichment.requested";
     public const string RetryQueue = "enrichment.retry";
     public const string DeadLetterQueue = "enrichment.dead-letter";
+    public const string QuotaDeferredQueue = "enrichment.quota-deferred";
     public const string RequestedRoutingKey = "requested";
     public const string RetryRoutingKey = "retry";
     public const string DeadLetterRoutingKey = "dead-letter";
+    public const string QuotaDeferredRoutingKey = "quota-deferred";
     public const string FeaturesRequestedQueue = "features.requested";
     public const string FeaturesRetryQueue = "features.retry";
     public const string FeaturesDeadLetterQueue = "features.dead-letter";
@@ -82,6 +84,16 @@ public sealed class RabbitMqTopology(
             ["x-overflow"] = OverflowRejectPublish,
         };
 
+    public static IDictionary<string, object?> QuotaDeferredArguments() =>
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            [QueueTypeArgument] = QuorumQueueType,
+            ["x-dead-letter-exchange"] = ExchangeName,
+            ["x-dead-letter-routing-key"] = RequestedRoutingKey,
+            ["x-dead-letter-strategy"] = DeadLetterStrategyAtLeastOnce,
+            ["x-overflow"] = OverflowRejectPublish,
+        };
+
     public static IDictionary<string, object?> FeaturesRequestedArguments(int maxAttempts) =>
         WithDeadLetterRoutingKey(RequestedArguments(maxAttempts), EnrichmentRouting.FeaturesDeadLetterRoutingKey);
 
@@ -129,6 +141,7 @@ public sealed class RabbitMqTopology(
         await DeclareQueueAsync(channel, RequestedQueue, RequestedArguments(enrichment.Value.MaxAttempts), cancellationToken);
         await DeclareQueueAsync(channel, RetryQueue, RetryArguments(RetryDelayMilliseconds(rabbitMq.Value)), cancellationToken);
         await DeclareQueueAsync(channel, DeadLetterQueue, DeadLetterArguments(), cancellationToken);
+        await DeclareQueueAsync(channel, QuotaDeferredQueue, QuotaDeferredArguments(), cancellationToken);
         await DeclareQueueAsync(
             channel,
             FeaturesRequestedQueue,
@@ -146,6 +159,11 @@ public sealed class RabbitMqTopology(
         await channel.QueueBindAsync(RequestedQueue, ExchangeName, RequestedRoutingKey, cancellationToken: cancellationToken);
         await channel.QueueBindAsync(RetryQueue, ExchangeName, RetryRoutingKey, cancellationToken: cancellationToken);
         await channel.QueueBindAsync(DeadLetterQueue, ExchangeName, DeadLetterRoutingKey, cancellationToken: cancellationToken);
+        await channel.QueueBindAsync(
+            QuotaDeferredQueue,
+            ExchangeName,
+            QuotaDeferredRoutingKey,
+            cancellationToken: cancellationToken);
         await channel.QueueBindAsync(
             FeaturesRequestedQueue,
             ExchangeName,

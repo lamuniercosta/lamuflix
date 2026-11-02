@@ -58,7 +58,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "last_attempt_at",
         "parsed_release_year",
         "manual_imdb_id",
-        "collection_id"
+        "collection_id",
+        "enrichment_deferred_until"
     ];
 
     private static readonly Regex SnakeCase = new(
@@ -87,7 +88,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(12);
+        migrations.Length.ShouldBe(13);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -100,6 +101,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         migrations[9].ShouldEndWith("_AddMovieCollections");
         migrations[10].ShouldEndWith("_AddOmdbDailyUsage");
         migrations[11].ShouldEndWith("_AddTmdbRecommendationSignals");
+        migrations[12].ShouldEndWith("_AddEnrichmentDeferredUntil");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -134,7 +136,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddTmdbRecommendationSignals");
+        applied[^1].ShouldEndWith("_AddEnrichmentDeferredUntil");
         var rows = await context.Movies.AsNoTracking()
             .OrderBy(movie => movie.Title)
             .ToListAsync(cancellationToken);
@@ -200,7 +202,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         applied[1].ShouldEndWith("_AddMovieWriters");
         var priorColumns = await catalog.ListColumnsAsync("movies", cancellationToken);
         priorColumns.ShouldBe(
-            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id"),
+            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id" and not "enrichment_deferred_until"),
             ignoreOrder: true);
         priorColumns.ShouldNotContain("is_watched");
         priorColumns.ShouldNotContain("is_not_interested");
@@ -228,7 +230,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddTmdbRecommendationSignals");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddEnrichmentDeferredUntil");
     }
 
     [Fact]

@@ -27,7 +27,8 @@ public sealed class EnrichmentConsumer(
     IOptions<ThumbnailOptions> thumbnailOptions,
     RabbitMqThumbnailQueuePublisher thumbnailPublisher,
     ILogger<EnrichmentConsumer> logger,
-    IWorkerLiveness liveness) : BackgroundService
+    IWorkerLiveness liveness,
+    TimeProvider time) : BackgroundService
 {
     private const string FailureCategoryHeader = "x-lamuflix-failure-category";
     private const string FailureReasonHeader = "x-lamuflix-failure-reason";
@@ -267,8 +268,24 @@ public sealed class EnrichmentConsumer(
                       && outcome is ProcessEnrichmentOutcome.Failed failed
             ? FailureHeaders(failed, request)
             : NoHeaders;
-        await publisher.PublishAsync(next, disposition.RoutingKey, headers, CancellationToken.None);
+        var expiration = outcome is ProcessEnrichmentOutcome.QuotaDeferred deferred
+            ? QuotaDeferredExpiration(deferred.DeferredUntil)
+            : (int?)null;
+        await publisher.PublishAsync(
+            next,
+            disposition.RoutingKey,
+            headers,
+            CancellationToken.None,
+            expiration);
         await AckAsync(consumerChannel, delivery);
+    }
+
+    private int QuotaDeferredExpiration(DateTimeOffset deferredUntil)
+    {
+        var remaining = deferredUntil - time.GetUtcNow();
+        return remaining <= TimeSpan.Zero
+            ? 0
+            : checked((int)remaining.TotalMilliseconds);
     }
 
     private async Task PublishThumbnailAsync(
