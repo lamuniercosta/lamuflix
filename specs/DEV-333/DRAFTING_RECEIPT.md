@@ -242,3 +242,54 @@ Saved: `tasks.md` T005/T009/T017; `spec.md` US2 AS4–AS5 + US3 Why/AS2; `plan.m
 - `specs/DEV-333/DRAFTING_RECEIPT.md`
 - `specs/DEV-333/spec.md` (proof pointer only)
 - `specs/DEV-333/plan.md` (proof pointer only)
+
+---
+
+## Numbered correction receipt — Phase 1 T001 pickup synchronization (2026-11-02)
+
+**Seat**: Quill
+**Ask**: Keel DEV-333 T001 pickup correction list, one synchronization round
+**Authority**: Patron ruling `CONCLUSIONS.md:558-564` (commit `49d222ed`); brief pickup reconciliation already saved by Keel; facts `recon-DEV-333-2`
+**Worktree**: `F:/Dev/LamuFlix.worktrees/DEV-333` | **Branch**: `feature/DEV-333`
+**Owned edits**: `specs/DEV-333/spec.md`, `plan.md`, `tasks.md`, this appended receipt
+**Preserved**: `brief.md` (Keel-owned pickup section), `CONCLUSIONS.md` historical + Patron ruling, `PLAN_CHALLENGE.md`, ADR, CONTEXT, production
+**Not claimed**: T001 checkmark; DEV-333 Gate 1; production authorization; new plan-challenge round or cap reset; tests/gates
+
+### Item 1 — prerequisite ownership / landing attribution
+
+**Disposition**: Applied. Replaced obsolete "DEV-426 owns QuotaExhausted / must still be amended / unlanded at fee5c7a8" claims with landed split: DEV-426 owns gate/counter/ADR-0031 Accepted; DEV-439 owns category/converter/provider mapping/chain fallback/glossary/constitution 1.9.0 (Gate 1 receipt `specs/DEV-439/CONCLUSIONS.md:182-184`). Preserved distinct DEV-333 Gate 1 evidence requirement; no invented approval.
+
+**Evidence**: `spec.md:37,83,118,134,138,162,168`; `plan.md:7,14,19,26,47,55,57,61,69,72,84,161,167`; `tasks.md:7,11,13,21,23,25,40,41,85,94,134`.
+
+### Item 2 — temporal qualification of no-retry / no-persistence
+
+**Disposition**: Applied. `spec.md:37` and related language now govern chain-final settlement once T022 intercepts before ordinary retry/MarkFailed (Pending, deadline, same attempt, no failure write). DEV-439 interim EnrichmentRetryPolicy arm remains unchanged; no provider/chain rewrite or historical cleanup. T016 adds chain-final at ordinary retry limit proof. Non-final successful fallback zero deferral and HTTP429 unchanged.
+
+**Evidence**: `spec.md:37,83,134`; `plan.md:69,161`; `tasks.md:85,94`.
+
+### Item 3 — two-layer provider notation
+
+**Disposition**: Applied. Recorded internal `Fetch.Rejected(QuotaFailure(EnrichmentFailureCategory.QuotaExhausted))` unwraps to public `MetadataLookupResult.Failed(EnrichmentFailureCategory.QuotaExhausted)`. Notation-only; no production edit authorized.
+
+**Evidence**: `spec.md:37`; `plan.md:161`; `tasks.md:25`.
+
+### Item 4 — constitution 1.9.0 baseline, MigrationTests, drift, stale line refs
+
+**Disposition**: Applied. Planning baseline rebased to constitution Version 1.9.0; preserve existing inventories; ADR-0032 remains Proposed until applicable evidence. Named `MigrationTests.cs` under plan Structure + T018 (12 to 13 migrations; append tooling-generated AddEnrichmentDeferredUntil suffix; add enrichment_deferred_until to NullableMoviesColumns). Removed stale claim/stranded `:677`/`:697` without inventing current lines. Preserved collections/thumbnail/signals/RabbitMQ drift pointer `recon-DEV-333-2:54-77`.
+
+**Evidence**: `plan.md:55,72,153,157`; `tasks.md:41,87`.
+
+### Item 5 — process bounds
+
+**Disposition**: Applied by omission. T001 left unchecked (`tasks.md:25`). No production writes. No new plan-challenge round or cap reset. No tests/gates claimed. Historical CONCLUSIONS and prior DRAFTING_RECEIPT sections preserved.
+
+### needs decision
+
+None from this synchronization round.
+
+### Saved artifacts (exact paths)
+
+- `F:/Dev/LamuFlix.worktrees/DEV-333/specs/DEV-333/spec.md`
+- `F:/Dev/LamuFlix.worktrees/DEV-333/specs/DEV-333/plan.md`
+- `F:/Dev/LamuFlix.worktrees/DEV-333/specs/DEV-333/tasks.md`
+- `F:/Dev/LamuFlix.worktrees/DEV-333/specs/DEV-333/DRAFTING_RECEIPT.md` (this append starts after prior FINAL plan-challenge round 2 receipt)
