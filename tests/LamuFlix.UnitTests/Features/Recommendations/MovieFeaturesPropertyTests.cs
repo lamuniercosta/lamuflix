@@ -137,6 +137,98 @@ public sealed class MovieFeaturesPropertyTests
             && left.GetHashCode() == right.GetHashCode();
     }
 
+    [Property(MaxTest = 100, Replay = "336008,800009")]
+    [Trait("Category", "Property")]
+    public bool Construction_PermutedDuplicatedKeywordIds_CompareEqualWithEqualHash(int[]? keywords)
+    {
+        // arrange
+        var left = new MovieFeatures(keywords: ExpandKeywords(keywords));
+        var right = new MovieFeatures(keywords: VaryKeywords(keywords));
+
+        // act & assert
+        return left.Equals(right)
+            && right.Equals(left)
+            && left.GetHashCode() == right.GetHashCode();
+    }
+
+    [Property(MaxTest = 100, Replay = "336009,900007")]
+    [Trait("Category", "Property")]
+    public bool Construction_AnyCollectionId_RoundTripsAndEqualityTracksValue(int seed)
+    {
+        // arrange
+        var collectionId = (int)(Math.Abs((long)seed) % 100_000) + 1;
+        var left = new MovieFeatures(collectionId: collectionId);
+        var right = new MovieFeatures(collectionId: collectionId);
+        var different = new MovieFeatures(collectionId: collectionId + 1);
+
+        // act & assert
+        return left.CollectionId == collectionId
+            && left.Equals(right)
+            && left.GetHashCode() == right.GetHashCode()
+            && !left.Equals(different);
+    }
+
+    [Property(MaxTest = 100, Replay = "336010,100019")]
+    [Trait("Category", "Property")]
+    public bool From_EnabledSignals_MergeFullCastIntoBaseCast(int[]? keywords, int castSeed)
+    {
+        // arrange
+        var positiveKeywords = PositiveKeywords(keywords);
+        var fullCast = new[] { "Actor " + castSeed, "ACTOR " + castSeed };
+        var metadata = new MovieMetadata(
+            "Title",
+            actors: ["Base Actor"],
+            collectionId: 42,
+            collectionName: "Collection",
+            signals: new MovieSignalSnapshot(
+                SignalAvailability.Available,
+                positiveKeywords.Select(id => new MovieKeyword(id, "name " + id)),
+                SignalAvailability.Available,
+                fullCast,
+                SignalAvailability.Available));
+
+        // act
+        var disabled = MovieFeaturesMapper.From(CreateMovie(metadata));
+        var enabled = MovieFeaturesMapper.From(CreateMovie(metadata), includeSignals: true);
+
+        // assert
+        return disabled.Cast.SetEquals(["Base Actor"])
+            && disabled.Keywords.Count == 0
+            && disabled.CollectionId is null
+            && enabled.Cast.SetEquals(["Base Actor", fullCast[0]])
+            && enabled.Keywords.SetEquals(positiveKeywords)
+            && enabled.CollectionId == 42;
+    }
+
+    private static int[] ExpandKeywords(int[]? values) =>
+        values is null || values.Length == 0 ? [] : [.. values, values[0]];
+
+    private static int[] VaryKeywords(int[]? values)
+    {
+        var source = values ?? [];
+        return [.. source.Reverse(), .. source];
+    }
+
+    private static int[] PositiveKeywords(int[]? keywords)
+    {
+        var positive = (keywords ?? []).Where(id => id > 0).Distinct().Order().ToArray();
+        return positive.Length == 0 ? [1] : positive;
+    }
+
+    private static Movie CreateMovie(MovieMetadata metadata) =>
+        Movie.Rehydrate(
+            new MovieId(1),
+            "Title",
+            new LibraryPath("C:/library/title.mkv"),
+            new MediaFormat("mkv"),
+            false,
+            metadata,
+            EnrichmentStatus.Enriched,
+            new DateTimeOffset(2026, 10, 20, 12, 0, 0, TimeSpan.Zero),
+            1,
+            null,
+            null);
+
     private static Movie CreateMovie(
         string[]? genres,
         string[]? directors,

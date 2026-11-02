@@ -26,5 +26,11 @@ public sealed record SimilarityWeights
 
     [Range(0.0, double.MaxValue)]
     public double RatingBoost { get; init; } = 0.5;
+
+    [Range(0.0, double.MaxValue)]
+    public double Keyword { get; init; } = 1.0;
+
+    [Range(0.0, double.MaxValue)]
+    public double Collection { get; init; } = 2.0;
 }
 // ReSharper restore UnusedAutoPropertyAccessor.Global

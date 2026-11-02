@@ -83,6 +83,8 @@ public static class MovieFeaturesArbitraries
         from minutes in runtime
         from rating in imdbRating
         from metadata in Metadata()
+        from keywords in KeywordSet()
+        from collectionId in CollectionIdGen()
         select new MovieFeatures(
             genreValues,
             directorValues,
@@ -92,7 +94,9 @@ public static class MovieFeaturesArbitraries
             minutes,
             rating,
             metadata.MetaScore,
-            metadata.FullPlot);
+            metadata.FullPlot,
+            keywords,
+            collectionId);
 
     private static Gen<MovieFeaturesPair> Pair() =>
         from first in GeneralProfile()
@@ -124,10 +128,12 @@ public static class MovieFeaturesArbitraries
             source.Runtime,
             source.ImdbRating,
             source.MetaScore,
-            source.FullPlot);
+            source.FullPlot,
+            source.Keywords,
+            source.CollectionId);
 
     private static Gen<MovieFeatures> PartialMissing(MovieFeatures source) =>
-        from mask in Gen.Choose(1, 127)
+        from mask in Gen.Choose(1, 1023)
         select new MovieFeatures(
             Keep(source.Genres, (mask & 1) != 0),
             Keep(source.Directors, (mask & 2) != 0),
@@ -137,13 +143,16 @@ public static class MovieFeaturesArbitraries
             (mask & 32) != 0 ? source.Runtime : null,
             (mask & 64) != 0 ? source.ImdbRating : null,
             source.MetaScore,
-            source.FullPlot);
+            source.FullPlot,
+            (mask & 128) != 0 ? [.. source.Keywords] : [],
+            (mask & 256) != 0 ? source.CollectionId : null);
 
     private static Gen<MovieFeatures> Overlapping(MovieFeatures source) =>
         from genres in SharedAndAdded(source.Genres)
         from directors in SharedAndAdded(source.Directors)
         from writers in SharedAndAdded(source.Writers)
         from cast in SharedAndAdded(source.Cast)
+        from keywords in SharedAndAddedKeywords(source.Keywords)
         select new MovieFeatures(
             genres,
             directors,
@@ -153,13 +162,16 @@ public static class MovieFeaturesArbitraries
             source.Runtime,
             source.ImdbRating,
             source.MetaScore,
-            source.FullPlot);
+            source.FullPlot,
+            keywords,
+            source.CollectionId);
 
     private static Gen<MovieFeatures> Disjoint(MovieFeatures source) =>
         from genres in Set(Prefixed(GenreToken()), 0, 4)
         from directors in Set(Prefixed(NameToken()), 0, 4)
         from writers in Set(Prefixed(NameToken()), 0, 4)
         from cast in Set(Prefixed(NameToken()), 0, 4)
+        from keywords in PrefixedKeywords(source.Keywords)
         select new MovieFeatures(
             genres,
             directors,
@@ -169,7 +181,9 @@ public static class MovieFeaturesArbitraries
             Shifted(source.Runtime),
             Shifted(source.ImdbRating),
             source.MetaScore,
-            source.FullPlot);
+            source.FullPlot,
+            keywords,
+            ShiftedCollection(source.CollectionId));
 
     private static Gen<SelfSimilarityProfile> SelfSimilarityProfileGen() =>
         from anchor in Gen.Choose(0, 5)
@@ -197,7 +211,9 @@ public static class MovieFeaturesArbitraries
             AnchorRuntime(profile, anchor),
             AnchorRating(profile, anchor),
             profile.MetaScore,
-            profile.FullPlot);
+            profile.FullPlot,
+            profile.Keywords,
+            profile.CollectionId);
 
     private static string[] AnchorDirectors(MovieFeatures profile, int anchor) =>
         WithToken(profile.Directors, anchor == 0 ? "Anchor" : null);
@@ -225,8 +241,8 @@ public static class MovieFeaturesArbitraries
     private static Gen<SimilarityWeights> WeightFamily(int family) =>
         family switch
         {
-            0 => Gen.Constant(FromVector(new double[7])),
-            1 => Gen.Constant(FromVector([.. Enumerable.Repeat(double.MaxValue, 7)])),
+            0 => Gen.Constant(FromVector(new double[9])),
+            1 => Gen.Constant(FromVector([.. Enumerable.Repeat(double.MaxValue, 9)])),
             2 => SinglePositive(),
             3 => Gen.Constant(new SimilarityWeights()),
             4 => MixedWeights(),
@@ -234,11 +250,11 @@ public static class MovieFeaturesArbitraries
         };
 
     private static Gen<SimilarityWeights> SinglePositive() =>
-        Gen.Choose(0, 6).Select(index => FromVector(SinglePositiveVector(index)));
+        Gen.Choose(0, 8).Select(index => FromVector(SinglePositiveVector(index)));
 
     private static double[] SinglePositiveVector(int index)
     {
-        var values = new double[7];
+        var values = new double[9];
         values[index] = 1.0;
         return values;
     }
@@ -255,7 +271,9 @@ public static class MovieFeaturesArbitraries
             from year in weight
             from runtime in weight
             from rating in weight
-            select FromVector([director, writers, cast, genres, year, runtime, rating]);
+            from keyword in weight
+            from collection in weight
+            select FromVector([director, writers, cast, genres, year, runtime, rating, keyword, collection]);
     }
 
     private static Gen<SimilarityWeights> ExtremeRatio()
@@ -263,16 +281,16 @@ public static class MovieFeaturesArbitraries
         var tiny = Gen.Elements(double.Epsilon, 1e-300, 1e-9);
 
         return
-            from big in Gen.Choose(0, 6)
-            from offset in Gen.Choose(1, 6)
+            from big in Gen.Choose(0, 8)
+            from offset in Gen.Choose(1, 8)
             from tinyValue in tiny
             from filler in Gen.Elements(0.0, 1e-12)
-            select ExtremeVector(big, (big + offset) % 7, tinyValue, filler);
+            select ExtremeVector(big, (big + offset) % 9, tinyValue, filler);
     }
 
     private static SimilarityWeights ExtremeVector(int big, int small, double tinyValue, double filler)
     {
-        var values = Enumerable.Repeat(filler, 7).ToArray();
+        var values = Enumerable.Repeat(filler, 9).ToArray();
         values[big] = double.MaxValue;
         values[small] = tinyValue;
         return FromVector(values);
@@ -330,6 +348,18 @@ public static class MovieFeaturesArbitraries
         from values in Gen.ListOf(token, count)
         select values.ToArray();
 
+    private static Gen<int[]> Set(Gen<int> token, int minimum, int maximum) =>
+        from count in Gen.Choose(minimum, maximum)
+        from values in Gen.ListOf(token, count)
+        select values.ToArray();
+
+    private static Gen<int[]> KeywordSet() => Set(KeywordId(), 0, 5);
+
+    private static Gen<int> KeywordId() => Gen.Choose(1, 5000);
+
+    private static Gen<int?> CollectionIdGen() =>
+        Gen.OneOf(Gen.Constant<int?>(null), Gen.Choose(1, 5000).Select(value => (int?)value));
+
     private static Gen<string> NameToken() =>
         from token in Gen.Elements(PersonTokens)
         from shape in Gen.Choose(0, 2)
@@ -374,6 +404,22 @@ public static class MovieFeaturesArbitraries
 
     private static Gen<string> BlankTokenOrName() => Gen.OneOf(NameToken(), BlankToken());
 
+    private static Gen<int[]> SharedAndAddedKeywords(ImmutableHashSet<int> source)
+    {
+        var values = source.ToArray();
+        var minimum = values.Length == 0 ? 0 : 1;
+
+        return
+            from count in Gen.Choose(minimum, values.Length)
+            from addedCount in Gen.Choose(0, 2)
+            from added in Gen.ListOf(KeywordId(), addedCount)
+            select values.Take(count).Concat(added).ToArray();
+    }
+
+    private static Gen<int[]> PrefixedKeywords(ImmutableHashSet<int> source) =>
+        from offset in Gen.Choose(10_000, 20_000)
+        select source.Select(value => value + offset).ToArray();
+
     private static Gen<(int? MetaScore, string? FullPlot)> Metadata() =>
         from metaScore in Gen.OneOf(Gen.Constant<int?>(null), Gen.Choose(0, 100).Select(value => (int?)value))
         from fullPlot in Gen.OneOf(Gen.Constant<string?>(null), Gen.Elements("plot", "A story", " ").Select(value => (string?)value))
@@ -411,6 +457,9 @@ public static class MovieFeaturesArbitraries
     private static ReleaseYear? Shifted(ReleaseYear? value) =>
         value is null ? null : new ReleaseYear(Math.Min(value.Value + 3, Now.Year + 5), Now);
 
+    private static int? ShiftedCollection(int? value) =>
+        value is null ? null : value + 1;
+
     private static Runtime? Shifted(Runtime? value) =>
         value is null ? null : new Runtime(value.Minutes + 7);
 
@@ -427,6 +476,8 @@ public static class MovieFeaturesArbitraries
             YearProximity = values[4],
             RuntimeProximity = values[5],
             RatingBoost = values[6],
+            Keyword = values[7],
+            Collection = values[8],
         };
 
     private static double[] Vector(SimilarityWeights weights) =>
@@ -438,10 +489,12 @@ public static class MovieFeaturesArbitraries
         weights.YearProximity,
         weights.RuntimeProximity,
         weights.RatingBoost,
+        weights.Keyword,
+        weights.Collection,
     ];
 
     private static IEnumerable<MovieFeatures> ShrinkProfile(MovieFeatures movie) =>
-        ShrinkSets(movie).Concat(ShrinkScalars(movie)).Where(candidate => !candidate.Equals(movie));
+        ShrinkSets(movie).Concat(ShrinkScalars(movie)).Concat(ShrinkKeywords(movie)).Where(candidate => !candidate.Equals(movie));
 
     private static IEnumerable<MovieFeatures> ShrinkSets(MovieFeatures movie)
     {
@@ -468,6 +521,36 @@ public static class MovieFeaturesArbitraries
 
     private static IEnumerable<MovieFeatures> ShrinkScalars(MovieFeatures movie) =>
         ShrinkYear(movie).Concat(ShrinkRuntime(movie)).Concat(ShrinkRating(movie));
+
+    private static IEnumerable<MovieFeatures> ShrinkKeywords(MovieFeatures movie)
+    {
+        foreach (var keyword in movie.Keywords)
+        {
+            yield return WithSignals(movie, movie.Keywords.Remove(keyword), movie.CollectionId);
+        }
+
+        if (movie.CollectionId is not null)
+        {
+            yield return WithSignals(movie, movie.Keywords, null);
+        }
+    }
+
+    private static MovieFeatures WithSignals(
+        MovieFeatures source,
+        ImmutableHashSet<int> keywords,
+        int? collectionId) =>
+        new(
+            source.Genres,
+            source.Directors,
+            source.Writers,
+            source.Cast,
+            source.ReleaseYear,
+            source.Runtime,
+            source.ImdbRating,
+            source.MetaScore,
+            source.FullPlot,
+            keywords,
+            collectionId);
 
     private static IEnumerable<MovieFeatures> ShrinkYear(MovieFeatures movie)
     {
@@ -587,7 +670,9 @@ public static class MovieFeaturesArbitraries
             source.Runtime,
             source.ImdbRating,
             source.MetaScore,
-            source.FullPlot);
+            source.FullPlot,
+            source.Keywords,
+            source.CollectionId);
 
     private static MovieFeatures WithScalars(
         MovieFeatures source,
@@ -603,6 +688,8 @@ public static class MovieFeaturesArbitraries
             runtime,
             imdbRating,
             source.MetaScore,
-            source.FullPlot);
+            source.FullPlot,
+            source.Keywords,
+            source.CollectionId);
 
 }

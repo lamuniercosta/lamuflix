@@ -14,7 +14,7 @@
 **Purpose**: Confirm worktree, feature pin, dependency revalidation, and owner checkbox. No new packages or projects.
 **Checkpoint 1**: Owner checkbox resolved + upstream contracts revalidated at build HEAD → unlocks Package 2 only.
 
-- [ ] T001 Confirm worktree `F:/Dev/LamuFlix.worktrees/feature-358-spec` on `feature/358-spec`, `.specify/feature.json` → `specs/DEV-358`; run bounded recon revalidating DEV-331/DEV-411/DEV-356 contracts at build HEAD; resolve Q6 owner checkbox (FK reuse vs collection join-table transition) before coding; introduce no new NuGet/npm dependency or project (Q1, Q4, Q6, Q11 step 1; FR-013)
+- [X] T001 Confirm worktree `F:/Dev/LamuFlix.worktrees/feature-358-spec` on `feature/358-spec`, `.specify/feature.json` → `specs/DEV-358`; run bounded recon revalidating DEV-331/DEV-411/DEV-356 contracts at build HEAD; resolve Q6 owner checkbox (FK reuse vs collection join-table transition) before coding; introduce no new NuGet/npm dependency or project (Q1, Q4, Q6, Q11 step 1; FR-013)
 
 ---
 
@@ -24,13 +24,13 @@
 **Depends on**: Checkpoint 1 (T001).
 **Checkpoint 2**: Glossary present; domain/feature unit + property + equality/dirty-tracking tests green without adapter HTTP or DB → unlocks Package 3 only.
 
-- [ ] T002 [P] Add/align six canonical glossary entries to `CONTEXT.md` (`Keyword`, `Full cast`, `Base cast`, `Franchise collection`, `Unavailable signal`, `Known empty`) with term / definition / `_Avoid_:` lines per brief Local vocabulary and Constitution Principle VIII; keep FullCast wording consistent with R3 (C2/R3; recon-DEV-358-2:174-192; FR-012 manifest)
-- [ ] T003 [P] Create `src/LamuFlix.Core/Domain/MovieKeyword.cs` and `src/LamuFlix.Core/Domain/MovieSignalSnapshot.cs` as immutable domain data: nested availability enum `Unavailable`/`KnownEmpty`/`Available` in `MovieSignalSnapshot.cs` (no extra file); keyword snapshots as `ImmutableArray<MovieKeyword>`; `FullCast` as `ImmutableHashSet<string>` normalized names; collection availability only on the snapshot — no collection identity fields and no `MovieCastEntry` (Q8, Q11; FR-004; R3)
-- [ ] T004 Extend `src/LamuFlix.Core/Domain/MovieMetadata.cs` to carry optional Keywords/`FullCast` snapshots; sole collection identity/validation remains `CollectionId`/`CollectionName`; no new port/layer (Q8; FR-004; R3; after T003)
-- [ ] T005 [P] Extend `src/LamuFlix.Core/Features/Recommendations/MovieFeatures.cs` with defensive `ImmutableHashSet<int> Keywords` and nullable positive `CollectionId`; preserve equality/hash and no-signal behaviour (Q8; FR-007; R3)
-- [ ] T006 Extend `src/LamuFlix.Core/Features/Recommendations/MovieFeaturesMapper.cs` so enabled effective Cast is base Actors ∪ `FullCast` and disabled maps base-cast-only without keyword/collection terms (Q8; FR-007; R3; after T004–T005)
-- [ ] T007 [P] Add configurable finite nonnegative `Keyword` (default 1.0) and `Collection` (default 2.0) to `src/LamuFlix.Core/Options/SimilarityWeights.cs` (Q8; FR-008; ASSUMPTIONS.md)
-- [ ] T008 [P] Add/extend `tests/LamuFlix.UnitTests/Domain/MovieMetadataSignalTests.cs` and `tests/LamuFlix.UnitTests/Features/Recommendations/{MovieFeaturesTests.cs,MovieFeaturesPropertyTests.cs,MovieFeaturesArbitraries.cs,MovieFeaturesMapperTests.cs}` for defensive snapshots, availability semantics, equality/hash/dirty-tracking, enabled/disabled cast, and invariant coverage using Shouldly/NSubstitute/AutoFixture/Theory/MemberData as applicable (Q11; FR-014; R3/R5)
+- [X] T002 [P] Add/align six canonical glossary entries to `CONTEXT.md` (`Keyword`, `Full cast`, `Base cast`, `Franchise collection`, `Unavailable signal`, `Known empty`) with term / definition / `_Avoid_:` lines per brief Local vocabulary and Constitution Principle VIII; keep FullCast wording consistent with R3 (C2/R3; recon-DEV-358-2:174-192; FR-012 manifest)
+- [X] T003 [P] Create `src/LamuFlix.Core/Domain/MovieKeyword.cs` and `src/LamuFlix.Core/Domain/MovieSignalSnapshot.cs` as immutable domain data: nested availability enum `Unavailable`/`KnownEmpty`/`Available` in `MovieSignalSnapshot.cs` (no extra file); keyword snapshots as `ImmutableArray<MovieKeyword>`; `FullCast` as `ImmutableHashSet<string>` normalized names; collection availability only on the snapshot — no collection identity fields and no `MovieCastEntry` (Q8, Q11; FR-004; R3)
+- [X] T004 Extend `src/LamuFlix.Core/Domain/MovieMetadata.cs` to carry optional Keywords/`FullCast` snapshots; sole collection identity/validation remains `CollectionId`/`CollectionName`; no new port/layer (Q8; FR-004; R3; after T003)
+- [X] T005 [P] Extend `src/LamuFlix.Core/Features/Recommendations/MovieFeatures.cs` with defensive `ImmutableHashSet<int> Keywords` and nullable positive `CollectionId`; preserve equality/hash and no-signal behaviour (Q8; FR-007; R3)
+- [X] T006 Extend `src/LamuFlix.Core/Features/Recommendations/MovieFeaturesMapper.cs` so enabled effective Cast is base Actors ∪ `FullCast` and disabled maps base-cast-only without keyword/collection terms (Q8; FR-007; R3; after T004–T005)
+- [X] T007 [P] Add configurable finite nonnegative `Keyword` (default 1.0) and `Collection` (default 2.0) to `src/LamuFlix.Core/Options/SimilarityWeights.cs` (Q8; FR-008; ASSUMPTIONS.md)
+- [X] T008 [P] Add/extend `tests/LamuFlix.UnitTests/Domain/MovieMetadataSignalTests.cs` and `tests/LamuFlix.UnitTests/Features/Recommendations/{MovieFeaturesTests.cs,MovieFeaturesPropertyTests.cs,MovieFeaturesArbitraries.cs,MovieFeaturesMapperTests.cs}` for defensive snapshots, availability semantics, equality/hash/dirty-tracking, enabled/disabled cast, and invariant coverage using Shouldly/NSubstitute/AutoFixture/Theory/MemberData as applicable (Q11; FR-014; R3/R5)
 
 **Checkpoint**: Package 2 complete — Package 3 (adapter) may proceed; Packages 4–8 must wait.
 

@@ -623,6 +623,150 @@ public sealed class MovieFeaturesMapperTests
         upper.ShouldNotBe(lower);
     }
 
+    [Fact]
+    public void From_EnabledSignals_UnionsBaseCastAndFullCastCaseInsensitively()
+    {
+        // arrange
+        var movie = CreateMovie(SignalMetadata(
+            signals: new MovieSignalSnapshot(
+                fullCastAvailability: SignalAvailability.Available,
+                fullCast: ["Actor A", "ACTOR B", "Actor C"])));
+
+        // act
+        var features = MovieFeaturesMapper.From(movie, includeSignals: true);
+
+        // assert
+        features.Cast.SetEquals(["Actor A", "Actor B", "Actor C"]).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void From_DisabledSignals_KeepsBaseCastOnlyAndOmitsKeywordAndCollectionTerms()
+    {
+        // arrange
+        var movie = CreateMovie(SignalMetadata(
+            signals: new MovieSignalSnapshot(
+                SignalAvailability.Available,
+                [new MovieKeyword(5, "heist")],
+                SignalAvailability.Available,
+                ["Actor C"],
+                SignalAvailability.Available)));
+
+        // act
+        var features = MovieFeaturesMapper.From(movie);
+
+        // assert
+        features.Cast.SetEquals(["Actor A", "Actor B"]).ShouldBeTrue();
+        features.Keywords.ShouldBeEmpty();
+        features.CollectionId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void From_EnabledAvailableKeywords_MapsKeywordIds()
+    {
+        // arrange
+        var movie = CreateMovie(SignalMetadata(
+            signals: new MovieSignalSnapshot(
+                SignalAvailability.Available,
+                [new MovieKeyword(5, "heist"), new MovieKeyword(9, "sequel")])));
+
+        // act
+        var features = MovieFeaturesMapper.From(movie, includeSignals: true);
+
+        // assert
+        features.Keywords.ShouldBe([5, 9], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void From_EnabledKnownEmptySignals_YieldsNoKeywordTermAndNoCollectionTerm()
+    {
+        // arrange
+        var movie = CreateMovie(SignalMetadata(
+            signals: new MovieSignalSnapshot(
+                SignalAvailability.KnownEmpty,
+                fullCastAvailability: SignalAvailability.KnownEmpty,
+                collectionAvailability: SignalAvailability.KnownEmpty)));
+
+        // act
+        var features = MovieFeaturesMapper.From(movie, includeSignals: true);
+
+        // assert
+        features.Cast.SetEquals(["Actor A", "Actor B"]).ShouldBeTrue();
+        features.Keywords.ShouldBeEmpty();
+        features.CollectionId.ShouldBe(2344);
+    }
+
+    [Fact]
+    public void From_EnabledUnavailableSignals_YieldsNoKeywordOrCastTermsAndKeepsCollectionIdentity()
+    {
+        // arrange
+        var movie = CreateMovie(SignalMetadata(signals: new MovieSignalSnapshot()));
+
+        // act
+        var features = MovieFeaturesMapper.From(movie, includeSignals: true);
+
+        // assert
+        features.Cast.SetEquals(["Actor A", "Actor B"]).ShouldBeTrue();
+        features.Keywords.ShouldBeEmpty();
+        features.CollectionId.ShouldBe(2344);
+    }
+
+    [Fact]
+    public void From_EnabledSignalsWithoutSnapshot_UsesCollectionIdentityAndBaseCast()
+    {
+        // arrange
+        var movie = CreateMovie(SignalMetadata(signals: null));
+
+        // act
+        var features = MovieFeaturesMapper.From(movie, includeSignals: true);
+
+        // assert
+        features.Cast.SetEquals(["Actor A", "Actor B"]).ShouldBeTrue();
+        features.Keywords.ShouldBeEmpty();
+        features.CollectionId.ShouldBe(2344);
+    }
+
+    [Fact]
+    public void From_EnabledNullMetadata_YieldsEmptyFeatures()
+    {
+        // arrange
+        var movie = Movie.Rehydrate(
+            new MovieId(1),
+            "Persisted title",
+            new LibraryPath("C:/library/persisted.mkv"),
+            new MediaFormat("mkv"),
+            false,
+            null,
+            EnrichmentStatus.Pending,
+            null,
+            0,
+            null,
+            null);
+
+        // act
+        var features = MovieFeaturesMapper.From(movie, includeSignals: true);
+
+        // assert
+        features.Cast.ShouldBeEmpty();
+        features.Keywords.ShouldBeEmpty();
+        features.CollectionId.ShouldBeNull();
+    }
+
+    [Fact]
+    public void From_EnabledSignalsWithNullMovie_ThrowsArgumentNullException()
+    {
+        // act & assert
+        // ReSharper disable once NullableWarningSuppressionIsUsed // deliberate null exercises the guard.
+        Should.Throw<ArgumentNullException>(() => MovieFeaturesMapper.From(null!, includeSignals: true));
+    }
+
+    private static MovieMetadata SignalMetadata(MovieSignalSnapshot? signals) =>
+        new(
+            "Title",
+            actors: ["Actor A", "Actor B"],
+            collectionId: 2344,
+            collectionName: "The Matrix Collection",
+            signals: signals);
+
     private static string NullElement()
     {
         // ReSharper disable once NullableWarningSuppressionIsUsed // the null member is the subject of this test.
