@@ -80,9 +80,9 @@ internal sealed class ImporterDouble : IMovieFolderImporter
         this.failureAtCall = failureAtCall;
     }
 
-    public int ExpectedConcurrency { get; }
+    private int ExpectedConcurrency { get; }
 
-    public int BlockFromCall { get; }
+    private int BlockFromCall { get; }
 
     public int Calls => Volatile.Read(ref calls);
 
@@ -113,17 +113,7 @@ internal sealed class ImporterDouble : IMovieFolderImporter
         {
             var active = Interlocked.Increment(ref inFlight);
             counted = true;
-            InterlockedMax(ref maxInFlight, active);
-            if (active >= ExpectedConcurrency)
-            {
-                ReachedConcurrency.TrySetResult();
-            }
-
-            FirstCallEntered.TrySetResult();
-            if (call >= 2)
-            {
-                SecondCallEntered.TrySetResult();
-            }
+            TrackConcurrency(call, active);
 
             var failure = failureAtCall?.Invoke(call);
             if (failure is not null)
@@ -148,6 +138,21 @@ internal sealed class ImporterDouble : IMovieFolderImporter
             }
 
             Interlocked.Increment(ref disposedScopes);
+        }
+    }
+
+    private void TrackConcurrency(int call, int active)
+    {
+        InterlockedMax(ref maxInFlight, active);
+        if (active >= ExpectedConcurrency)
+        {
+            ReachedConcurrency.TrySetResult();
+        }
+
+        FirstCallEntered.TrySetResult();
+        if (call >= 2)
+        {
+            SecondCallEntered.TrySetResult();
         }
     }
 

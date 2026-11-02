@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -393,7 +392,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         services.AddSingleton(options);
         services.AddSingleton(enrichment.Value);
         services.AddSingleton(enrichment);
-        services.AddSingleton<TimeProvider>(clock);
+        services.AddSingleton(clock);
         services.AddSingleton<IMetadataProvider>(provider);
         services.AddSingleton<IMovieRepository>(repository);
         services.AddSingleton<IEnrichmentQueue>(publisher);
@@ -416,7 +415,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
             NullLogger<EnrichmentConsumer>.Instance,
             NoOpLiveness.Instance,
             clock);
-        return new QuotaHost(db, owner, topology, publisher, repository, provider, clock, consumer, built);
+        return new QuotaHost(db, owner, publisher, repository, provider, clock, consumer, built);
     }
 
     private async Task WaitForStatusAsync(MovieId id, EnrichmentStatus status, CancellationToken ct)
@@ -451,8 +450,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         return new MovieRecordSnapshot(
             movie.Status,
             movie.EnrichmentDeferredUntil,
-            movie.EnrichmentAttempts,
-            movie.EnrichmentFailureCategory);
+            movie.EnrichmentAttempts);
     }
 
     private async Task WaitForQueueEmptyAsync(string queue, CancellationToken ct) =>
@@ -498,8 +496,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
     private sealed record MovieRecordSnapshot(
         EnrichmentStatus Status,
         DateTimeOffset? EnrichmentDeferredUntil,
-        int EnrichmentAttempts,
-        EnrichmentFailureCategory? LastFailureCategory);
+        int EnrichmentAttempts);
 
     private sealed class AdjustableTimeProvider(DateTimeOffset now) : TimeProvider
     {
@@ -554,7 +551,6 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
     private sealed class QuotaHost(
         LamuFlixDbContext db,
         RabbitMqConnectionOwner owner,
-        RabbitMqTopology topology,
         RabbitMqEnrichmentQueuePublisher publisher,
         EfMovieRepository repository,
         DelegateProvider provider,
@@ -562,8 +558,6 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         EnrichmentConsumer consumer,
         ServiceProvider services) : IAsyncDisposable
     {
-        public RabbitMqTopology Topology => topology;
-
         public RabbitMqEnrichmentQueuePublisher Publisher => publisher;
 
         public EfMovieRepository Repository => repository;
@@ -605,7 +599,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
 
         public async ValueTask DisposeAsync()
         {
-            services.Dispose();
+            await services.DisposeAsync();
             await db.DisposeAsync();
             await owner.DisposeAsync();
         }

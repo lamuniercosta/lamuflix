@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,9 +41,7 @@ public sealed class ProcessEnrichmentCommandHandler(
 
         if (result is MetadataLookupResult.Failed failed)
         {
-            return ReferenceEquals(failed.Category, EnrichmentFailureCategory.QuotaExhausted)
-                ? await DeferAsync(movie, cancellationToken)
-                : await FailAsync(command, failed.Category, movie, cancellationToken);
+            return await SettleLookupFailureAsync(command, movie, failed, cancellationToken);
         }
 
         if (await IsFoundImdbIdHeldByAnotherMovieAsync(movie, result, cancellationToken))
@@ -53,6 +51,15 @@ public sealed class ProcessEnrichmentCommandHandler(
 
         return await CompleteAsync(command, movie, result, cancellationToken);
     }
+
+    private Task<ProcessEnrichmentOutcome> SettleLookupFailureAsync(
+        ProcessEnrichmentCommand command,
+        Movie movie,
+        MetadataLookupResult.Failed failed,
+        CancellationToken cancellationToken) =>
+        ReferenceEquals(failed.Category, EnrichmentFailureCategory.QuotaExhausted)
+            ? DeferAsync(movie, cancellationToken)
+            : FailAsync(command, failed.Category, movie, cancellationToken);
 
     private async Task<MetadataLookupResult> LookupAsync(Movie movie, CancellationToken cancellationToken)
     {
@@ -162,16 +169,15 @@ public sealed class ProcessEnrichmentCommandHandler(
         Movie movie,
         CancellationToken cancellationToken)
     {
+        LogOutcome(command, category);
         if (EnrichmentRetryPolicy.Decide(category, command.Attempt, options.Value.MaxAttempts) is { } retry)
         {
-            LogOutcome(command, category);
             return new ProcessEnrichmentOutcome.Failed(retry, category);
         }
 
         movie.MarkFailed(category, time.GetUtcNow());
         await movies.SaveChangesAsync(cancellationToken);
         var deadLetter = new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null);
-        LogOutcome(command, category);
         return new ProcessEnrichmentOutcome.Failed(deadLetter, category);
     }
 

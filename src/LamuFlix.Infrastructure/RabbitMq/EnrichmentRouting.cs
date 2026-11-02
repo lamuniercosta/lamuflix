@@ -30,8 +30,8 @@ public static class EnrichmentRouting
     private static Disposition From(EnrichmentFailureDecision decision) =>
         decision.Action switch
         {
-            _ when ReferenceEquals(decision.Action, EnrichmentFailureAction.Retry) => Retry(decision),
-            _ when ReferenceEquals(decision.Action, EnrichmentFailureAction.RetryDelayed) => Retry(decision),
+            _ when ReferenceEquals(decision.Action, EnrichmentFailureAction.Retry)
+                || ReferenceEquals(decision.Action, EnrichmentFailureAction.RetryDelayed) => Retry(decision),
             _ => new Disposition(RabbitMqTopology.DeadLetterRoutingKey, RabbitMqTopology.DeadLetterRoutingKey, null),
         };
 

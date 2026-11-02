@@ -62,37 +62,22 @@ public sealed class RabbitMqTopology(
         }
     }
 
-    public static IDictionary<string, object?> RequestedArguments(int maxAttempts) =>
-        new Dictionary<string, object?>(StringComparer.Ordinal)
-        {
-            [QueueTypeArgument] = QuorumQueueType,
-            ["x-dead-letter-exchange"] = ExchangeName,
-            ["x-dead-letter-routing-key"] = DeadLetterRoutingKey,
-            ["x-delivery-limit"] = maxAttempts,
-            ["x-dead-letter-strategy"] = DeadLetterStrategyAtLeastOnce,
-            ["x-overflow"] = OverflowRejectPublish,
-        };
+    public static IDictionary<string, object?> RequestedArguments(int maxAttempts)
+    {
+        var arguments = QuorumDeadLetterArguments(DeadLetterRoutingKey);
+        arguments["x-delivery-limit"] = maxAttempts;
+        return arguments;
+    }
 
-    public static IDictionary<string, object?> RetryArguments(int retryDelayMilliseconds) =>
-        new Dictionary<string, object?>(StringComparer.Ordinal)
-        {
-            [QueueTypeArgument] = QuorumQueueType,
-            ["x-message-ttl"] = retryDelayMilliseconds,
-            ["x-dead-letter-exchange"] = ExchangeName,
-            ["x-dead-letter-routing-key"] = RequestedRoutingKey,
-            ["x-dead-letter-strategy"] = DeadLetterStrategyAtLeastOnce,
-            ["x-overflow"] = OverflowRejectPublish,
-        };
+    public static IDictionary<string, object?> RetryArguments(int retryDelayMilliseconds)
+    {
+        var arguments = QuorumDeadLetterArguments(RequestedRoutingKey);
+        arguments["x-message-ttl"] = retryDelayMilliseconds;
+        return arguments;
+    }
 
-    public static IDictionary<string, object?> QuotaDeferredArguments() =>
-        new Dictionary<string, object?>(StringComparer.Ordinal)
-        {
-            [QueueTypeArgument] = QuorumQueueType,
-            ["x-dead-letter-exchange"] = ExchangeName,
-            ["x-dead-letter-routing-key"] = RequestedRoutingKey,
-            ["x-dead-letter-strategy"] = DeadLetterStrategyAtLeastOnce,
-            ["x-overflow"] = OverflowRejectPublish,
-        };
+    private static IDictionary<string, object?> QuotaDeferredArguments() =>
+        QuorumDeadLetterArguments(RequestedRoutingKey);
 
     public static IDictionary<string, object?> FeaturesRequestedArguments(int maxAttempts) =>
         WithDeadLetterRoutingKey(RequestedArguments(maxAttempts), EnrichmentRouting.FeaturesDeadLetterRoutingKey);
@@ -117,6 +102,16 @@ public sealed class RabbitMqTopology(
 
     public static int RetryDelayMilliseconds(RabbitMqOptions options) =>
         checked((int)Math.Round(options.RetryDelay.TotalMilliseconds, MidpointRounding.AwayFromZero));
+
+    private static IDictionary<string, object?> QuorumDeadLetterArguments(string deadLetterRoutingKey) =>
+        new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            [QueueTypeArgument] = QuorumQueueType,
+            ["x-dead-letter-exchange"] = ExchangeName,
+            ["x-dead-letter-routing-key"] = deadLetterRoutingKey,
+            ["x-dead-letter-strategy"] = DeadLetterStrategyAtLeastOnce,
+            ["x-overflow"] = OverflowRejectPublish,
+        };
 
     private static IDictionary<string, object?> WithDeadLetterRoutingKey(
         IDictionary<string, object?> arguments,

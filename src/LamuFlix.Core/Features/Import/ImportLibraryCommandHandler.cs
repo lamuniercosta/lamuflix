@@ -38,24 +38,7 @@ public sealed class ImportLibraryCommandHandler(
         var firstFault = new FirstFault();
         var imported = new ImportedCounter();
 
-        var tasks = new List<Task>(maxConcurrency + 1)
-        {
-            GuardedAsync(
-                token => ProduceAsync(channel.Writer, token),
-                lifetime,
-                firstFault,
-                shutdown),
-        };
-        for (var consumer = 0; consumer < maxConcurrency; consumer++)
-        {
-            tasks.Add(GuardedAsync(
-                token => ConsumeAsync(channel.Reader, token, imported),
-                lifetime,
-                firstFault,
-                shutdown));
-        }
-
-        await Task.WhenAll(tasks);
+        await Task.WhenAll(StartTasks(channel, imported, maxConcurrency, lifetime, firstFault, shutdown));
 
         if (cancellationToken.IsCancellationRequested)
         {
@@ -98,6 +81,34 @@ public sealed class ImportLibraryCommandHandler(
         }
     }
 
+    private List<Task> StartTasks(
+        Channel<LibraryPath> channel,
+        ImportedCounter imported,
+        int maxConcurrency,
+        CancellationToken lifetime,
+        FirstFault firstFault,
+        CancellationTokenSource shutdown)
+    {
+        var tasks = new List<Task>(maxConcurrency + 1)
+        {
+            GuardedAsync(
+                token => ProduceAsync(channel.Writer, token),
+                lifetime,
+                firstFault,
+                shutdown),
+        };
+        for (var consumer = 0; consumer < maxConcurrency; consumer++)
+        {
+            tasks.Add(GuardedAsync(
+                token => ConsumeAsync(channel.Reader, token, imported),
+                lifetime,
+                firstFault,
+                shutdown));
+        }
+
+        return tasks;
+    }
+
     private static async Task GuardedAsync(
         Func<CancellationToken, Task> body,
         CancellationToken lifetime,
@@ -115,7 +126,7 @@ public sealed class ImportLibraryCommandHandler(
         catch (Exception exception)
         {
             firstFault.Record(exception);
-            shutdown.Cancel();
+            await shutdown.CancelAsync();
         }
     }
 

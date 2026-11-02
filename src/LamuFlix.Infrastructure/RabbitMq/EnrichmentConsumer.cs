@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json;
@@ -268,9 +268,7 @@ public sealed class EnrichmentConsumer(
                       && outcome is ProcessEnrichmentOutcome.Failed failed
             ? FailureHeaders(failed, request)
             : NoHeaders;
-        var expiration = outcome is ProcessEnrichmentOutcome.QuotaDeferred deferred
-            ? QuotaDeferredExpiration(deferred.DeferredUntil)
-            : (int?)null;
+        var expiration = ExpirationFor(outcome);
         await publisher.PublishAsync(
             next,
             disposition.RoutingKey,
@@ -279,6 +277,13 @@ public sealed class EnrichmentConsumer(
             expiration);
         await AckAsync(consumerChannel, delivery);
     }
+
+    private int? ExpirationFor(ProcessEnrichmentOutcome outcome) =>
+        outcome switch
+        {
+            ProcessEnrichmentOutcome.QuotaDeferred deferred => QuotaDeferredExpiration(deferred.DeferredUntil),
+            _ => null,
+        };
 
     private int QuotaDeferredExpiration(DateTimeOffset deferredUntil)
     {
