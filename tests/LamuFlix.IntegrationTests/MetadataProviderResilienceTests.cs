@@ -244,7 +244,7 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
     }
 
     [Fact]
-    public async Task FindAsync_ExhaustedMidRetry_StopsTheNextTransportRequestAndReturnsRateLimited()
+    public async Task FindAsync_ExhaustedMidRetry_StopsTheNextTransportRequestAndReturnsQuotaExhausted()
     {
         // arrange
         StubStatus(500);
@@ -255,7 +255,7 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
         var result = await FindAsync(services, TestContext.Current.CancellationToken);
 
         // assert
-        Category(result).ShouldBe(EnrichmentFailureCategory.RateLimited);
+        Category(result).ShouldBe(EnrichmentFailureCategory.QuotaExhausted);
         probe.RequestCount.ShouldBe(1);
         gate.Invocations.ShouldBe(2);
         gate.Commitments.ShouldBe(1);
@@ -274,7 +274,7 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
         var result = await FindAsync(services, TestContext.Current.CancellationToken);
 
         // assert
-        Category(result).ShouldBe(EnrichmentFailureCategory.RateLimited);
+        Category(result).ShouldBe(EnrichmentFailureCategory.QuotaExhausted);
         probe.RequestCount.ShouldBe(1);
         probe.HasQuery("s").ShouldBeFalse();
         gate.Invocations.ShouldBe(2);
