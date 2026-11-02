@@ -4,10 +4,10 @@
   the same POST /api/movies/import the UI uses, so each movie lands Pending and the
   worker enriches it from OMDb.
 
-    pwsh scripts/local/Import-Library.ps1 -WhatIf          # list what would be imported
-    pwsh scripts/local/Import-Library.ps1                  # import everything not yet imported
-    pwsh scripts/local/Import-Library.ps1 -Limit 300       # cap one run (OMDb free tier ~1,000/day)
-    pwsh scripts/local/Import-Library.ps1 -RetryFailed     # re-queue Failed movies the next day
+    pwsh scripts/Import-Library.ps1 -WhatIf          # list what would be imported
+    pwsh scripts/Import-Library.ps1                  # import everything not yet imported
+    pwsh scripts/Import-Library.ps1 -Limit 300       # cap one run (OMDb free tier ~1,000/day)
+    pwsh scripts/Import-Library.ps1 -RetryFailed     # re-queue Failed movies the next day
 
   Folder rules mirror the legacy scan (LamuFlix.Test UnitTest1.TestMethod1): a top-level
   folder whose name contains "Collection" is descended one level and each subfolder is a
