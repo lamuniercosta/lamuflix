@@ -12,6 +12,7 @@ public sealed record EnrichmentFailureCategory
     private const string InvalidResponseCode = "invalid_response";
     private const string UnknownCode = "unknown";
     private const string DuplicateImdbIdCode = "duplicate_imdb_id";
+    private const string QuotaExhaustedCode = "quota_exhausted";
 
     public static readonly EnrichmentFailureCategory ProviderUnavailable = new(ProviderUnavailableCode);
 
@@ -22,6 +23,8 @@ public sealed record EnrichmentFailureCategory
     public static readonly EnrichmentFailureCategory Unknown = new(UnknownCode);
 
     public static readonly EnrichmentFailureCategory DuplicateImdbId = new(DuplicateImdbIdCode);
+
+    public static readonly EnrichmentFailureCategory QuotaExhausted = new(QuotaExhaustedCode);
 
     // Expression-bodied so Stryker has no constructor block to remove: that mutant, active when the
     // statics above initialise, would leave Code null for every later mutant in the process.
@@ -38,6 +41,7 @@ public sealed record EnrichmentFailureCategory
         InvalidResponseCode => "The metadata provider returned an unusable response.",
         UnknownCode => "The enrichment failed for an unknown reason.",
         DuplicateImdbIdCode => "Another movie in the library already has this IMDb id.",
+        QuotaExhaustedCode => "Local OMDb daily request quota admission was denied.",
         _ => throw new UnreachableException(),
     };
 
@@ -48,6 +52,7 @@ public sealed record EnrichmentFailureCategory
         InvalidResponseCode => false,
         UnknownCode => true,
         DuplicateImdbIdCode => false,
+        QuotaExhaustedCode => true,
         _ => throw new UnreachableException(),
     };
 }

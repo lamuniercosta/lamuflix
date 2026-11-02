@@ -154,6 +154,27 @@ public sealed class PersistenceRoundTripTests(PostgresFixture fixture) : IAsyncL
     }
 
     [Fact]
+    public async Task SaveChanges_QuotaExhaustedCategory_RestoresSingleton()
+    {
+        await using var write = fixture.CreateMigratedContext();
+        var movie = BaseMovie("C:/library/incoming/quota-exhausted.mkv");
+        movie.EnrichmentFailureCategory = EnrichmentFailureCategory.QuotaExhausted;
+        write.Movies.Add(movie);
+        await write.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var movieId = movie.Id;
+        movieId.ShouldNotBeNull();
+        var id = movieId.Value;
+
+        await using var read = OpenSibling(write);
+        var loaded = await LoadMovieAsync(read, id, TestContext.Current.CancellationToken);
+
+        loaded.EnrichmentFailureCategory.ShouldBeSameAs(EnrichmentFailureCategory.QuotaExhausted);
+        var category = loaded.EnrichmentFailureCategory;
+        category.ShouldNotBeNull();
+        category.Code.ShouldBe("quota_exhausted");
+    }
+
+    [Fact]
     public async Task SaveChanges_SecondMovieWithNullImdbId_Succeeds()
     {
         await using var write = fixture.CreateMigratedContext();

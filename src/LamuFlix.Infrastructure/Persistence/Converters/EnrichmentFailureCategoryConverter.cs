@@ -18,6 +18,7 @@ public sealed class EnrichmentFailureCategoryConverter() : ValueConverter<Enrich
         EnrichmentFailureCategory.InvalidResponse,
         EnrichmentFailureCategory.Unknown,
         EnrichmentFailureCategory.DuplicateImdbId,
+        EnrichmentFailureCategory.QuotaExhausted,
     ];
 
     private static EnrichmentFailureCategory? FindKnownCode(string code)
