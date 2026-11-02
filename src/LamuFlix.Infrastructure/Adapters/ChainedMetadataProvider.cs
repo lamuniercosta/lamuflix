@@ -56,5 +56,6 @@ public sealed class ChainedMetadataProvider : IMetadataProvider
 
     private static bool IsEligible(EnrichmentFailureCategory category) =>
         category == EnrichmentFailureCategory.RateLimited
+        || category == EnrichmentFailureCategory.QuotaExhausted
         || category == EnrichmentFailureCategory.ProviderUnavailable;
 }
