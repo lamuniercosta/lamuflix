@@ -114,6 +114,7 @@ public sealed class RecordEnrichmentFailureCommandHandlerTests
         }
 
         var action = category == EnrichmentFailureCategory.RateLimited
+                     || category == EnrichmentFailureCategory.QuotaExhausted
             ? EnrichmentFailureAction.RetryDelayed
             : EnrichmentFailureAction.Retry;
         data.Add(category, attempt, action, attempt + 1);
@@ -125,6 +126,7 @@ public sealed class RecordEnrichmentFailureCommandHandlerTests
         EnrichmentFailureCategory.RateLimited,
         EnrichmentFailureCategory.InvalidResponse,
         EnrichmentFailureCategory.Unknown,
+        EnrichmentFailureCategory.QuotaExhausted,
     ];
 
     private void AssertLog(RecordEnrichmentFailureCommand command, EnrichmentFailureAction action)

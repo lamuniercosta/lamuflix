@@ -336,6 +336,54 @@ public sealed class ProcessEnrichmentCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_ProviderFailedResult_QuotaExhaustedCategory_UsesRetryDelayed()
+    {
+        // arrange
+        var movie = PendingMovie();
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Failed(EnrichmentFailureCategory.QuotaExhausted));
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(EnrichmentFailureAction.RetryDelayed, 2),
+            EnrichmentFailureCategory.QuotaExhausted));
+        movie.Status.ShouldBe(EnrichmentStatus.Pending);
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    public static TheoryData<EnrichmentFailureCategory> DelayedCategories() =>
+        new() { EnrichmentFailureCategory.RateLimited, EnrichmentFailureCategory.QuotaExhausted };
+
+    [Theory]
+    [MemberData(nameof(DelayedCategories))]
+    public async Task HandleAsync_ProviderFailedResult_DelayedCategoryAtMaxAttempts_DeadLettersAndMarksFailed(
+        EnrichmentFailureCategory category)
+    {
+        // arrange
+        var movie = PendingMovie();
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Failed(category));
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, MaxAttempts), ct);
+
+        // assert
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            category));
+        movie.Status.ShouldBe(EnrichmentStatus.Failed);
+        movie.LastFailureCategory.ShouldBe(category);
+        await movies.Received(1).SaveChangesAsync(ct);
+    }
+
+    [Fact]
     public async Task HandleAsync_ProviderFailedResult_NonRetryableCategory_MarksFailedAndDeadLetters()
     {
         // arrange

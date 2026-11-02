@@ -25,12 +25,13 @@ public sealed class EnrichmentRetryPolicyTests
         decision.NextAttempt.ShouldBe(attempt + 1);
     }
 
-    [Fact]
-    public void Decide_RateLimitedCategory_ReturnsRetryDelayed()
-    {
-        // arrange
-        var category = EnrichmentFailureCategory.RateLimited;
+    public static TheoryData<EnrichmentFailureCategory> DelayedCategories() =>
+        new() { EnrichmentFailureCategory.RateLimited, EnrichmentFailureCategory.QuotaExhausted };
 
+    [Theory]
+    [MemberData(nameof(DelayedCategories))]
+    public void Decide_DelayedCategory_ReturnsRetryDelayed(EnrichmentFailureCategory category)
+    {
         // act
         var decision = EnrichmentRetryPolicy.Decide(category, attempt: 1, MaxAttempts);
 
@@ -116,5 +117,6 @@ public sealed class EnrichmentRetryPolicyTests
         EnrichmentFailureCategory.RateLimited,
         EnrichmentFailureCategory.InvalidResponse,
         EnrichmentFailureCategory.Unknown,
+        EnrichmentFailureCategory.QuotaExhausted,
     ];
 }

@@ -86,7 +86,12 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
     }
 
     public static TheoryData<EnrichmentFailureCategory> RetryableCategories() =>
-        new() { EnrichmentFailureCategory.ProviderUnavailable, EnrichmentFailureCategory.RateLimited };
+        new()
+        {
+            EnrichmentFailureCategory.ProviderUnavailable,
+            EnrichmentFailureCategory.RateLimited,
+            EnrichmentFailureCategory.QuotaExhausted,
+        };
 
     [Theory]
     [MemberData(nameof(RetryableCategories))]
@@ -309,6 +314,12 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
                 EnrichmentFailureCategory.ProviderUnavailable,
                 SmallMaxAttempts + 1,
                 "provider_unavailable",
+                "max_attempts_exhausted"
+            },
+            {
+                EnrichmentFailureCategory.QuotaExhausted,
+                SmallMaxAttempts,
+                "quota_exhausted",
                 "max_attempts_exhausted"
             },
         };
