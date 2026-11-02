@@ -484,7 +484,8 @@ $RECYCLE.BIN/
 # Maestri local workspace state
 /.maestri/
 /scratch/
-/scripts/local/roles/
+# Maestri management scripts live in F:\Dev\maestri-ops, not in this repo
+/scripts/local/
 
 # Agent session worktrees and per-user agent settings
 /.claude/worktrees/
