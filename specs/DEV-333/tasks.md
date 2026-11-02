@@ -106,7 +106,7 @@
 
 ### Tests
 
-- [ ] T024 [US4] Add `tests/LamuFlix.IntegrationTests/ImportLibraryDryRunTests.cs`: `DryRun_500Candidates_ImportsAndEnrichesAllWithZeroRateLimitedFailedNotFoundOrDuplicates` — real bulk handler + PostgreSQL; bounded concurrency ≤ configured; fake provider returns Found for all; assert 500 movies, 500 outbox rows, all Enriched. Import count alone is insufficient (brief Q7 clarification).
+- [x] T024 [US4] Add `tests/LamuFlix.IntegrationTests/ImportLibraryDryRunTests.cs`: `DryRun_500Candidates_ImportsAndEnrichesAllWithZeroRateLimitedFailedNotFoundOrDuplicates` — real bulk handler + PostgreSQL; bounded concurrency ≤ configured; fake provider returns Found for all; assert 500 movies, 500 outbox rows, all Enriched. Import count alone is insufficient (brief Q7 clarification).
 
 **Checkpoint**: AC4 green.
 
