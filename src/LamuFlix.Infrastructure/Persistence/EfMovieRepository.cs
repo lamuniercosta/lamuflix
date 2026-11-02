@@ -693,16 +693,28 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             return;
         }
 
-        var desired = availability == SignalAvailability.KnownEmpty
+        var desired = DesiredKeywords(signals, availability);
+        var existing = await LoadKeywordCacheAsync(desired, ct);
+        RemoveMissingKeywords(record, desired);
+        AddMissingKeywords(record, desired, existing);
+    }
+
+    private static ImmutableArray<MovieKeyword> DesiredKeywords(MovieSignalSnapshot? signals, SignalAvailability availability) =>
+        availability == SignalAvailability.KnownEmpty
             ? ImmutableArray<MovieKeyword>.Empty
             : signals?.Keywords ?? ImmutableArray<MovieKeyword>.Empty;
-        var existing = await LoadKeywordCacheAsync(desired, ct);
+
+    private static void RemoveMissingKeywords(MovieRecord record, ImmutableArray<MovieKeyword> desired)
+    {
         var wanted = new HashSet<int>(desired.Select(keyword => keyword.Id));
         foreach (var current in record.Keywords.Where(keyword => !wanted.Contains(keyword.Id)).ToList())
         {
             record.Keywords.Remove(current);
         }
+    }
 
+    private void AddMissingKeywords(MovieRecord record, ImmutableArray<MovieKeyword> desired, Dictionary<int, KeywordRecord> existing)
+    {
         var present = new HashSet<int>(record.Keywords.Select(keyword => keyword.Id));
         foreach (var keyword in desired)
         {
@@ -758,12 +770,14 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             return;
         }
 
-        var desired = availability == SignalAvailability.KnownEmpty
-            ? Enumerable.Empty<string>()
-            : signals?.FullCast ?? Enumerable.Empty<string>();
-        await ReplaceRoleAsync(db.Actors, record.FullCast, desired, actor => actor.Name,
+        await ReplaceRoleAsync(db.Actors, record.FullCast, DesiredFullCast(signals, availability), actor => actor.Name,
             name => new ActorRecord { Name = name }, ct);
     }
+
+    private static IEnumerable<string> DesiredFullCast(MovieSignalSnapshot? signals, SignalAvailability availability) =>
+        availability == SignalAvailability.KnownEmpty
+            ? Enumerable.Empty<string>()
+            : signals?.FullCast ?? Enumerable.Empty<string>();
 
     private static async Task ReplaceRoleAsync<TEntity>(
         DbSet<TEntity> set,
@@ -1092,29 +1106,13 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             isNotInterested: record.IsNotInterested);
     }
 
-    private static MovieSignalSnapshot? Signals(MovieRecord record)
-    {
-        var keywords = record.Keywords
-            .OrderBy(keyword => keyword.Id)
-            .Select(keyword => new MovieKeyword(keyword.Id, keyword.Name))
-            .ToImmutableArray();
-        var fullCast = record.FullCast.Select(actor => actor.Name).ToImmutableArray();
-        var collectionAvailable = record.CollectionId is not null;
-
-        if (keywords.IsEmpty && fullCast.IsEmpty && !collectionAvailable)
-        {
-            return null;
-        }
-
-        return new MovieSignalSnapshot(
-            keywordAvailability: keywords.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
-            keywords: keywords,
-            fullCastAvailability: fullCast.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
-            fullCast: fullCast,
-            collectionAvailability: collectionAvailable
-                ? SignalAvailability.Available
-                : SignalAvailability.Unavailable);
-    }
+    private static MovieSignalSnapshot? Signals(MovieRecord record) =>
+        MovieSignalSnapshot.FromPersisted(
+            record.Keywords
+                .OrderBy(keyword => keyword.Id)
+                .Select(keyword => new MovieKeyword(keyword.Id, keyword.Name)),
+            record.FullCast.Select(actor => actor.Name),
+            record.CollectionId is not null);
 
     private sealed class TrackedMovie(Movie movie, MovieRecord record, Baseline baseline)
     {

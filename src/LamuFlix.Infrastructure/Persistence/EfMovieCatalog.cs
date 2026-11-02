@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -212,29 +211,13 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         record.Directors.Count > 0
         || record.Actors.Count > 0;
 
-    private static MovieSignalSnapshot? Signals(MovieDetailsRecord record)
-    {
-        var keywords = record.Keywords
-            .OrderBy(keyword => keyword.Id)
-            .Select(keyword => new MovieKeyword(keyword.Id, keyword.Name))
-            .ToImmutableArray();
-        var fullCast = record.FullCast.ToImmutableArray();
-        var collectionAvailable = record.CollectionName is not null;
-
-        if (keywords.IsEmpty && fullCast.IsEmpty && !collectionAvailable)
-        {
-            return null;
-        }
-
-        return new MovieSignalSnapshot(
-            keywordAvailability: keywords.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
-            keywords: keywords,
-            fullCastAvailability: fullCast.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
-            fullCast: fullCast,
-            collectionAvailability: collectionAvailable
-                ? SignalAvailability.Available
-                : SignalAvailability.Unavailable);
-    }
+    private static MovieSignalSnapshot? Signals(MovieDetailsRecord record) =>
+        MovieSignalSnapshot.FromPersisted(
+            record.Keywords
+                .OrderBy(keyword => keyword.Id)
+                .Select(keyword => new MovieKeyword(keyword.Id, keyword.Name)),
+            record.FullCast,
+            record.CollectionName is not null);
 
     private sealed record MovieDetailsRecord(
         MovieId? Id,

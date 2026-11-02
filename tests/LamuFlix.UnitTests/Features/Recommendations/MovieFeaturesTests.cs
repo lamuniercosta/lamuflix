@@ -569,15 +569,19 @@ public sealed class MovieFeaturesTests
         IEnumerable<int>? keywords = null,
         int? collectionId = null) =>
         new(
-            genres ?? baseline.Genres,
-            directors ?? baseline.Directors,
-            writers ?? baseline.Writers,
-            cast ?? baseline.Cast,
-            releaseYear ?? baseline.ReleaseYear,
-            runtime ?? baseline.Runtime,
-            imdbRating ?? baseline.ImdbRating,
-            metaScore ?? baseline.MetaScore,
-            fullPlot ?? baseline.FullPlot,
-            keywords ?? baseline.Keywords,
-            collectionId ?? baseline.CollectionId);
+            Or(genres, baseline.Genres),
+            Or(directors, baseline.Directors),
+            Or(writers, baseline.Writers),
+            Or(cast, baseline.Cast),
+            Or(releaseYear, baseline.ReleaseYear),
+            Or(runtime, baseline.Runtime),
+            Or(imdbRating, baseline.ImdbRating),
+            OrValue(metaScore, baseline.MetaScore),
+            Or(fullPlot, baseline.FullPlot),
+            Or(keywords, baseline.Keywords),
+            OrValue(collectionId, baseline.CollectionId));
+
+    private static T? Or<T>(T? value, T? fallback) where T : class => value ?? fallback;
+
+    private static T? OrValue<T>(T? value, T? fallback) where T : struct => value ?? fallback;
 }
