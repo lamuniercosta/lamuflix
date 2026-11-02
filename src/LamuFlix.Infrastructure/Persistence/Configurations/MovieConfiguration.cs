@@ -192,6 +192,18 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
                 "movie_writers",
                 right => right.HasOne(typeof(WriterRecord)).WithMany().HasForeignKey("writer_id"),
                 left => left.HasOne(typeof(MovieRecord)).WithMany().HasForeignKey("movie_id"));
+        builder.HasMany(movie => movie.Keywords)
+            .WithMany(keyword => keyword.Movies)
+            .UsingEntity(
+                "movie_keywords",
+                right => right.HasOne(typeof(KeywordRecord)).WithMany().HasForeignKey("keyword_id"),
+                left => left.HasOne(typeof(MovieRecord)).WithMany().HasForeignKey("movie_id"));
+        builder.HasMany(movie => movie.FullCast)
+            .WithMany()
+            .UsingEntity(
+                "movie_tmdb_cast",
+                right => right.HasOne(typeof(ActorRecord)).WithMany().HasForeignKey("actor_id"),
+                left => left.HasOne(typeof(MovieRecord)).WithMany().HasForeignKey("movie_id"));
     }
 
     private static void ConvertUsing(PropertyBuilder property, ValueConverter converter) =>

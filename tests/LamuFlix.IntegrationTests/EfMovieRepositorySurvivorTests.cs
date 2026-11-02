@@ -1945,7 +1945,8 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
             [],
             [],
             collectionId,
-            collectionName);
+            collectionName,
+            new MovieSignalSnapshot(collectionAvailability: SignalAvailability.Available));
 
     private static LamuFlixDbContext OpenInstrumentedContext(string connectionString, DbCommandInterceptor interceptor)
     {

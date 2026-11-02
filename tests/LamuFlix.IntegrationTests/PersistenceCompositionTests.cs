@@ -217,6 +217,41 @@ public sealed class PersistenceCompositionTests(PostgresFixture fixture) : IAsyn
         }
     }
 
+    [Fact]
+    public void DesignTimeFactory_GeneratesTmdbRecommendationSignalsMigrationWithKeywordAndProvenanceTables()
+    {
+        // arrange
+        var previous = Environment.GetEnvironmentVariable(
+            LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable);
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable,
+                fixture.ConnectionString);
+            using var context = new LamuFlixDesignTimeDbContextFactory().CreateDbContext([]);
+
+            // act
+            var script = GenerateMigrationScript(
+                context, "_AddOmdbDailyUsage", "_AddTmdbRecommendationSignals");
+
+            // assert
+            script.ShouldContain("CREATE TABLE keywords");
+            script.ShouldContain("CREATE TABLE movie_keywords");
+            script.ShouldContain("CREATE TABLE movie_tmdb_cast");
+            script.ShouldContain("CONSTRAINT \"PK_keywords\" PRIMARY KEY (id)");
+            script.ShouldContain("CONSTRAINT \"PK_movie_keywords\" PRIMARY KEY (keyword_id, movie_id)");
+            script.ShouldContain("CONSTRAINT \"PK_movie_tmdb_cast\" PRIMARY KEY (actor_id, movie_id)");
+            script.ShouldContain("FK_movie_tmdb_cast_actors_actor_id");
+            script.ShouldNotContain("CREATE TABLE actors");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                LamuFlixDesignTimeDbContextFactory.ConnectionStringVariable,
+                previous);
+        }
+    }
+
     private static string GenerateMigrationScript(
         LamuFlixDbContext context,
         string fromSuffix,

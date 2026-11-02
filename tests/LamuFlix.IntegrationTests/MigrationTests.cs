@@ -36,6 +36,9 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "movie_features",
         "outbox_messages",
         "collections",
+        "keywords",
+        "movie_keywords",
+        "movie_tmdb_cast",
         "omdb_daily_usage"
     ];
 
@@ -84,7 +87,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(11);
+        migrations.Length.ShouldBe(12);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -96,6 +99,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         migrations[8].ShouldEndWith("_AddEnrichmentOutbox");
         migrations[9].ShouldEndWith("_AddMovieCollections");
         migrations[10].ShouldEndWith("_AddOmdbDailyUsage");
+        migrations[11].ShouldEndWith("_AddTmdbRecommendationSignals");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -130,7 +134,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddOmdbDailyUsage");
+        applied[^1].ShouldEndWith("_AddTmdbRecommendationSignals");
         var rows = await context.Movies.AsNoTracking()
             .OrderBy(movie => movie.Title)
             .ToListAsync(cancellationToken);
@@ -224,7 +228,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddOmdbDailyUsage");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddTmdbRecommendationSignals");
     }
 
     [Fact]
@@ -407,6 +411,46 @@ public sealed class MigrationTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task MigrateAsync_AddTmdbRecommendationSignals_AddsKeywordAndProvenanceTablesWithNaturalKeywordKey()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var catalog = new PostgresCatalog(context);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261030001510_AddOmdbDailyUsage", cancellationToken);
+
+        // act
+        await migrator.MigrateAsync(null, cancellationToken);
+
+        // assert
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("keywords");
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("movie_keywords");
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldContain("movie_tmdb_cast");
+        (await catalog.ListPublicTablesAsync(cancellationToken)).ShouldNotContain("tmdb_actors");
+        (await catalog.ListColumnDetailsAsync("keywords", cancellationToken)).ShouldBe(
+        [
+            ("id", "integer", false, false),
+            ("name", "text", false, false)
+        ],
+            ignoreOrder: true);
+        (await catalog.ListPrimaryKeyColumnsAsync("keywords", cancellationToken)).ShouldBe(["id"]);
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_keywords", cancellationToken))
+            .ShouldBe(["keyword_id", "movie_id"], ignoreOrder: true);
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_tmdb_cast", cancellationToken))
+            .ShouldBe(["actor_id", "movie_id"], ignoreOrder: true);
+        (await catalog.ListForeignKeysAsync("movie_keywords", cancellationToken))
+            .ShouldContain(("keyword_id", "keywords", "id", "CASCADE"));
+        (await catalog.ListForeignKeysAsync("movie_keywords", cancellationToken))
+            .ShouldContain(("movie_id", "movies", "id", "CASCADE"));
+        (await catalog.ListForeignKeysAsync("movie_tmdb_cast", cancellationToken))
+            .ShouldContain(("actor_id", "actors", "id", "CASCADE"));
+        (await catalog.ListForeignKeysAsync("movie_tmdb_cast", cancellationToken))
+            .ShouldContain(("movie_id", "movies", "id", "CASCADE"));
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task MigrateAsync_EmptyDatabase_MatchesPostgresCatalogContract()
     {
         await using var context = await fixture.CreateEmptyDatabaseContextAsync(TestContext.Current.CancellationToken);
@@ -519,6 +563,10 @@ public sealed class MigrationTests(PostgresFixture fixture)
             .ShouldBe(["genre_id", "movie_id"], ignoreOrder: true);
         (await catalog.ListPrimaryKeyColumnsAsync("movie_writers", cancellationToken))
             .ShouldBe(["writer_id", "movie_id"], ignoreOrder: true);
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_keywords", cancellationToken))
+            .ShouldBe(["keyword_id", "movie_id"], ignoreOrder: true);
+        (await catalog.ListPrimaryKeyColumnsAsync("movie_tmdb_cast", cancellationToken))
+            .ShouldBe(["actor_id", "movie_id"], ignoreOrder: true);
     }
 
     private static async Task AssertMovieIndexDefinitionsAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
