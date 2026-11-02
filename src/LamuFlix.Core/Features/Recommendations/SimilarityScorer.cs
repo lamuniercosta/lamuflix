@@ -13,6 +13,8 @@ public static class SimilarityScorer
     private const double RuntimeDecayRate = 0.01;
     private const double RatingScale = 10.0;
     private const string IdentityReason = "Identical feature profile";
+    private const string SharedKeywordsReason = "Shared keywords";
+    private const string SameCollectionReason = "Same franchise collection";
 
     public static SimilarityResult Score(
         MovieFeatures a,
@@ -49,6 +51,8 @@ public static class SimilarityScorer
         AddSetTerm(builder, a.Directors, b.Directors, weights.Director, SetLabel.Director);
         AddSetTerm(builder, a.Writers, b.Writers, weights.Writers, SetLabel.Writers);
         AddSetTerm(builder, a.Cast, b.Cast, weights.Cast, SetLabel.Cast);
+        AddKeywordTerm(builder, a.Keywords, b.Keywords, weights.Keyword);
+        AddCollectionTerm(builder, a.CollectionId, b.CollectionId, weights.Collection);
         AddGenreTerm(builder, a.Genres, b.Genres, weights.Genres, genreWeights);
         AddYearTerm(builder, a.ReleaseYear, b.ReleaseYear, weights.YearProximity);
         AddRuntimeTerm(builder, a.Runtime, b.Runtime, weights.RuntimeProximity);
@@ -68,6 +72,34 @@ public static class SimilarityScorer
         {
             var similarity = Jaccard(first, second);
             var reason = IsEligible(weight, similarity) ? SetReason(label, first, second) : null;
+            builder.Add(new Term(weight, similarity, reason));
+        }
+    }
+
+    private static void AddKeywordTerm(
+        ImmutableArray<Term>.Builder builder,
+        ImmutableHashSet<int> first,
+        ImmutableHashSet<int> second,
+        double weight)
+    {
+        if (first.Count > 0 && second.Count > 0)
+        {
+            var similarity = Jaccard(first, second);
+            var reason = IsEligible(weight, similarity) ? SharedKeywordsReason : null;
+            builder.Add(new Term(weight, similarity, reason));
+        }
+    }
+
+    private static void AddCollectionTerm(
+        ImmutableArray<Term>.Builder builder,
+        int? first,
+        int? second,
+        double weight)
+    {
+        if (first is not null && second is not null)
+        {
+            var similarity = first == second ? 1.0 : 0.0;
+            var reason = IsEligible(weight, similarity) ? SameCollectionReason : null;
             builder.Add(new Term(weight, similarity, reason));
         }
     }
@@ -192,12 +224,14 @@ public static class SimilarityScorer
         a.Directors.SetEquals(b.Directors)
         && a.Writers.SetEquals(b.Writers)
         && a.Cast.SetEquals(b.Cast)
-        && a.Genres.SetEquals(b.Genres);
+        && a.Genres.SetEquals(b.Genres)
+        && a.Keywords.SetEquals(b.Keywords);
 
     private static bool AreScalarsIdentical(MovieFeatures a, MovieFeatures b) =>
         a.ReleaseYear == b.ReleaseYear
         && a.Runtime == b.Runtime
-        && a.ImdbRating == b.ImdbRating;
+        && a.ImdbRating == b.ImdbRating
+        && a.CollectionId == b.CollectionId;
 
     private static bool HasScoringFeature(MovieFeatures movie) =>
         HasSetFeature(movie) || HasScalarFeature(movie);
@@ -206,12 +240,14 @@ public static class SimilarityScorer
         movie.Directors.Count > 0
         || movie.Writers.Count > 0
         || movie.Cast.Count > 0
-        || movie.Genres.Count > 0;
+        || movie.Genres.Count > 0
+        || movie.Keywords.Count > 0;
 
     private static bool HasScalarFeature(MovieFeatures movie) =>
         movie.ReleaseYear is not null
         || movie.Runtime is not null
-        || movie.ImdbRating is not null;
+        || movie.ImdbRating is not null
+        || movie.CollectionId is not null;
 
     private static double Proximity(double decayRate, double first, double second) =>
         Math.Exp(-decayRate * Math.Abs(first - second));
@@ -222,6 +258,21 @@ public static class SimilarityScorer
     private static double Jaccard(ImmutableHashSet<string> first, ImmutableHashSet<string> second)
     {
         var intersection = SharedTokens(first, second).Count;
+        var union = first.Count + second.Count - intersection;
+        return (double)intersection / union;
+    }
+
+    private static double Jaccard(ImmutableHashSet<int> first, ImmutableHashSet<int> second)
+    {
+        var intersection = 0;
+        foreach (var value in first)
+        {
+            if (second.Contains(value))
+            {
+                intersection++;
+            }
+        }
+
         var union = first.Count + second.Count - intersection;
         return (double)intersection / union;
     }
@@ -327,6 +378,8 @@ public static class SimilarityScorer
         ValidateWeight(weights.YearProximity, nameof(weights));
         ValidateWeight(weights.RuntimeProximity, nameof(weights));
         ValidateWeight(weights.RatingBoost, nameof(weights));
+        ValidateWeight(weights.Keyword, nameof(weights));
+        ValidateWeight(weights.Collection, nameof(weights));
     }
 
     private static void ValidateWeight(double weight, string paramName)

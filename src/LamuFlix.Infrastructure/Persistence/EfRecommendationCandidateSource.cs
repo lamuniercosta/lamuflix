@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ public sealed class EfRecommendationCandidateSource(
 
     public async Task<IReadOnlyList<RecommendationCandidate>> GetCandidatesAsync(
         MovieId selectedMovieId,
+        int? collectionId,
         CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -40,13 +42,9 @@ public sealed class EfRecommendationCandidateSource(
         ct.ThrowIfCancellationRequested();
 
         var rows = await (
-                from movie in db.Movies
+                from movie in Traversable(db.Movies
                     .AsNoTracking()
-                    .Where(movie => movie.Status == EnrichmentStatus.Enriched && movie.Id != selectedMovieId)
-                    .Include(movie => movie.Actors)
-                    .Include(movie => movie.Directors)
-                    .Include(movie => movie.Genres)
-                    .Include(movie => movie.Writers)
+                    .Where(movie => movie.Status == EnrichmentStatus.Enriched && movie.Id != selectedMovieId))
                 join feature in db.MovieFeatures.AsNoTracking() on movie.Id equals feature.MovieId
                 let distance = feature.Vector.CosineDistance(selectedVector)
                 where distance >= -CosineDistanceTolerance
@@ -56,12 +54,66 @@ public sealed class EfRecommendationCandidateSource(
             .Take(options.CandidatePoolSize)
             .ToListAsync(ct);
 
-        return
-        [
-            .. rows.Select(row => new RecommendationCandidate(
-                ToDomain(row.Movie),
-                ToCosineSimilarity(row.Distance))),
-        ];
+        ct.ThrowIfCancellationRequested();
+
+        var candidates = new List<RecommendationCandidate>(rows.Count + options.CandidatePoolSize);
+        var seen = new HashSet<MovieId>();
+        foreach (var row in rows)
+        {
+            AddCandidate(candidates, seen, ToDomain(row.Movie), ToCosineSimilarity(row.Distance));
+        }
+
+        if (collectionId is { } franchiseId)
+        {
+            await UnionSameCollectionAsync(candidates, seen, selectedMovieId, franchiseId, ct);
+        }
+
+        return candidates;
+    }
+
+    private async Task UnionSameCollectionAsync(
+        List<RecommendationCandidate> candidates,
+        HashSet<MovieId> seen,
+        MovieId selectedMovieId,
+        int collectionId,
+        CancellationToken ct)
+    {
+        var members = await Traversable(db.Movies
+                .AsNoTracking()
+                .Where(movie => movie.CollectionId == collectionId
+                    && movie.Status == EnrichmentStatus.Enriched
+                    && movie.Id != selectedMovieId))
+            .OrderBy(movie => movie.Id)
+            .ToListAsync(ct);
+
+        ct.ThrowIfCancellationRequested();
+
+        foreach (var member in members)
+        {
+            AddCandidate(candidates, seen, ToDomain(member), 0.0);
+        }
+    }
+
+    private static IQueryable<MovieRecord> Traversable(IQueryable<MovieRecord> query) =>
+        query
+            .Include(movie => movie.Actors)
+            .Include(movie => movie.Directors)
+            .Include(movie => movie.Genres)
+            .Include(movie => movie.Writers)
+            .Include(movie => movie.Keywords)
+            .Include(movie => movie.FullCast)
+            .Include(movie => movie.Collection);
+
+    private static void AddCandidate(
+        List<RecommendationCandidate> candidates,
+        HashSet<MovieId> seen,
+        Movie movie,
+        double cosineSimilarity)
+    {
+        if (seen.Add(movie.Id))
+        {
+            candidates.Add(new RecommendationCandidate(movie, cosineSimilarity));
+        }
     }
 
     private async Task<Vector?> ReadSelectedVectorAsync(MovieId movieId, CancellationToken ct)
@@ -107,6 +159,7 @@ public sealed class EfRecommendationCandidateSource(
             throw new InvalidOperationException("The database returned a movie row without an id.");
         }
 
+        var collection = CollectionIdentity(record);
         MovieMetadata? metadata = record.MetadataTitle is null
             ? null
             : new MovieMetadata(
@@ -122,7 +175,10 @@ public sealed class EfRecommendationCandidateSource(
                 record.Directors.Select(director => director.Name),
                 record.Actors.Select(actor => actor.Name),
                 record.Genres.Select(genre => genre.Name),
-                record.Writers.Select(writer => writer.Name));
+                record.Writers.Select(writer => writer.Name),
+                collection?.Id,
+                collection?.Name,
+                Signals(record));
 
         return Movie.Rehydrate(
             id: record.Id,
@@ -140,5 +196,34 @@ public sealed class EfRecommendationCandidateSource(
             manualImdbId: record.ManualImdbId,
             isWatched: record.IsWatched,
             isNotInterested: record.IsNotInterested);
+    }
+
+    private static (int Id, string Name)? CollectionIdentity(MovieRecord record) =>
+        record.CollectionId is { } id && record.Collection is { } collection
+            ? (id, collection.Name)
+            : null;
+
+    private static MovieSignalSnapshot? Signals(MovieRecord record)
+    {
+        var keywords = record.Keywords
+            .OrderBy(keyword => keyword.Id)
+            .Select(keyword => new MovieKeyword(keyword.Id, keyword.Name))
+            .ToImmutableArray();
+        var fullCast = record.FullCast.Select(actor => actor.Name).ToImmutableArray();
+        var collectionAvailable = record.CollectionId is not null;
+
+        if (keywords.IsEmpty && fullCast.IsEmpty && !collectionAvailable)
+        {
+            return null;
+        }
+
+        return new MovieSignalSnapshot(
+            keywordAvailability: keywords.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
+            keywords: keywords,
+            fullCastAvailability: fullCast.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
+            fullCast: fullCast,
+            collectionAvailability: collectionAvailable
+                ? SignalAvailability.Available
+                : SignalAvailability.Unavailable);
     }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -297,6 +297,28 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
+    }
+
+    [Fact]
+    public async Task GetProfileInputsAsync_EmbeddinglessCandidate_KeepsBaseRowWithoutEmbedding()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var watchedId = await SeedMovieAsync("Watched signal history", isWatched: true, ct, "Drama");
+        var vector = VariedVector(offset: 800);
+        await SeedVectorAsync(watchedId, vector, ct);
+        var vectorlessId = await SeedMovieAsync("Vectorless franchise member", isWatched: false, ct, "Comedy");
+        await using var db = fixture.CreateMigratedContext();
+        var source = CreateSource(db);
+
+        // act
+        var inputs = await source.GetProfileInputsAsync([vectorlessId], ct);
+
+        // assert
+        inputs.Movies.Select(movie => movie.MovieId).ShouldBe([watchedId]);
+        inputs.Movies[0].Genres.ShouldBe(["Drama"]);
+        inputs.CandidateEmbeddings.ShouldNotContainKey(vectorlessId);
+        inputs.Movies[0].PlotEmbedding.SequenceEqual(vector).ShouldBeTrue();
     }
 
     private static EfRecommendationProfileSource CreateSource(LamuFlixDbContext db) =>

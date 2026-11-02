@@ -575,6 +575,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             .Include(movie => movie.Writers)
             .Include(movie => movie.Keywords)
             .Include(movie => movie.FullCast)
+            .Include(movie => movie.Collection)
             .SingleOrDefaultAsync(movie => movie.Id == id, ct);
 
     private async Task AcquireSnapshotLocksAsync(IReadOnlyList<TrackedMovie> tracked, CancellationToken ct)
@@ -694,7 +695,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
 
         var desired = availability == SignalAvailability.KnownEmpty
             ? ImmutableArray<MovieKeyword>.Empty
-            : signals!.Keywords;
+            : signals?.Keywords ?? ImmutableArray<MovieKeyword>.Empty;
         var existing = await LoadKeywordCacheAsync(desired, ct);
         var wanted = new HashSet<int>(desired.Select(keyword => keyword.Id));
         foreach (var current in record.Keywords.Where(keyword => !wanted.Contains(keyword.Id)).ToList())
@@ -759,7 +760,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
 
         var desired = availability == SignalAvailability.KnownEmpty
             ? Enumerable.Empty<string>()
-            : signals!.FullCast;
+            : signals?.FullCast ?? Enumerable.Empty<string>();
         await ReplaceRoleAsync(db.Actors, record.FullCast, desired, actor => actor.Name,
             name => new ActorRecord { Name = name }, ct);
     }
@@ -1049,6 +1050,10 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             throw new InvalidOperationException("The database returned a movie row without an id.");
         }
 
+        var collectionId = record.CollectionId is { } availableId && record.Collection is not null
+            ? availableId
+            : (int?)null;
+        var collectionName = record.Collection?.Name;
         MovieMetadata? metadata = record.MetadataTitle is null
             ? null
             : new MovieMetadata(
@@ -1064,7 +1069,10 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
                 record.Directors.Select(director => director.Name),
                 record.Actors.Select(actor => actor.Name),
                 record.Genres.Select(genre => genre.Name),
-                record.Writers.Select(writer => writer.Name));
+                record.Writers.Select(writer => writer.Name),
+                collectionId,
+                collectionName,
+                Signals(record));
 
         return Movie.Rehydrate(
             id: record.Id,
@@ -1082,6 +1090,30 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             manualImdbId: record.ManualImdbId,
             isWatched: record.IsWatched,
             isNotInterested: record.IsNotInterested);
+    }
+
+    private static MovieSignalSnapshot? Signals(MovieRecord record)
+    {
+        var keywords = record.Keywords
+            .OrderBy(keyword => keyword.Id)
+            .Select(keyword => new MovieKeyword(keyword.Id, keyword.Name))
+            .ToImmutableArray();
+        var fullCast = record.FullCast.Select(actor => actor.Name).ToImmutableArray();
+        var collectionAvailable = record.CollectionId is not null;
+
+        if (keywords.IsEmpty && fullCast.IsEmpty && !collectionAvailable)
+        {
+            return null;
+        }
+
+        return new MovieSignalSnapshot(
+            keywordAvailability: keywords.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
+            keywords: keywords,
+            fullCastAvailability: fullCast.IsEmpty ? SignalAvailability.Unavailable : SignalAvailability.Available,
+            fullCast: fullCast,
+            collectionAvailability: collectionAvailable
+                ? SignalAvailability.Available
+                : SignalAvailability.Unavailable);
     }
 
     private sealed class TrackedMovie(Movie movie, MovieRecord record, Baseline baseline)

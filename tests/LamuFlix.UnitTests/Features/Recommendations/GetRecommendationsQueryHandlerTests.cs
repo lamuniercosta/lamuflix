@@ -58,7 +58,7 @@ public sealed class GetRecommendationsQueryHandlerTests
 
         // act / assert
         await Should.ThrowAsync<NotFoundException>(() => handler.HandleAsync(query, CancellationToken.None));
-        await candidateSource.DidNotReceive().GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
+        await candidateSource.DidNotReceive().GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -834,7 +834,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetRecommendationsQuery(new MovieId(1)), cts.Token));
         await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
-        await candidateSource.DidNotReceive().GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
+        await candidateSource.DidNotReceive().GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>());
         await catalog.DidNotReceive().GetGenreCountsAsync(Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetProfileInputsAsync(
             Arg.Any<IReadOnlyCollection<MovieId>>(),
@@ -859,7 +859,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         // act / assert
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetRecommendationsQuery(new MovieId(1)), cts.Token));
-        await candidateSource.DidNotReceive().GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
+        await candidateSource.DidNotReceive().GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -870,7 +870,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         using var cts = new CancellationTokenSource();
         IReadOnlyList<RecommendationCandidate> pool = Pool(2);
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(Selected());
-        candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>())
+        candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
@@ -941,7 +941,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var handler = NewHandler();
         var failure = new InvalidOperationException("candidate load failed");
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(Selected());
-        candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>())
+        candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException<IReadOnlyList<RecommendationCandidate>>(failure));
 
         // act / assert
@@ -1193,10 +1193,50 @@ public sealed class GetRecommendationsQueryHandlerTests
                 MmrLambda = mmrLambda,
             }));
 
+    [Fact]
+    public async Task HandleAsync_SelectedCollection_PassesCollectionIdToCandidateSource()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = NewMovie(1, genres: ["Drama"], collectionId: 7, collectionName: "Franchise");
+        Arrange(selected, Pool(2));
+
+        // act
+        await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        await candidateSource.Received(1).GetCandidatesAsync(
+            selected.Id,
+            7,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_SeedCollection_LeadsWithContiguousFranchiseBlock()
+    {
+        // arrange
+        var handler = NewHandler();
+        var selected = NewMovie(1, genres: ["Drama"], collectionId: 7, collectionName: "Franchise");
+        var pool = Candidates(
+            NewMovie(2, genres: ["Drama"]),
+            NewMovie(3, genres: ["Drama"], collectionId: 7, collectionName: "Franchise"),
+            NewMovie(4, genres: ["Comedy"]),
+            NewMovie(5, genres: ["Drama"], collectionId: 8, collectionName: "Other Franchise"));
+        Arrange(selected, pool);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id, 4), CancellationToken.None);
+
+        // assert
+        result.Count.ShouldBe(4);
+        result[0].Summary.Id.ShouldBe(new MovieId(3));
+        result.Select(item => item.Summary.Id).Distinct().Count().ShouldBe(4);
+    }
+
     private void Arrange(Movie selected, IReadOnlyList<RecommendationCandidate> pool)
     {
         movies.GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(selected);
-        candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(pool);
+        candidateSource.GetCandidatesAsync(Arg.Any<MovieId>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).Returns(pool);
     }
 
     private void ArrangeProfile(params TasteProfileMovie[] profileMovies) =>
@@ -1288,7 +1328,9 @@ public sealed class GetRecommendationsQueryHandlerTests
         EnrichmentStatus? status = null,
         bool isInWatchlist = false,
         bool isWatched = false,
-        bool isNotInterested = false)
+        bool isNotInterested = false,
+        int? collectionId = null,
+        string? collectionName = null)
     {
         var movieTitle = title ?? $"Movie {id}";
         var metadata = BuildMetadata(
@@ -1301,7 +1343,9 @@ public sealed class GetRecommendationsQueryHandlerTests
             directors,
             actors,
             writers,
-            withMetadata);
+            withMetadata,
+            collectionId,
+            collectionName);
 
         return Movie.Rehydrate(
             new MovieId(id),
@@ -1329,7 +1373,9 @@ public sealed class GetRecommendationsQueryHandlerTests
         string[]? directors,
         string[]? actors,
         string[]? writers,
-        bool withMetadata)
+        bool withMetadata,
+        int? collectionId = null,
+        string? collectionName = null)
     {
         if (!withMetadata)
         {
@@ -1345,7 +1391,9 @@ public sealed class GetRecommendationsQueryHandlerTests
             directors: directors,
             actors: actors,
             genres: genres,
-            writers: writers);
+            writers: writers,
+            collectionId: collectionId,
+            collectionName: collectionName);
     }
 
     private sealed class CancellingCandidates(IReadOnlyList<RecommendationCandidate> items, CancellationTokenSource source)

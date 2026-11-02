@@ -102,6 +102,8 @@ public sealed class SimilarityScorerTests
             new() { YearProximity = -0.25 },
             new() { RuntimeProximity = double.NaN },
             new() { RatingBoost = double.PositiveInfinity },
+            new() { Keyword = -1.0 },
+            new() { Collection = double.NaN },
         ];
 
         // act / assert
@@ -110,6 +112,110 @@ public sealed class SimilarityScorerTests
             var failure = Should.Throw<ArgumentOutOfRangeException>(() => SimilarityScorer.Score(movie, movie, weights, GenreTable()));
             failure.ParamName.ShouldBe("weights");
         }
+    }
+
+    [Fact]
+    public void Score_KeywordOverlap_UsesJaccardOfPositiveIdentities()
+    {
+        // arrange
+        var first = Features(keywords: [101, 202, 303]);
+        var second = Features(keywords: [101, 202, 404]);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(keyword: 1.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(0.5);
+        Text(result).ShouldBe(["Shared keywords"]);
+    }
+
+    [Fact]
+    public void Score_KeywordSetEmptyOnEitherSide_OmitsTerm()
+    {
+        // arrange
+        var populated = Features(keywords: [101]);
+        var empty = new MovieFeatures();
+
+        // act
+        var result = SimilarityScorer.Score(populated, empty, Only(keyword: 1.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(0.0);
+        Text(result).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_KeywordZeroWeight_RemovesTermWithoutChangingOtherSignals()
+    {
+        // arrange
+        var first = Features(keywords: [101, 202], collectionId: 7);
+        var second = Features(keywords: [101, 202], collectionId: 7);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(collection: 1.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(1.0);
+        Text(result).ShouldBe(["Same franchise collection"]);
+    }
+
+    [Fact]
+    public void Score_EqualKnownCollectionIds_ScoreOneWithFranchiseReason()
+    {
+        // arrange
+        var first = Features(collectionId: 42);
+        var second = Features(collectionId: 42);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(collection: 2.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(1.0);
+        Text(result).ShouldBe(["Same franchise collection"]);
+    }
+
+    [Fact]
+    public void Score_DifferentCollectionIds_ScoreZeroAndEmitNoReason()
+    {
+        // arrange
+        var first = Features(collectionId: 42);
+        var second = Features(collectionId: 43);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(collection: 2.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(0.0);
+        Text(result).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_MissingCollectionIdOnEitherSide_OmitsTerm()
+    {
+        // arrange
+        var known = Features(collectionId: 42);
+        var unknown = new MovieFeatures();
+
+        // act
+        var result = SimilarityScorer.Score(known, unknown, Only(collection: 2.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(0.0);
+        Text(result).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Score_SameCollectionNameDifferentIdentity_IsTreatedAsDifferent()
+    {
+        // arrange
+        var first = Features(collectionId: 100);
+        var second = Features(collectionId: 200);
+
+        // act
+        var result = SimilarityScorer.Score(first, second, Only(collection: 2.0), GenreTable());
+
+        // assert
+        result.Score.ShouldBe(0.0);
     }
 
     [Fact]
@@ -760,7 +866,9 @@ public sealed class SimilarityScorerTests
         double genres = 0.0,
         double year = 0.0,
         double runtime = 0.0,
-        double rating = 0.0) =>
+        double rating = 0.0,
+        double keyword = 0.0,
+        double collection = 0.0) =>
         new()
         {
             Director = director,
@@ -770,6 +878,8 @@ public sealed class SimilarityScorerTests
             YearProximity = year,
             RuntimeProximity = runtime,
             RatingBoost = rating,
+            Keyword = keyword,
+            Collection = collection,
         };
 
     private static GenreWeights GenreTable() =>
@@ -792,7 +902,9 @@ public sealed class SimilarityScorerTests
         int? runtime = null,
         decimal? imdbRating = null,
         int? metaScore = null,
-        string? fullPlot = null) =>
+        string? fullPlot = null,
+        IEnumerable<int>? keywords = null,
+        int? collectionId = null) =>
         new(
             genres,
             directors,
@@ -802,5 +914,7 @@ public sealed class SimilarityScorerTests
             runtime.HasValue ? new Runtime(runtime.Value) : null,
             imdbRating.HasValue ? new ImdbRating(imdbRating.Value) : null,
             metaScore,
-            fullPlot);
+            fullPlot,
+            keywords,
+            collectionId);
 }
