@@ -14,6 +14,7 @@ using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.UnitTests.Features;
 using LamuFlix.UnitTests.Pipeline;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -500,7 +501,7 @@ public sealed class OmdbMetadataProviderUnitTests
     }
 
     [Fact]
-    public async Task FindAsync_QuotaExhausted_ReturnsRateLimitedAndLeavesHealthUnchanged()
+    public async Task FindAsync_QuotaExhausted_ReturnsQuotaExhaustedAndLeavesHealthUnchanged()
     {
         // arrange
         var state = new MetadataProviderHealthState();
@@ -510,7 +511,29 @@ public sealed class OmdbMetadataProviderUnitTests
         var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
 
         // assert
-        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.RateLimited);
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.QuotaExhausted);
+        Snapshot(state).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_DeniedGateThroughRealQuotaHandler_ReturnsQuotaExhaustedWithZeroTransport()
+    {
+        // arrange
+        var state = new MetadataProviderHealthState();
+        var transport = new RecordingHandler();
+        var quotaHandler = new MetadataQuotaHandler(
+            new StubScopeFactory(new StubGate(_ => Task.FromResult(false))))
+        {
+            InnerHandler = transport,
+        };
+        var provider = Provider(quotaHandler, state);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.QuotaExhausted);
+        transport.Calls.ShouldBe(0);
         Snapshot(state).ShouldBeNull();
     }
 
@@ -872,6 +895,13 @@ public sealed class OmdbMetadataProviderUnitTests
         return new OmdbMetadataProvider(http, options, new FixedTimeProvider(Now), NullLogger<OmdbMetadataProvider>.Instance, state);
     }
 
+    private static OmdbMetadataProvider Provider(HttpMessageHandler handler, MetadataProviderHealthState state)
+    {
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test/") };
+        var options = Microsoft.Extensions.Options.Options.Create(new OmdbOptions { ApiKey = "key", BaseUrl = "https://example.test/" });
+        return new OmdbMetadataProvider(http, options, new FixedTimeProvider(Now), NullLogger<OmdbMetadataProvider>.Instance, state);
+    }
+
     private static object? Snapshot(MetadataProviderHealthState state) =>
         typeof(MetadataProviderHealthState).GetProperty(
             "Current",
@@ -890,6 +920,42 @@ public sealed class OmdbMetadataProviderUnitTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
             Task.FromException<HttpResponseMessage>(failure);
+    }
+
+    private sealed class RecordingHandler : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{ "Response": "True", "Title": "Blade Runner" }"""),
+            });
+        }
+    }
+
+    private sealed class StubGate(Func<CancellationToken, Task<bool>> acquire) : IOmdbRequestGate
+    {
+        public Task<bool> TryAcquireAsync(CancellationToken cancellationToken) => acquire(cancellationToken);
+    }
+
+    private sealed class StubScopeFactory(IOmdbRequestGate gate) : IServiceScopeFactory
+    {
+        public IServiceScope CreateScope() => new StubScope(gate);
+    }
+
+    private sealed class StubScope(IOmdbRequestGate gate) : IServiceScope, IServiceProvider
+    {
+        public IServiceProvider ServiceProvider => this;
+
+        public object? GetService(Type serviceType) =>
+            serviceType == typeof(IOmdbRequestGate) ? gate : null;
+
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class CapturingLogger : ILogger<OmdbMetadataProvider>
