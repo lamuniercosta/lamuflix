@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Data;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -933,8 +934,8 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         var rows = await db.Movies
             .Where(movie => movie.Id == id
                 && movie.Status == EnrichmentStatus.Pending
-                && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseExpiry)
-                && (movie.EnrichmentDeferredUntil == null || movie.EnrichmentDeferredUntil <= now))
+                && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseExpiry))
+            .Where(IsDeferralElapsed(now))
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(movie => movie.LastAttemptAt, now)
                 .SetProperty(movie => movie.EnrichmentAttempts, movie => movie.EnrichmentAttempts + 1)
@@ -954,12 +955,15 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         var ids = await db.Movies
             .AsNoTracking()
             .Where(movie => movie.Status == EnrichmentStatus.Pending
-                && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseCutoff)
-                && (movie.EnrichmentDeferredUntil == null || movie.EnrichmentDeferredUntil <= now))
+                && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseCutoff))
+            .Where(IsDeferralElapsed(now))
             .Select(movie => movie.Id)
             .ToArrayAsync(ct);
         return PresentIds(ids);
     }
+
+    private static Expression<Func<MovieRecord, bool>> IsDeferralElapsed(DateTimeOffset now) =>
+        movie => movie.EnrichmentDeferredUntil == null || movie.EnrichmentDeferredUntil <= now;
 
     public async Task<string?> GetPlotAsync(MovieId id, CancellationToken ct) =>
         await db.Movies

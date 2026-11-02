@@ -4,7 +4,6 @@ using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
@@ -75,10 +74,12 @@ public sealed class ImportLibraryCommandHandlerPersistenceTests(PostgresFixture 
             outbox.Count.ShouldBe(3);
             var requests = outbox
                 .Select(message => JsonSerializer.Deserialize<EnrichmentRequested>(message.Payload, WebDefaults))
+                .OfType<EnrichmentRequested>()
                 .ToList();
-            requests.ShouldAllBe(request => request != null && request.Attempt == 1);
-            requests.Select(request => request!.MovieId).Distinct().Count().ShouldBe(3);
-            requests.Select(request => request!.MovieId)
+            requests.Count.ShouldBe(3);
+            requests.ShouldAllBe(request => request.Attempt == 1);
+            requests.Select(request => request.MovieId).Distinct().Count().ShouldBe(3);
+            requests.Select(request => request.MovieId)
                 .ShouldBe(movies.Select(movie => movie.Id), ignoreOrder: true);
         }
         finally
@@ -131,15 +132,15 @@ public sealed class ImportLibraryCommandHandlerPersistenceTests(PostgresFixture 
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IFileSystem>(new FileSystem());
-        services.AddSingleton<TimeProvider>(TimeProvider.System);
-        services.AddSingleton<IEnrichmentStatusNotifier>(Substitute.For<IEnrichmentStatusNotifier>());
-        services.AddSingleton<IOptions<EnrichmentOptions>>(
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton(Substitute.For<IEnrichmentStatusNotifier>());
+        services.AddSingleton(
             Options.Create(new EnrichmentOptions
             {
                 MaxAttempts = 3,
                 ClaimLease = TimeSpan.FromSeconds(5),
             }));
-        services.AddSingleton<IOptions<LibraryOptions>>(
+        services.AddSingleton(
             Options.Create(new LibraryOptions { RootPath = root, MaxConcurrency = maxConcurrency }));
         services.AddDbContext<LamuFlixDbContext>(
             options => options.UseNpgsql(postgres.ConnectionString, database => database.UseVector()));

@@ -12,6 +12,7 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Persistence;
+using LamuFlix.Infrastructure.Persistence.Records;
 using LamuFlix.Tests.Common;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -138,7 +139,7 @@ public sealed class OmdbQuotaDeferralCompositionTests(PostgresFixture fixture) :
         return (commandHandler, repository);
     }
 
-    private async Task<LamuFlix.Infrastructure.Persistence.Records.MovieRecord> ReadFreshAsync(
+    private async Task<MovieRecord> ReadFreshAsync(
         MovieId id,
         CancellationToken ct)
     {

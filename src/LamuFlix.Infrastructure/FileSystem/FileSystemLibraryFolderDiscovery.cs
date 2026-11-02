@@ -24,15 +24,12 @@ public sealed class FileSystemLibraryFolderDiscovery(
 {
     private static readonly char[] Separators = [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar];
 
+    // ReSharper disable once AsyncMethodWithoutAwait - async is required for the iterator and EnumeratorCancellation; the filesystem enumerators are synchronous by design.
     public async IAsyncEnumerable<LibraryPath> DiscoverAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var root = ResolveRoot();
-        var rootInfo = fileSystem.DirectoryInfo.New(root);
-        if (!rootInfo.Exists)
-        {
-            throw new DirectoryNotFoundException($"Library root '{root}' does not exist.");
-        }
+        var rootInfo = RequireRootDirectory(root);
 
         var comparison = HostComparison();
         var pending = new Stack<IEnumerator<IFileSystemInfo>>();
@@ -44,32 +41,10 @@ public sealed class FileSystemLibraryFolderDiscovery(
             }
 
             pending.Push(rootInfo.EnumerateFileSystemInfos().GetEnumerator());
-            while (pending.Count > 0)
+            while (TryTakeNext(pending, out var entry))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var current = pending.Peek();
-                bool advanced;
-                try
-                {
-                    advanced = current.MoveNext();
-                }
-                catch
-                {
-                    current.Dispose();
-                    pending.Pop();
-                    throw;
-                }
-
-                if (!advanced)
-                {
-                    current.Dispose();
-                    pending.Pop();
-                    continue;
-                }
-
-                if (current.Current is not IDirectoryInfo child
-                    || IsLink(child)
-                    || !IsContained(root, child.FullName, comparison))
+                if (entry is not IDirectoryInfo child || IsExcluded(child, root, comparison))
                 {
                     continue;
                 }
@@ -84,10 +59,51 @@ public sealed class FileSystemLibraryFolderDiscovery(
         }
         finally
         {
-            while (pending.Count > 0)
+            Drain(pending);
+        }
+    }
+
+    private static bool TryTakeNext(Stack<IEnumerator<IFileSystemInfo>> pending, out IFileSystemInfo? entry)
+    {
+        while (pending.Count > 0)
+        {
+            var current = pending.Peek();
+            bool advanced;
+            try
             {
-                pending.Pop().Dispose();
+                advanced = current.MoveNext();
             }
+            catch
+            {
+                Drop(pending);
+                throw;
+            }
+
+            if (!advanced)
+            {
+                Drop(pending);
+                continue;
+            }
+
+            entry = current.Current;
+            return true;
+        }
+
+        entry = null;
+        return false;
+    }
+
+    private static bool IsExcluded(IDirectoryInfo child, string root, StringComparison comparison) =>
+        IsLink(child) || !IsContained(root, child.FullName, comparison);
+
+    private static void Drop(Stack<IEnumerator<IFileSystemInfo>> pending) =>
+        pending.Pop().Dispose();
+
+    private static void Drain(Stack<IEnumerator<IFileSystemInfo>> pending)
+    {
+        while (pending.Count > 0)
+        {
+            Drop(pending);
         }
     }
 
@@ -122,6 +138,17 @@ public sealed class FileSystemLibraryFolderDiscovery(
         return IsSeparator(boundary[^1]) || IsSeparator(candidate[boundary.Length]);
     }
 
+    private IDirectoryInfo RequireRootDirectory(string root)
+    {
+        var rootInfo = fileSystem.DirectoryInfo.New(root);
+        if (!rootInfo.Exists)
+        {
+            throw new DirectoryNotFoundException($"Library root '{root}' does not exist.");
+        }
+
+        return rootInfo;
+    }
+
     private string ResolveRoot()
     {
         var info = fileSystem.DirectoryInfo.New(libraryOptions.Value.RootPath);
@@ -134,7 +161,12 @@ public sealed class FileSystemLibraryFolderDiscovery(
     private LibraryPath CandidatePath(string root, string fullName)
     {
         var relative = fileSystem.Path.GetRelativePath(root, fullName).Trim(Separators);
-        return new LibraryPath(relative.Length == 0 || relative == "." ? root : relative);
+        if (relative.Length == 0 || relative == ".")
+        {
+            return new LibraryPath(root);
+        }
+
+        return new LibraryPath(relative);
     }
 
     private static bool HasSupportedVideo(IDirectoryInfo directory) =>
@@ -157,24 +189,38 @@ public sealed class FileSystemLibraryFolderDiscovery(
 
     private static int RootLength(string path)
     {
-        if (path.Length >= 2 && IsSeparator(path[0]) && IsSeparator(path[1]))
+        if (HasUncPrefix(path))
         {
-            var shareStart = IndexOfSeparator(path, 2);
-            if (shareStart < 0)
-            {
-                return path.Length;
-            }
-
-            var shareEnd = IndexOfSeparator(path, shareStart + 1);
-            return shareEnd < 0 ? path.Length : shareEnd + 1;
+            return UncRootLength(path);
         }
 
-        if (path.Length >= 3 && path[1] == ':' && IsSeparator(path[2]))
+        if (HasDrivePrefix(path))
         {
             return 3;
         }
 
-        return path.Length >= 1 && IsSeparator(path[0]) ? 1 : 0;
+        return SingleRootLength(path);
+    }
+
+    private static bool HasUncPrefix(string path) =>
+        path.Length >= 2 && IsSeparator(path[0]) && IsSeparator(path[1]);
+
+    private static bool HasDrivePrefix(string path) =>
+        path.Length >= 3 && path[1] == ':' && IsSeparator(path[2]);
+
+    private static int SingleRootLength(string path) =>
+        path.Length >= 1 && IsSeparator(path[0]) ? 1 : 0;
+
+    private static int UncRootLength(string path)
+    {
+        var shareStart = IndexOfSeparator(path, 2);
+        if (shareStart < 0)
+        {
+            return path.Length;
+        }
+
+        var shareEnd = IndexOfSeparator(path, shareStart + 1);
+        return shareEnd < 0 ? path.Length : shareEnd + 1;
     }
 
     private static int IndexOfSeparator(string path, int start)

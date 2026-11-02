@@ -151,16 +151,16 @@ public sealed class ImportLibraryDryRunTests(PostgresFixture postgres) : IAsyncL
         services.AddLogging();
         services.AddSingleton<IFileSystem>(new FileSystem());
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<IEnrichmentStatusNotifier>(Substitute.For<IEnrichmentStatusNotifier>());
+        services.AddSingleton(Substitute.For<IEnrichmentStatusNotifier>());
         services.AddSingleton<IMetadataProvider>(provider);
         services.AddSingleton<IEnrichmentQueue>(new RecordingEnrichmentQueue());
-        services.AddSingleton<IOptions<EnrichmentOptions>>(
+        services.AddSingleton(
             Options.Create(new EnrichmentOptions
             {
                 MaxAttempts = 3,
                 ClaimLease = TimeSpan.FromMinutes(5),
             }));
-        services.AddSingleton<IOptions<LibraryOptions>>(
+        services.AddSingleton(
             Options.Create(new LibraryOptions { RootPath = root, MaxConcurrency = MaxConcurrency }));
         services.AddDbContext<LamuFlixDbContext>(
             options => options.UseNpgsql(postgres.ConnectionString, database => database.UseVector()),

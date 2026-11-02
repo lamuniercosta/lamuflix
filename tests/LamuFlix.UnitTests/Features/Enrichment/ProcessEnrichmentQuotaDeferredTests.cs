@@ -1,4 +1,3 @@
-using Xunit;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,7 +8,6 @@ using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace LamuFlix.UnitTests.Features.Enrichment;
@@ -205,8 +203,9 @@ public sealed class ProcessEnrichmentQuotaDeferredTests
             movies,
             metadata ?? provider,
             queue,
-            Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { MaxAttempts = MaxAttempts }),
-            new Features.FixedTimeProvider(Now),
+            // ReSharper disable once RedundantNameQualifier - unqualified Options binds to the sibling LamuFlix.UnitTests.Options namespace and fails the build.
+            global::Microsoft.Extensions.Options.Options.Create(new EnrichmentOptions { MaxAttempts = MaxAttempts }),
+            new FixedTimeProvider(Now),
             NullLogger<ProcessEnrichmentCommandHandler>.Instance);
 
     private void Claimed(Movie movie)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json;
@@ -51,9 +51,7 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(message);
-        ArgumentException.ThrowIfNullOrEmpty(routingKey);
-        ArgumentNullException.ThrowIfNull(additionalHeaders);
-        EnsureUsableHeaders(additionalHeaders);
+        ValidatePublish(routingKey, additionalHeaders);
 
         await PublishCoreAsync(message.MovieId, routingKey, Serialize(message), additionalHeaders, ct);
     }
@@ -66,9 +64,7 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         int? expirationMilliseconds = null)
     {
         ArgumentNullException.ThrowIfNull(message);
-        ArgumentException.ThrowIfNullOrEmpty(routingKey);
-        ArgumentNullException.ThrowIfNull(additionalHeaders);
-        EnsureUsableHeaders(additionalHeaders);
+        ValidatePublish(routingKey, additionalHeaders);
 
         await PublishCoreAsync(
             message.MovieId,
@@ -85,9 +81,7 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
         IReadOnlyDictionary<string, object?> additionalHeaders,
         CancellationToken ct)
     {
-        ArgumentException.ThrowIfNullOrEmpty(routingKey);
-        ArgumentNullException.ThrowIfNull(additionalHeaders);
-        EnsureUsableHeaders(additionalHeaders);
+        ValidatePublish(routingKey, additionalHeaders);
 
         return PublishCoreAsync(null, routingKey, body, additionalHeaders, ct);
     }
@@ -138,6 +132,13 @@ public sealed class RabbitMqEnrichmentQueuePublisher : IEnrichmentQueue
             basicProperties: properties,
             body: body,
             cancellationToken: ct);
+    }
+
+    private static void ValidatePublish(string routingKey, IReadOnlyDictionary<string, object?> additionalHeaders)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(routingKey);
+        ArgumentNullException.ThrowIfNull(additionalHeaders);
+        EnsureUsableHeaders(additionalHeaders);
     }
 
     private static void EnsureUsableHeaders(IReadOnlyDictionary<string, object?> additionalHeaders)
