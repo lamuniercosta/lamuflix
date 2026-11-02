@@ -358,6 +358,59 @@ public sealed class DirectoryMediaLibraryScannerTests
 
     [Theory]
     [MemberData(nameof(SupportedExtension))]
+    public void Scan_SupportedExtensions_UnchangedAfterSharedHolderExtraction(string extension, string expectedFormat)
+    {
+        // arrange
+        var fileSystem = FileSystemWith(($"/library/Clip/Clip{extension}", 512));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.Scan(new LibraryPath("/library/Clip"));
+
+        // assert
+        SupportedVideoExtensions.Contains(extension).ShouldBeTrue();
+        result.Format.ShouldBe(new MediaFormat(expectedFormat));
+    }
+
+    [Theory]
+    [MemberData(nameof(SupportedExtension))]
+    public void SupportedVideoExtensions_UpperCaseAndMixedCaseMembership_StaysOrdinalIgnoreCase(
+        string extension,
+        string _)
+    {
+        // arrange
+        var upper = extension.ToUpperInvariant();
+        var mixed = extension[..1].ToUpperInvariant() + extension[1..];
+
+        // act
+        var results = new[]
+        {
+            SupportedVideoExtensions.Contains(extension),
+            SupportedVideoExtensions.Contains(upper),
+            SupportedVideoExtensions.Contains(mixed),
+        };
+
+        // assert
+        results.ShouldAllBe(isSupported => isSupported);
+    }
+
+    [Fact]
+    public void SupportedVideoExtensions_Membership_IsExactlyThePreviouslyInlinedScannerSet()
+    {
+        // arrange
+        string[] expected = [".mkv", ".mp4", ".avi", ".m4v", ".rmvb", ".rm", ".flv"];
+
+        // act
+        var membership = SupportedVideoExtensions.All;
+
+        // assert
+        membership.ShouldBe(expected, ignoreOrder: true);
+        SupportedVideoExtensions.Contains(".wmv").ShouldBeFalse();
+        SupportedVideoExtensions.Contains(string.Empty).ShouldBeFalse();
+    }
+
+    [Theory]
+    [MemberData(nameof(SupportedExtension))]
     public void Scan_SupportedExtension_SelectsAndNormalisesFormat(string extension, string expectedFormat)
     {
         // arrange

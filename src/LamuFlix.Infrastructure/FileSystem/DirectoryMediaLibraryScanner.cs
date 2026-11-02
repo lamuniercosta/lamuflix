@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Frozen;
 using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
@@ -16,9 +15,6 @@ public sealed class DirectoryMediaLibraryScanner(
     IOptions<LibraryOptions> libraryOptions)
     : IMediaLibraryScanner
 {
-    private static readonly FrozenSet<string> SupportedExtensions =
-        FrozenSet.ToFrozenSet([".mkv", ".mp4", ".avi", ".m4v", ".rmvb", ".rm", ".flv"], StringComparer.OrdinalIgnoreCase);
-
     public ScannedMovie Scan(LibraryPath folder)
     {
         var resolved = Resolve(folder);
@@ -53,9 +49,8 @@ public sealed class DirectoryMediaLibraryScanner(
 
     private static IFileInfo? SelectPrimaryVideo(IDirectoryInfo directory) =>
         directory.EnumerateFiles()
-            .Where(file => SupportedExtensions.Contains(file.Extension))
+            .Where(file => SupportedVideoExtensions.Contains(file.Extension))
             .OrderByDescending(file => file.Length)
             .ThenBy(file => file.Name, StringComparer.Ordinal)
             .FirstOrDefault();
-
 }

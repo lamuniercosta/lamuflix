@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -344,6 +345,54 @@ public sealed class OptionsStartupValidationTests
         var exception = Validate(values);
 
         exception.Message.ShouldContain(nameof(ThumbnailOptions.ProcessTimeoutSeconds));
+    }
+
+    [Fact]
+    public void LibraryOptions_MaxConcurrency_DefaultBindsToFourAndPassesValidation()
+    {
+        using var provider = Build(ValidRequired());
+
+        foreach (var validator in provider.GetServices<IStartupValidator>())
+        {
+            validator.Validate();
+        }
+
+        provider.GetRequiredService<IOptions<LibraryOptions>>().Value.MaxConcurrency.ShouldBe(4);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    public void LibraryOptions_MaxConcurrency_ZeroOrNegativeInteger_FailsRangeStartupValidation(
+        string maxConcurrency)
+    {
+        // A parsed but out-of-range integer reaches DataAnnotations [Range] validation at startup,
+        // which surfaces as OptionsValidationException naming the property.
+        var values = ValidRequired();
+        values[$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.MaxConcurrency)}"] = maxConcurrency;
+
+        var exception = Validate(values);
+
+        exception.Message.ShouldContain(nameof(LibraryOptions.MaxConcurrency));
+    }
+
+    [Theory]
+    [InlineData("2.5")]
+    [InlineData("four")]
+    public void LibraryOptions_MaxConcurrency_FractionalOrNonNumericConfiguration_FailsBinder(
+        string maxConcurrency)
+    {
+        // A fractional or non-numeric configuration string never reaches [Range]; the configuration
+        // binder rejects the conversion instead. Distinct failure path, same fails-startup outcome.
+        var values = ValidRequired();
+        values[$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.MaxConcurrency)}"] = maxConcurrency;
+        using var provider = Build(values);
+
+        var exception = Should.Throw<InvalidOperationException>(
+            () => provider.GetRequiredService<IOptions<LibraryOptions>>().Value);
+
+        exception.ShouldNotBeOfType<OptionsValidationException>();
+        exception.Message.ShouldContain(nameof(LibraryOptions.MaxConcurrency));
     }
 
     private static OptionsValidationException Validate(Dictionary<string, string?> values)
