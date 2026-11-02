@@ -30,6 +30,8 @@ public sealed class MovieRecord
 
     public DateTimeOffset? LastAttemptAt { get; set; }
 
+    public DateTimeOffset? EnrichmentDeferredUntil { get; set; }
+
     public string? MetadataTitle { get; set; }
 
     public Runtime? RuntimeMinutes { get; set; }

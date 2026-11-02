@@ -129,6 +129,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             EnrichmentAttempts = movie.EnrichmentAttempts,
             EnrichmentFailureCategory = movie.LastFailureCategory,
             LastAttemptAt = movie.LastAttemptAt,
+            EnrichmentDeferredUntil = movie.EnrichmentDeferredUntil,
             ParsedReleaseYear = movie.ParsedReleaseYear,
             ManualImdbId = movie.ManualImdbId,
         };
@@ -932,10 +933,12 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         var rows = await db.Movies
             .Where(movie => movie.Id == id
                 && movie.Status == EnrichmentStatus.Pending
-                && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseExpiry))
+                && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseExpiry)
+                && (movie.EnrichmentDeferredUntil == null || movie.EnrichmentDeferredUntil <= now))
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(movie => movie.LastAttemptAt, now)
-                .SetProperty(movie => movie.EnrichmentAttempts, movie => movie.EnrichmentAttempts + 1), ct);
+                .SetProperty(movie => movie.EnrichmentAttempts, movie => movie.EnrichmentAttempts + 1)
+                .SetProperty(movie => movie.EnrichmentDeferredUntil, (DateTimeOffset?)null), ct);
 
         if (rows != 1)
         {
@@ -947,10 +950,12 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
 
     public async Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct)
     {
+        var now = timeProvider.GetUtcNow();
         var ids = await db.Movies
             .AsNoTracking()
             .Where(movie => movie.Status == EnrichmentStatus.Pending
-                && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseCutoff))
+                && (movie.LastAttemptAt == null || movie.LastAttemptAt < leaseCutoff)
+                && (movie.EnrichmentDeferredUntil == null || movie.EnrichmentDeferredUntil <= now))
             .Select(movie => movie.Id)
             .ToArrayAsync(ct);
         return PresentIds(ids);
@@ -1047,6 +1052,11 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         {
             record.LastAttemptAt = movie.LastAttemptAt;
         }
+
+        if (baseline.EnrichmentDeferredUntil != movie.EnrichmentDeferredUntil)
+        {
+            record.EnrichmentDeferredUntil = movie.EnrichmentDeferredUntil;
+        }
     }
 
     private static void ApplyMetadata(Movie movie, MovieRecord record, Baseline baseline)
@@ -1103,7 +1113,8 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             parsedReleaseYear: record.ParsedReleaseYear,
             manualImdbId: record.ManualImdbId,
             isWatched: record.IsWatched,
-            isNotInterested: record.IsNotInterested);
+            isNotInterested: record.IsNotInterested,
+            enrichmentDeferredUntil: record.EnrichmentDeferredUntil);
     }
 
     private static MovieSignalSnapshot? Signals(MovieRecord record) =>
@@ -1132,6 +1143,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         DateTimeOffset? EnrichedAt,
         EnrichmentFailureCategory? LastFailureCategory,
         DateTimeOffset? LastAttemptAt,
+        DateTimeOffset? EnrichmentDeferredUntil,
         MovieMetadata? Metadata,
         ImdbId? ManualImdbId)
     {
@@ -1143,6 +1155,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             movie.EnrichedAt,
             movie.LastFailureCategory,
             movie.LastAttemptAt,
+            movie.EnrichmentDeferredUntil,
             movie.Metadata,
             movie.ManualImdbId);
     }

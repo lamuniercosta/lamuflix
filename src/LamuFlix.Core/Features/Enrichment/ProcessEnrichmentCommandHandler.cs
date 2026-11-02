@@ -41,7 +41,9 @@ public sealed class ProcessEnrichmentCommandHandler(
 
         if (result is MetadataLookupResult.Failed failed)
         {
-            return await FailAsync(command, failed.Category, movie, cancellationToken);
+            return ReferenceEquals(failed.Category, EnrichmentFailureCategory.QuotaExhausted)
+                ? await DeferAsync(movie, cancellationToken)
+                : await FailAsync(command, failed.Category, movie, cancellationToken);
         }
 
         if (await IsFoundImdbIdHeldByAnotherMovieAsync(movie, result, cancellationToken))
@@ -121,6 +123,24 @@ public sealed class ProcessEnrichmentCommandHandler(
 
         var holder = await movies.FindMovieIdByImdbIdAsync(imdbId, cancellationToken);
         return holder is not null && holder != movie.Id;
+    }
+
+    private async Task<ProcessEnrichmentOutcome> DeferAsync(Movie movie, CancellationToken cancellationToken)
+    {
+        var deferredUntil = NextUtcMidnight(time.GetUtcNow());
+        movie.DeferEnrichmentUntil(deferredUntil);
+        await movies.SaveChangesAsync(cancellationToken);
+        logger.LogInformation(
+            "Enrichment for {MovieId} deferred until {DeferredUntil}",
+            movie.Id.Value,
+            deferredUntil);
+        return new ProcessEnrichmentOutcome.QuotaDeferred(deferredUntil);
+    }
+
+    private static DateTimeOffset NextUtcMidnight(DateTimeOffset now)
+    {
+        var utc = now.ToUniversalTime();
+        return new DateTimeOffset(utc.Date.AddDays(1), TimeSpan.Zero);
     }
 
     private async Task<ProcessEnrichmentOutcome> FailAsync(

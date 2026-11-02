@@ -336,7 +336,7 @@ public sealed class ProcessEnrichmentCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_ProviderFailedResult_QuotaExhaustedCategory_UsesRetryDelayed()
+    public async Task HandleAsync_ProviderFailedResult_QuotaExhaustedCategory_DefersToNextUtcMidnight()
     {
         // arrange
         var movie = PendingMovie();
@@ -349,15 +349,14 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
 
         // assert
-        outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
-            new EnrichmentFailureDecision(EnrichmentFailureAction.RetryDelayed, 2),
-            EnrichmentFailureCategory.QuotaExhausted));
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.QuotaDeferred(
+            new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero)));
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
-        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await movies.Received(1).SaveChangesAsync(ct);
     }
 
     public static TheoryData<EnrichmentFailureCategory> DelayedCategories() =>
-        new() { EnrichmentFailureCategory.RateLimited, EnrichmentFailureCategory.QuotaExhausted };
+        new() { EnrichmentFailureCategory.RateLimited };
 
     [Theory]
     [MemberData(nameof(DelayedCategories))]

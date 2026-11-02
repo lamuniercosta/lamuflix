@@ -174,6 +174,10 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("enrichment_attempts");
 
+                    b.Property<DateTimeOffset?>("EnrichmentDeferredUntil")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("enrichment_deferred_until");
+
                     b.Property<string>("EnrichmentFailureCategory")
                         .HasColumnType("varchar(32)")
                         .HasColumnName("enrichment_failure_category");
