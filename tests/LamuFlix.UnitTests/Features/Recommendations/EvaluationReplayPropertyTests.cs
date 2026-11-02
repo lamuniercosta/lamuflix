@@ -130,8 +130,85 @@ public sealed class EvaluationReplayPropertyTests
             && MatchesPrefix([.. full.Observations.Take(prefixLength)], prefix.Observations);
     }
 
+    [Property(MaxTest = 60, Replay = "356106,700001")]
+    [Trait("Category", "Property")]
+    public bool Run_DisabledMode_IgnoresDeclaredSignalData(
+        int catalogSeed,
+        int[] eventSeeds,
+        int lambdaSeed)
+    {
+        // arrange
+        var fixture = EvaluationPropertyFixtures.Fixture(catalogSeed, eventSeeds, lambdaSeed);
+        var enriched = WithSignals(fixture);
+
+        // act
+        var baseline = Replay(fixture);
+        var disabled = Replay(enriched);
+
+        // assert
+        return SameResults(baseline.Observations, disabled.Observations)
+            && SameMetrics(baseline.Metrics, disabled.Metrics);
+    }
+
+    [Property(MaxTest = 60, Replay = "356107,800003")]
+    [Trait("Category", "Property")]
+    public bool Run_EnabledMode_KeepsObservationOrderAndUnitIntervalMetrics(
+        int catalogSeed,
+        int[] eventSeeds,
+        int lambdaSeed)
+    {
+        // arrange
+        var fixture = WithSignals(EvaluationPropertyFixtures.Fixture(catalogSeed, eventSeeds, lambdaSeed));
+
+        // act
+        var replay = ReplayEnabled(fixture);
+
+        // assert
+        return replay.Observations.Select(observation => observation.EventId)
+                .SequenceEqual(ExpectedOrder(fixture.Events))
+            && IsUnitInterval(replay.Metrics.HitRateAt10)
+            && IsUnitInterval(replay.Metrics.Mrr);
+    }
+
+    [Property(MaxTest = 60, Replay = "356108,900001")]
+    [Trait("Category", "Property")]
+    public bool Run_EnabledMode_ReversedEventPresentation_LeavesResultsIdentical(
+        int catalogSeed,
+        int[] eventSeeds,
+        int lambdaSeed)
+    {
+        // arrange
+        var fixture = WithSignals(EvaluationPropertyFixtures.Fixture(catalogSeed, eventSeeds, lambdaSeed));
+        var permuted = fixture with { Events = [.. fixture.Events.Reverse()] };
+
+        // act
+        var baseline = ReplayEnabled(fixture);
+        var candidate = ReplayEnabled(permuted);
+
+        // assert
+        return SameResults(baseline.Observations, candidate.Observations)
+            && SameMetrics(baseline.Metrics, candidate.Metrics);
+    }
+
+    private static EvaluationFixture WithSignals(EvaluationFixture fixture) =>
+        fixture with
+        {
+            Catalog =
+            [
+                .. fixture.Catalog.Select((movie, index) => new EvaluationCatalogMovie(
+                    movie.MovieId,
+                    movie.Features,
+                    [(index % 3) + 1, (index % 2) + 1],
+                    [string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Actor {index % 2}")],
+                    index + 1)),
+            ],
+        };
+
     private static EvaluationReplayResult Replay(EvaluationFixture fixture) =>
         EvaluationReplay.Run(fixture, EvaluationReplayOptions.Default(356));
+
+    private static EvaluationReplayResult ReplayEnabled(EvaluationFixture fixture) =>
+        EvaluationReplay.Run(fixture, EvaluationReplayOptions.Default(356, nameof(TmdbSignalsMode.Enabled)));
 
     private static ImmutableArray<string> ExpectedOrder(IEnumerable<EvaluationEvent> events) =>
         [.. events

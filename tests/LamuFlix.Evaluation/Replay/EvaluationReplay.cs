@@ -20,7 +20,9 @@ public static class EvaluationReplay
             .OrderBy(observation => observation.Timestamp)
             .ThenBy(observation => observation.EventId, StringComparer.Ordinal)
             .ToImmutableArray();
-        var features = fixture.Catalog.ToDictionary(movie => movie.MovieId, movie => movie.Features);
+        var features = fixture.Catalog.ToDictionary(
+            movie => movie.MovieId,
+            movie => movie.FeaturesFor(options.TmdbSignals));
         ImmutableArray<MovieId> canonicalIds =
             [.. fixture.Catalog.Select(movie => movie.MovieId).OrderBy(movieId => movieId.Value)];
         var genreWeights = AsOfHistory.CatalogGenreWeights(fixture.Catalog);

@@ -14,6 +14,7 @@ public static class EvaluationEntry
     public const string FixturePathVariable = "LAMUFLIX_EVALUATION_FIXTURE_PATH";
     public const string OutputPathVariable = "LAMUFLIX_EVALUATION_OUTPUT_PATH";
     public const string SeedVariable = "LAMUFLIX_EVALUATION_SEED";
+    public const string TmdbSignalsVariable = "LAMUFLIX_EVALUATION_TMDB_SIGNALS";
 
     public static bool IsRequested(Func<string, string?> readVariable)
     {
@@ -38,11 +39,18 @@ public static class EvaluationEntry
         var fixture = EvaluationFixtureLoader.LoadFromJson(
             File.ReadAllText(fixturePath),
             TimeProvider.System);
-        var result = EvaluationReplay.Run(fixture, EvaluationReplayOptions.Default(seed));
+        var result = EvaluationReplay.Run(fixture, ResolveOptions(readVariable, seed));
         var summary = MetricsSummary.FromReplay(fixture.FixtureId, seed, result);
         MetricsSummarySerializer.WriteToFile(summary, outputPath);
 
         return outputPath;
+    }
+
+    public static EvaluationReplayOptions ResolveOptions(Func<string, string?> readVariable, int seed)
+    {
+        ArgumentNullException.ThrowIfNull(readVariable);
+
+        return EvaluationReplayOptions.Default(seed, readVariable(TmdbSignalsVariable));
     }
 
     private static string Required(Func<string, string?> readVariable, string name)

@@ -61,22 +61,36 @@ public static class EvaluationFixtureLoader
         var weights = RequiredProperty(ranking, "similarityWeights");
         RequireObject(weights, "Fixture ranking similarityWeights");
 
-        var similarityWeights = new SimilarityWeights
-        {
-            Director = ReadWeight(weights, "director"),
-            Writers = ReadWeight(weights, "writers"),
-            Cast = ReadWeight(weights, "cast"),
-            Genres = ReadWeight(weights, "genres"),
-            YearProximity = ReadWeight(weights, "yearProximity"),
-            RuntimeProximity = ReadWeight(weights, "runtimeProximity"),
-            RatingBoost = ReadWeight(weights, "ratingBoost"),
-        };
+        var similarityWeights = ReadSimilarityWeights(weights);
 
         return new EvaluationRankingInputs(lambda, similarityWeights);
     }
 
-    private static double ReadWeight(JsonElement weights, string name)
+    private static SimilarityWeights ReadSimilarityWeights(JsonElement weights)
     {
+        var defaults = new SimilarityWeights();
+
+        return new SimilarityWeights
+        {
+            Director = ReadWeight(weights, "director", defaults.Director),
+            Writers = ReadWeight(weights, "writers", defaults.Writers),
+            Cast = ReadWeight(weights, "cast", defaults.Cast),
+            Genres = ReadWeight(weights, "genres", defaults.Genres),
+            YearProximity = ReadWeight(weights, "yearProximity", defaults.YearProximity),
+            RuntimeProximity = ReadWeight(weights, "runtimeProximity", defaults.RuntimeProximity),
+            RatingBoost = ReadWeight(weights, "ratingBoost", defaults.RatingBoost),
+            Keyword = ReadWeight(weights, "keyword", defaults.Keyword),
+            Collection = ReadWeight(weights, "collection", defaults.Collection),
+        };
+    }
+
+    private static double ReadWeight(JsonElement weights, string name, double fallback)
+    {
+        if (!TryGetPresent(weights, name, out _))
+        {
+            return fallback;
+        }
+
         var weight = RequiredFiniteNumber(weights, name, $"Fixture ranking weight '{name}'");
         if (weight < 0.0)
         {
@@ -108,17 +122,90 @@ public static class EvaluationFixtureLoader
                 throw Invalid($"Fixture catalog contains duplicate movie id '{movieId.Value}'.");
             }
 
-            movies.Add(new EvaluationCatalogMovie(movieId, ReadFeatures(entry, now, movieId)));
+            movies.Add(ReadCatalogMovie(entry, now, movieId));
         }
 
         return movies.ToImmutable();
     }
 
-    private static MovieFeatures ReadFeatures(JsonElement entry, DateTimeOffset now, MovieId movieId)
+    private static EvaluationCatalogMovie ReadCatalogMovie(JsonElement entry, DateTimeOffset now, MovieId movieId)
     {
         var description = $"Fixture catalog entry '{movieId.Value}'";
         var features = RequiredProperty(entry, "features");
         RequireObject(features, $"{description} features");
+
+        return new EvaluationCatalogMovie(
+            movieId,
+            ReadFeatures(features, now, movieId),
+            ReadKeywordIds(features, description),
+            ReadFullCast(features, description),
+            ReadCollectionId(features, description));
+    }
+
+    private static string[]? ReadFullCast(JsonElement features, string description)
+    {
+        var names = OptionalStringArray(features, "fullCast", $"{description} fullCast");
+        if (names is null)
+        {
+            return null;
+        }
+
+        for (var index = 0; index < names.Length; index++)
+        {
+            var trimmed = names[index].Trim();
+            if (trimmed.Length == 0)
+            {
+                throw Invalid($"{description} fullCast must contain non-blank actor names.");
+            }
+
+            names[index] = trimmed;
+        }
+
+        return names;
+    }
+
+    private static int[]? ReadKeywordIds(JsonElement features, string description)
+    {
+        if (!TryGetPresent(features, "keywords", out var property))
+        {
+            return null;
+        }
+
+        if (property.ValueKind != JsonValueKind.Array)
+        {
+            throw Invalid($"{description} keywords must be an array of positive integers.");
+        }
+
+        var values = new List<int>();
+        foreach (var item in property.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Number
+                || !item.TryGetInt32(out var value)
+                || value <= 0)
+            {
+                throw Invalid($"{description} keywords must be an array of positive integers.");
+            }
+
+            values.Add(value);
+        }
+
+        return [.. values];
+    }
+
+    private static int? ReadCollectionId(JsonElement features, string description)
+    {
+        var value = OptionalInt32(features, "collectionId", $"{description} collectionId");
+        if (value is <= 0)
+        {
+            throw Invalid($"{description} collectionId must be a positive integer.");
+        }
+
+        return value;
+    }
+
+    private static MovieFeatures ReadFeatures(JsonElement features, DateTimeOffset now, MovieId movieId)
+    {
+        var description = $"Fixture catalog entry '{movieId.Value}'";
 
         return new MovieFeatures(
             genres: OptionalStringArray(features, "genres", $"{description} genres"),

@@ -71,6 +71,18 @@ No new SDK/project/port/layer/public API/frontend/LocalPlay/secret surface is as
 
 
 ---
+---
+## Package 6 offline evaluation provenance labels — [assumed] (2026-11-02)
+
+The Patron ruling recorded at `CONCLUSIONS.md:384-392` fixes the offline Q7-contract mapping (`movieId` 1-12 -> `tmdbMovieId` 1001-1012, collections 101-104, keyword pairs and `fullCast` names per genre cluster). The label wording and canonical payload shape needed to make those digests reproducible are taste choices, logged `[assumed]` here:
+
+- [assumed] Enriched fixture signal fields are named `keywords` (positive integer ids), `fullCast` (actor names) and `collectionId` (positive integer) inside each catalog entry's existing `features` object.
+- [assumed] Canonical source payload labels derive from the entry's single declared genre: `belongs_to_collection.name` is `"{genre} Collection"`, keyword `name` is `"{genre} Keyword {keywordId}"`, and cast entries reuse the ruled `fullCast` names.
+- [assumed] Canonical credit `id` is `100000 + (collectionId - 101) * 10 + order`, so one actor identity is shared inside a cluster and never across clusters.
+- [assumed] Canonical payload ordering is keyword ascending by `id` and cast ascending by ordinal name; `order` is the resulting zero-based index. Payloads are compact UTF-8 JSON with no whitespace and no trailing newline; `baseline.tmdb.sources.json` records lowercase hex SHA-256 of those exact bytes.
+- [assumed] `baseline.tmdb.sources.json` keeps `schemaVersion`, `fixtureId`, `provenance` (`offline-q7-contract`) and per-movie `movieId`, `tmdbMovieId`, scrubbed relative `endpoints` (`/3/movie/{tmdbMovieId}`, `/keywords`, `/credits`) and the three digests; it holds no `api_key`, token or absolute path.
+
+---
 ## Plan Challenge Round 1 controlling amendments (2026-11-01)
 
 Patron P1-P12 with confirmed receipt correction supersede conflicting current assumptions above; historical exchanges remain untouched. See brief.md R1-R10 and CONCLUSIONS.md complete ruling/disposition register. Q6 collection FK versus join-table checkbox remains verbatim unticked; Gate 1 closed; no new owner escalation or plan freeze.

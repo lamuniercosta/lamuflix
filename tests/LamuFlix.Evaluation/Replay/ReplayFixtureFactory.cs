@@ -28,6 +28,19 @@ internal static class ReplayFixtureFactory
     public static EvaluationCatalogMovie Movie(int movieId, params string[] genres) =>
         new(new MovieId(movieId), new MovieFeatures(genres: genres));
 
+    public static EvaluationCatalogMovie SignalMovie(
+        int movieId,
+        string[] genres,
+        int[]? keywords = null,
+        string[]? fullCast = null,
+        int? collectionId = null) =>
+        new(
+            new MovieId(movieId),
+            new MovieFeatures(genres: genres),
+            keywords,
+            fullCast,
+            collectionId);
+
     public static EvaluationFixture Fixture(
         IEnumerable<EvaluationEvent> events,
         IEnumerable<EvaluationCatalogMovie>? catalog = null,
@@ -39,6 +52,9 @@ internal static class ReplayFixtureFactory
             [.. events]);
 
     public static EvaluationReplayOptions Options(int seed = 356) => EvaluationReplayOptions.Default(seed);
+
+    public static EvaluationReplayOptions EnabledOptions(int seed = 356) =>
+        EvaluationReplayOptions.Default(seed, nameof(TmdbSignalsMode.Enabled));
 
     public static int[] Ids(ImmutableArray<MovieId> ranking) =>
         [.. ranking.Select(movieId => movieId.Value)];
