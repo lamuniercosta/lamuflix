@@ -124,6 +124,44 @@ public sealed record MovieMetadata
 
     public MovieSignalSnapshot? Signals { get; }
 
+    public MovieMetadata WithSignals(MovieSignalSnapshot? signals) =>
+        new(
+            Title,
+            Synopsis,
+            ReleaseYear,
+            Runtime,
+            ImdbRating,
+            ImdbId,
+            PosterUrl,
+            RottenTomatoesRating,
+            MetaScore,
+            Directors,
+            Actors,
+            Genres,
+            Writers,
+            CollectionId,
+            CollectionName,
+            signals);
+
+    public MovieMetadata WithCollection(int? collectionId, string? collectionName) =>
+        new(
+            Title,
+            Synopsis,
+            ReleaseYear,
+            Runtime,
+            ImdbRating,
+            ImdbId,
+            PosterUrl,
+            RottenTomatoesRating,
+            MetaScore,
+            Directors,
+            Actors,
+            Genres,
+            Writers,
+            collectionId,
+            collectionName,
+            Signals);
+
     public bool Equals(MovieMetadata? other) =>
         other is not null
         && SameScalars(this, other)

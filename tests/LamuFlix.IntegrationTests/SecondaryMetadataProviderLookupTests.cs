@@ -90,7 +90,8 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
 
         // assert
         Metadata(result).Title.ShouldBe("The Matrix");
-        probe.RequestPaths.ShouldBe(["/3/find/tt0133093", "/3/movie/603"]);
+        probe.RequestPaths.ShouldBe(
+            ["/3/find/tt0133093", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
         probe.QueryValues("external_source").ShouldBe(["imdb_id"]);
     }
 
@@ -137,7 +138,8 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
 
         // assert
         Metadata(result).Title.ShouldBe("The Matrix");
-        probe.RequestPaths.ShouldBe(["/3/search/movie", "/3/movie/603"]);
+        probe.RequestPaths.ShouldBe(
+            ["/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
     }
 
     [Fact]
@@ -175,7 +177,8 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
         await FindAsync(services, "The Matrix", TestContext.Current.CancellationToken);
 
         // assert
-        probe.RequestPaths.ShouldBe(["/3/search/movie", "/3/movie/603"]);
+        probe.RequestPaths.ShouldBe(
+            ["/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
     }
 
     [Fact]

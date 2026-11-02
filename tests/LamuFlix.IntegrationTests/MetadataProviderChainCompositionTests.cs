@@ -51,6 +51,20 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         }
         """;
 
+    private const string KeywordBody = """
+        {
+          "id": 603,
+          "keywords": [ { "id": 2001, "name": "Dystopia" } ]
+        }
+        """;
+
+    private const string CreditBody = """
+        {
+          "id": 603,
+          "cast": [ { "id": 6384, "name": "Keanu Reeves" } ]
+        }
+        """;
+
     public static TheoryData<bool> EnabledValues => new() { true, false };
 
     public ValueTask InitializeAsync()
@@ -183,6 +197,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         // arrange
         var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
         StubPrimary(200, OmdbNotFoundBody);
+        StubSignals();
         probe.StubFoundLookup();
 
         // act
@@ -190,24 +205,75 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
 
         // assert
         Metadata(result).Title.ShouldBe("The Matrix");
+        Metadata(result).Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Available);
         SecondaryPaths().ShouldContain("/3/search/movie");
         SecondaryPaths().ShouldContain("/3/movie/603");
+        SecondaryPaths().Count(path => path == "/3/search/movie").ShouldBe(1);
+        SecondaryPaths().Count(path => path == "/3/movie/603").ShouldBe(1);
     }
 
     [Fact]
-    public async Task FindAsync_WhenThePrimaryFinds_DoesNotCallTheSecondary()
+    public async Task FindAsync_WhenThePrimaryFinds_SupplementsOnceWithTheSameMovieSignals()
     {
         // arrange
         var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
         StubPrimary(200, OmdbFoundBody);
+        StubSignals();
         probe.StubFoundLookup();
+
+        // act
+        var result = await FindChainAsync(services, "The Matrix");
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Solaris");
+        metadata.Synopsis.ShouldBe("A psychologist...");
+        metadata.CollectionId.ShouldBe(2344);
+        metadata.CollectionName.ShouldBe("The Matrix Collection");
+        metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Available);
+        metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Available);
+        SecondaryPaths().ShouldBe(["/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+    }
+
+    [Theory]
+    [InlineData(429)]
+    [InlineData(503)]
+    [InlineData(400)]
+    public async Task FindAsync_WhenThePrimaryFindsAndTheSupplementFails_KeepsThePrimaryFoundWithUnavailableSignals(
+        int statusCode)
+    {
+        // arrange
+        var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
+        StubPrimary(200, OmdbFoundBody);
+        probe.StubSearch(string.Empty, statusCode: statusCode);
+
+        // act
+        var result = await FindChainAsync(services, "Solaris");
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Solaris");
+        metadata.Synopsis.ShouldBe("A psychologist...");
+        metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.Signals.CollectionAvailability.ShouldBe(SignalAvailability.Unavailable);
+    }
+
+    [Fact]
+    public async Task FindAsync_WhenTheSupplementIsNotFound_KeepsThePrimaryFoundWithUnavailableSignals()
+    {
+        // arrange
+        var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
+        StubPrimary(200, OmdbFoundBody);
+        probe.StubSearch(SecondaryMetadataProviderProbe.Fixture("Search", "empty.json"));
 
         // act
         var result = await FindChainAsync(services, "Solaris");
 
         // assert
         Metadata(result).Title.ShouldBe("Solaris");
-        SecondaryPaths().ShouldBeEmpty();
+        Metadata(result).Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Unavailable);
+        SecondaryPaths().ShouldBe(["/3/search/movie"]);
     }
 
     [Fact]
@@ -360,6 +426,12 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
 
     private void StubPrimary(int statusCode, string body = "") =>
         probe.StubPath(PrimaryPath, statusCode, body);
+
+    private void StubSignals()
+    {
+        probe.StubPath("/3/movie/603/keywords", 200, KeywordBody);
+        probe.StubPath("/3/movie/603/credits", 200, CreditBody);
+    }
 
     private IReadOnlyList<string> SecondaryPaths() =>
         [.. probe.RequestPaths.Where(path => path.StartsWith(SecondaryPathPrefix, StringComparison.Ordinal))];

@@ -308,6 +308,193 @@ public sealed class MetadataProviderChainTests
         secondary.CallCount.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithSupplementEnabled_MergesOnlySignalsAndCollection()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(PrimaryMetadata()));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(SupplementMetadata()));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+        var query = Query;
+
+        // act
+        var result = await chain.FindAsync(query, TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Primary");
+        metadata.Synopsis.ShouldBe("Primary plot");
+        metadata.ImdbId.ShouldBe(new ImdbId("tt0133093"));
+        metadata.MetaScore.ShouldBe((short)73);
+        metadata.Directors.ShouldBe(["Lana Wachowski"]);
+        metadata.Writers.ShouldBe(["Lilly Wachowski"]);
+        metadata.Genres.ShouldBe(["Action"]);
+        metadata.Actors.ShouldBe(["Base Actor"]);
+        metadata.CollectionId.ShouldBe(2344);
+        metadata.CollectionName.ShouldBe("The Matrix Collection");
+        metadata.Signals.ShouldBe(SupplementMetadata().Signals);
+        primary.CallCount.ShouldBe(1);
+        supplement.CallCount.ShouldBe(1);
+        supplement.LastLookup.ShouldBeSameAs(query);
+        supplement.LastCancellationToken.ShouldBe(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithSupplementDisabled_ReturnsPrimaryUnchangedWithoutASupplementCall()
+    {
+        // arrange
+        var primaryResult = new MetadataLookupResult.Found(PrimaryMetadata());
+        var primary = StubMetadataProvider.Returning(primaryResult);
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(SupplementMetadata()));
+        var chain = new ChainedMetadataProvider([primary, supplement]);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBe(primaryResult);
+        primary.CallCount.ShouldBe(1);
+        supplement.CallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundAndSupplementNotFound_KeepsPrimaryFoundWithUnavailableSignals()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(PrimaryMetadata()));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.NotFound());
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Primary");
+        metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.Signals.CollectionAvailability.ShouldBe(SignalAvailability.Unavailable);
+        supplement.CallCount.ShouldBe(1);
+    }
+
+    public static TheoryData<EnrichmentFailureCategory> SupplementalFailures =>
+        [EnrichmentFailureCategory.RateLimited, EnrichmentFailureCategory.ProviderUnavailable, EnrichmentFailureCategory.InvalidResponse];
+
+    [Theory]
+    [MemberData(nameof(SupplementalFailures))]
+    public async Task FindAsync_PrimaryFoundAndSupplementFailed_KeepsPrimaryFoundWithUnavailableSignals(
+        EnrichmentFailureCategory category)
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(PrimaryMetadata()));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Failed(category));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Primary");
+        metadata.Actors.ShouldBe(["Base Actor"]);
+        metadata.Signals.ShouldNotBeNull().CollectionAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.CollectionId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_FallbackFoundFromTheSupplementProvider_DoesNotRepeatTheSupplementLookup()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.NotFound());
+        var supplementResult = new MetadataLookupResult.Found(SupplementMetadata());
+        var supplement = StubMetadataProvider.Returning(supplementResult);
+        var chain = new ChainedMetadataProvider([primary, supplement], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBe(supplementResult);
+        primary.CallCount.ShouldBe(1);
+        supplement.CallCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryTerminalFailure_DoesNotCallTheSupplement()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Failed(EnrichmentFailureCategory.InvalidResponse));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(SupplementMetadata()));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        supplement.CallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task FindAsync_SupplementThrowsUnexpectedException_Propagates()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(PrimaryMetadata()));
+        var supplement = StubMetadataProvider.Throwing(new InvalidOperationException("supplement boom"));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var exception = await Should.ThrowAsync<InvalidOperationException>(
+            () => chain.FindAsync(Query, TestContext.Current.CancellationToken));
+
+        // assert
+        exception.Message.ShouldBe("supplement boom");
+    }
+
+    [Fact]
+    public async Task FindAsync_SupplementCancellation_Propagates()
+    {
+        // arrange
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(PrimaryMetadata()));
+        var supplement = StubMetadataProvider.Throwing(new OperationCanceledException(cancellation.Token));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var exception = await Should.ThrowAsync<OperationCanceledException>(
+            () => chain.FindAsync(Query, cancellation.Token));
+
+        // assert
+        exception.CancellationToken.ShouldBe(cancellation.Token);
+    }
+
+    private static MovieMetadata Metadata(MetadataLookupResult result) =>
+        result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata;
+
+    private static MovieMetadata PrimaryMetadata() =>
+        new(
+            "Primary",
+            synopsis: "Primary plot",
+            imdbId: new ImdbId("tt0133093"),
+            metaScore: 73,
+            directors: ["Lana Wachowski"],
+            actors: ["Base Actor"],
+            genres: ["Action"],
+            writers: ["Lilly Wachowski"]);
+
+    private static MovieMetadata SupplementMetadata() =>
+        new(
+            "Supplement",
+            collectionId: 2344,
+            collectionName: "The Matrix Collection",
+            signals: new MovieSignalSnapshot(
+                SignalAvailability.Available,
+                [new MovieKeyword(2001, "Dystopia")],
+                SignalAvailability.Available,
+                ["Keanu Reeves"],
+                SignalAvailability.Available));
+
     private static MetadataLookupResult Record(List<string> calls, string name)
     {
         calls.Add(name);

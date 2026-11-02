@@ -130,6 +130,18 @@ public sealed partial class TmdbMetadataProvider
     private sealed class Response
     {
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("id")]
+        public int? Id { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("keywords")]
+        public List<KeywordPayload>? Keywords { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("cast")]
+        public List<CastPayload>? Cast { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("results")]
         public List<SearchHit>? Results { get; init; }
 
@@ -172,6 +184,28 @@ public sealed partial class TmdbMetadataProvider
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("status_code")]
         public int? StatusCode { get; init; }
+    }
+
+    private sealed class KeywordPayload
+    {
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("id")]
+        public int? Id { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("name")]
+        public string? Name { get; init; }
+    }
+
+    private sealed class CastPayload
+    {
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("id")]
+        public int? Id { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("name")]
+        public string? Name { get; init; }
     }
 
     private sealed class CollectionPayload
