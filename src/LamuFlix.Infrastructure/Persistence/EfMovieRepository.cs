@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Data;
 using System.Linq;
 using System.Threading;
@@ -18,6 +19,7 @@ namespace LamuFlix.Infrastructure.Persistence;
 public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDisposable
 {
     private const string ImdbIdIndexName = "IX_movies_imdb_id";
+    private const int KeywordLockNamespace = 5;
 
     private readonly TimeSpan[] metadataRetryDelays =
     [
@@ -150,6 +152,17 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         record.ImdbId = metadata.ImdbId;
         record.PosterUrl = metadata.PosterUrl;
         record.MetaScore = metadata.MetaScore;
+        ApplyCollectionIdentity(record, metadata);
+    }
+
+    private static void ApplyCollectionIdentity(MovieRecord record, MovieMetadata metadata)
+    {
+        var availability = metadata.Signals?.CollectionAvailability ?? SignalAvailability.Unavailable;
+        if (availability == SignalAvailability.Unavailable)
+        {
+            return;
+        }
+
         record.CollectionId = metadata.CollectionId;
     }
 
@@ -164,6 +177,8 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         record.PosterUrl = null;
         record.MetaScore = null;
         record.CollectionId = null;
+        record.Keywords.Clear();
+        record.FullCast.Clear();
     }
 
     public async Task<MovieId> NextIdentityAsync(CancellationToken ct)
@@ -558,20 +573,18 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             .Include(movie => movie.Directors)
             .Include(movie => movie.Genres)
             .Include(movie => movie.Writers)
+            .Include(movie => movie.Keywords)
+            .Include(movie => movie.FullCast)
             .SingleOrDefaultAsync(movie => movie.Id == id, ct);
 
     private async Task AcquireSnapshotLocksAsync(IReadOnlyList<TrackedMovie> tracked, CancellationToken ct)
     {
         var keys = new List<(int RoleId, string Name)>();
+        var keywordIds = new SortedSet<int>();
         foreach (var item in tracked)
         {
-            if (item.Movie.Metadata is { } metadata)
-            {
-                CollectKeys(keys, 1, NormalizeUnique(metadata.Genres));
-                CollectKeys(keys, 2, NormalizeUnique(metadata.Directors));
-                CollectKeys(keys, 3, NormalizeUnique(metadata.Writers));
-                CollectKeys(keys, 4, NormalizeUnique(metadata.Actors));
-            }
+            CollectAssociationLocks(keys, item.Movie.Metadata);
+            CollectSignalLocks(keys, keywordIds, item.Movie.Metadata?.Signals);
         }
 
         var ordered = keys
@@ -585,6 +598,48 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
                 "SELECT pg_advisory_xact_lock({0}, hashtext({1}))",
                 [roleId, name],
                 ct);
+        }
+
+        foreach (var keywordId in keywordIds)
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "SELECT pg_advisory_xact_lock({0}, {1})",
+                [KeywordLockNamespace, keywordId],
+                ct);
+        }
+    }
+
+    private static void CollectAssociationLocks(List<(int RoleId, string Name)> keys, MovieMetadata? metadata)
+    {
+        if (metadata is not { } present)
+        {
+            return;
+        }
+
+        CollectKeys(keys, 1, NormalizeUnique(present.Genres));
+        CollectKeys(keys, 2, NormalizeUnique(present.Directors));
+        CollectKeys(keys, 3, NormalizeUnique(present.Writers));
+        CollectKeys(keys, 4, NormalizeUnique(present.Actors));
+    }
+
+    private static void CollectSignalLocks(
+        List<(int RoleId, string Name)> keys,
+        SortedSet<int> keywordIds,
+        MovieSignalSnapshot? signals)
+    {
+        if (signals is null)
+        {
+            return;
+        }
+
+        if (signals.KeywordAvailability == SignalAvailability.Available)
+        {
+            keywordIds.UnionWith(signals.Keywords.Select(keyword => keyword.Id));
+        }
+
+        if (signals.FullCastAvailability == SignalAvailability.Available)
+        {
+            CollectKeys(keys, 4, NormalizeUnique(signals.FullCast));
         }
     }
 
@@ -604,6 +659,8 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             record.Directors.Clear();
             record.Genres.Clear();
             record.Writers.Clear();
+            record.Keywords.Clear();
+            record.FullCast.Clear();
             return;
         }
 
@@ -615,6 +672,96 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             name => new GenreRecord { Name = name }, ct);
         await ReplaceRoleAsync(db.Writers, record.Writers, metadata.Writers, writer => writer.Name,
             name => new WriterRecord { Name = name }, ct);
+        await ReplaceSignalAssociationsAsync(record, metadata.Signals, ct);
+    }
+
+    private async Task ReplaceSignalAssociationsAsync(
+        MovieRecord record,
+        MovieSignalSnapshot? signals,
+        CancellationToken ct)
+    {
+        await ReplaceKeywordsAsync(record, signals, ct);
+        await ReplaceFullCastAsync(record, signals, ct);
+    }
+
+    private async Task ReplaceKeywordsAsync(MovieRecord record, MovieSignalSnapshot? signals, CancellationToken ct)
+    {
+        var availability = signals?.KeywordAvailability ?? SignalAvailability.Unavailable;
+        if (availability == SignalAvailability.Unavailable)
+        {
+            return;
+        }
+
+        var desired = availability == SignalAvailability.KnownEmpty
+            ? ImmutableArray<MovieKeyword>.Empty
+            : signals!.Keywords;
+        var existing = await LoadKeywordCacheAsync(desired, ct);
+        var wanted = new HashSet<int>(desired.Select(keyword => keyword.Id));
+        foreach (var current in record.Keywords.Where(keyword => !wanted.Contains(keyword.Id)).ToList())
+        {
+            record.Keywords.Remove(current);
+        }
+
+        var present = new HashSet<int>(record.Keywords.Select(keyword => keyword.Id));
+        foreach (var keyword in desired)
+        {
+            if (present.Add(keyword.Id))
+            {
+                record.Keywords.Add(ResolveKeyword(keyword, existing));
+            }
+        }
+    }
+
+    private async Task<Dictionary<int, KeywordRecord>> LoadKeywordCacheAsync(
+        IEnumerable<MovieKeyword> keywords,
+        CancellationToken ct)
+    {
+        var ids = keywords.Select(keyword => keyword.Id).Distinct().ToArray();
+        var existing = await db.Keywords
+            .Where(keyword => ids.Contains(keyword.Id))
+            .ToDictionaryAsync(keyword => keyword.Id, ct);
+        foreach (var tracked in db.Keywords.Local)
+        {
+            if (Array.IndexOf(ids, tracked.Id) >= 0)
+            {
+                existing[tracked.Id] = tracked;
+            }
+        }
+
+        return existing;
+    }
+
+    private KeywordRecord ResolveKeyword(MovieKeyword keyword, Dictionary<int, KeywordRecord> existing)
+    {
+        if (existing.TryGetValue(keyword.Id, out var record))
+        {
+            if (!string.Equals(record.Name, keyword.Name, StringComparison.Ordinal))
+            {
+                record.Name = keyword.Name;
+            }
+
+            return record;
+        }
+
+        var created = new KeywordRecord { Id = keyword.Id, Name = keyword.Name };
+        existing.Add(keyword.Id, created);
+        db.Keywords.Add(created);
+        return created;
+    }
+
+    private async Task ReplaceFullCastAsync(MovieRecord record, MovieSignalSnapshot? signals, CancellationToken ct)
+    {
+        var availability = signals?.FullCastAvailability ?? SignalAvailability.Unavailable;
+        if (availability == SignalAvailability.Unavailable)
+        {
+            return;
+        }
+
+        var desired = availability == SignalAvailability.KnownEmpty
+            ? Enumerable.Empty<string>()
+            : signals!.FullCast;
+        await ReplaceRoleAsync(db.Actors, record.FullCast, desired, actor => actor.Name,
+            name => new ActorRecord { Name = name }, ct);
     }
 
     private static async Task ReplaceRoleAsync<TEntity>(
@@ -634,18 +781,43 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             byKey[Normalize(nameOf(entity))] = entity;
         }
 
-        collection.Clear();
+        var wanted = new HashSet<string>(desired.Select(Normalize), StringComparer.Ordinal);
+        foreach (var entity in collection.ToList())
+        {
+            if (!wanted.Contains(Normalize(nameOf(entity))))
+            {
+                collection.Remove(entity);
+            }
+        }
+
+        var present = new HashSet<string>(collection.Select(entity => Normalize(nameOf(entity))), StringComparer.Ordinal);
         foreach (var name in desired)
         {
             var key = Normalize(name);
-            if (!byKey.TryGetValue(key, out var entity))
+            if (present.Add(key))
             {
-                entity = create(name);
-                byKey[key] = entity;
+                collection.Add(ResolveRoleEntity(set, byKey, key, name, create));
             }
-
-            collection.Add(entity);
         }
+    }
+
+    private static TEntity ResolveRoleEntity<TEntity>(
+        DbSet<TEntity> set,
+        Dictionary<string, TEntity> byKey,
+        string key,
+        string name,
+        Func<string, TEntity> create)
+        where TEntity : class
+    {
+        if (byKey.TryGetValue(key, out var entity))
+        {
+            return entity;
+        }
+
+        entity = create(name);
+        set.Add(entity);
+        byKey[key] = entity;
+        return entity;
     }
 
     private static async Task<List<TEntity>> LoadMatchingAsync<TEntity>(
@@ -659,6 +831,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         var candidates = await set
             .Where(entity => wanted.Contains(EF.Property<string>(entity, "Name").Trim().ToLower()))
             .ToListAsync(ct);
+        candidates.AddRange(set.Local);
         var matches = new List<TEntity>();
         foreach (var entity in candidates)
         {
@@ -717,7 +890,9 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         sqlState switch
         {
             "40001" or "40P01" => true,
-            "23505" => IsMovieOrJoinPrimaryKey(constraintName) || IsCollectionPrimaryKey(constraintName),
+            "23505" => IsMovieOrJoinPrimaryKey(constraintName)
+                || IsCollectionPrimaryKey(constraintName)
+                || IsKeywordPrimaryKey(constraintName),
             _ => false,
         };
 
@@ -728,6 +903,9 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
 
     private static bool IsCollectionPrimaryKey(string? constraintName) =>
         string.Equals(constraintName, "PK_collections", StringComparison.Ordinal);
+
+    private static bool IsKeywordPrimaryKey(string? constraintName) =>
+        string.Equals(constraintName, "PK_keywords", StringComparison.Ordinal);
 
     private static bool IsRetryableSqlState(PostgresException exception) =>
         IsRetryableSqlState(exception.SqlState, exception.ConstraintName);

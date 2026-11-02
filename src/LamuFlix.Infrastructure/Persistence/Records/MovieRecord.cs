@@ -63,4 +63,8 @@ public sealed class MovieRecord
     public ICollection<GenreRecord> Genres { get; } = new HashSet<GenreRecord>();
 
     public ICollection<WriterRecord> Writers { get; } = new HashSet<WriterRecord>();
+
+    public ICollection<KeywordRecord> Keywords { get; } = new HashSet<KeywordRecord>();
+
+    public ICollection<ActorRecord> FullCast { get; } = new HashSet<ActorRecord>();
 }

@@ -50,7 +50,7 @@ public sealed class EfMovieRepositoryCollectionTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task SaveChanges_MetadataWithoutCollection_ClearsMembershipAndRetainsCollectionRow()
+    public async Task SaveChanges_KnownNoCollection_ClearsMembershipAndRetainsCollectionRow()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -65,7 +65,7 @@ public sealed class EfMovieRepositoryCollectionTests(PostgresFixture fixture)
 
         // act
         movie.RequestEnrichment();
-        movie.MarkEnriched(MetadataWithoutCollection("Fallback", "tt0000102"), Now);
+        movie.MarkEnriched(MetadataWithKnownNoCollection("Fallback", "tt0000102"), Now);
         await repository.SaveChangesAsync(ct);
 
         // assert
@@ -73,6 +73,58 @@ public sealed class EfMovieRepositoryCollectionTests(PostgresFixture fixture)
         var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
         record.CollectionId.ShouldBeNull();
         (await verify.Collections.AsNoTracking().Select(collection => collection.Id).ToArrayAsync(ct)).ShouldBe([303]);
+    }
+
+    [Fact]
+    public async Task SaveChanges_DisabledCollectionSignal_PreservesMembershipAndRetainsCollectionRow()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Disabled", "collection-disabled", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.MarkEnriched(MetadataWithCollection("Disabled", "tt0000107", 707, "Preserved Franchise"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        // act
+        movie.RequestEnrichment();
+        movie.MarkEnriched(MetadataWithoutSignals("Disabled", "tt0000107"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = fixture.CreateMigratedContext();
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.CollectionId.ShouldBe(707);
+        (await verify.Collections.AsNoTracking().Select(collection => collection.Id).ToArrayAsync(ct)).ShouldBe([707]);
+    }
+
+    [Fact]
+    public async Task SaveChanges_UnavailableCollectionSignal_PreservesMembershipAndRetainsCollectionRow()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Unavailable", "collection-unavailable", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.MarkEnriched(MetadataWithCollection("Unavailable", "tt0000108", 808, "Held Franchise"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        // act
+        movie.RequestEnrichment();
+        movie.MarkEnriched(MetadataWithUnavailableCollection("Unavailable", "tt0000108"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = fixture.CreateMigratedContext();
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.CollectionId.ShouldBe(808);
+        (await verify.Collections.AsNoTracking().Select(collection => collection.Id).ToArrayAsync(ct)).ShouldBe([808]);
     }
 
     [Fact]
@@ -257,9 +309,19 @@ public sealed class EfMovieRepositoryCollectionTests(PostgresFixture fixture)
             [],
             [],
             collectionId,
-            collectionName);
+            collectionName,
+            new MovieSignalSnapshot(collectionAvailability: SignalAvailability.Available));
 
-    private static MovieMetadata MetadataWithoutCollection(string title, string imdbId) =>
+    private static MovieMetadata MetadataWithKnownNoCollection(string title, string imdbId) =>
+        MetadataWithSignals(title, imdbId, new MovieSignalSnapshot(collectionAvailability: SignalAvailability.KnownEmpty));
+
+    private static MovieMetadata MetadataWithUnavailableCollection(string title, string imdbId) =>
+        MetadataWithSignals(title, imdbId, new MovieSignalSnapshot(collectionAvailability: SignalAvailability.Unavailable));
+
+    private static MovieMetadata MetadataWithoutSignals(string title, string imdbId) =>
+        MetadataWithSignals(title, imdbId, signals: null);
+
+    private static MovieMetadata MetadataWithSignals(string title, string imdbId, MovieSignalSnapshot? signals) =>
         new(
             title,
             "Full synopsis",
@@ -267,7 +329,8 @@ public sealed class EfMovieRepositoryCollectionTests(PostgresFixture fixture)
             new Runtime(121),
             new ImdbRating(8.1m),
             new ImdbId(imdbId),
-            "https://example.test/poster.jpg");
+            "https://example.test/poster.jpg",
+            signals: signals);
 
     private static async Task<MovieId> AddMovieAsync(
         EfMovieRepository repository, string title, string suffix, CancellationToken ct)

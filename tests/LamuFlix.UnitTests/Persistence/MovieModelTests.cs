@@ -74,11 +74,13 @@ public sealed class MovieModelTests
         using var context = CreateContext();
         var movie = RequireEntity(context, typeof(MovieRecord));
 
-        movie.GetSkipNavigations().Count().ShouldBe(4);
+        movie.GetSkipNavigations().Count().ShouldBe(6);
         AssertSkipNavigation(movie, nameof(MovieRecord.Actors), "movie_actors", "actor_id");
         AssertSkipNavigation(movie, nameof(MovieRecord.Directors), "movie_directors", "director_id");
         AssertSkipNavigation(movie, nameof(MovieRecord.Genres), "movie_genres", "genre_id");
         AssertSkipNavigation(movie, nameof(MovieRecord.Writers), "movie_writers", "writer_id");
+        AssertSkipNavigation(movie, nameof(MovieRecord.Keywords), "movie_keywords", "keyword_id");
+        AssertSkipNavigation(movie, nameof(MovieRecord.FullCast), "movie_tmdb_cast", "actor_id");
     }
 
     [Fact]
