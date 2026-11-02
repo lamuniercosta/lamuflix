@@ -17,6 +17,7 @@ public static class EnrichmentRetryPolicy
         }
 
         var action = ReferenceEquals(category, EnrichmentFailureCategory.RateLimited)
+                     || ReferenceEquals(category, EnrichmentFailureCategory.QuotaExhausted)
             ? EnrichmentFailureAction.RetryDelayed
             : EnrichmentFailureAction.Retry;
         return new EnrichmentFailureDecision(action, attempt + 1);

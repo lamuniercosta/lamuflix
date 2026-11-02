@@ -56,6 +56,45 @@ public sealed class EnrichmentRoutingTests
         disposition.NextAttempt.ShouldBe(3);
     }
 
+    public static TheoryData<EnrichmentFailureCategory> DelayedCategories() =>
+        new() { EnrichmentFailureCategory.RateLimited, EnrichmentFailureCategory.QuotaExhausted };
+
+    [Theory]
+    [MemberData(nameof(DelayedCategories))]
+    public void Decide_DelayedCategory_GoesToTheRetryQueueWithTheNextAttempt(EnrichmentFailureCategory category)
+    {
+        // arrange
+        var outcome = new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(EnrichmentFailureAction.RetryDelayed, 3),
+            category);
+
+        // act
+        var disposition = EnrichmentRouting.Decide(outcome);
+
+        // assert
+        disposition.RoutingKey.ShouldBe(RabbitMqTopology.RetryRoutingKey);
+        disposition.Action.ShouldBe(RabbitMqTopology.RetryRoutingKey);
+        disposition.NextAttempt.ShouldBe(3);
+    }
+
+    [Theory]
+    [MemberData(nameof(DelayedCategories))]
+    public void Decide_DelayedCategoryAtMaxAttempts_GoesToTheDeadLetterQueue(EnrichmentFailureCategory category)
+    {
+        // arrange
+        var outcome = new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            category);
+
+        // act
+        var disposition = EnrichmentRouting.Decide(outcome);
+
+        // assert
+        disposition.RoutingKey.ShouldBe(RabbitMqTopology.DeadLetterRoutingKey);
+        disposition.Action.ShouldBe(RabbitMqTopology.DeadLetterRoutingKey);
+        disposition.NextAttempt.ShouldBeNull();
+    }
+
     [Fact]
     public void Decide_DeadLetter_GoesToTheDeadLetterQueue()
     {
