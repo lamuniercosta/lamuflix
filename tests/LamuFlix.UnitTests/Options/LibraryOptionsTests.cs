@@ -21,6 +21,51 @@ public sealed class LibraryOptionsTests
     }
 
     [Fact]
+    public void LibraryOptions_MaxConcurrency_DefaultIsFour()
+    {
+        // arrange
+        var options = new LibraryOptions();
+
+        // act
+        var maxConcurrency = options.MaxConcurrency;
+
+        // assert
+        maxConcurrency.ShouldBe(4);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    [InlineData(int.MaxValue)]
+    public void LibraryOptions_MaxConcurrency_WithinRange_PassesDataAnnotationValidation(int maxConcurrency)
+    {
+        // arrange
+        var options = new LibraryOptions { RootPath = "/library", MaxConcurrency = maxConcurrency };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(int.MinValue)]
+    public void LibraryOptions_MaxConcurrency_OutOfRange_FailsDataAnnotationValidation(int maxConcurrency)
+    {
+        // arrange
+        var options = new LibraryOptions { RootPath = "/library", MaxConcurrency = maxConcurrency };
+
+        // act
+        var results = Validate(options);
+
+        // assert
+        results.SelectMany(result => result.MemberNames).ShouldContain(nameof(LibraryOptions.MaxConcurrency));
+    }
+
+    [Fact]
     public void TryValidateObject_DefaultRootPath_ReportsRootPathAsRequired()
     {
         // arrange

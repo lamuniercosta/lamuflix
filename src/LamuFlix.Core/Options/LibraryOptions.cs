@@ -10,5 +10,8 @@ public sealed record LibraryOptions
 
     [Required]
     public string RootPath { get; init; } = string.Empty;
+
+    [Range(1, int.MaxValue)]
+    public int MaxConcurrency { get; init; } = 4;
 }
 // ReSharper restore UnusedAutoPropertyAccessor.Global

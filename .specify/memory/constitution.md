@@ -1,6 +1,41 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.9.0 → 1.10.0 (MINOR: Principle I named-port enumeration gains the two
+DEV-333 import ports; Principle IV Movie mutator/claim/sweeper inventories and Enrichment
+Reliability Rules gain the quota-day deferral surfaces; ADR-0032)
+
+Amendment 1.10.0 (2026-11-02), DEV-333 delivery alignment:
+  Authority: ticket DEV-333 Scope items 1–5; specs/DEV-333/brief.md Q1–Q8;
+    specs/DEV-333/CONCLUSIONS.md (Patron rulings, Plan-challenge round 1 §1).
+  ADR: docs/adr/0032-recursive-import-ports-and-scope-seam.md. Its status stays Proposed
+    until the applicable approval evidence exists; this drafting does not Accept it and
+    claims no DEV-333 Gate 1 or owner approval.
+  Modified sections:
+    I. Ports and Adapters: `ILibraryFolderDiscovery` and `IMovieFolderImporter` added to
+       the closed named-port enumeration beside `IMediaLibraryScanner`, retaining every
+       existing port, the BCL/M.E.AI abstractions and the `Adding a port requires an ADR.`
+       sentence.
+    IV. Enrichment Is an Explicit State Machine: Movie mutator inventory adds
+       `DeferEnrichmentUntil(DateTimeOffset)` (sets `EnrichmentDeferredUntil`, no status
+       change); claim bullet adds the deferral predicate and atomic clear; sweeper bullet
+       adds future-deferral exclusion and post-expiry eligibility.
+    Enrichment Reliability Rules: one quota-deferral settlement paragraph distinguishing
+       same-attempt durable quota-deferred TTL dispatch from failure retries. The DEV-439
+       `EnrichmentRetryPolicy` `QuotaExhausted` arm stays unchanged.
+  Added / removed sections: none
+  Templates reviewed:
+    .specify/templates/plan-template.md — principle-based Constitution Check; no edit needed.
+    .specify/templates/spec-template.md — no named-port/mutator inventory; no edit needed.
+    .specify/templates/tasks-template.md — generic ADR/constitution tasks; no edit needed.
+    .specify/templates/checklist-template.md — generic checklist headings; no edit needed.
+    .specify/templates/constitution-template.md — template boilerplate only; no edit needed.
+  Migration / follow-up:
+    `DeferEnrichmentUntil` and `EnrichmentDeferredUntil` land with the DEV-333 deferral
+    schema/settlement work; the constitution inventory is recorded now so code and rulebook
+    are aligned. Recheck the landed constitution and dependency contracts at pickup.
+    Ordinary ADR/Governance alignment, not a constitution departure: no new owner checkbox.
+
 Version change: 1.8.0 → 1.9.0 (MINOR: Principle IV EnrichmentFailureCategory closed list adds
 QuotaExhausted; DEV-439)
 
@@ -262,7 +297,8 @@ Project reference rules are strict and unidirectional:
   `Recommendations`, `WatchHistory`) MUST NOT reference each other; shared concepts live in
   `Domain/`, `Ports/`, or `Pipeline/`.
 - Ports live in `Core/Ports/`; the only ports are `IMovieRepository`, `IMovieCatalog`,
-  `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `IMediaPlayerLauncher`,
+  `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `ILibraryFolderDiscovery`,
+  `IMovieFolderImporter`, `IMediaPlayerLauncher`,
   `IRecommendationCandidateSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`,
   `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, `IThumbnailGenerator`, and the BCL/M.E.AI abstractions `TimeProvider` and
   `IEmbeddingGenerator<string, Embedding<float>>`. Adding a port requires an ADR.
@@ -318,24 +354,31 @@ state is provably faithful.
 ### IV. Enrichment Is an Explicit State Machine (NON-NEGOTIABLE)
 
 `Movie` is a class (EF-tracked, private setters) with intent-revealing transition methods:
-`MarkEnriched`, `MarkNotFound`, `MarkFailed`, `RequestEnrichment`, `AddToWatchlist`,
-`RemoveFromWatchlist`. Illegal transitions throw `InvalidTransitionException` (HTTP 409).
+`MarkEnriched`, `MarkNotFound`, `MarkFailed`, `RequestEnrichment`, `DeferEnrichmentUntil`,
+`AddToWatchlist`, `RemoveFromWatchlist`. Illegal transitions throw `InvalidTransitionException` (HTTP 409).
+`DeferEnrichmentUntil(DateTimeOffset)` records `EnrichmentDeferredUntil` from Pending only and
+changes no status.
 
 - `EnrichmentStatus` is a `SmartEnum<EnrichmentStatus, int>` with `Pending = 0, Enriched = 1,
   NotFound = 2, Failed = 3`, persisted as its `Value`; the numeric values are part of the
   database contract and MUST NOT change.
 - Claiming work MUST be atomic: `IMovieRepository.TryClaimForEnrichmentAsync` performs a single
   `UPDATE … WHERE Status = Pending` (`ExecuteUpdateAsync`). Exactly one of two concurrent claims
-  wins; an integration test MUST prove it. A claim older than the lease window is free.
+  wins; an integration test MUST prove it. A claim older than the lease window is free. A claim
+  MUST also refuse a row whose `EnrichmentDeferredUntil` is still in the future, and an eligible
+  claim clears that deadline atomically with the claim bookkeeping.
 - Failures are classified into the `EnrichmentFailureCategory` Enumeration (`ProviderUnavailable`,
   `RateLimited`, `InvalidResponse`, `Unknown`, `QuotaExhausted`); each member carries its own
   `IsRetryable` and caller-safe message. Classification
   from the root-cause exception lives in exactly one `EnrichmentFailureClassifier`.
 - Retry is category-driven: retryable and attempts < max → republish with `Attempt + 1`
   (`RateLimited` and `QuotaExhausted` via the TTL retry queue); otherwise `MarkFailed(category)`
-  and dead-letter.
+  and dead-letter. Once chain-final quota settlement is delivered, `QuotaDeferred` is settlement,
+  not retry; the landed `QuotaExhausted` retry arm is retained until then.
 - A `StrandedMovieSweeper` MUST periodically re-enqueue `Pending` rows whose last attempt is
   null or older than the lease, covering lost messages, failed publishes, and claim-then-crash.
+  Rows deferred into the future are excluded while the deadline is unexpired and become eligible
+  again after it expires, so the sweeper is the post-expiry backstop.
 - Raw exception text MUST NOT be persisted to the row or returned from the API. It goes to logs
   and traces only.
 
@@ -610,6 +653,12 @@ Code MUST follow `.claude/rules/vendor/aaron-csharp-coding-style.md` and these p
   nacked with requeue on cancellation.
 - `FeaturesRequested` (Recommendations) reuses the same claim, retry, DLQ, category, and
   sweeper machinery; it MUST NOT fork a second pipeline.
+- Quota-day deferral is settlement, not a failure retry. Chain-final `QuotaExhausted` leaves the
+  row Pending, records `EnrichmentDeferredUntil` on the same attempt, writes no failure category,
+  and dispatches the durable quota-deferred TTL route; a non-final quota remains the landed
+  chain-fallback case with zero deferral, and HTTP 429 keeps its bounded retries. Claim-before-
+  provider still holds, and the sweeper's post-expiry eligibility is the backstop, not a second
+  deferral path.
 
 ### API and Contract Rules
 
@@ -684,4 +733,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.9.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-01
+**Version**: 1.10.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-02
