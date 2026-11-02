@@ -436,7 +436,7 @@ public sealed class OmdbMetadataProviderFallbackUnitTests
             TestContext.Current.CancellationToken);
 
         // assert
-        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.RateLimited);
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.QuotaExhausted);
         handler.Requests.Count.ShouldBe(3);
         handler.Requests.ShouldAllBe(p => !p.ContainsKey("i"));
     }

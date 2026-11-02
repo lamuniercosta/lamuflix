@@ -211,7 +211,7 @@ public sealed partial class OmdbMetadataProvider(
         catch (MetadataQuotaExhaustedException)
         {
             Log.QuotaExhausted(logger);
-            return new Fetch.Rejected(QuotaFailure(EnrichmentFailureCategory.RateLimited));
+            return new Fetch.Rejected(QuotaFailure(EnrichmentFailureCategory.QuotaExhausted));
         }
         catch (MetadataQuotaPersistenceException exception)
         {
