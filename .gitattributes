@@ -1,2 +1,3 @@
 web/src/api/openapi.json text eol=lf
 tests/LamuFlix.IntegrationTests/Snapshots/OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json text eol=lf
+*.sh text eol=lf
