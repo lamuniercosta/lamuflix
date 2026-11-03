@@ -60,7 +60,7 @@ public sealed class ImportLibraryDryRunTests(PostgresFixture postgres) : IAsyncL
             var provider = new ScriptedMetadataProvider(FoundForEveryLookup);
             await using var services = BuildProvider(root, probe, provider);
 
-            // act: bounded bulk import through the real handler, discovery and persistence.
+            // act
             long importedCount;
             using (var importScope = services.CreateScope())
             {
@@ -70,7 +70,7 @@ public sealed class ImportLibraryDryRunTests(PostgresFixture postgres) : IAsyncL
                     .ImportedCount;
             }
 
-            // assert: 500 movies and 500 staged enrichment requests, all at attempt 1.
+            // assert
             importedCount.ShouldBe(CandidateCount);
             probe.MaxObserved.ShouldBeLessThanOrEqualTo(MaxConcurrency);
             probe.MaxObserved.ShouldBeGreaterThanOrEqualTo(1);
@@ -80,7 +80,7 @@ public sealed class ImportLibraryDryRunTests(PostgresFixture postgres) : IAsyncL
             staged.ShouldAllBe(request => request.Attempt == 1);
             staged.Select(request => request.MovieId).Distinct().Count().ShouldBe(CandidateCount);
 
-            // act: every staged enrichment request completes through the real settlement handler.
+            // act
             await Parallel.ForEachAsync(
                 staged,
                 new ParallelOptions
@@ -99,7 +99,7 @@ public sealed class ImportLibraryDryRunTests(PostgresFixture postgres) : IAsyncL
                     outcome.ShouldBe(new ProcessEnrichmentOutcome.Completed(Claimed: true));
                 });
 
-            // assert: every movie is Enriched exactly once, with no failure, rate-limit, not-found or duplicate.
+            // assert
             await using var database = postgres.CreateMigratedContext();
             var movies = await database.Movies.AsNoTracking().ToListAsync(cancellationToken);
             movies.Count.ShouldBe(CandidateCount);

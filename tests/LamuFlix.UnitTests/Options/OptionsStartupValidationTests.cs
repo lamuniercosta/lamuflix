@@ -366,8 +366,6 @@ public sealed class OptionsStartupValidationTests
     public void LibraryOptions_MaxConcurrency_ZeroOrNegativeInteger_FailsRangeStartupValidation(
         string maxConcurrency)
     {
-        // A parsed but out-of-range integer reaches DataAnnotations [Range] validation at startup,
-        // which surfaces as OptionsValidationException naming the property.
         var values = ValidRequired();
         values[$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.MaxConcurrency)}"] = maxConcurrency;
 
@@ -382,8 +380,6 @@ public sealed class OptionsStartupValidationTests
     public void LibraryOptions_MaxConcurrency_FractionalOrNonNumericConfiguration_FailsBinder(
         string maxConcurrency)
     {
-        // A fractional or non-numeric configuration string never reaches [Range]; the configuration
-        // binder rejects the conversion instead. Distinct failure path, same fails-startup outcome.
         var values = ValidRequired();
         values[$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.MaxConcurrency)}"] = maxConcurrency;
         using var provider = Build(values);
