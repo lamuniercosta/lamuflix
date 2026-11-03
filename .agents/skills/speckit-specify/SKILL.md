@@ -123,15 +123,19 @@ Given that feature description, do this:
        - Prioritize clarifications by impact: scope > security/privacy > user experience > technical details
     4. Fill User Scenarios & Testing section
        If no clear user flow: ERROR "Cannot determine user scenarios"
-    5. Generate Functional Requirements
+    5. Fill What the User Will See section
+       Name each visible change by page or component, what the user sees or does, and what the running app needs for it to show up
+       If nothing is visible to the user, write "Nothing visible: [reason]"
+       For each visible change, write one SMOKE-### check in user terms (Given, When, Then on the screen)
+    6. Generate Functional Requirements
        Each requirement must be testable
        Use reasonable defaults for unspecified details (document assumptions in Assumptions section)
-    6. Define Success Criteria
+    7. Define Success Criteria
        Create measurable, technology-agnostic outcomes
        Include both quantitative metrics (time, performance, volume) and qualitative measures (user satisfaction, task completion)
        Each criterion must be verifiable without implementation details
-    7. Identify Key Entities (if data involved)
-    8. Return: SUCCESS (spec ready for planning)
+    8. Identify Key Entities (if data involved)
+    9. Return: SUCCESS (spec ready for planning)
 
 6. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
 
@@ -170,6 +174,12 @@ Given that feature description, do this:
       - [ ] User scenarios cover primary flows
       - [ ] Feature meets measurable outcomes defined in Success Criteria
       - [ ] No implementation details leak into specification
+      
+      ## User-Visible Outcome
+      
+      - [ ] "What the User Will See" names each visible change by page or component, or says "Nothing visible" with a reason
+      - [ ] Each visible change has a SMOKE-### check in user terms that can run against the Compose stack
+      - [ ] What each visible change needs to show up in a plain `docker compose up` is listed (config, data, services)
       
       ## Notes
       
