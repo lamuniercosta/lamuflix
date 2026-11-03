@@ -58,6 +58,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+    environment:
+      Ollama__Endpoint: http://ollama:11434/
     depends_on:
       postgres:
         condition: service_healthy
