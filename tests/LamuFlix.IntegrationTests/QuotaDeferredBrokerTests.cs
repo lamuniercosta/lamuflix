@@ -1,8 +1,10 @@
 using Xunit;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -105,8 +107,10 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
             fetched.Body,
             ct);
 
+        var (recording, ackChannel) = PublishBeforeAckChannel.Wrap(channel, rabbit);
+
         // act
-        await InvokeHandleAsync(host.Consumer, channel, delivery, ct);
+        await InvokeHandleAsync(host.Consumer, ackChannel, delivery, ct);
 
         // assert
         var published = await probe.PollGetMatchingAsync(
@@ -116,9 +120,14 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         published.ShouldNotBeNull();
         Read(published).Attempt.ShouldBe(6);
         (await probe.PollMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
+        DeathField(published, "original-expiration").ShouldBe("0");
+        DeathField(published, "reason").ShouldBe("expired");
+        DeathField(published, "queue").ShouldBe(RabbitMqTopology.QuotaDeferredQueue);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, ct)).MessageCount.ShouldBe(0U);
         var persisted = await ReadPersistedAsync(movie, ct);
         persisted.EnrichmentDeferredUntil.ShouldNotBeNull();
         host.Provider.Calls.ShouldBe(1);
+        recording.PublishSeenBeforeAck.ShouldBeTrue();
     }
 
     [Fact]
@@ -135,7 +144,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
         await WaitForQueueEmptyAsync(RabbitMqTopology.RequestedQueue, ct);
 
-        // assert (redelivery before expiry is a no-op)
+        // assert
         host.Provider.Calls.ShouldBe(0);
         (await ReadPersistedAsync(movie, ct)).EnrichmentDeferredUntil.ShouldBe(deadline);
         (await probe.PollMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
@@ -143,7 +152,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         await host.StopAsync(CancellationToken.None);
         clock.Set(deadline.AddMinutes(1));
 
-        // act (delayed path recovers after expiry)
+        // act
         await host.StartAsync(ct);
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
         await WaitForStatusAsync(movie, EnrichmentStatus.Enriched, ct);
@@ -281,7 +290,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
             async () => await probe.PollMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct) == 1U,
             ct);
 
-        // assert (save-before-publish: the deadline is persisted before the delayed message exists)
+        // assert
         var persisted = await ReadPersistedAsync(deferred, ct);
         persisted.EnrichmentDeferredUntil.ShouldBe(NextUtcMidnight);
         persisted.Status.ShouldBe(EnrichmentStatus.Pending);
@@ -487,6 +496,103 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         var invocation = method.Invoke(consumer, [channel, delivery, ct])
             ?? throw new InvalidOperationException("The enrichment consumer handle did not run.");
         await (Task)invocation;
+    }
+
+    public class PublishBeforeAckChannel : DispatchProxy
+    {
+        private IChannel? channel;
+        private RabbitMqFixture? fixture;
+
+        public bool PublishSeenBeforeAck { get; private set; }
+
+        public static (PublishBeforeAckChannel Recording, IChannel Channel) Wrap(
+            IChannel channel,
+            RabbitMqFixture fixture)
+        {
+            var proxy = Create<IChannel, PublishBeforeAckChannel>();
+            var recording = (PublishBeforeAckChannel)proxy;
+            recording.channel = channel;
+            recording.fixture = fixture;
+            return (recording, proxy);
+        }
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            ArgumentNullException.ThrowIfNull(targetMethod);
+            if (channel is null || fixture is null)
+            {
+                throw new InvalidOperationException("The recording channel was not initialized.");
+            }
+
+            if (string.Equals(targetMethod.Name, nameof(IChannel.BasicAckAsync), StringComparison.Ordinal))
+            {
+                return ObservePublishThenAckAsync(
+                    (ulong)args![0]!,
+                    (bool)args[1]!,
+                    args.Length > 2 ? (CancellationToken)args[2]! : CancellationToken.None);
+            }
+
+            return targetMethod.Invoke(channel, args);
+        }
+
+        private async ValueTask ObservePublishThenAckAsync(ulong deliveryTag, bool multiple, CancellationToken cancellationToken)
+        {
+            PublishSeenBeforeAck = await WaitForPublishedAsync(cancellationToken);
+            await channel!.BasicAckAsync(deliveryTag, multiple, cancellationToken);
+        }
+
+        private async Task<bool> WaitForPublishedAsync(CancellationToken cancellationToken)
+        {
+            await using var observeConnection = await fixture!.CreateConnectionAsync(cancellationToken);
+            await using var observe = await observeConnection.CreateChannelAsync(cancellationToken: cancellationToken);
+            var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(5);
+            while (true)
+            {
+                var deferred = await observe.QueueDeclarePassiveAsync(
+                    RabbitMqTopology.QuotaDeferredQueue,
+                    cancellationToken: cancellationToken);
+                var requested = await observe.QueueDeclarePassiveAsync(
+                    RabbitMqTopology.RequestedQueue,
+                    cancellationToken: cancellationToken);
+                if (deferred.MessageCount + requested.MessageCount > 0)
+                {
+                    return true;
+                }
+
+                if (TimeProvider.System.GetUtcNow() >= deadline)
+                {
+                    return false;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+            }
+        }
+    }
+
+    private static string? DeathField(BasicGetResult message, string field)
+    {
+        if (message.BasicProperties.Headers is not { } headers
+            || !headers.TryGetValue("x-death", out var deaths)
+            || deaths is not IList list)
+        {
+            return null;
+        }
+
+        foreach (var entry in list)
+        {
+            if (entry is IDictionary<string, object?> death
+                && death.TryGetValue(field, out var raw))
+            {
+                return raw switch
+                {
+                    byte[] bytes => Encoding.UTF8.GetString(bytes),
+                    string text => text,
+                    _ => raw?.ToString(),
+                };
+            }
+        }
+
+        return null;
     }
 
     private static EnrichmentRequested Read(BasicGetResult result) =>
