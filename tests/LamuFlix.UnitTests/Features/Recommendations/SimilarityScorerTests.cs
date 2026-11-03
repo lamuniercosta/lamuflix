@@ -826,7 +826,7 @@ public sealed class SimilarityScorerTests
     {
         // arrange
         var first = Features(releaseYear: 2000, runtime: 1);
-        var second = Features(releaseYear: 2010, runtime: int.MaxValue);
+        var second = Features(releaseYear: 2005, runtime: int.MaxValue);
         var weights = Only(year: double.Epsilon, runtime: double.MaxValue);
 
         // act
