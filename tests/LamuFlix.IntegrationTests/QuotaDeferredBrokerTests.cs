@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -498,52 +499,67 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         await (Task)invocation;
     }
 
+    public sealed class PublishObservation
+    {
+        public bool PublishSeenBeforeAck { get; set; }
+    }
+
     public class PublishBeforeAckChannel : DispatchProxy
     {
-        private IChannel? channel;
-        private RabbitMqFixture? fixture;
+        private static readonly ConditionalWeakTable<object, Initialization> Initializations = new();
 
-        public bool PublishSeenBeforeAck { get; private set; }
+        private sealed record Initialization(IChannel Channel, RabbitMqFixture Fixture, PublishObservation Observation);
 
-        public static (PublishBeforeAckChannel Recording, IChannel Channel) Wrap(
+        public static (PublishObservation Recording, IChannel Channel) Wrap(
             IChannel channel,
             RabbitMqFixture fixture)
         {
-            var proxy = Create<IChannel, PublishBeforeAckChannel>();
-            var recording = (PublishBeforeAckChannel)proxy;
-            recording.channel = channel;
-            recording.fixture = fixture;
-            return (recording, proxy);
+            var observation = new PublishObservation();
+            IChannel proxy = Create<IChannel, PublishBeforeAckChannel>();
+            Initializations.Add(proxy, new Initialization(channel, fixture, observation));
+            return (observation, proxy);
         }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             ArgumentNullException.ThrowIfNull(targetMethod);
-            if (channel is null || fixture is null)
+            ArgumentNullException.ThrowIfNull(args);
+            if (!Initializations.TryGetValue(this, out var state))
             {
                 throw new InvalidOperationException("The recording channel was not initialized.");
             }
 
             if (string.Equals(targetMethod.Name, nameof(IChannel.BasicAckAsync), StringComparison.Ordinal))
             {
-                return ObservePublishThenAckAsync(
-                    (ulong)args![0]!,
-                    (bool)args[1]!,
-                    args.Length > 2 ? (CancellationToken)args[2]! : CancellationToken.None);
+                var (deliveryTag, multiple, cancellationToken) = ParseAckArgs(args);
+                return ObservePublishThenAckAsync(state, deliveryTag, multiple, cancellationToken);
             }
 
-            return targetMethod.Invoke(channel, args);
+            return targetMethod.Invoke(state.Channel, args);
         }
 
-        private async ValueTask ObservePublishThenAckAsync(ulong deliveryTag, bool multiple, CancellationToken cancellationToken)
+        private static (ulong DeliveryTag, bool Multiple, CancellationToken CancellationToken) ParseAckArgs(object?[] args)
         {
-            PublishSeenBeforeAck = await WaitForPublishedAsync(cancellationToken);
-            await channel!.BasicAckAsync(deliveryTag, multiple, cancellationToken);
+            if (args is not [ulong deliveryTag, bool multiple, ..])
+            {
+                throw new InvalidOperationException("Unexpected BasicAckAsync arguments.");
+            }
+
+            var cancellationToken = args is [_, _, CancellationToken requested]
+                ? requested
+                : CancellationToken.None;
+            return (deliveryTag, multiple, cancellationToken);
         }
 
-        private async Task<bool> WaitForPublishedAsync(CancellationToken cancellationToken)
+        private static async ValueTask ObservePublishThenAckAsync(Initialization state, ulong deliveryTag, bool multiple, CancellationToken cancellationToken)
         {
-            await using var observeConnection = await fixture!.CreateConnectionAsync(cancellationToken);
+            state.Observation.PublishSeenBeforeAck = await WaitForPublishedAsync(state.Fixture, cancellationToken);
+            await state.Channel.BasicAckAsync(deliveryTag, multiple, cancellationToken);
+        }
+
+        private static async Task<bool> WaitForPublishedAsync(RabbitMqFixture fixture, CancellationToken cancellationToken)
+        {
+            await using var observeConnection = await fixture.CreateConnectionAsync(cancellationToken);
             await using var observe = await observeConnection.CreateChannelAsync(cancellationToken: cancellationToken);
             var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(5);
             while (true)
