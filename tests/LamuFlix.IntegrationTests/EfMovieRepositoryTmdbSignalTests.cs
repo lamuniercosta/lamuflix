@@ -122,6 +122,36 @@ public sealed class EfMovieRepositoryTmdbSignalTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task SaveChanges_AlreadyLinkedKeywordRenamed_UpdatesPersistedKeywordName()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Renamed", "signals-renamed", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.MarkEnriched(
+            Metadata("Renamed", "tt0000213", Signals(keywords: Keywords((101, "Heist")))), Now);
+        await repository.SaveChangesAsync(ct);
+
+        // act
+        movie.RequestEnrichment();
+        movie.MarkEnriched(
+            Metadata("Renamed", "tt0000213", Signals(keywords: Keywords((101, "Capers")))),
+            Now.AddMinutes(1));
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = fixture.CreateMigratedContext();
+        (await verify.Keywords.AsNoTracking().SingleAsync(ct)).Name.ShouldBe("Capers");
+        var record = await LoadTrackedMovieAsync(verify, id, ct);
+        record.Keywords.Select(keyword => keyword.Id).ToArray().ShouldBe([101]);
+        record.Keywords.Single().Name.ShouldBe("Capers");
+    }
+
+    [Fact]
     public async Task SaveChanges_KnownEmptySignals_ClearsMembershipsAndRetainsLookups()
     {
         // arrange

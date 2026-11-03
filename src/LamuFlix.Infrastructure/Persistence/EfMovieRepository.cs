@@ -724,6 +724,10 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             {
                 record.Keywords.Add(ResolveKeyword(keyword, existing));
             }
+            else
+            {
+                ResolveKeyword(keyword, existing);
+            }
         }
     }
 
