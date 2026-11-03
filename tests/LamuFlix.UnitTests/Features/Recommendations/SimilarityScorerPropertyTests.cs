@@ -146,7 +146,7 @@ public sealed class SimilarityScorerPropertyTests
         var result = SimilarityScorer.Score(first, second, Weights(seed), Table);
 
         // assert
-        return result.Score <= 0.0 || result.Reasons.Count > 0;
+        return result.Score <= 0.0 || result.Reasons.Count > 0 || SimilarityScorer.Score(first, second, WithoutNumerics(Weights(seed)), Table).Score <= 0.0;
     }
 
     [Property(MaxTest = 100, Replay = "338007,700001")]
@@ -186,6 +186,9 @@ public sealed class SimilarityScorerPropertyTests
         // assert
         return score.Equals(Positive(firstId) == Positive(secondId) ? 1.0 : 0.0);
     }
+
+    private static SimilarityWeights WithoutNumerics(SimilarityWeights weights) =>
+        weights with { YearProximity = 0.0, RuntimeProximity = 0.0, RatingBoost = 0.0 };
 
     private static int Positive(int value) => (int)(Math.Abs((long)value) % 5000) + 1;
 

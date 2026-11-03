@@ -12,6 +12,9 @@ public static class SimilarityScorer
     private const double YearDecayRate = 0.1;
     private const double RuntimeDecayRate = 0.01;
     private const double RatingScale = 10.0;
+    private const int MaxSimilarYearGap = 5;
+    private const int MaxSimilarRuntimeGapMinutes = 15;
+    private const double MaxSimilarRatingGap = 1.0;
     private const string IdentityReason = "Identical feature profile";
     private const string SharedKeywordsReason = "Shared keywords";
     private const string SameCollectionReason = "Same franchise collection";
@@ -130,7 +133,7 @@ public static class SimilarityScorer
         if (first is not null && second is not null)
         {
             var similarity = Proximity(YearDecayRate, first.Value, second.Value);
-            builder.Add(new Term(weight, similarity, Label(weight, similarity, "Similar release years")));
+            builder.Add(new Term(weight, similarity, IsSimilarYear(weight, first.Value, second.Value) ? "Similar release years" : null));
         }
     }
 
@@ -143,7 +146,7 @@ public static class SimilarityScorer
         if (first is not null && second is not null)
         {
             var similarity = Proximity(RuntimeDecayRate, first.Minutes, second.Minutes);
-            builder.Add(new Term(weight, similarity, Label(weight, similarity, "Similar runtime")));
+            builder.Add(new Term(weight, similarity, IsSimilarRuntime(weight, first.Minutes, second.Minutes) ? "Similar runtime" : null));
         }
     }
 
@@ -156,7 +159,7 @@ public static class SimilarityScorer
         if (first is not null && second is not null)
         {
             var similarity = RatingProximity(first.Value, second.Value);
-            builder.Add(new Term(weight, similarity, Label(weight, similarity, "Similar rating")));
+            builder.Add(new Term(weight, similarity, IsSimilarRating(weight, first.Value, second.Value) ? "Similar rating" : null));
         }
     }
 
@@ -277,11 +280,18 @@ public static class SimilarityScorer
         return (double)intersection / union;
     }
 
+    private static bool IsSimilarYear(double weight, int first, int second) =>
+        weight > 0.0 && Math.Abs(first - second) <= MaxSimilarYearGap;
+
+    private static bool IsSimilarRuntime(double weight, int first, int second) =>
+        weight > 0.0 && Math.Abs(first - second) <= MaxSimilarRuntimeGapMinutes;
+
+    private static bool IsSimilarRating(double weight, decimal first, decimal second) =>
+        weight > 0.0 && Math.Abs((double)first - (double)second) <= MaxSimilarRatingGap;
+
     private static bool IsEligible(double weight, double similarity) =>
         weight > 0.0 && similarity > 0.0;
 
-    private static string? Label(double weight, double similarity, string label) =>
-        IsEligible(weight, similarity) ? label : null;
 
     private static string SetReason(
         SetLabel label,

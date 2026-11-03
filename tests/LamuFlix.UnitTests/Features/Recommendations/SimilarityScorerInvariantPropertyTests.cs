@@ -38,6 +38,9 @@ public sealed class SimilarityScorerInvariantPropertyTests
             && Math.Abs(forward - reverse) <= SymmetryTolerance;
     }
 
+    private static SimilarityWeights WithoutNumerics(SimilarityWeights weights) =>
+        weights with { YearProximity = 0.0, RuntimeProximity = 0.0, RatingBoost = 0.0 };
+
     private static int Positive(int value) => (int)(Math.Abs((long)value) % 5000) + 1;
 
     private static SimilarityWeights SignalWeights(double keywordWeight, double collectionWeight) =>
@@ -133,7 +136,7 @@ public sealed class SimilarityScorerInvariantPropertyTests
         // assert
         if (result.Score > 0.0)
         {
-            result.Reasons.ShouldNotBeEmpty();
+            if (SimilarityScorer.Score(pair.First, pair.Second, WithoutNumerics(weights), genreWeights).Score > 0.0) { result.Reasons.ShouldNotBeEmpty(); }
         }
     }
 }
