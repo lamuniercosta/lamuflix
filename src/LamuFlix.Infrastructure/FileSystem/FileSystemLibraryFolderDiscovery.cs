@@ -22,7 +22,7 @@ public sealed class FileSystemLibraryFolderDiscovery(
     IOptions<LibraryOptions> libraryOptions)
     : ILibraryFolderDiscovery
 {
-    private static readonly char[] Separators = [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar];
+    private static readonly char[] Separators = ['/', '\\'];
 
     // ReSharper disable once AsyncMethodWithoutAwait - async is required for the iterator and EnumeratorCancellation; the filesystem enumerators are synchronous by design.
     public async IAsyncEnumerable<LibraryPath> DiscoverAsync(
@@ -237,5 +237,5 @@ public sealed class FileSystemLibraryFolderDiscovery(
     }
 
     private static bool IsSeparator(char character) =>
-        character == Path.DirectorySeparatorChar || character == Path.AltDirectorySeparatorChar;
+        character == '/' || character == '\\';
 }
