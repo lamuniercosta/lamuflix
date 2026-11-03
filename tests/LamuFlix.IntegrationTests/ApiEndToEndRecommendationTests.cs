@@ -229,6 +229,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         ids.ShouldContain(enrichedId);
         ids.ShouldContain(vectorlessId);
         ids.ShouldNotContain(excludedId);
+        ids.ShouldNotContain(watchedId);
 
         var enrichedItem = items.Single(item => item.GetProperty("id").GetInt32() == enrichedId);
         ShouldCarryExactly(enrichedItem, DtoFieldNames);
@@ -269,7 +270,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
     }
 
     [Fact]
-    public async Task GetForYou_FeedbackInvalidatesTheCachedProfile()
+    public async Task GetForYou_MarkWatched_RemovesMovieFromResults()
     {
         // arrange
         var client = await StartHostAsync();
@@ -311,9 +312,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         ReasonKinds(cachedItem).ShouldNotContain("personal");
         marked.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         after.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var invalidatedItem = afterBody.EnumerateArray()
-            .Single(item => item.GetProperty("id").GetInt32() == candidateId);
-        ReasonTexts(invalidatedItem).ShouldContain($"Matches your {candidateGenre} interest");
+        afterBody.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ShouldNotContain(candidateId);
     }
 
     [Fact]

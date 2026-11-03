@@ -82,6 +82,24 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WatchedOnlyLibrary_ReturnsEmptyWithoutAcquiringProfile()
+    {
+        // arrange
+        var handler = NewHandler();
+        ArrangeLibrary(
+            NewMovie(2, genres: ["Drama"], isWatched: true),
+            NewMovie(3, genres: ["Drama"], isWatched: true));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.ShouldBeEmpty();
+        await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
+        await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_EmptyLibrary_ReturnsEmptyWithoutAcquiringProfile()
     {
         // arrange
@@ -211,22 +229,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WatchedCandidate_AppliesConfiguredPenalty()
-    {
-        // arrange
-        var handler = NewHandler(blendProfileWeight: 2.0, alreadyWatchedPenalty: 0.5);
-        ArrangeLibrary(NewMovie(2, genres: ["Drama"], isWatched: true));
-        ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), MatchProfile());
-
-        // act
-        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
-
-        // assert
-        result[0].Score.ShouldBe(1.5, 1e-12);
-    }
-
-    [Fact]
-    public async Task HandleAsync_NegativeFiniteScores_ArePreservedThroughSelectorRebase()
+    public async Task HandleAsync_WatchedCandidate_IsExcludedFromScoredResults()
     {
         // arrange
         var handler = NewHandler(blendProfileWeight: 1.0, alreadyWatchedPenalty: 5.0);
@@ -239,10 +242,8 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(2), CancellationToken.None);
 
         // assert
-        result.Count.ShouldBe(2);
-        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2, 3 });
+        result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 2 });
         result[0].Score.ShouldBe(1.0, 1e-12);
-        result[1].Score.ShouldBe(-4.0, 1e-12);
     }
 
     [Fact]
@@ -467,8 +468,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             runtimeMinutes: 101,
             imdbRating: 7.5m,
             genres: ["Drama"],
-            isInWatchlist: true,
-            isWatched: true);
+            isInWatchlist: true);
         ArrangeLibrary(candidate);
         ArrangeProfile(Inputs(WatchedHistory(90, "Drama")), Profile(("Drama", 1.0)));
 
@@ -485,7 +485,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             7.5m,
             EnrichmentStatus.Enriched,
             true,
-            true,
+            false,
             false);
         result[0].Summary.ShouldBe(expected);
     }
@@ -839,7 +839,7 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
         var result = Handle(library, take);
 
         // assert
-        var eligible = library.Where(movie => !movie.IsNotInterested).Select(movie => movie.Id).ToHashSet();
+        var eligible = library.Where(movie => !movie.IsNotInterested && !movie.IsWatched).Select(movie => movie.Id).ToHashSet();
         return result.Count <= take
             && result.Select(item => item.Summary.Id).Distinct().Count() == result.Count
             && result.All(item => eligible.Contains(item.Summary.Id));
@@ -852,7 +852,7 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
         // arrange
         var library = BuildLibrary(ids, notInterested);
         var take = Take(takeSeed);
-        var eligibleCount = library.Count(movie => !movie.IsNotInterested);
+        var eligibleCount = library.Count(movie => !movie.IsNotInterested && !movie.IsWatched);
 
         // act
         var result = Handle(library, take);

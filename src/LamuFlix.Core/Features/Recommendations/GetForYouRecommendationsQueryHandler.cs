@@ -111,7 +111,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (!summary.IsNotInterested)
+                if (!summary.IsNotInterested && !summary.IsWatched)
                 {
                     await AddEligibleAsync(eligible, seen, summary.Id, cancellationToken);
                 }
@@ -138,7 +138,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var movie = await movies.GetAsync(id, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (movie is not null && !movie.IsNotInterested)
+        if (movie is not null && !movie.IsNotInterested && !movie.IsWatched)
         {
             eligible.Add(movie);
         }
