@@ -99,7 +99,8 @@ public sealed class MatchMovieImdbIdCommandHandlerTests
         var imdbId = new ImdbId("tt0083658");
         var ct = CancellationToken.None;
         movies.GetAsync(movie.Id, ct).Returns(movie);
-        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(new MovieId(99));
+        var holderId = movie.Id.Value == 99 ? new MovieId(100) : new MovieId(99);
+        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(holderId);
 
         // act
         var thrown = await Should.ThrowAsync<ImdbIdConflictException>(
@@ -107,7 +108,7 @@ public sealed class MatchMovieImdbIdCommandHandlerTests
 
         // assert
         thrown.ImdbId.ShouldBe(imdbId);
-        thrown.HeldBy.ShouldBe(new MovieId(99));
+        thrown.HeldBy.ShouldBe(holderId);
         movie.ManualImdbId.ShouldBeNull();
         movie.Status.ShouldBe(EnrichmentStatus.NotFound);
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
