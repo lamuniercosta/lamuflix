@@ -133,9 +133,8 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         ReasonTexts(partialItem).ShouldBe(
         [
             $"Shares {genre}",
-            "Similar release years",
         ]);
-        ReasonKinds(partialItem).ShouldBe(["structural", "structural"]);
+        ReasonKinds(partialItem).ShouldBe(["structural"]);
     }
 
     [Fact]
