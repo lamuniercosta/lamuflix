@@ -105,7 +105,6 @@ jobs:
 
   e2e:
     name: e2e-smoke
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:

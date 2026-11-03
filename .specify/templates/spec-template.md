@@ -8,6 +8,31 @@
 
 **Input**: User description: "$ARGUMENTS"
 
+## What the User Will See *(mandatory)*
+
+<!--
+  Describe what the user sees and can do in the running app once this ticket is done.
+  "Running app" means the stack from a plain `docker compose up` on main, with no override file.
+  Write it from the screen, not from the code: one bullet per visible change.
+  If the user can see nothing new (backend only, tooling, CI, docs), write
+  "Nothing visible: [reason]" and skip the Smoke Test subsection.
+-->
+
+- **Where**: [Page or component, e.g., "Library grid, each movie card"]
+- **What the user sees or does**: [e.g., "Each card has a Mark Watched button; clicking it greys out the card and the For You rail drops it"]
+- **What it needs to show up**: [Config, data or services the running app needs, e.g., "TMDb enabled in Compose", "at least one enriched movie", or "nothing beyond the default Compose stack"]
+
+### Smoke Test *(mandatory when something is visible)*
+
+<!--
+  One end-to-end check per visible change, in user terms: Given, When, Then on the screen.
+  Each check runs in the e2e smoke job against the Compose stack, so the user-visible result is
+  proven in the assembled app, not only in unit tests. `/speckit-tasks` turns each SMOKE item into
+  an e2e test task (today: a `web/e2e/*.e2e.ts` file run by `npm run e2e`).
+-->
+
+- **SMOKE-001**: **Given** [state of the library], **When** [the user does this on the page], **Then** [the page shows this]
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--
