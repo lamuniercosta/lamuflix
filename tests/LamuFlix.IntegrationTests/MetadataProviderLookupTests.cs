@@ -31,6 +31,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
           "Response": "True",
           "Title": "Blade Runner",
           "Year": "1982",
+          "Type": "movie",
           "Runtime": "117 min",
           "Plot": "A blade runner must pursue and terminate four replicants.",
           "imdbRating": "8.1",
@@ -47,6 +48,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
           "Response": "True",
           "Title": "Blade Runner",
           "Year": "1982",
+          "Type": "movie",
           "Runtime": "117 min",
           "Plot": "{{RichPlot}}",
           "Genre": "Sci-Fi, Thriller",
@@ -699,6 +701,235 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         AssertExactlyOneProviderDuration(metrics.Measurements, 1.25);
     }
 
+    [Fact]
+    public async Task FindAsync_EligibleAutomaticDirectBody_ReturnsFoundAfterExactlyOneRequest()
+    {
+        // arrange
+        StubBody(200, FullBody);
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Blade Runner", TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).ImdbId.ShouldNotBeNull().Value.ShouldBe("tt0083658");
+        probe.RequestCount.ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData("episode")]
+    [InlineData("series")]
+    [InlineData("unknown")]
+    [InlineData("")]
+    public async Task FindAsync_AutomaticDirectResponseWithNonMovieType_EntersSearchAndReturnsNotFound(string type)
+    {
+        // arrange
+        StubDirect("Solaris", DetailBody("Solaris", "1972", "tt0069293", type: type));
+        StubSearch("Solaris", NotFoundBody);
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        probe.QueryValues("s").ShouldBe(["Solaris"]);
+        probe.HasQuery("i").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseWithoutType_EntersSearchAndReturnsNotFound()
+    {
+        // arrange
+        StubDirect("Solaris", DetailBody("Solaris", "1972", "tt0069293", type: null));
+        StubSearch("Solaris", NotFoundBody);
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        probe.QueryValues("s").ShouldBe(["Solaris"]);
+        probe.HasQuery("i").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseBelowThreshold_EntersSearchAndReturnsNotFound()
+    {
+        // arrange
+        StubDirect("Solaris", DetailBody("Dune", "2021", "tt1160419"));
+        StubSearch("Solaris", NotFoundBody);
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        probe.QueryValues("s").ShouldBe(["Solaris"]);
+        probe.HasQuery("i").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseSuspiciousConjunction_EntersSearchAndReturnsNotFound()
+    {
+        // arrange
+        StubDirect(
+            "Solaris",
+            DetailBody("Solaris", "1972", "tt0069293", runtime: null, rating: null, director: null));
+        StubSearch("Solaris", NotFoundBody);
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        probe.QueryValues("s").ShouldBe(["Solaris"]);
+        probe.HasQuery("i").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseWithUnusableTitle_ReturnsInvalidResponseWithoutSearch()
+    {
+        // arrange
+        StubDirect("Solaris", DetailBody("N/A", "1972", "tt0069293"));
+        StubSearch("Solaris", NotFoundBody);
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", TestContext.Current.CancellationToken);
+
+        // assert
+        Category(result).ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        probe.RequestCount.ShouldBe(1);
+        probe.Logs.Entries.ShouldContain(entry =>
+            entry.Message.Contains("missing or unusable title", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticFetchedDetailWithUnusableTitle_ReturnsInvalidResponseWithoutAnotherFetch()
+    {
+        // arrange
+        StubDirect("Solaris", NotFoundBody);
+        StubSearch("Solaris", SearchBody(Hit("movie", "Solaris", "1972", "tt0069293")));
+        StubDetail("tt0069293", DetailBody("N/A", "1972", "tt0069293"));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", 1972, TestContext.Current.CancellationToken);
+
+        // assert
+        Category(result).ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        probe.QueryValues("i").ShouldBe(["tt0069293"]);
+        probe.Logs.Entries.ShouldContain(entry =>
+            entry.Message.Contains("missing or unusable title", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task FindAsync_RejectedDirectIdentifier_IsExcludedFromSearchSelection()
+    {
+        // arrange
+        StubDirect(
+            "Solaris",
+            DetailBody("Solaris", "1972", "tt1111111", runtime: null, rating: null, director: null));
+        StubSearch("Solaris", SearchBody(Hit("movie", "Solaris", "1972", "tt1111111")));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", 1972, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        probe.HasQuery("i").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task FindAsync_SelectedDetailFailsAutomaticGuard_ReturnsNotFoundWithoutAnotherFetch()
+    {
+        // arrange
+        StubDirect("Solaris", NotFoundBody);
+        StubSearch("Solaris", SearchBody(Hit("movie", "Solaris", "1972", "tt0069293")));
+        StubDetail("tt0069293", DetailBody("Solaris", "1972", "tt0069293", type: "episode"));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", 1972, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        probe.QueryValues("i").ShouldBe(["tt0069293"]);
+        probe.RequestCount.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task FindAsync_SearchCandidatesWithNonMovieTypes_FetchesOnlyTheMovieCandidate()
+    {
+        // arrange
+        StubDirect("Solaris", NotFoundBody);
+        StubSearch(
+            "Solaris",
+            SearchBody(
+                Hit("episode", "Solaris", "1972", "tt0000002"),
+                Hit("series", "Solaris", "1972", "tt0000003"),
+                Hit("unknown", "Solaris", "1972", "tt0000004"),
+                Hit("movie", "Solaris", "1972", "tt0069293")));
+        StubDetail("tt0069293", DetailBody("Solaris", "1972", "tt0069293"));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Solaris", 1972, TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).ImdbId.ShouldNotBeNull().Value.ShouldBe("tt0069293");
+        probe.QueryValues("i").ShouldBe(["tt0069293"]);
+    }
+
+    [Fact]
+    public async Task FindAsync_MementoTicketSyntheticRegression_SelectsTheMovieIdentifier()
+    {
+        // arrange
+        StubDirect("Memento", DetailBody("Memento", "2000", "tt24735934", type: "episode"));
+        StubSearch(
+            "Memento",
+            SearchBody(
+                Hit("episode", "Memento", "2000", "tt24735934"),
+                Hit("movie", "Memento", "2000", "tt0209144")));
+        StubDetail("tt0209144", DetailBody("Memento", "2000", "tt0209144"));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "Memento[2000]", TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).ImdbId.ShouldNotBeNull().Value.ShouldBe("tt0209144");
+        probe.QueryValues("i").ShouldBe(["tt0209144"]);
+    }
+
+    [Fact]
+    public async Task FindAsync_OBrotherTicketSyntheticRegression_SelectsTheMovieIdentifier()
+    {
+        // arrange
+        StubDirect(
+            "O Brother, Where Art Thou",
+            DetailBody("O Brother, Where Art Thou?", "2000", "tt24456948", type: "episode"));
+        StubSearch(
+            "O Brother, Where Art Thou",
+            SearchBody(
+                Hit("episode", "O Brother, Where Art Thou?", "2000", "tt24456948"),
+                Hit("movie", "O Brother, Where Art Thou?", "2000", "tt0190590")));
+        StubDetail("tt0190590", DetailBody("O Brother, Where Art Thou?", "2000", "tt0190590"));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await FindAsync(services, "O Brother, Where Art Thou[2000]", TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).ImdbId.ShouldNotBeNull().Value.ShouldBe("tt0190590");
+        probe.QueryValues("i").ShouldBe(["tt0190590"]);
+    }
+
     private async Task ExerciseEveryOutcomeAsync(IServiceProvider services)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -743,12 +974,69 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
             .Given(Request.Create().UsingGet())
             .RespondWith(Response.Create().WithStatusCode(statusCode).WithBody(body));
 
+    private void StubDirect(string title, string body) =>
+        probe.Server
+            .Given(Request.Create().WithPath("/").WithParam("t", title).UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(body));
+
+    private void StubSearch(string title, string body) =>
+        probe.Server
+            .Given(Request.Create().WithPath("/").WithParam("s", title).UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(body));
+
+    private void StubDetail(string imdbId, string body) =>
+        probe.Server
+            .Given(Request.Create().WithPath("/").WithParam("i", imdbId).UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(body));
+
+    private static string SearchBody(params string[] hits) =>
+        string.Concat("{ \"Response\": \"True\", \"Search\": [", string.Join(", ", hits), "] }");
+
+    private static string Hit(string type, string title, string year, string imdbId) =>
+        string.Concat(
+            "{ \"Title\": \"", title,
+            "\", \"Year\": \"", year,
+            "\", \"imdbID\": \"", imdbId,
+            "\", \"Type\": \"", type,
+            "\" }");
+
+    private static string DetailBody(
+        string title,
+        string year,
+        string imdbId,
+        string? type = "movie",
+        string? runtime = "117 min",
+        string? rating = "8.1",
+        string? director = "Ridley Scott")
+    {
+        var fields = new List<string>
+        {
+            "\"Response\": \"True\"",
+            string.Concat("\"Title\": \"", title, "\""),
+            string.Concat("\"Year\": \"", year, "\""),
+            string.Concat("\"imdbID\": \"", imdbId, "\""),
+        };
+        AddField(fields, "Type", type);
+        AddField(fields, "Runtime", runtime);
+        AddField(fields, "imdbRating", rating);
+        AddField(fields, "Director", director);
+        return string.Concat("{ ", string.Join(", ", fields), " }");
+    }
+
+    private static void AddField(List<string> fields, string name, string? value)
+    {
+        if (value is not null)
+        {
+            fields.Add(string.Concat("\"", name, "\": \"", value, "\""));
+        }
+    }
+
     private static string FoundBody(string year, string runtime, string rating, string imdbId) =>
         FoundBodyRaw("Solaris", year, runtime, rating, imdbId);
 
     private static string FoundBodyRaw(string title, string year = "1972", string runtime = "167 min", string rating = "8.0", string imdbId = "tt0069293") =>
         $$"""
-          { "Response": "True", "Title": "{{title}}", "Year": "{{year}}", "Runtime": "{{runtime}}", "Plot": "A psychologist...", "imdbRating": "{{rating}}", "imdbID": "{{imdbId}}" }
+          { "Response": "True", "Title": "{{title}}", "Year": "{{year}}", "Type": "movie", "Runtime": "{{runtime}}", "Plot": "A psychologist...", "imdbRating": "{{rating}}", "imdbID": "{{imdbId}}" }
           """;
 
     private static MovieMetadata Metadata(MetadataLookupResult result) =>

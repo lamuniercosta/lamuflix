@@ -471,10 +471,417 @@ public sealed class OmdbMetadataProviderFallbackUnitTests
         handler.Requests.ShouldAllBe(p => !p.ContainsKey("i"));
     }
 
+    [Fact]
+    public async Task FindAsync_MementoTicketSyntheticRegression_SelectsTheMovieIdentifier()
+    {
+        // arrange
+        var handler = new RoutingHandler(p =>
+        {
+            if (p.ContainsKey("t"))
+            {
+                return Ok(MovieBody("Memento", "2000", "tt24735934", type: "episode"));
+            }
+
+            if (p.ContainsKey("i"))
+            {
+                return Ok(MovieBody("Memento", "2000", "tt0209144"));
+            }
+
+            return Ok(SearchBody(
+                HitOfType("episode", "Memento", "2000", "tt24735934"),
+                Hit("Memento", "2000", "tt0209144")));
+        });
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Memento[2000]", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.ImdbId.ShouldNotBeNull().Value.ShouldBe("tt0209144");
+        handler.Requests.ShouldAllBe(request => !request.ContainsKey("i") || request["i"] == "tt0209144");
+        handler.Requests.Count(request => request.ContainsKey("i")).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task FindAsync_OBrotherTicketSyntheticRegression_SelectsTheMovieIdentifier()
+    {
+        // arrange
+        var handler = new RoutingHandler(p =>
+        {
+            if (p.ContainsKey("t"))
+            {
+                return Ok(MovieBody("O Brother, Where Art Thou?", "2000", "tt24456948", type: "episode"));
+            }
+
+            if (p.ContainsKey("i"))
+            {
+                return Ok(MovieBody("O Brother, Where Art Thou?", "2000", "tt0190590"));
+            }
+
+            return Ok(SearchBody(
+                HitOfType("episode", "O Brother, Where Art Thou?", "2000", "tt24456948"),
+                Hit("O Brother, Where Art Thou?", "2000", "tt0190590")));
+        });
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("O Brother, Where Art Thou[2000]", null),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.ImdbId.ShouldNotBeNull().Value.ShouldBe("tt0190590");
+        handler.Requests.ShouldAllBe(request => !request.ContainsKey("i") || request["i"] == "tt0190590");
+        handler.Requests.Count(request => request.ContainsKey("i")).ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData("episode")]
+    [InlineData("series")]
+    [InlineData("unknown")]
+    [InlineData("")]
+    public async Task FindAsync_AutomaticDirectResponseWithoutMovieType_EntersSearchAndReturnsNotFound(string type)
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieBody("Blade Runner", "1982", "tt0083658", type: type))
+            : Ok(MovieNotFound));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        handler.Requests.Count.ShouldBe(2);
+        handler.Requests[1].ContainsKey("s").ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseWithoutType_EntersSearchAndReturnsNotFound()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieBody("Blade Runner", "1982", "tt0083658", type: null))
+            : Ok(MovieNotFound));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        handler.Requests.Count.ShouldBe(2);
+        handler.Requests[1].ContainsKey("s").ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseBelowThreshold_EntersSearchAndReturnsNotFound()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieBody("Blade Runner 2049", "2017", "tt1856101"))
+            : Ok(MovieNotFound));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        handler.Requests.Count.ShouldBe(2);
+        handler.Requests[1].ContainsKey("s").ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseYearVetoed_EntersSearchAndReturnsNotFound()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieBody("Blade Runner", "1993", "tt0083658"))
+            : Ok(MovieNotFound));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        handler.Requests.Count.ShouldBe(3);
+        handler.Requests.ShouldAllBe(request => !request.ContainsKey("i"));
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseSuspiciousConjunction_EntersSearchAndReturnsNotFound()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieBody("Blade Runner", "1982", "tt0083658", runtime: null, rating: null, director: null))
+            : Ok(MovieNotFound));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        handler.Requests.Count.ShouldBe(2);
+        handler.Requests[1].ContainsKey("s").ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task FindAsync_SearchCandidateAtExactMatchThreshold_IsFetched()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(MovieBody("Blade Runner", "1982", "tt0083658"))
+                : Ok(SearchBody(Hit("Blade Runner", "1982", "tt0083658"))));
+        var provider = Provider(handler, threshold: 1.0);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        handler.Requests[^1]["i"].ShouldBe("tt0083658");
+    }
+
+    [Fact]
+    public async Task FindAsync_SearchCandidateWithUnknownYear_IsAccepted()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(MovieBody("Blade Runner", "1982", "tt0083658"))
+                : Ok(SearchBody(HitOfType("movie", "Blade Runner", "", "tt0083658"))));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        handler.Requests[^1]["i"].ShouldBe("tt0083658");
+    }
+
+    [Fact]
+    public async Task FindAsync_SearchCandidatesWithNonMovieTypes_FetchesOnlyTheMovieCandidate()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(MovieBody("Blade Runner", "1982", "tt0083658"))
+                : Ok(SearchBody(
+                    HitOfType("episode", "Blade Runner", "1982", "tt0000002"),
+                    HitOfType("series", "Blade Runner", "1982", "tt0000003"),
+                    HitOfType(null, "Blade Runner", "1982", "tt0000004"),
+                    HitOfType("unknown", "Blade Runner", "1982", "tt0000005"),
+                    Hit("Blade Runner", "1982", "tt0083658"))));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        handler.Requests.Count(request => request.ContainsKey("i")).ShouldBe(1);
+        handler.Requests[^1]["i"].ShouldBe("tt0083658");
+    }
+
+    [Fact]
+    public async Task FindAsync_RejectedDirectIdentifier_IsExcludedFromSearchSelection()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieBody("Blade Runner", "1982", "tt1111111", runtime: null, rating: null, director: null))
+            : Ok(SearchBody(Hit("Blade Runner", "1982", "tt1111111"))));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        handler.Requests.ShouldAllBe(request => !request.ContainsKey("i"));
+    }
+
+    [Fact]
+    public async Task FindAsync_TwoQualifyingMovieCandidates_FetchesSelectedDetailOnce()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(MovieBody("Blade Runner", "1982", "tt0083658"))
+                : Ok(SearchBody(
+                    Hit("Blade Runner", "1982", "tt0083658"),
+                    Hit("Blade Runner", "1982", "tt9999999"))));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        handler.Requests.Count(request => request.ContainsKey("i")).ShouldBe(1);
+        handler.Requests[^1]["i"].ShouldBe("tt0083658");
+    }
+
+    [Fact]
+    public async Task FindAsync_FetchedDetailWithNonMovieType_ReturnsNotFoundWithoutAnotherFetch()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(MovieBody("Blade Runner", "1982", "tt0083658", type: "episode"))
+                : Ok(SearchBody(Hit("Blade Runner", "1982", "tt0083658"))));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        handler.Requests.Count.ShouldBe(3);
+        handler.Requests.Count(request => request.ContainsKey("i")).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task FindAsync_FetchedDetailSuspiciousConjunction_ReturnsNotFoundWithoutAnotherFetch()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(MovieBody("Blade Runner", "1982", "tt0083658", runtime: null, rating: null, director: null))
+                : Ok(SearchBody(Hit("Blade Runner", "1982", "tt0083658"))));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        handler.Requests.Count(request => request.ContainsKey("i")).ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData("117 min", null, null)]
+    [InlineData(null, "8.1", null)]
+    [InlineData(null, null, "Ridley Scott")]
+    public async Task FindAsync_FetchedDetailWithOneUsableField_IsFound(string? runtime, string? rating, string? director)
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(MovieBody("Blade Runner", "1982", "tt0083658", runtime: runtime, rating: rating, director: director))
+                : Ok(SearchBody(Hit("Blade Runner", "1982", "tt0083658"))));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>();
+        handler.Requests[^1]["i"].ShouldBe("tt0083658");
+    }
+
+    [Fact]
+    public async Task FindAsync_FetchedDetailTitleBelowThreshold_ReturnsNotFoundWithoutAnotherFetch()
+    {
+        // arrange
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(MovieBody("Blade Runner 2049", "1982", "tt0083658"))
+                : Ok(SearchBody(Hit("Blade Runner", "1982", "tt0083658"))));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+        handler.Requests.Count.ShouldBe(3);
+        handler.Requests.Count(request => request.ContainsKey("i")).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectUsableFlagWithUnusableTitle_ReturnsInvalidResponseWithoutSearch()
+    {
+        // arrange
+        var logger = new RecordingLogger();
+        var handler = new RoutingHandler(_ => Ok(MovieBody("N/A", "1982", "tt0083658")));
+        var provider = Provider(handler, logger);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        handler.Requests.Count.ShouldBe(1);
+        handler.Requests.ShouldAllBe(request => !request.ContainsKey("s"));
+        logger.Entries.ShouldContain(entry => entry.Message.Contains("missing or unusable title", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticFetchedDetailWithUnusableTitle_ReturnsInvalidResponseWithoutAnotherFetch()
+    {
+        // arrange
+        var logger = new RecordingLogger();
+        var handler = new RoutingHandler(p => p.ContainsKey("t")
+            ? Ok(MovieNotFound)
+            : p.ContainsKey("i")
+                ? Ok(MovieBody("N/A", "1982", "tt0083658"))
+                : Ok(SearchBody(Hit("Blade Runner", "1982", "tt0083658"))));
+        var provider = Provider(handler, logger);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+        handler.Requests.Count.ShouldBe(3);
+        handler.Requests.Count(request => request.ContainsKey("i")).ShouldBe(1);
+        logger.Entries.ShouldContain(entry => entry.Message.Contains("missing or unusable title", StringComparison.Ordinal));
+    }
+
     private static Reply Ok(string body) => new(HttpStatusCode.OK, body);
 
-    private static string Hit(string title, string year, string id) =>
-        $$"""{ "Title": "{{title}}", "Year": "{{year}}", "imdbID": "{{id}}", "Type": "movie" }""";
+    private static string Hit(string title, string year, string id) => HitOfType("movie", title, year, id);
+
+    private static string HitOfType(string? type, string title, string year, string id) =>
+        type is null
+            ? $$"""{ "Title": "{{title}}", "Year": "{{year}}", "imdbID": "{{id}}" }"""
+            : $$"""{ "Title": "{{title}}", "Year": "{{year}}", "imdbID": "{{id}}", "Type": "{{type}}" }""";
 
     private static string SearchBody(params string[] hits)
     {
@@ -482,8 +889,39 @@ public sealed class OmdbMetadataProviderFallbackUnitTests
         return $$"""{ "Response": "True", "Search": [{{joined}}], "totalResults": "{{hits.Length}}" }""";
     }
 
-    private static string Detail(string title, string year, string id) =>
-        $$"""{ "Response": "True", "Title": "{{title}}", "Year": "{{year}}", "Plot": "Full plot.", "imdbID": "{{id}}" }""";
+    private static string Detail(string title, string year, string id) => MovieBody(title, year, id);
+
+    private static string MovieBody(
+        string title,
+        string year,
+        string id,
+        string? type = "movie",
+        string? runtime = "117 min",
+        string? rating = "8.1",
+        string? director = "Ridley Scott")
+    {
+        var fields = new List<string>
+        {
+            "\"Response\": \"True\"",
+            string.Concat("\"Title\": \"", title, "\""),
+            string.Concat("\"Year\": \"", year, "\""),
+            string.Concat("\"imdbID\": \"", id, "\""),
+            "\"Plot\": \"Full plot.\"",
+        };
+        AddField(fields, "Type", type);
+        AddField(fields, "Runtime", runtime);
+        AddField(fields, "imdbRating", rating);
+        AddField(fields, "Director", director);
+        return string.Concat("{ ", string.Join(", ", fields), " }");
+    }
+
+    private static void AddField(List<string> fields, string name, string? value)
+    {
+        if (value is not null)
+        {
+            fields.Add(string.Concat("\"", name, "\": \"", value, "\""));
+        }
+    }
 
     private static OmdbMetadataProvider Provider(HttpMessageHandler handler, ILogger<OmdbMetadataProvider>? logger = null, double threshold = 0.8)
     {

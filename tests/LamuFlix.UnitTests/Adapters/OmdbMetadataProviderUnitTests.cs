@@ -29,6 +29,7 @@ public sealed class OmdbMetadataProviderUnitTests
           "Response": "True",
           "Title": "Blade Runner",
           "Year": "1982",
+          "Type": "movie",
           "Runtime": "117 min",
           "Plot": "Full plot.",
           "Genre": "Sci-Fi, Thriller",
@@ -851,6 +852,161 @@ public sealed class OmdbMetadataProviderUnitTests
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.NotFound>();
+    }
+
+    [Theory]
+    [InlineData("episode")]
+    [InlineData("series")]
+    [InlineData("unknown")]
+    [InlineData("")]
+    public async Task FindAsync_AutomaticDirectResponseWithNonMovieType_EntersFallback(string type)
+    {
+        // arrange
+        var handler = new StubHandler(HttpStatusCode.OK, DirectBody(type: type));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldNotBeOfType<MetadataLookupResult.Found>();
+        handler.RequestUri.ShouldNotBeNull();
+        handler.RequestUri.Query.ShouldContain("s=");
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseWithoutType_EntersFallback()
+    {
+        // arrange
+        var handler = new StubHandler(HttpStatusCode.OK, DirectBody(type: null));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldNotBeOfType<MetadataLookupResult.Found>();
+        handler.RequestUri.ShouldNotBeNull();
+        handler.RequestUri.Query.ShouldContain("s=");
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseBelowThreshold_EntersFallback()
+    {
+        // arrange
+        var handler = new StubHandler(HttpStatusCode.OK, DirectBody(title: "Blade Runner 2049"));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldNotBeOfType<MetadataLookupResult.Found>();
+        handler.RequestUri.ShouldNotBeNull();
+        handler.RequestUri.Query.ShouldContain("s=");
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseYearVetoed_EntersFallback()
+    {
+        // arrange
+        var handler = new StubHandler(HttpStatusCode.OK, DirectBody(year: "1993"));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(
+            new MetadataLookup("Blade Runner", new ReleaseYear(1982, Now)),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldNotBeOfType<MetadataLookupResult.Found>();
+        handler.RequestUri.ShouldNotBeNull();
+        handler.RequestUri.Query.ShouldContain("s=");
+    }
+
+    [Fact]
+    public async Task FindAsync_AutomaticDirectResponseSuspiciousConjunction_EntersFallback()
+    {
+        // arrange
+        var handler = new StubHandler(HttpStatusCode.OK, DirectBody(runtime: null, rating: null, director: null));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldNotBeOfType<MetadataLookupResult.Found>();
+        handler.RequestUri.ShouldNotBeNull();
+        handler.RequestUri.Query.ShouldContain("s=");
+    }
+
+    [Theory]
+    [InlineData("117 min", null, null)]
+    [InlineData(null, "8.1", null)]
+    [InlineData(null, null, "Ridley Scott")]
+    public async Task FindAsync_AutomaticDirectResponseWithOneUsableField_ReturnsFound(
+        string? runtime,
+        string? rating,
+        string? director)
+    {
+        // arrange
+        var handler = new StubHandler(HttpStatusCode.OK, DirectBody(runtime: runtime, rating: rating, director: director));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.Title.ShouldBe("Blade Runner");
+    }
+
+    [Fact]
+    public async Task FindAsync_ManualImdbIdSparseEpisodeTypedResponse_ReturnsFound()
+    {
+        // arrange
+        var body = """{ "Response": "True", "Title": "Blade Runner", "Type": "episode" }""";
+        var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
+        var lookup = new MetadataLookup("Blade Runner", null, new ImdbId("tt0083658"));
+
+        // act
+        var result = await provider.FindAsync(lookup, TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata;
+        metadata.Title.ShouldBe("Blade Runner");
+        metadata.Runtime.ShouldBeNull();
+        metadata.ImdbRating.ShouldBeNull();
+        metadata.Directors.ShouldBeEmpty();
+    }
+
+    private static string DirectBody(
+        string title = "Blade Runner",
+        string year = "1982",
+        string? type = "movie",
+        string? runtime = "117 min",
+        string? rating = "8.1",
+        string? director = "Ridley Scott")
+    {
+        var fields = new List<string>
+        {
+            "\"Response\": \"True\"",
+            string.Concat("\"Title\": \"", title, "\""),
+            string.Concat("\"Year\": \"", year, "\""),
+            "\"imdbID\": \"tt0083658\"",
+        };
+        AddField(fields, "Type", type);
+        AddField(fields, "Runtime", runtime);
+        AddField(fields, "imdbRating", rating);
+        AddField(fields, "Director", director);
+        return string.Concat("{ ", string.Join(", ", fields), " }");
+    }
+
+    private static void AddField(List<string> fields, string name, string? value)
+    {
+        if (value is not null)
+        {
+            fields.Add(string.Concat("\"", name, "\": \"", value, "\""));
+        }
     }
 
     private static OmdbMetadataProvider Provider(StubHandler handler)

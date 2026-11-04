@@ -18,6 +18,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Shouldly;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
 using Xunit;
 
 namespace LamuFlix.IntegrationTests;
@@ -37,11 +39,20 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
           "Response": "True",
           "Title": "Solaris",
           "Year": "1972",
+          "Type": "movie",
           "Runtime": "167 min",
           "Plot": "A psychologist...",
           "imdbRating": "8.0",
           "imdbID": "tt0069293"
         }
+        """;
+
+    private const string OmdbSyntheticSearchBody = """
+        { "Response": "True", "Search": [ { "Title": "Solaris", "Year": "1972", "imdbID": "tt0069293", "Type": "movie" } ] }
+        """;
+
+    private const string OmdbSyntheticEpisodeBody = """
+        { "Response": "True", "Title": "Solaris", "Year": "1972", "Type": "episode", "Runtime": "167 min", "imdbID": "tt0069293" }
         """;
 
     private const string OmdbNotFoundBody = """
@@ -401,6 +412,43 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         Metadata(secondaryDirect).Title.ShouldBe("The Matrix");
     }
 
+    [Fact]
+    public async Task FindAsync_WhenThePrimaryAcceptsAnAutomaticMovie_FindsWithoutAFallbackLookup()
+    {
+        // arrange
+        var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
+        StubPrimary(200, OmdbFoundBody);
+        StubSignals();
+        probe.StubFoundLookup();
+
+        // act
+        var result = await FindChainAsync(services, "Solaris");
+
+        // assert
+        Metadata(result).Title.ShouldBe("Solaris");
+        PrimaryRequests().ShouldBe(1);
+        SecondaryPaths().ShouldNotContain(path => path.StartsWith("/3/find", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task FindAsync_WhenTheSelectedPrimaryDetailFailsValidation_FallsThroughToTheSecondary()
+    {
+        // arrange
+        var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
+        StubPrimaryQuery("t", "Solaris", OmdbNotFoundBody);
+        StubPrimaryQuery("s", "Solaris", OmdbSyntheticSearchBody);
+        StubPrimaryQuery("i", "tt0069293", OmdbSyntheticEpisodeBody);
+        probe.StubFoundLookup();
+
+        // act
+        var result = await FindChainAsync(services, "Solaris");
+
+        // assert
+        Metadata(result).Title.ShouldBe("The Matrix");
+        SecondaryPaths().ShouldContain("/3/search/movie");
+        PrimaryRequests().ShouldBe(3);
+    }
+
     private static MovieMetadata Metadata(MetadataLookupResult result) =>
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata;
 
@@ -426,6 +474,11 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
 
     private void StubPrimary(int statusCode, string body = "") =>
         probe.StubPath(PrimaryPath, statusCode, body);
+
+    private void StubPrimaryQuery(string parameter, string value, string body) =>
+        probe.Server
+            .Given(Request.Create().WithPath(PrimaryPath).WithParam(parameter, value).UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(body));
 
     private void StubSignals()
     {
