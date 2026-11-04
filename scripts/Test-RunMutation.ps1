@@ -1255,6 +1255,91 @@ $killedInChangedFile,
     } -Arguments @('-WholeProject', '-OutputRoot', $wpNoneOut) -ExpectedExit 1 `
         -MustContain @('none were tested', $coreChangedFile) `
         -Environment (New-StrykerStubEnvironment -OutputRoot $wpNoneOut -ReportSource $wpNoneReport)
+
+    Write-Host ''
+    Write-Host 'Diff-scoped file selection cases:'
+
+    # The diff touches one production .cs file (ScopeGuard.cs) while its sibling
+    # (Unchanged.cs) in the same project stays untouched. Diff scope must therefore
+    # generate a mutate list of exactly the changed file, with since disabled.
+    # Everything happens inside the fixture checkout; frozen replay inputs are untouched.
+    $diffScopedCoreChange = {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Write-FixtureFile 'src/Contoso.Core/ScopeGuard.cs' @'
+namespace Contoso.Core;
+
+public static class ScopeGuard
+{
+    public static int Holds(int value) => value > 0 ? value : -value;
+    public static int Clamp(int value) => value < 0 ? 0 : value;
+}
+'@
+        Invoke-FixtureGit @('add', '--', 'src/Contoso.Core/ScopeGuard.cs') | Out-Null
+        Invoke-FixtureGit @('-c', 'user.name=mutation fixture', '-c', 'user.email=fixture@contoso.invalid',
+            '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'fixture diff: ScopeGuard.cs only') | Out-Null
+    }
+
+    Assert-MutationCase -Name '31 diff-scoped dry-run mutates only the changed Core file' -Setup $diffScopedCoreChange `
+        -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 0 -MustContain @(
+            'Test projects for Contoso.Core.csproj: tests/Contoso.UnitTests/Contoso.UnitTests.csproj',
+            '"ScopeGuard.cs"',
+            '"enabled": false'
+        ) -MustNotContain @(
+            '"Unchanged.cs"',
+            'SKIPPED',
+            'outside changed files'
+        )
+
+    $diffScopedOut = Join-Path $script:work 'diff-scoped-out'
+    $diffScopedReport = Join-Path $script:work 'diff-scoped-report.json'
+    Write-ScopeReport -Path $diffScopedReport -FilesJson @"
+    "$scopeChanged": {
+      "mutants": [
+        { "id": "1", "status": "Killed", "killedBy": ["t1"], "mutatorName": "Statement", "location": { "start": { "line": 10 } } }
+      ]
+    }
+"@
+    Assert-MutationCase -Name '32 diff-scoped stubbed run mutates only the changed Core file and passes' -Setup $diffScopedCoreChange `
+        -Arguments @('-BaseRef', $script:fixtureBase, '-OutputRoot', $diffScopedOut) -ExpectedExit 0 `
+        -MustContain @('PASSED', 'Stryker native exit for Contoso.Core.csproj: 0') `
+        -MustNotContain @('outside changed files', 'FAILED') `
+        -Environment (New-StrykerStubEnvironment -OutputRoot $diffScopedOut -ReportSource $diffScopedReport)
+
+    $script:checks++
+    $diffScopedConfigProblems = [System.Collections.Generic.List[string]]::new()
+    $diffScopedConfigPath = Join-Path $diffScopedOut 'Contoso.Core/stryker-config.json'
+    if (-not (Test-Path -LiteralPath $diffScopedConfigPath)) {
+        $diffScopedConfigProblems.Add("generated config copy missing at '$diffScopedConfigPath'")
+    }
+    else {
+        $diffScopedConfig = Get-Content -LiteralPath $diffScopedConfigPath -Raw | ConvertFrom-Json
+        $mutate = @($diffScopedConfig.'stryker-config'.mutate)
+        if ($mutate.Count -ne 1 -or $mutate[0] -ne 'ScopeGuard.cs') {
+            $diffScopedConfigProblems.Add("expected mutate of exactly 'ScopeGuard.cs', got '$($mutate -join ', ')'")
+        }
+        if ($diffScopedConfig.'stryker-config'.since.enabled -ne $false) {
+            $diffScopedConfigProblems.Add('expected since.enabled=false in the generated config')
+        }
+    }
+    if ($diffScopedConfigProblems.Count -eq 0) {
+        Write-Host '  ok       32b stubbed run generated config mutates only ScopeGuard.cs with since disabled'
+    }
+    else {
+        $script:failures++
+        Write-Host '  FAIL     32b stubbed run generated config mutates only ScopeGuard.cs with since disabled' -ForegroundColor Red
+        foreach ($problem in $diffScopedConfigProblems) {
+            Write-Host "           - $problem" -ForegroundColor Red
+        }
+    }
+
+    Assert-MutationCase -Name '33 explicit -WholeProject on the same diff selects the full Core target' -Setup $diffScopedCoreChange `
+        -Arguments @('-WholeProject', '-Project', 'Contoso.Core', '-DryRun') -ExpectedExit 0 -MustContain @(
+            'Whole-project mode: Contoso.Core.csproj',
+            '"ScopeGuard.cs"',
+            '"Unchanged.cs"',
+            '"enabled": false'
+        ) -MustNotContain @('SKIPPED', 'more than one candidate')
+
 }
 catch {
     Write-Host "Mutation fixture: FAILED - $($_.Exception.Message)" -ForegroundColor Red
