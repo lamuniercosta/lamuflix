@@ -100,7 +100,7 @@ Phase 9  T019 → T020          (canonical Phase 5 merge bar)
 **Independent Test**: Prior AC1 suites remain green.
 **Note**: Code edits may be conditional (no-op when complexity/InspectCode already green); the `/refactor` stage itself is mandatory. Any extraction stays inside the two production allowlist files (Ledger M1).
 
-- [ ] T009 After implementation green: **Cog** runs `/refactor` once over the completed implementation (task-pipeline Phase 3 step 3) on allowlisted production files. Code edits apply only if cyclomatic complexity / InspectCode requires them; the refactor stage itself is not optional. Preserve behavior; no speculative abstractions; private helpers only inside the two Q5 production files — unmet gate prompts a new Patron ruling rather than a third file (Q7; FR-010; FR-014; Ledger M1)
+- [X] T009 After implementation green: **Cog** runs `/refactor` once over the completed implementation (task-pipeline Phase 3 step 3) on allowlisted production files. Code edits apply only if cyclomatic complexity / InspectCode requires them; the refactor stage itself is not optional. Preserve behavior; no speculative abstractions; private helpers only inside the two Q5 production files — unmet gate prompts a new Patron ruling rather than a third file (Q7; FR-010; FR-014; Ledger M1)
 
 ---
 
