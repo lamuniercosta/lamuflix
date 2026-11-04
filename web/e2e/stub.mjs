@@ -45,6 +45,7 @@ function foundBody(title, year) {
   return {
     Response: 'True',
     Title: title,
+    Type: 'movie',
     Year: String(year ?? ''),
     Runtime: '90 min',
     Plot: `${title} reserved import fixture.`,
@@ -168,6 +169,24 @@ async function handleProvider(request, response, url, responses) {
 
   const title = url.searchParams.get('t');
   const year = url.searchParams.get('y');
+  const imdbId = url.searchParams.get('i');
+  if (imdbId) {
+    const known = responses.find((entry) => entry.manual && entry.body.imdbID === imdbId);
+    if (!known) {
+      rejectUnexpected(response, null, year, 'unknown-imdb-id');
+      return;
+    }
+    sendJson(response, 200, known.body);
+    return;
+  }
+
+  const search = url.searchParams.get('s');
+  const manual = responses.find((entry) => entry.manual && same(entry.title, title ?? search));
+  if (manual) {
+    sendJson(response, 200, { Response: 'False', Error: 'Movie not found!' });
+    return;
+  }
+
   if (!title) {
     rejectUnexpected(response, null, year, 'missing-title');
     return;

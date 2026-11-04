@@ -109,6 +109,7 @@ tests/LamuFlix.IntegrationTests/
 | Mapper edges | Primary-allowlist mapper tests may use ManualImdbId exemption or eligible automatic fixtures so identical mapper assertions remain; outside primary four files: payload-only documented repairs, zero assertion weakening |
 | Red vs green | New-behavior cases red where feasible; existing manual/failure/one-request/classification preservation locks stay green (Compass F2) |
 | Forced fixtures | Other existing OMDb automatic-success fixtures missing Type or Q4 fields: document file+reason before edit; do not weaken assertions |
+| CI browser smoke (US4) | T021 and T022 exercise Match Manually on isolated movies awaiting correction. The OMDb stub supplies deterministic IMDb-ID metadata and Playwright serves the poster fixtures. Scope authority is the Phase B decision amendment in `CONCLUSIONS.md`. |
 | Live AC2 | Q6 procedure under test-portal-policy after code gates; pending/blocked if environment missing |
 
 No Gherkin. Property tests: reuse existing suite; no new framework or contrived invariant; exit-2 opt-out only with recorded task-note reason (Q5, Q7).
@@ -121,7 +122,7 @@ Thresholds for build and refactor cyclomatic complexity come only from `harness.
 2. Affected unit/integration suites (including TitleMatcherTests regression), then full `dotnet test`.
 3. Property / vulnerable-packages / format per harness; distinguish PASS, failure, SKIPPED (scope-empty), SKIP, mutation N/A, Could not run.
 4. Mutation: `pwsh -NoProfile -File ./scripts/run-mutation.ps1` (no `--since` from worktree) for changed production C#.
-5. Web applicability: expect scope-empty SKIPPED when web unchanged — never PASS.
+5. Gauge runs the applicable web gates and `pwsh -NoProfile -File ./scripts/run-e2e-smoke.ps1` for T021 and T022. Confirm both scenarios run in the hosted `e2e-smoke` job at the delivery head.
 6. Mandatory live AC2 (Q6); Size M review (canonical Phase 4): Sentry, Ledger, Compass with Keel adjudication and Cog remediation; Q8 closing bar (Critical/High/Medium block; Low explicit disposition unless cited mandatory rule); two rounds / two fix commits per round max.
 7. Fresh rebased gates + current-head review evidence + watched hosted checks before awaiting-merge (canonical Phase 5): DEV-447 (#n); user merges.
 

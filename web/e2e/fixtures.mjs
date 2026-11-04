@@ -38,24 +38,54 @@ export const RESERVED_MOVIE = {
   },
 };
 
+export const MANUAL_MATCH_MOVIES = [
+  {
+    smokeId: 'SMOKE-001',
+    source: 'Big Buck Bunny (2008).mp4',
+    title: 'Memento',
+    year: 2000,
+    imdbId: 'tt0209144',
+    rating: '8.4',
+    director: 'Christopher Nolan',
+    genre: 'Thriller',
+    runtimeMinutes: 113,
+  },
+  {
+    smokeId: 'SMOKE-002',
+    source: 'Elephants Dream (2006).mp4',
+    title: 'O Brother, Where Art Thou',
+    year: 2000,
+    imdbId: 'tt0190590',
+    rating: '7.7',
+    director: 'Joel Coen',
+    genre: 'Comedy',
+    runtimeMinutes: 107,
+  },
+].map((movie) => ({
+  ...movie,
+  relativePath: `manual-match/${movie.title} (${movie.year})`,
+  filename: `${movie.title} (${movie.year}).mp4`,
+}));
+
 const OTHER_MOVIE = {
   source: 'Tears of Steel (2012).mp4',
   relativePath: 'available/Tears of Steel (2012)',
 };
 
-function copyMovie({ sampleLibraryDir, libraryDir, relativePath, source }) {
+function copyMovie({ sampleLibraryDir, libraryDir, relativePath, source, filename = source }) {
   const destination = path.join(libraryDir, relativePath);
   mkdirSync(destination, { recursive: true });
-  copyFileSync(path.join(sampleLibraryDir, source), path.join(destination, source));
+  copyFileSync(path.join(sampleLibraryDir, source), path.join(destination, filename));
 }
 
 export function generateFixtures({ sampleLibraryDir, libraryDir }) {
-  for (const movie of SEED_MOVIES) {
+  for (const movie of [...SEED_MOVIES, ...MANUAL_MATCH_MOVIES]) {
     copyMovie({
       sampleLibraryDir,
       libraryDir,
       relativePath: movie.relativePath,
       source: movie.source,
+      filename: movie.filename,
     });
   }
 

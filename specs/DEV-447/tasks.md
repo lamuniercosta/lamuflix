@@ -25,7 +25,7 @@ Phase 2  T002 → T003 → T004   (Anvil; sequential — shared unit/WireMock fi
 Phase 3  T005 → T006 → T007   (Anvil)
 Phase 4  T008                 (Anvil; only if documented)
 Phase 5  T009                 (Cog /refactor once — required stage; edits may be conditional)
-Phase 6  T010 → T016          (Gauge — canonical Phase 3 steps 5–6)
+Phase 6  T010–T016 + T021–T022 (Gauge — configured gates and CI browser smoke)
 Phase 7  T017                 (Live AC2)
 Phase 8  T018                 (canonical Phase 4 — Sentry/Ledger/Compass; Keel adjudication; Cog remediation)
 Phase 9  T019 → T020          (canonical Phase 5 merge bar)
@@ -108,13 +108,20 @@ Phase 9  T019 → T020          (canonical Phase 5 merge bar)
 
 **Purpose**: Harness verification against the task diff; thresholds only from harness.yml.
 
-- [ ] T010 **Gauge** confirms frozen scope only: production edits limited to `OmdbMetadataProvider.cs` and `OmdbMetadataProvider.Mapping.cs`; no TitleMatcher/MatchThreshold/TMDb/chain-production/API/OpenAPI/TS/web/schema/dependency/LocalPlay/secrets/Process.Start/recommendation changes; unrelated harness.yml modification preserved and not staged with this task (FR-010; Q5, Q7; SC-006; Ledger L5)
-- [ ] T011 **Gauge** runs Roslyn analyzers on explicit changed `.cs` set via `./scripts/run-roslyn-analyzers.ps1` (FR-014; Q7)
-- [ ] T012 **Gauge** runs `./scripts/run-cyclomatic-complexity.ps1` then the refactor threshold from harness.yml on changed files (FR-014; brief:96)
-- [ ] T013 **Gauge** runs `./scripts/run-jetbrains-inspectcode.ps1` on changed files (never `-All`) (FR-014; Q7)
-- [ ] T014 **Gauge** runs `dotnet format --verify-no-changes` clean (authority: brief Q7 and task-pipeline Phase 3 step 5; FR-014; Ledger L5 / Compass F3)
-- [ ] T015 **Gauge** runs affected unit/integration suites (including TitleMatcherTests regression) then full `dotnet test` (FR-011, FR-014; SC-001)
-- [ ] T016 **Gauge** runs property/vulnerable-packages gates per harness and web applicability; report SKIP/SKIPPED/N/A/Could not run distinctly — never as PASS; property exit 2 only with recorded task-note opt-out reason; mutation: `pwsh -NoProfile -File ./scripts/run-mutation.ps1` without `--since` from the worktree for changed production C# (FR-014; Q5, Q7; SC-007)
+- [X] T010 **Gauge** confirms frozen scope only: production edits limited to `OmdbMetadataProvider.cs` and `OmdbMetadataProvider.Mapping.cs`; no TitleMatcher/MatchThreshold/TMDb/chain-production/API/OpenAPI/TS/web/schema/dependency/LocalPlay/secrets/Process.Start/recommendation changes; unrelated harness.yml modification preserved and not staged with this task (FR-010; Q5, Q7; SC-006; Ledger L5)
+- [X] T011 **Gauge** runs Roslyn analyzers on explicit changed `.cs` set via `./scripts/run-roslyn-analyzers.ps1` (FR-014; Q7)
+- [X] T012 **Gauge** runs `./scripts/run-cyclomatic-complexity.ps1` then the refactor threshold from harness.yml on changed files (FR-014; brief:96)
+- [X] T013 **Gauge** runs `./scripts/run-jetbrains-inspectcode.ps1` on changed files (never `-All`) (FR-014; Q7)
+- [X] T014 **Gauge** runs `dotnet format --verify-no-changes` clean (authority: brief Q7 and task-pipeline Phase 3 step 5; FR-014; Ledger L5 / Compass F3)
+- [X] T015 **Gauge** runs affected unit/integration suites (including TitleMatcherTests regression) then full `dotnet test` (FR-011, FR-014; SC-001)
+- [X] T016 **Gauge** runs property/vulnerable-packages gates per harness and web applicability; report SKIP/SKIPPED/N/A/Could not run distinctly — never as PASS; property exit 2 only with recorded task-note opt-out reason; mutation: `pwsh -NoProfile -File ./scripts/run-mutation.ps1` without `--since` from the worktree for changed production C# (FR-014; Q5, Q7; SC-007)
+
+### CI browser smoke (US4)
+
+- [ ] T021 [US4] Verify SMOKE-001 in `web/e2e/manual-match.e2e.ts`. Import the isolated Memento fixture, submit `tt0209144` through Match Manually and check the IMDb link, loaded poster, rating and director after enrichment. Use the existing Compose harness with deterministic responses.
+- [ ] T022 [US4] Verify SMOKE-002 in the same browser smoke file. Import the separate O Brother fixture, submit `tt0190590` and check its IMDb link, loaded poster, rating and director after enrichment.
+
+Gauge runs `pwsh -NoProfile -File ./scripts/run-e2e-smoke.ps1` and confirms both scenarios in the hosted `e2e-smoke` job at the delivery head before T020.
 
 ---
 
@@ -142,7 +149,7 @@ Phase 9  T019 → T020          (canonical Phase 5 merge bar)
 
 ## Dependencies
 
-- T000 before T001; T001 before any T002–T020.
+- T000 before T001; T001 before any T002–T022.
 - Regression proofs must run T002 → T003 → T004 sequentially (shared unit/WireMock files; no parallel `[P]`). New-behavior cases red where feasible; green locks stay green (Compass F2).
 - Production green (T005–T006) after T002–T004; T007 after T005–T006.
 - T005 before T006 (Type binding available to guard).
@@ -150,6 +157,7 @@ Phase 9  T019 → T020          (canonical Phase 5 merge bar)
 - T009 after T007 (and T008 if used): Cog `/refactor` once is required even when no code edits result.
 - T010–T016 after implementation + refactor stage evidence.
 - T017 after T010–T016 code gates (Q6–Q7).
+- T021 and T022 run on the completed Build diff during Phase 6. Retain the independent live T017 receipt.
 - T018 after T017 attempt (AC2 pending/blocked still allows review to proceed but clearance stays blocked until AC2 resolved or explicitly dispositioned per Q6 non-waiver).
 - T019–T020 after review clearance path.
 
@@ -174,6 +182,7 @@ T007 green AC1/matrix + TitleMatcherTests regression; preserve mapper edges via 
 T008 Phase 4 forced fixtures if documented (Anvil; primary mapper/short-circuit rules; outside primary = payload-only)
 T009 Phase 5 Cog /refactor once (required stage; edits conditional; two-file extraction only)
 T010–T016 Phase 6 Gauge configured gates + mutation (canonical Phase 3 steps 5–6; T014 format per Q7 / Phase 3 step 5)
+T021–T022 Phase 6 Gauge CI browser smoke for SMOKE-001 and SMOKE-002 (Phase B decision amendment)
 T017 Phase 7 Gauge live AC2 + Conductor environment coordination under test-portal-policy
 T018 Phase 8 review → canonical Phase 4; Keel adjudication; Cog remediation (cap 2)
 T019 Phase 9 Rigger rebase + Gauge gates + Conductor merge-bar coordination
@@ -182,7 +191,7 @@ T020 Conductor awaiting-merge handoff → user merges
 
 ## MVP
 
-MVP for Gate 1 is Phase A documents only. Build MVP after Gate 1 is T000–T007 (local Phases 0–3: red proofs + production guard + green AC1). Full ticket delivery additionally requires T009–T017 (local Phases 5–7: required refactor stage + gates + live AC2) and T018–T020 (local Phases 8–9 / canonical Phase 4–5).
+MVP for Gate 1 is Phase A documents only. Build MVP after Gate 1 is T000–T007 (local Phases 0–3: red proofs + production guard + green AC1). Full ticket delivery also requires T009–T017 (required refactor, gates and live AC2), T021–T022 (CI browser smoke), and T018–T020 (review and delivery).
 
 ## Notes
 
