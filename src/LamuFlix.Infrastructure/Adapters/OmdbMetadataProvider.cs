@@ -231,8 +231,7 @@ public sealed partial class OmdbMetadataProvider(
             lookup.ReleaseYear?.Value,
             metadata.Title,
             metadata.ReleaseYear?.Value) is { } score
-        && score >= omdbOptions.MatchThreshold
-        && TitleMatcher.Similarity(lookup.Title, metadata.Title) >= omdbOptions.MatchThreshold;
+        && score >= omdbOptions.MatchThreshold;
 
     private static bool IsSuspicious(MovieMetadata metadata) =>
         metadata.Runtime is null && metadata.ImdbRating is null && metadata.Directors.Count == 0;
