@@ -23,6 +23,7 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
     private const string FoundBody = """
         {
           "Response": "True",
+          "Type": "movie",
           "Title": "Solaris",
           "Year": "1972",
           "Runtime": "167 min",
@@ -43,7 +44,7 @@ public sealed class MetadataProviderResilienceTests(MetadataProviderProbe probe)
         {
           "Response": "True",
           "Search": [
-            { "Title": "Solaris", "Year": "1972", "imdbID": "tt0069293" }
+            { "Title": "Solaris", "Year": "1972", "Type": "movie", "imdbID": "tt0069293" }
           ],
           "totalResults": "1"
         }

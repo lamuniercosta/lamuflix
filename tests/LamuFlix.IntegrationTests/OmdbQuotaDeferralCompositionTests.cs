@@ -27,6 +27,7 @@ public sealed class OmdbQuotaDeferralCompositionTests(PostgresFixture fixture) :
     private const string FoundBody = """
         {
           "Response": "True",
+          "Type": "movie",
           "Title": "Solaris",
           "Year": "1972",
           "Runtime": "167 min",

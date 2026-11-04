@@ -42,6 +42,7 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
     private static readonly string OmdbBody = $$"""
         {
           "Response": "True",
+          "Type": "movie",
           "Title": "{{SeedTitle}}",
           "Year": "{{ExpectedYear}}",
           "Runtime": "{{ExpectedRuntime}} min",

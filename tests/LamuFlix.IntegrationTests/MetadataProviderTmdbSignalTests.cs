@@ -81,6 +81,7 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
     private const string OmdbFoundBody = """
         {
           "Response": "True",
+          "Type": "movie",
           "Title": "Solaris",
           "Year": "1972",
           "Plot": "A psychologist...",
@@ -93,6 +94,17 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         {
           "Response": "False",
           "Error": "Movie not found!"
+        }
+        """;
+
+    private const string SolarisSearchBody = """
+        {
+          "page": 1,
+          "results": [
+            { "adult": false, "genre_ids": [878], "id": 603, "original_language": "en", "original_title": "Solaris", "release_date": "1972-05-13", "title": "Solaris", "video": false, "vote_average": 8.0, "vote_count": 1 }
+          ],
+          "total_pages": 1,
+          "total_results": 1
         }
         """;
 
@@ -355,10 +367,11 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         // arrange
         var services = probe.BuildServices();
         probe.StubPath("/", 200, OmdbFoundBody);
-        StubFoundMovie();
+        probe.StubFoundLookup(searchBody: SolarisSearchBody);
+        StubSignals();
 
         // act
-        var result = await ChainedAsync(services, "The Matrix");
+        var result = await ChainedAsync(services, "Solaris");
 
         // assert
         var metadata = Metadata(result);
@@ -421,7 +434,7 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         StubFoundMovie();
 
         // act
-        var result = await ChainedAsync(services, "The Matrix");
+        var result = await ChainedAsync(services, "Solaris");
 
         // assert
         Metadata(result).Title.ShouldBe("Solaris");
