@@ -48,11 +48,22 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         """;
 
     private const string OmdbSyntheticSearchBody = """
-        { "Response": "True", "Search": [ { "Title": "Solaris", "Year": "1972", "imdbID": "tt0069293", "Type": "movie" } ] }
+        { "Response": "True", "Search": [ { "Title": "The Matrix", "Year": "1999", "imdbID": "tt0069293", "Type": "movie" } ] }
         """;
 
     private const string OmdbSyntheticEpisodeBody = """
-        { "Response": "True", "Title": "Solaris", "Year": "1972", "Type": "episode", "Runtime": "167 min", "imdbID": "tt0069293" }
+        { "Response": "True", "Title": "The Matrix", "Year": "1999", "Type": "episode", "Runtime": "136 min", "imdbID": "tt0069293" }
+        """;
+
+    private const string SolarisSearchBody = """
+        {
+          "page": 1,
+          "results": [
+            { "adult": false, "genre_ids": [878], "id": 603, "original_language": "en", "original_title": "Solaris", "release_date": "1972-05-13", "title": "Solaris", "video": false, "vote_average": 8.0, "vote_count": 1 }
+          ],
+          "total_pages": 1,
+          "total_results": 1
+        }
         """;
 
     private const string OmdbNotFoundBody = """
@@ -230,10 +241,10 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
         StubPrimary(200, OmdbFoundBody);
         StubSignals();
-        probe.StubFoundLookup();
+        probe.StubFoundLookup(searchBody: SolarisSearchBody);
 
         // act
-        var result = await FindChainAsync(services, "The Matrix");
+        var result = await FindChainAsync(services, "Solaris");
 
         // assert
         var metadata = Metadata(result);
@@ -435,13 +446,13 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
     {
         // arrange
         var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
-        StubPrimaryQuery("t", "Solaris", OmdbNotFoundBody);
-        StubPrimaryQuery("s", "Solaris", OmdbSyntheticSearchBody);
+        StubPrimaryQuery("t", "The Matrix", OmdbNotFoundBody);
+        StubPrimaryQuery("s", "The Matrix", OmdbSyntheticSearchBody);
         StubPrimaryQuery("i", "tt0069293", OmdbSyntheticEpisodeBody);
         probe.StubFoundLookup();
 
         // act
-        var result = await FindChainAsync(services, "Solaris");
+        var result = await FindChainAsync(services, "The Matrix");
 
         // assert
         Metadata(result).Title.ShouldBe("The Matrix");

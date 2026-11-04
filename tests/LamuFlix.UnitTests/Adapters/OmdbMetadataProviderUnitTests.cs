@@ -93,7 +93,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         var metadata = result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata;
@@ -114,7 +114,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Dune", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Dune", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         var metadata = result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata;
@@ -284,7 +284,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.Synopsis.ShouldBeNull();
@@ -298,7 +298,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.PosterUrl.ShouldBeNull();
@@ -312,7 +312,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.PosterUrl.ShouldBeNull();
@@ -326,7 +326,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.ReleaseYear.ShouldBeNull();
@@ -340,7 +340,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.ReleaseYear.ShouldBeNull();
@@ -354,7 +354,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.ReleaseYear.ShouldBeNull();
@@ -368,7 +368,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.Runtime.ShouldBeNull();
@@ -382,7 +382,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.ReleaseYear.ShouldNotBeNull().Value.ShouldBe(1982);
@@ -396,7 +396,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.Runtime.ShouldBeNull();
@@ -410,7 +410,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.ImdbRating.ShouldBeNull();
@@ -424,7 +424,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.MetaScore.ShouldBe((short)0);
@@ -438,7 +438,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.MetaScore.ShouldBe((short)100);
@@ -452,7 +452,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.MetaScore.ShouldBeNull();
@@ -466,7 +466,7 @@ public sealed class OmdbMetadataProviderUnitTests
         var provider = Provider(new StubHandler(HttpStatusCode.OK, body));
 
         // act
-        var result = await provider.FindAsync(new MetadataLookup("Solaris", null), TestContext.Current.CancellationToken);
+        var result = await provider.FindAsync(new MetadataLookup("Solaris", null, new ImdbId("tt0069293")), TestContext.Current.CancellationToken);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.MetaScore.ShouldBeNull();

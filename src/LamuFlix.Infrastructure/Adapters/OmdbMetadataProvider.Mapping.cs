@@ -11,8 +11,14 @@ public sealed partial class OmdbMetadataProvider
 {
     private static class ResponseMapper
     {
+        private const string MovieType = "movie";
+
         public static bool IsFound(Response response) =>
             string.Equals(response.ResponseFlag, FoundFlag, StringComparison.Ordinal);
+
+        public static bool IsMovie(Response response) => IsMovieType(response.Type);
+
+        public static bool IsMovieHit(SearchHit hit) => IsMovieType(hit.Type);
 
         public static bool IsMovieNotFound(Response response) =>
             string.Equals(response.ResponseFlag, NotFoundFlag, StringComparison.Ordinal)
@@ -87,7 +93,7 @@ public sealed partial class OmdbMetadataProvider
             return ImdbRating.TryCreate(value, out var parsed) ? parsed : null;
         }
 
-        private static ImdbId? MapIdentifier(string? identifier) =>
+        public static ImdbId? MapIdentifier(string? identifier) =>
             ImdbId.TryCreate(identifier, out var parsed) ? parsed : null;
 
         private static short? MapMetaScore(string? metaScore) =>
@@ -145,6 +151,9 @@ public sealed partial class OmdbMetadataProvider
 
         private static bool IsMissing(string? value) =>
             string.IsNullOrWhiteSpace(value) || string.Equals(value, NotAvailable, StringComparison.Ordinal);
+
+        private static bool IsMovieType(string? type) =>
+            string.Equals(type, MovieType, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class Response
@@ -191,6 +200,9 @@ public sealed partial class OmdbMetadataProvider
         [JsonPropertyName("Metascore")]
         public string? MetaScore { get; set; }
 
+        [JsonPropertyName("Type")]
+        public string? Type { get; set; }
+
         [JsonPropertyName("Search")]
         public List<SearchHit>? Search { get; set; }
     }
@@ -206,6 +218,9 @@ public sealed partial class OmdbMetadataProvider
 
         [JsonPropertyName("imdbID")]
         public string? Identifier { get; init; }
+
+        [JsonPropertyName("Type")]
+        public string? Type { get; init; }
     }
     // ReSharper restore UnusedAutoPropertyAccessor.Local
 }
