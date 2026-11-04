@@ -1,0 +1,12 @@
+{
+  "id": "DEV-333",
+  "baseRef": "f00e01bacb63c083349b3a46425189e31e3564c2",
+  "consoleLog": "C:\\Users\\lamun\\AppData\\Local\\Temp\\DEV-451-DEV-333-attempt01-console.log",
+  "attempt": "attempt01",
+  "start": "2026-11-04T12:29:08.3683899-03:00",
+  "wallMs": 1233826,
+  "head": "b25ecb1614a0c82771f254b700bb53dff0a25bf0",
+  "end": "2026-11-04T12:49:42.1965590-03:00",
+  "outputRoot": "C:\\Users\\lamun\\AppData\\Local\\Temp\\DEV-451-baseline-DEV-333-attempt01",
+  "exit": 0
+}

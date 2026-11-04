@@ -1,0 +1,16 @@
+{
+  "generatedUtc": "2026-11-04T13:46:27Z",
+  "durationSeconds": 1088.7,
+  "concurrency": 8,
+  "threshold": 80,
+  "projects": [
+    {
+      "project": "LamuFlix.Core.csproj",
+      "durationSeconds": 1086.9,
+      "totalMutants": 98,
+      "tested": 68,
+      "score": 58.82352941176471,
+      "passed": false
+    }
+  ]
+}

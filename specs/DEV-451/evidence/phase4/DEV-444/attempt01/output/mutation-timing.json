@@ -1,0 +1,17 @@
+{
+  "generatedUtc": "2026-11-04T19:56:14Z",
+  "durationSeconds": 813.3,
+  "concurrency": 8,
+  "threshold": 80,
+  "coverageAnalysis": "perTestInIsolation",
+  "projects": [
+    {
+      "project": "LamuFlix.Core.csproj",
+      "durationSeconds": 811.1,
+      "totalMutants": 98,
+      "tested": 68,
+      "score": 58.82352941176471,
+      "passed": false
+    }
+  ]
+}

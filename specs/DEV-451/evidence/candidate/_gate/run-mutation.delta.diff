@@ -1,0 +1,60 @@
+diff --git "a/C:\\Users\\lamun\\AppData\\Local\\Temp\\DEV-451-scratch-gate\\original\\run-mutation.ps1" "b/C:\\Users\\lamun\\AppData\\Local\\Temp\\DEV-451-scratch-gate\\run-mutation.ps1"
+index 1a200266..edb87434 100644
+--- "a/C:\\Users\\lamun\\AppData\\Local\\Temp\\DEV-451-scratch-gate\\original\\run-mutation.ps1"
++++ "b/C:\\Users\\lamun\\AppData\\Local\\Temp\\DEV-451-scratch-gate\\run-mutation.ps1"
+@@ -38,12 +38,16 @@ param(
+     [string[]]$ScopeFile = @(),
+     [string[]]$Project = @(),
+     [string]$OutputRoot = '',
++    [string]$CoverageAnalysis = '',
+     [switch]$Help
+ )
+ 
+ Set-StrictMode -Version Latest
+ $ErrorActionPreference = 'Stop'
+ 
++# Preserve -CoverageAnalysis before later locals named $coverageAnalysis overwrite it (PowerShell case-insensitive).
++$script:ScratchCoverageAnalysis = $CoverageAnalysis
++
+ . (Join-Path $PSScriptRoot '_gate-common.ps1')
+ 
+ $gateStartUtc = [DateTime]::UtcNow
+@@ -993,6 +997,14 @@ if ([long]$additionalTimeoutValue -lt $minAdditionalTimeout) {
+     exit 1
+ }
+ 
++if ($script:ScratchCoverageAnalysis -ne '' -and $script:ScratchCoverageAnalysis -ne 'perTestInIsolation') {
++    Write-Host "Invalid -CoverageAnalysis value '$script:ScratchCoverageAnalysis'; accepted values are '' or 'perTestInIsolation'."
++    exit 1
++}
++if ($script:ScratchCoverageAnalysis -eq 'perTestInIsolation') {
++    Write-Host 'EXPERIMENTAL coverage-analysis=perTestInIsolation (non-shipping gate copy; tracked scripts untouched)'
++}
++
+ $sortedProjects = @($projectGroups.Keys | Sort-Object)
+ 
+ if ($Project.Count -gt 0) {
+@@ -1122,6 +1134,9 @@ try {
+             'low'   = $low
+             'break' = [int]$threshold
+         }
++        if ($script:ScratchCoverageAnalysis) {
++            $generated['coverage-analysis'] = $script:ScratchCoverageAnalysis
++        }
+ 
+         $strykerObj = [ordered]@{ 'stryker-config' = $generated }
+ 
+@@ -1280,6 +1295,13 @@ try {
+         threshold       = $threshold
+         projects        = $timingProjects
+     }
++    if ($script:ScratchCoverageAnalysis) {
++        $timing['provenance'] = [ordered]@{
++            kind             = 'non-shipping-scratch-experiment'
++            coverageAnalysis = $script:ScratchCoverageAnalysis
++            shippingScripts  = 'untouched'
++        }
++    }
+     $timingPath = Join-Path $outputRootPath 'mutation-timing.json'
+     [System.IO.File]::WriteAllText($timingPath, ($timing | ConvertTo-Json -Depth 6) + "`n", [System.Text.UTF8Encoding]::new($false))
+     Write-Host "Mutation timing: $($timing.durationSeconds)s wall time, $($totalTestedOverall) tested mutant(s), concurrency $concurrency (details: $timingPath)"

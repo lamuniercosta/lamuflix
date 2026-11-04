@@ -1,0 +1,15 @@
+{
+  "exit": 0,
+  "scopeCount": 5,
+  "scopeFiles": [
+    "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs",
+    "tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerInvariantPropertyTests.cs",
+    "tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerPropertyTests.cs",
+    "tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerReasonThresholdTests.cs",
+    "tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs"
+  ],
+  "report": "C:/Users/lamun/AppData/Local/Temp/DEV-451-candidate-DEV-448-attempt01/LamuFlix.Core/reports/mutation-report.json",
+  "reportSha256": "E8F42E813A9CCC668B5A20B6F8F061A8B31922041AEDF7136A9D9469117974C1",
+  "commandBody": "$scopeFiles = @('src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs','tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerInvariantPropertyTests.cs','tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerPropertyTests.cs','tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerReasonThresholdTests.cs','tests/LamuFlix.UnitTests/Features/Recommendations/SimilarityScorerTests.cs')\nif ($scopeFiles.Count -ne 5) { throw 'Frozen scope mismatch' }\n$candidateReport = 'C:/Users/lamun/AppData/Local/Temp/DEV-451-candidate-DEV-448-attempt01/LamuFlix.Core/reports/mutation-report.json'\n& ./scripts/run-mutation.ps1 -EvaluateReport $candidateReport -ScopeFile @($scopeFiles)\nexit $LASTEXITCODE",
+  "binding": "pwsh -EncodedCommand (Unicode Base64 of -Command body with array-bound ScopeFile)"
+}

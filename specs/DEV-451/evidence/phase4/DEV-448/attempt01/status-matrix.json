@@ -1,0 +1,1742 @@
+{
+  "summary": {
+    "case": "DEV-448",
+    "baselineAttempt": "attempt03",
+    "phase4Attempt": "attempt01",
+    "baselineCount": 283,
+    "candidateCount": 283,
+    "uniqueIds": 283,
+    "baselineDuplicateIds": [],
+    "candidateDuplicateIds": [],
+    "unmatchedBaselineOnly": 0,
+    "unmatchedCandidateOnly": 0,
+    "sourceContentMismatches": 0,
+    "survivedToTimeout": 0,
+    "killedToTimeout": 0,
+    "timeoutToSurvived": 0,
+    "timeoutToKilled": 0,
+    "baselineStatusTotals": {
+      "Killed": 198,
+      "Survived": 23,
+      "Timeout": 0,
+      "NoCoverage": 0,
+      "Ignored": 41,
+      "CompileError": 21
+    },
+    "candidateStatusTotals": {
+      "Killed": 198,
+      "Survived": 23,
+      "Timeout": 0,
+      "NoCoverage": 0,
+      "Ignored": 41,
+      "CompileError": 21
+    },
+    "transitionCounts": {
+      "CompileError->CompileError": 21,
+      "Survived->Survived": 23,
+      "Killed->Killed": 198,
+      "Ignored->Ignored": 41
+    },
+    "integrityReject": false
+  },
+  "rows": [
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|264:35-264:47|Linq method mutation (Count() to Sum())|second.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|377:33-377:49|String mutation|\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|117:32-117:48|Equality mutation|second.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|62:9-62:81|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|290:25-290:88|Equality mutation|Math.Abs((double)first - (double)second) > MaxSimilarRatingGap",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|77:26-77:97|Conditional (false) mutation|(false?SetReason(label, first, second) :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|178:17-178:34|Equality mutation|term.Weight < 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|190:5-202:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|146:13-146:52|Negate expression|!(first is not null && second is not null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|287:9-287:21|Equality mutation|weight < 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|116:5-125:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|234:9-236:40|Logical mutation|a.ReleaseYear == b.ReleaseYear\r\n        && a.Runtime == b.Runtime\r\n        || a.ImdbRating == b.ImdbRating",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|55:9-55:86|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|247:12-247:36|Equality mutation|movie.Keywords.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|87:5-94:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|334:17-334:35|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|91:26-91:86|Conditional (false) mutation|(false?SharedKeywordsReason :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|147:9-150:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|293:9-293:21|Equality mutation|weight >= 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|383:5-393:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|28:9-28:46|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|205:9-205:57|Logical mutation|IsIdenticalProfile(a, b) || HasScoringFeature(a)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|136:54-136:135|Conditional (true) mutation|(true?\"Similar release years\" :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|284:9-284:70|Logical mutation|weight > 0.0 || Math.Abs(first - second) <= MaxSimilarYearGap",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|134:9-137:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|38:13-38:29|Equality mutation|maxWeight > 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|287:34-287:48|Arithmetic mutation|first + second",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|104:30-104:57|Conditional (false) mutation|(false?1.0 :0.0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|287:25-287:80|Equality mutation|Math.Abs(first - second) > MaxSimilarRuntimeGapMinutes",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|213:9-218:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|175:26-175:56|Arithmetic mutation|scaledWeight / term.Similarity",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|174:32-174:55|Arithmetic mutation|term.Weight * maxWeight",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|117:13-117:24|Linq method mutation (Count() to Sum())|first.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|397:29-397:53|LogicalNotExpression to un-LogicalNotExpression mutation|double.IsFinite(weight)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|397:13-397:25|Equality mutation|weight <= 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|101:5-108:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|350:9-352:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|243:9-247:36|Logical mutation|movie.Directors.Count > 0\r\n        || movie.Writers.Count > 0\r\n        || movie.Cast.Count > 0\r\n        || movie.Genres.Count > 0\r\n        && movie.Keywords.Count > 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|332:17-332:32|Negate expression|!(text.Length > 0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|210:5-221:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|74:32-74:48|Equality mutation|second.Count < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|399:13-402:72|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|250:9-250:38|Equality mutation|movie.ReleaseYear is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|159:13-159:52|Logical mutation|first is not null || second is not null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|88:13-88:28|Equality mutation|first.Count < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|92:13-92:63|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|333:13-335:14|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|59:9-59:81|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|146:13-146:30|Equality mutation|first is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|344:16-344:32|Equality mutation|insensitive == 0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|105:26-105:86|Conditional (false) mutation|(false?SameCollectionReason :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|167:5-187:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|259:15-259:69|Arithmetic mutation|Math.Abs((double)first - (double)second) * RatingScale",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|205:9-207:69|Conditional (true) mutation|(true?new SimilarityResult(1.0, ImmutableList.Create(Reason.Structural(IdentityReason)))\r\n:new SimilarityResult(0.0, ImmutableList<Reason>.Empty))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|234:9-234:39|Equality mutation|a.ReleaseYear != b.ReleaseYear",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|398:9-403:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|74:13-74:48|Logical mutation|first.Count > 0 || second.Count > 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|51:5-65:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|136:13-136:138|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|180:26-180:31|Boolean mutation|true",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|38:13-38:29|Equality mutation|maxWeight < 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|162:13-162:133|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|344:16-344:94|Conditional (true) mutation|(true?insensitive :StringComparer.Ordinal.Compare(first, second))",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|256:18-256:28|UnaryMinusExpression to UnaryPlusExpression mutation|+decayRate",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|275:17-275:32|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|384:9-384:59|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|178:17-178:59|Logical mutation|term.Weight > 0.0 || term.Similarity < 1.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|304:41-304:45|String mutation|\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|349:13-349:26|Equality mutation|value is not null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|178:38-178:59|Equality mutation|term.Similarity > 1.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|75:9-79:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|235:12-235:34|Equality mutation|a.Runtime != b.Runtime",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|176:13-176:40|AddAssignmentExpression to SubtractAssignmentExpression mutation|denominator -= scaledWeight",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|117:13-117:28|Equality mutation|first.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|102:13-102:52|Logical mutation|first is not null || second is not null",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|251:12-251:37|Equality mutation|movie.Runtime is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|396:5-404:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|246:12-246:34|Equality mutation|movie.Genres.Count < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|227:9-230:40|Logical mutation|a.Directors.SetEquals(b.Directors)\r\n        && a.Writers.SetEquals(b.Writers)\r\n        && a.Cast.SetEquals(b.Cast)\r\n        || a.Genres.SetEquals(b.Genres)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|170:22-170:26|Boolean mutation|false",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|136:105-136:128|String mutation|\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|243:9-244:35|Logical mutation|movie.Directors.Count > 0\r\n        && movie.Writers.Count > 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|330:9-336:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|227:9-229:36|Logical mutation|a.Directors.SetEquals(b.Directors)\r\n        && a.Writers.SetEquals(b.Writers)\r\n        || a.Cast.SetEquals(b.Cast)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|88:13-88:28|Equality mutation|first.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|146:13-146:52|Logical mutation|first is not null || second is not null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|275:17-275:31|PostIncrementExpression to PostDecrementExpression mutation|intersection--",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|317:28-317:68|Equality mutation|string.CompareOrdinal(value, other) < 0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|358:13-358:27|Linq method mutation (Append() to Prepend())|builder.Prepend",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|342:5-345:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|244:12-244:31|Linq method mutation (Count() to Sum())|movie.Writers.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|120:26-122:23|Conditional (true) mutation|(true?SetReason(SetLabel.Genres, first, second)\r\n:null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|259:24-259:54|Arithmetic mutation|(double)first + (double)second",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|196:13-198:14|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|74:13-74:28|Equality mutation|first.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|88:32-88:48|Equality mutation|second.Count < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|263:28-263:61|Linq method mutation (Count() to Sum())|SharedTokens(first, second).Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|325:5-339:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|33:9-33:34|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|73:5-80:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|287:9-287:80|Logical mutation|weight > 0.0 || Math.Abs(first - second) <= MaxSimilarRuntimeGapMinutes",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|88:32-88:48|Equality mutation|second.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|159:13-159:52|Negate expression|!(first is not null && second is not null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|357:9-359:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|385:9-385:58|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|332:17-332:32|Equality mutation|text.Length < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|327:40-327:52|Linq method mutation (Count() to Sum())|tokens.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|234:9-235:34|Logical mutation|a.ReleaseYear == b.ReleaseYear\r\n        || a.Runtime == b.Runtime",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|58:9-58:88|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|287:9-287:21|Equality mutation|weight >= 0.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|250:9-252:40|Logical mutation|movie.ReleaseYear is not null\r\n        || movie.Runtime is not null\r\n        && movie.ImdbRating is not null",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|117:13-117:28|Equality mutation|first.Count < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|402:17-402:70|String mutation|\"\"",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|104:30-104:57|Conditional (true) mutation|(true?1.0 :0.0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|256:18-256:55|Arithmetic mutation|-decayRate / Math.Abs(first - second)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|245:12-245:32|Equality mutation|movie.Cast.Count < 0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|302:16-304:55|Conditional (true) mutation|(true?Fallback(label)\r\n:Format(label, string.Join(\", \", tokens)))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|123:13-123:63|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|88:13-88:48|Logical mutation|first.Count > 0 || second.Count > 0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|273:17-273:39|Negate expression|!(second.Contains(value))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|272:9-277:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|317:28-317:84|Conditional (true) mutation|(true?value :other)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|240:9-240:56|Logical mutation|HasSetFeature(movie) && HasScalarFeature(movie)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|279:21-279:47|Arithmetic mutation|first.Count - second.Count",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|195:17-195:42|Equality mutation|term.Reason is not { } reason",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|300:5-305:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|387:9-387:57|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|390:9-390:62|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|105:26-105:86|Conditional (true) mutation|(true?SameCollectionReason :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|388:9-388:64|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|314:9-319:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|61:9-61:81|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|179:13-181:14|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|358:28-358:71|Conditional (true) mutation|(true?' ' :character)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|243:9-245:32|Logical mutation|movie.Directors.Count > 0\r\n        || movie.Writers.Count > 0\r\n        && movie.Cast.Count > 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|290:9-290:21|Equality mutation|weight < 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|392:9-392:61|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|253:12-253:42|Equality mutation|movie.CollectionId is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|136:54-136:135|Conditional (false) mutation|(false?\"Similar release years\" :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|88:13-88:48|Negate expression|!(first.Count > 0 && second.Count > 0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|264:21-264:47|Arithmetic mutation|first.Count - second.Count",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|259:9-259:69|Arithmetic mutation|1.0 + Math.Abs((double)first - (double)second) / RatingScale",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|117:13-117:48|Logical mutation|first.Count > 0 || second.Count > 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|252:12-252:40|Equality mutation|movie.ImdbRating is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|184:16-186:60|Conditional (false) mutation|(false?1.0\r\n:Math.Clamp(numerator / denominator, 0.0, 1.0))",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|184:16-186:60|Conditional (true) mutation|(true?1.0\r\n:Math.Clamp(numerator / denominator, 0.0, 1.0))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|247:12-247:36|Equality mutation|movie.Keywords.Count < 0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|290:9-290:21|Equality mutation|weight >= 0.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|159:13-159:30|Equality mutation|first is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|120:26-122:23|Conditional (false) mutation|(false?SetReason(SetLabel.Genres, first, second)\r\n:null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|367:34-367:59|String mutation|$\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|29:9-29:46|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|132:5-138:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|378:30-378:43|String mutation|\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|57:9-57:74|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|89:9-93:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|145:5-151:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|243:9-246:34|Logical mutation|movie.Directors.Count > 0\r\n        || movie.Writers.Count > 0\r\n        || movie.Cast.Count > 0\r\n        && movie.Genres.Count > 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|27:5-44:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|369:30-369:49|String mutation|$\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|287:25-287:80|Equality mutation|Math.Abs(first - second) < MaxSimilarRuntimeGapMinutes",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|214:17-214:34|Equality mutation|term.Weight < max",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|245:12-245:28|Linq method mutation (Count() to Sum())|movie.Cast.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|133:34-133:52|Equality mutation|second is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|290:34-290:64|Arithmetic mutation|(double)first + (double)second",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|244:12-244:35|Equality mutation|movie.Writers.Count < 0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|250:9-253:42|Logical mutation|movie.ReleaseYear is not null\r\n        || movie.Runtime is not null\r\n        || movie.ImdbRating is not null\r\n        && movie.CollectionId is not null",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|379:18-379:33|String mutation|\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|376:34-376:51|String mutation|\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|265:16-265:44|Arithmetic mutation|(double)intersection * union",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|38:13-38:29|Negate expression|!(maxWeight <= 0.0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|227:9-231:44|Logical mutation|a.Directors.SetEquals(b.Directors)\r\n        && a.Writers.SetEquals(b.Writers)\r\n        && a.Cast.SetEquals(b.Cast)\r\n        && a.Genres.SetEquals(b.Genres)\r\n        || a.Keywords.SetEquals(b.Keywords)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|214:17-214:34|Negate expression|!(term.Weight > max)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|284:25-284:70|Equality mutation|Math.Abs(first - second) > MaxSimilarYearGap",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|74:32-74:48|Equality mutation|second.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|162:54-162:130|Conditional (true) mutation|(true?\"Similar rating\" :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|224:9-224:60|Logical mutation|AreSetsIdentical(a, b) || AreScalarsIdentical(a, b)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|149:54-149:136|Conditional (false) mutation|(false?\"Similar runtime\" :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|236:12-236:40|Equality mutation|a.ImdbRating != b.ImdbRating",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|227:9-228:42|Logical mutation|a.Directors.SetEquals(b.Directors)\r\n        || a.Writers.SetEquals(b.Writers)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|133:13-133:52|Logical mutation|first is not null || second is not null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|56:9-56:74|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|237:12-237:44|Equality mutation|a.CollectionId != b.CollectionId",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|293:9-293:41|Logical mutation|weight > 0.0 || similarity > 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|146:34-146:52|Equality mutation|second is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|77:26-77:97|Conditional (true) mutation|(true?SetReason(label, first, second) :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|293:25-293:41|Equality mutation|similarity < 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|60:9-60:83|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|102:13-102:30|Equality mutation|first is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|368:33-368:59|String mutation|$\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|162:54-162:130|Conditional (false) mutation|(false?\"Similar rating\" :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|88:32-88:44|Linq method mutation (Count() to Sum())|second.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|91:26-91:86|Conditional (true) mutation|(true?SharedKeywordsReason :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|178:38-178:59|Equality mutation|term.Similarity <= 1.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|351:20-351:32|String mutation|\"Stryker was here!\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|118:9-124:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|117:13-117:48|Negate expression|!(first.Count > 0 && second.Count > 0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|117:32-117:44|Linq method mutation (Count() to Sum())|second.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|149:54-149:136|Conditional (true) mutation|(true?\"Similar runtime\" :null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|397:13-397:53|Negate expression|!(weight < 0.0 || !double.IsFinite(weight))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|133:13-133:30|Equality mutation|first is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|284:34-284:48|Arithmetic mutation|first + second",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|370:18-370:35|String mutation|$\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|149:13-149:139|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|264:21-264:32|Linq method mutation (Count() to Sum())|first.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|133:13-133:52|Negate expression|!(first is not null && second is not null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|243:9-243:34|Equality mutation|movie.Directors.Count < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|117:32-117:48|Equality mutation|second.Count < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|88:13-88:24|Linq method mutation (Count() to Sum())|first.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|302:16-302:33|Equality mutation|tokens.Count != 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|244:12-244:35|Equality mutation|movie.Writers.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|332:17-332:32|Equality mutation|text.Length >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|279:35-279:47|Linq method mutation (Count() to Sum())|second.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|74:13-74:28|Equality mutation|first.Count < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|274:13-276:14|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|290:9-290:88|Logical mutation|weight > 0.0 || Math.Abs((double)first - (double)second) <= MaxSimilarRatingGap",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|102:13-102:52|Negate expression|!(first is not null && second is not null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|256:40-256:54|Arithmetic mutation|first + second",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|205:9-207:69|Conditional (false) mutation|(false?new SimilarityResult(1.0, ImmutableList.Create(Reason.Structural(IdentityReason)))\r\n:new SimilarityResult(0.0, ImmutableList<Reason>.Empty))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|30:9-30:52|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|317:17-317:86|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|215:13-217:14|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|173:9-182:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|290:25-290:88|Equality mutation|Math.Abs((double)first - (double)second) < MaxSimilarRatingGap",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|344:16-344:94|Conditional (false) mutation|(false?insensitive :StringComparer.Ordinal.Compare(first, second))",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|284:25-284:70|Equality mutation|Math.Abs(first - second) < MaxSimilarYearGap",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|246:12-246:30|Linq method mutation (Count() to Sum())|movie.Genres.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|149:112-149:129|String mutation|\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|245:12-245:32|Equality mutation|movie.Cast.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|178:17-178:34|Equality mutation|term.Weight >= 0.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|391:9-391:58|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|315:17-315:57|Negate expression|!(second.TryGetValue(value, out var other))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|293:9-293:21|Equality mutation|weight < 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|31:9-31:57|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|397:13-397:53|Logical mutation|weight < 0.0 && !double.IsFinite(weight)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|243:9-243:34|Equality mutation|movie.Directors.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|178:17-178:59|Negate expression|!(term.Weight > 0.0 && term.Similarity < 1.0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|310:5-322:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|247:12-247:32|Linq method mutation (Count() to Sum())|movie.Keywords.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|302:16-302:28|Linq method mutation (Count() to Sum())|tokens.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|386:9-386:55|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|159:34-159:52|Equality mutation|second is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|194:9-199:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|54:9-54:92|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|317:28-317:68|Equality mutation|string.CompareOrdinal(value, other) > 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|284:9-284:21|Equality mutation|weight < 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|397:13-397:25|Equality mutation|weight > 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|293:25-293:41|Equality mutation|similarity >= 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|279:21-279:32|Linq method mutation (Count() to Sum())|first.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|175:13-175:56|AddAssignmentExpression to SubtractAssignmentExpression mutation|numerator -= scaledWeight * term.Similarity",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|250:9-251:37|Logical mutation|movie.ReleaseYear is not null\r\n        && movie.Runtime is not null",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|264:21-264:62|Arithmetic mutation|first.Count + second.Count + intersection",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|246:12-246:34|Equality mutation|movie.Genres.Count >= 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|316:13-318:14|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|160:9-163:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|280:16-280:44|Arithmetic mutation|(double)intersection * union",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|186:26-186:49|Arithmetic mutation|numerator * denominator",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|74:13-74:24|Linq method mutation (Count() to Sum())|first.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|326:9-326:36|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|162:107-162:123|String mutation|\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|214:17-214:34|Equality mutation|term.Weight >= max",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|262:5-266:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|158:5-164:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|197:17-197:56|Statement mutation|;",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|104:30-104:45|Equality mutation|first != second",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|106:13-106:63|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|103:9-107:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|234:9-237:44|Logical mutation|a.ReleaseYear == b.ReleaseYear\r\n        && a.Runtime == b.Runtime\r\n        && a.ImdbRating == b.ImdbRating\r\n        || a.CollectionId == b.CollectionId",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|102:34-102:52|Equality mutation|second is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|302:16-304:55|Conditional (false) mutation|(false?Fallback(label)\r\n:Format(label, string.Join(\", \", tokens)))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|39:9-41:10|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|243:9-243:30|Linq method mutation (Count() to Sum())|movie.Directors.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|74:13-74:48|Negate expression|!(first.Count > 0 && second.Count > 0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|284:9-284:21|Equality mutation|weight >= 0.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|74:32-74:44|Linq method mutation (Count() to Sum())|second.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|389:9-389:67|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|78:13-78:63|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|358:13-358:73|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|358:28-358:71|Conditional (false) mutation|(false?' ' :character)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|348:5-362:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|269:5-281:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|279:21-279:62|Arithmetic mutation|first.Count + second.Count + intersection",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs|317:28-317:84|Conditional (false) mutation|(false?value :other)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    }
+  ]
+}

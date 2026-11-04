@@ -1,0 +1,669 @@
+{
+  "summary": {
+    "case": "DEV-333",
+    "baselineAttempt": "attempt01",
+    "phase4Attempt": "attempt01",
+    "baselineCount": 104,
+    "candidateCount": 104,
+    "uniqueIds": 104,
+    "baselineDuplicateIds": [],
+    "candidateDuplicateIds": [],
+    "unmatchedBaselineOnly": 0,
+    "unmatchedCandidateOnly": 0,
+    "sourceContentMismatches": 0,
+    "survivedToTimeout": 0,
+    "killedToTimeout": 0,
+    "timeoutToSurvived": 0,
+    "timeoutToKilled": 0,
+    "baselineStatusTotals": {
+      "Killed": 55,
+      "Survived": 9,
+      "Timeout": 4,
+      "NoCoverage": 0,
+      "Ignored": 28,
+      "CompileError": 8
+    },
+    "candidateStatusTotals": {
+      "Killed": 55,
+      "Survived": 9,
+      "Timeout": 4,
+      "NoCoverage": 0,
+      "Ignored": 28,
+      "CompileError": 8
+    },
+    "transitionCounts": {
+      "CompileError->CompileError": 8,
+      "Ignored->Ignored": 28,
+      "Timeout->Timeout": 4,
+      "Killed->Killed": 55,
+      "Survived->Survived": 9
+    },
+    "integrityReject": false
+  },
+  "rows": [
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|65:5-86:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|138:9-138:51|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|25:9-25:52|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|201:9-201:33|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|136:5-145:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|172:9-172:39|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|81:9-83:10|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|110:9-112:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|31:28-31:32|Boolean mutation|false",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|45:13-45:69|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|91:5-110:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|197:13-197:53|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|109:54-109:105|String mutation|(movie.Metadata?.Synopsis!=\"\")",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|94:9-94:37|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|59:9-64:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|128:20-128:25|Boolean mutation|true",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|48:9-50:10|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|42:13-42:57|Equality mutation|result is not MetadataLookupResult.Failed failed",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|195:13-195:55|Equality mutation|result is not MetadataLookupResult.Found found",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|173:13-173:108|Equality mutation|EnrichmentRetryPolicy.Decide(category, command.Attempt, options.Value.MaxAttempts) is not { } retry",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|121:9-121:51|Equality mutation|result is not MetadataLookupResult.Found found",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|132:16-132:56|Logical mutation|holder is not null || holder != movie.Id",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|98:13-98:62|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|24:5-54:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|69:9-75:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|43:13-43:54|Negate expression|!(cancellationToken.IsCancellationRequested)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|171:5-182:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|194:5-202:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|119:9-121:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|140:9-143:28|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|159:9-162:106|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|75:5-82:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|77:9-81:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|66:9-68:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|77:9-79:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|178:9-178:54|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|114:64-114:68|Boolean mutation|false",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|179:9-179:58|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|174:9-176:10|Block removal mutation|{}",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|50:13-50:60|Statement mutation|;",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|79:13-79:67|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|129:13-129:42|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|120:13-120:34|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|57:5-69:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|41:9-41:107|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|44:9-46:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|100:32-100:57|Equality mutation|consumer > maxConcurrency",
+      "baselineStatus": "Timeout",
+      "candidateStatus": "Timeout",
+      "transition": "Timeout->Timeout"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|72:17-72:71|Null coalescing mutation (remove right)|movie.Metadata?.ReleaseYear",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|60:9-62:76|Conditional (true) mutation|(true?DeferAsync(movie, cancellationToken)\r\n:FailAsync(command, failed.Category, movie, cancellationToken))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|72:17-72:71|Null coalescing mutation (remove left)|movie.ParsedReleaseYear",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|35:13-35:90|Negate expression|!(await IsHeldByAnotherMovieAsync(movie, movie.ManualImdbId, cancellationToken))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|158:5-164:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|28:9-30:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|100:59-100:69|PostIncrementExpression to PostDecrementExpression mutation|consumer--",
+      "baselineStatus": "Timeout",
+      "candidateStatus": "Timeout",
+      "transition": "Timeout->Timeout"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|43:9-45:10|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|111:13-111:93|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|127:9-129:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|78:13-78:62|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|48:13-48:44|Equality mutation|firstFault.Value is not { } failure",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|126:13-126:27|Equality mutation|imdbId is not null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|100:32-100:57|Equality mutation|consumer <= maxConcurrency",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|47:13-47:89|Negate expression|!(await IsFoundImdbIdHeldByAnotherMovieAsync(movie, result, cancellationToken))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|109:53-109:105|LogicalNotExpression to un-LogicalNotExpression mutation|string.IsNullOrWhiteSpace(movie.Metadata?.Synopsis)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|28:58-34:10|Object initializer mutation|new BoundedChannelOptions(maxConcurrency)\r\n{}",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|61:13-63:14|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|97:9-99:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|27:13-27:89|LogicalNotExpression to un-LogicalNotExpression mutation|await movies.TryClaimForEnrichmentAsync(command.MovieId, cancellationToken)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|78:13-78:19|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|67:13-67:34|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|49:9-51:10|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|128:13-128:42|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|121:9-122:92|Logical mutation|result is MetadataLookupResult.Found found\r\n        || await IsHeldByAnotherMovieAsync(movie, found.Metadata.ImdbId, cancellationToken)",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|148:5-151:6|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|72:17-72:71|Null coalescing mutation (left to right)|movie.ParsedReleaseYear??                 movie.Metadata?.ReleaseYear",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|208:13-208:84|String mutation|\"\"",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|139:9-139:58|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|29:68-29:73|Boolean mutation|true",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|109:54-109:105|String mutation|(movie.Metadata?.Synopsis.Trim()!=\"\")",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|109:13-109:105|Logical mutation|result is MetadataLookupResult.Found || !string.IsNullOrWhiteSpace(movie.Metadata?.Synopsis)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|92:21-99:10|Collection initializer mutation|new List<Task>(maxConcurrency + 1)\r\n{}",
+      "baselineStatus": "Timeout",
+      "candidateStatus": "Timeout",
+      "transition": "Timeout->Timeout"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|101:9-107:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|189:17-191:57|Conditional (true) mutation|(true?TelemetryConstants.NotFoundOutcome\r\n:TelemetryConstants.EnrichedOutcome)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|33:45-33:50|Boolean mutation|true",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|127:9-130:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|36:9-38:10|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|62:17-62:68|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|109:54-109:105|String mutation|(movie.Metadata?.Synopsis!=null)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|189:17-191:57|Conditional (false) mutation|(false?TelemetryConstants.NotFoundOutcome\r\n:TelemetryConstants.EnrichedOutcome)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|60:9-62:76|Conditional (false) mutation|(false?DeferAsync(movie, cancellationToken)\r\n:FailAsync(command, failed.Category, movie, cancellationToken))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|125:5-133:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|117:5-131:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|101:9-107:10|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|109:13-109:105|Negate expression|!(result is MetadataLookupResult.Found && !string.IsNullOrWhiteSpace(movie.Metadata?.Synopsis))",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|95:9-95:48|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|132:38-132:56|Equality mutation|holder == movie.Id",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|80:13-80:34|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|32:28-32:33|Boolean mutation|true",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|93:5-115:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|132:16-132:34|Equality mutation|holder is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|141:13-141:70|String mutation|\"\"",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|26:5-53:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|92:36-92:54|Arithmetic mutation|maxConcurrency - 1",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs|196:9-199:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs|102:13-106:28|Statement mutation|;",
+      "baselineStatus": "Timeout",
+      "candidateStatus": "Timeout",
+      "transition": "Timeout->Timeout"
+    }
+  ]
+}

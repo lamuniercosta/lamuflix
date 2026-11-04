@@ -1,0 +1,634 @@
+{
+  "summary": {
+    "case": "DEV-444",
+    "baselineAttempt": "attempt01",
+    "candidateAttempt": "attempt01",
+    "baselineCount": 98,
+    "candidateCount": 98,
+    "uniqueIds": 98,
+    "baselineDuplicateIds": [],
+    "candidateDuplicateIds": [],
+    "unmatchedBaselineOnly": 0,
+    "unmatchedCandidateOnly": 0,
+    "sourceContentMismatches": 0,
+    "survivedToTimeout": 0,
+    "killedToTimeout": 0,
+    "timeoutToSurvived": 0,
+    "timeoutToKilled": 0,
+    "baselineStatusTotals": {
+      "Killed": 36,
+      "Survived": 28,
+      "Timeout": 4,
+      "NoCoverage": 0,
+      "Ignored": 23,
+      "CompileError": 7
+    },
+    "candidateStatusTotals": {
+      "Killed": 36,
+      "Survived": 25,
+      "Timeout": 4,
+      "NoCoverage": 3,
+      "Ignored": 23,
+      "CompileError": 7
+    },
+    "transitionCounts": {
+      "Survived->Survived": 25,
+      "Ignored->Ignored": 23,
+      "CompileError->CompileError": 7,
+      "Timeout->Timeout": 4,
+      "Survived->NoCoverage": 3,
+      "Killed->Killed": 36
+    },
+    "integrityReject": false
+  },
+  "rows": [
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|231:52-231:56|Boolean mutation|false",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|233:13-233:64|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "NoCoverage",
+      "transition": "Survived->NoCoverage"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|97:9-124:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|56:9-56:58|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|246:5-260:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|198:32-198:40|UnaryMinusExpression to UnaryPlusExpression mutation|+minimum",
+      "baselineStatus": "Survived",
+      "candidateStatus": "NoCoverage",
+      "transition": "Survived->NoCoverage"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|139:9-139:58|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|48:9-48:58|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|171:17-171:44|Conditional (false) mutation|(false?1.0 :0.0)",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|158:9-181:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|198:16-198:46|Conditional (true) mutation|(true?-minimum :0.0)",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|238:5-243:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|192:17-192:44|Negate expression|!(item.Result.Score < minimum)",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|114:21-114:67|Negate expression|!(!summary.IsNotInterested && !summary.IsWatched)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|231:13-231:81|Equality mutation|profileSimilarity is not { HasPlotChannel: true, PlotSimilarity: > 0.0 }",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|96:36-96:48|PostIncrementExpression to PostDecrementExpression mutation|pageNumber--",
+      "baselineStatus": "Timeout",
+      "candidateStatus": "Timeout",
+      "transition": "Timeout->Timeout"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|224:17-224:35|Equality mutation|display.Length >= 0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|132:5-145:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|154:5-184:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|115:17-117:18|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|143:13-143:33|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|120:17-120:51|Negate expression|!(page.Items.Length < BrowsePageSize)",
+      "baselineStatus": "Timeout",
+      "candidateStatus": "Timeout",
+      "transition": "Timeout->Timeout"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|248:9-250:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|247:13-247:26|Equality mutation|value is not null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|121:13-123:14|Block removal mutation|{}",
+      "baselineStatus": "Timeout",
+      "candidateStatus": "Timeout",
+      "transition": "Timeout->Timeout"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|41:9-43:10|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|255:9-257:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|134:9-136:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|193:13-195:14|Block removal mutation|{}",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|232:9-234:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|240:9-242:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|141:13-141:30|Equality mutation|movie is null",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|207:13-207:32|Equality mutation|profileWeight < 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|192:17-192:44|Equality mutation|item.Result.Score > minimum",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|222:9-229:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|108:13-108:62|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|191:9-196:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|163:21-163:42|Linq method mutation (Order() to OrderDescending())|features.Genres.OrderDescending",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|114:21-114:45|LogicalNotExpression to un-LogicalNotExpression mutation|summary.IsNotInterested",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|40:13-40:27|Linq method mutation (Count() to Sum())|eligible.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|51:9-53:10|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|98:13-98:62|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|114:21-114:67|Logical mutation|!summary.IsNotInterested || !summary.IsWatched",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|40:13-40:32|Equality mutation|eligible.Count != 0",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|141:34-141:56|LogicalNotExpression to un-LogicalNotExpression mutation|movie.IsNotInterested",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|198:16-198:29|Equality mutation|minimum > 0.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|72:71-72:106|Arithmetic mutation|item.Result.Score - relevanceOffset",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|111:13-118:14|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|207:13-207:32|Negate expression|!(profileWeight > 0.0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|171:17-171:44|Conditional (true) mutation|(true?1.0 :0.0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|231:74-231:79|Equality mutation|< 0.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|159:13-159:62|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|263:5-277:6|Block removal mutation|{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|92:5-125:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|192:17-192:44|Equality mutation|item.Result.Score <= minimum",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|73:13-73:23|Linq method mutation (Take() to Skip())|query.Skip",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|133:13-133:26|LogicalNotExpression to un-LogicalNotExpression mutation|seen.Add(id)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|175:13-180:84|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|141:13-141:76|Negate expression|!(movie is not null && !movie.IsNotInterested && !movie.IsWatched)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|204:5-215:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|207:13-207:32|Equality mutation|profileWeight >= 0.0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|59:9-59:58|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|198:16-198:46|Conditional (false) mutation|(false?-minimum :0.0)",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|198:16-198:29|Equality mutation|minimum <= 0.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|220:5-235:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|256:13-256:27|Linq method mutation (Append() to Prepend())|builder.Prepend",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|209:13-209:60|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|187:5-199:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|155:48-155:62|Linq method mutation (Count() to Sum())|eligible.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|114:49-114:67|LogicalNotExpression to un-LogicalNotExpression mutation|summary.IsWatched",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|120:17-120:51|Equality mutation|page.Items.Length > BrowsePageSize",
+      "baselineStatus": "Timeout",
+      "candidateStatus": "Timeout",
+      "transition": "Timeout->Timeout"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|224:17-224:35|Equality mutation|display.Length < 0",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|116:21-116:91|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|142:9-144:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|141:60-141:76|LogicalNotExpression to un-LogicalNotExpression mutation|movie.IsWatched",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|256:28-256:71|Conditional (true) mutation|(true?' ' :character)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|50:13-50:50|Negate expression|!(profileInputs.Movies.IsDefaultOrEmpty)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|241:13-241:68|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|249:20-249:32|String mutation|\"Stryker was here!\"",
+      "baselineStatus": "Survived",
+      "candidateStatus": "NoCoverage",
+      "transition": "Survived->NoCoverage"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|141:13-141:76|Logical mutation|movie is not null && !movie.IsNotInterested || !movie.IsWatched",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|112:17-112:66|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|239:13-239:26|Linq method mutation (Count() to Sum())|builder.Sum",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|34:5-89:6|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|141:13-141:56|Logical mutation|movie is not null || !movie.IsNotInterested",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|224:17-224:35|Negate expression|!(display.Length > 0)",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|256:28-256:71|Conditional (false) mutation|(false?' ' :character)",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|231:74-231:79|Equality mutation|>= 0.0",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|212:9-212:39|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|120:17-120:51|Equality mutation|page.Items.Length <= BrowsePageSize",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|135:13-135:20|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|38:9-38:58|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|239:13-239:31|Equality mutation|builder.Count != 0",
+      "baselineStatus": "CompileError",
+      "candidateStatus": "CompileError",
+      "transition": "CompileError->CompileError"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|226:17-227:99|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|256:13-256:73|Statement mutation|;",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|101:17-106:18|Object initializer mutation|new MovieQuery\r\n{}",
+      "baselineStatus": "Killed",
+      "candidateStatus": "Killed",
+      "transition": "Killed->Killed"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|208:9-210:10|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|35:9-35:58|Statement mutation|;",
+      "baselineStatus": "Survived",
+      "candidateStatus": "Survived",
+      "transition": "Survived->Survived"
+    },
+    {
+      "id": "src/LamuFlix.Core/Features/Recommendations/GetForYouRecommendationsQueryHandler.cs|225:13-228:14|Block removal mutation|{}",
+      "baselineStatus": "Ignored",
+      "candidateStatus": "Ignored",
+      "transition": "Ignored->Ignored"
+    }
+  ]
+}
