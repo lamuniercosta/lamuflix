@@ -855,6 +855,25 @@ public sealed class OmdbMetadataProviderUnitTests
     }
 
     [Theory]
+    [InlineData("movie")]
+    [InlineData("Movie")]
+    [InlineData("MOVIE")]
+    public async Task FindAsync_AutomaticDirectResponseWithMixedCaseMovieType_ReturnsFound(string type)
+    {
+        // arrange
+        var handler = new StubHandler(HttpStatusCode.OK, DirectBody(type: type));
+        var provider = Provider(handler);
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata.Title.ShouldBe("Blade Runner");
+        handler.RequestUri.ShouldNotBeNull();
+        handler.RequestUri.Query.ShouldContain("t=");
+    }
+
+    [Theory]
     [InlineData("episode")]
     [InlineData("series")]
     [InlineData("unknown")]
