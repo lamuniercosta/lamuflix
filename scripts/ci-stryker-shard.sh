@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CI helper that splits the whole-Core Stryker run across parallel jobs and puts the
-# reports back together, so the mutation gate fits a one hour budget per job.
+# reports back together, so the mutation gate fits a two hour budget per job.
 #
 #   ci-stryker-shard.sh run   <shard> <shard-count> <output-dir>
 #   ci-stryker-shard.sh merge <merged-report.json> <shard-report.json>...
