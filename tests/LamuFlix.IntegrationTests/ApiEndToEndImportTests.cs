@@ -53,6 +53,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
     private static readonly string OmdbBody = $$"""
         {
           "Response": "True",
+          "Type": "movie",
           "Title": "{{FolderTitle}}",
           "Year": "{{ExpectedYear}}",
           "Runtime": "{{ExpectedRuntime}} min",

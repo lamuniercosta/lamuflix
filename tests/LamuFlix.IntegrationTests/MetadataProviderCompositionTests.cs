@@ -26,6 +26,7 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
     private const string FoundBody = """
         {
           "Response": "True",
+          "Type": "movie",
           "Title": "Solaris",
           "Year": "1972",
           "Runtime": "167 min",

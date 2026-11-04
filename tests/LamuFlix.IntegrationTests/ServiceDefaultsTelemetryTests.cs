@@ -66,6 +66,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
     private const string FoundBody = """
         {
           "Response": "True",
+          "Type": "movie",
           "Title": "Blade Runner",
           "Year": "1982",
           "Runtime": "117 min",

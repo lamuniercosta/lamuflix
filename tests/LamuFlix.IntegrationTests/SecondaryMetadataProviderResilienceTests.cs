@@ -23,6 +23,7 @@ public sealed class SecondaryMetadataProviderResilienceTests(SecondaryMetadataPr
     private const string OmdbFoundBody = """
         {
           "Response": "True",
+          "Type": "movie",
           "Title": "Solaris",
           "Year": "1972",
           "Runtime": "167 min",
