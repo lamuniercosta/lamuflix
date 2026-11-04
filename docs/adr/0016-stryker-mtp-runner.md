@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-28
-- Ticket: DEV-382 (delivered and merged, amended DEV-410, finalized DEV-328)
+- Ticket: DEV-382 (delivered and merged, amended DEV-410, finalized DEV-328, amended DEV-451)
 
 ## Context
 
@@ -23,8 +23,10 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
 
 ## Decision
 
-- Pin `dotnet-stryker` 5.0.0. Set `"test-runner": "mtp"` and `"coverage-analysis": "off"`
-  in `stryker-config.json` and in every config the gate generates.
+- Pin `dotnet-stryker` 5.0.0 and keep `"test-runner": "mtp"`. The tracked
+  `stryker-config.json` and CI shards retain `"coverage-analysis": "off"`. Under the DEV-451
+  amendment below, the local pre-PR gate generates `"coverage-analysis": "perTestInIsolation"`
+  by default and retains explicit `-CoverageAnalysis off` as the control.
 - The gate sets `test-projects` explicitly: the test projects that reference the mutated project,
   excluding `*.ArchitectureTests`. It fails when none are eligible.
 - Report evaluation fails when any `killedBy` test is an ArchitectureTests test.
@@ -191,3 +193,76 @@ Infrastructure (0/40) and Api (0/9) in DEV-296 D7d. The DEV-382 experiments (E1-
   contaminated kill above, which is the failure the rule exists to catch.
 - `stryker-core-gate` downloads the shard reports with `actions/download-artifact@v8`, to match
   the `upload-artifact@v7` that writes them.
+
+## Amendment: measured local pre-PR coverage default (DEV-451, 2026-11-04)
+
+Patron ratified this local-only decision at T006; Bernstein authorized this in-place T010
+amendment before T011 adoption. The complete cited ruling and validated evidence are in
+`specs/DEV-451/CONCLUSIONS.md` (T005 validation and T006 ruling), with raw receipts and
+stable-identity matrices under `specs/DEV-451/evidence/`. No new ADR number is introduced.
+This amendment changes the generated local coverage default in Decision item 1. All other
+Decision items and the DEV-410 safeguards remain in force.
+
+### Evidence and limits
+
+Matched Stryker 5.0.0 mtp/off versus mtp/perTestInIsolation scratch runs held frozen source,
+tests, machine, eligible projects, concurrency 8 and additional-timeout 90000 constant:
+
+| Case | Control wall seconds | Candidate wall seconds | Reduction | Score / gate outcome retained | Timeouts retained |
+|---|---:|---:|---:|---|---:|
+| DEV-444 | 1088.7 | 840.3 | 22.8% | 58.82%, FAIL | 4 |
+| DEV-448 | 3385.7 | 880.0 | 74.0% | 89.59%, PASS | 0 |
+| DEV-333 | 1233.3 | 919.4 | 25.5% | 86.76%, Core PASS / Infrastructure N/A | 4 |
+
+Full mutant populations match at 98, 283 and 104, with no duplicate or unmatched identities
+and zero Survived-to-Timeout or Killed-to-Timeout conversions. DEV-448 and DEV-333 retain
+all status totals. DEV-444 has three explained Survived-to-NoCoverage transitions; NoCoverage
+stays in its tested denominator of 68, so neither score nor FAIL is erased. The older rejected
+`perTest` experiment and the rejected `all` experiment remain historical evidence for those
+modes; this decision ratifies only the measured `perTestInIsolation` local path.
+
+These are single matched scratch samples with pre-existing timeouts, not repeatability,
+whole-Core or CI performance proof. Recommendation-test span exemptions still weaken that
+signal. T012 must supply native shipping-gate timing and integrity evidence for all three
+frozen cases; T013 validates the single authoritative DEV-444 sample strictly below 1800
+seconds. Scratch speed does not complete those acceptance tasks or convert a mutation FAIL
+into PASS.
+
+### Local generated configuration and controls
+
+- `scripts/run-mutation.ps1` generates mtp/perTestInIsolation by default for the local pre-PR
+  gate. Retain explicit `-CoverageAnalysis off` for the matched control. D1b captures caller
+  parameters early at script scope so later dot-sourcing cannot lose the requested mode.
+  Shipping guards validate the effective generated mode: perTestInIsolation default and off
+  control are permitted; unsupported modes are rejected. Regression proof belongs in
+  `scripts/Test-RunMutation.ps1`. Scratch-only guard behavior is not the shipping contract.
+- Tracked `stryker-config.json` remains mtp/off; it is never hand-edited. There is no
+  `harness.yml`, `install.ps1`, renderer or fourth-script change. The local default is selected
+  within the ticket-named scripts, not by changing the tracked base configuration.
+- `scripts/ci-stryker-shard.sh` stays mtp/off. Its post-merge whole-Core workload is outside
+  DEV-451 scope and has not been measured with perTestInIsolation. The CI `-EvaluateReport`
+  entry point remains mode-agnostic, and aggregate score, attribution, share/span, shard
+  population/merge and restore checks remain unchanged.
+- Existing receipt invocations inherit the local default without consumer edits. Preserve
+  timing/receipt fields, exits and the parsed `Mutation testing:` and `Stryker native exit for`
+  prefixes; additive effective-mode/provenance output must not begin with either prefix.
+  Patron dispositioned off-only mentions in unnamed docs/skills/settings as `noted, no ticket`;
+  those files remain untouched in DEV-451. This ADR is the canonical coverage decision.
+
+### Safeguards and remaining delivery work
+
+Keep Stryker 5.0.0 and mtp, explicit directly referencing eligible projects, fail-if-none,
+ArchitectureTests exclusion and killedBy rejection, threshold 80, actual additional-timeout
+90000 with the 30000 floor, concurrency no greater than half the processor count,
+`since.enabled=false`, diff-only mutation by default and explicit `-WholeProject` behavior.
+The entire `gates.mutation` block remains unchanged: share 50 with its 20-tested minimum,
+span 15, exact class-prefix/reason exemptions and project exclusions. NoCoverage remains in
+the score denominator. Preserve static-initialization discipline: perTestInIsolation does
+not establish isolation of mutant-server state or authorize mutable static initialization.
+The CRLF span defect remains the separate DEV-460 follow-up.
+
+T010 records this approved amendment before T011 implementation. T011 must retain these
+controls and prove the default, explicit off mode, parameter preservation and rejection
+paths within the three-script boundary. Native T012/T013 acceptance, all-three-script
+`dotnet-agent-harness` origin/main parity at T014 and remaining gates/review are still
+required before delivery. This amendment authorizes no CI speed claim or policy relaxation.
