@@ -1061,6 +1061,35 @@ $killedInChangedFile,
         'sets ''additional-timeout'' to 5000 (expected at least 30000'
     ) -MustNotContain @('Generated config')
 
+    Assert-MutationCase -Name '30e default generated coverage-analysis is perTestInIsolation' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @($coreMarker)
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase) -ExpectedExit 0 -MustContain @(
+        'Effective coverage-analysis: perTestInIsolation',
+        '"coverage-analysis": "perTestInIsolation"'
+    ) -MustNotContain @(
+        '"coverage-analysis": "off"'
+    )
+
+    Assert-MutationCase -Name '30f explicit -CoverageAnalysis off generates the off control' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @($coreMarker)
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase, '-CoverageAnalysis', 'off') -ExpectedExit 0 -MustContain @(
+        'Effective coverage-analysis: off',
+        '"coverage-analysis": "off"'
+    ) -MustNotContain @(
+        'Effective coverage-analysis: perTestInIsolation'
+    )
+
+    Assert-MutationCase -Name '30g unsupported -CoverageAnalysis value exits 1' -Setup {
+        Set-FixtureHarnessConfig -Exclusions $null
+        Add-ChangedPaths -Paths @($coreMarker)
+    } -Arguments @('-DryRun', '-BaseRef', $script:fixtureBase, '-CoverageAnalysis', 'perTest') -ExpectedExit 1 -MustContain @(
+        'invalid -CoverageAnalysis value'
+    ) -MustNotContain @(
+        'Generated config'
+    )
+
     # The generated config is the project's own config with only the gate-owned keys
     # replaced, so a project setting the gate does not own survives into the run. The
     # key is injected by the case, so the assertion holds whether the config under
