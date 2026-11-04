@@ -1,0 +1,26 @@
+{
+  "exit": 0,
+  "scopeCount": 16,
+  "scopeFiles": [
+    "src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs",
+    "src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs",
+    "src/LamuFlix.Infrastructure/FileSystem/FileSystemLibraryFolderDiscovery.cs",
+    "src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs",
+    "src/LamuFlix.Infrastructure/RabbitMq/EnrichmentConsumer.cs",
+    "src/LamuFlix.Infrastructure/RabbitMq/EnrichmentRouting.cs",
+    "src/LamuFlix.Infrastructure/RabbitMq/RabbitMqEnrichmentQueuePublisher.cs",
+    "src/LamuFlix.Infrastructure/RabbitMq/RabbitMqTopology.cs",
+    "tests/LamuFlix.IntegrationTests/ImportLibraryCommandHandlerPersistenceTests.cs",
+    "tests/LamuFlix.IntegrationTests/ImportLibraryDryRunTests.cs",
+    "tests/LamuFlix.IntegrationTests/OmdbQuotaDeferralCompositionTests.cs",
+    "tests/LamuFlix.IntegrationTests/QuotaDeferredBrokerTests.cs",
+    "tests/LamuFlix.UnitTests/Domain/MovieEnrichmentDeferredUntilTests.cs",
+    "tests/LamuFlix.UnitTests/Features/Enrichment/ProcessEnrichmentQuotaDeferredTests.cs",
+    "tests/LamuFlix.UnitTests/Features/Import/ImportLibraryHandlerDoubles.cs",
+    "tests/LamuFlix.UnitTests/FileSystem/FileSystemLibraryFolderDiscoveryTests.cs"
+  ],
+  "report": "C:/Users/lamun/AppData/Local/Temp/DEV-451-candidate-DEV-333-attempt01/LamuFlix.Core/reports/mutation-report.json",
+  "reportSha256": "CE7E83E966039DB060F726F5A73A8823A3A26ACEC6B01500C24AF1FA5936892A",
+  "commandBody": "$scopeFiles = @('src/LamuFlix.Core/Features/Enrichment/ProcessEnrichmentCommandHandler.cs','src/LamuFlix.Core/Features/Import/ImportLibraryCommandHandler.cs','src/LamuFlix.Infrastructure/FileSystem/FileSystemLibraryFolderDiscovery.cs','src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs','src/LamuFlix.Infrastructure/RabbitMq/EnrichmentConsumer.cs','src/LamuFlix.Infrastructure/RabbitMq/EnrichmentRouting.cs','src/LamuFlix.Infrastructure/RabbitMq/RabbitMqEnrichmentQueuePublisher.cs','src/LamuFlix.Infrastructure/RabbitMq/RabbitMqTopology.cs','tests/LamuFlix.IntegrationTests/ImportLibraryCommandHandlerPersistenceTests.cs','tests/LamuFlix.IntegrationTests/ImportLibraryDryRunTests.cs','tests/LamuFlix.IntegrationTests/OmdbQuotaDeferralCompositionTests.cs','tests/LamuFlix.IntegrationTests/QuotaDeferredBrokerTests.cs','tests/LamuFlix.UnitTests/Domain/MovieEnrichmentDeferredUntilTests.cs','tests/LamuFlix.UnitTests/Features/Enrichment/ProcessEnrichmentQuotaDeferredTests.cs','tests/LamuFlix.UnitTests/Features/Import/ImportLibraryHandlerDoubles.cs','tests/LamuFlix.UnitTests/FileSystem/FileSystemLibraryFolderDiscoveryTests.cs')\nif ($scopeFiles.Count -ne 16) { throw 'Frozen scope mismatch' }\n$candidateReport = 'C:/Users/lamun/AppData/Local/Temp/DEV-451-candidate-DEV-333-attempt01/LamuFlix.Core/reports/mutation-report.json'\n& ./scripts/run-mutation.ps1 -EvaluateReport $candidateReport -ScopeFile @($scopeFiles)\nexit $LASTEXITCODE",
+  "binding": "pwsh -EncodedCommand (Unicode Base64 of -Command body with array-bound ScopeFile)"
+}

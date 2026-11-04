@@ -1,0 +1,12 @@
+{
+  "start": "2026-11-04T18:52:36.9980154+00:00",
+  "end": "2026-11-04T19:07:57.0449292+00:00",
+  "wallMs": 920043,
+  "exit": 0,
+  "consoleLog": "C:\\Users\\lamun\\AppData\\Local\\Temp\\DEV-451-DEV-333-candidate-attempt01-console.log",
+  "baseRef": "f00e01bacb63c083349b3a46425189e31e3564c2",
+  "outputRoot": "C:\\Users\\lamun\\AppData\\Local\\Temp\\DEV-451-candidate-DEV-333-attempt01",
+  "head": "b25ecb1614a0c82771f254b700bb53dff0a25bf0",
+  "gateCopySha256": "A7184D91350028B77C24B5D35CCDF3C69817306EA2824E787C9AB67D42CA79BE",
+  "coverageAnalysis": "perTestInIsolation"
+}
