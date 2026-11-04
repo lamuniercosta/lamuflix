@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { generateFixtures, RESERVED_MOVIE, SEED_MOVIES } from './fixtures.mjs';
+import { generateFixtures, MANUAL_MATCH_MOVIES, RESERVED_MOVIE, SEED_MOVIES } from './fixtures.mjs';
 
 const execFileAsync = promisify(execFile);
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -167,20 +167,26 @@ function foundBody(movie) {
   return {
     Response: 'True',
     Title: movie.title,
+    Type: 'movie',
     Year: String(movie.year),
     Runtime: `${movie.runtimeMinutes} min`,
     Plot: `${movie.title} smoke fixture.`,
     Rated: 'N/A',
     imdbRating: movie.rating,
     imdbID: movie.imdbId,
-    Poster: 'N/A',
+    Poster: movie.posterUrl ?? 'N/A',
     Genre: movie.genre,
-    Director: 'Smoke Fixture',
+    Director: movie.director ?? 'Smoke Fixture',
     Writer: 'Smoke Fixture',
     Actors: 'Smoke Fixture',
     Metascore: 'N/A',
   };
 }
+
+const manualMatchMovies = MANUAL_MATCH_MOVIES.map((movie) => ({
+  ...movie,
+  posterUrl: `${BASE_URL}/e2e-posters/${movie.imdbId}.svg`,
+}));
 
 function writeStubResponses() {
   const responses = [...SEED_MOVIES, RESERVED_MOVIE].map((movie) => ({
@@ -188,6 +194,14 @@ function writeStubResponses() {
     year: movie.year,
     body: foundBody(movie),
   }));
+  for (const movie of manualMatchMovies) {
+    responses.push({
+      title: movie.title,
+      year: movie.year,
+      manual: true,
+      body: foundBody(movie),
+    });
+  }
   writeFileSync(responsesFile, `${JSON.stringify({ responses }, null, 2)}\n`);
 }
 
@@ -201,6 +215,7 @@ function writeContext() {
     waitBudgetMs: WAIT_BUDGET_MS,
     baseURL: BASE_URL,
     seedTitles: SEED_MOVIES.map((movie) => movie.title),
+    manualMatchMovies,
     reservedMovie: { title: RESERVED_MOVIE.title, year: RESERVED_MOVIE.year },
     reservedFolders: { ...RESERVED_MOVIE.folders },
     runtimeDir: composePath(runtimeDir),
