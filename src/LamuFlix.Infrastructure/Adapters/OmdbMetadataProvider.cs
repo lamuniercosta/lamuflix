@@ -184,10 +184,7 @@ public sealed partial class OmdbMetadataProvider(
 
     private static Candidate? ScoreCandidate(MetadataLookup lookup, SearchHit hit, ImdbId? rejectedId)
     {
-        if (hit.Title is null
-            || !ImdbId.TryCreate(hit.Identifier, out var id)
-            || id == rejectedId
-            || !ResponseMapper.IsMovieHit(hit))
+        if (TryHitId(hit, rejectedId) is not { } id || hit.Title is null)
         {
             return null;
         }
@@ -199,6 +196,13 @@ public sealed partial class OmdbMetadataProvider(
             ResponseMapper.MapSearchYear(hit.Year));
         return score is { } value ? new Candidate(hit.Title, id, value) : null;
     }
+
+    private static ImdbId? TryHitId(SearchHit hit, ImdbId? rejectedId) =>
+        ImdbId.TryCreate(hit.Identifier, out var id)
+            && id != rejectedId
+            && ResponseMapper.IsMovieHit(hit)
+            ? id
+            : null;
 
     private async Task<MetadataLookupResult> FetchMatchAsync(MetadataLookup lookup, Candidate candidate, CancellationToken ct)
     {
@@ -219,7 +223,10 @@ public sealed partial class OmdbMetadataProvider(
     private bool IsEligible(MetadataLookup lookup, bool isMovie, MovieMetadata metadata) =>
         isMovie
         && !IsSuspicious(metadata)
-        && TitleMatcher.Score(
+        && ScoresAboveThreshold(lookup, metadata);
+
+    private bool ScoresAboveThreshold(MetadataLookup lookup, MovieMetadata metadata) =>
+        TitleMatcher.Score(
             lookup.Title,
             lookup.ReleaseYear?.Value,
             metadata.Title,
