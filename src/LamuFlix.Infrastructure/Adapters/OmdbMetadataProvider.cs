@@ -78,10 +78,20 @@ public sealed partial class OmdbMetadataProvider(
             return rejected.Failure;
         }
 
-        var body = ((Fetch.Succeeded)direct).Body;
-        return ResponseMapper.IsMovieNotFound(body)
-            ? await FallbackAsync(lookup, ct)
-            : Classify(body);
+        return await ResolveDirectAsync(lookup, ((Fetch.Succeeded)direct).Body, ct);
+    }
+
+    private async Task<MetadataLookupResult> ResolveDirectAsync(MetadataLookup lookup, Response body, CancellationToken ct)
+    {
+        if (ResponseMapper.IsMovieNotFound(body))
+        {
+            return await FallbackAsync(lookup, rejectedId: null, ct);
+        }
+
+        var outcome = Classify(body);
+        return outcome is MetadataLookupResult.Found found && !IsEligible(lookup, ResponseMapper.IsMovie(body), found.Metadata)
+            ? await FallbackAsync(lookup, ResponseMapper.MapIdentifier(body.Identifier), ct)
+            : outcome;
     }
 
     /// <summary>
@@ -101,7 +111,7 @@ public sealed partial class OmdbMetadataProvider(
         };
     }
 
-    private async Task<MetadataLookupResult> FallbackAsync(MetadataLookup lookup, CancellationToken ct)
+    private async Task<MetadataLookupResult> FallbackAsync(MetadataLookup lookup, ImdbId? rejectedId, CancellationToken ct)
     {
         var candidates = new List<SearchHit>();
         foreach (var query in FallbackQueries(lookup))
@@ -113,7 +123,7 @@ public sealed partial class OmdbMetadataProvider(
             }
 
             candidates.AddRange(page.Hits);
-            if (BestCandidate(lookup, candidates) is { } match)
+            if (BestCandidate(lookup, candidates, rejectedId) is { } match)
             {
                 return await FetchMatchAsync(lookup, match, ct);
             }
@@ -155,12 +165,12 @@ public sealed partial class OmdbMetadataProvider(
             : SearchPage.Failed(InvalidBodyOutcome());
     }
 
-    private Candidate? BestCandidate(MetadataLookup lookup, IReadOnlyList<SearchHit> hits)
+    private Candidate? BestCandidate(MetadataLookup lookup, IReadOnlyList<SearchHit> hits, ImdbId? rejectedId)
     {
         Candidate? best = null;
         foreach (var hit in hits)
         {
-            var candidate = ScoreCandidate(lookup, hit);
+            var candidate = ScoreCandidate(lookup, hit, rejectedId);
             if (candidate is { } scored
                 && scored.Score >= omdbOptions.MatchThreshold
                 && (best is null || scored.Score > best.Score))
@@ -172,9 +182,12 @@ public sealed partial class OmdbMetadataProvider(
         return best;
     }
 
-    private static Candidate? ScoreCandidate(MetadataLookup lookup, SearchHit hit)
+    private static Candidate? ScoreCandidate(MetadataLookup lookup, SearchHit hit, ImdbId? rejectedId)
     {
-        if (hit.Title is null || !ImdbId.TryCreate(hit.Identifier, out var id))
+        if (hit.Title is null
+            || !ImdbId.TryCreate(hit.Identifier, out var id)
+            || id == rejectedId
+            || !ResponseMapper.IsMovieHit(hit))
         {
             return null;
         }
@@ -190,8 +203,32 @@ public sealed partial class OmdbMetadataProvider(
     private async Task<MetadataLookupResult> FetchMatchAsync(MetadataLookup lookup, Candidate candidate, CancellationToken ct)
     {
         Log.FallbackMatched(logger, lookup.Title, candidate.Title, candidate.Id.Value, Math.Round(candidate.Score, 3));
-        return await FetchByIdAsync(candidate.Id, ct);
+        var fetch = await FetchAsync(BuildIdUri(candidate.Id), ct);
+        if (fetch is Fetch.Rejected rejected)
+        {
+            return rejected.Failure;
+        }
+
+        var body = ((Fetch.Succeeded)fetch).Body;
+        var outcome = Classify(body);
+        return outcome is MetadataLookupResult.Found found && !IsEligible(lookup, ResponseMapper.IsMovie(body), found.Metadata)
+            ? NotFoundOutcome()
+            : outcome;
     }
+
+    private bool IsEligible(MetadataLookup lookup, bool isMovie, MovieMetadata metadata) =>
+        isMovie
+        && !IsSuspicious(metadata)
+        && TitleMatcher.Score(
+            lookup.Title,
+            lookup.ReleaseYear?.Value,
+            metadata.Title,
+            metadata.ReleaseYear?.Value) is { } score
+        && score >= omdbOptions.MatchThreshold
+        && TitleMatcher.Similarity(lookup.Title, metadata.Title) >= omdbOptions.MatchThreshold;
+
+    private static bool IsSuspicious(MovieMetadata metadata) =>
+        metadata.Runtime is null && metadata.ImdbRating is null && metadata.Directors.Count == 0;
 
     private async Task<MetadataLookupResult> FetchByIdAsync(ImdbId id, CancellationToken ct)
     {

@@ -66,6 +66,8 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         {
           "Response": "True",
           "Title": "Solaris",
+          "Type": "movie",
+          "Director": "Andrei Tarkovsky",
           "Plot": "N/A"
         }
         """;
@@ -151,7 +153,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
     public async Task FindAsync_MissingOptionalCollections_ProducesEmptyCollectionsAndSucceeds()
     {
         // arrange
-        StubBody(200, """{ "Response": "True", "Title": "Solaris" }""");
+        StubBody(200, """{ "Response": "True", "Title": "Solaris", "Type": "movie", "imdbRating": "8.1" }""");
         var services = probe.BuildServices();
 
         // act
@@ -172,7 +174,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         // arrange
         StubBody(
             200,
-            """{ "Response": "True", "Title": "Solaris", "Genre": "", "Director": "N/A", "Writer": "   ", "Actors": "," }""");
+            """{ "Response": "True", "Title": "Solaris", "Type": "movie", "Runtime": "117 min", "Genre": "", "Director": "N/A", "Writer": "   ", "Actors": "," }""");
         var services = probe.BuildServices();
 
         // act
@@ -192,7 +194,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         // arrange
         StubBody(
             200,
-            """{ "Response": "True", "Title": "Solaris", "Genre": " Sci-Fi , thriller , SCI-FI ,  Thriller " }""");
+            """{ "Response": "True", "Title": "Solaris", "Type": "movie", "Runtime": "117 min", "Genre": " Sci-Fi , thriller , SCI-FI ,  Thriller " }""");
         var services = probe.BuildServices();
 
         // act
@@ -208,7 +210,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
         // arrange
         StubBody(
             200,
-            """{ "Response": "True", "Title": "Dune", "Writer": "Frank Herbert (novel), David Lynch (screenplay)" }""");
+            """{ "Response": "True", "Title": "Dune", "Type": "movie", "Runtime": "137 min", "Writer": "Frank Herbert (novel), David Lynch (screenplay)" }""");
         var services = probe.BuildServices();
 
         // act
@@ -225,7 +227,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
     public async Task FindAsync_InRangeMetaScore_MapsToScore(string metaScore, int expected)
     {
         // arrange
-        StubBody(200, $$"""{ "Response": "True", "Title": "Solaris", "Metascore": "{{metaScore}}" }""");
+        StubBody(200, $$"""{ "Response": "True", "Title": "Solaris", "Type": "movie", "Runtime": "117 min", "Metascore": "{{metaScore}}" }""");
         var services = probe.BuildServices();
 
         // act
@@ -246,7 +248,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
     public async Task FindAsync_InvalidMetaScore_NullsTheScoreWithoutFailing(string metaScore)
     {
         // arrange
-        StubBody(200, $$"""{ "Response": "True", "Title": "Solaris", "Metascore": "{{metaScore}}" }""");
+        StubBody(200, $$"""{ "Response": "True", "Title": "Solaris", "Type": "movie", "Runtime": "117 min", "Metascore": "{{metaScore}}" }""");
         var services = probe.BuildServices();
 
         // act
@@ -268,7 +270,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
     public async Task FindAsync_PosterVariant_MapsToExpectedValue(string posterFragment, string? expected)
     {
         // arrange
-        StubBody(200, $$"""{ "Response": "True", "Title": "Solaris", {{posterFragment}} }""");
+        StubBody(200, $$"""{ "Response": "True", "Title": "Solaris", "Type": "movie", "Runtime": "117 min", {{posterFragment}} }""");
         var services = probe.BuildServices();
 
         // act
@@ -321,7 +323,7 @@ public sealed class MetadataProviderLookupTests(MetadataProviderProbe probe) : I
     public async Task FindAsync_RangeYear_TakesTheLeadingFourDigits()
     {
         // arrange
-        StubBody(200, FoundBody("2010–2014", "108 min", "7.9", "tt1716849"));
+        StubBody(200, FoundBodyRaw("The Social Network", "2010–2014", "108 min", "7.9", "tt1716849"));
         var services = probe.BuildServices();
 
         // act
