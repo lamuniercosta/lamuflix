@@ -149,4 +149,89 @@ Approved: `gate1: provisional` granted for DEV-447 (`specs/DEV-447/spec.md` stat
 - Read-only cross-artifact analysis & adjudication clean (`adjudication-DEV-447:4,40-70`; `brief.md:244-252`; `spec.md:141-178`; `plan.md:35-53`; `tasks.md:61-130`): All 20 plan-challenge findings across Sentry, Ledger, and Compass are dispositioned with zero unresolved Critical/High/Medium or mandatory-rule Low items, and 15 FRs (FR-001..FR-014 + FR-004a) and 7 SCs map 100% across T000–T020 with no constitution conflict or owner checkbox.
 - Checklist & user-visible outcome verified (`specs/DEV-447/checklists/requirements.md:7-37`; `spec.md:40-52`): All checklist items including "User-Visible Outcome" (`SMOKE-001`, `SMOKE-002`) are ticked, and no `[NEEDS CLARIFICATION]` markers remain.
 - Scope & handoff boundary (`brief.md:44-59,250-252`; `AGENTS.md` §2.3/§3.1/§5): Production/test allowlists remain frozen to Q1–Q8, the unrelated `harness.yml` modification stays unstaged, and Gate 1 remains open for the user to merge on the spec PR before any Phase B Build work (`T000`).
+---
+
+## T000 - Verified Gate 1 spec-PR merge receipt (2026-11-04)
+
+Receipt only; no new ruling. The DEV-447 task note records spec PR #320 merged at `b310c567` with the specification on main (task note `DEV-447`:3-6). Wisp verified pickup HEAD and locally recorded `origin/main` both at `b310c56704ad2a9f3e9ae6fba07b08cbb15561d6`, on branch `feature/DEV-447` in `F:/Dev/LamuFlix.worktrees/DEV-447`, with a clean tree (`recon-DEV-447`:5-11). The landed specification file set is byte-identical to `origin/feature/447-spec` (`recon-DEV-447`:32-34). Recon used the locally recorded ref without fetching; this receipt makes no additional remote-freshness claim (`recon-DEV-447`:41,111).
+
+T000 is complete: the Gate 1 merge receipt required by Q7 / FR-014 is recorded. T001 remains required before T002-T020: fresh pickup recon, Keel cross-artifact reanalysis, and Gauge baseline. This receipt does not complete T001, authorize bypassing its checkpoint, or claim implementation, tests, verification gates, or live acceptance success. Earlier provisional/pending statements above describe the historical pre-merge state.
+
+## T001 - Keel pickup cross-artifact reanalysis (2026-11-04)
+
+### Verdict and evidence boundary
+
+**CLEAN for artifact/contract drift; Keel portion complete. No task amendments required. T001 as a whole remains open.** Read-only analysis of brief.md, spec.md, plan.md and tasks.md against the landed-main facts supplied by Wisp; this appended receipt is the separately authorized record, not a change to the frozen decisions.
+
+Pickup identity: F:/Dev/LamuFlix.worktrees/DEV-447, feature/DEV-447. Recon HEAD and locally recorded origin/main are b310c56704ad2a9f3e9ae6fba07b08cbb15561d6. Recon found no approved production/test or section 2.3 contract-path drift from Phase A base 010e0cb6; the landed spec set is byte-identical to the spec branch. The only other main change was DEV-452 CI timeout work (recon-DEV-447:5-11,28-42,95-116). No independent source searches, live measurements or remote-freshness claims are made here.
+
+The Spec Kit prerequisite helper could not resolve the repository naming convention: feature/DEV-447, and the explicit SPECIFY_FEATURE=DEV-447 override, both fail its numeric-feature-name validation. This is a helper failure, not a successful scripted analysis or gate. The manual semantic analysis used the exact feature directory assigned by the Conductor; all required artifacts exist and were read. extensions.yml has no before_analyze or after_analyze hooks. Constitution validation used the worktree constitution 1.10.0.
+
+### Specification analysis report
+
+No unresolved requirement, ordering, duplication, ambiguity, scope or constitution finding requires a task change. Coverage below denotes planned work, not implemented or passing tests.
+
+| Requirement | Has task? | Task IDs |
+|---|---|---|
+| FR-001 manual bypass | Yes | T003, T006, T007 |
+| FR-002 recleaned lookup/matcher preservation | Yes | T003, T006, T007 |
+| FR-003 movie Type | Yes | T003-T006 |
+| FR-004 direct eligibility | Yes | T003, T006 |
+| FR-004a classify/map before eligibility | Yes | T003, T006 |
+| FR-005 exact suspicious conjunction | Yes | T003, T006 |
+| FR-006 rejected-ID exclusion | Yes | T004, T006 |
+| FR-007 bounded search/detail validation | Yes | T004-T006 |
+| FR-008 rejected detail/chain fallthrough | Yes | T004, T006 |
+| FR-009 request bounds/failure preservation | Yes | T003, T004, T006 |
+| FR-010 file/contract boundaries | Yes | T001, T005, T006, T009, T010 |
+| FR-011 required matrix/fixture compatibility | Yes | T002-T004, T007, T008, T015 |
+| FR-012 synthetic automatic AC1 | Yes | T002, T004, T007 |
+| FR-013 live AC2 | Yes | T017 |
+| FR-014 gates/review/delivery | Yes | T000, T001, T009-T016, T018-T020 |
+| SC-001 two incident selections | Yes | T002, T004, T007, T015 |
+| SC-002 automatic eligibility | Yes | T003, T005-T007 |
+| SC-003 exclusion/detail bounds/chain | Yes | T004, T006 |
+| SC-004 preservation | Yes | T003, T004, T006, T007 |
+| SC-005 running-app acceptance | Yes | T017 |
+| SC-006 frozen boundaries | Yes | T001, T010 |
+| SC-007 gates and review discipline | Yes | T009-T016, T018-T020 |
+
+Metrics: 15 functional requirements plus 7 buildable success criteria; 21 tasks T000-T020; coverage 22/22 (100%); unmapped tasks 0; unresolved semantic ambiguity 0; duplication findings 0; Critical/High/Medium findings 0; constitution conflicts 0. No implementation or executable-gate result is implied.
+
+### Recon observations and dispositions
+
+- Historical Gate 1 pending/provisional prose in spec.md and the planning headers is superseded for pickup sequencing by the appended T000 verified merge receipt and completed T000 checkbox. Preserve the historical planning record; do not redraft the frozen spec or infer that T001 is complete (task note DEV-447:3-6,19-21; recon-DEV-447:38-41,108,117).
+- Response and SearchHit are actually private nested adapter DTOs (recon-DEV-447:60-63,99). T005 already says adapter-local visibility as verified at T001; no guessed internal modifier, public API shape or generated contract change is needed.
+- The two-file production boundary includes all complexity extraction. The existing third Log partial is outside it (recon-DEV-447:58); T006/T009 already prohibit scope expansion. No amendment.
+- Existing Type-less fixtures and separate primary-success versus rejected-detail chain cases are already covered by T003/T004/T007/T008; the recon candidate inventory is not blanket edit permission (recon-DEV-447:78-86). No assertion weakening or additional production file is authorized.
+- The old unrelated harness.yml modification is absent from this pickup tree (recon-DEV-447:37,107). Preserve the exclusion instruction as a historical safeguard; do not recreate the change. No task amendment.
+- Live incident fields remain unknown because Wisp did not perform that observation; recon calls it optional, but T001 and the Patron plan-challenge clarification make it conditional on credential availability. This analysis does not infer credentials are unavailable, satisfy that conditional by omission, or waive AC2 (recon-DEV-447:109,118). Needs recon: were OMDb credentials available at pickup; if available, what are the nonsecret Type/title/year/rating/director/runtime observations for tt24735934 and tt24456948; otherwise record unavailability with the fields unknown, without reading or printing the key? Any observed contract mismatch stops for reanalysis.
+
+Next: Conductor obtains the remaining conditional Wisp recon and Gauge pre-edit baseline before closing T001 or dispatching T002+. No new Patron decision, scope change, owner checkbox, commit, production/test edit, test execution or acceptance success is claimed.
+
+## T001 - Conditional recon closure and Gauge baseline clearance (2026-11-04)
+
+Keel read the appended credential-availability receipt in recon-DEV-447:120-142. Wisp records OMDb credentials unavailable in the inspected pickup configuration/environment, no authenticated live probe, and all six fields (Type/title/year/rating/director/runtime) explicitly unknown for each of tt24735934 and tt24456948. No secret was read or printed. This satisfies the unavailable/unknown branch of the frozen T001 conditional observation requirement and closes the prior needs-recon item for this bounded pickup analysis.
+
+Evidence precision: recon-DEV-447:132 explicitly says the user-secrets store is outside the permitted roots and was not inspected. This receipt therefore does not claim that store was checked or that credentials are globally absent. Clearance relies on Wisp reporting the scoped pickup environment unavailable and retaining unknown observations, not an invented negative fact about user secrets. No live contract observation exists; no contract mismatch is established or disproved by unknown fields.
+
+**Final Keel clearance: T001 cross-artifact reanalysis is satisfied; CLEAN for demonstrated artifact/contract drift; no task amendments. Proceed to Gauge pre-edit baseline.** T001 remains unchecked until Gauge records the required baseline and the Conductor confirms the composite checkpoint; no production implementation is cleared before that checkpoint. Mandatory T017 live AC2 remains unchanged and must be reported pending/blocked if its runtime prerequisites remain unavailable. No test/gate PASS, live acceptance success, new scope decision or commit is claimed.
+
+---
+
+## Phase B decision amendment: CI smoke coverage (2026-11-04)
+
+The user approved browser coverage for SMOKE-001 and SMOKE-002 in the existing Playwright `e2e-smoke` job. T021 and T022 exercise Match Manually on isolated movies awaiting correction and verify the IMDb link, loaded poster, rating and director after enrichment. The Q5 test allowlist now includes `web/e2e/manual-match.e2e.ts`, `web/e2e/fixtures.mjs`, `web/e2e/run.mjs`, and `web/e2e/stub.mjs` for this coverage.
+
+Keep the title-based smoke fixtures compatible with the new automatic movie-type guard. The stub returns deterministic by-ID metadata for the new cases and Playwright serves the poster images locally. T017 still supplies the live AC2 receipt and T002–T004 still supply AC1.
+
+---
+
+## Phase 4 scope ruling: forced Solaris arrange exception in `MetadataProviderTmdbSignalTests.cs` (2026-11-04)
+
+### Patron ruling
+Approved: ratify the narrow forced arrange exception in `tests/LamuFlix.IntegrationTests/MetadataProviderTmdbSignalTests.cs` (`The Matrix` -> `Solaris` lookup input and `SolarisSearchBody`/`StubSignals()` stub alignment alongside `"Type": "movie"` on `OmdbFoundBody`); do not revert.
+- Forced gate & AC compatibility (`AGENTS.md` §2.3 item 6; `spec.md` FR-003, FR-004, FR-011; `tasks.md` T008:84,92): `OmdbFoundBody` already carried `"Title": "Solaris"`, so the FR-004 automatic `TitleMatcher.Score >= MatchThreshold` guard rejected `"The Matrix"` lookups and broke the `dotnet test` gate (T015) until the lookup title and secondary TMDb search stub matched `"Solaris"`.
+- Zero assertion weakening (`CONCLUSIONS.md` Q5:66, Plan challenge clarification 4:119; `findings-DEV-447-Compass` F2:20-22; `MetadataProviderTmdbSignalTests.cs:355-440`): A payload-only edit changing `OmdbFoundBody` from `"Solaris"` to `"The Matrix"` would have forced rewriting the existing `Metadata(result).Title.ShouldBe("Solaris")` assertions, whereas the arrange alignment preserves every existing assertion (`Title`, `ImdbId`, `CollectionId`, `CollectionName`, `Signals`, `SecondaryPaths`) byte-identically.
+- Chain-case separation preserved (`CONCLUSIONS.md` Q3:39, Plan challenge dispositions:122; `findings-DEV-447-Compass` F2:22,39): Both tests continue to exercise the valid primary OMDb `Found` path distinctly from the rejected-detail TMDb fallthrough case without broadening production scope or test helper abstractions.
 
