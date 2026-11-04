@@ -144,3 +144,350 @@ Quill round1 completion report `_quill-ask-keel-planfix1.txt` is retained as bou
 - `specs/DEV-451/checklists/requirements.md:35-40` has all User-Visible Outcome items ticked and `specs/DEV-451/spec.md:38-40` states `Nothing visible` with tooling-only rationale.
 - Zero structural owner checkboxes (`spec.md:8-10`); operational prerequisites T021 and T022 remain tracked Phase 0 gates before Build T000 (`tasks.md:29-35`).
 
+
+---
+
+## Phase B intake reanalysis and pickup receipts — 2026-11-04 (Keel)
+
+### Authority and Gate 1 receipt
+
+Assigned Build root: `F:/Dev/LamuFlix.worktrees/DEV-451`, branch `feature/DEV-451` (branch read-back matches). Facts below come from the current Phase B `recon-DEV-451` note and `DEV-451` task note; historical Phase A recon citations above remain historical and must not be read as line references into the replacement Phase B note.
+
+`DEV-451` note lines 3–6 records spec PR #321 merged at `1617165d`. Recon section 2 line 17 repeats that receipt; section 7 line 77 records both Gate 1 provisional commit `fe542c75` and spec merge `1617165d` among the seven landed commits. Accept this as the ordinary Gate 1/spec-merge pickup receipt under the existing no-owner-checkbox contract (spec Owner question; prior Patron provisional ruling). The provisional ruling alone was not final implementation clearance; the recorded spec merge satisfies that separate prerequisite. No additional owner answer or waiver is inferred. PLAN FROZEN remains as recorded above; Phase A Draft/Gate1-not-approved headers are historical snapshots, superseded for intake status by this receipt. This does not waive Phase 0.
+
+### T021 — complete: policy intact, no cleanup write needed
+
+Accept the fresh recon section 1 lines 7–11 and section 7 lines 79–81 as the verified pickup cleanup receipt: HEAD and origin/main both `2809dd0b1f77abc471a5a6606a351b04971c7aa9`, branch `feature/DEV-451`, worktree clean before these documentation edits. `harness.yml` has zero drift from Phase A base `010e0cb63a52e3689d9f246c4179e9bb30959738`; `LamuFlix.Tests.Common` exclusion is present at HEAD line 51 and at the base. The dirty removal is absent from this Build worktree. T021 is satisfied by demonstrated intact state; Keel does not restore or edit policy and does not claim an unobserved restoration command. No Rigger policy action remains for T021. Final PR policy proof at T015 is still required.
+
+### T022 — blocked operational; Rigger action required
+
+`FOLLOW-UP-TICKETS.md` still records no verified CRLF follow-up ID and the recorded Create dry-run exits 2 because the YouTrack Order sequence is not contiguous. Neither current intake note supplies a successful creation/link receipt. Keep T022 unchecked. Bernstein must coordinate Rigger to resolve the recorded prerequisite through authorized tracker operations, create or identify and verify the matching PR #297 / `MmrSelector.cs` CRLF span issue, and record its linked ID in the Rigger-owned follow-up artifact. This is a request for the missing receipt, not authorization for a broader tracker repair by Keel. No new tracker query, creation success, or current Order measurement is claimed. The current status of any repair beyond the supplied artifact is unknown.
+
+### Read-only cross-artifact analysis against landed main
+
+Inputs read: brief.md, spec.md, plan.md, tasks.md, CONCLUSIONS.md, FOLLOW-UP-TICKETS.md, current Phase B recon/task notes, constitution and extensions configuration. No before_analyze/after_analyze hook is registered. The prescribed prerequisite command `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` exited 1 because its numeric branch convention rejects `feature/DEV-451`. Analysis therefore used the explicitly assigned `specs/DEV-451/` paths; this is a documented read-only semantic review, not a native analyzer PASS. Do not rename the assigned branch or change tooling to conceal that limitation.
+
+Recon section 7 lines 77–81 establishes seven landed commits since Phase A base, including the spec merge; zero drift on the three ticket-named scripts, harness.yml, stryker-config.json, ADR 0016 and .gitattributes. The nine feature documents were added onto main. Adjacent DEV-452 drift changes `.github/workflows/ci.yml` and `scripts/ci-stryker-shard.sh`; these remain outside DEV-451 edit scope. Existing T004/T006 consumer compatibility and unnamed-file STOP rules cover that drift; carry the current section 4 lines 50–54 / section 7 line 80 references into execution. No task scope or ordering amendment is warranted. No lever, replay provisioning, measurements, or supported scratch mechanism is inferred from absence of scope drift.
+
+| Requirement key | Planned task coverage |
+|---|---|
+| FR-001 | T001–T003, T005, T012 |
+| FR-002 | T012–T013 |
+| FR-003 | T000, T004–T006, T010–T011 |
+| FR-004 | T021, T001, T011, T015 |
+| FR-005 | T008, T011 |
+| FR-006 | T007–T009, T019 |
+| FR-007 | T004, T006, T010–T011, T017 |
+| FR-008 | T014 |
+| FR-009 | T022, T008, T015 |
+| FR-010 | T012, T016 |
+| FR-011 | T003, T005, T012–T013 |
+| FR-012 | T018–T020 |
+| SC-001 | T001–T003, T012, T016 |
+| SC-002 | T012–T013 |
+| SC-003 | T007–T009, T019 |
+| SC-004 | T015 |
+| SC-005 | T014 |
+| SC-006 | T022, T008, T015 |
+| SC-007 | T018–T020 |
+
+Metrics: 12 FR + 7 buildable SC = 19 keys; 23 unique tasks T000–T022; 19/19 planned coverage (100 percent); zero unmapped tasks; zero unresolved semantic ambiguity, duplication, constitution-alignment or ordering findings. Operational receipts are covered by FR-004/FR-009 and pickup by FR-003. No new requirement or architectural ruling is introduced. Status snapshots require the receipt supersession above and the updated tasks header; they do not change the frozen plan. Planned coverage is not completed acceptance evidence.
+
+### T000 disposition and next boundary
+
+The fresh-recon and read-only reanalysis portions are recorded, but T000 remains unchecked because T022 is a mandatory predecessor under Q4/Q6 and plan-challenge decision 6. Build T001–T020, including independent Contoso T007–T009, remain blocked. After Rigger supplies the verified link and T022 is accepted, confirm this pickup evidence still applies to the then-current assigned HEAD before closing T000. Re-recon is required for changed or missing facts; no speculative lever or implementation is authorized by this review.
+
+Only CONCLUSIONS.md and tasks.md are updated for this intake. No script/config/production edits, runtime gates, tracker writes, commit, PR publication or merge are claimed. Required Rigger action: T022 follow-up receipt; T021 needs no further action.
+---
+
+## Phase 0 / Phase B pickup finalization — 2026-11-04 (Keel)
+
+This receipt supersedes the earlier T022-blocked and T000-unchecked intake dispositions above. It records receipt completion only; frozen Q1–Q6 and plan-challenge decisions are unchanged.
+
+### T022 — complete: verified CRLF follow-up DEV-460
+
+Accept Rigger’s completion receipt in `DEV-451` note lines 32–36, corroborated by the Rigger-owned `FOLLOW-UP-TICKETS.md` verified follow-up ID **DEV-460**, summary “Fix mutation scope span gap on CRLF Windows checkout (MmrSelector.cs, PR #297)”, parent DEV-100 and size:S. The Conductor’s finalization ask also explicitly confirms that Rigger verified creation and recorded the link. This is the successful receipt previously missing under Q4 / FR-009 / SC-006; no tracker operation or Order-sequence repair is performed or independently claimed by Keel. The prior dry-run blocker is superseded for T022 by Rigger’s verified result, not relabeled as success. DEV-460 remains separate delivery: `.gitattributes` and `src/**/*.cs` stay outside DEV-451 edits, and Contoso must not claim the span defect fixed.
+
+### T021 and T000 — complete: pickup evidence remains applicable
+
+T021 remains satisfied by recon-DEV-451 section 1 lines 7–11 and section 7 lines 79–81: Tests.Common exclusion intact, zero policy drift, no policy restoration write needed. Current assigned branch read-back is `feature/DEV-451` and HEAD remains `2809dd0b1f77abc471a5a6606a351b04971c7aa9`, matching recon. Current status shows only the expected documentation edits to CONCLUSIONS.md, FOLLOW-UP-TICKETS.md and tasks.md; the earlier clean-worktree fact describes intake before these edits, not the current working tree.
+
+With T022 now accepted, the ordinary Gate 1/spec-merge receipt (PR #321 at `1617165d`) and both Phase 0 predecessors are satisfied. The recon section 7 zero-drift evidence and read-only cross-artifact review above remain applicable to this unchanged pickup HEAD. Rechecked spec/plan/tasks against frozen brief and recorded decisions: 12 FR + 7 SC = 19/19 requirement keys covered by 23 tasks; no new unresolved coverage, semantic, constitution or ordering finding; no drift-driven plan/task-scope amendment is required. Existing T004/T006 checks retain responsibility for adjacent DEV-452 CI caller compatibility (recon section 7 line 80). Mark T021, T022 and T000 `[X]`.
+
+The native prerequisite command again rejected `feature/DEV-451` with exit 1 because it expects numeric feature branch names. Explicit assigned feature paths support this documented semantic review; no native analyzer PASS is claimed. No before_analyze/after_analyze hooks are registered.
+
+### Phase 1 disposition
+
+**Phase 1 is unblocked to start T001.** Bernstein/Rigger must first provision the three detached historical replay cases and supply supported mechanics, roots and immutable comparison/overlay records required by T001. Recon section 8 lines 86–89 records historical timing/receipts and replay checkouts as absent from the bounded roots; this closure does not assert they now exist or authorize invented replay commands. T002 native baseline runs start only after T001 is satisfied; missing mechanism facts require `needs recon` before execution. T003 evidence validation, later candidate ratification, ADR checkpoint and measured acceptance remain open. Independent Contoso T007–T009 may proceed under the existing post-T000 constraints, without changing frozen replay inputs or concurrent same-file writes.
+
+Only CONCLUSIONS.md and tasks.md are changed by this finalization; Rigger’s FOLLOW-UP-TICKETS.md edit is preserved. No runtime gates, baseline measurement, lever selection, script/config/production edits, tracker writes, commit or merge are claimed.
+---
+
+## T001 complete — frozen replay inventory and T002 execution contract (2026-11-04, Keel)
+
+Authority: Conductor assignment; `recon-DEV-451-2` sections 9.1–9.7 (continuation of `recon-DEV-451`); `DEV-451` note lines 44–57; spec FR-001/FR-004/FR-011 and plan Measure first. T001 inventory is complete. This supersedes the earlier unprovisioned-replay disposition. No real baseline has run: recon reports dry-runs only, with zero mutants/tests executed. T002 and T003 remain unchecked.
+
+Freeze each pin's first-parent commit diff, using the full immutable base SHAs below rather than the gate default. Recon 9.1/9.2–9.4 verifies `-BaseRef HEAD^` dry-run exit 0 for these same bases. The default merge-base is HEAD and exits 2 scope-empty; it cannot supply this baseline. These are historical **pinned commit-diff cases**, not full-ticket branch ranges: DEV-448 excludes its later integration-test-only commit; DEV-333 is the final refactor commit at the named pin, not the full eight-commit phase range. Do not silently widen or substitute the scope for later comparisons or DEV-444 acceptance.
+
+| Case / replay root under F:/Dev/LamuFlix.worktrees/ | Frozen HEAD | Frozen comparison base |
+|---|---|---|
+| DEV-444 / DEV-451-replay-DEV-444 | `0079991451599e408b6ff37de25a6e3e731b2c6a` | `1e95037eda58502e0f7088a31f4502798e51d3a0` |
+| DEV-448 / DEV-451-replay-DEV-448 | `6fcbd1ffdb3805b46937534bac48a37a68ebd62b` | `f8bb21cb38e3b9105ee1bc0500966903a5fad40a` |
+| DEV-333 / DEV-451-replay-DEV-333 | `b25ecb1614a0c82771f254b700bb53dff0a25bf0` | `f00e01bacb63c083349b3a46425189e31e3564c2` |
+
+| Case | Frozen src tree | Frozen tests tree | Core mutate entries (relative to src/LamuFlix.Core/) |
+|---|---|---|---|
+| DEV-444 | `ed55006861f0e8ceb3b0d2dbe9cdb9c9f337cbd6` | `ab0ba312417f41941c4fb67705ea9ae8ea09d7ef` | `Features/Recommendations/GetForYouRecommendationsQueryHandler.cs` |
+| DEV-448 | `f0f2db986c790097851862d8f23c9a5dba64bab7` | `eb2126572aa68172a2b8273a6e857e60cca24cd9` | `Features/Recommendations/SimilarityScorer.cs` |
+| DEV-333 | `c526d167d6fdc7cbada72ef6c8f9969f86a5bc9c` | `82fbe561670ea1062062428391095cd1d96f6daa` | `Features/Enrichment/ProcessEnrichmentCommandHandler.cs`; `Features/Import/ImportLibraryCommandHandler.cs` |
+
+Full tree identities are recorded in recon 9.5 lines 94–95. DEV-333 additionally changes the six Infrastructure files enumerated in recon 9.4 lines 70–75; all six remain policy-excluded **NOT APPLICABLE**, never PASS. Do not use `-Project` to hide that classification. Both Core suites remain eligible in every case: `tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj` and `tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj`.
+
+Shared control: machine ALIEN, PowerShell 7.6.9, 16 processors, actual generated concurrency **8** (half-core ceiling 8; absent config concurrency key), `additional-timeout` **90000**, `test-runner: mtp`, `coverage-analysis: off`, `since.enabled=false`, Stryker 5.0.0. Freeze these values for baseline/candidate; verify actual generated values before measuring, stop on drift, and serialize all real runs on the quiet machine. No concurrency config edit or unsupported command-line concurrency override is authorized.
+
+### Frozen support identities and DEV-333 overlay prerequisite
+
+Recon 9.1 lines 13–19 records byte-identical support at all pins and DEV-451 intake `2809dd0b1f77abc471a5a6606a351b04971c7aa9` (SHA-256):
+
+| Support file | SHA-256 |
+|---|---|
+| scripts/run-mutation.ps1 | `2a0a8ff8a80e87fe326bb0537ae83c36f82e5587068f67656f6dbe5f06e052be` |
+| scripts/_harness-config.ps1 | `8b669b6f309251bf5adf6747a58deed8c567d4c3e24c1aa7014d0c75f49615ec` |
+| scripts/_gate-common.ps1 | `b4906af9e753329680dec85bfe9e65f93ef5538f00c87f73ceafc425822a85fd` |
+| stryker-config.json | `71485fb909349b0c3162c33215c67270e9143e86131ac44e328b1dcf04da4b8b` |
+| .config/dotnet-tools.json | `de20c1911406a8132d1f8509853232988cda75507a17dc66290980727594c67b` |
+
+No copy is necessary for those identical files. Recon 9.4 line 87 separately identifies DEV-333 historical `harness.yml` SHA-256 `72218cdd232a47c97b393aab39d648bacc45cae22c5f006f16971aa9f9d239bc`; the sole difference from the current policy is the absent four-line Tests.Common exclusion block. DEV-444/448 and assigned DEV-451 policy SHA-256 is `ee866efadcb2bbb82206a677ff7b47f2537fd7d6802b9243fad0d45ba7514f09`.
+
+Before Gauge starts T002, Bernstein must arrange **Rigger's replay-only support overlay** and receipt for DEV-333. This implements the Conductor's explicit overlay instruction and preserves spec FR-004's four-exclusion control; it does not change the assigned DEV-451 harness.yml or grant a shipping-policy edit. Rigger may copy the verified intact DEV-451 support policy into DEV-333 only, after checking both source/destination hashes against the values above:
+
+```powershell
+Copy-Item -LiteralPath 'F:/Dev/LamuFlix.worktrees/DEV-451/harness.yml' -Destination 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-333/harness.yml'
+Get-FileHash -Algorithm SHA256 -LiteralPath 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-333/harness.yml'
+```
+
+Rigger must record before/after hashes, provenance, the exact exclusion-only delta, and unchanged pinned HEAD/src/tests identities. Expected replay dirtiness is only this support file. Retain this exact overlay for all DEV-333 baseline/candidate runs; disclose the overlay rather than describing DEV-333 as an unmodified historical checkout. No generated config, code or tests are edited. The inventory is complete, but this overlay is **specified, not yet verified as applied**; T002 execution waits for the receipt. Missing/different facts require `needs recon`, not a guessed repair. Recon's full-phase-range exit 1 is historical evidence, not a baseline verdict for the selected first-parent scope.
+
+### T002 — exact Gauge execution and evidence handoff
+
+Bernstein assigns Gauge the three named replay roots plus the bounded DEV-451 evidence destination. Gauge must not infer permission to write elsewhere from this document. After Rigger's overlay receipt, check detached HEAD, frozen src/tests and support identities, then use the corresponding command below with `-DryRun` appended once per case as preflight, replacing its `-OutputRoot` with a separate unique TEMP preflight root (never the real attempt root). Require expected mutate list, both Core suites, concurrency 8, timeout 90000, control runner/coverage, since disabled, and DEV-333 Infrastructure N/A. A dry-run exit 0 is preflight only. Stop before real measurement on mismatch. Restore only existing pinned tools if needed; no tool/version upgrades.
+
+Run the following **one at a time**, from each specified root. The output directory for each attempt must be absent before invocation; if it exists, preserve it and choose a new attempt number, recording why. Native output stays in TEMP as plan.md requires. These commands deliberately omit `-DryRun`, `-WholeProject` and `-Project`:
+
+```powershell
+Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-444'
+pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef 1e95037eda58502e0f7088a31f4502798e51d3a0 -OutputRoot (Join-Path $env:TEMP 'DEV-451-baseline-DEV-444-attempt01')
+$baselineExit444 = $LASTEXITCODE
+
+Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-448'
+pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef f8bb21cb38e3b9105ee1bc0500966903a5fad40a -OutputRoot (Join-Path $env:TEMP 'DEV-451-baseline-DEV-448-attempt01')
+$baselineExit448 = $LASTEXITCODE
+
+Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-333'
+pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef f00e01bacb63c083349b3a46425189e31e3564c2 -OutputRoot (Join-Path $env:TEMP 'DEV-451-baseline-DEV-333-attempt01')
+$baselineExit333 = $LASTEXITCODE
+```
+
+Capture each command's complete stdout/stderr, exit and observed wall time, and archive its full output root immediately after that run (including failed/invalid attempts) under `F:/Dev/LamuFlix.worktrees/DEV-451/specs/DEV-451/evidence/baseline/<DEV-id>/attempt01/`. Preserve native `mutation-timing.json`, generated configs and full Stryker JSON reports without rewriting them. Add a receipt in that destination carrying command/root/base/head/src/tests/support hashes, policy-overlay provenance, machine/runtime/load conditions, actual concurrency/timeout/runner, both eligible suites, start/end and wall time, per-project mutant counts, tested/score/verdict, timeout totals/distribution and report paths. If the gate fails before producing timing/report artifacts, record them as absent with the failure; never synthesize native artifacts. Retain stable source-location/mutator/replacement fields for T003 and later matched status matrices; numeric mutant IDs alone do not establish identity.
+
+Report exits honestly: 0 native gate pass; 1 failure; 2 scope-empty SKIPPED or policy N/A as actually printed, never a measured pass. A valid failing baseline is evidence and must not be erased or rerun to manufacture a pass; Bernstein/Patron receives the actual result before deciding next steps. Interruptions/invalidations remain archived. No lever experiment starts before T003 validates all three baseline evidence sets. T002 does not claim under-30-minute acceptance; T012/T013 retain that separate bar.
+
+**Readiness:** T001 inventory complete and execution commands specified. Ready for Bernstein to obtain the DEV-333 replay-overlay receipt and assign Gauge; real T002 starts only after that receipt and successful preflight. No baseline, timing success, candidate selection, runtime gate, script/config write or commit is claimed by Keel in this ask. Existing FOLLOW-UP-TICKETS.md and earlier documentation edits are preserved.
+
+---
+
+## T003 baseline evidence validation — blocked (2026-11-04, Keel)
+
+Authority: Conductor T003 assignment; spec US1 / FR-001 / FR-011; tasks T002–T006; frozen T001/T002 execution contract above. Read DEV-451 and both recon notes, spec/plan/tasks/CONCLUSIONS, Gauge report `C:/Users/lamun/AppData/Local/Temp/DEV-451-T002-gauge-report.txt`, and the assigned baseline archives. This is validation of supplied artifacts, not a new replay measurement or independent recon. Branch read-back matches `feature/DEV-451`; existing documentation and evidence changes are preserved.
+
+### Accepted and rejected receipts
+
+Rigger overlay receipt in DEV-451 lines 64–69 satisfies the earlier DEV-333 prerequisite: policy hash changes from `72218cdd232a47c97b393aab39d648bacc45cae22c5f006f16971aa9f9d239bc` to `ee866efadcb2bbb82206a677ff7b47f2537fd7d6802b9243fad0d45ba7514f09`, adds only Tests.Common exclusion, retains pinned HEAD, and records only harness.yml dirty. This is a replay-only support overlay, not a shipping policy change.
+
+All archive links below are relative to this document. Native timing JSON was read for DEV-444 and DEV-333; generated configs and full JSON reports were read from all four archived attempts. Each config retains concurrency 8, additional-timeout 90000, mtp/off, since disabled, both Core suites and the T001 mutate list. Receipts record the frozen bases/heads, support hashes and source/test aggregate hashes; recon 9.5 remains authority for frozen Git tree identities. Do not equate the receipt aggregate SHA-256 values with Git tree hashes or claim fresh post-run tree verification by Keel.
+
+| Case | Durable evidence | Actual disposition |
+|---|---|---|
+| DEV-444 attempt01 | [receipt](evidence/baseline/DEV-444/attempt01/receipt.md), [native timing](evidence/baseline/DEV-444/attempt01/output/mutation-timing.json), console/config/full reports in same archive | Valid failing baseline retained: wrapper exit 1, 1088.7 s native (1089.190 s observed), 68 tested, 58.82%; Killed 36 / Survived 28 / Timeout 4 / NoCoverage 0 / Ignored 23 / CompileError 7. No rerun to manufacture a pass. |
+| DEV-448 attempt01 | [receipt](evidence/baseline/DEV-448/attempt01/receipt.md), console/config/full reports in same archive | Incomplete and contended baseline: Stryker exit 0 and 89.14%, 221 tested (Killed 197 / Survived 24 / Timeout 0); **wrapper exit not captured; native mutation-timing.json absent**. 2959.8 s is Stryker elapsed time, not native gate wall time. |
+| DEV-448 attempt02 | [receipt](evidence/baseline/DEV-448/attempt02/receipt.md), console/config/full reports in same archive | Invalid serial-control replacement: same tested/status totals and score; Stryker elapsed 3205.5 s; wrapper exit not captured and native timing absent. Started 11:33:21 while attempt01 ran until 11:36:34. Both attempts are affected by overlap and remain archived, neither establishes a quiet-machine gate baseline. |
+| DEV-333 attempt01 | [receipt](evidence/baseline/DEV-333/attempt01/receipt.md), [native timing](evidence/baseline/DEV-333/attempt01/output/mutation-timing.json), console/config/full reports in same archive | Wrapper exit 0 / PASS, 1233.3 s native (1233.826 s observed), 68 tested, 86.76%; Killed 55 / Survived 9 / Timeout 4 / NoCoverage 0 / Ignored 28 / CompileError 8. Infrastructure **N/A**, never PASS. |
+
+The detailed Gauge report and DEV-448 receipts override the abbreviated task-note/assignment wording “exit 0”: that exit belongs to Stryker, not the gate wrapper. No timing is invented, synthesized or substituted. DEV-448 created/skipped console totals and filtered report totals are different populations as explicitly recorded in its receipt; preserve them separately.
+
+DEV-444 console records largest kill share 35.29% against 50%; widest non-exempt span 0, with 32 exempt tests / widest exempt span 1. DEV-333 records share 20.59%, widest non-exempt span 1, no exempt tests, and native PASSED. DEV-444 recommendation exemptions weaken the span signal; its four timeouts and 28 survivors remain the comparison control, not grounds to lower any threshold. Neither baseline under 1800 s substitutes for T012/T013 acceptance.
+
+Full JSON reports retain source text and mutant status, location start/end line/column, mutatorName and replacement (schema 2). These provide the required stable identity ingredients; future T005 must normalize absolute replay prefixes to project-relative paths and key on path + full location + mutatorName + replacement, checking duplicate/ambiguous keys and unmatched populations rather than joining numeric IDs. This validation does not claim a completed candidate matrix or prove every identity unique.
+
+### Task disposition and Phase 2 instructions
+
+**T002 and T003 remain unchecked.** The requested completion marks would assert three comparable native baseline sets that the supplied evidence does not establish. T003 has found a concrete evidence blocker; this is not a policy waiver, native gate PASS, or a failed score relabeled invalid. DEV-444 failure remains valid evidence; DEV-448 is invalid/incomplete for measurement-control reasons independently of its passing Stryker score. T004–T006 remain blocked by Phase 1.
+
+**needs recon: What caused the DEV-448 wrapper exits/native timing to be lost and the overlapping invocations, and what verified single-run capture procedure can produce a serial native-gate baseline on the unchanged frozen case while preserving both existing attempts?** Bernstein should obtain Wisp recon and coordinate Gauge remediation; Keel does not diagnose outside the assigned roots, invent missing facts, launch a rerun or authorize script repairs. Archive any replacement under a new attempt number with invalidation rationale, full wrapper exit, native timing, actual integrity evaluation, machine/load and unchanged identity receipts. Do not synthesize the missing JSON or rerun valid DEV-444 for a passing result. Return the complete evidence for T003 validation before closing T002/T003.
+
+Once Phase 1 is actually closed, T004 must propose one concrete non-DEV-435 lever with cited recon mechanism, three-script implementability and consumer compatibility (including current DEV-452 CI callers). Keep mtp/off control and shipping guards/policy unchanged. Specify the reversible versioned non-shipping scratch path, exact control/candidate commands, durable equivalent timing/receipts and actual -EvaluateReport checks. Rejected perTest/all or unsupported modes require targeted recon plus explicit Patron experimental authorization before execution. Missing mechanism facts require needs recon; unnamed renderer/install/config/consumer edits require the existing cited Patron STOP. T005 then compares all three frozen cases using stable identity matrices, timeout totals and Survived/Killed-to-Timeout rejection; T006 ratification and T010 ADR checkpoint still precede T011 adoption. No lever is selected or experiment authorized by this receipt.
+
+Only CONCLUSIONS.md and tasks.md are updated for this validation; all original attempts and unrelated edits are preserved. No runtime gate, script/config/production write, tracker change, commit or merge is performed.
+
+---
+
+## T003 resumed — recon received; Gauge attempt03 ready (2026-11-04, Keel)
+
+Authority: Conductor resume assignment; `recon-DEV-451-2-2` section 10 (continuation of recon-DEV-451), especially 10.4–10.9; frozen T001/T002 contract. Assigned branch read-back remains `feature/DEV-451`. This receipt supersedes the prior unanswered-needs-recon disposition for preparing a capture attempt; it does not close the baseline evidence gap or select a lever.
+
+### Recon receipt and limits
+
+Accept Wisp section 10.4 lines 40–45: frozen Evaluate-MutationReport on both archived reports completes under StrictMode Latest / ErrorActionPreference Stop in 781 ms and 767 ms, respectively; both yield PASS, score 89.1402714932127, tested 221. Correct changed-file input is `src/LamuFlix.Core/Features/Recommendations/SimilarityScorer.cs`, not the mutate-relative path. The probe records kill share 33.48% (limit 50%), span within limits, Unattributed 0 and Artifact 0. These are diagnostic function probes, **not native wrapper exits**, and do not repair either missing timing artifact.
+
+Section 10.1/10.2/10.5 locates the last observed wrapper output at run-mutation.ps1:1197, before summary :1218 and native timing :1283. A Stryker-exit-coupled launcher/capture interruption is the best-supported **inference**; exact termination versus hang, stderr, launch/wait mechanics and the second runner decision are not determinable in roots (10.5/10.9). No script defect or repair is established. Wisp rules out slow/failing evaluation on these report bytes; do not claim the probe reproduces the full live wrapper environment.
+
+Section 10.6 refines overlap to wrapper invocation **11:33:19 → 11:36:34, approximately 3m15s**, in the same worktree with shared obj/bin and concurrency 8 each. Both attempts remain invalid for quiet-machine timing, with wrapper exits NOT CAPTURED and native timing absent. Identical verdicts do not make their wall times comparable. Keep both archives byte-identical; retain DEV-444 valid failure and DEV-333 completed baseline without rerunning them.
+
+### Exact Gauge attempt03 handoff
+
+Bernstein assigns **one Gauge runner** exclusive ownership of `F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-448` and the quiet mutation-machine window through archive completion. No other case or runner may start concurrently. Before preflight and again immediately before the real invocation, confirm by machine process query that no other run-mutation.ps1 / dotnet stryker session is active; record the query/result and ownership in the new receipt. Quiet console output is not process completion. If a prior process is active or its state cannot be established, stop and report; do not launch a replacement or terminate it speculatively.
+
+1. Follow recon 10.7 item 2: verify clean detached HEAD `6fcbd1ffdb3805b46937534bac48a37a68ebd62b`, comparison base `f8bb21cb38e3b9105ee1bc0500966903a5fad40a`, and all eight frozen identities against the full attempt01 receipt (src/tests aggregate hashes plus run-mutation, stryker-config, harness, tools, Directory.Packages.props and Directory.Build.props). Preserve T001 support identities too; stop on any drift. No support overlay or code/test/config edit is needed for DEV-448.
+2. Use a separate, absent preflight root with the exact command below. Require exit 0, mutate only `Features/Recommendations/SimilarityScorer.cs`, both Evaluation and UnitTests, concurrency 8, timeout 90000, mtp/off and since disabled. Capture stdout/stderr and preflight exit. If preflight02 or any named capture/output/archive destination already exists, preserve it and report the collision before measuring; do not overwrite it or invent an attempt number silently.
+
+```powershell
+Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-448'
+pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef f8bb21cb38e3b9105ee1bc0500966903a5fad40a -OutputRoot (Join-Path $env:TEMP 'DEV-451-baseline-DEV-448-preflight02') -DryRun *> (Join-Path $env:TEMP 'DEV-451-DEV-448-preflight02-console.log')
+$preflightExit448 = $LASTEXITCODE
+```
+
+3. After successful preflight and the fresh seriality check, execute the following in **one persistent PowerShell session**, synchronously. This expresses recon 10.7 items 4–5 directly in the owning shell, avoiding an outer double-quoted -Command string that would expand TEMP/LASTEXITCODE in the wrong shell. No background job, pattern-triggered stop, Stryker-child-only wait or short command timeout. If the execution tool returns a running session, retain it and wait for that same wrapper; never start another invocation. Record start/end UTC and wall time as observed, independently of native duration.
+
+```powershell
+Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-448'
+$attemptOutput448 = Join-Path $env:TEMP 'DEV-451-baseline-DEV-448-attempt03'
+$attemptConsole448 = Join-Path $env:TEMP 'DEV-451-DEV-448-attempt03-console.log'
+$attemptCapture448 = Join-Path $env:TEMP 'DEV-451-DEV-448-attempt03-gauge-timing.json'
+$attemptArchive448 = 'F:/Dev/LamuFlix.worktrees/DEV-451/specs/DEV-451/evidence/baseline/DEV-448/attempt03'
+foreach ($attemptPath448 in @($attemptOutput448, $attemptConsole448, $attemptCapture448, $attemptArchive448)) {
+    if (Test-Path -LiteralPath $attemptPath448) { throw "Preserve existing destination and report collision: $attemptPath448" }
+}
+$attemptStart448 = [DateTimeOffset]::UtcNow
+$attemptClock448 = [System.Diagnostics.Stopwatch]::StartNew()
+pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef f8bb21cb38e3b9105ee1bc0500966903a5fad40a -OutputRoot $attemptOutput448 *> $attemptConsole448
+$attemptExit448 = $LASTEXITCODE
+$attemptClock448.Stop()
+$attemptEnd448 = [DateTimeOffset]::UtcNow
+[ordered]@{
+    start = $attemptStart448.ToString('o')
+    end = $attemptEnd448.ToString('o')
+    wallMs = $attemptClock448.ElapsedMilliseconds
+    exit = $attemptExit448
+    consoleLog = $attemptConsole448
+    baseRef = 'f8bb21cb38e3b9105ee1bc0500966903a5fad40a'
+    outputRoot = $attemptOutput448
+    head = '6fcbd1ffdb3805b46937534bac48a37a68ebd62b'
+} | ConvertTo-Json | Set-Content -LiteralPath $attemptCapture448 -Encoding utf8
+```
+
+The head field records the verified preflight pin, not a substitute for the identity check. This gauge record is external observation; **never write or synthesize output/mutation-timing.json**. If the wrapper or owning capture session fails, archive all available output and report absent fields honestly. Do not patch scripts mid-run or treat Stryker exit 0 as wrapper exit 0.
+
+4. Apply recon 10.7 item 6 before accepting the attempt: console contains `Mutation Testing Summary` and a terminal `Mutation testing: PASSED|FAILED|SKIPPED|NOT APPLICABLE` line; native output-root mutation-timing.json exists and carries generatedUtc, durationSeconds, concurrency 8, threshold 80 and projects; gauge record contains the actual wrapper exit and wall time; full Core JSON report exists and totals match console/native project summary. Confirm unchanged generated scope/settings, both eligible suites, timeout distribution, and actual integrity evaluation. A scope-empty/SKIPPED result does not establish this non-empty baseline. A valid native FAIL remains evidence; do not retry for a passing score.
+5. Immediately archive to the exact attempt03 destination: `console.log`, `preflight.log`, `gauge-timing.json`, `receipt.md`, and `output/` with unmodified native timing, generated config and full reports. Include the complete command, preflight/real exits, frozen identities, machine/runtime/load, seriality and ownership receipts, start/end/wall, native duration, counts/tested/score/verdict/timeout totals, stable mutant identity fields and all artifact paths. Explicitly invalidate attempt01/02 for overlap and missing capture, retaining their bytes. If any completion assertion fails, archive the invalid attempt and report the reason to Bernstein; a subsequent attempt requires a separately recorded handoff, not an automatic best-of loop.
+
+**Readiness:** Gauge attempt03 is ready to be assigned under the stated preflight and seriality conditions. The new serial measured number is the DEV-448 baseline regardless of whether it exceeds 1800 s; the under-30-minute acceptance bar remains T012/T013 on DEV-444. T002/T003 stay `[ ]` until complete attempt03 evidence returns for validation. Phase 2 T004–T006 stays blocked; prior conditional T004 instructions remain unchanged. No native baseline, launcher root-cause certainty, script repair, lever experiment, commit or merge is claimed by this receipt. Only CONCLUSIONS.md and tasks.md are changed; existing unrelated edits are preserved.
+
+---
+
+## T003 final validation — Phase 1 complete (2026-11-04, Keel)
+
+Authority: Conductor attempt03 validation assignment; tasks T002/T003; spec FR-001/FR-011; frozen T001/T002 contract and recon-DEV-451-2-2 section 10. This receipt supersedes the earlier blocked/readiness snapshots for baseline completion only. Branch read-back is `feature/DEV-451` in the assigned Build worktree. Inputs are task note DEV-451 lines 96–101, section 10 recon, Gauge report `C:/Users/lamun/AppData/Local/Temp/DEV-451-T002-attempt03-gauge-report.txt`, and the archived artifacts linked below. No replay measurement or launcher diagnosis was performed by Keel.
+
+### DEV-448 attempt03 — accepted
+
+Read back [receipt](evidence/baseline/DEV-448/attempt03/receipt.md), [native timing](evidence/baseline/DEV-448/attempt03/output/mutation-timing.json), [wrapper capture](evidence/baseline/DEV-448/attempt03/gauge-timing.json), preflight/console logs, generated config, full Core JSON report, and ownership-preflight/prelaunch JSON in the same archive.
+
+- Wrapper exit **0**, native verdict **PASSED**, native duration **3385.7 s**, independently captured Gauge wall **3386.169 s**, Core Stryker wall **3383.5 s**. Capture runs from `2026-11-04T16:27:01.8278242+00:00` to `2026-11-04T17:23:27.9992904+00:00`; native `generatedUtc` is `2026-11-04T17:23:27Z`. Console contains both `Mutation Testing Summary` and the terminal verdict. These are complete wrapper artifacts, not inferred from the Stryker child exit.
+- Native timing and full report agree: **283** reported mutants; **221** tested; Killed **198**, Survived **23**, Timeout **0**, NoCoverage **0**, Ignored **41**, CompileError **21**; score **89.59276018099548%**, threshold **80**. Keep the Stryker-created population (2556, with pre-report filtering) separate from the 283 report entries.
+- Preflight exit 0 is recorded in Gauge's receipt; the archived preflight log confirms scope/settings, not a measured gate pass. Generated config retains only `Features/Recommendations/SimilarityScorer.cs`, both Evaluation and UnitTests, concurrency **8** on 16 logical processors, additional-timeout **90000**, **mtp/off**, since disabled, and unchanged thresholds. Console records actual integrity evaluation: largest kill share **33.48% / 50%**, largest non-exempt file span **1 / 15**, with 77 exempt tests in four classes and widest exempt span 1. No safeguard was relaxed.
+- Ownership receipts record Gauge exclusive ownership and empty active-mutation process lists before preflight (`16:25:15.9774354Z`) and immediately before launch (`16:26:43.0991707Z`). Gauge records no concurrent case through archive and zero matching sessions after exit. Accept the supplied seriality evidence; this is not a fresh machine-wide process audit by Keel.
+- Receipt pins detached head `6fcbd1ffdb3805b46937534bac48a37a68ebd62b`, first-parent base `f8bb21cb38e3b9105ee1bc0500966903a5fad40a`, clean porcelain, no overlay, machine ALIEN, PowerShell 7.6.9 and SDK 10.0.403. All eight recorded frozen source/test/support hashes match attempt01. These are supplied identity receipts; aggregate SHA-256 values are not Git tree hashes. Native timing provenance/archive hash match is Gauge's recorded receipt, not an independent TEMP hash check by Keel.
+
+The accepted serial number exceeds 1800 s; that does not invalidate a baseline. Attempt03 differs from the rejected attempts by one extra Killed / one fewer Survived mutant (198/23 versus 197/24), with the same 221 tested and zero timeouts. Preserve that observation without attributing it to a lever or claiming a speed/verdict improvement. Only attempt03 is the DEV-448 control for future matched candidate comparisons.
+
+### Retained invalid attempts and completed baseline set
+
+**DEV-448 attempt01 and attempt02 are retained and invalidated**, not deleted or repaired: their wrapper exits are NOT CAPTURED and native timing / Gauge timing are absent; they overlap `11:33:19 → 11:36:34` (approximately 3m15s) in the same worktree. Their Stryker scores and elapsed times cannot substitute for a serial native-gate baseline. Keel made no writes to either archive; Gauge records byte-identical retention. Exact launcher cause remains unproven; successful attempt03 does not retroactively establish it.
+
+| Accepted baseline | Native wall | Tested / score | Actual gate disposition |
+|---|---:|---|---|
+| [DEV-444 attempt01](evidence/baseline/DEV-444/attempt01/receipt.md) | 1088.7 s | 68 / 58.82% | Valid **FAIL**, wrapper exit 1; retained without rerun; 4 timeouts |
+| [DEV-448 attempt03](evidence/baseline/DEV-448/attempt03/receipt.md) | 3385.7 s | 221 / 89.59% | **PASS**, wrapper exit 0; 0 timeouts |
+| [DEV-333 attempt01](evidence/baseline/DEV-333/attempt01/receipt.md) | 1233.3 s | 68 / 86.76% | Core **PASS**, wrapper exit 0; Infrastructure **N/A**, never PASS; 4 timeouts |
+
+Earlier DEV-444/DEV-333 validation remains accepted; native timing was read back again. All three baselines are durable live measurements with frozen per-case comparison identities, unchanged control settings and both eligible Core suites; DEV-333 retains its explicitly recorded replay-only Tests.Common overlay. Comparability means matching each candidate to its own frozen baseline, not treating different historical code/test trees as interchangeable. No historical timing was invented or missing artifact synthesized.
+
+Full archived reports carry source path, complete start/end line/column, mutatorName, replacement and status. Artifact validation found **zero duplicate identity groups** using path + full location + mutatorName + replacement in DEV-444's **98**, DEV-448's **283**, and DEV-333's **104** report entries. T005 must still normalize replay-root prefixes, confirm matching source content and populations, reject unmatched/ambiguous identities, and build the full baseline-to-candidate matrix rather than joining numeric IDs. This validation is not a candidate comparison.
+
+### Task closure and next steps
+
+**T002 and T003 are complete.** Phase 1 is closed with one valid failing baseline and two passing Core baselines; this is not an all-gates-PASS claim or ticket acceptance. No lever has been selected, experiment authorized, or shipping script changed.
+
+Bernstein may proceed to **T004**: obtain a concrete non-DEV-435 lever proposal, cited mechanism recon, three-script implementability/consumer compatibility proof and a reversible versioned non-shipping scratch plan with unchanged policy and actual integrity evaluation. Existing mtp/off control, unsupported-mode experimental authorization, unnamed-file STOP rules, T005 stable-identity/timeout comparisons, T006 Patron ratification and T010-before-T011 adoption ordering all remain mandatory. Missing mechanism facts require `needs recon`; Phase 1 closure is not permission to bypass those conditions. T012/T013 retain the separate under-30-minute acceptance bar on DEV-444.
+
+Only this CONCLUSIONS receipt and tasks.md completion/status are changed by Keel. Existing unrelated documentation and all evidence archives are preserved; no script/config/production write, runtime gate, tracker mutation, commit or merge is performed.
+
+---
+
+## T004 proposal review — blocked on mechanism recon and experimental decision (2026-11-04, Keel)
+
+Authority: Conductor T004 assignment; brief Q3/Q5 and plan-challenge decisions 1–4/7; tasks T004–T006. Read the assigned task/recon notes, tasks, brief, this complete conclusions record and ADR 0016; also read linked recon-DEV-451-2 section 9 for frozen support/replay facts. Assigned branch read-back is feature/DEV-451. Existing documentation edits and evidence are preserved. No independent mechanism search, measurement or script edit was performed.
+
+### One concrete proposal, not an authorized experiment
+
+**Candidate for targeted recon: Stryker 5.0.0 MTP with coverage-analysis `perTestInIsolation`, replacing only the control's `off` value in an explicitly versioned experimental gate's generated configuration.** ADR 0016, Amendment: sharded whole-Core run in CI, states that the MTP runner contains `perTestInIsolation`; it does not establish this mode's current implementation, semantics, correctness or performance on these frozen cases. The proposed benefit is a hypothesis to investigate, not a measured or documented claim here. Do not equate this mode with measured `perTest` or infer that its name guarantees isolation or verdict integrity.
+
+This is outside DEV-435's already-baseline changed-file globs/direct-reference filtering. It changes neither `since` nor concurrency. The control remains Stryker 5.0.0, mtp/off, concurrency 8, additional-timeout 90000, both eligible Core suites and the entire unchanged gates.mutation policy. No other candidate is proposed in this receipt.
+
+**Shipping disposition remains GATE NOT WIRED for mtp/non-off**, including this candidate: recon-DEV-451 section 4 line 43 identifies run-mutation.ps1:976. Nothing in ADR 0016's historical mode listing overrides that guard. This is an unsupported shipping-gate mode and requires targeted recon plus explicit Patron experimental authorization under brief plan-challenge decision 1 before any trial. Existing Q3 and Phase 1 completion are not that authorization. Retrying rejected `perTest` or `all` is not authorized either.
+
+### Three-script implementability: not proven
+
+The proposed eventual allocation is run-mutation.ps1 for candidate configuration/orchestration and existing evaluation/timing, Test-RunMutation.ps1 for mode/configuration/guard/integrity regression coverage, and _harness-config.ps1 only if proven necessary without a new policy key. This is a proposed responsibility split, not proof that those changes suffice. No new dependency, renderer, install change, harness.yml key, generated-file hand edit or consumer rewrite is approved.
+
+Recon identifies configuration construction at run-mutation.ps1:1112–1119, evaluation at :215/:1202 and native timing at :1283, but supplies no perTestInIsolation mechanism or script-only configuration precedence proof. The existing renderer relationship and shipping guard make a generated-config-only solution a fact to establish, not permission to bypass validation. If implementing the mode needs an unnamed renderer/install/config/consumer edit, stop for a cited Patron ruling; ticket contradiction or constitution departure uses the standing owner escalation. T004 cannot certify zero unnamed edits from the supplied evidence.
+
+### Recon-listed consumers: compatibility obligations, no PASS claimed
+
+| Consumer from recon-DEV-451 section 4 lines 48–57 / section 7 line 82 | Required compatibility and present limit |
+|---|---|
+| CI ci.yml:254, run-mutation.ps1 -EvaluateReport | Preserve parameters, exit semantics and actual whole-report score/kill-share/span/ArchitectureTests/scope evaluation. Recon proves the control evaluation path, not candidate report compatibility. |
+| ci-stryker-shard.sh mirrored configuration and report merge | Do not silently change CI's mtp/off behavior. Candidate mode must be confined to the proposed local invocation path; prove that CI's report-only caller still works without a shard-script change. No such proof is supplied. |
+| new-mutation-receipt.ps1 overlay/invocation | Preserve existing invocation, support overlay set and receipt/timing locations. A new scratch filename is not automatically selected by its existing overlay list. Exact scratch launch/provenance mechanics need recon. |
+| _gate-common.ps1 and fixture harness-config stub | Preserve dot-source API, root resolution and fixture seam; no new mandatory config key. Current recon lists these dependencies but does not prove candidate wiring through them. |
+| README, AGENTS, architect/verify/diagnosing-bugs skills, agent files and .claude/settings.json | Retain documented command forms, flags, gate verdicts and output artifacts. Candidate adoption must not make their mtp/off guidance false without an unnamed edit. Listing references is not a contents-level compatibility proof. |
+
+Required unnamed consumer edits are a STOP, not a silent rewrite. DEV-452 caller drift is included in this obligation. No compatibility failure is asserted merely because proof is missing, and no consumer is labeled compatible without that proof.
+
+### Scratch experiment specification awaiting feasibility proof
+
+The intended non-shipping shape is a versioned copy of the gate in an operator-authorized replay support location, preserving the script's repository-root/dot-source/tool lookup behavior. Keep the tracked shipping scripts and generated root config unchanged. Archive original/candidate gate bytes, exact diff and SHA-256 manifest; disclose any experimental guard change explicitly. Do not create the copy or invent its path/launch command until recon verifies root resolution and Bernstein/Rigger supplies the authorized location. An external generic TEMP copy cannot be assumed to work just because baseline OutputRoot is in TEMP.
+
+After mechanism proof and Patron experimental authorization, each frozen case would use its existing immutable base/head, code/tests, suites, concurrency 8 and timeout 90000, with only this lever changed. Reuse section 10.7's single-owner quiet-machine and synchronous wrapper capture requirements. Use fresh candidate attempt roots and archive all attempts under specs/DEV-451/evidence/candidate/<case>/<attempt>/; retain invalid attempts and absent-artifact explanations. Scratch timing must disclose experimental provenance and carry generatedUtc, durationSeconds, concurrency, threshold and per-project duration/counts/tested/score/passed equivalent to the gate schema. Independently capture start/end/wall/exit, full stdout/stderr, generated configs, full reports, source/support hashes and actual command lines. Never call these native shipping-gate acceptance artifacts or synthesize missing timing.
+
+Run the **unchanged shipping gate's actual -EvaluateReport path** on the candidate report with the frozen git-diff-shaped scope and unchanged policy, capturing its command, output and exit as a separate integrity receipt. Recon-DEV-451-2-2 section 10.4 demonstrates why mutate-relative paths are wrong for scope containment; its successful function probes are not a substitute for this CLI receipt. Exact required EvaluateReport arguments and scope-file construction must come from targeted recon before execution. A real evaluation failure is retained; baseline DEV-444 is already a valid failure and must not be relabeled or rerun for a pass.
+
+T005 additionally requires normalized stable source/location/mutator/replacement identity populations and the full baseline/candidate status matrix, zero positive Survived-to-Timeout or Killed-to-Timeout conversions, explained timeout totals, intact suites and kill-share/span safeguards, including DEV-444's weaker exempt-class span signal. Coverage-derived NoCoverage/ignored changes must be explained rather than used to hide an unmatched or untested population. Timing alone cannot authorize adoption. The requirements above specify the desired experiment contract; **a feasible executable scratch path and actual integrity results have not been proved**.
+
+### Disposition and exact return
+
+**T004 remains unchecked; T005 is blocked.** No candidate adoption, scratch feasibility PASS, compatibility PASS, experimental authorization, ADR amendment or runtime result is claimed. Only this conclusions section is appended; tasks.md completion/status is not changed because the completion conditions are unmet.
+
+**needs recon: For pinned Stryker 5.0.0 mtp/perTestInIsolation, what are the actual mode semantics and gate/report wiring; can generated candidate configuration, unchanged policy and every listed CLI/output consumer be supported with edits confined to the three ticket-named scripts; and what verified versioned-copy root/launch/overlay plus actual -EvaluateReport scope/argument procedure produces complete durable scratch artifacts on the three frozen replay cases?** Return cited source locations, precise commands and any required unnamed edits, not a mode-name inference. Bernstein should obtain this bounded mechanism recon before returning T004 for completion.
+
+**needs decision: Patron — after targeted recon, explicitly authorize or reject a bounded non-shipping mtp/perTestInIsolation experiment, identifying any scratch-only guard delta.** This requests experimental permission only, not shipping adoption, renderer/install/config scope expansion or T006 ratification. No decision ask is sent directly ahead of its missing factual basis. If authorized and feasible, finish T004, then assign Gauge T005; T006 ratification and T010 ADR checkpoint still precede T011. A change from ADR 0016's mtp/off Decision cannot take the zero-departure no-amendment path.
+
+---
+
+## T004 experimental decision — Patron ruling (2026-11-04)
+
+[from Patron] DEV-451 Phase 2 T004 Ruling: AUTHORIZE the bounded non-shipping `mtp` / `coverage-analysis: perTestInIsolation` scratch experiment for T005 under the external copy procedure (`%TEMP%\DEV-451-scratch-gate\`) with scratch delta D1–D4 and **zero guard delta**, and confirm that all tracked shipping scripts and configs remain untouched until post-ratification T010/T011.
+- Unmeasured mode & three-script generated-config boundary (`docs/adr/0016-stryker-mtp-runner.md:19-31,74-76,93-105`; `recon-DEV-451-3` §1.5, §2.1–2.3, §3:127-151): unlike rejected `perTest` (E6) and `all` (E1/E3), `perTestInIsolation` on Stryker 5.0.0 MTP is unmeasured in-repo and is reachable strictly via per-run generated config overrides (`scripts/run-mutation.ps1:1107-1129`) through scratch edits D1–D4 (`-CoverageAnalysis` opt-in parameter, `''`/`perTestInIsolation` allowlist validation + explicit experimental stdout disclosure, `$generated['coverage-analysis']` override, and additive `mutation-timing.json` provenance key at `:1276-1285`), requiring zero `harness.yml` or tracked `stryker-config.json` edits.
+- Zero guard delta & consumer/evaluation integrity (`recon-DEV-451-3` §1.1–1.2, §2.4:101-115, `recon-DEV-451-3-2` §4.1–4.5, §5.3, §5.7): because `scripts/run-mutation.ps1:973-977` validates `$baseStryker` (the tracked `stryker-config.json` at `mtp`/`off`), the scratch guard delta is **zero lines** (`:973-977` stays byte-identical and passing while D2/D4 and archived `<out>/LamuFlix.Core/stryker-config.json` disclose the effective mode); all four recon-listed consumers are compatible with zero edits for the bounded trial, and each candidate report must be evaluated by the unchanged tracked `./scripts/run-mutation.ps1 -EvaluateReport` using `pwsh -Command` explicit `@(...)` `-ScopeFile` array binding.
+- Non-shipping boundary & downstream checkpoints (`CONCLUSIONS.md` Q3:42-54, Plan-Challenge 1–4:117-120; `recon-DEV-451-3` §3:146-151, `recon-DEV-451-3-2` §5.1–5.8): this ruling authorizes only the T005 external scratch experiment (`%TEMP%\DEV-451-scratch-gate\` launched against the frozen replay roots with original/candidate bytes, `run-mutation.delta.diff`, and `MANIFEST.sha256` archived under `specs/DEV-451/evidence/candidate/_gate/`); tracked `scripts/run-mutation.ps1`, `scripts/_harness-config.ps1`, `scripts/Test-RunMutation.ps1`, `stryker-config.json`, `harness.yml`, and `scripts/ci-stryker-shard.sh` remain untouched until T005 matched evidence, T006 Patron ratification, and T010 in-place ADR 0016 amendment (plus a separate Charter §2.3 STOP ruling if T011 requires reconciling `scripts/ci-stryker-shard.sh:151-163`).
+
