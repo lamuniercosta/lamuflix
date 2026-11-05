@@ -60,6 +60,7 @@ internal static class RescanEndpoints
     }
 }
 
+// ReSharper disable NotAccessedPositionalProperty.Global // Serialized by System.Text.Json as the frozen wire shapes, never read in code
 internal sealed record RescanMovieResponse(int MovieId, bool Changed, string OldFormat, string NewFormat)
 {
     public static RescanMovieResponse From(RescanMovieResult result) =>
@@ -79,3 +80,4 @@ internal sealed record RescanLibraryResponse(int Changed, int Unchanged, int Fai
             result.Failed,
             [.. result.FailedMovieIds.Select(id => id.Value)]);
 }
+// ReSharper restore NotAccessedPositionalProperty.Global

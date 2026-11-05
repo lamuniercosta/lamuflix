@@ -180,6 +180,7 @@ public sealed class RescanLibraryCommandHandlerTests
         Track(movies, first, second);
         scanner.ResolvePrimaryVideo(first.Path).Returns(_ =>
         {
+            // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
             cancellation.Cancel();
             return Primary("avi");
         });

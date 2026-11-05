@@ -198,6 +198,7 @@ public sealed class RescanMovieCommandHandlerTests
         movies.GetAsync(id, ct).Returns(movie);
         scanner.ResolvePrimaryVideo(movie.Path).Returns(_ =>
         {
+            // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
             cancellation.Cancel();
             return Primary(movie.Path, "mkv");
         });
