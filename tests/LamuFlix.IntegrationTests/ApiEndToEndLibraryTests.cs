@@ -53,7 +53,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "enrichmentStatus");
         body.GetProperty("isInWatchlist").GetBoolean().ShouldBeTrue();
         body.GetProperty("id").GetInt32().ShouldBe(id);
         body.GetProperty("title").GetString().ShouldBe("Heat");
