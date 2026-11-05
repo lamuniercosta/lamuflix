@@ -106,6 +106,11 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
     }
 
     private KeyValuePair<string, string?>[] HostSettings() =>
+        [.. HostSettingsInOrder()
+            .GroupBy(setting => setting.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Last())];
+
+    private KeyValuePair<string, string?>[] HostSettingsInOrder() =>
     [
         new("ConnectionStrings:DefaultConnection", settings.DefaultConnection),
         new($"{DatabaseOptions.SectionName}:{nameof(DatabaseOptions.ApplyMigrationsOnStartup)}", "false"),

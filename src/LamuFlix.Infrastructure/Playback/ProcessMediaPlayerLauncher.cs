@@ -8,8 +8,12 @@ using Microsoft.Extensions.Options;
 namespace LamuFlix.Infrastructure.Playback;
 
 public sealed class ProcessMediaPlayerLauncher(IOptions<PlaybackOptions> options, IProcessStarter starter)
-    : IMediaPlayerLauncher
+: IMediaPlayerLauncher
 {
+    public void EnsureEnabled()
+    {
+    }
+
     public void Launch(LibraryPath file, MediaFormat format)
     {
         ArgumentNullException.ThrowIfNull(file);

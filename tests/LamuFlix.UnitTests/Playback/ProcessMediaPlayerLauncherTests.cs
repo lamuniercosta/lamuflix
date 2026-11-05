@@ -12,6 +12,20 @@ public sealed class ProcessMediaPlayerLauncherTests
     private readonly IProcessStarter starter = Substitute.For<IProcessStarter>();
 
     [Fact]
+    public void EnsureEnabled_EnabledLauncher_ReturnsWithoutStartingProcess()
+    {
+        // arrange
+        var launcher = NewLauncher([]);
+
+        // act
+        var result = Record.Exception(launcher.EnsureEnabled);
+
+        // assert
+        result.ShouldBeNull();
+        starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
+    }
+
+    [Fact]
     public void Launch_MatchingFormat_StartsConfiguredPlayerWithFileAsSingleArgument()
     {
         // arrange
