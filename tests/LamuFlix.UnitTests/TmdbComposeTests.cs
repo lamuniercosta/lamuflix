@@ -22,8 +22,8 @@ public sealed class TmdbComposeTests
     private const string EnvApiKeyEntry = "TMDB_API_KEY=";
     private const string TmdbSectionName = "Tmdb";
     private const string TmdbEnabledPropertyName = "Enabled";
-    private const string ApiAppSettingsRelativePath = @"src\LamuFlix.Api\appsettings.json";
-    private const string ApiSettingsExampleRelativePath = @"docker\api.settings.example.json";
+    private const string ApiAppSettingsRelativePath = "src/LamuFlix.Api/appsettings.json";
+    private const string ApiSettingsExampleRelativePath = "docker/api.settings.example.json";
     private const string TmdbNameFragment = "tmdb";
     private const string TmdbKeyVariable = "TMDB_API_KEY";
     private static readonly Regex ServiceBoundary = new(@"^\s{0,2}\S", RegexOptions.CultureInvariant);
