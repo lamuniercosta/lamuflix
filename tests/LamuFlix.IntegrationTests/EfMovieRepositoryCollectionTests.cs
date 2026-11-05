@@ -128,6 +128,30 @@ public sealed class EfMovieRepositoryCollectionTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task SaveChanges_UnavailableCollectionSignalOnFirstEnrichment_LeavesNewMembershipUnset()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Unset", "collection-unset", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+
+        // act
+        movie.MarkEnriched(MetadataWithUnavailableCollection("Unset", "tt0000109"), Now);
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = fixture.CreateMigratedContext();
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        record.MetadataTitle.ShouldBe("Unset");
+        record.CollectionId.ShouldBeNull();
+        (await verify.Collections.AsNoTracking().CountAsync(ct)).ShouldBe(0);
+    }
+
+    [Fact]
     public async Task SaveChanges_FailedEnrichment_PreservesMetadataAndMembership()
     {
         // arrange
