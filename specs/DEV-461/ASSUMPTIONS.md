@@ -14,6 +14,9 @@
   - **Thumbs up**: `Like, {title}` (when `None` or `Disliked`) / `Clear liked review, {title}` (when `Liked`).
   - **Thumbs down**: `Dislike, {title}` (when `None` or `Liked`) / `Clear disliked review, {title}` (when `Disliked`).
   - **Watchlist**: `Add to Watchlist, {title}` (when not in watchlist) / `Remove from Watchlist, {title}` (when in watchlist).
+- `[assumed]` **Icon-row wrapping & narrow-container overflow behavior (Compass F4)**: The four-icon strip renders on a single horizontal line at standard card and Movie Details widths, with `flex-wrap: wrap` allowed only as a narrow-viewport / text-zoom overflow safety fallback so buttons never clip or overlap; tooltip/accessible labels preserve exact Q9 casing (`Mark Watched`, `Unmark Watched`, `Add to Watchlist`, `Remove from Watchlist`, `Like`, `Dislike`, `Clear liked review`, `Clear disliked review`) without automatic sentence-case transformation.
+- `[assumed]` **Glossary & spec disambiguation (Ledger F7)**: Ubiquitous-language prose distinguishes a user's per-movie `Review` (`None` / `Liked` / `Disliked`) from external metadata `Rating` (IMDb/TMDb star rating) and engineering code review, without banning `Rating` or `Score` in recommendation/metadata contexts.
+
 
 
 
