@@ -210,3 +210,12 @@ Drift accounting: current recon §2b reports zero post-spec-merge drift in `spec
 T000 and T001 are complete; task instructions are amended only for demonstrated F1/F2/F6/F7 pickup facts. No new Patron decision is required: public API, LocalPlay/process argument handling, forced file edits, and final dependency composition already have deliberate cited rulings. Historical Phase A status/path statements remain historical; this receipt and the tasks pickup instructions govern current execution.
 
 Next: Bernstein routes Build to T002–T006 (shared selector/ports/domain/import foundation), then the frozen dependent phases. T002–T028 remain incomplete. No production code or generated artifact changed in this pickup, no build/test/analyzer/mutation/web gate was executed, and no implementation/review/merge clearance, commit, push, PR, tracker mutation, or merge is claimed.
+
+---
+
+## Phase 4 Implementation-Review Adjudication Ruling (Round 1 at `b5ae3194`)
+
+**Patron ruling:** Approved: retain Ledger M2 (Medium, CONFIRMED) and drop Ledger M1, Ledger L1–L4, and Compass L1; noted, no ticket.
+- **Retain Ledger M2 (`DirectoryMediaLibraryScanner.cs:68–69` `PrimaryVideoSelector.ExcludedTokens`):** `static readonly FrozenSet<string>` initialized with inline string literals violates `AGENTS.md` (*"Keep mutable code out of static initialisation... Declare literals used by static instances as `const`"* / `DEV-410`) and `CONCLUSIONS.md:135` (Phase 2 item 8 explicit `const` token literals / non-mutable static initialization); report as a documented-rule breach only (Infrastructure is N/A in `harness.yml` mutation exclusions, so no mutant contamination occurred).
+- **Drop Ledger M1 (`ProcessMediaPlayerLauncher.EnsureEnabled`):** `AGENTS.md` Non-negotiables permits intentional empty-block justification comments as an exemption to the no-comments rule; it does not require a comment, and the enabled no-op guard is explicitly approved in `CONCLUSIONS.md` Q3 (`lines 34–42`).
+- **Drop Ledger L1–L4 and Compass L1 (`noted, no ticket`):** L1 is `dotnet format`-owned indentation; L2 is an unproven divergent-change smell on a tiny file-local helper; L3 (`internal sealed class RescanMovieOperation` direct construction) and L4 (`EnsureEnabled` before `ResolvePrimaryVideo`) are already ratified in `CONCLUSIONS.md` Q3 (`lines 37–42`) and Phase 2 item 4 (`lines 122–123`); Compass L1 is a hypothetical future caller change with zero current defect.
