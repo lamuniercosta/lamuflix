@@ -60,6 +60,8 @@ services:
       dockerfile: docker/Dockerfile.api
     environment:
       Ollama__Endpoint: http://ollama:11434/
+      Tmdb__Enabled: ${TMDB_ENABLED:-true}
+      Tmdb__ApiKey: ${TMDB_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

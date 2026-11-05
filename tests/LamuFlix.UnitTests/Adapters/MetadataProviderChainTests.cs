@@ -340,6 +340,108 @@ public sealed class MetadataProviderChainTests
     }
 
     [Fact]
+    public async Task FindAsync_PrimaryFoundWithManualImdbIdOnly_ForwardsManualIdToSupplement()
+    {
+        // arrange
+        var manualId = new ImdbId("tt0083658");
+        var lookup = new MetadataLookup("Blade Runner", null, manualId);
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(PrimaryMetadataWithoutImdbId()));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(SupplementMetadata()));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        await chain.FindAsync(lookup, TestContext.Current.CancellationToken);
+
+        // assert
+        var forwarded = supplement.LastLookup.ShouldNotBeNull();
+        forwarded.ManualImdbId.ShouldBe(manualId);
+        forwarded.Title.ShouldBe("Blade Runner");
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithOmdbImdbIdOnly_ForwardsOmdbIdToSupplement()
+    {
+        // arrange
+        var lookup = new MetadataLookup("Blade Runner", null);
+        var omdbId = new ImdbId("tt0133093");
+        var primary = StubMetadataProvider.Returning(
+            new MetadataLookupResult.Found(new MovieMetadata("Primary", imdbId: omdbId)));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(SupplementMetadata()));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        await chain.FindAsync(lookup, TestContext.Current.CancellationToken);
+
+        // assert
+        var forwarded = supplement.LastLookup.ShouldNotBeNull();
+        forwarded.ManualImdbId.ShouldBe(omdbId);
+        forwarded.Title.ShouldBe("Blade Runner");
+        forwarded.ReleaseYear.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithDistinctManualAndOmdbIds_ForwardsManualIdToSupplement()
+    {
+        // arrange
+        var manualId = new ImdbId("tt0083658");
+        var omdbId = new ImdbId("tt0133093");
+        var lookup = new MetadataLookup("Blade Runner", null, manualId);
+        var primary = StubMetadataProvider.Returning(
+            new MetadataLookupResult.Found(new MovieMetadata("Primary", imdbId: omdbId)));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(SupplementMetadata()));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        await chain.FindAsync(lookup, TestContext.Current.CancellationToken);
+
+        // assert
+        var forwarded = supplement.LastLookup.ShouldNotBeNull();
+        forwarded.ManualImdbId.ShouldBe(manualId);
+        forwarded.ManualImdbId.ShouldNotBe(omdbId);
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithoutAnyImdbId_PreservesOriginalLookupInstance()
+    {
+        // arrange
+        var lookup = new MetadataLookup("Blade Runner", null);
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(PrimaryMetadataWithoutImdbId()));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(SupplementMetadata()));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        await chain.FindAsync(lookup, TestContext.Current.CancellationToken);
+
+        // assert
+        supplement.LastLookup.ShouldBeSameAs(lookup);
+        supplement.LastLookup.ShouldNotBeNull().ManualImdbId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithOmdbImdbIdAndSupplementNotFound_KeepsPrimaryFoundWithUnavailableSignals()
+    {
+        // arrange
+        var lookup = new MetadataLookup("Blade Runner", null);
+        var omdbId = new ImdbId("tt0133093");
+        var primary = StubMetadataProvider.Returning(
+            new MetadataLookupResult.Found(new MovieMetadata("Primary", imdbId: omdbId)));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.NotFound());
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(lookup, TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Primary");
+        metadata.ImdbId.ShouldBe(omdbId);
+        metadata.CollectionId.ShouldBeNull();
+        metadata.Signals.ShouldNotBeNull().CollectionAvailability.ShouldBe(SignalAvailability.Unavailable);
+        supplement.LastLookup.ShouldNotBeNull().ManualImdbId.ShouldBe(omdbId);
+        supplement.CallCount.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task FindAsync_PrimaryFoundWithSupplementDisabled_ReturnsPrimaryUnchangedWithoutASupplementCall()
     {
         // arrange
@@ -477,6 +579,16 @@ public sealed class MetadataProviderChainTests
             "Primary",
             synopsis: "Primary plot",
             imdbId: new ImdbId("tt0133093"),
+            metaScore: 73,
+            directors: ["Lana Wachowski"],
+            actors: ["Base Actor"],
+            genres: ["Action"],
+            writers: ["Lilly Wachowski"]);
+
+    private static MovieMetadata PrimaryMetadataWithoutImdbId() =>
+        new(
+            "Primary",
+            synopsis: "Primary plot",
             metaScore: 73,
             directors: ["Lana Wachowski"],
             actors: ["Base Actor"],
