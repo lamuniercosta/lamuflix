@@ -878,15 +878,55 @@ describe('FilterPanel collection section', () => {
     expect(new URLSearchParams(window.location.search).get('collectionId')).toBeNull();
   });
 
-  it('renders legend only for an empty facet without helper copy or busy state', () => {
-    const { container } = render(<FilterPanel collections={[]} />);
+  it('omits the Collection group when the facet is healthy-empty and keeps other groups', () => {
+    const { container } = render(
+      <FilterPanel collections={[]} genres={[genre({ id: 1, name: 'Action', movieCount: 4 })]} />,
+    );
 
-    const group = screen.getByRole('group', { name: 'Collection' });
-    expect(within(group).queryAllByRole('checkbox')).toHaveLength(0);
-    expect(group.querySelector('p')).toBeNull();
-    expect(group).toHaveTextContent(/^Collection$/);
+    expect(screen.queryByRole('group', { name: 'Collection' })).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Genres' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Enrichment status' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Sort' })).toBeInTheDocument();
+    expect(screen.queryByText(/Collections could not be loaded/i)).not.toBeInTheDocument();
     expect(container.querySelector('[aria-busy="true"]')).toBeNull();
     expect(container.querySelector('.lamu-skeleton')).toBeNull();
+  });
+
+  it('omits the Collection group when no collections prop is supplied', () => {
+    render(<FilterPanel />);
+
+    expect(screen.queryByRole('group', { name: 'Collection' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the Collection group and alert when the collection fetch failed', () => {
+    render(
+      <FilterPanel
+        collections={[]}
+        collectionsError={new Error('collections failed')}
+        genres={[genre({ id: 1, name: 'Action', movieCount: 4 })]}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Collection' });
+    expect(within(group).getByRole('alert')).toHaveTextContent('Collections could not be loaded.');
+    expect(screen.getByRole('group', { name: 'Genres' })).toBeInTheDocument();
+  });
+
+  it('keeps the Collection group when the facet failed through the singular error prop', () => {
+    render(<FilterPanel collections={[]} collectionError={new Error('collection failed')} />);
+
+    expect(screen.getByRole('group', { name: 'Collection' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Collections could not be loaded.');
+  });
+
+  it('retains an active collection selection while the hidden facet writes nothing', () => {
+    const onChange = vi.fn();
+    window.history.replaceState({}, '', '/?collectionId=4');
+    render(<FilterPanel collections={[]} onChange={onChange} />);
+
+    expect(screen.queryByRole('group', { name: 'Collection' })).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(new URLSearchParams(window.location.search).get('collectionId')).toBe('4');
   });
 
   it('shows an independent collection error and keeps genres usable', () => {
