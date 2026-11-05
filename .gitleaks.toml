@@ -1,0 +1,15 @@
+title = "LamuFlix gitleaks config"
+
+[extend]
+useDefault = true
+
+# TmdbComposeTests.cs uses the env var name "TMDB_API_KEY=" as a search
+# needle when it parses .env files. It is not a credential. The default
+# generic-api-key rule flags it, and .gitleaksignore fingerprints are
+# commit-specific, so they stop matching when the line lands in a new commit.
+[[allowlists]]
+description = "TMDB_API_KEY env var name used as a parse needle in TmdbComposeTests"
+condition = "AND"
+paths = ['''^tests/LamuFlix\.UnitTests/TmdbComposeTests\.cs$''']
+regexTarget = "line"
+regexes = ['''EnvApiKeyEntry = "TMDB_API_KEY="''']
