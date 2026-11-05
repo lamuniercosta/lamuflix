@@ -35,7 +35,7 @@ public sealed class PlayMovieCommandHandlerTests
         var id = NewId();
         var path = new LibraryPath("C:/library/play");
         var format = new MediaFormat("mp4");
-        var details = new MovieDetails(id, "Play Me", path, format, null, false, false, false);
+        var details = new MovieDetails(id, "Play Me", path, format, null, false, false, false, EnrichmentStatus.Enriched);
         var ct = CancellationToken.None;
         catalog.GetDetailsAsync(id, ct).Returns(details);
 
@@ -221,7 +221,7 @@ public sealed class PlayMovieCommandHandlerTests
     }
 
     private static MovieDetails Details(MovieId id) =>
-        new(id, "Play Me", new LibraryPath("C:/library/play"), new MediaFormat("mp4"), null, false, false, false);
+        new(id, "Play Me", new LibraryPath("C:/library/play"), new MediaFormat("mp4"), null, false, false, false, EnrichmentStatus.Enriched);
 
     private MovieId NewId() => new(Math.Abs(fixture.Create<int>()) + 1);
 }

@@ -54,6 +54,10 @@ function Probe({ movieId, instance = 'a', initial, clients }: ProbeProps) {
       <span data-testid={`refresh-error-${tag}`}>{feedback.refreshError ?? ''}</span>
       <button type="button" onClick={feedback.markWatched}>{`watched-${tag}`}</button>
       <button type="button" onClick={feedback.markNotInterested}>{`not-interested-${tag}`}</button>
+      <button type="button" onClick={feedback.unmarkWatched}>{`unmark-watched-${tag}`}</button>
+      <button type="button" onClick={feedback.unmarkNotInterested}>
+        {`unmark-not-interested-${tag}`}
+      </button>
       <button type="button" onClick={feedback.retry}>{`retry-${tag}`}</button>
       <button type="button" onClick={feedback.retryRefresh}>{`refresh-${tag}`}</button>
     </div>
@@ -189,6 +193,93 @@ describe('movieFeedbackStore optimistic flags', () => {
 
     gate.resolve();
     await waitFor(() => expect(read('1-a', 'blocked')).toBe('open'));
+  });
+});
+
+describe('movieFeedbackStore unmark actions', () => {
+  it('flips the not-interested flag optimistically and keeps the other flag while the DELETE is in flight', async () => {
+    // arrange
+    const gate = deferred();
+    let deletes = 0;
+    server.use(
+      http.delete('*/api/movies/:id/not-interested', async () => {
+        deletes += 1;
+        await gate.promise;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const client = makeQueryClient();
+    renderProbes(client, [{ movieId: 1, initial: flags(true, true), clients: clientsFor(client) }]);
+
+    // act
+    click('unmark-not-interested-1-a');
+
+    // assert
+    expect(read('1-a', 'flags')).toBe('watched/neutral');
+    expect(read('1-a', 'pending')).toBe('pending');
+    expect(read('1-a', 'blocked')).toBe('blocked');
+    await waitFor(() => expect(deletes).toBe(1));
+
+    gate.resolve();
+    await waitFor(() => expect(read('1-a', 'blocked')).toBe('open'));
+    expect(read('1-a', 'flags')).toBe('watched/neutral');
+    expect(read('1-a', 'error')).toBe('');
+  });
+
+  it('rolls back a failed DELETE and shows the save error', async () => {
+    // arrange
+    let deletes = 0;
+    server.use(
+      http.delete('*/api/movies/:id/watched', () => {
+        deletes += 1;
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    const client = makeQueryClient();
+    renderProbes(client, [
+      { movieId: 1, initial: flags(true, false), clients: clientsFor(client) },
+    ]);
+
+    // act
+    click('unmark-watched-1-a');
+
+    // assert
+    await waitFor(() => expect(read('1-a', 'error')).toBe(MOVIE_FEEDBACK_SAVE_ERROR));
+    await waitFor(() => expect(read('1-a', 'blocked')).toBe('open'));
+    expect(read('1-a', 'flags')).toBe('watched/neutral');
+    expect(read('1-a', 'refresh-error')).toBe('');
+    expect(deletes).toBe(1);
+  });
+
+  it('retries a failed DELETE once and clears the error on success', async () => {
+    // arrange
+    let deletes = 0;
+    server.use(
+      http.delete('*/api/movies/:id/not-interested', () => {
+        deletes += 1;
+        if (deletes === 1) {
+          return new HttpResponse(null, { status: 500 });
+        }
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const client = makeQueryClient();
+    renderProbes(client, [
+      { movieId: 1, initial: flags(false, true), clients: clientsFor(client) },
+    ]);
+    click('unmark-not-interested-1-a');
+    await waitFor(() => expect(read('1-a', 'error')).toBe(MOVIE_FEEDBACK_SAVE_ERROR));
+    await waitFor(() => expect(read('1-a', 'blocked')).toBe('open'));
+    expect(read('1-a', 'flags')).toBe('unwatched/not-interested');
+
+    // act
+    click('retry-1-a');
+
+    // assert
+    await waitFor(() => expect(read('1-a', 'flags')).toBe('unwatched/neutral'));
+    await waitFor(() => expect(read('1-a', 'blocked')).toBe('open'));
+    expect(read('1-a', 'error')).toBe('');
+    expect(deletes).toBe(2);
   });
 });
 

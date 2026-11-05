@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { browseMoviesQueryKey } from '../../library/libraryQueries';
-import { movieDetailsNullMetadata, problemDetails } from '../../mocks/fixtures';
+import { movieDetails, movieDetailsNullMetadata, problemDetails } from '../../mocks/fixtures';
 import { server } from '../../test/server';
 import MovieDetailsView from './MovieDetailsView';
 
@@ -273,5 +273,45 @@ describe('MovieDetailsView manual IMDb match', () => {
 
     expect(screen.queryByRole('dialog', { name: 'Match manually' })).toBeNull();
     expect(putCalls).toBe(0);
+  });
+
+  it('offers Match manually on an enriched movie as a single link-styled button', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)));
+    renderView('Enriched');
+
+    const buttons = await screen.findAllByRole('button', { name: MATCH_TRIGGER });
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toHaveClass('lamu-link');
+  });
+
+  it('sends the IMDb id from an enriched movie re-match and closes the dialog', async () => {
+    const bodies: unknown[] = [];
+    const idsSeen: string[] = [];
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)),
+      http.put('*/api/movies/:id/imdb', async ({ request, params }) => {
+        idsSeen.push(String(params.id));
+        bodies.push(await request.json());
+        return new HttpResponse(null, { status: 202, headers: { Location: '/api/movies/1' } });
+      }),
+    );
+    renderView('Enriched');
+    await openMatchDialog();
+
+    submitMatch('tt0299977');
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Match manually' })).toBeNull(),
+    );
+    expect(idsSeen).toEqual(['1']);
+    expect(bodies).toEqual([{ imdbId: 'tt0299977' }]);
+  });
+
+  it('hides Match manually on an enriched movie while the library status is Pending', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)));
+    renderView('Pending');
+
+    expect(await screen.findByText('/media/dune.mkv')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: MATCH_TRIGGER })).toBeNull();
   });
 });

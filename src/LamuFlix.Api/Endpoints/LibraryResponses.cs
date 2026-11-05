@@ -16,7 +16,7 @@ internal sealed record BrowseMoviesResponse(IReadOnlyList<MovieSummaryResponse> 
 
 internal sealed record MovieSummaryResponse(int Id, string Title, string? PosterUrl, int? ReleaseYear, int? Runtime, decimal? ImdbRating, EnrichmentStatus EnrichmentStatus, bool IsInWatchlist, bool IsWatched, bool IsNotInterested);
 
-internal sealed record MovieDetailsResponse(int Id, string Title, string Path, string Format, MovieMetadataResponse? Metadata, bool IsInWatchlist, bool IsWatched, bool IsNotInterested)
+internal sealed record MovieDetailsResponse(int Id, string Title, string Path, string Format, MovieMetadataResponse? Metadata, bool IsInWatchlist, bool IsWatched, bool IsNotInterested, EnrichmentStatus EnrichmentStatus)
 {
     public static MovieDetailsResponse From(MovieDetails details) =>
         new(
@@ -27,7 +27,8 @@ internal sealed record MovieDetailsResponse(int Id, string Title, string Path, s
             details.Metadata is null ? null : MovieMetadataResponse.From(details.Metadata),
             details.IsInWatchlist,
             details.IsWatched,
-            details.IsNotInterested);
+            details.IsNotInterested,
+            details.EnrichmentStatus);
 }
 
 internal sealed record MovieMetadataResponse(

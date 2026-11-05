@@ -80,7 +80,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.Keywords.Select(keyword => new KeywordRow(keyword.Id, keyword.Name)).ToList(),
                 movie.FullCast.Select(actor => actor.Name).ToList(),
                 movie.CollectionId,
-                movie.Collection == null ? null : movie.Collection.Name))
+                movie.Collection == null ? null : movie.Collection.Name,
+                movie.Status))
             .FirstOrDefaultAsync(ct);
         if (record is null)
         {
@@ -109,7 +110,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 record.CollectionName,
                 Signals(record))
             : null;
-        return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist, record.IsWatched, record.IsNotInterested);
+        return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist, record.IsWatched, record.IsNotInterested, record.Status);
     }
 
     public async Task<IReadOnlyList<GenreFacet>> GetGenresAsync(CancellationToken ct)
@@ -243,7 +244,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         List<KeywordRow> Keywords,
         List<string> FullCast,
         int? CollectionId,
-        string? CollectionName);
+        string? CollectionName,
+        EnrichmentStatus Status);
 
     private sealed record KeywordRow(int Id, string Name);
 }

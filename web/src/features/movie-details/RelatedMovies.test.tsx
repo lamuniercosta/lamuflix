@@ -452,7 +452,9 @@ describe('RelatedMovies shared-card feedback integration', () => {
     // assert
     expect(await screen.findByRole('link', { name: /Newcomer/ })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Prisoners/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Watched, Arrival' })).toBeDisabled();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Watched, Arrival' })).toBeEnabled(),
+    );
     const arrivalCard = screen
       .getByRole('link', { name: /Arrival/ })
       .closest('article') as HTMLElement;

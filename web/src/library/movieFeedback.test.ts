@@ -2,7 +2,12 @@ import { HttpResponse, http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import type { paths } from '../api/types';
 import { server } from '../test/server';
-import { markMovieNotInterested, markMovieWatched } from './movieFeedback';
+import {
+  markMovieNotInterested,
+  markMovieWatched,
+  unmarkMovieNotInterested,
+  unmarkMovieWatched,
+} from './movieFeedback';
 
 type WatchedPathId = paths['/api/movies/{id}/watched']['post']['parameters']['path']['id'];
 
@@ -125,5 +130,153 @@ describe('markMovieNotInterested', () => {
     // assert
     expect(requests).toHaveLength(1);
     expect(outcome).toEqual({ ok: false, status: 404 });
+  });
+});
+
+describe('unmarkMovieWatched', () => {
+  it('deletes the watched mark for the given movie and reports the 204 success', async () => {
+    // arrange
+    const requests: CapturedRequest[] = [];
+    server.use(
+      http.delete('*/api/movies/:id/watched', ({ request }) => {
+        capture(requests, request);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    // act
+    const outcome = await unmarkMovieWatched(21);
+
+    // assert
+    expect(requests).toEqual([{ method: 'DELETE', path: '/api/movies/21/watched' }]);
+    expect(outcome).toEqual({ ok: true, status: 204 });
+  });
+
+  it('treats a 409 repeat transition as already unmarked without another request', async () => {
+    // arrange
+    const requests: CapturedRequest[] = [];
+    server.use(
+      http.delete('*/api/movies/:id/watched', ({ request }) => {
+        capture(requests, request);
+        return new HttpResponse(null, { status: 409 });
+      }),
+    );
+
+    // act
+    const outcome = await unmarkMovieWatched(22);
+
+    // assert
+    expect(requests).toHaveLength(1);
+    expect(outcome).toEqual({ ok: true, status: 409 });
+  });
+
+  it('reports a failed unmark without retrying the request', async () => {
+    // arrange
+    const requests: CapturedRequest[] = [];
+    server.use(
+      http.delete('*/api/movies/:id/watched', ({ request }) => {
+        capture(requests, request);
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+
+    // act
+    const outcome = await unmarkMovieWatched(23);
+
+    // assert
+    expect(requests).toHaveLength(1);
+    expect(outcome).toEqual({ ok: false, status: 500 });
+  });
+
+  it('reports a network failure without retrying the request', async () => {
+    // arrange
+    const requests: CapturedRequest[] = [];
+    server.use(
+      http.delete('*/api/movies/:id/watched', ({ request }) => {
+        capture(requests, request);
+        return HttpResponse.error();
+      }),
+    );
+
+    // act
+    const outcome = await unmarkMovieWatched(24);
+
+    // assert
+    expect(requests).toHaveLength(1);
+    expect(outcome).toEqual({ ok: false, status: 0 });
+  });
+});
+
+describe('unmarkMovieNotInterested', () => {
+  it('deletes the not-interested mark for the given movie and reports the 204 success', async () => {
+    // arrange
+    const requests: CapturedRequest[] = [];
+    server.use(
+      http.delete('*/api/movies/:id/not-interested', ({ request }) => {
+        capture(requests, request);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    // act
+    const outcome = await unmarkMovieNotInterested(31);
+
+    // assert
+    expect(requests).toEqual([{ method: 'DELETE', path: '/api/movies/31/not-interested' }]);
+    expect(outcome).toEqual({ ok: true, status: 204 });
+  });
+
+  it('treats a 409 repeat transition as already unmarked without another request', async () => {
+    // arrange
+    const requests: CapturedRequest[] = [];
+    server.use(
+      http.delete('*/api/movies/:id/not-interested', ({ request }) => {
+        capture(requests, request);
+        return new HttpResponse(null, { status: 409 });
+      }),
+    );
+
+    // act
+    const outcome = await unmarkMovieNotInterested(32);
+
+    // assert
+    expect(requests).toHaveLength(1);
+    expect(outcome).toEqual({ ok: true, status: 409 });
+  });
+
+  it('reports a failed unmark with the responding status and no retry', async () => {
+    // arrange
+    const requests: CapturedRequest[] = [];
+    server.use(
+      http.delete('*/api/movies/:id/not-interested', ({ request }) => {
+        capture(requests, request);
+        return new HttpResponse(null, { status: 500 });
+      }),
+    );
+
+    // act
+    const outcome = await unmarkMovieNotInterested(33);
+
+    // assert
+    expect(requests).toHaveLength(1);
+    expect(outcome).toEqual({ ok: false, status: 500 });
+  });
+
+  it('reports a network failure without retrying the request', async () => {
+    // arrange
+    const requests: CapturedRequest[] = [];
+    server.use(
+      http.delete('*/api/movies/:id/not-interested', ({ request }) => {
+        capture(requests, request);
+        return HttpResponse.error();
+      }),
+    );
+
+    // act
+    const outcome = await unmarkMovieNotInterested(34);
+
+    // assert
+    expect(requests).toHaveLength(1);
+    expect(outcome).toEqual({ ok: false, status: 0 });
   });
 });

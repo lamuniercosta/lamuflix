@@ -33,6 +33,7 @@ const movieDetails = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  enrichmentStatus: 'Enriched',
   metadata: {
     title: 'Dune',
     synopsis: 'A synopsis',

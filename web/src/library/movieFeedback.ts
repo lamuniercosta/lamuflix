@@ -12,18 +12,21 @@ export interface MovieFeedbackOutcome {
   status: number;
 }
 
+type FeedbackPath = '/api/movies/{id}/watched' | '/api/movies/{id}/not-interested';
+
 function outcome(status: number): MovieFeedbackOutcome {
   return { ok: status === 204 || status === 409, status };
 }
 
-async function postFeedback(
-  path: '/api/movies/{id}/watched' | '/api/movies/{id}/not-interested',
+async function sendFeedback(
+  method: 'POST' | 'DELETE',
+  path: FeedbackPath,
   movieId: FeedbackMovieId,
 ): Promise<MovieFeedbackOutcome> {
   try {
-    const { response } = await client.POST(path, {
-      params: { path: { id: movieId } },
-    });
+    const init = { params: { path: { id: movieId } } };
+    const { response } =
+      method === 'POST' ? await client.POST(path, init) : await client.DELETE(path, init);
     return outcome(response.status);
   } catch {
     return outcome(0);
@@ -31,11 +34,21 @@ async function postFeedback(
 }
 
 export async function markMovieWatched(movieId: FeedbackMovieId): Promise<MovieFeedbackOutcome> {
-  return postFeedback('/api/movies/{id}/watched', movieId);
+  return sendFeedback('POST', '/api/movies/{id}/watched', movieId);
+}
+
+export async function unmarkMovieWatched(movieId: FeedbackMovieId): Promise<MovieFeedbackOutcome> {
+  return sendFeedback('DELETE', '/api/movies/{id}/watched', movieId);
 }
 
 export async function markMovieNotInterested(
   movieId: FeedbackMovieId,
 ): Promise<MovieFeedbackOutcome> {
-  return postFeedback('/api/movies/{id}/not-interested', movieId);
+  return sendFeedback('POST', '/api/movies/{id}/not-interested', movieId);
+}
+
+export async function unmarkMovieNotInterested(
+  movieId: FeedbackMovieId,
+): Promise<MovieFeedbackOutcome> {
+  return sendFeedback('DELETE', '/api/movies/{id}/not-interested', movieId);
 }

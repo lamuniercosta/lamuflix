@@ -36,6 +36,7 @@ function details(overrides: Partial<MovieDetails> = {}): MovieDetails {
     isInWatchlist: false,
     isWatched: false,
     isNotInterested: false,
+    enrichmentStatus: 'NotFound',
     metadata: null,
     ...overrides,
   };
