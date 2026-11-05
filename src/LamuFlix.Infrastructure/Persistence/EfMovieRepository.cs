@@ -966,6 +966,16 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         return PresentIds(ids);
     }
 
+    public async Task<IReadOnlyList<MovieId>> SnapshotMovieIdsAsync(CancellationToken ct)
+    {
+        var ids = await db.Movies
+            .AsNoTracking()
+            .OrderBy(movie => movie.Id)
+            .Select(movie => movie.Id)
+            .ToArrayAsync(ct);
+        return PresentIds(ids);
+    }
+
     private static Expression<Func<MovieRecord, bool>> IsDeferralElapsed(DateTimeOffset now) =>
         movie => movie.EnrichmentDeferredUntil == null || movie.EnrichmentDeferredUntil <= now;
 

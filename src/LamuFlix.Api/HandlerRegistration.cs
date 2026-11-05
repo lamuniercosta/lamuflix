@@ -64,6 +64,10 @@ internal static class HandlerRegistration
         services.AddScoped<IValidator<RescanMovieCommand>>(
             serviceProvider => serviceProvider.GetRequiredService<RescanMovieCommandValidator>());
         services.AddHandler<RescanMovieCommandHandler, RescanMovieCommand, RescanMovieResult>();
+        services.AddScoped<RescanLibraryCommandValidator>();
+        services.AddScoped<IValidator<RescanLibraryCommand>>(
+            serviceProvider => serviceProvider.GetRequiredService<RescanLibraryCommandValidator>());
+        services.AddHandler<RescanLibraryCommandHandler, RescanLibraryCommand, RescanLibraryResult>();
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();

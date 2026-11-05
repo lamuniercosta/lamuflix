@@ -627,6 +627,9 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifet
 
         public Task<string?> GetPlotAsync(MovieId id, CancellationToken ct) =>
             Task.FromResult(plots.TryGetValue(id, out var plot) ? plot : null);
+
+        public Task<IReadOnlyList<MovieId>> SnapshotMovieIdsAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MovieId>>([.. plots.Keys.OrderBy(id => id.Value)]);
     }
 
     private sealed class RecordingFeaturesRepository : IMovieFeaturesRepository

@@ -716,6 +716,9 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
 
         public Task<MovieId?> FindMovieIdByImdbIdAsync(ImdbId imdbId, CancellationToken ct) =>
             Task.FromResult<MovieId?>(null);
+
+        public Task<IReadOnlyList<MovieId>> SnapshotMovieIdsAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MovieId>>([]);
     }
 
     private sealed class ScriptedThumbnailGenerator(

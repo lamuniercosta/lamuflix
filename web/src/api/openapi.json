@@ -380,6 +380,37 @@
         }
       }
     },
+    "/api/movies/rescan": {
+      "post": {
+        "tags": [
+          "RescanEndpoints"
+        ],
+        "summary": "Re-probe every stored movie folder and refresh changed formats.",
+        "operationId": "RescanLibrary",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescanLibraryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/movies/{id}/rescan": {
       "post": {
         "tags": [
@@ -1855,6 +1886,52 @@
           },
           "text": {
             "type": "string"
+          }
+        }
+      },
+      "RescanLibraryResponse": {
+        "required": [
+          "changed",
+          "unchanged",
+          "failed",
+          "failedMovieIds"
+        ],
+        "type": "object",
+        "properties": {
+          "changed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unchanged": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "failed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "failedMovieIds": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
           }
         }
       },
