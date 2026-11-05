@@ -13,6 +13,10 @@
   --color-glass-2: rgb(255 255 255 / 0.16);
   --color-glass-3: rgb(255 255 255 / 0.26);
   --color-plate: rgb(22 24 29 / 0.85);
+  --color-poster-backing: rgb(13 15 19 / 0.78);
+  --color-poster-backing-hover: rgb(13 15 19 / 0.92);
+  --color-poster-ink: #f0ede6;
+  --color-poster-active: #e0a34a;
   --font-wordmark: 'Arial Black', Arial, sans-serif;
   --font-interface: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
