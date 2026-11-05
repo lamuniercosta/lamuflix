@@ -19,4 +19,17 @@ public sealed class DisabledMediaPlayerLauncherTests
         // assert
         exception.Message.ShouldBe("LocalPlay is disabled in this environment.");
     }
+
+    [Fact]
+    public void EnsureEnabled_Always_ThrowsFeatureDisabledException()
+    {
+        // arrange
+        var launcher = new DisabledMediaPlayerLauncher();
+
+        // act
+        var exception = Should.Throw<FeatureDisabledException>(launcher.EnsureEnabled);
+
+        // assert
+        exception.Message.ShouldBe("LocalPlay is disabled in this environment.");
+    }
 }

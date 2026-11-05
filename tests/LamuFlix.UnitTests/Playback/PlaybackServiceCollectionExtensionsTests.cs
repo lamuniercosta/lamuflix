@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Playback;
 using LamuFlix.ServiceDefaults;
@@ -54,6 +55,30 @@ public sealed class PlaybackServiceCollectionExtensionsTests
             psi.FileName == @"C:\Players\vlc.exe"
             && psi.ArgumentList.Count == 1
             && psi.ArgumentList[0] == file.Value));
+    }
+
+    [Theory]
+    [InlineData(true, null)]
+    [InlineData(false, "LocalPlay is disabled in this environment.")]
+    public void AddLamuFlixPlayback_ResolvedLauncher_GuardsEnsureEnabledFromLocalPlayFlag(bool localPlay, string? expectedMessage)
+    {
+        // arrange
+        var services = NewServices(localPlay, []);
+        services.AddLamuFlixPlayback();
+
+        // act
+        using var provider = services.BuildServiceProvider();
+        var launcher = provider.GetRequiredService<IMediaPlayerLauncher>();
+        var exception = Record.Exception(launcher.EnsureEnabled);
+
+        // assert
+        if (expectedMessage is null)
+        {
+            exception.ShouldBeNull();
+            return;
+        }
+
+        exception.ShouldBeOfType<FeatureDisabledException>().Message.ShouldBe(expectedMessage);
     }
 
     private static ServiceCollection NewServices(bool localPlay, Dictionary<string, string?> values)

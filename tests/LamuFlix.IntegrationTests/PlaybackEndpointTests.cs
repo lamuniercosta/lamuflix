@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Shouldly;
 using Xunit;
 
@@ -26,11 +27,13 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     private const int KnownId = 7;
     private const int UnknownId = 999;
     private const int NonpositiveId = 0;
-    private const string MoviePath = "C:/library/Heat/Heat.mkv";
+    private const string MovieFolder = "C:/library/Heat";
+    private const string ResolvedFile = "C:/library/Heat/Heat.mkv";
     private const string PlayerPath = "C:/players/vlc.exe";
     private const string ProblemDetailsJson = "application/problem+json";
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
+    private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
     private readonly IProcessStarter starter = Substitute.For<IProcessStarter>();
     private readonly IPlaybackHistory history = Substitute.For<IPlaybackHistory>();
     private readonly TimeProvider clock = new FixedTimeProvider(
@@ -40,45 +43,68 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     public async Task PlayMovie_LocalPlayEnabled_ReturnsEmptyNoContentAndRecordsOneProcessStart()
     {
         // arrange
-        catalog.GetDetailsAsync(new MovieId(KnownId), Arg.Any<CancellationToken>())
-            .Returns(KnownDetails());
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("avi"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mkv"));
         await using var host = CreateEnabledHost(".mkv");
         using var client = host.CreateClient();
-        var cancellationToken = TestContext.Current.CancellationToken;
 
         // act
-        var response = await client.PostAsync(PlayRoute(KnownId), null, cancellationToken);
+        var response = await client.PostAsync(PlayRoute(KnownId), null, ct);
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
-        (await response.Content.ReadAsStringAsync(cancellationToken)).ShouldBe(string.Empty);
+        (await response.Content.ReadAsStringAsync(ct)).ShouldBe(string.Empty);
         starter.Received(1).Start(Arg.Is<ProcessStartInfo>(
             info => info.FileName == PlayerPath
                 && info.UseShellExecute
                 && info.Arguments == string.Empty
                 && info.ArgumentList.Count == 1
-                && info.ArgumentList[0] == MoviePath));
+                && info.ArgumentList[0] == ResolvedFile));
+        await history.Received(1).RecordAsync(
+            Arg.Is<PlaybackEvent>(playbackEvent => playbackEvent.MovieId == new MovieId(KnownId)),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task PlayMovie_LocalPlayDisabled_ReturnsForbiddenWithoutProcessStart()
+    public async Task PlayMovie_StaleStoredFormat_SelectsPlayerFromResolvedExtension()
     {
         // arrange
-        catalog.GetDetailsAsync(new MovieId(KnownId), Arg.Any<CancellationToken>())
-            .Returns(KnownDetails());
-        await using var host = CreateDisabledHost();
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails(".avi"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mkv"));
+        await using var host = CreateEnabledHost(".mkv");
         using var client = host.CreateClient();
-        var cancellationToken = TestContext.Current.CancellationToken;
 
         // act
-        var response = await client.PostAsync(PlayRoute(KnownId), null, cancellationToken);
-        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var response = await client.PostAsync(PlayRoute(KnownId), null, ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        starter.Received(1).Start(Arg.Is<ProcessStartInfo>(
+            info => info.FileName == PlayerPath && info.ArgumentList[0] == ResolvedFile));
+    }
+
+    [Fact]
+    public async Task PlayMovie_LocalPlayDisabled_ReturnsForbiddenWithoutDiskProbeOrProcessStart()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        await using var host = CreateDisabledHost();
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsync(PlayRoute(KnownId), null, ct);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
         problem.GetProperty("title").GetString().ShouldBe("Forbidden");
+        scanner.DidNotReceive().ResolvePrimaryVideo(Arg.Any<LibraryPath>());
         starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
+        await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -87,17 +113,64 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
         // arrange
         await using var host = CreateEnabledHost(".mkv");
         using var client = host.CreateClient();
-        var cancellationToken = TestContext.Current.CancellationToken;
+        var ct = TestContext.Current.CancellationToken;
 
         // act
-        var response = await client.PostAsync(PlayRoute(UnknownId), null, cancellationToken);
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+        var response = await client.PostAsync(PlayRoute(UnknownId), null, ct);
+        var payload = await response.Content.ReadAsStringAsync(ct);
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
         payload.ShouldNotContain(nameof(NotFoundException));
+        scanner.DidNotReceive().ResolvePrimaryVideo(Arg.Any<LibraryPath>());
         starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
+    }
+
+    [Fact]
+    public async Task PlayMovie_MissingFolder_ReturnsNotFoundProblemWithoutProcessStart()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Throws(new NotFoundException());
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsync(PlayRoute(KnownId), null, ct);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("title").GetString().ShouldBe("Not Found");
+        starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
+        await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PlayMovie_NoEligibleVideo_ReturnsConflictProblemWithoutProcessStart()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder))
+            .Throws(new InvalidTransitionException($"Library folder '{MovieFolder}' contains no eligible top-level video file."));
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsync(PlayRoute(KnownId), null, ct);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(409);
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
+        await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -106,11 +179,11 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
         // arrange
         await using var host = CreateDisabledHost();
         using var client = host.CreateClient();
-        var cancellationToken = TestContext.Current.CancellationToken;
+        var ct = TestContext.Current.CancellationToken;
 
         // act
-        var response = await client.PostAsync(PlayRoute(NonpositiveId), null, cancellationToken);
-        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var response = await client.PostAsync(PlayRoute(NonpositiveId), null, ct);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
@@ -123,15 +196,15 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     public async Task PlayMovie_UnmappedFormat_FailsClosedWithGenericProblemAndNoProcessStart()
     {
         // arrange
-        catalog.GetDetailsAsync(new MovieId(KnownId), Arg.Any<CancellationToken>())
-            .Returns(KnownDetails());
-        await using var host = CreateEnabledHost(".mp4");
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mp4"));
+        await using var host = CreateEnabledHost(".mkv");
         using var client = host.CreateClient();
-        var cancellationToken = TestContext.Current.CancellationToken;
 
         // act
-        var response = await client.PostAsync(PlayRoute(KnownId), null, cancellationToken);
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+        var response = await client.PostAsync(PlayRoute(KnownId), null, ct);
+        var payload = await response.Content.ReadAsStringAsync(ct);
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
@@ -139,12 +212,19 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
         payload.ShouldNotContain("No configured player supports format");
         payload.ShouldNotContain(nameof(InvalidOperationException));
         starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
+        await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
     }
+
+    private void DetailsReturning(MovieDetails details) =>
+        catalog.GetDetailsAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(details);
 
     private static string PlayRoute(int id) => $"/api/movies/{id}/play";
 
-    private static MovieDetails KnownDetails() =>
-        new(new MovieId(KnownId), "Heat", new LibraryPath(MoviePath), new MediaFormat(".mkv"), null, false, false, false, EnrichmentStatus.Enriched);
+    private static MovieDetails KnownDetails(string storedFormat) =>
+        new(new MovieId(KnownId), "Heat", new LibraryPath(MovieFolder), new MediaFormat(storedFormat), null, false, false, false, EnrichmentStatus.Enriched);
+
+    private static PrimaryVideo Resolved(string extension) =>
+        new(new LibraryPath($"{MovieFolder}/Heat.{extension}"), new MediaFormat(extension));
 
     private WebApplicationFactory<Program> CreateDisabledHost() =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(AddDoubles));
@@ -166,6 +246,7 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     private void AddDoubles(IServiceCollection services)
     {
         services.AddSingleton(catalog);
+        services.AddSingleton(scanner);
         services.AddSingleton(starter);
         services.AddSingleton(history);
         services.AddSingleton(clock);

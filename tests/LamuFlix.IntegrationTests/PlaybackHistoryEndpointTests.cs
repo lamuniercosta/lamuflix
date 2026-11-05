@@ -28,6 +28,8 @@ public sealed class PlaybackHistoryEndpointTests(ApiEndToEndFixture fixture) : I
     private static readonly DateTimeOffset PlayedAtUtc =
         new(2026, 10, 18, 0, 0, 0, TimeSpan.Zero);
 
+    private readonly IMediaLibraryScanner scanner = ResolvingScanner();
+
     public async ValueTask InitializeAsync() =>
         await fixture.PrepareAsync(TestContext.Current.CancellationToken);
 
@@ -132,7 +134,22 @@ public sealed class PlaybackHistoryEndpointTests(ApiEndToEndFixture fixture) : I
     private static string PlayRoute(int id) => $"/api/movies/{id}/play";
 
     private ApiEndToEndFactory CreateHost(TimeProvider clock, Action<IServiceCollection> configureTestServices) =>
-        new(fixture.HostSettings(clock), configureTestServices);
+        new(fixture.HostSettings(clock), services =>
+        {
+            services.RemoveAll<IMediaLibraryScanner>();
+            services.AddSingleton(scanner);
+            configureTestServices(services);
+        });
+
+    private static IMediaLibraryScanner ResolvingScanner()
+    {
+        var stub = Substitute.For<IMediaLibraryScanner>();
+        stub.ResolvePrimaryVideo(Arg.Any<LibraryPath>())
+            .Returns(call => new PrimaryVideo(
+                new LibraryPath($"{call.Arg<LibraryPath>().Value}/primary.mkv"),
+                new MediaFormat("mkv")));
+        return stub;
+    }
 
     private static IPlaybackHistory ResolveRealHistory(ApiEndToEndFactory host)
     {

@@ -17,6 +17,7 @@ public sealed class PlayMovieCommandHandlerTests
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
     private readonly IMediaPlayerLauncher launcher = Substitute.For<IMediaPlayerLauncher>();
+    private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
     private readonly IPlaybackHistory history = Substitute.For<IPlaybackHistory>();
     private readonly TimeProvider clock = Substitute.For<TimeProvider>();
     private readonly PlayMovieCommandHandler handler;
@@ -25,26 +26,46 @@ public sealed class PlayMovieCommandHandlerTests
     public PlayMovieCommandHandlerTests()
     {
         clock.GetUtcNow().Returns(Now);
-        handler = new PlayMovieCommandHandler(catalog, launcher, history, clock);
+        handler = new PlayMovieCommandHandler(catalog, launcher, scanner, history, clock);
     }
 
     [Fact]
-    public async Task HandleAsync_DetailsFound_LaunchesOnceWithPathAndFormat()
+    public async Task HandleAsync_DetailsFound_LaunchesResolvedFileWithResolvedFormat()
     {
         // arrange
         var id = NewId();
-        var path = new LibraryPath("C:/library/play");
-        var format = new MediaFormat("mp4");
-        var details = new MovieDetails(id, "Play Me", path, format, null, false, false, false, EnrichmentStatus.Enriched);
+        var folder = new LibraryPath("C:/library/play");
+        var details = new MovieDetails(id, "Play Me", folder, new MediaFormat("mp4"), null, false, false, false, EnrichmentStatus.Enriched);
+        var primary = new PrimaryVideo(new LibraryPath("C:/library/play/Heat.mkv"), new MediaFormat("mkv"));
         var ct = CancellationToken.None;
         catalog.GetDetailsAsync(id, ct).Returns(details);
+        scanner.ResolvePrimaryVideo(folder).Returns(primary);
 
         // act
         var result = await handler.HandleAsync(new PlayMovieCommand(id), ct);
 
         // assert
         result.ShouldBe(Unit.Value);
-        launcher.Received(1).Launch(path, format);
+        launcher.Received(1).Launch(primary.Path, primary.Format);
+    }
+
+    [Fact]
+    public async Task HandleAsync_StaleStoredFormat_SelectsPlayerFromResolvedFormatOnly()
+    {
+        // arrange
+        var id = NewId();
+        var details = Details(id, "avi");
+        var primary = new PrimaryVideo(new LibraryPath("C:/library/play/Heat.mkv"), new MediaFormat("mkv"));
+        var ct = CancellationToken.None;
+        catalog.GetDetailsAsync(id, ct).Returns(details);
+        scanner.ResolvePrimaryVideo(details.Path).Returns(primary);
+
+        // act
+        await handler.HandleAsync(new PlayMovieCommand(id), ct);
+
+        // assert
+        launcher.Received(1).Launch(Arg.Any<LibraryPath>(), primary.Format);
+        launcher.DidNotReceive().Launch(Arg.Any<LibraryPath>(), details.Format);
     }
 
     [Fact]
@@ -53,6 +74,7 @@ public sealed class PlayMovieCommandHandlerTests
         // arrange
         var id = NewId();
         var details = Details(id);
+        Resolving(details);
         using var cancellation = new CancellationTokenSource();
         var ct = cancellation.Token;
         catalog.GetDetailsAsync(id, ct).Returns(details);
@@ -71,11 +93,12 @@ public sealed class PlayMovieCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_DetailsFound_ResolvesThenLaunchesThenSamplesClockThenAppends()
+    public async Task HandleAsync_DetailsFound_LooksUpGuardsResolvesThenLaunchesThenSamplesClockThenAppends()
     {
         // arrange
         var id = NewId();
         var details = Details(id);
+        var primary = Resolving(details);
         var ct = CancellationToken.None;
         catalog.GetDetailsAsync(id, ct).Returns(details);
 
@@ -86,7 +109,9 @@ public sealed class PlayMovieCommandHandlerTests
         Received.InOrder(() =>
         {
             catalog.GetDetailsAsync(id, ct);
-            launcher.Launch(details.Path, details.Format);
+            launcher.EnsureEnabled();
+            scanner.ResolvePrimaryVideo(details.Path);
+            launcher.Launch(primary.Path, primary.Format);
             clock.GetUtcNow();
             history.RecordAsync(Arg.Any<PlaybackEvent>(), ct);
         });
@@ -98,7 +123,9 @@ public sealed class PlayMovieCommandHandlerTests
         // arrange
         var id = NewId();
         var ct = CancellationToken.None;
-        catalog.GetDetailsAsync(id, ct).Returns(Details(id));
+        var details = Details(id);
+        catalog.GetDetailsAsync(id, ct).Returns(details);
+        Resolving(details);
         var append = new TaskCompletionSource();
         history.RecordAsync(Arg.Any<PlaybackEvent>(), ct).Returns(append.Task);
 
@@ -112,7 +139,7 @@ public sealed class PlayMovieCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_MissingMovie_ThrowsNotFoundWithoutLaunchOrAppend()
+    public async Task HandleAsync_MissingMovie_ThrowsNotFoundWithoutProbeLaunchOrAppend()
     {
         // arrange
         var id = NewId();
@@ -121,6 +148,67 @@ public sealed class PlayMovieCommandHandlerTests
 
         // act
         await Should.ThrowAsync<NotFoundException>(
+            () => handler.HandleAsync(new PlayMovieCommand(id), ct));
+
+        // assert
+        launcher.DidNotReceive().EnsureEnabled();
+        scanner.DidNotReceive().ResolvePrimaryVideo(Arg.Any<LibraryPath>());
+        launcher.DidNotReceive().Launch(Arg.Any<LibraryPath>(), Arg.Any<MediaFormat>());
+        await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_DisabledKnownMovie_GuardsBeforeDiskProbeWithoutLaunchOrAppend()
+    {
+        // arrange
+        var id = NewId();
+        var ct = CancellationToken.None;
+        catalog.GetDetailsAsync(id, ct).Returns(Details(id));
+        launcher.When(instance => instance.EnsureEnabled())
+            .Throw(new FeatureDisabledException("Local playback is disabled."));
+
+        // act
+        await Should.ThrowAsync<FeatureDisabledException>(
+            () => handler.HandleAsync(new PlayMovieCommand(id), ct));
+
+        // assert
+        scanner.DidNotReceive().ResolvePrimaryVideo(Arg.Any<LibraryPath>());
+        launcher.DidNotReceive().Launch(Arg.Any<LibraryPath>(), Arg.Any<MediaFormat>());
+        await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_MissingFolder_ThrowsNotFoundWithoutLaunchOrAppend()
+    {
+        // arrange
+        var id = NewId();
+        var ct = CancellationToken.None;
+        var details = Details(id);
+        catalog.GetDetailsAsync(id, ct).Returns(details);
+        scanner.ResolvePrimaryVideo(details.Path).Returns(_ => throw new NotFoundException());
+
+        // act
+        await Should.ThrowAsync<NotFoundException>(
+            () => handler.HandleAsync(new PlayMovieCommand(id), ct));
+
+        // assert
+        launcher.DidNotReceive().Launch(Arg.Any<LibraryPath>(), Arg.Any<MediaFormat>());
+        await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_NoEligibleVideo_ThrowsInvalidTransitionWithoutLaunchOrAppend()
+    {
+        // arrange
+        var id = NewId();
+        var ct = CancellationToken.None;
+        var details = Details(id);
+        catalog.GetDetailsAsync(id, ct).Returns(details);
+        scanner.ResolvePrimaryVideo(details.Path)
+            .Returns(_ => throw new InvalidTransitionException("Library folder contains no eligible top-level video file."));
+
+        // act
+        await Should.ThrowAsync<InvalidTransitionException>(
             () => handler.HandleAsync(new PlayMovieCommand(id), ct));
 
         // assert
@@ -134,7 +222,9 @@ public sealed class PlayMovieCommandHandlerTests
         // arrange
         var id = NewId();
         var ct = CancellationToken.None;
-        catalog.GetDetailsAsync(id, ct).Returns(Details(id));
+        var details = Details(id);
+        catalog.GetDetailsAsync(id, ct).Returns(details);
+        Resolving(details);
         launcher.When(instance => instance.Launch(Arg.Any<LibraryPath>(), Arg.Any<MediaFormat>()))
             .Throw(new FeatureDisabledException("Local playback is disabled."));
 
@@ -147,20 +237,46 @@ public sealed class PlayMovieCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_FailedLaunch_ThrowsWithoutAppend()
+    public async Task HandleAsync_FailedLaunch_ThrowsUnexpectedWithoutAppendOrRetry()
     {
         // arrange
         var id = NewId();
         var ct = CancellationToken.None;
-        catalog.GetDetailsAsync(id, ct).Returns(Details(id));
+        var details = Details(id);
+        catalog.GetDetailsAsync(id, ct).Returns(details);
+        var primary = Resolving(details);
         launcher.When(instance => instance.Launch(Arg.Any<LibraryPath>(), Arg.Any<MediaFormat>()))
             .Throw(new InvalidOperationException("No configured player supports format."));
 
         // act
-        await Should.ThrowAsync<InvalidOperationException>(
+        var exception = await Should.ThrowAsync<InvalidOperationException>(
             () => handler.HandleAsync(new PlayMovieCommand(id), ct));
 
         // assert
+        exception.Message.ShouldBe("No configured player supports format.");
+        launcher.Received(1).Launch(primary.Path, primary.Format);
+        await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_CancelledBeforeResolve_DoesNotProbeLaunchOrAppend()
+    {
+        // arrange
+        var id = NewId();
+        var details = Details(id);
+        using var cancellation = new CancellationTokenSource();
+        var ct = cancellation.Token;
+        catalog.GetDetailsAsync(id, Arg.Any<CancellationToken>()).Returns(details);
+        await cancellation.CancelAsync();
+
+        // act
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => handler.HandleAsync(new PlayMovieCommand(id), ct));
+
+        // assert
+        launcher.Received(1).EnsureEnabled();
+        scanner.DidNotReceive().ResolvePrimaryVideo(Arg.Any<LibraryPath>());
+        launcher.DidNotReceive().Launch(Arg.Any<LibraryPath>(), Arg.Any<MediaFormat>());
         await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
     }
 
@@ -170,7 +286,9 @@ public sealed class PlayMovieCommandHandlerTests
         // arrange
         var id = NewId();
         var ct = CancellationToken.None;
-        catalog.GetDetailsAsync(id, ct).Returns(Details(id));
+        var details = Details(id);
+        catalog.GetDetailsAsync(id, ct).Returns(details);
+        Resolving(details);
         history.RecordAsync(Arg.Any<PlaybackEvent>(), ct)
             .Returns(Task.FromException(new InvalidOperationException("append failed")));
 
@@ -190,7 +308,9 @@ public sealed class PlayMovieCommandHandlerTests
         var id = NewId();
         using var cancellation = new CancellationTokenSource();
         var ct = cancellation.Token;
-        catalog.GetDetailsAsync(id, ct).Returns(Details(id));
+        var details = Details(id);
+        catalog.GetDetailsAsync(id, ct).Returns(details);
+        Resolving(details);
         history.RecordAsync(Arg.Any<PlaybackEvent>(), ct)
             .Returns(Task.FromException(new OperationCanceledException(ct)));
 
@@ -209,7 +329,9 @@ public sealed class PlayMovieCommandHandlerTests
         // arrange
         var id = NewId();
         var ct = CancellationToken.None;
-        catalog.GetDetailsAsync(id, ct).Returns(Details(id));
+        var details = Details(id);
+        catalog.GetDetailsAsync(id, ct).Returns(details);
+        Resolving(details);
 
         // act
         await handler.HandleAsync(new PlayMovieCommand(id), ct);
@@ -220,8 +342,17 @@ public sealed class PlayMovieCommandHandlerTests
         launcher.Received(2).Launch(Arg.Any<LibraryPath>(), Arg.Any<MediaFormat>());
     }
 
-    private static MovieDetails Details(MovieId id) =>
-        new(id, "Play Me", new LibraryPath("C:/library/play"), new MediaFormat("mp4"), null, false, false, false, EnrichmentStatus.Enriched);
+    private PrimaryVideo Resolving(MovieDetails details)
+    {
+        var primary = new PrimaryVideo(
+            new LibraryPath($"{details.Path.Value}/Heat.mkv"),
+            new MediaFormat("mkv"));
+        scanner.ResolvePrimaryVideo(details.Path).Returns(primary);
+        return primary;
+    }
+
+    private static MovieDetails Details(MovieId id, string format = "mp4") =>
+        new(id, "Play Me", new LibraryPath("C:/library/play"), new MediaFormat(format), null, false, false, false, EnrichmentStatus.Enriched);
 
     private MovieId NewId() => new(Math.Abs(fixture.Create<int>()) + 1);
 }
