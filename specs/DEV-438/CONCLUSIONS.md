@@ -144,3 +144,69 @@ Authority: Patron rulings; Keel records. Worktree: feature/438-spec at baseline 
 - Zero structural owner checkboxes (`spec.md:8-10`; `plan.md:27`).
 
 
+
+---
+
+## Phase B pickup / T000 — Keel, 2026-11-05
+
+### Receipt and evidence boundary
+
+- Worktree: `F:/Dev/LamuFlix.worktrees/DEV-438`; branch: `feature/DEV-438`; HEAD: `933e8ca827d18afafd659a2fdecd4f2c21953ce7`. Branch and HEAD independently read before edits; initial worktree status was clean.
+- **T000 complete:** task note `DEV-438:4–6` records spec PR #324 merged at `338df33b`; current `recon-DEV-438` §1 lines 12–13 establishes full merge commit `338df33b78bcb41629d8bdcdecf5aefab41a4410` as an ancestor of pickup HEAD. This records the owner Gate 1 spec-merge receipt; it creates no Patron ruling or owner approval. Historical Phase A pending-Gate-1 statements are superseded by this receipt, not rewritten as contemporaneous approvals.
+- Current main comparison is bounded to `origin/main@933e8ca8 = HEAD`, as measured by current recon §1. Phase A baseline remains `1617165de14cb4f5a34151b49e7948443d36afb9`; the merged spec is the correct comparison for post-merge artifact drift.
+- Facts come from task note `DEV-438` and current 127-line `recon-DEV-438`, especially §§1–6. No production searches or measurements were run by Keel. Historical Phase A notes are not available; their absence is explicitly disposed below. Frozen brief/spec/plan/tasks and constitution v1.10.0 were read for cross-artifact analysis.
+
+### Read-only cross-artifact reanalysis
+
+**Verdict: no blocking inconsistency after the factual pickup corrections below; T001 complete.** Frozen behavior, test obligations, dependency ordering, and §2.3 rulings remain applicable at landed main. No ticket contradiction, constitution departure, new public contract, package, schema, port, project, or layer is introduced by pickup.
+
+The standard prerequisite command `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` could not initialize: it rejected `feature/DEV-438` because it requires a numeric feature-branch prefix. It is **Could not run**, not PASS. The explicit Conductor-provided `specs/DEV-438/` paths were used for manual read-only analysis; no branch rename, helper modification, or script success is claimed. `.specify/extensions.yml` contains no before_analyze or after_analyze hooks.
+
+| Requirement | Tasks | Coverage |
+|---|---|---|
+| FR-001 | T002, T004, T006 | Shared selector, token and candidate-fault matrix |
+| FR-002 | T003, T004 | Existing scanner port and shared adapter selector |
+| FR-003 | T005, T008, T010 | Format-only domain and real-Postgres persistence proof |
+| FR-004 | T007–T011 | Single rescan contract, ungated execution, cancellation |
+| FR-005 | T012, T014, T015 | Bulk aggregate, empty and mixed outcomes |
+| FR-006 | T013, T014 | Scalar snapshot, current per-ID load, independent saves |
+| FR-007 | T012, T014, T015 | Expected-only continuation, unexpected abort, cancellation |
+| FR-008 | T004, T006, T011, T015–T019 | Adapter errors, endpoint metadata, ordered playback failures |
+| FR-009 | T011, T015, T019 | Safe ProblemDetails and traceId through existing mapper |
+| FR-010 | T016–T019 | Gate, resolve, launch, history and cancellation |
+| FR-011 | T003, T008, T009, T013–T018, T023 | Existing ports, feature placement, decorators, approved footprint |
+| FR-012 | T006, T009, T017–T023 | Narrow forced wiring/test/glossary/generated edits |
+| FR-013 | T002, T005–T007, T010–T012, T015, T016, T019 | Required unit, Postgres, endpoint and real-disk tests |
+| FR-014 | T024–T026 | Build, full suites and honest configured gates |
+| FR-015 | T000, T001, T023, T027, T028 | Merge receipt, pickup, scope, bounded review and delivery |
+| SC-001 | T005, T010 | Replacement preserves identity and unrelated state |
+| SC-002 | T002, T004, T006 | Shared primary-video selection |
+| SC-003 | T016, T018, T019 | Resolved file/extension at play |
+| SC-004 | T006, T011, T015, T016, T019 | Defined expected failures and bulk summary |
+| SC-005 | T012–T015 | Mixed bulk and unchanged rerun |
+| SC-006 | T020, T024–T028 | Generated contracts, honest gates and review closure |
+
+Analysis inventory: 15 FRs + 6 SCs, 29 tasks T000–T028; 21/21 requirements covered (100%); no unmapped tasks, unresolved ambiguities, duplicate requirements, or Critical/High/Medium findings. F1 is a Low factual-wording correction with explicit supersession below; F2 is demonstrated compatible drift with task amendments. Principles I/II/IV/V/VII/VIII/IX remain covered by existing design and delivery tasks; III adds no filter/sort work and VI adds no new observability surface. Constitution design-signal handling remains the deliberate Patron ruling in Phase 2 item 3. These are planning dispositions, not code-gate results.
+
+### Drift and F1–F10 dispositions
+
+| Finding | Disposition and task consequence | Evidence / existing authority |
+|---|---|---|
+| F1 — scanner constructor dependency | **Corrected factual wording.** Current handler has `IMovieCatalog`, `IMediaPlayerLauncher`, `IPlaybackHistory`, and `TimeProvider`; T018 **adds** existing `IMediaLibraryScanner`, producing four ports plus clock. Historical `retains` wording in spec US4/FR-011, plan Constitution Check/Approach, and Phase 2 item 3 is superseded only as a statement of current composition. The approved final composition is unchanged. No port allowlist edit or new abstraction/ADR is warranted. | Current recon §3 line 61 / §6 F1; Q3 and Phase 2 ruling 3 explicitly approve final four-port composition and assess the >3-port design signal. |
+| F2 — enrichmentStatus drift | **Compatible landed drift; preserve.** T016 starts from 9-argument MovieDetails fixtures; T019 preserves current enriched KnownDetails, OMDb Type=movie, and exact-shape enrichmentStatus assertions. T020 regenerates against current C# DTOs without losing enrichmentStatus in OpenAPI/TS/Verify. No DTO duplication, generated hand-edit, rollback, or new DEV-438 field. | Current recon §2c and F2; Q6/Q7, FR-012/FR-013 and existing tooling-only contract chain. |
+| F3 — Format update persistence absent | **Expected implementation work**, not drift/blocker. T010 must add Format to Baseline/From/Apply and refresh/rebuild, keep metadata-write detection false, and prove Format-only writes, concurrent enrichment survival, and no UPDATE when unchanged with real Postgres. Insert-only ToRecord assignment is insufficient. | Current recon §3 line 60 / F3; Q5/Q7, Phase 2 ruling 5, FR-003. |
+| F4 — mapper exists, scanner translation absent | **Already covered.** T004 performs narrow adapter translation; preserve existing global mappings and leave unexpected IO generic. No global InvalidOperationException remapping. | Current recon §3 lines 55, 66 / F4; Q4, Phase 2 ruling 6, FR-008/FR-009. |
+| F5 — import/play OpenAPI metadata gaps | **Already covered.** T006 adds import 404/409 declarations and tests; T018 adds play 409 while preserving 204 and existing errors; T020 regenerates contracts. | Current recon §3 lines 62–63 / F5; Phase 2 ruling 6, FR-008, T006/T018/T020. |
+| F6 — historical notes unavailable | **Evidence limitation, not a missing pickup fact.** The current 127-line recon replaces only the pickup fact function of the unavailable historical 203-line recon, recon part 2, and adjudication note. Frozen Q1–Q8, Phase 2 rulings, brief addendum and plan freeze remain in tracked artifacts. Current recon re-establishes required paths, symbols, contracts tooling and §2.3 status. Do not claim to have read absent notes or recreate their contents; STOP and request recon if later work needs a fact not in current evidence. | Current recon §3–§5 / F6; T001 STOP rule; tracked brief/CONCLUSIONS/plan freeze. |
+| F7 — harness dirt absent | **Historical preserve instruction is conditional.** Current worktree is clean and harness has no measured drift; do not create dirt or stage unrelated changes if any appear later. No harness edit required. | Current recon §1, §2d / F7; Q6 and FR-012. |
+| F8 — glossary terms absent | **Expected work in T021.** Add Primary video / Rescan in delivery, including existing-Movie Format update vs new-Movie Import distinction. | Current recon §3 line 68 / F8; Q2/Q6, Phase 2 ruling 7, Principle VIII. |
+| F9 — rescan/guard symbols absent | **Expected proposed work**, covered by T003–T005/T008–T009/T013–T018. Keep proposed paths inside approved existing folders; do not infer implemented symbols or add a layer. Existing named paths have current recon evidence. | Current recon §3 line 71 / F9; Q3/Q6, FR-002–FR-012. |
+| F10 — route premise unchanged | **No collision fix.** Distinct segment counts remain valid; T011/T015 require ordinary endpoint success/reachability tests only. | Current recon F10; Phase 2 ruling 8, spec Scope and existing endpoint tasks. |
+
+Drift accounting: current recon §2b reports zero post-spec-merge drift in `specs/DEV-438/` vs `338df33b`; §2c reports zero drift in named production files vs Phase A base. The enrichmentStatus wave touches **five named test/generated files plus one Verify snapshot (six total)**, not five test files: three tests (`ApiEndToEndImportTests.cs`, `PlaybackEndpointTests.cs`, `PlayMovieCommandHandlerTests.cs`), `web/src/api/openapi.json`, `web/src/api/types.ts`, and `OpenApiContractTests.DriftMatchesCommittedBaseline.verified.json`. `web/src/mocks/handlers.ts` has no measured drift. Adjacent DTO/enrichment changes described by recon explain the fixture arity; they do not expand DEV-438 scope.
+
+### Pickup outcome and next step
+
+T000 and T001 are complete; task instructions are amended only for demonstrated F1/F2/F6/F7 pickup facts. No new Patron decision is required: public API, LocalPlay/process argument handling, forced file edits, and final dependency composition already have deliberate cited rulings. Historical Phase A status/path statements remain historical; this receipt and the tasks pickup instructions govern current execution.
+
+Next: Bernstein routes Build to T002–T006 (shared selector/ports/domain/import foundation), then the frozen dependent phases. T002–T028 remain incomplete. No production code or generated artifact changed in this pickup, no build/test/analyzer/mutation/web gate was executed, and no implementation/review/merge clearance, commit, push, PR, tracker mutation, or merge is claimed.

@@ -5,4 +5,6 @@ namespace LamuFlix.Core.Ports;
 public interface IMediaLibraryScanner
 {
     ScannedMovie Scan(LibraryPath folder);
+
+    PrimaryVideo ResolvePrimaryVideo(LibraryPath folder);
 }

@@ -342,6 +342,18 @@ export interface operations {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };
       };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
       /** @description Unprocessable Entity */
       422: {
         content: {

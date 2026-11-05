@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using AutoFixture;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.UnitTests.Pipeline;
 using NSubstitute;
@@ -182,16 +183,55 @@ public sealed class ImportMovieFolderCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_ScanThrows_RecordsNoImportMeasurement()
+    public async Task HandleAsync_ScanThrowsUnexpected_RecordsNoImportMeasurement()
     {
         // arrange
         var folder = new LibraryPath("C:/library/incoming");
         var ct = CancellationToken.None;
-        scanner.Scan(folder).Throws(new InvalidOperationException("scan"));
+        scanner.Scan(folder).Throws(new UnauthorizedAccessException("candidate is unreadable"));
         using var capture = new ImportCountCapture();
 
         // act
-        await Should.ThrowAsync<InvalidOperationException>(
+        await Should.ThrowAsync<UnauthorizedAccessException>(
+            () => handler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
+
+        // assert
+        await movies.DidNotReceive().AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>());
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        capture.Measurements.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ScanThrowsNotFound_PropagatesWithoutImporting()
+    {
+        // arrange
+        var folder = new LibraryPath("C:/library/incoming");
+        var ct = CancellationToken.None;
+        scanner.Scan(folder).Throws(new NotFoundException());
+        using var capture = new ImportCountCapture();
+
+        // act
+        await Should.ThrowAsync<NotFoundException>(
+            () => handler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
+
+        // assert
+        await movies.DidNotReceive().AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>());
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
+        capture.Measurements.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ScanThrowsInvalidTransition_PropagatesWithoutImporting()
+    {
+        // arrange
+        var folder = new LibraryPath("C:/library/incoming");
+        var ct = CancellationToken.None;
+        scanner.Scan(folder).Throws(new InvalidTransitionException("no eligible video"));
+        using var capture = new ImportCountCapture();
+
+        // act
+        await Should.ThrowAsync<InvalidTransitionException>(
             () => handler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
 
         // assert
