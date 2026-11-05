@@ -55,17 +55,6 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         { "Response": "True", "Title": "The Matrix", "Year": "1999", "Type": "episode", "Runtime": "136 min", "imdbID": "tt0069293" }
         """;
 
-    private const string SolarisSearchBody = """
-        {
-          "page": 1,
-          "results": [
-            { "adult": false, "genre_ids": [878], "id": 603, "original_language": "en", "original_title": "Solaris", "release_date": "1972-05-13", "title": "Solaris", "video": false, "vote_average": 8.0, "vote_count": 1 }
-          ],
-          "total_pages": 1,
-          "total_results": 1
-        }
-        """;
-
     private const string OmdbNotFoundBody = """
         {
           "Response": "False",
@@ -241,7 +230,8 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
         StubPrimary(200, OmdbFoundBody);
         StubSignals();
-        probe.StubFoundLookup(searchBody: SolarisSearchBody);
+        probe.StubFind("tt0069293", SecondaryMetadataProviderProbe.Fixture("Find", "found.json"));
+        probe.StubDetails(603, SecondaryMetadataProviderProbe.Fixture("Details", "found.json"));
 
         // act
         var result = await FindChainAsync(services, "Solaris");
@@ -254,7 +244,9 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         metadata.CollectionName.ShouldBe("The Matrix Collection");
         metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Available);
         metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Available);
-        SecondaryPaths().ShouldBe(["/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+        metadata.Signals.CollectionAvailability.ShouldBe(SignalAvailability.Available);
+        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+        probe.QueryValues("external_source").ShouldBe(["imdb_id"]);
     }
 
     [Theory]
@@ -267,7 +259,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         // arrange
         var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
         StubPrimary(200, OmdbFoundBody);
-        probe.StubSearch(string.Empty, statusCode: statusCode);
+        probe.StubPath("/3/find/tt0069293", statusCode);
 
         // act
         var result = await FindChainAsync(services, "Solaris");
@@ -279,6 +271,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Unavailable);
         metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Unavailable);
         metadata.Signals.CollectionAvailability.ShouldBe(SignalAvailability.Unavailable);
+        SecondaryPaths().ShouldNotContain("/3/search/movie");
     }
 
     [Fact]
@@ -287,15 +280,61 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         // arrange
         var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
         StubPrimary(200, OmdbFoundBody);
-        probe.StubSearch(SecondaryMetadataProviderProbe.Fixture("Search", "empty.json"));
+        probe.StubFind("tt0069293", SecondaryMetadataProviderProbe.Fixture("Find", "empty.json"));
+        probe.StubFoundLookup();
 
         // act
         var result = await FindChainAsync(services, "Solaris");
 
         // assert
-        Metadata(result).Title.ShouldBe("Solaris");
-        Metadata(result).Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Unavailable);
-        SecondaryPaths().ShouldBe(["/3/search/movie"]);
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Solaris");
+        metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.Signals.CollectionAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.CollectionId.ShouldBeNull();
+        SecondaryPaths().ShouldBe(["/3/find/tt0069293"]);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task FindAsync_WithBlankSecondaryApiKeyAndThePrimaryFinds_KeepsThePrimaryFoundWithUnavailableSignals(
+        string apiKey)
+    {
+        // arrange
+        var services = probe.BuildServices(BlankSecondaryApiKey(apiKey));
+        StubPrimary(200, OmdbFoundBody);
+
+        // act
+        var result = await FindChainAsync(services, "Solaris");
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Solaris");
+        metadata.Synopsis.ShouldBe("A psychologist...");
+        metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.Signals.CollectionAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.CollectionId.ShouldBeNull();
+        SecondaryPaths().ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task FindAsync_WithBlankSecondaryApiKeyAndThePrimaryMisses_ReturnsFailedProviderUnavailable(
+        string apiKey)
+    {
+        // arrange
+        var services = probe.BuildServices(BlankSecondaryApiKey(apiKey));
+        StubPrimary(200, OmdbNotFoundBody);
+
+        // act
+        var result = await FindChainAsync(services, "Solaris");
+
+        // assert
+        Category(result).ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
+        SecondaryPaths().ShouldBeEmpty();
     }
 
     [Fact]
@@ -430,7 +469,9 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
         StubPrimary(200, OmdbFoundBody);
         StubSignals();
-        probe.StubFoundLookup();
+        probe.StubFind("tt0069293", SecondaryMetadataProviderProbe.Fixture("Find", "found.json"));
+        probe.StubDetails(603, SecondaryMetadataProviderProbe.Fixture("Details", "found.json"));
+        probe.StubSearch(SecondaryMetadataProviderProbe.Fixture("Search", "found.json"));
 
         // act
         var result = await FindChainAsync(services, "Solaris");
@@ -438,7 +479,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         // assert
         Metadata(result).Title.ShouldBe("Solaris");
         PrimaryRequests().ShouldBe(1);
-        SecondaryPaths().ShouldNotContain(path => path.StartsWith("/3/find", StringComparison.Ordinal));
+        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
     }
 
     [Fact]
@@ -481,6 +522,13 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         new(StringComparer.Ordinal)
         {
             [$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.Enabled)}"] = enabled ? "true" : "false",
+        };
+
+    private static Dictionary<string, string?> BlankSecondaryApiKey(string apiKey) =>
+        new(StringComparer.Ordinal)
+        {
+            [$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.Enabled)}"] = "true",
+            [$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.ApiKey)}"] = apiKey,
         };
 
     private void StubPrimary(int statusCode, string body = "") =>

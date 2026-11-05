@@ -97,17 +97,6 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         }
         """;
 
-    private const string SolarisSearchBody = """
-        {
-          "page": 1,
-          "results": [
-            { "adult": false, "genre_ids": [878], "id": 603, "original_language": "en", "original_title": "Solaris", "release_date": "1972-05-13", "title": "Solaris", "video": false, "vote_average": 8.0, "vote_count": 1 }
-          ],
-          "total_pages": 1,
-          "total_results": 1
-        }
-        """;
-
     public ValueTask InitializeAsync()
     {
         probe.Reset();
@@ -367,7 +356,8 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         // arrange
         var services = probe.BuildServices();
         probe.StubPath("/", 200, OmdbFoundBody);
-        probe.StubFoundLookup(searchBody: SolarisSearchBody);
+        probe.StubFind("tt0069293", SecondaryMetadataProviderProbe.Fixture("Find", "found.json"));
+        probe.StubDetails(603, SecondaryMetadataProviderProbe.Fixture("Details", "found.json"));
         StubSignals();
 
         // act
@@ -380,7 +370,7 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         metadata.CollectionId.ShouldBe(2344);
         metadata.CollectionName.ShouldBe("The Matrix Collection");
         metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Available);
-        SecondaryPaths().ShouldBe(["/3/search/movie", "/3/movie/603", KeywordsPath, CreditsPath]);
+        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", KeywordsPath, CreditsPath]);
     }
 
     [Theory]

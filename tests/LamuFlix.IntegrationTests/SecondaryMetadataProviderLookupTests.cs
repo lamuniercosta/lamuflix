@@ -443,15 +443,18 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task FindAsync_BlankApiKey_MakesNoHttpRequestAndReturnsFailedProviderUnavailable(bool enabled)
+    [InlineData(true, "")]
+    [InlineData(true, "   ")]
+    [InlineData(false, "")]
+    public async Task FindAsync_BlankOrWhitespaceApiKey_MakesNoHttpRequestAndReturnsFailedProviderUnavailable(
+        bool enabled,
+        string apiKey)
     {
         // arrange
         var services = probe.BuildServices(new Dictionary<string, string?>
         {
             [$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.Enabled)}"] = enabled ? "true" : "false",
-            [$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.ApiKey)}"] = string.Empty,
+            [$"{TmdbOptions.SectionName}:{nameof(TmdbOptions.ApiKey)}"] = apiKey,
         });
 
         // act
@@ -460,6 +463,31 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
         // assert
         Category(result).ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
         probe.RequestCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task FindAsync_WithReleaseYearAndManualImdbId_SendsTheFindRequestAndSkipsTheTitleSearch()
+    {
+        // arrange
+        probe.StubFind("tt0133093", SecondaryMetadataProviderProbe.Fixture("Find", "found.json"));
+        probe.StubDetails(603, SecondaryMetadataProviderProbe.Fixture("Details", "found.json"));
+        var services = probe.BuildServices();
+
+        // act
+        var result = await services
+            .GetRequiredService<TmdbMetadataProvider>()
+            .FindAsync(
+                new MetadataLookup("ignored title", new ReleaseYear(1999, SecondaryMetadataProviderProbe.FixedNow), new ImdbId("tt0133093")),
+                TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).CollectionId.ShouldBe(2344);
+        Metadata(result).CollectionName.ShouldBe("The Matrix Collection");
+        probe.RequestPaths.ShouldBe(
+            ["/3/find/tt0133093", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+        probe.QueryValues("external_source").ShouldBe(["imdb_id"]);
+        probe.HasQuery("query").ShouldBeFalse();
+        probe.HasQuery("primary_release_year").ShouldBeFalse();
     }
 
     [Fact]
