@@ -1002,9 +1002,18 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
 
     private static void Apply(Movie movie, MovieRecord record, Baseline baseline)
     {
+        ApplyFormat(movie, record, baseline);
         ApplyState(movie, record, baseline);
         ApplyAttempts(movie, record, baseline);
         ApplyMetadata(movie, record, baseline);
+    }
+
+    private static void ApplyFormat(Movie movie, MovieRecord record, Baseline baseline)
+    {
+        if (baseline.Format != movie.Format)
+        {
+            record.Format = movie.Format;
+        }
     }
 
     private static void ApplyState(Movie movie, MovieRecord record, Baseline baseline)
@@ -1144,6 +1153,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
     private readonly record struct StatusTransition(MovieId MovieId, EnrichmentStatus Status);
 
     private sealed record Baseline(
+        MediaFormat Format,
         bool IsInWatchlist,
         bool IsWatched,
         bool IsNotInterested,
@@ -1156,6 +1166,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         ImdbId? ManualImdbId)
     {
         public static Baseline From(Movie movie) => new(
+            movie.Format,
             movie.IsInWatchlist,
             movie.IsWatched,
             movie.IsNotInterested,

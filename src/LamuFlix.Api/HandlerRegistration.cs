@@ -60,6 +60,10 @@ internal static class HandlerRegistration
         services.AddHandler<GetCollectionsQueryHandler, GetCollectionsQuery, IReadOnlyList<CollectionFacet>>();
         services.AddHandler<GetPeopleQueryHandler, GetPeopleQuery, IReadOnlyList<PersonFacet>>();
         services.AddHandler<GetDirectorsQueryHandler, GetDirectorsQuery, IReadOnlyList<DirectorFacet>>();
+        services.AddScoped<RescanMovieCommandValidator>();
+        services.AddScoped<IValidator<RescanMovieCommand>>(
+            serviceProvider => serviceProvider.GetRequiredService<RescanMovieCommandValidator>());
+        services.AddHandler<RescanMovieCommandHandler, RescanMovieCommand, RescanMovieResult>();
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();
