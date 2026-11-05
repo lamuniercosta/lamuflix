@@ -101,3 +101,45 @@
   - **Normalization, Fetch Equivalence, Resilience & Validator Ownership (`specs/DEV-463/CONCLUSIONS.md` Q1–Q5; `.specify/memory/constitution.md` Principles I, III, IV & Coding Conventions `:629-631`)**: Trimming `original_language` and treating `pt`/`PT`/`pt-BR` case-insensitively as fetch-equivalent to `pt-BR` (single `language=pt-BR` request) while comparing `iso_639_1`, `iso_3166_1`, `site`, and `type` via `OrdinalIgnoreCase` (preserving strict `iso_639_1=="pt" && iso_3166_1=="BR"` for the `pt-BR` tier) prevents duplicate requests and casing misses; isolating `/movie/{id}/videos` 429/timeout to `TrailerKey = null` (no retry/DeadLetter, while `/movie/{id}` details 429 keeps existing retry behavior, failed TMDb supplement keeps OMDb scalars + `null` key, and shared `CancellationToken` is checked before the second `/videos` call and never swallowed) upholds Principle IV. Placing the single canonical C# 11-char ASCII `[A-Za-z0-9_-]` validator on `MovieMetadata` (reused by `TmdbMetadataProvider` and pure selector in `TmdbMetadataProvider.Mapping.cs`, while HTTP fetch stays in `TmdbMetadataProvider.cs` and web deliberately revalidates at the UI boundary) enforces Principle I & III boundaries without new types or layers.
   - **Properties, Test Files, Glossary Landing & Task Alignment (`specs/DEV-463/CONCLUSIONS.md` Q6–Q8; `task-pipeline` Phases 1–3; `.specify/memory/constitution.md` Principles VIII & IX)**: Using existing FsCheck infrastructure (`scripts/run-property-tests.ps1`) for candidate permutation/order-independence and duplicate-key deduplication properties, supported Verify snapshot updates, and targeted new test files inside existing test projects aligns with Principle IX and Q8's bounded file plan. Keeping the Phase A PR to `specs/DEV-463/**` plus the deliberate `.specify/intake/current-task.json` pin (excluding `.specify/analyze-report.md`) and landing the `CONTEXT.md` `Trailer key` append in Phase B (`T003`, where runtime/gate checks enforce glossary presence) respects the Phase A spec-only PR boundary. Retaining local `Phase N` headings in `tasks.md` with aligned canonical mapping, setting `T011` as an explicit green lock after `T010` (TDD optional per `$implement`), removing unsupported test-project path and OpenAPI env-var assumptions pending `T001` recon, and fixing `T025` to Q6's 2-round cap satisfy `task-pipeline` Phase 3 step 2 dispatch.
   - **Rejected & Out-of-Scope Dispositions (`task-pipeline` Phase 3 step 4; Charter §2.3; Q6/12)**: Compass C5 is rejected because `task-pipeline` Phase 3 step 4 explicitly forbids invoking `$architect` and assigns `scripts/run-mutation.ps1` to Gauge. Sentry L4 (`referrerPolicy` / `allow` iframe attributes beyond the ticket's specified attributes) is neither Critical/High nor broken behaviour (`noted, no ticket`), while the hostile movie-title rendering case is covered by a component test.
+
+
+## Keel — Challenge round 1 dispositions and freeze receipt (2026-11-05)
+
+All three axes read in full from LamuFlix notes. Seven Medium and fourteen Low findings; zero Critical/High. Patron approved decisions in the preceding ruling. The brief amendment was written before downstream decision edits. References below are task/requirement anchors so later line movement does not hide the repair.
+
+| Finding | Disposition and evidence |
+| --- | --- |
+| Sentry M1 | Accepted: spec FR-005, T006/T007/T009 explicitly isolate videos-only 429/quota/timeout, preserve independent successes, prohibit enrichment retry/DeadLetter, retain details-path retries. |
+| Sentry M2 | Accepted: spec Scope 6/FR-006 and T006/T007 restore Q3 pt/pt-BR fetch equivalence, trimming and case-insensitive comparison; one-request assertions. |
+| Sentry M3 | Accepted: spec Scope 6/FR-008 and T006/T007 language casing rules and PT/Br/YOUTUBE/TRAILER test matrix. |
+| Sentry L1 | Accepted: FR-005/T006/T007 pass one token to both requests, check before second, never swallow cancellation. |
+| Sentry L2 | Accepted: T009 failed TMDb supplement after OMDb Found keeps scalar metadata and null key. |
+| Sentry L3 | Accepted: T011 supported Verify updates for details snapshots, no hand edits. |
+| Sentry L4 | Noted, no ticket under Q6 for extra referrer/allow requirements; no established broken behavior. Hostile-title coverage adopted in T014. No privacy/cookie or playback guarantee inferred from the finding. |
+| Ledger M1 | Accepted placement, not unmeasured complexity prediction: T007/plan put pure selection in existing Mapping partial, fetch in provider. Actual complexity remains a Phase B gate measurement. |
+| Ledger M2 | Accepted ownership: T003 MovieMetadata single exact ASCII/length validator, T007 reuse; web render validation deliberate duplicate. No new validator type/layer/static regex. |
+| Ledger M3 | Accepted: T006/T009/plan require FsCheck permutation-invariance and dedupe-idempotence, no property-test opt-out for these invariants. |
+| Ledger L1 | Accepted: T003 Anvil lands glossary; T024 verifies only; plan explicitly excludes pending CONTEXT.md edit from spec PR. Preserve current edit for carry-forward. |
+| Ledger L2 | Accepted PR-manifest action: Rigger excludes _quill-report-bernstein.txt and transient reports; knowingly handles intake pin. No deletion/rollback by Keel. Current receipt/status names .specify/feature.json, not the alternate path in Patron prose. Rigger must read back exact manifest before publication; do not blanket-add specs. |
+| Ledger L3 | Clarity accepted; proposed renumbering rejected because standing task-pipeline Phase 3 step 2 requires local Phase N dispatch. Retain local headings and align canonical mapping (local 8-9 -> canonical 4; local 10 -> canonical 5). |
+| Ledger L4 | Accepted permitted alternative: T011 explicit green-lock tests after T010; TDD optional, JSON coverage remains mandatory. |
+| Ledger L5 | Accepted: tasks Conventions permits targeted new test files in existing projects; T001 names exact locations and conventions before writes. Nullable serialization observation also resolved by T011 explicit convention assertion from recon. |
+| Compass C1 | Accepted: T025 exactly Q6 two analysis/fix and two challenge/review/fix rounds per applicable loop; no fix-commit cap, remaining blockers reported at cap. |
+| Compass C2 | Accepted: T002 unsupported project path removed; T012 unsupported env/workflow assertion replaced with mandatory T001 recon confirmation. |
+| Compass C3 | Accepted with Ledger L1: glossary lands T003, spec PR excludes pending glossary, runtime checks only. |
+| Compass C4 | Accepted: plan canonical mapping aligned to tasks. |
+| Compass C5 | Rejected: standing task-pipeline Phase 3 step 4 explicitly forbids architect; Gauge mutation gate retained. No missing pipeline stage. |
+| Compass C6 | Accepted: spec/plan/tasks status headers refreshed to freeze, preserving pending Gate 1 boundary. |
+
+**Patron receipt precision**: The decision to exclude transient reports and consciously handle the intake pin is adopted. Alternate path labels in Patron prose are not recon evidence. Existing intake/status evidence names `.specify/feature.json` and `_quill-report-bernstein.txt`. No `.specify/intake/current-task.json` or `.specify/analyze-report.md` inventory, creation or deletion is inferred. This is a publication manifest check for Rigger, not an open product decision.
+
+**PLAN FROZEN** — Challenge round 1/2 closed after approved repairs and independent read-back. Every Medium/Low has an explicit disposition. No unresolved planning blocker; no new dependency, project, API route, schema beyond Q1, LocalPlay/secret behavior, ADR or owner structural checkbox. Prior read-only analyze clean after round 1 repair is recorded in DEV-463 note line 27; this receipt is challenge repair verification, not a claim to a second analyze execution.
+
+Next: Patron provisional Gate 1 -> Rigger explicit-manifest spec PR -> user merge -> T000 receipt -> Phase B fresh recon/reanalysis. Freeze does not approve implementation, certify a build/test/gate/runtime result, close owner Gate 1, or clear a delivery merge. Rigger preserves unrelated pending edits and reports PR manifestation separately. User owns merge.
+
+Read-back verification completed: 28 unique sequential T000-T027 tasks; 21 per-finding dispositions; all three freeze headers; FR-005/006/008 and T003/T024/T025 read back; approved matrix additions present; disputed stale wording absent; no control characters. Initial verification hit a cp1252 decoding error, then succeeded under explicit UTF-8. git diff --check HEAD reported no whitespace errors for tracked changes; planning files were also read directly (untracked artifacts are not covered by that Git command). No implementation gate or runtime result claimed.
+
+## Gate 1 — Provisional Approval (Patron)
+
+- **Status**: `gate1: provisional`
+- **Verdict**: Approved (`checklists/requirements.md` User-Visible Outcome items verified ticked; `/speckit-analyze` clean and 3-axis plan challenge round 1 adjudicated with `PLAN FROZEN`; zero owner structural checkboxes; ready for spec PR and owner Gate 1 merge).
