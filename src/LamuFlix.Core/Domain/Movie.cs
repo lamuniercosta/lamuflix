@@ -136,6 +136,12 @@ public sealed class Movie
         Status = EnrichmentStatus.Pending;
     }
 
+    public void RefreshFormat(MediaFormat format)
+    {
+        ArgumentNullException.ThrowIfNull(format);
+        Format = format;
+    }
+
     public void MatchManually(ImdbId imdbId)
     {
         ArgumentNullException.ThrowIfNull(imdbId);

@@ -1,13 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Abstractions;
 using System.IO.Abstractions.TestingHelpers;
+using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.FileSystem;
 using LamuFlix.UnitTests.Features;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 
 namespace LamuFlix.UnitTests.FileSystem;
 
@@ -88,29 +92,29 @@ public sealed class DirectoryMediaLibraryScannerTests
     }
 
     [Fact]
-    public void Scan_MissingRelativeFolder_ThrowsDirectoryNotFoundNamingResolvedPath()
+    public void Scan_MissingRelativeFolder_ThrowsNotFound()
     {
         // arrange
         var fileSystem = FileSystemWith(("/library/Inception (2010)/Inception.mkv", 1024));
         var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var exception = Should.Throw<DirectoryNotFoundException>(
+        var exception = Should.Throw<NotFoundException>(
             () => scanner.Scan(new LibraryPath("Absent (1999)")));
 
         // assert
-        exception.Message.ShouldContain(Path.Combine("/library", "Absent (1999)"));
+        exception.Message.ShouldNotContain("/library");
     }
 
     [Fact]
-    public void Scan_RelativeFolderWithoutVideo_ThrowsInvalidOperationNamingResolvedPath()
+    public void Scan_RelativeFolderWithoutVideo_ThrowsInvalidTransitionNamingResolvedPath()
     {
         // arrange
         var fileSystem = FileSystemWith(("/library/Inception (2010)/Inception.srt", 9000));
         var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var exception = Should.Throw<InvalidOperationException>(
+        var exception = Should.Throw<InvalidTransitionException>(
             () => scanner.Scan(new LibraryPath("Inception (2010)")));
 
         // assert
@@ -196,7 +200,7 @@ public sealed class DirectoryMediaLibraryScannerTests
     }
 
     [Fact]
-    public void Scan_UnsupportedOnly_ThrowsInvalidOperation()
+    public void Scan_UnsupportedOnly_ThrowsInvalidTransition()
     {
         // arrange
         var fileSystem = FileSystemWith(
@@ -207,7 +211,7 @@ public sealed class DirectoryMediaLibraryScannerTests
         var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var exception = Should.Throw<InvalidOperationException>(
+        var exception = Should.Throw<InvalidTransitionException>(
             () => scanner.Scan(new LibraryPath("/library/Inception (2010)")));
 
         // assert
@@ -279,22 +283,22 @@ public sealed class DirectoryMediaLibraryScannerTests
     }
 
     [Fact]
-    public void Scan_MissingFolder_ThrowsDirectoryNotFound()
+    public void Scan_MissingFolder_ThrowsNotFound()
     {
         // arrange
         var fileSystem = FileSystemWith(("/library/Inception (2010)/Inception.mkv", 1024));
         var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var exception = Should.Throw<DirectoryNotFoundException>(
+        var exception = Should.Throw<NotFoundException>(
             () => scanner.Scan(new LibraryPath("/library/Absent (1999)")));
 
         // assert
-        exception.Message.ShouldContain("/library/Absent (1999)");
+        exception.Message.ShouldNotContain("/library/Absent (1999)");
     }
 
     [Fact]
-    public void Scan_EmptyFolder_ThrowsInvalidOperation()
+    public void Scan_EmptyFolder_ThrowsInvalidTransition()
     {
         // arrange
         var fileSystem = FileSystemWith();
@@ -302,7 +306,7 @@ public sealed class DirectoryMediaLibraryScannerTests
         var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var exception = Should.Throw<InvalidOperationException>(
+        var exception = Should.Throw<InvalidTransitionException>(
             () => scanner.Scan(new LibraryPath("/library")));
 
         // assert
@@ -310,14 +314,14 @@ public sealed class DirectoryMediaLibraryScannerTests
     }
 
     [Fact]
-    public void Scan_VideoOnlyInSubfolder_ThrowsInvalidOperation()
+    public void Scan_VideoOnlyInSubfolder_ThrowsInvalidTransition()
     {
         // arrange
         var fileSystem = FileSystemWith(("/library/Inception (2010)/Featurettes/extra.mkv", 1024));
         var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
 
         // act
-        var exception = Should.Throw<InvalidOperationException>(
+        var exception = Should.Throw<InvalidTransitionException>(
             () => scanner.Scan(new LibraryPath("/library/Inception (2010)")));
 
         // assert
@@ -492,6 +496,246 @@ public sealed class DirectoryMediaLibraryScannerTests
         { "Blade Runner 2049", "Blade Runner 2049" },
         { "(٢٠١٠)", "(٢٠١٠)" },
     };
+
+    public static TheoryData<string, string> TokenBasename() => new()
+    {
+        { "movie-sample.mkv", "excluded" },
+        { "Movie.Sample.mkv", "excluded" },
+        { "Movie_Sample.mkv", "excluded" },
+        { "movie trailer.mkv", "excluded" },
+        { "movie-featurette.mkv", "excluded" },
+        { "movie.extras.mkv", "excluded" },
+        { "movie-SAMPLE.mkv", "excluded" },
+        { "sampler.mkv", "kept" },
+        { "extraspecial.mkv", "kept" },
+        { "sampled.mkv", "kept" },
+        { "trailers.mkv", "kept" },
+        { "my-sample-collection.mkv", "excluded" },
+        { "movie.mkv", "kept" },
+    };
+
+    [Theory]
+    [MemberData(nameof(TokenBasename))]
+    public void Scan_TokenBasenames_ExcludesOnlyWholeAlphanumericTokens(string fileName, string expectation)
+    {
+        // arrange
+        var fileSystem = FileSystemWith(($"/library/Heat (1995)/{fileName}", 2048));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var act = () => scanner.Scan(new LibraryPath("/library/Heat (1995)"));
+
+        // assert
+        if (expectation == "excluded")
+        {
+            Should.Throw<InvalidTransitionException>(act);
+        }
+        else
+        {
+            act().Format.ShouldBe(new MediaFormat("mkv"));
+        }
+    }
+
+    [Fact]
+    public void Scan_ExcludedDecoysBesideFeatureFile_SelectsFeatureFile()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(
+            ("/library/Heat (1995)/Heat.mkv", 900),
+            ("/library/Heat (1995)/heat-sample.mkv", 90000),
+            ("/library/Heat (1995)/Heat.trailer.mp4", 80000),
+            ("/library/Heat (1995)/featurette.mkv", 70000));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.Scan(new LibraryPath("/library/Heat (1995)"));
+
+        // assert
+        result.Format.ShouldBe(new MediaFormat("mkv"));
+        result.SizeBytes.ShouldBe(900);
+    }
+
+    [Fact]
+    public void Scan_OnlyExcludedFiles_ThrowsInvalidTransition()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(
+            ("/library/Heat (1995)/Heat.sample.mkv", 9000),
+            ("/library/Heat (1995)/Heat-trailer.mp4", 8000),
+            ("/library/Heat (1995)/extras.mkv", 7000));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var exception = Should.Throw<InvalidTransitionException>(
+            () => scanner.Scan(new LibraryPath("/library/Heat (1995)")));
+
+        // assert
+        exception.Message.ShouldContain("/library/Heat (1995)");
+    }
+
+    [Fact]
+    public void ResolvePrimaryVideo_FeatureFolder_ReturnsFilePairedWithItsFormat()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(
+            ("/library/Heat (1995)/Heat.avi", 900),
+            ("/library/Heat (1995)/Heat-sample.mkv", 90000));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.ResolvePrimaryVideo(new LibraryPath("/library/Heat (1995)"));
+
+        // assert
+        result.ShouldBe(new PrimaryVideo(
+            new LibraryPath(Path.Combine("/library/Heat (1995)", "Heat.avi")),
+            new MediaFormat("avi")));
+    }
+
+    [Fact]
+    public void ResolvePrimaryVideo_RelativeFolder_ResolvesUnderRootPath()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/library/Heat (1995)/Heat.mkv", 512));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.ResolvePrimaryVideo(new LibraryPath("Heat (1995)"));
+
+        // assert
+        result.Path.ShouldBe(new LibraryPath(Path.Combine("/library", "Heat (1995)", "Heat.mkv")));
+        result.Format.ShouldBe(new MediaFormat("mkv"));
+    }
+
+    [Fact]
+    public void ResolvePrimaryVideo_UpperCaseExtension_NormalisesFormat()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/library/Heat (1995)/Heat.MKV", 512));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.ResolvePrimaryVideo(new LibraryPath("/library/Heat (1995)"));
+
+        // assert
+        result.Format.ShouldBe(new MediaFormat("mkv"));
+        result.Path.ShouldBe(new LibraryPath(Path.Combine("/library/Heat (1995)", "Heat.MKV")));
+    }
+
+    [Fact]
+    public void ResolvePrimaryVideo_SizeTie_SelectsOrdinalLowestFileName()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(
+            ("/library/Heat (1995)/b.mkv", 4096),
+            ("/library/Heat (1995)/A.mp4", 4096));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var result = scanner.ResolvePrimaryVideo(new LibraryPath("/library/Heat (1995)"));
+
+        // assert
+        result.Path.ShouldBe(new LibraryPath(Path.Combine("/library/Heat (1995)", "A.mp4")));
+    }
+
+    [Fact]
+    public void ResolvePrimaryVideo_VideoOnlyInSubfolder_ThrowsInvalidTransition()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/library/Heat (1995)/Featurettes/extra.mkv", 1024));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var exception = Should.Throw<InvalidTransitionException>(
+            () => scanner.ResolvePrimaryVideo(new LibraryPath("/library/Heat (1995)")));
+
+        // assert
+        exception.Message.ShouldContain("/library/Heat (1995)");
+    }
+
+    [Fact]
+    public void ResolvePrimaryVideo_MissingFolder_ThrowsNotFound()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(("/library/Heat (1995)/Heat.mkv", 1024));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        Should.Throw<NotFoundException>(
+            () => scanner.ResolvePrimaryVideo(new LibraryPath("/library/Absent (1999)")));
+    }
+
+    [Fact]
+    public void Scan_UnreadableCandidateLength_PropagatesInsteadOfSelectingSibling()
+    {
+        // arrange
+        var fileSystem = ListingFileSystem(
+            ("/library/Heat (1995)", [
+                ("Heat.mkv", 1024L),
+                ("Heat.avi", FaultedLength),
+            ]));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        var exception = Should.Throw<UnauthorizedAccessException>(
+            () => scanner.Scan(new LibraryPath("/library/Heat (1995)")));
+
+        // assert
+        exception.Message.ShouldBe(FaultMessage);
+    }
+
+    [Fact]
+    public void ResolvePrimaryVideo_UnreadableCandidateLength_PropagatesInsteadOfSelectingSibling()
+    {
+        // arrange
+        var fileSystem = ListingFileSystem(
+            ("/library/Heat (1995)", [
+                ("Heat.mkv", FaultedLength),
+                ("Heat.avi", 1024L),
+            ]));
+        var scanner = new DirectoryMediaLibraryScanner(fileSystem, Now, Library);
+
+        // act
+        Should.Throw<UnauthorizedAccessException>(
+            () => scanner.ResolvePrimaryVideo(new LibraryPath("/library/Heat (1995)")));
+    }
+
+    private const long FaultedLength = -1;
+    private const string FaultMessage = "candidate is unreadable";
+
+    private static IFileSystem ListingFileSystem(
+        params (string Directory, (string Name, long Length)[] Files)[] directories)
+    {
+        var fileSystem = Substitute.For<IFileSystem>();
+        fileSystem.Path.IsPathRooted(Arg.Any<string>()).Returns(true);
+        foreach (var (path, files) in directories)
+        {
+            var directory = Substitute.For<IDirectoryInfo>();
+            directory.Exists.Returns(true);
+            directory.Name.Returns(path.Split('/')[^1]);
+            IFileInfo[] children = [.. files.Select(file => FileInfo(file.Name, file.Length))];
+            directory.EnumerateFiles().Returns(children);
+            fileSystem.DirectoryInfo.New(path).Returns(directory);
+        }
+
+        return fileSystem;
+    }
+
+    private static IFileInfo FileInfo(string name, long length)
+    {
+        var info = Substitute.For<IFileInfo>();
+        info.Name.Returns(name);
+        info.Extension.Returns(Path.GetExtension(name));
+        if (length == FaultedLength)
+        {
+            info.Length.Returns(_ => throw new UnauthorizedAccessException(FaultMessage));
+        }
+        else
+        {
+            info.Length.Returns(length);
+        }
+
+        return info;
+    }
 
     private static MockFileSystem FileSystemWith(params (string Path, int Size)[] files)
     {

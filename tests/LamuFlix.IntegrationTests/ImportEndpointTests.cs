@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -8,11 +9,13 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Shouldly;
 using Xunit;
 
@@ -108,6 +111,106 @@ public sealed class ImportEndpointTests(ApiHostFactory factory) : IClassFixture<
         problem.TryGetProperty("errors", out _).ShouldBeFalse();
         problem.GetRawText().ShouldNotContain("System.Text.Json");
         problem.GetRawText().ShouldNotContain(nameof(JsonException));
+    }
+
+    [Fact]
+    public async Task ImportMovie_MissingFolder_ReturnsNotFoundProblem()
+    {
+        // arrange
+        scanner.Scan(Arg.Any<LibraryPath>()).Throws(new NotFoundException());
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(
+            ImportRoute,
+            new { folderPath = "C:/library/Absent" },
+            cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(404);
+        problem.GetProperty("title").GetString().ShouldBe("Not Found");
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        problem.GetRawText().ShouldNotContain("C:/library");
+        problem.GetRawText().ShouldNotContain(nameof(NotFoundException));
+        await movies.DidNotReceive().AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>());
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("only-excluded")]
+    [InlineData("unsupported")]
+    public async Task ImportMovie_NoEligibleVideo_ReturnsConflictProblem(string variant)
+    {
+        // arrange
+        scanner.Scan(Arg.Any<LibraryPath>())
+            .Throws(new InvalidTransitionException($"Library folder for {variant} contains no eligible top-level video file."));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(
+            ImportRoute,
+            new { folderPath = "C:/library/Heat" },
+            cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(409);
+        problem.GetProperty("title").GetString().ShouldBe("Conflict");
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        problem.TryGetProperty("detail", out _).ShouldBeFalse();
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportMovie_OnlyExcludedFolder_ReturnsConflictRatherThanServerError()
+    {
+        // arrange
+        scanner.Scan(Arg.Any<LibraryPath>())
+            .Throws(new InvalidTransitionException("Library folder 'C:/library/Heat' contains no eligible top-level video file."));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(
+            ImportRoute,
+            new { folderPath = "C:/library/Heat" },
+            cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.StatusCode.ShouldNotBe(HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task ImportMovie_UnexpectedScanFailure_RemainsServerError()
+    {
+        // arrange
+        scanner.Scan(Arg.Any<LibraryPath>()).Throws(new UnauthorizedAccessException("candidate is unreadable"));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(
+            ImportRoute,
+            new { folderPath = "C:/library/Heat" },
+            cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        problem.GetProperty("status").GetInt32().ShouldBe(500);
+        problem.GetRawText().ShouldNotContain("candidate is unreadable");
     }
 
     private WebApplicationFactory<Program> CreateHost() =>
