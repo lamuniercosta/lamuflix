@@ -575,13 +575,23 @@ label.lamu-chip {
   padding: 0;
   border: 1px solid var(--color-boundary);
   border-radius: 9999px;
-  background-color: var(--color-glass-3);
+  background-color: var(--color-poster-backing);
   backdrop-filter: blur(var(--lamu-glass-blur));
-  color: var(--color-ink);
+  color: var(--color-poster-ink);
   transform: translate(-50%, -50%);
   opacity: 0;
   transition: opacity 160ms ease;
   cursor: pointer;
+}
+
+.movie-card-play:hover {
+  background-color: var(--color-poster-backing-hover);
+  border-color: var(--color-poster-ink);
+}
+
+.movie-card-play:active {
+  background-color: var(--color-poster-backing-hover);
+  transform: translate(-50%, -50%) scale(0.94);
 }
 
 .movie-card-play svg {
@@ -607,10 +617,29 @@ label.lamu-chip {
   padding: 0;
   border: 1px solid var(--color-boundary);
   border-radius: 9999px;
-  background-color: var(--color-glass-3);
+  background-color: var(--color-poster-backing);
   backdrop-filter: blur(var(--lamu-glass-blur));
-  color: var(--color-ink);
+  color: var(--color-poster-ink);
   cursor: pointer;
+}
+
+.movie-card-watch button:hover,
+.movie-row-watch button:hover {
+  background-color: var(--color-poster-backing-hover);
+  border-color: var(--color-poster-ink);
+}
+
+.movie-card-watch button:active,
+.movie-row-watch button:active {
+  background-color: var(--color-poster-backing-hover);
+  transform: translateY(1px);
+}
+
+.movie-card-watch button[aria-pressed='true'],
+.movie-row-watch button[aria-pressed='true'] {
+  background-color: var(--color-poster-backing-hover);
+  border-color: var(--color-poster-active);
+  color: var(--color-poster-active);
 }
 
 .movie-card-watch p[role='alert'],
