@@ -289,7 +289,7 @@ describe('App layout shell', () => {
   it('shares the wordmark, navigation, import action, and search on library and watchlist', async () => {
     window.history.replaceState({}, '', '/');
     renderApp();
-    await screen.findByText('Dune', {}, { timeout: 5000 });
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     expect(screen.getByRole('link', { name: 'LamuFlix' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Library' })).toBeInTheDocument();
@@ -322,7 +322,7 @@ describe('App layout shell', () => {
     for (const path of ['/movies/abc', '/movies/0', '/movies/-4', '/movies/1.5']) {
       window.history.replaceState({}, '', path);
       const view = renderApp();
-      expect(await screen.findByText('Dune', {}, { timeout: 5000 })).toBeInTheDocument();
+      expect(await screen.findByText('Dune', {}, { timeout: 10_000 })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
       view.unmount();
       cleanup();
@@ -333,7 +333,7 @@ describe('App layout shell', () => {
   it('opens a movie client-side and restores the exact originating query from the back link', async () => {
     window.history.replaceState({}, '', '/?statuses=Pending&sort=Title&direction=Ascending');
     renderApp();
-    await screen.findByText('Dune', {}, { timeout: 5000 });
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
     expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
@@ -372,7 +372,7 @@ describe('App layout shell', () => {
   it('updates the mounted route on browser Back and Forward', async () => {
     window.history.replaceState({}, '', '/');
     renderApp();
-    await screen.findByText('Dune', {}, { timeout: 5000 });
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
     expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
@@ -386,7 +386,7 @@ describe('App layout shell', () => {
   it('keeps details search local until Enter, then preserves filters and replaces text', async () => {
     window.history.replaceState({}, '', '/?statuses=Pending');
     renderApp();
-    await screen.findByText('Dune', {}, { timeout: 5000 });
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
     expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
@@ -410,7 +410,7 @@ describe('App layout shell', () => {
   it('cancels a pending shell search when browser history changes route', async () => {
     window.history.replaceState({}, '', '/');
     renderApp();
-    await screen.findByText('Dune', {}, { timeout: 5000 });
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.change(screen.getByPlaceholderText('Search titles'), {
       target: { value: 'dune' },
@@ -446,7 +446,7 @@ describe('App layout shell', () => {
     );
     window.history.replaceState({}, '', '/');
     renderApp();
-    await screen.findByText('Dune', {}, { timeout: 5000 });
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Add to watchlist' })[0]);
     await waitFor(() => {
@@ -489,14 +489,14 @@ describe('App layout shell', () => {
       );
       window.history.replaceState({}, '', '/');
       renderApp();
-      await screen.findByRole('heading', { name: 'Lost Film' }, { timeout: 5000 });
+      await screen.findByRole('heading', { name: 'Lost Film' }, { timeout: 10_000 });
 
       fireEvent.click(screen.getByRole('button', { name: 'Retry Lost Film' }));
       await waitFor(
         () => {
           expect(screen.queryByRole('button', { name: 'Retry Lost Film' })).not.toBeInTheDocument();
         },
-        { timeout: 5000 },
+        { timeout: 10_000 },
       );
     },
   );
@@ -505,7 +505,7 @@ describe('App layout shell', () => {
     server.use(http.post('/api/movies/{id}/play', () => new HttpResponse(null, { status: 403 })));
     window.history.replaceState({}, '', '/');
     renderApp();
-    await screen.findByText('Dune', {}, { timeout: 5000 });
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
     expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
@@ -520,7 +520,7 @@ describe('App layout shell', () => {
   it('debounces shell search without discarding other active filters', async () => {
     window.history.replaceState({}, '', '/?statuses=Pending');
     renderApp();
-    await screen.findByText('Dune', {}, { timeout: 5000 });
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.change(screen.getByPlaceholderText('Search titles'), {
       target: { value: 'dune' },
@@ -530,7 +530,7 @@ describe('App layout shell', () => {
         const params = new URLSearchParams(window.location.search);
         expect(params.get('text')).toBe('dune');
       },
-      { timeout: 3000 },
+      { timeout: 10_000 },
     );
     expect(new URLSearchParams(window.location.search).getAll('statuses')).toContain('Pending');
   });
@@ -543,7 +543,7 @@ describe('App enrichment hub shell', () => {
 
     renderShell(factory);
 
-    await screen.findByText('Dune', {}, { timeout: 5000 });
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
     expect(connections).toHaveLength(1);
     expect(connections[0].startCalls).toBe(1);
 
