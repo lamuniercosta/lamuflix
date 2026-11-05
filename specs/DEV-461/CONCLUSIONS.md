@@ -218,12 +218,14 @@ Implications: Phase 2 grill is complete at 10/12 questions used with zero user e
   - **Incumbent cache/repository architecture & test proofs (`recon-DEV-461-3` §3, `EfMovieRepository.cs:199-225`, `HybridCachedRecommendationProfileSource.cs:43-109`, `FeedbackTasteProfileInvalidationTests.cs:113,143`, `EnrichmentStatusNotificationPersistenceTests.cs:397-419`, `HybridCachedRecommendationProfileSourceFreshnessTests.cs:87`, `ArchitectureTests.cs:189-213`)**: proves post-commit `Interlocked.Increment(ref generation)` before `RemoveByTagAsync` is the sole permitted invalidation path, post-commit invalidation errors propagate as `500` while retaining the committed DB write (so `204` requires completed invalidation, and generation bump rejects stale in-flight or failed-remove entries on the next read), and controlled-pool freshness assertions (`Sentry M2`) verify state transitions without requiring universal rank perturbation across arbitrary pools.
   - **Single-truth persistence & governance (`DEV-461` `recon-DEV-461` lines 150, 166, 173–176; `adjudication-DEV-461-Keel` lines 8–42; `specs/PRODUCT.md` §§2, 4, 5 items 1–6)**: dropping `Movies.IsNotInterested` in the backfill migration enforces `Review` as the sole persisted truth (`Ledger F4`, `Sentry L1`, `Compass F2`) with explicit lossy `Down` (`Liked -> false`), keeps `docs/adr/0034-explicit-movie-reviews.md` `Proposed` until Gate 1 acceptance (`Ledger F6`), requires Palette to record concrete shipped-theme contrast ratios (`>= 4.5:1`) in `design.md` (`Sentry L4`), logs narrow-viewport `flex-wrap` safety and Q9 casing/glossary disambiguation in `specs/DEV-461/ASSUMPTIONS.md` (`Compass F4`, `Ledger F7`), and raises zero owner checkboxes (`blocked: structural`) because no ticket contradiction or constitution departure exists.
 
+---
 
+## Gate 1 — Provisional Approval (Patron)
 
-
-
-
-
-
-
+- **Status**: `gate1: provisional`
+- **Verdict**: Approved — `gate1: provisional` set following Keel's `PLAN FROZEN` declaration in `adjudication-DEV-461-Keel` (`checklists/requirements.md` User-Visible Outcome items verified ticked; `/speckit-analyze` clean and 3-axis plan challenge adjudicated with zero remaining Critical/High/Medium blockers and zero owner structural checkboxes; ready for spec PR publication and owner Gate 1 review).
+- **Basis**:
+  - `adjudication-DEV-461-Keel` (`## Final repair read-back — PLAN FROZEN`, lines 3–25): confirms all 22 challenge entries across Sentry, Ledger, and Compass are reconciled, `/speckit-analyze` is clean within the 2-round cap, and `PLAN FROZEN` holds.
+  - `specs/DEV-461/checklists/requirements.md` (`## User-Visible Outcome`, lines 32–36) & `specs/DEV-461/spec.md` (`## What the User Will See` / `### Smoke Test`, lines 51–66): all User-Visible Outcome items (`SMOKE-001`–`SMOKE-003`) are ticked and specified.
+  - `specs/PRODUCT.md` §5 & `specs/DEV-461/CONCLUSIONS.md` Q1–Q10 + Phase 2 Step 6 Addendum: zero owner structural checkboxes required; `docs/adr/0034-explicit-movie-reviews.md` remains `Proposed` until owner Gate 1 acceptance.
 
