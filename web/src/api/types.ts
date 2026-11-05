@@ -26,6 +26,10 @@ export interface paths {
     /** Import a movie folder into the library. */
     post: operations["ImportMovie"];
   };
+  "/api/movies/rescan": {
+    /** Re-probe every stored movie folder and refresh changed formats. */
+    post: operations["RescanLibrary"];
+  };
   "/api/movies/{id}/rescan": {
     /** Re-probe a movie folder and refresh its stored format. */
     post: operations["RescanMovie"];
@@ -211,6 +215,15 @@ export interface components {
       kind: string;
       text: string;
     };
+    RescanLibraryResponse: {
+      /** Format: int32 */
+      changed: number | string;
+      /** Format: int32 */
+      unchanged: number | string;
+      /** Format: int32 */
+      failed: number | string;
+      failedMovieIds: (number | string)[];
+    };
     RescanMovieResponse: {
       /** Format: int32 */
       movieId: number | string;
@@ -367,6 +380,23 @@ export interface operations {
       };
       /** @description Unprocessable Entity */
       422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Re-probe every stored movie folder and refresh changed formats. */
+  RescanLibrary: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RescanLibraryResponse"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };

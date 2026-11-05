@@ -32,6 +32,8 @@ public interface IMovieRepository
 
     Task<IReadOnlyList<MovieId>> FindStrandedMovieIdsAsync(DateTimeOffset leaseCutoff, CancellationToken ct);
 
+    Task<IReadOnlyList<MovieId>> SnapshotMovieIdsAsync(CancellationToken ct);
+
     Task<string?> GetPlotAsync(MovieId id, CancellationToken ct);
 
     /// <summary>

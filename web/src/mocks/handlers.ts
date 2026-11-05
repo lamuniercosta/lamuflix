@@ -16,6 +16,7 @@ export const handlers = [
   http.delete('*/api/movies/:id', () => new HttpResponse(null, { status: 204 })),
   http.get('*/api/movies/:id/thumbnail', () => HttpResponse.json(success.GetMovieThumbnail, { status: 200 })),
   http.post('*/api/movies/import', () => new HttpResponse(null, { status: 202, headers: { Location: acceptedLocation, 'Content-Length': '0' } })),
+  http.post('*/api/movies/rescan', () => HttpResponse.json(success.RescanLibrary, { status: 200 })),
   http.post('*/api/movies/:id/rescan', () => HttpResponse.json(success.RescanMovie, { status: 200 })),
   http.post('*/api/movies/:id/enrichment', () => new HttpResponse(null, { status: 202, headers: { Location: acceptedLocation, 'Content-Length': '0' } })),
   http.put('*/api/movies/:id/imdb', () => new HttpResponse(null, { status: 202, headers: { Location: acceptedLocation, 'Content-Length': '0' } })),

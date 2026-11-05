@@ -355,5 +355,8 @@ public sealed class MetadataProviderCompositionTests(MetadataProviderProbe probe
             Task.FromResult<IReadOnlyList<MovieId>>([]);
 
         public Task<string?> GetPlotAsync(MovieId id, CancellationToken ct) => Task.FromResult<string?>(null);
+
+        public Task<IReadOnlyList<MovieId>> SnapshotMovieIdsAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MovieId>>([]);
     }
 }
