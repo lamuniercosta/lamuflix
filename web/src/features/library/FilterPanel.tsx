@@ -196,16 +196,7 @@ export function FilterPanel(props: FilterPanelProps) {
     [props.collections],
   );
   const sortedActors = useMemo(() => sortByName(props.actors ?? []), [props.actors]);
-  const sortedDirectors = useMemo(() => {
-    const items = [...(props.directors ?? [])];
-    return items.sort((a, b) => {
-      const byName = String(a.name ?? '').localeCompare(String(b.name ?? ''));
-      if (byName !== 0) {
-        return byName;
-      }
-      return Number(a.id) - Number(b.id);
-    });
-  }, [props.directors]);
+  const sortedDirectors = useMemo(() => sortCollections(props.directors ?? []), [props.directors]);
   const actorNameById = useMemo(
     () => new Map(sortedActors.map((actor) => [String(actor.id), String(actor.name ?? '')])),
     [sortedActors],
