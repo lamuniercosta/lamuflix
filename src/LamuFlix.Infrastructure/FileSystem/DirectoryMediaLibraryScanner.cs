@@ -65,8 +65,13 @@ public sealed class DirectoryMediaLibraryScanner(
 
 internal static class PrimaryVideoSelector
 {
+    private const string SampleToken = "sample";
+    private const string TrailerToken = "trailer";
+    private const string FeaturetteToken = "featurette";
+    private const string ExtrasToken = "extras";
+
     private static readonly FrozenSet<string> ExcludedTokens =
-        FrozenSet.ToFrozenSet(["sample", "trailer", "featurette", "extras"], StringComparer.OrdinalIgnoreCase);
+        FrozenSet.ToFrozenSet([SampleToken, TrailerToken, FeaturetteToken, ExtrasToken], StringComparer.OrdinalIgnoreCase);
 
     public static IFileInfo? Select(IDirectoryInfo directory) =>
         directory.EnumerateFiles()
