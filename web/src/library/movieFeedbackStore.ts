@@ -1,11 +1,18 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
-import { markMovieNotInterested, markMovieWatched, type FeedbackMovieId } from './movieFeedback';
+import {
+  markMovieNotInterested,
+  markMovieWatched,
+  unmarkMovieNotInterested,
+  unmarkMovieWatched,
+  type FeedbackMovieId,
+  type MovieFeedbackOutcome,
+} from './movieFeedback';
 
 export const MOVIE_FEEDBACK_SAVE_ERROR = "Couldn't save feedback. Try again.";
 export const MOVIE_FEEDBACK_REFRESH_ERROR = 'Saved, but the view could not refresh. Try again.';
 
-export type MovieFeedbackAction = 'watched' | 'notInterested';
+export type MovieFeedbackAction = 'watched' | 'notInterested' | 'unwatched' | 'interested';
 
 export interface MovieFeedbackFlags {
   isWatched: boolean;
@@ -25,6 +32,8 @@ export interface MovieFeedbackState extends MovieFeedbackFlags {
   refreshError: string | null;
   markWatched: () => void;
   markNotInterested: () => void;
+  unmarkWatched: () => void;
+  unmarkNotInterested: () => void;
   retry: () => void;
   retryRefresh: () => void;
 }
@@ -46,6 +55,16 @@ interface RefreshTarget {
 
 const entries = new Map<string, Entry>();
 const subscribers = new Set<() => void>();
+
+const networkCalls: Record<
+  MovieFeedbackAction,
+  (movieId: FeedbackMovieId) => Promise<MovieFeedbackOutcome>
+> = {
+  watched: markMovieWatched,
+  notInterested: markMovieNotInterested,
+  unwatched: unmarkMovieWatched,
+  interested: unmarkMovieNotInterested,
+};
 
 function subscribe(listener: () => void): () => void {
   subscribers.add(listener);
@@ -72,6 +91,27 @@ export function __resetMovieFeedbackStore(): void {
 
 function isBusy(entry: Entry): boolean {
   return entry.pending !== null || entry.reconciling;
+}
+
+function optimisticFlags(
+  action: MovieFeedbackAction,
+  before: MovieFeedbackFlags,
+): MovieFeedbackFlags {
+  switch (action) {
+    case 'watched':
+      return { isWatched: true, isNotInterested: before.isNotInterested };
+    case 'unwatched':
+      return { isWatched: false, isNotInterested: before.isNotInterested };
+    case 'notInterested':
+      return { isWatched: before.isWatched, isNotInterested: true };
+    case 'interested':
+      return { isWatched: before.isWatched, isNotInterested: false };
+  }
+}
+
+function isNoOp(action: MovieFeedbackAction, before: MovieFeedbackFlags): boolean {
+  const next = optimisticFlags(action, before);
+  return next.isWatched === before.isWatched && next.isNotInterested === before.isNotInterested;
 }
 
 function refreshTargets(
@@ -134,10 +174,7 @@ function dispatch(
   before: MovieFeedbackFlags,
   clients: MovieFeedbackClients,
 ): void {
-  const optimistic: MovieFeedbackFlags =
-    action === 'watched'
-      ? { isWatched: true, isNotInterested: before.isNotInterested }
-      : { isWatched: before.isWatched, isNotInterested: true };
+  const optimistic = optimisticFlags(action, before);
 
   write(key, {
     ...optimistic,
@@ -151,10 +188,7 @@ function dispatch(
   });
 
   void (async () => {
-    const outcome =
-      action === 'watched'
-        ? await markMovieWatched(movieId)
-        : await markMovieNotInterested(movieId);
+    const outcome = await networkCalls[action](movieId);
 
     const current = entries.get(key);
     if (!current) {
@@ -213,7 +247,7 @@ export function useMovieFeedback(
         isWatched: initial.isWatched,
         isNotInterested: initial.isNotInterested,
       };
-      if (action === 'watched' ? before.isWatched : before.isNotInterested) {
+      if (isNoOp(action, before)) {
         return;
       }
 
@@ -230,6 +264,8 @@ export function useMovieFeedback(
 
   const markWatched = useCallback(() => start('watched'), [start]);
   const markNotInterested = useCallback(() => start('notInterested'), [start]);
+  const unmarkWatched = useCallback(() => start('unwatched'), [start]);
+  const unmarkNotInterested = useCallback(() => start('interested'), [start]);
 
   const retry = useCallback(() => {
     const current = entries.get(key);
@@ -264,6 +300,8 @@ export function useMovieFeedback(
     refreshError,
     markWatched,
     markNotInterested,
+    unmarkWatched,
+    unmarkNotInterested,
     retry,
     retryRefresh,
   };

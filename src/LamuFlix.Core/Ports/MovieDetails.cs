@@ -12,5 +12,6 @@ public sealed record MovieDetails(
     MovieMetadata? Metadata,
     bool IsInWatchlist,
     bool IsWatched,
-    bool IsNotInterested);
+    bool IsNotInterested,
+    EnrichmentStatus EnrichmentStatus);
 // ReSharper restore NotAccessedPositionalProperty.Global

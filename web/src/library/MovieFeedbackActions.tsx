@@ -33,6 +33,8 @@ export function MovieFeedbackActions({
     refreshError,
     markWatched,
     markNotInterested,
+    unmarkWatched,
+    unmarkNotInterested,
     retry,
     retryRefresh,
   } = useMovieFeedback(movieId, { isWatched, isNotInterested }, resolvedClients);
@@ -46,9 +48,10 @@ export function MovieFeedbackActions({
         className="lamu-action-quiet"
         data-marked={watched ? 'true' : undefined}
         aria-label={`${watched ? 'Watched' : 'Mark Watched'}, ${title}`}
+        aria-pressed={watched}
         aria-busy={pending ? true : undefined}
-        disabled={blocked || watched}
-        onClick={markWatched}
+        disabled={blocked}
+        onClick={watched ? unmarkWatched : markWatched}
       >
         {watched ? 'Watched' : 'Mark Watched'}
       </button>
@@ -57,9 +60,10 @@ export function MovieFeedbackActions({
         className="lamu-action-quiet"
         data-marked={notInterested ? 'true' : undefined}
         aria-label={`${notInterested ? 'Not Interested (marked)' : 'Not Interested'}, ${title}`}
+        aria-pressed={notInterested}
         aria-busy={pending ? true : undefined}
-        disabled={blocked || notInterested}
-        onClick={markNotInterested}
+        disabled={blocked}
+        onClick={notInterested ? unmarkNotInterested : markNotInterested}
       >
         {notInterested ? 'Not Interested (marked)' : 'Not Interested'}
       </button>

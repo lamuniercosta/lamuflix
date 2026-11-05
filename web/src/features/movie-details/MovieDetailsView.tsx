@@ -92,6 +92,40 @@ function Poster({ title, posterUrl }: { title: string; posterUrl: string | null 
   );
 }
 
+function MatchManuallyControl({
+  movieId,
+  libraryClient,
+  className,
+}: {
+  movieId: ActorId;
+  libraryClient: QueryClient;
+  className: string;
+}) {
+  const [matchOpen, setMatchOpen] = useState(false);
+  const matchTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeMatch = () => {
+    setMatchOpen(false);
+    matchTriggerRef.current?.focus();
+  };
+  return (
+    <>
+      <button
+        ref={matchTriggerRef}
+        type="button"
+        className={className}
+        aria-haspopup="dialog"
+        aria-expanded={matchOpen}
+        onClick={() => setMatchOpen(true)}
+      >
+        Match manually
+      </button>
+      {matchOpen && (
+        <MatchManuallyDialog movieId={movieId} libraryClient={libraryClient} onClose={closeMatch} />
+      )}
+    </>
+  );
+}
+
 function NoMetadata({
   movieId,
   libraryClient,
@@ -102,15 +136,9 @@ function NoMetadata({
   status: EnrichmentStatus | null;
 }) {
   const request = useRequestEnrichment(movieId, libraryClient);
-  const [matchOpen, setMatchOpen] = useState(false);
-  const matchTriggerRef = useRef<HTMLButtonElement>(null);
   const note = enrichmentNote(status);
   const requestError = request.error;
   const canMatch = status === 'NotFound' || status === 'Failed';
-  const closeMatch = () => {
-    setMatchOpen(false);
-    matchTriggerRef.current?.focus();
-  };
   return (
     <div className="details-no-metadata">
       <p>No metadata available yet.</p>
@@ -126,24 +154,21 @@ function NoMetadata({
         </button>
       )}
       {canMatch && (
-        <button
-          ref={matchTriggerRef}
-          type="button"
+        <MatchManuallyControl
+          movieId={movieId}
+          libraryClient={libraryClient}
           className="lamu-pill-button"
-          aria-haspopup="dialog"
-          aria-expanded={matchOpen}
-          onClick={() => setMatchOpen(true)}
-        >
-          Match manually
-        </button>
+        />
+      )}
+      {request.isSuccess && status !== 'Pending' && (
+        <p role="status" className="details-status">
+          Metadata lookup requested. Use Match manually if it still finds nothing.
+        </p>
       )}
       {requestError && (
         <p role={requestError.status === 409 ? 'status' : 'alert'} className="details-status">
           {enrichmentRequestMessage(requestError)}
         </p>
-      )}
-      {matchOpen && (
-        <MatchManuallyDialog movieId={movieId} libraryClient={libraryClient} onClose={closeMatch} />
       )}
     </div>
   );
@@ -300,7 +325,19 @@ function MoreWithPanel({
   );
 }
 
-function FileSection({ path, imdbId }: { path: string; imdbId: string | null }) {
+function FileSection({
+  path,
+  imdbId,
+  movieId,
+  libraryClient,
+  showMatch,
+}: {
+  path: string;
+  imdbId: string | null;
+  movieId: ActorId;
+  libraryClient: QueryClient;
+  showMatch: boolean;
+}) {
   const headingId = useId();
   const [copyState, setCopyState] = useState<CopyState>('idle');
   const copyPath = async () => {
@@ -334,6 +371,13 @@ function FileSection({ path, imdbId }: { path: string; imdbId: string | null }) 
             View on IMDb
             <ExternalLinkIcon size={16} />
           </a>
+        )}
+        {showMatch && (
+          <MatchManuallyControl
+            movieId={movieId}
+            libraryClient={libraryClient}
+            className="lamu-link"
+          />
         )}
       </div>
     </section>
@@ -378,7 +422,10 @@ function MovieDetailsViewInner({
   useDetailsEnrichmentBridge(enrichmentStatus, detailsClient, movieId);
 
   const libraryStatus = useLibraryEnrichmentStatus(libraryClient, movieId);
+  // The browse cache is absent on direct navigation, so the details response is the fallback.
+  const currentStatus = libraryStatus ?? movie?.enrichmentStatus ?? null;
   const hasMetadata = metadata !== null;
+  const showMatchManually = hasMetadata && currentStatus !== 'Pending';
   useEffect(() => {
     if (libraryStatus === 'Enriched' && !hasMetadata) {
       void detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
@@ -531,7 +578,7 @@ function MovieDetailsViewInner({
             </p>
           )}
           {metadata === null && (
-            <NoMetadata movieId={movieId} libraryClient={libraryClient} status={libraryStatus} />
+            <NoMetadata movieId={movieId} libraryClient={libraryClient} status={currentStatus} />
           )}
           {actors.length > 0 && (
             <CastSection
@@ -631,7 +678,13 @@ function MovieDetailsViewInner({
         <MoreWithPanel actor={selectedActor} actorIds={selectedIds} movieId={movieId} />
       )}
       <RelatedMovies movieId={movieId} libraryClient={libraryClient} />
-      <FileSection path={movie.path} imdbId={metadata?.imdbId ?? null} />
+      <FileSection
+        path={movie.path}
+        imdbId={metadata?.imdbId ?? null}
+        movieId={movieId}
+        libraryClient={libraryClient}
+        showMatch={showMatchManually}
+      />
     </article>
   );
 }

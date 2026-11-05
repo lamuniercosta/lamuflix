@@ -135,6 +135,7 @@ export interface components {
       isInWatchlist: boolean;
       isWatched: boolean;
       isNotInterested: boolean;
+      enrichmentStatus: components["schemas"]["EnrichmentStatus"];
     };
     MovieMetadataResponse: {
       title: string;

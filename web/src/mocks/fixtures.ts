@@ -40,6 +40,7 @@ const movieDetailsData = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  enrichmentStatus: 'Enriched',
   metadata: {
     title: 'Dune',
     synopsis: 'A noble family becomes embroiled in a war for the desert planet Arrakis.',
@@ -63,6 +64,7 @@ const movieDetailsNullMetadataData = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  enrichmentStatus: 'NotFound',
   metadata: null,
 } satisfies Schemas['MovieDetailsResponse'];
 

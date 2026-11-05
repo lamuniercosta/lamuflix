@@ -617,7 +617,7 @@ describe('MovieDetailsView feedback actions', () => {
         screen.getByRole('button', { name: 'Not Interested (marked), Dune' }),
       ).not.toHaveAttribute('aria-busy'),
     );
-    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeEnabled();
   });
 
   it('keeps both actions blocked through deferred reconciliation', async () => {

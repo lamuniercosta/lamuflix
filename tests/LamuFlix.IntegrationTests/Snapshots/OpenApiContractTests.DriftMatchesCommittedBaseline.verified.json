@@ -1385,7 +1385,8 @@
           "metadata",
           "isInWatchlist",
           "isWatched",
-          "isNotInterested"
+          "isNotInterested",
+          "enrichmentStatus"
         ],
         "type": "object",
         "properties": {
@@ -1424,6 +1425,9 @@
           },
           "isNotInterested": {
             "type": "boolean"
+          },
+          "enrichmentStatus": {
+            "$ref": "#/components/schemas/EnrichmentStatus"
           }
         }
       },

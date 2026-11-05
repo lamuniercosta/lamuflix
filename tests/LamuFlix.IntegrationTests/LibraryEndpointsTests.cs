@@ -575,7 +575,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "enrichmentStatus");
+        body.GetProperty("enrichmentStatus").GetString().ShouldBe("Enriched");
         body.GetProperty("isInWatchlist").ValueKind.ShouldBe(JsonValueKind.True);
         body.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
         body.GetProperty("id").GetInt32().ShouldBe(7);
@@ -616,7 +617,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "enrichmentStatus");
+        body.GetProperty("enrichmentStatus").GetString().ShouldBe("NotFound");
         body.GetProperty("format").GetString().ShouldBe("mkv");
         body.GetProperty("isInWatchlist").GetBoolean().ShouldBeTrue();
         ShouldCarryJsonNull(body, "metadata");
@@ -917,7 +919,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             null,
             true,
             false,
-            false);
+            false,
+            EnrichmentStatus.NotFound);
 
     private static MovieDetails DetailsWithFullMetadata() =>
         new(
@@ -934,7 +937,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 new ImdbId("tt0113277")),
             true,
             false,
-            false);
+            false,
+            EnrichmentStatus.Enriched);
 
     private static MovieDetails DetailsWithSparseMetadata() =>
         new(
@@ -945,7 +949,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             new MovieMetadata("Heat"),
             false,
             false,
-            false);
+            false,
+            EnrichmentStatus.Enriched);
 
     private static MovieQuery Accepted() => new()
     {

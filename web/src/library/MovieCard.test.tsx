@@ -171,15 +171,16 @@ describe('MovieCard feedback actions', () => {
         screen.getByRole('button', { name: 'Not Interested (marked), Heat' }),
       ).not.toHaveAttribute('aria-busy'),
     );
-    expect(screen.getByRole('button', { name: 'Watched, Heat' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Watched, Heat' })).toBeEnabled();
   });
 
-  it('does not dispatch when an already-marked action is activated', () => {
+  it('un-marks Watched on the marked control and keeps the other flag', async () => {
     // arrange
+    let deletes = 0;
     let posts = 0;
     server.use(
-      http.post('*/api/movies/:id/watched', () => {
-        posts += 1;
+      http.delete('*/api/movies/:id/watched', () => {
+        deletes += 1;
         return new HttpResponse(null, { status: 204 });
       }),
       http.post('*/api/movies/:id/not-interested', () => {
@@ -191,9 +192,15 @@ describe('MovieCard feedback actions', () => {
 
     // act
     fireEvent.click(screen.getByRole('button', { name: 'Watched, Heat' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Not Interested (marked), Heat' }));
 
     // assert
+    expect(screen.getByRole('button', { name: 'Mark Watched, Heat' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Not Interested (marked), Heat' })).toBeDisabled();
+    await waitFor(() => expect(deletes).toBe(1));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Mark Watched, Heat' })).toBeEnabled(),
+    );
+    expect(screen.getByRole('button', { name: 'Not Interested (marked), Heat' })).toBeEnabled();
     expect(posts).toBe(0);
   });
 

@@ -90,19 +90,25 @@ describe('MovieFeedbackActions labels and accessible names', () => {
     expect(notInterested).toHaveTextContent('Not Interested');
     expect(watched).toBeEnabled();
     expect(notInterested).toBeEnabled();
+    expect(watched).toHaveAttribute('aria-pressed', 'false');
+    expect(notInterested).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('renders the marked Watched label and disables only that control', () => {
+  it('renders the marked Watched label as an enabled pressed control', () => {
     // arrange / act
     renderActions(makeQueryClient(), { isWatched: true });
 
     // assert
     expect(screen.getByRole('button', { name: WATCHED_MARKED })).toHaveTextContent('Watched');
-    expect(screen.getByRole('button', { name: WATCHED_MARKED })).toBeDisabled();
+    expect(screen.getByRole('button', { name: WATCHED_MARKED })).toBeEnabled();
+    expect(screen.getByRole('button', { name: WATCHED_MARKED })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.getByRole('button', { name: NOT_INTERESTED_IDLE })).toBeEnabled();
   });
 
-  it('renders the marked Not Interested label and disables only that control', () => {
+  it('renders the marked Not Interested label as an enabled pressed control', () => {
     // arrange / act
     renderActions(makeQueryClient(), { isNotInterested: true });
 
@@ -110,16 +116,21 @@ describe('MovieFeedbackActions labels and accessible names', () => {
     expect(screen.getByRole('button', { name: NOT_INTERESTED_MARKED })).toHaveTextContent(
       'Not Interested (marked)',
     );
-    expect(screen.getByRole('button', { name: NOT_INTERESTED_MARKED })).toBeDisabled();
+    expect(screen.getByRole('button', { name: NOT_INTERESTED_MARKED })).toBeEnabled();
+    expect(screen.getByRole('button', { name: NOT_INTERESTED_MARKED })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.getByRole('button', { name: WATCHED_IDLE })).toBeEnabled();
   });
 
-  it('does not dispatch when an already-marked control is activated', () => {
+  it('un-marks Not Interested when the marked control is activated', async () => {
     // arrange
+    let deletes = 0;
     let posts = 0;
     server.use(
-      http.post('*/api/movies/:id/watched', () => {
-        posts += 1;
+      http.delete('*/api/movies/:id/not-interested', () => {
+        deletes += 1;
         return new HttpResponse(null, { status: 204 });
       }),
       http.post('*/api/movies/:id/not-interested', () => {
@@ -127,13 +138,53 @@ describe('MovieFeedbackActions labels and accessible names', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderActions(makeQueryClient(), { isWatched: true, isNotInterested: true });
+    renderActions(makeQueryClient(), { isNotInterested: true });
 
     // act
-    fireEvent.click(screen.getByRole('button', { name: WATCHED_MARKED }));
     fireEvent.click(screen.getByRole('button', { name: NOT_INTERESTED_MARKED }));
 
     // assert
+    expect(screen.getByRole('button', { name: NOT_INTERESTED_IDLE })).toHaveTextContent(
+      /^Not Interested$/,
+    );
+    expect(screen.getByRole('button', { name: NOT_INTERESTED_IDLE })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: NOT_INTERESTED_IDLE })).toBeEnabled(),
+    );
+    expect(deletes).toBe(1);
+    expect(posts).toBe(0);
+  });
+
+  it('un-marks Watched when the marked control is activated', async () => {
+    // arrange
+    let deletes = 0;
+    let posts = 0;
+    server.use(
+      http.delete('*/api/movies/:id/watched', () => {
+        deletes += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.post('*/api/movies/:id/watched', () => {
+        posts += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderActions(makeQueryClient(), { isWatched: true });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: WATCHED_MARKED }));
+
+    // assert
+    expect(screen.getByRole('button', { name: WATCHED_IDLE })).toHaveTextContent('Mark Watched');
+    expect(screen.getByRole('button', { name: WATCHED_IDLE })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await waitFor(() => expect(screen.getByRole('button', { name: WATCHED_IDLE })).toBeEnabled());
+    expect(deletes).toBe(1);
     expect(posts).toBe(0);
   });
 });

@@ -28,6 +28,7 @@ const movieDetailsSchema = z.object({
   isInWatchlist: z.boolean(),
   isWatched: z.boolean(),
   isNotInterested: z.boolean(),
+  enrichmentStatus: z.enum(['Pending', 'Enriched', 'NotFound', 'Failed']),
   metadata: movieMetadataSchema.nullable(),
 }) satisfies z.ZodType<MovieDetailsResponse>;
 
