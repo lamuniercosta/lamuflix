@@ -25,6 +25,14 @@ _Avoid_: scan folder, movie directory, container folder (for a candidate)
 **Import**
 _Avoid_: Criar, Create, Scan (for single folder case)
 
+**Primary video**
+The one eligible file selected from a movie folder by the shared selection rule: files directly in the folder with a supported extension, excluding files whose name carries a sample, trailer, featurette, or extras token, choosing the largest and then the ordinal-lowest full filename. Choosing it is a selection outcome, not a scan.
+_Avoid_: main file, biggest file, scanned file (when meaning the selection outcome)
+
+**Rescan**
+Re-probe an existing movie folder and update only the stored Format of that existing Movie through a Movie domain method, preserving identity, folder path, title, year, metadata, enrichment state, and user flags. Distinct from Import: Rescan updates Format on an existing Movie; Import creates a Movie.
+_Avoid_: re-import, refresh metadata, upsert import
+
 **Enrichment**
 _Avoid_: job, task, processing
 
