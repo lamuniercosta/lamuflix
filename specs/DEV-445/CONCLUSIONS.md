@@ -137,3 +137,12 @@ This receipt supersedes earlier Phase A Gate 1 closed/pending and provisional st
 - **Ledger Info Confirmed Not a Finding (`findings-DEV-445-Ledger:8`; `tests/LamuFlix.UnitTests/TmdbComposeTests.cs:1-163`; `specs/DEV-445/CONCLUSIONS.md:49, 52, 76-78`)**: `TmdbComposeTests.cs` implements the static configuration proofs explicitly approved and required by Patron Q4 (`T002`) and Q6, so no change is warranted.
 
 
+---
+
+## Phase 5 Step 2 Gate-Fix Scope Ruling — Commit ab0342a8 (2026-11-05)
+
+[from Patron] DEV-445 Phase 5 Step 2 Scope Ruling — Approved in scope under Charter §2.3 item 6: commit `ab0342a8` edits to `web/e2e/compose.e2e.yml`, `web/src/library/LibraryView.retry.test.tsx`, and `web/src/library/watchlist.integration.test.tsx` are forced by required Phase 5 gates (`e2e-smoke` and `web-implement` Vitest suite) and ratified in the DEV-445 allowlist.
+
+- **Keyless E2E Smoke Stack Opt-Out Forced by `e2e-smoke` Gate & Q6 (`DEV-445:173, 176-180`; `web/e2e/compose.e2e.yml:2-5`; `docker-compose.yml:62-63`; `specs/DEV-445/CONCLUSIONS.md:23-25, 76-78`)**: Because DEV-445 enables `Tmdb__Enabled: ${TMDB_ENABLED:-true}` by default in `docker-compose.yml` (`T004`) and an enabled blank-key TMDb provider converts OMDb `NotFound` into `Failed(ProviderUnavailable)` per Q6 (`CONCLUSIONS.md:78`), setting `Tmdb__Enabled: 'false'` in the keyless `web/e2e/compose.e2e.yml` override is directly forced by the `e2e-smoke` gate (`manual-match.e2e.ts` SMOKE-001/002 `NotFound` assertions) and applies the documented README keyless opt-out rule.
+- **Web Test Timeout Hardening Forced by Web Gate (`DEV-445:172, 176-180`; `web/src/library/LibraryView.retry.test.tsx:95-109`; `web/src/library/watchlist.integration.test.tsx:78-114`; `specs/DEV-445/CONCLUSIONS.md:65`)**: Raising the per-test and `findByRole` timeouts from `5000` to `10_000` in `LibraryView.retry.test.tsx` and `watchlist.integration.test.tsx` is forced by the required Phase 5 `web-implement` full-suite Vitest gate timeout failure under suite load and preserves all existing test behaviors and assertions intact.
+- **Bounded Allowlist Amendment (`commit ab0342a8`; `specs/DEV-445/CONCLUSIONS.md:64-66`)**: Approval for these three files is strictly bounded to the `ab0342a8` gate-remediation diff (`1` line in `web/e2e/compose.e2e.yml`, timeout-only updates in the two test files) with no production code, contract, or dependency change.
