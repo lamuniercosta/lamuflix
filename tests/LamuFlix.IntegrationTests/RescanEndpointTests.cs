@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
@@ -226,7 +225,7 @@ public sealed class RescanEndpointTests(ApiHostFactory factory) : IClassFixture<
                 observed.TrySetResult(ct);
                 entered.TrySetResult();
                 await Task.Delay(Timeout.InfiniteTimeSpan, ct);
-                return (Movie?)null;
+                return null;
             });
         await using var host = CreateHost();
         using var client = host.CreateClient();

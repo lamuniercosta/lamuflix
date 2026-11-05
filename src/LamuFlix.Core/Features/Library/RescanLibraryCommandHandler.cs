@@ -52,7 +52,7 @@ public sealed class RescanLibraryCommandHandler(IMovieRepository movies, IMediaL
         {
             return await operation.PrepareAsync(id, cancellationToken);
         }
-        catch (System.Exception exception) when (exception is NotFoundException or InvalidTransitionException)
+        catch (Exception exception) when (exception is NotFoundException or InvalidTransitionException)
         {
             return null;
         }
