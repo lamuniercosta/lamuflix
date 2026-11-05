@@ -91,7 +91,7 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         // assert
         details.StatusCode.ShouldBe(HttpStatusCode.OK);
         details.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ApplicationJson);
-        ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested");
+        ShouldCarryExactly(detailsBody, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "enrichmentStatus");
         detailsBody.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
         detailsBody.GetProperty("id").GetInt32().ShouldBe(id);
         detailsBody.GetProperty("title").GetString().ShouldBe(SeedTitle);
