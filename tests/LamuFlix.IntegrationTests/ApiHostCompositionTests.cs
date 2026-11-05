@@ -46,6 +46,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string DeleteMovieRoute = "/api/movies/{id:int}";
     private const string ThumbnailRoute = "/api/movies/{id:int}/thumbnail";
     private const string ImportMovieRoute = "/api/movies/import";
+    private const string RescanMovieRoute = "/api/movies/{id}/rescan";
     private const string RequestEnrichmentRoute = "/api/movies/{id}/enrichment";
     private const string MatchImdbIdRoute = "/api/movies/{id}/imdb";
     private const string WatchlistRoute = "/api/movies/{id}/watchlist";
@@ -86,6 +87,11 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                 typeof(IQueryHandler<GetMovieDetailsQuery, MovieDetails>),
                 typeof(GetMovieDetailsQuery),
                 typeof(MovieDetails)
+            },
+            {
+                typeof(ICommandHandler<RescanMovieCommand, RescanMovieResult>),
+                typeof(RescanMovieCommand),
+                typeof(RescanMovieResult)
             },
             {
                 typeof(ICommandHandler<PlayMovieCommand, Unit>),
@@ -252,6 +258,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     DeleteMovieRoute,
                     ThumbnailRoute,
                     ImportMovieRoute,
+                    RescanMovieRoute,
                     RequestEnrichmentRoute,
                     MatchImdbIdRoute,
                     WatchlistRoute,

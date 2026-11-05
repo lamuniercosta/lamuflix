@@ -26,6 +26,10 @@ export interface paths {
     /** Import a movie folder into the library. */
     post: operations["ImportMovie"];
   };
+  "/api/movies/{id}/rescan": {
+    /** Re-probe a movie folder and refresh its stored format. */
+    post: operations["RescanMovie"];
+  };
   "/api/movies/{id}/enrichment": {
     /** Request a metadata enrichment retry for a movie. */
     post: operations["RequestEnrichment"];
@@ -207,6 +211,13 @@ export interface components {
       kind: string;
       text: string;
     };
+    RescanMovieResponse: {
+      /** Format: int32 */
+      movieId: number | string;
+      changed: boolean;
+      oldFormat: string;
+      newFormat: string;
+    };
   };
   responses: never;
   parameters: never;
@@ -335,6 +346,46 @@ export interface operations {
       /** @description Accepted */
       202: {
         content: never;
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Re-probe a movie folder and refresh its stored format. */
+  RescanMovie: {
+    parameters: {
+      path: {
+        id: number | string;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["RescanMovieResponse"];
+        };
       };
       /** @description Bad Request */
       400: {

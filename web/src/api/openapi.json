@@ -380,6 +380,82 @@
         }
       }
     },
+    "/api/movies/{id}/rescan": {
+      "post": {
+        "tags": [
+          "RescanEndpoints"
+        ],
+        "summary": "Re-probe a movie folder and refresh its stored format.",
+        "operationId": "RescanMovie",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescanMovieResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/movies/{id}/enrichment": {
       "post": {
         "tags": [
@@ -1781,6 +1857,34 @@
             "type": "string"
           }
         }
+      },
+      "RescanMovieResponse": {
+        "required": [
+          "movieId",
+          "changed",
+          "oldFormat",
+          "newFormat"
+        ],
+        "type": "object",
+        "properties": {
+          "movieId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "oldFormat": {
+            "type": "string"
+          },
+          "newFormat": {
+            "type": "string"
+          }
+        }
       }
     }
   },
@@ -1793,6 +1897,9 @@
     },
     {
       "name": "ImportEndpoints"
+    },
+    {
+      "name": "RescanEndpoints"
     },
     {
       "name": "EnrichmentEndpoints"
