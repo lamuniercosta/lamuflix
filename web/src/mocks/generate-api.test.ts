@@ -41,7 +41,7 @@ describe('API generation scripts', () => {
     expect(first).not.toContain('\r');
   });
 
-  it('covers exactly the twenty committed operations on a wildcard origin', async () => {
+  it('covers exactly the twenty-two committed operations on a wildcard origin', async () => {
     // arrange
     const document = await readDocument();
     const expected: string[] = [];
@@ -57,8 +57,8 @@ describe('API generation scripts', () => {
     const output = await renderHandlers();
 
     // assert
-    expect(expected).toHaveLength(20);
-    expect(output.match(/http\./g)).toHaveLength(20);
+    expect(expected).toHaveLength(22);
+    expect(output.match(/http\./g)).toHaveLength(22);
     for (const line of expected) {
       expect(output).toContain(line);
     }
