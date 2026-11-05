@@ -105,3 +105,13 @@ Gate 1 remains CLOSED pending Patron provisional review, Rigger spec PR, and use
 - **Adjudication Closure & Clean Analyze (`adjudication-DEV-445:1-81`; `specs/DEV-445/CONCLUSIONS.md:71-96`; `specs/DEV-445/brief.md:157-182`)**: All 20 findings (Sentry F1–F4, Ledger S-1–S-13, Compass M1/M2/L1) are explicitly disposed and verified by Keel read-back on `feature/445-spec` (17 repairs closed, F4 accepted, S-9 dropped with `ImdbId.TryCreate` normalization citation, S-13 optional trimming deferred), and Keel's read-only consistency reanalysis is clean across 13 FRs, 7 SCs, and 24 tasks (`T000`–`T023`).
 - **Frozen Scope & Checklist Verification (`specs/DEV-445/spec.md:7-68, 158-192`; `specs/DEV-445/plan.md:35-172`; `specs/DEV-445/tasks.md:19-192`; `specs/DEV-445/design.md:1-160`; `specs/DEV-445/checklists/requirements.md:32-37`; `specs/DEV-445/ASSUMPTIONS.md:1-4`)**: Production/test allowlists, Q1–Q6 decisions, taste assumptions in `ASSUMPTIONS.md`, and ticked `User-Visible Outcome` (`SMOKE-001`, `SMOKE-002`) checklist items match the frozen brief with no new dependency, layer, DB schema, public API shape, `Features:LocalPlay`, or `Process.Start` scope and zero §2.3 structural owner checkboxes.
 - **Gate 1 Handoff (`specs/DEV-445/spec.md:7`; `specs/DEV-445/tasks.md:7, 36-43`)**: `spec.md` status is set to `gate1: provisional`; Gate 1 remains closed to Phase B pickup and implementation until Rigger opens the spec PR, the user merges it, and Keel records `T000`.
+
+---
+
+## T000 — Verified Gate 1 spec-PR merge receipt (2026-11-04)
+
+Keel records completion of T000 on `feature/DEV-445` in `F:/Dev/LamuFlix.worktrees/DEV-445`. Spec PR #322 was merged at `2809dd0b`; the Phase A evidence base was `b310c56704ad2a9f3e9ae6fba07b08cbb15561d6` (`b310c567`). Phase B intake HEAD / landed `origin/main` is `338df33b78bcb41629d8bdcdecf5aefab41a4410` (`338df33b`).
+
+Verification basis: task note `DEV-445:4-6,11,14-19` and fresh `recon-DEV-445:3-12`. Wisp verified spec PR #322 and the merge commit, HEAD identity, and no post-merge drift in `specs/DEV-445/` between `2809dd0b` and landed main. This records the completed user-owned Gate 1 merge under Q5; it creates no new Patron ruling, scope, or owner-checkbox disposition.
+
+This receipt supersedes earlier Phase A Gate 1 closed/pending and provisional status statements for Phase B intake. T000 is complete. T001 remains a separate prerequisite: fresh recon and Keel cross-artifact reanalysis plus Gauge pre-edit baseline must be complete before T002+ implementation. No baseline, implementation, configured gate, runtime acceptance, review, or delivery clearance is claimed by this receipt. T020 live Compose Bond acceptance remains independently required.

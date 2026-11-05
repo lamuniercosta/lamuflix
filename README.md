@@ -52,7 +52,7 @@ How enrichment flows: the API persists a movie as `Pending` and publishes `Enric
 
 ## Run with Docker Compose
 
-Copy both example files and replace their placeholders with local values. `.env` supplies the Postgres and RabbitMQ container initialization credentials and can set an optional host library path. `docker/api.settings.json` configures the API; its database and RabbitMQ credentials must match the corresponding values in `.env`. Put the OMDb key in the JSON file. The secret-bearing JSON file is ignored by Git and excluded from the Docker build context.
+Copy both example files and replace their placeholders with local values. `.env` supplies the Postgres and RabbitMQ container initialization credentials, can set an optional host library path, and carries the TMDb enablement flag and API key. `docker/api.settings.json` configures the API; its database and RabbitMQ credentials must match the corresponding values in `.env`. Put the OMDb key in the JSON file. The secret-bearing JSON file is ignored by Git and excluded from the Docker build context.
 
 ```bash
 cp .env.example .env
@@ -61,6 +61,21 @@ docker compose up -d --build
 ```
 
 Applying changes to `docker/api.settings.json` requires restarting the API because some options are read at startup. Open http://localhost:3000. To mount a different library directory, set `LIBRARY_PATH` in `.env` before starting (defaults to `./docker/sample-library`). Imports take the movie folder name relative to the library root (for example `2 Days in New York[2012]`), and full paths still work.
+
+### TMDb collection membership
+
+TMDb supplements an OMDb hit with keywords, full cast, and collection membership, so the library's Collection filter needs a TMDb API key. Compose enables TMDb by default (`Tmdb__Enabled: ${TMDB_ENABLED:-true}`) and reads the key from `${TMDB_API_KEY:-}`, so a `.env` that only adds a key is enough:
+
+```bash
+# in .env (ignored by Git; never commit a real key)
+TMDB_ENABLED=true
+TMDB_API_KEY=your-local-key
+docker compose up -d
+```
+
+`docker compose up -d` recreates the API container so changed `.env` values take effect. Both TMDb settings live only in the ignored `.env` file — that is the TMDb secret channel, separate from the OMDb key in the ignored `docker/api.settings.json`. Never commit credentials, and nothing is baked into the image.
+
+Without a TMDb key, leave `TMDB_ENABLED=false`. With TMDb enabled and a blank key, the app sends no TMDb request, but an OMDb miss becomes a retryable "provider unavailable" failure instead of a plain not-found, so OMDb-only `NotFound` behavior requires explicitly setting `TMDB_ENABLED=false` until a real key is configured. Outside Compose the API keeps `Tmdb.Enabled: false` in `appsettings.json`, so a plain `dotnet run` never calls TMDb unless you opt in through configuration.
 
 ## Ollama embedding model
 

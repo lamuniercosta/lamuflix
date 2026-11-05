@@ -61,10 +61,20 @@ public sealed class ChainedMetadataProvider : IMetadataProvider
             return found;
         }
 
-        var supplemental = await signalSupplement.FindAsync(lookup, ct);
+        var supplemental = await signalSupplement.FindAsync(SupplementLookup(lookup, found.Metadata), ct);
         return supplemental is MetadataLookupResult.Found supplemented
             ? new MetadataLookupResult.Found(Merge(found.Metadata, supplemented.Metadata))
             : new MetadataLookupResult.Found(found.Metadata.WithSignals(new MovieSignalSnapshot()));
+    }
+
+    private static MetadataLookup SupplementLookup(MetadataLookup lookup, MovieMetadata primary)
+    {
+        if (lookup.ManualImdbId is not null || primary.ImdbId is not { } imdbId)
+        {
+            return lookup;
+        }
+
+        return new MetadataLookup(lookup.Title, lookup.ReleaseYear, imdbId);
     }
 
     private static MovieMetadata Merge(MovieMetadata primary, MovieMetadata supplement) =>
