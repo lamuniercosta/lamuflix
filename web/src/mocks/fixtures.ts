@@ -209,6 +209,20 @@ const directorsData = [
 
 const movieThumbnailData = '/9j/4AAQSkZJRg==';
 
+const rescanLibraryData = {
+  changed: 1,
+  unchanged: 1,
+  failed: 0,
+  failedMovieIds: [],
+} satisfies Schemas['RescanLibraryResponse'];
+
+const rescanMovieData = {
+  movieId: 1,
+  changed: true,
+  oldFormat: 'avi',
+  newFormat: 'mkv',
+} satisfies Schemas['RescanMovieResponse'];
+
 export const browseMovies = Object.freeze(browseMoviesData);
 export const movieDetails = Object.freeze(movieDetailsData);
 export const movieDetailsNullMetadata = Object.freeze(movieDetailsNullMetadataData);
@@ -222,6 +236,8 @@ export const overlongCollections = Object.freeze(overlongCollectionsData);
 export const people = Object.freeze(peopleData);
 export const directors = Object.freeze(directorsData);
 export const movieThumbnail = movieThumbnailData;
+export const rescanLibrary = Object.freeze(rescanLibraryData);
+export const rescanMovie = Object.freeze(rescanMovieData);
 
 export const success = Object.freeze({
   BrowseMovies: browseMovies,
@@ -233,6 +249,8 @@ export const success = Object.freeze({
   GetPeople: people,
   GetDirectors: directors,
   GetMovieThumbnail: movieThumbnail,
+  RescanLibrary: rescanLibrary,
+  RescanMovie: rescanMovie,
 });
 
 export const acceptedLocation = '/api/movies/1';
