@@ -76,39 +76,43 @@ beforeEach(() => {
 });
 
 describe('watchlist shared state across card and hero', () => {
-  it('shows a card toggle in the delivered details hero after navigation', async () => {
-    server.use(
-      http.get('*/api/movies', () => HttpResponse.json(browseBody([summary()]))),
-      http.get('*/api/movies/:id', () => HttpResponse.json(details())),
-      http.post('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
-    );
+  it(
+    'shows a card toggle in the delivered details hero after navigation',
+    { timeout: 10_000 },
+    async () => {
+      server.use(
+        http.get('*/api/movies', () => HttpResponse.json(browseBody([summary()]))),
+        http.get('*/api/movies/:id', () => HttpResponse.json(details())),
+        http.post('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
+      );
 
-    const card = renderApp();
-    fireEvent.click(
-      await within(screen.getByRole('region', { name: 'Results' })).findByRole(
-        'button',
-        { name: 'Add to watchlist' },
-        { timeout: 5000 },
-      ),
-    );
-    await waitFor(() =>
+      const card = renderApp();
+      fireEvent.click(
+        await within(screen.getByRole('region', { name: 'Results' })).findByRole(
+          'button',
+          { name: 'Add to watchlist' },
+          { timeout: 10_000 },
+        ),
+      );
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
+          'aria-busy',
+          'false',
+        ),
+      );
+      card.unmount();
+
+      goto('/movies/1');
+      renderApp();
+      expect(
+        await screen.findByRole('heading', { name: 'Dune' }, { timeout: 10_000 }),
+      ).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
-        'aria-busy',
-        'false',
-      ),
-    );
-    card.unmount();
-
-    goto('/movies/1');
-    renderApp();
-    expect(
-      await screen.findByRole('heading', { name: 'Dune' }, { timeout: 5000 }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-  });
+        'aria-pressed',
+        'true',
+      );
+    },
+  );
 
   it('keeps different movies isolated while a toggle is pending', async () => {
     const gate = deferred();

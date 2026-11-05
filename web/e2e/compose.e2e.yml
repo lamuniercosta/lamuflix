@@ -2,6 +2,7 @@ services:
   api:
     environment:
       Ollama__Endpoint: http://127.0.0.1:${E2E_STUB_PORT}/
+      Tmdb__Enabled: 'false'
     volumes:
       - type: bind
         source: ${E2E_SETTINGS_FILE}

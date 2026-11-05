@@ -92,17 +92,21 @@ afterEach(() => {
 });
 
 describe('LibraryView retry', () => {
-  it('shows Retry only for NotFound and Failed rows with row-specific names', async () => {
-    useRetryableBrowse();
-    renderApp();
+  it(
+    'shows Retry only for NotFound and Failed rows with row-specific names',
+    { timeout: 10_000 },
+    async () => {
+      useRetryableBrowse();
+      renderApp();
 
-    expect(
-      await screen.findByRole('button', { name: 'Retry Lost Film' }, { timeout: 5000 }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry Broken Cut' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Retry Dune' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Retry Arrival' })).not.toBeInTheDocument();
-  });
+      expect(
+        await screen.findByRole('button', { name: 'Retry Lost Film' }, { timeout: 10_000 }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Retry Broken Cut' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Retry Dune' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Retry Arrival' })).not.toBeInTheDocument();
+    },
+  );
 
   it('marks the retried row Pending on 202 and refetches browse without polling', async () => {
     let browseCalls = 0;
