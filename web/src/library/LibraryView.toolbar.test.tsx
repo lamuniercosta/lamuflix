@@ -396,7 +396,7 @@ describe('Library collection filter', () => {
     expect(screen.getByText('Collection: Collection 999')).toBeInTheDocument();
   });
 
-  it('keeps the unknown-id fallback chip on an empty facet and never as a section option', async () => {
+  it('keeps the unknown-id fallback chip on an empty facet and hides the healthy-empty group', async () => {
     server.use(http.get('*/api/collections', () => HttpResponse.json([])));
     window.history.replaceState({}, '', '/?collectionId=999');
     renderApp();
@@ -405,8 +405,23 @@ describe('Library collection filter', () => {
     expect(await screen.findByText('Collection: Collection 999')).toBeInTheDocument();
 
     openFilters();
-    const group = screen.getByRole('group', { name: 'Collection' });
-    expect(group.querySelectorAll('[role="checkbox"]')).toHaveLength(0);
+    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Collection' })).not.toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get('collectionId')).toBe('999');
+  });
+
+  it('keeps the unknown-id fallback chip and removes only the collection key', async () => {
+    server.use(http.get('*/api/collections', () => HttpResponse.json([])));
+    window.history.replaceState({}, '', '/?collectionId=999&sort=Year');
+    renderApp();
+    await waitForLibrary();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove collection filter Collection 999' }),
+    );
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('collectionId')).toBeNull();
+    expect(params.get('sort')).toBe('Year');
   });
 
   it('keeps the unknown-id fallback chip when the facet fails', async () => {

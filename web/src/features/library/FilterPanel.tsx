@@ -337,6 +337,7 @@ export function FilterPanel(props: FilterPanelProps) {
   const direction = query.direction === 'Descending' ? 'Descending' : 'Ascending';
   const genreFailed = Boolean(props.genreError ?? props.genresError);
   const collectionFailed = Boolean(props.collectionError ?? props.collectionsError);
+  const collectionHealthyEmpty = sortedCollections.length === 0 && !collectionFailed;
   const castFailed = Boolean(props.castError ?? props.actorsError);
   const runtimeMaxText = runtimeMaxValue >= RUNTIME_MAX_EXTENT ? '240+' : String(runtimeMaxValue);
 
@@ -516,38 +517,40 @@ export function FilterPanel(props: FilterPanelProps) {
         )}
       </fieldset>
 
-      <fieldset className="lamu-filter-group">
-        <legend className="lamu-filter-legend">Collection</legend>
-        {collectionFailed ? (
-          <p role="alert" className="lamu-filter-error">
-            Collections could not be loaded.
-          </p>
-        ) : (
-          <div className="lamu-chip-row">
-            {sortedCollections.map((item) => {
-              const checked = String(query.collectionId) === String(item.id);
-              return (
-                <label
-                  key={String(item.id)}
-                  className={checked ? 'lamu-chip lamu-chip-selected' : 'lamu-chip'}
-                >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={checked}
-                    onChange={(event) => toggleCollection(item.id, event.target.checked)}
-                  />
-                  <span>{item.name}</span>
-                  <span className="lamu-chip-count" aria-hidden="true">
-                    {item.movieCount}
-                  </span>
-                  <span className="sr-only">, {item.movieCount} movies</span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </fieldset>
+      {collectionHealthyEmpty ? null : (
+        <fieldset className="lamu-filter-group">
+          <legend className="lamu-filter-legend">Collection</legend>
+          {collectionFailed ? (
+            <p role="alert" className="lamu-filter-error">
+              Collections could not be loaded.
+            </p>
+          ) : (
+            <div className="lamu-chip-row">
+              {sortedCollections.map((item) => {
+                const checked = String(query.collectionId) === String(item.id);
+                return (
+                  <label
+                    key={String(item.id)}
+                    className={checked ? 'lamu-chip lamu-chip-selected' : 'lamu-chip'}
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={checked}
+                      onChange={(event) => toggleCollection(item.id, event.target.checked)}
+                    />
+                    <span>{item.name}</span>
+                    <span className="lamu-chip-count" aria-hidden="true">
+                      {item.movieCount}
+                    </span>
+                    <span className="sr-only">, {item.movieCount} movies</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </fieldset>
+      )}
 
       <fieldset className="lamu-filter-group">
         <legend className="lamu-filter-legend">Cast</legend>
