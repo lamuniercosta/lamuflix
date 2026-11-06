@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 
 namespace LamuFlix.Core.Features.Recommendations;
@@ -59,6 +60,160 @@ public static class ProfileSimilarityCalculator
             hasPlotChannel ? plotSimilarity : 0.0);
     }
 
+    public static ReviewAffinityEvidence EvaluateReviewAffinity(
+        ImmutableArray<string> candidateGenres,
+        ImmutableArray<string> candidateCast,
+        ImmutableArray<string> candidateDirectors,
+        ImmutableArray<float> candidateEmbedding,
+        TasteProfile profile,
+        SimilarityWeights weights,
+        GenreWeights genreWeights)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(weights);
+        ArgumentNullException.ThrowIfNull(genreWeights);
+        ValidateEmbedding(candidateEmbedding, nameof(candidateEmbedding));
+
+        var candidate = new CandidateChannels(
+            candidateGenres,
+            candidateCast,
+            candidateDirectors,
+            candidateEmbedding);
+
+        var liked = Affinity(candidate, profile.Liked, weights, genreWeights);
+        var disliked = Affinity(candidate, profile.Disliked, weights, genreWeights);
+
+        return new ReviewAffinityEvidence(
+            liked.Value,
+            disliked.Value,
+            liked.HasChannel || disliked.HasChannel,
+            BestLikedSource(candidate, profile.LikedSources, weights, genreWeights));
+    }
+
+    private static LikedSourceEvidence? BestLikedSource(
+        CandidateChannels candidate,
+        ImmutableArray<LikedReviewSource> sources,
+        SimilarityWeights weights,
+        GenreWeights genreWeights)
+    {
+        if (sources.IsDefaultOrEmpty)
+        {
+            return null;
+        }
+
+        LikedSourceEvidence? best = null;
+
+        foreach (var source in sources)
+        {
+            var affinity = Affinity(candidate, source.Channels, weights, genreWeights);
+
+            if (!affinity.HasChannel || affinity.Value <= 0.0)
+            {
+                continue;
+            }
+
+            if (best is { } current)
+            {
+                var comparison = affinity.Value.CompareTo(current.Affinity);
+                if (comparison < 0 || (comparison == 0 && source.MovieId.Value > current.MovieId.Value))
+                {
+                    continue;
+                }
+            }
+
+            best = new LikedSourceEvidence(source.MovieId, source.Title, affinity.Value);
+        }
+
+        return best;
+    }
+
+    private static AffinityResult Affinity(
+        CandidateChannels candidate,
+        ReviewProfileChannels channels,
+        SimilarityWeights weights,
+        GenreWeights genreWeights)
+    {
+        Span<double> similarities = stackalloc double[4];
+        Span<double> channelWeights = stackalloc double[4];
+        var count = 0;
+
+        Accumulate(
+            similarities,
+            channelWeights,
+            ref count,
+            weights.ReviewPlotWeight,
+            TryPlotSimilarity(candidate.Embedding, channels.PlotEmbedding, out var plot) ? plot : double.NaN);
+
+        Accumulate(
+            similarities,
+            channelWeights,
+            ref count,
+            weights.Genres,
+            TryWeightedJaccard(
+                candidate.Genres,
+                channels.Genres,
+                genreWeights.GetWeight,
+                out var genres)
+                ? genres
+                : double.NaN);
+
+        Accumulate(
+            similarities,
+            channelWeights,
+            ref count,
+            weights.Cast,
+            TryWeightedJaccard(candidate.Cast, channels.Cast, UnitWeight, out var cast) ? cast : double.NaN);
+
+        Accumulate(
+            similarities,
+            channelWeights,
+            ref count,
+            weights.Director,
+            TryWeightedJaccard(candidate.Directors, channels.Directors, UnitWeight, out var directors)
+                ? directors
+                : double.NaN);
+
+        if (count == 0)
+        {
+            return new AffinityResult(0.0, false);
+        }
+
+        var totalWeight = 0.0;
+        var numerator = 0.0;
+
+        for (var index = 0; index < count; index++)
+        {
+            totalWeight += channelWeights[index];
+            numerator += channelWeights[index] * similarities[index];
+        }
+
+        if (totalWeight <= 0.0)
+        {
+            return new AffinityResult(0.0, false);
+        }
+
+        return new AffinityResult(Math.Clamp(numerator / totalWeight, 0.0, 1.0), true);
+    }
+
+    private static void Accumulate(
+        Span<double> similarities,
+        Span<double> channelWeights,
+        ref int count,
+        double weight,
+        double similarity)
+    {
+        if (!double.IsFinite(similarity) || weight <= 0.0 || count >= similarities.Length)
+        {
+            return;
+        }
+
+        similarities[count] = similarity;
+        channelWeights[count] = weight;
+        count++;
+    }
+
+    private static double UnitWeight(string _) => 1.0;
+
     private static bool TryGenreSimilarity(
         ImmutableArray<string> candidateGenres,
         ImmutableDictionary<string, double> preferences,
@@ -67,57 +222,44 @@ public static class ProfileSimilarityCalculator
         out ImmutableArray<string> overlappingGenres)
     {
         overlappingGenres = ImmutableArray<string>.Empty;
-        var candidateWeights = CandidateWeights(candidateGenres, genreWeights);
 
-        if (candidateWeights.Count == 0 || !HasPositiveMass(preferences))
-        {
-            similarity = 0.0;
-            return false;
-        }
-
-        var union = BuildUnion(candidateWeights, preferences);
-
-        if (!TryWeightedJaccard(union, candidateWeights, preferences, out similarity))
+        if (!TryWeightedJaccard(candidateGenres, preferences, genreWeights.GetWeight, out similarity))
         {
             return false;
         }
 
-        overlappingGenres = OverlappingGenres(union, candidateWeights, preferences);
+        overlappingGenres = OverlappingGenres(candidateGenres, preferences);
         return true;
     }
 
-    private static HashSet<string> BuildUnion(
-        Dictionary<string, double> candidateWeights,
-        ImmutableDictionary<string, double> preferences)
-    {
-        var union = new HashSet<string>(candidateWeights.Keys, StringComparer.OrdinalIgnoreCase);
-        foreach (var genre in preferences.Keys)
-        {
-            if (preferences[genre] > 0.0)
-            {
-                union.Add(genre);
-            }
-        }
-
-        return union;
-    }
-
     private static bool TryWeightedJaccard(
-        HashSet<string> union,
-        Dictionary<string, double> candidateWeights,
+        ImmutableArray<string> candidateValues,
         ImmutableDictionary<string, double> preferences,
+        Func<string, double> rarity,
         out double similarity)
     {
         similarity = 0.0;
+
+        var candidateWeights = Weights(candidateValues, rarity);
+        var preferenceWeights = PositiveWeights(preferences);
+
+        if (candidateWeights.Count == 0 || preferenceWeights.Count == 0)
+        {
+            return false;
+        }
+
+        var union = new HashSet<string>(candidateWeights.Keys, StringComparer.OrdinalIgnoreCase);
+        union.UnionWith(preferenceWeights.Keys);
+
         var intersectionWeight = 0.0;
         var unionWeight = 0.0;
 
-        foreach (var genre in union)
+        foreach (var name in union)
         {
-            var candidateWeight = candidateWeights.GetValueOrDefault(genre);
-            var preference = preferences.TryGetValue(genre, out var value) ? Math.Max(0.0, value) : 0.0;
-            intersectionWeight += Math.Min(candidateWeight, preference);
-            unionWeight += Math.Max(candidateWeight, preference);
+            var candidateWeight = candidateWeights.GetValueOrDefault(name);
+            var preferenceWeight = preferenceWeights.GetValueOrDefault(name);
+            intersectionWeight += Math.Min(candidateWeight, preferenceWeight);
+            unionWeight += Math.Max(candidateWeight, preferenceWeight);
         }
 
         if (unionWeight <= 0.0)
@@ -129,46 +271,54 @@ public static class ProfileSimilarityCalculator
         return true;
     }
 
-    private static ImmutableArray<string> OverlappingGenres(
-        HashSet<string> union,
-        Dictionary<string, double> candidateWeights,
-        ImmutableDictionary<string, double> preferences)
-    {
-        var matched = new List<string>();
-
-        foreach (var genre in union)
-        {
-            if (candidateWeights.GetValueOrDefault(genre) <= 0.0)
-            {
-                continue;
-            }
-
-            if (!preferences.TryGetValue(genre, out var preference) || preference <= 0.0)
-            {
-                continue;
-            }
-
-            matched.Add(genre);
-        }
-
-        return
-        [
-            .. matched
-                .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(genre => genre, StringComparer.Ordinal),
-        ];
-    }
-
-    private static Dictionary<string, double> CandidateWeights(
-        ImmutableArray<string> candidateGenres,
-        GenreWeights genreWeights)
+    private static Dictionary<string, double> Weights(ImmutableArray<string> values, Func<string, double> scale)
     {
         var weights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
 
-        if (candidateGenres.IsDefaultOrEmpty)
+        if (values.IsDefaultOrEmpty)
         {
             return weights;
         }
+
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            var trimmed = value.Trim();
+            weights[trimmed] = scale(trimmed);
+        }
+
+        return weights;
+    }
+
+    private static Dictionary<string, double> PositiveWeights(ImmutableDictionary<string, double> preferences)
+    {
+        var weights = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (name, value) in preferences)
+        {
+            if (value > 0.0 && !string.IsNullOrWhiteSpace(name))
+            {
+                weights[name.Trim()] = value;
+            }
+        }
+
+        return weights;
+    }
+
+    private static ImmutableArray<string> OverlappingGenres(
+        ImmutableArray<string> candidateGenres,
+        ImmutableDictionary<string, double> preferences)
+    {
+        if (candidateGenres.IsDefaultOrEmpty || preferences.IsEmpty)
+        {
+            return ImmutableArray<string>.Empty;
+        }
+
+        var matched = new List<string>();
 
         foreach (var genre in candidateGenres)
         {
@@ -177,24 +327,21 @@ public static class ProfileSimilarityCalculator
                 continue;
             }
 
-            var trimmed = genre.Trim();
-            weights[trimmed] = genreWeights.GetWeight(trimmed);
-        }
-
-        return weights;
-    }
-
-    private static bool HasPositiveMass(ImmutableDictionary<string, double> preferences)
-    {
-        foreach (var value in preferences.Values)
-        {
-            if (value > 0.0)
+            if (!preferences.TryGetValue(genre.Trim(), out var preference) || preference <= 0.0)
             {
-                return true;
+                continue;
             }
+
+            matched.Add(genre.Trim());
         }
 
-        return false;
+        return
+        [
+            .. matched
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(genre => genre, StringComparer.Ordinal),
+        ];
     }
 
     private static bool TryPlotSimilarity(
@@ -293,4 +440,12 @@ public static class ProfileSimilarityCalculator
             }
         }
     }
+
+    private readonly record struct CandidateChannels(
+        ImmutableArray<string> Genres,
+        ImmutableArray<string> Cast,
+        ImmutableArray<string> Directors,
+        ImmutableArray<float> Embedding);
+
+    private readonly record struct AffinityResult(double Value, bool HasChannel);
 }

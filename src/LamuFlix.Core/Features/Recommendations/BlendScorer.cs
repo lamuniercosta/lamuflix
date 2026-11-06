@@ -45,6 +45,42 @@ public static class BlendScorer
         }
     }
 
+    public static double ScoreWithProfileContribution(
+        double selectedSimilarity,
+        double profileContribution,
+        double alreadyWatched,
+        double notInterested,
+        RecommendationOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        ValidateCoefficient(options.BlendSelectedWeight, nameof(options));
+        ValidateCoefficient(options.BlendProfileWeight, nameof(options));
+        ValidateCoefficient(options.AlreadyWatchedPenalty, nameof(options));
+        ValidateCoefficient(options.NotInterestedPenalty, nameof(options));
+
+        ValidateTerm(selectedSimilarity, nameof(selectedSimilarity));
+        ValidateTerm(alreadyWatched, nameof(alreadyWatched));
+        ValidateTerm(notInterested, nameof(notInterested));
+
+        if (!double.IsFinite(profileContribution))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(profileContribution),
+                profileContribution,
+                "Profile contribution must be finite.");
+        }
+
+        var score = (options.BlendSelectedWeight * selectedSimilarity)
+            + (options.BlendProfileWeight * profileContribution)
+            - (options.AlreadyWatchedPenalty * alreadyWatched)
+            - (options.NotInterestedPenalty * notInterested);
+
+        return double.IsFinite(score)
+            ? score
+            : throw new InvalidOperationException("The calculated blend score must be finite.");
+    }
+
     private static void ValidateTerm(double value, string paramName)
     {
         if (!double.IsFinite(value) || value is < 0.0 or > 1.0)

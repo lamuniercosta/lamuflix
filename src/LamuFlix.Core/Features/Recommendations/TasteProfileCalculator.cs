@@ -37,10 +37,194 @@ public sealed class TasteProfileCalculator
 
         var now = _timeProvider.GetUtcNow();
         var signals = BuildSignals(movies, now);
+        var liked = ReviewAggregate(movies, Review.Liked, genreWeights);
+        var disliked = ReviewAggregate(movies, Review.Disliked, genreWeights);
 
         return new TasteProfile(
             ComputeGenrePreferences(signals, genreWeights),
-            ComputePlotCentroid(signals));
+            ComputePlotCentroid(signals))
+        {
+            Liked = liked,
+            Disliked = disliked,
+            LikedSources = LikedSources(movies, Review.Liked, genreWeights),
+        };
+    }
+
+    private static ImmutableArray<LikedReviewSource> LikedSources(
+        ImmutableArray<TasteProfileMovie> movies,
+        Review review,
+        GenreWeights genreWeights)
+    {
+        if (movies.IsDefaultOrEmpty)
+        {
+            return [];
+        }
+
+        var builder = ImmutableArray.CreateBuilder<LikedReviewSource>();
+
+        foreach (var movie in movies.Where(movie => movie.Review.Is(review)))
+        {
+            builder.Add(new LikedReviewSource(
+                movie.MovieId,
+                movie.Title,
+                new ReviewProfileChannels(
+                    movie.PlotEmbedding.IsDefaultOrEmpty ? ImmutableArray<float>.Empty : movie.PlotEmbedding,
+                    GenrePreferences([movie], genreWeights),
+                    PerMovieIncidence(movie.Cast),
+                    PerMovieIncidence(movie.Directors))));
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static ReviewProfileChannels ReviewAggregate(
+        ImmutableArray<TasteProfileMovie> movies,
+        Review review,
+        GenreWeights genreWeights)
+    {
+        if (movies.IsDefaultOrEmpty)
+        {
+            return ReviewProfileChannels.Empty;
+        }
+
+        var reviewed = movies.Where(movie => movie.Review.Is(review)).ToImmutableArray();
+
+        if (reviewed.IsEmpty)
+        {
+            return ReviewProfileChannels.Empty;
+        }
+
+        return new ReviewProfileChannels(
+            EqualWeightCentroid(reviewed),
+            GenrePreferences(reviewed, genreWeights),
+            IncidencePreferences(reviewed, movie => movie.Cast),
+            IncidencePreferences(reviewed, movie => movie.Directors));
+    }
+
+    private static ImmutableDictionary<string, double> GenrePreferences(
+        ImmutableArray<TasteProfileMovie> movies,
+        GenreWeights genreWeights)
+    {
+        var perMovie = movies
+            .Where(movie => !movie.Genres.IsDefaultOrEmpty)
+            .Select(movie => NormalizeGenres(movie.Genres))
+            .Where(genres => !genres.IsEmpty)
+            .ToImmutableArray();
+
+        if (perMovie.IsEmpty)
+        {
+            return ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var totalIncidence = perMovie.Length;
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var canonicalNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var genres in perMovie)
+        {
+            foreach (var genre in genres)
+            {
+                TrackCanonicalName(canonicalNames, genre);
+                counts[genre] = counts.GetValueOrDefault(genre) + 1;
+            }
+        }
+
+        var builder = ImmutableDictionary.CreateBuilder<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var genre in counts.Keys.OrderBy(name => canonicalNames[name], StringComparer.Ordinal))
+        {
+            var preference = genreWeights.GetWeight(genre) * counts[genre] / totalIncidence;
+            if (preference > 0.0)
+            {
+                builder[canonicalNames[genre]] = preference;
+            }
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static ImmutableDictionary<string, double> IncidencePreferences(
+        ImmutableArray<TasteProfileMovie> movies,
+        Func<TasteProfileMovie, ImmutableArray<string>> selector)
+    {
+        var perMovie = movies
+            .Select(selector)
+            .Where(values => !values.IsDefaultOrEmpty)
+            .Select(values => values.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray())
+            .Where(values => !values.IsEmpty)
+            .ToImmutableArray();
+
+        if (perMovie.IsEmpty)
+        {
+            return ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var canonicalNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var values in perMovie)
+        {
+            foreach (var value in values)
+            {
+                var trimmed = value.Trim();
+                TrackCanonicalName(canonicalNames, trimmed);
+                counts[trimmed] = counts.GetValueOrDefault(trimmed) + 1;
+            }
+        }
+
+        var builder = ImmutableDictionary.CreateBuilder<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var feature in counts.Keys.OrderBy(name => canonicalNames[name], StringComparer.Ordinal))
+        {
+            builder[canonicalNames[feature]] = counts[feature] / (double)perMovie.Length;
+        }
+
+        return builder.ToImmutable();
+    }
+
+    private static ImmutableDictionary<string, double> PerMovieIncidence(ImmutableArray<string> features)
+    {
+        if (features.IsDefaultOrEmpty)
+        {
+            return ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var values = features
+            .Where(feature => !string.IsNullOrWhiteSpace(feature))
+            .Select(feature => feature.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray();
+
+        if (values.IsEmpty)
+        {
+            return ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return values.ToImmutableDictionary(value => value, _ => 1.0, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static ImmutableArray<float> EqualWeightCentroid(ImmutableArray<TasteProfileMovie> movies)
+    {
+        var contributors = movies
+            .Where(movie => !movie.PlotEmbedding.IsDefaultOrEmpty)
+            .ToImmutableArray();
+
+        if (contributors.IsEmpty)
+        {
+            return ImmutableArray<float>.Empty;
+        }
+
+        var sums = new double[EmbeddingDimensions.Value];
+
+        foreach (var movie in contributors)
+        {
+            for (var index = 0; index < sums.Length; index++)
+            {
+                sums[index] += movie.PlotEmbedding[index];
+            }
+        }
+
+        return BuildCentroid(sums, contributors.Length);
     }
 
     private static void ValidateMovies(ImmutableArray<TasteProfileMovie> movies)
@@ -104,7 +288,7 @@ public sealed class TasteProfileCalculator
 
         var builder = ImmutableArray.CreateBuilder<Signal>();
 
-        foreach (var movie in movies)
+        foreach (var movie in movies.Where(movie => !movie.Review.IsDisliked))
         {
             AddMovieSignals(builder, movie, now);
         }

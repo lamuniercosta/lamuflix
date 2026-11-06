@@ -114,7 +114,13 @@ public sealed class EfRecommendationProfileSource(
         var rows = await db.Movies
             .AsNoTracking()
             .Include(movie => movie.Genres)
-            .Where(movie => movie.Id != null && (movie.IsWatched || launchedIds.Contains(movie.Id)))
+            .Include(movie => movie.Directors)
+            .Include(movie => movie.Actors)
+            .Include(movie => movie.FullCast)
+            .Where(movie => movie.Id != null
+                            && (movie.IsWatched
+                                || launchedIds.Contains(movie.Id)
+                                || movie.Review != Review.None))
             .OrderBy(movie => movie.Id)
             .ToListAsync(ct);
 
@@ -136,9 +142,25 @@ public sealed class EfRecommendationProfileSource(
                 [.. row.Genres.Select(genre => genre.Name).Order(StringComparer.Ordinal)],
                 plotEmbeddings.GetValueOrDefault(movieId, ImmutableArray<float>.Empty),
                 launches.GetValueOrDefault(movieId, ImmutableArray<DateTimeOffset>.Empty),
-                row.IsWatched));
+                row.IsWatched)
+            {
+                Review = row.Review,
+                Title = row.Title,
+                Cast = CastNames(row),
+                Directors = [.. row.Directors.Select(director => director.Name).Order(StringComparer.Ordinal)],
+            });
         }
 
         return builder.MoveToImmutable();
     }
+
+    private static ImmutableArray<string> CastNames(Records.MovieRecord row) =>
+    [
+        .. row.Actors
+            .Select(actor => actor.Name)
+            .Concat(row.FullCast.Select(actor => actor.Name))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.Ordinal),
+    ];
 }
