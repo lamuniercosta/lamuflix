@@ -43,6 +43,38 @@ public sealed class MovieReviewTests
         found.ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData("none")]
+    [InlineData("liked")]
+    [InlineData("disliked")]
+    public void TryParse_ExactName_YieldsMatchingReview(string name)
+    {
+        // act
+        var parsed = Review.TryParse(name, out var review);
+
+        // assert
+        parsed.ShouldBeTrue();
+        review.Name.ShouldBe(name);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("Liked")]
+    [InlineData("LIKED")]
+    [InlineData("like")]
+    [InlineData("2")]
+    public void TryParse_MissingOrInexactName_YieldsNoneAndFalse(string? name)
+    {
+        // act
+        var parsed = Review.TryParse(name, out var review);
+
+        // assert
+        parsed.ShouldBeFalse();
+        review.ShouldBe(Review.None);
+    }
+
     [Fact]
     public void NewMovie_HasNoExplicitReview()
     {

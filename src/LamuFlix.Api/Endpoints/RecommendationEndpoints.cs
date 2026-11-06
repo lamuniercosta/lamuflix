@@ -144,6 +144,7 @@ internal static class RecommendationEndpoints
             summary.IsInWatchlist,
             summary.IsWatched,
             summary.IsNotInterested,
+            summary.Review.Name,
             recommendedMovie.Score,
             [.. recommendedMovie.Reasons.Select(ToReasonDto)]);
     }

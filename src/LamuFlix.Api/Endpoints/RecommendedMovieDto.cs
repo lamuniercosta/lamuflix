@@ -15,6 +15,7 @@ internal sealed record RecommendedMovieDto(
     bool IsInWatchlist,
     bool IsWatched,
     bool IsNotInterested,
+    string Review,
     double Score,
     ImmutableList<RecommendedMovieReasonDto> Reasons);
 

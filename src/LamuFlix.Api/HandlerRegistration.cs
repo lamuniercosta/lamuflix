@@ -75,6 +75,10 @@ internal static class HandlerRegistration
         services.AddHandler<UnmarkWatchedCommandHandler, UnmarkWatchedCommand, Unit>();
         services.AddHandler<MarkNotInterestedCommandHandler, MarkNotInterestedCommand, Unit>();
         services.AddHandler<UnmarkNotInterestedCommandHandler, UnmarkNotInterestedCommand, Unit>();
+        services.AddScoped<SetMovieReviewCommandValidator>();
+        services.AddScoped<IValidator<SetMovieReviewCommand>>(
+            serviceProvider => serviceProvider.GetRequiredService<SetMovieReviewCommandValidator>());
+        services.AddHandler<SetMovieReviewCommandHandler, SetMovieReviewCommand, Unit>();
 
         return services;
     }

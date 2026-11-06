@@ -19,6 +19,7 @@ function recommendation(
     isInWatchlist: false,
     isWatched: false,
     isNotInterested: false,
+    review: 'none',
     score: 0.5,
     reasons: [],
     ...overrides,

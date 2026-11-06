@@ -20,6 +20,7 @@ const browseResponse = {
       isInWatchlist: false,
       isWatched: false,
       isNotInterested: false,
+      review: 'none',
     },
   ],
   totalCount: '1',
@@ -33,6 +34,7 @@ const movieDetails = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  review: 'none',
   enrichmentStatus: 'Enriched',
   metadata: {
     title: 'Dune',

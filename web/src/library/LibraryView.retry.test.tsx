@@ -26,6 +26,7 @@ const lostFilm: MovieSummary = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  review: 'none',
 };
 
 const brokenCut: MovieSummary = {
@@ -39,6 +40,7 @@ const brokenCut: MovieSummary = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  review: 'none',
 };
 
 const dune: MovieSummary = {
@@ -52,6 +54,7 @@ const dune: MovieSummary = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  review: 'none',
 };
 
 const arrival: MovieSummary = {
@@ -65,6 +68,7 @@ const arrival: MovieSummary = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  review: 'none',
 };
 
 function browseBody(items: MovieSummary[]): BrowseMoviesResponse {

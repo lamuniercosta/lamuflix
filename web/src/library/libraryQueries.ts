@@ -110,6 +110,7 @@ export function pendingRow(id: string, title: string): MovieSummary {
     isInWatchlist: false,
     isWatched: false,
     isNotInterested: false,
+    review: 'none',
   };
 }
 

@@ -62,6 +62,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "DELETE /api/movies/{id}/watched",
         "POST /api/movies/{id}/not-interested",
         "DELETE /api/movies/{id}/not-interested",
+        "PUT /api/movies/{id}/review",
     ];
 
     private static readonly string[] ExpectedSchemas =
@@ -218,6 +219,66 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task Document_MovieResponseSchemas_RequireReviewAsANameString()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+        var schemas = parsed.RootElement.GetProperty("components").GetProperty("schemas");
+
+        // assert
+        foreach (var name in new[] { "MovieSummaryResponse", "MovieDetailsResponse", "RecommendedMovieDto" })
+        {
+            var schema = schemas.GetProperty(name);
+            schema.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+                .ShouldContain("review");
+            schema.GetProperty("properties").GetProperty("review").GetProperty("type").GetString()
+                .ShouldBe("string");
+        }
+    }
+
+    [Fact]
+    public async Task Document_SetMovieReview_DocumentsRawStringBodyAndTheFrozenStatusMatrix()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+        var operation = parsed.RootElement.GetProperty("paths")
+            .GetProperty("/api/movies/{id}/review")
+            .GetProperty("put");
+
+        // assert
+        operation.GetProperty("operationId").GetString().ShouldBe("SetMovieReview");
+        var requestSchema = ResolveSchema(
+            parsed.RootElement,
+            operation.GetProperty("requestBody").GetProperty("content")
+                .GetProperty("application/json").GetProperty("schema"));
+        requestSchema.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldContain("review");
+        requestSchema.GetProperty("properties").GetProperty("review").GetProperty("type").EnumerateArray()
+            .Select(item => item.GetString()).ShouldContain("string");
+
+        var responses = operation.GetProperty("responses");
+        responses.EnumerateObject().Select(response => response.Name)
+            .ShouldBe(["204", "400", "404", "422"], ignoreOrder: true);
+        responses.GetProperty("204").TryGetProperty("content", out _).ShouldBeFalse();
+        foreach (var status in new[] { "400", "404", "422" })
+        {
+            var problemSchema = responses.GetProperty(status).GetProperty("content")
+                .GetProperty("application/problem+json").GetProperty("schema");
+            problemSchema.GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
+        }
+    }
+
+    [Fact]
     public async Task Document_BrowseMovies_RequiresCanonicalQueryKeysWithWireEnumsAndBounds()
     {
         // arrange
@@ -337,6 +398,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
             "isInWatchlist",
             "isWatched",
             "isNotInterested",
+            "review",
             "score",
             "reasons",
         };

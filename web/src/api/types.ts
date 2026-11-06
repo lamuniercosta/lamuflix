@@ -80,6 +80,10 @@ export interface paths {
     /** Remove the not-interested mark from a movie. */
     delete: operations["UnmarkNotInterested"];
   };
+  "/api/movies/{id}/review": {
+    /** Set the review for a movie. */
+    put: operations["SetMovieReview"];
+  };
   "/api/movies/{id}/recommendations": {
     /** Get recommendations for a library movie */
     get: operations["GetRecommendations"];
@@ -143,6 +147,7 @@ export interface components {
       isInWatchlist: boolean;
       isWatched: boolean;
       isNotInterested: boolean;
+      review: string;
       enrichmentStatus: components["schemas"]["EnrichmentStatus"];
     };
     MovieMetadataResponse: {
@@ -179,6 +184,7 @@ export interface components {
       isInWatchlist: boolean;
       isWatched: boolean;
       isNotInterested: boolean;
+      review: string;
     };
     PersonDto: {
       /** Format: int32 */
@@ -208,6 +214,7 @@ export interface components {
       isInWatchlist: boolean;
       isWatched: boolean;
       isNotInterested: boolean;
+      review: string;
       /** Format: double */
       score: number | string;
       reasons: components["schemas"]["RecommendedMovieReasonDto"][];
@@ -231,6 +238,9 @@ export interface components {
       changed: boolean;
       oldFormat: string;
       newFormat: string;
+    };
+    SetMovieReviewRequest: {
+      review: null | string;
     };
   };
   responses: never;
@@ -835,6 +845,43 @@ export interface operations {
       };
       /** @description Conflict */
       409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Set the review for a movie. */
+  SetMovieReview: {
+    parameters: {
+      path: {
+        id: number | string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetMovieReviewRequest"];
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        content: never;
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };

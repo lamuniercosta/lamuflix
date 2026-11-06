@@ -43,6 +43,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
         "isInWatchlist",
         "isWatched",
         "isNotInterested",
+        "review",
         "score",
         "reasons",
     ];

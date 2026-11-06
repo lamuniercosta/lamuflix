@@ -23,6 +23,7 @@ const movie = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  review: 'none',
 } as const;
 
 function renderCard(ui: ReactElement) {

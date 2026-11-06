@@ -1228,6 +1228,75 @@
         }
       }
     },
+    "/api/movies/{id}/review": {
+      "put": {
+        "tags": [
+          "FeedbackEndpoints"
+        ],
+        "summary": "Set the review for a movie.",
+        "operationId": "SetMovieReview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMovieReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/movies/{id}/recommendations": {
       "get": {
         "tags": [
@@ -1523,6 +1592,7 @@
           "isInWatchlist",
           "isWatched",
           "isNotInterested",
+          "review",
           "enrichmentStatus"
         ],
         "type": "object",
@@ -1562,6 +1632,9 @@
           },
           "isNotInterested": {
             "type": "boolean"
+          },
+          "review": {
+            "type": "string"
           },
           "enrichmentStatus": {
             "$ref": "#/components/schemas/EnrichmentStatus"
@@ -1682,7 +1755,8 @@
           "enrichmentStatus",
           "isInWatchlist",
           "isWatched",
-          "isNotInterested"
+          "isNotInterested",
+          "review"
         ],
         "type": "object",
         "properties": {
@@ -1741,6 +1815,9 @@
           },
           "isNotInterested": {
             "type": "boolean"
+          },
+          "review": {
+            "type": "string"
           }
         }
       },
@@ -1814,6 +1891,7 @@
           "isInWatchlist",
           "isWatched",
           "isNotInterested",
+          "review",
           "score",
           "reasons"
         ],
@@ -1874,6 +1952,9 @@
           },
           "isNotInterested": {
             "type": "boolean"
+          },
+          "review": {
+            "type": "string"
           },
           "score": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
@@ -1977,6 +2058,20 @@
           },
           "newFormat": {
             "type": "string"
+          }
+        }
+      },
+      "SetMovieReviewRequest": {
+        "required": [
+          "review"
+        ],
+        "type": "object",
+        "properties": {
+          "review": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }

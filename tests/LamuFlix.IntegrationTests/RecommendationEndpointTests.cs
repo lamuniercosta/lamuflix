@@ -47,6 +47,7 @@ public sealed class RecommendationEndpointTests(ApiHostFactory factory) : IClass
         "isInWatchlist",
         "isWatched",
         "isNotInterested",
+        "review",
         "score",
         "reasons",
     ];

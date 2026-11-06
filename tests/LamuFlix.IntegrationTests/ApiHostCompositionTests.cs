@@ -53,6 +53,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string WatchlistRoute = "/api/movies/{id}/watchlist";
     private const string WatchedRoute = "/api/movies/{id}/watched";
     private const string NotInterestedRoute = "/api/movies/{id}/not-interested";
+    private const string ReviewRoute = "/api/movies/{id}/review";
     private const string PlayMovieRoute = "/api/movies/{id}/play";
     private const string GetGenresRoute = "/api/genres";
     private const string GetCollectionsRoute = "/api/collections";
@@ -279,6 +280,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     WatchedRoute,
                     NotInterestedRoute,
                     NotInterestedRoute,
+                    ReviewRoute,
                     GetRecommendationsRoute,
                     ForYouRecommendationsRoute,
                 ]);

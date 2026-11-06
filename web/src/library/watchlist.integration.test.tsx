@@ -23,6 +23,7 @@ function summary(overrides: Partial<MovieSummary> = {}): MovieSummary {
     isInWatchlist: false,
     isWatched: false,
     isNotInterested: false,
+    review: 'none',
     ...overrides,
   };
 }
@@ -36,6 +37,7 @@ function details(overrides: Partial<MovieDetails> = {}): MovieDetails {
     isInWatchlist: false,
     isWatched: false,
     isNotInterested: false,
+    review: 'none',
     enrichmentStatus: 'NotFound',
     metadata: null,
     ...overrides,
