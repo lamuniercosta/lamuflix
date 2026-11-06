@@ -229,3 +229,14 @@ Implications: Phase 2 grill is complete at 10/12 questions used with zero user e
   - `specs/DEV-461/checklists/requirements.md` (`## User-Visible Outcome`, lines 32–36) & `specs/DEV-461/spec.md` (`## What the User Will See` / `### Smoke Test`, lines 51–66): all User-Visible Outcome items (`SMOKE-001`–`SMOKE-003`) are ticked and specified.
   - `specs/PRODUCT.md` §5 & `specs/DEV-461/CONCLUSIONS.md` Q1–Q10 + Phase 2 Step 6 Addendum: zero owner structural checkboxes required; `docs/adr/0034-explicit-movie-reviews.md` remains `Proposed` until owner Gate 1 acceptance.
 
+---
+
+## Gate 1 — Owner Merge Ratification (PR #330)
+
+- **Verdict**: Ratified — user-owned merge of spec PR #330 at commit `d6d1050a` constitutes explicit owner Gate 1 approval; `T000` (accepting `docs/adr/0034-explicit-movie-reviews.md` and advancing to implementation) is unblocked to proceed.
+- **Basis**:
+  - `DEV-461` task note and `git log` (`d6d1050a`): record that the user merged spec PR #330 onto `main` with zero open owner checkboxes.
+  - `task-pipeline` (table line 18, line 87) and `task-chain` (§0, §2): the user merging the spec PR is the authoritative owner Gate 1 approval event.
+  - Role rules (`§2.3` — *The owner's word is final*; *Never merge*): the user merges every PR, and owner merge of the spec PR satisfies Gate 1 acceptance for ADR 0034 (`T000`) and implementation handoff.
+
+
