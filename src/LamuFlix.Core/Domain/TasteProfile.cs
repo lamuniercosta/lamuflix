@@ -6,5 +6,15 @@ public sealed record TasteProfile(
     ImmutableDictionary<string, double> GenrePreferences,
     ImmutableArray<float> PlotEmbedding)
 {
-    public bool IsEmpty => GenrePreferences.IsEmpty && PlotEmbedding.IsDefaultOrEmpty;
+    public ReviewProfileChannels Liked { get; init; } = ReviewProfileChannels.Empty;
+
+    public ReviewProfileChannels Disliked { get; init; } = ReviewProfileChannels.Empty;
+
+    public ImmutableArray<LikedReviewSource> LikedSources { get; init; } = [];
+
+    public bool IsEmpty =>
+        GenrePreferences.IsEmpty
+        && PlotEmbedding.IsDefaultOrEmpty
+        && Liked.IsEmpty
+        && Disliked.IsEmpty;
 }

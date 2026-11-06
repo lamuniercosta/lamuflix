@@ -32,6 +32,10 @@ public sealed record RecommendationOptions : IValidatableObject
 
     public double NotInterestedPenalty { get; init; } = 1.0;
 
+    public double LikedReviewWeight { get; init; } = 1.0;
+
+    public double DislikedReviewWeight { get; init; } = 1.0;
+
     public SimilarityWeights Weights { get; init; } = new();
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -42,6 +46,11 @@ public sealed record RecommendationOptions : IValidatableObject
         }
 
         foreach (var result in ValidateBlend())
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateReview())
         {
             yield return result;
         }
@@ -195,6 +204,60 @@ public sealed record RecommendationOptions : IValidatableObject
                     nameof(BlendProfileWeight)),
                 [nameof(BlendSelectedWeight), nameof(BlendProfileWeight)]);
         }
+    }
+
+    private IEnumerable<ValidationResult> ValidateReview()
+    {
+        foreach (var result in ValidateReviewCoefficient(LikedReviewWeight, nameof(LikedReviewWeight)))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateReviewCoefficient(DislikedReviewWeight, nameof(DislikedReviewWeight)))
+        {
+            yield return result;
+        }
+
+        foreach (var result in ValidateReviewChannels())
+        {
+            yield return result;
+        }
+    }
+
+    private static IEnumerable<ValidationResult> ValidateReviewCoefficient(double value, string memberName)
+    {
+        if (!double.IsFinite(value) || value <= 0.0)
+        {
+            yield return new ValidationResult(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0} must be finite and greater than 0.0; got {1}.",
+                    memberName,
+                    value),
+                [memberName]);
+        }
+    }
+
+    private IEnumerable<ValidationResult> ValidateReviewChannels()
+    {
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract - configuration binder can set Weights to null via reflection.
+        if (Weights is null)
+        {
+            yield break;
+        }
+
+        if (Weights.HasEnabledReviewChannel)
+        {
+            yield break;
+        }
+
+        yield return new ValidationResult(
+            string.Format(
+                CultureInfo.InvariantCulture,
+                "At least one review channel must be enabled; {0}.{1} must be greater than 0.0.",
+                nameof(Weights),
+                nameof(SimilarityWeights.ReviewPlotWeight)),
+            [nameof(Weights)]);
     }
 }
 // ReSharper restore UnusedAutoPropertyAccessor.Global

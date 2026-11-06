@@ -323,6 +323,59 @@ public sealed class MovieReviewTests
         movie.IsNotInterested.ShouldBeTrue();
     }
 
+    [Theory]
+    [InlineData("none", false, true, false)]
+    [InlineData("liked", true, false, false)]
+    [InlineData("disliked", false, false, true)]
+    public void Review_StatePredicates_MatchTheReviewName(
+        string name,
+        bool isLiked,
+        bool isNone,
+        bool isDisliked)
+    {
+        // arrange
+        Review.TryFromName(name, ignoreCase: false, out var review);
+
+        // act
+        var actual = (review.IsNone, review.IsLiked, review.IsDisliked);
+
+        // assert
+        actual.ShouldBe((isNone, isLiked, isDisliked));
+    }
+
+    [Fact]
+    public void Review_Is_ComparesByStateWithoutOperatorOverloads()
+    {
+        // arrange
+        Review.TryFromName("liked", ignoreCase: false, out var liked);
+
+        // act
+        var matches = liked.Is(Review.Liked);
+        var differs = liked.Is(Review.Disliked);
+        var nullMatches = liked.Is(null);
+
+        // assert
+        matches.ShouldBeTrue();
+        differs.ShouldBeFalse();
+        nullMatches.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Review_AreEqual_HandlesNullsAndMatchingStates()
+    {
+        // act
+        var bothNull = Review.AreEqual(null, null);
+        var oneNull = Review.AreEqual(Review.Liked, null);
+        var same = Review.AreEqual(Review.Disliked, Review.Disliked);
+        var different = Review.AreEqual(Review.Liked, Review.Disliked);
+
+        // assert
+        bothNull.ShouldBeTrue();
+        oneNull.ShouldBeFalse();
+        same.ShouldBeTrue();
+        different.ShouldBeFalse();
+    }
+
     private static Movie NewMovie(Review? review = null) =>
         Movie.Rehydrate(
             new MovieId(37),

@@ -8,4 +8,13 @@ public sealed record TasteProfileMovie(
     ImmutableArray<string> Genres,
     ImmutableArray<float> PlotEmbedding,
     ImmutableArray<DateTimeOffset> PlayedAt,
-    bool IsWatched);
+    bool IsWatched)
+{
+    public Review Review { get; init; } = Review.None;
+
+    public string Title { get; init; } = string.Empty;
+
+    public ImmutableArray<string> Cast { get; init; } = [];
+
+    public ImmutableArray<string> Directors { get; init; } = [];
+}
