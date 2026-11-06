@@ -53,6 +53,32 @@ const movieDetailsData = {
     metaScore: null,
     directors: [],
     actors: [],
+    trailerKey: 'dQw4w9WgXcQ',
+  },
+} satisfies Schemas['MovieDetailsResponse'];
+
+const movieDetailsNoTrailerData = {
+  id: 1,
+  title: 'Dune',
+  path: '/media/dune.mkv',
+  format: 'mkv',
+  isInWatchlist: false,
+  isWatched: false,
+  isNotInterested: false,
+  enrichmentStatus: 'Enriched',
+  metadata: {
+    title: 'Dune',
+    synopsis: 'A noble family becomes embroiled in a war for the desert planet Arrakis.',
+    releaseYear: 2021,
+    runtime: 155,
+    imdbRating: 8.0,
+    imdbId: 'tt1160419',
+    posterUrl: null,
+    rottenTomatoesRating: null,
+    metaScore: null,
+    directors: [],
+    actors: [],
+    trailerKey: null,
   },
 } satisfies Schemas['MovieDetailsResponse'];
 
@@ -225,6 +251,7 @@ const rescanMovieData = {
 
 export const browseMovies = Object.freeze(browseMoviesData);
 export const movieDetails = Object.freeze(movieDetailsData);
+export const movieDetailsNoTrailer = Object.freeze(movieDetailsNoTrailerData);
 export const movieDetailsNullMetadata = Object.freeze(movieDetailsNullMetadataData);
 export const recommendations = Object.freeze(recommendationsData);
 export const relatedMovies = Object.freeze(relatedMoviesData);

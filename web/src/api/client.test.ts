@@ -46,6 +46,7 @@ const movieDetails = {
     metaScore: null,
     directors: [],
     actors: [],
+    trailerKey: null,
   },
 } satisfies components['schemas']['MovieDetailsResponse'];
 

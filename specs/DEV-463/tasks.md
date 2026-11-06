@@ -2,7 +2,7 @@
 
 **Input**: `specs/DEV-463/` spec.md, plan.md, frozen brief.md (Q1–Q8), CONCLUSIONS.md, ASSUMPTIONS.md, recon-DEV-463, recon-DEV-463-2, note DEV-463, specs/PRODUCT.md
 
-**Status**: PLAN FROZEN — 2026-11-05. Owner Gate 1 spec PR #329 merged at 225edf49; T000 and T001 complete, with receipts and pickup dispositions in CONCLUSIONS.md. UI-tag evidence reconciled; Gauge baseline captured with scope-empty gates SKIPPED and dotnet test exit 0. Phase 2 (T002–T005) complete at ea3ca388; Phase 3 (T006–T009) complete. Next: Anvil Phase 4 T010–T013. Earlier analyze/challenge receipts remain Phase A evidence; implementation verification and runtime acceptance remain outstanding.
+**Status**: PLAN FROZEN — 2026-11-05. Owner Gate 1 spec PR #329 merged at 225edf49; T000 and T001 complete, with receipts and pickup dispositions in CONCLUSIONS.md. UI-tag evidence reconciled; Gauge baseline captured with scope-empty gates SKIPPED and dotnet test exit 0. Phase 2 (T002–T005) complete at ea3ca388; Phase 3 (T006–T009) complete; Phase 4 (T010–T013) complete. Next: Anvil Phase 5 T014–T016. Earlier analyze/challenge receipts remain Phase A evidence; implementation verification and runtime acceptance remain outstanding.
 
 **Gate 1**: No owner structural checkbox (brief Status; Q8; PRODUCT.md §5). Handoff chain: **Patron provisional Gate 1 → Rigger opens the spec PR → user merges Gate 1 → Keel T000** records the verified merge receipt in `specs/DEV-463/CONCLUSIONS.md`. Phase B pickup and implementation MUST NOT start before that receipt (Q7).
 
@@ -84,10 +84,10 @@ Phase 10  T026 → T027   (canonical Phase 5 delivery)
 **Independent Test**: Details JSON null/present; Verify OpenAPI drift; `npm run check:api`.
 **Order**: T010 → T013 (DTO before details JSON proofs; then OpenAPI; then generate:api / fixtures).
 
-- [ ] T010 [US2] Extend `MovieMetadataResponse` in `src/LamuFlix.Api/Endpoints/LibraryResponses.cs` with nullable `trailerKey` mapped from `MovieMetadata.TrailerKey`; no new route or status codes (FR-001, FR-011; Q1)
-- [ ] T011 [US2] After T010: author and run explicit green-lock details-response regression tests in the existing API integration suite under `tests/` (exact file named by T001 recon — do not invent a filename or serialization convention) for persisted valid Trailer key and no Trailer key; assert existing `metadata` nesting and nullable field behavior for `trailerKey`, confirming and asserting the existing nullable JSON convention from T001; update affected details snapshots only through supported Verify workflow, never hand edits (FR-011–FR-012; Q7; SC-004; brief/plan details JSON null/present; spec US2 scenarios 1–2)
-- [ ] T012 [US2] Regenerate committed OpenAPI via the supported OpenAPI/Verify workflow confirmed by T001 recon, updating `web/src/api/openapi.json` and affected snapshots through that workflow (do not assume an env var or test-project path); never hand-edit baseline (FR-011; Q7; SC-006)
-- [ ] T013 [US2] From `web/` run `npm run generate:api` producing `web/src/api/types.ts` and `web/src/mocks/handlers.ts`; verify with `npm run check:api`; update `web/src/mocks/fixtures.ts` for null/present `trailerKey` using generated types only (FR-011; Q7; SC-006)
+- [X] T010 [US2] Extend `MovieMetadataResponse` in `src/LamuFlix.Api/Endpoints/LibraryResponses.cs` with nullable `trailerKey` mapped from `MovieMetadata.TrailerKey`; no new route or status codes (FR-001, FR-011; Q1)
+- [X] T011 [US2] After T010: author and run explicit green-lock details-response regression tests in the existing API integration suite under `tests/` (exact file named by T001 recon — do not invent a filename or serialization convention) for persisted valid Trailer key and no Trailer key; assert existing `metadata` nesting and nullable field behavior for `trailerKey`, confirming and asserting the existing nullable JSON convention from T001; update affected details snapshots only through supported Verify workflow, never hand edits (FR-011–FR-012; Q7; SC-004; brief/plan details JSON null/present; spec US2 scenarios 1–2)
+- [X] T012 [US2] Regenerate committed OpenAPI via the supported OpenAPI/Verify workflow confirmed by T001 recon, updating `web/src/api/openapi.json` and affected snapshots through that workflow (do not assume an env var or test-project path); never hand-edit baseline (FR-011; Q7; SC-006)
+- [X] T013 [US2] From `web/` run `npm run generate:api` producing `web/src/api/types.ts` and `web/src/mocks/handlers.ts`; verify with `npm run check:api`; update `web/src/mocks/fixtures.ts` for null/present `trailerKey` using generated types only (FR-011; Q7; SC-006)
 
 ---
 

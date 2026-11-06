@@ -162,6 +162,7 @@ export interface components {
       metaScore: null | number | string;
       directors: string[];
       actors: string[];
+      trailerKey: null | string;
     };
     MovieSummaryResponse: {
       /** Format: int32 */
