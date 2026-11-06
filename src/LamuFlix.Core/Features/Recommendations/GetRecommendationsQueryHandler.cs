@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Globalization;
+
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,9 +21,6 @@ public sealed class GetRecommendationsQueryHandler(
     : IQueryHandler<GetRecommendationsQuery, ImmutableList<RecommendedMovie>>
 {
     private const string SimilarStoryReason = "Similar story";
-    private const string NoSharedFeaturesReason = "No shared features identified";
-    private const string ViewingHistoryReason = "Matches your viewing history";
-    private const string GenreInterestTemplate = "Matches your {0} interest";
 
     public async Task<ImmutableList<RecommendedMovie>> HandleAsync(
         GetRecommendationsQuery query,
@@ -70,7 +67,7 @@ public sealed class GetRecommendationsQueryHandler(
             recommendationOptions,
             cancellationToken);
 
-        var relevanceOffset = RelevanceOffset(scored);
+        var relevanceOffset = BlendScorer.NonNegativeOffset(scored.Select(item => item.Result.Score));
         var mmrCandidates = scored
             .Select(item => new MmrCandidate(item.Movie.Id, item.Result.Score + relevanceOffset, item.Features))
             .ToList();
@@ -96,26 +93,12 @@ public sealed class GetRecommendationsQueryHandler(
             .. groupedIds
                 .Select(id => byId[id])
                 .Select(item => new RecommendedMovie(
-                    Summarize(item.Movie),
+                    MovieSummaryMapper.From(item.Movie),
                     item.Result.Score,
                     item.Result.Reasons)),
         ];
     }
 
-    private static double RelevanceOffset(List<ScoredCandidate> scored)
-    {
-        var minimum = scored[0].Result.Score;
-
-        foreach (var item in scored)
-        {
-            if (item.Result.Score < minimum)
-            {
-                minimum = item.Result.Score;
-            }
-        }
-
-        return minimum < 0.0 ? -minimum : 0.0;
-    }
 
     private static List<RecommendationCandidate> ExcludeDisliked(
         IReadOnlyList<RecommendationCandidate> pool,
@@ -225,7 +208,7 @@ public sealed class GetRecommendationsQueryHandler(
 
         if (options.BlendProfileWeight > 0.0)
         {
-            AddPersonalReasons(builder, profileSimilarity);
+            RecommendationReasonBuilder.AddProfileReasons(builder, profileSimilarity);
             RecommendationReasonBuilder.AddLikedReviewReason(
                 builder,
                 reviewAffinity,
@@ -233,63 +216,14 @@ public sealed class GetRecommendationsQueryHandler(
                 options);
         }
 
-        EnsureFallbackReason(builder);
+        RecommendationReasonBuilder.EnsureFallbackReason(builder);
 
         return builder.ToImmutable();
     }
 
-    private static void AddPersonalReasons(
-        ImmutableList<Reason>.Builder builder,
-        ProfileSimilarityEvidence profileSimilarity)
-    {
-        foreach (var genre in profileSimilarity.OverlappingGenres)
-        {
-            var display = RecommendationReasonBuilder.Sanitize(genre);
-            if (display.Length > 0)
-            {
-                builder.Add(Reason.Personal(
-                    string.Format(CultureInfo.InvariantCulture, GenreInterestTemplate, display)));
-            }
-        }
 
-        if (profileSimilarity is { HasPlotChannel: true, PlotSimilarity: > 0.0 })
-        {
-            builder.Add(Reason.Personal(ViewingHistoryReason));
-        }
-    }
 
-    private static void EnsureFallbackReason(ImmutableList<Reason>.Builder builder)
-    {
-        if (builder.Count == 0)
-        {
-            builder.Add(Reason.Structural(NoSharedFeaturesReason));
-        }
-    }
 
-    private static MovieSummary Summarize(Movie movie)
-    {
-        var metadata = movie.Metadata;
-
-        return new MovieSummary(
-            movie.Id,
-            movie.Title,
-            PosterUrl(metadata),
-            ReleaseYear(metadata),
-            RuntimeMinutes(metadata),
-            ImdbRating(metadata),
-            movie.Status,
-            movie.IsInWatchlist,
-            movie.IsWatched,
-            movie.Review);
-    }
-
-    private static string? PosterUrl(MovieMetadata? metadata) => metadata?.PosterUrl;
-
-    private static int? ReleaseYear(MovieMetadata? metadata) => metadata?.ReleaseYear?.Value;
-
-    private static int? RuntimeMinutes(MovieMetadata? metadata) => metadata?.Runtime?.Minutes;
-
-    private static decimal? ImdbRating(MovieMetadata? metadata) => metadata?.ImdbRating?.Value;
 
     private readonly record struct ScoredCandidate(
         Movie Movie,

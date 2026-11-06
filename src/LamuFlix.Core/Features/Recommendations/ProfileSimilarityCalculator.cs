@@ -112,19 +112,21 @@ public static class ProfileSimilarityCalculator
                 continue;
             }
 
-            if (best is { } current)
+            if (best is { } current && !IsImproved(affinity.Value, source.MovieId, current))
             {
-                var comparison = affinity.Value.CompareTo(current.Affinity);
-                if (comparison < 0 || (comparison == 0 && source.MovieId.Value > current.MovieId.Value))
-                {
-                    continue;
-                }
+                continue;
             }
 
             best = new LikedSourceEvidence(source.MovieId, source.Title, affinity.Value);
         }
 
         return best;
+    }
+
+    private static bool IsImproved(double affinity, MovieId movieId, LikedSourceEvidence current)
+    {
+        var comparison = affinity.CompareTo(current.Affinity);
+        return comparison > 0 || (comparison == 0 && movieId.Value <= current.MovieId.Value);
     }
 
     private static AffinityResult Affinity(
