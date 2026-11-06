@@ -239,4 +239,57 @@ Implications: Phase 2 grill is complete at 10/12 questions used with zero user e
   - `task-pipeline` (table line 18, line 87) and `task-chain` (§0, §2): the user merging the spec PR is the authoritative owner Gate 1 approval event.
   - Role rules (`§2.3` — *The owner's word is final*; *Never merge*): the user merges every PR, and owner merge of the spec PR satisfies Gate 1 acceptance for ADR 0034 (`T000`) and implementation handoff.
 
+---
+
+## Phase B T000 — Pickup cross-artifact reanalysis (Keel, 2026-11-06)
+
+**Verdict: SATISFIED — T000 complete.** Read-only semantic analysis found no unresolved delivery drift, uncovered requirement, or constitution conflict requiring a task change. Following analysis, this authorized receipt and the T000 checkbox are the only edits. T001–T050 remain pending; this receipt does not claim implementation, runtime acceptance, review, or merge clearance.
+
+### Identity and evidence boundary
+
+- Pickup: `F:/Dev/LamuFlix.worktrees/DEV-461`, branch `feature/DEV-461`, HEAD `6d6b510e628c1513523fbd56f581027534924f2d`; clean before receipt edits.
+- Read: `brief.md` (Q1–Q10 and superseding step 6), `spec.md`, `plan.md`, `tasks.md`, Palette's `design.md`, the appended Gate 1 ruling above, and applicable constitution principles/rules. Current implementation facts come exclusively from Maestri notes `recon-DEV-461` and `DEV-461`; no independent production searches or measurements were performed.
+- Wisp recon is pinned to landed spec HEAD `d6d1050a`, Phase A base `604d98e9`. The inspected diff `d6d1050a...6d6b510e` contains only the 11-line Gate 1 ratification addition to this file, so that recon's production baseline still applies at pickup.
+- Gate 1: Patron's committed Owner Merge Ratification above and task-note lines 27–29 resolve the prior missing-approval stop. Historical `gate1: provisional` / Draft / not-approved headers describe Phase A; the later ratification is authoritative for this pickup. They do not reopen Gate 1.
+- Spec Kit prerequisite helper: **Could not run**, not PASS. The invocation in the preceding T000 attempt rejected `feature/DEV-461` because it requires a numeric feature-branch prefix. It was not rerun or bypassed by renaming the branch. The explicitly assigned artifact paths support this bounded manual cross-artifact analysis. No before/after-analyze extension hooks are registered in the inspected extensions file.
+
+### Analysis and coverage
+
+| Requirement | Covering tasks | Read-back result |
+| --- | --- | --- |
+| FR-001–002 | T001–002, T005 | Independent three-state SmartEnum, exact lowercase Name, Value persistence, clear/switch retained |
+| FR-003–004 | T003–007, T011, T015 | Backfill then drop legacy column, lossy Down, projection-only compatibility and legacy 409 retained |
+| FR-005 | T009–010, T015 | Raw-string validation through existing decorator; 400/422/404/204 boundary and central errors retained |
+| FR-006–007 | T012–014, T037 | Required review Name strings; existing DTO → OpenAPI → generated TS/MSW and Verify chain retained |
+| FR-008 | T017, T021, T024–025 | Reviewed-but-unplayed inputs, separate positive/negative aggregates and baseline separation covered |
+| FR-009–011 | T018–021, T023–024 | Signed contribution in both handlers, bounded affinities, options validation and eligibility retained |
+| FR-012 | T022, T025, T031 | Incumbent generation-before-tag-removal seam; failed-remove/read, in-flight rejection, committed-write 500 and UI reconciliation covered |
+| FR-013 | T026–027 | Truthful liked-source provenance, tie-break, sanitation and negative/disabled cases covered |
+| FR-014–015 | T029–038 | Shared four-icon row, one bookmark, exact Q9 copy, independent toggles and existing lifecycle covered |
+| FR-016 | T039 | Delivery glossary and explicit ADR Accepted lifecycle obligation retained |
+| FR-017 | T005–006, T015, T023–027, T034–036, T041–050 | Real infrastructure, controlled-pool/channel proofs, generated contracts and required delivery gates covered |
+| SC-001 | T030, T032–034, T038, T049 | Four icons, no duplicate bookmark or bulky feedback text |
+| SC-002 | T006, T015, T033, T035–036, T049 | Reload persistence and Details/card agreement |
+| SC-003 | T024–025, T049 | Both handlers, controlled pools and clear/switch effects |
+| SC-004 | T034–036 | Every icon, exact accessible names and thumbs mutual exclusion |
+| SC-005 | T022, T025, T031 | Completed-invalidation freshness and honest failure semantics |
+| SC-006 | T013–014 | Tooling/Verify contract synchronization |
+| SC-007 | T027 | No fabricated positive liked reason |
+
+Coverage: 17 functional requirements + 7 success criteria = **24/24 mapped (100%)**; 51 tasks including T000. No uncovered requirement, unexplained task, actionable ambiguity, conflicting duplicate, or Critical/High/Medium finding identified in this pickup. Checkpoints, scope checks, glossary, gates and review tasks trace to brief Q7–Q10. Phase ordering remains domain/persistence → HTTP/contracts → recommendation proofs → web consumption → delivery verification; `[P]` work remains subject to prerequisites and disjoint-file ownership.
+
+### Fresh recon / drift disposition
+
+- Recon sections 3–5 confirm named files, both recommendation handlers, Feedback registration, ValidationDecorator, cache seam, tests and generation tooling remain available. Review and its route are not yet implemented, consistent with T001/T009–T010 rather than evidence of a regression.
+- Recon section 7 identifies DEV-438/DEV-462 changes in Movie, registration, repository, contract baselines, fixtures and CSS. Apply the existing tasks to those landed versions; do not restore Phase A copies. Recon reports no dependency, harness or migration drift. Preserve incumbent notification/genre-cache behavior (T022/T025) and the new `cardActionContrast.test.tsx` coverage through typed fixture/caller updates (T037). `ForYouRail.tsx` is in `web/src/features/for-you/` per recon; no alternate file is implied by abbreviated artifact references.
+- Palette's design retains Q9 order/copy, thumbs-only exclusivity, independent Watched/Watchlist, local SVGs, single bookmark, navigation isolation and narrow-width wrapping. Its reported shipped-theme contrast ratios exceed 4.5:1; these are Palette-owned measurements, not newly measured runtime acceptance. Preserve the landed DEV-462 contrast work when implementing the row.
+- Recon's missing historical Phase A notes do not supply new facts for this check: the committed brief and step 6 ruling carry the settled decisions, and fresh recon supplies the current implementation facts. Missing `DRAFTING_RECEIPT.md` remains a reported documentation inventory discrepancy, not a required delivery contract or test input; it is not fabricated, reconstructed or claimed present by this receipt. Neither item requires a delivery-task amendment.
+- Constitution alignment: existing ports/adapters and feature boundaries, explicit decorators/FluentValidation, central ProblemDetails, approved SmartEnum, generated contracts, real-infrastructure tests, deterministic time, glossary and unmodified gates remain represented. Recon section 6 reports no new §2.3 escalation. DEV-438 LocalPlay/process changes are outside DEV-461 scope and must remain untouched.
+
+### Baseline gate evidence and handoff
+
+The task note's Gauge receipt (lines 21–25) is the baseline evidence at `d6d1050a`, not a gate run performed by Keel: `dotnet test` exit 0, **3994 passed / 0 failed / 2 skipped**; Roslyn, cyclomatic complexity, InspectCode and web gates exit 2 **SKIPPED (scope-empty)** with zero findings, never PASS. The documentation-only ratification delta does not introduce production scope. No mutation, format, security, property or runtime gate result is inferred from this baseline; T041–T050 retain the delivery obligations.
+
+T000 is satisfied within the supplied recon boundary. No implementation task wording change is needed. Bernstein may hand off T001 onward under the existing frozen scope. ADR 0034's explicit Accepted lifecycle update remains an owner/Keel action recorded by T039; this two-file reanalysis receipt does not claim that ADR file was changed. No production files or shared notes were edited and no merge was performed.
+
 
