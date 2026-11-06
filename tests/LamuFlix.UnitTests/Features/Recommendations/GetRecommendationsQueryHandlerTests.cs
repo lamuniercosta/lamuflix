@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -371,7 +371,7 @@ public sealed class GetRecommendationsQueryHandlerTests
             EnrichmentStatus.Enriched,
             true,
             true,
-            false);
+            Review.None);
         result[0].Summary.ShouldBe(expected);
     }
 
@@ -388,7 +388,7 @@ public sealed class GetRecommendationsQueryHandlerTests
         var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
 
         // assert
-        var expected = new MovieSummary(new MovieId(8), "Eight", null, null, null, null, EnrichmentStatus.Enriched, false, false, false);
+        var expected = new MovieSummary(new MovieId(8), "Eight", null, null, null, null, EnrichmentStatus.Enriched, false, false, Review.None);
         result[0].Summary.ShouldBe(expected);
     }
 
@@ -1360,7 +1360,7 @@ public sealed class GetRecommendationsQueryHandlerTests
             null,
             null,
             isWatched: isWatched,
-            isNotInterested: isNotInterested);
+            review: isNotInterested ? Review.Disliked : Review.None);
     }
 
     private static MovieMetadata? BuildMetadata(

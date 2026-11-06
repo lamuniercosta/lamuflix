@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -203,7 +203,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
             data.Create<string>(), "for-you-vectorless", genre, Faker.Name.FullName(), OtherYear, null, null);
         var excluded = EnrichedMovie(
             data.Create<string>(), "for-you-excluded", genre, Faker.Name.FullName(), OtherYear, null, null);
-        excluded.IsNotInterested = true;
+        excluded.Review = Review.Disliked;
 
         var watchedId = (await SeedAsync(watched)).Id.ShouldNotBeNull().Value;
         var enrichedId = (await SeedAsync(enrichedCandidate)).Id.ShouldNotBeNull().Value;
@@ -252,7 +252,7 @@ public sealed class ApiEndToEndRecommendationTests(ApiEndToEndFixture fixture) :
             data.Create<string>(), "for-you-cold-unwatched", genre, Faker.Name.FullName(), OtherYear, null, null);
         var notInterested = EnrichedMovie(
             data.Create<string>(), "for-you-cold-not-interested", genre, Faker.Name.FullName(), OtherYear, null, null);
-        notInterested.IsNotInterested = true;
+        notInterested.Review = Review.Disliked;
         var unwatchedId = (await SeedAsync(unwatched)).Id.ShouldNotBeNull().Value;
         await SeedAsync(notInterested);
         await SeedVectorAsync(unwatchedId, primary: 1f, secondary: 0f);

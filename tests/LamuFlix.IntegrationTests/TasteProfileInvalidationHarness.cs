@@ -120,7 +120,7 @@ internal sealed class TasteProfileInvalidationHarness : IAsyncDisposable
             LibraryPath = new LibraryPath($"C:/library/{Guid.NewGuid():N}.mkv"),
             Format = new MediaFormat("mkv"),
             IsWatched = isWatched,
-            IsNotInterested = isNotInterested,
+            Review = isNotInterested ? Review.Disliked : Review.None,
             Status = EnrichmentStatus.Enriched,
         };
 

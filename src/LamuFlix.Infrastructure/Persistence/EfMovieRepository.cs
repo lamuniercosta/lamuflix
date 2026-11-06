@@ -124,7 +124,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             Format = movie.Format,
             IsInWatchlist = movie.IsInWatchlist,
             IsWatched = movie.IsWatched,
-            IsNotInterested = movie.IsNotInterested,
+            Review = movie.Review,
             Status = movie.Status,
             EnrichedAt = movie.EnrichedAt,
             EnrichmentAttempts = movie.EnrichmentAttempts,
@@ -1046,9 +1046,9 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             record.IsWatched = movie.IsWatched;
         }
 
-        if (baseline.IsNotInterested != movie.IsNotInterested)
+        if (baseline.Review != movie.Review)
         {
-            record.IsNotInterested = movie.IsNotInterested;
+            record.Review = movie.Review;
         }
     }
 
@@ -1143,7 +1143,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             parsedReleaseYear: record.ParsedReleaseYear,
             manualImdbId: record.ManualImdbId,
             isWatched: record.IsWatched,
-            isNotInterested: record.IsNotInterested,
+            review: record.Review,
             enrichmentDeferredUntil: record.EnrichmentDeferredUntil);
     }
 
@@ -1169,7 +1169,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         MediaFormat Format,
         bool IsInWatchlist,
         bool IsWatched,
-        bool IsNotInterested,
+        Review Review,
         EnrichmentStatus Status,
         DateTimeOffset? EnrichedAt,
         EnrichmentFailureCategory? LastFailureCategory,
@@ -1182,7 +1182,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             movie.Format,
             movie.IsInWatchlist,
             movie.IsWatched,
-            movie.IsNotInterested,
+            movie.Review,
             movie.Status,
             movie.EnrichedAt,
             movie.LastFailureCategory,

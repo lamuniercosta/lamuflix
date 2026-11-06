@@ -13,7 +13,6 @@ internal sealed record BrowseMoviesResponse(IReadOnlyList<MovieSummaryResponse> 
             [.. page.Items.Select(summary => new MovieSummaryResponse(summary.Id.Value, summary.Title, summary.PosterUrl, summary.ReleaseYear, summary.Runtime, summary.ImdbRating, summary.EnrichmentStatus, summary.IsInWatchlist, summary.IsWatched, summary.IsNotInterested))],
             page.TotalCount);
 }
-
 internal sealed record MovieSummaryResponse(int Id, string Title, string? PosterUrl, int? ReleaseYear, int? Runtime, decimal? ImdbRating, EnrichmentStatus EnrichmentStatus, bool IsInWatchlist, bool IsWatched, bool IsNotInterested);
 
 internal sealed record MovieDetailsResponse(int Id, string Title, string Path, string Format, MovieMetadataResponse? Metadata, bool IsInWatchlist, bool IsWatched, bool IsNotInterested, EnrichmentStatus EnrichmentStatus)

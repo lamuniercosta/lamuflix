@@ -199,10 +199,6 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_in_watchlist");
 
-                    b.Property<bool>("IsNotInterested")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_not_interested");
-
                     b.Property<bool>("IsWatched")
                         .HasColumnType("boolean")
                         .HasColumnName("is_watched");
@@ -243,6 +239,10 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.Property<int?>("ReleaseYear")
                         .HasColumnType("integer")
                         .HasColumnName("release_year");
+
+                    b.Property<int>("Review")
+                        .HasColumnType("integer")
+                        .HasColumnName("review");
 
                     b.Property<short?>("RottenTomatoesRating")
                         .HasColumnType("smallint")

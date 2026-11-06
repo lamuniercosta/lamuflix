@@ -1830,7 +1830,7 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
 
         // assert
         await using var verify = OpenSibling(db);
-        (await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).IsNotInterested.ShouldBeTrue();
+        (await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).Review.ShouldBe(Review.Disliked);
 
         // act
         movie.UnmarkNotInterested();
@@ -1838,7 +1838,73 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
 
         // assert
         await using var reread = OpenSibling(db);
-        (await reread.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).IsNotInterested.ShouldBeFalse();
+        (await reread.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).Review.ShouldBe(Review.None);
+    }
+
+    [Fact]
+    public async Task SaveChanges_ReviewAssignment_PersistsEachStateAndReloadsIndependentlyOfWatched()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Review", "mutation-review", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+        movie.MarkWatched();
+
+        // act
+        movie.AssignReview(Review.Liked);
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var liked = OpenSibling(db);
+        var likedRow = await liked.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct);
+        likedRow.Review.ShouldBe(Review.Liked);
+        likedRow.IsWatched.ShouldBeTrue();
+
+        // act
+        await using var reloadContext = fixture.CreateMigratedContext();
+        var reloaded = await Repository(reloadContext).GetAsync(id, ct);
+
+        // assert
+        reloaded.ShouldNotBeNull();
+        reloaded.Review.ShouldBe(Review.Liked);
+        reloaded.IsWatched.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SaveChanges_LegacyNotInterestedMark_StoresDislikedAndUnmarkRestoresNone()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await fixture.ResetAsync(ct);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var id = await AddMovieAsync(repository, "Legacy mark", "mutation-legacy-review", ct);
+        var movie = await repository.GetAsync(id, ct);
+        movie.ShouldNotBeNull();
+
+        // act
+        movie.MarkNotInterested();
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var disliked = OpenSibling(db);
+        (await disliked.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).Review.ShouldBe(Review.Disliked);
+
+        // act
+        await using var unmarkContext = fixture.CreateMigratedContext();
+        var unmarkRepository = Repository(unmarkContext);
+        var reloaded = await unmarkRepository.GetAsync(id, ct);
+        reloaded.ShouldNotBeNull();
+        reloaded.UnmarkNotInterested();
+        await unmarkRepository.SaveChangesAsync(ct);
+
+        // assert
+        await using var reread = OpenSibling(db);
+        (await reread.Movies.AsNoTracking().SingleAsync(item => item.Id == id, ct)).Review.ShouldBe(Review.None);
     }
 
     [Fact]

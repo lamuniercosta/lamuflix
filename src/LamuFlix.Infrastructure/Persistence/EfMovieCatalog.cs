@@ -47,7 +47,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.Status,
                 movie.IsInWatchlist,
                 movie.IsWatched,
-                movie.IsNotInterested))
+                movie.Review))
             .ToArrayAsync(ct);
         return new PagedResult<MovieSummary>([.. items], totalCount);
     }
@@ -73,7 +73,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.TrailerKey,
                 movie.IsInWatchlist,
                 movie.IsWatched,
-                movie.IsNotInterested,
+                movie.Review,
                 movie.Directors.Select(director => director.Name).ToList(),
                 movie.Actors.Select(actor => actor.Name).ToList(),
                 movie.Genres.Select(genre => genre.Name).ToList(),
@@ -112,7 +112,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 Signals(record),
                 record.TrailerKey)
             : null;
-        return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist, record.IsWatched, record.IsNotInterested, record.Status);
+        return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist, record.IsWatched, record.Review, record.Status);
     }
 
     public async Task<IReadOnlyList<GenreFacet>> GetGenresAsync(CancellationToken ct)
@@ -240,7 +240,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         string? TrailerKey,
         bool IsInWatchlist,
         bool IsWatched,
-        bool IsNotInterested,
+        Review Review,
         List<string> Directors,
         List<string> Actors,
         List<string> Genres,

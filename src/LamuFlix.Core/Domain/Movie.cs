@@ -36,7 +36,9 @@ public sealed class Movie
 
     public bool IsWatched { get; private set; }
 
-    public bool IsNotInterested { get; private set; }
+    public Review Review { get; private set; } = Review.None;
+
+    public bool IsNotInterested => Review == Review.Disliked;
 
     public MovieMetadata? Metadata { get; private set; }
 
@@ -82,7 +84,7 @@ public sealed class Movie
         ReleaseYear? parsedReleaseYear = null,
         ImdbId? manualImdbId = null,
         bool isWatched = false,
-        bool isNotInterested = false,
+        Review? review = null,
         DateTimeOffset? enrichmentDeferredUntil = null)
     {
         RequireTitle(title);
@@ -90,7 +92,7 @@ public sealed class Movie
         {
             IsInWatchlist = isInWatchlist,
             IsWatched = isWatched,
-            IsNotInterested = isNotInterested,
+            Review = review ?? Review.None,
             Metadata = metadata,
             Status = status,
             EnrichedAt = enrichedAt,
@@ -197,22 +199,28 @@ public sealed class Movie
 
     public void MarkNotInterested()
     {
-        if (IsNotInterested)
+        if (Review == Review.Disliked)
         {
             throw new InvalidTransitionException(nameof(MarkNotInterested), NotInterested);
         }
 
-        IsNotInterested = true;
+        Review = Review.Disliked;
     }
 
     public void UnmarkNotInterested()
     {
-        if (!IsNotInterested)
+        if (Review != Review.Disliked)
         {
             throw new InvalidTransitionException(nameof(UnmarkNotInterested), Interested);
         }
 
-        IsNotInterested = false;
+        Review = Review.None;
+    }
+
+    public void AssignReview(Review review)
+    {
+        ArgumentNullException.ThrowIfNull(review);
+        Review = review;
     }
 
     private static void RequireTitle(string title)

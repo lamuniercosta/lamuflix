@@ -221,7 +221,7 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     private static string PlayRoute(int id) => $"/api/movies/{id}/play";
 
     private static MovieDetails KnownDetails(string storedFormat) =>
-        new(new MovieId(KnownId), "Heat", new LibraryPath(MovieFolder), new MediaFormat(storedFormat), null, false, false, false, EnrichmentStatus.Enriched);
+        new(new MovieId(KnownId), "Heat", new LibraryPath(MovieFolder), new MediaFormat(storedFormat), null, false, false, Review.None, EnrichmentStatus.Enriched);
 
     private static PrimaryVideo Resolved(string extension) =>
         new(new LibraryPath($"{MovieFolder}/Heat.{extension}"), new MediaFormat(extension));

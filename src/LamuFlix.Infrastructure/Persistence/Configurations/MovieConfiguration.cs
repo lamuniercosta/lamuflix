@@ -57,10 +57,12 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
             .HasColumnName("is_watched")
             .HasColumnType("boolean")
             .IsRequired();
-        builder.Property(movie => movie.IsNotInterested)
-            .HasColumnName("is_not_interested")
-            .HasColumnType("boolean")
-            .IsRequired();
+        ConvertUsing(
+            builder.Property(movie => movie.Review)
+                .HasColumnName("review")
+                .HasColumnType("integer")
+                .IsRequired(),
+            new ReviewConverter());
         builder.Property(movie => movie.Status)
             .HasColumnName("status")
             .HasColumnType("integer")

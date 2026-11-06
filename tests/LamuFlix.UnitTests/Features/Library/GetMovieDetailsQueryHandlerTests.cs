@@ -33,7 +33,7 @@ public sealed class GetMovieDetailsQueryHandlerTests
             null,
             false,
             false,
-            false,
+            Review.None,
             EnrichmentStatus.NotFound);
         var ct = CancellationToken.None;
         catalog.GetDetailsAsync(id, ct).Returns(details);

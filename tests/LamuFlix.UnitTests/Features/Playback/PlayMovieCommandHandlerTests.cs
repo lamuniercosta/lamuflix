@@ -35,7 +35,7 @@ public sealed class PlayMovieCommandHandlerTests
         // arrange
         var id = NewId();
         var folder = new LibraryPath("C:/library/play");
-        var details = new MovieDetails(id, "Play Me", folder, new MediaFormat("mp4"), null, false, false, false, EnrichmentStatus.Enriched);
+        var details = new MovieDetails(id, "Play Me", folder, new MediaFormat("mp4"), null, false, false, Review.None, EnrichmentStatus.Enriched);
         var primary = new PrimaryVideo(new LibraryPath("C:/library/play/Heat.mkv"), new MediaFormat("mkv"));
         var ct = CancellationToken.None;
         catalog.GetDetailsAsync(id, ct).Returns(details);
@@ -352,7 +352,7 @@ public sealed class PlayMovieCommandHandlerTests
     }
 
     private static MovieDetails Details(MovieId id, string format = "mp4") =>
-        new(id, "Play Me", new LibraryPath("C:/library/play"), new MediaFormat(format), null, false, false, false, EnrichmentStatus.Enriched);
+        new(id, "Play Me", new LibraryPath("C:/library/play"), new MediaFormat(format), null, false, false, Review.None, EnrichmentStatus.Enriched);
 
     private MovieId NewId() => new(Math.Abs(fixture.Create<int>()) + 1);
 }

@@ -273,7 +273,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
             movie.Status,
             movie.IsInWatchlist,
             movie.IsWatched,
-            movie.IsNotInterested);
+            movie.Review);
     }
 
     private static string? PosterUrl(MovieMetadata? metadata) => metadata?.PosterUrl;
