@@ -76,6 +76,17 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         }
         """;
 
+    private const string TrailerKey = "TrailerKey1";
+
+    private const string TrailerVideosBody = """
+        {
+          "id": 603,
+          "results": [
+            { "iso_639_1": "en", "iso_3166_1": "US", "key": "TrailerKey1", "site": "YouTube", "type": "Trailer", "official": true }
+          ]
+        }
+        """;
+
     public static TheoryData<bool> EnabledValues => new() { true, false };
 
     public ValueTask InitializeAsync()
@@ -245,7 +256,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Available);
         metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Available);
         metadata.Signals.CollectionAvailability.ShouldBe(SignalAvailability.Available);
-        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/videos", "/3/movie/603/videos"]);
         probe.QueryValues("external_source").ShouldBe(["imdb_id"]);
     }
 
@@ -479,7 +490,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         // assert
         Metadata(result).Title.ShouldBe("Solaris");
         PrimaryRequests().ShouldBe(1);
-        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/videos", "/3/movie/603/videos"]);
     }
 
     [Fact]
@@ -504,6 +515,104 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
     private static MovieMetadata Metadata(MetadataLookupResult result) =>
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata;
 
+    [Fact]
+    public async Task FindAsync_WhenThePrimaryFindsAndTheSupplementFindsATrailer_AddsTheKeyAndKeepsEveryScalar()
+    {
+        // arrange
+        var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
+        StubPrimary(200, OmdbFoundBody);
+        StubSignals();
+        probe.StubFind("tt0069293", SecondaryMetadataProviderProbe.Fixture("Find", "found.json"));
+        probe.StubDetails(603, SecondaryMetadataProviderProbe.Fixture("Details", "found.json"));
+        StubTrailers();
+
+        // act
+        var result = await FindChainAsync(services, "Solaris");
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Solaris");
+        metadata.Synopsis.ShouldBe("A psychologist...");
+        metadata.ImdbId.ShouldBe(new ImdbId("tt0069293"));
+        metadata.TrailerKey.ShouldBe(TrailerKey);
+        metadata.CollectionId.ShouldBe(2344);
+    }
+
+    [Fact]
+    public async Task FindAsync_WhenThePrimaryMissesAndTheSecondaryFindsTheMovie_KeepsTheTrailerKey()
+    {
+        // arrange
+        var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
+        StubPrimary(200, OmdbNotFoundBody);
+        StubSignals();
+        probe.StubFoundLookup();
+        StubTrailers();
+
+        // act
+        var result = await FindChainAsync(services, "The Matrix");
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("The Matrix");
+        metadata.TrailerKey.ShouldBe(TrailerKey);
+    }
+
+    [Fact]
+    public async Task FindAsync_WhenTheSecondaryFindsNoEligibleTrailer_LeavesTheKeyNull()
+    {
+        // arrange
+        var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
+        StubPrimary(200, OmdbFoundBody);
+        StubSignals();
+        probe.StubFind("tt0069293", SecondaryMetadataProviderProbe.Fixture("Find", "found.json"));
+        probe.StubDetails(603, SecondaryMetadataProviderProbe.Fixture("Details", "found.json"));
+        probe.StubEveryVideosLanguage(603, EmptyVideosBody());
+
+        // act
+        var result = await FindChainAsync(services, "Solaris");
+
+        // assert
+        Metadata(result).Title.ShouldBe("Solaris");
+        Metadata(result).TrailerKey.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_WhenTheSecondaryIsDisabled_LeavesTheTrailerKeyNullAndKeepsThePrimaryScalars()
+    {
+        // arrange
+        var services = probe.BuildServices(PrimaryAndSecondary(enabled: false));
+        StubPrimary(200, OmdbFoundBody);
+        StubTrailers();
+
+        // act
+        var result = await FindChainAsync(services, "Solaris");
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Solaris");
+        metadata.Synopsis.ShouldBe("A psychologist...");
+        metadata.TrailerKey.ShouldBeNull();
+        SecondaryPaths().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task FindAsync_WhenThePrimaryFindsAndTheSupplementFails_KeepsTheScalarsAndLeavesTheKeyNull()
+    {
+        // arrange
+        var services = probe.BuildServices(PrimaryAndSecondary(enabled: true));
+        StubPrimary(200, OmdbFoundBody);
+        probe.StubPath("/3/find/tt0069293", 400);
+
+        // act
+        var result = await FindChainAsync(services, "Solaris");
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.Title.ShouldBe("Solaris");
+        metadata.Synopsis.ShouldBe("A psychologist...");
+        metadata.ImdbId.ShouldBe(new ImdbId("tt0069293"));
+        metadata.TrailerKey.ShouldBeNull();
+    }
     private static EnrichmentFailureCategory Category(MetadataLookupResult result) =>
         result.ShouldBeOfType<MetadataLookupResult.Failed>().Category;
 
@@ -544,6 +653,14 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         probe.StubPath("/3/movie/603/keywords", 200, KeywordBody);
         probe.StubPath("/3/movie/603/credits", 200, CreditBody);
     }
+
+    private void StubTrailers()
+    {
+        probe.StubEveryVideosLanguage(603, TrailerVideosBody);
+    }
+
+    private static string EmptyVideosBody() =>
+        """{ "id": 603, "results": [] }""";
 
     private IReadOnlyList<string> SecondaryPaths() =>
         [.. probe.RequestPaths.Where(path => path.StartsWith(SecondaryPathPrefix, StringComparison.Ordinal))];

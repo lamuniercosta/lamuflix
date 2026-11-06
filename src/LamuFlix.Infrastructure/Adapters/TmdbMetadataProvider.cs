@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -35,6 +36,8 @@ public sealed partial class TmdbMetadataProvider(
     private const string MissingMovieId = "missing or unusable movie id";
     private const string ErrorBody = "error body";
     private const int NoResultStatusCode = 21;
+    private const string PortugueseLanguage = "pt";
+    private const string BrazilianPortugueseLanguage = "pt-BR";
 
     private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
@@ -209,7 +212,71 @@ public sealed partial class TmdbMetadataProvider(
         }
 
         var signals = await FetchSignalsAsync(movieId, metadata.CollectionId is not null, ct);
-        return new MetadataLookupResult.Found(metadata.WithSignals(signals));
+        var trailerKey = await FetchTrailerKeyAsync(movieId, body.OriginalLanguage, ct);
+        return new MetadataLookupResult.Found(metadata.WithSignals(signals).WithTrailerKey(trailerKey));
+    }
+
+    private async Task<string?> FetchTrailerKeyAsync(int movieId, string? originalLanguage, CancellationToken ct)
+    {
+        var candidates = new List<TrailerCandidate>();
+        foreach (var language in RequestedVideoLanguages(originalLanguage))
+        {
+            ct.ThrowIfCancellationRequested();
+            if (await ReadVideosAsync(movieId, language, ct) is { } videos)
+            {
+                candidates.AddRange(videos);
+            }
+        }
+
+        return TrailerSelector.Select(candidates, originalLanguage);
+    }
+
+    private static IReadOnlyList<string> RequestedVideoLanguages(string? originalLanguage)
+    {
+        var original = originalLanguage?.Trim();
+        return string.IsNullOrEmpty(original) || IsFetchEquivalentToPortuguese(original)
+            ? [BrazilianPortugueseLanguage]
+            : [BrazilianPortugueseLanguage, original];
+    }
+
+    private static bool IsFetchEquivalentToPortuguese(string language) =>
+        string.Equals(language, PortugueseLanguage, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(language, BrazilianPortugueseLanguage, StringComparison.OrdinalIgnoreCase);
+
+    private async Task<IReadOnlyList<TrailerCandidate>?> ReadVideosAsync(int movieId, string language, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(BuildVideosUri(movieId, language), ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                Log.TrailerUnavailable(logger, StatusText(response.StatusCode), language);
+                return null;
+            }
+
+            var body = await DeserializeVideosAsync(response, ct);
+            return body?.Results is { } results
+                ? [.. results.Select(video => video.ToCandidate())]
+                : null;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            Log.TrailerUnavailable(logger, NoStatus, language);
+            return null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException
+            or TimeoutRejectedException
+            or BrokenCircuitException
+            or JsonException
+            or NotSupportedException)
+        {
+            Log.TrailerUnavailable(logger, exception.GetType().Name, language);
+            return null;
+        }
     }
 
     private MetadataLookupResult? TryRejectDetailsBody(Response body)
@@ -401,6 +468,22 @@ public sealed partial class TmdbMetadataProvider(
 
     private Uri BuildCreditsUri(int movieId) =>
         ComposeUri(string.Concat("movie/", movieId.ToString(CultureInfo.InvariantCulture), "/credits", QueryKey()));
+
+    private Uri BuildVideosUri(int movieId, string language) =>
+        ComposeUri(
+            string.Concat(
+                "movie/",
+                movieId.ToString(CultureInfo.InvariantCulture),
+                "/videos",
+                QueryKey(),
+                "&language=",
+                Uri.EscapeDataString(language)));
+
+    private static async Task<VideosResponse?> DeserializeVideosAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        var payload = await response.Content.ReadAsStringAsync(ct);
+        return JsonSerializer.Deserialize<VideosResponse>(payload, SerializerOptions);
+    }
 
     private Uri ComposeUri(string relativePath) =>
         new(httpClient.BaseAddress ?? throw new InvalidOperationException("TMDB HttpClient BaseAddress is not configured."), relativePath);

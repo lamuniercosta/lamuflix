@@ -133,6 +133,29 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
     public void StubFind(string imdbId, string body, int statusCode = 200) =>
         StubPath(string.Concat("/3/find/", imdbId), statusCode, body);
 
+    public void StubVideos(int movieId, string body, int statusCode = 200, string? language = null) =>
+        StubVideosPath(movieId, language, statusCode, body);
+
+    public void StubEveryVideosLanguage(int movieId, string body, int statusCode = 200)
+    {
+        foreach (var language in new[] { "pt-BR", "en" })
+        {
+            StubVideosPath(movieId, language, statusCode, body);
+        }
+    }
+
+    private void StubVideosPath(int movieId, string? language, int statusCode, string body)
+    {
+        var path = string.Concat("/3/movie/", movieId.ToString(CultureInfo.InvariantCulture), "/videos");
+        var request = Request.Create().WithPath(path).UsingGet();
+        if (language is not null)
+        {
+            request = request.WithParam("language", language);
+        }
+
+        Server.Given(request).RespondWith(Response.Create().WithStatusCode(statusCode).WithBody(body));
+    }
+
     public void StubFoundLookup(string? searchBody = null, string? detailsBody = null)
     {
         StubSearch(searchBody ?? Fixture("Search", "found.json"));

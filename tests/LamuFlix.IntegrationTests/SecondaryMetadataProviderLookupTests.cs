@@ -91,7 +91,7 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
         // assert
         Metadata(result).Title.ShouldBe("The Matrix");
         probe.RequestPaths.ShouldBe(
-            ["/3/find/tt0133093", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+            ["/3/find/tt0133093", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/videos", "/3/movie/603/videos"]);
         probe.QueryValues("external_source").ShouldBe(["imdb_id"]);
     }
 
@@ -139,7 +139,7 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
         // assert
         Metadata(result).Title.ShouldBe("The Matrix");
         probe.RequestPaths.ShouldBe(
-            ["/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+            ["/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/videos", "/3/movie/603/videos"]);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
 
         // assert
         probe.RequestPaths.ShouldBe(
-            ["/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+            ["/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/videos", "/3/movie/603/videos"]);
     }
 
     [Fact]
@@ -484,7 +484,7 @@ public sealed class SecondaryMetadataProviderLookupTests(SecondaryMetadataProvid
         Metadata(result).CollectionId.ShouldBe(2344);
         Metadata(result).CollectionName.ShouldBe("The Matrix Collection");
         probe.RequestPaths.ShouldBe(
-            ["/3/find/tt0133093", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+            ["/3/find/tt0133093", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/videos", "/3/movie/603/videos"]);
         probe.QueryValues("external_source").ShouldBe(["imdb_id"]);
         probe.HasQuery("query").ShouldBeFalse();
         probe.HasQuery("primary_release_year").ShouldBeFalse();

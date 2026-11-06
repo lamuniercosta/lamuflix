@@ -69,7 +69,7 @@ public sealed class SecondaryMetadataProviderResilienceTests(SecondaryMetadataPr
         // assert
         Metadata(result).Title.ShouldBe("The Matrix");
         probe.RequestPaths.ShouldBe(
-            ["/3/search/movie", "/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits"]);
+            ["/3/search/movie", "/3/search/movie", "/3/movie/603", "/3/movie/603/keywords", "/3/movie/603/credits", "/3/movie/603/videos", "/3/movie/603/videos"]);
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public sealed class SecondaryMetadataProviderResilienceTests(SecondaryMetadataPr
         // assert
         clock.Stop();
         Metadata(result).Title.ShouldBe("The Matrix");
-        probe.RequestCount.ShouldBe(5);
+        probe.RequestCount.ShouldBe(7);
         clock.Elapsed.ShouldBeGreaterThanOrEqualTo(RetryAfterDelay - Tolerance);
     }
 

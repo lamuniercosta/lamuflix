@@ -127,11 +127,96 @@ public sealed partial class TmdbMetadataProvider
         }
     }
 
+    /// <summary>The selector input: one TMDb video entry already reduced to the fields selection needs.</summary>
+    internal readonly record struct TrailerCandidate(
+        string? Key,
+        string? Site,
+        string? Type,
+        bool? Official,
+        string? Language,
+        string? Region);
+
+    /// <summary>
+    /// Pure, provider-independent Trailer key selection over the union of the documented videos requests.
+    /// </summary>
+    internal static class TrailerSelector
+    {
+        private const string YouTubeSite = "YouTube";
+        private const string TrailerType = "Trailer";
+        private const string PortugueseIsoCode = "pt";
+        private const string BrazilianRegionIsoCode = "BR";
+        private const int BrazilianPortugueseTier = 0;
+        private const int OriginalLanguageTier = 1;
+        private const int OfficialRank = 0;
+        private const int NonOfficialRank = 1;
+
+        public static string? Select(IEnumerable<TrailerCandidate>? candidates, string? originalLanguage)
+        {
+            if (candidates is null)
+            {
+                return null;
+            }
+
+            var original = NormalizedOriginalLanguage(originalLanguage);
+            var ranked = new Dictionary<string, (int Tier, int Officialness)>(StringComparer.Ordinal);
+            foreach (var candidate in candidates)
+            {
+                if (candidate.Key is not { } key
+                    || !MovieMetadata.IsValidTrailerKey(key)
+                    || !IsYouTubeTrailer(candidate)
+                    || LanguageTier(candidate, original) is not { } tier)
+                {
+                    continue;
+                }
+
+                var rank = (Tier: tier, Officialness: candidate.Official == true ? OfficialRank : NonOfficialRank);
+                if (!ranked.TryGetValue(key, out var existing) || IsBetterRank(rank, existing))
+                {
+                    ranked[key] = rank;
+                }
+            }
+
+            return ranked.Count == 0
+                ? null
+                : ranked
+                    .OrderBy(pair => pair.Value.Tier)
+                    .ThenBy(pair => pair.Value.Officialness)
+                    .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+                    .First()
+                    .Key;
+        }
+
+        private static string? NormalizedOriginalLanguage(string? originalLanguage) =>
+            string.IsNullOrWhiteSpace(originalLanguage) ? null : originalLanguage.Trim();
+
+        private static bool IsBetterRank((int Tier, int Officialness) rank, (int Tier, int Officialness) existing) =>
+            rank.Tier < existing.Tier
+            || (rank.Tier == existing.Tier && rank.Officialness < existing.Officialness);
+
+        private static bool IsYouTubeTrailer(TrailerCandidate candidate) =>
+            Matches(candidate.Site, YouTubeSite) && Matches(candidate.Type, TrailerType);
+
+        private static int? LanguageTier(TrailerCandidate candidate, string? originalLanguage) =>
+            IsBrazilianPortuguese(candidate)
+                ? BrazilianPortugueseTier
+                : Matches(candidate.Language, originalLanguage) ? OriginalLanguageTier : null;
+
+        private static bool IsBrazilianPortuguese(TrailerCandidate candidate) =>
+            Matches(candidate.Language, PortugueseIsoCode) && Matches(candidate.Region, BrazilianRegionIsoCode);
+
+        private static bool Matches(string? value, string? expected) =>
+            expected is not null && string.Equals(value?.Trim(), expected, StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class Response
     {
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("id")]
         public int? Id { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("original_language")]
+        public string? OriginalLanguage { get; init; }
 
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("keywords")]
@@ -217,6 +302,47 @@ public sealed partial class TmdbMetadataProvider
         // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
         [JsonPropertyName("name")]
         public string? Name { get; init; }
+    }
+
+    private sealed class VideosResponse
+    {
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("id")]
+        public int? Id { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("results")]
+        public List<VideoPayload>? Results { get; init; }
+    }
+
+    private sealed class VideoPayload
+    {
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("key")]
+        public string? Key { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("site")]
+        public string? Site { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("type")]
+        public string? Type { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("official")]
+        public bool? Official { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("iso_639_1")]
+        public string? Language { get; init; }
+
+        // ReSharper disable once UnusedAutoPropertyAccessor.Local - populated only by System.Text.Json deserialization.
+        [JsonPropertyName("iso_3166_1")]
+        public string? Region { get; init; }
+
+        public TrailerCandidate ToCandidate() =>
+            new(Key, Site, Type, Official, Language, Region);
     }
 
     private sealed class SearchHit
