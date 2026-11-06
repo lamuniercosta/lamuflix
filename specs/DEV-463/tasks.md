@@ -2,7 +2,7 @@
 
 **Input**: `specs/DEV-463/` spec.md, plan.md, frozen brief.md (Q1–Q8), CONCLUSIONS.md, ASSUMPTIONS.md, recon-DEV-463, recon-DEV-463-2, note DEV-463, specs/PRODUCT.md
 
-**Status**: PLAN FROZEN — 2026-11-05. Owner Gate 1 spec PR #329 merged at 225edf49; T000 and T001 complete, with receipts and pickup dispositions in CONCLUSIONS.md. UI-tag evidence reconciled; Gauge baseline captured with scope-empty gates SKIPPED and dotnet test exit 0. Phase 2 (T002–T005) complete at ea3ca388; Phase 3 (T006–T009) complete; Phase 4 (T010–T013) complete. Next: Anvil Phase 5 T014–T016. Earlier analyze/challenge receipts remain Phase A evidence; implementation verification and runtime acceptance remain outstanding.
+**Status**: PLAN FROZEN — 2026-11-05. Owner Gate 1 spec PR #329 merged at 225edf49; T000 and T001 complete, with receipts and pickup dispositions in CONCLUSIONS.md. UI-tag evidence reconciled; Gauge baseline captured with scope-empty gates SKIPPED and dotnet test exit 0. Phase 2 (T002–T005) complete at ea3ca388; Phase 3 (T006–T009) complete; Phase 4 (T010–T013) complete; Phase 5 (T014–T016) complete. Next: Cog Phase 6 T017. Earlier analyze/challenge receipts remain Phase A evidence; implementation verification and runtime acceptance remain outstanding.
 
 **Gate 1**: No owner structural checkbox (brief Status; Q8; PRODUCT.md §5). Handoff chain: **Patron provisional Gate 1 → Rigger opens the spec PR → user merges Gate 1 → Keel T000** records the verified merge receipt in `specs/DEV-463/CONCLUSIONS.md`. Phase B pickup and implementation MUST NOT start before that receipt (Q7).
 
@@ -96,9 +96,9 @@ Phase 10  T026 → T027   (canonical Phase 5 delivery)
 **Goal**: Trailer section before Related Movies with Q5 iframe contract; hide when invalid; MSW component proofs.
 **Independent Test**: Vitest/RTL/MSW present/absent/invalid matrices green.
 
-- [ ] T014 [P] [US3] Add failing Vitest/RTL/MSW coverage under `web/src/features/movie-details/` for present, absent, and invalid Trailer key: section visibility; placement before Related Movies; heading `Trailer`; iframe `title="Trailer for <movie title>"` including a hostile title containing quotes/brackets to prove safe rendering; `loading="lazy"`; src host/path/caption params; no autoplay; internet/captions note; responsive 16:9 (FR-009, FR-012; Q5, Q7; SC-001–SC-003, SC-005; ASSUMPTIONS)
-- [ ] T015 [US3] Implement Trailer section in `web/src/features/movie-details/MovieDetailsView.tsx` (and CSS; optional small Trailer component in the same folder): render only when `metadata?.trailerKey` matches `^[A-Za-z0-9_-]{11}$`; fixed `https://www.youtube-nocookie.com/embed/<key>?cc_load_policy=1&cc_lang_pref=pt&hl=pt-BR`; placement immediately before `RelatedMovies`; no YouTube SDK (FR-009; Q5, Q8; ASSUMPTIONS)
-- [ ] T016 [US3] Make T014 green; confirm generated-contract fixture compatibility and that invalid/null keys render no empty placeholder (FR-009, FR-012; SC-002, SC-005)
+- [X] T014 [P] [US3] Add failing Vitest/RTL/MSW coverage under `web/src/features/movie-details/` for present, absent, and invalid Trailer key: section visibility; placement before Related Movies; heading `Trailer`; iframe `title="Trailer for <movie title>"` including a hostile title containing quotes/brackets to prove safe rendering; `loading="lazy"`; src host/path/caption params; no autoplay; internet/captions note; responsive 16:9 (FR-009, FR-012; Q5, Q7; SC-001–SC-003, SC-005; ASSUMPTIONS)
+- [X] T015 [US3] Implement Trailer section in `web/src/features/movie-details/MovieDetailsView.tsx` (and CSS; optional small Trailer component in the same folder): render only when `metadata?.trailerKey` matches `^[A-Za-z0-9_-]{11}$`; fixed `https://www.youtube-nocookie.com/embed/<key>?cc_load_policy=1&cc_lang_pref=pt&hl=pt-BR`; placement immediately before `RelatedMovies`; no YouTube SDK (FR-009; Q5, Q8; ASSUMPTIONS)
+- [X] T016 [US3] Make T014 green; confirm generated-contract fixture compatibility and that invalid/null keys render no empty placeholder (FR-009, FR-012; SC-002, SC-005)
 
 ---
 

@@ -469,6 +469,7 @@ describe('MovieDetailsView related movies integration', () => {
     ).map((section) => section.className);
     expect(sectionClasses).toEqual([
       'details-section details-more',
+      'details-section details-trailer',
       'details-section related-movies',
       'details-section details-file',
     ]);
