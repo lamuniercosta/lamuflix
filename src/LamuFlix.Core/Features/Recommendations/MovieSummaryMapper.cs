@@ -9,19 +9,27 @@ public static class MovieSummaryMapper
     public static MovieSummary From(Movie movie)
     {
         ArgumentNullException.ThrowIfNull(movie);
+        return Build(movie, movie.Metadata);
+    }
 
-        var metadata = movie.Metadata;
-
-        return new MovieSummary(
+    private static MovieSummary Build(Movie movie, MovieMetadata? metadata) =>
+        new(
             movie.Id,
             movie.Title,
-            metadata?.PosterUrl,
-            metadata?.ReleaseYear?.Value,
-            metadata?.Runtime?.Minutes,
-            metadata?.ImdbRating?.Value,
+            PosterUrl(metadata),
+            ReleaseYear(metadata),
+            RuntimeMinutes(metadata),
+            ImdbRating(metadata),
             movie.Status,
             movie.IsInWatchlist,
             movie.IsWatched,
             movie.Review);
-    }
+
+    private static string? PosterUrl(MovieMetadata? metadata) => metadata?.PosterUrl;
+
+    private static int? ReleaseYear(MovieMetadata? metadata) => metadata?.ReleaseYear?.Value;
+
+    private static int? RuntimeMinutes(MovieMetadata? metadata) => metadata?.Runtime?.Minutes;
+
+    private static decimal? ImdbRating(MovieMetadata? metadata) => metadata?.ImdbRating?.Value;
 }

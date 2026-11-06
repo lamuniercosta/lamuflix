@@ -524,22 +524,49 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
 
         if (magnitude % 6 == 0)
         {
-            return Movie.Rehydrate(
-                new MovieId(id),
-                title,
-                new LibraryPath($"C:/library/{id}.mkv"),
-                new MediaFormat("mkv"),
-                false,
-                null,
-                EnrichmentStatus.Enriched,
-                Now,
-                1,
-                null,
-                null,
-                review: isNotInterested ? Review.Disliked : Review.None);
+            return RehydrateBare(id, title, isNotInterested);
         }
 
-        var metadata = new MovieMetadata(
+        return RehydrateWithMetadata(id, title, magnitude, isNotInterested, collectionId);
+    }
+
+    private static Movie RehydrateBare(int id, string title, bool isNotInterested) =>
+        Movie.Rehydrate(
+            new MovieId(id),
+            title,
+            new LibraryPath($"C:/library/{id}.mkv"),
+            new MediaFormat("mkv"),
+            false,
+            null,
+            EnrichmentStatus.Enriched,
+            Now,
+            1,
+            null,
+            null,
+            review: isNotInterested ? Review.Disliked : Review.None);
+
+    private static Movie RehydrateWithMetadata(
+        int id,
+        string title,
+        long magnitude,
+        bool isNotInterested,
+        int? collectionId) =>
+        Movie.Rehydrate(
+            new MovieId(id),
+            title,
+            new LibraryPath($"C:/library/{id}.mkv"),
+            new MediaFormat("mkv"),
+            false,
+            BuildPropertyMetadata(id, title, magnitude, collectionId),
+            EnrichmentStatus.Enriched,
+            Now,
+            1,
+            null,
+            null,
+            review: isNotInterested ? Review.Disliked : Review.None);
+
+    private static MovieMetadata BuildPropertyMetadata(int id, string title, long magnitude, int? collectionId) =>
+        new(
             title,
             posterUrl: $"https://posters/{id}",
             releaseYear: new ReleaseYear(1990 + (int)(magnitude % 30), Now),
@@ -551,21 +578,6 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             writers: [(magnitude & 4) == 0 ? "Writer A" : "Writer B"],
             collectionId: collectionId,
             collectionName: collectionId is null ? null : $"Franchise {collectionId}");
-
-        return Movie.Rehydrate(
-            new MovieId(id),
-            title,
-            new LibraryPath($"C:/library/{id}.mkv"),
-            new MediaFormat("mkv"),
-            false,
-            metadata,
-            EnrichmentStatus.Enriched,
-            Now,
-            1,
-            null,
-            null,
-            review: isNotInterested ? Review.Disliked : Review.None);
-    }
 
     private static string[] Genres(long magnitude)
     {
