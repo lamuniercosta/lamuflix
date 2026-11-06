@@ -67,7 +67,7 @@ public sealed record MovieMetadata
 
         foreach (var character in candidate)
         {
-            if (!char.IsAsciiLetterOrDigit(character) && character != '_' && character != '-')
+            if (!IsTrailerKeyCharacter(character))
             {
                 return false;
             }
@@ -75,6 +75,9 @@ public sealed record MovieMetadata
 
         return true;
     }
+
+    private static bool IsTrailerKeyCharacter(char character) =>
+        char.IsAsciiLetterOrDigit(character) || character == '_' || character == '-';
 
     private static void ValidateCollection(int? collectionId, string? collectionName)
     {
