@@ -142,36 +142,6 @@
   gap: var(--lamu-space-3);
 }
 
-.details-watchlist {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--lamu-space-2);
-}
-
-.details-watchlist button {
-  display: inline-grid;
-  place-items: center;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  padding: 0;
-  border: 1px solid var(--color-boundary);
-  border-radius: var(--lamu-radius-pill);
-  background: transparent;
-  color: var(--color-ink);
-  cursor: pointer;
-}
-
-.details-watchlist button[aria-pressed='true'] {
-  color: var(--color-amber);
-}
-
-.details-watchlist p {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--color-dim);
-}
-
 .details-status {
   margin: 0;
   font-size: 0.875rem;
@@ -377,10 +347,6 @@
 
   .details-actions > .lamu-action-quiet {
     grid-column: 1 / -1;
-  }
-
-  .details-watchlist {
-    justify-content: end;
   }
 
   .details-cast-list {

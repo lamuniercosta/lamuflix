@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../test/server';
 import MovieCard from './MovieCard';
 import { __resetMovieFeedbackStore, MOVIE_FEEDBACK_REFRESH_ERROR } from './movieFeedbackStore';
+import { __resetWatchlistStore } from './watchlistStore';
 
 const movie = {
   id: 1,
@@ -55,6 +56,7 @@ function watch(
 
 beforeEach(() => {
   __resetMovieFeedbackStore();
+  __resetWatchlistStore();
 });
 
 afterEach(() => {
@@ -62,6 +64,7 @@ afterEach(() => {
     observers.pop()?.();
   }
   __resetMovieFeedbackStore();
+  __resetWatchlistStore();
 });
 
 describe('MovieCard', () => {
@@ -134,17 +137,29 @@ describe('MovieCard', () => {
 });
 
 describe('MovieCard feedback actions', () => {
-  it('renders both feedback actions on a Library card', () => {
+  it('renders the shared four-icon row on a Library card', () => {
     // arrange / act
-    renderCard(<MovieCard movie={movie} />);
+    const { container } = renderCard(<MovieCard movie={movie} />);
 
     // assert
     expect(screen.getByRole('button', { name: 'Mark Watched, Heat' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Not Interested, Heat' })).toBeEnabled();
-    expect(screen.queryByText('Watched')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Like, Heat' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Dislike, Heat' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add to Watchlist, Heat' })).toBeEnabled();
+    const row = container.querySelector('.movie-feedback-actions') as HTMLElement;
+    expect(row.querySelectorAll('button')).toHaveLength(4);
   });
 
-  it('marks Watched optimistically before the response and keeps the other flag', async () => {
+  it('renders no bulky Watched or Not interested text buttons on the card', () => {
+    // arrange / act
+    const { container } = renderCard(<MovieCard movie={movie} />);
+
+    // assert
+    expect(container.textContent).not.toContain('Not Interested');
+    expect(container.querySelector('.movie-card-watch')).toBeNull();
+  });
+
+  it('marks Watched optimistically before the response and keeps the review', async () => {
     // arrange
     const gate = deferred();
     let posts = 0;
@@ -155,80 +170,110 @@ describe('MovieCard feedback actions', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderCard(<MovieCard movie={{ ...movie, isNotInterested: true }} />);
+    renderCard(<MovieCard movie={{ ...movie, review: 'liked' }} />);
 
     // act
     fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Heat' }));
 
     // assert
-    expect(screen.getByRole('button', { name: 'Watched, Heat' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Not Interested (marked), Heat' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Heat' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Clear liked review, Heat' })).toBeDisabled();
     await waitFor(() => expect(posts).toBe(1));
 
     gate.resolve();
 
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Not Interested (marked), Heat' }),
-      ).not.toHaveAttribute('aria-busy'),
+      expect(screen.getByRole('button', { name: 'Clear liked review, Heat' })).not.toHaveAttribute(
+        'aria-busy',
+      ),
     );
-    expect(screen.getByRole('button', { name: 'Watched, Heat' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Heat' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Clear liked review, Heat' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
-  it('un-marks Watched on the marked control and keeps the other flag', async () => {
+  it('switches the review thumbs without changing Watched on the card', async () => {
+    // arrange
+    const bodies: string[] = [];
+    server.use(
+      http.put('*/api/movies/:id/review', async ({ request }) => {
+        bodies.push(((await request.json()) as { review: string }).review);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderCard(<MovieCard movie={{ ...movie, isWatched: true }} />);
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Dislike, Heat' }));
+
+    // assert
+    expect(screen.getByRole('button', { name: 'Clear disliked review, Heat' })).toBeDisabled();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Clear disliked review, Heat' })).toBeEnabled(),
+    );
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Heat' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(bodies).toEqual(['disliked']);
+  });
+
+  it('un-marks Watched on the marked control and keeps the review', async () => {
     // arrange
     let deletes = 0;
-    let posts = 0;
+    let puts = 0;
     server.use(
       http.delete('*/api/movies/:id/watched', () => {
         deletes += 1;
         return new HttpResponse(null, { status: 204 });
       }),
-      http.post('*/api/movies/:id/not-interested', () => {
-        posts += 1;
+      http.put('*/api/movies/:id/review', () => {
+        puts += 1;
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    renderCard(<MovieCard movie={{ ...movie, isWatched: true, isNotInterested: true }} />);
+    renderCard(<MovieCard movie={{ ...movie, isWatched: true, review: 'disliked' }} />);
 
     // act
-    fireEvent.click(screen.getByRole('button', { name: 'Watched, Heat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Unmark Watched, Heat' }));
 
     // assert
     expect(screen.getByRole('button', { name: 'Mark Watched, Heat' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Not Interested (marked), Heat' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Clear disliked review, Heat' })).toBeDisabled();
     await waitFor(() => expect(deletes).toBe(1));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Mark Watched, Heat' })).toBeEnabled(),
     );
-    expect(screen.getByRole('button', { name: 'Not Interested (marked), Heat' })).toBeEnabled();
-    expect(posts).toBe(0);
+    expect(screen.getByRole('button', { name: 'Clear disliked review, Heat' })).toBeEnabled();
+    expect(puts).toBe(0);
   });
 
-  it('keeps native keyboard activation available for both actions', async () => {
+  it('keeps native keyboard activation available across the icon row', async () => {
     // arrange
-    let posts = 0;
+    let puts = 0;
     server.use(
-      http.post('*/api/movies/:id/not-interested', () => {
-        posts += 1;
+      http.put('*/api/movies/:id/review', () => {
+        puts += 1;
         return new HttpResponse(null, { status: 204 });
       }),
     );
     renderCard(<MovieCard movie={movie} />);
-    const notInterested = screen.getByRole('button', { name: 'Not Interested, Heat' });
+    const like = screen.getByRole('button', { name: 'Like, Heat' });
 
     // act
-    notInterested.focus();
+    like.focus();
 
     // assert
-    expect(notInterested).toHaveAttribute('type', 'button');
-    expect(document.activeElement).toBe(notInterested);
-    expect(fireEvent.keyDown(notInterested, { key: 'Enter' })).toBe(true);
-    expect(fireEvent.keyDown(notInterested, { key: ' ' })).toBe(true);
+    expect(like).toHaveAttribute('type', 'button');
+    expect(document.activeElement).toBe(like);
+    expect(fireEvent.keyDown(like, { key: 'Enter' })).toBe(true);
+    expect(fireEvent.keyDown(like, { key: ' ' })).toBe(true);
 
-    fireEvent.click(notInterested);
+    fireEvent.click(like);
 
-    await waitFor(() => expect(posts).toBe(1));
+    await waitFor(() => expect(puts).toBe(1));
   });
 
   it('keeps the confirmed mark and retries only the refresh after a refresh failure', async () => {
@@ -257,7 +302,7 @@ describe('MovieCard feedback actions', () => {
 
     // assert
     expect(await screen.findByRole('alert')).toHaveTextContent(MOVIE_FEEDBACK_REFRESH_ERROR);
-    expect(screen.getByRole('button', { name: 'Watched, Heat' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Heat' })).toBeVisible();
     expect(
       screen.queryByRole('button', { name: 'Retry saving feedback, Heat' }),
     ).not.toBeInTheDocument();
@@ -266,7 +311,7 @@ describe('MovieCard feedback actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry refresh, Heat' }));
 
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Watched, Heat' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Heat' })).toBeVisible();
     expect(fetches).toBe(3);
     expect(posts).toBe(1);
   });
@@ -281,21 +326,21 @@ describe('MovieCard feedback actions', () => {
 
   it('keeps feedback activation isolated from parent-card navigation', async () => {
     // arrange
-    let posts = 0;
+    let puts = 0;
     const onOpenMovie = vi.fn();
     server.use(
-      http.post('*/api/movies/:id/watched', () => {
-        posts += 1;
+      http.put('*/api/movies/:id/review', () => {
+        puts += 1;
         return new HttpResponse(null, { status: 204 });
       }),
     );
     renderCard(<MovieCard movie={movie} onOpenMovie={onOpenMovie} />);
 
     // act
-    fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Heat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Like, Heat' }));
 
     // assert
-    await waitFor(() => expect(posts).toBe(1));
+    await waitFor(() => expect(puts).toBe(1));
     expect(onOpenMovie).not.toHaveBeenCalled();
   });
 });

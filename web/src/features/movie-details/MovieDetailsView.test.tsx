@@ -573,27 +573,32 @@ describe('MovieDetailsView feedback actions', () => {
     return { promise, resolve };
   }
 
-  it('renders both feedback actions on Movie Details', async () => {
+  it('renders the shared four-icon row on Movie Details with one bookmark', async () => {
     // arrange
     server.use(http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)));
 
     // act
-    renderView();
+    const { container } = renderView();
 
     // assert
     await screen.findByRole('heading', { name: 'Dune' });
+    const row = container.querySelector('.movie-feedback-actions') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(row.querySelectorAll('button')).toHaveLength(4);
     expect(screen.getByRole('button', { name: 'Mark Watched, Dune' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Not Interested, Dune' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Like, Dune' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Dislike, Dune' })).toBeEnabled();
+    expect(screen.getAllByRole('button', { name: 'Add to Watchlist, Dune' })).toHaveLength(1);
+    expect(container.querySelector('.details-watchlist')).toBeNull();
+    expect(container.textContent).not.toContain('Not Interested');
   });
 
-  it('marks the selected flag before the response and preserves the other flag', async () => {
+  it('marks the selected flag before the response and preserves the review', async () => {
     // arrange
     const gate = deferred();
     let posts = 0;
     server.use(
-      http.get('*/api/movies/:id', () =>
-        HttpResponse.json({ ...fullMovie, isNotInterested: true }),
-      ),
+      http.get('*/api/movies/:id', () => HttpResponse.json({ ...fullMovie, review: 'disliked' })),
       http.post('*/api/movies/:id/watched', async () => {
         posts += 1;
         await gate.promise;
@@ -607,18 +612,54 @@ describe('MovieDetailsView feedback actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Dune' }));
 
     // assert
-    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Not Interested (marked), Dune' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Dune' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Clear disliked review, Dune' })).toBeDisabled();
     await waitFor(() => expect(posts).toBe(1));
 
     gate.resolve();
 
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Not Interested (marked), Dune' }),
+        screen.getByRole('button', { name: 'Clear disliked review, Dune' }),
       ).not.toHaveAttribute('aria-busy'),
     );
-    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Dune' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Clear disliked review, Dune' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('reflects a review change made on Details in the shared store', async () => {
+    // arrange
+    const bodies: string[] = [];
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
+      http.put('*/api/movies/:id/review', async ({ request }) => {
+        bodies.push(((await request.json()) as { review: string }).review);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderView();
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Like, Dune' }));
+
+    // assert
+    expect(screen.getByRole('button', { name: 'Clear liked review, Dune' })).toBeDisabled();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Clear liked review, Dune' })).toBeEnabled(),
+    );
+    expect(screen.getByRole('button', { name: 'Clear liked review, Dune' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Dislike, Dune' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(bodies).toEqual(['liked']);
   });
 
   it('keeps both actions blocked through deferred reconciliation', async () => {
@@ -638,20 +679,15 @@ describe('MovieDetailsView feedback actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mark Watched, Dune' }));
 
     // assert
-    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Dune' })).toHaveAttribute(
       'aria-busy',
       'true',
     );
-    expect(screen.getByRole('button', { name: 'Not Interested, Dune' })).toHaveAttribute(
-      'aria-busy',
-      'true',
-    );
+    expect(screen.getByRole('button', { name: 'Like, Dune' })).toHaveAttribute('aria-busy', 'true');
 
     gate.resolve();
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Not Interested, Dune' })).toBeEnabled(),
-    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Like, Dune' })).toBeEnabled());
   });
 
   it('renders an accessible mutation error with an explicit retry', async () => {
@@ -683,7 +719,7 @@ describe('MovieDetailsView feedback actions', () => {
     fireEvent.click(retryButton);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeVisible(),
+      expect(screen.getByRole('button', { name: 'Unmark Watched, Dune' })).toBeVisible(),
     );
     expect(screen.queryByText(MOVIE_FEEDBACK_SAVE_ERROR)).not.toBeInTheDocument();
     expect(posts).toBe(2);
@@ -716,7 +752,7 @@ describe('MovieDetailsView feedback actions', () => {
 
     // assert
     expect(await screen.findByText(MOVIE_FEEDBACK_REFRESH_ERROR)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Dune' })).toBeVisible();
     expect(
       screen.queryByRole('button', { name: 'Retry saving feedback, Dune' }),
     ).not.toBeInTheDocument();
@@ -726,7 +762,7 @@ describe('MovieDetailsView feedback actions', () => {
     await waitFor(() =>
       expect(screen.queryByText(MOVIE_FEEDBACK_REFRESH_ERROR)).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole('button', { name: 'Watched, Dune' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Dune' })).toBeVisible();
     expect(posts).toBe(1);
     expect(fetches).toBe(3);
   });

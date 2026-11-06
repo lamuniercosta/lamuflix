@@ -1,22 +1,23 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 import {
-  markMovieNotInterested,
   markMovieWatched,
-  unmarkMovieNotInterested,
+  setMovieReview,
   unmarkMovieWatched,
+  REVIEW_STATES,
   type FeedbackMovieId,
   type MovieFeedbackOutcome,
+  type ReviewState,
 } from './movieFeedback';
 
 export const MOVIE_FEEDBACK_SAVE_ERROR = "Couldn't save feedback. Try again.";
 export const MOVIE_FEEDBACK_REFRESH_ERROR = 'Saved, but the view could not refresh. Try again.';
 
-export type MovieFeedbackAction = 'watched' | 'notInterested' | 'unwatched' | 'interested';
+export type MovieFeedbackAction = 'watched' | 'unwatched' | 'like' | 'dislike' | 'clearReview';
 
 export interface MovieFeedbackFlags {
   isWatched: boolean;
-  isNotInterested: boolean;
+  review: ReviewState;
 }
 
 export interface MovieFeedbackClients {
@@ -25,15 +26,17 @@ export interface MovieFeedbackClients {
 }
 
 export interface MovieFeedbackState extends MovieFeedbackFlags {
+  isNotInterested: boolean;
   pending: boolean;
   reconciling: boolean;
   blocked: boolean;
   error: string | null;
   refreshError: string | null;
   markWatched: () => void;
-  markNotInterested: () => void;
   unmarkWatched: () => void;
-  unmarkNotInterested: () => void;
+  like: () => void;
+  dislike: () => void;
+  clearReview: () => void;
   retry: () => void;
   retryRefresh: () => void;
 }
@@ -61,10 +64,15 @@ const networkCalls: Record<
   (movieId: FeedbackMovieId) => Promise<MovieFeedbackOutcome>
 > = {
   watched: markMovieWatched,
-  notInterested: markMovieNotInterested,
   unwatched: unmarkMovieWatched,
-  interested: unmarkMovieNotInterested,
+  like: (movieId) => setMovieReview(movieId, 'liked'),
+  dislike: (movieId) => setMovieReview(movieId, 'disliked'),
+  clearReview: (movieId) => setMovieReview(movieId, 'none'),
 };
+
+export function normalizeReview(review: string | null | undefined): ReviewState {
+  return REVIEW_STATES.find((state) => state === review) ?? 'none';
+}
 
 function subscribe(listener: () => void): () => void {
   subscribers.add(listener);
@@ -99,19 +107,21 @@ function optimisticFlags(
 ): MovieFeedbackFlags {
   switch (action) {
     case 'watched':
-      return { isWatched: true, isNotInterested: before.isNotInterested };
+      return { isWatched: true, review: before.review };
     case 'unwatched':
-      return { isWatched: false, isNotInterested: before.isNotInterested };
-    case 'notInterested':
-      return { isWatched: before.isWatched, isNotInterested: true };
-    case 'interested':
-      return { isWatched: before.isWatched, isNotInterested: false };
+      return { isWatched: false, review: before.review };
+    case 'like':
+      return { isWatched: before.isWatched, review: 'liked' };
+    case 'dislike':
+      return { isWatched: before.isWatched, review: 'disliked' };
+    case 'clearReview':
+      return { isWatched: before.isWatched, review: 'none' };
   }
 }
 
 function isNoOp(action: MovieFeedbackAction, before: MovieFeedbackFlags): boolean {
   const next = optimisticFlags(action, before);
-  return next.isWatched === before.isWatched && next.isNotInterested === before.isNotInterested;
+  return next.isWatched === before.isWatched && next.review === before.review;
 }
 
 function refreshTargets(
@@ -119,7 +129,10 @@ function refreshTargets(
   clients: MovieFeedbackClients,
   broadRefresh: boolean,
 ): RefreshTarget[] {
-  const targets: RefreshTarget[] = [{ client: clients.libraryClient, queryKey: ['browseMovies'] }];
+  const targets: RefreshTarget[] = [
+    { client: clients.libraryClient, queryKey: ['browseMovies'] },
+    { client: clients.libraryClient, queryKey: ['forYou'] },
+  ];
   if (clients.detailsClient) {
     targets.push(
       { client: clients.detailsClient, queryKey: ['movieDetails', movieId] },
@@ -227,9 +240,13 @@ export function useMovieFeedback(
 ): MovieFeedbackState {
   const key = String(movieId);
   const entry = useSyncExternalStore(subscribe, () => entries.get(key));
+  const baseline: MovieFeedbackFlags = {
+    isWatched: initial.isWatched,
+    review: normalizeReview(initial.review),
+  };
 
-  const isWatched = entry ? entry.isWatched : initial.isWatched;
-  const isNotInterested = entry ? entry.isNotInterested : initial.isNotInterested;
+  const isWatched = entry ? entry.isWatched : baseline.isWatched;
+  const review = entry ? entry.review : baseline.review;
   const pending = entry ? entry.pending !== null : false;
   const reconciling = entry ? entry.reconciling : false;
   const error = entry ? entry.error : null;
@@ -243,29 +260,23 @@ export function useMovieFeedback(
         return;
       }
 
-      const before: MovieFeedbackFlags = current ?? {
-        isWatched: initial.isWatched,
-        isNotInterested: initial.isNotInterested,
-      };
+      const before: MovieFeedbackFlags = current
+        ? { isWatched: current.isWatched, review: current.review }
+        : { isWatched: initial.isWatched, review: normalizeReview(initial.review) };
       if (isNoOp(action, before)) {
         return;
       }
 
-      dispatch(
-        key,
-        movieId,
-        action,
-        { isWatched: before.isWatched, isNotInterested: before.isNotInterested },
-        clients,
-      );
+      dispatch(key, movieId, action, before, clients);
     },
-    [key, movieId, clients, initial.isWatched, initial.isNotInterested],
+    [key, movieId, clients, initial.isWatched, initial.review],
   );
 
   const markWatched = useCallback(() => start('watched'), [start]);
-  const markNotInterested = useCallback(() => start('notInterested'), [start]);
   const unmarkWatched = useCallback(() => start('unwatched'), [start]);
-  const unmarkNotInterested = useCallback(() => start('interested'), [start]);
+  const like = useCallback(() => start('like'), [start]);
+  const dislike = useCallback(() => start('dislike'), [start]);
+  const clearReview = useCallback(() => start('clearReview'), [start]);
 
   const retry = useCallback(() => {
     const current = entries.get(key);
@@ -292,16 +303,18 @@ export function useMovieFeedback(
 
   return {
     isWatched,
-    isNotInterested,
+    review,
+    isNotInterested: review === 'disliked',
     pending,
     reconciling,
     blocked,
     error,
     refreshError,
     markWatched,
-    markNotInterested,
     unmarkWatched,
-    unmarkNotInterested,
+    like,
+    dislike,
+    clearReview,
     retry,
     retryRefresh,
   };

@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { forYouRecommendations, problemDetails } from '../../mocks/fixtures';
 import { server } from '../../test/server';
+import { __resetMovieFeedbackStore } from '../../library/movieFeedbackStore';
+import { __resetWatchlistStore } from '../../library/watchlistStore';
 import ForYouRail from './ForYouRail';
 import { forYouQueryKey, type ForYouRecommendation } from './forYouApi';
 
@@ -55,6 +57,16 @@ function reasonTexts(scope: HTMLElement): string[] {
 }
 
 describe('ForYouRail', () => {
+  beforeEach(() => {
+    __resetMovieFeedbackStore();
+    __resetWatchlistStore();
+  });
+
+  afterEach(() => {
+    __resetMovieFeedbackStore();
+    __resetWatchlistStore();
+  });
+
   it('renders the heading, carousel and cards in returned order', async () => {
     // arrange
     server.use(forYouHandler(forYouRecommendations));
@@ -394,5 +406,79 @@ describe('ForYouRail', () => {
       expect(screen.queryByRole('link', { name: /Removed/ })).not.toBeInTheDocument(),
     );
     expect(document.activeElement).not.toBe(removed);
+  });
+});
+
+describe('ForYouRail shared feedback row', () => {
+  it('renders the four-icon row on every For You card with exact accessible names', async () => {
+    // arrange
+    server.use(
+      forYouHandler([
+        recommendation({ id: 7, title: 'The Batman' }),
+        recommendation({ id: 8, title: 'Sicario', review: 'liked' }),
+      ]),
+    );
+
+    // act
+    const { container } = renderRail();
+
+    // assert
+    const region = await screen.findByRole('region', { name: 'For You' });
+    const rows = region.querySelectorAll('.movie-feedback-actions');
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.querySelectorAll('button')).toHaveLength(4);
+    }
+    expect(screen.getByRole('button', { name: 'Mark Watched, The Batman' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Like, The Batman' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Dislike, The Batman' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add to Watchlist, The Batman' })).toBeEnabled();
+    expect(container.textContent).not.toContain('Not Interested');
+  });
+
+  it('reflects the persisted review on a For You card', async () => {
+    // arrange
+    server.use(forYouHandler([recommendation({ id: 8, title: 'Sicario', review: 'disliked' })]));
+
+    // act
+    renderRail();
+
+    // assert
+    const disliked = await screen.findByRole('button', {
+      name: 'Clear disliked review, Sicario',
+    });
+    expect(disliked).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Like, Sicario' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('refreshes the For You shelf after a successful review change', async () => {
+    // arrange
+    let calls = 0;
+    server.use(
+      http.get('*/api/recommendations/for-you', () => {
+        calls += 1;
+        if (calls === 1) {
+          return HttpResponse.json([recommendation({ id: 7, title: 'The Batman' })]);
+        }
+        return HttpResponse.json([recommendation({ id: 7, title: 'The Batman', review: 'liked' })]);
+      }),
+      http.put('*/api/movies/:id/review', () => new HttpResponse(null, { status: 204 })),
+    );
+    renderRail();
+    await screen.findByRole('link', { name: /The Batman/ });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Like, The Batman' }));
+
+    // assert
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Clear liked review, The Batman' }),
+      ).toHaveAttribute('aria-pressed', 'true'),
+    );
+    expect(calls).toBe(2);
   });
 });

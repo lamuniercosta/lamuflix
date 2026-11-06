@@ -10,8 +10,6 @@ import {
 } from './movieCardFormat';
 import { MovieFeedbackActions } from './MovieFeedbackActions';
 import type { MovieFeedbackClients } from './movieFeedbackStore';
-import { WatchlistToggleButton } from './watchlist';
-import { useWatchlistToggle } from './watchlistStore';
 
 export type MovieSummaryResponse = components['schemas']['MovieSummaryResponse'];
 
@@ -52,7 +50,6 @@ export default function MovieCard({
   const [playError, setPlayError] = useState<string | null>(null);
   const playErrorId = useId();
   const playMutation = usePlayMovie(movie.id);
-  const watchlist = useWatchlistToggle(movie.id, movie.isInWatchlist);
 
   const { id, title, enrichmentStatus: status } = movie;
   const showPoster = Boolean(movie.posterUrl) && !posterFailed;
@@ -104,14 +101,6 @@ export default function MovieCard({
         {statusLabel ? (
           <span className={`movie-status movie-status-${status.toLowerCase()}`}>{statusLabel}</span>
         ) : null}
-
-        <div
-          className="movie-card-watch"
-          data-watchlisted={String(watchlist.isInWatchlist)}
-          data-error={watchlist.error ? 'true' : 'false'}
-        >
-          <WatchlistToggleButton movieId={id} isInWatchlist={movie.isInWatchlist} />
-        </div>
 
         <button
           type="button"
@@ -171,7 +160,8 @@ export default function MovieCard({
         movieId={id}
         title={title}
         isWatched={movie.isWatched}
-        isNotInterested={movie.isNotInterested}
+        review={movie.review}
+        isInWatchlist={movie.isInWatchlist}
         clients={feedbackClients}
       />
 

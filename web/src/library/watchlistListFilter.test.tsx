@@ -96,7 +96,9 @@ describe('watchlist filter-active removal reconciliation', () => {
 
     renderApp();
     await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }));
+    fireEvent.click(
+      within(rowFor('Dune')).getByRole('button', { name: 'Remove from Watchlist, Dune' }),
+    );
 
     await waitFor(() =>
       expect(screen.queryByRole('heading', { name: 'Dune' })).not.toBeInTheDocument(),
@@ -115,7 +117,9 @@ describe('watchlist filter-active removal reconciliation', () => {
 
     renderApp();
     await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }));
+    fireEvent.click(
+      within(rowFor('Dune')).getByRole('button', { name: 'Remove from Watchlist, Dune' }),
+    );
 
     expect(await screen.findByText('Your watchlist is empty.')).toBeInTheDocument();
     expect(
@@ -138,13 +142,15 @@ describe('watchlist filter-active removal reconciliation', () => {
 
     renderApp();
     await screen.findByRole('heading', { name: 'Dune' });
-    const remove = within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' });
+    const remove = within(rowFor('Dune')).getByRole('button', {
+      name: 'Remove from Watchlist, Dune',
+    });
     fireEvent.click(remove);
 
     await waitFor(() => expect(remove).toHaveAttribute('aria-busy', 'false'));
     expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(
-      within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }),
+      within(rowFor('Dune')).getByRole('button', { name: 'Remove from Watchlist, Dune' }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText(WATCHLIST_TOGGLE_ERROR)).toBeInTheDocument();
   });
@@ -169,7 +175,9 @@ describe('watchlist filter exit reconciliation', () => {
     });
 
     await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' }));
+    fireEvent.click(
+      within(rowFor('Dune')).getByRole('button', { name: 'Remove from Watchlist, Dune' }),
+    );
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Dune' })).not.toBeInTheDocument();
     });

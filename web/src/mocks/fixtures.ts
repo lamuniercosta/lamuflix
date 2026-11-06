@@ -112,7 +112,7 @@ const relatedMoviesData = [
     isInWatchlist: false,
     isWatched: false,
     isNotInterested: false,
-    review: 'none',
+    review: 'liked',
     score: 0.82,
     reasons: [
       { kind: 'structural', text: 'Same director' },

@@ -452,10 +452,10 @@ describe('App layout shell', () => {
     renderApp();
     await screen.findByText('Dune', {}, { timeout: 10_000 });
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Add to watchlist' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /^Add to Watchlist, / })[0]);
     await waitFor(() => {
       expect(
-        screen.getAllByRole('button', { name: 'Remove from watchlist' })[0],
+        screen.getAllByRole('button', { name: /^Remove from Watchlist, / })[0],
       ).toBeInTheDocument();
     });
   });

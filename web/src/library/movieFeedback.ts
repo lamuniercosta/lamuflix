@@ -4,8 +4,15 @@ import type { paths } from '../api/types';
 type WatchedPathParams = paths['/api/movies/{id}/watched']['post']['parameters']['path'];
 type NotInterestedPathParams =
   paths['/api/movies/{id}/not-interested']['post']['parameters']['path'];
+type ReviewPathParams = paths['/api/movies/{id}/review']['put']['parameters']['path'];
 
-export type FeedbackMovieId = WatchedPathParams['id'] & NotInterestedPathParams['id'];
+export type FeedbackMovieId = WatchedPathParams['id'] &
+  NotInterestedPathParams['id'] &
+  ReviewPathParams['id'];
+
+export const REVIEW_STATES = ['none', 'liked', 'disliked'] as const;
+
+export type ReviewState = (typeof REVIEW_STATES)[number];
 
 export interface MovieFeedbackOutcome {
   ok: boolean;
@@ -51,4 +58,19 @@ export async function unmarkMovieNotInterested(
   movieId: FeedbackMovieId,
 ): Promise<MovieFeedbackOutcome> {
   return sendFeedback('DELETE', '/api/movies/{id}/not-interested', movieId);
+}
+
+export async function setMovieReview(
+  movieId: FeedbackMovieId,
+  review: ReviewState,
+): Promise<MovieFeedbackOutcome> {
+  try {
+    const { response } = await client.PUT('/api/movies/{id}/review', {
+      params: { path: { id: movieId } },
+      body: { review },
+    });
+    return { ok: response.status === 204, status: response.status };
+  } catch {
+    return { ok: false, status: 0 };
+  }
 }
