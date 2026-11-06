@@ -1,26 +1,22 @@
 import { useId } from 'react';
+import { BookmarkFilledIcon, BookmarkIcon } from '../ui/icons';
 import { useWatchlistToggle } from './watchlistStore';
-
-function BookmarkIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
-      <path
-        d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"
-        fill={filled ? 'currentColor' : 'none'}
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 export interface WatchlistToggleButtonProps {
   movieId: number | string;
   isInWatchlist: boolean;
+  title?: string;
+  className?: string;
+  disabled?: boolean;
 }
 
-export function WatchlistToggleButton({ movieId, isInWatchlist }: WatchlistToggleButtonProps) {
+export function WatchlistToggleButton({
+  movieId,
+  isInWatchlist,
+  title,
+  className,
+  disabled = false,
+}: WatchlistToggleButtonProps) {
   const {
     isInWatchlist: current,
     pending,
@@ -28,19 +24,48 @@ export function WatchlistToggleButton({ movieId, isInWatchlist }: WatchlistToggl
     toggle,
   } = useWatchlistToggle(movieId, isInWatchlist);
   const errorId = useId();
+  const label = title
+    ? `${current ? 'Remove from Watchlist' : 'Add to Watchlist'}, ${title}`
+    : current
+      ? 'Remove from watchlist'
+      : 'Add to watchlist';
+
+  const button = (
+    <button
+      type="button"
+      className={className}
+      aria-label={label}
+      aria-pressed={current}
+      aria-busy={pending}
+      aria-describedby={error ? errorId : undefined}
+      disabled={disabled}
+      onClick={toggle}
+    >
+      {current ? <BookmarkFilledIcon size={16} /> : <BookmarkIcon size={16} />}
+    </button>
+  );
+
+  if (!title) {
+    return (
+      <>
+        {button}
+        {error ? (
+          <p id={errorId} role="alert">
+            {error}
+          </p>
+        ) : null}
+      </>
+    );
+  }
 
   return (
     <>
-      <button
-        type="button"
-        aria-label={current ? 'Remove from watchlist' : 'Add to watchlist'}
-        aria-pressed={current}
-        aria-busy={pending}
-        aria-describedby={error ? errorId : undefined}
-        onClick={toggle}
-      >
-        <BookmarkIcon filled={current} />
-      </button>
+      <span className="movie-feedback-action">
+        {button}
+        <span className="movie-feedback-tooltip" aria-hidden="true">
+          {label}
+        </span>
+      </span>
       {error ? (
         <p id={errorId} role="alert">
           {error}

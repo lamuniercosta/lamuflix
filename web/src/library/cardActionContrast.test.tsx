@@ -127,10 +127,7 @@ describe('card action icon contrast tokens', () => {
 
   it('backs the poster overlay buttons with the token, not a hard-coded wash', () => {
     // arrange / act
-    const watch = ruleBlock(
-      libraryCss,
-      String.raw`\.movie-card-watch button,\s*\.movie-row-watch button`,
-    );
+    const watch = ruleBlock(libraryCss, String.raw`\.movie-row-watch button`);
     const play = ruleBlock(libraryCss, String.raw`\.movie-card-play`);
 
     // assert
@@ -144,7 +141,7 @@ describe('card action icon contrast tokens', () => {
     // arrange / act
     const pressed = ruleBlock(
       libraryCss,
-      String.raw`\.movie-card-watch button\[aria-pressed='true'\][^{]*?`,
+      String.raw`\.movie-row-watch button\[aria-pressed='true'\]`,
     );
 
     // assert
@@ -154,7 +151,7 @@ describe('card action icon contrast tokens', () => {
 
   it('keeps hover, focus and active visibly different on the overlay buttons', () => {
     // arrange / act
-    const hasHover = /\.movie-card-watch button:hover/.test(libraryCss);
+    const hasHover = /\.movie-row-watch button:hover/.test(libraryCss);
     const hasActive = /:active/.test(libraryCss);
     const hasFocusTreatment = /:focus-visible/.test(indexCss) || /:focus-visible/.test(libraryCss);
 
@@ -190,12 +187,12 @@ describe('card action icon pressed hooks', () => {
     );
   }
 
-  it('exposes aria-pressed on the poster watchlist toggle so the active style applies', () => {
+  it('exposes aria-pressed on the row watchlist toggle so the active style applies', () => {
     // arrange / act
     renderCard(false);
 
     // assert
-    expect(screen.getByRole('button', { name: 'Add to watchlist' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Add to Watchlist, Heat' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -206,7 +203,7 @@ describe('card action icon pressed hooks', () => {
     renderCard(true);
 
     // assert
-    expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Remove from Watchlist, Heat' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );

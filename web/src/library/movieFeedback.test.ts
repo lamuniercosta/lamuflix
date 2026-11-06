@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import type { paths } from '../api/types';
 import { server } from '../test/server';
 import {
-  markMovieNotInterested,
   markMovieWatched,
-  unmarkMovieNotInterested,
+  setMovieReview,
   unmarkMovieWatched,
+  type ReviewState,
 } from './movieFeedback';
 
 type WatchedPathId = paths['/api/movies/{id}/watched']['post']['parameters']['path']['id'];
@@ -14,10 +14,11 @@ type WatchedPathId = paths['/api/movies/{id}/watched']['post']['parameters']['pa
 interface CapturedRequest {
   method: string;
   path: string;
+  body: unknown;
 }
 
 function capture(requests: CapturedRequest[], request: Request): void {
-  requests.push({ method: request.method, path: new URL(request.url).pathname });
+  requests.push({ method: request.method, path: new URL(request.url).pathname, body: null });
 }
 
 describe('markMovieWatched', () => {
@@ -36,26 +37,8 @@ describe('markMovieWatched', () => {
     const outcome = await markMovieWatched(movieId);
 
     // assert
-    expect(requests).toEqual([{ method: 'POST', path: '/api/movies/7/watched' }]);
+    expect(requests).toEqual([{ method: 'POST', path: '/api/movies/7/watched', body: null }]);
     expect(outcome).toEqual({ ok: true, status: 204 });
-  });
-
-  it('treats a 409 repeat transition as already marked without another request', async () => {
-    // arrange
-    const requests: CapturedRequest[] = [];
-    server.use(
-      http.post('*/api/movies/:id/watched', ({ request }) => {
-        capture(requests, request);
-        return new HttpResponse(null, { status: 409 });
-      }),
-    );
-
-    // act
-    const outcome = await markMovieWatched(3);
-
-    // assert
-    expect(requests).toHaveLength(1);
-    expect(outcome).toEqual({ ok: true, status: 409 });
   });
 
   it('reports a failed mark without retrying the request', async () => {
@@ -95,44 +78,6 @@ describe('markMovieWatched', () => {
   });
 });
 
-describe('markMovieNotInterested', () => {
-  it('posts to the not-interested route for the given movie and reports the 204 success', async () => {
-    // arrange
-    const requests: CapturedRequest[] = [];
-    server.use(
-      http.post('*/api/movies/:id/not-interested', ({ request }) => {
-        capture(requests, request);
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-
-    // act
-    const outcome = await markMovieNotInterested(11);
-
-    // assert
-    expect(requests).toEqual([{ method: 'POST', path: '/api/movies/11/not-interested' }]);
-    expect(outcome).toEqual({ ok: true, status: 204 });
-  });
-
-  it('reports a failed mark with the responding status and no retry', async () => {
-    // arrange
-    const requests: CapturedRequest[] = [];
-    server.use(
-      http.post('*/api/movies/:id/not-interested', ({ request }) => {
-        capture(requests, request);
-        return new HttpResponse(null, { status: 404 });
-      }),
-    );
-
-    // act
-    const outcome = await markMovieNotInterested(12);
-
-    // assert
-    expect(requests).toHaveLength(1);
-    expect(outcome).toEqual({ ok: false, status: 404 });
-  });
-});
-
 describe('unmarkMovieWatched', () => {
   it('deletes the watched mark for the given movie and reports the 204 success', async () => {
     // arrange
@@ -148,7 +93,7 @@ describe('unmarkMovieWatched', () => {
     const outcome = await unmarkMovieWatched(21);
 
     // assert
-    expect(requests).toEqual([{ method: 'DELETE', path: '/api/movies/21/watched' }]);
+    expect(requests).toEqual([{ method: 'DELETE', path: '/api/movies/21/watched', body: null }]);
     expect(outcome).toEqual({ ok: true, status: 204 });
   });
 
@@ -170,24 +115,6 @@ describe('unmarkMovieWatched', () => {
     expect(outcome).toEqual({ ok: true, status: 409 });
   });
 
-  it('reports a failed unmark without retrying the request', async () => {
-    // arrange
-    const requests: CapturedRequest[] = [];
-    server.use(
-      http.delete('*/api/movies/:id/watched', ({ request }) => {
-        capture(requests, request);
-        return new HttpResponse(null, { status: 500 });
-      }),
-    );
-
-    // act
-    const outcome = await unmarkMovieWatched(23);
-
-    // assert
-    expect(requests).toHaveLength(1);
-    expect(outcome).toEqual({ ok: false, status: 500 });
-  });
-
   it('reports a network failure without retrying the request', async () => {
     // arrange
     const requests: CapturedRequest[] = [];
@@ -207,73 +134,68 @@ describe('unmarkMovieWatched', () => {
   });
 });
 
-describe('unmarkMovieNotInterested', () => {
-  it('deletes the not-interested mark for the given movie and reports the 204 success', async () => {
-    // arrange
-    const requests: CapturedRequest[] = [];
-    server.use(
-      http.delete('*/api/movies/:id/not-interested', ({ request }) => {
-        capture(requests, request);
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
+describe('setMovieReview', () => {
+  it.each(['none', 'liked', 'disliked'] as const)(
+    'puts the %s review on the review route and reports the 204 success',
+    async (review) => {
+      // arrange
+      const requests: Array<{ method: string; path: string; review: unknown }> = [];
+      server.use(
+        http.put('*/api/movies/:id/review', async ({ request }) => {
+          const body = (await request.json()) as { review: unknown };
+          requests.push({
+            method: request.method,
+            path: new URL(request.url).pathname,
+            review: body.review,
+          });
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
 
-    // act
-    const outcome = await unmarkMovieNotInterested(31);
+      // act
+      const outcome = await setMovieReview(11, review);
 
-    // assert
-    expect(requests).toEqual([{ method: 'DELETE', path: '/api/movies/31/not-interested' }]);
-    expect(outcome).toEqual({ ok: true, status: 204 });
-  });
+      // assert
+      expect(requests).toEqual([
+        { method: 'PUT', path: '/api/movies/11/review', review: review satisfies ReviewState },
+      ]);
+      expect(outcome).toEqual({ ok: true, status: 204 });
+    },
+  );
 
-  it('treats a 409 repeat transition as already unmarked without another request', async () => {
-    // arrange
-    const requests: CapturedRequest[] = [];
-    server.use(
-      http.delete('*/api/movies/:id/not-interested', ({ request }) => {
-        capture(requests, request);
-        return new HttpResponse(null, { status: 409 });
-      }),
-    );
+  it.each([400, 404, 422, 500])(
+    'reports the %i failure with no retry and no success',
+    async (status) => {
+      // arrange
+      const requests: string[] = [];
+      server.use(
+        http.put('*/api/movies/:id/review', ({ request }) => {
+          requests.push(new URL(request.url).pathname);
+          return new HttpResponse(null, { status });
+        }),
+      );
 
-    // act
-    const outcome = await unmarkMovieNotInterested(32);
+      // act
+      const outcome = await setMovieReview(12, 'liked');
 
-    // assert
-    expect(requests).toHaveLength(1);
-    expect(outcome).toEqual({ ok: true, status: 409 });
-  });
-
-  it('reports a failed unmark with the responding status and no retry', async () => {
-    // arrange
-    const requests: CapturedRequest[] = [];
-    server.use(
-      http.delete('*/api/movies/:id/not-interested', ({ request }) => {
-        capture(requests, request);
-        return new HttpResponse(null, { status: 500 });
-      }),
-    );
-
-    // act
-    const outcome = await unmarkMovieNotInterested(33);
-
-    // assert
-    expect(requests).toHaveLength(1);
-    expect(outcome).toEqual({ ok: false, status: 500 });
-  });
+      // assert
+      expect(requests).toHaveLength(1);
+      expect(outcome).toEqual({ ok: false, status });
+    },
+  );
 
   it('reports a network failure without retrying the request', async () => {
     // arrange
-    const requests: CapturedRequest[] = [];
+    const requests: string[] = [];
     server.use(
-      http.delete('*/api/movies/:id/not-interested', ({ request }) => {
-        capture(requests, request);
+      http.put('*/api/movies/:id/review', ({ request }) => {
+        requests.push(new URL(request.url).pathname);
         return HttpResponse.error();
       }),
     );
 
     // act
-    const outcome = await unmarkMovieNotInterested(34);
+    const outcome = await setMovieReview(13, 'disliked');
 
     // assert
     expect(requests).toHaveLength(1);

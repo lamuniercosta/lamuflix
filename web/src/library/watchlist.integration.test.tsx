@@ -92,12 +92,12 @@ describe('watchlist shared state across card and hero', () => {
       fireEvent.click(
         await within(screen.getByRole('region', { name: 'Results' })).findByRole(
           'button',
-          { name: 'Add to watchlist' },
+          { name: 'Add to Watchlist, Dune' },
           { timeout: 10_000 },
         ),
       );
       await waitFor(() =>
-        expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
+        expect(screen.getByRole('button', { name: 'Remove from Watchlist, Dune' })).toHaveAttribute(
           'aria-busy',
           'false',
         ),
@@ -109,7 +109,7 @@ describe('watchlist shared state across card and hero', () => {
       expect(
         await screen.findByRole('heading', { name: 'Dune' }, { timeout: 10_000 }),
       ).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Remove from Watchlist, Dune' })).toHaveAttribute(
         'aria-pressed',
         'true',
       );
@@ -131,7 +131,7 @@ describe('watchlist shared state across card and hero', () => {
     renderApp();
     const buttons = await within(screen.getByRole('region', { name: 'Results' })).findAllByRole(
       'button',
-      { name: 'Add to watchlist' },
+      { name: /^Add to Watchlist, / },
     );
     expect(buttons).toHaveLength(2);
 
@@ -161,10 +161,10 @@ describe('watchlist delayed settlement across unmount and navigation', () => {
     const card = renderApp();
     fireEvent.click(
       await within(screen.getByRole('region', { name: 'Results' })).findByRole('button', {
-        name: 'Add to watchlist',
+        name: 'Add to Watchlist, Dune',
       }),
     );
-    expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Remove from Watchlist, Dune' })).toHaveAttribute(
       'aria-busy',
       'true',
     );
@@ -173,19 +173,19 @@ describe('watchlist delayed settlement across unmount and navigation', () => {
     goto('/movies/1');
     renderApp();
     await screen.findByRole('heading', { name: 'Dune' });
-    expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Remove from Watchlist, Dune' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
 
     gate.resolve();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Remove from Watchlist, Dune' })).toHaveAttribute(
         'aria-busy',
         'false',
       ),
     );
-    expect(screen.getByRole('button', { name: 'Remove from watchlist' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Remove from Watchlist, Dune' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -205,7 +205,7 @@ describe('watchlist delayed settlement across unmount and navigation', () => {
     const card = renderApp();
     fireEvent.click(
       await within(screen.getByRole('region', { name: 'Results' })).findByRole('button', {
-        name: 'Add to watchlist',
+        name: 'Add to Watchlist, Dune',
       }),
     );
     card.unmount();
@@ -215,7 +215,7 @@ describe('watchlist delayed settlement across unmount and navigation', () => {
     await screen.findByRole('heading', { name: 'Dune' });
 
     gate.resolve();
-    const button = await screen.findByRole('button', { name: 'Add to watchlist' });
+    const button = await screen.findByRole('button', { name: 'Add to Watchlist, Dune' });
     await waitFor(() => expect(button).toHaveAttribute('aria-busy', 'false'));
     expect(button).toHaveAttribute('aria-pressed', 'false');
     expect(await screen.findByText(WATCHLIST_TOGGLE_ERROR)).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe('watchlist bookmark accessibility in delivered hosts', () => {
     renderApp();
     const button = await within(screen.getByRole('region', { name: 'Results' })).findByRole(
       'button',
-      { name: 'Add to watchlist' },
+      { name: 'Add to Watchlist, Dune' },
     );
 
     expect(button.tagName).toBe('BUTTON');
@@ -258,7 +258,7 @@ describe('watchlist bookmark accessibility in delivered hosts', () => {
     renderApp();
     const button = await within(screen.getByRole('region', { name: 'Results' })).findByRole(
       'button',
-      { name: 'Add to watchlist' },
+      { name: 'Add to Watchlist, Dune' },
     );
     button.focus();
     fireEvent.click(button);
@@ -359,7 +359,9 @@ describe('watchlist filter accessibility in the delivered header', () => {
     goto('/?watchlist=true');
     renderApp();
     await screen.findByRole('heading', { name: 'Dune' });
-    const remove = within(rowFor('Dune')).getByRole('button', { name: 'Remove from watchlist' });
+    const remove = within(rowFor('Dune')).getByRole('button', {
+      name: 'Remove from Watchlist, Dune',
+    });
     remove.focus();
     fireEvent.click(remove);
 

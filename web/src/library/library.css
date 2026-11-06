@@ -554,15 +554,6 @@ label.lamu-chip {
   animation: lamu-shimmer 1.6s linear infinite;
 }
 
-.movie-card-watch {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-
 .movie-card-play {
   position: absolute;
   top: 50%;
@@ -599,16 +590,11 @@ label.lamu-chip {
   height: 1.25rem;
 }
 
-.movie-card:hover .movie-card-watch,
-.movie-card:focus-within .movie-card-watch,
-.movie-card-watch[data-watchlisted='true'],
-.movie-card-watch[data-error='true'],
 .movie-card:hover .movie-card-play,
 .movie-card:focus-within .movie-card-play {
   opacity: 1;
 }
 
-.movie-card-watch button,
 .movie-row-watch button {
   display: inline-grid;
   place-items: center;
@@ -623,26 +609,22 @@ label.lamu-chip {
   cursor: pointer;
 }
 
-.movie-card-watch button:hover,
 .movie-row-watch button:hover {
   background-color: var(--color-poster-backing-hover);
   border-color: var(--color-poster-ink);
 }
 
-.movie-card-watch button:active,
 .movie-row-watch button:active {
   background-color: var(--color-poster-backing-hover);
   transform: translateY(1px);
 }
 
-.movie-card-watch button[aria-pressed='true'],
 .movie-row-watch button[aria-pressed='true'] {
   background-color: var(--color-poster-backing-hover);
   border-color: var(--color-poster-active);
   color: var(--color-poster-active);
 }
 
-.movie-card-watch p[role='alert'],
 .movie-row-watch p[role='alert'] {
   margin: 0;
   max-width: 12rem;
@@ -1037,7 +1019,6 @@ label.lamu-chip {
   .filter-collapse,
   .filters-toggle-chevron,
   .genre-tile,
-  .movie-card-watch,
   .movie-card-play,
   .lamu-switch,
   .lamu-switch::after {
@@ -1057,7 +1038,6 @@ label.lamu-chip {
   .lamu-filter-panel,
   .movie-card-placeholder,
   .movie-card-play,
-  .movie-card-watch button,
   .movie-row-watch button,
   .movie-row,
   .pagination-buttons .lamu-pill-button {

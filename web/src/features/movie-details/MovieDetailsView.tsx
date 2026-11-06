@@ -2,7 +2,6 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEve
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import type { components } from '../../api/types';
 import { MovieFeedbackActions } from '../../library/MovieFeedbackActions';
-import { WatchlistToggleButton } from '../../library/watchlist';
 import { useAmbientPosters } from '../../ui/ambient';
 import {
   ArrowRightIcon,
@@ -601,14 +600,12 @@ function MovieDetailsViewInner({
               {playMutation.isPending ? <LoaderIcon size={18} /> : <PlayFilledIcon size={18} />}
               {playMutation.isPending ? 'Starting...' : 'Play'}
             </button>
-            <div className="details-watchlist">
-              <WatchlistToggleButton movieId={movie.id} isInWatchlist={movie.isInWatchlist} />
-            </div>
             <MovieFeedbackActions
               movieId={movie.id}
               title={movie.title}
               isWatched={movie.isWatched}
-              isNotInterested={movie.isNotInterested}
+              review={movie.review}
+              isInWatchlist={movie.isInWatchlist}
               clients={feedbackClients}
             />
             <button

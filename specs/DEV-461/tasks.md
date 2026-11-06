@@ -101,16 +101,16 @@ Task IDs remain T000–T050 (51 tasks). Challenge repair clarifies wording; no I
 
 **Independent Test**: Vitest/RTL + typed MSW for icons, a11y, mutual exclusion, shared state, pending/rollback/retry.
 
-- [ ] T029 [US4] Add local ThumbsUp/ThumbsDown SVG components in `web/src/ui/icons.tsx` (no new dependency) (FR-014; Q3)
-- [ ] T030 [US4] Rewrite `web/src/library/MovieFeedbackActions.tsx` (+ `.css` as needed) to the four-icon row in Q3 order with Q9 accessible names/tooltips, `aria-pressed`, hover+focus tooltips, focus/active, navigation isolation (FR-014, FR-015; Q3, Q9)
-- [ ] T031 [US4] Update `web/src/library/movieFeedback.ts` and `web/src/library/movieFeedbackStore.ts` for review PUT + legacy projection fields; preserve optimistic updates, provisional rollback (no claim of DB rollback on ambiguous 500), pending/retry; invalidate library/details/For You/Related after success; authoritative refresh + idempotent retry reconcile; refresh retry never replays successful mutation (FR-012, FR-015; Q5; step 6)
-- [ ] T032 [US4] Move Watchlist into the shared row via `WatchlistToggleButton` in `web/src/library/watchlist.tsx` and styles in `web/src/library/library.css`; remove duplicate poster/details bookmark; leave `MovieListRow` unchanged (FR-014; Q3, Q9)
-- [ ] T033 [US4] Wire callers: `web/src/library/MovieCard.tsx` and `web/src/features/movie-details/MovieDetailsView.tsx` (+ CSS as needed) consuming shared row and `review` from generated types (FR-014; Q3)
-- [ ] T034 [P] [US4] Extend `web/src/library/MovieFeedbackActions.test.tsx` for four icons, exact Q9 names, tooltips/focus/active, mutual exclusion, pending, rollback/retry, navigation isolation (FR-017; Q7, Q9; SC-004)
-- [ ] T035 [P] [US4] Extend `web/src/library/MovieCard.test.tsx`, `movieFeedback.test.ts`, `movieFeedbackStore.test.tsx` for shared state, query invalidation, and review lifecycle (FR-017; Q7)
-- [ ] T036 [P] [US4] Extend `web/src/features/movie-details/MovieDetailsView.test.tsx` and `RelatedMovies.test.tsx` for Details reflection and related-card icons (FR-017; Q7; SC-002)
-- [ ] T037 [US4] Update typed fixtures/callers listed in recon-DEV-461 §5 that still assume Not interested text buttons / missing `review` (FR-006, FR-014)
-- [ ] T038 [US4] Checkpoint: UI MSW suite green; SMOKE-001/002 user-visible behaviours covered by component + contract proofs (live SMOKE-003 under Phase 5)
+- [X] T029 [US4] Add local ThumbsUp/ThumbsDown SVG components in `web/src/ui/icons.tsx` (no new dependency) (FR-014; Q3)
+- [X] T030 [US4] Rewrite `web/src/library/MovieFeedbackActions.tsx` (+ `.css` as needed) to the four-icon row in Q3 order with Q9 accessible names/tooltips, `aria-pressed`, hover+focus tooltips, focus/active, navigation isolation (FR-014, FR-015; Q3, Q9)
+- [X] T031 [US4] Update `web/src/library/movieFeedback.ts` and `web/src/library/movieFeedbackStore.ts` for review PUT + legacy projection fields; preserve optimistic updates, provisional rollback (no claim of DB rollback on ambiguous 500), pending/retry; invalidate library/details/For You/Related after success; authoritative refresh + idempotent retry reconcile; refresh retry never replays successful mutation (FR-012, FR-015; Q5; step 6)
+- [X] T032 [US4] Move Watchlist into the shared row via `WatchlistToggleButton` in `web/src/library/watchlist.tsx` and styles in `web/src/library/library.css`; remove duplicate poster/details bookmark; leave `MovieListRow` unchanged (FR-014; Q3, Q9)
+- [X] T033 [US4] Wire callers: `web/src/library/MovieCard.tsx` and `web/src/features/movie-details/MovieDetailsView.tsx` (+ CSS as needed) consuming shared row and `review` from generated types (FR-014; Q3)
+- [X] T034 [P] [US4] Extend `web/src/library/MovieFeedbackActions.test.tsx` for four icons, exact Q9 names, tooltips/focus/active, mutual exclusion, pending, rollback/retry, navigation isolation (FR-017; Q7, Q9; SC-004)
+- [X] T035 [P] [US4] Extend `web/src/library/MovieCard.test.tsx`, `movieFeedback.test.ts`, `movieFeedbackStore.test.tsx` for shared state, query invalidation, and review lifecycle (FR-017; Q7)
+- [X] T036 [P] [US4] Extend `web/src/features/movie-details/MovieDetailsView.test.tsx` and `RelatedMovies.test.tsx` for Details reflection and related-card icons (FR-017; Q7; SC-002)
+- [X] T037 [US4] Update typed fixtures/callers listed in recon-DEV-461 §5 that still assume Not interested text buttons / missing `review` (FR-006, FR-014)
+- [X] T038 [US4] Checkpoint: UI MSW suite green; SMOKE-001/002 user-visible behaviours covered by component + contract proofs (live SMOKE-003 under Phase 5)
 
 ---
 
@@ -175,3 +175,4 @@ US1 (T001–T016) delivers persisted Review + API + contracts. Ticket Acceptance
 - Rejected/out of scope remain out: new Feedback folder, Feedback→Recommendations Core port, concurrency/ETag API, retry/swallow cache architecture, handwritten web duplicates.
 - Retained Low follow-ups: no invented load bound (Sentry L2); no new concurrency controls (Sentry L3); Palette contrast/design wording (Sentry L4 / Compass F4); shared-function rewrite only via Phase B refactor gates (Ledger F8).
 - Quill drafting invented no decisions; gaps → `needs decision` in DRAFTING_RECEIPT.md.
+

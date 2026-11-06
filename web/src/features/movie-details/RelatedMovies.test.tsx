@@ -402,16 +402,22 @@ describe('RelatedMovies', () => {
 });
 
 describe('RelatedMovies shared-card feedback integration', () => {
-  it('mounts the shared feedback actions on the current recommendation card', async () => {
+  it('mounts the shared four-icon row on the current recommendation card', async () => {
     // arrange
     server.use(recommendationsHandler(relatedMovies as RecommendedMovie[]));
 
     // act
-    renderRelated(1);
+    const { container } = renderRelated(1);
 
     // assert
     expect(await screen.findByRole('button', { name: 'Mark Watched, Arrival' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Not Interested, Arrival' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Clear liked review, Arrival' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Dislike, Arrival' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add to Watchlist, Arrival' })).toBeEnabled();
+    const cards = container.querySelectorAll('.movie-feedback-actions');
+    for (const row of cards) {
+      expect(row.querySelectorAll('button')).toHaveLength(4);
+    }
   });
 
   it('refreshes membership, flags and reasons after a successful action', async () => {
@@ -454,7 +460,7 @@ describe('RelatedMovies shared-card feedback integration', () => {
     expect(await screen.findByRole('link', { name: /Newcomer/ })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Prisoners/ })).not.toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Watched, Arrival' })).toBeEnabled(),
+      expect(screen.getByRole('button', { name: 'Unmark Watched, Arrival' })).toBeEnabled(),
     );
     const arrivalCard = screen
       .getByRole('link', { name: /Arrival/ })
@@ -506,7 +512,7 @@ describe('RelatedMovies shared-card feedback integration', () => {
 
     // assert
     expect(await screen.findByText(MOVIE_FEEDBACK_REFRESH_ERROR)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Watched, Prisoners' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Prisoners' })).toBeVisible();
 
     refreshFails = false;
     fireEvent.click(screen.getByRole('button', { name: 'Retry refresh, Prisoners' }));
@@ -514,7 +520,7 @@ describe('RelatedMovies shared-card feedback integration', () => {
     await waitFor(() =>
       expect(screen.queryByText(MOVIE_FEEDBACK_REFRESH_ERROR)).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole('button', { name: 'Watched, Prisoners' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Unmark Watched, Prisoners' })).toBeVisible();
     expect(posts).toBe(1);
     expect(fetches).toBe(3);
   });

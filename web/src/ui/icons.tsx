@@ -332,6 +332,24 @@ export function EyeIcon(props: IconProps) {
   );
 }
 
+export function ThumbsUpIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M7 10v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3z" />
+      <path d="M7 10l4-7a2 2 0 0 1 3.6 1.2V9h3.6a2 2 0 0 1 2 2.4l-1.3 6.6a2 2 0 0 1-2 1.6H7" />
+    </IconFrame>
+  );
+}
+
+export function ThumbsDownIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M7 14V4H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3z" />
+      <path d="M7 14l4 7a2 2 0 0 0 3.6-1.2V15h3.6a2 2 0 0 0 2-2.4l-1.3-6.6a2 2 0 0 0-2-1.6H7" />
+    </IconFrame>
+  );
+}
+
 export function FlagIcon(props: IconProps) {
   return (
     <IconFrame {...props}>

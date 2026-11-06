@@ -1,22 +1,56 @@
-import { useId, useMemo } from 'react';
+import { useId, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { EyeIcon, ThumbsDownIcon, ThumbsUpIcon } from '../ui/icons';
+import { normalizeReview, useMovieFeedback, type MovieFeedbackClients } from './movieFeedbackStore';
 import type { FeedbackMovieId } from './movieFeedback';
-import { useMovieFeedback, type MovieFeedbackClients } from './movieFeedbackStore';
+import { WatchlistToggleButton } from './watchlist';
 import './MovieFeedbackActions.css';
 
 export interface MovieFeedbackActionsProps {
   movieId: FeedbackMovieId;
   title: string;
   isWatched: boolean;
-  isNotInterested: boolean;
+  review: string;
+  isInWatchlist: boolean;
   clients?: MovieFeedbackClients;
+}
+
+interface IconActionProps {
+  label: string;
+  pressed: boolean;
+  pending: boolean;
+  disabled: boolean;
+  onActivate: () => void;
+  children: ReactNode;
+}
+
+function IconAction({ label, pressed, pending, disabled, onActivate, children }: IconActionProps) {
+  return (
+    <span className="movie-feedback-action">
+      <button
+        type="button"
+        className="movie-feedback-icon"
+        aria-label={label}
+        aria-pressed={pressed}
+        aria-busy={pending ? true : undefined}
+        disabled={disabled}
+        onClick={onActivate}
+      >
+        {children}
+      </button>
+      <span className="movie-feedback-tooltip" aria-hidden="true">
+        {label}
+      </span>
+    </span>
+  );
 }
 
 export function MovieFeedbackActions({
   movieId,
   title,
   isWatched,
-  isNotInterested,
+  review,
+  isInWatchlist,
   clients,
 }: MovieFeedbackActionsProps) {
   const queryClient = useQueryClient();
@@ -26,47 +60,60 @@ export function MovieFeedbackActions({
   );
   const {
     isWatched: watched,
-    isNotInterested: notInterested,
+    review: currentReview,
     pending,
     blocked,
     error,
     refreshError,
     markWatched,
-    markNotInterested,
     unmarkWatched,
-    unmarkNotInterested,
+    like,
+    dislike,
+    clearReview,
     retry,
     retryRefresh,
-  } = useMovieFeedback(movieId, { isWatched, isNotInterested }, resolvedClients);
+  } = useMovieFeedback(movieId, { isWatched, review: normalizeReview(review) }, resolvedClients);
   const errorId = useId();
   const refreshErrorId = useId();
+  const liked = currentReview === 'liked';
+  const disliked = currentReview === 'disliked';
 
   return (
     <div className="movie-feedback-actions">
-      <button
-        type="button"
-        className="lamu-action-quiet"
-        data-marked={watched ? 'true' : undefined}
-        aria-label={`${watched ? 'Watched' : 'Mark Watched'}, ${title}`}
-        aria-pressed={watched}
-        aria-busy={pending ? true : undefined}
+      <IconAction
+        label={watched ? `Unmark Watched, ${title}` : `Mark Watched, ${title}`}
+        pressed={watched}
+        pending={pending}
         disabled={blocked}
-        onClick={watched ? unmarkWatched : markWatched}
+        onActivate={watched ? unmarkWatched : markWatched}
       >
-        {watched ? 'Watched' : 'Mark Watched'}
-      </button>
-      <button
-        type="button"
-        className="lamu-action-quiet"
-        data-marked={notInterested ? 'true' : undefined}
-        aria-label={`${notInterested ? 'Not Interested (marked)' : 'Not Interested'}, ${title}`}
-        aria-pressed={notInterested}
-        aria-busy={pending ? true : undefined}
+        <EyeIcon size={18} />
+      </IconAction>
+      <IconAction
+        label={liked ? `Clear liked review, ${title}` : `Like, ${title}`}
+        pressed={liked}
+        pending={pending}
         disabled={blocked}
-        onClick={notInterested ? unmarkNotInterested : markNotInterested}
+        onActivate={liked ? clearReview : like}
       >
-        {notInterested ? 'Not Interested (marked)' : 'Not Interested'}
-      </button>
+        <ThumbsUpIcon size={18} />
+      </IconAction>
+      <IconAction
+        label={disliked ? `Clear disliked review, ${title}` : `Dislike, ${title}`}
+        pressed={disliked}
+        pending={pending}
+        disabled={blocked}
+        onActivate={disliked ? clearReview : dislike}
+      >
+        <ThumbsDownIcon size={18} />
+      </IconAction>
+      <WatchlistToggleButton
+        movieId={movieId}
+        isInWatchlist={isInWatchlist}
+        title={title}
+        className="movie-feedback-icon"
+        disabled={blocked}
+      />
       <span className="sr-only" role="status">
         {pending ? `Saving feedback for ${title}` : ''}
       </span>
