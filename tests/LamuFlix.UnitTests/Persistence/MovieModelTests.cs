@@ -51,6 +51,7 @@ public sealed class MovieModelTests
         AssertColumn(entity, table, nameof(MovieRecord.MetaScore), "meta_score", "smallint", true);
         AssertColumn(entity, table, nameof(MovieRecord.Plot), "plot", "text", true);
         AssertColumn(entity, table, nameof(MovieRecord.PosterUrl), "poster_url", "text", true);
+        AssertColumn(entity, table, nameof(MovieRecord.TrailerKey), "trailer_key", "text", true);
         AssertColumn(entity, table, nameof(MovieRecord.CollectionId), "collection_id", "integer", true);
     }
 

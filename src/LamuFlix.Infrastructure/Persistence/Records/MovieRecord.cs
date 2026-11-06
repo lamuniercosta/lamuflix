@@ -54,6 +54,8 @@ public sealed class MovieRecord
 
     public string? PosterUrl { get; set; }
 
+    public string? TrailerKey { get; set; }
+
     public int? CollectionId { get; set; }
 
     public CollectionRecord? Collection { get; set; }

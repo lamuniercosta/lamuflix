@@ -70,6 +70,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 movie.PosterUrl,
                 movie.RottenTomatoesRating,
                 movie.MetaScore,
+                movie.TrailerKey,
                 movie.IsInWatchlist,
                 movie.IsWatched,
                 movie.IsNotInterested,
@@ -108,7 +109,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
                 record.Writers,
                 record.CollectionName is null ? null : record.CollectionId,
                 record.CollectionName,
-                Signals(record))
+                Signals(record),
+                record.TrailerKey)
             : null;
         return new MovieDetails(movieId, record.Title, record.LibraryPath, record.Format, metadata, record.IsInWatchlist, record.IsWatched, record.IsNotInterested, record.Status);
     }
@@ -206,7 +208,8 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         record.ImdbId is not null
         || record.PosterUrl is not null
         || record.RottenTomatoesRating is not null
-        || record.MetaScore is not null;
+        || record.MetaScore is not null
+        || record.TrailerKey is not null;
 
     private static bool HasCastMetadata(MovieDetailsRecord record) =>
         record.Directors.Count > 0
@@ -234,6 +237,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
         string? PosterUrl,
         short? RottenTomatoesRating,
         short? MetaScore,
+        string? TrailerKey,
         bool IsInWatchlist,
         bool IsWatched,
         bool IsNotInterested,

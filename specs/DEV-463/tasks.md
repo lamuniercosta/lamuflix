@@ -2,7 +2,7 @@
 
 **Input**: `specs/DEV-463/` spec.md, plan.md, frozen brief.md (Q1–Q8), CONCLUSIONS.md, ASSUMPTIONS.md, recon-DEV-463, recon-DEV-463-2, note DEV-463, specs/PRODUCT.md
 
-**Status**: PLAN FROZEN — 2026-11-05. Analyze clean after round 1 repair (DEV-463 receipt); three-axis plan challenge round 1 adjudicated and approved updates applied. No implementation clearance. Patron provisional Gate 1 and owner spec-PR merge remain pending; T000 blocks pickup.
+**Status**: PLAN FROZEN — 2026-11-05. Owner Gate 1 spec PR #329 merged at 225edf49; T000 and T001 complete, with receipts and pickup dispositions in CONCLUSIONS.md. UI-tag evidence reconciled; Gauge baseline captured with scope-empty gates SKIPPED and dotnet test exit 0. Next: Anvil Phase 2 T002–T005. Earlier analyze/challenge receipts remain Phase A evidence; implementation verification and runtime acceptance remain outstanding.
 
 **Gate 1**: No owner structural checkbox (brief Status; Q8; PRODUCT.md §5). Handoff chain: **Patron provisional Gate 1 → Rigger opens the spec PR → user merges Gate 1 → Keel T000** records the verified merge receipt in `specs/DEV-463/CONCLUSIONS.md`. Phase B pickup and implementation MUST NOT start before that receipt (Q7).
 
@@ -40,7 +40,7 @@ Phase 10  T026 → T027   (canonical Phase 5 delivery)
 **Checkpoint**: Verified merge receipt in CONCLUSIONS.md; or stop.
 **Handoff note**: Patron provisional → **Rigger** opens the spec PR → user merges Gate 1 → **Keel** T000 (brief Q7).
 
-- [ ] T000 **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-463 in `specs/DEV-463/CONCLUSIONS.md`. Receipt only — does not create a new ruling. T001–T027 MUST NOT proceed until this receipt exists (Q7; FR-014).
+- [X] T000 **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-463 in `specs/DEV-463/CONCLUSIONS.md`. Receipt only — does not create a new ruling. T001–T027 MUST NOT proceed until this receipt exists (Q7; FR-014).
 
 ---
 
@@ -49,7 +49,7 @@ Phase 10  T026 → T027   (canonical Phase 5 delivery)
 **Purpose**: Confirm frozen brief/spec/plan/tasks still match landed main and the Q8 file/contract set; resolve unspecified entity/projection/copy-site filenames with evidence.
 **Checkpoint**: Fresh recon recorded; cross-artifact reanalysis clean or tasks amended only for authorized demonstrated drift; unresolved drift stops for a cited decision — no invention. Baseline captured.
 
-- [ ] T001 After T000: **Wisp** obtains fresh Phase B pickup recon against picked HEAD / landed main for the Q8 bounded surfaces (`MovieMetadata` + copy sites, `TmdbMetadataProvider` (+ Mapping/partials), `ChainedMetadataProvider`, `EfMovieRepository`, `MovieConfiguration`, movie persistence entity/read projections, `LibraryResponses` / details mapping, OpenAPI/Verify/generate:api workflow, `MovieDetailsView`/CSS, movie-details fixtures/tests, `CONTEXT.md`). Name any unspecified entity/projection/copy-site files with evidence — do not invent shapes (Q8). **Keel** runs cross-artifact reanalysis of brief/spec/plan/tasks against landed main. Amend tasks only where authorized by demonstrated drift. **STOP** on unresolved drift or missing contract facts for a cited decision. **Gauge** records pre-edit baseline. No production edits in this task (brief Q7–Q8; FR-015).
+- [X] T001 After T000: **Wisp** obtains fresh Phase B pickup recon against picked HEAD / landed main for the Q8 bounded surfaces (`MovieMetadata` + copy sites, `TmdbMetadataProvider` (+ Mapping/partials), `ChainedMetadataProvider`, `EfMovieRepository`, `MovieConfiguration`, movie persistence entity/read projections, `LibraryResponses` / details mapping, OpenAPI/Verify/generate:api workflow, `MovieDetailsView`/CSS, movie-details fixtures/tests, `CONTEXT.md`). Name any unspecified entity/projection/copy-site files with evidence — do not invent shapes (Q8). **Keel** runs cross-artifact reanalysis of brief/spec/plan/tasks against landed main. Amend tasks only where authorized by demonstrated drift. **STOP** on unresolved drift or missing contract facts for a cited decision. **Gauge** records pre-edit baseline. No production edits in this task (brief Q7–Q8; FR-015).
 
 ---
 
@@ -59,10 +59,10 @@ Phase 10  T026 → T027   (canonical Phase 5 delivery)
 **Independent Test**: Domain/unit proofs for copy/clear; Testcontainers null/present roundtrip and re-enrichment clear/replace.
 **Order**: T002 → T005 (shared domain/persistence surfaces; keep sequential where files overlap).
 
-- [ ] T002 [P] [US1] Add failing unit coverage for Trailer key copy/merge/clear and validation boundary (`^[A-Za-z0-9_-]{11}$`) in the existing domain/metadata unit suite (exact existing project and file named by T001 recon); cover null default for existing-shaped metadata (FR-001–FR-003; Q1–Q2; SC-004)
-- [ ] T003 [US1] After T001 recon: add nullable `TrailerKey` to `src/LamuFlix.Core/Domain/MovieMetadata.cs` and update necessary metadata-copy paths named by recon so the value carries through copy/merge/clear; own the single C# exact 11-character ASCII letter/digit/underscore/hyphen validator as a method on MovieMetadata, reused by the adapter/selector (no mutable static regex); store only validated keys, never URLs; land the pending CONTEXT.md Trailer key glossary append in this implementation task (FR-001–FR-003; Q1–Q2)
-- [ ] T004 [US1] Add nullable `trailer_key` mapping in `src/LamuFlix.Infrastructure/Persistence/Configurations/MovieConfiguration.cs` and tool-generated EF migration + model snapshot; wire write/read/clear through `src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs` and recon’d persistence entity/read projections; never hand-edit the snapshot (FR-002–FR-003; Q1)
-- [ ] T005 [US1] Add real-Postgres Testcontainers coverage proving null existing rows, present-key roundtrip, and re-enrichment replace/clear of Trailer key; make T002 green for domain/copy assertions (FR-012; Q7; SC-004)
+- [X] T002 [P] [US1] Add failing unit coverage for Trailer key copy/merge/clear and validation boundary (`^[A-Za-z0-9_-]{11}$`) in the existing domain/metadata unit suite (exact existing project and file named by T001 recon); cover null default for existing-shaped metadata (FR-001–FR-003; Q1–Q2; SC-004)
+- [X] T003 [US1] After T001 recon: add nullable `TrailerKey` to `src/LamuFlix.Core/Domain/MovieMetadata.cs` and update necessary metadata-copy paths named by recon so the value carries through copy/merge/clear; own the single C# exact 11-character ASCII letter/digit/underscore/hyphen validator as a method on MovieMetadata, reused by the adapter/selector (no mutable static regex); store only validated keys, never URLs; land the pending CONTEXT.md Trailer key glossary append in this implementation task (FR-001–FR-003; Q1–Q2)
+- [X] T004 [US1] Add nullable `trailer_key` mapping in `src/LamuFlix.Infrastructure/Persistence/Configurations/MovieConfiguration.cs` and tool-generated EF migration + model snapshot; wire write/read/clear through `src/LamuFlix.Infrastructure/Persistence/EfMovieRepository.cs` and recon’d persistence entity/read projections; never hand-edit the snapshot (FR-002–FR-003; Q1)
+- [X] T005 [US1] Add real-Postgres Testcontainers coverage proving null existing rows, present-key roundtrip, and re-enrichment replace/clear of Trailer key; make T002 green for domain/copy assertions (FR-012; Q7; SC-004)
 
 ---
 

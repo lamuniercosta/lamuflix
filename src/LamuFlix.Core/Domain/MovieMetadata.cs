@@ -7,6 +7,8 @@ namespace LamuFlix.Core.Domain;
 
 public sealed record MovieMetadata
 {
+    private const int TrailerKeyLength = 11;
+
     public MovieMetadata(
         string title,
         string? synopsis = null,
@@ -23,7 +25,8 @@ public sealed record MovieMetadata
         IEnumerable<string>? writers = null,
         int? collectionId = null,
         string? collectionName = null,
-        MovieSignalSnapshot? signals = null)
+        MovieSignalSnapshot? signals = null,
+        string? trailerKey = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -48,6 +51,29 @@ public sealed record MovieMetadata
         CollectionId = collectionId;
         CollectionName = collectionName;
         Signals = signals;
+        TrailerKey = trailerKey;
+    }
+
+    /// <summary>
+    /// True when the candidate is exactly 11 ASCII letters, digits, underscores or hyphens: the shape of a
+    /// YouTube video identifier. The single C# definition of the Trailer key boundary, reused by the TMDb selector.
+    /// </summary>
+    public static bool IsValidTrailerKey(string? candidate)
+    {
+        if (candidate is null || candidate.Length != TrailerKeyLength)
+        {
+            return false;
+        }
+
+        foreach (var character in candidate)
+        {
+            if (!char.IsAsciiLetterOrDigit(character) && character != '_' && character != '-')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static void ValidateCollection(int? collectionId, string? collectionName)
@@ -124,6 +150,9 @@ public sealed record MovieMetadata
 
     public MovieSignalSnapshot? Signals { get; }
 
+    /// <summary>The validated YouTube video identifier selected during enrichment; null when no trailer is known.</summary>
+    public string? TrailerKey { get; }
+
     public MovieMetadata WithSignals(MovieSignalSnapshot? signals) =>
         new(
             Title,
@@ -141,7 +170,8 @@ public sealed record MovieMetadata
             Writers,
             CollectionId,
             CollectionName,
-            signals);
+            signals,
+            TrailerKey);
 
     public MovieMetadata WithCollection(int? collectionId, string? collectionName) =>
         new(
@@ -160,7 +190,8 @@ public sealed record MovieMetadata
             Writers,
             collectionId,
             collectionName,
-            Signals);
+            Signals,
+            TrailerKey);
 
     public bool Equals(MovieMetadata? other) =>
         other is not null
@@ -174,7 +205,8 @@ public sealed record MovieMetadata
         && left.Synopsis == right.Synopsis
         && left.PosterUrl == right.PosterUrl
         && left.RottenTomatoesRating == right.RottenTomatoesRating
-        && left.MetaScore == right.MetaScore;
+        && left.MetaScore == right.MetaScore
+        && left.TrailerKey == right.TrailerKey;
 
     private static bool SameOptionals(MovieMetadata left, MovieMetadata right) =>
         Equals(left.ReleaseYear, right.ReleaseYear)
@@ -208,6 +240,7 @@ public sealed record MovieMetadata
         hash.Add(CollectionId);
         hash.Add(CollectionName);
         hash.Add(Signals);
+        hash.Add(TrailerKey);
         foreach (var director in Directors)
         {
             hash.Add(director);

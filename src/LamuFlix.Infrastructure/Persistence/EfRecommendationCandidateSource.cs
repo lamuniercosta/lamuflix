@@ -177,7 +177,8 @@ public sealed class EfRecommendationCandidateSource(
                 record.Writers.Select(writer => writer.Name),
                 collection?.Id,
                 collection?.Name,
-                Signals(record));
+                Signals(record),
+                record.TrailerKey);
 
         return Movie.Rehydrate(
             id: record.Id,
