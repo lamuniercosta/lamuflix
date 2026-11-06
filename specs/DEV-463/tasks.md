@@ -116,12 +116,12 @@ Phase 10  T026 → T027   (canonical Phase 5 delivery)
 
 **Purpose**: Harness + web verification against the task diff; thresholds only from harness.yml.
 
-- [ ] T018 **Gauge** confirms frozen scope only: edits limited to Q8 bounded file plan + generated artifacts + `CONTEXT.md` Trailer key; no new dependency/port/project/layer/preferences/CSP middleware/LocalPlay/secrets; no undocumented TMDb parameters (FR-015; Q8; SC-008)
-- [ ] T019 **Gauge** runs `./scripts/run-roslyn-analyzers.ps1` on explicit changed `.cs` set (FR-014; Q7)
-- [ ] T020 **Gauge** runs `./scripts/run-cyclomatic-complexity.ps1` then the refactor threshold from harness.yml on changed files (FR-014)
-- [ ] T021 **Gauge** runs `./scripts/run-jetbrains-inspectcode.ps1` on changed files (never `-All`) (FR-014; Q7)
-- [ ] T022 **Gauge** runs `dotnet format --verify-no-changes`; affected suites then full `dotnet test`; property/vulnerable-packages per harness; mutation `pwsh -NoProfile -File ./scripts/run-mutation.ps1` without `--since` from the worktree; report SKIP/SKIPPED/N/A/Could not run distinctly — never as PASS (FR-014; Q7; SC-008)
-- [ ] T023 **Gauge** runs applicable web-implement gates and `npm run check:api` / OpenAPI drift for generated artifacts (FR-011, FR-014; SC-006)
+- [X] T018 **Gauge** confirms frozen scope only: edits limited to Q8 bounded file plan + generated artifacts + `CONTEXT.md` Trailer key; no new dependency/port/project/layer/preferences/CSP middleware/LocalPlay/secrets; no undocumented TMDb parameters (FR-015; Q8; SC-008)
+- [X] T019 **Gauge** runs `./scripts/run-roslyn-analyzers.ps1` on explicit changed `.cs` set (FR-014; Q7)
+- [X] T020 **Gauge** runs `./scripts/run-cyclomatic-complexity.ps1` then the refactor threshold from harness.yml on changed files (FR-014)
+- [X] T021 **Gauge** runs `./scripts/run-jetbrains-inspectcode.ps1` on changed files (never `-All`) (FR-014; Q7)
+- [X] T022 **Gauge** runs `dotnet format --verify-no-changes`; affected suites then full `dotnet test`; property/vulnerable-packages per harness; mutation `pwsh -NoProfile -File ./scripts/run-mutation.ps1` without `--since` from the worktree; report SKIP/SKIPPED/N/A/Could not run distinctly — never as PASS (FR-014; Q7; SC-008)
+- [X] T023 **Gauge** runs applicable web-implement gates and `npm run check:api` / OpenAPI drift for generated artifacts (FR-011, FR-014; SC-006)
 
 ---
 
