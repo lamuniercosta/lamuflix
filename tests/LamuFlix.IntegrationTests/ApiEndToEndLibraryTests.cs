@@ -28,6 +28,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
     private const string GenresRoute = "/api/genres";
     private const string PeopleRoute = "/api/people?role=actor";
     private const int UnknownId = 999999;
+    private const string TrailerKey = "dQw4w9WgXcQ";
 
     [Fact]
     public async Task GetMovieDetails_KnownId_ReturnsTheFrozenScalarShape()
@@ -60,13 +61,61 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         body.GetProperty("path").GetString().ShouldBe("C:/library/library-details.mkv");
         body.GetProperty("format").GetString().ShouldBe("mkv");
         var metadata = body.GetProperty("metadata");
-        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
         metadata.GetProperty("title").GetString().ShouldBe("Heat");
         metadata.GetProperty("synopsis").GetString().ShouldBe("A thief steals the negatives.");
         metadata.GetProperty("releaseYear").GetInt32().ShouldBe(1995);
         metadata.GetProperty("runtime").GetInt32().ShouldBe(131);
         metadata.GetProperty("imdbRating").GetDecimal().ShouldBe(8.3m);
         metadata.GetProperty("imdbId").GetString().ShouldBe("tt0113277");
+    }
+
+    [Fact]
+    public async Task GetMovieDetails_PersistedValidTrailerKey_ReturnsItInsideNestedMetadata()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var movie = MovieCatalogSeed.Create("Heat", "details-trailer-present");
+        movie.MetadataTitle = "Heat";
+        movie.TrailerKey = TrailerKey;
+        await SeedAsync(movie);
+        var id = movie.Id.ShouldNotBeNull().Value;
+
+        // act
+        var response = await client.GetAsync(DetailsRoute(id), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "enrichmentStatus");
+        var metadata = body.GetProperty("metadata");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
+        metadata.GetProperty("trailerKey").ValueKind.ShouldBe(JsonValueKind.String);
+        metadata.GetProperty("trailerKey").GetString().ShouldBe(TrailerKey);
+    }
+
+    [Fact]
+    public async Task GetMovieDetails_NoPersistedTrailerKey_KeepsTrailerKeyPresentAsJsonNull()
+    {
+        // arrange
+        var client = await StartHostAsync();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var movie = MovieCatalogSeed.Create("Heat", "details-trailer-absent");
+        movie.MetadataTitle = "Heat";
+        await SeedAsync(movie);
+        var id = movie.Id.ShouldNotBeNull().Value;
+
+        // act
+        var response = await client.GetAsync(DetailsRoute(id), cancellationToken);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var metadata = body.GetProperty("metadata");
+        ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
+        metadata.TryGetProperty("trailerKey", out var trailerKey).ShouldBeTrue();
+        trailerKey.ValueKind.ShouldBe(JsonValueKind.Null);
     }
 
     [Fact]

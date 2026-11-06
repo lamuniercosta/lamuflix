@@ -18,6 +18,7 @@ const movieMetadataSchema = z.object({
   metaScore: z.union([z.number(), z.string()]).nullable(),
   directors: z.array(z.string()),
   actors: z.array(z.string()),
+  trailerKey: z.string().nullable(),
 }) satisfies z.ZodType<MovieMetadataResponse>;
 
 const movieDetailsSchema = z.object({

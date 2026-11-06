@@ -1580,7 +1580,8 @@
           "rottenTomatoesRating",
           "metaScore",
           "directors",
-          "actors"
+          "actors",
+          "trailerKey"
         ],
         "type": "object",
         "properties": {
@@ -1661,6 +1662,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "trailerKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
