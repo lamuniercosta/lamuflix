@@ -35,6 +35,7 @@ import {
 } from './movieDetailsQueries';
 import MatchManuallyDialog from './MatchManuallyDialog';
 import RelatedMovies from './RelatedMovies';
+import TrailerSection from './TrailerSection';
 import type { EnrichmentStatusSubscription } from '../../library/useEnrichmentStatus';
 import './MovieDetailsView.css';
 
@@ -677,6 +678,7 @@ function MovieDetailsViewInner({
       {selectedActor && selectedIds.length > 0 && (
         <MoreWithPanel actor={selectedActor} actorIds={selectedIds} movieId={movieId} />
       )}
+      <TrailerSection title={movie.title} metadata={metadata} />
       <RelatedMovies movieId={movieId} libraryClient={libraryClient} />
       <FileSection
         path={movie.path}
