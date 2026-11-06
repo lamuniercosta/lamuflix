@@ -36,7 +36,7 @@ Task IDs remain T000–T050 (51 tasks). Challenge repair clarifies wording; no I
 
 **Purpose**: After Gate 1 user approval and user-owned spec PR merge, confirm frozen brief/spec/plan/tasks still match landed main and contracts before any production edit. PLAN FROZEN is not Gate 1 approval.
 
-- [ ] T000 Obtain fresh Phase B pickup recon against picked HEAD / landed main for the authorized file set (Movie/Feedback/Recommendations/persistence/web library surfaces + OpenAPI chain). Run cross-artifact reanalysis of brief/spec/plan/tasks against landed main/contracts. Amend tasks only where authorized by demonstrated drift through the assigned workflow. **STOP** on unresolved drift or missing facts (`needs recon` / cited ruling) — do not invent substitutes. No production edits in this task (brief Phase B; plan Risks).
+- [X] T000 Obtain fresh Phase B pickup recon against picked HEAD / landed main for the authorized file set (Movie/Feedback/Recommendations/persistence/web library surfaces + OpenAPI chain). Run cross-artifact reanalysis of brief/spec/plan/tasks against landed main/contracts. Amend tasks only where authorized by demonstrated drift through the assigned workflow. **STOP** on unresolved drift or missing facts (`needs recon` / cited ruling) — do not invent substitutes. No production edits in this task (brief Phase B; plan Risks).
 
 ---
 
