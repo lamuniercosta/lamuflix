@@ -118,8 +118,8 @@ Task IDs remain T000–T050 (51 tasks). Challenge repair clarifies wording; no I
 
 **Purpose**: Delivery glossary/ADR presence, harness gates, honest live acceptance.
 
-- [ ] T039 Update root `CONTEXT.md` Feedback and Taste Profile definitions and add Review per brief Q8 glossary, distinguishing Review from external Rating and code review (FR-016; Constitution VIII; ASSUMPTIONS). Do not rewrite ADR 0034 body; after Gate 1 acceptance, owner/Keel records Accepted lifecycle on ADR 0034 (Proposed until then).
-- [ ] T040 Confirm frozen scope only: no new dependency/project/layer; no LocalPlay/secrets/`Process.Start`; no list-row redesign; no handwritten generated artifacts; no threshold edits (brief Out of scope)
+- [X] T039 Update root `CONTEXT.md` Feedback and Taste Profile definitions and add Review per brief Q8 glossary, distinguishing Review from external Rating and code review (FR-016; Constitution VIII; ASSUMPTIONS). Do not rewrite ADR 0034 body; after Gate 1 acceptance, owner/Keel records Accepted lifecycle on ADR 0034 (Proposed until then).
+- [X] T040 Confirm frozen scope only: no new dependency/project/layer; no LocalPlay/secrets/`Process.Start`; no list-row redesign; no handwritten generated artifacts; no threshold edits (brief Out of scope)
 - [ ] T041 Run `./scripts/run-roslyn-analyzers.ps1` on changed `.cs` set
 - [ ] T042 Run `./scripts/run-cyclomatic-complexity.ps1` then refactor threshold from harness.yml
 - [ ] T043 Run `./scripts/run-jetbrains-inspectcode.ps1` on changed files

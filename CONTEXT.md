@@ -141,10 +141,16 @@ A suggested library movie from the details page.
 A caller-safe explanation attached to a recommendation.
 
 **Taste Profile**
-A recency-weighted aggregate of the user's watched movies.
+An aggregate of viewing history and explicit review preferences: a recency-weighted aggregate of the user's watched movies, extended with separate liked and disliked Review aggregates over plot embedding, genres, cast, and director.
+_Avoid_: preferences snapshot, user profile, review history
 
 **Feedback**
-Explicit Watched / Not Interested marks.
+Explicit Watched and Review actions about a movie.
+_Avoid_: Not interested (as an independent state), marks, flags
+
+**Review**
+An explicit opinion about a movie with state `None`, `Liked`, or `Disliked`, independent of watching and watchlist intent. A movie holds one Review; selecting the active thumb clears it to `None`, selecting the opposite thumb switches directly. Persisted by Value and exposed on the wire by the lowercase Name (`none` / `liked` / `disliked`). Legacy Not interested routes and flags are compatibility projections of `Disliked`, never a second source of truth. Distinct from the external metadata Rating (IMDb/TMDb star value) and from an engineering code review.
+_Avoid_: Rating, score, vote, reaction, like/dislike flag, code review
 
 **Mutant linkage**
 Whether the mutant Stryker activates is the one executing inside the process that runs the tests. A broken linkage makes every mutant survive regardless of test quality (DEV-382).
