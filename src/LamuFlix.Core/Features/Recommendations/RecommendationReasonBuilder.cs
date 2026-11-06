@@ -54,12 +54,7 @@ public static class RecommendationReasonBuilder
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(options);
 
-        if (options.LikedReviewWeight <= 0.0
-            || options.BlendProfileWeight <= 0.0
-            || !reviewAffinity.HasReviewChannel
-            || reviewAffinity.LikedAffinity <= 0.0
-            || profileContribution <= 0.0
-            || reviewAffinity.LikedSource is not { } source)
+        if (!IsEligible(reviewAffinity, profileContribution, options, out var source))
         {
             return;
         }
@@ -73,6 +68,30 @@ public static class RecommendationReasonBuilder
         builder.Add(Reason.Personal(
             string.Format(CultureInfo.InvariantCulture, LikedReviewTemplate, display)));
     }
+
+    private static bool IsEligible(
+        ReviewAffinityEvidence reviewAffinity,
+        double profileContribution,
+        RecommendationOptions options,
+        out LikedSourceEvidence source)
+    {
+        if (WeightsEnabled(options)
+            && ChannelReady(reviewAffinity, profileContribution)
+            && reviewAffinity.LikedSource is { } liked)
+        {
+            source = liked;
+            return true;
+        }
+
+        source = default;
+        return false;
+    }
+
+    private static bool WeightsEnabled(RecommendationOptions options) =>
+        options.LikedReviewWeight > 0.0 && options.BlendProfileWeight > 0.0;
+
+    private static bool ChannelReady(ReviewAffinityEvidence reviewAffinity, double profileContribution) =>
+        reviewAffinity.HasReviewChannel && reviewAffinity.LikedAffinity > 0.0 && profileContribution > 0.0;
 
     private static string Sanitize(string? value)
     {

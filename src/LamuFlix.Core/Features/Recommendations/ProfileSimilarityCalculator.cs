@@ -105,23 +105,40 @@ public static class ProfileSimilarityCalculator
 
         foreach (var source in sources)
         {
-            var affinity = Affinity(candidate, source.Channels, weights, genreWeights);
-
-            if (!affinity.HasChannel || affinity.Value <= 0.0)
-            {
-                continue;
-            }
-
-            if (best is { } current && !IsImproved(affinity.Value, source.MovieId, current))
-            {
-                continue;
-            }
-
-            best = new LikedSourceEvidence(source.MovieId, source.Title, affinity.Value);
+            best = NextBest(best, candidate, source, weights, genreWeights);
         }
 
         return best;
     }
+
+    private static LikedSourceEvidence? NextBest(
+        LikedSourceEvidence? current,
+        CandidateChannels candidate,
+        LikedReviewSource source,
+        SimilarityWeights weights,
+        GenreWeights genreWeights)
+    {
+        var affinity = Affinity(candidate, source.Channels, weights, genreWeights);
+
+        if (IsSkipped(affinity))
+        {
+            return current;
+        }
+
+        if (current is not { } incumbent)
+        {
+            return new LikedSourceEvidence(source.MovieId, source.Title, affinity.Value);
+        }
+
+        if (!IsImproved(affinity.Value, source.MovieId, incumbent))
+        {
+            return current;
+        }
+
+        return new LikedSourceEvidence(source.MovieId, source.Title, affinity.Value);
+    }
+
+    private static bool IsSkipped(AffinityResult affinity) => !affinity.HasChannel || affinity.Value <= 0.0;
 
     private static bool IsImproved(double affinity, MovieId movieId, LikedSourceEvidence current)
     {
@@ -144,42 +161,62 @@ public static class ProfileSimilarityCalculator
             channelWeights,
             ref count,
             weights.ReviewPlotWeight,
-            TryPlotSimilarity(candidate.Embedding, channels.PlotEmbedding, out var plot) ? plot : double.NaN);
+            PlotChannel(candidate, channels));
 
         Accumulate(
             similarities,
             channelWeights,
             ref count,
             weights.Genres,
-            TryWeightedJaccard(
-                candidate.Genres,
-                channels.Genres,
-                genreWeights.GetWeight,
-                out var genres)
-                ? genres
-                : double.NaN);
+            GenreChannel(candidate, channels, genreWeights));
 
         Accumulate(
             similarities,
             channelWeights,
             ref count,
             weights.Cast,
-            TryWeightedJaccard(candidate.Cast, channels.Cast, UnitWeight, out var cast) ? cast : double.NaN);
+            CastChannel(candidate, channels));
 
         Accumulate(
             similarities,
             channelWeights,
             ref count,
             weights.Director,
-            TryWeightedJaccard(candidate.Directors, channels.Directors, UnitWeight, out var directors)
-                ? directors
-                : double.NaN);
+            DirectorChannel(candidate, channels));
 
         if (count == 0)
         {
             return new AffinityResult(0.0, false);
         }
 
+        return Combine(similarities, channelWeights, count);
+    }
+
+    private static double PlotChannel(CandidateChannels candidate, ReviewProfileChannels channels) =>
+        TryPlotSimilarity(candidate.Embedding, channels.PlotEmbedding, out var plot) ? plot : double.NaN;
+
+    private static double GenreChannel(
+        CandidateChannels candidate,
+        ReviewProfileChannels channels,
+        GenreWeights genreWeights) =>
+        TryWeightedJaccard(
+            candidate.Genres,
+            channels.Genres,
+            genreWeights.GetWeight,
+            out var genres)
+            ? genres
+            : double.NaN;
+
+    private static double CastChannel(CandidateChannels candidate, ReviewProfileChannels channels) =>
+        TryWeightedJaccard(candidate.Cast, channels.Cast, UnitWeight, out var cast) ? cast : double.NaN;
+
+    private static double DirectorChannel(CandidateChannels candidate, ReviewProfileChannels channels) =>
+        TryWeightedJaccard(candidate.Directors, channels.Directors, UnitWeight, out var directors)
+            ? directors
+            : double.NaN;
+
+    private static AffinityResult Combine(Span<double> similarities, Span<double> channelWeights, int count)
+    {
         var totalWeight = 0.0;
         var numerator = 0.0;
 
@@ -324,17 +361,10 @@ public static class ProfileSimilarityCalculator
 
         foreach (var genre in candidateGenres)
         {
-            if (string.IsNullOrWhiteSpace(genre))
+            if (TryMatchGenre(genre, preferences, out var normalized))
             {
-                continue;
+                matched.Add(normalized);
             }
-
-            if (!preferences.TryGetValue(genre.Trim(), out var preference) || preference <= 0.0)
-            {
-                continue;
-            }
-
-            matched.Add(genre.Trim());
         }
 
         return
@@ -344,6 +374,29 @@ public static class ProfileSimilarityCalculator
                 .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(genre => genre, StringComparer.Ordinal),
         ];
+    }
+
+    private static bool TryMatchGenre(
+        string? genre,
+        ImmutableDictionary<string, double> preferences,
+        out string normalized)
+    {
+        normalized = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(genre))
+        {
+            return false;
+        }
+
+        var trimmed = genre.Trim();
+
+        if (!preferences.TryGetValue(trimmed, out var preference) || preference <= 0.0)
+        {
+            return false;
+        }
+
+        normalized = trimmed;
+        return true;
     }
 
     private static bool TryPlotSimilarity(

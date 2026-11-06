@@ -735,39 +735,11 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     private static TasteProfileMovie PlayedHistory(int id, params string[] genres) =>
         new(new MovieId(id), [.. genres], [], [Now], IsWatched: false);
 
-    private static MovieSummary Summary(Movie movie, bool? isNotInterested = null)
-    {
-        var metadata = movie.Metadata;
-        var review = isNotInterested is null
-            ? movie.Review
-            : isNotInterested.Value ? Review.Disliked : Review.None;
-        if (metadata is null)
-        {
-            return new MovieSummary(
-                movie.Id,
-                movie.Title,
-                null,
-                null,
-                null,
-                null,
-                movie.Status,
-                movie.IsInWatchlist,
-                movie.IsWatched,
-                review);
-        }
+    private static MovieSummary Summary(Movie movie, bool? isNotInterested = null) =>
+        MovieSummaryMapper.From(movie) with { Review = ResolveReview(movie, isNotInterested) };
 
-        return new MovieSummary(
-            movie.Id,
-            movie.Title,
-            metadata.PosterUrl,
-            metadata.ReleaseYear?.Value,
-            metadata.Runtime?.Minutes,
-            metadata.ImdbRating?.Value,
-            movie.Status,
-            movie.IsInWatchlist,
-            movie.IsWatched,
-            review);
-    }
+    private static Review ResolveReview(Movie movie, bool? isNotInterested) =>
+        isNotInterested is null ? movie.Review : isNotInterested.Value ? Review.Disliked : Review.None;
 
     private static Movie NewMovie(
         int id,
@@ -787,16 +759,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     {
         var movieTitle = title ?? $"Movie {id}";
         var metadata = withMetadata
-            ? new MovieMetadata(
-                movieTitle,
-                posterUrl: posterUrl,
-                releaseYear: releaseYear is null ? null : new ReleaseYear(releaseYear.Value, Now),
-                runtime: runtimeMinutes is null ? null : new Runtime(runtimeMinutes.Value),
-                imdbRating: imdbRating is null ? null : new ImdbRating(imdbRating.Value),
-                directors: directors,
-                actors: actors,
-                genres: genres,
-                writers: writers)
+            ? BuildMetadata(movieTitle, posterUrl, releaseYear, runtimeMinutes, imdbRating, genres, directors, actors, writers)
             : null;
 
         return Movie.Rehydrate(
@@ -814,6 +777,27 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             isWatched: isWatched,
             review: isNotInterested ? Review.Disliked : Review.None);
     }
+
+    private static MovieMetadata? BuildMetadata(
+        string movieTitle,
+        string? posterUrl,
+        int? releaseYear,
+        int? runtimeMinutes,
+        decimal? imdbRating,
+        string[]? genres,
+        string[]? directors,
+        string[]? actors,
+        string[]? writers) =>
+        new(
+            movieTitle,
+            posterUrl: posterUrl,
+            releaseYear: releaseYear is null ? null : new ReleaseYear(releaseYear.Value, Now),
+            runtime: runtimeMinutes is null ? null : new Runtime(runtimeMinutes.Value),
+            imdbRating: imdbRating is null ? null : new ImdbRating(imdbRating.Value),
+            directors: directors,
+            actors: actors,
+            genres: genres,
+            writers: writers);
 }
 
 public sealed class GetForYouRecommendationsQueryHandlerPropertyTests

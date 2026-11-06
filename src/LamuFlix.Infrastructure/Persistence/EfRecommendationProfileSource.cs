@@ -109,9 +109,21 @@ public sealed class EfRecommendationProfileSource(
         ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>> launches,
         CancellationToken ct)
     {
-        var launchedIds = launches.Keys.ToList();
+        var rows = await QueryProfileRowsAsync([.. launches.Keys], ct);
 
-        var rows = await db.Movies
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        var plotEmbeddings = await ReadEmbeddingsAsync([.. rows.Select(row => row.Id).OfType<MovieId>()], ct);
+        return BuildProfileMovies(rows, launches, plotEmbeddings);
+    }
+
+    private async Task<List<Records.MovieRecord>> QueryProfileRowsAsync(
+        List<MovieId> launchedIds,
+        CancellationToken ct) =>
+        await db.Movies
             .AsNoTracking()
             .Include(movie => movie.Genres)
             .Include(movie => movie.Directors)
@@ -124,12 +136,11 @@ public sealed class EfRecommendationProfileSource(
             .OrderBy(movie => movie.Id)
             .ToListAsync(ct);
 
-        if (rows.Count == 0)
-        {
-            return [];
-        }
-
-        var plotEmbeddings = await ReadEmbeddingsAsync([.. rows.Select(row => row.Id).OfType<MovieId>()], ct);
+    private static ImmutableArray<TasteProfileMovie> BuildProfileMovies(
+        List<Records.MovieRecord> rows,
+        ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>> launches,
+        ImmutableDictionary<MovieId, ImmutableArray<float>> plotEmbeddings)
+    {
         var builder = ImmutableArray.CreateBuilder<TasteProfileMovie>(rows.Count);
 
         foreach (var row in rows)
