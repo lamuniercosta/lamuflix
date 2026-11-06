@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
@@ -76,7 +76,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             Format = new MediaFormat("mkv"),
             IsInWatchlist = true,
             IsWatched = true,
-            IsNotInterested = true,
+            Review = Review.Disliked,
             Status = EnrichmentStatus.Enriched,
             EnrichedAt = Now.AddDays(-1),
             EnrichmentAttempts = 2,
@@ -141,7 +141,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         full.Format.ShouldBe(new MediaFormat("mkv"));
         full.IsInWatchlist.ShouldBeTrue();
         full.IsWatched.ShouldBeTrue();
-        full.IsNotInterested.ShouldBeTrue();
+        full.Review.ShouldBe(Review.Disliked);
         full.Status.ShouldBe(EnrichmentStatus.Enriched);
         full.EnrichedAt.ShouldBe(Now.AddDays(-1));
         full.EnrichmentAttempts.ShouldBe(2);
@@ -674,7 +674,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         actual.ParsedReleaseYear.ShouldBe(expected.ParsedReleaseYear);
         actual.IsInWatchlist.ShouldBe(expected.IsInWatchlist);
         actual.IsWatched.ShouldBe(expected.IsWatched);
-        actual.IsNotInterested.ShouldBe(expected.IsNotInterested);
+        actual.Review.ShouldBe(expected.Review);
         actual.Status.ShouldBe(expected.Status);
         actual.EnrichedAt.ShouldBe(expected.EnrichedAt);
         actual.EnrichmentAttempts.ShouldBe(expected.EnrichmentAttempts);
@@ -778,7 +778,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
             parsedReleaseYear: parsedReleaseYear,
             manualImdbId: manualImdbId,
             isWatched: isWatched,
-            isNotInterested: isNotInterested);
+            review: isNotInterested ? Review.Disliked : Review.None);
         await repository.AddAsync(movie, ct);
         await repository.SaveChangesAsync(ct);
         return movie.Id;

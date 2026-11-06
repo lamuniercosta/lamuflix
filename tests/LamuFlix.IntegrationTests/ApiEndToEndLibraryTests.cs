@@ -507,7 +507,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
     {
         var movie = MovieCatalogSeed.Create("Feedback Flags", pathSuffix);
         movie.IsWatched = flags[(int)MovieFlag.Watched];
-        movie.IsNotInterested = flags[(int)MovieFlag.NotInterested];
+        movie.Review = flags[(int)MovieFlag.NotInterested] ? Review.Disliked : Review.None;
         movie.IsInWatchlist = flags[(int)MovieFlag.Watchlist];
         return await SeedAsync(movie);
     }
@@ -524,11 +524,11 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
             .Select(movie => new
             {
                 movie.IsWatched,
-                movie.IsNotInterested,
+                movie.Review,
                 movie.IsInWatchlist,
             })
             .SingleAsync(cancellationToken);
-        return (persisted.IsWatched, persisted.IsNotInterested, persisted.IsInWatchlist);
+        return (persisted.IsWatched, persisted.Review == Review.Disliked, persisted.IsInWatchlist);
     }
 
     private static string DetailsRoute(int id) => $"/api/movies/{id}";

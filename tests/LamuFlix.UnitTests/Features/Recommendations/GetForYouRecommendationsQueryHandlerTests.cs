@@ -486,7 +486,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             EnrichmentStatus.Enriched,
             true,
             false,
-            false);
+            Review.None);
         result[0].Summary.ShouldBe(expected);
     }
 
@@ -738,7 +738,9 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     private static MovieSummary Summary(Movie movie, bool? isNotInterested = null)
     {
         var metadata = movie.Metadata;
-        var notInterested = isNotInterested ?? movie.IsNotInterested;
+        var review = isNotInterested is null
+            ? movie.Review
+            : isNotInterested.Value ? Review.Disliked : Review.None;
         if (metadata is null)
         {
             return new MovieSummary(
@@ -751,7 +753,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
                 movie.Status,
                 movie.IsInWatchlist,
                 movie.IsWatched,
-                notInterested);
+                review);
         }
 
         return new MovieSummary(
@@ -764,7 +766,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             movie.Status,
             movie.IsInWatchlist,
             movie.IsWatched,
-            notInterested);
+            review);
     }
 
     private static Movie NewMovie(
@@ -810,7 +812,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             null,
             null,
             isWatched: isWatched,
-            isNotInterested: isNotInterested);
+            review: isNotInterested ? Review.Disliked : Review.None);
     }
 }
 
@@ -985,7 +987,7 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
                 movie.Status,
                 movie.IsInWatchlist,
                 movie.IsWatched,
-                movie.IsNotInterested);
+                movie.Review);
         }
 
         return new(
@@ -998,7 +1000,7 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
             movie.Status,
             movie.IsInWatchlist,
             movie.IsWatched,
-            movie.IsNotInterested);
+            movie.Review);
     }
 
     private static Movie[] BuildLibrary(int[] ids, bool[]? notInterested = null)
@@ -1059,6 +1061,6 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
             null,
             null,
             isWatched: isWatched,
-            isNotInterested: isNotInterested);
+            review: isNotInterested ? Review.Disliked : Review.None);
     }
 }

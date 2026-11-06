@@ -69,7 +69,7 @@ public sealed class RescanMovieCommandHandlerTests
             lastAttemptAt: Now,
             parsedReleaseYear: new ReleaseYear(1995, Now),
             isWatched: true,
-            isNotInterested: true);
+            review: Review.Disliked);
         movies.GetAsync(id, ct).Returns(movie);
         scanner.ResolvePrimaryVideo(movie.Path).Returns(Primary(movie.Path, "mkv"));
 

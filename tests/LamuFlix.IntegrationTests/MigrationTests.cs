@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -89,7 +89,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(14);
+        migrations.Length.ShouldBe(15);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -104,6 +104,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         migrations[11].ShouldEndWith("_AddTmdbRecommendationSignals");
         migrations[12].ShouldEndWith("_AddEnrichmentDeferredUntil");
         migrations[13].ShouldEndWith("_AddMovieTrailerKey");
+        migrations[14].ShouldEndWith("_AddExplicitMovieReviews");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -138,7 +139,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddMovieTrailerKey");
+        applied[^1].ShouldEndWith("_AddExplicitMovieReviews");
         var rows = await context.Movies.AsNoTracking()
             .OrderBy(movie => movie.Title)
             .ToListAsync(cancellationToken);
@@ -150,7 +151,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
             row.Format.Extension.ShouldBe(movie.Format);
             row.Status.Value.ShouldBe(movie.Status);
             row.IsWatched.ShouldBeFalse();
-            row.IsNotInterested.ShouldBeFalse();
+            row.Review.ShouldBe(Review.None);
         }
 
         await AssertFeedbackColumnsAsync(catalog, cancellationToken);
@@ -178,7 +179,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
                 Format = new MediaFormat("mkv"),
                 Status = EnrichmentStatus.Pending,
                 IsWatched = true,
-                IsNotInterested = true,
+                Review = Review.Disliked,
                 IsInWatchlist = true,
             },
             new MovieRecord
@@ -204,7 +205,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         applied[1].ShouldEndWith("_AddMovieWriters");
         var priorColumns = await catalog.ListColumnsAsync("movies", cancellationToken);
         priorColumns.ShouldBe(
-            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id" and not "enrichment_deferred_until" and not "trailer_key"),
+            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id" and not "enrichment_deferred_until" and not "trailer_key" and not "review"),
             ignoreOrder: true);
         priorColumns.ShouldNotContain("is_watched");
         priorColumns.ShouldNotContain("is_not_interested");
@@ -213,6 +214,81 @@ public sealed class MigrationTests(PostgresFixture fixture)
         var rows = await catalog.ListLegacyMoviesAsync(cancellationToken);
         rows.ShouldBe(expected, ignoreOrder: true);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MigrateAsync_AddExplicitMovieReviews_BackfillsDislikedThenDropsLegacyColumn()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var catalog = new PostgresCatalog(context);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync("20261102185106_AddEnrichmentDeferredUntil", cancellationToken);
+        await context.Database.ExecuteSqlRawAsync(
+            "INSERT INTO movies (title, library_path, format, status, enrichment_attempts, is_in_watchlist, is_watched, is_not_interested) VALUES ('Legacy disliked', 'C:/library/legacy-disliked.mkv', 'mkv', 1, 0, false, false, true)",
+            cancellationToken);
+        await context.Database.ExecuteSqlRawAsync(
+            "INSERT INTO movies (title, library_path, format, status, enrichment_attempts, is_in_watchlist, is_watched, is_not_interested) VALUES ('Legacy neutral', 'C:/library/legacy-neutral.mkv', 'mkv', 1, 0, false, true, false)",
+            cancellationToken);
+
+        // act
+        await migrator.MigrateAsync(null, cancellationToken);
+
+        // assert
+        var reviews = await catalog.ListMovieReviewsByTitleAsync(cancellationToken);
+        reviews["Legacy disliked"].ShouldBe(2);
+        reviews["Legacy neutral"].ShouldBe(0);
+        (await catalog.ListColumnsAsync("movies", cancellationToken)).ShouldNotContain("is_not_interested");
+        (await catalog.ListColumnsAsync("movies", cancellationToken)).ShouldContain("review");
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task MigrateAsync_AddExplicitMovieReviewsRolledBack_IsLossyForLikedReview()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        var catalog = new PostgresCatalog(context);
+        var migrator = context.Database.GetService<IMigrator>();
+        await migrator.MigrateAsync(null, cancellationToken);
+        context.Movies.AddRange(
+            new MovieRecord
+            {
+                Title = "Review disliked",
+                LibraryPath = new LibraryPath("C:/library/review-disliked.mkv"),
+                Format = new MediaFormat("mkv"),
+                Status = EnrichmentStatus.Enriched,
+                Review = Review.Disliked,
+            },
+            new MovieRecord
+            {
+                Title = "Review liked",
+                LibraryPath = new LibraryPath("C:/library/review-liked.mkv"),
+                Format = new MediaFormat("mkv"),
+                Status = EnrichmentStatus.Enriched,
+                Review = Review.Liked,
+            },
+            new MovieRecord
+            {
+                Title = "Review none",
+                LibraryPath = new LibraryPath("C:/library/review-none.mkv"),
+                Format = new MediaFormat("mkv"),
+                Status = EnrichmentStatus.Enriched,
+            });
+        await context.SaveChangesAsync(cancellationToken);
+
+        // act
+        await migrator.MigrateAsync("20261102185106_AddEnrichmentDeferredUntil", cancellationToken);
+
+        // assert
+        var flags = await catalog.ListLegacyNotInterestedByTitleAsync(cancellationToken);
+        flags["Review disliked"].ShouldBeTrue();
+        flags["Review liked"].ShouldBeFalse();
+        flags["Review none"].ShouldBeFalse();
+        (await catalog.ListColumnsAsync("movies", cancellationToken)).ShouldNotContain("review");
+        (await catalog.ListColumnsAsync("movies", cancellationToken)).ShouldContain("is_not_interested");
     }
 
     [Fact]
@@ -232,7 +308,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddMovieTrailerKey");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddExplicitMovieReviews");
     }
 
     [Fact]
@@ -497,13 +573,11 @@ public sealed class MigrationTests(PostgresFixture fixture)
         CancellationToken cancellationToken)
     {
         var columns = await catalog.ListMovieFeedbackColumnsAsync(cancellationToken);
-        columns.Count.ShouldBe(2);
-        columns.Select(column => column.Name).ShouldBe(["is_not_interested", "is_watched"], ignoreOrder: true);
-        foreach (var column in columns)
-        {
-            column.IsNullable.ShouldBeFalse($"Column movies.{column.Name} must be NOT NULL.");
-            column.DefaultValue.ShouldBe("false", $"Column movies.{column.Name} must default to false.");
-        }
+        columns.Count.ShouldBe(1);
+        columns.Select(column => column.Name).ShouldBe(["is_watched"], ignoreOrder: true);
+        var watched = columns.Single();
+        watched.IsNullable.ShouldBeFalse("Column movies.is_watched must be NOT NULL.");
+        watched.DefaultValue.ShouldBe("false", "Column movies.is_watched must default to false.");
     }
 
     private sealed record LegacyMovie(string Title, string LibraryPath, string Format, int Status);
@@ -761,6 +835,36 @@ public sealed class MigrationTests(PostgresFixture fixture)
                     reader.GetString(0),
                     reader.GetString(1) == "YES",
                     reader.IsDBNull(2) ? null : reader.GetString(2)));
+            }
+
+            return values;
+        }
+
+        public async Task<Dictionary<string, int>> ListMovieReviewsByTitleAsync(CancellationToken cancellationToken)
+        {
+            var values = new Dictionary<string, int>(StringComparer.Ordinal);
+            await using var command = await CreateCommandAsync(
+                "SELECT title, review FROM movies",
+                cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                values[reader.GetString(0)] = reader.GetInt32(1);
+            }
+
+            return values;
+        }
+
+        public async Task<Dictionary<string, bool>> ListLegacyNotInterestedByTitleAsync(CancellationToken cancellationToken)
+        {
+            var values = new Dictionary<string, bool>(StringComparer.Ordinal);
+            await using var command = await CreateCommandAsync(
+                "SELECT title, is_not_interested FROM movies",
+                cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                values[reader.GetString(0)] = reader.GetBoolean(1);
             }
 
             return values;

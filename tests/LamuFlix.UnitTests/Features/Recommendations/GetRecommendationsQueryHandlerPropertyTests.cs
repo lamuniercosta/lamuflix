@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -536,7 +536,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
                 1,
                 null,
                 null,
-                isNotInterested: isNotInterested);
+                review: isNotInterested ? Review.Disliked : Review.None);
         }
 
         var metadata = new MovieMetadata(
@@ -564,7 +564,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
             1,
             null,
             null,
-            isNotInterested: isNotInterested);
+            review: isNotInterested ? Review.Disliked : Review.None);
     }
 
     private static string[] Genres(long magnitude)

@@ -195,7 +195,7 @@ public sealed class EfRecommendationCandidateSource(
             parsedReleaseYear: record.ParsedReleaseYear,
             manualImdbId: record.ManualImdbId,
             isWatched: record.IsWatched,
-            isNotInterested: record.IsNotInterested);
+            review: record.Review);
     }
 
     private static (int Id, string Name)? CollectionIdentity(MovieRecord record) =>

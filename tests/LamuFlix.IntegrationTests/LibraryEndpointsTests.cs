@@ -924,7 +924,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             null,
             true,
             false,
-            false,
+            Review.None,
             EnrichmentStatus.NotFound);
 
     private static MovieDetails DetailsWithFullMetadata() =>
@@ -943,7 +943,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 trailerKey: TrailerKey),
             true,
             false,
-            false,
+            Review.None,
             EnrichmentStatus.Enriched);
 
     private static MovieDetails DetailsWithSparseMetadata() =>
@@ -955,7 +955,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             new MovieMetadata("Heat"),
             false,
             false,
-            false,
+            Review.None,
             EnrichmentStatus.Enriched);
 
     private static MovieQuery Accepted() => new()
@@ -994,7 +994,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
             ct.ThrowIfCancellationRequested();
             Queries.Add(query);
             return Task.FromResult(
-                new PagedResult<MovieSummary>([new MovieSummary(new MovieId(1), "Heat", null, null, null, null, EnrichmentStatus.Pending, true, false, false)], 1));
+                new PagedResult<MovieSummary>([new MovieSummary(new MovieId(1), "Heat", null, null, null, null, EnrichmentStatus.Pending, true, false, Review.None)], 1));
         }
 
         public Task<MovieDetails?> GetDetailsAsync(MovieId id, CancellationToken ct)

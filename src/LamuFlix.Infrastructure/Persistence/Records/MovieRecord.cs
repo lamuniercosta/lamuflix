@@ -18,7 +18,7 @@ public sealed class MovieRecord
 
     public bool IsWatched { get; set; }
 
-    public bool IsNotInterested { get; set; }
+    public Review Review { get; set; } = Review.None;
 
     public required EnrichmentStatus Status { get; set; }
 

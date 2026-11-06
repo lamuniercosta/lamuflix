@@ -33,7 +33,7 @@ public sealed class MarkNotInterestedCommandHandlerTests
 
         // assert
         result.ShouldBe(Unit.Value);
-        movie.IsNotInterested.ShouldBeTrue();
+        movie.Review.ShouldBe(Review.Disliked);
         movie.IsWatched.ShouldBeFalse();
         movie.IsInWatchlist.ShouldBeFalse();
         await movies.Received(1).SaveChangesAsync(ct);
@@ -88,6 +88,25 @@ public sealed class MarkNotInterestedCommandHandlerTests
 
         // assert
         await movies.Received(1).GetAsync(movie.Id, ct);
+        await movies.Received(1).SaveChangesAsync(ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_LikedMovie_SetsDislikedDirectly()
+    {
+        // arrange
+        var movie = PendingMovie();
+        movie.AssignReview(Review.Liked);
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+
+        // act
+        await handler.HandleAsync(new MarkNotInterestedCommand(movie.Id), ct);
+
+        // assert
+        movie.Review.ShouldBe(Review.Disliked);
+        movie.IsWatched.ShouldBeFalse();
+        movie.IsInWatchlist.ShouldBeFalse();
         await movies.Received(1).SaveChangesAsync(ct);
     }
 

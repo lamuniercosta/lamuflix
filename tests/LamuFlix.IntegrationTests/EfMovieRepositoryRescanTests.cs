@@ -56,7 +56,7 @@ public sealed class EfMovieRepositoryRescanTests(PostgresFixture fixture) : IAsy
         row.ParsedReleaseYear.ShouldBe(new ReleaseYear(1995, Now));
         row.IsInWatchlist.ShouldBeTrue();
         row.IsWatched.ShouldBeTrue();
-        row.IsNotInterested.ShouldBeTrue();
+        row.Review.ShouldBe(Review.Disliked);
         row.Status.ShouldBe(EnrichmentStatus.Enriched);
         row.EnrichedAt.ShouldBe(Now);
         row.EnrichmentAttempts.ShouldBe(3);
@@ -135,7 +135,7 @@ public sealed class EfMovieRepositoryRescanTests(PostgresFixture fixture) : IAsy
         record.ParsedReleaseYear = new ReleaseYear(1995, Now);
         record.IsInWatchlist = true;
         record.IsWatched = true;
-        record.IsNotInterested = true;
+        record.Review = Review.Disliked;
         record.Status = EnrichmentStatus.Enriched;
         record.EnrichedAt = Now;
         record.EnrichmentAttempts = 3;

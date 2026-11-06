@@ -92,6 +92,46 @@ public sealed class UnmarkNotInterestedCommandHandlerTests
         await movies.Received(1).SaveChangesAsync(ct);
     }
 
+    [Fact]
+    public async Task HandleAsync_LikedMovie_KeepsConflictAndPreservesLikedReview()
+    {
+        // arrange
+        var movie = PendingMovie();
+        movie.AssignReview(Review.Liked);
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+
+        // act
+        var thrown = await Should.ThrowAsync<InvalidTransitionException>(
+            () => handler.HandleAsync(new UnmarkNotInterestedCommand(movie.Id), ct));
+
+        // assert
+        thrown.Action.ShouldBe(nameof(Movie.UnmarkNotInterested));
+        movie.Review.ShouldBe(Review.Liked);
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_DislikedMovie_ClearsOnlyTheDislikedReview()
+    {
+        // arrange
+        var movie = PendingMovie();
+        movie.AssignReview(Review.Disliked);
+        movie.MarkWatched();
+        movie.AddToWatchlist();
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+
+        // act
+        await handler.HandleAsync(new UnmarkNotInterestedCommand(movie.Id), ct);
+
+        // assert
+        movie.Review.ShouldBe(Review.None);
+        movie.IsWatched.ShouldBeTrue();
+        movie.IsInWatchlist.ShouldBeTrue();
+        await movies.Received(1).SaveChangesAsync(ct);
+    }
+
     private Movie PendingMovie()
     {
         var title = Faker.Lorem.GetFirstWord();

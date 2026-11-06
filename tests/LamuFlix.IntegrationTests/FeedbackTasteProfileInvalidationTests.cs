@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
@@ -174,7 +175,7 @@ public sealed class FeedbackTasteProfileInvalidationTests(PostgresFixture fixtur
         // assert
         await using var verify = fixture.CreateMigratedContext();
         var persisted = await verify.Movies.SingleAsync(row => row.Id == target, ct);
-        persisted.IsNotInterested.ShouldBeTrue();
+        persisted.Review.ShouldBe(Review.Disliked);
     }
 
     [Fact]
