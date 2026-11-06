@@ -54,10 +54,6 @@ public sealed record MovieMetadata
         TrailerKey = trailerKey;
     }
 
-    /// <summary>
-    /// True when the candidate is exactly 11 ASCII letters, digits, underscores or hyphens: the shape of a
-    /// YouTube video identifier. The single C# definition of the Trailer key boundary, reused by the TMDb selector.
-    /// </summary>
     public static bool IsValidTrailerKey(string? candidate)
     {
         if (candidate is null || candidate.Length != TrailerKeyLength)
@@ -153,7 +149,6 @@ public sealed record MovieMetadata
 
     public MovieSignalSnapshot? Signals { get; }
 
-    /// <summary>The validated YouTube video identifier selected during enrichment; null when no trailer is known.</summary>
     public string? TrailerKey { get; }
 
     public MovieMetadata WithSignals(MovieSignalSnapshot? signals) =>

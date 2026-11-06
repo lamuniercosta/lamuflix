@@ -127,7 +127,6 @@ public sealed partial class TmdbMetadataProvider
         }
     }
 
-    /// <summary>The selector input: one TMDb video entry already reduced to the fields selection needs.</summary>
     internal readonly record struct TrailerCandidate(
         string? Key,
         string? Site,
@@ -136,9 +135,6 @@ public sealed partial class TmdbMetadataProvider
         string? Language,
         string? Region);
 
-    /// <summary>
-    /// Pure, provider-independent Trailer key selection over the union of the documented videos requests.
-    /// </summary>
     internal static class TrailerSelector
     {
         private const string YouTubeSite = "YouTube";
