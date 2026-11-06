@@ -74,7 +74,7 @@ public static class RecommendationReasonBuilder
             string.Format(CultureInfo.InvariantCulture, LikedReviewTemplate, display)));
     }
 
-    public static string Sanitize(string? value)
+    private static string Sanitize(string? value)
     {
         if (value is null)
         {

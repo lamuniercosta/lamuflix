@@ -481,4 +481,49 @@ describe('ForYouRail shared feedback row', () => {
     );
     expect(calls).toBe(2);
   });
+
+  it('SMOKE-003 reranks the For You shelf after a like without fabricated reasons', async () => {
+    // arrange
+    let calls = 0;
+    server.use(
+      http.get('*/api/recommendations/for-you', () => {
+        calls += 1;
+        if (calls === 1) {
+          return HttpResponse.json([
+            recommendation({ id: 7, title: 'The Batman' }),
+            recommendation({ id: 8, title: 'Sicario' }),
+          ]);
+        }
+        return HttpResponse.json([
+          recommendation({
+            id: 8,
+            title: 'Sicario',
+            review: 'liked',
+            reasons: [{ kind: 'personal', text: 'Because you liked Sicario' }],
+          }),
+          recommendation({ id: 7, title: 'The Batman' }),
+        ]);
+      }),
+      http.put('*/api/movies/:id/review', () => new HttpResponse(null, { status: 204 })),
+    );
+    renderRail();
+    await screen.findByRole('link', { name: /The Batman/ });
+
+    // act
+    fireEvent.click(screen.getByRole('button', { name: 'Like, Sicario' }));
+
+    // assert
+    const region = await screen.findByRole('region', { name: 'For You' });
+    await waitFor(() => {
+      const items = within(region).getAllByRole('listitem');
+      expect(items.map((item) => item.querySelector('.movie-card-title')?.textContent)).toEqual([
+        'Sicario',
+        'The Batman',
+      ]);
+    });
+    const sicario = screen.getByRole('link', { name: /Sicario/ });
+    expect(reasonTexts(sicario)).toEqual(['Because you liked Sicario']);
+    const batman = screen.getByRole('link', { name: /The Batman/ });
+    expect(reasonTexts(batman)).not.toContain('Because you liked Sicario');
+  });
 });

@@ -189,6 +189,26 @@ public sealed class ReviewRankingHandlerTests
         result.Single().Reasons.ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
     }
 
+    [Fact(DisplayName = "SMOKE-003 For You after a like ranks similar candidates higher without fabricated reasons")]
+    public async Task ForYou_LikedProfile_RanksSimilarHigherWithoutFabricatedReasons()
+    {
+        // arrange
+        var harness = new ForYouHarness();
+        harness.Arrange(MakeMovie(2, "Similar drama", ["Drama"]), MakeMovie(3, "Other comedy", ["Comedy"]));
+
+        var baseline = await harness.HandleAsync(Profile());
+
+        // act
+        var liked = await harness.HandleAsync(Profile(likedGenres: ["Drama"], likedTitle: "Alien"));
+
+        // assert
+        liked.Single(item => item.Summary.Id.Value == 2).Score
+            .ShouldBeGreaterThan(baseline.Single(item => item.Summary.Id.Value == 2).Score);
+        liked.Select(item => item.Summary.Id.Value).First().ShouldBe(2);
+        liked.Single(item => item.Summary.Id.Value == 3).Reasons
+            .ShouldNotContain(reason => reason.Text.StartsWith("Because you liked", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task Related_LikedProfile_RaisesSimilarCandidateAbovePreLikeBaseline()
     {
