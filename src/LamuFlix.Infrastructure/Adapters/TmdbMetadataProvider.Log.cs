@@ -41,5 +41,11 @@ public sealed partial class TmdbMetadataProvider
             Level = LogLevel.Warning,
             Message = "The secondary metadata provider keeps the movie result with one supplemental signal unavailable: {Reason}.")]
         public static partial void SignalUnavailable(ILogger logger, string reason);
+
+        [LoggerMessage(
+            EventId = 7,
+            Level = LogLevel.Warning,
+            Message = "The secondary metadata provider keeps the movie result without a trailer from one videos request: {Reason} for language {Language}.")]
+        public static partial void TrailerUnavailable(ILogger logger, string reason, string language);
     }
 }

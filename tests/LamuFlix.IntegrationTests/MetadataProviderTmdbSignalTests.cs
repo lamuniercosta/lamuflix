@@ -20,6 +20,7 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
 {
     private const string KeywordsPath = "/3/movie/603/keywords";
     private const string CreditsPath = "/3/movie/603/credits";
+    private const string VideosPath = "/3/movie/603/videos";
 
     private const string KeywordBody = """
         {
@@ -319,7 +320,7 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         await FindAsync(services, "The Matrix");
 
         // assert
-        probe.RequestPaths.ShouldBe(["/3/search/movie", "/3/movie/603", KeywordsPath, CreditsPath]);
+        probe.RequestPaths.ShouldBe(["/3/search/movie", "/3/movie/603", KeywordsPath, CreditsPath, VideosPath, VideosPath]);
         probe.QueryValues("api_key").ShouldBe([SecondaryMetadataProviderProbe.SentinelApiKey]);
     }
 
@@ -370,7 +371,7 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
         metadata.CollectionId.ShouldBe(2344);
         metadata.CollectionName.ShouldBe("The Matrix Collection");
         metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Available);
-        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", KeywordsPath, CreditsPath]);
+        SecondaryPaths().ShouldBe(["/3/find/tt0069293", "/3/movie/603", KeywordsPath, CreditsPath, VideosPath, VideosPath]);
     }
 
     [Theory]
@@ -409,7 +410,7 @@ public sealed class MetadataProviderTmdbSignalTests(SecondaryMetadataProviderPro
 
         // assert
         Metadata(result).Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Available);
-        SecondaryPaths().ShouldBe(["/3/search/movie", "/3/movie/603", KeywordsPath, CreditsPath]);
+        SecondaryPaths().ShouldBe(["/3/search/movie", "/3/movie/603", KeywordsPath, CreditsPath, VideosPath, VideosPath]);
     }
 
     [Fact]

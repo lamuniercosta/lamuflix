@@ -80,7 +80,8 @@ public sealed class ChainedMetadataProvider : IMetadataProvider
     private static MovieMetadata Merge(MovieMetadata primary, MovieMetadata supplement) =>
         primary
             .WithSignals(supplement.Signals)
-            .WithCollection(supplement.CollectionId, supplement.CollectionName);
+            .WithCollection(supplement.CollectionId, supplement.CollectionName)
+            .WithTrailerKey(supplement.TrailerKey ?? primary.TrailerKey);
 
     private static MetadataLookupResult? ResolveImmediate(MetadataLookupResult result, ref MetadataLookupResult? rememberedFailure)
     {

@@ -57,6 +57,37 @@ public sealed class MovieMetadataTrailerKeyTests
     }
 
     [Fact]
+    public void WithTrailerKey_ExistingMetadata_ReplacesOnlyTheKey()
+    {
+        // arrange
+        var metadata = MovieMetadataFixture.Create(SharedTitle);
+
+        // act
+        var replaced = metadata.WithTrailerKey("dQw4w9WgXcQ");
+
+        // assert
+        replaced.TrailerKey.ShouldBe("dQw4w9WgXcQ");
+        replaced.Title.ShouldBe(metadata.Title);
+        replaced.Synopsis.ShouldBe(metadata.Synopsis);
+        replaced.PosterUrl.ShouldBe(metadata.PosterUrl);
+        replaced.Signals.ShouldBe(metadata.Signals);
+    }
+
+    [Fact]
+    public void WithTrailerKey_NullKey_ClearsTheKey()
+    {
+        // arrange
+        var metadata = MovieMetadataFixture.Create(SharedTitle, trailerKey: "dQw4w9WgXcQ");
+
+        // act
+        var replaced = metadata.WithTrailerKey(null);
+
+        // assert
+        replaced.TrailerKey.ShouldBeNull();
+        replaced.Title.ShouldBe(metadata.Title);
+    }
+
+    [Fact]
     public void EqualsAndHash_DifferingTrailerKey_AreNotEqualAndHashDiffers()
     {
         // arrange
@@ -110,7 +141,7 @@ public sealed class MovieMetadataTrailerKeyTests
     public void WithSignals_WithoutTrailerKey_DoesNotFabricateAKey()
     {
         // arrange
-        var metadata = MovieMetadataFixture.Create(SharedTitle, "poster.jpg");
+        var metadata = MovieMetadataFixture.Create(SharedTitle);
 
         // act
         var replaced = metadata.WithSignals(new MovieSignalSnapshot());

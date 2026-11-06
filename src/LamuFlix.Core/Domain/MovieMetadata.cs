@@ -173,6 +173,26 @@ public sealed record MovieMetadata
             signals,
             TrailerKey);
 
+    public MovieMetadata WithTrailerKey(string? trailerKey) =>
+        new(
+            Title,
+            Synopsis,
+            ReleaseYear,
+            Runtime,
+            ImdbRating,
+            ImdbId,
+            PosterUrl,
+            RottenTomatoesRating,
+            MetaScore,
+            Directors,
+            Actors,
+            Genres,
+            Writers,
+            CollectionId,
+            CollectionName,
+            Signals,
+            trailerKey);
+
     public MovieMetadata WithCollection(int? collectionId, string? collectionName) =>
         new(
             Title,

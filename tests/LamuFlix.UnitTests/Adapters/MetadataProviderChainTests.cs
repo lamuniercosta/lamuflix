@@ -12,6 +12,8 @@ namespace LamuFlix.UnitTests.Adapters;
 
 public sealed class MetadataProviderChainTests
 {
+    private const string PrimaryKey = "dQw4w9WgXcQ";
+    private const string SupplementKey = "9bZkp7q19f0";
     private static MetadataLookup Query => new("Blade Runner", null, new ImdbId("tt0083658"));
 
     public static TheoryData<string, string, MetadataLookupResult, MetadataLookupResult> ResultMatrix()
@@ -571,8 +573,154 @@ public sealed class MetadataProviderChainTests
         exception.CancellationToken.ShouldBe(cancellation.Token);
     }
 
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithSupplementTrailerKey_AddsTheKeyAndKeepsPrimaryScalars()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(PrimaryMetadata()));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(MetadataWithTrailer(SupplementKey)));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.TrailerKey.ShouldBe(SupplementKey);
+        metadata.Title.ShouldBe("Primary");
+        metadata.Synopsis.ShouldBe("Primary plot");
+        metadata.ImdbId.ShouldBe(new ImdbId("tt0133093"));
+        metadata.MetaScore.ShouldBe((short)73);
+        metadata.Directors.ShouldBe(["Lana Wachowski"]);
+        metadata.Actors.ShouldBe(["Base Actor"]);
+        metadata.Genres.ShouldBe(["Action"]);
+        metadata.Writers.ShouldBe(["Lilly Wachowski"]);
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithOwnTrailerKeyAndNoSupplementKey_KeepsThePrimaryKey()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(
+            new MetadataLookupResult.Found(MetadataWithTrailer(PrimaryKey, "Primary")));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(SupplementMetadata()));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).TrailerKey.ShouldBe(PrimaryKey);
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithOwnTrailerKeyAndSupplementKey_KeepsTheSupplementKey()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(
+            new MetadataLookupResult.Found(MetadataWithTrailer(PrimaryKey, "Primary")));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(MetadataWithTrailer(SupplementKey)));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).TrailerKey.ShouldBe(SupplementKey);
+        Metadata(result).Title.ShouldBe("Primary");
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundWithoutTrailerKeyAndSupplementWithoutTrailer_LeavesTheKeyNull()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.Found(PrimaryMetadata()));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(SupplementMetadata()));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).TrailerKey.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundAndSupplementDisabled_KeepsThePrimaryTrailerKeyAndSkipsTheSupplement()
+    {
+        // arrange
+        var primaryResult = new MetadataLookupResult.Found(MetadataWithTrailer(PrimaryKey, "Primary"));
+        var primary = StubMetadataProvider.Returning(primaryResult);
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(MetadataWithTrailer(SupplementKey)));
+        var chain = new ChainedMetadataProvider([primary, supplement]);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBe(primaryResult);
+        Metadata(result).TrailerKey.ShouldBe(PrimaryKey);
+        supplement.CallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task FindAsync_PrimaryFoundAndSupplementFailed_KeepsThePrimaryTrailerKey()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(
+            new MetadataLookupResult.Found(MetadataWithTrailer(PrimaryKey, "Primary")));
+        var supplement = StubMetadataProvider.Returning(
+            new MetadataLookupResult.Failed(EnrichmentFailureCategory.ProviderUnavailable));
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        var metadata = Metadata(result);
+        metadata.TrailerKey.ShouldBe(PrimaryKey);
+        metadata.Title.ShouldBe("Primary");
+        metadata.Signals.ShouldNotBeNull().CollectionAvailability.ShouldBe(SignalAvailability.Unavailable);
+    }
+
+    [Fact]
+    public async Task FindAsync_FallbackFoundFromTheSupplement_KeepsTheSupplementTrailerKey()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(new MetadataLookupResult.NotFound());
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.Found(MetadataWithTrailer(SupplementKey)));
+        var chain = new ChainedMetadataProvider([primary, supplement], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).TrailerKey.ShouldBe(SupplementKey);
+    }
+
+    [Fact]
+    public async Task FindAsync_SupplementNotFound_LeavesThePrimaryTrailerKeyUnchanged()
+    {
+        // arrange
+        var primary = StubMetadataProvider.Returning(
+            new MetadataLookupResult.Found(MetadataWithTrailer(PrimaryKey, "Primary")));
+        var supplement = StubMetadataProvider.Returning(new MetadataLookupResult.NotFound());
+        var chain = new ChainedMetadataProvider([primary], supplement);
+
+        // act
+        var result = await chain.FindAsync(Query, TestContext.Current.CancellationToken);
+
+        // assert
+        Metadata(result).TrailerKey.ShouldBe(PrimaryKey);
+    }
+
     private static MovieMetadata Metadata(MetadataLookupResult result) =>
         result.ShouldBeOfType<MetadataLookupResult.Found>().Metadata;
+
+    private static MovieMetadata MetadataWithTrailer(string trailerKey, string title = "Supplement") =>
+        new(
+            title,
+            trailerKey: trailerKey);
 
     private static MovieMetadata PrimaryMetadata() =>
         new(
