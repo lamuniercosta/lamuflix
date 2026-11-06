@@ -11,7 +11,7 @@ Mode: Operate. The visitor completes a task (mark watched, like, dislike, save).
 - Color: reuse only existing tokens — `ink` (active fill + text), `booth` (icon on active fill), `glass` / `glass-2` / `glass-3` (row and hover surfaces), `boundary` (quiet button border), `rule` (separators), `amber` (focus ring + rating star only, never review state), `dim` (inactive icon + meta), `plate` (tooltip surface), `reel` (poster fallback).
 - Type: inherit card and details type. No new face. Icon buttons carry no visible text; the accessible name is the label. Tooltip text 0.8125rem, title-bearing, exact Q9 casing preserved verbatim (content, never a CSS `text-transform`).
 - Shape: one radius language. Icon buttons are 2.5rem circles (`radius-pill` / 9999px), matching the existing poster bookmark and play affordances. The row itself has no card, no border, no background wash.
-- Density: 44px minimum target on touch (2.5rem button + padding), 0.5rem gaps on card, 0.75rem gaps on Details.
+- Density: 2.5rem circular targets (40px, `padding: 0` per `MovieFeedbackActions.css:19-21`), 0.5rem gaps on card, 0.75rem gaps on Details.
 
 ## Principle: one quiet instrument strip
 
@@ -92,7 +92,7 @@ New thumbs SVGs follow the `IconFrame` convention in `ui/icons.tsx`: 24 viewBox,
 
 ## Component states
 
-- Loading: row renders immediately with `aria-busy` on the in-flight button and `disabled` on siblings via the existing per-movie pending guard (`blocked`). Card skeleton and Details `Loading movie…` keep current shimmer and status text. No icon skeletons.
+- Loading: row renders immediately with `aria-busy` on the Watched/Like/Dislike buttons sharing the per-movie boolean pending flag and `disabled` via the per-movie `blocked` guard (`MovieFeedbackActions.tsx:83-109`; the store tracks the in-flight action internally but exposes one boolean, so busy state covers the three feedback buttons while the Watchlist toggle is disabled separately). Card skeleton and Details `Loading movie…` keep current shimmer and status text. No icon skeletons.
 - Empty: row never renders without a movie. Library empty (`No movies yet`), Related empty (`No related movies yet`), and no-metadata Details keep existing copy; the row is absent, not zero-state.
 - Error: mutation failure keeps optimistic value rolled back, shows existing `.movie-feedback-error` block with `role=alert` and Retry. Refresh failure shows the refresh block with Retry refresh; refresh retry never replays a successful mutation. Watchlist failure keeps its inline `role=alert` under the row.
 - Partial data: rating/year missing renders existing `—` placeholders; row unaffected. Missing review means `Review None` — both thumbs inactive, while Watched and Watchlist show their own independent retained state (either may still hold a disc; `None` never clears them).
