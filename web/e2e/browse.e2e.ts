@@ -18,7 +18,7 @@ function loadContext(): E2EContext {
 const context = loadContext();
 
 test.describe('seeded browse grid', () => {
-  test('SMOKE-003 shows both seeded movies on the grid', async ({ page }) => {
+  test('shows both seeded movies on the grid', async ({ page }) => {
     await page.goto(context.baseURL);
 
     const grid = page.getByRole('list', { name: 'Movies' });
