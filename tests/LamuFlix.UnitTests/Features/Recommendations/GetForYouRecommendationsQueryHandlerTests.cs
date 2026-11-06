@@ -778,7 +778,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             review: isNotInterested ? Review.Disliked : Review.None);
     }
 
-    private static MovieMetadata? BuildMetadata(
+    private static MovieMetadata BuildMetadata(
         string movieTitle,
         string? posterUrl,
         int? releaseYear,
