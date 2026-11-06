@@ -108,7 +108,7 @@ Phase 10  T026 → T027   (canonical Phase 5 delivery)
 **Independent Test**: Prior enrichment/persistence/API suites remain green.
 **Note**: Code edits may be conditional; stage itself is mandatory. Extraction stays inside Q8 allowlisted production files.
 
-- [ ] T017 After implementation green: **Cog** runs `/refactor` once over completed C# changes (task-pipeline Phase 3 step 3). Preserve behavior; private helpers only inside Q8 allowlisted production files; unmet complexity gate needs a new Patron ruling, not a new file (Q7; FR-014–FR-015)
+- [X] T017 After implementation green: **Cog** runs `/refactor` once over completed C# changes (task-pipeline Phase 3 step 3). Preserve behavior; private helpers only inside Q8 allowlisted production files; unmet complexity gate needs a new Patron ruling, not a new file (Q7; FR-014–FR-015)
 
 ---
 

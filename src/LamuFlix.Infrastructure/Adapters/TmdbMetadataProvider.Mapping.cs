@@ -161,22 +161,40 @@ public sealed partial class TmdbMetadataProvider
             var ranked = new Dictionary<string, (int Tier, int Officialness)>(StringComparer.Ordinal);
             foreach (var candidate in candidates)
             {
-                if (candidate.Key is not { } key
-                    || !MovieMetadata.IsValidTrailerKey(key)
-                    || !IsYouTubeTrailer(candidate)
-                    || LanguageTier(candidate, original) is not { } tier)
-                {
-                    continue;
-                }
-
-                var rank = (Tier: tier, Officialness: candidate.Official == true ? OfficialRank : NonOfficialRank);
-                if (!ranked.TryGetValue(key, out var existing) || IsBetterRank(rank, existing))
+                if (TryRankCandidate(candidate, original, out var key, out var rank)
+                    && (!ranked.TryGetValue(key, out var existing) || IsBetterRank(rank, existing)))
                 {
                     ranked[key] = rank;
                 }
             }
 
-            return ranked.Count == 0
+            return BestKey(ranked);
+        }
+
+        private static bool TryRankCandidate(
+            TrailerCandidate candidate,
+            string? originalLanguage,
+            out string key,
+            out (int Tier, int Officialness) rank)
+        {
+            var unvalidatedKey = candidate.Key;
+            rank = default;
+            if (unvalidatedKey is null
+                || !MovieMetadata.IsValidTrailerKey(unvalidatedKey)
+                || !IsYouTubeTrailer(candidate)
+                || LanguageTier(candidate, originalLanguage) is not { } tier)
+            {
+                key = string.Empty;
+                return false;
+            }
+
+            key = unvalidatedKey;
+            rank = (Tier: tier, Officialness: candidate.Official == true ? OfficialRank : NonOfficialRank);
+            return true;
+        }
+
+        private static string? BestKey(Dictionary<string, (int Tier, int Officialness)> ranked) =>
+            ranked.Count == 0
                 ? null
                 : ranked
                     .OrderBy(pair => pair.Value.Tier)
@@ -184,7 +202,6 @@ public sealed partial class TmdbMetadataProvider
                     .ThenBy(pair => pair.Key, StringComparer.Ordinal)
                     .First()
                     .Key;
-        }
 
         private static string? NormalizedOriginalLanguage(string? originalLanguage) =>
             string.IsNullOrWhiteSpace(originalLanguage) ? null : originalLanguage.Trim();
