@@ -16,6 +16,7 @@ const base = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  review: 'none',
 } as const;
 
 function renderWithClient(ui: ReactElement) {

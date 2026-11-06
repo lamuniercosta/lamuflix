@@ -15,6 +15,7 @@ const item = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  review: 'none',
 };
 
 function renderWithClient(ui: ReactElement) {

@@ -127,6 +127,7 @@ describe('App library host', () => {
                 isInWatchlist: false,
                 isWatched: false,
                 isNotInterested: false,
+                review: 'none',
               },
               {
                 id: 2,
@@ -139,6 +140,7 @@ describe('App library host', () => {
                 isInWatchlist: false,
                 isWatched: false,
                 isNotInterested: false,
+                review: 'none',
               },
               {
                 id: 3,
@@ -151,6 +153,7 @@ describe('App library host', () => {
                 isInWatchlist: false,
                 isWatched: false,
                 isNotInterested: false,
+                review: 'none',
               },
               {
                 id: 4,
@@ -163,6 +166,7 @@ describe('App library host', () => {
                 isInWatchlist: false,
                 isWatched: false,
                 isNotInterested: false,
+                review: 'none',
               },
             ],
             totalCount: 4,
@@ -478,6 +482,7 @@ describe('App layout shell', () => {
                   isInWatchlist: false,
                   isWatched: false,
                   isNotInterested: false,
+                  review: 'none',
                 },
               ],
               totalCount: 1,

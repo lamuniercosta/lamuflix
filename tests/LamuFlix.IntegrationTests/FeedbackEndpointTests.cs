@@ -2,6 +2,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -210,6 +211,269 @@ public sealed class FeedbackEndpointTests(ApiHostFactory factory) : IClassFixtur
         {
             movie.MarkNotInterested();
         }
+    }
+
+    public static TheoryData<string, int, bool, bool> ReviewAssignments => new()
+    {
+        { "none", 0, false, false },
+        { "liked", 1, false, false },
+        { "disliked", 2, true, false },
+    };
+
+    public static TheoryData<string, string> InvalidReviewPayloads => new()
+    {
+        { "{\"review\":null}", "null review" },
+        { "{\"review\":\"\"}", "empty review" },
+        { "{\"review\":\"   \"}", "whitespace review" },
+        { "{\"review\":\"Liked\"}", "wrong case review" },
+        { "{\"review\":\"LIKED\"}", "upper case review" },
+        { "{\"review\":\"love\"}", "unknown review" },
+        { "{\"review\":\"2\"}", "numeric string review" },
+        { "{}", "missing review" },
+    };
+
+    [Theory]
+    [MemberData(nameof(ReviewAssignments))]
+    public async Task PutReview_ValidName_AssignsReviewAndReturnsEmptyNoContent(
+        string review,
+        int expectedValue,
+        bool expectedNotInterested,
+        bool expectedWatched)
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var content = JsonContent.Create(new { review });
+
+        // act
+        using var response = await client.PutAsync(Route("review"), content, cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await response.Content.ReadAsStringAsync(cancellationToken)).ShouldBe(string.Empty);
+        movie.Review.Value.ShouldBe(expectedValue);
+        movie.IsNotInterested.ShouldBe(expectedNotInterested);
+        movie.IsWatched.ShouldBe(expectedWatched);
+        await movies.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("liked", "disliked", 2)]
+    [InlineData("disliked", "liked", 1)]
+    [InlineData("liked", "none", 0)]
+    public async Task PutReview_RepeatedOrOppositeAssignment_IsIdempotentWithoutConflict(
+        string first,
+        string second,
+        int expectedValue)
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        using var firstResponse = await client.PutAsync(
+            Route("review"),
+            JsonContent.Create(new { review = first }),
+            cancellationToken);
+        using var secondResponse = await client.PutAsync(
+            Route("review"),
+            JsonContent.Create(new { review = second }),
+            cancellationToken);
+
+        // assert
+        firstResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        secondResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        movie.Review.Value.ShouldBe(expectedValue);
+        await movies.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidReviewPayloads))]
+    public async Task PutReview_InvalidReviewName_ReturnsUnprocessableEntityWithReviewFieldWithoutSaving(
+        string payload,
+        string description)
+    {
+        // arrange
+        description.ShouldNotBeNullOrWhiteSpace();
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+        // act
+        using var response = await client.PutAsync(Route("review"), content, cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(422);
+        problem.GetProperty("title").GetString().ShouldBe("Unprocessable Entity");
+        problem.GetProperty("errors").EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["review"], ignoreOrder: true);
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        problem.GetRawText().ShouldNotContain(nameof(ValidationException));
+        movie.Review.ShouldBe(Review.None);
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("{\"review\":", "truncated json")]
+    [InlineData("not json", "unbindable body")]
+    [InlineData("[]", "array body")]
+    [InlineData("{\"review\":{\"name\":\"liked\"}}", "object review")]
+    [InlineData("{\"review\":2}", "numeric review")]
+    public async Task PutReview_MalformedOrUnbindableBody_ReturnsBadRequestProblemWithoutSaving(
+        string payload,
+        string description)
+    {
+        // arrange
+        description.ShouldNotBeNullOrWhiteSpace();
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+        // act
+        using var response = await client.PutAsync(Route("review"), content, cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(400);
+        problem.GetProperty("title").GetString().ShouldBe("Bad Request");
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PutReview_EmptyBody_ReturnsBadRequestProblemWithoutSaving()
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
+
+        // act
+        using var response = await client.PutAsync(Route("review"), content, cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        problem.GetProperty("status").GetInt32().ShouldBe(400);
+        movie.Review.ShouldBe(Review.None);
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PutReview_UnknownMovie_ReturnsNotFoundProblemWithoutSaving()
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        using var response = await client.PutAsync(
+            Route(UnknownId, "review"),
+            JsonContent.Create(new { review = "liked" }),
+            cancellationToken);
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        payload.ShouldNotContain(nameof(NotFoundException));
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-4)]
+    public async Task PutReview_NonpositiveId_ReturnsUnprocessableEntityWithIdFieldWithoutSaving(int id)
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        using var response = await client.PutAsync(
+            Route(id, "review"),
+            JsonContent.Create(new { review = "liked" }),
+            cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        problem.GetProperty("errors").EnumerateObject().Select(property => property.Name).ShouldContain("id");
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("99999999999999999999")]
+    [InlineData("1.5")]
+    public async Task PutReview_MalformedOrOverflowingId_ReturnsBadRequestProblemWithoutSaving(string id)
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        using var response = await client.PutAsync(
+            $"/api/movies/{id}/review",
+            JsonContent.Create(new { review = "liked" }),
+            cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        problem.GetProperty("status").GetInt32().ShouldBe(400);
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LegacyDeleteNotInterested_OnLikedMovie_KeepsConflictAndPreservesLiked()
+    {
+        // arrange
+        movie.AssignReview(Review.Liked);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var request = new HttpRequestMessage(HttpMethod.Delete, Route("not-interested"));
+
+        // act
+        using var response = await client.SendAsync(request, cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        movie.Review.ShouldBe(Review.Liked);
+        await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LegacyPostNotInterested_OnLikedMovie_ProjectsDislikedWithoutConflict()
+    {
+        // arrange
+        movie.AssignReview(Review.Liked);
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var request = new HttpRequestMessage(HttpMethod.Post, Route("not-interested"));
+
+        // act
+        using var response = await client.SendAsync(request, cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        movie.Review.ShouldBe(Review.Disliked);
+        movie.IsNotInterested.ShouldBeTrue();
+        await movies.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private static string Route(string segment) => Route(KnownId, segment);

@@ -51,6 +51,14 @@ internal static class FeedbackEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        api.MapPut("/movies/{id}/review", SetReviewAsync)
+            .WithName("SetMovieReview")
+            .WithSummary("Set the review for a movie.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
         return api;
     }
 
@@ -91,6 +99,17 @@ internal static class FeedbackEndpoints
     {
         var movieId = ParseMovieId(id);
         await handler.HandleAsync(new UnmarkNotInterestedCommand(movieId), cancellationToken);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<NoContent> SetReviewAsync(
+        int id,
+        SetMovieReviewRequest request,
+        ICommandHandler<SetMovieReviewCommand, Unit> handler,
+        CancellationToken cancellationToken)
+    {
+        var movieId = ParseMovieId(id);
+        await handler.HandleAsync(new SetMovieReviewCommand(movieId, request.Review), cancellationToken);
         return TypedResults.NoContent();
     }
 

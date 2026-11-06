@@ -12,4 +12,16 @@ public sealed class Review : SmartEnum<Review, int>
         : base(name, value)
     {
     }
+
+    public static bool TryParse(string? name, out Review review)
+    {
+        if (name is null || !TryFromName(name, false, out var parsed))
+        {
+            review = None;
+            return false;
+        }
+
+        review = parsed;
+        return true;
+    }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -549,7 +549,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
         ShouldCarryExactly(body, "items", "totalCount");
         var item = body.GetProperty("items").EnumerateArray().ToList().ShouldHaveSingleItem();
-        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist", "isWatched", "isNotInterested");
+        ShouldCarryExactly(item, "id", "title", "posterUrl", "releaseYear", "runtime", "imdbRating", "enrichmentStatus", "isInWatchlist", "isWatched", "isNotInterested", "review");
         item.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
         item.GetProperty("id").GetInt32().ShouldBe(1);
         item.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
@@ -576,7 +576,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "enrichmentStatus");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "review", "enrichmentStatus");
         body.GetProperty("enrichmentStatus").GetString().ShouldBe("Enriched");
         body.GetProperty("isInWatchlist").ValueKind.ShouldBe(JsonValueKind.True);
         body.GetProperty("id").ValueKind.ShouldBe(JsonValueKind.Number);
@@ -620,7 +620,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "enrichmentStatus");
+        ShouldCarryExactly(body, "id", "title", "path", "format", "metadata", "isInWatchlist", "isWatched", "isNotInterested", "review", "enrichmentStatus");
         body.GetProperty("enrichmentStatus").GetString().ShouldBe("NotFound");
         body.GetProperty("format").GetString().ShouldBe("mkv");
         body.GetProperty("isInWatchlist").GetBoolean().ShouldBeTrue();
@@ -820,6 +820,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "UnmarkWatched",
                 "MarkNotInterested",
                 "UnmarkNotInterested",
+                "SetMovieReview",
                 "GetRecommendations",
                 "GetForYouRecommendations",
                 "GetMovieThumbnail",

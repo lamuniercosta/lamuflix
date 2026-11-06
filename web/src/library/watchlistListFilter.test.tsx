@@ -24,6 +24,7 @@ function summary(overrides: Partial<MovieSummary> = {}): MovieSummary {
     isInWatchlist: true,
     isWatched: false,
     isNotInterested: false,
+    review: 'none',
     ...overrides,
   };
 }
