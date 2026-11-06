@@ -194,3 +194,7 @@ _Avoid_: Empty signal, cleared signal
 **Known empty**
 A valid empty payload (or valid no-collection) from the provider: replace/clear that signal.
 _Avoid_: Unavailable signal, failed lookup
+
+**Trailer key**
+The validated YouTube video identifier selected during metadata enrichment and stored with enriched movie metadata so the Movie Details page can embed a privacy-friendly trailer. Absence is null (including existing rows) and hides the Trailer section. Never a full provider URL.
+_Avoid_: trailer URL, YouTube link, video URL, embed URL (when meaning the stored value)

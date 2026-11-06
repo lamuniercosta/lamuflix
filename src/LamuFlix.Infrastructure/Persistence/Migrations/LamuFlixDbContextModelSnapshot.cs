@@ -261,6 +261,10 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("title");
 
+                    b.Property<string>("TrailerKey")
+                        .HasColumnType("text")
+                        .HasColumnName("trailer_key");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CollectionId");

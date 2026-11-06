@@ -148,6 +148,10 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
             .HasColumnName("poster_url")
             .HasColumnType("text")
             .IsRequired(false);
+        builder.Property(movie => movie.TrailerKey)
+            .HasColumnName("trailer_key")
+            .HasColumnType("text")
+            .IsRequired(false);
         builder.Property(movie => movie.CollectionId)
             .HasColumnName("collection_id")
             .HasColumnType("integer")

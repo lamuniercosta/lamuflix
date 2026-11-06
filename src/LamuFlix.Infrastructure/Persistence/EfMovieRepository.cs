@@ -154,6 +154,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         record.ImdbId = metadata.ImdbId;
         record.PosterUrl = metadata.PosterUrl;
         record.MetaScore = metadata.MetaScore;
+        record.TrailerKey = metadata.TrailerKey;
         ApplyCollectionIdentity(record, metadata);
     }
 
@@ -178,6 +179,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         record.ImdbId = null;
         record.PosterUrl = null;
         record.MetaScore = null;
+        record.TrailerKey = null;
         record.CollectionId = null;
         record.Keywords.Clear();
         record.FullCast.Clear();
@@ -1123,7 +1125,8 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
                 record.Writers.Select(writer => writer.Name),
                 collectionId,
                 collectionName,
-                Signals(record));
+                Signals(record),
+                record.TrailerKey);
 
         return Movie.Rehydrate(
             id: record.Id,

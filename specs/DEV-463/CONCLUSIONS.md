@@ -143,3 +143,69 @@ Read-back verification completed: 28 unique sequential T000-T027 tasks; 21 per-f
 
 - **Status**: `gate1: provisional`
 - **Verdict**: Approved (`checklists/requirements.md` User-Visible Outcome items verified ticked; `/speckit-analyze` clean and 3-axis plan challenge round 1 adjudicated with `PLAN FROZEN`; zero owner structural checkboxes; ready for spec PR and owner Gate 1 merge).
+
+## Phase B T000 — Verified Gate 1 merge receipt (Keel, 2026-11-05)
+
+- Spec PR #329 merged at `225edf4951d8b93bde6d2515998d3728bafa3d42` (`225edf49`); Phase A base `933e8ca827d18afafd659a2fdecd4f2c21953ce7` (`933e8ca8`). Basis: note DEV-463 lines 4–6 and recon-DEV-463 sections 1, 2 and 9. Recon records fetched origin/main equal to picked HEAD, with Phase A base its ancestor.
+- Named pickup worktree: `F:/Dev/LamuFlix.worktrees/DEV-463`, branch `feature/DEV-463`. Pre-edit identity read-back matched the supplied HEAD and branch; worktree was clean.
+- T000 is complete. This records the owner Gate 1 merge, superseding historical pending-merge wording in Phase A artifacts; it creates no product ruling and does not certify implementation, baseline, gates, runtime acceptance or delivery merge clearance.
+
+## Phase B T001 — Bounded pickup reanalysis dispositions (Keel, 2026-11-05)
+
+Read-only analysis of landed brief.md (including challenge amendment), spec.md, plan.md, tasks.md and constitution, using recon-DEV-463 as the sole current codebase/drift evidence. No production files searched, measured or edited. Documentation/checkbox updates are separate from the read-only analysis.
+
+### Findings and dispositions
+
+| ID | Severity | Evidence / disposition |
+| --- | --- | --- |
+| P1 | HIGH | Current recon section 1 / DEV-463 line 9 lists `ui:`, while brief Status, spec Input and plan Artifacts/Scale say no UI tag and omit design.md on that basis. Seat instructions require Palette design.md on UI tickets before plan challenge. The recon does not establish a Palette design receipt or a cited disposition reconciling this change. Stop for recon; do not silently waive the design prerequisite or alter frozen scope. |
+| P2 | HIGH | T001 includes Gauge pre-edit baseline and the Phase 1 checkpoint requires it. Recon section 11 explicitly says no gates/tests/analyzers ran and supplies no Gauge receipt. No baseline result can be inferred. T001 remains unchecked pending evidence. |
+| P3 | LOW | Historical Phase A pending Gate 1 wording is superseded by the T000 receipt above. tasks.md current Status updated; spec/plan/brief retained as historical decision artifacts, with no new decision or scope edit. |
+
+The SpecKit prerequisite command was attempted once with PYTHONUTF8=1: `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` exited 1, rejecting `feature/DEV-463` as nonnumeric. **Could not run**, never PASS. All required artifacts exist and were read explicitly for this bounded manual analysis authorized by the pickup ask. extensions.yml has no before_analyze/after_analyze hooks. No automated SpecKit success is claimed.
+
+### Drift and contract dispositions
+
+- Recon section 2: Phase A added eight spec files (+1044 lines); this is the landed planning package, not subsequent contract drift. Within bounded production surfaces, only ChainedMetadataProvider.cs changed: DEV-445 SupplementLookup reuses primary-resolved ImdbId. Merge itself is unchanged. T008/T009 already extend merge and protect primary scalars and existing chain behavior; preserve the landed lookup improvement. No task behavior amendment is required for this demonstrated code drift.
+- Recon sections 3–4 resolve the existing MovieRecord.cs, EfMovieCatalog.cs and EfRecommendationCandidateSource.cs projections, MovieMetadata.WithSignals/WithCollection, adapter construction and repository write/read/clear sites. These fit Q8 and T003/T004; no new layer, file-scope expansion or invented shape is authorized. Implementers must use this named recon inventory.
+- Recon section 6 names the existing details exact-field assertions (ApiEndToEndEnrichmentTests.cs, ApiEndToEndImportTests.cs, ApiEndToEndLibraryTests.cs and LibraryEndpointsTests.cs), OpenApiContractTests.cs, its Verify snapshot and LAMUFLIX_REGENERATE_OPENAPI switch. These resolve T011/T012 inventory obligations; retain DTO → details JSON proof → supported OpenAPI/Verify generation → generated TS/MSW ordering. No new public API shape is introduced.
+- Recon sections 2 and 8 establish unchanged domain/TMDb/persistence/API/UI/contracts/manifests and no new section 2.3 item requiring a decision. The ticket-named nullable movies column and spec-defined trailerKey remain within existing authority. Trailer key glossary remains T003, verified in T024.
+- Recon section 10 identifies open DEV-438 PR #331 overlap. It is not landed-main drift and does not authorize anticipatory edits; refresh overlap/drift evidence before affected work if the base changes.
+
+### Requirement coverage (document coverage only)
+
+| Requirement | Tasks |
+| --- | --- |
+| FR-001 | T002–T004, T010 |
+| FR-002–FR-003 | T002–T005 |
+| FR-004 | T007–T009 |
+| FR-005–FR-008 | T006–T009 |
+| FR-009 | T014–T016 |
+| FR-010, FR-013 | T024 |
+| FR-011 | T010–T013, T023 |
+| FR-012 | T002, T005–T006, T009, T011, T014, T016 |
+| FR-014 | T000–T001, T017–T027 |
+| FR-015 | T001, T003, T018, T024 |
+| SC-001–SC-003 | T014–T016 |
+| SC-004 | T002, T005–T006, T009, T011 |
+| SC-005 | T014–T016 |
+| SC-006 | T012–T013, T023 |
+| SC-007 | T024 |
+| SC-008 | T018–T027 |
+
+15 FR + 8 SC have task coverage (23/23); 28 tasks T000–T027 map to feature behavior or required workflow. No uncovered requirement, duplicate requirement, unresolved behavior ambiguity, ordering contradiction or new constitution conflict found within this bounded review. Coverage is not execution proof. P1/P2 prevent a clean pickup/completion verdict.
+
+**T001 incomplete; implementation remains blocked.** No tasks amended for code drift. Next: obtain recon evidence reconciling the UI-tag/design prerequisite and the Gauge pre-edit baseline receipt; then close T001 if those dispositions permit it, before T002–T005. No build/test/gate/runtime success claimed.
+
+## Phase B T001 — Evidence closure and pickup completion (Keel, 2026-11-05)
+
+This receipt supersedes the preceding pending P1/P2 dispositions and incomplete status. Sources read back: recon-DEV-463 section 12 and note DEV-463 lines 27–35, supplied by the Conductor for T001 closure. No new codebase investigation or gate execution by Keel.
+
+- **P1 closed — evidence correction, no design waiver or product decision.** Recon section 12.1 establishes that `ui:` in the Rigger intake quotation has an empty value; Wisp did not assert a UI tag exists. My initial reading of that string as a tag change was unsupported. Frozen brief.md:10, spec.md:9 and plan.md:9/:33 consistently say no UI tag. Retain that frozen premise: plan.md:9 deliberately omits design.md, and ASSUMPTIONS.md:3–4 captures Q5 copy/iframe/note and Q8 placement. No demonstrated tag/design drift remains; no Palette receipt is invented and no UI-ticket prerequisite is waived. No brief/spec/plan decision amendment is needed.
+- **P2 closed — Gauge pre-edit baseline captured.** Note DEV-463 lines 31–35 records Gauge verification at `225edf49` on `feature/DEV-463` in the named worktree. Roslyn, cyclomatic, inspectcode and web gates each exited 2 because the diff against origin/main contained no in-scope files: **SKIPPED (scope-empty)**, with zero warnings/findings, never PASS. `dotnet test` exited 0: **3903 passed, 0 failed, 2 skipped** (ArchitectureTests 15; Evaluation 81; UnitTests 2474; EvaluationIntegrationTests 21; IntegrationTests 1312). This is an attributed baseline receipt, not a new Keel test run or proof of trailer implementation.
+- **P3 closed** by the recorded T000 merge receipt and refreshed tasks.md Status. Historical Phase A wording remains historical.
+- Prior bounded cross-artifact coverage remains 23/23 FR+SC. DEV-445 SupplementLookup drift requires no task behavior amendment; preserve it during T008/T009. Recon-named copy/projection, JSON assertion and OpenAPI workflow inventory remains the implementation basis. The SpecKit prerequisite attempt remains **Could not run** due to the branch-name rejection; the authorized bounded manual reanalysis is complete, with no automated SpecKit PASS claimed.
+
+**T001 complete** — fresh recon, bounded reanalysis and Gauge baseline recorded; no unresolved pickup blocker. T001 marked [X]. No production changes, scope expansion or decision changes were required. Only CONCLUSIONS.md and tasks.md changed during pickup; implementation gates, runtime acceptance, three-axis review and delivery clearance remain future work.
+
+**Next: Anvil local Phase 2, T002–T005**, using recon-DEV-463: T002 domain/copy/clear/key-validation tests; T003 nullable TrailerKey, validator/copy paths and CONTEXT.md glossary; T004 nullable EF column, generated migration/snapshot and write/read/clear projections; T005 real-Postgres roundtrip and replace/clear coverage, with domain tests green. Follow existing dependency order and the frozen Q8 file plan.
