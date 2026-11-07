@@ -62,6 +62,8 @@ docker compose up -d --build
 
 Applying changes to `docker/api.settings.json` requires restarting the API because some options are read at startup. Open http://localhost:3000. To mount a different library directory, set `LIBRARY_PATH` in `.env` before starting (defaults to `./docker/sample-library`). Imports take the movie folder name relative to the library root (for example `2 Days in New York[2012]`), and full paths still work.
 
+`LIBRARY_PATH` changes the mount; keep it consistent with `Library:RootPath` (`/media/library` inside the container) and add the old mount to `Library:LegacyRootPaths` when an existing catalog was seeded from a different location. On an existing catalog, stop the API before upgrading and read [Operating a library-relative upgrade](#operating-a-library-relative-upgrade) first.
+
 ### TMDb collection membership
 
 TMDb supplements an OMDb hit with keywords, full cast, and collection membership, so the library's Collection filter needs a TMDb API key. Compose enables TMDb by default (`Tmdb__Enabled: ${TMDB_ENABLED:-true}`) and reads the key from `${TMDB_API_KEY:-}`, so a `.env` that only adds a key is enough:
@@ -124,6 +126,88 @@ try {
 ```
 
 CI excludes the category with `--filter "Category!=OllamaIntegration"` and sets no opt-in variable.
+
+## Operating a library-relative upgrade
+
+DEV-459 stores movie folders as canonical library-relative identities instead of deployment-specific absolute paths ([ADR 0035](docs/adr/0035-library-relative-movie-paths.md)). The upgrade rewrites stored paths, populates the derived `library_path_key` column, and activates its constraint once, at startup. Treat it as a coordinated maintenance window, not a rolling deploy.
+
+### Shared library configuration
+
+`Library:RootPath` and the optional `Library:LegacyRootPaths` are read by every Api instance and its hosted consumers, so all instances sharing a catalog must use the same values.
+
+| Setting | Meaning |
+|---|---|
+| `Library:RootPath` | The active filesystem root for every runtime media read (playback, rescan, discovery, thumbnails) and the root new imports resolve under. Must be an absolute path. |
+| `Library:LegacyRootPaths` | Optional array of absolute historical roots — Windows drive (`C:/library`), UNC (`//server/share/library`) or POSIX (`/media/library`) — recognized **only** while mapping already-stored absolute paths and already-queued thumbnail payloads. Entries never authorize a new import. |
+
+`docker/api.settings.example.json` ships `"RootPath": "/media/library"` with an empty `LegacyRootPaths` array. Compose mounts `${LIBRARY_PATH:-./docker/sample-library}` at `/media/library`, so the default stack needs no alias. Outside Compose, set both values in the Api user-secrets store or `appsettings` — never in a committed file.
+
+`LibraryOptionsValidator` runs at startup before the database gate opens a transaction. It rejects blank entries, relative entries that are not absolute roots, and any two aliases that overlap on a segment boundary, because one stored path could then map to two different identities. Its messages name the offending `Library:LegacyRootPaths[index]` and the corrective action.
+
+The standard Docker alias `/media/library` is recognized automatically for backfill and for legacy thumbnail payloads **only when it maps a stored path unambiguously**. If it collides with a configured root or alias, startup fails closed instead of guessing. The alias never authorizes an import.
+
+### Before you upgrade
+
+1. **Hard-stop every old Api instance.** Stop all Api processes and containers before starting any upgraded one. An old writer cannot populate `library_path_key`, so a running mixed-version fleet fails the unique key constraint.
+2. **Verify the fleet matches.** Every instance that will serve the catalog needs the same application version, the same .NET runtime, the same globalization mode (invariant vs. ICU), the same ICU/Unicode data version, and the same `Library:RootPath` / `Library:LegacyRootPaths`. The derived key is whole-string `ToUpperInvariant()`, so its values are runtime-bound: an instance running different Unicode data can derive different keys for the same stored path.
+3. **Back up PostgreSQL.** Take a full pre-upgrade database backup. This backup is your only downgrade path (see below).
+4. **Confirm the library is reachable.** The backfill does not check media existence, but reads after startup do; make sure the mount is present under the configured root.
+
+### Startup behaviour
+
+With `Database:ApplyMigrationsOnStartup` true, the Api applies the additive `AddLibraryPathKey` migration, then runs the library path gate, then starts listening. The gate takes `LOCK TABLE movies IN ACCESS EXCLUSIVE MODE` as the first statement of a single transaction, then validates the whole table, rewrites paths to canonical relative form, populates `library_path_key`, sets the column collation to `C` with `NOT NULL`, and creates `IX_movies_library_path_key` (non-concurrent). HTTP listeners and hosted consumers do no work until it succeeds. A failure rolls the whole transaction back and the process exits.
+
+With `Database:ApplyMigrationsOnStartup` false, the gate only verifies the activated state — column present, `NOT NULL`, collated `C`, uniquely indexed — and fails closed with a "Schema not ready" message when it is not. It never migrates or activates in that mode.
+
+A rerun on an already-migrated catalog is a no-op.
+
+### Reading preflight failures
+
+Startup failures are deliberate. Each message names the movie IDs involved and the reason:
+
+| Message shape | Meaning and fix |
+|---|---|
+| `Movie ID <id> path '<stored>' matches no active, legacy, or default Docker library root.` | The stored absolute path sits under a root the configuration does not name. Add it to `Library:LegacyRootPaths` and restart. |
+| `Movie ID <id> path '<stored>' maps ambiguously through '<a>', '<b>'.` | Two configured roots both contain the path. Remove one alias so the mapping is unique. |
+| `Movie IDs <ids> map to the same library path key '<key>'.` | Rows collide once case-folded. Merge or remove the duplicates in the catalog before upgrading. |
+| `Movie ID <id> has a malformed library path '<stored>'.` | The stored value is not a valid relative or absolute path. Repair the row. |
+| `Schema not ready: ...` | Startup migrations are disabled but activation never ran. Start once with migrations enabled. |
+
+Gate logs stay at Information level on success (`Library path gate activated ... after rewriting <n> row(s)`).
+
+### Existing backstops (no new interlock)
+
+Two protections exist and are documented here as the whole safety story — no additional pre-activation interlock is introduced:
+
+- **Post-activation `NOT NULL`.** Once the column is `NOT NULL`, an old writer that never sets `library_path_key` cannot insert a row at all, so a stale instance fails loudly rather than writing a key-less movie.
+- **Startup consistency check.** Each start recomputes the expected key for every row and fails closed if the stored key diverges, which surfaces a writer that bypassed the shared `SaveChanges` derivation.
+
+### Alias retirement
+
+`Library:LegacyRootPaths` exists for the migration window and the queue backlog. Retire it in this order:
+
+1. Confirm the backfill is complete and the gate reports the activated schema.
+2. Drain enrichment, retry and dead-letter queues so no queued payload still carries an absolute `FilePath`. Legacy thumbnail payloads are the only remaining consumer of the aliases.
+3. Remove the entries, restart, and confirm the gate starts clean.
+
+Removing an alias earlier fails queued absolute payloads through the existing terminal paths; it does not corrupt anything, but those deliveries are lost.
+
+### Downgrade
+
+There is no reverse backfill. After a successful upgrade, downgrading means restoring the pre-upgrade database backup and running the old binaries that match that backup. Relative paths are not converted back to absolute paths.
+
+### EF migration composition recovery
+
+The shipped migration set is `AddLibraryPathKey` (additive) plus the final model snapshot; the activation DDL is owned by the startup gate. The final snapshot was produced by scaffolding a second, disposable migration outside the worktree. If someone removes the immediate successor of `AddLibraryPathKey` with `dotnet ef migrations remove`, that remove restores the interim snapshot and the composition is broken. Recover like this:
+
+1. Restore the final source model (required `library_path_key`, property-level `UseCollation("C")`, unique `IX_movies_library_path_key`).
+2. Re-scaffold the final-model migration to an absolute directory under `%TEMP%` outside the worktree:
+   `dotnet ef migrations add LibraryPathKeyActivation --project src/LamuFlix.Infrastructure --startup-project src/LamuFlix.Infrastructure --output-dir <ABSOLUTE TEMP DIRECTORY>`.
+   Do not commit, archive or hand-edit that scratch migration or its designer; tooling rewrites the in-repo snapshot as a side effect.
+3. Verify `dotnet ef migrations has-pending-model-changes` exits `0`.
+4. Scaffold the next unrelated migration and inspect it: it must contain no `AlterColumn` for `library_path_key` and no `CreateIndex` for `IX_movies_library_path_key`. Only then apply it.
+
+Never suppress this with `ConfigureWarnings`, and never hand-edit or delete generated artifacts inside the worktree.
 
 ## Verification & Building
 

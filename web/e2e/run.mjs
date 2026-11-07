@@ -215,6 +215,10 @@ function writeContext() {
     waitBudgetMs: WAIT_BUDGET_MS,
     baseURL: BASE_URL,
     seedTitles: SEED_MOVIES.map((movie) => movie.title),
+    seedMovies: SEED_MOVIES.map((movie) => ({
+      title: movie.title,
+      relativePath: movie.relativePath,
+    })),
     manualMatchMovies,
     reservedMovie: { title: RESERVED_MOVIE.title, year: RESERVED_MOVIE.year },
     reservedFolders: { ...RESERVED_MOVIE.folders },
