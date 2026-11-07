@@ -1,0 +1,24 @@
+[from Quill] DEV-458 ready: step6 round1 remaining-blocker Q9 repairs applied to Quill-owned drafts only (same round1 supplemental; not an extra challenger round). No ADR/brief/CONCLUSIONS/production edits. PLAN NOT FROZEN. Gate1 closed. No PR-posted claim.
+
+Repaired paths:
+- specs/DEV-458/spec.md
+- specs/DEV-458/plan.md
+- specs/DEV-458/tasks.md
+- specs/DEV-458/checklists/requirements.md
+- specs/DEV-458/DRAFTING_RECEIPT.md
+- Maestri note pr-body-DEV-458 (body preparation only)
+
+Long report also at: F:\Dev\LamuFlix.worktrees\feature-458-spec\specs\DEV-458\_quill-ask-keel-r1-q9.txt
+
+Q9 numbered repairs applied:
+1. Exact unchecked owner checkbox from brief Q9 carried into spec.md and pr-body-DEV-458. blocked: structural — constitution VII departure or Q2 rescope. No owner answer. PLAN NOT FROZEN. Gate1 closed. Bernstein notified that actual PR publication is needed; Quill does not claim posted without receipt.
+2. Unspecified accessor recon replaced with known result: I1 UNAVAILABLE (no permitted Kestrel Url/absence reader; no enabled configuration certifiable; silent fail-all rejected). Named available I0/I2/I3/I4/I6. I7 PhaseB T005 timing/parity proof retained. ConstitutionCheck OPEN awaiting owner. No waiver/new options/raw strings/reflection/code endpoint.
+3. Custom NotFound message/constructor and required custom 403 detail removed everywhere in Quill drafts. Existing parameterless NotFoundException(); 404 title Not Found and 403 title Forbidden; no detail; handler ignores messages. No handler/Core edit. New exact-title/detail-absence/no-message/type/path-basename-player/peer/header leak asserts pinned in approved test zones (T009/T010/T011/T016/T018). Q6 order and side effects preserved.
+4. Statuses/inputs/return conditions aligned across spec/plan/tasks/checklist/receipt. Payload feasibility RESOLVED; structural owner decision OPEN. All other Q8 pins and 33 tasks / 22 requirements retained.
+
+Unresolved for independent Keel reread:
+- Owner checkbox unanswered (user via spec PR).
+- Spec PR not yet published (Bernstein must open; pr-body-DEV-458 prepared; no publication receipt).
+- PLAN NOT FROZEN; Gate1 closed; ConstitutionCheck OPEN awaiting owner.
+
+Ask-back complete for independent Keel reread.
