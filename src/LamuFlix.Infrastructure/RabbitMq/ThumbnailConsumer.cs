@@ -321,34 +321,27 @@ public sealed class ThumbnailConsumer(
             return false;
         }
 
-        if (!LibraryPath.IsAbsolute(filePath))
-        {
-            if (!LibraryPath.TryCanonicalizeRelative(filePath, out var relative))
-            {
-                return false;
-            }
+        return LibraryPath.IsAbsolute(filePath)
+            ? TryMapAbsolutePath(filePath, out canonical)
+            : TryMapRelativePath(filePath, out canonical);
+    }
 
-            canonical = relative;
-            return true;
+    private static bool TryMapRelativePath(string filePath, out string canonical)
+    {
+        canonical = string.Empty;
+        if (!LibraryPath.TryCanonicalizeRelative(filePath, out var relative))
+        {
+            return false;
         }
 
-        var roots = new HashSet<string>(StringComparer.Ordinal) { library.Value.RootPath };
-        foreach (var legacy in library.Value.LegacyRootPaths)
-        {
-            roots.Add(legacy);
-        }
+        canonical = relative;
+        return true;
+    }
 
-        roots.Add(DefaultDockerRoot);
-
-        var matches = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var root in roots)
-        {
-            if (LibraryPath.TryCanonicalizeUnderRoot(filePath, root, out var mapped))
-            {
-                matches.Add(mapped);
-            }
-        }
-
+    private bool TryMapAbsolutePath(string filePath, out string canonical)
+    {
+        canonical = string.Empty;
+        var matches = CollectRootMatches(filePath);
         if (matches.Count != 1)
         {
             return false;
@@ -356,6 +349,32 @@ public sealed class ThumbnailConsumer(
 
         canonical = matches.First();
         return true;
+    }
+
+    private HashSet<string> CollectRootMatches(string filePath)
+    {
+        var matches = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var root in BuildCandidateRoots())
+        {
+            if (LibraryPath.TryCanonicalizeUnderRoot(filePath, root, out var mapped))
+            {
+                matches.Add(mapped);
+            }
+        }
+
+        return matches;
+    }
+
+    private HashSet<string> BuildCandidateRoots()
+    {
+        var roots = new HashSet<string>(StringComparer.Ordinal) { library.Value.RootPath };
+        foreach (var legacy in library.Value.LegacyRootPaths)
+        {
+            roots.Add(legacy);
+        }
+
+        roots.Add(DefaultDockerRoot);
+        return roots;
     }
 
     private bool TryAuthorizeSource(string relativePath, out string authorizedSource)

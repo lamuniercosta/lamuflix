@@ -243,23 +243,7 @@ public sealed partial class MovieLibraryPathMigrationGate(
         var keys = new Dictionary<string, List<int>>(StringComparer.Ordinal);
         foreach (var row in rows)
         {
-            var canonical = rootMap.Canonicalize(row.LibraryPath, row.Id, failures);
-            if (canonical is null)
-            {
-                writes.Add(null);
-                continue;
-            }
-
-            var key = canonical.ToUpperInvariant();
-            if (!keys.TryAdd(key, [row.Id]))
-            {
-                keys[key].Add(row.Id);
-            }
-
-            writes.Add(string.Equals(row.LibraryPath, canonical, StringComparison.Ordinal)
-                && string.Equals(row.LibraryPathKey, key, StringComparison.Ordinal)
-                ? null
-                : new RowWrite(row.Id, canonical, key));
+            PlanRow(row, rootMap, failures, keys, writes);
         }
 
         AddCollisionFailures(keys, failures);
@@ -270,6 +254,37 @@ public sealed partial class MovieLibraryPathMigrationGate(
 
         return new Plan(writes);
     }
+
+    private static void PlanRow(
+        StoredRow row,
+        RootMap rootMap,
+        List<string> failures,
+        Dictionary<string, List<int>> keys,
+        List<RowWrite?> writes)
+    {
+        var canonical = rootMap.Canonicalize(row.LibraryPath, row.Id, failures);
+        if (canonical is null)
+        {
+            writes.Add(null);
+            return;
+        }
+
+        var key = canonical.ToUpperInvariant();
+        TrackKey(keys, key, row.Id);
+        writes.Add(NeedsWrite(row, canonical, key) ? new RowWrite(row.Id, canonical, key) : null);
+    }
+
+    private static void TrackKey(Dictionary<string, List<int>> keys, string key, int id)
+    {
+        if (!keys.TryAdd(key, [id]))
+        {
+            keys[key].Add(id);
+        }
+    }
+
+    private static bool NeedsWrite(StoredRow row, string canonical, string key) =>
+        !string.Equals(row.LibraryPath, canonical, StringComparison.Ordinal)
+        || !string.Equals(row.LibraryPathKey, key, StringComparison.Ordinal);
 
     private static void AddCollisionFailures(Dictionary<string, List<int>> keys, List<string> failures)
     {
