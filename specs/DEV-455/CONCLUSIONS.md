@@ -127,3 +127,34 @@ Patron answer: APPROVED as the bounded disposition packet proposed by Keel. One 
 - Ledger: M1 factual correction accepted, no NEW Options dependency in Core; pre-existing wider allowlist drift (recon 98-108) is out of scope, noted with no ticket and no automatic Rigger filing under Q11 unless separately directed. M2 endpoint resolves IOptions outside Core and constructs GetPlaybackCapabilitiesQuery(bool LocalPlayEnabled); handler returns named Core PlaybackCapabilitiesResult(bool LocalPlayEnabled); endpoint maps to the Api DTO, no Core-to-Api reference; composition-boundary alternative removed, AddHandler/decorators/C2 preserved. M3 Media Chrome deliberately adopted at the highest stable Node-24-compatible release published at least 14 days before selection, exact pin with no caret, Phase B registry evidence required; ADR 0023 is Playwright-scoped precedent, not universal policy; no second wrapper dependency. L2 T005 records npm audit --omit=dev outcome/advisory disposition or Could not run, never inferring PASS from Dependabot or the NuGet gate, with no gate script edits. L3 effective flag on/off is tested through real-host options and API JSON, handler tests supplementary.
 - Compass: F1 no close control, closed state is initial only; replace closing/focus-return-on-close wording with the existing unmount/navigation/movie-change lifecycle. F2 Palette labels/copy and presentation in design sections 7-9 accepted as assumed taste and logged in ASSUMPTIONS.md, including region label, polite state live region, reduced motion, and responsive 16:9. F3 mark unobserved HandlerRegistration/ApiEndpoints paths as proposed and verify the registration surface at T001; T003 uses the identified existing registration point. F4 accept spec-local vocabulary restating Q2/Q12, with no glossary/CONTEXT/ADR expansion.
 - Scope: Keel records this ruling in brief/CONCLUSIONS before Quill and Palette amend their owned drafts within this one pass, then Keel independently verifies closure before PLAN FROZEN. Anything beyond this packet needs a fresh Patron ruling.
+
+## Freeze receipt — Phase 2 Step 6, 2026-11-07 (Keel)
+
+**PLAN FROZEN — cleared to proceed to ordinary Gate 1.** All three reports were in hand before adjudication: Sentry 9 findings, Ledger 6, Compass 4 (19 total: 9 Medium, 10 Low). Prior analyze round 3 was clean before challenge (DEV-455 receipts 21–24); Palette design was available and read. Patron 94c06b57 authorized the bounded disposition packet and one amendment pass. Decisions were recorded in brief before Quill/Palette amended their respective files. Keel independently reread their completed work, rather than relying on completion reports.
+
+| Findings | Verified closure evidence |
+|---|---|
+| Sentry M1/M2 | spec FR-020; plan:60,131; tasks:51 (T001). Future-delivery credential/lifetime/reuse checks and explicit STOP/new-ruling boundary; no invented auth/expiry facts or re-resolution authority. |
+| Sentry M3 | spec FR-010; plan:127; tasks:74,75,88 (T006/T007/T011); design:110. Outgoing pause/clear precedes incoming attach; stale swap work ignored. |
+| Sentry M4 / L1 | spec FR-005; plan:128; tasks:74–75; design:155–163. Space single toggle/scroll prevention/region parity; seek ignored until valid bounds. |
+| Sentry L2 | spec FR-009; plan:46,127; tasks:75 (T007). Safe media-code/network-state diagnostics, no sensitive values or new dependency. |
+| Sentry L3/L4 | spec FR-004/FR-018/FR-019; plan:25,130; tasks:111–112 (T016/T017); design:189–192. Scanned/imported title precondition and desktop fullscreen acceptance; mobile layout only. |
+| Sentry L5 | spec FR-009/FR-015 and US4 AC3; plan:125; tasks:99–101; design:109,123,171–173. Deterministic gated local recovery, never auto-launch. |
+| Ledger M1 | spec FR-012; plan:41; tasks:62. New code obeys allowlist; recon:98–108 existing drift acknowledged, out of scope, follow-up noted with no ticket. No constitution widening. |
+| Ledger M2/L3 | spec FR-012; plan:21,41–42,63,86–93,123; tasks:61–62. Endpoint-owned options resolution, exact Core query/result, Api DTO mapping and decorated handler; real-host options/JSON proof. |
+| Ledger M3/L2 | spec FR-003; plan:19,65,129; tasks:73 (T005). Explicit ticket-specific highest stable Node24-compatible exact pin, at least 14 days old, registry evidence, no wrapper; npm audit result/disposition or Could not run. |
+| Ledger L1 / Compass F2 | ASSUMPTIONS.md exact labels/state copy/presentation entries; design §§7–9. All Palette taste refinements recorded with cited Patron approval. |
+| Compass F1 | spec FR-010; tasks:75; design:19–22,62–65,102,177–179. No close affordance; initial-only idle; existing teardown lifecycle. |
+| Compass F3 | spec FR-017; plan:27,91,94; tasks:51,62. Unobserved paths proposed and verified at pickup; existing registration point selected there. |
+| Compass F4 | spec:45–63; plan:48. No defect after Patron confirmation: spec-local clarification, no glossary/CONTEXT/ADR expansion. |
+
+**Closing bar:** zero unresolved in-scope Critical, High or Medium; all ten Low findings dispositioned. Eighteen findings accepted/clarified and closed in planning; Compass F4 confirmed no defect. This means the planned tasks address the findings, not that implementation tests or runtime checks have executed. The adjudication is published in canvas note `adjudication-DEV-455-Keel` (LamuFlix notes).
+
+**Boundaries:** no owner structural checkbox added/closed, no ticket contradiction or constitution departure. This receipt supersedes pre-freeze draft handoff wording; it does not grant Patron provisional Gate 1 or user Gate 1 approval/merge. Next: Patron provisional Gate 1 → Rigger spec PR → user merge → T000 verified receipt → delivered DEV-456/458 and T001 recon/reanalysis before implementation. No dependency-delivery, production-gate, runtime-acceptance or merge-clearance claim. No production gates run for this document-only Phase A work. Q11 cap and T001 STOP conditions remain binding.
+
+---
+
+## Gate 1 status
+
+- **Patron ruling:** `gate1: provisional` — `/speckit-analyze` is clean, the three-axis plan challenge is adjudicated (19 findings, 0 Critical/High/Medium remaining), Keel has frozen the plan in `specs/DEV-455/brief.md`, and `checklists/requirements.md` User-Visible Outcome items are ticked (Basis: task-pipeline Phase 2 step 7; Freeze receipt above; `specs/DEV-455/brief.md:4`).
+- No owner structural checkbox is added or closed; ordinary owner Gate 1 on the spec PR remains pending, and Patron provisional Gate 1 is not owner approval or merge clearance.
