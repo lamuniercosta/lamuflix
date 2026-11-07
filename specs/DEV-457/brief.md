@@ -1,6 +1,6 @@
 # DEV-457 — Phase A grill brief
 
-Status: grill closed with Patron at Q8 of maximum 12. Scope settled for drafting; plan is not yet frozen. Gate 1 remains closed. No implementation or runtime acceptance has run.
+Status: PLAN FROZEN after Phase 2 step 6 independent repair read-back (2026-11-07); grill closed at Q8 of maximum 12. Owner Gate 1 remains closed. No implementation or runtime acceptance has run.
 
 Worktree: F:/Dev/LamuFlix.worktrees/feature-457-spec. Branch: feature/457-spec. Original recon base: 659a2e9b739c092dc8565ee31ed6bc5bcc4b68e3. Supplement: recon-DEV-457-2 against 28fca4179a347dac054a9d885bd4f1577623bef6.
 
@@ -80,3 +80,13 @@ Patron approved these refinements without amendment in CONCLUSIONS.md, Phase 2 s
 - Runtime receipt delivery SHA means the exact DEV-457 implementation HEAD exercised by the proof, separately from dependency SHAs and the spec-PR merge receipt.
 
 Adjudication of all 20 findings and the single numbered repair list are in note adjudication-DEV-457-Keel. Plan remains unfrozen until independent repair read-back; the existing two-round cap and closing bar remain unchanged.
+
+## Phase 2 step 6 — PLAN FROZEN
+
+Keel independently reread Quill repair round 1 against all 20 adjudicated challenge findings and R1–R9. PLAN FROZEN on 2026-11-07. No unresolved above-bar finding remains. Accepted safety/evidence/ordering repairs are present; partial/noted dispositions remain explicit in adjudication-DEV-457-Keel. No second repair round was needed.
+
+Freeze covers spec.md, plan.md and tasks.md with the approved step 6 refinements and the repaired checklist/drafting receipt. Reference HEAD at repair read-back is c946b981; repaired Quill files were working-tree artifacts at review, not falsely claimed part of that commit. Rigger must include the complete reviewed spec artifact set in the spec-PR commit.
+
+All 19 functional requirements and 6 success criteria retain task coverage across T000–T014. In particular, T002/T003 implement and check topology/credentials; T004/T005 own README/startup/loopback guidance; T006 owns real production-host prerequisites and retained application/broker state; T007 owns independent host Ollama and visible BS Player/history evidence; T008 scrubs receipt/scope; T009–T011 preserve actual gate outcomes; T012–T014 preserve review cap and user merge authority.
+
+Owner Gate 1 remains closed until the user merges the spec PR and T000 records it. Patron gate1: provisional is the next pipeline status, not owner approval. No implementation, harness execution, runtime acceptance, Done, PR publication or merge clearance is claimed by this freeze. Q6 file boundary, deferred Phase B factual recon, current image choices, two-round cap and separate mandatory runtime proof remain unchanged.
