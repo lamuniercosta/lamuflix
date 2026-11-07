@@ -89,7 +89,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
 
         var gate = new ApiImportEnrichmentGate();
         using var capture = new ApiImportTraceCapture();
-        var folderPath = CreateOwnedImportFolder();
+        _ = CreateOwnedImportFolder();
         var relativeFolder = FolderName;
         try
         {

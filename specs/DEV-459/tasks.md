@@ -123,7 +123,7 @@ Phase 10  T031 → T032   (canonical Phase 5 delivery)
 
 ## Phase 7: Refactor (Cog)
 
-- [ ] T024 After T023: **Cog** runs `/refactor` once over completed C# implementation for this ticket; fix complexity/duplication/property gaps without expanding scope or lowering thresholds (brief task order 6; harness refactor gate).
+- [X] T024 After T023: **Cog** runs `/refactor` once over completed C# implementation for this ticket; fix complexity/duplication/property gaps without expanding scope or lowering thresholds (brief task order 6; harness refactor gate).
 
 ---
 

@@ -173,7 +173,7 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
             scanner,
             NewRepository(context),
             new EfEnrichmentOutbox(context, TimeProvider.System),
-            Microsoft.Extensions.Options.Options.Create(new LibraryOptions { RootPath = LibraryRoot }));
+            Options.Create(new LibraryOptions { RootPath = LibraryRoot }));
 
     private static void ExpectConstraintViolation(Exception? failure, string constraintName)
     {
@@ -198,7 +198,7 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
 
     private static EfMovieRepository NewRepository(LamuFlixDbContext context)
     {
-        var options = Microsoft.Extensions.Options.Options.Create(
+        var options = Options.Create(
             new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5) });
         return new EfMovieRepository(
             context,
