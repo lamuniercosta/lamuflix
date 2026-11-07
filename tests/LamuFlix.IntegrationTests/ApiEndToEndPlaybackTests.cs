@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Playback;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -102,8 +103,8 @@ public sealed class ApiEndToEndPlaybackTests(ApiEndToEndFixture fixture) : ApiEn
                 services.RemoveAll<IProcessStarter>();
                 services.AddSingleton(starter);
             },
-            LocalPlaySettings(".mkv"));
-        var id = await ImportAsync(client, folder, cancellationToken);
+            LocalPlaySettings(".mkv").Concat(LibraryRootSettings()));
+        var id = await ImportAsync(client, FolderName, cancellationToken);
         SwapVideoFile(folder);
 
         using var rescan = await client.PostAsync(RescanRoute(id), null, cancellationToken);
@@ -220,6 +221,17 @@ public sealed class ApiEndToEndPlaybackTests(ApiEndToEndFixture fixture) : ApiEn
         new("Playback:Players:0:Name", "vlc"),
         new("Playback:Players:0:ExecutablePath", PlayerPath),
         new("Playback:Players:0:Formats:0", mappedFormat),
+    ];
+
+    /// <summary>
+    /// Points <c>Library:RootPath</c> at the owned temporary library so the relative folder identity the
+    /// import persists still resolves to the physical files during rescan and playback.
+    /// </summary>
+    private KeyValuePair<string, string?>[] LibraryRootSettings() =>
+    [
+        new(
+            $"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}",
+            ownedTempRoot.ShouldNotBeNull()),
     ];
 
     private static string PlayRoute(int id) => $"/api/movies/{id}/play";

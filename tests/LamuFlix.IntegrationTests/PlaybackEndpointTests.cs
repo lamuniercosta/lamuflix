@@ -27,8 +27,8 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     private const int KnownId = 7;
     private const int UnknownId = 999;
     private const int NonpositiveId = 0;
-    private const string MovieFolder = "C:/library/Heat";
-    private const string ResolvedFile = "C:/library/Heat/Heat.mkv";
+    private const string MovieFolder = "Heat";
+    private const string ResolvedFile = "Heat/Heat.mkv";
     private const string PlayerPath = "C:/players/vlc.exe";
     private const string ProblemDetailsJson = "application/problem+json";
 
@@ -217,6 +217,38 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
 
     private void DetailsReturning(MovieDetails details) =>
         catalog.GetDetailsAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(details);
+
+    [Fact]
+    public async Task PlayMovie_RelativeStoredPath_PassesTheStoredIdentityToTheScannerWithoutRewritingIt()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var details = new MovieDetails(
+            new MovieId(KnownId),
+            "Heat",
+            new LibraryPath("Collections/Heat (1995)"),
+            new MediaFormat(".avi"),
+            null,
+            false,
+            false,
+            Review.None,
+            EnrichmentStatus.Enriched);
+        DetailsReturning(details);
+        scanner.ResolvePrimaryVideo(new LibraryPath("Collections/Heat (1995)"))
+            .Returns(new PrimaryVideo(new LibraryPath("Collections/Heat (1995)/Heat.mkv"), new MediaFormat("mkv")));
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsync(PlayRoute(KnownId), null, ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        scanner.Received(1).ResolvePrimaryVideo(new LibraryPath("Collections/Heat (1995)"));
+        starter.Received(1).Start(Arg.Is<ProcessStartInfo>(info =>
+            info.ArgumentList.Count == 1
+            && info.ArgumentList[0] == "Collections/Heat (1995)/Heat.mkv"));
+    }
 
     private static string PlayRoute(int id) => $"/api/movies/{id}/play";
 

@@ -13,7 +13,10 @@ using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Shouldly;
@@ -56,7 +59,7 @@ public sealed class ImportEndpointTests(ApiHostFactory factory) : IClassFixture<
         response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         response.Headers.Location.ShouldNotBeNull().ToString().ShouldBe("/api/movies/42");
         (await response.Content.ReadAsStringAsync(cancellationToken)).ShouldBe(string.Empty);
-        scanner.Received(1).Scan(new LibraryPath("C:/library/Heat"));
+        scanner.Received(1).Scan(new LibraryPath("Heat"));
         await movies.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await queue.DidNotReceive()
             .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
@@ -213,13 +216,124 @@ public sealed class ImportEndpointTests(ApiHostFactory factory) : IClassFixture<
         problem.GetRawText().ShouldNotContain("candidate is unreadable");
     }
 
-    private WebApplicationFactory<Program> CreateHost() =>
-        factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+    [Theory]
+    [InlineData("Heat")]
+    [InlineData("./Heat/")]
+    public async Task ImportMovie_RelativeFolderPath_ScansTheCanonicalIdentity(string supplied)
+    {
+        // arrange
+        scanner.Scan(Arg.Any<LibraryPath>())
+            .Returns(callInfo => new ScannedMovie(
+                callInfo.Arg<LibraryPath>(),
+                "Heat",
+                new MediaFormat("mkv"),
+                null,
+                1024));
+        movies.NextIdentityAsync(Arg.Any<CancellationToken>()).Returns(new MovieId(42));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(ImportRoute, new { folderPath = supplied }, cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        scanner.Received(1).Scan(new LibraryPath("Heat"));
+    }
+
+    [Theory]
+    [InlineData("D:/elsewhere/Heat")]
+    [InlineData("/mnt/elsewhere/Heat")]
+    public async Task ImportMovie_OutsideRootPath_ReturnsUnprocessableEntityWithoutScanning(string folderPath)
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(ImportRoute, new { folderPath }, cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        Fields(problem).ShouldContain("folderPath");
+        scanner.DidNotReceive().Scan(Arg.Any<LibraryPath>());
+        await movies.DidNotReceive().AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportMovie_LegacyAliasPath_ReturnsUnprocessableEntityBecauseAliasesNeverAuthorizeImports()
+    {
+        // arrange
+        await using var host = CreateHost(("Library:LegacyRootPaths:0", "D:/legacy"));
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(
+            ImportRoute,
+            new { folderPath = "D:/legacy/Heat (1995)" },
+            cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        Fields(problem).ShouldContain("folderPath");
+        scanner.DidNotReceive().Scan(Arg.Any<LibraryPath>());
+    }
+
+    [Theory]
+    [InlineData("IX_movies_library_path")]
+    [InlineData("IX_movies_library_path_key")]
+    public async Task ImportMovie_DuplicateFromEitherConstraint_KeepsTheExistingOutcomeWithoutANewConflictMapping(string constraint)
+    {
+        // arrange
+        scanner.Scan(Arg.Any<LibraryPath>())
+            .Returns(callInfo => new ScannedMovie(
+                callInfo.Arg<LibraryPath>(),
+                "Heat",
+                new MediaFormat("mkv"),
+                null,
+                1024));
+        movies.NextIdentityAsync(Arg.Any<CancellationToken>()).Returns(new MovieId(42));
+        movies.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new DbUpdateException(
+                "duplicate",
+                new PostgresException("duplicate key", "ERROR", "ERROR", "23505", constraintName: constraint)));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(ImportRoute, new { folderPath = "Heat" }, cancellationToken);
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        response.StatusCode.ShouldNotBe(HttpStatusCode.Conflict);
+        payload.ShouldNotContain(constraint);
+        payload.ShouldNotContain("duplicate key");
+    }
+
+    private WebApplicationFactory<Program> CreateHost(params (string Key, string Value)[] settings) =>
+        factory.WithWebHostBuilder(builder =>
         {
-            services.AddSingleton(scanner);
-            services.AddSingleton(movies);
-            services.AddSingleton(queue);
-        }));
+            if (settings.Length > 0)
+            {
+                builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
+                    settings.Select(setting => new KeyValuePair<string, string?>(setting.Key, setting.Value))));
+            }
+
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton(scanner);
+                services.AddSingleton(movies);
+                services.AddSingleton(queue);
+            });
+        });
 
     private static IEnumerable<string> Fields(JsonElement problem) =>
         problem.GetProperty("errors").EnumerateObject().Select(property => property.Name);

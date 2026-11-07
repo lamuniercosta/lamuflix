@@ -584,7 +584,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         body.GetProperty("title").ValueKind.ShouldBe(JsonValueKind.String);
         body.GetProperty("title").GetString().ShouldBe("Heat");
         body.GetProperty("path").ValueKind.ShouldBe(JsonValueKind.String);
-        body.GetProperty("path").GetString().ShouldBe("C:/library/Heat/Heat.mkv");
+        body.GetProperty("path").GetString().ShouldBe("Heat/Heat.mkv");
         body.GetProperty("format").ValueKind.ShouldBe(JsonValueKind.String);
         body.GetProperty("format").GetString().ShouldBe("mkv");
         var metadata = body.GetProperty("metadata");
@@ -920,7 +920,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         new(
             new MovieId(7),
             "Heat",
-            new LibraryPath("C:/library/Heat/Heat.mkv"),
+            new LibraryPath("Heat/Heat.mkv"),
             new MediaFormat(".MKV"),
             null,
             true,
@@ -932,7 +932,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         new(
             new MovieId(7),
             "Heat",
-            new LibraryPath("C:/library/Heat/Heat.mkv"),
+            new LibraryPath("Heat/Heat.mkv"),
             new MediaFormat(".MKV"),
             new MovieMetadata(
                 "Heat",
@@ -951,7 +951,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
         new(
             new MovieId(7),
             "Heat",
-            new LibraryPath("C:/library/Heat/Heat.mkv"),
+            new LibraryPath("Heat/Heat.mkv"),
             new MediaFormat(".MKV"),
             new MovieMetadata("Heat"),
             false,

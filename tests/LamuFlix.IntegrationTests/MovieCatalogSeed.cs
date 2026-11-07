@@ -15,7 +15,7 @@ internal static class MovieCatalogSeed
         new()
         {
             Title = title,
-            LibraryPath = new LibraryPath($"C:/library/{pathSuffix}.mkv"),
+            LibraryPath = new LibraryPath($"{pathSuffix}.mkv"),
             Format = new MediaFormat("mkv"),
             Status = EnrichmentStatus.Pending
         };

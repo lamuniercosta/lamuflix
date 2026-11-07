@@ -36,6 +36,7 @@ public sealed class OutboxRelayCollection : ICollectionFixture<PostgresFixture>,
 public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture rabbitMq) : IAsyncLifetime
 {
     private const string WorkerTypeName = "LamuFlix.Infrastructure.Enrichment.OutboxRelayHostedService";
+    private const string LibraryRoot = "C:/library";
     private static readonly DateTimeOffset StartedAt = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
@@ -313,9 +314,9 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
     {
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
-        var folder = new LibraryPath("C:/library/cutover-import");
+        var folder = new LibraryPath("cutover-import");
         var scanned = new ScannedMovie(
-            new LibraryPath("C:/library/cutover-import/file"),
+            new LibraryPath("cutover-import/file"),
             "Cutover import",
             new MediaFormat("mkv"),
             null,
@@ -496,7 +497,11 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
     }
 
     private ImportMovieFolderCommandHandler CreateImportHandler(LamuFlixDbContext context) =>
-        new(scanner, NewRepository(context), new EfEnrichmentOutbox(context, TimeProvider.System));
+        new(
+            scanner,
+            NewRepository(context),
+            new EfEnrichmentOutbox(context, TimeProvider.System),
+            Options.Create(new LibraryOptions { RootPath = LibraryRoot }));
 
     private static EfMovieRepository NewRepository(LamuFlixDbContext context) =>
         new(

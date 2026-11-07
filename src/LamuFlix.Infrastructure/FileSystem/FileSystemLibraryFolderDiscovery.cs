@@ -14,14 +14,16 @@ using Microsoft.Extensions.Options;
 namespace LamuFlix.Infrastructure.FileSystem;
 
 /// <summary>
-/// Streams Candidate Movie Folders under the configured library root using an explicit stack of
-/// lazy enumerators: no call-stack recursion, no depth cap and no materialized child/file lists.
+/// Streams Candidate Movie Folders under the configured library root as canonical library-relative
+/// identities (the root itself is <c>.</c>) using an explicit stack of lazy enumerators: no
+/// call-stack recursion, no depth cap and no materialized child/file lists.
 /// </summary>
 public sealed class FileSystemLibraryFolderDiscovery(
     IFileSystem fileSystem,
     IOptions<LibraryOptions> libraryOptions)
     : ILibraryFolderDiscovery
 {
+    private const string RootIdentity = ".";
     private static readonly char[] Separators = ['/', '\\'];
 
     // ReSharper disable once AsyncMethodWithoutAwait - async is required for the iterator and EnumeratorCancellation; the filesystem enumerators are synchronous by design.
@@ -37,7 +39,7 @@ public sealed class FileSystemLibraryFolderDiscovery(
         {
             if (HasSupportedVideo(rootInfo))
             {
-                yield return new LibraryPath(root);
+                yield return new LibraryPath(RootIdentity);
             }
 
             pending.Push(rootInfo.EnumerateFileSystemInfos().GetEnumerator());
@@ -149,9 +151,21 @@ public sealed class FileSystemLibraryFolderDiscovery(
         return rootInfo;
     }
 
+    /// <summary>
+    /// Resolves the configured root, refusing a non-absolute value so discovery can never silently
+    /// enumerate relative to the process working directory.
+    /// </summary>
     private string ResolveRoot()
     {
-        var info = fileSystem.DirectoryInfo.New(libraryOptions.Value.RootPath);
+        var configured = libraryOptions.Value.RootPath;
+        if (!LibraryPath.IsAbsolute(configured))
+        {
+            throw new InvalidOperationException(
+                $"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)} must be an absolute library root; "
+                + "relative roots are never resolved against the process working directory.");
+        }
+
+        var info = fileSystem.DirectoryInfo.New(configured);
         var resolved = info.LinkTarget is null
             ? info.FullName
             : info.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? info.FullName;
@@ -163,10 +177,10 @@ public sealed class FileSystemLibraryFolderDiscovery(
         var relative = fileSystem.Path.GetRelativePath(root, fullName).Trim(Separators);
         if (relative.Length == 0 || relative == ".")
         {
-            return new LibraryPath(root);
+            return new LibraryPath(RootIdentity);
         }
 
-        return new LibraryPath(relative);
+        return new LibraryPath(string.Join('/', relative.Split(Separators, StringSplitOptions.RemoveEmptyEntries)));
     }
 
     private static bool HasSupportedVideo(IDirectoryInfo directory) =>
