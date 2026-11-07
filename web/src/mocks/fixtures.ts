@@ -68,6 +68,7 @@ const movieDetailsNoTrailerData = {
   isInWatchlist: false,
   isWatched: false,
   isNotInterested: false,
+  review: 'none',
   enrichmentStatus: 'Enriched',
   metadata: {
     title: 'Dune',
