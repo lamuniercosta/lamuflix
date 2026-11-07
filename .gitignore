@@ -506,3 +506,4 @@ web/coverage/
 
 # Spec Kit feature pointer - changes per task
 .specify/feature.json
+specs/**/_quill-*
