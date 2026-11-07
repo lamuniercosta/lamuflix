@@ -63,3 +63,20 @@ Round cap: two review/fix rounds. Unresolved above-bar findings at cap mean bloc
 ## Next handoff
 
 Quill owns spec.md, plan.md and tasks.md drafting. Keel owns decisions, read-only analysis and later plan adjudication. No new domain vocabulary or ADR is necessary. No remaining grill question, cap fallback or owner structural checkbox is open. The settled operational terms and conclusions are ready to feed speckit-specify; drafting must not contradict existing glossary or ADRs.
+
+## Phase 2 step 6 — Approved plan-challenge refinements
+
+Patron approved these refinements without amendment in CONCLUSIONS.md, Phase 2 step 6, commit 1bf06eac. Basis: Q2/Q4/Q7, FR-002/004/005/006/008/018, recon-DEV-457 sections 3–8 and recon-DEV-457-2 section 12. No ticket contradiction, constitution departure, file-boundary expansion, or new owner checkbox.
+
+- Require explicit 127.0.0.1 rendered port bindings; use a top-level dedicated non-default project name. Scope destructive reset to that project and verify project/volume isolation. Exact identifiers remain Phase B choices.
+- Compose credentials are required fail-closed references with no working committed or empty defaults. Supply them through operator process environment or an untracked local Compose configuration channel distinct from API user-secrets/ignored API settings. No new tracked template.
+- Before T006 host-API-dependent checks, host Ollama must be available with all-minilm, and the unmodified production API startup path must retain its embedding validator. Do not substitute a validator-stripped test host. Record this prerequisite proof separately from readiness and reference it in the later T007 runtime receipt.
+- Prove RabbitMQ retention with an isolated durable test queue and persistent test message established before restart/recreate and observed after, without consuming application queues. Volume existence alone cannot close durability.
+- Use an isolated scratch library for validation imports, explicitly overriding Import-Library defaults. Check loopback binding before LocalPlay opt-in. Explicitly scrub the runtime receipt for real paths, credentials, and connection strings before review.
+- All implementation still waits for owner Gate 1, delivered DEV-458/DEV-459, and T001 recon. T007 visible BS Player/history proof remains separately mandatory.
+- Preserve the current RabbitMQ tag under Q6. Same-image restart/recreate proof does not certify image upgrades. No Dependabot coverage fact is asserted here; T001 Wisp recon records coverage of the new Compose filename, and any coverage gap returns to Patron for tracker disposition without editing dependabot configuration here.
+- Gate reporting follows task-pipeline Phase 3 step 5: no blanket skip of dotnet test, vulnerable-packages, or format based solely on this ticket having no C#. Gauge uses actual configured applicability and tool results. Property-test exit 2 requires the Conductor task-note opt-out receipt (DEV-457 receipt 15 currently records it); T010 cites the current receipt, never infers a PASS or harness waiver.
+- Gate 1 handoff means plan freeze then Patron gate1: provisional then Rigger spec PR then user Gate 1 merge. Patron provisional status is not owner Gate 1. Keel remains the single recording writer for the append-only T000 receipt in CONCLUSIONS.md and does not alter rulings.
+- Runtime receipt delivery SHA means the exact DEV-457 implementation HEAD exercised by the proof, separately from dependency SHAs and the spec-PR merge receipt.
+
+Adjudication of all 20 findings and the single numbered repair list are in note adjudication-DEV-457-Keel. Plan remains unfrozen until independent repair read-back; the existing two-round cap and closing bar remain unchanged.
