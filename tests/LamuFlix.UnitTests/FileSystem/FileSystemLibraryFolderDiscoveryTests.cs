@@ -234,7 +234,7 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
         {
             chainRoot = $"{chainRoot}/level{level:0000}";
             fileSystem.AddFile($"{chainRoot}/movie.mkv", new MockFileData("video"));
-            expected.Add(chainRoot[(Root.Length + 1)..].Replace('/', fileSystem.Path.DirectorySeparatorChar));
+            expected.Add(chainRoot[(Root.Length + 1)..]);
         }
 
         var discovery = Discovery(fileSystem, Root);
@@ -262,7 +262,7 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
     }
 
     private static string Relative(MockFileSystem fileSystem, params string[] segments) =>
-        fileSystem.Path.Combine(segments);
+        fileSystem.Path.Combine(segments).Replace('\\', '/');
 
     private static MockFileSystem FileSystemWith(params (string Path, string Contents)[] files)
     {

@@ -41,7 +41,7 @@ public sealed class LibraryFolderDiscoveryCandidateSetPropertyTests
         var expectedValues = expected
             .Select(path => string.Equals(path, rootInfo.FullName, StringComparison.Ordinal)
                 ? rootInfo.FullName
-                : fileSystem.Path.GetRelativePath(rootInfo.FullName, path))
+                : fileSystem.Path.GetRelativePath(rootInfo.FullName, path).Replace('\\', '/'))
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToList();
         var actualValues = actual.OrderBy(path => path, StringComparer.Ordinal).ToList();

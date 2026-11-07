@@ -23,6 +23,7 @@
     "ClaimLease": "00:00:10"
   },
   "Library": {
-    "RootPath": "/media/library"
+    "RootPath": "/media/library",
+    "LegacyRootPaths": []
   }
 }
