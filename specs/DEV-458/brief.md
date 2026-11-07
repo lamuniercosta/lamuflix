@@ -1,6 +1,6 @@
 # DEV-458 — Harden the local launcher: grill brief
 
-Status: grill closed with Patron after six questions (maximum twelve). Phase A design input for Quill; plan not frozen, Gate 1 not approved, no implementation or runtime acceptance claimed.
+Status: PLAN FROZEN by Keel after Q10 reconciliation and independent reread (Q11). Gate 1 approval/merge, implementation and runtime acceptance remain unclaimed. Historical Q1-Q9 grill and escalation record follows; Q10 controls the resolved VII exception.
 
 Worktree: `F:/Dev/LamuFlix.worktrees/feature-458-spec`
 Branch: `feature/458-spec`
@@ -22,7 +22,7 @@ Deliver Q1 request/proxy protection, Q2 proven-loopback startup refusal, Q3 exis
 
 For code-review/ship-review, Critical/High findings block. Any in-scope ticket-acceptance, security-invariant, constitution, API-contract or required-gate failure blocks regardless of severity. Discretionary abstraction/style changes outside scope are follow-ups. Size M requires Sentry, Ledger and Compass; a missing axis blocks adjudication. Two rounds maximum for plan challenge and two for implementation review; unresolved blockers at the cap stop for explicit disposition, never automatic clearance or a silent third round.
 
-One owner escalation is now open under Q9: blocked: structural — constitution VII departure or Q2 rescope. No departure or ticket change is approved. Patron cannot grant Gate 1, close the owner checkbox, or grant merge approval.
+The Q9 owner escalation was answered with Option A on draft spec PR #336: narrowly scoped Constitution VII departure approved as recorded in Q10. Q2 scope is retained; no other departure approved. This answer does not grant Gate 1 approval/merge or runtime acceptance.
 
 ## Settled decisions and complete answer index
 
@@ -157,3 +157,27 @@ In the Q4-approved endpoint/e2e/history/launcher tests, require exact 403/404 ti
 ### Plan repair / round discipline
 
 Quill incorporates Q9 and the unchecked owner checkbox into spec/plan/tasks/checklist/receipt and spec-PR body preparation, replacing stale no-escalation, unknown-recon and custom-message/detail wording. Keel aligns owned ADR after recording this decision, then independently rereads Quill repairs. This is the remaining blocker repair within existing step-6 round 1; no extra challenger round or implicit cap extension. Other 29-finding dispositions and mandatory Phase B startup/proxy/gate evidence stand. Awaiting owner decision is not PLAN FROZEN or Gate 1 acceptance.
+
+## Q10 — Owner Option A resolves the Q9 Constitution VII departure (2026-11-07)
+
+Authority: owner answer **Option A** on [draft spec PR #336](https://github.com/lamuniercosta/lamuflix/pull/336), as supplied by Bernstein in the resume ask and recorded in task note DEV-458:40 (owner checkbox ticked by lamuniercosta). This is a supplied owner-decision receipt, not an independent GitHub read-back by Keel. Q9 and earlier blocked-status language are historical; this section controls where inconsistent.
+
+- Owner approves the narrowly scoped Constitution VII departure for this DEV-458 API startup validator to read the Kestrel / Endpoints / Url configuration through IConfiguration outside options binding. The reader must inspect section presence/absence and configured endpoint Url values to reconcile the effective listener set under Q7 precedence. I1 is now an **owner-approved exception**, not a newly discovered VII-compliant API. Do not label it unconditional VII PASS.
+- Option B (new Kestrel options record) and Q2 rescope were not selected. No new configuration key, dependency, options record, reflection, code-defined endpoint, or broad raw-configuration permission is approved. No global constitution rewrite is part of this reconciliation. Other I0/I2/I3/I4/I6 surfaces and the rest of VII remain binding.
+- Q2 scope, fail-closed handling of missing/unprovable/conflicting inputs, mapped-address grammar, pre-serving startup invariant, and the working enabled-loopback positive control remain unchanged. The silent fail-all implementation remains forbidden. I7 timing/parity and actual real-Kestrel startup ordering must still be proved in Phase B, as must shipped nginx/Aspire smoke, source receipt, and required gates.
+- Sentry M6 and Ledger H1 are resolved at the planning decision level by explicit owner approval; artifact repair and independent reread must complete before PLAN FROZEN. This is continuation of plan-challenge round 1, maximum two, not an extra challenger round.
+- Answering this departure checkbox does not approve Gate 1, merge the spec PR, accept the ADR, authorize implementation before pickup, or prove runtime behavior. ADR 0036 remains Proposed until the explicit Gate 1 lifecycle transition. Gate 1 requires the separate user-owned spec approval/merge receipt, then T000 drift pickup.
+
+Quill must reconcile spec, plan, tasks, checklist, drafting receipt and pr-body-DEV-458 with this decision, preserve the answered owner question as history, name the bounded IConfiguration reader in T001/plan, and distinguish **VII exception approved** from conformance. Keel owns brief/CONCLUSIONS/ADR and freezes only after independent document verification. No new taste ruling or assumed entry.
+
+## Q11 — Keel plan freeze after independent Q10 reread (2026-11-07)
+
+**PLAN FROZEN.** This is the controlling planning status, superseding pre-freeze status labels in the historical Q1-Q10 record. Gate 1 is not approved or merged; ADR 0036 remains Proposed. No implementation, runtime acceptance or required-gate PASS is claimed.
+
+All three plan-challenge reports are present (Sentry 13, Ledger 11, Compass 5). All 29 findings have planning dispositions; prior 27 remain reconciled and Sentry M6 / Ledger H1 are now CLOSED AT PLAN STAGE by owner Option A plus verified Q10 artifact reconciliation. This continues round 1 within the existing maximum of two. No extra challenger round or threshold waiver.
+
+Independent read-only consistency review covered Quill Q10 receipt, changed spec/plan/tasks/checklist/drafting receipt, pr-body-DEV-458, brief/CONCLUSIONS and Proposed ADR. SpecKit prerequisites succeeded for this worktree; no before_analyze/after_analyze hooks are configured. No new ambiguity, scope change, uncovered requirement, or unresolved planning decision found. The Q10 I1 exception remains explicit and bounded; constitution VII is not labelled unconditional PASS. Requirement mapping remains 17 FR + 5 SC across T000-T032, including FR017 to T032. No change to API status/body decisions, five-header boundary, proxy pins or positive-control topology.
+
+Coverage: FR001-003/SC001 to T001-T006; FR004-006/SC002 to T007-T010; FR007 to T020-T024 and SC004 to T022-T023; FR008-013/SC003 to launcher/outcome T013-T018; FR014 to T011; FR015 to T000/T013/T032; FR016 to T026; FR017 to parser/startup/request/launcher/smoke and T032; SC005 to T027-T032. No unmapped requirement or task. Analysis findings: 0 new Critical/High/Medium/Low after the Q10 repair.
+
+Publication handoff: local reconciliation and freeze need commit/push and updated PR #336 body plus adjudication summary publication/read-back by Bernstein/Rigger. The local note/body is not live publication. The review round is not claimed fully published until that receipt exists. Separate user-owned Gate 1 approval/merge precedes Phase B T000 drift pickup. Phase B I7 real-host timing/parity, pre-serving/startup precedence proof, nginx/Aspire smoke, positive control, no-code-endpoint receipt, harness gates and implementation review remain mandatory and unexecuted here.
