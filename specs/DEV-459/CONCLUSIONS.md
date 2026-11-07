@@ -128,3 +128,10 @@ Verdict: Approved — adopt Option C (.NET-derived key) with the explicit truste
 - **A9 collation refinement (F9):** There is no index-level collation API in EF 10.0.14/Npgsql 10.0.3; the final model declares collation by property-level `UseCollation(C)` on `LibraryPathKey`, and the gate activation DDL must explicitly set the `library_path_key` column collation to `C` together with backfill, SET NOT NULL and CREATE UNIQUE INDEX — merely relying on index comparison is insufficient. The post-gate schema assertion and T006/T010 real-PostgreSQL checks must verify the effective column collation `C` (Basis: recon-DEV-459-3 F6, F9).
 - **Maintenance recovery obligation (F8):** The F8 fragility is accepted with a recorded recovery duty, not suppression: if `migrations remove` is ever run on the immediate successor of `AddLibraryPathKey`, tooling restores the interim predecessor designer snapshot, so the operator must redo the Phase B final-model external scaffold, then verify `has-pending-model-changes` exits 0 and inspect the next scaffold's operations to confirm no AlterColumn/CreateIndex activation is re-emitted, before applying anything. This obligation must be written into tasks and the operations/migration documentation; `ConfigureWarnings` suppression and manual deletion of in-repo generated artifacts remain prohibited (Basis: recon-DEV-459-3 F4, F8, F10).
 
+---
+
+## Gate 1 status
+
+- **Patron ruling:** `gate1: provisional` — `/speckit-analyze` is clean, plan challenge is adjudicated (A9/A10), Keel has frozen the plan, and `checklists/requirements.md` User-Visible Outcome items are ticked (Basis: task-pipeline Phase 2 step 7; specs/DEV-459/checklists/requirements.md:32-36).
+
+
