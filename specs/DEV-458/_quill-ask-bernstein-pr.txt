@@ -1,0 +1,1 @@
+[from Quill] DEV-458: please open the actual GitHub spec PR from worktree F:\Dev\LamuFlix.worktrees\feature-458-spec branch feature/458-spec using note pr-body-DEV-458 (includes exact unchecked Q9 owner checkbox). PLAN NOT FROZEN; Gate1 closed until user answers the checkbox. Quill prepared the body only and does not claim posted — reply with PR URL/receipt when published.
