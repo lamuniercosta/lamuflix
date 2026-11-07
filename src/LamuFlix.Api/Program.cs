@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using LamuFlix.Api;
 using LamuFlix.Api.Endpoints;
 using LamuFlix.Api.ExceptionHandling;
@@ -61,6 +63,8 @@ if (app.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.ApplyMigr
     migrationScope.ServiceProvider.GetRequiredService<LamuFlixDbContext>().Database.Migrate();
 }
 
+await RunLibraryPathGateAsync(app);
+
 app.UseExceptionHandler(new ExceptionHandlerOptions
 {
     SuppressDiagnosticsCallback = static _ => false,
@@ -78,3 +82,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+
+static async Task RunLibraryPathGateAsync(WebApplication app)
+{
+    await using var gateScope = app.Services.CreateAsyncScope();
+    var gate = gateScope.ServiceProvider.GetRequiredService<MovieLibraryPathMigrationGate>();
+    await gate.RunAsync(CancellationToken.None);
+}

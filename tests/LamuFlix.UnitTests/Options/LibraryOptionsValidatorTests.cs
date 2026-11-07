@@ -113,6 +113,7 @@ public sealed class LibraryOptionsValidatorTests
     public void Validate_NullOptions_Throws()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed - the validator's null guard is the subject under test
         var thrown = Should.Throw<System.ArgumentNullException>(() => validator.Validate(null, null!));
 
         // assert

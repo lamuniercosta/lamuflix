@@ -60,7 +60,8 @@ public sealed class MigrationTests(PostgresFixture fixture)
         "manual_imdb_id",
         "collection_id",
         "enrichment_deferred_until",
-        "trailer_key"
+        "trailer_key",
+        "library_path_key"
     ];
 
     private static readonly Regex SnakeCase = new(
@@ -89,7 +90,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(15);
+        migrations.Length.ShouldBe(16);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -105,6 +106,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         migrations[12].ShouldEndWith("_AddEnrichmentDeferredUntil");
         migrations[13].ShouldEndWith("_AddMovieTrailerKey");
         migrations[14].ShouldEndWith("_AddExplicitMovieReviews");
+        migrations[15].ShouldEndWith("_AddLibraryPathKey");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -139,20 +141,19 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddExplicitMovieReviews");
-        var rows = await context.Movies.AsNoTracking()
-            .OrderBy(movie => movie.Title)
-            .ToListAsync(cancellationToken);
+        applied[^1].ShouldEndWith("_AddLibraryPathKey");
+        var rows = await catalog.ListLegacyMoviesAsync(cancellationToken);
         rows.Count.ShouldBe(priorCount);
         foreach (var movie in seeded)
         {
             var row = rows.Single(item => item.Title == movie.Title);
-            row.LibraryPath.Value.ShouldBe(movie.LibraryPath);
-            row.Format.Extension.ShouldBe(movie.Format);
-            row.Status.Value.ShouldBe(movie.Status);
-            row.IsWatched.ShouldBeFalse();
-            row.Review.ShouldBe(Review.None);
+            row.LibraryPath.ShouldBe(movie.LibraryPath);
+            row.Format.ShouldBe(movie.Format);
+            row.Status.ShouldBe(movie.Status);
         }
+
+        (await catalog.ListMovieFeedbackByTitleAsync(cancellationToken)).ShouldBe(
+            seeded.ToDictionary(movie => movie.Title, _ => (false, 0), StringComparer.Ordinal));
 
         await AssertFeedbackColumnsAsync(catalog, cancellationToken);
         await AssertPublicTablesAsync(catalog, cancellationToken);
@@ -205,7 +206,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         applied[1].ShouldEndWith("_AddMovieWriters");
         var priorColumns = await catalog.ListColumnsAsync("movies", cancellationToken);
         priorColumns.ShouldBe(
-            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id" and not "enrichment_deferred_until" and not "trailer_key" and not "review"),
+            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id" and not "enrichment_deferred_until" and not "trailer_key" and not "review" and not "library_path_key"),
             ignoreOrder: true);
         priorColumns.ShouldNotContain("is_watched");
         priorColumns.ShouldNotContain("is_not_interested");
@@ -308,7 +309,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddExplicitMovieReviews");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddLibraryPathKey");
     }
 
     [Fact]
@@ -370,7 +371,7 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await migrator.MigrateAsync(null, cancellationToken);
         context.ChangeTracker.Clear();
 
-        var movieId = (await context.Movies.AsNoTracking().SingleAsync(cancellationToken)).Id;
+        var movieId = await ReadOnlyMovieIdAsync(context, cancellationToken);
         movieId.ShouldNotBeNull();
 
         var catalog = new PostgresCatalog(context);
@@ -545,6 +546,33 @@ public sealed class MigrationTests(PostgresFixture fixture)
         await AssertMovieIndexDefinitionsAsync(catalog, cancellationToken);
     }
 
+    [Fact]
+    public async Task ActivateLibraryPathKey_AdditiveMigrateThenGate_RetainsExactIndexAndActivatesColumnCollationC()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = await fixture.CreateEmptyDatabaseContextAsync(cancellationToken);
+        await context.Database.MigrateAsync(cancellationToken);
+        var catalog = new PostgresCatalog(context);
+        (await catalog.ListMovieIndexesAsync(cancellationToken))
+            .ShouldContain(def => IsLibraryPathIndex(def) && def.Contains("(library_path)", StringComparison.Ordinal));
+        (await catalog.ListTableIndexesAsync("movies", cancellationToken))
+            .ShouldNotContain(def => def.Contains("IX_movies_library_path_key", StringComparison.Ordinal));
+
+        // act
+        await PostgresFixture.ActivateLibraryPathKeyAsync(context, cancellationToken);
+
+        // assert
+        var indexes = await catalog.ListMovieIndexesAsync(cancellationToken);
+        AssertLibraryPathIndex(indexes);
+        AssertLibraryPathKeyIndex(indexes);
+        indexes.Count(def => def.Contains("(library_path)", StringComparison.Ordinal)
+            && def.Contains("UNIQUE", StringComparison.Ordinal)).ShouldBe(1);
+        (await catalog.ListMoviesNullabilityAsync(cancellationToken))["library_path_key"].ShouldBeFalse();
+        (await catalog.ListMovieColumnCollationAsync("library_path_key", cancellationToken)).ShouldBe("C");
+        context.Database.HasPendingModelChanges().ShouldBeFalse();
+    }
+
     private static Task InsertLegacyMovieAsync(
         LamuFlixDbContext context,
         LegacyMovie movie,
@@ -567,6 +595,16 @@ public sealed class MigrationTests(PostgresFixture fixture)
         context.Database
             .SqlQueryRaw<string>("SELECT title AS \"Value\" FROM movies ORDER BY title")
             .ToListAsync(cancellationToken);
+
+    private static async Task<MovieId?> ReadOnlyMovieIdAsync(
+        LamuFlixDbContext context,
+        CancellationToken cancellationToken)
+    {
+        var ids = await context.Database
+            .SqlQueryRaw<int>("SELECT id AS \"Value\" FROM movies ORDER BY id")
+            .ToListAsync(cancellationToken);
+        return ids.Count == 1 ? new MovieId(ids[0]) : null;
+    }
 
     private static async Task AssertFeedbackColumnsAsync(
         PostgresCatalog catalog,
@@ -676,6 +714,12 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
     private static void AssertLibraryPathIndex(List<string> indexes) =>
         indexes.ShouldContain(def => IsLibraryPathIndex(def));
+
+    private static void AssertLibraryPathKeyIndex(List<string> indexes) =>
+        indexes.ShouldContain(def =>
+            def.Contains("IX_movies_library_path_key", StringComparison.Ordinal)
+            && def.Contains("UNIQUE", StringComparison.Ordinal)
+            && def.Contains("(library_path_key)", StringComparison.Ordinal));
 
     private static bool IsLibraryPathIndex(string def) =>
         def.Contains("library_path", StringComparison.Ordinal)
@@ -840,6 +884,22 @@ public sealed class MigrationTests(PostgresFixture fixture)
             return values;
         }
 
+        public async Task<Dictionary<string, (bool IsWatched, int Review)>> ListMovieFeedbackByTitleAsync(
+            CancellationToken cancellationToken)
+        {
+            var values = new Dictionary<string, (bool IsWatched, int Review)>(StringComparer.Ordinal);
+            await using var command = await CreateCommandAsync(
+                "SELECT title, is_watched, review FROM movies",
+                cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                values[reader.GetString(0)] = (reader.GetBoolean(1), reader.GetInt32(2));
+            }
+
+            return values;
+        }
+
         public async Task<Dictionary<string, int>> ListMovieReviewsByTitleAsync(CancellationToken cancellationToken)
         {
             var values = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -910,6 +970,22 @@ public sealed class MigrationTests(PostgresFixture fixture)
 
         public Task<List<string>> ListMovieIndexesAsync(CancellationToken cancellationToken) =>
             ListTableIndexesAsync("movies", cancellationToken);
+
+        public async Task<string> ListMovieColumnCollationAsync(
+            string column,
+            CancellationToken cancellationToken) =>
+            (await QueryStringsAsync(
+                $"""
+                SELECT COALESCE((SELECT coll.collname FROM pg_collation AS coll
+                                 WHERE coll.oid = attribute.attcollation), '')
+                FROM pg_attribute AS attribute
+                JOIN pg_class AS relation ON relation.oid = attribute.attrelid
+                JOIN pg_namespace AS space ON space.oid = relation.relnamespace
+                WHERE space.nspname = 'public' AND relation.relname = 'movies'
+                  AND attribute.attname = '{column}' AND attribute.attnum > 0
+                  AND NOT attribute.attisdropped
+                """,
+                cancellationToken)).Single();
 
         public Task<List<string>> ListTableIndexesAsync(string table, CancellationToken cancellationToken) =>
             QueryStringsAsync(

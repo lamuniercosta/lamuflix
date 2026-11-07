@@ -85,12 +85,12 @@ public sealed class MovieModelTests
     }
 
     [Fact]
-    public void MoviesIndexes_HaveExactlySix()
+    public void MoviesIndexes_HaveExactlySeven()
     {
         using var context = CreateContext();
         var entity = RequireEntity(context, typeof(MovieRecord));
 
-        entity.GetIndexes().Count().ShouldBe(6);
+        entity.GetIndexes().Count().ShouldBe(7);
     }
 
     [Fact]

@@ -94,6 +94,13 @@ public static class LamuFlixDbContextFactory
         return new LamuFlixDbContext(options);
     }
 
+    public static string ConnectionStringFor(string connectionString, string database)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+        ArgumentException.ThrowIfNullOrWhiteSpace(database);
+        return WithDatabase(connectionString, database);
+    }
+
     private static string WithDatabase(string connectionString, string database)
     {
         var segments = connectionString.Split(

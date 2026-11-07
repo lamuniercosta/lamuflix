@@ -184,6 +184,35 @@ public sealed class ArchitectureTests
     }
 
     [Fact]
+    public void Library_path_gate_must_be_a_sealed_concrete_infrastructure_type_with_no_port_or_interface()
+    {
+        var gate = typeof(MovieLibraryPathMigrationGate);
+
+        Assert.Equal("LamuFlix.Infrastructure.Persistence", gate.Namespace);
+        Assert.True(gate.IsSealed, "MovieLibraryPathMigrationGate must be sealed.");
+        Assert.True(gate.IsClass, "MovieLibraryPathMigrationGate must be a concrete class.");
+        Assert.Empty(gate.GetInterfaces());
+        Assert.NotNull(gate.FullName);
+        Assert.Same(typeof(MovieLibraryPathMigrationGate), gate.Assembly.GetType(gate.FullName, throwOnError: true));
+
+        var gatePorts = Types.InAssembly(Core)
+            .That()
+            .ResideInNamespace("LamuFlix.Core.Ports")
+            .And()
+            .HaveNameMatching("LibraryPath|MigrationGate|MovieLibraryPath")
+            .GetTypes()
+            .ToList();
+        Assert.Empty(gatePorts);
+
+        var infrastructurePorts = Types.InAssembly(typeof(MovieLibraryPathMigrationGate).Assembly)
+            .That()
+            .HaveNameMatching("ILibraryPath|IMigrationGate|IMovieLibraryPath")
+            .GetTypes()
+            .ToList();
+        Assert.Empty(infrastructurePorts);
+    }
+
+    [Fact]
     public void Derived_profile_caching_must_stay_behind_the_single_existing_port()
     {
         var profilePorts = Types.InAssembly(Core)

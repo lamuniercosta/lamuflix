@@ -5,6 +5,7 @@ using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.RabbitMq;
+using LamuFlix.Tests.Common;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -54,7 +55,7 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
         new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", "https://example.invalid/"),
         new($"{OmdbQuotaOptions.SectionName}:{nameof(OmdbQuotaOptions.DailyLimit)}", "1000"),
         new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}", "localhost"),
-        new("ConnectionStrings:DefaultConnection", "Host=localhost;Port=5432;Database=lamuflix"),
+        new("ConnectionStrings:DefaultConnection", SharedPostgres.ConnectionString),
         new($"{DatabaseOptions.SectionName}:{nameof(DatabaseOptions.ApplyMigrationsOnStartup)}", "false"),
         new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:10"),
         new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}", "00:01:00"),

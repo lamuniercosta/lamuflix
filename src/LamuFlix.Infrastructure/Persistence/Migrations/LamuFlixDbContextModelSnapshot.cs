@@ -212,6 +212,12 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("library_path");
 
+                    b.Property<string>("LibraryPathKey")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("library_path_key")
+                        .UseCollation("C");
+
                     b.Property<string>("ManualImdbId")
                         .HasColumnType("text")
                         .HasColumnName("manual_imdb_id");
@@ -274,6 +280,9 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasFilter("imdb_id IS NOT NULL");
 
                     b.HasIndex("LibraryPath")
+                        .IsUnique();
+
+                    b.HasIndex("LibraryPathKey")
                         .IsUnique();
 
                     b.HasIndex("ReleaseYear");

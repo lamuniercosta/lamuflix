@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,5 +33,42 @@ public sealed class LamuFlixDbContext(DbContextOptions<LamuFlixDbContext> option
     {
         modelBuilder.HasPostgresExtension("vector");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LamuFlixDbContext).Assembly);
+    }
+
+    public override int SaveChanges()
+    {
+        DeriveLibraryPathKeys();
+        return base.SaveChanges();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        DeriveLibraryPathKeys();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        DeriveLibraryPathKeys();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        DeriveLibraryPathKeys();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void DeriveLibraryPathKeys()
+    {
+        foreach (var entry in ChangeTracker.Entries<MovieRecord>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+            {
+                entry.Entity.LibraryPathKey = entry.Entity.LibraryPath.Value.ToUpperInvariant();
+            }
+        }
     }
 }

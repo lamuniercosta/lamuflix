@@ -305,7 +305,7 @@ public sealed class EfMovieRepositoryCollectionTests(PostgresFixture fixture)
         await fixture.ResetAsync(ct);
         await using var db = fixture.CreateMigratedContext();
         await db.Database.ExecuteSqlRawAsync(
-            "INSERT INTO movies (title, library_path, format, status, enrichment_attempts, is_in_watchlist) VALUES ('Legacy', 'C:/library/collection-legacy.mkv', 'mkv', 0, 0, false)",
+            "INSERT INTO movies (title, library_path, library_path_key, format, status, enrichment_attempts, is_in_watchlist) VALUES ('Legacy', 'C:/library/collection-legacy.mkv', 'C:/LIBRARY/COLLECTION-LEGACY.MKV', 'mkv', 0, 0, false)",
             ct);
 
         // act

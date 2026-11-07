@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -31,6 +34,23 @@ public sealed class PostgresFixture : IAsyncLifetime
             "PostgresFixture has not been initialized. InitializeAsync must run first.");
 
     public string ConnectionString => Container.GetConnectionString();
+
+    private const string ActiveLibraryRoot = "C:/library";
+
+    /// <summary>Activation-only gate over the shared active root.</summary>
+    private static MovieLibraryPathMigrationGate CreateGate(LamuFlixDbContext context) =>
+        new(
+            context,
+            Options.Create(new LibraryOptions { RootPath = ActiveLibraryRoot }),
+            Options.Create(new DatabaseOptions { ApplyMigrationsOnStartup = true }),
+            NullLogger<MovieLibraryPathMigrationGate>.Instance);
+
+    public static async Task ActivateLibraryPathKeyAsync(
+        LamuFlixDbContext context,
+        CancellationToken cancellationToken)
+    {
+        await CreateGate(context).RunAsync(cancellationToken);
+    }
 
     public async ValueTask InitializeAsync()
     {
@@ -74,8 +94,18 @@ public sealed class PostgresFixture : IAsyncLifetime
         _container = null;
     }
 
+    public string FullConnectionString(LamuFlixDbContext context) =>
+        LamuFlixDbContextFactory.ConnectionStringFor(ConnectionString, context.Database.GetDbConnection().Database);
+
     public LamuFlixDbContext CreateMigratedContext() =>
         LamuFlixDbContextFactory.OpenContext(ConnectionString);
+
+    public LamuFlixDbContext CreateActivatedContext()
+    {
+        var context = CreateMigratedContext();
+        ActivateLibraryPathKeyAsync(context, CancellationToken.None).GetAwaiter().GetResult();
+        return context;
+    }
 
     public async Task<LamuFlixDbContext> CreateEmptyDatabaseContextAsync(CancellationToken cancellationToken) =>
         await LamuFlixDbContextFactory.CreateEmptyDatabaseContextAsync(ConnectionString, cancellationToken);
@@ -99,6 +129,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         await using var context = CreateMigratedContext();
         await context.Database.MigrateAsync(cancellationToken);
+        await ActivateLibraryPathKeyAsync(context, cancellationToken);
     }
 
     private static async Task<string?> BuildTruncateAsync(
