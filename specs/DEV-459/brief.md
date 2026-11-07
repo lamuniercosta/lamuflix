@@ -1,6 +1,6 @@
 # DEV-459 — Library-relative movie folders: grill brief
 
-Status: PLAN FROZEN by Keel on 2026-11-07 after all 17 three-axis plan-challenge items were reconciled and final read-only analyze was CLEAN. Decisions A1–A10 govern; earlier drafting and blocker statements below are historical and superseded where A8–A10 and this freeze refine them. Ordinary user Gate 1, implementation, runtime acceptance and merge clearance remain pending.
+Status: PLAN FROZEN by Keel on 2026-11-07 after all 17 three-axis plan-challenge items were reconciled and final read-only analyze was CLEAN. Decisions A1–A12 govern; earlier drafting and blocker statements below are historical and superseded where A8–A12 and this freeze refine them. Ordinary user Gate 1, implementation, runtime acceptance and merge clearance remain pending.
 
 Worktree: `F:/Dev/LamuFlix.worktrees/feature-459-spec`  
 Branch: `feature/459-spec`  
@@ -21,7 +21,7 @@ No new dependencies, projects, top-level architectural layers, tables, public ro
 - **Library root:** active `Library:RootPath`, the filesystem location for all runtime media reads.
 - **Canonical LibraryPath:** portable non-rooted movie-folder identity relative to that root, `/` separators, original segment casing, redundant dot segments removed, root represented by `.`. Reject parent traversal segments, drive-relative, malformed and outside-root paths. Persist and return this same value, including `MovieDetailsResponse.Path`.
 - **Legacy root alias:** a recognized historical absolute Windows drive/UNC or POSIX root prefix used only for backfill and legacy thumbnail messages, never authorization of new imports outside the active root.
-- **Portable uniqueness:** no two movie rows have canonical identities equal under `OrdinalIgnoreCase`, on any host. Preserve exact unique index as well.
+- **Portable uniqueness:** no two movie rows have equal whole-string `ToUpperInvariant()` keys under ordinal comparison, on any host, including Long S versus s/S collisions and distinct Garay keys as ruled in A12. Preserve the exact unique index as well (A11–A12).
 
 These definitions belong in the feature specification. No root glossary rewrite is authorized by this brief; use established LibraryPath vocabulary from DEV-438 without changing unrelated domain terms.
 
@@ -41,7 +41,7 @@ Both API and Worker must finish a configuration-aware startup gate before HTTP o
 
 ### A4 — Old and new queued thumbnail payloads
 
-Keep `ThumbnailRequested(MovieId, string FilePath)` and existing queue policy. Publish canonical relative paths. Canonicalize old absolute payloads through the root map, compare against the loaded movie's canonical path with `OrdinalIgnoreCase`, and never authorize on ID alone. Resolve authorized folders under the active root, never CWD, preserving containment, reparse-point and existing eligibility checks. Unknown roots, escaping payloads, missing movies and mismatches take existing terminal `IneligibleRequest` / `UnauthorizedSourcePath` paths without source access or retry loops. Basis: ticket queue clause; recon section 4.
+Keep `ThumbnailRequested(MovieId, string FilePath)` and existing queue policy. Publish canonical relative paths. Canonicalize old absolute payloads through the root map, compare against the loaded movie's canonical path using whole-string `ToUpperInvariant()` ordinal key equality (A11–A12), and never authorize on ID alone. Resolve authorized folders under the active root, never CWD, preserving containment, reparse-point and existing eligibility checks. Unknown roots, escaping payloads, missing movies and mismatches take existing terminal `IneligibleRequest` / `UnauthorizedSourcePath` paths without source access or retry loops. Basis: ticket queue clause; recon section 4.
 
 ### A5 — Preserve invariant after migration
 
@@ -59,7 +59,7 @@ Patron confirmed the acceptance matrix and task order below, bounded existing-fi
 
 ## Implementation approach and planned files
 
-Quill must turn these decisions into concrete tasks with acceptance traceability. Do not create speculative repository/mediator/service layers or pick a new library. Exact database mechanism must implement the ruled OrdinalIgnoreCase semantics, including non-ASCII behavior and concurrent writes; do not silently equate SQL lower/collation semantics with that contract. If platform mechanics cannot meet a ruling, obtain recon and return a needs-decision question before drafting an exception.
+Quill must turn these decisions into concrete tasks with acceptance traceability. Do not create speculative repository/mediator/service layers or pick a new library. Exact database mechanism must implement the A12 whole-string ToUpperInvariant ordinal key semantics, including Long S collisions, distinct Garay keys, and concurrent writes; do not silently equate SQL lower/collation semantics with that contract. If platform mechanics cannot meet a ruling, obtain recon and return a needs-decision question before drafting an exception.
 
 Recon-bounded production surfaces:
 
@@ -209,3 +209,15 @@ Patron A9 (50d347ee) and A10 (3096f9a6) fix the Infrastructure derivation/gate/v
 Final read-only speckit-analyze: prerequisite exit 0 with PYTHONUTF8=1; no analyze extension hooks; 22 FRs plus 7 buildable SCs all covered by 33 tasks T000–T032; zero unresolved findings, unmapped tasks or established constitution conflicts. Analysis and adjudication notes carry evidence; no production gate or runtime acceptance was executed by Keel. The Unicode property, PG17 migration/atomicity/uniqueness proofs and SMOKE-001 remain mandatory implementation/delivery work.
 
 Freeze covers the current planning artifact content in this worktree, not a production-code review SHA. The ADR remains proposed and the spec/plan/tasks remain pending ordinary owner Gate 1. Next: Bernstein routes Patron provisional Gate 1 and Rigger spec-PR publication. User merges. T000 verified Gate 1 receipt must exist before T001+. No commit, push, merge or implementation authority is granted by this freeze.
+
+## A11–A12 — Long S/Garay divergences and authoritative portable key equality (2026-11-07)
+
+Basis: Patron rulings A11 and A12 in `CONCLUSIONS.md`; runtime and PostgreSQL facts in `recon-DEV-459-2` §§2–5 and runtime verification in `recon-DEV-459-3` §§2–5, §7, §9. A12 adopts Option A (retain the A8 Option C mechanism with ordinal key equality), superseding the A11 sole-Long-S exception claim. This refines the A3/A4/A5 comparison contract and A8/A9 equivalence gate; their original Q&A above is historical where superseded. Option C stands, with no new mechanism or schema scope.
+
+Portable uniqueness is whole-string `ToUpperInvariant()` key equality under ordinal comparison, intentionally collating U+017F (`ſ`) with s/S. Startup preflight, in-memory import collision checks, and ThumbnailConsumer canonical-path comparison must use this same equality so they agree with `IX_movies_library_path_key` (column collation C), including Long S; Long S versus s/S collides, while the 22 corresponding Garay pairs U+10D50..U+10D65 versus U+10D70..U+10D85 remain distinct under the non-invariant shipping runtime. Windows/UNC root-prefix matching remains as ruled in A2; this refinement concerns canonical movie identity. Core remains key-free; the Infrastructure SaveChanges derivation and gate-backfill placement remain A9.
+
+Shipping-runtime equivalence property: for strings outside the exact 24 verified pairing divergences on the non-invariant shipping runtime (2 Long S pairs: U+017F versus U+0073/U+0053; 22 Garay pairs: U+10D50..U+10D65 versus corresponding U+10D70..U+10D85), prove `a.Equals(b, StringComparison.OrdinalIgnoreCase) == string.Equals(a.ToUpperInvariant(), b.ToUpperInvariant(), StringComparison.Ordinal)` across Unicode, including supplementary/Deseret, Turkish dotted/dotless i, sharp-s, ligatures, Kelvin sign, Greek/Coptic, and combining forms. Pair it with deterministic `[Fact]` tests in `LibraryPathUpperInvariantEquivalenceTests` locking both recon-verified .NET 10.0.14 non-invariant behaviors: Long S maps to U+0053, so its whole-string uppercase ordinal key equals the s/S keys while `OrdinalIgnoreCase` is false for both pairs; for each of the 22 corresponding Garay pairs, `OrdinalIgnoreCase` is true while both code points remain unchanged by `ToUpperInvariant()` and their ordinal keys are unequal under Windows NLS and Linux ICU 74.2. Exclude only the ruled pairings from the equivalence assertion, never all strings containing Long S or Garay and never a hand-picked Unicode subset. Samples are evidence, not proof. T005 property and both deterministic-fact classes must be green before T006+; any additional mismatch stops acceptance and returns through Bernstein/Wisp recon to Patron for decision and artifact revision; never waive the gate (A12 Option A; recon-DEV-459-3 §§2–5, §9).
+
+A12 Option A rejects a hand-picked Unicode subset (Option B), `OrdinalIgnoreCase` comparison of upper keys (Option C in the A12 alternatives, distinct from the retained A8 Option C storage mechanism), and switching to `InvariantGlobalization` (Option D). Upper-key `OrdinalIgnoreCase` would disagree with the PostgreSQL collation-C key index on Garay; Windows NLS and the production Linux ICU 74.2 image are both non-invariant and exhibit the same 24 divergences. The property and both deterministic-fact classes remain mandatory (CONCLUSIONS.md A12; recon-DEV-459-3 §§2–5, §7).
+
+Task alignment: T005 revises the property and locks deterministic Long S and Garay facts; T006 proves Long S collision/duplicate outcomes and distinct Garay identities against real PostgreSQL; T008 uses key equality in preflight; T020 uses it for queue identity, with T018/T021 regression coverage. This artifact alignment records a decision, not a passing T005 run or permission to skip it.
