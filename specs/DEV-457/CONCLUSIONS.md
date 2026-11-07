@@ -114,3 +114,12 @@ Official installation evidence is now supplied by recon-DEV-457-2 §12.2–12.3 
 - Frozen scope: Q6 files only for the Windows daily-driver runbook, durable isolated loopback Postgres and RabbitMQ, official host Ollama and corrected startup docs, placeholder Playback example, and real BS Player and history proof after DEV-458 and DEV-459; anything else is a follow-up issue, and Quill next drafts spec, plan and tasks from brief before read-only analysis, plan challenge, plan freeze and owner Gate 1.
 
 **Implications:** Grill closed at Q8, with no cap fallback. Quill may draft the Spec Kit artifacts; plan freeze, Gate 1, implementation, runtime acceptance, and merge clearance remain distinct later claims. No new vocabulary or ADR is required.
+
+---
+
+## Phase 2 step 6 — Plan-challenge adjudication (Q2/Q4/Q7 refinements)
+
+**Patron:** DEV-457 step 6 approved: Keel may hand Quill the listed in-scope safety and evidence refinements to Q2/Q4/Q7 as repairs; no ticket contradiction or constitution departure, and Q6 file boundary and existing contracts are preserved.
+- Basis Q2/Q7 and FR-002/FR-004/FR-018: rendered ports must assert explicit 127.0.0.1 bindings; Compose credentials are fail-closed references with no working committed defaults, on a separate untracked channel from API user-secrets/ignored settings; the dedicated project name is top-level and destructive reset is project-scoped; RabbitMQ proof uses a retained durable queue with a persistent test message observed before and after restart without consuming application queues; durability import uses an isolated scratch library.
+- Basis Q3/Q4/Q7 and FR-005/FR-006/FR-008: production API startup validator stays enabled with host Ollama available before T006 Gauge proof; LocalPlay opt-in requires prior loopback confirmation; the runtime receipt gets an explicit scrub check for real paths, credentials, and connection strings.
+- Basis Q6/FR-015 and Q8 closing bar: keep the current RabbitMQ tag, noting same-image durability does not certify image upgrades; assert no Dependabot coverage fact in Phase A and defer that fact to T001 Wisp recon; unsafe exposure or unmet acceptance still blocks regardless of severity.
