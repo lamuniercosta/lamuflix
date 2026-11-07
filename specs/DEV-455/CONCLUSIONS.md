@@ -1,0 +1,117 @@
+# DEV-455 Grill Conclusions
+
+## Q1 — Media Chrome dependency
+Question: Approve Media Chrome as the named npm player dependency within the existing web feature structure, with no additional player/state library? Recommendation: yes; DEV-455 explicitly names Media Chrome (recon-DEV-455:16), so this is ticket authority rather than owner escalation. Pin an exact stable version selected and verified at implementation pickup under repository policy, without inventing a version today. Cost: library bundle and maintenance; no new project or top-level architecture.
+
+Patron answer: APPROVED. Media Chrome is the named npm player dependency within existing web feature structure; no additional player or state library. Basis: recon-DEV-455:16 and Charter §2.3 ticket text counts as decided; recon:27,55 establish the new dependency, deliberately approved under item 1. Exact stable version must be selected and verified at implementation pickup under repository policy. No new project or top-level architecture (recon:56). Bundle and maintenance cost accepted.
+
+Implications: Quill must encode this bounded dependency approval and defer exact version selection to a verified pickup task. No owner checkbox arises from this ruling.
+
+---
+
+## Q2 — LocalPlay capability contract
+Question: How should web discover whether Open in BS Player may be offered, since recon:34,44 shows no capability surface? Recommendation: minimal GET /api/playback/capabilities, C# PlaybackCapabilitiesDto with only localPlayEnabled:boolean, 200 application/json, effective Features:LocalPlay, no paths/player configuration. Hide secondary action during loading/failure, keep browser Play available. Charter items 4/5 approval; no schema change. Cost: narrow backend contract and generated web types.
+
+Patron answer: APPROVED as proposed. Basis: recon:34,44 — ticket condition needs a web-visible flag; recon:16 and Charter §2.3 items 4/5 — this implements ticket text without owner escalation or schema change. Contract must flow C# DTO → OpenAPI → generated TypeScript, without hand-rolled duplicates or additional fields absent a new ruling.
+
+Implications: Add exactly this capability contract; fail closed for the secondary action only.
+
+---
+
+## Q3 — LocalPlay coexistence
+Question: Approve browser Play never invoking POST /play; explicit Open in BS Player alone invokes existing launch contract when capability=true, retaining server enforcement; preserve DEV-458 and launch error meanings (proposed 204 started, 403 disabled/hide/explain, 404 unavailable movie/file, 409 no source, 422 missing player/validation, other/network retry); no automatic fallback, Process.Start/config/bind/schema change. Basis recon:16,18-22,39-44. Cost: two independent actions and launch error UI.
+
+Patron answer: APPROVED with refinement. Browser and launch actions remain explicit and independent (recon:16); server enforcement and DEV-458 hardening retained, no Process.Start/config/bind/schema change (recon:39-44). Do not reinterpret status codes: map 204/403/404/409/422/other/network exactly as the existing generated launch contract and current UI define them (recon:29-31,41), using generic retry only where that contract gives no specific meaning.
+
+Implications: Quill must preserve the upstream launch contract; the proposed shorthand status descriptions are not a new contract.
+
+---
+
+## Q4 — Browser presentation
+Question: Choose default presentation. Recommendation: in-page MovieDetailsView player, no route/modal; details Play opens and requests DEV-456 stream under gesture; card Play navigates to details and opens same region, attempts play and retains explicit control if blocked. Single video; focus labelled region; usable navigation. Basis recon:26,28-33. Cost: in-page space.
+
+Patron answer: APPROVED as proposed. Recon:26 has detail navigation and no watch route; recon:28-33 supplies existing entry points. One active video, focus to labelled player region, navigation usable. Extra in-page space accepted rather than a second shell.
+
+Implications: Both entry points converge on one player; autoplay denial is recoverable by explicit Play.
+
+---
+
+## Q5 — Accessible controls
+Question: Approve Media Chrome play/pause, seek timeline, elapsed/duration, volume/mute, speed 0.5/1/1.5/2, fullscreen; Space/K toggle, Left/Right seek 10s clamped to seekable bounds, M mute, F fullscreen, Escape browser fullscreen exit; only player-owned focus, never editable fields/dialogs or global interception; labels, Tab access, visible focus; native media events authoritative, shared pointer/keyboard actions. Basis recon:16,33. Cost: focused keyboard/accessibility tests; no captions/playlist/casting/resume/transcoding.
+
+Patron answer: APPROVED as proposed. Ticket requires bounded controls (recon:16), and existing Escape/arrow behavior requires local shortcut scope (recon:33). All conditions and exclusions approved.
+
+Implications: Tests must cover focus scoping and seek bounds as well as positive actions.
+
+---
+
+## Q6 — Playback failure and lifecycle
+Question: Approve loading/buffering without premature failure; native events define playing/paused/ended; autoplay denial retains explicit Play; terminal media/network/unsupported failure gives generic readable message, Retry and LocalPlay only if capability=true; no extension codec claims or invented opaque-error HTTP statuses. Retry same source from beginning, no automatic loops. Navigation/unmount/movie change pauses, clears source, releases resource, guards stale updates/overlap. No persistent progress/history writes. Basis recon:16,18,26,35. Cost: no retry resume.
+
+Patron answer: APPROVED as proposed. Recon:16 authorises error states but not codec claims, invented statuses, fallback or resume; recon:26,35 require lifecycle cleanup for the new player. All conditions approved; retry starts at beginning, accepted cost no resume.
+
+Implications: Separate recoverable autoplay denial and buffering from terminal failure; test teardown and stale work.
+
+---
+
+## Q7 — Compose evidence
+Question: Choose sample/runtime acceptance. Recommendation: small real compatible sample from ignored runtime directory via LIBRARY_PATH; preserve tracked zero-byte samples and no unlicensed media commits. Record provenance/license, browser/version, codec/container, duration, Compose URL, controls, resumed seek/range through nginx, errors, LocalPlay-off hidden. Enabled launch separately on DEV-458-approved loopback only; no Compose/e2e false weakening. Missing browser/sample = Could not run, acceptance open. Basis recon:16,42,46-51. Cost provisioning/manual evidence.
+
+Patron answer: APPROVED with refinement: verify runtime path is git-ignored before provisioning; otherwise use a location outside the tracked tree through LIBRARY_PATH. All evidence and isolation requirements approved. Basis recon:46-51 placeholder and mount/nginx facts, recon:42 and ADR 0023 preserve LocalPlay=false. Could not run never becomes pass.
+
+Implications: Real media acceptance is a required distinct runtime receipt; mocked controls cannot substitute.
+
+---
+
+## Q8 — Dependency/pickup boundary
+Question: Approve Phase A drafting against stated DEV-456/458 contracts, marked absent at base; Phase B waits for delivery and Gate 1 then recons generated contracts/main drift before tasks; consume stream, do not own range/resolver/security/transcoding/conversion/launcher-hardening/schema/history changes; no owner checkbox closure. Basis recon:18-22, Charter contract chain. Cost pickup reconciliation, no fake types.
+
+Patron answer: APPROVED. Recon:18-22 shows dependencies at Spec/open PRs and stream absent; no hand-rolled substitutes. Charter §2.3 preserves owner checkboxes and bounded ownership. Q2 capability is DEV-455-owned. Pickup reconciles to delivered generated stream/launch types; contract drift requires new ruling, never silent adaptation.
+
+Implications: Dependency and Gate 1 delivery are implementation prerequisites, not claims made by this grill.
+
+---
+
+## Q9 — Implementation boundary and UI input
+Question: Approve existing movie-details/library modules, cohesive web/src/features/playback components/hooks/tests, existing API client/generated artifacts, manifests/lockfile, app-navigation only for player intent, capability DTO/endpoint in existing API and focused tests, existing web/e2e; no new project/top-level/state layer or unrelated deletions/rewrites; targeted edits forced by ticket AC and item6 approval where applicable. Palette owns design; await design.md for plan challenge. Basis recon:24-35,64-76, Charter §2.3. Cost integration edits.
+
+Patron answer: APPROVED as proposed. Recon identifies forced integration points; feature folder is within existing architecture under items 2/6. Files outside boundary require cited forcing AC/gate or new Patron ruling. No unrelated tracked deletion/rewrite. Palette design and challenge prerequisite confirmed.
+
+Implications: Quill plans bounded modules, not a new architecture; design decisions must respect the settled behavior.
+
+---
+
+## Q10 — Tasks and verification
+Question: Approve order: pickup/dependency/Gate1 recon; capability DTO/tests; OpenAPI/generated types; exact dependency; accessible player/lifecycle; detail/card/LocalPlay integration; Vitest/RTL regressions; real-browser Compose last. Tests cover capability true/false/loading/failure, no launch POST from browser Play, launch regressions, media states/retry/teardown, controls/focus/editable isolation/bounds/autoplay denial; API boolean-only effective flag with no sensitive config; existing harness. Web gates and applicable actual-C#-diff gates, honest non-pass labels; jsdom cannot prove codecs/seek/fullscreen. Basis recon:16,34,42,64-76 and contract chain.
+
+Patron answer: APPROVED. Existing regression base and absent player/e2e require these layers (recon:64-76); capability and browser separation and real evidence required (recon:16,34,42). Run every applicable web/backend gate; skipped/scope-empty/opt-out/could-not-run remain exact non-pass outcomes.
+
+Implications: Quill must map every behavior to tasks and meaningful tests/runtime receipts.
+
+---
+
+## Q11 — Loop discipline
+Question: Approve zero unresolved Critical/High/Medium in-scope findings, Low documented/dispositioned; frozen Q1-Q10 scope, anything else a follow-up issue, not a finding in this round; Charter filing policy otherwise noted/no ticket; two review/fix rounds then stop for fresh Patron/Conductor ruling without waived blockers or silent expansion; all three M axes, Palette before plan challenge, no runtime/owner claims from planning. Basis Charter §2.3 and loop discipline.
+
+Patron answer: APPROVED as proposed. Charter filing policy applies (Critical/High, broken behavior, user-requested; otherwise noted, no ticket). Two-round cap requires a fresh ruling and never lowers closing bar. All three axes and prior Palette design required; no runtime or owner approval implied.
+
+Implications: Brief must carry all loop terms verbatim in substance, including stop behavior.
+
+---
+
+## Q12 — Shared understanding and closure
+Question: Confirm closure on Q1-Q11, no scope contradiction/constitution departure or owner checkbox effect, no new domain term/ADR for this Size M UI integration; existing meanings remain; Quill drafts, Palette before challenge, dependencies/runtime prerequisites. Recommend Play, Open in BS Player, Retry with descriptive accessible labels under Palette, without claiming every configured player is BS Player. Basis recon:16,26,43 and Q1-Q11.
+
+Patron answer: CONFIRMED. Grill closed with shared understanding. No contradiction or constitution departure identified; no owner checkbox added or closed. No new domain term or ADR needed. Decisions belong in brief/CONCLUSIONS/ASSUMPTIONS; Quill drafts spec/plan/tasks; Palette before challenge; DEV-456/458 and runtime evidence remain prerequisites. Visible copy Play, Open in BS Player, Retry; descriptive accessible labels under Palette; do not claim every configured player is BS Player. Palette-refined wording must be logged as assumed taste.
+
+Implications: Grill closed at 12 questions; ready for Quill drafting and Palette design, not plan freeze, Gate 1 or implementation clearance.
+
+---
+
+## C2 — Phase 2 analyze round 2: options resolution outside Core
+
+Patron answer: CONFIRMED and AUTHORIZED. Options resolution stays outside Core; Quill repair round 2 is authorized to apply the C2 fix before clean analyze signoff.
+
+- Basis — Principle I: constitution:288-290 permits Core only BCL, Microsoft.Extensions.Logging.Abstractions, System.Collections.Immutable, and Ardalis.SmartEnum; Microsoft.Extensions.Options/IOptions<FeatureOptions> in Core (plan.md:41,87,95; tasks.md:62) is outside that allowlist and must not be silently widened, and no new Core port, layer, ADR, or package is authorized under Q12.
+- Basis — Principle II preserved: the sealed GetPlaybackCapabilitiesQuery/Handler with AddHandler and Tracing → Logging → Validation (constitution:318-321; plan.md:42) stays; the effective LocalPlay bool (bound outside Core per recon-DEV-455:39, FeatureOptions bound in ServiceDefaults) reaches the handler as a plain bool via the composition boundary or as a query/handler parameter, keeping the Q2-approved boolean-only route/DTO unchanged.
+- Scope of authorization: this is the fresh Patron ruling required by Q11 and analysis-DEV-455-Keel round 2; Quill may edit only plan.md, tasks.md, corresponding test intent, and DRAFTING_RECEIPT.md to reconcile C2, then Keel must re-analyze clean before any gate1: provisional or plan challenge. The closing bar is not waived, no third round is pre-authorized, and no production code, API shape, schema, or owner checkbox is affected.
