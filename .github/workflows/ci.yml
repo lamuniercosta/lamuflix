@@ -185,7 +185,7 @@ jobs:
   # diff-scoped gate (run-mutation.ps1) still runs pre-PR. With coverage-analysis=off every
   # mutant runs the whole eligible unit suite, so one job outgrew its limit (cancelled at 2 h).
   # Core is therefore split over 16 parallel shards (scripts/ci-stryker-shard.sh, balanced by
-  # line count, large files cut into mutate spans) with a 120 minute cap each; stryker-core-gate
+  # line count, large files cut into mutate spans) with a 150 minute cap each; stryker-core-gate
   # then merges the shard reports and applies the one real gate (run-mutation.ps1 -EvaluateReport)
   # to all of Core: the score threshold, kill-share and file-span rules are unchanged, not
   # per-shard. 16, not 20: the free plan runs 20 jobs at once per account, so 20 shards queued
@@ -194,7 +194,7 @@ jobs:
     name: stryker-core (shard ${{ matrix.shard }}/16)
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:

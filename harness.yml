@@ -35,6 +35,7 @@ gates:
       LamuFlix.UnitTests.Features.Recommendations.GetRecommendationsQueryHandlerPropertyTests: "properties over the recommendations handler; real reach 19 files"
       LamuFlix.UnitTests.Features.Recommendations.GetForYouRecommendationsQueryHandlerTests: "drives the for-you handler end to end; real reach 18 files"
       LamuFlix.UnitTests.Features.Recommendations.GetForYouRecommendationsQueryHandlerPropertyTests: "properties over the for-you handler; real reach 16 files"
+      LamuFlix.UnitTests.Features.Recommendations.ReviewRankingHandlerTests: "drives the recommendation handlers end to end over review signals; real reach 20 files"
     exclusions:
       # Constitution IX scopes mutation to LamuFlix.Core. LamuFlix.UnitTests references
       # both projects below, so the gate prints a stale-exclusion WARNING for each. Their
