@@ -81,6 +81,7 @@ public static class ServiceDefaultsExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         BindAndValidate<LibraryOptions>(services, LibraryOptions.SectionName);
+        services.AddSingleton<IValidateOptions<LibraryOptions>, LibraryOptionsValidator>();
         BindAndValidate<PlaybackOptions>(services, PlaybackOptions.SectionName);
         BindAndValidate<OmdbOptions>(services, OmdbOptions.SectionName);
         BindAndValidate<OmdbQuotaOptions>(services, OmdbQuotaOptions.SectionName);
