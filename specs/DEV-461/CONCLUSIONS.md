@@ -303,3 +303,12 @@ T000 is satisfied within the supplied recon boundary. No implementation task wor
 
 
 
+---
+
+## Phase 5 Step 3 — Convention Ruling on Commit `b7de46a8` Prefix
+
+- **Verdict**: Approved — waive rewriting git history for commit `b7de46a8` (`test(integration): align trailer details test with explicit review schema`); preserve the rebased, gate-verified branch history without rebase/force-push, and enforce ticket attribution via the required PR title convention `DEV-461 - {subject}` (`noted, no ticket`).
+- **Basis**:
+  - **Recon & adjudication evidence (`recon-DEV-461` lines 107–110, 130; `adjudication-DEV-461-Keel` line 47; `DEV-461` task note lines 181–215)**: `b7de46a8` is a post-rebase semantic integration-test fix already pushed to `origin/feature/DEV-461` and covered by all 9 passing Phase 5 verification gates on `cdb40faf`; Keel explicitly recommended no history rewrite or additional fix round.
+  - **Closing bar & gate preservation (`specs/DEV-461/CONCLUSIONS.md` Q10; `specs/PRODUCT.md` §§2, 5)**: Rewriting commit history to rename `b7de46a8` would invalidate the pinned commit SHAs (`b7de46a8`, `cdb40faf`) across the verified gate and ship-review artifacts for a non-functional commit-prefix observation (`noted, no ticket` under §2.3).
+  - **Commit & PR title rule (§2.3 — *Commit message format*)**: Every commit created from this point forward (`DEV-461 - Record Phase 5 step 3 commit prefix convention ruling`) and the PR title itself strictly use `DEV-461 - {subject}` so branch and squash-merge attribution to YouTrack `DEV-461` remain intact.
