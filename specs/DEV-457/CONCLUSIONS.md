@@ -123,3 +123,12 @@ Official installation evidence is now supplied by recon-DEV-457-2 §12.2–12.3 
 - Basis Q2/Q7 and FR-002/FR-004/FR-018: rendered ports must assert explicit 127.0.0.1 bindings; Compose credentials are fail-closed references with no working committed defaults, on a separate untracked channel from API user-secrets/ignored settings; the dedicated project name is top-level and destructive reset is project-scoped; RabbitMQ proof uses a retained durable queue with a persistent test message observed before and after restart without consuming application queues; durability import uses an isolated scratch library.
 - Basis Q3/Q4/Q7 and FR-005/FR-006/FR-008: production API startup validator stays enabled with host Ollama available before T006 Gauge proof; LocalPlay opt-in requires prior loopback confirmation; the runtime receipt gets an explicit scrub check for real paths, credentials, and connection strings.
 - Basis Q6/FR-015 and Q8 closing bar: keep the current RabbitMQ tag, noting same-image durability does not certify image upgrades; assert no Dependabot coverage fact in Phase A and defer that fact to T001 Wisp recon; unsafe exposure or unmet acceptance still blocks regardless of severity.
+
+---
+
+## Phase 2 step 7 — gate1: provisional
+
+**Patron:** DEV-457 gate1: provisional recorded; owner Gate 1 remains closed until the user merges the spec PR.
+- Basis brief.md Phase 2 step 6 PLAN FROZEN: Keel independently read back Quill repair round 1 against all 20 adjudicated findings and R1–R9, with no unresolved above-bar finding.
+- Basis checklists/requirements.md: User-Visible Outcome items are ticked, and spec.md states Nothing visible on the default Compose stack with a reason.
+- Boundary: provisional status is not owner approval, implementation clearance, runtime acceptance, or merge clearance; T000 still records the verified user merge before implementation.
