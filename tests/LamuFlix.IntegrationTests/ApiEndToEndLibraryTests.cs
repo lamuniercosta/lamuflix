@@ -58,7 +58,7 @@ public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEnd
         body.GetProperty("isInWatchlist").GetBoolean().ShouldBeTrue();
         body.GetProperty("id").GetInt32().ShouldBe(id);
         body.GetProperty("title").GetString().ShouldBe("Heat");
-        body.GetProperty("path").GetString().ShouldBe("C:/library/library-details.mkv");
+        body.GetProperty("path").GetString().ShouldBe("library-details.mkv");
         body.GetProperty("format").GetString().ShouldBe("mkv");
         var metadata = body.GetProperty("metadata");
         ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");

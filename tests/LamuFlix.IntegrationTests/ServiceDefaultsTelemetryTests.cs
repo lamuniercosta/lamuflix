@@ -141,8 +141,8 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
         {
             stub = StartStub();
             env = new EnvironmentOverride(OtlpEndpoint(stub));
-            host = CreateCompositionHost(stub);
             importRoot = CreateImportRoot();
+            host = CreateCompositionHost(stub, importRoot);
             var cancellationToken = TestContext.Current.CancellationToken;
 
             // act
@@ -152,7 +152,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
                 var import = scope.ServiceProvider
                     .GetRequiredService<ICommandHandler<ImportMovieFolderCommand, MovieId>>();
                 var movieId = await import.HandleAsync(
-                    new ImportMovieFolderCommand(new LibraryPath(Path.Combine(importRoot, ImportFolderName))),
+                    new ImportMovieFolderCommand(new LibraryPath(ImportFolderName)),
                     cancellationToken);
                 var enrichment = scope.ServiceProvider
                     .GetRequiredService<ICommandHandler<ProcessEnrichmentCommand, ProcessEnrichmentOutcome>>();
@@ -340,11 +340,12 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             builder.UseSetting(ProtocolVariable, HttpProtobuf);
         });
 
-    private WebApplicationFactory<Program> CreateCompositionHost(WireMockServer stub) =>
+    private WebApplicationFactory<Program> CreateCompositionHost(WireMockServer stub, string importRoot) =>
         new ApiHostFactory(
             retainSweeper: false,
             additionalSettings:
             [
+                new($"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}", importRoot),
                 new("ConnectionStrings:DefaultConnection", postgres.ConnectionString),
                 new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", stub.Urls[0]),
                 new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}", "telemetry-key"),

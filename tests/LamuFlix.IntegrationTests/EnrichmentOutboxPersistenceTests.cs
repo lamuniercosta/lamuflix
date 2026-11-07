@@ -168,9 +168,9 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
     {
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
-        var folder = new LibraryPath("C:/library/atomic-import");
+        var folder = new LibraryPath("atomic-import");
         var scanned = new ScannedMovie(
-            new LibraryPath("C:/library/atomic-import/film.mkv"),
+            new LibraryPath("atomic-import/film.mkv"),
             "Atomic Import",
             new MediaFormat("mkv"),
             null,
@@ -182,7 +182,8 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         var handler = new ImportMovieFolderCommandHandler(
             scanner,
             CreateRepository(context, timeProvider),
-            new EfEnrichmentOutbox(context, timeProvider));
+            new EfEnrichmentOutbox(context, timeProvider),
+            LibraryOptions());
 
         // act
         var id = await handler.HandleAsync(new ImportMovieFolderCommand(folder), cancellationToken);
@@ -235,9 +236,9 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
     {
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
-        var folder = new LibraryPath("C:/library/rollback-import");
+        var folder = new LibraryPath("rollback-import");
         var scanned = new ScannedMovie(
-            new LibraryPath("C:/library/rollback-import/film.mkv"),
+            new LibraryPath("rollback-import/film.mkv"),
             "Rolled Back Import",
             new MediaFormat("mkv"),
             null,
@@ -248,7 +249,8 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         var handler = new ImportMovieFolderCommandHandler(
             scanner,
             CreateRepository(context, TimeProvider.System),
-            new EfEnrichmentOutbox(context, TimeProvider.System));
+            new EfEnrichmentOutbox(context, TimeProvider.System),
+            LibraryOptions());
 
         // act
         var failure = await Should.ThrowAsync<DbUpdateException>(
@@ -267,9 +269,9 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
     {
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
-        var folder = new LibraryPath("C:/library/ambient-rollback");
+        var folder = new LibraryPath("ambient-rollback");
         var scanned = new ScannedMovie(
-            new LibraryPath("C:/library/ambient-rollback/film.mkv"),
+            new LibraryPath("ambient-rollback/film.mkv"),
             "Ambient Rollback",
             new MediaFormat("mkv"),
             null,
@@ -281,7 +283,8 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         var handler = new ImportMovieFolderCommandHandler(
             scanner,
             CreateRepository(context, TimeProvider.System),
-            new EfEnrichmentOutbox(context, TimeProvider.System));
+            new EfEnrichmentOutbox(context, TimeProvider.System),
+            LibraryOptions());
         await handler.HandleAsync(new ImportMovieFolderCommand(folder), cancellationToken);
 
         // act
@@ -326,9 +329,9 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
     {
         // arrange
         var cancellationToken = TestContext.Current.CancellationToken;
-        var folder = new LibraryPath("C:/library/broker-failure");
+        var folder = new LibraryPath("broker-failure");
         var scanned = new ScannedMovie(
-            new LibraryPath("C:/library/broker-failure/film.mkv"),
+            new LibraryPath("broker-failure/film.mkv"),
             "Broker Failure",
             new MediaFormat("mkv"),
             null,
@@ -340,7 +343,8 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         var handler = new ImportMovieFolderCommandHandler(
             scanner,
             CreateRepository(context, timeProvider),
-            new EfEnrichmentOutbox(context, timeProvider));
+            new EfEnrichmentOutbox(context, timeProvider),
+            LibraryOptions());
 
         // act
         var id = await handler.HandleAsync(new ImportMovieFolderCommand(folder), cancellationToken);
@@ -354,6 +358,11 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         stored.CreatedAt.ShouldBe(StagedAt);
         stored.ProcessedAt.ShouldBeNull();
     }
+
+    private static readonly IOptions<LibraryOptions> ActiveLibraryOptions =
+        Options.Create(new LibraryOptions { RootPath = "C:/library" });
+
+    private static IOptions<LibraryOptions> LibraryOptions() => ActiveLibraryOptions;
 
     private static EfMovieRepository CreateRepository(LamuFlixDbContext context, TimeProvider timeProvider) =>
         new(

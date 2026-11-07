@@ -40,7 +40,7 @@ public sealed class LibraryFolderDiscoveryCandidateSetPropertyTests
         // assert
         var expectedValues = expected
             .Select(path => string.Equals(path, rootInfo.FullName, StringComparison.Ordinal)
-                ? rootInfo.FullName
+                ? "."
                 : fileSystem.Path.GetRelativePath(rootInfo.FullName, path).Replace('\\', '/'))
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToList();

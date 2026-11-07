@@ -95,7 +95,7 @@ public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : Api
         detailsBody.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
         detailsBody.GetProperty("id").GetInt32().ShouldBe(id);
         detailsBody.GetProperty("title").GetString().ShouldBe(SeedTitle);
-        detailsBody.GetProperty("path").GetString().ShouldBe($"C:/library/{SeedPathSuffix}.mkv");
+        detailsBody.GetProperty("path").GetString().ShouldBe($"{SeedPathSuffix}.mkv");
         detailsBody.GetProperty("format").GetString().ShouldBe("mkv");
         var metadata = detailsBody.GetProperty("metadata");
         ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");

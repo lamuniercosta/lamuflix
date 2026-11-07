@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Enrichment;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Infrastructure.RabbitMq;
 using Microsoft.EntityFrameworkCore;
@@ -89,15 +90,19 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         var gate = new ApiImportEnrichmentGate();
         using var capture = new ApiImportTraceCapture();
         var folderPath = CreateOwnedImportFolder();
+        var relativeFolder = FolderName;
         try
         {
             // arrange
-            var client = await StartHostAsync(InstallOmdbStub, gate.InstallInto);
+            var client = await StartHostAsync(
+                InstallOmdbStub,
+                gate.InstallInto,
+                LibraryRootSettings());
             var requestTraceId = ActivityTraceId.CreateRandom();
             var traceparent = $"00-{requestTraceId.ToHexString()}-{ActivitySpanId.CreateRandom().ToHexString()}-01";
             var tracestate = $"lamuflix-dev318={ActivitySpanId.CreateRandom().ToHexString()}";
             using var request = new HttpRequestMessage(HttpMethod.Post, ImportRoute);
-            request.Content = JsonContent.Create(new { folderPath });
+            request.Content = JsonContent.Create(new { folderPath = relativeFolder });
             request.Headers.Add(TraceContextCarrier.TraceParentHeader, traceparent);
             request.Headers.Add(TraceContextCarrier.TraceStateHeader, tracestate);
             Activity.Current.ShouldBeNull("The import POST must carry only its unique traceparent with no ambient test Activity.");
@@ -129,7 +134,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             var persisted = await ReadPersistedMovieAsync(id, cancellationToken);
             persisted.ShouldNotBeNull();
             persisted.Title.ShouldBe(FolderTitle);
-            persisted.Path.ShouldBe(folderPath);
+            persisted.Path.ShouldBe(relativeFolder);
             persisted.Format.ShouldBe(ExpectedFormat);
             var pending = await ReadFreshStatusAsync(id, cancellationToken);
             pending.ShouldBe(EnrichmentStatus.Pending);
@@ -147,7 +152,7 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
             detailsBody.GetProperty("isInWatchlist").GetBoolean().ShouldBeFalse();
             detailsBody.GetProperty("id").GetInt32().ShouldBe(id);
             detailsBody.GetProperty("title").GetString().ShouldBe(FolderTitle);
-            detailsBody.GetProperty("path").GetString().ShouldBe(folderPath);
+            detailsBody.GetProperty("path").GetString().ShouldBe(relativeFolder);
             detailsBody.GetProperty("format").GetString().ShouldBe(ExpectedFormat);
             var metadata = detailsBody.GetProperty("metadata");
             ShouldCarryExactly(metadata, "title", "synopsis", "releaseYear", "runtime", "imdbRating", "imdbId", "posterUrl", "rottenTomatoesRating", "metaScore", "directors", "actors", "trailerKey");
@@ -645,6 +650,17 @@ public sealed class ApiEndToEndImportTests(ApiEndToEndFixture fixture) : ApiEndT
         File.WriteAllBytes(Path.Combine(folder, VideoFileName), VideoBytes);
         return folder;
     }
+
+    /// <summary>
+    /// Points <c>Library:RootPath</c> at the owned temporary library so the real scanner resolves the
+    /// library-relative folder identity under the active root instead of the process working directory.
+    /// </summary>
+    private KeyValuePair<string, string?>[] LibraryRootSettings() =>
+    [
+        new(
+            $"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}",
+            ownedTempRoot.ShouldNotBeNull()),
+    ];
 
     private async Task DeleteOwnedTempRootAsync()
     {

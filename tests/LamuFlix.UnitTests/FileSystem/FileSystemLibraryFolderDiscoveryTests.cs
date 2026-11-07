@@ -14,6 +14,7 @@ namespace LamuFlix.UnitTests.FileSystem;
 public sealed class FileSystemLibraryFolderDiscoveryTests
 {
     private const string Root = "/library";
+    private const string RootIdentity = ".";
 
     [Fact]
     public async Task DiscoverAsync_RootNestedParentNestedChildContainerEmpty_YieldsExactCandidateSetOnceEach()
@@ -28,9 +29,9 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
         var discovery = Discovery(fileSystem, Root);
         var expected = new HashSet<string>(StringComparer.Ordinal)
         {
-            fileSystem.DirectoryInfo.New(Root).FullName,
-            Relative(fileSystem, "Parent"),
-            Relative(fileSystem, "Parent", "Child"),
+            RootIdentity,
+            Relative("Parent"),
+            Relative("Parent", "Child"),
         };
 
         // act
@@ -56,7 +57,7 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
         var candidates = await CollectAsync(discovery);
 
         // assert
-        candidates.Select(path => path.Value).ShouldBe([Relative(fileSystem, "Real")]);
+        candidates.Select(path => path.Value).ShouldBe([Relative("Real")]);
         candidates.ShouldNotContain(path => path.Value.Contains("Linked", StringComparison.Ordinal));
         candidates.ShouldNotContain(path => path.Value.Contains("Clip", StringComparison.Ordinal));
     }
@@ -69,7 +70,6 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
             ($"{Root}/real/root.mkv", "root"),
             ($"{Root}/real/MovieA/a.mkv", "a"));
         fileSystem.Directory.CreateSymbolicLink($"{Root}/rootlink", $"{Root}/real");
-        var resolvedRoot = fileSystem.DirectoryInfo.New($"{Root}/real").FullName;
         var discovery = Discovery(fileSystem, $"{Root}/rootlink");
 
         // act
@@ -77,7 +77,7 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
 
         // assert
         candidates.Select(path => path.Value)
-            .ShouldBe([resolvedRoot, Relative(fileSystem, "MovieA")], ignoreOrder: true);
+            .ShouldBe([RootIdentity, Relative("MovieA")], ignoreOrder: true);
         candidates.ShouldNotContain(path => path.Value.Contains("rootlink", StringComparison.Ordinal));
     }
 
@@ -93,13 +93,14 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
 
         // assert
         var candidate = candidates.ShouldHaveSingleItem().Value;
-        candidate.ShouldBe(Relative(fileSystem, "Movies", "Heat (1995)"));
+        candidate.ShouldBe(Relative("Movies", "Heat (1995)"));
         candidate.ShouldNotStartWith(fileSystem.Path.DirectorySeparatorChar.ToString());
         candidate.ShouldNotContain("..", Case.Sensitive);
+        new LibraryPath(candidate).Value.ShouldBe(candidate);
     }
 
     [Fact]
-    public async Task DiscoverAsync_RootCandidate_YieldsCanonicalAbsolutePath()
+    public async Task DiscoverAsync_RootCandidate_YieldsCanonicalRootIdentity()
     {
         // arrange
         var fileSystem = FileSystemWith(
@@ -112,7 +113,57 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
 
         // assert
         candidates.Select(path => path.Value)
-            .ShouldBe([fileSystem.DirectoryInfo.New(Root).FullName, Relative(fileSystem, "Nested")], ignoreOrder: true);
+            .ShouldBe([RootIdentity, Relative("Nested")], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task DiscoverAsync_EveryCandidate_IsAlreadyCanonicalLibraryPath()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(
+            ($"{Root}/root.mkv", "root"),
+            ($"{Root}/A B/C D/movie.mkv", "nested"));
+        var discovery = Discovery(fileSystem, Root);
+
+        // act
+        var candidates = await CollectAsync(discovery);
+
+        // assert
+        candidates.ShouldAllBe(candidate => candidate.Value == new LibraryPath(candidate.Value).Value);
+        candidates.ShouldAllBe(candidate => candidate.Value.StartsWith('/') == false);
+    }
+
+    [Fact]
+    public async Task DiscoverAsync_ProcessCurrentDirectoryDiffersFromRoot_StillDiscoversUnderActiveRoot()
+    {
+        // arrange
+        var fileSystem = FileSystemWith(($"{Root}/Heat (1995)/Heat.mkv", "heat"));
+        fileSystem.Directory.SetCurrentDirectory("/tmp/elsewhere");
+        var discovery = Discovery(fileSystem, Root);
+
+        // act
+        var candidates = await CollectAsync(discovery);
+
+        // assert
+        candidates.ShouldHaveSingleItem().Value.ShouldBe(Relative("Heat (1995)"));
+    }
+
+    [Theory]
+    [InlineData("library")]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task DiscoverAsync_NonAbsoluteConfiguredRoot_FailsClosedInsteadOfUsingProcessCurrentDirectory(string root)
+    {
+        // arrange
+        var fileSystem = FileSystemWith(($"{Root}/Movie/movie.mkv", "video"));
+        var discovery = Discovery(fileSystem, root);
+
+        // act
+        var failure = await Record.ExceptionAsync(() => CollectAsync(discovery));
+
+        // assert
+        failure.ShouldNotBeNull();
+        failure.Message.ShouldContain(LibraryOptions.SectionName);
     }
 
     [Fact]
@@ -200,7 +251,7 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
         var candidates = await CollectAsync(discovery);
 
         // assert
-        candidates.ShouldHaveSingleItem().Value.ShouldBe(Relative(fileSystem, "Movie"));
+        candidates.ShouldHaveSingleItem().Value.ShouldBe(Relative("Movie"));
     }
 
     [Theory]
@@ -261,8 +312,8 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
         return collected;
     }
 
-    private static string Relative(MockFileSystem fileSystem, params string[] segments) =>
-        fileSystem.Path.Combine(segments).Replace('\\', '/');
+    private static string Relative(params string[] segments) =>
+        string.Join('/', segments);
 
     private static MockFileSystem FileSystemWith(params (string Path, string Contents)[] files)
     {

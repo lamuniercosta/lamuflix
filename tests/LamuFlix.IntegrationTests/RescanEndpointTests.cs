@@ -25,7 +25,7 @@ public sealed class RescanEndpointTests(ApiHostFactory factory) : IClassFixture<
     private const int UnknownId = 999;
     private const int NonpositiveId = 0;
     private const string ProblemDetailsJson = "application/problem+json";
-    private const string Folder = "C:/library/Heat";
+    private const string Folder = "Heat";
     private const string BulkRoute = "/api/movies/rescan";
 
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();

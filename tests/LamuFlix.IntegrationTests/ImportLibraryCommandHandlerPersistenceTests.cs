@@ -52,9 +52,9 @@ public sealed class ImportLibraryCommandHandlerPersistenceTests(PostgresFixture 
             Directory.CreateDirectory(Path.Combine(root, "Container"));
             var expectedPaths = new HashSet<string>(StringComparer.Ordinal)
             {
-                new DirectoryInfo(root).FullName,
-                Path.Combine(root, "Parent"),
-                Path.Combine(root, "Parent", "Child"),
+                ".",
+                "Parent",
+                "Parent/Child",
             };
             await using var provider = BuildProvider(root, maxConcurrency: 2);
             using var scope = provider.CreateScope();
@@ -70,6 +70,7 @@ public sealed class ImportLibraryCommandHandlerPersistenceTests(PostgresFixture 
             var movies = await database.Movies.AsNoTracking().ToListAsync(cancellationToken);
             movies.Count.ShouldBe(3);
             movies.Select(movie => movie.LibraryPath.Value).ShouldBe(expectedPaths, ignoreOrder: true);
+            movies.ShouldAllBe(movie => movie.LibraryPathKey == movie.LibraryPath.Value.ToUpperInvariant());
             var outbox = await database.OutboxMessages.AsNoTracking().ToListAsync(cancellationToken);
             outbox.Count.ShouldBe(3);
             var requests = outbox

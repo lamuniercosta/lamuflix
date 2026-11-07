@@ -58,7 +58,7 @@ public sealed class RescanMovieCommandHandlerTests
         var movie = Movie.Rehydrate(
             id,
             "Heat",
-            new LibraryPath("C:/library/Heat"),
+            new LibraryPath("Heat (1995)"),
             new MediaFormat("avi"),
             isInWatchlist: true,
             metadata: metadata,
@@ -79,7 +79,7 @@ public sealed class RescanMovieCommandHandlerTests
         // assert
         movie.Id.ShouldBe(id);
         movie.Title.ShouldBe("Heat");
-        movie.Path.ShouldBe(new LibraryPath("C:/library/Heat"));
+        movie.Path.ShouldBe(new LibraryPath("Heat (1995)"));
         movie.ParsedReleaseYear.ShouldBe(new ReleaseYear(1995, Now));
         movie.Metadata.ShouldBe(metadata);
         movie.Status.ShouldBe(EnrichmentStatus.Enriched);
@@ -232,10 +232,10 @@ public sealed class RescanMovieCommandHandlerTests
     }
 
     private static PrimaryVideo Primary(LibraryPath folder, string extension) =>
-        new(new LibraryPath($"{folder.Value}/primary.{extension}"), new MediaFormat(extension));
+        new(new LibraryPath($"C:/library/{folder.Value}/primary.{extension}"), new MediaFormat(extension));
 
     private static Movie MovieAt(MovieId id, string extension) =>
-        Movie.Create(id, "Heat", new LibraryPath("C:/library/Heat"), new MediaFormat(extension));
+        Movie.Create(id, "Heat", new LibraryPath("Heat (1995)"), new MediaFormat(extension));
 
     private MovieId NewId() => new(Math.Abs(fixture.Create<int>()) + 1);
 }

@@ -18,27 +18,29 @@ public sealed class DirectoryMediaLibraryScanner(
     IOptions<LibraryOptions> libraryOptions)
     : IMediaLibraryScanner
 {
+    private const string RootIdentity = ".";
+
     public ScannedMovie Scan(LibraryPath folder)
     {
-        var (resolved, primary) = LocatePrimaryVideo(folder);
-        var directory = fileSystem.DirectoryInfo.New(resolved.Value);
+        var (resolved, identity, primary) = LocatePrimaryVideo(folder);
+        var directory = fileSystem.DirectoryInfo.New(resolved);
         var cleaned = FolderNameCleaner.Clean(directory.Name, timeProvider.GetUtcNow());
 
-        return new ScannedMovie(resolved, cleaned.Title, new MediaFormat(primary.Extension), cleaned.Year, primary.Length);
+        return new ScannedMovie(identity, cleaned.Title, new MediaFormat(primary.Extension), cleaned.Year, primary.Length);
     }
 
     public PrimaryVideo ResolvePrimaryVideo(LibraryPath folder)
     {
-        var (resolved, primary) = LocatePrimaryVideo(folder);
-        var path = new LibraryPath(fileSystem.Path.Combine(resolved.Value, primary.Name));
+        var (resolved, _, primary) = LocatePrimaryVideo(folder);
+        var path = new LibraryPath(fileSystem.Path.Combine(resolved, primary.Name));
 
         return new PrimaryVideo(path, new MediaFormat(primary.Extension));
     }
 
-    private (LibraryPath Resolved, IFileInfo Primary) LocatePrimaryVideo(LibraryPath folder)
+    private (string Resolved, LibraryPath Identity, IFileInfo Primary) LocatePrimaryVideo(LibraryPath folder)
     {
-        var resolved = Resolve(folder);
-        var directory = fileSystem.DirectoryInfo.New(resolved.Value);
+        var (resolved, identity) = Resolve(folder);
+        var directory = fileSystem.DirectoryInfo.New(resolved);
         if (!directory.Exists)
         {
             throw new NotFoundException();
@@ -46,20 +48,40 @@ public sealed class DirectoryMediaLibraryScanner(
 
         var primary = PrimaryVideoSelector.Select(directory)
             ?? throw new InvalidTransitionException(
-                $"Library folder '{resolved.Value}' contains no eligible top-level video file.");
+                $"Library folder '{resolved}' contains no eligible top-level video file.");
 
-        return (resolved, primary);
+        return (resolved, identity, primary);
     }
 
-    private LibraryPath Resolve(LibraryPath folder)
+    /// <summary>
+    /// Resolves a stored or submitted identity under the active <c>Library:RootPath</c> — never the
+    /// process working directory — and reports the canonical library-relative identity it maps to.
+    /// </summary>
+    private (string Resolved, LibraryPath Identity) Resolve(LibraryPath folder)
     {
-        if (fileSystem.Path.IsPathRooted(folder.Value))
+        var root = RequireRoot();
+        if (!LibraryPath.TryCanonicalizeUnderRoot(folder.Value, root, out var canonical))
         {
-            return folder;
+            throw new NotFoundException();
         }
 
-        var relative = folder.Value.Trim('/', '\\');
-        return new LibraryPath(fileSystem.Path.Combine(libraryOptions.Value.RootPath, relative));
+        var resolved = string.Equals(canonical, RootIdentity, StringComparison.Ordinal)
+            ? root
+            : fileSystem.Path.Combine(root, canonical);
+        return (resolved, new LibraryPath(canonical));
+    }
+
+    private string RequireRoot()
+    {
+        var root = libraryOptions.Value.RootPath;
+        if (!LibraryPath.IsAbsolute(root))
+        {
+            throw new InvalidOperationException(
+                $"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)} must be an absolute library root; "
+                + "relative paths are never resolved against the process working directory.");
+        }
+
+        return root;
     }
 }
 
