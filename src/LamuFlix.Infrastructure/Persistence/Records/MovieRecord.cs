@@ -12,6 +12,8 @@ public sealed class MovieRecord
 
     public required LibraryPath LibraryPath { get; set; }
 
+    public string? LibraryPathKey { get; set; }
+
     public required MediaFormat Format { get; set; }
 
     public bool IsInWatchlist { get; set; }

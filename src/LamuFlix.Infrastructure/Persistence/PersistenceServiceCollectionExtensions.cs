@@ -69,6 +69,7 @@ public static class PersistenceServiceCollectionExtensions
             provider => provider.GetRequiredService<HybridCachedRecommendationProfileSource>());
         services.AddScoped<IMovieFeaturesRepository, EfMovieFeaturesRepository>();
         services.AddScoped<IOmdbRequestGate, EfMetadataRequestGate>();
+        services.AddScoped<MovieLibraryPathMigrationGate>();
 
         return services;
     }

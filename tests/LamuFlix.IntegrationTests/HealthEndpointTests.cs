@@ -10,6 +10,7 @@ using LamuFlix.Core.Pipeline;
 using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.Enrichment;
 using LamuFlix.Infrastructure.RabbitMq;
+using LamuFlix.Tests.Common;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -213,7 +214,7 @@ public sealed class HealthEndpointTests
             new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.ApiKey)}", "not-a-real-key"),
             new($"{OmdbOptions.SectionName}:{nameof(OmdbOptions.BaseUrl)}", "https://example.invalid/"),
             new($"{RabbitMqOptions.SectionName}:{nameof(RabbitMqOptions.HostName)}", "localhost"),
-            new("ConnectionStrings:DefaultConnection", "Host=localhost;Port=5432;Database=lamuflix"),
+            new("ConnectionStrings:DefaultConnection", SharedPostgres.ConnectionString),
             new($"{DatabaseOptions.SectionName}:{nameof(DatabaseOptions.ApplyMigrationsOnStartup)}", "false"),
             new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:10"),
             new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.SweepInterval)}", "00:01:00"),

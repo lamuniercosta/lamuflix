@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Net;
@@ -48,22 +49,27 @@ public sealed class DatabaseStartupTests(PostgresFixture fixture)
             retainSweeper: false,
             additionalSettings: settings,
             disableEnrichmentConsumer: true);
-        using var client = factory.CreateClient();
-        var liveness = await client.GetAsync("/health/live", cancellationToken);
 
-        liveness.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString);
-        var after = await ListPublicBaseTablesAsync(observed, cancellationToken);
         if (expectMigrationsApplied)
         {
+            using var appliedClient = factory.CreateClient();
+            var liveness = await appliedClient.GetAsync("/health/live", cancellationToken);
+            liveness.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+            await using var observed = LamuFlixDbContextFactory.OpenContext(connectionString);
+            var after = await ListPublicBaseTablesAsync(observed, cancellationToken);
             after.ShouldContain(MigrationsHistoryTable);
             after.ShouldContain("movies");
             return;
         }
 
-        after.ShouldBeEmpty();
-        after.ShouldNotContain(MigrationsHistoryTable);
+        var failure = Should.Throw<Exception>(() => factory.CreateClient());
+        failure.ToString().ShouldContain("Schema not ready");
+
+        await using var untouched = LamuFlixDbContextFactory.OpenContext(connectionString);
+        var tables = await ListPublicBaseTablesAsync(untouched, cancellationToken);
+        tables.ShouldBeEmpty();
+        tables.ShouldNotContain(MigrationsHistoryTable);
     }
 
     private static IEnumerable<KeyValuePair<string, string?>> ConnectionOverride(string connectionString) =>

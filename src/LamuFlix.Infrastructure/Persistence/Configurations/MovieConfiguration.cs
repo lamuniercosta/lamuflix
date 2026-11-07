@@ -44,6 +44,11 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
             .HasColumnType("text")
             .HasConversion(new LibraryPathConverter())
             .IsRequired();
+        builder.Property(movie => movie.LibraryPathKey)
+            .HasColumnName("library_path_key")
+            .HasColumnType("text")
+            .UseCollation("C")
+            .IsRequired();
         builder.Property(movie => movie.Format)
             .HasColumnName("format")
             .HasColumnType("text")
@@ -170,6 +175,7 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
         builder.HasIndex(movie => movie.ReleaseYear);
         builder.HasIndex(movie => movie.Status);
         builder.HasIndex(movie => movie.LibraryPath).IsUnique();
+        builder.HasIndex(movie => movie.LibraryPathKey).IsUnique();
         builder.HasIndex(movie => movie.ImdbId)
             .IsUnique()
             .HasFilter("imdb_id IS NOT NULL");
