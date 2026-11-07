@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,6 +34,8 @@ public sealed class ThumbnailConsumer(
     private const string MalformedMessage = "MalformedMessage";
     private const string IneligibleRequest = "IneligibleRequest";
     private const string UnauthorizedSourcePath = "UnauthorizedSourcePath";
+    private const string RootIdentity = ".";
+    private const string DefaultDockerRoot = "/media/library";
     private const string CachePromotionFailed = "CachePromotionFailed";
     private const string MissingGeneratorReason = "ExtractionFailed";
     private const string ErrorEventName = "error";
@@ -228,7 +231,12 @@ public sealed class ThumbnailConsumer(
     private async Task<string?> ProcessAsync(ThumbnailRequested request, CancellationToken cancellationToken)
     {
         var movie = await LoadMovieAsync(request.MovieId, cancellationToken);
-        if (!IsEligible(movie, request.FilePath))
+        if (!TryCanonicalizeRequestPath(request.FilePath, out var requested))
+        {
+            return UnauthorizedSourcePath;
+        }
+
+        if (movie is null || !IsEligible(movie, requested))
         {
             return IneligibleRequest;
         }
@@ -238,7 +246,7 @@ public sealed class ThumbnailConsumer(
             return null;
         }
 
-        if (!TryAuthorizeSource(request.FilePath, out var authorizedSource))
+        if (!TryAuthorizeSource(movie.Path.Value, out var authorizedSource))
         {
             return UnauthorizedSourcePath;
         }
@@ -292,16 +300,68 @@ public sealed class ThumbnailConsumer(
         return true;
     }
 
-    private static bool IsEligible(Movie? movie, string filePath) =>
-        movie is not null
-        && string.IsNullOrWhiteSpace(movie.Metadata?.PosterUrl)
+    private static bool IsEligible(Movie movie, string canonicalPath) =>
+        string.IsNullOrWhiteSpace(movie.Metadata?.PosterUrl)
         && !string.IsNullOrWhiteSpace(movie.Path.Value)
-        && string.Equals(movie.Path.Value, filePath, PathComparison);
+        && string.Equals(
+            movie.Path.Value.ToUpperInvariant(),
+            canonicalPath.ToUpperInvariant(),
+            StringComparison.Ordinal);
 
-    private bool TryAuthorizeSource(string sourcePath, out string authorizedSource)
+    /// <summary>
+    /// Canonicalises a request payload to the library-relative identity it names: new deliveries carry
+    /// canonical relative values, and in-flight legacy deliveries carry absolute paths mapped through
+    /// the active root, the configured legacy roots and the unambiguous default Docker alias.
+    /// </summary>
+    private bool TryCanonicalizeRequestPath(string filePath, out string canonical)
+    {
+        canonical = string.Empty;
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return false;
+        }
+
+        if (!LibraryPath.IsAbsolute(filePath))
+        {
+            if (!LibraryPath.TryCanonicalizeRelative(filePath, out var relative))
+            {
+                return false;
+            }
+
+            canonical = relative;
+            return true;
+        }
+
+        var roots = new HashSet<string>(StringComparer.Ordinal) { library.Value.RootPath };
+        foreach (var legacy in library.Value.LegacyRootPaths)
+        {
+            roots.Add(legacy);
+        }
+
+        roots.Add(DefaultDockerRoot);
+
+        var matches = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var root in roots)
+        {
+            if (LibraryPath.TryCanonicalizeUnderRoot(filePath, root, out var mapped))
+            {
+                matches.Add(mapped);
+            }
+        }
+
+        if (matches.Count != 1)
+        {
+            return false;
+        }
+
+        canonical = matches.First();
+        return true;
+    }
+
+    private bool TryAuthorizeSource(string relativePath, out string authorizedSource)
     {
         authorizedSource = string.Empty;
-        if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(library.Value.RootPath))
+        if (string.IsNullOrWhiteSpace(relativePath) || string.IsNullOrWhiteSpace(library.Value.RootPath))
         {
             return false;
         }
@@ -312,7 +372,9 @@ public sealed class ThumbnailConsumer(
         {
             root = Path.TrimEndingDirectorySeparator(
                 Path.GetFullPath(ResolveRoot(library.Value.RootPath)));
-            source = Path.GetFullPath(sourcePath);
+            source = string.Equals(relativePath, RootIdentity, StringComparison.Ordinal)
+                ? root
+                : Path.GetFullPath(Path.Combine(root, relativePath));
         }
         catch (Exception exception) when (
             exception is ArgumentException or NotSupportedException or PathTooLongException)

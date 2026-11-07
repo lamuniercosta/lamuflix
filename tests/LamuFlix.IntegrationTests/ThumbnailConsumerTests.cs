@@ -54,7 +54,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         using var temporary = new TemporaryDirectory();
         var generator = SuccessfulGenerator(temporary, ReplacementJpeg);
         await using var host = NewHost(temporary, generator);
-        var movie = host.AddMovie(501, temporary.LibraryFile("movie.mp4"));
+        var movie = host.AddMovie(501, "movie.mp4");
 
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(movie, host.SourcePath(movie)), ct);
@@ -63,7 +63,9 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
 
         (await File.ReadAllBytesAsync(temporary.CanonicalPath(movie), ct)).ShouldBe(ReplacementJpeg);
         generator.CallCount.ShouldBe(1);
-        generator.Sources.ShouldHaveSingleItem().ShouldBe(host.SourcePath(movie));
+        generator.Sources.ShouldHaveSingleItem().ShouldBe(host.AbsolutePath(movie));
+        host.SourcePath(movie).ShouldBe("movie.mp4");
+        Path.IsPathRooted(host.SourcePath(movie)).ShouldBeFalse();
         (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
         AssertNoSensitiveValues(host.Log, temporary);
     }
@@ -76,7 +78,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         var generator = new ScriptedThumbnailGenerator((_, _) =>
             Task.FromResult(Failed("BinaryNotFound")));
         await using var host = NewHost(temporary, generator);
-        var movie = host.AddMovie(502, temporary.LibraryFile("movie.mp4"));
+        var movie = host.AddMovieWithFile(temporary, 502, "movie.mp4");
         await File.WriteAllBytesAsync(temporary.CanonicalPath(movie), ValidJpeg, ct);
 
         await host.StartAsync(ct);
@@ -126,7 +128,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         using var temporary = new TemporaryDirectory();
         var generator = SuccessfulGenerator(temporary, ValidJpeg);
         await using var host = NewHost(temporary, generator);
-        var movie = host.AddMovie(503, temporary.LibraryFile("movie.mp4"));
+        var movie = host.AddMovieWithFile(temporary, 503, "movie.mp4");
 
         await host.StartAsync(ct);
         await PublishRawAsync(
@@ -150,11 +152,152 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         using var temporary = new TemporaryDirectory();
         var generator = SuccessfulGenerator(temporary, ValidJpeg);
         await using var host = NewHost(temporary, generator);
-        var movie = host.AddMovie(504, temporary.LibraryFile("movie.mp4"));
+        var movie = host.AddMovieWithFile(temporary, 504, "movie.mp4");
         var stale = temporary.LibraryFile("stale.mp4");
 
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(movie, stale), ct);
+        var dead = await probe.PollGetAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+        generator.CallCount.ShouldBe(0);
+        AssertTerminalFailure(host.Log, movie.Value, "IneligibleRequest");
+    }
+
+    [Fact]
+    public async Task Consumer_ALegacyWindowsAbsolutePayload_CanonicalizesThroughTheActiveRootAndGenerates()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var generator = SuccessfulGenerator(temporary, ValidJpeg);
+        await using var host = NewHost(temporary, generator);
+        var movie = host.AddMovieWithFile(temporary, 520, "nested/movie.mp4");
+        var legacyAbsolute = Path.Combine(temporary.LibraryRoot, "nested", "movie.mp4");
+
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, legacyAbsolute), ct);
+        await WaitUntilAsync(_ => Task.FromResult(File.Exists(temporary.CanonicalPath(movie))), ct);
+        await host.StopAsync(CancellationToken.None);
+
+        generator.CallCount.ShouldBe(1);
+        generator.Sources.ShouldHaveSingleItem().ShouldBe(Path.GetFullPath(legacyAbsolute));
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_ALegacyAbsolutePayloadUnderAConfiguredAlias_CanonicalizesAndGenerates()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var generator = SuccessfulGenerator(temporary, ValidJpeg);
+        var aliasFile = temporary.LegacyLibraryFile("movie.mp4");
+        await using var host = NewHost(temporary, generator, legacyRootPaths: [temporary.LegacyRoot]);
+        var movie = host.AddMovieWithFile(temporary, 521, "movie.mp4");
+
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, aliasFile), ct);
+        await WaitUntilAsync(_ => Task.FromResult(File.Exists(temporary.CanonicalPath(movie))), ct);
+        await host.StopAsync(CancellationToken.None);
+
+        generator.CallCount.ShouldBe(1);
+        generator.Sources.ShouldHaveSingleItem().ShouldBe(host.AbsolutePath(movie));
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_AnAbsolutePayloadUnderAnUnknownRoot_DeadLettersAsUnauthorizedWithoutGeneration()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var generator = SuccessfulGenerator(temporary, ValidJpeg);
+        await using var host = NewHost(temporary, generator);
+        var movie = host.AddMovieWithFile(temporary, 522, "movie.mp4");
+
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, temporary.OutsideFile("movie.mp4")), ct);
+        var dead = await probe.PollGetAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+        generator.CallCount.ShouldBe(0);
+        AssertTerminalFailure(host.Log, movie.Value, "UnauthorizedSourcePath");
+    }
+
+    [Fact]
+    public async Task Consumer_APayloadNamingAnotherMoviesPath_DeadLettersAsIneligibleAndNeverAuthorizesOnId()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var generator = SuccessfulGenerator(temporary, ValidJpeg);
+        await using var host = NewHost(temporary, generator);
+        var movie = host.AddMovieWithFile(temporary, 523, "movie.mp4");
+        var otherFile = temporary.LibraryFile("other.mp4");
+
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, otherFile), ct);
+        var dead = await probe.PollGetAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct);
+        await host.StopAsync(CancellationToken.None);
+
+        dead.ShouldNotBeNull();
+        generator.CallCount.ShouldBe(0);
+        AssertTerminalFailure(host.Log, movie.Value, "IneligibleRequest");
+    }
+
+    [Fact]
+    public async Task Consumer_ARelativePayloadResolvesUnderTheConfiguredRootNotTheProcessWorkingDirectory()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var generator = SuccessfulGenerator(temporary, ValidJpeg);
+        await using var host = NewHost(temporary, generator);
+        var movie = host.AddMovieWithFile(temporary, 524, "movie.mp4");
+        var processRelative = Path.GetFullPath("movie.mp4");
+
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, "movie.mp4"), ct);
+        await WaitUntilAsync(_ => Task.FromResult(File.Exists(temporary.CanonicalPath(movie))), ct);
+        await host.StopAsync(CancellationToken.None);
+
+        generator.CallCount.ShouldBe(1);
+        var source = generator.Sources.ShouldHaveSingleItem();
+        source.ShouldBe(host.AbsolutePath(movie));
+        source.ShouldNotBe(processRelative);
+        File.Exists(source).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Consumer_ALongSPathPayload_CollidesWithThePlainSKeyAndGenerates()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var generator = SuccessfulGenerator(temporary, ValidJpeg);
+        await using var host = NewHost(temporary, generator);
+        var movie = host.AddMovieWithFile(temporary, 525, "movi\u017Fe.mp4");
+
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, "movise.mp4"), ct);
+        await WaitUntilAsync(_ => Task.FromResult(File.Exists(temporary.CanonicalPath(movie))), ct);
+        await host.StopAsync(CancellationToken.None);
+
+        generator.CallCount.ShouldBe(1);
+        generator.Sources.ShouldHaveSingleItem().ShouldBe(host.AbsolutePath(movie));
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
+    }
+
+    [Fact]
+    public async Task Consumer_AGarayCasePairPathPayload_DoesNotMatchTheStoredKeyAndDeadLettersAsIneligible()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var generator = SuccessfulGenerator(temporary, ValidJpeg);
+        await using var host = NewHost(temporary, generator);
+        var stored = "movi" + char.ConvertFromUtf32(0x10D50) + ".mp4";
+        var payload = "movi" + char.ConvertFromUtf32(0x10D70) + ".mp4";
+        var movie = host.AddMovieWithFile(temporary, 526, stored);
+
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, payload), ct);
         var dead = await probe.PollGetAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct);
         await host.StopAsync(CancellationToken.None);
 
@@ -190,12 +333,11 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         using var temporary = new TemporaryDirectory();
         var generator = SuccessfulGenerator(temporary, ValidJpeg);
         await using var host = NewHost(temporary, generator);
-        var source = temporary.LibraryFile("movie.mp4");
-        var movie = host.AddMovie(506, source);
+        var movie = host.AddMovieWithFile(temporary, 506, "movie.mp4");
         host.GivePoster(movie);
 
         await host.StartAsync(ct);
-        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, source), ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, host.AbsolutePath(movie)), ct);
         var dead = await probe.PollGetAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct);
         await host.StopAsync(CancellationToken.None);
 
@@ -207,6 +349,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
     [Theory]
     [InlineData("outside")]
     [InlineData("sibling-prefix")]
+    [InlineData("traversal")]
     public async Task Consumer_ASourceThatEscapesTheLibraryRoot_DeadLettersAsUnauthorized(string shape)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -216,9 +359,10 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         var source = shape switch
         {
             "outside" => temporary.OutsideFile("movie.mp4"),
-            _ => temporary.SiblingPrefixFile("movie.mp4"),
+            "sibling-prefix" => temporary.SiblingPrefixFile("movie.mp4"),
+            _ => Path.Combine(temporary.LibraryRoot, "..", "outside", "movie.mp4"),
         };
-        var movie = host.AddMovie(507, source);
+        var movie = host.AddMovieWithFile(temporary, 507, "movie.mp4");
 
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(movie, source), ct);
@@ -241,7 +385,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         var generator = SuccessfulGenerator(temporary, ValidJpeg);
         await using var host = NewHost(temporary, generator);
         var source = Path.Combine(temporary.LibraryRoot, "linked.mp4");
-        var movie = host.AddMovie(508, source);
+        var movie = host.AddMovie(508, "linked.mp4");
 
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(movie, source), ct);
@@ -265,7 +409,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         var generator = SuccessfulGenerator(temporary, ValidJpeg);
         await using var host = NewHost(temporary, generator);
         var source = Path.Combine(link, "movie.mp4");
-        var movie = host.AddMovie(509, source);
+        var movie = host.AddMovie(509, "linked-directory/movie.mp4");
 
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(movie, source), ct);
@@ -294,7 +438,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         using var temporary = new TemporaryDirectory();
         var generator = new ScriptedThumbnailGenerator((_, _) => Task.FromResult(Failed(token)));
         await using var host = NewHost(temporary, generator);
-        var movie = host.AddMovie(510, temporary.LibraryFile("movie.mp4"));
+        var movie = host.AddMovieWithFile(temporary, 510, "movie.mp4");
 
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(movie, host.SourcePath(movie)), ct);
@@ -314,7 +458,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         using var temporary = new TemporaryDirectory();
         var generator = PromotionFailureGenerator(temporary, new MovieId(511));
         await using var host = NewHost(temporary, generator);
-        var movie = host.AddMovie(511, temporary.LibraryFile("movie.mp4"));
+        var movie = host.AddMovieWithFile(temporary, 511, "movie.mp4");
 
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(movie, host.SourcePath(movie)), ct);
@@ -338,7 +482,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
             Task.FromException<ThumbnailResult>(
                 new InvalidOperationException("generator blew up at " + sourcePath)));
         await using var host = NewHost(temporary, generator);
-        var movie = host.AddMovie(514, temporary.LibraryFile("movie.mp4"));
+        var movie = host.AddMovieWithFile(temporary, 514, "movie.mp4");
         var source = host.SourcePath(movie);
         var activities = new ConcurrentQueue<Activity>();
         using var listener = ListenForActivities(activities);
@@ -387,7 +531,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var generator = BlockingGenerator(temporary, entered, release);
         await using var host = NewHost(temporary, generator);
-        var movie = host.AddMovie(512, temporary.LibraryFile("movie.mp4"));
+        var movie = host.AddMovieWithFile(temporary, 512, "movie.mp4");
 
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(movie, host.SourcePath(movie)), ct);
@@ -412,8 +556,8 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var generator = BlockingGenerator(temporary, entered, release);
         await using var host = NewHost(temporary, generator, prefetch: 2);
-        var inFlight = host.AddMovie(515, temporary.LibraryFile("in-flight.mp4"));
-        var buffered = host.AddMovie(516, temporary.LibraryFile("buffered.mp4"));
+        var inFlight = host.AddMovieWithFile(temporary, 515, "in-flight.mp4");
+        var buffered = host.AddMovieWithFile(temporary, 516, "buffered.mp4");
 
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(inFlight, host.SourcePath(inFlight)), ct);
@@ -426,7 +570,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         await stopping;
 
         generator.CallCount.ShouldBe(1);
-        generator.Sources.ShouldHaveSingleItem().ShouldBe(host.SourcePath(inFlight));
+        generator.Sources.ShouldHaveSingleItem().ShouldBe(host.AbsolutePath(inFlight));
         File.Exists(generator.OutputPaths.ShouldHaveSingleItem()).ShouldBeFalse();
         await WaitUntilAsync(async token =>
             (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailQueue, token)).MessageCount == 2U, ct);
@@ -446,7 +590,7 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         string source;
         await using (var first = NewHost(temporary, generator))
         {
-            var movie = first.AddMovie(movieId, temporary.LibraryFile("movie.mp4"));
+            var movie = first.AddMovieWithFile(temporary, movieId, "movie.mp4");
             source = first.SourcePath(movie);
             await first.StartAsync(ct);
             await first.Publisher.PublishAsync(new ThumbnailRequested(movie, source), ct);
@@ -614,7 +758,9 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
     private ThumbnailHost NewHost(
         TemporaryDirectory temporary,
         ScriptedThumbnailGenerator generator,
-        ushort prefetch = 1)
+        ushort prefetch = 1,
+        string[]? legacyRootPaths = null,
+        string? rootPath = null)
     {
         var options = fixture.Options with { Prefetch = prefetch };
         var owner = new RabbitMqConnectionOwner(Options.Create(options));
@@ -637,17 +783,22 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         services.AddLogging();
         services.AddSingleton<IMovieRepository>(repository);
         var built = services.BuildServiceProvider();
+        var libraryOptions = new LibraryOptions
+        {
+            RootPath = rootPath ?? temporary.LibraryRoot,
+            LegacyRootPaths = legacyRootPaths ?? [],
+        };
         var consumer = new ThumbnailConsumer(
             owner,
             topology,
             built.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(options),
-            Options.Create(new LibraryOptions { RootPath = temporary.LibraryRoot }),
+            Options.Create(libraryOptions),
             generator,
             cache,
             environment,
             logger);
-        return new ThumbnailHost(owner, topology, repository, consumer, built, logger);
+        return new ThumbnailHost(owner, topology, repository, consumer, built, logger, temporary);
     }
 
     private sealed class ThumbnailHost(
@@ -656,7 +807,8 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         InMemoryMovieRepository movies,
         ThumbnailConsumer consumer,
         ServiceProvider services,
-        RecordingLogger<ThumbnailConsumer> logger) : IAsyncDisposable
+        RecordingLogger<ThumbnailConsumer> logger,
+        TemporaryDirectory temporary) : IAsyncDisposable
     {
         public RabbitMqThumbnailQueuePublisher Publisher { get; } = new(topology, owner);
 
@@ -666,11 +818,21 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
 
         public Task StopAsync(CancellationToken cancellationToken) => consumer.StopAsync(cancellationToken);
 
-        public MovieId AddMovie(int id, string path)
+        public MovieId AddMovie(int id, string relativePath)
         {
-            var movie = Movie.Create(new MovieId(id), "Movie " + id, new LibraryPath(path), new MediaFormat("mp4"));
+            var movie = Movie.Create(
+                new MovieId(id),
+                "Movie " + id,
+                new LibraryPath(relativePath),
+                new MediaFormat("mp4"));
             movies.Add(movie);
             return movie.Id;
+        }
+
+        public MovieId AddMovieWithFile(TemporaryDirectory files, int id, string relativePath)
+        {
+            files.LibraryFile(relativePath);
+            return AddMovie(id, relativePath);
         }
 
         public void GivePoster(MovieId id)
@@ -681,6 +843,14 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         }
 
         public string SourcePath(MovieId id) => movies.Find(id).ShouldNotBeNull().Path.Value;
+
+        public string AbsolutePath(MovieId id)
+        {
+            var relative = SourcePath(id);
+            return string.Equals(relative, ".", StringComparison.Ordinal)
+                ? temporary.LibraryRoot
+                : Path.Combine(temporary.LibraryRoot, relative);
+        }
 
         public ValueTask DisposeAsync()
         {
@@ -758,10 +928,12 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
             LibraryRoot = Path.Combine(Root, "library");
             OutsideDirectory = Path.Combine(Root, "outside");
             SiblingDirectory = Path.Combine(Root, "library-evil");
+            LegacyRoot = Path.Combine(Root, "legacy-library");
             CacheRoot = Path.Combine(Root, "cache");
             Directory.CreateDirectory(LibraryRoot);
             Directory.CreateDirectory(OutsideDirectory);
             Directory.CreateDirectory(SiblingDirectory);
+            Directory.CreateDirectory(LegacyRoot);
             Directory.CreateDirectory(CacheRoot);
         }
 
@@ -780,6 +952,10 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         public string OutsideFile(string name) => WriteFile(Path.Combine(OutsideDirectory, name));
 
         public string SiblingPrefixFile(string name) => WriteFile(Path.Combine(SiblingDirectory, name));
+
+        public string LegacyRoot { get; }
+
+        public string LegacyLibraryFile(string name) => WriteFile(Path.Combine(LegacyRoot, name));
 
         public string WriteGeneratorOutput(byte[] bytes)
         {
@@ -805,6 +981,12 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
 
         private static string WriteFile(string path)
         {
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
             File.WriteAllBytes(path, [0x00]);
             return path;
         }
