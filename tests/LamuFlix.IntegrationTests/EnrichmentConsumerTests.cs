@@ -169,7 +169,10 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         await host.StopAsync(CancellationToken.None);
 
         published.ShouldNotBeNull();
-        ReadThumbnail(published).FilePath.ShouldBe(host.Repository.Find(movie).ShouldNotBeNull().Path.Value);
+        var publishedPath = ReadThumbnail(published).FilePath;
+        publishedPath.ShouldBe(host.Repository.Find(movie).ShouldNotBeNull().Path.Value);
+        publishedPath.ShouldBe("library/movies/a");
+        Path.IsPathRooted(publishedPath).ShouldBeFalse();
         ThumbnailTraceParent(published).ShouldStartWith("00-");
         (await ReadyMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(0U);
     }
@@ -431,7 +434,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
             Movie.Rehydrate(
                 movie,
                 "Held",
-                new LibraryPath("C:/library/a"),
+                new LibraryPath("library/movies/a"),
                 new MediaFormat("mkv"),
                 false,
                 null,
@@ -1326,7 +1329,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         {
             var movieId = new MovieId(id);
             Repository.Add(
-                Movie.Create(movieId, $"Movie {id}", new LibraryPath("C:/library/a"), new MediaFormat("mkv")));
+                Movie.Create(movieId, $"Movie {id}", new LibraryPath("library/movies/a"), new MediaFormat("mkv")));
             return movieId;
         }
 
