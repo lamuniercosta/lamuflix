@@ -28,6 +28,8 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
     private readonly TimeProvider? timeProvider;
     private readonly bool disableEnrichmentConsumer;
 
+    internal static readonly object HostBuildLock = new();
+
     public ApiHostFactory() : this(false)
     {
     }
@@ -70,7 +72,10 @@ public sealed class ApiHostFactory : WebApplicationFactory<Program>
             configuration.AddInMemoryCollection(HostSettings.Concat(additionalSettings)
                 .GroupBy(setting => setting.Key, StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.Last())));
-        return base.CreateHost(builder);
+        lock (HostBuildLock)
+        {
+            return base.CreateHost(builder);
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

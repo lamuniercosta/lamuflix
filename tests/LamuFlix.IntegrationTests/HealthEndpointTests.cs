@@ -226,7 +226,10 @@ public sealed class HealthEndpointTests
         {
             ArgumentNullException.ThrowIfNull(builder);
             builder.ConfigureHostConfiguration(static configuration => configuration.AddInMemoryCollection(HostSettings));
-            return base.CreateHost(builder);
+            lock (ApiHostFactory.HostBuildLock)
+            {
+                return base.CreateHost(builder);
+            }
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
