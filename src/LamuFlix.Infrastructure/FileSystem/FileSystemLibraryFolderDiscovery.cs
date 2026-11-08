@@ -13,11 +13,6 @@ using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.FileSystem;
 
-/// <summary>
-/// Streams Candidate Movie Folders under the configured library root as canonical library-relative
-/// identities (the root itself is <c>.</c>) using an explicit stack of lazy enumerators: no
-/// call-stack recursion, no depth cap and no materialized child/file lists.
-/// </summary>
 public sealed class FileSystemLibraryFolderDiscovery(
     IFileSystem fileSystem,
     IOptions<LibraryOptions> libraryOptions)
@@ -109,16 +104,11 @@ public sealed class FileSystemLibraryFolderDiscovery(
         }
     }
 
-    /// <summary>Windows compares library paths case-insensitively; every other supported host is ordinal.</summary>
     internal static StringComparison HostComparison() =>
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
 
-    /// <summary>
-    /// True when <paramref name="candidate"/> is <paramref name="root"/> or sits below its directory
-    /// boundary. Filesystem roots (<c>/</c>, <c>C:\</c>) keep their own length so the boundary survives.
-    /// </summary>
     internal static bool IsContained(string root, string candidate, StringComparison comparison)
     {
         var boundary = TrimTrailingSeparators(root);
@@ -151,10 +141,6 @@ public sealed class FileSystemLibraryFolderDiscovery(
         return rootInfo;
     }
 
-    /// <summary>
-    /// Resolves the configured root, refusing a non-absolute value so discovery can never silently
-    /// enumerate relative to the process working directory.
-    /// </summary>
     private string ResolveRoot()
     {
         var configured = libraryOptions.Value.RootPath;

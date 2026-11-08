@@ -31,11 +31,6 @@ public sealed class ImportMovieFolderCommandHandler(
         return id;
     }
 
-    /// <summary>
-    /// Maps a submitted relative identity or an absolute path beneath the active <c>Library:RootPath</c>
-    /// to the canonical library-relative identity. Legacy root aliases never authorize a new import, and
-    /// the process working directory is never consulted.
-    /// </summary>
     private LibraryPath Canonicalize(LibraryPath folder)
     {
         if (LibraryPath.TryCanonicalizeUnderRoot(folder.Value, libraryOptions.Value.RootPath, out var canonical))

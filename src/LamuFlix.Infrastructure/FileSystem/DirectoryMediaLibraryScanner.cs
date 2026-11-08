@@ -53,10 +53,6 @@ public sealed class DirectoryMediaLibraryScanner(
         return (resolved, identity, primary);
     }
 
-    /// <summary>
-    /// Resolves a stored or submitted identity under the active <c>Library:RootPath</c> — never the
-    /// process working directory — and reports the canonical library-relative identity it maps to.
-    /// </summary>
     private (string Resolved, LibraryPath Identity) Resolve(LibraryPath folder)
     {
         var root = RequireRoot();
