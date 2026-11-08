@@ -12,6 +12,7 @@ internal static class ApiEndpoints
         return api
             .MapLibraryEndpoints()
             .MapThumbnailEndpoints()
+            .MapStreamEndpoints()
             .MapImportEndpoints()
             .MapRescanEndpoints()
             .MapEnrichmentEndpoints()
