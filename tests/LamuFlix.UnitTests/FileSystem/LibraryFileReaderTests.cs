@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
@@ -12,7 +13,7 @@ using NSubstitute;
 
 namespace LamuFlix.UnitTests.FileSystem;
 
-public sealed class LibraryFileReaderTests
+public sealed partial class LibraryFileReaderTests
 {
     private const string MovieFolder = "Heat (1995)";
     private const string PrimaryFileName = "Heat.mkv";
@@ -261,6 +262,58 @@ public sealed class LibraryFileReaderTests
     }
 
     [Fact]
+    public void OpenRead_DanglingLinkedFileInsideRoot_ThrowsAccessDeniedInsteadOfNotFound()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        Directory.CreateDirectory(Path.Combine(library.Root, MovieFolder));
+        CreateFileLinkOrFail(
+            Path.Combine(library.Root, MovieFolder, PrimaryFileName),
+            Path.Combine(library.Root, MovieFolder, "Absent-target.mkv"));
+        var reader = CreateReader(library.Root);
+
+        // act
+        var act = () => reader.OpenRead(new LibraryPath(Path.Combine(MovieFolder, PrimaryFileName)));
+
+        // assert
+        Should.Throw<LibraryFileAccessDeniedException>(act);
+    }
+
+    [Fact]
+    public void OpenRead_DanglingLinkedFolderInsideRoot_ThrowsAccessDeniedInsteadOfNotFound()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        CreateDirectoryLinkOrFail(
+            Path.Combine(library.Root, "Linked"),
+            Path.Combine(library.Root, "Absent-target"));
+        var reader = CreateReader(library.Root);
+
+        // act
+        var act = () => reader.OpenRead(new LibraryPath(Path.Combine("Linked", PrimaryFileName)));
+
+        // assert
+        Should.Throw<LibraryFileAccessDeniedException>(act);
+    }
+
+    [Fact]
+    public void OpenRead_NonRegularFifoFile_ThrowsAccessDenied()
+    {
+        Assert.SkipUnless(!OperatingSystem.IsWindows(), "FIFO fixtures require a Unix platform.");
+        // arrange
+        using var library = new TemporaryDirectory();
+        Directory.CreateDirectory(Path.Combine(library.Root, MovieFolder));
+        CreateFifoOrFail(Path.Combine(library.Root, MovieFolder, PrimaryFileName));
+        var reader = CreateReader(library.Root);
+
+        // act
+        var act = () => reader.OpenRead(new LibraryPath(Path.Combine(MovieFolder, PrimaryFileName)));
+
+        // assert
+        Should.Throw<LibraryFileAccessDeniedException>(act);
+    }
+
+    [Fact]
     public void OpenRead_OutsideRootFileHeldExclusively_ThrowsAccessDeniedBeforeOpening()
     {
         // arrange
@@ -420,6 +473,40 @@ public sealed class LibraryFileReaderTests
             Assert.Fail($"A real symlink fixture is mandatory for this proof but could not be created: {exception.Message}");
         }
     }
+
+    private static void CreateFifoOrFail(string fifoPath)
+    {
+        try
+        {
+            var created = NativeMkfifo(fifoPath);
+            if (created != 0)
+            {
+                Assert.Fail($"A real FIFO fixture is mandatory for this proof but could not be created: errno {Marshal.GetLastWin32Error()}.");
+            }
+        }
+        catch (Exception exception) when (exception is DllNotFoundException or EntryPointNotFoundException)
+        {
+            Assert.Fail($"A real FIFO fixture is mandatory for this proof but could not be created: {exception.Message}");
+        }
+    }
+
+    private static int NativeMkfifo(string fifoPath)
+    {
+        try
+        {
+            return MkfifoLibc(fifoPath, 0x180);
+        }
+        catch (DllNotFoundException)
+        {
+            return MkfifoLibSystem(fifoPath, 0x180);
+        }
+    }
+
+    [DllImport("libc", SetLastError = true, CharSet = CharSet.Ansi)]
+    private static extern int MkfifoLibc(string pathname, uint mode);
+
+    [DllImport("libSystem.dylib", SetLastError = true, CharSet = CharSet.Ansi, EntryPoint = "mkfifo")]
+    private static extern int MkfifoLibSystem(string pathname, uint mode);
 
     private sealed class TemporaryDirectory : IDisposable
     {
