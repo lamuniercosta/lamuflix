@@ -48,7 +48,7 @@ No Complexity Tracking rows invented by Quill. Principle I residual execution (c
 
 - **Phase A (this draft / plan-challenge repair)**: Quill drafts and repairs Quill-owned spec/plan/tasks/checklist/receipt from brief/CONCLUSIONS/ASSUMPTIONS and recon facts, including Q10/Q11 propagation. Keel owns read-only `/speckit-analyze`, plan challenge, freeze, ADR M1 repair, and subsequent authorized task-drift adjudication. No production edits, tests, gates, commits, or PR here (Q8–Q9).
 - **Phase B pickup (after Gate 1) — split ownership**:
-  - **Wisp**: supply pickup facts only — drift/dependency check at the implementation base and **exact existing Infrastructure DI registration file**; refresh whitelist facts only if `ArchitectureTests.cs:30-31` drifted from `recon-DEV-456-3` §3. Do not infer DEV-459 implementation from grill-base spec-only presence. Do not invent registration location, broaden whitelist, or amend tasks.
+  - **Wisp**: supply pickup facts only — drift/dependency check at the implementation base and **existing API DI registration file `src/LamuFlix.Api/HandlerRegistration.cs` beside `IMediaLibraryScanner`** (Phase B Wisp; Patron Q12); refresh whitelist facts only if `ArchitectureTests.cs:30-31` drifted from `recon-DEV-456-3` §3. Do not infer DEV-459 implementation from grill-base spec-only presence. Do not invent registration location, broaden whitelist, or amend tasks.
   - **Keel**: subsequent pickup `/speckit-analyze` (or equivalent cross-artifact reanalysis) and authorized task-drift adjudication; **T001c verify-only** ADR/governance/whitelist-plan pickup; **T001d** distinct Keel-owned constitution-edit deliverable (or exact-equivalent verified evidence). Feature implementation MUST NOT start until Keel analysis completes clean or with findings disposed and T001c/d STOP prerequisites clear. Unresolved drift stops for a cited decision — no invention.
 - **Q10/Q11 prerequisites before/with port implementation**: Keel verify existing ADR 0037 (do not reauthor; remains Proposed until extension/governance); Keel-owned constitution enumeration + governance for `ILibraryFileReader` only; confirmed evidenced whitelist **plan**; ArchitectureTests append-only `|ILibraryFileReader` **code** before `)$` preserving 16 entries/order, atomic with the port/exception type slice (`recon-DEV-456-3` §3).
 - **Dependency-ordered implementation (brief Q8 + Q10/Q11)**:
@@ -65,7 +65,7 @@ No Complexity Tracking rows invented by Quill. Principle I residual execution (c
 
 ## Project Structure
 
-Verified existing paths cite `recon-DEV-456` / `recon-DEV-456-2`. Proposed new paths stay inside existing folders and are marked *(proposed)*. Exact Infrastructure DI file is **unknown** until Phase B Wisp — shown as seam only.
+Verified existing paths cite `recon-DEV-456` / `recon-DEV-456-2`. Proposed new paths stay inside existing folders and are marked *(proposed)*. Phase B Wisp identified existing API composition file `src/LamuFlix.Api/HandlerRegistration.cs:32-34`; Patron Q12 approves reader registration beside the scanner, with the adapter remaining in Infrastructure.
 
 ```text
 specs/DEV-456/
@@ -86,9 +86,9 @@ src/LamuFlix.Infrastructure/
   FileSystem/DirectoryMediaLibraryScanner.cs       (existing — resolver reuse; no selector rewrite)
   FileSystem/LibraryFileReader.cs                  *(proposed)* containment + async shared authorized open
   FileSystem/SupportedVideoExtensions.cs           (existing)
-  <existing DI composition seam>                   (exact file = Phase B Wisp; do not invent)
 
 src/LamuFlix.Api/
+  HandlerRegistration.cs                          (existing — register reader beside scanner; Q12)
   Endpoints/StreamEndpoints.cs                     *(proposed)* MapStreamEndpoints + orchestration + route-local nosniff/403
   Endpoints/ApiEndpoints.cs                        (existing — register stream map)
   Endpoints/ThumbnailEndpoints.cs                  (existing precedent only — do not rewrite)
@@ -123,7 +123,7 @@ docs/adr/0037-library-file-reader-port.md          *(Keel-authored; exists — B
 - No research/data-model/contracts artifacts — decisions frozen in brief.
 - Quill owns spec/plan/tasks/receipt/checklist. Quill does not edit brief/CONCLUSIONS/ASSUMPTIONS/ADRs/constitution/production code.
 - Exact new test filenames under existing test projects are chosen at Build inside those folders without expanding scope (Q7).
-- Exact DI registration file is a Phase B Wisp prerequisite (Q7–Q9). Whitelist facts are from recon-DEV-456-3 §3.
+- Exact DI registration file is `src/LamuFlix.Api/HandlerRegistration.cs` beside `IMediaLibraryScanner` (Phase B Wisp; Patron Q12). Whitelist facts are from recon-DEV-456-3 §3.
 - ADR 0037 already exists (Keel-authored); constitution/governance edits remain Keel-owned prerequisites; Quill only models them. Constitution omission of two prior ports is not in-scope backfill.
 
 ## Generated-contract workflow (recon-DEV-456 §8; recon-DEV-456-2 §7)
@@ -168,7 +168,7 @@ No Gherkin. Phase A / plan-challenge repair runs none of these and claims no gat
 - Linked legitimate paths fail closed (Q4). Actual link fixtures mandatory; unavailable proof is never PASS (Q11).
 - TOCTOU by a local writer on the trusted mount is outside scope (Q4).
 - Required live acceptance environment-bound; Could not run blocks closure (Q6).
-- Exact DI file unknown until Phase B Wisp (Q7) — never inferred.
+- Exact DI file identified by Phase B Wisp: `src/LamuFlix.Api/HandlerRegistration.cs` (Patron Q12).
 - Original C1 planning contradiction repaired via Q10 + authored ADR 0037; Principle I implementation PASS remains OPEN until scoped constitution/governance + atomic port/whitelist **code** evidence land (`DRAFTING_RECEIPT.md`).
 - Constitution enumeration already omits two code-whitelist ports (`recon-DEV-456-3` §3.4); this ticket does not broaden the scoped extension to backfill them.
 - 422 remains inherited mapping only; correct mapped-status assertions cover negatives without promising every stream path cannot raise validation (Q11).
@@ -184,3 +184,8 @@ No Gherkin. Phase A / plan-challenge repair runs none of these and claims no gat
 ## Phase A / Gate note
 
 This plan is Phase A documentation only, now repaired under plan-challenge round 1. Quill does not claim PLAN FROZEN, Gate 1 approval, runtime acceptance, analyze-clean, Principle I implementation PASS, or merge clearance. Next: Keel independent plan-challenge freeze verification.
+
+
+## Phase B pickup Q12
+
+DEV-438 is on main through `86f9aeb5` at pickup `17d9545c`. DEV-459 #343 at `22404dfc` remains awaiting-merge: an integration/delivery dependency, not an implementation blocker against the unchanged scanner contract. Implement relative and contained legacy-rooted folder support with independent physical authorization; do not import or duplicate DEV-459 schema/key/helper work. Verify after DEV-459 lands before live acceptance/delivery closure. T001b/c/d still gate T003. Cited evidence and Patron ruling: brief/CONCLUSIONS Q12; recon-DEV-456 lines 8-16; task note DEV-456 line 21.

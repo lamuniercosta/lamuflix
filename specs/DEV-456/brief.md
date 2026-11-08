@@ -104,7 +104,7 @@ Patron approved one endpoint plus one narrow port/implementation in existing lay
 | New `src/LamuFlix.Infrastructure/FileSystem/LibraryFileReader.cs` | Real path/link containment, regular-file validation and single read-open |
 | New focused endpoint and file-reader tests in existing test projects | Exercise real HTTP results and real filesystem containment separately |
 | `src/LamuFlix.Api/Endpoints/ApiEndpoints.cs` | Register the new endpoint alongside existing map methods |
-| Existing Infrastructure DI composition seam | Register narrow port/implementation; exact file must first be identified by Wisp in Phase B |
+| `src/LamuFlix.Api/HandlerRegistration.cs` | Register narrow port/implementation beside `IMediaLibraryScanner`; evidenced Phase B seam, Patron Q12 |
 | `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` | Operation/response contract inventory |
 | `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` | Endpoint-name inventory |
 | `web/e2e/run.mjs` and existing smoke harness | Required Q6 acceptance surface |
@@ -112,7 +112,7 @@ Patron approved one endpoint plus one narrow port/implementation in existing lay
 
 No new Core handler, general streaming service, repository/mediator layer, project, top-level folder, dependency, schema or migration. No product UI, launcher/playback-handler changes, global exception remapping, selector rewrite, thumbnail/discovery extraction, nginx/Compose config rewrite, file deletion or unrelated rewrite.
 
-The existing DI file is the sole unresolved factual identification, deliberately delegated by Patron to Phase B Wisp. Implementation must not start before Wisp names it; never guess or invent a registration location. This is a pre-implementation recon task, not an open product decision or Gate 1 checkbox.
+Phase B Wisp identified the existing DI file as `src/LamuFlix.Api/HandlerRegistration.cs:32-34`; Patron Q12 approves reader registration beside `IMediaLibraryScanner`. This resolves the factual identification without a new layer or Gate 1 checkbox. T001b/c/d remain mandatory before implementation.
 
 Basis: recon-DEV-456 §§3-5, 7-8, 10 and supplement §§2, 6-7; Q7 explicit §2.3.1/2/3/5/6 rulings. The narrow port follows existing Core Ports/Infrastructure FileSystem structure and buys independent filesystem and HTTP-lifetime testability.
 
@@ -193,3 +193,18 @@ Read-only cross-artifact reanalysis and brief-to-plan/tasks comparison: 0 unreso
 Receipt: Maestri note adjudication-DEV-456-Keel in LamuFlix notes, with individual dispositions and file:line verification. Worktree F:/Dev/LamuFlix.worktrees/feature-456-spec; branch feature/456-spec; current Git base/HEAD 659a2e9b739c092dc8565ee31ed6bc5bcc4b68e3. The reviewed documents are working-tree artifacts, not committed content attributed to that base SHA.
 
 Ordinary Gate 1 remains pending; no structural owner checkbox arises. No implementation authorization, constitution amendment completion, Principle I/VI implementation PASS, runtime/build gate result, live acceptance, PR publication, or merge clearance is claimed. ADR 0037 remains Proposed; T001d in the Build PR still requires the scoped extension/governance, and Phase B Wisp must supply exact DI-file identification and dependency/drift facts before Keel pickup analysis. Required nginx/browser acceptance remains mandatory; Could not run/SKIPPED never PASS. Bernstein owns next routing/publication; the user owns merge.
+
+
+## Q12 — Phase B dependency and DI-seam pickup (2026-11-08)
+
+Keel asked whether DEV-459 PR #343 must merge before DEV-456 implementation and whether the evidenced API registration seam supersedes the Infrastructure-only wording. Recommended: retain DEV-459 as an integration/delivery dependency, implement against the unchanged scanner contract after T001b/c/d, verify after #343 lands before closure, and register the reader beside the scanner in the existing API composition file.
+
+Patron answered:
+
+[from Patron] DEV-456 pickup ruling (Q12): APPROVED as recommended on both bounded pickup questions — Keel to record in brief.md, specs/DEV-456/CONCLUSIONS.md, and authorized task text.
+
+Verdict: (1) DEV-459 (#343 at 22404dfc, awaiting-merge) remains a delivery/integration dependency only and does not block DEV-456 Build implementation against the unchanged IMediaLibraryScanner contract on main (17d9545c, with DEV-438 landed through 86f9aeb5), with T001b/T001c/T001d still gating T003 and live/delivery verification required after #343 lands before closure; (2) register ILibraryFileReader -> LibraryFileReader in src/LamuFlix.Api/HandlerRegistration.cs:32-34 beside IMediaLibraryScanner while keeping LibraryFileReader in src/LamuFlix.Infrastructure/FileSystem/LibraryFileReader.cs, and amend Infrastructure-only DI wording in plan.md/tasks.md (and spec.md where referenced) as factual seam drift with no new layer, file, or scope change.
+
+- Dependency boundary & section 2.3 (items 1-5 unchanged; no ticket contradiction or constitution departure): recon-DEV-456:8-16 and task note DEV-456:31-35 verify DEV-438 is on origin/main through 86f9aeb5 and IMediaLibraryScanner (Scan / ResolvePrimaryVideo at src/LamuFlix.Core/Ports/IMediaLibraryScanner.cs:5-10) is identical across main (17d9545c) and DEV-459 PR #343 (22404dfc). Because spec.md:24,73-75,99,107-110 and Q4 already require accepting both post-DEV-459 relative folders and contained legacy rooted folders with independent AuthorizeFolder-before-resolve and OpenRead-after-resolve physical containment, DEV-456 must not import or duplicate #343 schema/LibraryPathKey/lexical-helper changes and must verify integration after #343 lands before live acceptance/delivery closure (T001b/T001c/T001d still gate T003 per spec.md:201 and tasks.md:20,47-49,59).
+- DI composition seam & section 2.3.2 / 2.3.6 ruling (existing seam, named file scope): task note DEV-456:21, recon-DEV-456, and src/LamuFlix.Api/HandlerRegistration.cs:32-36 verify the existing filesystem/port DI composition seam is AddLamuFlixHandlers in src/LamuFlix.Api/HandlerRegistration.cs (registering IFileSystem, IMediaLibraryScanner, ILibraryFolderDiscovery, IMovieFolderImporter), not a file under src/LamuFlix.Infrastructure. Under section 2.3.2 (no new layer/project) and section 2.3.6 (named existing DI seam per Q7/Q8, CONCLUSIONS.md:212,226,245), registering services.AddScoped<ILibraryFileReader, LibraryFileReader>() in src/LamuFlix.Api/HandlerRegistration.cs beside IMediaLibraryScanner while keeping LibraryFileReader in src/LamuFlix.Infrastructure/FileSystem/LibraryFileReader.cs is approved.
+- Authorized task/plan drift correction (no structural blocker): correcting Infrastructure DI wording in specs/DEV-456/plan.md, specs/DEV-456/tasks.md (T001, T005), and specs/DEV-456/spec.md (Scope 7, FR-011) to name src/LamuFlix.Api/HandlerRegistration.cs is factual Phase B seam alignment already anticipated by Q7/Q8 and tasks.md T001/T001b (tasks.md:46-47), creating no owner Gate 1 checkbox.
