@@ -18,6 +18,7 @@ using LamuFlix.Infrastructure.Import;
 using LamuFlix.Infrastructure.Library;
 using LamuFlix.Infrastructure.Pipeline;
 using LamuFlix.Infrastructure.Recommendations;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -32,6 +33,7 @@ internal static class HandlerRegistration
         services.TryAddSingleton<IFileSystem, FileSystem>();
         services.AddScoped<IMediaLibraryScanner, DirectoryMediaLibraryScanner>();
         services.AddScoped<ILibraryFileReader, LibraryFileReader>();
+        services.TryAddSingleton<FileExtensionContentTypeProvider>();
         services.AddScoped<ILibraryFolderDiscovery, FileSystemLibraryFolderDiscovery>();
         services.AddScoped<IMovieFolderImporter, ScopedMovieFolderImporter>();
         services.AddHandler<RequestEnrichmentCommandHandler, RequestEnrichmentCommand, MovieId>();
