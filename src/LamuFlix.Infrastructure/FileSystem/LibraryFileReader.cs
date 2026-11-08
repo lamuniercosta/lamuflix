@@ -1,5 +1,7 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
+using System.Runtime.InteropServices;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
@@ -9,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.FileSystem;
 
-public sealed class LibraryFileReader(
+public sealed partial class LibraryFileReader(
     IOptions<LibraryOptions> libraryOptions,
     IHostEnvironment hostEnvironment) : ILibraryFileReader
 {
@@ -36,6 +38,7 @@ public sealed class LibraryFileReader(
             throw Denied();
         }
 
+        RejectNonRegularFile(authorized);
         return OpenAuthorized(authorized);
     }
 
@@ -43,18 +46,90 @@ public sealed class LibraryFileReader(
     {
         var root = ResolveRoot();
         var authorized = ResolveContained(root, candidate);
-        if (!Directory.Exists(authorized) && !File.Exists(authorized))
-        {
-            throw new NotFoundException();
-        }
-
         if (HasReparsePointInChain(authorized, root))
         {
             throw Denied();
         }
 
+        if (!Directory.Exists(authorized) && !File.Exists(authorized))
+        {
+            throw new NotFoundException();
+        }
+
         return authorized;
     }
+
+    private static void RejectNonRegularFile(string authorizedPath)
+    {
+        var info = new FileInfo(authorizedPath);
+        if (info.LinkTarget is not null || (info.Attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
+        {
+            throw Denied();
+        }
+
+        if (!IsRegularFile(authorizedPath))
+        {
+            throw Denied();
+        }
+    }
+
+    private static bool IsRegularFile(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return true;
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return IsRegularFileStatX(path);
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return IsRegularFileLstat(path);
+        }
+
+        return true;
+    }
+
+    private static bool IsRegularFileStatX(string path)
+    {
+        var buffer = new byte[StatXBufferSize];
+        if (StatX(AtFdcwd, path, AtSymlinkNofollow, StatXType, buffer) != 0)
+        {
+            return true;
+        }
+
+        return (BinaryPrimitives.ReadUInt16LittleEndian(buffer.AsSpan(StatXModeOffset, sizeof(ushort))) & FileTypeMask) == RegularFileBits;
+    }
+
+    private static bool IsRegularFileLstat(string path)
+    {
+        var buffer = new byte[LstatBufferSize];
+        if (LstatMacOS(path, buffer) != 0)
+        {
+            return true;
+        }
+
+        return (BinaryPrimitives.ReadUInt16LittleEndian(buffer.AsSpan(LstatModeOffset, sizeof(ushort))) & FileTypeMask) == RegularFileBits;
+    }
+
+    private const int AtFdcwd = -100;
+    private const int AtSymlinkNofollow = 0x100;
+    private const uint StatXType = 0x0001;
+    private const int StatXBufferSize = 256;
+    private const int StatXModeOffset = 28;
+    private const int LstatBufferSize = 512;
+    private const int LstatModeOffset = 4;
+    private const ushort FileTypeMask = 0xF000;
+    private const ushort RegularFileBits = 0x8000;
+
+    [LibraryImport("libc", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
+    private static partial int StatX(int dirfd, string pathname, int flags, uint mask, [Out] byte[] buf);
+
+    [LibraryImport("libSystem.dylib", SetLastError = true, StringMarshalling = StringMarshalling.Utf8, EntryPoint = "lstat$INODE64")]
+    private static partial int LstatMacOS(string pathname, [Out] byte[] buf);
 
     private static FileStream OpenAuthorized(string authorizedPath) =>
         new(
@@ -162,10 +237,20 @@ public sealed class LibraryFileReader(
     {
         try
         {
+            if (new FileInfo(path).LinkTarget is not null)
+            {
+                return true;
+            }
+
+            if (new DirectoryInfo(path).LinkTarget is not null)
+            {
+                return true;
+            }
+
             return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
         }
         catch (Exception exception) when (
-            exception is FileNotFoundException or DirectoryNotFoundException or ArgumentException or NotSupportedException)
+            exception is FileNotFoundException or DirectoryNotFoundException or ArgumentException or NotSupportedException or IOException or UnauthorizedAccessException)
         {
             return false;
         }

@@ -42,11 +42,6 @@ interface SeekObservation {
   mediaError: string | null;
 }
 
-/**
- * SMOKE-DEV-456-SEEK drives a real browser video element against the stream URL through the
- * Compose web nginx proxy. It builds no product player UI: the element is created inside the
- * page context purely to prove that playback advances after a seek.
- */
 test.describe('stream browser seek', () => {
   test('SMOKE-DEV-456-SEEK playback advances after a seek through the nginx stream URL', async ({
     page,
