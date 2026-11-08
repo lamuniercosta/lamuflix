@@ -358,3 +358,110 @@ Ordinary Gate 1 remains pending; no structural owner checkbox arises. No impleme
 - Preconditions met: Keel plan-challenge freeze receipt above records 0 unresolved planning findings, 18/18 requirements with task coverage, and all 17 findings dispositioned (0 Critical/High) in `adjudication-DEV-456-Keel`; `checklists/requirements.md` User-Visible Outcome items are ticked (Nothing visible in Compose SPA, with reason).
 - Boundary: this is provisional only — ordinary Gate 1 remains pending owner merge of the spec PR, no structural owner checkbox arises (Q10/Q11; no ticket contradiction or constitution departure), and no implementation, Principle I/VI PASS, runtime gate, or merge clearance is claimed.
 - ADR 0037 is authored and remains Proposed until the Build-PR scoped constitution extension/governance (T001d) exists.
+
+
+## T000 — Gate 1 spec-PR merge receipt (2026-11-08)
+
+Evidence: Conductor pickup instruction and Maestri task note `DEV-456`, Intake lines 5-7, record spec PR #338 merged at `cfbb7ae4`, with `specs/DEV-456/` on main. The task note Rigger intake receipt lines 12-14 names worktree `F:/Dev/LamuFlix.worktrees/DEV-456`, branch `feature/DEV-456`, pickup HEAD `17d9545ced1d0cd811403a0ece4c4ecec3a1f3b6`; recon-DEV-456 lines 4-7 independently records that pickup provenance and the landed spec files. This is a receipt of the recorded owner spec merge, not a new Patron ruling.
+
+T000 is complete. This receipt supersedes historical pending-owner-Gate-1 banners only. T001/T001b remain incomplete: recon-DEV-456 identifies the existing API registration seam at `src/LamuFlix.Api/HandlerRegistration.cs:32-34` (lines 11 and 23), conflicting with the Infrastructure-only DI wording in plan/tasks, but does not establish DEV-438/DEV-459 implementation dependency state or DEV-459 PR #343 compatibility. No feature implementation clearance, completed governance, build/runtime PASS, or dependency waiver is claimed. Missing recon must be supplied before the pickup verdict and seam disposition.
+
+
+## Q12 — Phase B dependency and DI-seam pickup (2026-11-08)
+
+Keel asked whether DEV-459 PR #343 must merge before DEV-456 implementation and whether the evidenced API registration seam supersedes the Infrastructure-only wording. Recommended: retain DEV-459 as an integration/delivery dependency, implement against the unchanged scanner contract after T001b/c/d, verify after #343 lands before closure, and register the reader beside the scanner in the existing API composition file.
+
+Patron answered:
+
+[from Patron] DEV-456 pickup ruling (Q12): APPROVED as recommended on both bounded pickup questions — Keel to record in brief.md, specs/DEV-456/CONCLUSIONS.md, and authorized task text.
+
+Verdict: (1) DEV-459 (#343 at 22404dfc, awaiting-merge) remains a delivery/integration dependency only and does not block DEV-456 Build implementation against the unchanged IMediaLibraryScanner contract on main (17d9545c, with DEV-438 landed through 86f9aeb5), with T001b/T001c/T001d still gating T003 and live/delivery verification required after #343 lands before closure; (2) register ILibraryFileReader -> LibraryFileReader in src/LamuFlix.Api/HandlerRegistration.cs:32-34 beside IMediaLibraryScanner while keeping LibraryFileReader in src/LamuFlix.Infrastructure/FileSystem/LibraryFileReader.cs, and amend Infrastructure-only DI wording in plan.md/tasks.md (and spec.md where referenced) as factual seam drift with no new layer, file, or scope change.
+
+- Dependency boundary & section 2.3 (items 1-5 unchanged; no ticket contradiction or constitution departure): recon-DEV-456:8-16 and task note DEV-456:31-35 verify DEV-438 is on origin/main through 86f9aeb5 and IMediaLibraryScanner (Scan / ResolvePrimaryVideo at src/LamuFlix.Core/Ports/IMediaLibraryScanner.cs:5-10) is identical across main (17d9545c) and DEV-459 PR #343 (22404dfc). Because spec.md:24,73-75,99,107-110 and Q4 already require accepting both post-DEV-459 relative folders and contained legacy rooted folders with independent AuthorizeFolder-before-resolve and OpenRead-after-resolve physical containment, DEV-456 must not import or duplicate #343 schema/LibraryPathKey/lexical-helper changes and must verify integration after #343 lands before live acceptance/delivery closure (T001b/T001c/T001d still gate T003 per spec.md:201 and tasks.md:20,47-49,59).
+- DI composition seam & section 2.3.2 / 2.3.6 ruling (existing seam, named file scope): task note DEV-456:21, recon-DEV-456, and src/LamuFlix.Api/HandlerRegistration.cs:32-36 verify the existing filesystem/port DI composition seam is AddLamuFlixHandlers in src/LamuFlix.Api/HandlerRegistration.cs (registering IFileSystem, IMediaLibraryScanner, ILibraryFolderDiscovery, IMovieFolderImporter), not a file under src/LamuFlix.Infrastructure. Under section 2.3.2 (no new layer/project) and section 2.3.6 (named existing DI seam per Q7/Q8, CONCLUSIONS.md:212,226,245), registering services.AddScoped<ILibraryFileReader, LibraryFileReader>() in src/LamuFlix.Api/HandlerRegistration.cs beside IMediaLibraryScanner while keeping LibraryFileReader in src/LamuFlix.Infrastructure/FileSystem/LibraryFileReader.cs is approved.
+- Authorized task/plan drift correction (no structural blocker): correcting Infrastructure DI wording in specs/DEV-456/plan.md, specs/DEV-456/tasks.md (T001, T005), and specs/DEV-456/spec.md (Scope 7, FR-011) to name src/LamuFlix.Api/HandlerRegistration.cs is factual Phase B seam alignment already anticipated by Q7/Q8 and tasks.md T001/T001b (tasks.md:46-47), creating no owner Gate 1 checkbox.
+
+### T001 pickup disposition
+
+- **T001 complete; DEV-459 does not block implementation as a dependency.** DEV-438 is on main through `86f9aeb5`; no separate DEV-438 PR merge receipt is claimed (updated recon-DEV-456 line 8). DEV-459 #343 remains awaiting-merge at `22404dfcedcbccfe8f4af1c7d1d22d0d9ebf2567`, not landed (line 9). Pickup base is `17d9545ced1d0cd811403a0ece4c4ecec3a1f3b6` (lines 4-5).
+- **Dependency finding disposed by Patron Q12:** identical scanner contract (line 12), changed relative identity/lexical canonicalization/persistence (lines 13-14), and absent stream-reader authorization in #343 (line 15) are compatible with spec Scope 2-3 / US1. Keep folder authorization before resolution and file authorization before one open; relative normal-case and contained legacy-rooted coverage remain mandatory. Do not import or duplicate DEV-459 schema/key/helper work. Revalidate against landed DEV-459 before live acceptance/delivery closure; record that later landed SHA and actual test/runtime results.
+- **DI finding disposed by Patron Q12:** task note DEV-456 line 21 preserves Wisp registration evidence `src/LamuFlix.Api/HandlerRegistration.cs:32-34`. Current recon replaced the original intake note; the earlier receipt remains historical evidence, not current recon line numbering. Register `ILibraryFileReader` to `LibraryFileReader` there beside the scanner; keep reader implementation in Infrastructure. Brief, spec, plan, and tasks now name that seam; no new composition layer/file.
+- T000 receipt remains valid. Its earlier T001-blocked paragraph is historical and superseded by this disposition. **T001b/T001c/T001d remain unchecked and still block T003**; this bounded dependency/seam reanalysis does not assert full pickup analyze completion, refreshed whitelist/governance proof, constitution amendment, Principle I implementation PASS, runtime acceptance, or merge clearance. No production files changed.
+
+## T001b / T001c / T001d — Pickup execution receipt (2026-11-08)
+
+Authority: Conductor Phase 3 step 2 execution ask; brief Q10/Q11/Q12; T000/T001 receipts above.
+Worktree: `F:/Dev/LamuFlix.worktrees/DEV-456`, verified branch `feature/DEV-456`.
+Evidence base: Wisp `recon-DEV-456` lines 4-16 at `17d9545ced1d0cd811403a0ece4c4ecec3a1f3b6`;
+task note `DEV-456` lines 17-23 (pickup drift receipt) and 29-43 (dependency/seam receipt).
+This append supersedes the preceding incomplete-task statuses only; no new product decision.
+
+### T001b — Read-only specification analysis report
+
+Automated prerequisite command `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks`
+returned exit 1: `Not on a feature branch. Current branch: feature/DEV-456` (numeric-branch convention).
+**Automated analysis: Could not run.** Completed the explicitly requested manual equivalent across
+brief, spec, plan, tasks, CONCLUSIONS, current constitution and Wisp pickup facts. No analysis hooks apply.
+
+| ID | Category | Severity | Evidence / disposition |
+| --- | --- | --- | --- |
+| P1 | Dependency drift | Disposed | recon lines 8-16; Q12 in brief/spec/plan/tasks retains DEV-459 as integration/delivery dependency, unchanged resolver contract, independent physical authorization and post-merge verification. No dependency merge invented. |
+| P2 | DI seam drift | Disposed | Task note line 21; brief Q7/Q12, spec Scope 7/FR-011, plan structure and tasks T001/T005 consistently name Api/HandlerRegistration.cs beside the scanner. Adapter stays in Infrastructure. |
+| P3 | Constitution prerequisite | Required separate execution | Principle I lacked ILibraryFileReader at pickup; T001d explicitly delivers the amendment before T003. No current feature port/code is claimed compliant by planning alone. Amendment execution is recorded below, outside read-only analysis. |
+
+| Requirement | Task coverage |
+| --- | --- |
+| FR-001 | T006, T007, T008, T010, T014, T015 |
+| FR-002 | T006b, T007, T010 |
+| FR-003 | T003, T002, T004, T005, T006b |
+| FR-004 | T006, T007, T010 |
+| FR-005 | T006, T007, T010, T014, T015 |
+| FR-006 | T006a, T007, T010 |
+| FR-007 | T002, T006, T006c, T007, T010 |
+| FR-008 | T006, T007, T010 |
+| FR-009 | T009, T011, T012, T013 |
+| FR-010 | T014, T015 |
+| FR-011 | T001c, T001d, T003, T005, T016 |
+| FR-012 | T001, T001b, T001c, T001d, T003, T002, T017, T018, T019 |
+| FR-013 | T000, T016, T020, T021 |
+| SC-001 | T006, T014, T015 |
+| SC-002 | T006, T014, T015 |
+| SC-003 | T014, T015 |
+| SC-004 | T002, T006, T010, T014, T015 |
+| SC-005 | T013, T017, T018, T019, T020, T021 |
+
+Coverage: 13 FR + 5 SC = 18/18 (100%); 28 unique tasks, no unmapped tasks.
+No unresolved ambiguity, duplication, critical issue or additional pickup task drift found.
+Historical drafting/Gate 1 banners are superseded by the explicit freeze/T000 receipts, rather
+than new open gates. Q11 ordering remains T003 buildable port/whitelist slice before T002
+behavioral reds; no same-file parallelism. Principle VI errors and real link/concurrent-reader
+proofs remain explicit implementation requirements. T001b complete; no further Quill fix round.
+
+### T001c — Verify-only ADR/governance/whitelist-plan pickup
+
+Read existing `docs/adr/0037-library-file-reader-port.md`: present, Proposed, exact Q11 port,
+policy exception, file-open flags, scoped amendment and atomic whitelist obligation. No ADR edit
+or status transition. Brief Q10 prerequisite evidence update, Q11, plan Constitution Check and
+T003 agree on the recon-DEV-456-3 section 3 plan: append only `|ILibraryFileReader` before `)$`
+at ArchitectureTests.cs:31, preserving all 16 entries/order, selector, floor and method body.
+Wisp pickup drift receipt in task note lines 19-20 reports nine added spec files and zero
+src/test/web drift, so the recorded whitelist plan requires no refreshed pattern fact. This is
+verification of the plan from supplied recon, not an independent production-code measurement.
+Prior governance authority is Q10/Q11, constitution Governance, and owner spec-merge T000.
+T001c complete; whitelist code remains exclusively T003 and omitted-port backfill stays excluded.
+
+### T001d — Constitution amendment delivered in working tree
+
+Updated `.specify/memory/constitution.md` from 1.10.0 to **1.11.0**, Last Amended **2026-11-08**,
+retaining Ratified **2026-09-21**. Principle I gains only `ILibraryFileReader` beside the scanner;
+all prior entries/rules remain. Prepended Sync Impact Report records authority, unchanged titles,
+no added/removed sections, template/runtime-guidance review, migration and follow-up obligations.
+Plan/spec/tasks templates need no edit; command-template directory and docs/quickstart.md absent.
+README/AGENTS carry no duplicated named-port inventory needing synchronization. No schema/data
+migration; atomic T003 port/whitelist implementation remains required. DEV-467 remains separate.
+
+T001b, T001c and T001d marked **[X]** in tasks.md. Their pickup prerequisites for T003 are
+satisfied by these working-tree deliverables, ready for Conductor routing/publication. No commit,
+push, ADR acceptance, production/whitelist edit, implementation compliance PASS, build/runtime
+gate, live acceptance, dependency delivery closure or merge clearance is claimed. Required
+post-DEV-459 integration and nginx/browser acceptance still block delivery closure.

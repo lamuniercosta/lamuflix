@@ -1,6 +1,40 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.10.0 → 1.11.0 (MINOR: Principle I named-port enumeration gains
+ILibraryFileReader for DEV-456; ADR 0037)
+
+Amendment 1.11.0 (2026-11-08), DEV-456 Build pickup:
+  Authority: specs/DEV-456/brief.md Q10 and Q11 item 5;
+    specs/DEV-456/CONCLUSIONS.md Q10/Q11 and T000 spec-PR #338 merge receipt.
+  ADR: docs/adr/0037-library-file-reader-port.md (verified present; remains Proposed).
+    This amendment does not automatically Accept the ADR or claim implementation approval.
+  Modified principles:
+    I. Ports and Adapters (title unchanged): add only ILibraryFileReader beside
+       IMediaLibraryScanner. Preserve every prior entry, project-reference rule,
+       BCL/M.E.AI abstraction, ADR requirement and architecture-enforcement rule.
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/plan-template.md — Constitution Check derives current principles;
+      no duplicated named-port list.
+    .specify/templates/spec-template.md — no named-port inventory or new required section.
+    .specify/templates/tasks-template.md — existing ADR/constitution gates remain applicable.
+    .specify/templates/commands/ — absent; no command templates to synchronize.
+  Runtime guidance reviewed:
+    README.md and AGENTS.md — no duplicated named-port enumeration requiring an edit.
+  Migration / follow-up:
+    No schema/data migration or existing-code rewrite is required by this enumeration addition.
+    T003 must introduce ILibraryFileReader and append only |ILibraryFileReader before )$
+    in ArchitectureTests PortWhitelistPattern atomically, preserving the existing 16 entries,
+    order, selector, count floor and test body (brief Q10 prerequisite evidence update;
+    T001c; recon-DEV-456-3 section 3). T003 remains future implementation work.
+    Prior constitution omissions IEnrichmentOutbox / IRecommendationProfileSource remain
+    outside this amendment; DEV-467 tracks that follow-up. No omitted-port backfill here.
+    Principle I implementation compliance still requires the atomic port/whitelist evidence;
+    this document amendment alone supplies no build/runtime PASS or merge clearance.
+  Deferred placeholders / template follow-up: none
+
 Version change: 1.9.0 → 1.10.0 (MINOR: Principle I named-port enumeration gains the two
 DEV-333 import ports; Principle IV Movie mutator/claim/sweeper inventories and Enrichment
 Reliability Rules gain the quota-day deferral surfaces; ADR-0032)
@@ -297,7 +331,7 @@ Project reference rules are strict and unidirectional:
   `Recommendations`, `WatchHistory`) MUST NOT reference each other; shared concepts live in
   `Domain/`, `Ports/`, or `Pipeline/`.
 - Ports live in `Core/Ports/`; the only ports are `IMovieRepository`, `IMovieCatalog`,
-  `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `ILibraryFolderDiscovery`,
+  `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `ILibraryFileReader`, `ILibraryFolderDiscovery`,
   `IMovieFolderImporter`, `IMediaPlayerLauncher`,
   `IRecommendationCandidateSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`,
   `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, `IThumbnailGenerator`, and the BCL/M.E.AI abstractions `TimeProvider` and
@@ -733,4 +767,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.10.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-02
+**Version**: 1.11.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-08

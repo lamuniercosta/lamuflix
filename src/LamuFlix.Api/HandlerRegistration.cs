@@ -31,6 +31,7 @@ internal static class HandlerRegistration
 
         services.TryAddSingleton<IFileSystem, FileSystem>();
         services.AddScoped<IMediaLibraryScanner, DirectoryMediaLibraryScanner>();
+        services.AddScoped<ILibraryFileReader, LibraryFileReader>();
         services.AddScoped<ILibraryFolderDiscovery, FileSystemLibraryFolderDiscovery>();
         services.AddScoped<IMovieFolderImporter, ScopedMovieFolderImporter>();
         services.AddHandler<RequestEnrichmentCommandHandler, RequestEnrichmentCommand, MovieId>();
