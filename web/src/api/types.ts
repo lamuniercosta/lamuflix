@@ -22,6 +22,10 @@ export interface paths {
     /** Stream the cached thumbnail JPEG for a movie. */
     get: operations["GetMovieThumbnail"];
   };
+  "/api/movies/{id}/stream": {
+    /** Stream the primary video file of a movie. */
+    get: operations["StreamMovie"];
+  };
   "/api/movies/import": {
     /** Import a movie folder into the library. */
     post: operations["ImportMovie"];
@@ -242,6 +246,8 @@ export interface components {
     SetMovieReviewRequest: {
       review: null | string;
     };
+    /** Format: binary */
+    Stream: string;
   };
   responses: never;
   parameters: never;
@@ -353,6 +359,62 @@ export interface operations {
       };
       /** @description Not Found */
       404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Stream the primary video file of a movie. */
+  StreamMovie: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/octet-stream": components["schemas"]["Stream"];
+        };
+      };
+      /** @description Partial Content */
+      206: {
+        content: {
+          "application/octet-stream": components["schemas"]["Stream"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Range Not Satisfiable */
+      416: {
+        content: never;
+      };
+      /** @description Internal Server Error */
+      500: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };
