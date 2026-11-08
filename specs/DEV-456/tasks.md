@@ -84,9 +84,9 @@ Phase 6  T016 → T021   (verification, review, delivery)
 **Goal**: Tooling-regenerated OpenAPI/TS/MSW + inventory updates for the stream route.
 **Independent Test**: Drift/inventory checks green; no hand-edited generated files.
 
-- [ ] T011 [US3] Update `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` ExpectedOperations (and related schema expectations as forced by regeneration) for `GET /api/movies/{id}/stream` with documented 200/206 binary Stream and explicit 416 plus frozen error responses (Q3; Q7; FR-009)
-- [ ] T012 [US3] Update `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` endpoint-name inventory to include the stream endpoint (Q7; FR-009)
-- [ ] T013 [US3] Regenerate contracts via supported workflow: set `LAMUFLIX_REGENERATE_OPENAPI=true`, run OpenAPI regeneration test (writes `web/src/api/openapi.json` + Verify snapshot together), then from `web/` run `npm run generate:api` producing `web/src/api/types.ts` and `web/src/mocks/handlers.ts`; verify with `npm run check:api`. **Never hand-edit** generated artifacts (Q3; FR-009; SC-005)
+- [X] T011 [US3] Update `tests/LamuFlix.IntegrationTests/OpenApiContractTests.cs` ExpectedOperations (and related schema expectations as forced by regeneration) for `GET /api/movies/{id}/stream` with documented 200/206 binary Stream and explicit 416 plus frozen error responses (Q3; Q7; FR-009)
+- [X] T012 [US3] Update `tests/LamuFlix.IntegrationTests/LibraryEndpointsTests.cs` endpoint-name inventory to include the stream endpoint (Q7; FR-009)
+- [X] T013 [US3] Regenerate contracts via supported workflow: set `LAMUFLIX_REGENERATE_OPENAPI=true`, run OpenAPI regeneration test (writes `web/src/api/openapi.json` + Verify snapshot together), then from `web/` run `npm run generate:api` producing `web/src/api/types.ts` and `web/src/mocks/handlers.ts`; verify with `npm run check:api`. **Never hand-edit** generated artifacts (Q3; FR-009; SC-005)
 
 ---
 
