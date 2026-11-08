@@ -527,7 +527,10 @@ public sealed class StreamEndpointTests(ApiHostFactory factory) : IClassFixture<
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        var entry = log.Entries.ShouldHaveSingleItem();
+        var entry = (await WaitForLogEntriesAsync(
+            log,
+            record => IsMovieFailure(record, "LibraryFileAccessDeniedException"),
+            ct)).ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.State.ShouldContain(pair => pair.Key == "MovieId" && Equals(pair.Value, KnownId));
         entry.Message.ShouldNotContain(MovieFolder);
@@ -549,7 +552,10 @@ public sealed class StreamEndpointTests(ApiHostFactory factory) : IClassFixture<
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        var entry = log.Entries.ShouldHaveSingleItem();
+        var entry = (await WaitForLogEntriesAsync(
+            log,
+            record => IsMovieFailure(record, "NotFoundException"),
+            ct)).ShouldHaveSingleItem();
         entry.State.ShouldContain(pair => pair.Key == "MovieId" && Equals(pair.Value, KnownId));
         entry.Message.ShouldNotContain(MovieFolder);
         entry.Message.ShouldNotContain("/unused/file.mp4");
@@ -590,7 +596,10 @@ public sealed class StreamEndpointTests(ApiHostFactory factory) : IClassFixture<
         received.ShouldNotBeEmpty();
         received.Count.ShouldBeLessThan(1024);
         System.Text.Encoding.UTF8.GetString([.. received]).ShouldNotContain("ProblemDetails");
-        var failure = log.Entries.ShouldHaveSingleItem();
+        var failure = (await WaitForLogEntriesAsync(
+            log,
+            record => IsMovieFailure(record, "IOException"),
+            ct)).ShouldHaveSingleItem();
         failure.State.ShouldContain(pair => pair.Key == "MovieId" && Equals(pair.Value, KnownId));
         failure.Message.ShouldNotContain("mid-body fault");
     }
@@ -785,6 +794,32 @@ public sealed class StreamEndpointTests(ApiHostFactory factory) : IClassFixture<
 
     private static string? NoSniff(HttpResponseMessage response) =>
         response.Headers.TryGetValues(ContentTypeOptionsHeader, out var values) ? values.Single() : null;
+
+    private static bool IsMovieFailure(LogRecord record, string failure) =>
+        record.State.Any(pair => pair.Key == "MovieId" && Equals(pair.Value, KnownId))
+        && record.State.Any(pair => pair.Key == "Failure" && Equals(pair.Value, failure));
+
+    private static async Task<IReadOnlyList<LogRecord>> WaitForLogEntriesAsync(
+        CaptureLog log,
+        Func<LogRecord, bool> match,
+        CancellationToken cancellationToken)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + TimeSpan.FromSeconds(30);
+        IReadOnlyList<LogRecord> found = [];
+        while (TimeProvider.System.GetUtcNow() < deadline)
+        {
+            found = [.. log.Entries.Where(match)];
+            if (found.Count > 0)
+            {
+                return found;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+        }
+
+        found.ShouldNotBeEmpty();
+        return found;
+    }
 
     private void DetailsReturning(MovieDetails details) =>
         catalog.GetDetailsAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(details);
