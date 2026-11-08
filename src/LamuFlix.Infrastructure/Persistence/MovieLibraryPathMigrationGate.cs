@@ -16,13 +16,6 @@ using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
-/// <summary>
-/// The single configuration-aware startup barrier for library-relative movie identities: it rewrites
-/// stored absolute paths to canonical library-relative values, populates the derived portable
-/// uniqueness key, and activates the column collation, NOT NULL constraint and unique key index in
-/// one locked transaction, or verifies that activated state without writing when startup migrations
-/// are disabled.
-/// </summary>
 public sealed partial class MovieLibraryPathMigrationGate(
     LamuFlixDbContext db,
     IOptions<LibraryOptions> libraryOptions,
@@ -66,11 +59,6 @@ public sealed partial class MovieLibraryPathMigrationGate(
         "CREATE UNIQUE INDEX \"IX_movies_library_path_key\" ON movies (library_path_key)";
     private const string RowSelectStatement = "SELECT id, library_path, library_path_key FROM movies ORDER BY id";
 
-    /// <summary>
-    /// Runs preflight, backfill, key population, activation and consistency verification inside one
-    /// transaction, or verifies the already-activated state when startup migrations are disabled.
-    /// Any failure throws before the transaction commits, so startup fails closed.
-    /// </summary>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var rootMap = RootMap.Create(libraryOptions.Value);
@@ -356,11 +344,7 @@ public sealed partial class MovieLibraryPathMigrationGate(
             ColumnExists && !ColumnIsNullable && HasBinaryCollation && HasUniqueIndex;
     }
 
-    /// <summary>
-    /// Maps stored values against the active library root, the configured legacy roots and the
-    /// automatic Docker default alias, failing closed whenever a value maps ambiguously or not at all.
-    /// </summary>
-    private sealed class RootMap
+    internal sealed class RootMap
     {
         private const string DefaultDockerRoot = "/media/library";
 
@@ -386,10 +370,6 @@ public sealed partial class MovieLibraryPathMigrationGate(
             return new RootMap([.. roots]);
         }
 
-        /// <summary>
-        /// Returns the canonical relative identity for <paramref name="value"/>, or null after adding a
-        /// failure describing why the value cannot be mapped.
-        /// </summary>
         public string? Canonicalize(string value, int id, List<string> failures)
         {
             if (!LibraryPath.IsAbsolute(value))
@@ -403,16 +383,29 @@ public sealed partial class MovieLibraryPathMigrationGate(
                 return null;
             }
 
-            var suffixes = MapAbsolute(value);
-            if (suffixes.Count == 1)
+            if (TryMapSingleAbsolute(value, out var single))
             {
-                return suffixes.First();
+                return single;
             }
 
+            var suffixes = MapAbsolute(value);
             failures.Add(suffixes.Count == 0
                 ? $"Movie ID {Describe(id)} path '{value}' matches no active, legacy, or default Docker library root."
                 : $"Movie ID {Describe(id)} path '{value}' maps ambiguously through {Describe(suffixes)}.");
             return null;
+        }
+
+        public bool TryMapSingleAbsolute(string value, out string canonical)
+        {
+            canonical = string.Empty;
+            var suffixes = MapAbsolute(value);
+            if (suffixes.Count != 1)
+            {
+                return false;
+            }
+
+            canonical = suffixes.First();
+            return true;
         }
 
         private HashSet<string> MapAbsolute(string value)

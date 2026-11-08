@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +9,7 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Thumbnails;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -35,7 +35,6 @@ public sealed class ThumbnailConsumer(
     private const string IneligibleRequest = "IneligibleRequest";
     private const string UnauthorizedSourcePath = "UnauthorizedSourcePath";
     private const string RootIdentity = ".";
-    private const string DefaultDockerRoot = "/media/library";
     private const string CachePromotionFailed = "CachePromotionFailed";
     private const string MissingGeneratorReason = "ExtractionFailed";
     private const string ErrorEventName = "error";
@@ -308,11 +307,6 @@ public sealed class ThumbnailConsumer(
             canonicalPath.ToUpperInvariant(),
             StringComparison.Ordinal);
 
-    /// <summary>
-    /// Canonicalises a request payload to the library-relative identity it names: new deliveries carry
-    /// canonical relative values, and in-flight legacy deliveries carry absolute paths mapped through
-    /// the active root, the configured legacy roots and the unambiguous default Docker alias.
-    /// </summary>
     private bool TryCanonicalizeRequestPath(string filePath, out string canonical)
     {
         canonical = string.Empty;
@@ -341,40 +335,13 @@ public sealed class ThumbnailConsumer(
     private bool TryMapAbsolutePath(string filePath, out string canonical)
     {
         canonical = string.Empty;
-        var matches = CollectRootMatches(filePath);
-        if (matches.Count != 1)
+        if (!LibraryPath.IsAbsolute(library.Value.RootPath))
         {
             return false;
         }
 
-        canonical = matches.First();
-        return true;
-    }
-
-    private HashSet<string> CollectRootMatches(string filePath)
-    {
-        var matches = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var root in BuildCandidateRoots())
-        {
-            if (LibraryPath.TryCanonicalizeUnderRoot(filePath, root, out var mapped))
-            {
-                matches.Add(mapped);
-            }
-        }
-
-        return matches;
-    }
-
-    private HashSet<string> BuildCandidateRoots()
-    {
-        var roots = new HashSet<string>(StringComparer.Ordinal) { library.Value.RootPath };
-        foreach (var legacy in library.Value.LegacyRootPaths)
-        {
-            roots.Add(legacy);
-        }
-
-        roots.Add(DefaultDockerRoot);
-        return roots;
+        var rootMap = MovieLibraryPathMigrationGate.RootMap.Create(library.Value);
+        return rootMap.TryMapSingleAbsolute(filePath, out canonical);
     }
 
     private bool TryAuthorizeSource(string relativePath, out string authorizedSource)
@@ -425,8 +392,8 @@ public sealed class ThumbnailConsumer(
 
     private static bool IsUnderRoot(string source, string root)
     {
-        var rootWithSeparator = root + Path.DirectorySeparatorChar;
-        return source.StartsWith(rootWithSeparator, PathComparison);
+        return string.Equals(source, root, PathComparison)
+            || source.StartsWith(root + Path.DirectorySeparatorChar, PathComparison);
     }
 
     private static bool HasReparsePointInChain(string path, string root)

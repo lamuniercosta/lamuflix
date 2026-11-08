@@ -267,6 +267,25 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
     }
 
     [Fact]
+    public async Task Consumer_ARootIdentityPayload_GeneratesAndAcknowledges()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var temporary = new TemporaryDirectory();
+        var generator = SuccessfulGenerator(temporary, ValidJpeg);
+        await using var host = NewHost(temporary, generator);
+        var movie = host.AddMovie(525, ".");
+
+        await host.StartAsync(ct);
+        await host.Publisher.PublishAsync(new ThumbnailRequested(movie, "."), ct);
+        await WaitUntilAsync(_ => Task.FromResult(File.Exists(temporary.CanonicalPath(movie))), ct);
+        await host.StopAsync(CancellationToken.None);
+
+        generator.CallCount.ShouldBe(1);
+        generator.Sources.ShouldHaveSingleItem().ShouldBe(host.AbsolutePath(movie));
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
+    }
+
+    [Fact]
     public async Task Consumer_ALongSPathPayload_CollidesWithThePlainSKeyAndGenerates()
     {
         var ct = TestContext.Current.CancellationToken;

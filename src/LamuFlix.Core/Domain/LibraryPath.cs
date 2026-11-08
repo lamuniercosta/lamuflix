@@ -31,10 +31,6 @@ public sealed record LibraryPath
         return result is not null;
     }
 
-    /// <summary>
-    /// Canonicalises a non-rooted library identity: forward slashes, redundant <c>.</c> segments
-    /// removed, the library root represented as <c>.</c>, original segment casing preserved.
-    /// </summary>
     public static bool TryCanonicalizeRelative(string? value, [NotNullWhen(true)] out string? canonical)
     {
         canonical = null;
@@ -47,10 +43,6 @@ public sealed record LibraryPath
         return true;
     }
 
-    /// <summary>
-    /// Canonicalises a relative identity or an absolute value beneath <paramref name="rootPath"/>
-    /// using OS-independent string parsing. Values outside the root are rejected.
-    /// </summary>
     public static bool TryCanonicalizeUnderRoot(string? value, string? rootPath, [NotNullWhen(true)] out string? canonical)
     {
         canonical = null;
@@ -73,10 +65,6 @@ public sealed record LibraryPath
         return true;
     }
 
-    /// <summary>
-    /// True when two absolute prefixes touch the same path segments, so mapping a stored path
-    /// against both could yield two different relative identities.
-    /// </summary>
     public static bool OverlapsAtSegmentBoundary(string? first, string? second)
     {
         if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(second)
@@ -107,10 +95,6 @@ public sealed record LibraryPath
         !string.IsNullOrWhiteSpace(value) && !HasParentTraversal(value) && !IsDriveRelative(value)
         && !HasControlCharacter(value);
 
-    /// <summary>
-    /// True for an absolute Windows drive/UNC root or an absolute POSIX root, judged by syntax
-    /// alone so either host can recognise a path written for the other.
-    /// </summary>
     public static bool IsAbsolute([NotNullWhen(true)] string? value) =>
         !string.IsNullOrEmpty(value) && !IsDriveRelative(value) && !HasControlCharacter(value)
         && (IsSeparator(value[0]) || IsDriveAbsolute(value));

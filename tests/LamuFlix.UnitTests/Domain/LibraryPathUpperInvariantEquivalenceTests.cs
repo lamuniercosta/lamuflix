@@ -14,8 +14,8 @@ namespace LamuFlix.UnitTests.Domain;
 /// <remarks>
 /// The ruled exceptions are the exact verified divergences on the non-invariant shipping runtime: the two Long S
 /// pairings (U+017F against U+0073/U+0053) and the 22 Garay case pairings (U+10D50..U+10D65 against
-/// U+10D70..U+10D85). The equivalence properties therefore range over strings built from every other code point in
-/// the probe alphabet, so no pairing is silently rewritten and nothing outside the exception classes is exempt.
+/// U+10D70..U+10D85). Generated strings range over the whole probe alphabet, and only inconsistent instances
+/// fully explained by those ruled pairings are excluded from the equivalence assertion.
 /// The exception classes keep deterministic facts of their own, and one test asserts that no divergence exists
 /// outside them.
 /// </remarks>
@@ -26,7 +26,6 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
     private const int GarayUpperFirst = 0x10D50;
     private const int GarayUpperLast = 0x10D65;
     private const int GarayLowerFirst = 0x10D70;
-    private const int GarayLowerLast = 0x10D85;
     private const int GarayCaseOffset = 0x20;
     private const int LongSUpper = 0x017F;
     private const int LowerS = 0x0073;
@@ -42,7 +41,7 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
         var second = Variant(random, first);
 
         // act / assert
-        return Consistent(first, second);
+        return IsRuledInstance(first, second) || Consistent(first, second);
     }
 
     [Property(MaxTest = 300)]
@@ -168,13 +167,35 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
         upperCodePoint is >= GarayUpperFirst and <= GarayUpperLast
         && lowerCodePoint == upperCodePoint + GarayCaseOffset;
 
-    private static bool IsRuledCodePoint(string element)
+    private static bool IsRuledInstance(string first, string second)
     {
-        var codePoint = ToCodePoint(element);
-        return codePoint == LongSUpper
-            || codePoint is >= GarayUpperFirst and <= GarayUpperLast
-            || codePoint is >= GarayLowerFirst and <= GarayLowerLast;
+        var firstElements = Elements(first).ToList();
+        var secondElements = Elements(second).ToList();
+        if (firstElements.Count != secondElements.Count)
+        {
+            return false;
+        }
+
+        var sawRuled = false;
+        for (var index = 0; index < firstElements.Count; index++)
+        {
+            if (Consistent(firstElements[index], secondElements[index]))
+            {
+                continue;
+            }
+
+            if (IsRuledPairing(firstElements[index], secondElements[index]))
+            {
+                sawRuled = true;
+                continue;
+            }
+
+            return false;
+        }
+
+        return sawRuled;
     }
+
 
     private static int ToCodePoint(string element) =>
         string.IsNullOrEmpty(element) ? -1 : char.ConvertToUtf32(element, 0);
@@ -204,7 +225,7 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
         var builder = new StringBuilder(length);
         for (var index = 0; index < length; index++)
         {
-            builder.Append(EquivalenceDomain[random.Next(EquivalenceDomain.Count)]);
+            builder.Append(Alphabet[random.Next(Alphabet.Count)]);
         }
 
         return builder.ToString();
@@ -321,8 +342,6 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
 
     private static readonly List<string> Alphabet = BuildAlphabet();
 
-    private static readonly List<string> EquivalenceDomain =
-        Alphabet.FindAll(element => !IsRuledCodePoint(element));
 
     static LibraryPathUpperInvariantEquivalenceTests()
     {
@@ -332,11 +351,6 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
             {
                 throw new InvalidOperationException("Ruled pairing is missing from the probe alphabet.");
             }
-        }
-
-        if (EquivalenceDomain.Exists(IsRuledCodePoint))
-        {
-            throw new InvalidOperationException("Equivalence domain must exclude the ruled code points.");
         }
     }
 }
