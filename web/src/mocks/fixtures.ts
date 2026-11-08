@@ -247,6 +247,8 @@ const directorsData = [
 
 const movieThumbnailData = '/9j/4AAQSkZJRg==';
 
+const movieStreamData: Schemas['Stream'] = '';
+
 const rescanLibraryData = {
   changed: 1,
   unchanged: 1,
@@ -275,6 +277,7 @@ export const overlongCollections = Object.freeze(overlongCollectionsData);
 export const people = Object.freeze(peopleData);
 export const directors = Object.freeze(directorsData);
 export const movieThumbnail = movieThumbnailData;
+export const movieStream = movieStreamData;
 export const rescanLibrary = Object.freeze(rescanLibraryData);
 export const rescanMovie = Object.freeze(rescanMovieData);
 
@@ -288,6 +291,7 @@ export const success = Object.freeze({
   GetPeople: people,
   GetDirectors: directors,
   GetMovieThumbnail: movieThumbnail,
+  StreamMovie: movieStream,
   RescanLibrary: rescanLibrary,
   RescanMovie: rescanMovie,
 });

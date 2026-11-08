@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -32,6 +32,9 @@ const DOCKER = process.env.DOCKER ?? 'docker';
 
 const projectName = `lamuflix-e2e-${randomBytes(4).toString('hex')}`;
 const secrets = [];
+const streamEvidenceFile = path.join(evidenceDir, 'stream-acceptance.json');
+const seekEvidenceFile = path.join(evidenceDir, 'browser-seek.json');
+let postgresUser;
 let exitCode = 0;
 
 function sleep(milliseconds) {
@@ -44,6 +47,14 @@ function log(message) {
 
 function composePath(value) {
   return value.replaceAll('\\', '/');
+}
+
+function gitHead() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
 }
 
 function randomSecret(bytes = 24) {
@@ -72,6 +83,7 @@ function credentialPair(name, value) {
 }
 
 function writeComposeEnv(credentials) {
+  postgresUser = credentials.postgresUser;
   const lines = [
     envLine('POSTGRES_USER', credentials.postgresUser),
     envLine('POSTGRES_PASSWORD', credentials.postgresPassword),
@@ -409,6 +421,317 @@ async function waitForSeededState() {
   throw new Error('seeded movies and genres were not observable within the wait budget');
 }
 
+async function readStreamBytes(movieId, rangeHeader, { timeoutMs = WAIT_BUDGET_MS } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(timeoutMs, 1));
+  const headers = rangeHeader ? { Range: rangeHeader } : {};
+  try {
+    const response = await fetch(`${BASE_URL}/api/movies/${movieId}/stream`, {
+      headers,
+      signal: controller.signal,
+    });
+    const body = Buffer.from(await response.arrayBuffer());
+    return {
+      status: response.status,
+      headers: {
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length'),
+        contentRange: response.headers.get('content-range'),
+        acceptRanges: response.headers.get('accept-ranges'),
+        contentDisposition: response.headers.get('content-disposition'),
+        nosniff: response.headers.get('x-content-type-options'),
+        etag: response.headers.get('etag'),
+        lastModified: response.headers.get('last-modified'),
+      },
+      body,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function requireStream(condition, message) {
+  if (!condition) {
+    throw new Error(`stream acceptance: ${message}`);
+  }
+}
+
+async function assertFullResponse(movieId, sourceBytes, sourceName, records) {
+  const full = await readStreamBytes(movieId, null);
+  const record = {
+    case: 'full',
+    source: sourceName,
+    sourceLength: sourceBytes.length,
+    requestedRange: null,
+    status: full.status,
+    headers: full.headers,
+    byteExact: null,
+  };
+  records.push(record);
+
+  requireStream(full.status === 200, `${sourceName}: no-Range must be 200, got ${full.status}`);
+  requireStream(
+    full.headers.acceptRanges === 'bytes',
+    `${sourceName}: Accept-Ranges must be bytes, got ${full.headers.acceptRanges}`,
+  );
+  requireStream(
+    full.headers.nosniff === 'nosniff',
+    `${sourceName}: X-Content-Type-Options must be nosniff, got ${full.headers.nosniff}`,
+  );
+  requireStream(
+    full.headers.contentLength === String(sourceBytes.length),
+    `${sourceName}: Content-Length must be ${sourceBytes.length}, got ${full.headers.contentLength}`,
+  );
+  requireStream(
+    full.headers.contentDisposition === null,
+    `${sourceName}: no Content-Disposition expected, got ${full.headers.contentDisposition}`,
+  );
+  requireStream(
+    full.headers.etag === null && full.headers.lastModified === null,
+    `${sourceName}: no entityTag/lastModified validators expected`,
+  );
+  requireStream(
+    Buffer.compare(full.body, sourceBytes) === 0,
+    `${sourceName}: full body must be byte-exact to the source`,
+  );
+  record.byteExact = true;
+  return full;
+}
+
+async function assertRangeSlice(movieId, sourceBytes, sourceName, rangeHeader, records) {
+  const expectedMatch = /^bytes=(\d+)-(\d*)$/.exec(rangeHeader);
+  requireStream(expectedMatch !== null, `${sourceName}: test range must be a single bytes range`);
+
+  const start = Number(expectedMatch[1]);
+  const end = expectedMatch[2] === '' ? sourceBytes.length - 1 : Number(expectedMatch[2]);
+  const slice = sourceBytes.subarray(start, end + 1);
+  const response = await readStreamBytes(movieId, rangeHeader);
+  const record = {
+    case: 'range',
+    source: sourceName,
+    sourceLength: sourceBytes.length,
+    requestedRange: rangeHeader,
+    status: response.status,
+    headers: response.headers,
+    expectedContentRange: `bytes ${start}-${end}/${sourceBytes.length}`,
+    byteExact: null,
+  };
+  records.push(record);
+
+  requireStream(
+    response.status === 206,
+    `${sourceName} ${rangeHeader}: satisfiable range must be 206, got ${response.status}`,
+  );
+  requireStream(
+    response.headers.contentRange === `bytes ${start}-${end}/${sourceBytes.length}`,
+    `${sourceName} ${rangeHeader}: Content-Range must be bytes ${start}-${end}/${sourceBytes.length}, got ${response.headers.contentRange}`,
+  );
+  requireStream(
+    response.headers.contentLength === String(slice.length),
+    `${sourceName} ${rangeHeader}: Content-Length must be ${slice.length}, got ${response.headers.contentLength}`,
+  );
+  requireStream(
+    response.headers.acceptRanges === 'bytes',
+    `${sourceName} ${rangeHeader}: Accept-Ranges must be bytes`,
+  );
+  requireStream(
+    response.headers.nosniff === 'nosniff',
+    `${sourceName} ${rangeHeader}: nosniff must be set on 206`,
+  );
+  requireStream(
+    Buffer.compare(response.body, slice) === 0,
+    `${sourceName} ${rangeHeader}: body must equal the requested source slice`,
+  );
+  record.byteExact = true;
+  return response;
+}
+
+async function assertBeyondEof(movieId, sourceBytes, sourceName, records) {
+  const rangeHeader = `bytes=${sourceBytes.length}-${sourceBytes.length + 100}`;
+  const response = await readStreamBytes(movieId, rangeHeader);
+  const record = {
+    case: 'beyond-eof',
+    source: sourceName,
+    sourceLength: sourceBytes.length,
+    requestedRange: rangeHeader,
+    status: response.status,
+    headers: response.headers,
+    expectedContentRange: `bytes */${sourceBytes.length}`,
+  };
+  records.push(record);
+
+  requireStream(
+    response.status === 416,
+    `${sourceName}: beyond-EOF range must be 416, got ${response.status}`,
+  );
+  requireStream(
+    response.headers.contentRange === `bytes */${sourceBytes.length}`,
+    `${sourceName}: 416 Content-Range must be bytes */${sourceBytes.length}, got ${response.headers.contentRange}`,
+  );
+  return response;
+}
+
+async function characterizeRanges(movieId, sourceBytes, sourceName, records) {
+  const cases = [
+    { range: 'bytes=abc', label: 'malformed' },
+    { range: 'items=0-10', label: 'unsupported-unit' },
+    { range: 'bytes=0-10,20-30', label: 'multiple' },
+    { range: 'bytes=-0', label: 'zero-suffix' },
+  ];
+  for (const item of cases) {
+    try {
+      const response = await readStreamBytes(movieId, item.range);
+      records.push({
+        case: `characterization:${item.label}`,
+        source: sourceName,
+        sourceLength: sourceBytes.length,
+        requestedRange: item.range,
+        status: response.status,
+        headers: response.headers,
+        note: 'characterization only; framework behaviour is not a frozen contract',
+      });
+    } catch (error) {
+      records.push({
+        case: `characterization:${item.label}`,
+        source: sourceName,
+        requestedRange: item.range,
+        note: `characterization only; transport error ${sanitize(error.message)}`,
+      });
+    }
+  }
+}
+
+async function playbackEventCount(movieId) {
+  const result = await compose(
+    [
+      'exec',
+      '-T',
+      'postgres',
+      'psql',
+      '-U',
+      postgresUser,
+      '-d',
+      'lamuflix',
+      '-t',
+      '-A',
+      '-c',
+      `select count(*) from playback_events where movie_id = ${movieId}`,
+    ],
+    { allowFailure: true },
+  );
+  if (result.code !== 0) {
+    throw new Error(`playback_events count failed: ${sanitize(result.stderr || result.stdout)}`);
+  }
+  return Number(result.stdout.trim());
+}
+
+async function assertNoPlaybackSideEffects(movieId, sourceName, records) {
+  const before = await playbackEventCount(movieId);
+  const streamed = await readStreamBytes(movieId, null);
+  const after = await playbackEventCount(movieId);
+  records.push({
+    case: 'localplay-false-stream',
+    source: sourceName,
+    status: streamed.status,
+    playbackEventsBefore: before,
+    playbackEventsAfter: after,
+    note: 'Features.LocalPlay=false; stream succeeded with no playback history write',
+  });
+
+  requireStream(
+    streamed.status === 200,
+    `${sourceName}: LocalPlay=false stream must still succeed with 200, got ${streamed.status}`,
+  );
+  requireStream(
+    before === 0 && after === 0,
+    `${sourceName}: no playback_events rows must be written by streaming (before=${before}, after=${after})`,
+  );
+}
+
+async function runStreamAcceptance() {
+  mkdirSync(evidenceDir, { recursive: true });
+  const records = [];
+
+  for (const movie of SEED_MOVIES) {
+    const sourcePath = path.join(libraryDir, movie.relativePath, movie.source);
+    const sourceBytes = readFileSync(sourcePath);
+    requireStream(
+      sourceBytes.length > 0,
+      `${movie.source}: acceptance source must be non-empty, got ${sourceBytes.length} bytes`,
+    );
+
+    const browse = await readJson(
+      `${BASE_URL}/api/movies?sort=Title&direction=Ascending&page=1&pageSize=20`,
+    );
+    const entry = browse.items.find((item) => item.title === movie.title);
+    requireStream(entry !== undefined, `${movie.title}: seeded movie must be browsable`);
+
+    await assertFullResponse(entry.id, sourceBytes, movie.source, records);
+    await assertRangeSlice(entry.id, sourceBytes, movie.source, 'bytes=0-1023', records);
+    await assertRangeSlice(
+      entry.id,
+      sourceBytes,
+      movie.source,
+      `bytes=${sourceBytes.length - 512}-${sourceBytes.length - 1}`,
+      records,
+    );
+    await assertRangeSlice(entry.id, sourceBytes, movie.source, 'bytes=1024-', records);
+    await assertBeyondEof(entry.id, sourceBytes, movie.source, records);
+    await characterizeRanges(entry.id, sourceBytes, movie.source, records);
+
+    const sequential = [0, 4096, 8192, 12288];
+    for (const offset of sequential) {
+      const end = Math.min(offset + 1023, sourceBytes.length - 1);
+      await assertRangeSlice(
+        entry.id,
+        sourceBytes,
+        movie.source,
+        `bytes=${offset}-${end}`,
+        records,
+      );
+    }
+
+    const backwards = [12288, 4096];
+    for (const offset of backwards) {
+      const end = Math.min(offset + 1023, sourceBytes.length - 1);
+      await assertRangeSlice(
+        entry.id,
+        sourceBytes,
+        movie.source,
+        `bytes=${offset}-${end}`,
+        records,
+      );
+    }
+
+    await assertNoPlaybackSideEffects(entry.id, movie.source, records);
+  }
+
+  const seekSource = SEED_MOVIES[0];
+  const seekBytes = readFileSync(path.join(libraryDir, seekSource.relativePath, seekSource.source));
+  writeFileSync(
+    streamEvidenceFile,
+    `${JSON.stringify(
+      {
+        baseURL: BASE_URL,
+        transport: 'web nginx /api proxy at http://localhost:3000',
+        commit: process.env.GITHUB_SHA ?? gitHead(),
+        generatedAt: new Date().toISOString(),
+        browserSeekSource: {
+          title: seekSource.title,
+          file: seekSource.source,
+          length: seekBytes.length,
+        },
+        cases: records,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  log(
+    `stream acceptance: ${records.length} cases recorded through nginx to ${composePath(streamEvidenceFile)}`,
+  );
+}
+
 function hasSpecs() {
   return readdirSync(scriptDir).some((name) => name.endsWith('.e2e.ts'));
 }
@@ -434,6 +757,7 @@ async function runPlaywright() {
           ...process.env,
           E2E_CONTEXT_FILE: contextFile,
           E2E_WAIT_BUDGET_MS: String(WAIT_BUDGET_MS),
+          E2E_SEEK_EVIDENCE_FILE: seekEvidenceFile,
         },
         timeout: STACK_START_TIMEOUT_MS,
         maxBuffer: 20 * 1024 * 1024,
@@ -494,6 +818,11 @@ function buildUploadAllowlist() {
   const files = [];
   if (existsSync(evidenceDir)) {
     files.push(...testResultFiles(evidenceDir).filter((file) => file.endsWith('.log')));
+    for (const evidence of [streamEvidenceFile, seekEvidenceFile]) {
+      if (existsSync(evidence)) {
+        files.push(evidence);
+      }
+    }
   }
 
   const resultsDir = path.join(runtimeDir, 'test-results');
@@ -510,7 +839,7 @@ function buildUploadAllowlist() {
 function scanEvidenceForSecrets() {
   const files = buildUploadAllowlist();
   for (const file of files) {
-    if (!file.endsWith('.log')) {
+    if (!file.endsWith('.log') && !file.endsWith('.json')) {
       continue;
     }
 
@@ -559,6 +888,7 @@ async function main() {
     await seedMovies();
     await waitForSeededState();
     await assertNoUnexpectedProviderRequests();
+    await runStreamAcceptance();
     exitCode = await runPlaywright();
     await assertNoUnexpectedProviderRequests();
   } catch (error) {
