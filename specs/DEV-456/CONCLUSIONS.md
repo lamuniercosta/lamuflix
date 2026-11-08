@@ -465,3 +465,14 @@ satisfied by these working-tree deliverables, ready for Conductor routing/public
 push, ADR acceptance, production/whitelist edit, implementation compliance PASS, build/runtime
 gate, live acceptance, dependency delivery closure or merge clearance is claimed. Required
 post-DEV-459 integration and nginx/browser acceptance still block delivery closure.
+
+
+---
+
+## Q13 — Phase 5 sample-library acceptance corpus ruling (2026-11-08)
+
+Verdict: Adopt Option 1 — under Charter §2.3.6 (`specs/PRODUCT.md` §5 item 6), authorize replacing the tracked 0-byte placeholder MP4s in `docker/sample-library/` (`Big Buck Bunny (2008).mp4`, `Elephants Dream (2006).mp4`, `Sintel (2010).mp4`, `Tears of Steel (2012).mp4`) with small, real, browser-decodable H.264 MP4 clips (`moov` atom present, seekable duration) as a forced acceptance-corpus edit in scope for Phase 5–6 (T014–T016); reject Options 2 and 3.
+
+- **Forced acceptance edit & §2.3.6 File Scope (`specs/PRODUCT.md` §5 item 6; `CONCLUSIONS.md:46,181`; `spec.md` Scope 6–7, FR-010–FR-011, SC-001–SC-003)**: The ticket and Q6 require full (`200`), partial (`206`), beyond-EOF (`416`), sequential/backwards seek, and real-browser seek verification through Compose nginx against `docker/sample-library` copied by `web/e2e/fixtures.mjs:78` and `web/e2e/run.mjs:80,233`, whereas all four tracked `docker/sample-library/*.mp4` files are 0-byte empty blobs (`e69de29b` since `3f17c9b0`; `specs/DEV-17/research.md:38`). Because the ticket acceptance criteria and Q6 gate force decodable non-empty MP4 bytes in `docker/sample-library`, populating `docker/sample-library/*.mp4` is approved in scope under §2.3.6 and supplements the Q7 / FR-011 / T016 bounded file footprint without changing ticket deliverables or creating an owner Gate 1 checkbox.
+- **Option 2 rejected under §2.3.1 Dependencies (`specs/PRODUCT.md` §5 item 1; `.github/workflows/ci.yml:31-32,106-132`; `CONCLUSIONS.md:48,181,222`)**: Synthesizing clips at e2e runtime with `ffmpeg` adds an unapproved runtime tool dependency to the e2e harness and CI `e2e` job (which installs no `ffmpeg`), leaves default `LIBRARY_PATH=./docker/sample-library` Compose runs with 0-byte files, and contradicts Q6 (`CONCLUSIONS.md:181`).
+- **Option 3 rejected under Q6 corpus contract (`CONCLUSIONS.md:181`; `spec.md` US4, FR-010, SC-003)**: Reusing `tests/LamuFlix.IntegrationTests/Fixtures/Thumbnails/short-video.mp4` (1.0s, 10 frames, 1,914 bytes) as the e2e runtime source couples `web/e2e` to a `.NET` integration-test thumbnail fixture, departs from the Q6 ruling that the browser-decodable sample comes from `docker/sample-library`, leaves `docker/sample-library` broken at 0 bytes, and provides an overly thin 1-second clip for browser seek advancement.
