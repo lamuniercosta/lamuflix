@@ -52,7 +52,11 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.ConfigureHostConfiguration(configuration => configuration.AddInMemoryCollection(HostSettings()));
-        var host = base.CreateHost(builder);
+        IHost host;
+        lock (ApiHostFactory.HostBuildLock)
+        {
+            host = base.CreateHost(builder);
+        }
         var hostedServices = host.Services.GetServices<IHostedService>().ToArray();
         hostedServices.ShouldNotContain(service => service is StrandedMovieSweeper);
         hostedServices.ShouldContain(service => service is EnrichmentConsumer);
