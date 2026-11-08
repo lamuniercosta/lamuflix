@@ -315,8 +315,23 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLife
         var payload = "movi" + char.ConvertFromUtf32(0x10D70) + ".mp4";
         var movie = host.AddMovieWithFile(temporary, 526, stored);
 
+        var collapses = string.Equals(
+            char.ConvertFromUtf32(0x10D70).ToUpperInvariant(),
+            char.ConvertFromUtf32(0x10D50),
+            StringComparison.Ordinal);
+
         await host.StartAsync(ct);
         await host.Publisher.PublishAsync(new ThumbnailRequested(movie, payload), ct);
+        if (collapses)
+        {
+            await WaitUntilAsync(_ => Task.FromResult(File.Exists(temporary.CanonicalPath(movie))), ct);
+            await host.StopAsync(CancellationToken.None);
+
+            generator.CallCount.ShouldBe(1);
+            (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
+            return;
+        }
+
         var dead = await probe.PollGetAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct);
         await host.StopAsync(CancellationToken.None);
 

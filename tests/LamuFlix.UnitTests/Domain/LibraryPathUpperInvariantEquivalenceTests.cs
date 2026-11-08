@@ -12,9 +12,9 @@ namespace LamuFlix.UnitTests.Domain;
 /// under <see cref="StringComparison.OrdinalIgnoreCase"/> must share one key.
 /// </summary>
 /// <remarks>
-/// The ruled exceptions are the exact verified divergences on the non-invariant shipping runtime: the two Long S
+/// The ruled exceptions are the exact verified divergences on runtimes that keep them distinct: the two Long S
 /// pairings (U+017F against U+0073/U+0053) and the 22 Garay case pairings (U+10D50..U+10D65 against
-/// U+10D70..U+10D85). Generated strings range over the whole probe alphabet, and only inconsistent instances
+/// U+10D70..U+10D85, ruled only where the shipping runtime keeps them distinct). Generated strings range over the whole probe alphabet, and only inconsistent instances
 /// fully explained by those ruled pairings are excluded from the equivalence assertion.
 /// The exception classes keep deterministic facts of their own, and one test asserts that no divergence exists
 /// outside them.
@@ -90,10 +90,11 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
     }
 
     [Fact]
-    public void UpperKey_ForRuledGarayPairings_StaysDistinctWhileOrdinalIgnoreCaseMatches()
+    public void UpperKey_ForRuledGarayPairings_MatchesShippingRuntimeCasing()
     {
         // arrange
         var pairings = GarayPairings();
+        var collapses = GarayCollapsesOnShippingRuntime();
 
         // act / assert
         pairings.Count.ShouldBe(GarayPairCount);
@@ -103,10 +104,20 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
             var lowerKey = pairing.Lower.ToUpperInvariant();
 
             pairing.Upper.Equals(pairing.Lower, StringComparison.OrdinalIgnoreCase).ShouldBeTrue();
-            upperKey.ShouldBe(pairing.Upper);
-            lowerKey.ShouldBe(pairing.Lower);
-            string.Equals(upperKey, lowerKey, StringComparison.Ordinal).ShouldBeFalse();
-            Consistent(pairing.Upper, pairing.Lower).ShouldBeFalse();
+            if (collapses)
+            {
+                upperKey.ShouldBe(pairing.Upper);
+                lowerKey.ShouldBe(pairing.Upper);
+                string.Equals(upperKey, lowerKey, StringComparison.Ordinal).ShouldBeTrue();
+                Consistent(pairing.Upper, pairing.Lower).ShouldBeTrue();
+            }
+            else
+            {
+                upperKey.ShouldBe(pairing.Upper);
+                lowerKey.ShouldBe(pairing.Lower);
+                string.Equals(upperKey, lowerKey, StringComparison.Ordinal).ShouldBeFalse();
+                Consistent(pairing.Upper, pairing.Lower).ShouldBeFalse();
+            }
         }
     }
 
@@ -138,7 +149,8 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
 
         // assert
         unexpected.ShouldBeEmpty();
-        observed.Count.ShouldBe(RuledPairCount);
+        var expected = GarayCollapsesOnShippingRuntime() ? RuledPairCount - GarayPairCount : RuledPairCount;
+        observed.Count.ShouldBe(expected);
     }
 
     private static bool Consistent(string first, string second) =>
@@ -164,8 +176,15 @@ public sealed class LibraryPathUpperInvariantEquivalenceTests
     }
 
     private static bool IsGarayPairing(int upperCodePoint, int lowerCodePoint) =>
-        upperCodePoint is >= GarayUpperFirst and <= GarayUpperLast
+        !GarayCollapsesOnShippingRuntime()
+        && upperCodePoint is >= GarayUpperFirst and <= GarayUpperLast
         && lowerCodePoint == upperCodePoint + GarayCaseOffset;
+
+    private static bool GarayCollapsesOnShippingRuntime() =>
+        string.Equals(
+            FromCodePoint(GarayLowerFirst).ToUpperInvariant(),
+            FromCodePoint(GarayUpperFirst),
+            StringComparison.Ordinal);
 
     private static bool IsRuledInstance(string first, string second)
     {

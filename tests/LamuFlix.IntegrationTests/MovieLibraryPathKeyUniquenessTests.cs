@@ -84,11 +84,24 @@ public sealed class MovieLibraryPathKeyUniquenessTests(PostgresFixture fixture)
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var context = await CreateActivatedContextAsync(cancellationToken);
 
+        var collapses = string.Equals(
+            "\U00010D70".ToUpperInvariant(),
+            "\U00010D50",
+            StringComparison.Ordinal);
+
         // act
         await SeedAsync(context, "Garay upper", "\U00010D50movie/movie.mkv", cancellationToken);
-        await SeedAsync(context, "Garay lower", "\U00010D70movie/movie.mkv", cancellationToken);
+        var failure = await Record.ExceptionAsync(
+            () => SeedAsync(context, "Garay lower", "\U00010D70movie/movie.mkv", cancellationToken));
 
         // assert
+        if (collapses)
+        {
+            ExpectConstraintViolation(failure, "IX_movies_library_path_key");
+            return;
+        }
+
+        failure.ShouldBeNull();
         var keys = await context.Database
             .SqlQueryRaw<string>("SELECT library_path_key AS \"Value\" FROM movies ORDER BY id")
             .ToListAsync(cancellationToken);

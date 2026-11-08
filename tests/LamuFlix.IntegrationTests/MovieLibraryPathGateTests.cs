@@ -189,8 +189,21 @@ public sealed class MovieLibraryPathGateTests(PostgresFixture fixture)
         await context.Database.MigrateAsync(cancellationToken);
         var upper = await InsertLegacyRowAsync(context, "Garay upper", GarayUpperPath, cancellationToken);
         var lower = await InsertLegacyRowAsync(context, "Garay lower", GarayLowerPath, cancellationToken);
+        var collapses = string.Equals(
+            "\U00010D70".ToUpperInvariant(),
+            "\U00010D50",
+            StringComparison.Ordinal);
 
         // act
+        if (collapses)
+        {
+            var failure = await Should.ThrowAsync<InvalidOperationException>(
+                () => CreateGate(context).RunAsync(cancellationToken));
+            failure.Message.ShouldContain(upper.Value.ToString(CultureInfo.InvariantCulture));
+            failure.Message.ShouldContain(lower.Value.ToString(CultureInfo.InvariantCulture));
+            return;
+        }
+
         await CreateGate(context).RunAsync(cancellationToken);
 
         // assert

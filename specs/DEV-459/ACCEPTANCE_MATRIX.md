@@ -12,7 +12,7 @@ Run conditions: worktree `F:/Dev/LamuFlix.worktrees/DEV-459`, branch `feature/DE
 | `LibraryPathCanonicalTests.TryCanonicalizeUnderRoot_WindowsFixtures_RunsOnAnyHost`, `..._PosixFixtures_RunsOnAnyHost`, `..._UncFixtures_RunsOnAnyHost` — both foreign-OS fixture sets run on one host | PASS |
 | `LibraryPathCanonicalTests.TryCanonicalizeUnderRoot_OutsideRootOrEscaping_IsRejected`, `..._ConflictingPathSyntax_IsRejected`, `TryCanonicalizeRelative_InvalidShapes_AreRejected`, `..._AbsoluteInput_IsRejected`, `Constructor_DriveRelativeOrMalformed_ThrowsWithReason` | PASS |
 | `LibraryPathCanonicalTests.Constructor_RootIdentity_StoresDot`, `..._RedundantSeparators_StoresCanonicalIdentity` | PASS |
-| `LibraryPathUpperInvariantEquivalenceTests.DivergentPairings_AcrossProbeAlphabet_AreExactlyTheRuledPairings` + `UpperKey_ForRuledLongSPairings_...` + `UpperKey_ForRuledGarayPairings_...` — A12 shipping-runtime equivalence outside exactly the 24 ruled divergences | PASS |
+| `LibraryPathUpperInvariantEquivalenceTests.DivergentPairings_AcrossProbeAlphabet_AreExactlyTheRuledPairings` + `UpperKey_ForRuledLongSPairings_...` + `UpperKey_ForRuledGarayPairings_...` — A12 shipping-runtime equivalence outside exactly the ruled divergences (24 where the runtime keeps Garay pairs distinct, 2 where it collapses them) | PASS |
 | `LibraryOptionsValidatorTests.Validate_WellFormedAbsoluteAlias_Succeeds`, `..._MalformedOrNonAbsoluteAlias_FailsWithIndexedKey`, `..._OverlappingAliases_FailsWithConflictDiagnostic`, `..._CaseOnlyWindowsAliasOverlap_FailsAsConflict`, `AddLamuFlixOptions_RegistersLibraryValidatorAndKeepsDataAnnotations` | PASS |
 | `ArchitectureTests.Core_must_not_reference_...` (EF Core, Npgsql, RabbitMQ, Infrastructure, HttpClient, Process) plus `Core_must_not_depend_on_process_or_process_start_info` — Core stays pure-string, no `System.IO.Path` seam | PASS (16/16) |
 
@@ -22,7 +22,7 @@ Run conditions: worktree `F:/Dev/LamuFlix.worktrees/DEV-459`, branch `feature/DE
 |---|---|
 | `MovieLibraryPathGateTests.Run_OfflineMedia_MigratesWithoutFilesOnDisk` — offline media migrates with no filesystem presence | PASS |
 | `..._Run_UnmappedRoot_FailsClosedWithActionableMovieId`, `..._Run_OverlappingRoots_MapsAmbiguouslyAndFailsClosed`, `..._Run_MalformedRelativeRow_FailsClosed` | PASS |
-| `..._Run_CaseOnlyCollision_FailsClosedWithBothMovieIdsAndNoIndexOrWrites`, `..._Run_LongSCollision_BlocksOnWholeStringUpperInvariantKey`, `..._Run_SingleLongSPath_KeysToTheSameUpperInvariantValueAsPlainS`, `..._Run_GarayCasePairs_RemainDistinctUnderOrdinalUpperKeys` — collisions fail before the unique index exists, with IDs | PASS |
+| `..._Run_CaseOnlyCollision_FailsClosedWithBothMovieIdsAndNoIndexOrWrites`, `..._Run_LongSCollision_BlocksOnWholeStringUpperInvariantKey`, `..._Run_SingleLongSPath_KeysToTheSameUpperInvariantValueAsPlainS`, `..._Run_GarayCasePairs_RemainDistinctUnderOrdinalUpperKeys` — collisions fail before the unique index exists, with IDs (Garay pair collides or stays distinct per shipping-runtime casing) | PASS |
 | `..._Run_DefaultDockerAlias_MapsLegacyRowsWhenTheActiveRootIsTheContainerPath`, `..._Run_AutomaticDockerAliasConflictingWithTheActiveRoot_FailsClosed`, `..._Run_NonAbsoluteActiveRoot_FailsClosedBeforeAnyDatabaseWork`, `..._Run_MissingAdditiveColumn_FailsClosedAsSchemaNotReady` | PASS |
 | `..._Run_PreservesIdsAndPreExistingBusinessColumns` — IDs and every non-path column unchanged | PASS |
 
@@ -47,7 +47,7 @@ Run conditions: worktree `F:/Dev/LamuFlix.worktrees/DEV-459`, branch `feature/DE
 |---|---|
 | `MovieLibraryPathKeyUniquenessTests.Column_KeyColumn_CarriesBinaryCollationAndNotNullAfterActivation`, `MigrationTests.ActivateLibraryPathKey_AdditiveMigrateThenGate_RetainsExactIndexAndActivatesColumnCollationC` — exact index retained, key index with effective **column** collation `C` | PASS |
 | `MovieLibraryPathKeyUniquenessTests.ExactIndex_ExactDuplicatePath_RejectsWith23505OnLibraryPathIndex`, `..._KeyIndex_CaseOnlyDuplicate_RejectsWith23505OnLibraryPathKeyIndex`, `..._KeyIndex_SameExactPathWithDifferentCasing_RejectsOnTheKeyIndex` | PASS |
-| `..._KeyIndex_LongSAndPlainS_RejectsWith23505OnLibraryPathKeyIndex`, `..._KeyIndex_GarayCasePair_AcceptsBothRowsUnderDistinctOrdinalKeys` — ruled comparison semantics enforced by the database | PASS |
+| `..._KeyIndex_LongSAndPlainS_RejectsWith23505OnLibraryPathKeyIndex`, `..._KeyIndex_GarayCasePair_AcceptsBothRowsUnderDistinctOrdinalKeys` — ruled comparison semantics enforced by the database (accepts both rows, or rejects the second with 23505, per shipping-runtime casing) | PASS |
 | `..._KeyIndex_ConcurrentCaseOnlyImports_ProduceExactlyOneWinnerAndOne23505` | PASS |
 | `MovieLibraryPathKeyUniquenessTests.SaveChangesChokePoint_EveryTrackedWriter_DerivesWholeStringUpperInvariantKey`, `..._SynchronousSaveChanges_AlsoDerivesTheKey`, `..._PathMutatedOnTrackedRow_RefreshesTheKey`, `..._UnmodifiedRows_LeaveTheStoredKeyAlone` | PASS |
 | `ArchitectureTests.Library_path_gate_must_be_a_sealed_concrete_infrastructure_type_with_no_port_or_interface` | PASS |
@@ -70,7 +70,7 @@ Run conditions: worktree `F:/Dev/LamuFlix.worktrees/DEV-459`, branch `feature/DE
 |---|---|
 | `ThumbnailConsumerTests.Consumer_ALegacyWindowsAbsolutePayload_CanonicalizesThroughTheActiveRootAndGenerates`, `..._ALegacyAbsolutePayloadUnderAConfiguredAlias_CanonicalizesAndGenerates` — old Windows/Docker absolute deliveries and configured aliases after backfill | PASS |
 | `..._ARelativePayloadResolvesUnderTheConfiguredRootNotTheProcessWorkingDirectory` — new relative deliveries, CWD-independent | PASS |
-| `..._APayloadNamingAnotherMoviesPath_DeadLettersAsIneligibleAndNeverAuthorizesOnId`, `..._ALongSPathPayload_CollidesWithThePlainSKeyAndGenerates`, `..._AGarayCasePairPathPayload_DoesNotMatchTheStoredKeyAndDeadLettersAsIneligible` — whole-string `ToUpperInvariant` ordinal identity, never ID-only | PASS |
+| `..._APayloadNamingAnotherMoviesPath_DeadLettersAsIneligibleAndNeverAuthorizesOnId`, `..._ALongSPathPayload_CollidesWithThePlainSKeyAndGenerates`, `..._AGarayCasePairPathPayload_DoesNotMatchTheStoredKeyAndDeadLettersAsIneligible` — whole-string `ToUpperInvariant` ordinal identity, never ID-only (generates when the runtime collapses the pair) | PASS |
 | `..._AnAbsolutePayloadUnderAnUnknownRoot_DeadLettersAsUnauthorizedWithoutGeneration`, `..._ASourceThatEscapesTheLibraryRoot_DeadLettersAsUnauthorized`, `..._ASourceFileThatIsASymlink_DeadLettersAsUnauthorized`, `..._AnAncestorDirectoryThatIsASymlink_DeadLettersAsUnauthorized`, `..._ARequestForAMovieThatNoLongerExists_DeadLettersAsIneligible` — terminal outcomes, no source access, no retry loop | PASS |
 | `EnrichmentConsumerTests.Consumer_AnEligibleEnrichmentWithThumbnailsEnabled_PublishesBeforeAck` — publishes `ThumbnailRequested` carrying the movie's canonical `Path.Value` with the message schema unchanged | PASS |
 
