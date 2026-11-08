@@ -74,7 +74,7 @@ internal static class StreamEndpoints
             }
             catch
             {
-                stream.Dispose();
+                await stream.DisposeAsync();
                 throw;
             }
         }

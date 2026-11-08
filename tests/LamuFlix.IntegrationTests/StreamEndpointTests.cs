@@ -780,8 +780,8 @@ public sealed class StreamEndpointTests(ApiHostFactory factory) : IClassFixture<
 
     private static byte[] Payload(int length) => [.. Enumerable.Range(0, length).Select(index => (byte)(index % 251))];
 
-    private static async Task<string?> AcceptRangesAsync(HttpResponseMessage response) =>
-        response.Headers.TryGetValues(AcceptRangesHeader, out var values) ? values.Single() : null;
+    private static Task<string?> AcceptRangesAsync(HttpResponseMessage response) =>
+        Task.FromResult(response.Headers.TryGetValues(AcceptRangesHeader, out var values) ? values.Single() : null);
 
     private static string? NoSniff(HttpResponseMessage response) =>
         response.Headers.TryGetValues(ContentTypeOptionsHeader, out var values) ? values.Single() : null;
@@ -957,7 +957,7 @@ public sealed class StreamEndpointTests(ApiHostFactory factory) : IClassFixture<
         public void Add(LogRecord record) => entries.Enqueue(record);
     }
 
-    internal sealed record LogRecord(
+    private sealed record LogRecord(
         LogLevel Level,
         IReadOnlyList<KeyValuePair<string, object?>> State,
         string Message);
