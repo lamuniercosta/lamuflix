@@ -13,7 +13,7 @@ using NSubstitute;
 
 namespace LamuFlix.UnitTests.FileSystem;
 
-public sealed partial class LibraryFileReaderTests
+public sealed class LibraryFileReaderTests
 {
     private const string MovieFolder = "Heat (1995)";
     private const string PrimaryFileName = "Heat.mkv";
