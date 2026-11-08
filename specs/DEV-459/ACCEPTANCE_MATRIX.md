@@ -2,7 +2,7 @@
 
 Status: **LOCKED** with observed evidence. Operations evidence is `README.md` "Operating a library-relative upgrade" (T022) plus the AppHost README configuration note; the visible outcome is an **actually executed** SMOKE-001 Compose run with recorded status.
 
-Run conditions: worktree `F:/Dev/LamuFlix.worktrees/DEV-459`, branch `feature/DEV-459`, HEAD `8be55a65` plus the T022/T023 working-tree change. .NET SDK `10.0.403`, Node `v24.22.1`, Docker `29.9.2`, PostgreSQL 17 (Testcontainers `pgvector/pgvector:0.8.7-pg17`). Each row cites the automated test that proves it; no row is satisfied by planned criteria alone.
+Run conditions: worktree `F:/Dev/LamuFlix.worktrees/DEV-459`, branch `feature/DEV-459`, HEAD `8be55a65` plus the T022/T023 working-tree change. M2 successor-scaffold proof executed on fix HEAD `c6c51289` (Phase 4 remediation commit 1). .NET SDK `10.0.403`, Node `v24.22.1`, Docker `29.9.2`, PostgreSQL 17 (Testcontainers `pgvector/pgvector:0.8.7-pg17`). Each row cites the automated test that proves it; no row is satisfied by planned criteria alone.
 
 ## 1. Cross-platform identity
 
@@ -38,6 +38,8 @@ Run conditions: worktree `F:/Dev/LamuFlix.worktrees/DEV-459`, branch `feature/DE
 | `..._Run_WithMigrationsDisabled_VerifiesTheActivatedSchemaWithoutWriting`, `..._Run_WithMigrationsDisabledOnSchemaNotReady_FailsClosedWithoutMigrating`, `..._Run_WithMigrationsDisabledAndKeyDrift_FailsClosed` | PASS |
 | `ApiStartupLibraryPathBarrierTests.Startup_WithMigrationsEnabled_ActivatesTheLibraryPathKeyBeforeServingHttp`, `..._WithMigrationsEnabledOnCollidingRows_FailsClosedAndServesNoHttp`, `..._WithMigrationsDisabledOnUnactivatedSchema_FailsClosedAndServesNoHttp`, `..._WithMigrationsDisabledOnActivatedSchema_ServesHttp` — Migrate → gate → Run; no HTTP or consumer work before success | PASS |
 | `MigrationTests.MigrateAsync_EmptyDatabase_AppliesMigrationsEnablesVectorAndHasNoPendingModelChanges` — `has-pending-model-changes` clean | PASS |
+| Unrelated-successor scaffold proof (`dotnet ef migrations add SuccessorProbe`, `20261108001840`, scratch removed after): `Up`/`Down` empty, zero `migrationBuilder.` operations, no `AlterColumn`/`CreateIndex`; `has-pending-model-changes` exit 0 before and after | PASS |
+| F8 immediate-successor `migrations remove` recovery, executed: `remove --force` reverted the in-repo snapshot to interim; redid Phase B external `migrations add LibraryPathKeyActivation --output-dir` outside the worktree — `AlterColumn(library_path_key)` + `CreateIndex(IX_movies_library_path_key)` live only in the deleted external scratch; in-repo snapshot restored byte-identical, no hand-edits, `has-pending-model-changes` exit 0 | PASS |
 
 ## 4. Persistence invariants
 
