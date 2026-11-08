@@ -330,3 +330,31 @@ Publication handoff: local reconciliation and freeze need commit/push and update
 ## Gate 1 status
 
 - **Patron ruling:** `gate1: provisional` — `/speckit-analyze` is clean (0 findings after Q10 repair), all 29 plan-challenge findings adjudicated (Sentry 13, Ledger 11, Compass 5; Keel Q11), Keel has frozen the plan, and `checklists/requirements.md` User-Visible Outcome items are ticked. Owner Option A remains an approved bounded VII exception, not unconditional VII PASS. Gate 1 approval/merge remains user-owned and pending; this ruling is not owner approval.
+
+## T000 — Gate 1 merge receipt and Phase B pickup (2026-11-08)
+
+**Gate 1 merge recorded; T000 complete; Phase 1 (T001–T006) unblocked.** This receipt controls current pickup status over the retained Phase A provisional / Gate 1 closed wording in brief, spec, plan, tasks and the history above. Frozen behavior and scope are unchanged.
+
+Authority: Bernstein T000 pickup ask; task note `DEV-458:4-14`; `recon-DEV-458:4-5,20-27`. Spec [PR #336](https://github.com/lamuniercosta/lamuflix/pull/336) merged at `0fc9dc87`. This is the supplied merge receipt, not an independent GitHub read-back by Keel. Pickup worktree is `F:/Dev/LamuFlix.worktrees/feature-DEV-458-harden-the-local-launcher`, branch `feature/DEV-458-harden-the-local-launcher`, recon HEAD `40a3e613828e3046bc14646f67a059ec804a673a`; Phase A base `659a2e9b`. Branch was verified before edits; working tree was clean.
+
+### Read-only pickup analysis
+
+Compared brief, spec, plan and tasks with the supplied Phase B recon. Recon reports no spec-set drift from Phase A base to pickup HEAD and retains the existing launcher/endpoint/exception reuse points (`recon-DEV-458:9-18,24-27`). No independent source search, measurement, or tracker query was used to extend those facts. No behavior or task-order amendment is required by this recon.
+
+SpecKit prerequisite initialization **Could not run**: `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` rejects the `feature/DEV-458-harden-the-local-launcher` branch as nonnumeric. Direct read-only analysis used the explicitly named `specs/DEV-458/` artifacts instead; this is not a successful prerequisite-script run. No before_analyze or after_analyze hooks are configured.
+
+| Requirement coverage | Tasks |
+| --- | --- |
+| FR-001–003 / SC-001 | T001–T006 |
+| FR-004–006 / SC-002 | T007–T010 |
+| FR-007 / SC-004 | T020–T024; runtime proof T022–T023 |
+| FR-008–013 / SC-003 | T013–T018 |
+| FR-014 | T011 |
+| FR-015 | T000 / T013 / T032 |
+| FR-016 | T026 |
+| FR-017 | T003–T005 / T009–T011 / T016–T018 / T022–T023 / T032 |
+| SC-005 | T027–T032 |
+
+Analysis findings: **0 new Critical, High, Medium or Low**; 22 requirements, 33 tasks, 22/22 covered (100%); 0 new ambiguities, 0 conflicting duplicates, no unmapped tasks or newly opened return condition. Checkpoint and pipeline tasks map to their parent requirements and closing bar. Constitution VII remains an **owner-approved bounded departure for I1**, not unconditional PASS; the rest remains binding. API-only startup composition, the exact five-header boundary, existing generic 403/404 mappings, existence-before-player precedence, named positive control, shipped proxy exclusions, and serial test-file ownership remain consistent with the brief and recon.
+
+Next: implement Phase 1 T001–T006 within the frozen scope. T004/T005 real-Kestrel precedence, ordering, pre-bind and I7 timing/parity proof remain mandatory; contradictory runtime evidence returns for recon. T022/T023 nginx/Aspire smoke, positive control and Aspire listener observation, T025 explicit ADR Accepted lifecycle, T027–T029 gates, and three-axis implementation review remain outstanding. This pickup performs no production edits, accepts no runtime behavior, and claims no implementation gate PASS.
