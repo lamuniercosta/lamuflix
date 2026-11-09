@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { server } from './server';
+import './mediaChrome';
 
 configure({ asyncUtilTimeout: 5000 });
 
