@@ -37,6 +37,7 @@ builder.Services.AddLamuFlixPlayback();
 builder.Services.AddLamuFlixThumbnails();
 builder.Services.AddLamuFlixHandlers();
 builder.Services.AddLamuFlixOutboxRelay();
+builder.Services.AddHostedService<LocalPlayListenerValidationHostedService>();
 builder.Services.AddHostedService<StrandedMovieSweeper>();
 builder.Services.AddCors(options => options.AddPolicy(
     CorsPolicyName,
