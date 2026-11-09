@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
@@ -11,6 +12,7 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Playback;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
@@ -250,6 +252,116 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
             && info.ArgumentList[0] == "Collections/Heat (1995)/Heat.mkv"));
     }
 
+    [Theory]
+    [InlineData("127.0.0.1")]
+    [InlineData("::1")]
+    [InlineData("::ffff:127.0.0.1")]
+    public async Task PlayMovie_ProvenLoopbackPeer_AllowsTheLaunch(string peer)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mkv"));
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+        using var request = RequestWithPeer(PlayRoute(KnownId), peer);
+
+        // act
+        var response = await client.SendAsync(request, ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        starter.Received(1).Start(Arg.Is<ProcessStartInfo>(info => info.ArgumentList[0] == ResolvedFile));
+        await history.Received(1).RecordAsync(
+            Arg.Is<PlaybackEvent>(playbackEvent => playbackEvent.MovieId == new MovieId(KnownId)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("10.0.0.5")]
+    [InlineData("192.168.1.20")]
+    [InlineData("::ffff:10.0.0.5")]
+    [InlineData(PlaybackPeerStartupFilter.NullPeerValue)]
+    public async Task PlayMovie_UnprovenPeer_ReturnsForbiddenBeforeAnySideEffect(string peer)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mkv"));
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+        using var request = RequestWithPeer(PlayRoute(KnownId), peer);
+
+        // act
+        var response = await client.SendAsync(request, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        assertBoundaryRefusal(response, body);
+    }
+
+    [Theory]
+    [InlineData("Forwarded", "for=10.0.0.5")]
+    [InlineData("forwarded", "for=10.0.0.5")]
+    [InlineData("forwarded", "")]
+    [InlineData("Forwarded", "for=10.0.0.5, for=10.0.0.6")]
+    [InlineData("X-Forwarded-For", "10.0.0.5")]
+    [InlineData("x-forwarded-for", "")]
+    [InlineData("X-Forwarded-For", "10.0.0.5, 10.0.0.6")]
+    [InlineData("X-Forwarded-Host", "remote.example")]
+    [InlineData("x-forwarded-host", "")]
+    [InlineData("X-Forwarded-Proto", "https")]
+    [InlineData("x-forwarded-proto", "")]
+    [InlineData("X-Real-IP", "10.0.0.5")]
+    [InlineData("x-real-ip", "")]
+    public async Task PlayMovie_LoopbackPeerWithProvenanceHeader_ReturnsForbiddenBeforeAnySideEffect(
+        string headerName,
+        string headerValue)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mkv"));
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+        using var request = RequestWithPeer(PlayRoute(KnownId), "127.0.0.1");
+        request.Headers.TryAddWithoutValidation(PlaybackPeerStartupFilter.ProvenanceNameHeader, headerName)
+            .ShouldBeTrue();
+        request.Headers.TryAddWithoutValidation(PlaybackPeerStartupFilter.ProvenanceValueHeader, headerValue)
+            .ShouldBeTrue();
+
+        // act
+        var response = await client.SendAsync(request, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        assertBoundaryRefusal(response, body);
+        body.ShouldNotContain(headerName);
+    }
+
+    private void assertBoundaryRefusal(HttpResponseMessage response, string body)
+    {
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        var problem = JsonSerializer.Deserialize<JsonElement>(body);
+        problem.GetProperty("title").GetString().ShouldBe("Forbidden");
+        problem.TryGetProperty("detail", out _).ShouldBeFalse();
+        body.ShouldNotContain("LocalPlay is disabled");
+        body.ShouldNotContain(nameof(FeatureDisabledException));
+        body.ShouldNotContain("proven loopback peer");
+        catalog.DidNotReceive().GetDetailsAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
+        scanner.DidNotReceive().ResolvePrimaryVideo(Arg.Any<LibraryPath>());
+        starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
+        history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    private static HttpRequestMessage RequestWithPeer(string route, string peer)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, route);
+        request.Headers.TryAddWithoutValidation(PlaybackPeerStartupFilter.PeerHeader, peer).ShouldBeTrue();
+        return request;
+    }
+
     private static string PlayRoute(int id) => $"/api/movies/{id}/play";
 
     private static MovieDetails KnownDetails(string storedFormat) =>
@@ -282,5 +394,6 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
         services.AddSingleton(starter);
         services.AddSingleton(history);
         services.AddSingleton(clock);
+        services.AddSingleton<IStartupFilter, PlaybackPeerStartupFilter>();
     }
 }

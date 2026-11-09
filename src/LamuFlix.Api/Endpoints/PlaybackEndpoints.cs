@@ -30,9 +30,11 @@ internal static class PlaybackEndpoints
 
     private static async Task<NoContent> PlayMovieAsync(
         int id,
+        HttpContext httpContext,
         ICommandHandler<PlayMovieCommand, Unit> handler,
         CancellationToken cancellationToken)
     {
+        PlayRequestBoundary.EnsureProvenLocalRequest(httpContext);
         if (!MovieId.TryCreate(id, out var movieId))
         {
             throw new ValidationException(new Dictionary<string, string[]>
