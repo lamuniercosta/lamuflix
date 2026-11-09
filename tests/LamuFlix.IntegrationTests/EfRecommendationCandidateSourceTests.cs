@@ -20,8 +20,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(PostgresCollection))]
-public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture) : IAsyncLifetime, IClassFixture<PostgresFixture>
 {
     private const double SimilarityTolerance = 1e-5;
 

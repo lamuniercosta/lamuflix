@@ -18,8 +18,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(PostgresCollection))]
-public sealed class EnrichmentStatusNotificationPersistenceTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class EnrichmentStatusNotificationPersistenceTests(PostgresFixture fixture) : IAsyncLifetime, IClassFixture<PostgresFixture>
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
 

@@ -10,8 +10,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(PostgresCollection))]
-public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class EfMovieCatalogDetailsTests(PostgresFixture fixture) : IAsyncLifetime, IClassFixture<PostgresFixture>
 {
     public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
 

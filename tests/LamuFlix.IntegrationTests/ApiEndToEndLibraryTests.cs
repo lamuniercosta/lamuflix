@@ -19,8 +19,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(ApiEndToEndCollection))]
-public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture)
+public sealed class ApiEndToEndLibraryTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture), IClassFixture<ApiEndToEndFixture>
 {
     private const string ApplicationJson = "application/json";
     private const string ProblemDetailsJson = "application/problem+json";

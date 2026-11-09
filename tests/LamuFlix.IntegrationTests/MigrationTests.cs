@@ -18,8 +18,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(PostgresCollection))]
-public sealed class MigrationTests(PostgresFixture fixture)
+public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
 {
     private static readonly string[] ApplicationTables =
     [

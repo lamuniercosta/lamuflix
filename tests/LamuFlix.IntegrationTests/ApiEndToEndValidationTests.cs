@@ -9,8 +9,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(ApiEndToEndCollection))]
-public sealed class ApiEndToEndValidationTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture)
+public sealed class ApiEndToEndValidationTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture), IClassFixture<ApiEndToEndFixture>
 {
     private const string ImportRoute = "/api/movies/import";
     private const string BrowseRoute = "/api/movies";

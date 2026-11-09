@@ -34,6 +34,14 @@ public sealed class RabbitMqFixture : IAsyncLifetime
         RabbitMqTopology.FeaturesDeadLetterQueue,
     ];
 
+    private static readonly TimeSpan[] StartRetryDelays =
+    [
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(4),
+        TimeSpan.FromSeconds(8),
+    ];
+
+    private const int MaxStartAttempts = 4;
     private const int MaxAttempts = 3;
     private const int MaxTopologyAttempts = 4;
 
@@ -49,18 +57,33 @@ public sealed class RabbitMqFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        try
+        Exception? lastFailure = null;
+        for (var attempt = 1; attempt <= MaxStartAttempts; attempt++)
         {
-            container = new RabbitMqBuilder("rabbitmq:4-management-alpine").Build();
-            await container.StartAsync(cancellationToken);
-            factory = new ConnectionFactory { Uri = new Uri(container.GetConnectionString()) };
-            await EnsureTopologyAsync(cancellationToken);
+            try
+            {
+                container = new RabbitMqBuilder("rabbitmq:4-management-alpine").Build();
+                await container.StartAsync(cancellationToken);
+                factory = new ConnectionFactory { Uri = new Uri(container.GetConnectionString()) };
+                await EnsureTopologyAsync(cancellationToken);
+                return;
+            }
+            catch (Exception failure) when (attempt < MaxStartAttempts && !cancellationToken.IsCancellationRequested)
+            {
+                // Many class fixtures start their own broker at once; the Docker daemon answers an
+                // occasional create or start with a transient 500 under that load.
+                lastFailure = failure;
+                await DiscardAsync();
+                await Task.Delay(StartRetryDelays[attempt - 1], cancellationToken);
+            }
+            catch
+            {
+                await DiscardAsync();
+                throw;
+            }
         }
-        catch
-        {
-            await DiscardAsync();
-            throw;
-        }
+
+        throw lastFailure ?? new InvalidOperationException("RabbitMqFixture initialization failed.");
     }
 
     public async ValueTask DisposeAsync()

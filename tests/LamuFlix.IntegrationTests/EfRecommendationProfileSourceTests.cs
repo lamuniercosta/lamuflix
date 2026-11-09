@@ -17,8 +17,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(PostgresCollection))]
-public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) : IAsyncLifetime, IClassFixture<PostgresFixture>
 {
     private static readonly DateTimeOffset FirstLaunch = new(2026, 9, 1, 20, 0, 0, TimeSpan.Zero);
 

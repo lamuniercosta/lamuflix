@@ -13,8 +13,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(ApiEndToEndCollection))]
-public sealed class ApiEndToEndBrowseTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture)
+public sealed class ApiEndToEndBrowseTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture), IClassFixture<ApiEndToEndFixture>
 {
     private const string BrowseRoute = "/api/movies";
     private const string ApplicationJson = "application/json";

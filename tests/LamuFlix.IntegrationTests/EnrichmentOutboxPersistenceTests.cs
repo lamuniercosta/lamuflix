@@ -21,8 +21,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(PostgresCollection))]
-public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : IAsyncLifetime, IClassFixture<PostgresFixture>
 {
     private static readonly JsonSerializerOptions WebDefaults = new(JsonSerializerDefaults.Web);
     private static readonly DateTimeOffset StagedAt = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
