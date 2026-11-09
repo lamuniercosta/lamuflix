@@ -279,14 +279,15 @@ public sealed class SecondaryMetadataProviderTrailerTests(SecondaryMetadataProvi
         probe.StubSearch(SecondaryMetadataProviderProbe.Fixture("Search", "found.json"));
         probe.StubDetails(MovieId, string.Empty, statusCode: 429);
         var services = BuildServices();
+        var sentBefore = probe.Server.LogEntries.Count();
 
         // act
         var result = await FindAsync(services);
 
         // assert
         result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.RateLimited);
-        probe.RequestPaths.Count(path => path == "/3/movie/603").ShouldBe(4);
-        VideoLanguages().ShouldBeEmpty();
+        probe.RequestPaths.Skip(sentBefore).Count(path => path == "/3/movie/603").ShouldBe(4);
+        VideoLanguages(sentBefore).ShouldBeEmpty();
     }
 
     [Theory]
@@ -469,8 +470,9 @@ public sealed class SecondaryMetadataProviderTrailerTests(SecondaryMetadataProvi
             $"{{\"iso_639_1\":\"en\",\"iso_3166_1\":\"US\",\"key\":\"{ExtraKey}\",\"site\":\"YouTube\",\"type\":\"Trailer\",\"official\":true}}",
             "]}");
 
-    private IReadOnlyList<string> VideoLanguages() =>
+    private IReadOnlyList<string> VideoLanguages(int skip = 0) =>
         [.. probe.Server.LogEntries
+            .Skip(skip)
             .Where(entry => string.Equals(entry.RequestMessage?.Path, VideosPath, StringComparison.Ordinal))
             .Select(entry => entry.RequestMessage?.Query?["language"].SingleOrDefault() ?? string.Empty)];
 

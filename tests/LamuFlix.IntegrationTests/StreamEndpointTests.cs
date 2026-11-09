@@ -588,7 +588,7 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.ShouldNotBe(ProblemDetailsJson);
         readFailure.ShouldNotBeNull();
-        received.ShouldNotBeEmpty();
+        received.Count.ShouldBeLessThanOrEqualTo(128);
         received.Count.ShouldBeLessThan(1024);
         System.Text.Encoding.UTF8.GetString([.. received]).ShouldNotContain("ProblemDetails");
         var failure = log.Entries.ShouldHaveSingleItem();
