@@ -22,8 +22,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(ApiEndToEndCollection))]
-public sealed class PlaybackHistoryEndpointTests(ApiEndToEndFixture fixture) : IAsyncLifetime
+public sealed class PlaybackHistoryEndpointTests(ApiEndToEndFixture fixture) : IAsyncLifetime, IClassFixture<ApiEndToEndFixture>
 {
     private const string PlayerPath = "C:/players/vlc.exe";
     private const string ProblemDetailsJson = "application/problem+json";

@@ -18,8 +18,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(PostgresCollection))]
-public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class GenreWeightsIntegrationTests(PostgresFixture fixture) : IAsyncLifetime, IClassFixture<PostgresFixture>
 {
     private static readonly TimeSpan ClaimLease = TimeSpan.FromMinutes(5);
 

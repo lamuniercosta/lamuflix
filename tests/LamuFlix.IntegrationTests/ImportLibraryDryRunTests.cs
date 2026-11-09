@@ -31,8 +31,7 @@ namespace LamuFlix.IntegrationTests;
 /// compose against real PostgreSQL for 500 candidates, and every staged enrichment completes
 /// against a fake provider that returns Found.
 /// </summary>
-[Collection(nameof(PostgresCollection))]
-public sealed class ImportLibraryDryRunTests(PostgresFixture postgres) : IAsyncLifetime
+public sealed class ImportLibraryDryRunTests(PostgresFixture postgres) : IAsyncLifetime, IClassFixture<PostgresFixture>
 {
     private const int CandidateCount = 500;
     private const int MaxConcurrency = 4;

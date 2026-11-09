@@ -16,8 +16,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(PostgresCollection))]
-public sealed class MovieLibraryPathGateTests(PostgresFixture fixture)
+public sealed class MovieLibraryPathGateTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
 {
     private const string ActiveRoot = "C:/library";
     private const string LongSTwinPath = "C:/library/stest/movie.mkv";

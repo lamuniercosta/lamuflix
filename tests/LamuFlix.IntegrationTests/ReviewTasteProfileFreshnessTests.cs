@@ -12,8 +12,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(PostgresCollection))]
-public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : IAsyncLifetime, IClassFixture<PostgresFixture>
 {
     public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
 

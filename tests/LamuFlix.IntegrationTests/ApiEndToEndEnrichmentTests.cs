@@ -17,8 +17,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(ApiEndToEndCollection))]
-public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture)
+public sealed class ApiEndToEndEnrichmentTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture), IClassFixture<ApiEndToEndFixture>
 {
     private const string DetailsRoutePrefix = "/api/movies/";
     private const string BrowseRoute = "/api/movies";

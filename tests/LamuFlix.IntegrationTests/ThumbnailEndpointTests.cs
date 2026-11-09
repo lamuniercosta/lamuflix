@@ -23,8 +23,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(ApiEndToEndCollection))]
-public sealed class ThumbnailEndpointTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture)
+public sealed class ThumbnailEndpointTests(ApiEndToEndFixture fixture) : ApiEndToEndTestBase(fixture), IClassFixture<ApiEndToEndFixture>
 {
     private const string JpegMediaType = "image/jpeg";
     private const string ProblemDetailsJson = "application/problem+json";
