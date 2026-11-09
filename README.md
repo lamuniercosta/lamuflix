@@ -79,6 +79,161 @@ docker compose up -d
 
 Without a TMDb key, leave `TMDB_ENABLED=false`. With TMDb enabled and a blank key, the app sends no TMDb request, but an OMDb miss becomes a retryable "provider unavailable" failure instead of a plain not-found, so OMDb-only `NotFound` behavior requires explicitly setting `TMDB_ENABLED=false` until a real key is configured. Outside Compose the API keeps `Tmdb.Enabled: false` in `appsettings.json`, so a plain `dotnet run` never calls TMDb unless you opt in through configuration.
 
+## Windows daily-driver setup
+
+The daily-driver host runs the Api and the Vite dev server as Windows processes while Postgres and RabbitMQ run as durable containers from `docker-compose.daily-driver.yml`. The host keeps its containers — and its catalog — across restarts, unlike the disposable AppHost. This is a third entrypoint next to the full Compose stack above and the AppHost: **run one entrypoint at a time**.
+
+### Prerequisites
+
+| Requirement | Details |
+|---|---|
+| .NET SDK | `10.0.401` with `rollForward: latestPatch`, per `global.json`. |
+| Node.js | `>=24 <25` on `PATH`, per `web/package.json` `engines`. Run `npm install` in `web/` once, and after dependency changes. |
+| Container runtime | Docker Desktop or Podman, running. Only Postgres and RabbitMQ are containerised here; the Api, the SPA, and Ollama all run on the host. |
+| Ollama on the host | Installed from the official Windows installer, listening on `http://localhost:11434` with `all-minilm` pulled. See [Host Ollama on Windows](#host-ollama-on-windows). |
+| Local values | Database and broker credentials, ports, library root, OMDb key, and optionally a player executable. All of them are yours: none is committed, and none has a working committed default. |
+
+### Configure
+
+The daily-driver Compose file and the host Api read **two separate local channels**. Both hold machine-specific values; neither is committed.
+
+1. **Compose operator channel** — container initialization credentials for the daily-driver project. `docker-compose.daily-driver.yml` references `POSTGRES_USER`, `POSTGRES_PASSWORD`, `RABBITMQ_USER`, and `RABBITMQ_PASSWORD` fail-closed, so those four have no default and rendering fails without them. Supply them through your process environment or an untracked local Compose configuration channel (the Git-ignored `.env` in the repository root, or `docker compose --env-file <ignored file>`). Do not add them to a tracked file.
+2. **Api local settings channel** — the Api's own configuration: the Api user-secrets store (`dotnet user-secrets`) or an ignored local development settings file. This channel is not the Compose channel, even where the values must agree.
+
+The Compose file's optional `POSTGRES_PORT` (default `5432`) and `RABBITMQ_PORT` (default `5672`) publish on `127.0.0.1` only.
+
+```powershell
+# Compose operator channel: process environment, this shell only
+$env:POSTGRES_USER = '<local postgres user>'
+$env:POSTGRES_PASSWORD = '<local postgres password>'
+$env:RABBITMQ_USER = '<local rabbitmq user>'
+$env:RABBITMQ_PASSWORD = '<local rabbitmq password>'
+```
+
+```powershell
+# Api local settings channel: user secrets, never committed
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=lamuflix;Username=<local postgres user>;Password=<local postgres password>" --project src/LamuFlix.Api
+dotnet user-secrets set "RabbitMq:HostName" "localhost" --project src/LamuFlix.Api
+dotnet user-secrets set "RabbitMq:Port" "5672" --project src/LamuFlix.Api
+dotnet user-secrets set "RabbitMq:UserName" "<local rabbitmq user>" --project src/LamuFlix.Api
+dotnet user-secrets set "RabbitMq:Password" "<local rabbitmq password>" --project src/LamuFlix.Api
+dotnet user-secrets set "Library:RootPath" "<absolute path to your movie library>" --project src/LamuFlix.Api
+dotnet user-secrets set "Omdb:ApiKey" "<your OMDb API key>" --project src/LamuFlix.Api
+dotnet user-secrets set "Database:ApplyMigrationsOnStartup" "true" --project src/LamuFlix.Api
+```
+
+`Database:ApplyMigrationsOnStartup` defaults to `false` outside Compose, so set it to `true` for the first host start (or apply the migrations yourself); with it `false` on a catalog that was never migrated, the startup library-path gate fails closed with "Schema not ready". `Library:RootPath` must be an absolute Windows path; if your catalog was seeded under a different root, read [Operating a library-relative upgrade](#operating-a-library-relative-upgrade) before starting.
+
+The daily-driver project is `lamuflix-daily-driver`, with named volumes `postgres-data` and `rabbitmq-data` that Compose materialises as `lamuflix-daily-driver_postgres-data` and `lamuflix-daily-driver_rabbitmq-data`. Full Compose and the AppHost use different Compose projects and different ports, so their data is neither shared nor migrated between entrypoints.
+
+### Start
+
+Start the containers, then Ollama and its model, then the Api, then the SPA — the Api's embedding startup validation runs as part of host startup and aborts it when the probe fails (see [Host Ollama on Windows](#host-ollama-on-windows)).
+
+```powershell
+docker compose -f docker-compose.daily-driver.yml up -d
+docker compose -f docker-compose.daily-driver.yml ps
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+dotnet run --project src/LamuFlix.Api
+```
+
+`Development` is required for the user-secrets channel to load: the repository has no launch profile, so `dotnet run` defaults to `Production` and would read neither user secrets nor the Development-only OpenAPI and Scalar endpoints. The Api then listens on `http://localhost:5000`. In a second shell:
+
+```powershell
+cd web
+$env:VITE_API_BASE_URL = 'http://localhost:5000'
+npm run dev
+```
+
+The SPA is served at `http://localhost:5173`; the Api CORS policy allows exactly that development origin.
+
+### Verify
+
+```powershell
+docker compose -f docker-compose.daily-driver.yml ps
+Invoke-RestMethod http://localhost:5000/health/ready
+```
+
+- Both containers report `healthy`, and the rendered topology is only `postgres` and `rabbitmq` (check with `docker compose -f docker-compose.daily-driver.yml config`).
+- `/health/ready` returns `200` with the readiness-tagged checks — database, broker, outbox relay, and hosted consumers. It aggregates readiness-tagged checks only, so it is **not** the Ollama probe; see [Host Ollama on Windows](#host-ollama-on-windows) for that proof.
+- The Api process answers `/health/ready`, which means its embedding startup validation already completed successfully: a failed probe stops the process instead of starting the listener.
+- The library browser loads at `http://localhost:5173` and lists movies from your configured root.
+
+### Stop
+
+Stopping and resetting are different operations.
+
+| Task | Command | Data |
+|---|---|---|
+| Stop the host processes | `Ctrl+C` in each shell | Nothing touched |
+| Stop the containers, keep them and their volumes | `docker compose -f docker-compose.daily-driver.yml stop` | Kept |
+| Remove containers and the network, keep the named volumes | `docker compose -f docker-compose.daily-driver.yml down` | Kept — an ordinary restart keeps your catalog and broker state |
+| Destructive reset of this project only | `docker compose -f docker-compose.daily-driver.yml down -v` | Deletes `postgres-data` and `rabbitmq-data` for `lamuflix-daily-driver` only |
+
+`down -v` is project-scoped, so it cannot touch the full Compose stack or the AppHost, and it is never part of routine startup. Use it only when you intend to discard the daily-driver catalog and broker state.
+
+### Troubleshoot
+
+- **Port collision.** A host Postgres, RabbitMQ, or another entrypoint can already hold `5432` or `5672`. Check with `Get-NetTCPConnection -LocalPort 5432,5672 -ErrorAction SilentlyContinue`, then either stop the other owner or set `POSTGRES_PORT` / `RABBITMQ_PORT` in the Compose operator channel and point the Api connection string at the new port.
+- **One entrypoint at a time.** Running the full Compose stack, the AppHost, and the daily-driver project together invites port and credential confusion. Stop one before starting another; they share no state.
+- **Credentials do not match.** `docker compose config` failing on a missing variable means the Compose operator channel is empty in that shell. A running Api that cannot reach Postgres or RabbitMQ usually means the Api local settings channel and the Compose channel disagree.
+- **Volumes look gone after `down`.** `down` without `-v` keeps named volumes; `down -v` does not. `docker volume ls` shows the project-scoped volumes.
+- **Durability versus upgrades.** Restarting or recreating the *same* container images with volumes retained keeps your state, and that is what this runbook asks you to verify. It does **not** certify an image upgrade: changing an image tag or digest is a separate, deliberate decision. The daily-driver file keeps the current `rabbitmq:4-alpine` tag and the pinned Postgres digest; a digest change is not authorised silently by a successful restart.
+- **Ollama symptoms.** See the diagnostics table in [Host Ollama on Windows](#host-ollama-on-windows).
+
+### Host Ollama on Windows
+
+Install from the official Windows installer — [OllamaSetup.exe](https://ollama.com/download/OllamaSetup.exe), documented at [docs.ollama.com/windows](https://docs.ollama.com/windows). Do not substitute winget, downloaded install scripts, or another service manager. Open the installed background app; it listens on `http://localhost:11434`, which matches the Api's `Ollama:Endpoint` default.
+
+Run these commands on the Windows host, not with `docker compose exec` — the daily-driver file runs no Ollama service, so a container step would not prove the host prerequisite:
+
+```powershell
+ollama pull all-minilm
+ollama show all-minilm
+ollama list
+```
+
+Start the Api only after `all-minilm` appears in `ollama show` / `ollama list`. The Api runs a real embedding startup validation: it requests one finite 384-dimension embedding before its HTTP listener binds and exits when the probe fails. A visible model is therefore a prerequisite, not a proof — only a running Api that answers `/health/ready` proves the host Ollama path works. `ollama list` alone, and `/health/ready` alone, are both insufficient.
+
+Distinct diagnostics — a listener problem, a model problem, and a probe-shape problem read differently:
+
+| Symptom | Kind | Meaning |
+|---|---|---|
+| `Ollama embedding startup verification failed at http://localhost:11434 ... provider_unavailable` | Listener | Nothing is listening at the configured endpoint: the background app is not running, or `Ollama:Endpoint` names the wrong host or port. |
+| `... invalid_response` after the endpoint answers | Model | The server answered but not usefully — most often the model is not pulled. Run `ollama pull all-minilm` and start the Api again. |
+| `The embedding startup probe did not return exactly one finite 384-dimension vector.` | Startup failure | The model answered in the wrong shape; confirm with `ollama show all-minilm` that you pulled the intended embedding model and that `Ollama:ModelName` matches it. |
+
+### Local playback example (optional)
+
+LocalPlay is off in Compose (`docker/api.settings.example.json` ships `"LocalPlay": false`), and nothing in this ticket ships an enabled default. Enabling it is an explicit host-only opt-in in the **Api local settings channel** (user secrets or ignored local settings), never in a tracked file.
+
+The delivered boundary is fail-closed, so confirm loopback binding **before** you enable LocalPlay:
+
+- When `Features:LocalPlay` is `true`, the Api refuses to start unless every effective Kestrel listener is proven loopback. An unqualified `http://*:5000`, `http://0.0.0.0:5000`, or a non-loopback host name is refused at startup; `http://localhost:5000` is proven loopback.
+- With LocalPlay enabled, a play request is refused unless the peer address is proven loopback and no `Forwarded` / `X-Forwarded-*` / `X-Real-IP` proxy headers are present.
+
+Illustrative configuration with placeholders only — replace every placeholder locally and never commit the result:
+
+```json
+{
+  "Features": {
+    "LocalPlay": true
+  },
+  "Playback": {
+    "Players": [
+      {
+        "Name": "Example Player",
+        "ExecutablePath": "C:\\Path\\To\\Your\\Player\\player.exe",
+        "Formats": ["mkv", "mp4"]
+      }
+    ]
+  }
+}
+```
+
+- `Name` is your label; `ExecutablePath` is an absolute path you discover locally; `Formats` are the top-level video extensions you want this player to open (`.mkv` and `mkv` are both accepted, and only listed extensions are mapped — an unlisted one is refused with a `422` validation error).
+- Compose LocalPlay stays off. The playback proof runs against the existing gated endpoint, unchanged: `POST /api/movies/{id}/play` returns `204` on a successful launch, `403` when LocalPlay is disabled or the request is not proven local, and `422` when no configured player maps the file's extension.
+
 ## Ollama embedding model
 
 Compose provisions Ollama with the embedding model the API needs for semantic search. `docker compose up` starts two Ollama services ([ADR-0025](docs/adr/ADR-0025-isolated-ollama-test.md)):
@@ -88,7 +243,9 @@ Compose provisions Ollama with the embedding model the API needs for semantic se
 
 Both share the named volume `ollama-models`, so a downloaded model survives `docker compose down` and restarts without re-downloading. Only a first run (or a removed volume) downloads the model; expect that first pull to take longer than a normal start.
 
-**Health and readiness.** The `ollama` health check is model-aware: it reports healthy only when the server answers *and* the selected model is present (`ollama show "$OLLAMA_EMBEDDING_MODEL"`). The initializer starts as soon as the container is started (`service_started`), never waits for model-aware health before pulling, and enforces finite budgets while it does its own readiness wait and pull. The API does not depend on Ollama, so a slow first download never blocks the library UI.
+**Health and readiness.** The `ollama` health check is model-aware: it reports healthy only when the server answers *and* the selected model is present (`ollama show "$OLLAMA_EMBEDDING_MODEL"`). The initializer starts as soon as the container is started (`service_started`), never waits for model-aware health before pulling, and enforces finite budgets while it does its own readiness wait and pull.
+
+**Ollama does block Api boot.** The Api runs a real embedding startup validation before it binds its HTTP listener: it requests one finite 384-dimension embedding and, when the probe fails, logs the failure and exits instead of serving. On the first run, or after the `ollama-models` volume is removed, a slow model download therefore keeps the Api from starting until the model is available — start the initializer first (`docker compose up -d ollama ollama-model-init`) and wait for it to exit `0`. `/health/ready` covers readiness-tagged checks such as the database and broker; it is not the Ollama probe, so a green `/health/ready` never proves embeddings work.
 
 **Settings.** All Ollama settings are non-secret and live in `.env` (see `.env.example`):
 
