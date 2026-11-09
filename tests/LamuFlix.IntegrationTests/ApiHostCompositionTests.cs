@@ -56,6 +56,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string NotInterestedRoute = "/api/movies/{id}/not-interested";
     private const string ReviewRoute = "/api/movies/{id}/review";
     private const string PlayMovieRoute = "/api/movies/{id}/play";
+    private const string GetPlaybackCapabilitiesRoute = "/api/playback/capabilities";
     private const string GetGenresRoute = "/api/genres";
     private const string GetCollectionsRoute = "/api/collections";
     private const string GetPeopleRoute = "/api/people";
@@ -105,6 +106,11 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                 typeof(ICommandHandler<PlayMovieCommand, Unit>),
                 typeof(PlayMovieCommand),
                 typeof(Unit)
+            },
+            {
+                typeof(IQueryHandler<GetPlaybackCapabilitiesQuery, PlaybackCapabilitiesResult>),
+                typeof(GetPlaybackCapabilitiesQuery),
+                typeof(PlaybackCapabilitiesResult)
             },
             {
                 typeof(ICommandHandler<AddToWatchlistCommand, Unit>),
@@ -274,6 +280,7 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     WatchlistRoute,
                     WatchlistRoute,
                     PlayMovieRoute,
+                    GetPlaybackCapabilitiesRoute,
                     GetGenresRoute,
                     GetCollectionsRoute,
                     GetPeopleRoute,

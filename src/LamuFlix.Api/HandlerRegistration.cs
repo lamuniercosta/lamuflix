@@ -72,6 +72,7 @@ internal static class HandlerRegistration
             serviceProvider => serviceProvider.GetRequiredService<RescanLibraryCommandValidator>());
         services.AddHandler<RescanLibraryCommandHandler, RescanLibraryCommand, RescanLibraryResult>();
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();
+        services.AddHandler<GetPlaybackCapabilitiesQueryHandler, GetPlaybackCapabilitiesQuery, PlaybackCapabilitiesResult>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();
         services.AddHandler<MarkWatchedCommandHandler, MarkWatchedCommand, Unit>();

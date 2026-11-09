@@ -56,6 +56,10 @@ export interface paths {
     /** Start local playback of a movie. */
     post: operations["PlayMovie"];
   };
+  "/api/playback/capabilities": {
+    /** Report the effective local playback capability. */
+    get: operations["GetPlaybackCapabilities"];
+  };
   "/api/genres": {
     /** List the stored genres. */
     get: operations["GetGenres"];
@@ -194,6 +198,9 @@ export interface components {
       /** Format: int32 */
       id: number | string;
       name: string;
+    };
+    PlaybackCapabilitiesDto: {
+      localPlayEnabled: boolean;
     };
     ProblemDetails: {
       type?: null | string;
@@ -713,6 +720,17 @@ export interface operations {
       422: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Report the effective local playback capability. */
+  GetPlaybackCapabilities: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PlaybackCapabilitiesDto"];
         };
       };
     };

@@ -249,6 +249,10 @@ const movieThumbnailData = '/9j/4AAQSkZJRg==';
 
 const movieStreamData: Schemas['Stream'] = '';
 
+const playbackCapabilitiesData = {
+  localPlayEnabled: false,
+} satisfies Schemas['PlaybackCapabilitiesDto'];
+
 const rescanLibraryData = {
   changed: 1,
   unchanged: 1,
@@ -278,6 +282,7 @@ export const people = Object.freeze(peopleData);
 export const directors = Object.freeze(directorsData);
 export const movieThumbnail = movieThumbnailData;
 export const movieStream = movieStreamData;
+export const playbackCapabilities = Object.freeze(playbackCapabilitiesData);
 export const rescanLibrary = Object.freeze(rescanLibraryData);
 export const rescanMovie = Object.freeze(rescanMovieData);
 
@@ -292,6 +297,7 @@ export const success = Object.freeze({
   GetDirectors: directors,
   GetMovieThumbnail: movieThumbnail,
   StreamMovie: movieStream,
+  GetPlaybackCapabilities: playbackCapabilities,
   RescanLibrary: rescanLibrary,
   RescanMovie: rescanMovie,
 });

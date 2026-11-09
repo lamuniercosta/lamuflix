@@ -812,6 +812,7 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "AddToWatchlist",
                 "RemoveFromWatchlist",
                 "PlayMovie",
+                "GetPlaybackCapabilities",
                 "GetGenres",
                 "GetCollections",
                 "GetPeople",
