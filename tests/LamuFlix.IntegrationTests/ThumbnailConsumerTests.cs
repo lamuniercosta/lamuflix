@@ -27,8 +27,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(RabbitMqCollection))]
-public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IAsyncLifetime
+public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>, IAsyncLifetime
 {
     private static readonly byte[] ValidJpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0x01, 0x02, 0x03];
     private static readonly byte[] ReplacementJpeg = [0xFF, 0xD8, 0x11, 0x22, 0x33];

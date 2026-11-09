@@ -13,8 +13,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(RabbitMqCollection))]
-public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IAsyncLifetime
+public sealed class RabbitMqTopologyTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>, IAsyncLifetime
 {
     private const int MaxAttempts = 3;
     private const int MaxDeclareAttempts = 4;

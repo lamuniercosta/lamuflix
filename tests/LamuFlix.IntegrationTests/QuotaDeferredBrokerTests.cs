@@ -27,9 +27,8 @@ using Shouldly;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(RabbitMqCollection))]
 public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFixture postgres)
-    : IClassFixture<PostgresFixture>, IAsyncLifetime
+    : IClassFixture<RabbitMqFixture>, IClassFixture<PostgresFixture>, IAsyncLifetime
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 30, 23, 59, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset NextUtcMidnight = new(2026, 10, 1, 0, 0, 0, TimeSpan.Zero);
@@ -76,7 +75,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
             ct);
         delivered.ShouldNotBeNull();
         Read(delivered).Attempt.ShouldBe(4);
-        (await probe.PollMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
+        (await probe.PollQuietMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
     }
 
     [Fact]
@@ -120,7 +119,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
             ct);
         published.ShouldNotBeNull();
         Read(published).Attempt.ShouldBe(6);
-        (await probe.PollMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
+        (await probe.PollQuietMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
         DeathField(published, "original-expiration").ShouldBe("0");
         DeathField(published, "reason").ShouldBe("expired");
         DeathField(published, "queue").ShouldBe(RabbitMqTopology.QuotaDeferredQueue);
@@ -148,7 +147,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         // assert
         host.Provider.Calls.ShouldBe(0);
         (await ReadPersistedAsync(movie, ct)).EnrichmentDeferredUntil.ShouldBe(deadline);
-        (await probe.PollMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
+        (await probe.PollQuietMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
 
         await host.StopAsync(CancellationToken.None);
         clock.Set(deadline.AddMinutes(1));
@@ -212,7 +211,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
 
         // assert
         (await ReadPersistedAsync(movie, ct)).EnrichmentDeferredUntil.ShouldBe(deadline);
-        (await probe.PollMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
+        (await probe.PollQuietMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
     }
 
     [Fact]
@@ -258,7 +257,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
         // assert
         host.Provider.Calls.ShouldBe(0);
         (await ReadPersistedAsync(movie, ct)).EnrichmentDeferredUntil.ShouldBe(deadline);
-        (await probe.PollMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
+        (await probe.PollQuietMessageCountAsync(RabbitMqTopology.QuotaDeferredQueue, ct)).ShouldBe(0U);
         await host.StopAsync(CancellationToken.None);
     }
 
@@ -465,7 +464,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
 
     private async Task WaitForQueueEmptyAsync(string queue, CancellationToken ct) =>
         await WaitUntilAsync(
-            async () => await probe.PollMessageCountAsync(queue, ct) == 0U,
+            async () => await probe.PollQuietMessageCountAsync(queue, ct) == 0U,
             ct);
 
     private static async Task WaitUntilAsync(Func<Task<bool>> condition, CancellationToken ct)

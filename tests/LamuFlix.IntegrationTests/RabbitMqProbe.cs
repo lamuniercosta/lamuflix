@@ -18,6 +18,10 @@ internal sealed record ConsumedMessage(
 internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(30);
+
+    // Absence checks ("nothing arrives") poll for this window instead of Bound.
+    // Proving a zero by outlasting the 30 s Bound cost every such assertion 30 s.
+    private static readonly TimeSpan QuietWindow = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 
     private IConnection? connection;
@@ -81,10 +85,21 @@ internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
         return await channel.QueueDeclarePassiveAsync(queue, cancellationToken: cancellationToken);
     }
 
-    public async Task<uint> PollMessageCountAsync(string queue, CancellationToken cancellationToken)
+    public async Task<uint> PollMessageCountAsync(string queue, CancellationToken cancellationToken) =>
+        await PollMessageCountWithinAsync(queue, Bound, cancellationToken);
+
+    // Returns the first non-zero count seen within the quiet window, or 0 when the
+    // queue stayed empty for the whole window.
+    public async Task<uint> PollQuietMessageCountAsync(string queue, CancellationToken cancellationToken) =>
+        await PollMessageCountWithinAsync(queue, QuietWindow, cancellationToken);
+
+    private async Task<uint> PollMessageCountWithinAsync(
+        string queue,
+        TimeSpan bound,
+        CancellationToken cancellationToken)
     {
         var clock = TimeProvider.System;
-        var deadline = clock.GetUtcNow() + Bound;
+        var deadline = clock.GetUtcNow() + bound;
         uint count = 0;
         while (clock.GetUtcNow() < deadline)
         {
@@ -127,13 +142,25 @@ internal sealed class RabbitMqProbe(RabbitMqFixture fixture) : IAsyncLifetime
     public async Task<BasicGetResult?> PollGetAsync(string queue, CancellationToken cancellationToken) =>
         await PollGetMatchingAsync(queue, _ => true, cancellationToken);
 
+    // Returns the first message seen within the quiet window, or null when the queue
+    // stayed empty for the whole window.
+    public async Task<BasicGetResult?> PollQuietGetAsync(string queue, CancellationToken cancellationToken) =>
+        await PollGetMatchingWithinAsync(queue, _ => true, QuietWindow, cancellationToken);
+
     public async Task<BasicGetResult?> PollGetMatchingAsync(
         string queue,
         Func<BasicGetResult, bool> accept,
+        CancellationToken cancellationToken) =>
+        await PollGetMatchingWithinAsync(queue, accept, Bound, cancellationToken);
+
+    private async Task<BasicGetResult?> PollGetMatchingWithinAsync(
+        string queue,
+        Func<BasicGetResult, bool> accept,
+        TimeSpan bound,
         CancellationToken cancellationToken)
     {
         var clock = TimeProvider.System;
-        var deadline = clock.GetUtcNow() + Bound;
+        var deadline = clock.GetUtcNow() + bound;
         while (clock.GetUtcNow() < deadline)
         {
             await using var channel = await OpenChannelAsync(cancellationToken);

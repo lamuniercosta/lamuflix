@@ -18,8 +18,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(RabbitMqCollection))]
-public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IAsyncLifetime
+public sealed class RabbitMqPublisherTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>, IAsyncLifetime
 {
 
     private readonly RabbitMqProbe probe = new(fixture);
