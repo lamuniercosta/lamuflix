@@ -8,17 +8,17 @@ import {
   CopyIcon,
   ExternalLinkIcon,
   FilmIcon,
-  LoaderIcon,
   PlayFilledIcon,
   StarFilledIcon,
 } from '../../ui/icons';
-import { readReturnUrl } from '../app-navigation/useAppNavigation';
+import { readPlayerIntent, readReturnUrl } from '../app-navigation/useAppNavigation';
+import BrowserPlayer from '../playback/BrowserPlayer';
+import { movieStreamUrl } from '../playback/streamSource';
 import { formatRating } from '../../library/movieCardFormat';
 import {
   formatRuntime,
   useDeleteMovie,
   useMovieDetails,
-  usePlayMovie,
   type MovieDetails,
   type MovieMetadata,
 } from './movieDetailsApi';
@@ -41,7 +41,6 @@ import './MovieDetailsView.css';
 type PersonDto = components['schemas']['PersonDto'];
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type ActorId = number | string;
-type PlayState = 'idle' | 'success' | 'notfound' | 'unavailable' | 'error';
 type CopyState = 'idle' | 'copied' | 'failed';
 
 export interface MovieDetailsViewProps {
@@ -434,14 +433,14 @@ function MovieDetailsViewInner({
 
   const people = usePeopleLookup();
   const peopleList: readonly PersonDto[] = people.data ?? [];
-  const playMutation = usePlayMovie(movieId);
   const deleteMutation = useDeleteMovie(movieId);
   const feedbackClients = useMemo(
     () => ({ libraryClient, detailsClient }),
     [libraryClient, detailsClient],
   );
-  const [playState, setPlayState] = useState<PlayState>('idle');
-  const playInFlightRef = useRef(false);
+  const [playerRequested, setPlayerRequested] = useState(() =>
+    readPlayerIntent(window.history.state),
+  );
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeFailed, setRemoveFailed] = useState(false);
   const removeInFlightRef = useRef(false);
@@ -498,26 +497,7 @@ function MovieDetailsViewInner({
   };
 
   const handlePlay = () => {
-    if (playInFlightRef.current) return;
-    playInFlightRef.current = true;
-    setPlayState('idle');
-    playMutation.mutate(undefined, {
-      onSuccess: () => {
-        setPlayState('success');
-      },
-      onError: (error) => {
-        if (error.status === 403) {
-          setPlayState('unavailable');
-        } else if (error.status === 404) {
-          setPlayState('notfound');
-        } else {
-          setPlayState('error');
-        }
-      },
-      onSettled: () => {
-        playInFlightRef.current = false;
-      },
-    });
+    setPlayerRequested(true);
   };
 
   const toggleActor = (name: string) => {
@@ -591,14 +571,9 @@ function MovieDetailsViewInner({
           {metadata?.synopsis && <p className="details-synopsis">{metadata.synopsis}</p>}
 
           <div className="details-actions">
-            <button
-              type="button"
-              className="lamu-action-primary"
-              disabled={playMutation.isPending}
-              onClick={handlePlay}
-            >
-              {playMutation.isPending ? <LoaderIcon size={18} /> : <PlayFilledIcon size={18} />}
-              {playMutation.isPending ? 'Starting...' : 'Play'}
+            <button type="button" className="lamu-action-primary" onClick={handlePlay}>
+              <PlayFilledIcon size={18} />
+              Play
             </button>
             <MovieFeedbackActions
               movieId={movie.id}
@@ -620,26 +595,12 @@ function MovieDetailsViewInner({
             </button>
           </div>
 
-          {playState === 'success' && (
-            <p role="status" className="details-status">
-              Playback started.
-            </p>
-          )}
-          {playState === 'notfound' && (
-            <p role="alert" className="details-status">
-              This movie is no longer in the library.
-            </p>
-          )}
-          {playState === 'error' && (
-            <p role="alert" className="details-status">
-              Couldn&apos;t start playback. Try again later.
-            </p>
-          )}
-          {playState === 'unavailable' && (
-            <div role="alert" className="details-inline-alert">
-              <p className="details-inline-alert-title">Playback unavailable</p>
-              <p>Local playback is disabled on this server.</p>
-            </div>
+          {playerRequested && (
+            <BrowserPlayer
+              title={movie.title}
+              movieId={movie.id}
+              streamUrl={movieStreamUrl(movie.id)}
+            />
           )}
 
           {removeOpen && (

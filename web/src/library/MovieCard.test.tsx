@@ -123,16 +123,43 @@ describe('MovieCard', () => {
     expect(screen.getByRole('button', { name: 'Retry Heat' })).toBeInTheDocument();
   });
 
-  it('shows the forbidden playback message inline on the card without a dialog', async () => {
-    server.use(http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 403 })));
+  it('navigates to details with player intent from Play without posting the launch contract', async () => {
+    let posts = 0;
+    server.use(
+      http.post('*/api/movies/:id/play', () => {
+        posts += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const onOpenMovie = vi.fn();
+    renderCard(<MovieCard movie={movie} onOpenMovie={onOpenMovie} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Play Heat' }));
+
+    expect(onOpenMovie).toHaveBeenCalledTimes(1);
+    expect(onOpenMovie).toHaveBeenCalledWith(1, { playerIntent: true });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(posts).toBe(0);
+  });
+
+  it('navigates with player intent even without a host callback and posts nothing', async () => {
+    let posts = 0;
+    server.use(
+      http.post('*/api/movies/:id/play', () => {
+        posts += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    window.history.replaceState(null, '', '/');
     renderCard(<MovieCard movie={movie} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Play Heat' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Playback is not available for this title.',
-    );
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/movies/1');
+    expect(window.history.state).toEqual({ libraryReturnUrl: '/', playerIntent: true });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(posts).toBe(0);
   });
 });
 
