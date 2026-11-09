@@ -13,12 +13,21 @@ import {
 } from '../../ui/icons';
 import { readPlayerIntent, readReturnUrl } from '../app-navigation/useAppNavigation';
 import BrowserPlayer from '../playback/BrowserPlayer';
+import { OPEN_LOCAL_COPY, openLocalLabel } from '../playback/playerCopy';
 import { movieStreamUrl } from '../playback/streamSource';
+import { usePlaybackCapabilities } from '../playback/usePlaybackCapabilities';
 import { formatRating } from '../../library/movieCardFormat';
 import {
+  LAUNCH_UNAVAILABLE_TITLE,
+  localLaunchOutcome,
+  type LocalLaunchOutcome,
+} from './movieDetailsLaunch';
+import {
   formatRuntime,
+  MovieDetailsError,
   useDeleteMovie,
   useMovieDetails,
+  usePlayMovie,
   type MovieDetails,
   type MovieMetadata,
 } from './movieDetailsApi';
@@ -441,6 +450,10 @@ function MovieDetailsViewInner({
   const [playerRequested, setPlayerRequested] = useState(() =>
     readPlayerIntent(window.history.state),
   );
+  const capability = usePlaybackCapabilities();
+  const localLaunch = usePlayMovie(movieId);
+  const launchInFlightRef = useRef(false);
+  const [launchOutcome, setLaunchOutcome] = useState<LocalLaunchOutcome | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeFailed, setRemoveFailed] = useState(false);
   const removeInFlightRef = useRef(false);
@@ -499,6 +512,22 @@ function MovieDetailsViewInner({
   const handlePlay = () => {
     setPlayerRequested(true);
   };
+
+  const handleOpenLocal = useCallback(() => {
+    if (launchInFlightRef.current) return;
+    launchInFlightRef.current = true;
+    setLaunchOutcome(null);
+    localLaunch.mutate(undefined, {
+      onSuccess: (status) => setLaunchOutcome(localLaunchOutcome(status)),
+      onError: (error) =>
+        setLaunchOutcome(
+          localLaunchOutcome(error instanceof MovieDetailsError ? error.status : undefined),
+        ),
+      onSettled: () => {
+        launchInFlightRef.current = false;
+      },
+    });
+  }, [localLaunch]);
 
   const toggleActor = (name: string) => {
     setSelectedActor((current) => (current === name ? null : name));
@@ -575,6 +604,17 @@ function MovieDetailsViewInner({
               <PlayFilledIcon size={18} />
               Play
             </button>
+            {capability === 'enabled' && (
+              <button
+                type="button"
+                className="lamu-action-quiet"
+                aria-label={openLocalLabel(movie.title)}
+                disabled={localLaunch.isPending}
+                onClick={handleOpenLocal}
+              >
+                {OPEN_LOCAL_COPY}
+              </button>
+            )}
             <MovieFeedbackActions
               movieId={movie.id}
               title={movie.title}
@@ -600,7 +640,24 @@ function MovieDetailsViewInner({
               title={movie.title}
               movieId={movie.id}
               streamUrl={movieStreamUrl(movie.id)}
+              localPlayEnabled={capability === 'enabled'}
+              onOpenLocal={handleOpenLocal}
             />
+          )}
+
+          {launchOutcome?.kind === 'unavailable' && (
+            <div role="alert" className="details-inline-alert">
+              <p className="details-inline-alert-title">{LAUNCH_UNAVAILABLE_TITLE}</p>
+              <p>{launchOutcome.message}</p>
+            </div>
+          )}
+          {launchOutcome && launchOutcome.kind !== 'unavailable' && (
+            <p
+              role={launchOutcome.kind === 'started' ? 'status' : 'alert'}
+              className="details-status"
+            >
+              {launchOutcome.message}
+            </p>
           )}
 
           {removeOpen && (
