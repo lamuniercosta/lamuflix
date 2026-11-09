@@ -21,6 +21,13 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
     private const int MaxRetryAttempts = 3;
     private static readonly TimeSpan BeyondBudgetRetryAfter = TimeSpan.FromSeconds(30);
 
+    // WireMock records a delayed response only once the delay has elapsed, so a request that a previous test
+    // abandoned (client timeout or cancellation) can land in the log after this test's Reset. Every request
+    // this test sends carries this marker as its input text, and the count below ignores any other request.
+    private readonly string marker = $"plot-{Guid.NewGuid():N}";
+
+    private int RequestCount => probe.RequestCountFor(marker);
+
     public ValueTask InitializeAsync()
     {
         probe.Reset();
@@ -50,7 +57,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
 
         // assert
         result.Count.ShouldBe(1);
-        probe.RequestCount.ShouldBe(2);
+        RequestCount.ShouldBe(2);
     }
 
     [Fact]
@@ -65,7 +72,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
 
         // assert
         failure.Category.ShouldBe(EnrichmentFailureCategory.RateLimited);
-        probe.RequestCount.ShouldBe(1 + MaxRetryAttempts);
+        RequestCount.ShouldBe(1 + MaxRetryAttempts);
     }
 
     [Fact]
@@ -80,7 +87,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
 
         // assert
         failure.Category.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
-        probe.RequestCount.ShouldBe(1 + MaxRetryAttempts);
+        RequestCount.ShouldBe(1 + MaxRetryAttempts);
     }
 
     [Fact]
@@ -95,7 +102,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
 
         // assert
         failure.Category.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
-        probe.RequestCount.ShouldBe(1 + MaxRetryAttempts);
+        RequestCount.ShouldBe(1 + MaxRetryAttempts);
     }
 
     [Fact]
@@ -172,14 +179,14 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
 
         // act
         var opening = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
-        var requestsBeforeOpenCircuit = probe.RequestCount;
+        var requestsBeforeOpenCircuit = RequestCount;
         var open = await Should.ThrowAsync<EmbeddingGenerationException>(() => GenerateAsync(provider, TestContext.Current.CancellationToken));
 
         // assert
         opening.Category.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
         open.Category.ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
         requestsBeforeOpenCircuit.ShouldBeGreaterThanOrEqualTo(2);
-        probe.RequestCount.ShouldBe(requestsBeforeOpenCircuit);
+        RequestCount.ShouldBe(requestsBeforeOpenCircuit);
     }
 
     [Fact]
@@ -194,7 +201,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
 
         // assert
         failure.Category.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
-        probe.RequestCount.ShouldBe(1);
+        RequestCount.ShouldBe(1);
     }
 
     [Fact]
@@ -209,7 +216,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
 
         // assert
         failure.Category.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
-        probe.RequestCount.ShouldBe(1);
+        RequestCount.ShouldBe(1);
     }
 
     [Fact]
@@ -224,7 +231,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
 
         // assert
         failure.Category.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
-        probe.RequestCount.ShouldBe(1);
+        RequestCount.ShouldBe(1);
     }
 
     [Fact]
@@ -242,7 +249,7 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
         var cancellationToken = cancellation.Token;
 
         // act
-        var act = () => generator.GenerateAsync(["plot"], cancellationToken: cancellationToken);
+        var act = () => generator.GenerateAsync([marker], cancellationToken: cancellationToken);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
@@ -264,18 +271,18 @@ public sealed class OllamaEmbeddingResilienceTests(OllamaEmbeddingProbe probe)
         var cancellationToken = cancellation.Token;
 
         // act
-        var act = () => generator.GenerateAsync(["plot"], cancellationToken: cancellationToken);
+        var act = () => generator.GenerateAsync([marker], cancellationToken: cancellationToken);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
     }
 
-    private static async Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(
+    private async Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(
         IServiceProvider provider,
         CancellationToken cancellationToken = default) =>
         await provider
             .GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>()
-            .GenerateAsync(["plot"], cancellationToken: cancellationToken);
+            .GenerateAsync([marker], cancellationToken: cancellationToken);
 }
 
 
