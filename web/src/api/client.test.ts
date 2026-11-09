@@ -171,7 +171,7 @@ describe('typed API client', () => {
     // assert
     expect(error).toBeUndefined();
     expect(response.status).toBe(202);
-    expect(data).toEqual({});
+    expect(data).toBeUndefined();
     expect(body).toEqual({ folderPath: '/media/dune' });
     expect(response.headers.get('location')).toBe('/api/movies/9');
   });
@@ -197,7 +197,7 @@ describe('typed API client', () => {
     // assert
     expect(error).toBeUndefined();
     expect(response.status).toBe(202);
-    expect(data).toEqual({});
+    expect(data).toBeUndefined();
     expect(response.headers.get('location')).toBe('/api/movies/1');
   });
 
