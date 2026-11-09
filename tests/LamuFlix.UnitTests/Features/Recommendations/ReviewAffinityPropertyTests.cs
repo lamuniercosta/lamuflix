@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using FsCheck.Xunit;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
@@ -25,7 +24,7 @@ public sealed class ReviewAffinityPropertyTests
 
     private static readonly string[] GenrePool = ["Drama", "Comedy", "Horror", "SciFi"];
 
-    [Property]
+    [Fact]
     [Trait("Category", "Property")]
     public void EvaluateReviewAffinity_GeneratedProfiles_StayBounded() =>
         Prop.ForAll(
@@ -47,7 +46,7 @@ public sealed class ReviewAffinityPropertyTests
                     && evidence.DislikedAffinity is >= 0.0 and <= 1.0;
             }).QuickCheckThrowOnFailure();
 
-    [Property]
+    [Fact]
     [Trait("Category", "Property")]
     public void EvaluateReviewAffinity_IdenticalGenreProfile_YieldsUnitAffinity()
     {
@@ -78,7 +77,7 @@ public sealed class ReviewAffinityPropertyTests
             }).QuickCheckThrowOnFailure();
     }
 
-    [Property]
+    [Fact]
     [Trait("Category", "Property")]
     public void ProfileContribution_IsSignedAndUnclamped() =>
         Prop.ForAll(
@@ -99,7 +98,7 @@ public sealed class ReviewAffinityPropertyTests
                 return Math.Abs(contribution - (baseline + liked - disliked)) < 1e-12;
             }).QuickCheckThrowOnFailure();
 
-    [Property]
+    [Fact]
     [Trait("Category", "Property")]
     public void EvaluateReviewAffinity_MissingMetadata_NeverInventsSignal() =>
         Prop.ForAll(
@@ -174,7 +173,7 @@ public sealed class ReviewAffinityPropertyTests
 
     private sealed record GenreCase(int Count, List<string> Genres);
 
-    [Property]
+    [Fact]
     [Trait("Category", "Property")]
     public void EvaluateReviewAffinity_EqualPerMovieWeight_IsInvariantToLikedCount()
     {

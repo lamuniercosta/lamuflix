@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using FsCheck.Xunit;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
@@ -30,7 +29,7 @@ public sealed class TasteProfileProperties
                 ["Comedy"] = 900,
             }));
 
-    [Property]
+    [Fact]
     [Trait("Category", "Property")]
     public void Calculate_GeneratedHistory_ProducesFiniteConvexChannelValues() =>
         Prop.ForAll(
@@ -44,7 +43,7 @@ public sealed class TasteProfileProperties
                 return true;
             }).QuickCheckThrowOnFailure();
 
-    [Property]
+    [Fact]
     [Trait("Category", "Property")]
     public void Calculate_IdenticalSource_IsIdempotent() =>
         Prop.ForAll(
@@ -59,7 +58,7 @@ public sealed class TasteProfileProperties
                 return true;
             }).QuickCheckThrowOnFailure();
 
-    [Property]
+    [Fact]
     [Trait("Category", "Property")]
     public void Calculate_FixedClock_IsDeterministicAcrossCalls() =>
         Prop.ForAll(
@@ -73,7 +72,7 @@ public sealed class TasteProfileProperties
                 return true;
             }).QuickCheckThrowOnFailure();
 
-    [Property]
+    [Fact]
     [Trait("Category", "Property")]
     public void Calculate_UniformlyReplicatedWatchSignals_IsInvariant() =>
         Prop.ForAll(

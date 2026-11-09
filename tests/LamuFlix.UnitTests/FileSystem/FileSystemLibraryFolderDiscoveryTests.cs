@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.IO.Abstractions;
 using System.IO.Abstractions.TestingHelpers;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -8,6 +11,7 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.FileSystem;
+using NSubstitute;
 
 namespace LamuFlix.UnitTests.FileSystem;
 
@@ -276,15 +280,12 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
     {
         // arrange
         const int depth = 1000;
-        var fileSystem = new MockFileSystem(
-            new Dictionary<string, MockFileData>(StringComparer.OrdinalIgnoreCase),
-            new MockFileSystemOptions());
+        var fileSystem = NestedChainFileSystem(depth);
         var expected = new List<string>(depth);
         var chainRoot = Root;
         for (var level = 1; level <= depth; level++)
         {
             chainRoot = $"{chainRoot}/level{level:0000}";
-            fileSystem.AddFile($"{chainRoot}/movie.mkv", new MockFileData("video"));
             expected.Add(chainRoot[(Root.Length + 1)..]);
         }
 
@@ -298,7 +299,7 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
         candidates.Select(path => path.Value).ShouldBe(expected, ignoreOrder: true);
     }
 
-    private static FileSystemLibraryFolderDiscovery Discovery(MockFileSystem fileSystem, string root) =>
+    private static FileSystemLibraryFolderDiscovery Discovery(IFileSystem fileSystem, string root) =>
         new(fileSystem, Microsoft.Extensions.Options.Options.Create(new LibraryOptions { RootPath = root }));
 
     private static async Task<List<LibraryPath>> CollectAsync(ILibraryFolderDiscovery discovery)
@@ -314,6 +315,57 @@ public sealed class FileSystemLibraryFolderDiscoveryTests
 
     private static string Relative(params string[] segments) =>
         string.Join('/', segments);
+
+    // NSubstitute tree, not MockFileSystem: MockFileSystem takes ~95 s on a 1,000-level chain; the proof is the same nested structure and exact result.
+    private static IFileSystem NestedChainFileSystem(int depth)
+    {
+        var fileSystem = Substitute.For<IFileSystem>();
+        fileSystem.Path.GetRelativePath(Arg.Any<string>(), Arg.Any<string>())
+            .Returns(call => Path.GetRelativePath(call.ArgAt<string>(0), call.ArgAt<string>(1)));
+
+        var fullNames = new string[depth + 1];
+        fullNames[0] = Root;
+        for (var level = 1; level <= depth; level++)
+        {
+            fullNames[level] = $"{fullNames[level - 1]}/level{level.ToString("0000", CultureInfo.InvariantCulture)}";
+        }
+
+        var directory = NestedDirectory(fullNames[depth], hasVideo: true, child: null);
+        for (var level = depth - 1; level >= 0; level--)
+        {
+            directory = NestedDirectory(fullNames[level], hasVideo: level > 0, directory);
+        }
+
+        fileSystem.DirectoryInfo.New(Root).Returns(directory);
+        return fileSystem;
+    }
+
+    private static IDirectoryInfo NestedDirectory(string fullName, bool hasVideo, IDirectoryInfo? child)
+    {
+        var directory = Substitute.For<IDirectoryInfo>();
+        directory.Exists.Returns(true);
+        directory.FullName.Returns(fullName);
+        directory.LinkTarget.Returns((string?)null);
+        directory.Attributes.Returns(FileAttributes.Directory);
+
+        var files = new List<IFileInfo>();
+        if (hasVideo)
+        {
+            var video = Substitute.For<IFileInfo>();
+            video.Extension.Returns(".mkv");
+            files.Add(video);
+        }
+
+        var entries = new List<IFileSystemInfo>(files);
+        if (child is not null)
+        {
+            entries.Add(child);
+        }
+
+        directory.EnumerateFiles().Returns(files);
+        directory.EnumerateFileSystemInfos().Returns(entries);
+        return directory;
+    }
 
     private static MockFileSystem FileSystemWith(params (string Path, string Contents)[] files)
     {
