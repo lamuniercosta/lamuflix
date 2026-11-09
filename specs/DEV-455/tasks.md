@@ -125,7 +125,7 @@ Phase 10  T024          (canonical Phase 5 delivery)
 
 ## Phase 7: Refactor (Cog)
 
-- [ ] T018 After T017: **Cog** runs `/refactor` once over completed implementation for this ticket (C# if changed; web complexity/duplication in scope of web-implement cleanup); fix without expanding scope or lowering thresholds (brief Q10–Q11).
+- [X] T018 After T017: **Cog** runs `/refactor` once over completed implementation for this ticket (C# if changed; web complexity/duplication in scope of web-implement cleanup); fix without expanding scope or lowering thresholds (brief Q10–Q11).
 
 ---
 
