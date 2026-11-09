@@ -372,6 +372,7 @@ public sealed class LibraryFileReaderTests
     [Fact]
     public void OpenRead_ContainedFile_AdmitsConcurrentReadersAndRefusesWriters()
     {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "FileShare writer exclusion is enforced on Windows only.");
         // arrange
         using var library = new TemporaryDirectory();
         var containedFile = library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), Payload());
@@ -502,7 +503,7 @@ public sealed class LibraryFileReaderTests
         }
     }
 
-    [DllImport("libc", SetLastError = true, CharSet = CharSet.Ansi)]
+    [DllImport("libc", SetLastError = true, CharSet = CharSet.Ansi, EntryPoint = "mkfifo")]
     private static extern int MkfifoLibc(string pathname, uint mode);
 
     [DllImport("libSystem.dylib", SetLastError = true, CharSet = CharSet.Ansi, EntryPoint = "mkfifo")]
