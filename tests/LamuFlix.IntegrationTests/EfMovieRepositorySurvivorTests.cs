@@ -20,8 +20,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(RepositoryMutationCollection))]
-public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
+public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
 
@@ -2307,6 +2306,3 @@ public sealed class EfMovieRepositorySurvivorTests(PostgresFixture fixture)
             new ImdbId("tt1234567"),
             posterUrl);
 }
-
-[CollectionDefinition(nameof(RepositoryMutationCollection))]
-public sealed class RepositoryMutationCollection : ICollectionFixture<PostgresFixture>;

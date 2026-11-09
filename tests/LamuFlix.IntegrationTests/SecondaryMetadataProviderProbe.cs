@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
@@ -37,6 +38,7 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
     private static readonly DateTimeOffset Now = new(2026, 3, 4, 5, 6, 7, TimeSpan.Zero);
     private static readonly HttpClient WarmUpClient = new();
     private readonly List<IDisposable> disposables = [];
+    private long pendingDelayTicks;
 
     public static DateTimeOffset FixedNow => Now;
 
@@ -75,6 +77,21 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
     }
 
     public void Reset() => Server.Reset();
+
+    /// <summary>
+    /// WireMock logs a delayed response only when its delay elapses, so a request that outlived the previous
+    /// test would land in this test's request log. Waits out the longest delay stubbed since the last reset.
+    /// </summary>
+    public async ValueTask ResetAsync(CancellationToken cancellationToken)
+    {
+        var drain = TimeSpan.FromTicks(Interlocked.Exchange(ref pendingDelayTicks, 0));
+        if (drain > TimeSpan.Zero)
+        {
+            await Task.Delay(drain, cancellationToken);
+        }
+
+        Server.Reset();
+    }
 
     public bool HasQuery(string name) =>
         Server.LogEntries.Any(entry => entry.RequestMessage?.Query?.Any(pair =>
@@ -162,6 +179,20 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
         StubDetails(603, detailsBody ?? Fixture("Details", "found.json"));
     }
 
+    private void RememberDelay(TimeSpan delay)
+    {
+        long observed;
+        do
+        {
+            observed = Interlocked.Read(ref pendingDelayTicks);
+            if (delay.Ticks <= observed)
+            {
+                return;
+            }
+        }
+        while (Interlocked.CompareExchange(ref pendingDelayTicks, delay.Ticks, observed) != observed);
+    }
+
     public void StubPath(
         string path,
         int statusCode,
@@ -173,6 +204,7 @@ public sealed class SecondaryMetadataProviderProbe : IAsyncLifetime
         if (delay is not null)
         {
             response = response.WithDelay(delay.Value);
+            RememberDelay(delay.Value);
         }
 
         if (retryAfter is not null)

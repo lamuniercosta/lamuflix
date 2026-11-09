@@ -62,7 +62,9 @@ public sealed class PostgresFixture : IAsyncLifetime
             {
                 await DiscardAsync();
                 _container = new PostgreSqlBuilder(
-                    "pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d").Build();
+                    "pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d")
+                    .WithCommand("-c", "jit=off")
+                    .Build();
                 await _container.StartAsync(cancellationToken);
                 await MigrateAsync(cancellationToken);
                 return;
