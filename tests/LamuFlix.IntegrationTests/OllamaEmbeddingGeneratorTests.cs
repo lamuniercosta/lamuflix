@@ -27,6 +27,11 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
 {
     private const string PlotText = "A sentinel plot line that must never leak.";
 
+    // The property tests assert an exact request count and an exact failure category, so a stalled machine must not
+    // trip the 500 ms attempt timeout of the probe's default test resilience and trigger a retry (or a timeout failure).
+    // The shipped defaults keep retries and the circuit breaker, with a 10 s attempt timeout.
+    private static readonly OllamaResilienceOptions PatientResilience = new();
+
     public ValueTask InitializeAsync()
     {
         probe.Reset();
@@ -492,7 +497,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public void GenerateAsync_ArbitraryFiniteBatches_PreserveCountAndOrder()
     {
         // ReSharper disable once UseAwaitUsing - sync property test disposes the provider synchronously.
-        using var provider = probe.BuildServices();
+        using var provider = probe.BuildServices(resilience: PatientResilience);
         var generator = Resolve(provider);
 
         Prop.ForAll<int, int>((countSeed, valueSeed) =>
@@ -522,7 +527,7 @@ public sealed class OllamaEmbeddingGeneratorTests(OllamaEmbeddingProbe probe)
     public void GenerateAsync_ArbitraryWrongDimensions_AreRejected()
     {
         // ReSharper disable once UseAwaitUsing - sync property test disposes the provider synchronously.
-        using var provider = probe.BuildServices();
+        using var provider = probe.BuildServices(resilience: PatientResilience);
         var generator = Resolve(provider);
 
         Prop.ForAll<int>(lengthSeed =>
