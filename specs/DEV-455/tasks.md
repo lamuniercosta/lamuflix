@@ -2,7 +2,7 @@
 
 **Input**: `specs/DEV-455/` spec.md, plan.md, grill-closed brief.md (Q1–Q12), CONCLUSIONS.md, ASSUMPTIONS.md, recon-DEV-455, note DEV-455, specs/PRODUCT.md
 
-**Status**: Draft pending ordinary owner Gate 1 merge receipt (T000) before implementation. Plan-challenge amendment pass applied from brief decision register / CONCLUSIONS adjudication (commit 94c06b57); freeze remains pending Keel's independent reread. No open Quill `needs decision`. Palette owns `design.md` amendments separately. Build still waits for Gate 1 + DEV-456/458 delivery (Q8–Q9). Quill does not invent freeze.
+**Status**: PLAN FROZEN; Gate 1 satisfied by spec PR #340 merged at `1955de8a` (T000 receipt in CONCLUSIONS.md, 2026-11-09). T001 reanalysis recorded; pickup incomplete and implementation blocked: DEV-458 delivery is unmerged, media-element authentication compatibility is not established, and no Gauge baseline receipt is supplied. DEV-456 stream route and generated contract are evidenced. T001 remains unchecked; T002-T024 are not cleared by this receipt. Historical draft/freeze/Gate 1 wording below and in Phase A artifacts is superseded only as recorded in CONCLUSIONS.md.
 
 **Gate 1**: No owner structural checkbox (brief Q12; PRODUCT.md §5). Handoff: **Patron provisional Gate 1 → Rigger opens the spec PR → user merges Gate 1 → Keel T000** records the verified merge receipt in `specs/DEV-455/CONCLUSIONS.md`.
 
@@ -39,7 +39,7 @@ Phase 10  T024          (canonical Phase 5 delivery)
 **Purpose**: Confirm user Gate 1 merge before any Build work.
 **Checkpoint**: Verified merge receipt in CONCLUSIONS.md; or stop.
 
-- [ ] T000 **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-455 in `specs/DEV-455/CONCLUSIONS.md` — receipt only. T001–T024 MUST NOT proceed until this receipt exists (brief Q8/Q12; FR-020).
+- [X] T000 **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-455 in `specs/DEV-455/CONCLUSIONS.md` — receipt only. T001–T024 MUST NOT proceed until this receipt exists (brief Q8/Q12; FR-020).
 
 ---
 
@@ -51,6 +51,8 @@ Phase 10  T024          (canonical Phase 5 delivery)
 - [ ] T001 After T000: **Wisp** obtains fresh Phase B pickup recon against picked HEAD / landed main for recon-bounded surfaces (`PlaybackEndpoints`, FeatureOptions/LocalPlay binding, DEV-456 stream route + generated `web/src/api/openapi.json` / `types.ts` stream path, DEV-458 launch behaviour, `MovieDetailsView` / `MovieCard` / `usePlayMovie` / `useAppNavigation`, `web/package.json` pin policy precedents, `web/e2e` harness, Compose nginx/`LIBRARY_PATH` sample policy, ADR 0023 LocalPlay=false). Explicit authorized future-delivery prerequisites (not invented contract facts): (a) record how a media element authenticates the delivered stream URL (same-origin cookie / credential mode usable from `<video>` / Media Chrome — not a header-only contract the element cannot send); (b) record stream URL lifetime/reusability for Q6 same-source Retry; (c) identify the existing `AddHandler` registration surface (unobserved `HandlerRegistration.cs` / `ApiEndpoints.cs` paths are proposed until verified here). Confirm DEV-456 and DEV-458 are delivered before player consumption tasks. **Keel** runs cross-artifact reanalysis of brief/spec/plan/tasks against landed main. Amend tasks only where authorized by demonstrated drift. **STOP** on missing stream/launch contract, unresolved drift, or header-only / expiring / single-use delivery incompatible with Q6 same-source Retry (new ruling — no fake types; signed URLs, auth redesign, and re-resolution are not preauthorized). **Gauge** records pre-edit baseline. No production edits in this task (brief Q8; FR-020; Sentry M1/M2; Compass F3).
 
 ---
+
+**T001 pickup receipt — 2026-11-09:** Keel completed the bounded cross-artifact reanalysis; T001 as a whole remains incomplete. See CONCLUSIONS.md, T001 reanalysis receipt, for evidence and dispositions. Gate 1 is satisfied; DEV-456 stream delivery is evidenced; DEV-458 PR #352 delivery remains unmerged. Media-element credential compatibility is not established by the absence of endpoint auth parameters/decorators. No Gauge baseline receipt is supplied. Phase 1 still blocks T002-T004, including the otherwise independent capability contract; no capability-only exception or dependency reorder is authorized. Resume pickup after DEV-458 delivery with fresh recon of landed launch behavior, browser-compatible stream authentication, and baseline capture.
 
 ## Phase 2: Playback capabilities contract (Anvil; Priority: P1 — User Story 1)
 

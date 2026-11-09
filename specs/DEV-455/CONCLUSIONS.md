@@ -158,3 +158,28 @@ Patron answer: APPROVED as the bounded disposition packet proposed by Keel. One 
 
 - **Patron ruling:** `gate1: provisional` — `/speckit-analyze` is clean, the three-axis plan challenge is adjudicated (19 findings, 0 Critical/High/Medium remaining), Keel has frozen the plan in `specs/DEV-455/brief.md`, and `checklists/requirements.md` User-Visible Outcome items are ticked (Basis: task-pipeline Phase 2 step 7; Freeze receipt above; `specs/DEV-455/brief.md:4`).
 - No owner structural checkbox is added or closed; ordinary owner Gate 1 on the spec PR remains pending, and Patron provisional Gate 1 is not owner approval or merge clearance.
+
+## T000 Gate 1 merge receipt — 2026-11-09 (Keel)
+
+**Gate 1 satisfied; T000 complete.** Spec PR #340 was merged at `1955de8a`, and `specs/DEV-455/` is on main. Authority: Conductor pickup instruction; note `DEV-455:5-7`, corroborated by the original intake `recon-DEV-455:5` read before its replacement with the T001 supplement. No independent hosted API query is claimed. Pickup worktree: `F:/Dev/LamuFlix.worktrees/DEV-455`, branch `feature/DEV-455`, recon HEAD `8df286993320a83ed9ebfacf5bdf40bc79ec3dae` (current supplemental `recon-DEV-455:3`).
+
+This verified receipt supersedes the earlier pending owner Gate 1 wording in this file and the Phase A brief/spec/plan/tasks status statements. No owner structural checkbox existed or is closed by this receipt. Gate 1 approval does not establish dependency delivery, T001 completion, production gate results, runtime acceptance, or merge clearance.
+
+## T001 reanalysis receipt — 2026-11-09 (Keel)
+
+**Verdict: reanalysis recorded; pickup incomplete; implementation blocked.** Reviewed brief Q2/Q3/Q6/Q8/Q10 and handoff, spec FR-012/013/017/020, plan Phase B approach and ordering, and tasks T000-T004/dependency order against the intake recon and its current T001 supplement plus note DEV-455. The frozen artifacts agree on the capability contract and dependency gate; no contract redesign, scope change, or capability-only exception is justified by this recon.
+
+| Check | Evidence and disposition |
+|---|---|
+| Gate 1 | PR #340 merge receipt above satisfies T000; mark only T000 complete. |
+| DEV-456 stream delivery | Note DEV-455:21 and supplemental recon:4-5 evidence `GET /api/movies/{id:int}/stream`, registered under `/api`, plus generated OpenAPI `/api/movies/{id}/stream` and TypeScript `StreamMovie`. Unlike the historical Phase A absence, this contract is now present at pickup HEAD. No handwritten substitute is needed. |
+| URL lifetime / same-source Retry | Supplemental recon:7 shows a movie-ID route without server-issued expiry, fresh per-request resolution/open, and range support. Reusing the same URL is compatible while the source remains available and authorized. This is server-route evidence, not proof that a future client retains/retries it correctly. Q6 and its implementation tests remain required. |
+| Media-element credentials | Supplemental recon:6 explicitly leaves browser credential mode unestablished. Absence of endpoint auth parameters/decorators does not prove broader auth policy or media-element compatibility. No header-only incompatibility is established either. Keep the T001 compatibility check open; no auth redesign, signed URLs, or re-resolution is authorized. |
+| DEV-458 launch delivery | Supplemental recon:8 shows remote branch tip `acca3d62` is not an ancestor of local `origin/main` at pickup HEAD; named hardening files are absent there. Note DEV-455:21 identifies unmerged delivery PR #352. Spec text and remote implementation do not establish delivery on main; no live hosted PR-status query is claimed. Landed launch behavior must be reconfirmed after merge. |
+| Capability sequencing | T002 depends explicitly on T001; tasks Phase 1 blocks production edits and requires both deliveries; brief Q8 and plan Phase B retain this gate. T002-T004 are technically a separate boolean capability slice but cannot proceed under the approved ordering. Do not infer an early-start exception from their lack of stream consumption. |
+| Baseline | No Gauge pre-edit baseline receipt is supplied in the reviewed notes. Do not claim baseline completion or mark the composite T001 complete. |
+| Analysis tooling | The required SpecKit prerequisite command was attempted once during the initial pickup and rejected `feature/DEV-455` as nonnumeric. Scripted analysis: **Could not run**, not PASS. This receipt is the Conductor-authorized bounded manual cross-artifact reanalysis; no script success is claimed. |
+
+No demonstrated drift requires changing the frozen capability DTO/query/result, generated-contract chain, player behavior, test strategy, or task ordering. The task status/receipt now reflects delivery evidence and retains the existing blockers. This bounded review does not claim a new exhaustive clean-analysis or coverage percentage; unresolved pickup evidence prevents completion.
+
+**Recommended chain status:** `blocked: dependency — DEV-458 PR #352 delivery unmerged; T001 pickup incomplete`. Phase 0 complete; Phase 1 reanalysis recorded but T001 unchecked; Phase 2 T002-T004 and subsequent implementation remain blocked. After user merge of DEV-458, Wisp supplies fresh landed-contract/drift and media-element credential evidence, Gauge records baseline, and Keel closes T001 only when its checkpoint is met. No production gates or runtime checks were run for this documentation-only receipt.
