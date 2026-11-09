@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO.Abstractions;
 using System.Linq;
 using System.Net;
 using System.Text.Json;
@@ -103,6 +104,43 @@ public sealed class PlaybackHistoryEndpointTests(ApiEndToEndFixture fixture) : I
     }
 
     [Fact]
+    public async Task PlayMovie_SelectedFileMissing_ReturnsSafeNotFoundWithoutProcessStartOrEvent()
+    {
+        // arrange
+        var starter = Substitute.For<IProcessStarter>();
+        var clock = new FixedTimeProvider(PlayedAtUtc);
+        await using var host = CreateHost(clock, services =>
+        {
+            services.RemoveAll<IProcessStarter>();
+            services.AddSingleton(starter);
+            EnableLocalPlayWithoutExistingFile(services);
+        });
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var movie = await SeedAsync("missing-selected-file");
+        var id = movie.Id.ShouldNotBeNull().Value;
+
+        // act
+        var response = await client.PostAsync(PlayRoute(id), null, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        var problem = JsonSerializer.Deserialize<JsonElement>(body);
+        problem.GetProperty("title").GetString().ShouldBe("Not Found");
+        problem.TryGetProperty("detail", out _).ShouldBeFalse();
+        body.ShouldNotContain("Not found.");
+        body.ShouldNotContain(nameof(NotFoundException));
+        body.ShouldNotContain("primary.mkv");
+        body.ShouldNotContain(PlayerPath);
+        body.ShouldNotContain("127.0.0.1");
+        body.ShouldNotContain("X-Forwarded-For");
+        starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
+        (await ReadEventsAsync(id)).ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task PlayMovie_AppendFailsAfterLaunch_DoesNotReturnNoContentAndDoesNotPersist()
     {
         // arrange
@@ -165,8 +203,16 @@ public sealed class PlaybackHistoryEndpointTests(ApiEndToEndFixture fixture) : I
         return scope.ServiceProvider.GetRequiredService<IPlaybackHistory>();
     }
 
-    private static void EnableLocalPlay(IServiceCollection services)
+    private static void EnableLocalPlay(IServiceCollection services) =>
+        EnableLocalPlay(services, ExistingFiles());
+
+    private static void EnableLocalPlayWithoutExistingFile(IServiceCollection services) =>
+        EnableLocalPlay(services, MissingFiles());
+
+    private static void EnableLocalPlay(IServiceCollection services, IFileSystem fileSystem)
     {
+        services.RemoveAll<IFileSystem>();
+        services.AddSingleton(fileSystem);
         services.RemoveAll<IOptions<FeatureOptions>>();
         services.AddSingleton(
             Options.Create(new FeatureOptions { LocalPlay = true }));
@@ -184,6 +230,24 @@ public sealed class PlaybackHistoryEndpointTests(ApiEndToEndFixture fixture) : I
                     },
                 ],
             }));
+    }
+
+    private static IFileSystem ExistingFiles()
+    {
+        var fileSystem = Substitute.For<IFileSystem>();
+        var file = Substitute.For<IFile>();
+        file.Exists(Arg.Any<string>()).Returns(true);
+        fileSystem.File.Returns(file);
+        return fileSystem;
+    }
+
+    private static IFileSystem MissingFiles()
+    {
+        var fileSystem = Substitute.For<IFileSystem>();
+        var file = Substitute.For<IFile>();
+        file.Exists(Arg.Any<string>()).Returns(false);
+        fileSystem.File.Returns(file);
+        return fileSystem;
     }
 
     private async Task<MovieRecord> SeedAsync(string pathSuffix)

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Playback;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -135,6 +136,55 @@ public sealed class ApiEndToEndPlaybackTests(ApiEndToEndFixture fixture) : ApiEn
             .ToListAsync(cancellationToken);
         events.ShouldHaveSingleItem().PlayedAt.ShouldBe(Clock.GetUtcNow(), TimeSpan.FromMilliseconds(1));
         (await ReadFormatAsync(id, cancellationToken)).ShouldBe("mkv");
+    }
+
+    [Fact]
+    public async Task PlayMovie_SelectedFileMissing_ReturnsSafeNotFoundWithoutProcessStartOrHistory()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        CreateOwnedImportFolder();
+        var missingFile = Path.Combine(ownedTempRoot.ShouldNotBeNull(), FolderName, "Absent.mkv");
+        var scanner = Substitute.For<IMediaLibraryScanner>();
+        scanner.ResolvePrimaryVideo(Arg.Any<LibraryPath>())
+            .Returns(new PrimaryVideo(new LibraryPath(missingFile), new MediaFormat("mkv")));
+        var starter = Substitute.For<IProcessStarter>();
+        var client = await StartHostAsync(
+            InstallOmdbStub,
+            services =>
+            {
+                services.RemoveAll<IMediaLibraryScanner>();
+                services.AddSingleton(scanner);
+                services.RemoveAll<IProcessStarter>();
+                services.AddSingleton(starter);
+            },
+            LocalPlaySettings(".mkv").Concat(LibraryRootSettings()));
+        var movie = await SeedAsync(MovieCatalogSeed.Create("Heat", "play-missing-file"));
+        var id = movie.Id.ShouldNotBeNull().Value;
+
+        // act
+        using var play = await client.PostAsync(PlayRoute(id), null, cancellationToken);
+        var body = await play.Content.ReadAsStringAsync(cancellationToken);
+
+        // assert
+        play.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        play.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        var problem = JsonSerializer.Deserialize<JsonElement>(body);
+        problem.GetProperty("title").GetString().ShouldBe("Not Found");
+        problem.TryGetProperty("detail", out _).ShouldBeFalse();
+        body.ShouldNotContain("Not found.");
+        body.ShouldNotContain(nameof(NotFoundException));
+        body.ShouldNotContain("Absent.mkv");
+        body.ShouldNotContain(ownedTempRoot);
+        body.ShouldNotContain(PlayerPath);
+        body.ShouldNotContain("127.0.0.1");
+        body.ShouldNotContain("X-Forwarded-For");
+        starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
+        await using var context = Fixture.Postgres.CreateMigratedContext();
+        var events = await context.PlaybackEvents.AsNoTracking()
+            .Where(playbackEvent => playbackEvent.MovieId == new MovieId(id))
+            .ToListAsync(cancellationToken);
+        events.ShouldBeEmpty();
     }
 
     private static async Task<int> ImportAsync(HttpClient client, string folder, CancellationToken cancellationToken)

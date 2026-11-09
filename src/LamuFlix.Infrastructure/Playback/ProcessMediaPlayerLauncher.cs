@@ -1,15 +1,23 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO.Abstractions;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.Playback;
 
-public sealed class ProcessMediaPlayerLauncher(IOptions<PlaybackOptions> options, IProcessStarter starter)
-: IMediaPlayerLauncher
+public sealed class ProcessMediaPlayerLauncher(
+    IOptions<PlaybackOptions> options,
+    IProcessStarter starter,
+    IFileSystem fileSystem)
+    : IMediaPlayerLauncher
 {
+    private const string FormatErrorKey = "format";
+
     public void EnsureEnabled()
     {
     }
@@ -20,16 +28,26 @@ public sealed class ProcessMediaPlayerLauncher(IOptions<PlaybackOptions> options
         ArgumentNullException.ThrowIfNull(format);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(starter);
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
-        var executable = ResolveExecutable(format)
-            ?? throw new InvalidOperationException(
-                $"No configured player supports format '{format.Extension}'. Configure Playback:Players for this format.");
+        if (!fileSystem.File.Exists(file.Value))
+        {
+            throw new NotFoundException();
+        }
+
+        var executable = ResolveExecutable(format) ?? throw UnmappedFormat(format);
 
         var startInfo = new ProcessStartInfo { UseShellExecute = true, FileName = executable };
         startInfo.ArgumentList.Add(file.Value);
 
         starter.Start(startInfo);
     }
+
+    private static ValidationException UnmappedFormat(MediaFormat format) =>
+        new(new Dictionary<string, string[]>
+        {
+            [FormatErrorKey] = [$"No configured player supports the '{format.Extension}' format."],
+        });
 
     private string? ResolveExecutable(MediaFormat format)
     {

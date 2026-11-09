@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO.Abstractions;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -195,7 +196,7 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     }
 
     [Fact]
-    public async Task PlayMovie_UnmappedFormat_FailsClosedWithGenericProblemAndNoProcessStart()
+    public async Task PlayMovie_UnmappedFormat_ReturnsUnprocessableEntityProblemWithoutProcessStartOrLeak()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -209,9 +210,17 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
         var payload = await response.Content.ReadAsStringAsync(ct);
 
         // assert
-        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
-        payload.ShouldNotContain("No configured player supports format");
+        var problem = JsonSerializer.Deserialize<JsonElement>(payload);
+        problem.GetProperty("title").GetString().ShouldBe("Unprocessable Entity");
+        problem.TryGetProperty("detail", out _).ShouldBeFalse();
+        problem.GetProperty("errors").GetProperty("format").EnumerateArray()
+            .Select(value => value.GetString() ?? string.Empty)
+            .ShouldContain(value => value.Contains("mp4", StringComparison.Ordinal));
+        payload.ShouldNotContain(PlayerPath);
+        payload.ShouldNotContain(ResolvedFile);
+        payload.ShouldNotContain(nameof(ValidationException));
         payload.ShouldNotContain(nameof(InvalidOperationException));
         starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
         await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
@@ -394,6 +403,16 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
         services.AddSingleton(starter);
         services.AddSingleton(history);
         services.AddSingleton(clock);
+        services.AddSingleton(ExistingFiles());
         services.AddSingleton<IStartupFilter, PlaybackPeerStartupFilter>();
+    }
+
+    private static IFileSystem ExistingFiles()
+    {
+        var fileSystem = Substitute.For<IFileSystem>();
+        var file = Substitute.For<IFile>();
+        file.Exists(Arg.Any<string>()).Returns(true);
+        fileSystem.File.Returns(file);
+        return fileSystem;
     }
 }
