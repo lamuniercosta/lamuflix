@@ -266,3 +266,79 @@ controls and prove the default, explicit off mode, parameter preservation and re
 paths within the three-script boundary. Native T012/T013 acceptance, all-three-script
 `dotnet-agent-harness` origin/main parity at T014 and remaining gates/review are still
 required before delivery. This amendment authorizes no CI speed claim or policy relaxation.
+
+## Amendment: slow tests in the eligible projects set the shard time (chore/test-suite-speed, 2026-11-08)
+
+Status: proposed, not yet ratified. It records a measured cause and fix. It changes no
+Decision item, safeguard, threshold, shard count or cap.
+
+### Cause
+
+With `coverage-analysis` off, every mutant runs every test in the eligible projects
+(`LamuFlix.UnitTests` and `LamuFlix.Evaluation`). A mutant run can be no shorter than the
+slowest single test in them. Each concurrency slot of a shard runs about 90 mutants one after
+another (about 2,880 tested Core mutants, 16 shards, concurrency 2 on the hosted runner), so
+a test that takes tens of seconds is paid about 90 times per shard. Two tests did exactly
+that:
+
+- `FileSystemLibraryFolderDiscoveryTests` gained a 1,000-level nested-folder test (DEV-333,
+  `98f34dd8`, on main from `8060c52f`, 2026-11-02). It built the chain on `MockFileSystem`, whose
+  cost grows with depth. Alone it took about 95 s locally.
+- `ReviewAffinityPropertyTests` and `TasteProfileProperties` (DEV-461, `2413e26b`, 2026-11-06)
+  called `Prop.ForAll(...).QuickCheckThrowOnFailure()` inside a `[Property]` method. FsCheck ran
+  the method body 100 times, and each body ran its own 100 cases: 10,000 cases per test instead
+  of 100.
+
+The caps were raised instead of removing the cause: 60 to 120 minutes (DEV-452, `b8ece93d`)
+and 120 to 150 (DEV-466, `17d9545c`).
+
+### Evidence
+
+Main CI, `stryker-core` shard wall minutes over all 16 shards:
+
+| Run | Commit | Includes | Shard minutes | Cancelled at cap |
+|---|---|---|---|---:|
+| 41514159345 (2026-11-02) | `525059a7` | neither test | 18 to 40 | 0 of 16 (cap 60) |
+| 41592251636 (2026-11-03) | `0f99aab8` | Depth1000 | 40 to 53 (the six that finished) | 10 of 16 (cap 60) |
+| 42269513156 (2026-11-06) | `98bf990c` | Depth1000 | 30 to 85 | 0 (cap 120) |
+| 42411565142 (2026-11-07) | `17d9545c` | both | 36 to 85 | 0 (cap 150) |
+| 42496677682 (2026-11-08) | `40a3e613` | both | 45 to 121 (15 finished) | 0 (cap 150) |
+
+Local, 16 logical cores, `40a3e613` against this branch:
+
+- `LamuFlix.UnitTests` whole project: 107 s before, 8 s after (2,907 tests pass).
+- Matched Stryker 5.0.0 mtp/off sample, `Domain/ReleaseYear.cs`, 30 tested mutants, concurrency 8,
+  additional-timeout 90000, both runs back to back on the same machine. Both found the same
+  2,830 tests. Before: 764 s wall, 94 s initial test run, 634 s of mutant testing. After: 193 s
+  wall, 24 s initial test run, 133 s of mutant testing. Both runs killed all
+  30 mutants (score 100 %), so the speed-up did not cost any kill.
+
+Other worktrees on the same machine may have been running tests during these samples, and the
+load was not measured. These are single samples, not CI proof.
+
+### Fix
+
+- The 1,000-level test now builds the same nested tree from NSubstitute `IDirectoryInfo`
+  substitutes and asserts the same exact result. The substitute is coupled to the enumeration
+  calls the discovery code makes, so a change to those calls fails the test loudly instead of
+  passing it silently. DEV-333 `spec.md:50` names `MockFileSystem` for this case; this is a
+  recorded departure from that wording, made for speed. The proof itself (depth, structure,
+  exact result) is unchanged.
+- The two DEV-461 classes use `[Fact]` around the existing `QuickCheckThrowOnFailure` call:
+  100 generated cases per property, the count the property was written for.
+
+### Rule for new tests in the eligible projects
+
+- A test in `LamuFlix.UnitTests` or `LamuFlix.Evaluation` runs once per mutant. Keep each one
+  well under a second. Anything slower belongs in `LamuFlix.IntegrationTests`, which Stryker
+  never runs.
+- Never call `Check.*` or `Prop.*.QuickCheck*` inside a `[Property]` method. Either return the
+  `Property` from `[Property]`, or call `QuickCheckThrowOnFailure` from a `[Fact]`.
+- Build deep or large inputs with fakes whose cost grows linearly with size.
+  `MockFileSystem` does not grow linearly with directory depth.
+
+### Not changed here
+
+The 16 shards, the 150-minute cap and concurrency stay as they are. Lowering the cap back toward
+60 minutes needs one measured main run that includes this fix (push or `workflow_dispatch`).
+That is a separate decision.
