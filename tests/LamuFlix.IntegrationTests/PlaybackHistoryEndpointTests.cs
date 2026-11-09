@@ -2,9 +2,11 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Infrastructure.Playback;
@@ -86,10 +88,16 @@ public sealed class PlaybackHistoryEndpointTests(ApiEndToEndFixture fixture) : I
 
         // act
         var response = await client.PostAsync(PlayRoute(id), null, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        var problem = JsonSerializer.Deserialize<JsonElement>(body);
+        problem.GetProperty("title").GetString().ShouldBe("Forbidden");
+        problem.TryGetProperty("detail", out _).ShouldBeFalse();
+        body.ShouldNotContain("LocalPlay is disabled");
+        body.ShouldNotContain(nameof(FeatureDisabledException));
         starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
         (await ReadEventsAsync(id)).ShouldBeEmpty();
     }

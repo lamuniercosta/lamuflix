@@ -83,6 +83,7 @@ public sealed class ApiEndToEndFactory : WebApplicationFactory<Program>
         services.RemoveAll<TimeProvider>();
         services.AddSingleton(settings.TimeProvider);
         configureTestServices?.Invoke(services);
+        services.AddSingleton<IStartupFilter, PlaybackPeerStartupFilter>();
         RemoveSweeper(services);
         RemoveEmbeddingStartupProbe(services);
     }
