@@ -369,3 +369,11 @@ Verdict: Adopt Keel's recommended dispositions for Ledger F1, Compass F4, and Co
 - **Compass F4 (`T004` missing real-Kestrel `HTTPS_PORTS` and mapped-listener rows) — RETAIN Low coverage blocker under FR-017:** Do not waive any row of the specified real-Kestrel startup matrix; add the missing `HTTPS_PORTS` and mapped-listener (`::ffff:127.0.0.1`) real-Kestrel startup cases (`specs/DEV-458/spec.md:83,161,177` FR-001/FR-017; `specs/DEV-458/tasks.md:56` T004; `specs/DEV-458/CONCLUSIONS.md:93,115,183` Q4.4, Q5.2, Q7.4).
 - **Compass F6 (bespoke real-Kestrel fixture plus shipped DI order assertion) — NO SEPARATE FINDING; fold into F2:** Keep the T004-authorized `LocalPlayRealKestrelHostFixture` and fold the shipped-composition DI registration-order regression assertion (proving `LocalPlayListenerValidationHostedService` is registered ahead of outbox/Rabbit/`StrandedMovieSweeper` and any other externally active hosted services) into the F2 remediation (`specs/DEV-458/tasks.md:56-57` T004–T005; `specs/DEV-458/CONCLUSIONS.md:115,191` Q5.2, Q7.6).
 
+---
+
+## Phase 6 step 1 — Constitution amendment ruling (2026-11-09)
+
+Verdict: Amend `.specify/memory/constitution.md` to v1.12.0 to codify the owner-approved bounded Principle VII exception for `DEV-458` (`LocalPlayListenerValidationHostedService` inspecting `Kestrel:Endpoints` and `Url` via `IConfiguration`),.
+
+- **Basis:** Owner Option A on spec PR #336 (`specs/DEV-458/CONCLUSIONS.md` Q9/Q10) approved the narrowly scoped Principle VII departure for the I1 Kestrel-section reader, and delivery PR #352 merged at `42ab6fc3`. Under `task-pipeline` Phase 6 step 1 (`Test-DoneCheck.ps1` check `c`), any ticket with a ticked owner checkbox naming the constitution requires `.specify/memory/constitution.md` on `origin/main` to name `DEV-458` (Governance, Compliance: `.specify/memory/constitution.md:765-768`).
+- **Scope of amendment (v1.11.0 → v1.12.0):** Principle VII retains the closed options-record enumeration and general prohibition on `IConfiguration` magic-string reads outside options binding, adding only the explicit exception for `LocalPlayListenerValidationHostedService` (`LamuFlix.Api`) to inspect `Kestrel:Endpoints` section presence and endpoint `Url` values before server bind when `Features:LocalPlay` is true (`DEV-458`; `ADR-0036`).

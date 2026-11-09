@@ -1,6 +1,32 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.11.0 → 1.12.0 (MINOR: Principle VII records the owner-approved bounded
+IConfiguration Kestrel/Endpoints/Url exception for DEV-458 LocalPlay listener startup
+validation; ADR 0036)
+
+Amendment 1.12.0 (2026-11-09), DEV-458 Phase 6 sweep alignment:
+  Authority: owner Option A on spec PR #336; delivery PR #352 merged at 42ab6fc3;
+    specs/DEV-458/CONCLUSIONS.md Q9/Q10 and Phase 6 step 1 ruling.
+  ADR: docs/adr/0036-local-launcher-trust-boundary.md (status updated to Accepted).
+  Modified principles:
+    VII. Configuration Isolation and Deterministic Time: retain the options-record list,
+       startup validation, process-launch, LocalPlay, and TimeProvider rules; record the
+       narrowly scoped owner-approved exception allowing
+       LocalPlayListenerValidationHostedService in LamuFlix.Api to inspect
+       IConfiguration section Kestrel:Endpoints and endpoint Url values solely to prove
+       pre-bind effective listeners loopback when Features:LocalPlay is true (DEV-458;
+       ADR 0036).
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/plan-template.md — principle-based Constitution Check; no edit needed.
+    .specify/templates/spec-template.md — no configuration-binding enumeration; no edit needed.
+    .specify/templates/tasks-template.md — generic ADR/constitution tasks; no edit needed.
+  Migration / follow-up:
+    LocalPlayListenerValidationHostedService already landed on main in PR #352. No schema
+    or code migration is required.
+
 Version change: 1.10.0 → 1.11.0 (MINOR: Principle I named-port enumeration gains
 ILibraryFileReader for DEV-456; ADR 0037)
 
@@ -474,7 +500,11 @@ for connection strings, API keys, library roots, or player paths.
 - All configuration is bound to options records (`LibraryOptions`, `PlaybackOptions`,
   `OmdbOptions`, `OmdbQuotaOptions`, `TmdbOptions`, `RabbitMqOptions`, `EnrichmentOptions`, `FeatureOptions`,
   `RecommendationOptions`, `ThumbnailOptions`) with data-annotation validation and `ValidateOnStart()`. Reading
-  `IConfiguration` by magic string outside options binding is forbidden.
+  `IConfiguration` by magic string outside options binding is forbidden, except for the
+  narrowly scoped owner-approved reader in `LocalPlayListenerValidationHostedService`
+  (`LamuFlix.Api`), which may inspect `Kestrel:Endpoints` section presence and endpoint `Url`
+  values solely to prove effective listeners loopback before server bind when
+  `Features:LocalPlay` is true (DEV-458; ADR-0036).
 - Local values live in `dotnet user-secrets` or `appsettings.Development.json` (git-ignored);
   containers receive them as environment variables.
 - Player mapping is configuration (`PlaybackOptions.Players[]`), never a database table.
@@ -767,4 +797,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.11.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-08
+**Version**: 1.12.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-09
