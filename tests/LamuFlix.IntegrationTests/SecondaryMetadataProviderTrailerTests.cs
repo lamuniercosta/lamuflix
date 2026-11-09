@@ -60,11 +60,8 @@ public sealed class SecondaryMetadataProviderTrailerTests(SecondaryMetadataProvi
         }
         """;
 
-    public ValueTask InitializeAsync()
-    {
-        probe.Reset();
-        return ValueTask.CompletedTask;
-    }
+    public async ValueTask InitializeAsync() =>
+        await probe.ResetAsync(TestContext.Current.CancellationToken);
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 

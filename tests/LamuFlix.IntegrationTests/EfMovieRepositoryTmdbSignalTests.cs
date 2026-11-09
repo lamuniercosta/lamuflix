@@ -17,8 +17,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(RepositoryMutationCollection))]
-public sealed class EfMovieRepositoryTmdbSignalTests(PostgresFixture fixture)
+public sealed class EfMovieRepositoryTmdbSignalTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
 
