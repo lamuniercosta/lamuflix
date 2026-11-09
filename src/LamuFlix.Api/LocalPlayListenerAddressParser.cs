@@ -45,14 +45,9 @@ public static class LocalPlayListenerAddressParser
     public static LocalPlayListenerClassification Classify(string? address)
     {
         var text = address?.Trim() ?? string.Empty;
-        if (text.Length == 0)
+        if (TryClassifyWithoutAuthority(text, out var early))
         {
-            return new(LocalPlayListenerKind.Unprovable, text);
-        }
-
-        if (text.StartsWith(UnixScheme + ":", StringComparison.OrdinalIgnoreCase))
-        {
-            return new(LocalPlayListenerKind.UnixSocket, text);
+            return early;
         }
 
         var authority = ReadAuthority(text);
@@ -65,6 +60,24 @@ public static class LocalPlayListenerAddressParser
         return string.IsNullOrEmpty(host)
             ? new(LocalPlayListenerKind.Unprovable, text)
             : ClassifyHost(host, text);
+    }
+
+    private static bool TryClassifyWithoutAuthority(string text, out LocalPlayListenerClassification classification)
+    {
+        if (text.Length == 0)
+        {
+            classification = new(LocalPlayListenerKind.Unprovable, text);
+            return true;
+        }
+
+        if (text.StartsWith(UnixScheme + ":", StringComparison.OrdinalIgnoreCase))
+        {
+            classification = new(LocalPlayListenerKind.UnixSocket, text);
+            return true;
+        }
+
+        classification = default;
+        return false;
     }
 
     public static bool IsProvenLoopback(IPAddress address)
@@ -148,6 +161,11 @@ public static class LocalPlayListenerAddressParser
             return new(LocalPlayListenerKind.Wildcard, text);
         }
 
+        return ClassifyLiteralOrHostname(host, text);
+    }
+
+    private static LocalPlayListenerClassification ClassifyLiteralOrHostname(string host, string text)
+    {
         if (IPAddress.TryParse(host, out var address))
         {
             return IsProvenLoopback(address)
