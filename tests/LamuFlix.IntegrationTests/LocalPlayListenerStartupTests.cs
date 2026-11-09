@@ -27,6 +27,16 @@ public sealed class LocalPlayListenerStartupTests
     private const string Ipv6LoopbackHost = "[::1]";
     private const string RemoteHost = "10.0.0.5";
 
+    private static readonly string[] ExternallyActiveServiceNames =
+    [
+        "OutboxRelayHostedService",
+        "EnrichmentConsumer",
+        "FeaturesConsumer",
+        "ThumbnailConsumer",
+        "OllamaEmbeddingStartupValidator",
+        nameof(StrandedMovieSweeper),
+    ];
+
     [Fact]
     public async Task StartAsync_LocalPlayEnabledWithLoopbackUrl_SucceedsAndServesTheProvenListener()
     {
@@ -188,6 +198,67 @@ public sealed class LocalPlayListenerStartupTests
 
         // assert
         result.Started.ShouldBeTrue(result.Failure?.ToString());
+    }
+
+    [Fact]
+    public async Task StartAsync_HttpsPortsShorthand_RefusesStartupBecauseTheShorthandBindsAWildcard()
+    {
+        // arrange
+        var settings = new Dictionary<string, string?>(LocalPlayRealKestrelHostFixture.LocalPlaySettings(true));
+        await using var fixture = LocalPlayRealKestrelHostFixture.Build(port =>
+        {
+            settings[WebHostDefaults.HttpsPortsKey] = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return settings;
+        });
+
+        // act
+        var result = await fixture.StartAsync();
+
+        // assert
+        result.Started.ShouldBeFalse();
+        result.RefusedByValidator.ShouldBeTrue(result.Failure?.ToString());
+        fixture.Binder.BoundPorts.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task StartAsync_UrlOverridesHttpsPortsShorthand_AcceptsTheLoopbackUrl()
+    {
+        // arrange
+        var settings = new Dictionary<string, string?>(LocalPlayRealKestrelHostFixture.LocalPlaySettings(true));
+        await using var host = LocalPlayRealKestrelHostFixture.Build(port =>
+        {
+            settings[WebHostDefaults.ServerUrlsKey] = $"http://{LoopbackHost}:{port}";
+            settings[WebHostDefaults.HttpsPortsKey] = (port + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return settings;
+        });
+
+        // act
+        var result = await host.StartAsync();
+
+        // assert
+        result.Started.ShouldBeTrue(result.Failure?.ToString());
+    }
+
+    [Fact]
+    public async Task StartAsync_MappedLoopbackUrl_IsNotRefusedByTheValidator()
+    {
+        // arrange
+        var settings = new Dictionary<string, string?>(LocalPlayRealKestrelHostFixture.LocalPlaySettings(true));
+        await using var host = LocalPlayRealKestrelHostFixture.Build(port =>
+        {
+            settings[WebHostDefaults.ServerUrlsKey] = $"http://[::ffff:127.0.0.1]:{port}";
+            return settings;
+        });
+
+        // act
+        var result = await host.StartAsync();
+
+        // assert
+        result.RefusedByValidator.ShouldBeFalse(result.Failure?.ToString());
+        if (!result.Started)
+        {
+            result.Failure.ShouldBeOfType<System.Net.Sockets.SocketException>();
+        }
     }
 
     [Fact]
@@ -526,23 +597,36 @@ public sealed class LocalPlayListenerStartupTests
     }
 
     [Fact]
-    public void Composition_ShippedHost_RegistersTheValidatorAheadOfTheSweeper()
+    public void Composition_ShippedHost_RegistersTheValidatorAheadOfExternallyActiveServices()
     {
         // arrange
-        using var factory = new ApiHostFactory(retainSweeper: true);
+        using var factory = new ApiHostFactory(retainSweeper: true, retainOutboxRelay: true);
 
         // act
         var hostedServices = factory.Services.GetServices<IHostedService>().ToArray();
+
+        // assert
         var validatorIndex = Array.FindIndex(
             hostedServices,
             service => service is LocalPlayListenerValidationHostedService);
-        var sweeperIndex = Array.FindIndex(
-            hostedServices,
-            service => service is StrandedMovieSweeper);
-
-        // assert
         validatorIndex.ShouldBeGreaterThanOrEqualTo(0);
-        sweeperIndex.ShouldBeGreaterThanOrEqualTo(0);
-        validatorIndex.ShouldBeLessThan(sweeperIndex);
+        var matched = hostedServices
+            .Select((_, index) => index)
+            .Where(index => IsExternallyActiveService(hostedServices[index]))
+            .ToArray();
+        matched.ShouldContain(index => hostedServices[index] is StrandedMovieSweeper);
+        matched.ShouldContain(index => hostedServices[index] is OutboxRelayHostedService);
+        foreach (var index in matched)
+        {
+            validatorIndex.ShouldBeLessThan(index, hostedServices[index].GetType().Name);
+        }
+    }
+
+    private static bool IsExternallyActiveService(IHostedService service)
+    {
+        var name = service.GetType().Name;
+        return ExternallyActiveServiceNames.Contains(name, StringComparer.Ordinal)
+            || (name.StartsWith("Inactive", StringComparison.Ordinal)
+                && name.Contains("Consumer", StringComparison.Ordinal));
     }
 }

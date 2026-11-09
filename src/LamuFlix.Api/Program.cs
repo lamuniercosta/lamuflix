@@ -28,6 +28,7 @@ builder.Services.AddOptions<DatabaseOptions>()
     .BindConfiguration(DatabaseOptions.SectionName)
     .ValidateDataAnnotations()
     .ValidateOnStart();
+builder.Services.AddHostedService<LocalPlayListenerValidationHostedService>();
 builder.Services.AddLamuFlixPersistence(builder.Configuration);
 builder.Services.AddMovieCatalog();
 builder.Services.AddMetadataProvider();
@@ -37,7 +38,6 @@ builder.Services.AddLamuFlixPlayback();
 builder.Services.AddLamuFlixThumbnails();
 builder.Services.AddLamuFlixHandlers();
 builder.Services.AddLamuFlixOutboxRelay();
-builder.Services.AddHostedService<LocalPlayListenerValidationHostedService>();
 builder.Services.AddHostedService<StrandedMovieSweeper>();
 builder.Services.AddCors(options => options.AddPolicy(
     CorsPolicyName,
