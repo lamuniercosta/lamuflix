@@ -24,6 +24,7 @@ export const handlers = [
   http.post('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
   http.delete('*/api/movies/:id/watchlist', () => new HttpResponse(null, { status: 204 })),
   http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 204 })),
+  http.get('*/api/playback/capabilities', () => HttpResponse.json(success.GetPlaybackCapabilities, { status: 200 })),
   http.get('*/api/genres', () => HttpResponse.json(success.GetGenres, { status: 200 })),
   http.get('*/api/collections', () => HttpResponse.json(success.GetCollections, { status: 200 })),
   http.get('*/api/people', () => HttpResponse.json(success.GetPeople, { status: 200 })),

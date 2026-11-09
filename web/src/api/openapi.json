@@ -946,6 +946,27 @@
         }
       }
     },
+    "/api/playback/capabilities": {
+      "get": {
+        "tags": [
+          "PlaybackEndpoints"
+        ],
+        "summary": "Report the effective local playback capability.",
+        "operationId": "GetPlaybackCapabilities",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaybackCapabilitiesDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/genres": {
       "get": {
         "tags": [
@@ -1934,6 +1955,17 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "PlaybackCapabilitiesDto": {
+        "required": [
+          "localPlayEnabled"
+        ],
+        "type": "object",
+        "properties": {
+          "localPlayEnabled": {
+            "type": "boolean"
           }
         }
       },

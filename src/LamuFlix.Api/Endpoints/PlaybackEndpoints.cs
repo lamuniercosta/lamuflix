@@ -3,11 +3,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Playback;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Api.Endpoints;
 
@@ -25,7 +27,22 @@ internal static class PlaybackEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+        api.MapGet("/playback/capabilities", GetPlaybackCapabilitiesAsync)
+            .WithName("GetPlaybackCapabilities")
+            .WithSummary("Report the effective local playback capability.")
+            .Produces<PlaybackCapabilitiesDto>();
+
         return api;
+    }
+
+    private static async Task<Ok<PlaybackCapabilitiesDto>> GetPlaybackCapabilitiesAsync(
+        IOptions<FeatureOptions> features,
+        IQueryHandler<GetPlaybackCapabilitiesQuery, PlaybackCapabilitiesResult> handler,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetPlaybackCapabilitiesQuery(features.Value.LocalPlay);
+        var result = await handler.HandleAsync(query, cancellationToken);
+        return TypedResults.Ok(new PlaybackCapabilitiesDto(result.LocalPlayEnabled));
     }
 
     private static async Task<NoContent> PlayMovieAsync(

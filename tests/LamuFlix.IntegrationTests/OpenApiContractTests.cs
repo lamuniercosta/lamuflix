@@ -55,6 +55,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "POST /api/movies/{id}/watchlist",
         "DELETE /api/movies/{id}/watchlist",
         "POST /api/movies/{id}/play",
+        "GET /api/playback/capabilities",
         "GET /api/genres",
         "GET /api/collections",
         "GET /api/people",
