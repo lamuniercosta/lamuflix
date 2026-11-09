@@ -125,7 +125,7 @@ public sealed partial class LibraryFileReader(
     private const ushort FileTypeMask = 0xF000;
     private const ushort RegularFileBits = 0x8000;
 
-    [LibraryImport("libc", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
+    [LibraryImport("libc", SetLastError = true, StringMarshalling = StringMarshalling.Utf8, EntryPoint = "statx")]
     private static partial int StatX(int dirfd, string pathname, int flags, uint mask, [Out] byte[] buf);
 
     [LibraryImport("libSystem.dylib", SetLastError = true, StringMarshalling = StringMarshalling.Utf8, EntryPoint = "lstat$INODE64")]
