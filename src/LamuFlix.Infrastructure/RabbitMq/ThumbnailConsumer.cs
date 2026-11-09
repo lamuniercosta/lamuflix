@@ -74,7 +74,7 @@ public sealed class ThumbnailConsumer(
                     await active.BasicQosAsync(0, options.Value.Prefetch, global: false, stoppingToken);
 
                     var consumer = new AsyncEventingBasicConsumer(active);
-                    consumer.ReceivedAsync += (_, delivery) => drain.Track(HandleAsync(active, delivery, stoppingToken));
+                    consumer.ReceivedAsync += (_, delivery) => drain.Track(() => HandleAsync(active, delivery, stoppingToken));
                     consumerTag = await active.BasicConsumeAsync(
                         RabbitMqTopology.ThumbnailQueue,
                         autoAck: false,

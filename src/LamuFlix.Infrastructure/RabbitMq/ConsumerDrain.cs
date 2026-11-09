@@ -11,9 +11,12 @@ public sealed class ConsumerDrain
     private int count;
     private TaskCompletionSource idle = Completed();
 
-    public Task Track(Task work)
+    // Takes the work unstarted and counts it before starting it. A handler can run synchronously
+    // for a while before it returns its task; counting only once that task exists let a shutdown
+    // in that window see nothing in flight and skip the drain.
+    public Task Track(Func<Task> start)
     {
-        ArgumentNullException.ThrowIfNull(work);
+        ArgumentNullException.ThrowIfNull(start);
         lock (gate)
         {
             if (count == 0)
@@ -24,14 +27,14 @@ public sealed class ConsumerDrain
             count++;
         }
 
-        return ObserveAsync(work);
+        return ObserveAsync(start);
     }
 
-    private async Task ObserveAsync(Task work)
+    private async Task ObserveAsync(Func<Task> start)
     {
         try
         {
-            await work;
+            await start();
         }
         finally
         {
@@ -62,11 +65,12 @@ public sealed class ConsumerDrain
         }
     }
 
+    // idle is complete whenever nothing is in flight, so it alone answers the question.
     public Task WhenIdleAsync(CancellationToken cancellationToken)
     {
         lock (gate)
         {
-            return count == 0 ? Task.CompletedTask : idle.Task.WaitAsync(cancellationToken);
+            return idle.Task.WaitAsync(cancellationToken);
         }
     }
 

@@ -960,7 +960,11 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
 
         await host.StartAsync(ct);
         await entered.Task.WaitAsync(ct);
-        var stopped = host.StopAsync(CancellationToken.None);
+        // A stop waits for the handler in flight, so only a stop whose deadline has already
+        // passed abandons it, closes the channel and lets the broker hand the message back.
+        using var expired = new CancellationTokenSource();
+        await expired.CancelAsync();
+        var stopped = host.StopAsync(expired.Token);
         try
         {
             (await probe.PollMessageCountAsync(RabbitMqTopology.RequestedQueue, ct)).ShouldBe(1U);
