@@ -89,10 +89,10 @@ Phase 10  T024          (canonical Phase 5 delivery)
 **Independent Test**: MovieDetailsView / MovieCard / navigation tests prove browser path and no launch POST from browser Play.
 **Order**: T009 → T012.
 
-- [ ] T009 [P] [US3] Add/extend failing coverage in `web/src/features/movie-details/MovieDetailsView.test.tsx` (and related) proving details Play opens the labelled player and does not call `POST /api/movies/{id}/play` (FR-001; Q3–Q4; recon-DEV-455:67)
-- [ ] T010 [US3] Wire `web/src/features/movie-details/MovieDetailsView.tsx` so primary Play opens the `web/src/features/playback` player and starts stream under gesture; keep navigation usable; one active video; focus labelled region (FR-001, FR-002; Q4)
-- [ ] T011 [US3] Extend `web/src/library/MovieCard.tsx` + `web/src/features/app-navigation/useAppNavigation.ts` (and tests `MovieCard.test.tsx` / `useAppNavigation.test.tsx`) so card Play navigates to details with player intent, opens the same player, attempts playback, and retains explicit Play if autoplay is blocked — without posting `/play` from that action; include cross-instance coverage that outgoing pause + source-clear completes before incoming source attaches and stale async work is rejected across the movie/card navigation swap (FR-001, FR-002, FR-010, FR-017; Q4; Sentry M3)
-- [ ] T012 [US3] Make T009/T011 green; assert browser Play path never issues local-launch POST (FR-001; Q3)
+- [X] T009 [P] [US3] Add/extend failing coverage in `web/src/features/movie-details/MovieDetailsView.test.tsx` (and related) proving details Play opens the labelled player and does not call `POST /api/movies/{id}/play` (FR-001; Q3–Q4; recon-DEV-455:67)
+- [X] T010 [US3] Wire `web/src/features/movie-details/MovieDetailsView.tsx` so primary Play opens the `web/src/features/playback` player and starts stream under gesture; keep navigation usable; one active video; focus labelled region (FR-001, FR-002; Q4)
+- [X] T011 [US3] Extend `web/src/library/MovieCard.tsx` + `web/src/features/app-navigation/useAppNavigation.ts` (and tests `MovieCard.test.tsx` / `useAppNavigation.test.tsx`) so card Play navigates to details with player intent, opens the same player, attempts playback, and retains explicit Play if autoplay is blocked — without posting `/play` from that action; include cross-instance coverage that outgoing pause + source-clear completes before incoming source attaches and stale async work is rejected across the movie/card navigation swap (FR-001, FR-002, FR-010, FR-017; Q4; Sentry M3)
+- [X] T012 [US3] Make T009/T011 green; assert browser Play path never issues local-launch POST (FR-001; Q3)
 
 ---
 

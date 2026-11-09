@@ -15,6 +15,8 @@ import type {
 import { useEnrichmentStatus } from './library/useEnrichmentStatus';
 import { retryAcceptedHandler, standingBrowseQuery } from './test/handlers';
 import { server } from './test/server';
+import { installMediaStubs } from './test/mediaElement';
+import { playerRegionLabel } from './features/playback/playerCopy';
 
 const recordedDetailsProps = vi.hoisted(() => [] as MovieDetailsViewProps[]);
 
@@ -506,20 +508,36 @@ describe('App layout shell', () => {
     },
   );
 
-  it('shows the inline Playback unavailable alert for a 403 after client-side details navigation', async () => {
-    server.use(http.post('/api/movies/{id}/play', () => new HttpResponse(null, { status: 403 })));
-    window.history.replaceState({}, '', '/');
-    renderApp();
-    await screen.findByText('Dune', {}, { timeout: 10_000 });
+  it('opens the in-page player from a card Play without posting the launch contract', async () => {
+    const posts: string[] = [];
+    server.use(
+      http.post('/api/movies/{id}/play', ({ request }) => {
+        posts.push(request.url);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const media = installMediaStubs();
+    try {
+      window.history.replaceState({}, '', '/?statuses=Pending');
+      renderApp();
+      await screen.findByText('Dune', {}, { timeout: 10_000 });
 
-    fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
-    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Play Dune' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Playback unavailable');
-    expect(alert).toHaveTextContent('Local playback is disabled on this server.');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+      expect(window.location.pathname).toBe('/movies/1');
+      expect(window.history.state).toEqual({
+        libraryReturnUrl: '/?statuses=Pending',
+        playerIntent: true,
+      });
+      const region = await screen.findByRole('region', { name: playerRegionLabel('Dune') });
+      expect(region).toBeInTheDocument();
+      await waitFor(() => expect(media.calls).toContain('play'));
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(posts).toEqual([]);
+    } finally {
+      media.restore();
+    }
   });
 
   it('debounces shell search without discarding other active filters', async () => {

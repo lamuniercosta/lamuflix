@@ -4,7 +4,9 @@ import {
   currentReturnUrl,
   isLibraryRoute,
   libraryReturnSearch,
+  openMoviePlayer,
   parseMovieId,
+  readPlayerIntent,
   readReturnUrl,
   useAppNavigation,
   validateLibraryReturnUrl,
@@ -142,5 +144,42 @@ describe('useAppNavigation', () => {
 
     expect(result.current.route.routeKey).toBeGreaterThan(before);
     expect(currentReturnUrl()).toBe('/?text=b');
+  });
+});
+
+describe('readPlayerIntent', () => {
+  it('accepts only an explicit true playerIntent flag', () => {
+    expect(readPlayerIntent({ playerIntent: true })).toBe(true);
+  });
+
+  it.each([[null], [undefined], [{}], [{ playerIntent: false }], [{ playerIntent: 'true' }]])(
+    'rejects %s',
+    (state) => {
+      expect(readPlayerIntent(state)).toBe(false);
+    },
+  );
+});
+
+describe('openMoviePlayer', () => {
+  it('navigates to the movie details and marks player intent without posting play', () => {
+    window.history.replaceState(null, '', '/?text=dune');
+
+    openMoviePlayer(7);
+
+    expect(window.location.pathname).toBe('/movies/7');
+    expect(readPlayerIntent(window.history.state)).toBe(true);
+    expect(currentReturnUrl()).toBe('/?text=dune');
+  });
+
+  it('keeps the active library query as the return URL', () => {
+    window.history.replaceState(null, '', '/?statuses=Pending');
+
+    openMoviePlayer(3);
+
+    expect(window.location.pathname).toBe('/movies/3');
+    expect(window.history.state).toEqual({
+      libraryReturnUrl: '/?statuses=Pending',
+      playerIntent: true,
+    });
   });
 });

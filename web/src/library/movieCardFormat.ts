@@ -1,16 +1,6 @@
 import type { components } from '../api/types';
-import { MovieDetailsError } from '../features/movie-details/movieDetailsApi';
 
 type MovieSummaryResponse = components['schemas']['MovieSummaryResponse'];
-
-export const PLAYBACK_FORBIDDEN_MESSAGE = 'Playback is not available for this title.';
-export const PLAYBACK_FAILED_MESSAGE = 'Playback could not start. Try again.';
-
-export function playErrorMessage(error: unknown): string {
-  return error instanceof MovieDetailsError && error.status === 403
-    ? PLAYBACK_FORBIDDEN_MESSAGE
-    : PLAYBACK_FAILED_MESSAGE;
-}
 
 export function canRetryEnrichment(status: MovieSummaryResponse['enrichmentStatus']): boolean {
   return status === 'NotFound' || status === 'Failed';
