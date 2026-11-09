@@ -21,6 +21,19 @@ public sealed class RabbitMqFixture : IAsyncLifetime
         TimeSpan.FromSeconds(8),
     ];
 
+    // Purge order: the TTL queues that dead-letter into the work queues go first, so nothing
+    // can expire into a queue that has already been purged.
+    private static readonly string[] PurgeOrder =
+    [
+        RabbitMqTopology.RetryQueue,
+        RabbitMqTopology.QuotaDeferredQueue,
+        RabbitMqTopology.FeaturesRetryQueue,
+        RabbitMqTopology.RequestedQueue,
+        RabbitMqTopology.FeaturesRequestedQueue,
+        RabbitMqTopology.DeadLetterQueue,
+        RabbitMqTopology.FeaturesDeadLetterQueue,
+    ];
+
     private const int MaxAttempts = 3;
     private const int MaxTopologyAttempts = 4;
 
@@ -68,6 +81,15 @@ public sealed class RabbitMqFixture : IAsyncLifetime
 
     public async Task ResetTopologyAsync(CancellationToken cancellationToken)
     {
+        // Deleting and re-declaring the seven quorum queues costs about 3 s, paid before every
+        // broker test. When the topology is intact, re-declaring it is a no-op and purging empties
+        // it in milliseconds. Any sign a test changed it (a queue deleted or re-declared with other
+        // arguments, a consumer still attached) falls back to the full rebuild.
+        if (await TryPurgeTopologyAsync(cancellationToken))
+        {
+            return;
+        }
+
         await using var connection = await CreateConnectionAsync(cancellationToken);
         await DeleteTopologyAsync(connection, cancellationToken);
         await EnsureTopologyAsync(cancellationToken);
@@ -114,6 +136,38 @@ public sealed class RabbitMqFixture : IAsyncLifetime
         }
 
         throw lastFailure ?? new InvalidOperationException("RabbitMqFixture topology declaration failed.");
+    }
+
+    private async Task<bool> TryPurgeTopologyAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using (var owner = new RabbitMqConnectionOwner(Wrap(Options)))
+            {
+                await NewTopology(owner).EnsureDeclaredAsync(cancellationToken);
+            }
+
+            await using var connection = await CreateConnectionAsync(cancellationToken);
+            await using var channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
+            foreach (var queue in PurgeOrder)
+            {
+                var state = await channel.QueueDeclarePassiveAsync(queue, cancellationToken);
+                if (state.ConsumerCount > 0)
+                {
+                    return false;
+                }
+
+                await channel.QueuePurgeAsync(queue, cancellationToken);
+            }
+
+            return true;
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Deliberately swallowed: the full rebuild below is the original reset and either
+            // restores the topology or throws its own failure.
+            return false;
+        }
     }
 
     private static async Task DeleteTopologyAsync(IConnection connection, CancellationToken cancellationToken)

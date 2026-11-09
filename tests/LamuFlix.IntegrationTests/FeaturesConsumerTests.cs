@@ -30,8 +30,7 @@ namespace LamuFlix.IntegrationTests;
 /// DEV-414 T011: live-broker proof of the features consumer delivery, retry, dead-letter, shutdown
 /// requeue, failed publication, malformed-payload, and sanitized-log behavior.
 /// </summary>
-[Collection(nameof(RabbitMqCollection))]
-public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IAsyncLifetime
+public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>, IAsyncLifetime
 {
     private static readonly DateTimeOffset ComputedAt = new(2026, 10, 23, 9, 30, 0, TimeSpan.Zero);
     private static readonly TimeSpan RetryResidence = TimeSpan.FromSeconds(30);

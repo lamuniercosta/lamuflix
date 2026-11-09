@@ -30,8 +30,7 @@ using Xunit;
 
 namespace LamuFlix.IntegrationTests;
 
-[Collection(nameof(RabbitMqCollection))]
-public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLifetime
+public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFixture<RabbitMqFixture>, IAsyncLifetime
 {
     private static readonly TimeSpan ClaimLease = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan ShortRetryTtl = TimeSpan.FromMilliseconds(1500);
@@ -58,7 +57,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IAsyncLif
         await host.StopAsync(CancellationToken.None);
 
         host.Repository.Find(movie).ShouldNotBeNull().EnrichmentAttempts.ShouldBe(2);
-        (await probe.PollGetAsync(RabbitMqTopology.DeadLetterQueue, ct)).ShouldBeNull();
+        (await probe.PollQuietGetAsync(RabbitMqTopology.DeadLetterQueue, ct)).ShouldBeNull();
     }
 
     [Fact]
