@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO.Abstractions;
+using System.IO.Abstractions.TestingHelpers;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
@@ -15,6 +17,9 @@ namespace LamuFlix.UnitTests.Playback;
 
 public sealed class PlaybackServiceCollectionExtensionsTests
 {
+    private const string PlayerPath = "/players/vlc.exe";
+    private const string SelectedFile = "/library/film.mkv";
+
     [Theory]
     [InlineData(true, typeof(ProcessMediaPlayerLauncher))]
     [InlineData(false, typeof(DisabledMediaPlayerLauncher))]
@@ -38,13 +43,13 @@ public sealed class PlaybackServiceCollectionExtensionsTests
         var services = NewServices(true, new Dictionary<string, string?>
         {
             ["Playback:Players:0:Name"] = "vlc",
-            ["Playback:Players:0:ExecutablePath"] = @"C:\Players\vlc.exe",
+            ["Playback:Players:0:ExecutablePath"] = PlayerPath,
             ["Playback:Players:0:Formats:0"] = "mkv",
         });
         services.AddLamuFlixPlayback();
         var starter = Substitute.For<IProcessStarter>();
         services.AddSingleton(starter);
-        var file = new LibraryPath(@"C:\library\film.mkv");
+        var file = new LibraryPath(SelectedFile);
 
         // act
         using var provider = services.BuildServiceProvider();
@@ -52,9 +57,34 @@ public sealed class PlaybackServiceCollectionExtensionsTests
 
         // assert
         starter.Received(1).Start(Arg.Is<ProcessStartInfo>(psi =>
-            psi.FileName == @"C:\Players\vlc.exe"
+            psi.FileName == PlayerPath
             && psi.ArgumentList.Count == 1
             && psi.ArgumentList[0] == file.Value));
+    }
+
+    [Fact]
+    public void AddLamuFlixPlayback_EnabledLauncher_ResolvesExistingFileSystemAndFailsNotFoundForMissingFile()
+    {
+        // arrange
+        var services = NewServices(true, new Dictionary<string, string?>
+        {
+            ["Playback:Players:0:Name"] = "vlc",
+            ["Playback:Players:0:ExecutablePath"] = PlayerPath,
+            ["Playback:Players:0:Formats:0"] = "mkv",
+        });
+        services.AddLamuFlixPlayback();
+        var starter = Substitute.For<IProcessStarter>();
+        services.AddSingleton(starter);
+
+        // act
+        using var provider = services.BuildServiceProvider();
+        var launcher = provider.GetRequiredService<IMediaPlayerLauncher>();
+        var exception = Should.Throw<NotFoundException>(
+            () => launcher.Launch(new LibraryPath("/library/absent.mkv"), new MediaFormat("mkv")));
+
+        // assert
+        exception.Message.ShouldBe("Not found.");
+        starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
     }
 
     [Theory]
@@ -87,6 +117,10 @@ public sealed class PlaybackServiceCollectionExtensionsTests
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
+        services.AddSingleton<IFileSystem>(new MockFileSystem(new Dictionary<string, MockFileData>
+        {
+            [SelectedFile] = new MockFileData("video"),
+        }));
         services.AddLamuFlixOptions();
         return services;
     }

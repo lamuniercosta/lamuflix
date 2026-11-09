@@ -1,4 +1,5 @@
 using System;
+using System.IO.Abstractions;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +24,8 @@ public static class PlaybackServiceCollectionExtensions
 
             var playback = provider.GetRequiredService<IOptions<PlaybackOptions>>();
             var starter = provider.GetRequiredService<IProcessStarter>();
-            return new ProcessMediaPlayerLauncher(playback, starter);
+            var fileSystem = provider.GetRequiredService<IFileSystem>();
+            return new ProcessMediaPlayerLauncher(playback, starter, fileSystem);
         });
 
         return services;
