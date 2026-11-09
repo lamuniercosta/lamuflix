@@ -39,6 +39,10 @@ public sealed class OllamaEmbeddingProbe : IAsyncLifetime
 
     public int RequestCount => Server.LogEntries.Count();
 
+    public int RequestCountFor(string marker) =>
+        Server.LogEntries.Count(entry =>
+            entry.RequestMessage?.Body?.Contains(marker, StringComparison.Ordinal) == true);
+
     public string LastRequestBody =>
         Server.LogEntries.Last().RequestMessage?.Body
         ?? throw new InvalidOperationException("No request was recorded.");
