@@ -13,7 +13,7 @@ import {
 } from '../../ui/icons';
 import { readPlayerIntent, readReturnUrl } from '../app-navigation/useAppNavigation';
 import BrowserPlayer from '../playback/BrowserPlayer';
-import { OPEN_LOCAL_COPY, openLocalLabel } from '../playback/playerCopy';
+import { OPEN_LOCAL_COPY, openLocalLabel, playLabel } from '../playback/playerCopy';
 import { movieStreamUrl } from '../playback/streamSource';
 import { usePlaybackCapabilities } from '../playback/usePlaybackCapabilities';
 import { formatRating } from '../../library/movieCardFormat';
@@ -600,7 +600,12 @@ function MovieDetailsViewInner({
           {metadata?.synopsis && <p className="details-synopsis">{metadata.synopsis}</p>}
 
           <div className="details-actions">
-            <button type="button" className="lamu-action-primary" onClick={handlePlay}>
+            <button
+              type="button"
+              className="lamu-action-primary"
+              aria-label={playLabel(movie.title)}
+              onClick={handlePlay}
+            >
               <PlayFilledIcon size={18} />
               Play
             </button>

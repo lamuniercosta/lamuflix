@@ -1,8 +1,3 @@
-/**
- * jsdom gaps Media Chrome needs: it reads ResizeObserver, matchMedia and the
- * media element track lists, none of which jsdom implements.
- */
-
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}

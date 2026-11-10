@@ -1,9 +1,3 @@
-/**
- * Deterministic media element behaviour for player tests: jsdom does not
- * implement play/pause/load, paused or seekable, and the player tests need to
- * observe the exact order of teardown and attach calls.
- */
-
 export interface DeferredPlay {
   resolve: () => void;
   reject: (error: unknown) => void;
