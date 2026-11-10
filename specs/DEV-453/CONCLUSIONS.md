@@ -156,3 +156,51 @@ Recorded in `specs/DEV-453/CONCLUSIONS.md`.
 **Answer:** [from Patron] DEV-453 Q12 ruling: Confirmed and ratified — Phase 2 grill is closed at Q12/12 with shared understanding across Q3-Q11, no remaining planning decisions, and no structural blocker or constitution departure; approve the four-file planning handoff (specs/DEV-453/brief.md, specs/DEV-453/ASSUMPTIONS.md, specs/DEV-453/CONCLUSIONS.md, and docs/adr/0038-subtitle-provider-and-sidecar-boundary.md) for Keel to write and commit on feature/453-spec.
 
 **Implications:** Shared understanding reached at the question cap. Quill may draft spec/plan/tasks using this brief, vocabulary and proposed ADR. Plan challenge/freeze, Gate 1, implementation, runtime acceptance and merge clearance remain separate future states. Historical recon stops remain in this append-only record; Q3 supersedes their planning block.
+
+## Analyze round 1 adjudication follow-up (2026-11-09)
+
+This is post-grill consistency adjudication, not Q13 or a reopening of the 12-question grill. Historical Q1-Q12 remain unchanged. This addendum supersedes conflicting current-status claims in the original brief.
+
+**Question from Keel:** Adjudicate four items against the brief and constitution: (1) transport malformed-ID 400 versus FluentValidation 422; (2) optional-provider health and telemetry without network or quota consumption; (3) meaningful ValidateOnStart validation versus missing/invalid acquisition settings returning prepare-time 409 without startup failure or guessed numeric defaults; (4) authorize append-only root CONTEXT.md entries for the five settled terms, or identify a necessary constitution departure. Facts are only recon-DEV-453; root glossary coverage is lines 52-56. No files to be edited by Patron; supply cited rulings before Keel changes the brief.
+
+**Initial Patron answer:** All four approved with zero departures. Initial configuration proposal included positive numeric defaults and allowed enabled invalid acquisition settings to fail startup. Keel did not accept that configuration proposal; it contradicted Q8/Q10. Initial health answer also contained alternatives requiring clarification. The corrected answer below supersedes those proposals.
+
+**Follow-up question from Keel:** Correct C4/VII because positive defaults and startup rejection of invalid acquisition settings conflict with explicit Q8/Q10. Provide a concrete compliant design preserving both constraints or classify a necessary narrow constitution departure as an unresolved owner checkbox. For C2, settle one policy: always Healthy with sanitized local readiness metadata and zero network, superseding Degraded/Unhealthy alternatives. C1 and append-only glossary rulings are accepted.
+
+**Corrected Patron answer (verbatim):**
+# DEV-453 — Analyze Decision Adjudication Rulings (from Patron, Corrected)
+
+**Verdict**: Items 1 (C1/V), 2 (C2/VI), and 4 (C4/VIII) are approved with zero constitutional departure; Item 3 (C4/VII) is classified as `blocked: structural` requiring one narrowly scoped owner structural checkbox on the spec PR (Gate 1 stays closed until the user checks it).
+
+---
+
+## 1. C1 / Principle V — Transport Malformed Route ID (`400`) vs Command/Query Validation (`422`)
+
+- **Verdict**: Confirmed (accepted by Keel) — transport-level malformed/unparseable route ID remains `400 Bad Request` with sanitized `ProblemDetails` + `traceId`, while validly bound command/query validation uses the FluentValidation decorator and maps `ValidationException` to `422 Unprocessable Entity` (never remapped to `400`).
+- **Cited Basis**: `.specify/memory/constitution.md:451-466` (Principle V) and `specs/DEV-453/CONCLUSIONS.md` Q6 / `specs/PRODUCT.md` §5 Care Item #4.
+
+---
+
+## 2. C2 / Principle VI — Single Settled Optional-Provider Health Check Policy
+
+- **Verdict**: Confirmed as one single policy — register the subtitle provider health check in `ServiceDefaults` / `Infrastructure` health-check wiring and all telemetry/log identifiers (`movie.id`) in `TelemetryConstants`; the subtitle provider health check performs zero external network or quota-consuming calls and **always reports `HealthStatus.Healthy`** with sanitized local acquisition-readiness metadata (`ready` vs `disabled_or_unconfigured`), even when `SaveEnabled` is `true` and acquisition settings are missing or invalid, so `/health/ready` and existing-track serving are never degraded or blocked (superseding any `Degraded`/`Unhealthy` alternative).
+- **Cited Basis**:
+  - **Constitution Principle VI & Quality Gate (`.specify/memory/constitution.md:478-490, 623-624`)**: Every new external dependency registers a health check via `ServiceDefaults` / `Infrastructure`, and all telemetry names live in `TelemetryConstants` with `movie.id` on processing/error log events.
+  - **Q5 / Q8 / Q10 Alignment (`specs/DEV-453/brief.md:31, 52`, `recon-DEV-453:18`)**: Making no external HTTP calls protects the 5 downloads/24h/IP quota and avoids inventing an unverified ping endpoint, while always returning `Healthy` with sanitized local readiness state ensures disabled or unconfigured/invalid acquisition never prevents container readiness (`/health/ready`) or existing-track serving.
+
+---
+
+## 3. C4 / Principle VII — Startup Validation (`ValidateOnStart`) vs Q10 Prepare-Time `409`
+
+- **Verdict**: `blocked: structural — Approve a narrowly scoped Principle VII departure for SubtitlesOptions / OpenSubtitlesOptions so that missing or invalid subtitle acquisition settings (when no guessed numeric defaults are supplied) do not fail host startup via ValidateOnStart(), and instead are evaluated at POST /movies/{id}/subtitles/prepare to return 409 Conflict (preserving read-only demo startup and existing-track serving)?`
+- **Cited Basis**:
+  - **Constitution Principle VII & Quality Gate (`.specify/memory/constitution.md:500-503, 625-626`)**: Mandates that all configuration is bound to options records with data-annotation validation and `ValidateOnStart()`, and that new options records are validated at startup.
+  - **Settled Brief & Q8/Q10 Rulings (`specs/DEV-453/brief.md:41-52`, `specs/DEV-453/CONCLUSIONS.md` Q8, Q10)**: Explicitly forbid guessed numeric safety defaults (`MaxDownloadBytes`, `RequestTimeout`, `DownloadAllowedHosts`, `BaseUrl`, `UserAgent`, `ApiKey`, `PreferredLanguages`) and require that missing or invalid acquisition settings yield `409 Conflict` at prepare time *without* preventing startup or existing-track serving.
+  - **Charter §2.3 Escalation Rule (`specs/PRODUCT.md` §5 line 39)**: Because meaningful data-annotation validation executed by `ValidateOnStart()` necessarily throws `OptionsValidationException` at host startup when required bounds or URLs are missing or invalid (unless numeric defaults are invented or startup validation is suppressed/deferred to prepare time), satisfying both Q8/Q10 (no guessed numeric defaults + missing/invalid acquisition settings never block startup) and Principle VII (`ValidateOnStart()` with data annotations) is a genuine conflict. Per §2.3(b), Patron judges deferring acquisition-setting validation to prepare-time `409` necessary so an optional subtitle provider never crashes host startup or read-only serving, and escalates this narrowly scoped Principle VII departure as an unresolved owner structural checkbox on the spec PR (Gate 1 remains closed until user approval).
+
+---
+
+## 4. C4 / Principle VIII — Root `CONTEXT.md` Domain Terms
+
+- **Verdict**: Confirmed (accepted by Keel) — deliberately authorize an append-only update to repository-root `CONTEXT.md` adding the five settled domain terms (`Ordered language preferences`, `Selected subtitle`, `Sidecar`, `Preparation`, `Existing track`) with their `term / definition / _Avoid_:` entries, preserving all existing `CONTEXT.md` entries, under `specs/PRODUCT.md` §5 Care Item #6 and superseding only the Q12 file-bound restriction (`no root glossary rewrite`).
+- **Cited Basis**: `.specify/memory/constitution.md:522, 537, 629` (Principle VIII), `specs/PRODUCT.md` §5 Care Item #6, and `recon-DEV-453:52-56`.

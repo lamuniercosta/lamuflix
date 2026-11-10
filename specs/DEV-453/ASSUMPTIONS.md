@@ -11,3 +11,5 @@ These are explicit Patron-approved choices, not unverified technical facts or us
 - [assumed] Q11: Two review/remediation rounds, blocking High/Medium/security/contract/ticket failures and explicit disposition for every Low. The cap never grants clearance.
 
 No assumption asserts current live provider success, unlimited quota, a download URL lifetime, redistribution rights, language-suffix autodetection, dependency delivery or runtime acceptance. Phase B verification tasks remain as recorded in Q9. No unresolved structural checkbox was identified by Patron at Q12.
+
+- [assumed] Analyze adjudication C2/VI: The optional subtitle provider health check always reports Healthy with sanitized local acquisition-readiness metadata and zero network calls; it proves local optional-service state, not provider reachability. See corrected Patron ruling in CONCLUSIONS.md. C4/VII remains an unresolved owner structural decision, not an assumption or approval.

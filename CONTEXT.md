@@ -204,3 +204,23 @@ _Avoid_: Unavailable signal, failed lookup
 **Trailer key**
 The validated YouTube video identifier selected during metadata enrichment and stored with enriched movie metadata so the Movie Details page can embed a privacy-friendly trailer. Absence is null (including existing rows) and hides the Trailer section. Never a full provider URL.
 _Avoid_: trailer URL, YouTube link, video URL, embed URL (when meaning the stored value)
+
+**Ordered language preferences**
+Explicit server-configured provider-language codes in selection priority order; no invented default language.
+_Avoid_: browser Accept-Language as authority, silent default language
+
+**Selected subtitle**
+Compatible SRT in the first configured preferred language that has an eligible result.
+_Avoid_: multi-language pack, best overall subtitle across all languages
+
+**Sidecar**
+Subtitle file alongside the primary video with exact basename: `Film.mkv` → `Film.srt`.
+_Avoid_: language-suffixed names (`Film.eng.srt`) as BS Player autodetection
+
+**Preparation**
+Explicit per-movie acquisition/save operation, separate from byte-range video streaming.
+_Avoid_: auto-download on stream, background subtitle job
+
+**Existing track**
+An authorized exact-basename SRT already on library storage; its language may be unknown.
+_Avoid_: treating missing language as noMatch for an already-present file

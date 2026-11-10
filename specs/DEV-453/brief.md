@@ -119,3 +119,98 @@ Full question and answer text, cited bases, rationale and implications are appen
 | Q12 | Shared understanding, grill closed; four-file handoff approved, no structural departure |
 
 ASSUMPTIONS.md records the policy/taste choices tagged [assumed]. Quill must use this vocabulary and proposed ADR 0038 consistently. New decision changes are recorded in this brief before any corresponding spec/plan/tasks repair.
+
+## Authoritative analyze adjudication addendum (2026-11-09)
+
+Current status: **blocked: structural**. This addendum supersedes the original no-structural-blocker/no-constitution-departure assertions and the Q12 feature-local-only file restriction. It does not reopen the grill or grant analyze clean, PLAN FROZEN, Gate 1, implementation or runtime clearance. Full questions, superseded proposal, correction request and corrected cited Patron rulings are appended in CONCLUSIONS.md under Analyze round 1 adjudication follow-up.
+
+1. **C1/V resolved:** Malformed/unparseable transport route ID remains explicit 400 ProblemDetails with traceId; it must be deliberately implemented rather than trusting an int route constraint. Validly bound commands/queries use sealed handlers and FluentValidation decorators; ValidationException remains 422 in the single exception mapper. Document/test the distinct validation 422 contract as well as the existing approved statuses. Basis: constitution Principle II and V:451-466; Q6; Patron corrected item 1.
+2. **C2/VI resolved:** Subtitle-provider health registration uses ServiceDefaults/Infrastructure-owned wiring, zero external HTTP/network calls and no quota-consuming operations. This optional-provider check always reports Healthy with sanitized local metadata ready or disabled_or_unconfigured, including enabled but invalid/missing acquisition config. This does not assert upstream reachability or alter other dependency health results. Names belong in TelemetryConstants; processing/error logs carry movie id. Add coverage for the complete enabled/disabled/configured/invalid matrix and zero provider calls. Basis: Principle VI:478-490/623-624; Q5/Q8/Q10; Patron corrected item 2.
+3. **C4/VII unresolved owner decision:** blocked: structural — Approve a narrowly scoped Principle VII departure for SubtitlesOptions / OpenSubtitlesOptions so missing or invalid subtitle acquisition settings, with no guessed numeric defaults, do not fail host startup via ValidateOnStart(), and are instead evaluated at POST /movies/{id}/subtitles/prepare to return 409 Conflict, preserving read-only startup and existing-track serving? Put this exact unresolved checkbox in the spec and spec PR. Gate 1 stays closed until the user approves; Patron cannot close it. Preserve typed options and secrets isolation. Do not implement or amend the constitution on assumed approval. If approved, require the corresponding scoped constitution/governance amendment through its normal approval lifecycle before affected feature implementation. Principle I port enumeration governance remains independently required. Basis: Principle VII:500-503/625-626; Q8/Q10; role section 2.3(b); Patron corrected item 3.
+4. **C4/VIII resolved:** Authorize append-only repository-root CONTEXT.md entries for Ordered language preferences, Selected subtitle, Sidecar, Preparation and Existing track, using settled term/definition/avoid meanings and preserving all prior content. Schedule in the same PR introducing the terms; the spec PR must not introduce them while deferring this compliance to a later delivery PR. Quill may append these five documentation entries as a specifically authorized planning compliance edit; no root glossary rewrite. This supersedes only the original Q12 file restriction. Basis: Principle VIII:522/537/629; care item 6; recon-DEV-453:52-56; Patron corrected item 4.
+
+Scope remains the same subtitle deliverable. No invented numeric defaults, new packages or production changes are authorized by this adjudication. The structural checkbox is an owner decision and is not resolved by recording it.
+
+## Authoritative Plan Challenge adjudication addendum (2026-11-10)
+
+Recorded by Keel from the consolidated Patron response to Phase 2 step 6. These cited rulings govern the one numbered Quill repair list and supersede earlier implementation-name and underspecified mechanism language only as stated below. Planning repairs remain pending independent reread; no PLAN FROZEN, analyze-clean, Gate 1, implementation, runtime, or merge clearance is granted. The original C4/VII owner checkbox remains verbatim and unchecked. No new owner checkbox is added.
+
+# DEV-453 — Phase 2 Step 6 Plan Challenge Adjudication Rulings (from Patron)
+
+**Overall Verdict**: All seven adjudication items across `findings-DEV-453-Sentry`, `findings-DEV-453-Ledger`, and `findings-DEV-453-Compass` are settled below with cited bases. **No new owner checkbox is introduced.** The existing unresolved C4/VII owner structural checkbox (`specs/DEV-453/spec.md:12`) remains the sole Gate 1 blocker; **Gate 1 stays closed and no structural approval can be inferred.**
+
+---
+
+## 1. Sentry F1 & F2 — Redirect Prohibition, Pre-Request Host/HTTPS Validation (Search + Download), and T001 STOP
+
+- **Verdict**: **Fix in spec/plan/tasks (blocks T001/T008)** — Prohibit automatic HTTP redirect following (`AllowAutoRedirect = false`) on the OpenSubtitles HTTP client; validate `https://` scheme and membership in the explicit verified provider-host allowlist **before issuing every request** (covering both configured search `Subtitles:OpenSubtitles:BaseUrl` and temporary `/download` URLs); **reject all HTTP redirects (`3xx`) outright as `502`** rather than inventing an unverified numeric hop-count cap; require Phase B pickup `T001` to verify the exact OpenSubtitles API host and download host(s) with a hard **STOP** before `T008` if unverified or if live protocol evidence requires redirect handling.
+- **Cited Basis**:
+  - **Challenger evidence**: `findings-DEV-453-Sentry` F1 (`lines 21–39`) and F2 (`lines 41–52`) identify that default `HttpClientHandler` follows redirect hops before caller host checks (SSRF vector) and that `Subtitles:OpenSubtitles:BaseUrl` lacked explicit HTTPS + host-allowlist bounds.
+  - **Brief & Spec authority**: `specs/DEV-453/brief.md:48, 52, 85, 89`, `specs/DEV-453/CONCLUSIONS.md` Q8/Q9/Q10 (`lines 108, 120, 132`), `specs/DEV-453/spec.md:34, 191, 194, 199` (`FR-009`, `FR-012`, `FR-017`), `recon-DEV-453:18`, and `AGENTS.md` Non-negotiables (*"Never hardcode a threshold"*). Because `/download` returns a temporary download URL in its JSON payload (`recon-DEV-453:18`), rejecting `3xx` redirects outright eliminates redirect-chain SSRF without inventing a hardcoded hop threshold.
+
+---
+
+## 2. Sentry F4, F5 & F6 (plus F3 route-capture note) — Serve Anti-Sniff Headers, Client Abort vs Provider Timeout, and Personal-Scale Concurrency/Crash Dispositions
+
+- **Verdict**:
+  1. **Sentry F4 (Fix in spec/tasks T011/T012)**: On `GET /movies/{id}/subtitles`, require response headers `X-Content-Type-Options: nosniff` and `Content-Disposition: attachment; filename="<safe-ascii-or-rfc5987-basename>.srt"` derived strictly from the server-resolved safe basename (never exposing directory paths), and assert both headers in `T011`.
+  2. **Sentry F5 (Fix in spec/tasks T007/T008/T011/T012)**: Distinguish caller disconnect (`HttpContext.RequestAborted`) from upstream provider timeout (`RequestTimeout` / internal timeout token): only upstream provider timeout maps to `504 Gateway Timeout` (`FR-007`), whereas client request cancellation propagates as request cancellation (never logged or mapped as `504`), without promising rollback after an atomic sidecar creation (`FR-011`) has already committed.
+  3. **Sentry F6 (Accepted nonblocking risk in plan/tasks T009/T012)**: Record (a) concurrent pre-create double download (two concurrent prepare requests both pass the initial absent-sidecar check and download before one wins atomic create and the loser resolves to `alreadyPresent`) and (b) process-crash orphan temp files (when the process dies abruptly between temp file creation and atomic move, outside normal cancellation cleanup) as **accepted nonblocking risks** at personal-library scale; do **not** add per-movie locking or background temp-janitor scope.
+  4. **Sentry F3 alignment (`findings-DEV-453-Sentry:54–66`)**: Ensure `T012`/`T011` explicitly state that the route captures the raw `{id}` segment (or custom binding) and parses it so a non-integer malformed ID deterministically returns `400 ProblemDetails + traceId` (`FR-007`) rather than falling through an `{id:int}` route constraint to `404`.
+- **Cited Basis**:
+  - **Challenger evidence**: `findings-DEV-453-Sentry` F3 (`lines 54–66`), F4 (`lines 68–75`), F5 (`lines 77–85`), and F6 (`lines 87–99`).
+  - **Brief & Spec authority**: `specs/DEV-453/brief.md:15, 29, 63, 83–85, 127`, `specs/DEV-453/CONCLUSIONS.md` Q6/Q8/Q10/Q11 & C1/V (`lines 84, 108, 132, 144, 179`), `specs/DEV-453/spec.md:30–31, 34, 189–190, 193` (`FR-007`, `FR-008`, `FR-011`), and `specs/DEV-453/plan.md:29` (personal-library scale; frozen Q3–Q10 scope; Q11 every-Low disposition bar).
+
+---
+
+## 3. Ledger M1 — Retain Exact Existing C4/VII Owner Checkbox and Q10; Include Options Enumeration in Eventual Principle VII Amendment
+
+- **Verdict**: **Retain existing C4/VII checkbox verbatim; reject Option B alternative; expand post-approval governance note** — Keep the exact unresolved C4/VII owner structural checkbox in `specs/DEV-453/spec.md:12` and settled Q10 (`brief.md:52, 129`) unchanged; do **not** reopen or add Ledger's conditional-`ValidateOnStart` alternative (which would fail host startup when `SaveEnabled=true` and acquisition settings are invalid, contradicting Q10). In `plan.md` and `tasks.md` (`T001c`/`T003`), record that if/when the owner approves C4/VII, the resulting scoped Principle VII constitution/governance amendment must also append the new subtitle options record(s) to Principle VII's closed options-record list (`.specify/memory/constitution.md:500–507`).
+- **Cited Basis**:
+  - **Challenger evidence**: `findings-DEV-453-Ledger` M1 (`lines 10–12`).
+  - **Brief, Recon & Constitution authority**: `specs/DEV-453/brief.md:52, 129`, `specs/DEV-453/CONCLUSIONS.md` Q8/Q10 & Corrected Item 3 (`lines 108, 132, 193–199`), `specs/DEV-453/spec.md:8–14`, and `recon-DEV-453:34–36` (`.specify/memory/constitution.md:500–507`).
+
+---
+
+## 4. Ledger M2 — Functionality-Named Options/Telemetry Types vs Vendor Config Nesting and Verbatim Checkbox Preservation
+
+- **Verdict**: **Fix in spec/plan/tasks** — Name all C# options records, properties, and `TelemetryConstants` identifiers by functionality (e.g., `SubtitlesOptions` and `SubtitleProviderOptions`, plus functional telemetry constants—never `OpenSubtitlesOptions` or an `OpenSubtitles` telemetry constant in C# identifiers) so Principle VIII is satisfied with **zero vendor-allowlist departure**. Keep the settled configuration section path `Subtitles:OpenSubtitles:*` (`brief.md:47–50`) as a Principle VIII-permitted vendor-mandated configuration key. Do **not** claim that placing a vendor-named options class in `Infrastructure` exempts it from Principle VIII (Principle VIII permits vendor names in code only on the Infrastructure adapter class itself and the closed allowlist). Preserve the existing C4/VII checkbox text in `spec.md:12` **verbatim** (`SubtitlesOptions / OpenSubtitlesOptions`) and add a one-line note in `spec.md`/`plan.md`/`tasks.md` stating that the implementation type for the `Subtitles:OpenSubtitles` config section is functionality-named (`SubtitleProviderOptions` or nested functional record) to honor Principle VIII.
+- **Cited Basis**:
+  - **Challenger evidence**: `findings-DEV-453-Ledger` M2 (`lines 14–15`).
+  - **Brief, Recon & Constitution authority**: `recon-DEV-453:42–48` (`.specify/memory/constitution.md:522–537`, Principle VIII: *"Types, members, and telemetry identifiers MUST be named by functionality, not by vendor... Vendor names are permitted only on the Infrastructure adapter class itself, on vendor-mandated configuration keys, on the Core port `IOmdbRequestGate`, on the options records `OmdbQuotaOptions` and `TmdbOptions` in `LamuFlix.Core.Options`, and on the provider tag-value constants `OmdbProviderName` and `TmdbProviderName` in `TelemetryConstants`"*); `specs/DEV-453/brief.md:47–50, 128–129`.
+
+---
+
+## 5. Ledger M3 & M4 — Contained Hash Read Seam (`ILibraryFileReader`), Data-Only Provider Port, Feature-Folder/ArchitectureTests Pickup Verification, and Single Exception Mapper
+
+- **Verdict**: **Fix in plan/tasks (blocks T001/T001c/T002/T006/T012)** —
+  1. **M3 (Hash read containment seam)**: `ISubtitleProvider` must accept computed moviehash (`string?`), file size (`long`), title (`string?`), and ordered language preferences as data—**never a local filesystem path or stream**. Moviehash computation reads the first and last 65,536 bytes through the existing authorized read-only `ILibraryFileReader` seam (`ADR 0037`) after movie/video/library authorization (`FR-011`), without widening `ILibraryFileReader` to writes and without opening filesystem paths inside the OpenSubtitles adapter. Phase B pickup `T001` must verify the exact `ILibraryFileReader` read/stream contract on `main` (**STOP** before `T002`/`T006` if the seam cannot read the head/tail windows without contract drift).
+  2. **M4a (Feature-folder enumeration & ArchitectureTests)**: At Phase B pickup (`T001`/`T001c`), Wisp must inspect the exact Principle I feature-folder enumeration in `.specify/memory/constitution.md` and namespace-isolation rules in `ArchitectureTests.cs`; Keel's `T001c` Principle I compliance step must include any required feature-folder enumeration extension alongside the two named ports as compliance-only (no assumed exemption; handlers resolve movie/video/library strictly via shared `Core/Ports` and `Core/Domain` without cross-referencing sibling feature folders; **STOP** before creating a new Core feature folder or ports if unconfirmed).
+  3. **M4b (Single ProblemDetails mapper)**: All domain/application prepare and serve failure statuses (`403`, `404`, `409`, `429` with optional `Retry-After`, `502`, `504`) must be represented by typed Core exceptions/failure categories translated in the existing single `ProblemDetails` exception mapper (`Principle V`), with no new result-type abstraction layer and no endpoint-local try/catch status mapping.
+- **Cited Basis**:
+  - **Challenger evidence**: `findings-DEV-453-Ledger` M3 (`lines 17–18`) and M4 (`lines 20–21`).
+  - **Brief, ADR & Constitution authority**: `docs/adr/0038-subtitle-provider-and-sidecar-boundary.md:9–11`, `specs/DEV-453/brief.md:67, 83, 127`, `specs/DEV-453/CONCLUSIONS.md` Q7/Q8 & C1/V (`lines 96, 108, 179`), `specs/DEV-453/plan.md:41–42, 45, 70`, and `recon-DEV-453:5, 38–40` (Principle I & Principle V).
+
+---
+
+## 6. Compass F2–F5 (plus F1 & Ledger L2–L4 Editorial Fixes) — `selectedLanguage` on `saved`, Title Source, SRT Validity Criteria, and `Retry-After` Policy
+
+- **Verdict**: **Fix in spec/plan/tasks** —
+  1. **Compass F2 (`selectedLanguage` on `saved`)**: Because `saved` is reached only when a candidate matches a configured code in `Subtitles:PreferredLanguages` (`FR-002`), `selectedLanguage` is **always populated (non-null)** when `outcome == saved`, and **always `null`** when `outcome` is `alreadyPresent` or `noMatch`. Keep the DTO field `string? SelectedLanguage` nullable across the three-outcome union (no DTO nullability break), and tighten `spec.md` (`Scope item 6`, `US2`, `FR-005`) from *"populated on saved when known"* to *"always populated with the matched preferred language code on `saved`, and `null` on `alreadyPresent`/`noMatch`"*.
+  2. **Compass F3 (Title fallback source & empty-title rule)**: Add the existing `Movie` aggregate/metadata title field inspection to `T001` pickup facts (**STOP** before `T005`/`T006` if unconfirmed). Specify in `FR-013`/`T006` that title fallback uses the authorized movie's primary title property when hash lookup is ineligible (`< 131,072` bytes) or returns no match within `PreferredLanguages`; if that title is null/empty/whitespace, skip the provider title request and return `200 { outcome: noMatch, selectedLanguage: null }`.
+  3. **Compass F4 (Compatible SRT content/encoding criteria)**: Specify explicit minimal SRT validity criteria in `FR-012`/`T007`/`T008` (with `T001` verifying whether OpenSubtitles `/download` returns raw `.srt` bytes or a compressed wrapper, **STOP** on mismatch before `T007`/`T008`): payload must be non-empty, `<= MaxDownloadBytes`, valid UTF-8 text (UTF-8 BOM permitted), must not start with HTML/XML/JSON/binary archive signatures (`<`, `{`, `[`, `PK`, gzip `1F 8B`), and must contain at least one valid SubRip timestamp cue line (`HH:MM:SS,mmm --> HH:MM:SS,mmm` or `.` millisecond separator); otherwise reject as `502` without writing.
+  4. **Compass F5 (`Retry-After` propagation policy)**: On upstream `429`, preserve and propagate the upstream `Retry-After` header whenever it parses as a valid RFC 9110 `Retry-After` value (`HttpResponseHeaders.RetryAfter`: either a non-negative integer `delta-seconds` or a valid `HTTP-date`), without inventing a numeric cap and without dropping valid `HTTP-date` values; omit the header when absent or malformed.
+  5. **Low editorial repairs (`Compass F1`, `Ledger L2`, `Ledger L3`, `Ledger L4`)**: Renumber the second scenario `7.` in `spec.md:131` to `8.` (`Compass F1`); outdent `CONTEXT.md` to repository root in `plan.md:98` (`Ledger L2`); verify/preserve clean UTF-8 `>= 131,072 bytes` and arrows in `spec.md` (`Ledger L4`); for `Ledger L3`, ADR 0038 remains Keel-owned Proposed and is dispositioned as accepted historical grill-closure context (or Keel may add a one-line pointer to the brief addendum).
+- **Cited Basis**:
+  - **Challenger evidence**: `findings-DEV-453-Compass` F1–F5 (`lines 24–32`); `findings-DEV-453-Ledger` L2–L4 (`lines 27–32`).
+  - **Brief & Spec authority**: `specs/DEV-453/brief.md:19–20, 31–35, 60, 85, 89`, `specs/DEV-453/CONCLUSIONS.md` Q4/Q6/Q8/Q9 (`lines 60, 84, 108, 120`), `specs/DEV-453/spec.md:184–195` (`FR-002`, `FR-005`, `FR-007`, `FR-012`, `FR-013`), and `AGENTS.md` Non-negotiables (*"Never hardcode a threshold"*).
+
+---
+
+## 7. Ledger L1 — Retain Always-Healthy Optional-Provider Health Ruling and Exclude from `/health/live`
+
+- **Verdict**: **Accepted nonblocking risk + explicit `/health/live` exclusion in spec/plan/tasks (`FR-021`, `T012b`)** — Retain the settled C2/VI ruling that the optional subtitle-provider health check performs zero network/quota calls and always reports `HealthStatus.Healthy` with sanitized local readiness metadata (`ready` or `disabled_or_unconfigured`), and explicitly specify in `FR-021`/`plan.md`/`T012b` that this check is excluded from `/health/live` (which runs no dependency checks per Principle VI).
+- **Cited Basis**:
+  - **Challenger evidence**: `findings-DEV-453-Ledger` L1 (`line 25`).
+  - **Brief & Constitution authority**: `specs/DEV-453/brief.md:128` (Addendum item 2, C2/VI), `specs/DEV-453/CONCLUSIONS.md:184–190`, and `.specify/memory/constitution.md:478–490, 623–624` (Principle VI).
+
