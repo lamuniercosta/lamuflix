@@ -1,0 +1,483 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import type { components } from '../src/api/types';
+
+interface SubtitleTrackFixture {
+  label: string;
+  language: string;
+  isDefault: boolean;
+  cueText: string | null;
+}
+
+interface E2EContext {
+  baseURL: string;
+  seedTitles: string[];
+  waitBudgetMs: number;
+  subtitleFixtures: {
+    listed: { title: string; relativePath: string; tracks: SubtitleTrackFixture[] };
+    broken: { title: string; relativePath: string };
+  };
+}
+
+type BrowseResponse = components['schemas']['BrowseMoviesResponse'];
+type SubtitleTrackDto = components['schemas']['SubtitleTrackDto'];
+
+const context = loadContext();
+const evidenceDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.runtime/evidence');
+const evidenceFile = path.join(evidenceDir, 'dev454-subtitles.json');
+const records: Record<string, unknown>[] = [];
+
+const OFF_COPY = 'Off';
+const UNAVAILABLE_COPY = 'Subtitles unavailable';
+
+function loadContext(): E2EContext {
+  const file = process.env.E2E_CONTEXT_FILE;
+  if (!file) {
+    throw new Error('E2E_CONTEXT_FILE is required; run the suite through npm run e2e');
+  }
+  return JSON.parse(readFileSync(file, 'utf8')) as E2EContext;
+}
+
+function record(entry: Record<string, unknown>): void {
+  records.push(entry);
+}
+
+test.afterAll(() => {
+  mkdirSync(evidenceDir, { recursive: true });
+  writeFileSync(
+    evidenceFile,
+    `${JSON.stringify(
+      {
+        baseURL: context.baseURL,
+        transport: 'web nginx /api proxy at http://localhost:3000',
+        records,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+});
+
+async function movieIdFor(request: APIRequestContext, title: string): Promise<number> {
+  const response = await request.get(
+    `${context.baseURL}/api/movies?sort=Title&direction=Ascending&page=1&pageSize=20`,
+  );
+  expect(response.ok()).toBe(true);
+  const browse = (await response.json()) as BrowseResponse;
+  const movie = browse.items.find((item) => item.title === title);
+  expect(movie, `seeded movie ${title} is browsable`).toBeDefined();
+  return Number(movie!.id);
+}
+
+function playerRegion(page: Page) {
+  return page.getByRole('region', { name: /^Movie player: / });
+}
+
+function playerVideo(page: Page) {
+  return playerRegion(page).locator('video');
+}
+
+function selector(page: Page, title: string) {
+  return playerRegion(page).getByRole('combobox', { name: `Subtitles for ${title}` });
+}
+
+async function currentTime(page: Page): Promise<number> {
+  return playerVideo(page).evaluate((element) => (element as HTMLVideoElement).currentTime);
+}
+
+async function isPaused(page: Page): Promise<boolean> {
+  return playerVideo(page).evaluate((element) => (element as HTMLVideoElement).paused);
+}
+
+async function startPlayback(page: Page, title: string): Promise<void> {
+  await expect(playerVideo(page)).toBeVisible({ timeout: context.waitBudgetMs });
+  if (await isPaused(page)) {
+    const explicitPlay = playerRegion(page).getByRole('button', {
+      name: `Play ${title} in browser`,
+    });
+    if (await explicitPlay.isVisible()) {
+      await explicitPlay.click();
+    }
+  }
+  await expect.poll(async () => isPaused(page), { timeout: context.waitBudgetMs }).toBe(false);
+}
+
+async function assertPlaybackAdvances(page: Page): Promise<void> {
+  const started = await currentTime(page);
+  await expect
+    .poll(async () => currentTime(page), { timeout: context.waitBudgetMs })
+    .toBeGreaterThan(started);
+}
+
+/**
+ * The synthetic acceptance clips are 8–14 s long, so a subtitle interaction that takes a few seconds
+ * can reach the natural end of the media. Rewinding before a continuity check measures the player,
+ * not how long the fixture happens to be.
+ */
+async function rewindAndResume(page: Page, title: string): Promise<void> {
+  await playerVideo(page).evaluate((element) => {
+    (element as HTMLVideoElement).currentTime = 0;
+  });
+  await startPlayback(page, title);
+}
+
+async function assertPlaybackStillWorks(page: Page, title: string): Promise<boolean> {
+  await rewindAndResume(page, title);
+  await assertPlaybackAdvances(page);
+  return !(await isPaused(page));
+}
+
+interface TrackSnapshot {
+  trackId: string;
+  label: string;
+  language: string;
+  mode: TextTrackMode;
+  activeCues: string[];
+}
+
+/**
+ * Reads the browser's own track state for the tracks this viewer actually rendered. The DOM track
+ * elements are used rather than `video.textTracks`, because Chromium keeps removed tracks in that
+ * list and would report tracks that no longer exist in the page.
+ */
+async function readTracks(page: Page): Promise<TrackSnapshot[]> {
+  return playerVideo(page).evaluate((element) => {
+    const video = element as HTMLVideoElement;
+    return Array.from(video.querySelectorAll<HTMLTrackElement>('track[data-track-id]')).map(
+      (trackElement) => {
+        const track = trackElement.track;
+        return {
+          trackId: trackElement.dataset.trackId ?? '',
+          label: track?.label ?? trackElement.label,
+          language: track?.language ?? trackElement.srclang,
+          mode: track?.mode ?? 'disabled',
+          activeCues: Array.from(track?.activeCues ?? []).map((cue) => (cue as VTTCue).text),
+        };
+      },
+    );
+  });
+}
+
+async function openPlayer(page: Page, request: APIRequestContext, title: string): Promise<number> {
+  const movieId = await movieIdFor(request, title);
+  await page.goto(`${context.baseURL}/movies/${String(movieId)}`);
+  await page
+    .locator('.details-actions')
+    .getByRole('button', { name: `Play ${title} in browser` })
+    .click();
+  await expect(playerRegion(page)).toBeVisible({ timeout: context.waitBudgetMs });
+  return movieId;
+}
+
+interface TrackStateProbe {
+  tracks: TrackSnapshot[];
+  selectorValue: string;
+  textTrackCount: number;
+}
+
+/** Reads tracks plus the selector and the raw `textTracks` length, so a failure names its evidence. */
+async function probeTrackState(page: Page, title: string): Promise<TrackStateProbe> {
+  const tracks = await readTracks(page);
+  const textTrackCount = await playerVideo(page).evaluate(
+    (element) => (element as HTMLVideoElement).textTracks.length,
+  );
+  const control = selector(page, title);
+  const selectorValue = (await control.count()) > 0 ? await control.inputValue() : '<no selector>';
+  return { tracks, selectorValue, textTrackCount };
+}
+
+/**
+ * Waits for a track-state condition and returns the last observation either way, so a failed check
+ * reports what the browser actually rendered rather than only which boolean was wrong.
+ */
+async function waitForTrackState(
+  page: Page,
+  title: string,
+  predicate: (probe: TrackStateProbe) => boolean,
+  timeoutMs = 30_000,
+): Promise<{ ok: boolean; probe: TrackStateProbe }> {
+  const deadline = Date.now() + timeoutMs;
+  let probe = await probeTrackState(page, title);
+  while (Date.now() < deadline) {
+    if (predicate(probe)) return { ok: true, probe };
+    await page.waitForTimeout(250);
+    probe = await probeTrackState(page, title);
+  }
+  return { ok: predicate(probe), probe };
+}
+
+function describeTracks(probe: TrackStateProbe): string {
+  return JSON.stringify({
+    selectorValue: probe.selectorValue,
+    textTrackCount: probe.textTrackCount,
+    tracks: probe.tracks.map((track) => ({
+      id: track.trackId,
+      label: track.label,
+      mode: track.mode,
+      cues: track.activeCues,
+    })),
+  });
+}
+
+test.describe('DEV-454 sidecar subtitles in the real browser', () => {
+  test('SMOKE-001 lists Off plus the served tracks as plain text in served order', async ({
+    page,
+    request,
+    browser,
+  }) => {
+    test.setTimeout(context.waitBudgetMs);
+    const fixture = context.subtitleFixtures.listed;
+    const movieId = await openPlayer(page, request, fixture.title);
+    await startPlayback(page, fixture.title);
+
+    const listResponse = await request.get(
+      `${context.baseURL}/api/movies/${String(movieId)}/subtitles`,
+    );
+    expect(listResponse.status()).toBe(200);
+    const served = (await listResponse.json()) as SubtitleTrackDto[];
+
+    const control = selector(page, fixture.title);
+    await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
+    const observed = await control.locator('option').allTextContents();
+
+    record({
+      smoke: 'SMOKE-001',
+      browser: `chromium ${browser.version()}`,
+      movieId,
+      title: fixture.title,
+      servedTracks: served.map((track) => ({
+        id: track.id,
+        label: track.label,
+        language: track.language,
+        isDefault: track.isDefault,
+      })),
+      observedOptions: observed,
+      selectorVisible: await control.isVisible(),
+    });
+
+    expect(observed[0], 'the first option is Off').toBe(OFF_COPY);
+    expect(observed.slice(1), 'options are the served track labels in served order').toEqual(
+      served.map((track) => track.label),
+    );
+    expect(served.length, 'the fixture movie exposes at least two tracks').toBeGreaterThan(1);
+    expect(new Set(served.map((track) => track.id)).size, 'track ids are opaque and distinct').toBe(
+      served.length,
+    );
+  });
+
+  test('SMOKE-002 choosing a track shows its cues, Off clears them, and video keeps playing', async ({
+    page,
+    request,
+    browser,
+  }) => {
+    test.setTimeout(context.waitBudgetMs);
+    const fixture = context.subtitleFixtures.listed;
+    const target = fixture.tracks[fixture.tracks.length - 1];
+    await openPlayer(page, request, fixture.title);
+    await startPlayback(page, fixture.title);
+
+    const control = selector(page, fixture.title);
+    await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
+    const optionValue = await control
+      .locator('option')
+      .nth(fixture.tracks.length)
+      .getAttribute('value');
+    expect(optionValue, 'the target track has a served option value').not.toBeNull();
+
+    await control.selectOption(optionValue!);
+    const shownState = await waitForTrackState(
+      page,
+      fixture.title,
+      (probe) => probe.tracks.filter((track) => track.mode === 'showing').length === 1,
+      20_000,
+    );
+    expect(shownState.ok, `one track is showing: ${describeTracks(shownState.probe)}`).toBe(true);
+
+    const cueState = await waitForTrackState(
+      page,
+      fixture.title,
+      (probe) =>
+        (
+          probe.tracks.find((track) => track.mode === 'showing')?.activeCues.join(' ') ?? ''
+        ).includes(target.cueText ?? ''),
+      20_000,
+    );
+    const shownCues = cueState.probe.tracks.find((track) => track.mode === 'showing');
+    const othersDisabled = cueState.probe.tracks
+      .filter((track) => track.mode !== 'showing')
+      .every((track) => track.mode === 'disabled');
+    const playingWithCues = !(await isPaused(page));
+
+    await control.selectOption('');
+    const offState = await waitForTrackState(
+      page,
+      fixture.title,
+      (probe) => probe.tracks.every((track) => track.mode === 'disabled'),
+      20_000,
+    );
+    const playbackContinuedAfterOff = await assertPlaybackStillWorks(page, fixture.title);
+
+    record({
+      smoke: 'SMOKE-002',
+      browser: `chromium ${browser.version()}`,
+      title: fixture.title,
+      selectedLabel: shownCues?.label ?? null,
+      selectedLanguage: shownCues?.language ?? null,
+      selectedActiveCues: shownCues?.activeCues ?? [],
+      othersDisabled,
+      playingWithCues,
+      cueObservation: cueState.ok ? 'active cue text observed' : describeTracks(cueState.probe),
+      afterOff: describeTracks(offState.probe),
+      playbackContinuedAfterOff,
+    });
+
+    expect(
+      cueState.ok,
+      `the shown track renders the cue text: ${describeTracks(cueState.probe)}`,
+    ).toBe(true);
+    expect(shownCues?.label, 'the shown track is the one the viewer chose').toBe(target.label);
+    expect(othersDisabled, 'every other listed track stays disabled').toBe(true);
+    expect(playingWithCues, 'video keeps playing while cues are shown').toBe(true);
+    expect(offState.ok, `Off clears every track: ${describeTracks(offState.probe)}`).toBe(true);
+    expect(
+      offState.probe.tracks.every((track) => track.activeCues.length === 0),
+      'Off shows no active cues',
+    ).toBe(true);
+    expect(playbackContinuedAfterOff, 'video keeps playing after Off').toBe(true);
+  });
+
+  test('SMOKE-003 an unconvertible track returns to Off with Subtitles unavailable while video continues', async ({
+    page,
+    request,
+    browser,
+  }) => {
+    test.setTimeout(context.waitBudgetMs);
+    const broken = context.subtitleFixtures.broken;
+    const brokenMovieId = await movieIdFor(request, broken.title);
+    const contentResponse = await request.get(
+      `${context.baseURL}/api/movies/${String(brokenMovieId)}/subtitles`,
+    );
+    expect(contentResponse.status()).toBe(200);
+    const brokenTracks = (await contentResponse.json()) as SubtitleTrackDto[];
+    expect(brokenTracks.length, 'the broken sidecar is listed so it can be chosen').toBe(1);
+
+    await openPlayer(page, request, broken.title);
+    await startPlayback(page, broken.title);
+
+    const control = selector(page, broken.title);
+    await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
+    const optionValue = await control.locator('option').nth(1).getAttribute('value');
+    const contentStatuses: number[] = [];
+    page.on('response', (response) => {
+      if (response.url().includes('/subtitles/') && response.url().endsWith('/content')) {
+        contentStatuses.push(response.status());
+      }
+    });
+
+    await control.selectOption(optionValue!);
+
+    const unavailable = playerRegion(page).getByText(UNAVAILABLE_COPY);
+    await expect(unavailable).toBeVisible({ timeout: context.waitBudgetMs });
+    await expect(control).toHaveValue('');
+    const playingAfterFailure = !(await isPaused(page));
+    const modesAfterFailure = await readTracks(page);
+    const playbackContinued = await assertPlaybackStillWorks(page, broken.title);
+
+    await control.selectOption('');
+    await control.selectOption(optionValue!);
+    await expect
+      .poll(async () => contentStatuses.length, { timeout: context.waitBudgetMs })
+      .toBeGreaterThan(1);
+    await expect(unavailable).toBeVisible({ timeout: context.waitBudgetMs });
+
+    record({
+      smoke: 'SMOKE-003',
+      browser: `chromium ${browser.version()}`,
+      title: broken.title,
+      contentStatuses,
+      selectorValueAfterFailure: await control.inputValue(),
+      unavailableVisible: await unavailable.isVisible(),
+      playingAfterFailure,
+      modesAfterFailure: modesAfterFailure.map((track) => ({
+        label: track.label,
+        mode: track.mode,
+      })),
+      retryReRequestedContent: contentStatuses.length > 1,
+      playbackContinuedAfterFailure: playbackContinued,
+    });
+
+    expect(
+      contentStatuses.length,
+      'the browser fetched the content route for the chosen track',
+    ).toBeGreaterThan(0);
+    expect(
+      contentStatuses.every((status) => status === 422),
+      `an unconvertible sidecar answers the sanitized 422, saw ${JSON.stringify(contentStatuses)}`,
+    ).toBe(true);
+    expect(playingAfterFailure, 'video keeps playing after the subtitle failure').toBe(true);
+    expect(
+      modesAfterFailure.every((track) => track.mode === 'disabled'),
+      'subtitles return to Off',
+    ).toBe(true);
+    expect(playbackContinued, 'video still plays after the subtitle failure').toBe(true);
+  });
+
+  test('SMOKE-004 a failing list keeps Off, shows Retry, and is never an empty success', async ({
+    page,
+    request,
+    browser,
+  }) => {
+    test.setTimeout(context.waitBudgetMs);
+    const fixture = context.subtitleFixtures.listed;
+    const movieId = await movieIdFor(request, fixture.title);
+    const listPattern = `**/api/movies/${String(movieId)}/subtitles`;
+    let attempts = 0;
+    await page.route(listPattern, async (route) => {
+      attempts += 1;
+      await route.fulfill({ status: 500, contentType: 'application/problem+json', body: '{}' });
+    });
+
+    await openPlayer(page, request, fixture.title);
+    await startPlayback(page, fixture.title);
+
+    const unavailable = playerRegion(page).getByText(UNAVAILABLE_COPY);
+    await expect(unavailable).toBeVisible({ timeout: context.waitBudgetMs });
+    const control = selector(page, fixture.title);
+    const comboboxCount = await control.count();
+    const retry = playerRegion(page).getByRole('button', {
+      name: `Retry loading subtitles for ${fixture.title}`,
+    });
+    await expect(retry).toBeVisible({ timeout: context.waitBudgetMs });
+    const playingAfterFailure = !(await isPaused(page));
+    const playbackContinued = await assertPlaybackStillWorks(page, fixture.title);
+    const attemptsBeforeRetry = attempts;
+
+    await page.unroute(listPattern);
+    await retry.click();
+    await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
+    await expect
+      .poll(async () => control.locator('option').count(), { timeout: context.waitBudgetMs })
+      .toBeGreaterThan(1);
+
+    record({
+      smoke: 'SMOKE-004',
+      browser: `chromium ${browser.version()}`,
+      movieId,
+      title: fixture.title,
+      failedListAttempts: attemptsBeforeRetry,
+      comboboxCountWhileFailed: comboboxCount,
+      unavailableVisible: await unavailable.isVisible(),
+      retryVisible: true,
+      playingAfterFailure,
+      playbackContinuedAfterFailure: playbackContinued,
+      recoveredOptions: await control.locator('option').allTextContents(),
+    });
+
+    expect(attemptsBeforeRetry, 'the failed list was actually requested').toBeGreaterThan(0);
+    expect(comboboxCount, 'a failed list never renders as a successful empty selection').toBe(0);
+    expect(playingAfterFailure, 'video keeps playing while the list fails').toBe(true);
+    expect(playbackContinued, 'video still plays after the list failure').toBe(true);
+  });
+});

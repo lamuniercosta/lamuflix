@@ -5,7 +5,13 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { generateFixtures, MANUAL_MATCH_MOVIES, RESERVED_MOVIE, SEED_MOVIES } from './fixtures.mjs';
+import {
+  generateFixtures,
+  MANUAL_MATCH_MOVIES,
+  RESERVED_MOVIE,
+  SEED_MOVIES,
+  SUBTITLE_FIXTURES,
+} from './fixtures.mjs';
 
 const execFileAsync = promisify(execFile);
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -234,6 +240,22 @@ function writeContext() {
     manualMatchMovies,
     reservedMovie: { title: RESERVED_MOVIE.title, year: RESERVED_MOVIE.year },
     reservedFolders: { ...RESERVED_MOVIE.folders },
+    subtitleFixtures: {
+      listed: {
+        title: SUBTITLE_FIXTURES.listed.title,
+        relativePath: SUBTITLE_FIXTURES.listed.relativePath,
+        tracks: SUBTITLE_FIXTURES.listed.tracks.map((track) => ({
+          label: track.label,
+          language: track.language,
+          isDefault: track.isDefault,
+          cueText: track.cueText,
+        })),
+      },
+      broken: {
+        title: SUBTITLE_FIXTURES.broken.title,
+        relativePath: SUBTITLE_FIXTURES.broken.relativePath,
+      },
+    },
     runtimeDir: composePath(runtimeDir),
   };
   writeFileSync(contextFile, `${JSON.stringify(context, null, 2)}\n`);

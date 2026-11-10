@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 export const SEED_MOVIES = [
@@ -72,6 +72,71 @@ const OTHER_MOVIE = {
   relativePath: 'available/Tears of Steel (2012)',
 };
 
+/**
+ * Sidecar subtitle samples written into the git-ignored runtime library only, never committed as
+ * media. Labels, languages, default marker and served order are whatever `SubtitleSidecarDiscovery`
+ * derives from these file names: default marker first, then language ordinal, then label.
+ */
+export const SUBTITLE_FIXTURES = {
+  listed: {
+    title: 'Big Buck Bunny',
+    relativePath: 'seeded/Big Buck Bunny (2008)',
+    primaryFileName: 'Big Buck Bunny (2008).mp4',
+    tracks: [
+      {
+        fileName: 'Big Buck Bunny (2008).default.srt',
+        label: 'Default',
+        language: 'und',
+        isDefault: true,
+        cueText: 'Default subtitle cue.',
+      },
+      {
+        fileName: 'Big Buck Bunny (2008).en.srt',
+        label: 'English',
+        language: 'en',
+        isDefault: false,
+        cueText: 'English subtitle cue.',
+      },
+      {
+        fileName: 'Big Buck Bunny (2008).pob.srt',
+        label: 'Portuguese (Brazil)',
+        language: 'pt-BR',
+        isDefault: false,
+        cueText: 'Legenda em português: ação.',
+      },
+    ],
+  },
+  /**
+   * A sidecar that is discovered and listed but cannot be converted: the real content route answers a
+   * sanitized 422, which is how the viewer's failure handling is exercised without a fake transport.
+   */
+  broken: {
+    title: 'Elephants Dream',
+    relativePath: 'seeded/Elephants Dream (2006)',
+    primaryFileName: 'Elephants Dream (2006).mp4',
+    tracks: [
+      {
+        fileName: 'Elephants Dream (2006).srt',
+        label: 'Subtitles',
+        language: 'und',
+        isDefault: false,
+        cueText: null,
+      },
+    ],
+  },
+};
+
+// One long cue covers the whole synthetic clip, so an active cue is observable at any playback time.
+const SRT_CUE_WINDOW = '00:00:00,000 --> 00:00:59,000';
+
+function writeSidecar(directory, track) {
+  const body =
+    track.cueText === null
+      ? 'this sidecar is not a subtitle document\n'
+      : `1\n${SRT_CUE_WINDOW}\n${track.cueText}\n`;
+  writeFileSync(path.join(directory, track.fileName), body, 'utf8');
+}
+
 function copyMovie({ sampleLibraryDir, libraryDir, relativePath, source, filename = source }) {
   const destination = path.join(libraryDir, relativePath);
   mkdirSync(destination, { recursive: true });
@@ -99,6 +164,13 @@ export function generateFixtures({ sampleLibraryDir, libraryDir }) {
     relativePath: OTHER_MOVIE.relativePath,
     source: OTHER_MOVIE.source,
   });
+
+  for (const fixture of Object.values(SUBTITLE_FIXTURES)) {
+    const directory = path.join(libraryDir, fixture.relativePath);
+    for (const track of fixture.tracks) {
+      writeSidecar(directory, track);
+    }
+  }
 
   return {
     seedFolders: SEED_MOVIES.map((movie) => movie.relativePath),
