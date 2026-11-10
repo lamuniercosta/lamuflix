@@ -1,0 +1,10 @@
+.for-you-page {
+  display: grid;
+  gap: var(--lamu-space-6);
+  min-width: 0;
+}
+
+.for-you-page > p {
+  margin: 0;
+  color: var(--color-dim);
+}

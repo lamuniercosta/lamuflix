@@ -94,7 +94,7 @@ export default function ImportDialog({ open, onClose, onImported }: ImportDialog
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="lamu-glass lamu-dialog"
+        className="lamu-dialog"
         onKeyDown={trapFocus}
       >
         <h2 id={titleId} className="lamu-section-heading">

@@ -1,0 +1,244 @@
+/* Library browse layout: tags row, filter rail, tools row. Flat, square, hairline rules. */
+
+.library-view {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Active filters as tags; "Clear all" sits at the right. */
+.library-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.library-tag-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.lamu-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.125rem;
+  padding-left: 0.75rem;
+  background-color: var(--color-rule);
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 0;
+}
+
+.lamu-tag-kind {
+  font-family: var(--font-wordmark);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-dim);
+}
+
+.lamu-tag-value {
+  white-space: nowrap;
+}
+
+.lamu-tag-remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--color-booth);
+  border-radius: 0;
+  color: var(--color-dim);
+  cursor: pointer;
+}
+
+.lamu-tag-remove:hover,
+.lamu-tag-remove:focus-visible {
+  color: var(--color-accent);
+}
+
+/* Rail on the left at desktop widths; closed means the results take the full row. */
+.library-body {
+  display: grid;
+  min-width: 0;
+}
+
+.library-body[data-rail='open'] {
+  grid-template-columns: 18.75rem minmax(0, 1fr);
+}
+
+.library-body[data-rail='closed'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.filter-collapse {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 1.375rem 1.75rem 2rem 0;
+  border-right: 1px solid var(--color-rule);
+}
+
+.filter-collapse[data-open='false'] {
+  display: none;
+}
+
+.library-main {
+  min-width: 0;
+  padding: 0 0 2.5rem;
+}
+
+.library-body[data-rail='open'] .library-main {
+  padding-left: 1.75rem;
+}
+
+.library-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 3.5rem;
+  margin-bottom: 1.375rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.filters-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  background: transparent;
+  border: 1px solid var(--color-boundary);
+  border-radius: 0;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filters-toggle[aria-expanded='true'] {
+  background-color: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-booth);
+}
+
+.filters-toggle-badge {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.filters-toggle[aria-expanded='true'] .filters-toggle-badge {
+  color: var(--color-booth);
+  font-weight: 700;
+}
+
+.library-count {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.library-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.library-sort-label {
+  color: var(--color-dim);
+}
+
+.library-sort-select {
+  height: 2rem;
+  padding: 0 0.5rem;
+  background-color: transparent;
+  border: 1px solid var(--color-boundary);
+  border-radius: 0;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.library-sort-select option {
+  background-color: var(--color-booth);
+  color: var(--color-ink);
+}
+
+.library-tools .view-toggle {
+  margin-left: auto;
+  display: inline-flex;
+}
+
+.library-tools .view-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2rem;
+  padding: 0 0.8125rem;
+  background-color: var(--color-rule);
+  border: 0;
+  border-radius: 0;
+  color: var(--color-dim);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.library-tools .view-toggle button[aria-pressed='true'] {
+  background-color: var(--color-ink);
+  color: var(--color-booth);
+  font-weight: 600;
+}
+
+/* Below 64rem the rail is a full-width block above the results. */
+@media (max-width: 63.9375rem) {
+  .library-body[data-rail='open'],
+  .library-body[data-rail='closed'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .filter-collapse {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .library-body[data-rail='open'] .library-main {
+    padding-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-view * {
+    transition: none;
+  }
+}

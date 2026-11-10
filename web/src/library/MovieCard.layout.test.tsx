@@ -53,6 +53,17 @@ describe('MovieCard layout semantics', () => {
   });
 });
 
+describe('MovieCard feedback placement', () => {
+  it('renders the feedback actions inside the poster action bar', () => {
+    const { container } = renderWithClient(
+      <MovieCard movie={{ ...base, enrichmentStatus: 'Enriched' }} />,
+    );
+    expect(
+      container.querySelector('.movie-card-poster .movie-card-actions .movie-feedback-actions'),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('MovieGrid loading semantics', () => {
   it('marks loading skeletons busy with the poster ratio', () => {
     const { container } = render(<MovieGrid isLoading pageSize={4} />);

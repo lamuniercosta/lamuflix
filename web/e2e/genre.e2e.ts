@@ -37,11 +37,18 @@ test.describe('genre filter', () => {
 
     await page.goto(context.baseURL);
 
-    const genreControl = page
-      .getByRole('group', { name: 'Browse by genre' })
-      .getByRole('button', { name: GENRE_NAME, exact: true });
-    await expect(genreControl).toBeVisible({ timeout: context.waitBudgetMs });
-    await genreControl.click();
+    const filtersToggle = page.getByRole('button', { name: /^Filters/ });
+    await expect(filtersToggle).toBeVisible({ timeout: context.waitBudgetMs });
+    if ((await filtersToggle.getAttribute('aria-expanded')) !== 'true') {
+      await filtersToggle.click();
+    }
+
+    const genreRow = page
+      .getByRole('group', { name: 'Genres' })
+      .locator('.lamu-filter-row')
+      .filter({ has: page.locator('.lamu-filter-row-name', { hasText: GENRE_NAME }) });
+    await expect(genreRow).toBeVisible({ timeout: context.waitBudgetMs });
+    await genreRow.click();
 
     await expect
       .poll(() => new URL(page.url()).searchParams.get('genreIds'), {

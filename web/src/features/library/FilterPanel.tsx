@@ -23,6 +23,7 @@ import {
   type FilterQuery,
 } from './filterQuery';
 import { useDebouncedSearch } from './useDebouncedSearch';
+import './filterPanel.css';
 
 type GenreDto = components['schemas']['GenreDto'];
 type CollectionDto = components['schemas']['CollectionDto'];
@@ -53,6 +54,7 @@ export interface FilterPanelProps {
   integrated?: boolean;
   showTitleSearch?: boolean;
   showSort?: boolean;
+  showFooter?: boolean;
   routeKey?: number;
 }
 
@@ -66,6 +68,7 @@ const STATUS_OPTIONS = [
 const SORT_FIELDS = ['Title', 'Year', 'Rating', 'Runtime'] as const;
 const CAST_SUGGESTION_LIMIT = 8;
 const DIRECTOR_SUGGESTION_LIMIT = 8;
+const COLLECTION_FIND_THRESHOLD = 8;
 
 function readQuery(input: Partial<FilterQuery> | undefined): FilterQuery {
   return input === undefined ? parseFilterQuery(window.location.search) : parseFilterQuery(input);
@@ -168,6 +171,7 @@ export function FilterPanel(props: FilterPanelProps) {
     integrated = false,
     showTitleSearch = true,
     showSort = true,
+    showFooter = true,
     routeKey,
   } = props;
   const isControlled = queryProp !== undefined;
@@ -266,6 +270,7 @@ export function FilterPanel(props: FilterPanelProps) {
   }, [integrated, isControlled, cancelSearchText]);
 
   const [castText, setCastText] = useState('');
+  const [collectionText, setCollectionText] = useState('');
   const [directorText, setDirectorText] = useState('');
   const [directorActiveIndex, setDirectorActiveIndex] = useState(-1);
   const directorInputRef = useRef<HTMLInputElement>(null);
@@ -329,6 +334,15 @@ export function FilterPanel(props: FilterPanelProps) {
   const genreFailed = Boolean(props.genreError ?? props.genresError);
   const collectionFailed = Boolean(props.collectionError ?? props.collectionsError);
   const collectionHealthyEmpty = sortedCollections.length === 0 && !collectionFailed;
+  const collectionNeedle = collectionText.trim().toLowerCase();
+  const visibleCollections = sortedCollections.filter(
+    (item) =>
+      collectionNeedle === '' ||
+      String(item.name ?? '')
+        .toLowerCase()
+        .includes(collectionNeedle) ||
+      String(item.id) === String(query.collectionId),
+  );
   const castFailed = Boolean(props.castError ?? props.actorsError);
   const runtimeMaxText = runtimeMaxValue >= RUNTIME_MAX_EXTENT ? '240+' : String(runtimeMaxValue);
 
@@ -482,13 +496,15 @@ export function FilterPanel(props: FilterPanelProps) {
             Genres could not be loaded.
           </p>
         ) : (
-          <div className="lamu-chip-row">
+          <div className="lamu-filter-rows">
             {sortedGenres.map((genre) => {
               const checked = selectedGenreIds.has(String(genre.id));
               return (
                 <label
                   key={String(genre.id)}
-                  className={checked ? 'lamu-chip lamu-chip-selected' : 'lamu-chip'}
+                  className={
+                    checked ? 'lamu-filter-row lamu-filter-row-selected' : 'lamu-filter-row'
+                  }
                 >
                   <input
                     type="checkbox"
@@ -496,8 +512,8 @@ export function FilterPanel(props: FilterPanelProps) {
                     checked={checked}
                     onChange={(event) => toggleGenre(genre.id, event.target.checked)}
                   />
-                  <span>{genre.name}</span>
-                  <span className="lamu-chip-count" aria-hidden="true">
+                  <span className="lamu-filter-row-name">{genre.name}</span>
+                  <span className="lamu-filter-row-count" aria-hidden="true">
                     {genre.movieCount}
                   </span>
                   <span className="sr-only">, {genre.movieCount} movies</span>
@@ -508,119 +524,19 @@ export function FilterPanel(props: FilterPanelProps) {
         )}
       </fieldset>
 
-      {collectionHealthyEmpty ? null : (
-        <fieldset className="lamu-filter-group">
-          <legend className="lamu-filter-legend">Collection</legend>
-          {collectionFailed ? (
-            <p role="alert" className="lamu-filter-error">
-              Collections could not be loaded.
-            </p>
-          ) : (
-            <div className="lamu-chip-row">
-              {sortedCollections.map((item) => {
-                const checked = String(query.collectionId) === String(item.id);
-                return (
-                  <label
-                    key={String(item.id)}
-                    className={checked ? 'lamu-chip lamu-chip-selected' : 'lamu-chip'}
-                  >
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={checked}
-                      onChange={(event) => toggleCollection(item.id, event.target.checked)}
-                    />
-                    <span>{item.name}</span>
-                    <span className="lamu-chip-count" aria-hidden="true">
-                      {item.movieCount}
-                    </span>
-                    <span className="sr-only">, {item.movieCount} movies</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </fieldset>
-      )}
-
-      <fieldset className="lamu-filter-group">
-        <legend className="lamu-filter-legend">Cast</legend>
-        {castFailed ? (
-          <p role="alert" className="lamu-filter-error">
-            Cast could not be loaded.
-          </p>
-        ) : (
-          <>
-            {selectedCast.length > 0 ? (
-              <ul className="lamu-chip-row" aria-label="Selected cast">
-                {selectedCast.map((member, index) => (
-                  <li
-                    key={`${String(member.id)}-${index}`}
-                    className="lamu-chip lamu-chip-selected"
-                  >
-                    <span>{member.name}</span>
-                    <button
-                      type="button"
-                      className="lamu-chip-remove"
-                      aria-label={`Remove ${member.name} from cast filter`}
-                      onClick={() => removeActor(member.id)}
-                    >
-                      <CloseIcon />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <label htmlFor={castInputId} className="lamu-filter-sublabel">
-              Add a cast member
-            </label>
-            <input
-              ref={castInputRef}
-              id={castInputId}
-              type="search"
-              className="lamu-field-input"
-              placeholder="Type a name"
-              autoComplete="off"
-              value={castText}
-              aria-controls={castListId}
-              onChange={(event) => setCastText(event.target.value)}
-            />
-            <div id={castListId} aria-live="polite">
-              {castNeedle === '' ? null : castSuggestions.length > 0 ? (
-                <ul className="lamu-chip-row" aria-label="Cast suggestions">
-                  {castSuggestions.map((actor) => (
-                    <li key={String(actor.id)}>
-                      <button
-                        type="button"
-                        className="lamu-chip"
-                        onClick={() => addActor(actor.id)}
-                      >
-                        {actor.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="lamu-filter-note">No matching cast members.</p>
-              )}
-            </div>
-          </>
-        )}
-      </fieldset>
-
       <fieldset className="lamu-filter-group">
         <legend className="lamu-filter-legend">Director</legend>
         {selectedDirectorId !== '' ? (
-          <div className="lamu-chip-row">
-            <span className="lamu-chip lamu-chip-selected">
-              <span>
+          <div className="lamu-filter-selected">
+            <span className="lamu-filter-selected-item">
+              <span className="lamu-filter-row-name">
                 {selectedDirector
                   ? String(selectedDirector.name)
                   : `Director ${selectedDirectorId}`}
               </span>
               {selectedDirector ? (
                 <>
-                  <span className="lamu-chip-count" aria-hidden="true">
+                  <span className="lamu-filter-row-count" aria-hidden="true">
                     {selectedDirector.movieCount}
                   </span>
                   <span className="sr-only">, {selectedDirector.movieCount} movies</span>
@@ -628,16 +544,16 @@ export function FilterPanel(props: FilterPanelProps) {
               ) : null}
               <button
                 type="button"
-                className="lamu-chip-remove"
+                className="lamu-tag-remove"
                 aria-label="Clear Director"
                 onClick={clearDirector}
               >
-                <CloseIcon />
+                <CloseIcon size={14} />
               </button>
             </span>
           </div>
         ) : null}
-        <label htmlFor={directorInputId} className="lamu-filter-sublabel">
+        <label htmlFor={directorInputId} className="sr-only">
           Director
         </label>
         <input
@@ -645,7 +561,7 @@ export function FilterPanel(props: FilterPanelProps) {
           id={directorInputId}
           type="search"
           role="combobox"
-          className="lamu-field-input"
+          className="lamu-filter-find"
           placeholder="Search directors"
           autoComplete="off"
           aria-autocomplete="list"
@@ -682,7 +598,7 @@ export function FilterPanel(props: FilterPanelProps) {
               </button>
             </div>
           ) : directorListOpen ? (
-            <ul id={directorListId} role="listbox" className="lamu-chip-row">
+            <ul id={directorListId} role="listbox" className="lamu-filter-options">
               {directorSuggestions.map((item, index) => (
                 <li
                   key={String(item.id)}
@@ -690,13 +606,15 @@ export function FilterPanel(props: FilterPanelProps) {
                   role="option"
                   aria-selected={directorActiveIndex === index}
                   className={
-                    directorActiveIndex === index ? 'lamu-chip lamu-chip-selected' : 'lamu-chip'
+                    directorActiveIndex === index
+                      ? 'lamu-filter-option lamu-filter-option-active'
+                      : 'lamu-filter-option'
                   }
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => selectDirector(item.id)}
                 >
-                  <span>{item.name}</span>
-                  <span className="lamu-chip-count" aria-hidden="true">
+                  <span className="lamu-filter-row-name">{item.name}</span>
+                  <span className="lamu-filter-row-count" aria-hidden="true">
                     {item.movieCount}
                   </span>
                   <span className="sr-only">, {item.movieCount} movies</span>
@@ -707,6 +625,99 @@ export function FilterPanel(props: FilterPanelProps) {
             <p className="lamu-filter-note">No directors found</p>
           ) : null}
         </div>
+      </fieldset>
+
+      <fieldset className="lamu-filter-group">
+        <legend className="lamu-filter-legend">Cast</legend>
+        {castFailed ? (
+          <p role="alert" className="lamu-filter-error">
+            Cast could not be loaded.
+          </p>
+        ) : (
+          <>
+            {selectedCast.length > 0 ? (
+              <ul className="lamu-filter-selected" aria-label="Selected cast">
+                {selectedCast.map((member, index) => (
+                  <li key={`${String(member.id)}-${index}`} className="lamu-filter-selected-item">
+                    <span className="lamu-filter-row-name">{member.name}</span>
+                    <button
+                      type="button"
+                      className="lamu-tag-remove"
+                      aria-label={`Remove ${member.name} from cast filter`}
+                      onClick={() => removeActor(member.id)}
+                    >
+                      <CloseIcon size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <label htmlFor={castInputId} className="sr-only">
+              Add a cast member
+            </label>
+            <input
+              ref={castInputRef}
+              id={castInputId}
+              type="search"
+              className="lamu-filter-find"
+              placeholder="Type a name"
+              autoComplete="off"
+              value={castText}
+              aria-controls={castListId}
+              onChange={(event) => setCastText(event.target.value)}
+            />
+            <div id={castListId} aria-live="polite">
+              {castNeedle === '' ? null : castSuggestions.length > 0 ? (
+                <ul className="lamu-filter-options" aria-label="Cast suggestions">
+                  {castSuggestions.map((actor) => (
+                    <li key={String(actor.id)}>
+                      <button
+                        type="button"
+                        className="lamu-filter-option"
+                        onClick={() => addActor(actor.id)}
+                      >
+                        {actor.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="lamu-filter-note">No matching cast members.</p>
+              )}
+            </div>
+          </>
+        )}
+      </fieldset>
+
+      <fieldset className="lamu-filter-group">
+        <legend className="lamu-filter-legend">IMDb rating</legend>
+        <DualRangeField
+          min={RATING_MIN_EXTENT}
+          max={RATING_MAX_EXTENT}
+          step={0.1}
+          low={{
+            id: ratingMinId,
+            accessibleName: 'IMDb rating minimum',
+            valueText: ratingMinText,
+            value: ratingMinValue,
+            onValueChange: (value) =>
+              update((next) => {
+                next.minRating = normalizeRatingValue(value);
+                next.maxRating = normalizeRatingValue(ratingMaxValue);
+              }),
+          }}
+          high={{
+            id: ratingMaxId,
+            accessibleName: 'IMDb rating maximum',
+            valueText: ratingMaxText,
+            value: ratingMaxValue,
+            onValueChange: (value) =>
+              update((next) => {
+                next.minRating = normalizeRatingValue(ratingMinValue);
+                next.maxRating = normalizeRatingValue(value);
+              }),
+          }}
+        />
       </fieldset>
 
       <fieldset className="lamu-filter-group">
@@ -783,45 +794,14 @@ export function FilterPanel(props: FilterPanelProps) {
       </fieldset>
 
       <fieldset className="lamu-filter-group">
-        <legend className="lamu-filter-legend">IMDb rating</legend>
-        <DualRangeField
-          min={RATING_MIN_EXTENT}
-          max={RATING_MAX_EXTENT}
-          step={0.1}
-          low={{
-            id: ratingMinId,
-            accessibleName: 'IMDb rating minimum',
-            valueText: ratingMinText,
-            value: ratingMinValue,
-            onValueChange: (value) =>
-              update((next) => {
-                next.minRating = normalizeRatingValue(value);
-                next.maxRating = normalizeRatingValue(ratingMaxValue);
-              }),
-          }}
-          high={{
-            id: ratingMaxId,
-            accessibleName: 'IMDb rating maximum',
-            valueText: ratingMaxText,
-            value: ratingMaxValue,
-            onValueChange: (value) =>
-              update((next) => {
-                next.minRating = normalizeRatingValue(ratingMinValue);
-                next.maxRating = normalizeRatingValue(value);
-              }),
-          }}
-        />
-      </fieldset>
-
-      <fieldset className="lamu-filter-group">
         <legend className="lamu-filter-legend">Enrichment status</legend>
-        <div className="lamu-chip-row">
+        <div className="lamu-filter-rows">
           {STATUS_OPTIONS.map((item) => {
             const checked = selectedStatuses.has(item.wire);
             return (
               <label
                 key={item.wire}
-                className={checked ? 'lamu-chip lamu-chip-selected' : 'lamu-chip'}
+                className={checked ? 'lamu-filter-row lamu-filter-row-selected' : 'lamu-filter-row'}
               >
                 <input
                   type="checkbox"
@@ -829,12 +809,62 @@ export function FilterPanel(props: FilterPanelProps) {
                   checked={checked}
                   onChange={(event) => toggleStatus(item.wire, event.target.checked)}
                 />
-                <span>{item.label}</span>
+                <span className="lamu-filter-row-name">{item.label}</span>
               </label>
             );
           })}
         </div>
       </fieldset>
+
+      {collectionHealthyEmpty ? null : (
+        <fieldset className="lamu-filter-group">
+          <legend className="lamu-filter-legend">Collection</legend>
+          {collectionFailed ? (
+            <p role="alert" className="lamu-filter-error">
+              Collections could not be loaded.
+            </p>
+          ) : (
+            <>
+              {sortedCollections.length > COLLECTION_FIND_THRESHOLD ? (
+                <input
+                  type="search"
+                  className="lamu-filter-find"
+                  aria-label="Find a collection"
+                  placeholder="Find a collection"
+                  autoComplete="off"
+                  value={collectionText}
+                  onChange={(event) => setCollectionText(event.target.value)}
+                />
+              ) : null}
+              <div className="lamu-filter-rows">
+                {visibleCollections.map((item) => {
+                  const checked = String(query.collectionId) === String(item.id);
+                  return (
+                    <label
+                      key={String(item.id)}
+                      className={
+                        checked ? 'lamu-filter-row lamu-filter-row-selected' : 'lamu-filter-row'
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={checked}
+                        onChange={(event) => toggleCollection(item.id, event.target.checked)}
+                      />
+                      <span className="lamu-filter-row-name">{item.name}</span>
+                      <span className="lamu-filter-row-count" aria-hidden="true">
+                        {item.movieCount}
+                      </span>
+                      <span className="sr-only">, {item.movieCount} movies</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </fieldset>
+      )}
 
       {showSort ? (
         <fieldset className="lamu-filter-group">
@@ -861,25 +891,27 @@ export function FilterPanel(props: FilterPanelProps) {
         </fieldset>
       ) : null}
 
-      <footer className="lamu-filter-footer">
-        {matchCount === undefined ? (
-          <span />
-        ) : (
-          <p className="lamu-filter-count">
-            {matchCount} {matchCount === 1 ? 'match' : 'matches'}
-          </p>
-        )}
-        <div className="lamu-filter-footer-actions">
-          <button type="button" className="lamu-link" onClick={handleClear}>
-            Clear all
-          </button>
-          {onCollapse ? (
-            <button type="button" className="lamu-link" onClick={onCollapse}>
-              Collapse
+      {showFooter ? (
+        <footer className="lamu-filter-footer">
+          {matchCount === undefined ? (
+            <span />
+          ) : (
+            <p className="lamu-filter-count">
+              {matchCount} {matchCount === 1 ? 'match' : 'matches'}
+            </p>
+          )}
+          <div className="lamu-filter-footer-actions">
+            <button type="button" className="lamu-link" onClick={handleClear}>
+              Clear all
             </button>
-          ) : null}
-        </div>
-      </footer>
+            {onCollapse ? (
+              <button type="button" className="lamu-link" onClick={onCollapse}>
+                Collapse
+              </button>
+            ) : null}
+          </div>
+        </footer>
+      ) : null}
     </section>
   );
 }

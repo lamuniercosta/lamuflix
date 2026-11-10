@@ -4,13 +4,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import type { components } from '../api/types';
 import FilterPanel from '../features/library/FilterPanel';
-import ForYouRail from '../features/for-you/ForYouRail';
 import {
   currentYearExtent,
   isRatingActive,
   isRuntimeActive,
   isYearActive,
   parseFilterQuery,
+  RATING_MAX_EXTENT,
+  RATING_MIN_EXTENT,
   RUNTIME_MAX_EXTENT,
   RUNTIME_MIN_EXTENT,
   SORT_OPTIONS,
@@ -28,9 +29,9 @@ import type { LibraryVariant } from './LibraryTile';
 import MovieGrid from './MovieGrid';
 import Pagination from './Pagination';
 import './library.css';
+import './browse.css';
 import { useAmbientPosters } from '../ui/ambient';
-import { genreIcon } from '../ui/genreIcon';
-import { ChevronDownIcon, GridIcon, ListIcon } from '../ui/icons';
+import { AdjustmentsIcon, CloseIcon, GridIcon, ListIcon } from '../ui/icons';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
@@ -75,10 +76,15 @@ function replaceQuery(next: FilterQuery, currentYear: number): void {
   }
 }
 
+function hasDirector(query: FilterQuery): boolean {
+  return query.directorId != null && String(query.directorId) !== '';
+}
+
 function activeFilterGroups(query: FilterQuery, currentYear: number): number {
   const groups = [
     (query.genreIds ?? []).length > 0,
     (query.actorIds ?? []).length > 0,
+    hasDirector(query),
     isRuntimeActive(query.runtimeMin, query.runtimeMax, query.runtimeIncludeUnknown),
     isYearActive(query.yearMin, query.yearMax, currentYear),
     isRatingActive(query.minRating, query.maxRating),
@@ -123,40 +129,6 @@ function resultsMode(
     return 'watchlistEmpty';
   }
   return 'libraryEmpty';
-}
-
-interface GenreTilesProps {
-  genres: GenreDto[];
-  selectedIds: ReadonlyArray<string | number>;
-  onToggle: (id: string | number) => void;
-}
-
-function GenreTiles({ genres, selectedIds, onToggle }: GenreTilesProps) {
-  if (genres.length === 0) {
-    return null;
-  }
-  const selected = new Set(selectedIds.map(String));
-
-  return (
-    <div className="genre-tiles" role="group" aria-label="Browse by genre">
-      {genres.map((genre) => {
-        const Icon = genreIcon(genre.name);
-        const isSelected = selected.has(String(genre.id));
-        return (
-          <button
-            key={String(genre.id)}
-            type="button"
-            className="genre-tile"
-            aria-pressed={isSelected}
-            onClick={() => onToggle(genre.id)}
-          >
-            <Icon size={20} className="genre-tile-icon" />
-            <span>{genre.name}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
 interface ResultsBodyProps {
@@ -226,7 +198,8 @@ interface LibraryBrowseViewProps {
 
 interface Chip {
   key: string;
-  label: string;
+  kind: string;
+  value: string;
   removeLabel: string;
   onRemove: () => void;
 }
@@ -257,6 +230,11 @@ function boundActive(raw: unknown, extent: number): string | null {
   return String(raw).trim();
 }
 
+function ratingBoundText(raw: unknown, fallback: number): string {
+  const number = raw == null || String(raw).trim() === '' ? fallback : Number(raw);
+  return (Number.isFinite(number) ? number : fallback).toFixed(1);
+}
+
 function isUnknownRuntimeIncluded(raw: unknown): boolean {
   return String(raw ?? '').toLowerCase() === 'true';
 }
@@ -264,11 +242,12 @@ function isUnknownRuntimeIncluded(raw: unknown): boolean {
 function pushChip(
   list: Chip[],
   key: string,
-  label: string,
+  kind: string,
+  value: string,
   removeLabel: string,
   onRemove: () => void,
 ): void {
-  list.push({ key, label, removeLabel, onRemove });
+  list.push({ key, kind, value, removeLabel, onRemove });
 }
 
 function LibraryBrowseView({
@@ -335,7 +314,6 @@ function LibraryBrowseView({
   });
 
   const queryClient = useQueryClient();
-  const feedbackClients = useMemo(() => ({ libraryClient: queryClient }), [queryClient]);
   useEffect(() => {
     if (browse.data) {
       queryClient.setQueryData(lastGoodQueryKey, browse.data);
@@ -370,14 +348,12 @@ function LibraryBrowseView({
   }, []);
 
   const [variant, setVariant] = useState<LibraryVariant>('grid');
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(
+    () =>
+      typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 64rem)').matches,
+  );
   const panelId = useId();
   const toggleRef = useRef<HTMLButtonElement>(null);
-
-  const collapsePanel = useCallback(() => {
-    toggleRef.current?.focus();
-    setPanelOpen(false);
-  }, []);
 
   const browseError = browse.error as BrowseMoviesQueryError | null;
   if (browseError && (browseError.invalidFilter === true || browseError.status === 422)) {
@@ -426,14 +402,12 @@ function LibraryBrowseView({
     [query, onQueryChange],
   );
 
-  const toggleGenre = useCallback(
-    (id: string | number) => {
-      const key = String(id);
+  const handleSortChange = useCallback(
+    (value: string) => {
+      const [sort, direction] = value.split('|');
       const next = parseFilterQuery(query);
-      const selected = next.genreIds.map(String).includes(key);
-      next.genreIds = selected
-        ? next.genreIds.filter((value) => String(value) !== key)
-        : [...next.genreIds, id];
+      next.sort = sort;
+      next.direction = direction;
       next.page = 1;
       onQueryChange(next);
     },
@@ -454,6 +428,16 @@ function LibraryBrowseView({
       ),
     [actorsQuery.data],
   );
+  const directorNameById = useMemo(
+    () =>
+      new Map(
+        DirectorDtoList(directorsQuery.data).map((director) => [
+          String(director.id),
+          String(director.name ?? ''),
+        ]),
+      ),
+    [directorsQuery.data],
+  );
   const collectionNameById = useMemo(
     () =>
       new Map(
@@ -467,35 +451,22 @@ function LibraryBrowseView({
 
   const chips: Chip[] = useMemo(() => {
     const list: Chip[] = [];
-    if (query.text) {
-      const text = String(query.text);
-      pushChip(list, 'text', `Search: ${text}`, `Remove search filter ${text}`, () =>
-        removeValue((next) => {
-          next.text = '';
-        }),
-      );
-    }
     for (const [index, id] of (query.genreIds ?? []).entries()) {
       const value = String(id);
       const name = genreNameById.get(value) || value;
-      pushChip(
-        list,
-        `genre-${value}-${index}`,
-        `Genre: ${name}`,
-        `Remove genre filter ${name}`,
-        () =>
-          removeValue((next) => {
-            const position = next.genreIds.map(String).indexOf(value);
-            if (position >= 0) {
-              next.genreIds = next.genreIds.filter((_, itemIndex) => itemIndex !== position);
-            }
-          }),
+      pushChip(list, `genre-${value}-${index}`, 'Genre', name, `Remove genre filter ${name}`, () =>
+        removeValue((next) => {
+          const position = next.genreIds.map(String).indexOf(value);
+          if (position >= 0) {
+            next.genreIds = next.genreIds.filter((_, itemIndex) => itemIndex !== position);
+          }
+        }),
       );
     }
     for (const [index, id] of (query.actorIds ?? []).entries()) {
       const value = String(id);
       const name = actorNameById.get(value) || value;
-      pushChip(list, `actor-${value}-${index}`, `Cast: ${name}`, `Remove cast filter ${name}`, () =>
+      pushChip(list, `actor-${value}-${index}`, 'Cast', name, `Remove cast filter ${name}`, () =>
         removeValue((next) => {
           const position = next.actorIds.map(String).indexOf(value);
           if (position >= 0) {
@@ -504,10 +475,19 @@ function LibraryBrowseView({
         }),
       );
     }
+    if (hasDirector(query)) {
+      const value = String(query.directorId);
+      const name = directorNameById.get(value) || `Director ${value}`;
+      pushChip(list, 'director', 'Director', name, `Remove director filter ${name}`, () =>
+        removeValue((next) => {
+          next.directorId = '';
+        }),
+      );
+    }
     if (query.collectionId != null) {
       const value = String(query.collectionId);
       const name = collectionNameById.get(value) ?? `Collection ${value}`;
-      pushChip(list, 'collection', `Collection: ${name}`, `Remove collection filter ${name}`, () =>
+      pushChip(list, 'collection', 'Collection', name, `Remove collection filter ${name}`, () =>
         removeValue((next) => {
           next.collectionId = null;
         }),
@@ -518,7 +498,8 @@ function LibraryBrowseView({
       pushChip(
         list,
         'runtimeMin',
-        `Runtime from ${runtimeMin} min`,
+        'Runtime',
+        `from ${runtimeMin} min`,
         `Remove minimum runtime ${runtimeMin} minutes`,
         () =>
           removeValue((next) => {
@@ -531,7 +512,8 @@ function LibraryBrowseView({
       pushChip(
         list,
         'runtimeMax',
-        `Runtime to ${runtimeMax} min`,
+        'Runtime',
+        `to ${runtimeMax} min`,
         `Remove maximum runtime ${runtimeMax} minutes`,
         () =>
           removeValue((next) => {
@@ -543,7 +525,8 @@ function LibraryBrowseView({
       pushChip(
         list,
         'runtimeIncludeUnknown',
-        'Include unknown runtime',
+        'Runtime',
+        'include unknown',
         'Remove include unknown runtime filter',
         () =>
           removeValue((next) => {
@@ -553,7 +536,7 @@ function LibraryBrowseView({
     }
     const yearMin = boundActive(query.yearMin, YEAR_MIN_EXTENT);
     if (yearMin !== null) {
-      pushChip(list, 'yearMin', `From ${yearMin}`, `Remove minimum year ${yearMin}`, () =>
+      pushChip(list, 'yearMin', 'Year', `from ${yearMin}`, `Remove minimum year ${yearMin}`, () =>
         removeValue((next) => {
           next.yearMin = '';
         }),
@@ -561,9 +544,18 @@ function LibraryBrowseView({
     }
     const yearMax = boundActive(query.yearMax, currentYear);
     if (yearMax !== null) {
-      pushChip(list, 'yearMax', `To ${yearMax}`, `Remove maximum year ${yearMax}`, () =>
+      pushChip(list, 'yearMax', 'Year', `to ${yearMax}`, `Remove maximum year ${yearMax}`, () =>
         removeValue((next) => {
           next.yearMax = '';
+        }),
+      );
+    }
+    if (isRatingActive(query.minRating, query.maxRating)) {
+      const range = `${ratingBoundText(query.minRating, RATING_MIN_EXTENT)} to ${ratingBoundText(query.maxRating, RATING_MAX_EXTENT)}`;
+      pushChip(list, 'imdbRating', 'IMDb', range, 'Remove IMDb rating filter', () =>
+        removeValue((next) => {
+          next.minRating = null;
+          next.maxRating = null;
         }),
       );
     }
@@ -572,7 +564,8 @@ function LibraryBrowseView({
       pushChip(
         list,
         `status-${value}-${index}`,
-        `Status: ${value}`,
+        'Status',
+        value,
         `Remove status filter ${value}`,
         () =>
           removeValue((next) => {
@@ -584,7 +577,15 @@ function LibraryBrowseView({
       );
     }
     return list;
-  }, [query, removeValue, currentYear, genreNameById, actorNameById, collectionNameById]);
+  }, [
+    query,
+    removeValue,
+    currentYear,
+    genreNameById,
+    actorNameById,
+    directorNameById,
+    collectionNameById,
+  ]);
 
   const prevRoutePathRef = useRef(routePath);
   useEffect(() => {
@@ -602,80 +603,23 @@ function LibraryBrowseView({
 
   return (
     <div className="library-view">
-      <GenreTiles
-        genres={GenreDtoList(genresQuery.data)}
-        selectedIds={query.genreIds ?? []}
-        onToggle={toggleGenre}
-      />
+      <h2 className="library-title sr-only">{headingText}</h2>
 
-      <div className="library-heading">
-        <div className="library-heading-main">
-          <h2 className="library-title lamu-section-heading">{headingText}</h2>
-          <p className="library-count" role="status">
-            {countText}
-          </p>
-          <span className="sr-only" aria-live="polite">
-            Sort: {sortLabel(query.sort, query.direction)}
-          </span>
-        </div>
-        <div className="library-controls">
-          <div className="view-toggle" role="group" aria-label="Result layout">
-            <button
-              type="button"
-              aria-pressed={variant === 'grid'}
-              onClick={() => setVariant('grid')}
-            >
-              <GridIcon size={16} />
-              <span>Grid</span>
-            </button>
-            <button
-              type="button"
-              aria-pressed={variant === 'list'}
-              onClick={() => setVariant('list')}
-            >
-              <ListIcon size={16} />
-              <span>List</span>
-            </button>
-          </div>
-          <button
-            ref={toggleRef}
-            type="button"
-            className="filters-toggle"
-            aria-expanded={panelOpen}
-            aria-controls={panelId}
-            onClick={() => setPanelOpen((open) => !open)}
-          >
-            <span>Filters</span>
-            {groupCount > 0 ? (
-              <>
-                <span className="filters-toggle-badge" aria-hidden="true">
-                  {groupCount}
-                </span>
-                <span className="sr-only">
-                  {' '}
-                  {groupCount === 1 ? '1 filter group' : `${groupCount} filter groups`} active
-                </span>
-              </>
-            ) : null}
-            <ChevronDownIcon size={18} className="filters-toggle-chevron" />
-          </button>
-        </div>
-      </div>
-
-      {!panelOpen && chips.length > 0 ? (
-        <div className="library-chips">
-          <ul className="library-chip-list" aria-label="Active filters">
+      {chips.length > 0 ? (
+        <div className="library-tags">
+          <ul className="library-tag-list" aria-label="Active filters">
             {chips.map((chip) => (
               <li key={chip.key}>
-                <span className="lamu-chip">
-                  {chip.label}
+                <span className="lamu-tag">
+                  <span className="lamu-tag-kind">{chip.kind}</span>
+                  <span className="lamu-tag-value">{chip.value}</span>
                   <button
                     type="button"
-                    className="lamu-chip-remove"
+                    className="lamu-tag-remove"
                     aria-label={chip.removeLabel}
                     onClick={chip.onRemove}
                   >
-                    ×
+                    <CloseIcon size={14} />
                   </button>
                 </span>
               </li>
@@ -687,13 +631,13 @@ function LibraryBrowseView({
         </div>
       ) : null}
 
-      <div
-        id={panelId}
-        className="filter-collapse"
-        data-open={String(panelOpen)}
-        inert={!panelOpen}
-      >
-        <div className="filter-collapse-inner">
+      <div className="library-body" data-rail={panelOpen ? 'open' : 'closed'}>
+        <aside
+          id={panelId}
+          className="filter-collapse"
+          data-open={String(panelOpen)}
+          inert={!panelOpen}
+        >
           <FilterPanel
             query={query}
             genres={GenreDtoList(genresQuery.data)}
@@ -709,35 +653,100 @@ function LibraryBrowseView({
             onRetryDirectors={() => void directorsQuery.refetch()}
             integrated={integrated}
             showTitleSearch={!integrated}
+            showSort={false}
+            showFooter={false}
             matchCount={totalCount}
-            onCollapse={collapsePanel}
             routeKey={routeKey}
           />
+        </aside>
+
+        <div className="library-main">
+          <div className="library-tools">
+            <button
+              ref={toggleRef}
+              type="button"
+              className="filters-toggle"
+              aria-expanded={panelOpen}
+              aria-controls={panelId}
+              onClick={() => setPanelOpen((open) => !open)}
+            >
+              <AdjustmentsIcon size={16} />
+              <span>Filters</span>
+              {groupCount > 0 ? (
+                <>
+                  <span className="filters-toggle-badge" aria-hidden="true">
+                    {groupCount}
+                  </span>
+                  <span className="sr-only">
+                    {' '}
+                    {groupCount === 1 ? '1 filter group' : `${groupCount} filter groups`} active
+                  </span>
+                </>
+              ) : null}
+            </button>
+            <p className="library-count" role="status">
+              {countText}
+            </p>
+            <label className="library-sort">
+              <span className="library-sort-label">Sort by</span>
+              <select
+                className="library-sort-select"
+                value={sortValueOf(query.sort, query.direction)}
+                onChange={(event) => handleSortChange(event.target.value)}
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option
+                    key={`${option.sort}|${option.direction}`}
+                    value={`${option.sort}|${option.direction}`}
+                  >
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="sr-only" aria-live="polite">
+              Sort: {sortLabel(query.sort, query.direction)}
+            </span>
+            <div className="view-toggle" role="group" aria-label="Result layout">
+              <button
+                type="button"
+                aria-pressed={variant === 'grid'}
+                onClick={() => setVariant('grid')}
+              >
+                <GridIcon size={16} />
+                <span>Grid</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={variant === 'list'}
+                onClick={() => setVariant('list')}
+              >
+                <ListIcon size={16} />
+                <span>List</span>
+              </button>
+            </div>
+          </div>
+
+          <section aria-label="Results">
+            {refreshFailed ? <p role="alert">Movies could not be refreshed.</p> : null}
+            <ResultsBody
+              loading={loading}
+              mode={mode}
+              hasItems={visibleItems.length > 0}
+              totalCount={totalCount}
+              page={filters.page}
+              pageSize={filters.pageSize}
+              filtersActive={activeFilters}
+              tiles={tiles}
+              variant={variant}
+              focusSignal={focusSignal}
+              onClearFilters={onClearFilters}
+              onFirstPage={() => onPageChange(1)}
+              onPageChange={onPageChange}
+            />
+          </section>
         </div>
       </div>
-
-      {!activeFilters && !watchlistActive ? (
-        <ForYouRail onOpenMovie={openMovie} feedbackClients={feedbackClients} />
-      ) : null}
-
-      <section aria-label="Results">
-        {refreshFailed ? <p role="alert">Movies could not be refreshed.</p> : null}
-        <ResultsBody
-          loading={loading}
-          mode={mode}
-          hasItems={visibleItems.length > 0}
-          totalCount={totalCount}
-          page={filters.page}
-          pageSize={filters.pageSize}
-          filtersActive={activeFilters}
-          tiles={tiles}
-          variant={variant}
-          focusSignal={focusSignal}
-          onClearFilters={onClearFilters}
-          onFirstPage={() => onPageChange(1)}
-          onPageChange={onPageChange}
-        />
-      </section>
     </div>
   );
 }
@@ -797,10 +806,11 @@ export default function LibraryView({
       if (integrated) {
         onQueryChange?.(next);
       } else {
+        replaceQuery(next, currentYear);
         setInternalQuery(next);
       }
     },
-    [integrated, onQueryChange],
+    [currentYear, integrated, onQueryChange],
   );
 
   const handlePageChange = useCallback(

@@ -1,80 +1,69 @@
+/* Feedback icon bar: four justified cells split by hairlines, flat and square. */
 .movie-feedback-actions {
   position: relative;
   z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--lamu-space-2);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .movie-feedback-action {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
+  display: grid;
+  min-width: 0;
+}
+
+.movie-feedback-action + .movie-feedback-action {
+  border-left: 1px solid var(--color-rule);
 }
 
 .movie-feedback-actions .movie-feedback-icon {
-  display: inline-grid;
+  display: grid;
   place-items: center;
-  width: 2.5rem;
+  width: 100%;
   height: 2.5rem;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--lamu-radius-pill);
+  border: 0;
+  border-radius: 0;
   background-color: transparent;
-  color: var(--color-dim);
+  color: var(--color-ink);
   cursor: pointer;
-  transition:
-    color 160ms ease,
-    background-color 160ms ease;
 }
 
 .movie-feedback-actions .movie-feedback-icon:hover {
-  color: var(--color-ink);
-  background-color: var(--color-glass-2);
-}
-
-.movie-feedback-actions .movie-feedback-icon:active {
-  background-color: var(--color-glass-3);
+  background-color: var(--color-rule);
 }
 
 .movie-feedback-actions .movie-feedback-icon[aria-pressed='true'] {
-  background-color: var(--color-ink);
-  color: var(--color-booth);
-}
-
-.movie-feedback-actions .movie-feedback-icon[aria-pressed='true']:hover {
-  background-color: var(--color-dim);
-  color: var(--color-booth);
+  color: var(--color-accent);
 }
 
 .movie-feedback-actions .movie-feedback-icon:disabled {
   cursor: progress;
-  opacity: 0.72;
+  opacity: 0.5;
 }
 
 .movie-feedback-actions .movie-feedback-icon:focus-visible {
   outline: 2px solid var(--color-ink);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
+/* Tooltip spans the whole bar, so long labels stay inside the poster. */
 .movie-feedback-tooltip {
   position: absolute;
-  bottom: calc(100% + var(--lamu-space-1));
-  left: 50%;
+  bottom: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
   z-index: 3;
-  max-width: 14rem;
-  padding: var(--lamu-space-1) var(--lamu-space-2);
-  border: 1px solid var(--color-rule);
-  border-radius: var(--lamu-radius-control);
-  background-color: var(--color-plate);
-  color: var(--color-ink);
-  font-size: 0.8125rem;
+  max-width: 100%;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-radius: 0;
+  background-color: var(--color-ink);
+  color: var(--color-booth);
+  font-size: 0.75rem;
   line-height: 1.35;
-  white-space: nowrap;
+  text-align: center;
   pointer-events: none;
   opacity: 0;
-  transform: translateX(-50%);
   transition: opacity 120ms ease;
 }
 
@@ -83,21 +72,28 @@
   opacity: 1;
 }
 
-.movie-feedback-actions p[role='alert'] {
+.movie-feedback-actions > p[role='alert'] {
+  grid-column: 1 / -1;
   margin: 0;
-  max-width: 12rem;
-  font-size: 0.75rem;
-  color: var(--color-dim);
+  padding: 0.5rem;
+  background-color: var(--color-booth);
+  border-top: 1px solid var(--color-rule);
+  color: var(--color-ink);
+  font-size: 0.8125rem;
 }
 
 .movie-feedback-error {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--lamu-space-2);
+  gap: 0.5rem;
   margin: 0;
-  color: var(--color-dim);
-  font-size: 0.875rem;
+  padding: 0.5rem;
+  background-color: var(--color-booth);
+  border-top: 1px solid var(--color-rule);
+  color: var(--color-ink);
+  font-size: 0.8125rem;
 }
 
 .movie-feedback-error p {
@@ -108,16 +104,5 @@
   .movie-feedback-actions .movie-feedback-icon,
   .movie-feedback-tooltip {
     transition: none;
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .movie-feedback-actions .movie-feedback-icon:hover,
-  .movie-feedback-actions .movie-feedback-icon:active {
-    background-color: var(--color-reel);
-  }
-
-  .movie-feedback-tooltip {
-    background-color: var(--color-reel);
   }
 }

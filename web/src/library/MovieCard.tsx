@@ -105,8 +105,19 @@ export default function MovieCard({
           aria-label={`Play ${title}`}
           onClick={handlePlay}
         >
-          <PlayFilledIcon size={22} />
+          <PlayFilledIcon size={26} />
         </button>
+
+        <div className="movie-card-actions">
+          <MovieFeedbackActions
+            movieId={id}
+            title={title}
+            isWatched={movie.isWatched}
+            review={movie.review}
+            isInWatchlist={movie.isInWatchlist}
+            clients={feedbackClients}
+          />
+        </div>
       </div>
 
       <h3 className="movie-card-title">
@@ -123,9 +134,7 @@ export default function MovieCard({
           <StarFilledIcon size={14} className="movie-card-star" />
           <span>{ratingText ?? '—'}</span>
         </span>
-        <span className="movie-card-sep" aria-hidden="true">
-          |
-        </span>
+        <span className="movie-card-sep" aria-hidden="true" />
         <span>{displayValue(movie.releaseYear)}</span>
       </p>
 
@@ -149,15 +158,6 @@ export default function MovieCard({
           })}
         </div>
       ) : null}
-
-      <MovieFeedbackActions
-        movieId={id}
-        title={title}
-        isWatched={movie.isWatched}
-        review={movie.review}
-        isInWatchlist={movie.isInWatchlist}
-        clients={feedbackClients}
-      />
 
       {canRetryEnrichment(status) ? (
         <div className="movie-card-status">
