@@ -1,0 +1,92 @@
+[from Quill] DEV-453 Phase 2 step 6 round 1 planning repairs APPLIED.
+
+Worktree: F:/Dev/LamuFlix.worktrees/feature-453-spec
+Branch: feature/453-spec (verified)
+Authority: adjudication-DEV-453-Keel numbered list 1-11 + brief Authoritative Plan Challenge adjudication addendum (2026-11-10).
+Keel independently rereads before any closure/freeze. No PLAN FROZEN / analyze-clean claim. Existing C4/VII remains blocked: structural; Gate 1 closed; owner checkbox unchanged/unchecked. Two-round cap remains; Quill did not start another challenge round. No production/generated/ADR/constitution/brief/CONCLUSIONS/ASSUMPTIONS edits. L3 accepted historical context; L4 not reproduced (UTF-8 >= preserved).
+
+Changed files (Quill-owned only):
+- specs/DEV-453/spec.md
+- specs/DEV-453/plan.md
+- specs/DEV-453/tasks.md
+- specs/DEV-453/checklists/requirements.md
+- specs/DEV-453/DRAFTING_RECEIPT.md
+- this report
+
+Not edited by Quill this round: brief.md, CONCLUSIONS.md, ASSUMPTIONS.md, ADR 0038, constitution, production/generated code, CONTEXT.md (pre-existing append-only edit from analyze round 2 left as-is).
+
+Owner checkbox verification:
+- specs/DEV-453/spec.md:12 remains unchecked and verbatim:
+  "- [ ] Approve a narrowly scoped Principle VII departure for SubtitlesOptions / OpenSubtitlesOptions ..."
+- Clarifying implementation-name / options-record note only at spec.md:10 (beside checkbox, not inside it).
+
+UTF-8:
+- >= symbol intact at spec.md:35 and FR-013 spec.md:198; arrows preserved. No encoding rewrite.
+
+Repair list -> precise anchors:
+
+1. Sentry F1/F2 (pre-request HTTPS/host; redirects off; all 3xx->502; 409 vs 502; T001 STOP; never-contacted):
+   - spec.md:34 (Scope safety), :197 (FR-012), :172-173 (edge), :179 (Phase B STOP)
+   - plan.md:66, :70, :135, :163-164
+   - tasks.md:52 (T001 host/protocol STOP), :77-78 (T007/T008)
+
+2. Sentry F3 (raw {id} capture/parse; noninteger 400; absent 404; independent 422):
+   - spec.md:29, :31, :87, :129, :189 (FR-004), :192 (FR-007)
+   - plan.md:45, :67, :70, :137
+   - tasks.md:89-90 (T011/T012)
+
+3. Sentry F4/F5 (nosniff+attachment; caller abort vs provider timeout; no rollback after commit):
+   - spec.md:29, :31, :107-108, :128, :170, :192-193 (FR-007/FR-008)
+   - plan.md:70, :135, :137
+   - tasks.md:77, :89-90 (T007/T011/T012)
+
+4. Sentry F6 (accepted double-download + crash-orphan; no lock/janitor):
+   - spec.md:168-169, :196 (FR-011)
+   - plan.md:121, :136, :166
+   - tasks.md:87 (T009), :90 (T012)
+
+5. Ledger M1/M2 (verbatim checkbox; functional names; VII options-record enumeration):
+   - spec.md:10-12, :32, :194 (FR-009)
+   - plan.md:47-48, :65, :119
+   - tasks.md:7, :54 (T001c), :65-66 (T003/T004)
+
+6. Ledger M3/M4 (data-only provider; ILibraryFileReader hash; feature-folder STOP; single mapper):
+   - spec.md:32, :35, :195-196 (FR-010/FR-011), :192 (typed Core failures)
+   - plan.md:41, :45, :61-62, :64-65, :70, :120
+   - tasks.md:52, :54 (T001/T001c), :64 (T002), :76 (T006), :90 (T012)
+
+7. Ledger L1/L2 (/health/live exclusion; root CONTEXT.md diagram; no ADR/UTF-8 rewrite):
+   - spec.md:201 (FR-021), :224 (SC-004)
+   - plan.md:46, :71, :97-99, :139, :168
+   - tasks.md:91 (T012b)
+   - DRAFTING_RECEIPT.md:35 (L3/L4 note)
+
+8. Compass F1/F2 (renumber scenario 8; selectedLanguage always on saved):
+   - spec.md:31, :125-126, :131 (scenario 8), :190 (FR-005)
+   - plan.md:70, :137
+   - tasks.md:65, :89
+
+9. Compass F3 (Movie primary-title T001; blank title -> noMatch):
+   - spec.md:35, :116, :126, :171, :198 (FR-013)
+   - plan.md:61, :134
+   - tasks.md:52, :75-76 (T001/T005/T006)
+
+10. Compass F4 (minimal downloaded-SRT criteria; raw/wrapper STOP; existing-track exact bytes):
+    - spec.md:197 (FR-012), :175 (O3 edge), :193 (FR-008 exact bytes)
+    - plan.md:66, :135
+    - tasks.md:52, :77-78, :88 (T001/T007/T008/T010)
+
+11. Compass F5/O1 (Retry-After delta-seconds|HTTP-date; reachable 422 only):
+    - spec.md:31, :128, :130, :174, :192 (FR-007)
+    - plan.md:45, :135, :137
+    - tasks.md:77, :89
+    - checklist CHK030/CHK034
+
+Checklist/receipt status aligned within authorization:
+- checklists/requirements.md: CHK005/007-009/012-013/026-027 realigned; CHK029-CHK035 added
+- DRAFTING_RECEIPT.md:69-83 Plan Challenge round 1 section; needs decision still C4/VII only
+
+Remaining blocker (unchanged):
+- blocked: structural — C4/VII owner checkbox (spec.md:12); Gate 1 closed.
+
+No gate/runtime tests run in this planning repair round.

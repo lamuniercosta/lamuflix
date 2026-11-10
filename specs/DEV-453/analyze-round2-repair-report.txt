@@ -1,0 +1,46 @@
+[from Quill] DEV-453 analyze round 2 repair done (bounded; no clean/freeze/Gate1 claim).
+
+Worktree: F:/Dev/LamuFlix.worktrees/feature-453-spec
+Branch: feature/453-spec
+No production or constitution edits. No commit.
+
+Obstruction: none.
+
+Changed artifacts and key line refs:
+
+1) C1/V — transport malformed-ID 400 vs FluentValidation 422
+- spec.md:5 status; :31 scope item6; :129 scenario7; :189 FR-007; :220 SC-003
+- plan.md:45 Principle V SCHEDULED resolved C1/V; :70 API/handlers; test Prepare/serve API row
+- tasks.md:89-90 T011/T012; :100 T013 OpenAPI 422 metadata
+- checklists/requirements.md:46 CHK007; :54 CHK015; :64 CHK025
+- DRAFTING_RECEIPT.md:31 encoding; :60 round2 item1
+Do not claim all validation is 400. Single ProblemDetails+traceId mapper retained. Application-validation 422 metadata/OpenAPI/tests added.
+
+2) C2/VI — always-Healthy optional-provider local health
+- spec.md:198 FR-016 health matrix; :203 FR-021; :221 SC-004
+- plan.md:46 Principle VI SCHEDULED resolved C2/VI; :71 Observability; :97 project structure
+- tasks.md:91 T012b always-Healthy ready|disabled_or_unconfigured; zero network/quota; full matrix; TelemetryConstants/movie-id
+- checklists/requirements.md:65 CHK026
+No reachability claim; no other-dependency health changes.
+
+3) C4/VII — blocked structural (not resolved)
+- Exact owner question from brief addendum copied UNCHECKED at spec.md:12
+- Gate1 closed language: spec.md:5,8-14; plan.md:7,37,47; tasks.md:5,7,43,65-66; DRAFTING_RECEIPT.md:21,70; checklist CHK027/CHK028 :66-67
+- Spec-PR body handoff MUST carry same unchecked question (spec.md:10; DRAFTING_RECEIPT.md:21,70; CHK028)
+- Removed prior no-owner-checkbox / no-departure claims
+- Affected ValidateOnStart implementation blocked until owner approval + scoped constitution/governance amendment
+- Never checked; no assumed approval; Q10/no numeric defaults preserved; Principle I independent
+- Only remaining needs-decision is C4/VII (DRAFTING_RECEIPT.md:68-70)
+
+4) C4/VIII — append-only root CONTEXT.md (same PR; not deferred)
+- CONTEXT.md:208-226 five terms (Ordered language preferences, Selected subtitle, Sidecar, Preparation, Existing track) with definition/_Avoid_:; prior content preserved
+- spec.md:55-57 domain vocabulary + FR-022 :204
+- plan.md:9 artifacts; :48 Principle VIII SCHEDULED compliance; :98 structure; :114 layout
+- tasks.md:54 T001c notes C4/VIII already satisfied in Phase A; :173 notes
+- checklists/requirements.md:61 CHK022
+- Prior feature-local-only / no-root-edit claims realigned in Quill drafts
+
+5) Removed obsolete needs-decision placeholders for C1/C2/VIII; kept C4/VII unresolved with citations.
+
+Untracked Quill drafts remain: specs/DEV-453/spec.md, plan.md, tasks.md, DRAFTING_RECEIPT.md, checklists/requirements.md
+Modified tracked: CONTEXT.md (+20). brief.md/CONCLUSIONS.md/ASSUMPTIONS.md already had Patron/Keel adjudication edits; Quill did not edit those.

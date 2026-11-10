@@ -1,0 +1,18 @@
+[from Quill] DEV-453 analyze round 1 repairs applied to Quill-owned drafting docs only. Brief/CONCLUSIONS/ASSUMPTIONS/ADR/constitution read-only. No source recon. No analyze-clean / freeze / Gate 1 claim.
+
+Applied:
+C1 handlers+errors: plan.md:42 II SCHEDULED (sealed records/handlers/AddHandler/decorators; thin TypedResults). plan.md:45 V SCHEDULED with flagged 400 vs ValidationException 422 conflict (not silent reinterpret). tasks.md:90 T012 rewritten accordingly. checklist CHK025.
+C2 observability: plan.md:46 VI OPEN (not PASS); TelemetryConstants/movie-id events/ServiceDefaults scheduled; health-check without invented acquisition-at-startup. tasks.md:91 T012b. checklist CHK026.
+C3 safety/serve coverage: tasks.md T007/T008 content+redirect+no-retry; T010/T011/T012 acquisition-independent bounded existing-track serve/tests. No numeric defaults. checklist CHK008/012/016.
+I1 filename facts: removed unsupported ApiEndpoints.cs and /api grouping assertions from spec.md:25/FR-004/assumptions, plan.md:50/96, tasks.md:52/90, receipt. Relative routes preserved; mapping deferred to T001.
+C4 unresolved: plan.md:47 VII UNRESOLVED (ValidateOnStart vs Q10). plan.md:48 VIII UNRESOLVED (CONTEXT.md vs Q12). T001c noted as Principle I only. checklist CHK022/027.
+
+needs decision (DRAFTING_RECEIPT.md:56-59):
+1. C1/V — approved malformed-id 400 (Q6/Q10) vs Principle V ValidationException→422.
+2. C2/VI — OpenSubtitles health-check readiness vs Q10 never-block-startup; no unsafe acquisition health invented.
+3. C4/VII — ValidateOnStart vs Q10 missing/invalid acquisition never blocks startup.
+4. C4/VIII — CONTEXT.md new terms vs Q12 feature-local glossary / no root rewrite.
+
+Changed line refs (post-repair): plan 42/45-48/50-51/71/96/135/147; tasks 28/52-54/65-66/90-91/150/173; spec 25; receipt 27/30-31/54-59/63; checklist 43/47/51/61/63-66.
+Artifacts: specs/DEV-453/spec.md plan.md tasks.md checklists/requirements.md DRAFTING_RECEIPT.md
+Status: ready for Keel re-analyze; not analyze-clean; Gate 1 still closed.
