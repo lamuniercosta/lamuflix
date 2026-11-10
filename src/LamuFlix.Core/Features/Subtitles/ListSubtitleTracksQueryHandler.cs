@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Immutable;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -27,26 +26,10 @@ public sealed class ListSubtitleTracksQueryHandler(
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        var details = await catalog.GetDetailsAsync(query.Id, cancellationToken);
-        if (details is null)
-        {
-            throw new NotFoundException();
-        }
+        var movie = await SubtitleMovieResolution.ResolveAsync(catalog, scanner, reader, query.Id, cancellationToken);
 
-        reader.AuthorizeFolder(details.Path);
-
-        PrimaryVideo primary;
-        try
-        {
-            primary = scanner.ResolvePrimaryVideo(details.Path);
-        }
-        catch (InvalidTransitionException)
-        {
-            throw new NotFoundException();
-        }
-
-        var fileNames = reader.EnumerateFiles(details.Path);
-        var sidecars = SubtitleSidecarDiscovery.Discover(Path.GetFileName(primary.Path.Value), fileNames);
+        var fileNames = reader.EnumerateFiles(movie.Folder);
+        var sidecars = SubtitleSidecarDiscovery.Discover(movie.PrimaryFileName, fileNames);
 
         var tracks = ImmutableList.CreateBuilder<SubtitleTrack>();
         foreach (var sidecar in sidecars)

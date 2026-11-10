@@ -35,29 +35,13 @@ public sealed class GetSubtitleContentQueryHandler(
         ArgumentNullException.ThrowIfNull(query);
 
         var options = libraryOptions.Value;
-        var details = await catalog.GetDetailsAsync(query.Id, cancellationToken);
-        if (details is null)
-        {
-            throw new NotFoundException();
-        }
-
-        reader.AuthorizeFolder(details.Path);
-
-        PrimaryVideo primary;
-        try
-        {
-            primary = scanner.ResolvePrimaryVideo(details.Path);
-        }
-        catch (InvalidTransitionException)
-        {
-            throw new NotFoundException();
-        }
+        var movie = await SubtitleMovieResolution.ResolveAsync(catalog, scanner, reader, query.Id, cancellationToken);
 
         Activity.Current?.SetTag(TelemetryConstants.MovieId, query.Id.Value);
 
-        var fileName = ResolveEligibleFileName(query, details.Path, primary);
+        var fileName = ResolveEligibleFileName(query, movie.Folder, movie.PrimaryFileName);
         var payload = await ReadBoundedAsync(
-            CombinePath(details.Path, fileName),
+            CombinePath(movie.Folder, fileName),
             options.MaxSubtitleInputBytes,
             cancellationToken);
 
@@ -82,10 +66,10 @@ public sealed class GetSubtitleContentQueryHandler(
     private string ResolveEligibleFileName(
         GetSubtitleContentQuery query,
         LibraryPath folder,
-        PrimaryVideo primary)
+        string primaryFileName)
     {
         var sidecars = SubtitleSidecarDiscovery.Discover(
-            Path.GetFileName(primary.Path.Value),
+            primaryFileName,
             reader.EnumerateFiles(folder));
 
         var matched = default(string);

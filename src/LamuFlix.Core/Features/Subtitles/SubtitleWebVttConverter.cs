@@ -90,6 +90,14 @@ public static class SubtitleWebVttConverter
         }
 
         var payload = block.GetRange(2, block.Count - 2);
+        ValidatePayload(payload, limits);
+
+        cues.Add(new SubtitleCue(FormatTimestamp(start), FormatTimestamp(end), payload));
+        block.Clear();
+    }
+
+    private static void ValidatePayload(List<string> payload, SubtitleConversionLimits limits)
+    {
         foreach (var line in payload)
         {
             if (line.Contains(SourceArrow, StringComparison.Ordinal) || line.Length > limits.MaxLineCharacters)
@@ -97,9 +105,6 @@ public static class SubtitleWebVttConverter
                 throw SubtitlePayloadErrors.Invalid();
             }
         }
-
-        cues.Add(new SubtitleCue(FormatTimestamp(start), FormatTimestamp(end), payload));
-        block.Clear();
     }
 
     private static bool IsBlank(string line) => line.Trim().Length == 0;
