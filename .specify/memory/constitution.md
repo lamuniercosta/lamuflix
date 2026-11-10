@@ -1,6 +1,31 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.12.0 → 1.13.0 (MINOR: Principle II expected-domain-failure sentence and
+Principle V exception→status row for LibraryFileAccessDeniedException → 403; DEV-454)
+
+Amendment 1.13.0 (2026-11-10), DEV-454 Phase B T001 constitution application:
+  Authority: Charter §2.3(b)/item 6; Constitution Governance; verified T000 owner
+    checkbox approval + Spec PR #357 merge receipt
+    (c0bf581310fdcd0b690f17166e264b89d61bbd9b); specs/DEV-454/CONCLUSIONS.md
+    Phase B T001 ruling (2) and lines 163-181 / 185-191.
+  ADR: none required for this amendment (maps an already-specified domain exception).
+  Modified principles:
+    II. Explicit Handlers and Decorators: append sentence that expected domain failures
+       also include LibraryFileAccessDeniedException for library file policy and
+       containment denial.
+    V. Validated Inputs, Consistent Error Responses: add
+       LibraryFileAccessDeniedException → 403 to the exception-to-status table.
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/plan-template.md — principle-based Constitution Check; no edit needed.
+    .specify/templates/spec-template.md — no exception/status inventory; no edit needed.
+    .specify/templates/tasks-template.md — generic ADR/constitution tasks; no edit needed.
+  Migration / follow-up:
+    T001 must verify this text is present before T004/T008 rely on the global 403 arm.
+    No schema or code migration is required by this document amendment alone.
+
 Version change: 1.11.0 → 1.12.0 (MINOR: Principle VII records the owner-approved bounded
 IConfiguration Kestrel/Endpoints/Url exception for DEV-458 LocalPlay listener startup
 validation; ADR 0036)
@@ -382,8 +407,9 @@ behaviours, reflection scanning, source-generated buses) may dispatch handlers.
 
 Expected domain failures are the three exceptions `NotFoundException`, `ValidationException`,
 and `InvalidTransitionException` (plus `FeatureDisabledException` for gated features). They are
-mapped to HTTP once, in a single `IExceptionHandler` in `LamuFlix.Api`. A `Result<T>` type is
-NOT introduced unless an ADR justifies it.
+mapped to HTTP once, in a single `IExceptionHandler` in `LamuFlix.Api`. Expected domain failures
+also include `LibraryFileAccessDeniedException` for library file policy and containment denial.
+A `Result<T>` type is NOT introduced unless an ADR justifies it.
 
 **Rationale**: Explicit registration makes the call chain readable in one file, keeps decorators
 unit-testable without a framework, and matches the original reference implementation. Three
@@ -461,6 +487,7 @@ in that handler:
 | `NotFoundException` | 404 |
 | `InvalidTransitionException` | 409 |
 | `FeatureDisabledException` | 403 |
+| `LibraryFileAccessDeniedException` | 403 |
 | Unhandled | 500 |
 
 Endpoints MUST NOT return `BadRequest(ex.Message)` or otherwise leak exception text.
@@ -797,4 +824,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.12.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-09
+**Version**: 1.13.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-10
