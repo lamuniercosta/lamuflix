@@ -1,6 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { components } from './api/types';
 import {
   currentReturnUrl,
   libraryReturnSearch,
@@ -19,15 +17,12 @@ import { useDebouncedSearch } from './features/library/useDebouncedSearch';
 import DetailsBackLink from './features/movie-details/DetailsBackLink';
 import MovieDetailsView from './features/movie-details/MovieDetailsView';
 import ForYouPage from './features/for-you/ForYouPage';
-import ImportDialog from './library/ImportDialog';
+import BulkImportDialog from './library/BulkImportDialog';
 import LibraryErrorBoundary from './library/LibraryErrorBoundary';
-import { armImportPlaceholder, pendingRow } from './library/libraryQueries';
 import LibraryView from './library/LibraryView';
 import type { EnrichmentStatusSubscription } from './library/useEnrichmentStatus';
 import { AmbientProvider } from './ui/AmbientProvider';
-import { FolderPlusIcon, SearchIcon } from './ui/icons';
-
-type MovieSummary = components['schemas']['MovieSummaryResponse'];
+import { RetryIcon, SearchIcon } from './ui/icons';
 
 function shellSearchId(prefix: string): string {
   return `${prefix}-shell-search`;
@@ -150,10 +145,8 @@ export interface AppProps {
 }
 
 export default function App({ enrichmentStatus }: AppProps) {
-  const queryClient = useQueryClient();
   const [importOpen, setImportOpen] = useState(false);
-  const [importedRow, setImportedRow] = useState<MovieSummary | null>(null);
-  const importFolderButtonRef = useRef<HTMLButtonElement>(null);
+  const bulkImportButtonRef = useRef<HTMLButtonElement>(null);
   const { route, navigate } = useAppNavigation();
 
   const movieId = parseMovieId(route.pathname);
@@ -167,12 +160,7 @@ export default function App({ enrichmentStatus }: AppProps) {
 
   function closeImport() {
     setImportOpen(false);
-    importFolderButtonRef.current?.focus();
-  }
-
-  function prependImportedMovie(id: string, title: string) {
-    setImportedRow(pendingRow(id, title));
-    armImportPlaceholder(queryClient, () => setImportedRow(null));
+    bulkImportButtonRef.current?.focus();
   }
 
   const applyLibraryQuery = useCallback(
@@ -313,13 +301,13 @@ export default function App({ enrichmentStatus }: AppProps) {
                 ) : null}
               </nav>
               <button
-                ref={importFolderButtonRef}
+                ref={bulkImportButtonRef}
                 type="button"
                 className="lamu-pill-button"
                 onClick={() => setImportOpen(true)}
               >
-                <FolderPlusIcon size={18} />
-                Import folder
+                <RetryIcon size={18} />
+                Bulk import
               </button>
             </header>
             {!isDetails && !isForYou ? (
@@ -345,7 +333,6 @@ export default function App({ enrichmentStatus }: AppProps) {
               <main>
                 <LibraryErrorBoundary>
                   <LibraryView
-                    leadingItem={importedRow}
                     inWatchlist={watchlistActive}
                     query={libraryQuery}
                     routeKey={route.routeKey}
@@ -358,7 +345,7 @@ export default function App({ enrichmentStatus }: AppProps) {
             )}
           </div>
         </div>
-        <ImportDialog open={importOpen} onClose={closeImport} onImported={prependImportedMovie} />
+        <BulkImportDialog open={importOpen} onClose={closeImport} />
       </div>
     </AmbientProvider>
   );

@@ -43,6 +43,11 @@ internal static class HandlerRegistration
         services.AddHandler<SweepStrandedMoviesCommandHandler, SweepStrandedMoviesCommand, int>();
         services.AddHandler<ImportMovieFolderCommandHandler, ImportMovieFolderCommand, MovieId>();
         services.AddHandler<ImportLibraryCommandHandler, ImportLibraryCommand, ImportLibraryResult>();
+        services.AddHandler<ImportCandidatesQueryHandler, ImportCandidatesQuery, ImportCandidatesResult>();
+        services.AddScoped<ImportLibraryFoldersCommandValidator>();
+        services.AddScoped<IValidator<ImportLibraryFoldersCommand>>(
+            serviceProvider => serviceProvider.GetRequiredService<ImportLibraryFoldersCommandValidator>());
+        services.AddHandler<ImportLibraryFoldersCommandHandler, ImportLibraryFoldersCommand, ImportLibraryFoldersResult>();
         services.AddScoped<BrowseMoviesQueryValidator>();
         services.AddScoped<IValidator<BrowseMoviesQuery>>(
             serviceProvider => serviceProvider.GetRequiredService<BrowseMoviesQueryValidator>());

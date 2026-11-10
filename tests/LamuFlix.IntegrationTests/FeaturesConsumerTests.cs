@@ -629,6 +629,12 @@ public sealed class FeaturesConsumerTests(RabbitMqFixture fixture) : IClassFixtu
 
         public Task<IReadOnlyList<MovieId>> SnapshotMovieIdsAsync(CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<MovieId>>([.. plots.Keys.OrderBy(id => id.Value)]);
+
+        public Task<IReadOnlyList<LibraryPath>> SnapshotMoviePathsAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<LibraryPath>>([]);
+
+        public Task<IReadOnlyList<MovieId>> FindFailedMovieIdsAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MovieId>>([]);
     }
 
     private sealed class RecordingFeaturesRepository : IMovieFeaturesRepository

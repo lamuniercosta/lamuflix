@@ -978,6 +978,26 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         return PresentIds(ids);
     }
 
+    public async Task<IReadOnlyList<LibraryPath>> SnapshotMoviePathsAsync(CancellationToken ct)
+    {
+        var paths = await db.Movies
+            .AsNoTracking()
+            .OrderBy(movie => movie.Id)
+            .Select(movie => movie.LibraryPath)
+            .ToArrayAsync(ct);
+        return paths;
+    }
+
+    public async Task<IReadOnlyList<MovieId>> FindFailedMovieIdsAsync(CancellationToken ct)
+    {
+        var ids = await db.Movies
+            .AsNoTracking()
+            .Where(movie => movie.Status == EnrichmentStatus.Failed)
+            .Select(movie => movie.Id)
+            .ToArrayAsync(ct);
+        return PresentIds(ids);
+    }
+
     private static Expression<Func<MovieRecord, bool>> IsDeferralElapsed(DateTimeOffset now) =>
         movie => movie.EnrichmentDeferredUntil == null || movie.EnrichmentDeferredUntil <= now;
 

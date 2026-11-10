@@ -643,6 +643,88 @@
         }
       }
     },
+    "/api/movies/import/candidates": {
+      "get": {
+        "tags": [
+          "BulkImportEndpoints"
+        ],
+        "summary": "List library folders not yet imported.",
+        "operationId": "ListImportCandidates",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportCandidatesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/movies/import/library": {
+      "post": {
+        "tags": [
+          "BulkImportEndpoints"
+        ],
+        "summary": "Import selected library folders and retry failed enrichments.",
+        "operationId": "ImportLibraryFolders",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportLibraryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportLibraryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/movies/rescan": {
       "post": {
         "tags": [
@@ -1841,6 +1923,94 @@
           }
         }
       },
+      "ImportCandidatesResponse": {
+        "required": [
+          "newFolders"
+        ],
+        "type": "object",
+        "properties": {
+          "newFolders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ImportFolderFailureDto": {
+        "required": [
+          "folder",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "folder": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "ImportLibraryRequest": {
+        "required": [
+          "folders",
+          "retryFailed"
+        ],
+        "type": "object",
+        "properties": {
+          "folders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "retryFailed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ImportLibraryResponse": {
+        "required": [
+          "imported",
+          "skipped",
+          "retried",
+          "failures"
+        ],
+        "type": "object",
+        "properties": {
+          "imported": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "skipped": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "retried": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportFolderFailureDto"
+            }
+          }
+        }
+      },
       "ImportMovieRequest": {
         "required": [
           "folderPath"
@@ -2414,6 +2584,9 @@
     },
     {
       "name": "ImportEndpoints"
+    },
+    {
+      "name": "BulkImportEndpoints"
     },
     {
       "name": "RescanEndpoints"

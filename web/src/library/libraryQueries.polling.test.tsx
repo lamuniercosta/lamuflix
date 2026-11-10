@@ -8,7 +8,6 @@ import type { components, paths } from '../api/types';
 import App from '../App';
 import { retryAcceptedHandler } from '../test/handlers';
 import { server } from '../test/server';
-import { clearImportPlaceholder } from './libraryQueries';
 import {
   useEnrichmentStatus,
   type EnrichmentConnectionFactory,
@@ -138,10 +137,15 @@ function rowText(title: string): string {
   return row?.textContent ?? '';
 }
 
-async function importFolder(folderPath: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'Import folder' }));
-  fireEvent.change(screen.getByLabelText('Folder path'), { target: { value: folderPath } });
-  fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+async function bulkImport(folderPath: string) {
+  fireEvent.click(screen.getByRole('button', { name: 'Bulk import' }));
+  const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+  fireEvent.click(await within(dialog).findByLabelText(folderPath));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+  await waitFor(() => {
+    expect(within(dialog).getByRole('status')).toBeInTheDocument();
+  });
+  fireEvent.keyDown(dialog, { key: 'Escape' });
   await waitFor(() => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
@@ -149,7 +153,6 @@ async function importFolder(folderPath: string) {
 
 describe('browse query without polling', () => {
   afterEach(() => {
-    clearImportPlaceholder();
     vi.useRealTimers();
   });
 
@@ -173,11 +176,21 @@ describe('browse query without polling', () => {
     expect(moviesList()).toHaveAttribute('aria-live', 'polite');
   });
 
-  it('replaces an on-page import placeholder without waiting for a timer', async () => {
+  it('refreshes the grid from the bulk import mutation without waiting for a timer', async () => {
     let calls = 0;
     let releaseSecond: (() => void) | undefined;
     server.use(
-      http.get('/api/movies', async () => {
+      http.get('/api/movies/import/candidates', () =>
+        HttpResponse.json({ newFolders: ['NewArrival'] }, { status: 200 }),
+      ),
+      http.post('/api/movies/import/library', () =>
+        HttpResponse.json({ imported: 1, skipped: 0, retried: 0, failures: [] }, { status: 200 }),
+      ),
+      http.get('/api/movies', async ({ request }) => {
+        const status = new URL(request.url).searchParams.getAll('Statuses');
+        if (status.includes('Failed')) {
+          return HttpResponse.json(browseBody([]), { status: 200 });
+        }
         calls += 1;
         if (calls === 1) {
           return HttpResponse.json(browseBody([duneEnriched]), { status: 200 });
@@ -193,10 +206,9 @@ describe('browse query without polling', () => {
 
     renderApp();
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
-    await importFolder('F:/library/NewArrival');
+    await bulkImport('NewArrival');
 
-    expect(screen.getByRole('heading', { name: 'NewArrival' })).toBeInTheDocument();
-    expect(within(moviesList()).getByText('Pending')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(moviesList()).toHaveAttribute('aria-live', 'polite');
     await waitFor(() => {
       expect(calls).toBe(2);
@@ -205,14 +217,23 @@ describe('browse query without polling', () => {
     releaseSecond?.();
     expect(await screen.findByRole('heading', { name: 'Server Cut' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'NewArrival' })).not.toBeInTheDocument();
-    expect(within(moviesList()).queryByText('Pending')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
   });
 
-  it('drops an off-page placeholder once the import-triggered refetch settles', async () => {
+  it('refreshes the grid once the import-triggered refetch settles', async () => {
     let calls = 0;
     server.use(
-      http.get('/api/movies', () => {
+      http.get('/api/movies/import/candidates', () =>
+        HttpResponse.json({ newFolders: ['NewArrival'] }, { status: 200 }),
+      ),
+      http.post('/api/movies/import/library', () =>
+        HttpResponse.json({ imported: 1, skipped: 0, retried: 0, failures: [] }, { status: 200 }),
+      ),
+      http.get('/api/movies', ({ request }) => {
+        const status = new URL(request.url).searchParams.getAll('Statuses');
+        if (status.includes('Failed')) {
+          return HttpResponse.json(browseBody([]), { status: 200 });
+        }
         calls += 1;
         return HttpResponse.json(browseBody([duneEnriched]), { status: 200 });
       }),
@@ -220,11 +241,8 @@ describe('browse query without polling', () => {
 
     renderApp();
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
-    await importFolder('F:/library/NewArrival');
+    await bulkImport('NewArrival');
 
-    await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'NewArrival' })).not.toBeInTheDocument();
-    });
     expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
     expect(calls).toBeGreaterThan(1);
   });
@@ -232,7 +250,6 @@ describe('browse query without polling', () => {
 
 describe('event and mutation reconciliation without polling', () => {
   afterEach(() => {
-    clearImportPlaceholder();
     vi.useRealTimers();
   });
 
