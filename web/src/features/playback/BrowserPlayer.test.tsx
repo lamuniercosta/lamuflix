@@ -308,6 +308,20 @@ describe('BrowserPlayer keyboard scope', () => {
     await waitFor(() => expect(media.calls).toEqual(['pause']));
   });
 
+  it('toggles exactly once when K is pressed on a focused control', async () => {
+    renderPlayer();
+    await act(async () => {
+      video().dispatchEvent(new Event('playing'));
+    });
+    media.calls.length = 0;
+
+    const playButton = region().querySelector('media-play-button') as HTMLElement;
+    playButton.focus();
+    playButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', bubbles: true }));
+
+    await waitFor(() => expect(media.calls).toEqual(['pause']));
+  });
+
   it('mutes with M and toggles fullscreen with F and Escape', async () => {
     const requestFullscreen = vi.fn().mockResolvedValue(undefined);
     const exitFullscreen = vi.fn().mockResolvedValue(undefined);
