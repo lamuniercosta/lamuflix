@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
+import '@fontsource-variable/sofia-sans';
+import '@fontsource-variable/sofia-sans-extra-condensed';
 import './index.css';
 import { useEnrichmentStatus } from './library/useEnrichmentStatus';
 import { maybeStartWorker } from './mocks/startup';

@@ -86,7 +86,7 @@ function Poster({ title, posterUrl }: { title: string; posterUrl: string | null 
     return <img className="details-poster" src={posterUrl} alt={`${title} poster`} />;
   }
   return (
-    <div className="details-poster details-poster-placeholder lamu-glass" aria-hidden="true">
+    <div className="details-poster details-poster-placeholder" aria-hidden="true">
       <FilmIcon size={48} />
     </div>
   );
@@ -239,7 +239,7 @@ function MorePosterCard({ item }: { item: MovieSummary }) {
         {item.posterUrl && !posterFailed ? (
           <img src={item.posterUrl} alt="" loading="lazy" onError={() => setPosterFailed(true)} />
         ) : (
-          <span className="details-more-placeholder lamu-glass">
+          <span className="details-more-placeholder">
             <FilmIcon size={28} />
           </span>
         )}
@@ -649,7 +649,7 @@ function MovieDetailsViewInner({
                 <button
                   ref={removeConfirmRef}
                   type="button"
-                  className="lamu-action-quiet"
+                  className="lamu-action-primary"
                   disabled={deleteMutation.isPending}
                   onClick={confirmRemove}
                 >

@@ -132,9 +132,28 @@ describe('card action icon contrast tokens', () => {
 
     // assert
     expect(watch).toContain('var(--color-poster-backing)');
-    expect(play).toContain('var(--color-poster-backing)');
+    expect(play).toContain('var(--color-poster-play)');
+    expect(play).toContain('var(--color-poster-play-ink)');
     expect(watch).not.toMatch(/rgba?\(/);
     expect(play).not.toMatch(/rgba?\(/);
+  });
+
+  it('gives the play button a solid ink circle with 3:1 or better contrast', () => {
+    // arrange
+    const playToken = tokenValue(indexCss, '--color-poster-play');
+    const playInkToken = tokenValue(indexCss, '--color-poster-play-ink');
+
+    // act
+    const isHex = (value: string | null) => value !== null && /^#[0-9a-f]{6}$/i.test(value);
+    const ratio =
+      isHex(playToken) && isHex(playInkToken)
+        ? contrastRatio(parseColor(playToken!), parseColor(playInkToken!))
+        : 0;
+
+    // assert
+    expect(isHex(playToken)).toBe(true);
+    expect(isHex(playInkToken)).toBe(true);
+    expect(ratio, `play ink on play: ${ratio.toFixed(2)}:1 (needs 3:1)`).toBeGreaterThanOrEqual(3);
   });
 
   it('gives toggled icons a distinct active-state color from the token', () => {

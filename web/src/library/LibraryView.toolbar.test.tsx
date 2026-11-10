@@ -27,47 +27,64 @@ function openFilters() {
   fireEvent.click(getFiltersToggle());
 }
 
+function getSortSelect() {
+  return screen.getByRole('combobox', { name: /Sort by/ });
+}
+
+// Tags render the kind and the value in separate spans; assert on the value span.
+function tagValue(value: string | RegExp) {
+  return screen.getByText(value, { selector: '.lamu-tag-value' });
+}
+
+function tagValues(value: string) {
+  return screen.getAllByText(value, { selector: '.lamu-tag-value' });
+}
+
+function queryTagValue(value: string | RegExp) {
+  return screen.queryByText(value, { selector: '.lamu-tag-value' });
+}
+
 afterEach(() => {
   window.history.replaceState({}, '', '/');
   cleanup();
 });
 
 describe('Library results toolbar', () => {
-  it('shows an include-unknown-runtime chip and clears only the flag', async () => {
+  it('shows an include-unknown-runtime tag and clears only the flag', async () => {
     window.history.replaceState({}, '', '/?runtimeMin=10&runtimeMax=&runtimeIncludeUnknown=true');
     renderApp();
     await waitForLibrary();
 
-    const chips = screen.getByRole('list', { name: 'Active filters' });
-    expect(chips).toHaveTextContent('Include unknown runtime');
+    const tags = screen.getByRole('list', { name: 'Active filters' });
+    expect(tags).toHaveTextContent('include unknown');
     fireEvent.click(screen.getByRole('button', { name: 'Remove include unknown runtime filter' }));
     const params = new URLSearchParams(window.location.search);
     expect(params.get('runtimeIncludeUnknown')).toBe('false');
     expect(params.get('runtimeMin')).toBe('10');
     expect(screen.getByRole('list', { name: 'Active filters' })).not.toHaveTextContent(
-      'Include unknown runtime',
+      'include unknown',
     );
-    expect(screen.getByText('Runtime from 10 min')).toBeInTheDocument();
+    expect(tagValue('from 10 min')).toBeInTheDocument();
   });
 
-  it('renders repeated values with unique chips that remove one occurrence', async () => {
+  it('renders repeated values with unique tags that remove one occurrence', async () => {
     window.history.replaceState({}, '', '/?statuses=Pending&statuses=Pending');
     renderApp();
     await waitForLibrary();
 
-    expect(screen.getAllByText('Status: Pending')).toHaveLength(2);
+    expect(tagValues('Pending')).toHaveLength(2);
     fireEvent.click(screen.getAllByRole('button', { name: 'Remove status filter Pending' })[0]);
     expect(new URLSearchParams(window.location.search).getAll('statuses')).toEqual(['Pending']);
-    expect(screen.getAllByText('Status: Pending')).toHaveLength(1);
+    expect(tagValues('Pending')).toHaveLength(1);
   });
 
-  it('hides range chips for inactive extent defaults', async () => {
+  it('hides range tags for inactive extent defaults', async () => {
     window.history.replaceState({}, '', '/?runtimeMin=0&runtimeMax=240&statuses=Pending');
     renderApp();
     await waitForLibrary();
 
-    expect(screen.queryByText(/Runtime (from|to)/)).not.toBeInTheDocument();
-    expect(screen.getByText('Status: Pending')).toBeInTheDocument();
+    expect(queryTagValue(/^(from|to) \d/)).not.toBeInTheDocument();
+    expect(tagValue('Pending')).toBeInTheDocument();
   });
 
   it('falls back the sort summary for unknown sort values without changing the query', async () => {
@@ -77,12 +94,7 @@ describe('Library results toolbar', () => {
 
     expect(screen.getByText('Sort: Title (A-Z)')).toBeInTheDocument();
     expect(new URLSearchParams(window.location.search).get('sort')).toBe('Bogus');
-
-    openFilters();
-    for (const field of ['Title', 'Year', 'Rating', 'Runtime']) {
-      expect(screen.getByRole('button', { name: field })).toHaveAttribute('aria-pressed', 'false');
-    }
-    expect(screen.getByRole('button', { name: 'Ascending' })).toBeInTheDocument();
+    expect(getSortSelect()).toHaveValue('Title|Ascending');
   });
 
   it('shows the result count and the current sort summary', async () => {
@@ -94,17 +106,17 @@ describe('Library results toolbar', () => {
     expect(screen.getByText('Sort: Title (A-Z)')).toBeInTheDocument();
   });
 
-  it('renders one removable chip per active filter value', async () => {
+  it('renders one removable tag per active filter value', async () => {
     window.history.replaceState({}, '', '/?text=dune&statuses=Pending&statuses=Failed');
     renderApp();
     await waitForLibrary();
 
-    expect(screen.getByText('Search: dune')).toBeInTheDocument();
-    expect(screen.getByText('Status: Pending')).toBeInTheDocument();
-    expect(screen.getByText('Status: Failed')).toBeInTheDocument();
+    expect(tagValue('Pending')).toBeInTheDocument();
+    expect(tagValue('Failed')).toBeInTheDocument();
+    expect(queryTagValue('dune')).not.toBeInTheDocument();
   });
 
-  it('removes only the chosen chip value and resets page', async () => {
+  it('removes only the chosen tag value and resets page', async () => {
     window.history.replaceState({}, '', '/?text=dune&statuses=Pending&statuses=Failed&page=3');
     renderApp();
     await waitForLibrary();
@@ -114,8 +126,8 @@ describe('Library results toolbar', () => {
     expect(params.getAll('statuses')).toEqual(['Failed']);
     expect(params.get('text')).toBe('dune');
     expect(params.get('page') ?? '1').toBe('1');
-    expect(screen.queryByText('Status: Pending')).not.toBeInTheDocument();
-    expect(screen.getByText('Status: Failed')).toBeInTheDocument();
+    expect(queryTagValue('Pending')).not.toBeInTheDocument();
+    expect(tagValue('Failed')).toBeInTheDocument();
   });
 
   it('removes one range endpoint while retaining the other', async () => {
@@ -127,11 +139,11 @@ describe('Library results toolbar', () => {
     const params = new URLSearchParams(window.location.search);
     expect(params.get('yearMin') ?? '').toBe('');
     expect(params.get('yearMax')).toBe('2020');
-    expect(screen.queryByText('From 2000')).not.toBeInTheDocument();
-    expect(screen.getByText('To 2020')).toBeInTheDocument();
+    expect(queryTagValue('from 2000')).not.toBeInTheDocument();
+    expect(tagValue('to 2020')).toBeInTheDocument();
   });
 
-  it('preserves unknown query keys across chip removal', async () => {
+  it('preserves unknown query keys across tag removal', async () => {
     window.history.replaceState({}, '', '/?statuses=Pending&foo=bar');
     renderApp();
     await waitForLibrary();
@@ -140,19 +152,18 @@ describe('Library results toolbar', () => {
     expect(new URLSearchParams(window.location.search).get('foo')).toBe('bar');
   });
 
-  it('resets page when the sort field changes in the panel', async () => {
+  it('resets page when the sort is changed with the Sort by select', async () => {
     window.history.replaceState({}, '', '/?page=3');
     renderApp();
     await waitForLibrary();
 
-    openFilters();
-    fireEvent.click(screen.getByRole('button', { name: 'Year' }));
+    fireEvent.change(getSortSelect(), { target: { value: 'Year|Ascending' } });
     let params = new URLSearchParams(window.location.search);
     expect(params.get('sort')).toBe('Year');
     expect(params.get('page') ?? '1').toBe('1');
     expect(screen.getByText('Sort: Year (oldest)')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ascending' }));
+    fireEvent.change(getSortSelect(), { target: { value: 'Year|Descending' } });
     params = new URLSearchParams(window.location.search);
     expect(params.get('direction')).toBe('Descending');
     expect(screen.getByText('Sort: Year (newest)')).toBeInTheDocument();
@@ -163,8 +174,7 @@ describe('Library results toolbar', () => {
     renderApp();
     await waitForLibrary();
 
-    openFilters();
-    fireEvent.click(screen.getByRole('button', { name: 'Year' }));
+    fireEvent.change(getSortSelect(), { target: { value: 'Year|Ascending' } });
     expect(new URLSearchParams(window.location.search).get('sort')).toBe('Year');
     expect(screen.getByText('Sort: Year (oldest)')).toBeInTheDocument();
 
@@ -174,6 +184,37 @@ describe('Library results toolbar', () => {
       expect(new URLSearchParams(window.location.search).get('sort')).toBeNull();
     });
     expect(screen.getByText('Sort: Title (A-Z)')).toBeInTheDocument();
+  });
+
+  it('shows a Director tag with the director name and clears only that filter', async () => {
+    window.history.replaceState({}, '', '/?directorId=1&statuses=Pending');
+    renderApp();
+    await waitForLibrary();
+
+    expect(
+      await screen.findByText('Denis Villeneuve', { selector: '.lamu-tag-value' }),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove director filter Denis Villeneuve' }),
+    );
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('directorId') ?? '').toBe('');
+    expect(params.get('statuses')).toBe('Pending');
+    expect(queryTagValue('Denis Villeneuve')).not.toBeInTheDocument();
+  });
+
+  it('shows an IMDb tag for an active rating range and clears both bounds', async () => {
+    window.history.replaceState({}, '', '/?minRating=7.5&maxRating=9&statuses=Pending');
+    renderApp();
+    await waitForLibrary();
+
+    expect(tagValue('7.5 to 9.0')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove IMDb rating filter' }));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('minRating')).toBeNull();
+    expect(params.get('maxRating')).toBeNull();
+    expect(params.get('statuses')).toBe('Pending');
+    expect(queryTagValue('7.5 to 9.0')).not.toBeInTheDocument();
   });
 });
 
@@ -192,7 +233,7 @@ describe('Filters toggle and inline collapsible panel', () => {
     expect(document.getElementById(toggle.getAttribute('aria-controls') ?? '')).toBe(panel);
   });
 
-  it('opens the panel from the toggle, making it reachable and hiding the chip list', async () => {
+  it('opens the panel from the toggle and keeps the tags visible', async () => {
     window.history.replaceState({}, '', '/?statuses=Pending');
     const { container } = renderApp();
     await waitForLibrary();
@@ -204,7 +245,7 @@ describe('Filters toggle and inline collapsible panel', () => {
     const panel = container.querySelector('.filter-collapse');
     expect(panel).toHaveAttribute('data-open', 'true');
     expect(panel).not.toHaveAttribute('inert');
-    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Active filters' })).toBeInTheDocument();
 
     openFilters();
     expect(getFiltersToggle()).toHaveAttribute('aria-expanded', 'false');
@@ -221,28 +262,28 @@ describe('Filters toggle and inline collapsible panel', () => {
     );
   });
 
-  it('closes on Collapse and returns focus to the Filters toggle', async () => {
+  it('has no Collapse button and no match-count footer in the rail', async () => {
     window.history.replaceState({}, '', '/');
     const { container } = renderApp();
     await waitForLibrary();
 
     openFilters();
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
+    expect(screen.queryByRole('button', { name: 'Collapse' })).not.toBeInTheDocument();
+    expect(container.querySelector('.lamu-filter-footer')).toBeNull();
 
-    const toggle = getFiltersToggle();
-    expect(toggle).toHaveFocus();
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(getFiltersToggle());
+    expect(getFiltersToggle()).toHaveAttribute('aria-expanded', 'false');
     expect(container.querySelector('.filter-collapse')).toHaveAttribute('inert');
   });
 
-  it('clears URL-sourced filters from the collapsed chip list with Clear all', async () => {
+  it('clears URL-sourced filters from the tag list with Clear all', async () => {
     window.history.replaceState({}, '', '/?text=dune&statuses=Pending&foo=bar');
     const { container } = renderApp();
     await waitForLibrary();
 
-    const chipRow = container.querySelector('.library-chips');
-    expect(chipRow).not.toBeNull();
-    fireEvent.click(within(chipRow as HTMLElement).getByRole('button', { name: 'Clear all' }));
+    const tagRow = container.querySelector('.library-tags');
+    expect(tagRow).not.toBeNull();
+    fireEvent.click(within(tagRow as HTMLElement).getByRole('button', { name: 'Clear all' }));
 
     const params = new URLSearchParams(window.location.search);
     expect(params.get('text') ?? '').toBe('');
@@ -348,12 +389,14 @@ describe('Library section heading', () => {
 });
 
 describe('Library collection filter', () => {
-  it('shows a removable Collection chip for a known id and clears the page', async () => {
+  it('shows a removable Collection tag for a known id and clears the page', async () => {
     window.history.replaceState({}, '', '/?collectionId=1&page=3&sort=Year');
     renderApp();
     await waitForLibrary();
 
-    expect(await screen.findByText('Collection: Dune Collection')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Dune Collection', { selector: '.lamu-tag-value' }),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole('button', { name: 'Remove collection filter Dune Collection' }),
     );
@@ -362,7 +405,7 @@ describe('Library collection filter', () => {
     expect(params.get('collectionId')).toBeNull();
     expect(params.get('sort')).toBe('Year');
     expect(params.get('page') ?? '1').toBe('1');
-    expect(screen.queryByText('Collection: Dune Collection')).not.toBeInTheDocument();
+    expect(queryTagValue('Dune Collection')).not.toBeInTheDocument();
   });
 
   it('selects a collection through the panel, preserving other filters and resetting page', async () => {
@@ -381,7 +424,7 @@ describe('Library collection filter', () => {
     expect(screen.getByRole('checkbox', { name: /Dune Collection/ })).toBeChecked();
   });
 
-  it('keeps the unknown-id fallback chip during fact loading', async () => {
+  it('keeps the unknown-id fallback tag during fact loading', async () => {
     server.use(
       http.get('*/api/collections', async () => {
         await delay(100);
@@ -391,26 +434,28 @@ describe('Library collection filter', () => {
     window.history.replaceState({}, '', '/?collectionId=999');
     renderApp();
 
-    expect(screen.getByText('Collection: Collection 999')).toBeInTheDocument();
+    expect(tagValue('Collection 999')).toBeInTheDocument();
     await waitForLibrary();
-    expect(screen.getByText('Collection: Collection 999')).toBeInTheDocument();
+    expect(tagValue('Collection 999')).toBeInTheDocument();
   });
 
-  it('keeps the unknown-id fallback chip on an empty facet and hides the healthy-empty group', async () => {
+  it('keeps the unknown-id fallback tag on an empty facet and hides the healthy-empty group', async () => {
     server.use(http.get('*/api/collections', () => HttpResponse.json([])));
     window.history.replaceState({}, '', '/?collectionId=999');
     renderApp();
     await waitForLibrary();
 
-    expect(await screen.findByText('Collection: Collection 999')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Collection 999', { selector: '.lamu-tag-value' }),
+    ).toBeInTheDocument();
 
     openFilters();
-    expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument();
+    expect(tagValue('Collection 999')).toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Collection' })).not.toBeInTheDocument();
     expect(new URLSearchParams(window.location.search).get('collectionId')).toBe('999');
   });
 
-  it('keeps the unknown-id fallback chip and removes only the collection key', async () => {
+  it('keeps the unknown-id fallback tag and removes only the collection key', async () => {
     server.use(http.get('*/api/collections', () => HttpResponse.json([])));
     window.history.replaceState({}, '', '/?collectionId=999&sort=Year');
     renderApp();
@@ -424,7 +469,7 @@ describe('Library collection filter', () => {
     expect(params.get('sort')).toBe('Year');
   });
 
-  it('keeps the unknown-id fallback chip when the facet fails', async () => {
+  it('keeps the unknown-id fallback tag when the facet fails', async () => {
     server.use(
       http.get('*/api/collections', () =>
         HttpResponse.json({ title: 'HTTP 500', status: 500 }, { status: 500 }),
@@ -434,7 +479,9 @@ describe('Library collection filter', () => {
     renderApp();
     await waitForLibrary();
 
-    expect(await screen.findByText('Collection: Collection 999')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Collection 999', { selector: '.lamu-tag-value' }),
+    ).toBeInTheDocument();
     openFilters();
     expect(screen.getByText(/Collections could not be loaded/i)).toBeInTheDocument();
   });
@@ -443,10 +490,10 @@ describe('Library collection filter', () => {
     window.history.replaceState({}, '', '/?collectionId=1&foo=bar&page=2');
     const { container } = renderApp();
     await waitForLibrary();
-    await screen.findByText('Collection: Dune Collection');
+    await screen.findByText('Dune Collection', { selector: '.lamu-tag-value' });
 
-    const chipRow = container.querySelector('.library-chips');
-    fireEvent.click(within(chipRow as HTMLElement).getByRole('button', { name: 'Clear all' }));
+    const tagRow = container.querySelector('.library-tags');
+    fireEvent.click(within(tagRow as HTMLElement).getByRole('button', { name: 'Clear all' }));
 
     const params = new URLSearchParams(window.location.search);
     expect(params.get('collectionId')).toBeNull();
@@ -454,17 +501,17 @@ describe('Library collection filter', () => {
     expect(screen.queryByRole('list', { name: 'Active filters' })).not.toBeInTheDocument();
   });
 
-  it('renders hostile collection names as plain text in the toolbar chip', async () => {
+  it('renders hostile collection names as plain text in the toolbar tag', async () => {
     server.use(http.get('*/api/collections', () => HttpResponse.json(hostileCollections)));
     window.history.replaceState({}, '', '/?collectionId=101');
     const { container } = renderApp();
     await waitForLibrary();
 
     expect(
-      await screen.findByText(`Collection: ${hostileCollections[0].name}`),
+      await screen.findByText(hostileCollections[0].name, { selector: '.lamu-tag-value' }),
     ).toBeInTheDocument();
-    const chipRow = container.querySelector('.library-chips');
-    expect(chipRow?.querySelector('img')).toBeNull();
+    const tagRow = container.querySelector('.library-tags');
+    expect(tagRow?.querySelector('img')).toBeNull();
     expect(
       screen.getByRole('button', {
         name: `Remove collection filter ${hostileCollections[0].name}`,
@@ -472,15 +519,17 @@ describe('Library collection filter', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders an overlong collection name in a single toolbar chip', async () => {
+  it('renders an overlong collection name in a single toolbar tag', async () => {
     server.use(http.get('*/api/collections', () => HttpResponse.json(overlongCollections)));
     window.history.replaceState({}, '', '/?collectionId=102');
     const { container } = renderApp();
     await waitForLibrary();
 
-    const chip = await screen.findByText(`Collection: ${overlongCollections[0].name}`);
-    expect(chip).toBeInTheDocument();
-    const chipRow = container.querySelector('.library-chips');
-    expect(chipRow?.querySelectorAll('.lamu-chip')).toHaveLength(1);
+    const tag = await screen.findByText(overlongCollections[0].name, {
+      selector: '.lamu-tag-value',
+    });
+    expect(tag).toBeInTheDocument();
+    const tagRow = container.querySelector('.library-tags');
+    expect(tagRow?.querySelectorAll('.lamu-tag')).toHaveLength(1);
   });
 });

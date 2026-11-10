@@ -100,12 +100,12 @@ test.describe('for-you review ranking', () => {
       }
     }
 
-    await page.reload();
-    const rail = page.locator('section.for-you-rail');
-    await expect(rail.getByRole('heading', { name: 'For You' })).toBeVisible({
+    await page.goto(`${context.baseURL}/for-you`);
+    const list = page.getByRole('list', { name: 'Recommended movies' });
+    await expect(page.getByRole('heading', { name: 'For You', exact: true })).toBeVisible({
       timeout: context.waitBudgetMs,
     });
-    await expect(rail.getByRole('link', { name: similarTitle, exact: true })).toBeVisible({
+    await expect(list.getByRole('link', { name: similarTitle, exact: true })).toBeVisible({
       timeout: context.waitBudgetMs,
     });
   });

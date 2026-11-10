@@ -18,6 +18,7 @@ import type { FilterQuery } from './features/library/filterQuery';
 import { useDebouncedSearch } from './features/library/useDebouncedSearch';
 import DetailsBackLink from './features/movie-details/DetailsBackLink';
 import MovieDetailsView from './features/movie-details/MovieDetailsView';
+import ForYouPage from './features/for-you/ForYouPage';
 import ImportDialog from './library/ImportDialog';
 import LibraryErrorBoundary from './library/LibraryErrorBoundary';
 import { armImportPlaceholder, pendingRow } from './library/libraryQueries';
@@ -43,7 +44,7 @@ function SearchField({
 }) {
   return (
     <div className="lamu-search-field">
-      <SearchIcon size={16} />
+      <SearchIcon size={20} />
       <label className="sr-only" htmlFor={id}>
         Search titles
       </label>
@@ -157,6 +158,7 @@ export default function App({ enrichmentStatus }: AppProps) {
 
   const movieId = parseMovieId(route.pathname);
   const isDetails = movieId !== null;
+  const isForYou = route.pathname === '/for-you';
   const libraryQuery = useMemo<FilterQuery>(() => parseFilterQuery(route.search), [route.search]);
   const watchlistActive = useMemo(
     () => new URLSearchParams(route.search).get('watchlist') === 'true',
@@ -195,7 +197,7 @@ export default function App({ enrichmentStatus }: AppProps) {
 
   const goLibrary = useCallback(
     (watchlist: boolean) => {
-      const params = new URLSearchParams(route.search);
+      const params = new URLSearchParams(route.pathname === '/' ? route.search : '');
       if (watchlist) {
         params.set('watchlist', 'true');
       } else {
@@ -207,7 +209,7 @@ export default function App({ enrichmentStatus }: AppProps) {
       const search = params.toString();
       navigate(search ? `/?${search}` : '/', {});
     },
-    [route.search, navigate],
+    [route.pathname, route.search, navigate],
   );
 
   const openMovie = useCallback(
@@ -255,7 +257,7 @@ export default function App({ enrichmentStatus }: AppProps) {
     <AmbientProvider>
       <div className="lamu-app">
         <div className="lamu-shell">
-          <div className="lamu-glass lamu-frame">
+          <div className="lamu-frame">
             <header className="lamu-shell-header">
               <a
                 className="lamu-wordmark"
@@ -265,19 +267,13 @@ export default function App({ enrichmentStatus }: AppProps) {
                   goLibrary(false);
                 }}
               >
-                <img
-                  className="lamu-brand-logo"
-                  src="/lamuflix-logo.svg?v=text-height"
-                  alt="LamuFlix"
-                  width="378"
-                  height="55"
-                />
+                LamuFlix
               </a>
               <nav className="lamu-shell-nav" aria-label="Primary">
                 <a
                   className="lamu-nav-tab"
                   href="/"
-                  aria-current={watchlistActive ? undefined : 'page'}
+                  aria-current={isDetails || isForYou || watchlistActive ? undefined : 'page'}
                   onClick={(event) => {
                     event.preventDefault();
                     goLibrary(false);
@@ -288,25 +284,29 @@ export default function App({ enrichmentStatus }: AppProps) {
                 <button
                   type="button"
                   className="lamu-nav-tab"
-                  aria-pressed={watchlistActive}
-                  onClick={() => goLibrary(!watchlistActive)}
+                  aria-pressed={isForYou ? false : watchlistActive}
+                  onClick={() => goLibrary(isForYou ? true : !watchlistActive)}
                 >
                   Watchlist
                 </button>
+                <a
+                  className="lamu-nav-tab"
+                  href="/for-you"
+                  aria-current={isForYou ? 'page' : undefined}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate('/for-you', {});
+                  }}
+                >
+                  For You
+                </a>
                 {isDetails ? (
                   <DetailsSearch
                     id={headerSearchId}
                     initialText={detailsDraft}
                     onSubmit={handleDetailsSearchSubmit}
                   />
-                ) : (
-                  <ShellSearch
-                    id={headerSearchId}
-                    initialText={libraryQuery.text}
-                    routeKey={route.routeKey}
-                    onCommittedText={handleShellSearchText}
-                  />
-                )}
+                ) : null}
               </nav>
               <button
                 ref={importFolderButtonRef}
@@ -318,10 +318,24 @@ export default function App({ enrichmentStatus }: AppProps) {
                 Import folder
               </button>
             </header>
+            {!isDetails && !isForYou ? (
+              <div className="lamu-query">
+                <ShellSearch
+                  id={headerSearchId}
+                  initialText={libraryQuery.text}
+                  routeKey={route.routeKey}
+                  onCommittedText={handleShellSearchText}
+                />
+              </div>
+            ) : null}
             {isDetails && movieId !== null ? (
               <main>
                 <DetailsBackLink href={detailsReturnTarget ?? '/'} onClick={handleDetailsBack} />
                 <MovieDetailsView movieId={movieId} enrichmentStatus={enrichmentStatus} />
+              </main>
+            ) : isForYou ? (
+              <main>
+                <ForYouPage onOpenMovie={openMovie} />
               </main>
             ) : (
               <main>

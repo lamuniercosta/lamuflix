@@ -787,7 +787,7 @@ describe('FilterPanel collection section', () => {
     expect(alpha).not.toHaveAttribute('checked');
     expect(alpha.compareDocumentPosition(zeta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(group).getByText(', 2 movies')).toBeInTheDocument();
-    expect(alpha.parentElement).toHaveClass('lamu-chip');
+    expect(alpha.parentElement).toHaveClass('lamu-filter-row');
   });
 
   it('breaks equal names by id', () => {
@@ -952,13 +952,13 @@ describe('FilterPanel collection section', () => {
     expect(container.querySelector('script')).toBeNull();
   });
 
-  it('renders an overlong name inside a single chip', () => {
+  it('renders an overlong name inside a single row', () => {
     const overlong = 'C'.repeat(180);
     render(<FilterPanel collections={[collection({ id: 3, name: overlong, movieCount: 1 })]} />);
 
     const group = screen.getByRole('group', { name: 'Collection' });
     expect(within(group).getAllByRole('checkbox')).toHaveLength(1);
-    expect(group.querySelectorAll('.lamu-chip-row .lamu-chip')).toHaveLength(1);
+    expect(group.querySelectorAll('.lamu-filter-rows .lamu-filter-row')).toHaveLength(1);
     expect(within(group).getByText(overlong)).toBeInTheDocument();
   });
 });

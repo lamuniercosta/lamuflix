@@ -104,7 +104,7 @@ describe('director filter hosts', () => {
 
     renderApp();
 
-    await screen.findByText('Christopher Nolan');
+    await screen.findAllByText('Christopher Nolan');
     await waitFor(() => expect(requests.length).toBeGreaterThan(0));
     expect(new URLSearchParams(requests[0]).get('directorId')).toBe('2');
     expect(watchlistParam(requests[0])).toBeNull();
@@ -116,7 +116,7 @@ describe('director filter hosts', () => {
 
     renderApp();
 
-    await screen.findByText('Christopher Nolan');
+    await screen.findAllByText('Christopher Nolan');
     await waitFor(() => expect(requests.length).toBeGreaterThan(0));
     const params = new URLSearchParams(requests[0]);
     expect(params.get('directorId')).toBe('2');
@@ -128,12 +128,12 @@ describe('director filter hosts', () => {
     const requests = captureBrowse();
 
     renderApp();
-    await screen.findByText('Christopher Nolan');
+    await screen.findAllByText('Christopher Nolan');
 
     window.history.replaceState({}, '', '/?directorId=1');
     window.dispatchEvent(new PopStateEvent('popstate'));
 
-    await screen.findByText('Denis Villeneuve');
+    await screen.findAllByText('Denis Villeneuve');
     await waitFor(() =>
       expect(requests.some((search) => new URLSearchParams(search).get('directorId') === '1')).toBe(
         true,
@@ -146,7 +146,7 @@ describe('director filter hosts', () => {
     const requests = captureBrowse();
 
     renderApp();
-    await screen.findByText('Christopher Nolan');
+    await screen.findAllByText('Christopher Nolan');
     await waitFor(() => expect(requests.length).toBe(1));
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Director' }), {
@@ -172,7 +172,7 @@ describe('director filter hosts', () => {
     renderApp();
 
     expect(await screen.findByText('Loading directors')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Filters/ })).toBeEnabled();
     await waitFor(() => expect(screen.queryByText('Loading directors')).not.toBeInTheDocument());
   });
 
@@ -192,7 +192,7 @@ describe('director filter hosts', () => {
     renderApp();
 
     expect(await screen.findByText('Could not load directors')).toBeInTheDocument();
-    expect(screen.getByText('Director 2')).toBeInTheDocument();
+    expect(screen.getAllByText('Director 2').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /clear all/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -201,6 +201,6 @@ describe('director filter hosts', () => {
     await waitFor(() =>
       expect(screen.queryByText('Could not load directors')).not.toBeInTheDocument(),
     );
-    expect(screen.getByText('Christopher Nolan')).toBeInTheDocument();
+    expect(screen.getAllByText('Christopher Nolan').length).toBeGreaterThan(0);
   });
 });
