@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using Microsoft.AspNetCore.Hosting;
@@ -33,6 +36,9 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
     private const string CacheControlHeader = "Cache-Control";
     private const string NoStoreDirective = "no-store";
     private const string PrivateDirective = "private";
+    private const string ContentTypeOptionsHeader = "X-Content-Type-Options";
+    private const string NoSniffValue = "nosniff";
+    private const string Stem = "Heat.1995.1080p";
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
 
@@ -271,6 +277,481 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
         body.ShouldNotContain(library.Root);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GetContent_Utf8AccentsWithOptionalBom_ReturnsWebVttHeaderAndLiteralCueText(bool withBom)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, $"{Stem}.en.srt", withBom
+            ? SrtWithBom(Document(
+                "1",
+                "00:00:01,000 --> 00:00:02,500",
+                "Ação & Paixão <b>não</b> é HTML",
+                "",
+                "2",
+                "00:01:02,004 --> 00:01:03,000",
+                "Segunda linha"))
+            : Utf8(Document(
+                "1",
+                "00:00:01,000 --> 00:00:02,500",
+                "Ação & Paixão <b>não</b> é HTML",
+                "",
+                "2",
+                "00:01:02,004 --> 00:01:03,000",
+                "Segunda linha")));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.ShouldBe("text/vtt");
+        response.Content.Headers.ContentType.CharSet.ShouldBe("utf-8");
+        response.Headers.GetValues(ContentTypeOptionsHeader).ShouldBe([NoSniffValue]);
+        AssertFrozenNoStore(response);
+        body.ShouldStartWith("WEBVTT\n\n");
+        body.ShouldContain("00:00:01.000 --> 00:00:02.500");
+        body.ShouldContain("00:01:02.004 --> 00:01:03.000");
+        body.ShouldContain("Ação &amp; Paixão &lt;b&gt;não&lt;/b&gt; é HTML");
+        body.ShouldContain("Segunda linha");
+        body.ShouldNotContain("\r");
+        body.ShouldNotContain("<b>");
+        body.ShouldNotContain("1\n00:00:01");
+    }
+
+    [Fact]
+    public async Task GetContent_Windows1252AccentedFixture_DecodesThroughTheMandatedFallback()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(
+            MovieFolder,
+            $"{Stem}.pob.srt",
+            Windows1252Srt("1", "00:00:03,250 --> 00:00:04,000", "Ação e coração"));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        body.ShouldContain("Ação e coração");
+        body.ShouldContain("00:00:03.250 --> 00:00:04.000");
+    }
+
+    [Theory]
+    [InlineData(0xFF, 0xFE)]
+    [InlineData(0xFE, 0xFF)]
+    public async Task GetContent_Utf16OrUtf32ByteOrderMark_ReturnsSanitizedUnprocessableEntity(
+        byte first,
+        byte second)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(
+            MovieFolder,
+            $"{Stem}.srt",
+            [first, second, 0x31, 0x00, 0x0A, 0x00]);
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        response.Content.Headers.ContentType!.MediaType.ShouldBe(ProblemDetailsJson);
+        AssertFrozenNoStore(response);
+        var problem = JsonSerializer.Deserialize<JsonElement>(body);
+        problem.GetProperty("status").GetInt32().ShouldBe((int)HttpStatusCode.UnprocessableEntity);
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain(library.Root);
+        body.ShouldNotContain(Stem);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("1\n00:00:01,000 --> 00:00:02,000\n")]
+    [InlineData("not a subtitle document at all")]
+    [InlineData("1\n00:00:01,000 --> 00:00:02,000\nfirst\n\n2\nno timing line\nsecond")]
+    public async Task GetContent_EmptyCueLessOrUnparseableDocument_ReturnsSanitizedUnprocessableEntity(
+        string document)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, $"{Stem}.srt", Utf8(document));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        AssertFrozenNoStore(response);
+        var problem = JsonSerializer.Deserialize<JsonElement>(body);
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain(library.Root);
+        body.ShouldNotContain("first");
+    }
+
+    [Theory]
+    [InlineData("1\n00:00:02,000 --> 00:00:01,000\nreversed")]
+    [InlineData("1\n-00:00:01,000 --> 00:00:02,000\nnegative")]
+    public async Task GetContent_ReversedOrNegativeInterval_ReturnsSanitizedUnprocessableEntity(string document)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, $"{Stem}.srt", Utf8(document));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        AssertFrozenNoStore(response);
+        JsonSerializer.Deserialize<JsonElement>(body).GetProperty("traceId").GetString()
+            .ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain("reversed");
+        body.ShouldNotContain("negative");
+    }
+
+    [Fact]
+    public async Task GetContent_CueBoundaryFixtures_PreserveLiteralWordsAndValidOverlap()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, $"{Stem}.srt", Srt(
+            "1",
+            "00:00:01,000 --> 00:00:05,000",
+            "NOTE this is literal cue text",
+            "STYLE is literal too, and REGION as well",
+            "",
+            "2",
+            "00:00:02,000 --> 00:00:03,000",
+            "Overlapping cue with 5 > 4 and a -> b",
+            "",
+            "3",
+            "00:00:06,000 --> 00:00:07,000",
+            "Final cue"));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        body.ShouldContain("NOTE this is literal cue text");
+        body.ShouldContain("STYLE is literal too, and REGION as well");
+        body.ShouldContain("Overlapping cue with 5 &gt; 4 and a -&gt; b");
+        body.ShouldContain("00:00:01.000 --> 00:00:05.000");
+        body.ShouldContain("00:00:02.000 --> 00:00:03.000");
+        body.ShouldContain("Final cue");
+        body.ShouldNotContain("NOTE\n");
+    }
+
+    [Fact]
+    public async Task GetContent_PayloadArrowInsideCue_ReturnsSanitizedUnprocessableEntity()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, $"{Stem}.srt", Srt(
+            "1",
+            "00:00:01,000 --> 00:00:02,000",
+            "forged --> 00:00:09,000"));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        AssertFrozenNoStore(response);
+        body.ShouldNotContain("forged");
+    }
+
+    [Theory]
+    [InlineData(nameof(LibraryOptions.MaxSubtitleInputBytes))]
+    [InlineData(nameof(LibraryOptions.MaxSubtitleCues))]
+    [InlineData(nameof(LibraryOptions.MaxSubtitleLineCharacters))]
+    [InlineData(nameof(LibraryOptions.MaxSubtitleOutputBytes))]
+    public async Task GetContent_FirstStepOverConfiguredBound_ReturnsUnprocessableEntity(string bound)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        var document = BoundedDocument();
+        library.WriteMovieFile(MovieFolder, $"{Stem}.srt", Utf8(document));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root, Overrides(bound, FirstOver(bound, document)));
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        AssertFrozenNoStore(response);
+        JsonSerializer.Deserialize<JsonElement>(body).GetProperty("traceId").GetString()
+            .ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain(library.Root);
+        body.ShouldNotContain("bounded cue text");
+    }
+
+    [Theory]
+    [InlineData(nameof(LibraryOptions.MaxSubtitleInputBytes))]
+    [InlineData(nameof(LibraryOptions.MaxSubtitleCues))]
+    [InlineData(nameof(LibraryOptions.MaxSubtitleLineCharacters))]
+    [InlineData(nameof(LibraryOptions.MaxSubtitleOutputBytes))]
+    public async Task GetContent_ExactlyAtConfiguredBound_ReturnsOk(string bound)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        var document = BoundedDocument();
+        library.WriteMovieFile(MovieFolder, $"{Stem}.srt", Utf8(document));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root, Overrides(bound, ExactBound(bound, document)));
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        body.ShouldContain("bounded cue text");
+    }
+
+    [Fact]
+    public async Task GetContent_UnknownTamperedOtherMovieOrVanishedToken_ReturnsNotFoundProblemDetails()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, $"{Stem}.en.srt", Srt(
+            "1", "00:00:01,000 --> 00:00:02,000", "listed"));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var tampered = await client.GetAsync(ContentRoute(KnownId, token + "x"), ct);
+        var unknown = await client.GetAsync(ContentRoute(KnownId, "unknown-token"), ct);
+        var otherMovie = await client.GetAsync(ContentRoute(KnownId + 1, token), ct);
+        library.DeleteMovieFile(MovieFolder, $"{Stem}.en.srt");
+        var vanished = await client.GetAsync(ContentRoute(KnownId, token), ct);
+
+        // assert
+        foreach (var response in new[] { tampered, unknown, otherMovie, vanished })
+        {
+            response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+            AssertFrozenNoStore(response);
+        }
+
+        var problem = JsonSerializer.Deserialize<JsonElement>(await tampered.Content.ReadAsStringAsync(ct));
+        problem.GetProperty("status").GetInt32().ShouldBe((int)HttpStatusCode.NotFound);
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task GetContent_RangeHeader_ReturnsFullOkWithoutAcceptRangesOrPartialContent()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, $"{Stem}.srt", Srt(
+            "1", "00:00:01,000 --> 00:00:02,000", "ranged cue"));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+        using var request = new HttpRequestMessage(HttpMethod.Get, ContentRoute(KnownId, token));
+        request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 4);
+
+        // act
+        var response = await client.SendAsync(request, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Headers.AcceptRanges.ShouldBeEmpty();
+        response.Content.Headers.ContentRange.ShouldBeNull();
+        body.ShouldStartWith("WEBVTT");
+    }
+
+    [Fact]
+    public async Task GetContent_LibraryFolderOutsideAuthorizedRoot_ReturnsForbiddenThroughSingleHandler()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        using var outside = new TemporaryLibrary();
+        outside.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        outside.WriteMovieFile(MovieFolder, $"{Stem}.srt", Srt(
+            "1", "00:00:01,000 --> 00:00:02,000", "outside"));
+        DetailsReturning(KnownDetails(outside.Root));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, "any-token"), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        response.Content.Headers.ContentType!.MediaType.ShouldBe(ProblemDetailsJson);
+        AssertFrozenNoStore(response);
+        var problem = JsonSerializer.Deserialize<JsonElement>(body);
+        problem.GetProperty("status").GetInt32().ShouldBe((int)HttpStatusCode.Forbidden);
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain(outside.Root);
+    }
+
+    [Fact]
+    public async Task GetContent_LinkedSidecarBeyondAuthorizedFolder_FailsClosedWithoutServingIt()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        using var outside = new TemporaryLibrary();
+        var outsideFile = outside.WriteMovieFile(
+            MovieFolder,
+            "outside.srt",
+            Srt("1", "00:00:01,000 --> 00:00:02,000", "unauthorized bytes"));
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        CreateFileLinkOrFail(Path.Combine(library.Root, MovieFolder, $"{Stem}.srt"), outsideFile);
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var list = await client.GetAsync(SubtitlesRoute(KnownId), ct);
+        var listBody = await list.Content.ReadAsStringAsync(ct);
+        var content = await client.GetAsync(ContentRoute(KnownId, "any-token"), ct);
+        var contentBody = await content.Content.ReadAsStringAsync(ct);
+
+        // assert
+        list.StatusCode.ShouldBe(HttpStatusCode.OK);
+        listBody.ShouldBe("[]");
+        content.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        contentBody.ShouldNotContain("unauthorized bytes");
+        contentBody.ShouldNotContain(outside.Root);
+    }
+
+    [Fact]
+    public async Task GetContent_UnexpectedFailure_ReturnsGenericSanitizedProblemDetailsHeaders()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        const string sentinel = "sentinel-subtitle-content-failure";
+        catalog.GetDetailsAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException(sentinel));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(ContentRoute(KnownId, "any-token"), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        response.Content.Headers.ContentType!.MediaType.ShouldBe(ProblemDetailsJson);
+        response.Headers.GetValues(ContentTypeOptionsHeader).ShouldBe([NoSniffValue]);
+        AssertFrozenNoStore(response);
+        var problem = JsonSerializer.Deserialize<JsonElement>(body);
+        problem.GetProperty("title").GetString().ShouldBe("Internal Server Error");
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain(sentinel);
+        body.ShouldNotContain("stackTrace");
+        body.ShouldNotContain(library.Root);
+    }
+
+    [Fact]
+    public async Task Get_OneBadTrackAmongMany_KeepsListingAndOtherTrackContentAvailable()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, $"{Stem}.en.srt", Srt(
+            "1", "00:00:01,000 --> 00:00:02,000", "good track"));
+        library.WriteMovieFile(MovieFolder, $"{Stem}.srt", Utf8("broken document"));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var list = await client.GetAsync(SubtitlesRoute(KnownId), ct);
+        var tracks = TrackElements(await list.Content.ReadAsStringAsync(ct));
+        var bad = tracks.Single(track => track.GetProperty("isDefault").GetBoolean() == false
+                                        && track.GetProperty("label").GetString() == "Subtitles");
+        var good = tracks.Single(track => track.GetProperty("label").GetString() == "English");
+        var badContent = await client.GetAsync(
+            ContentRoute(KnownId, bad.GetProperty("id").GetString()!), ct);
+        var goodContent = await client.GetAsync(
+            ContentRoute(KnownId, good.GetProperty("id").GetString()!), ct);
+
+        // assert
+        list.StatusCode.ShouldBe(HttpStatusCode.OK);
+        badContent.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        goodContent.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await goodContent.Content.ReadAsStringAsync(ct)).ShouldContain("good track");
+    }
+
     /// <summary>
     /// The frozen policy is <c>private, no-store</c>. Framework serialization may reorder directives,
     /// and directive order carries no HTTP meaning, so the directive set is asserted instead.
@@ -290,7 +771,77 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
         return [.. document.RootElement.EnumerateArray().Select(element => element.Clone())];
     }
 
+    private static async Task<string> ListSingleToken(HttpClient client, CancellationToken cancellationToken)
+    {
+        var list = await client.GetAsync(SubtitlesRoute(KnownId), cancellationToken);
+        list.StatusCode.ShouldBe(HttpStatusCode.OK);
+        return FirstTrackToken(await list.Content.ReadAsStringAsync(cancellationToken));
+    }
+
+    private static byte[] Utf8(string document) => System.Text.Encoding.UTF8.GetBytes(document);
+
+    private static string Document(params string[] lines) => string.Join("\n", lines) + "\n";
+
+    private static byte[] Srt(params string[] lines) => Utf8(Document(lines));
+
+    private static byte[] SrtWithBom(string document) =>
+        [.. new byte[] { 0xEF, 0xBB, 0xBF }, .. Utf8(document)];
+    private static byte[] Windows1252Srt(string index, string timing, string text) =>
+        CodePagesEncodingProvider.Instance.GetEncoding(1252)!
+            .GetBytes(string.Join("\n", index, timing, text) + "\n");
+
+    private static string BoundedDocument() => Document(
+        "1",
+        "00:00:01,000 --> 00:00:02,000",
+        "bounded cue text",
+        "",
+        "2",
+        "00:00:03,000 --> 00:00:04,000",
+        "second bounded cue");
+
+    private static int ExactBound(string bound, string document) => bound switch
+    {
+        nameof(LibraryOptions.MaxSubtitleInputBytes) => Utf8(document).Length,
+        nameof(LibraryOptions.MaxSubtitleCues) => 2,
+        nameof(LibraryOptions.MaxSubtitleLineCharacters) => "second bounded cue".Length,
+        nameof(LibraryOptions.MaxSubtitleOutputBytes) => OutputBytes(document),
+        _ => throw new ArgumentOutOfRangeException(nameof(bound), bound, "Unknown subtitle bound."),
+    };
+
+    private static int FirstOver(string bound, string document) => ExactBound(bound, document) - 1;
+
+    private static int OutputBytes(string document) =>
+        System.Text.Encoding.UTF8.GetByteCount(SubtitleWebVttConverter.Convert(
+            document,
+            new SubtitleConversionLimits(1000, 1000, 1_000_000)));
+
+    private static Dictionary<string, string?> Overrides(string bound, int value) =>
+        new()
+        {
+            [$"{LibraryOptions.SectionName}:{bound}"] = value.ToString(CultureInfo.InvariantCulture),
+        };
+
+    private static void CreateFileLinkOrFail(string linkPath, string targetPath)
+    {
+        try
+        {
+            File.CreateSymbolicLink(linkPath, targetPath);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            Assert.Fail($"A real symlink fixture is mandatory for this proof but could not be created: {exception.Message}");
+        }
+    }
+
     private static string SubtitlesRoute(int id) => $"/api/movies/{id}/subtitles";
+
+    private static string ContentRoute(int id, string trackId) => $"/api/movies/{id}/subtitles/{trackId}/content";
+
+    private static string FirstTrackToken(string body) =>
+        TrackElements(body).First().GetProperty("id").GetString()
+        ?? throw new InvalidOperationException("The subtitle track list must expose an id.");
+
 
     private static MovieDetails KnownDetails(string storedPath) =>
         new(
@@ -307,15 +858,23 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
     private void DetailsReturning(MovieDetails details) =>
         catalog.GetDetailsAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(details);
 
-    private WebApplicationFactory<Program> CreateHost(string libraryRoot) =>
+    private WebApplicationFactory<Program> CreateHost(
+        string libraryRoot,
+        IReadOnlyDictionary<string, string?>? additionalSettings = null) =>
         factory.WithWebHostBuilder(builder =>
         {
-            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?>
-                {
-                    ["Features:LocalPlay"] = "false",
-                    [$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}"] = libraryRoot,
-                }));
+            var settings = new Dictionary<string, string?>
+            {
+                ["Features:LocalPlay"] = "false",
+                [$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.RootPath)}"] = libraryRoot,
+            };
+            foreach (var setting in additionalSettings ?? new Dictionary<string, string?>())
+            {
+                settings[setting.Key] = setting.Value;
+            }
+
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(settings));
             builder.ConfigureTestServices(services => services.AddSingleton(catalog));
         });
 
@@ -332,12 +891,17 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
         public void WriteMoviePrimary(string movieFolder, string fileName) =>
             WriteMovieFile(movieFolder, fileName, [0x1A, 0x45, 0xDF, 0xA3]);
 
-        public void WriteMovieFile(string movieFolder, string fileName, byte[]? contents = null)
+        public string WriteMovieFile(string movieFolder, string fileName, byte[]? contents = null)
         {
             var directory = Path.Combine(Root, movieFolder);
             Directory.CreateDirectory(directory);
-            File.WriteAllBytes(Path.Combine(directory, fileName), contents ?? [0x31, 0x0A]);
+            var path = Path.Combine(directory, fileName);
+            File.WriteAllBytes(path, contents ?? [0x31, 0x0A]);
+            return path;
         }
+
+        public void DeleteMovieFile(string movieFolder, string fileName) =>
+            File.Delete(Path.Combine(Root, movieFolder, fileName));
 
         public void Dispose()
         {

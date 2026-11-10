@@ -40,7 +40,18 @@ public sealed partial class LibraryFileReader(
         }
 
         RejectNonRegularFile(authorized);
-        return OpenAuthorized(authorized);
+
+        var stream = OpenAuthorized(authorized);
+        try
+        {
+            VerifyOpenedStream(stream);
+            return stream;
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
     }
 
     public IReadOnlyList<string> EnumerateFiles(LibraryPath folder)
@@ -112,6 +123,35 @@ public sealed partial class LibraryFileReader(
         }
 
         return authorized;
+    }
+
+    /// <summary>
+    /// Re-verifies the already opened handle, so a path swapped between the pre-open checks and the open
+    /// cannot hand back a directory or a reparse point. Failure closes the stream and denies the request.
+    /// </summary>
+    private static void VerifyOpenedStream(FileStream stream)
+    {
+        var handle = stream.SafeFileHandle;
+        if (handle.IsInvalid)
+        {
+            throw Denied();
+        }
+
+        FileAttributes attributes;
+        try
+        {
+            attributes = File.GetAttributes(handle);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            throw Denied();
+        }
+
+        if ((attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
+        {
+            throw Denied();
+        }
     }
 
     private static void RejectNonRegularFile(string authorizedPath)
