@@ -9,6 +9,8 @@ public sealed class GetPlaybackCapabilitiesQueryHandler
 {
     public Task<PlaybackCapabilitiesResult> HandleAsync(
         GetPlaybackCapabilitiesQuery query,
-        CancellationToken cancellationToken) =>
-        Task.FromResult(new PlaybackCapabilitiesResult(query.LocalPlayEnabled));
+        CancellationToken cancellationToken)
+    {
+        return Task.FromResult(new PlaybackCapabilitiesResult(query.LocalPlayEnabled));
+    }
 }
