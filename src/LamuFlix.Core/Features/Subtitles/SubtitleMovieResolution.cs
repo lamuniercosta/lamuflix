@@ -26,7 +26,7 @@ public static class SubtitleMovieResolution
 
         reader.AuthorizeFolder(details.Path);
 
-        PrimaryVideo primary;
+        PrimaryVideo? primary = null;
         try
         {
             primary = scanner.ResolvePrimaryVideo(details.Path);
@@ -36,6 +36,6 @@ public static class SubtitleMovieResolution
             throw new NotFoundException();
         }
 
-        return new ResolvedSubtitleMovie(details.Path, Path.GetFileName(primary.Path.Value));
+        return new ResolvedSubtitleMovie(details.Path, Path.GetFileName(primary!.Path.Value));
     }
 }

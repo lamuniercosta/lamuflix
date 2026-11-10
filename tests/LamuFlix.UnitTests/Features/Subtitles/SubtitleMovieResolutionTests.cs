@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -146,7 +145,7 @@ public sealed class SubtitleMovieResolutionTests
         DetailsReturning(id);
         PrimaryReturning($"{MovieFolder}/{PrimaryFileName}");
         using var source = new CancellationTokenSource();
-        source.Cancel();
+        await source.CancelAsync();
 
         // act
         await SubtitleMovieResolution.ResolveAsync(catalog, scanner, reader, id, source.Token);
