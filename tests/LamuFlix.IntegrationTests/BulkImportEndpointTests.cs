@@ -140,6 +140,29 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
     }
 
     [Fact]
+    public async Task ImportLibrary_RetryOnlyWithoutFolders_ReturnsOk()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<LibraryPath>());
+        movies.FindFailedMoviesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<Movie>());
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsJsonAsync(
+            LibraryRoute, new { retryFailed = true }, ct);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        payload.GetProperty("retried").GetInt32().ShouldBe(0);
+        payload.GetProperty("failures").EnumerateArray().ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task ListCandidates_MissingRoot_ReturnsServerErrorWithoutLeakingDetail()
     {
         // arrange

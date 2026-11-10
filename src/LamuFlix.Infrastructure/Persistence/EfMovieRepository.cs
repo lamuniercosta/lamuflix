@@ -998,6 +998,42 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         return PresentIds(ids);
     }
 
+    public async Task<IReadOnlyList<Movie>> FindFailedMoviesAsync(CancellationToken ct)
+    {
+        var records = await db.Movies
+            .Include(movie => movie.Actors)
+            .Include(movie => movie.Directors)
+            .Include(movie => movie.Genres)
+            .Include(movie => movie.Writers)
+            .Include(movie => movie.Keywords)
+            .Include(movie => movie.FullCast)
+            .Include(movie => movie.Collection)
+            .Where(movie => movie.Status == EnrichmentStatus.Failed)
+            .OrderBy(movie => movie.Id)
+            .ToArrayAsync(ct);
+        var movies = new List<Movie>(records.Length);
+        foreach (var record in records)
+        {
+            if (record.Id is not { } id)
+            {
+                continue;
+            }
+
+            if (identityMap.TryGetValue(id, out var tracked))
+            {
+                movies.Add(tracked.Movie);
+            }
+            else
+            {
+                var movie = ToDomain(record);
+                identityMap.Add(movie.Id, new TrackedMovie(movie, record, Baseline.From(movie)));
+                movies.Add(movie);
+            }
+        }
+
+        return movies;
+    }
+
     private static Expression<Func<MovieRecord, bool>> IsDeferralElapsed(DateTimeOffset now) =>
         movie => movie.EnrichmentDeferredUntil == null || movie.EnrichmentDeferredUntil <= now;
 

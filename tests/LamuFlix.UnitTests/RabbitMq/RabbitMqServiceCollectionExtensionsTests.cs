@@ -253,6 +253,9 @@ public sealed class RabbitMqServiceCollectionExtensionsTests
 
         public Task<IReadOnlyList<MovieId>> FindFailedMovieIdsAsync(CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<MovieId>>([]);
+
+        public Task<IReadOnlyList<Movie>> FindFailedMoviesAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Movie>>([]);
     }
 
     private sealed class SingleLoggerFactory(RecordingLogger<EnrichmentConsumer> logger) : ILoggerFactory
