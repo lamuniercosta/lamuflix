@@ -36,7 +36,7 @@ public sealed class SubtitleTextDecoderTests
     public void Decode_Windows1252BytesFallBackAfterStrictUtf8Failure_ReturnsAccentedText()
     {
         // arrange
-        var payload = CodePagesEncodingProvider.Instance.GetEncoding(1252)!.GetBytes("Ação e coração");
+        var payload = CodePagesEncodingProvider.Instance.GetEncoding(1252).ShouldNotBeNull().GetBytes("Ação e coração");
 
         // act
         var result = SubtitleTextDecoder.Decode(payload);

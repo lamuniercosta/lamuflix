@@ -8,6 +8,7 @@ using LamuFlix.Api;
 using LamuFlix.Api.ExceptionHandling;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Pipeline;
+using LamuFlix.Core.Ports;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -142,7 +143,7 @@ public sealed class GlobalExceptionHandlerTests
     {
         // arrange
         var handler = CreateHandler(out var context);
-        var exception = new LamuFlix.Core.Ports.LibraryFileAccessDeniedException(
+        var exception = new LibraryFileAccessDeniedException(
             "The requested library path is outside the authorized library root.");
 
         // act
@@ -157,7 +158,7 @@ public sealed class GlobalExceptionHandlerTests
         root.GetProperty("title").GetString().ShouldBe("Forbidden");
         root.GetProperty("type").GetString().ShouldBe("https://tools.ietf.org/html/rfc9110#section-15.5.4");
         root.GetProperty("traceId").GetString().ShouldBe("trace-296");
-        AssertNoLeak(root, "outside the authorized library root", nameof(LamuFlix.Core.Ports.LibraryFileAccessDeniedException));
+        AssertNoLeak(root, "outside the authorized library root", nameof(LibraryFileAccessDeniedException));
     }
 
     [Fact]

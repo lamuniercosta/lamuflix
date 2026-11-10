@@ -106,7 +106,7 @@ public sealed class SubtitleWebVttConverterTests
 
         // assert
         var thrown = Should.Throw<ValidationException>(act);
-        var messages = new System.Collections.Generic.List<string>();
+        var messages = new List<string>();
         foreach (var pair in thrown.Errors)
         {
             messages.AddRange(pair.Value);

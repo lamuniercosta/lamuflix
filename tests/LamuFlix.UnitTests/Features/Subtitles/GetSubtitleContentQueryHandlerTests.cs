@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -63,7 +61,7 @@ public sealed class GetSubtitleContentQueryHandlerTests
 
         // assert
         await Should.ThrowAsync<NotFoundException>(act);
-        reader.DidNotReceiveWithAnyArgs().OpenRead(default!);
+        reader.DidNotReceiveWithAnyArgs().OpenRead(Arg.Any<LibraryPath>());
     }
 
     [Fact]
@@ -98,8 +96,8 @@ public sealed class GetSubtitleContentQueryHandlerTests
 
         // assert
         await Should.ThrowAsync<NotFoundException>(act);
-        reader.DidNotReceiveWithAnyArgs().AuthorizeFolder(default!);
-        reader.DidNotReceiveWithAnyArgs().EnumerateFiles(default!);
+        reader.DidNotReceiveWithAnyArgs().AuthorizeFolder(Arg.Any<LibraryPath>());
+        reader.DidNotReceiveWithAnyArgs().EnumerateFiles(Arg.Any<LibraryPath>());
     }
 
     [Fact]
@@ -133,7 +131,7 @@ public sealed class GetSubtitleContentQueryHandlerTests
 
         // assert
         await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
-        reader.DidNotReceiveWithAnyArgs().EnumerateFiles(default!);
+        reader.DidNotReceiveWithAnyArgs().EnumerateFiles(Arg.Any<LibraryPath>());
     }
 
     [Fact]
@@ -196,7 +194,7 @@ public sealed class GetSubtitleContentQueryHandlerTests
 
         // assert
         await Should.ThrowAsync<NotFoundException>(act);
-        reader.DidNotReceiveWithAnyArgs().OpenRead(default!);
+        reader.DidNotReceiveWithAnyArgs().OpenRead(Arg.Any<LibraryPath>());
     }
 
     private GetSubtitleContentQueryHandler CreateHandler(int maxInputBytes = 8388608) =>

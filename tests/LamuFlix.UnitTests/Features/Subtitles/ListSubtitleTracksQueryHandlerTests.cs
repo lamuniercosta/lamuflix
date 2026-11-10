@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,8 +7,6 @@ using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
 
@@ -90,8 +86,8 @@ public sealed class ListSubtitleTracksQueryHandlerTests
 
         // assert
         await Should.ThrowAsync<NotFoundException>(act);
-        reader.DidNotReceiveWithAnyArgs().AuthorizeFolder(default!);
-        reader.DidNotReceiveWithAnyArgs().EnumerateFiles(default!);
+        reader.DidNotReceiveWithAnyArgs().AuthorizeFolder(Arg.Any<LibraryPath>());
+        reader.DidNotReceiveWithAnyArgs().EnumerateFiles(Arg.Any<LibraryPath>());
     }
 
     [Fact]
@@ -124,7 +120,7 @@ public sealed class ListSubtitleTracksQueryHandlerTests
 
         // assert
         await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
-        reader.DidNotReceiveWithAnyArgs().EnumerateFiles(default!);
+        reader.DidNotReceiveWithAnyArgs().EnumerateFiles(Arg.Any<LibraryPath>());
     }
 
     private static string Stem => "Heat.1995.1080p";

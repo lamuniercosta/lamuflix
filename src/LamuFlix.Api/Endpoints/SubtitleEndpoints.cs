@@ -33,7 +33,7 @@ internal static class SubtitleEndpoints
         api.MapGet("/movies/{id:int}/subtitles/{trackId}/content", GetSubtitleContentAsync)
             .WithName("GetMovieSubtitleContent")
             .WithSummary("Serve one eligible sidecar subtitle track converted to WebVTT.")
-            .Produces<string>(StatusCodes.Status200OK, contentType: SubtitleContentType)
+            .Produces<string>(contentType: SubtitleContentType)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)

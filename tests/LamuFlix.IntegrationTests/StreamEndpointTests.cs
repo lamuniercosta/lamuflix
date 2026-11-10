@@ -864,13 +864,8 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
         public IReadOnlyList<string> EnumerateFiles(LibraryPath folder)
         {
             ArgumentNullException.ThrowIfNull(folder);
-            EnumeratedFolders.Add(folder.Value);
-            return Files;
+            return [];
         }
-
-        public IReadOnlyList<string> Files { get; init; } = [];
-
-        public List<string> EnumeratedFolders { get; } = [];
     }
 
     private sealed class TrackingStream(Stream inner) : Stream
