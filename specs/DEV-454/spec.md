@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/454-spec`
 **Created**: 2026-11-09
-**Status**: Draft after plan-challenge repair round 2 (final allowed); **blocked: structural** (Ledger S4 / charter 2.3(b)); PLAN FROZEN withheld; Gate 1 closed pending **explicit owner approval** of exact amendment text (or owner-amended text incorporated consistently) plus verified merge. Ready for Keel independent reread with structural blocker — not clean/frozen.
+**Status**: gate1: provisional
 **Input**: Ticket DEV-454 (parent DEV-100); grill-closed `brief.md` (Q1–Q8) including Phase 2 step 6 adjudication decisions and Ledger S4 final Patron disposition; `CONCLUSIONS.md`; `ASSUMPTIONS.md`; Maestri notes `DEV-454`, `recon-DEV-454` (supplement lines 7–22 authoritative for reader/handler/exception facts), `adjudication-DEV-454-Keel`; `specs/PRODUCT.md`; `.specify/memory/constitution.md` (cite / propose only — Quill does not edit constitution). Dependencies: DEV-456, DEV-455. Ticket Description carries Scope / Dependencies / Pipeline only — no separate Technical Design or Acceptance Criteria sections in the task-script output (`recon-DEV-454:51-55`); Patron Q1–Q8 and Phase 2 step 6 elaborate the stated Scope.
 
 ## Owner question — Gate 1 (blocked: structural)
