@@ -423,6 +423,23 @@ public sealed class LibraryFileReaderTests
     }
 
     [Fact]
+    public void OpenRead_ContainedFile_ReturnsStreamWhoseOpenedHandleIsTheRegularFile()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        var containedFile = library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), Payload());
+        var reader = CreateReader(library.Root);
+
+        // act
+        using var stream = reader.OpenRead(new LibraryPath(Path.Combine(MovieFolder, PrimaryFileName)));
+
+        // assert
+        var fileStream = stream.ShouldBeAssignableTo<FileStream>();
+        fileStream.SafeFileHandle.IsInvalid.ShouldBeFalse();
+        File.GetAttributes(fileStream.SafeFileHandle).ShouldBe(File.GetAttributes(containedFile));
+    }
+
+    [Fact]
     public void EnumerateFiles_EligibleSidecarsAndUnrelatedFiles_ReturnsOnlyTopLevelRegularFileNamesInOrdinalOrder()
     {
         // arrange

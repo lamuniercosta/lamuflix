@@ -15,6 +15,9 @@ internal static class SubtitleEndpoints
 {
     private const string CacheControlHeader = "Cache-Control";
     private const string NoStoreValue = "private, no-store";
+    private const string ContentTypeOptionsHeader = "X-Content-Type-Options";
+    private const string NoSniffValue = "nosniff";
+    private const string SubtitleContentType = "text/vtt; charset=utf-8";
 
     internal static RouteGroupBuilder MapSubtitleEndpoints(this RouteGroupBuilder api)
     {
@@ -25,6 +28,16 @@ internal static class SubtitleEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+        api.MapGet("/movies/{id:int}/subtitles/{trackId}/content", GetSubtitleContentAsync)
+            .WithName("GetMovieSubtitleContent")
+            .WithSummary("Serve one eligible sidecar subtitle track converted to WebVTT.")
+            .Produces<string>(StatusCodes.Status200OK, contentType: SubtitleContentType)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         return api;
@@ -47,6 +60,43 @@ internal static class SubtitleEndpoints
         return TypedResults.Ok(result.Tracks
             .Select(track => new SubtitleTrackDto(track.Id, track.Label, track.Language, track.IsDefault))
             .ToArray());
+    }
+
+    private static async Task<ContentHttpResult> GetSubtitleContentAsync(
+        int id,
+        string trackId,
+        HttpContext httpContext,
+        IQueryHandler<GetSubtitleContentQuery, SubtitleContentResult> handler,
+        CancellationToken cancellationToken)
+    {
+        EnforceNoStore(httpContext);
+        EnforceNoSniff(httpContext);
+
+        if (!MovieId.TryCreate(id, out var movieId))
+        {
+            throw new BadHttpRequestException($"Movie id '{id}' is not a valid movie identifier.");
+        }
+
+        var result = await handler.HandleAsync(new GetSubtitleContentQuery(movieId, trackId), cancellationToken);
+        return TypedResults.Text(result.WebVtt, SubtitleContentType);
+    }
+
+    /// <summary>
+    /// Applies <c>X-Content-Type-Options: nosniff</c> on the content route for the success body and for
+    /// the error written later by the single <c>IExceptionHandler</c>, so a sniffing browser never treats a
+    /// subtitle payload as another type.
+    /// </summary>
+    private static void EnforceNoSniff(HttpContext httpContext)
+    {
+        httpContext.Response.Headers[ContentTypeOptionsHeader] = NoSniffValue;
+        httpContext.Response.OnStarting(
+            static state =>
+            {
+                var response = (HttpResponse)state;
+                response.Headers[ContentTypeOptionsHeader] = NoSniffValue;
+                return Task.CompletedTask;
+            },
+            httpContext.Response);
     }
 
     /// <summary>
