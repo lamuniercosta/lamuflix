@@ -53,6 +53,34 @@ export function currentReturnUrl(): string | null {
   return readReturnUrl(window.history.state);
 }
 
+const PLAYER_INTENT_KEY = 'playerIntent';
+
+export function readPlayerIntent(state: unknown): boolean {
+  if (state == null || typeof state !== 'object') {
+    return false;
+  }
+  return (state as Record<string, unknown>)[PLAYER_INTENT_KEY] === true;
+}
+
+function playerIntentState(currentState: unknown): Record<string, unknown> {
+  const current = `${window.location.pathname || '/'}${window.location.search || ''}`;
+  const returnUrl = validateLibraryReturnUrl(current) ?? readReturnUrl(currentState);
+  return returnUrl ? { libraryReturnUrl: returnUrl, playerIntent: true } : { playerIntent: true };
+}
+
+export function openMoviePlayer(movieId: number | string): void {
+  try {
+    window.history.pushState(
+      playerIntentState(window.history.state),
+      '',
+      `/movies/${String(movieId)}`,
+    );
+  } catch {
+    return;
+  }
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
 export function libraryReturnSearch(returnUrl: string | null): string {
   if (!returnUrl) {
     return '';

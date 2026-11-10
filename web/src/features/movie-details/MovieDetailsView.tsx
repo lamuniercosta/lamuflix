@@ -8,14 +8,23 @@ import {
   CopyIcon,
   ExternalLinkIcon,
   FilmIcon,
-  LoaderIcon,
   PlayFilledIcon,
   StarFilledIcon,
 } from '../../ui/icons';
-import { readReturnUrl } from '../app-navigation/useAppNavigation';
+import { readPlayerIntent, readReturnUrl } from '../app-navigation/useAppNavigation';
+import BrowserPlayer from '../playback/BrowserPlayer';
+import { OPEN_LOCAL_COPY, openLocalLabel, playLabel } from '../playback/playerCopy';
+import { movieStreamUrl } from '../playback/streamSource';
+import { usePlaybackCapabilities } from '../playback/usePlaybackCapabilities';
 import { formatRating } from '../../library/movieCardFormat';
 import {
+  LAUNCH_UNAVAILABLE_TITLE,
+  localLaunchOutcome,
+  type LocalLaunchOutcome,
+} from './movieDetailsLaunch';
+import {
   formatRuntime,
+  MovieDetailsError,
   useDeleteMovie,
   useMovieDetails,
   usePlayMovie,
@@ -41,7 +50,6 @@ import './MovieDetailsView.css';
 type PersonDto = components['schemas']['PersonDto'];
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type ActorId = number | string;
-type PlayState = 'idle' | 'success' | 'notfound' | 'unavailable' | 'error';
 type CopyState = 'idle' | 'copied' | 'failed';
 
 export interface MovieDetailsViewProps {
@@ -434,14 +442,18 @@ function MovieDetailsViewInner({
 
   const people = usePeopleLookup();
   const peopleList: readonly PersonDto[] = people.data ?? [];
-  const playMutation = usePlayMovie(movieId);
   const deleteMutation = useDeleteMovie(movieId);
   const feedbackClients = useMemo(
     () => ({ libraryClient, detailsClient }),
     [libraryClient, detailsClient],
   );
-  const [playState, setPlayState] = useState<PlayState>('idle');
-  const playInFlightRef = useRef(false);
+  const [playerRequested, setPlayerRequested] = useState(() =>
+    readPlayerIntent(window.history.state),
+  );
+  const capability = usePlaybackCapabilities();
+  const localLaunch = usePlayMovie(movieId);
+  const launchInFlightRef = useRef(false);
+  const [launchOutcome, setLaunchOutcome] = useState<LocalLaunchOutcome | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeFailed, setRemoveFailed] = useState(false);
   const removeInFlightRef = useRef(false);
@@ -498,27 +510,24 @@ function MovieDetailsViewInner({
   };
 
   const handlePlay = () => {
-    if (playInFlightRef.current) return;
-    playInFlightRef.current = true;
-    setPlayState('idle');
-    playMutation.mutate(undefined, {
-      onSuccess: () => {
-        setPlayState('success');
-      },
-      onError: (error) => {
-        if (error.status === 403) {
-          setPlayState('unavailable');
-        } else if (error.status === 404) {
-          setPlayState('notfound');
-        } else {
-          setPlayState('error');
-        }
-      },
+    setPlayerRequested(true);
+  };
+
+  const handleOpenLocal = useCallback(() => {
+    if (launchInFlightRef.current) return;
+    launchInFlightRef.current = true;
+    setLaunchOutcome(null);
+    localLaunch.mutate(undefined, {
+      onSuccess: (status) => setLaunchOutcome(localLaunchOutcome(status)),
+      onError: (error) =>
+        setLaunchOutcome(
+          localLaunchOutcome(error instanceof MovieDetailsError ? error.status : undefined),
+        ),
       onSettled: () => {
-        playInFlightRef.current = false;
+        launchInFlightRef.current = false;
       },
     });
-  };
+  }, [localLaunch]);
 
   const toggleActor = (name: string) => {
     setSelectedActor((current) => (current === name ? null : name));
@@ -594,12 +603,23 @@ function MovieDetailsViewInner({
             <button
               type="button"
               className="lamu-action-primary"
-              disabled={playMutation.isPending}
+              aria-label={playLabel(movie.title)}
               onClick={handlePlay}
             >
-              {playMutation.isPending ? <LoaderIcon size={18} /> : <PlayFilledIcon size={18} />}
-              {playMutation.isPending ? 'Starting...' : 'Play'}
+              <PlayFilledIcon size={18} />
+              Play
             </button>
+            {capability === 'enabled' && (
+              <button
+                type="button"
+                className="lamu-action-quiet"
+                aria-label={openLocalLabel(movie.title)}
+                disabled={localLaunch.isPending}
+                onClick={handleOpenLocal}
+              >
+                {OPEN_LOCAL_COPY}
+              </button>
+            )}
             <MovieFeedbackActions
               movieId={movie.id}
               title={movie.title}
@@ -620,26 +640,29 @@ function MovieDetailsViewInner({
             </button>
           </div>
 
-          {playState === 'success' && (
-            <p role="status" className="details-status">
-              Playback started.
-            </p>
+          {playerRequested && (
+            <BrowserPlayer
+              title={movie.title}
+              movieId={movie.id}
+              streamUrl={movieStreamUrl(movie.id)}
+              localPlayEnabled={capability === 'enabled'}
+              onOpenLocal={handleOpenLocal}
+            />
           )}
-          {playState === 'notfound' && (
-            <p role="alert" className="details-status">
-              This movie is no longer in the library.
-            </p>
-          )}
-          {playState === 'error' && (
-            <p role="alert" className="details-status">
-              Couldn&apos;t start playback. Try again later.
-            </p>
-          )}
-          {playState === 'unavailable' && (
+
+          {launchOutcome?.kind === 'unavailable' && (
             <div role="alert" className="details-inline-alert">
-              <p className="details-inline-alert-title">Playback unavailable</p>
-              <p>Local playback is disabled on this server.</p>
+              <p className="details-inline-alert-title">{LAUNCH_UNAVAILABLE_TITLE}</p>
+              <p>{launchOutcome.message}</p>
             </div>
+          )}
+          {launchOutcome && launchOutcome.kind !== 'unavailable' && (
+            <p
+              role={launchOutcome.kind === 'started' ? 'status' : 'alert'}
+              className="details-status"
+            >
+              {launchOutcome.message}
+            </p>
           )}
 
           {removeOpen && (

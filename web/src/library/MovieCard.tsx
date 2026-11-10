@@ -1,13 +1,8 @@
-import { useId, useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent } from 'react';
 import type { components } from '../api/types';
 import { FilmIcon, PlayFilledIcon, RetryIcon, StarFilledIcon } from '../ui/icons';
-import { usePlayMovie } from '../features/movie-details/movieDetailsApi';
-import {
-  canRetryEnrichment,
-  displayValue,
-  formatRating,
-  playErrorMessage,
-} from './movieCardFormat';
+import { openMoviePlayer } from '../features/app-navigation/useAppNavigation';
+import { canRetryEnrichment, displayValue, formatRating } from './movieCardFormat';
 import { MovieFeedbackActions } from './MovieFeedbackActions';
 import type { MovieFeedbackClients } from './movieFeedbackStore';
 
@@ -24,9 +19,13 @@ export interface MovieCardReason {
   text: string;
 }
 
+export interface OpenMovieOptions {
+  playerIntent?: boolean;
+}
+
 export interface MovieCardProps {
   movie: MovieSummaryResponse;
-  onOpenMovie?: (id: number | string) => void;
+  onOpenMovie?: (id: number | string, options?: OpenMovieOptions) => void;
   onRetry?: (id: number | string) => void;
   retryError?: string | null;
   retryErrorId?: string;
@@ -47,9 +46,6 @@ export default function MovieCard({
 }: MovieCardProps) {
   const [posterFailed, setPosterFailed] = useState(false);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
-  const [playError, setPlayError] = useState<string | null>(null);
-  const playErrorId = useId();
-  const playMutation = usePlayMovie(movie.id);
 
   const { id, title, enrichmentStatus: status } = movie;
   const showPoster = Boolean(movie.posterUrl) && !posterFailed;
@@ -59,10 +55,11 @@ export default function MovieCard({
   const statusLabel = STATUS_LABELS[status];
 
   const handlePlay = () => {
-    setPlayError(null);
-    playMutation.mutate(undefined, {
-      onError: (error) => setPlayError(playErrorMessage(error)),
-    });
+    if (onOpenMovie) {
+      onOpenMovie(id, { playerIntent: true });
+      return;
+    }
+    openMoviePlayer(id);
   };
 
   const handleOpen = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -106,9 +103,6 @@ export default function MovieCard({
           type="button"
           className="movie-card-play"
           aria-label={`Play ${title}`}
-          aria-busy={playMutation.isPending}
-          aria-describedby={playError ? playErrorId : undefined}
-          disabled={playMutation.isPending}
           onClick={handlePlay}
         >
           <PlayFilledIcon size={26} />
@@ -183,12 +177,6 @@ export default function MovieCard({
       {retryError ? (
         <p id={retryErrorId} role="alert" className="movie-card-error">
           {retryError}
-        </p>
-      ) : null}
-
-      {playError ? (
-        <p id={playErrorId} role="alert" className="movie-card-error">
-          {playError}
         </p>
       ) : null}
     </article>

@@ -213,11 +213,15 @@ export default function App({ enrichmentStatus }: AppProps) {
   );
 
   const openMovie = useCallback(
-    (id: string | number) => {
+    (id: string | number, options?: { playerIntent?: boolean }) => {
       const current = `${route.pathname}${route.search}`;
-      navigate(`/movies/${String(id)}`, {
-        state: { libraryReturnUrl: current },
-      });
+      const state: { libraryReturnUrl: string; playerIntent?: true } = {
+        libraryReturnUrl: current,
+      };
+      if (options?.playerIntent) {
+        state.playerIntent = true;
+      }
+      navigate(`/movies/${String(id)}`, { state });
     },
     [route.pathname, route.search, navigate],
   );

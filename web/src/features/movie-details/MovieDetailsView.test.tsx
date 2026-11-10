@@ -11,6 +11,9 @@ import {
   problemDetails,
   relatedMovies,
 } from '../../mocks/fixtures';
+import { installMediaStubs, type MediaStubHandle } from '../../test/mediaElement';
+import { playerRegionLabel, playLabel } from '../playback/playerCopy';
+import { movieStreamUrl } from '../playback/streamSource';
 import { browseMoviesQueryKey } from '../../library/libraryQueries';
 import type {
   EnrichmentStatusNotification,
@@ -116,67 +119,123 @@ describe('MovieDetailsView', () => {
     await screen.findByRole('heading', { name: 'Dune' });
     expect(screen.queryByText('Dune poster')).not.toBeInTheDocument();
   });
+});
 
-  it('reports playback started on 204', async () => {
-    server.use(
-      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
-      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 204 })),
-    );
-    renderView();
+describe('MovieDetailsView browser Play default', () => {
+  let media: MediaStubHandle;
 
-    await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
-
-    expect(await screen.findByText('Playback started.')).toBeInTheDocument();
+  beforeEach(() => {
+    media = installMediaStubs();
   });
 
-  it('reports removal on play 404', async () => {
-    server.use(
-      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
-      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 404 })),
-    );
-    renderView();
-
-    await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
-
-    expect(await screen.findByText('This movie is no longer in the library.')).toBeInTheDocument();
+  afterEach(() => {
+    media.restore();
   });
 
-  it('reports generic error on play failure', async () => {
+  function recordLaunchPosts(posts: string[]) {
+    return http.post('*/api/movies/:id/play', ({ request }) => {
+      posts.push(request.url);
+      return new HttpResponse(null, { status: 204 });
+    });
+  }
+
+  it('opens the labelled player from Play and never posts the launch contract', async () => {
+    const posts: string[] = [];
     server.use(
       http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
-      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 500 })),
+      recordLaunchPosts(posts),
     );
-    renderView();
+    const { container } = renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(screen.queryByRole('region', { name: playerRegionLabel('Dune') })).toBeNull();
 
-    expect(
-      await screen.findByText("Couldn't start playback. Try again later."),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: playLabel('Dune') }));
+
+    const playerRegion = await screen.findByRole('region', { name: playerRegionLabel('Dune') });
+    expect(playerRegion).toBeInTheDocument();
+    expect(container.querySelectorAll('video')).toHaveLength(1);
+    expect(media.calls).toContain(`src:${movieStreamUrl(1)}`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(posts).toEqual([]);
   });
 
-  it('does not send a second play request while in flight', async () => {
-    let calls = 0;
-    server.use(
-      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
-      http.post('*/api/movies/:id/play', async () => {
-        calls += 1;
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-    renderView();
+  it('keeps one active video when Play is activated twice', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)));
+    const { container } = renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
-    const playButton = screen.getByRole('button', { name: 'Play' });
+    const playButton = screen.getByRole('button', { name: playLabel('Dune') });
     fireEvent.click(playButton);
-    await screen.findByText('Starting...');
+    await screen.findByRole('region', { name: playerRegionLabel('Dune') });
     fireEvent.click(playButton);
-    await waitFor(() => expect(screen.getByText('Playback started.')).toBeInTheDocument());
-    expect(calls).toBe(1);
+
+    expect(container.querySelectorAll('video')).toHaveLength(1);
+  });
+
+  it('opens the player and attempts playback when details arrive with card player intent', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)));
+    window.history.replaceState({ playerIntent: true }, '', '/movies/1');
+    renderView();
+
+    const region = await screen.findByRole('region', { name: playerRegionLabel('Dune') });
+    expect(region).toBeInTheDocument();
+    await waitFor(() => expect(media.calls).toContain('play'));
+  });
+
+  it('leaves the player closed on a direct load without player intent', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)));
+    window.history.replaceState(null, '', '/movies/1');
+    renderView();
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    expect(screen.queryByRole('region', { name: playerRegionLabel('Dune') })).toBeNull();
+    expect(screen.getByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
+  });
+
+  it('keeps the rest of the details page usable while the player is open', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)));
+    renderView();
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(screen.getByRole('button', { name: playLabel('Dune') }));
+    await screen.findByRole('region', { name: playerRegionLabel('Dune') });
+
+    expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'File' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove from library' })).toBeEnabled();
+  });
+
+  it('tears the outgoing player down before a card-navigation swap attaches the incoming one', async () => {
+    server.use(
+      http.get('*/api/movies/:id', ({ params }) =>
+        HttpResponse.json({
+          ...fullMovie,
+          id: Number(params.id),
+          title: params.id === '2' ? 'Arrival' : 'Dune',
+        }),
+      ),
+      http.get('*/api/movies/:id/recommendations', () => HttpResponse.json([])),
+    );
+    const first = renderView(1);
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(screen.getByRole('button', { name: playLabel('Dune') }));
+    await screen.findByRole('region', { name: playerRegionLabel('Dune') });
+    media.calls.length = 0;
+
+    window.history.replaceState({ playerIntent: true }, '', '/movies/2');
+    first.unmount();
+    renderView(2);
+
+    await screen.findByRole('region', { name: playerRegionLabel('Arrival') });
+    const pause = media.calls.indexOf('pause');
+    const clear = media.calls.indexOf('clear:src');
+    const incoming = media.calls.indexOf(`src:${movieStreamUrl(2)}`);
+    expect(pause).toBeGreaterThanOrEqual(0);
+    expect(clear).toBeGreaterThan(pause);
+    expect(incoming).toBeGreaterThan(clear);
+    expect(document.querySelectorAll('video')).toHaveLength(1);
   });
 });
 
@@ -212,45 +271,6 @@ describe('MovieDetailsView load states', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       "Couldn't load this movie. Try again later.",
     );
-  });
-});
-
-describe('MovieDetailsView Play 403 inline message', () => {
-  it('shows the unavailable message as an inline alert, not a dialog', async () => {
-    server.use(
-      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
-      http.post('*/api/movies/:id/play', () => new HttpResponse(null, { status: 403 })),
-    );
-    renderView();
-
-    await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
-
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Playback unavailable');
-    expect(alert).toHaveTextContent('Local playback is disabled on this server.');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('clears the message when Play is pressed again and playback starts', async () => {
-    let attempt = 0;
-    server.use(
-      http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)),
-      http.post('*/api/movies/:id/play', () => {
-        attempt += 1;
-        return new HttpResponse(null, { status: attempt === 1 ? 403 : 204 });
-      }),
-    );
-    renderView();
-
-    await screen.findByRole('heading', { name: 'Dune' });
-    const playButton = screen.getByRole('button', { name: 'Play' });
-    fireEvent.click(playButton);
-    await screen.findByText('Playback unavailable');
-
-    fireEvent.click(playButton);
-    expect(await screen.findByText('Playback started.')).toBeInTheDocument();
-    expect(screen.queryByText('Playback unavailable')).not.toBeInTheDocument();
   });
 });
 

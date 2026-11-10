@@ -1,0 +1,54 @@
+.browser-player {
+  display: grid;
+  gap: var(--lamu-space-3);
+  min-width: 0;
+}
+
+.browser-player:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}
+
+.browser-player-frame {
+  border-radius: var(--lamu-radius-media);
+  overflow: hidden;
+  background: #000;
+}
+
+.browser-player-chrome {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.browser-player-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.browser-player-state {
+  display: grid;
+  gap: var(--lamu-space-2);
+  min-height: 0;
+}
+
+.browser-player-state-line,
+.browser-player-error {
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.browser-player-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lamu-space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .browser-player * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

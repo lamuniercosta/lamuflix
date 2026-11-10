@@ -34,6 +34,8 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     private const string ResolvedFile = "Heat/Heat.mkv";
     private const string PlayerPath = "C:/players/vlc.exe";
     private const string ProblemDetailsJson = "application/problem+json";
+    private const string JsonMediaType = "application/json";
+    private const string CapabilitiesRoute = "/api/playback/capabilities";
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
     private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
@@ -224,6 +226,73 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
         payload.ShouldNotContain(nameof(InvalidOperationException));
         starter.DidNotReceive().Start(Arg.Any<ProcessStartInfo>());
         await history.DidNotReceive().RecordAsync(Arg.Any<PlaybackEvent>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetPlaybackCapabilities_LocalPlayEnabled_ReturnsJsonWithOnlyTheEnabledFlag()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+
+        // act
+        using var response = await client.GetAsync(CapabilitiesRoute, ct);
+        var payload = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(JsonMediaType);
+        using var document = JsonDocument.Parse(payload);
+        document.RootElement.ValueKind.ShouldBe(JsonValueKind.Object);
+        document.RootElement.EnumerateObject().Select(property => property.Name).ShouldBe(["localPlayEnabled"]);
+        document.RootElement.GetProperty("localPlayEnabled").ValueKind.ShouldBe(JsonValueKind.True);
+        payload.ShouldNotContain(PlayerPath);
+        payload.ShouldNotContain("players");
+        payload.ShouldNotContain("ExecutablePath");
+    }
+
+    [Fact]
+    public async Task GetPlaybackCapabilities_LocalPlayDisabled_ReturnsJsonWithOnlyTheDisabledFlag()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = CreateDisabledHost();
+        using var client = host.CreateClient();
+
+        // act
+        using var response = await client.GetAsync(CapabilitiesRoute, ct);
+        var payload = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(JsonMediaType);
+        using var document = JsonDocument.Parse(payload);
+        document.RootElement.EnumerateObject().Select(property => property.Name).ShouldBe(["localPlayEnabled"]);
+        document.RootElement.GetProperty("localPlayEnabled").ValueKind.ShouldBe(JsonValueKind.False);
+        payload.ShouldNotContain(PlayerPath);
+        payload.ShouldNotContain("players");
+    }
+
+    [Fact]
+    public async Task GetPlaybackCapabilities_EnabledThenDisabledHosts_ReflectEachEffectiveOption()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var enabledHost = CreateEnabledHost(".mkv");
+        await using var disabledHost = CreateDisabledHost();
+        using var enabledClient = enabledHost.CreateClient();
+        using var disabledClient = disabledHost.CreateClient();
+
+        // act
+        using var enabledResponse = await enabledClient.GetAsync(CapabilitiesRoute, ct);
+        using var disabledResponse = await disabledClient.GetAsync(CapabilitiesRoute, ct);
+
+        // assert
+        var enabledPayload = await enabledResponse.Content.ReadFromJsonAsync<JsonElement>(ct);
+        var disabledPayload = await disabledResponse.Content.ReadFromJsonAsync<JsonElement>(ct);
+        enabledPayload.GetProperty("localPlayEnabled").GetBoolean().ShouldBeTrue();
+        disabledPayload.GetProperty("localPlayEnabled").GetBoolean().ShouldBeFalse();
     }
 
     private void DetailsReturning(MovieDetails details) =>
