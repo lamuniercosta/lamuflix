@@ -95,10 +95,12 @@ afterEach(() => {
 });
 
 describe('App library host', () => {
-  it('shows the Import folder button, a Pending badge without an Enriched badge, and a polite live region', async () => {
+  it('shows the Bulk import button, a Pending badge without an Enriched badge, and a polite live region', async () => {
     renderApp();
 
-    expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bulk import' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Import folder' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(await screen.findByText('Dune')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Arrival' })).toBeInTheDocument();
     expect(
@@ -203,7 +205,7 @@ describe('App library host', () => {
     renderApp();
 
     expect(
-      await screen.findByText('No movies yet. Import a folder to get started.'),
+      await screen.findByText('No movies yet. Bulk import the library to get started.'),
     ).toBeInTheDocument();
   });
 
@@ -219,55 +221,50 @@ describe('App library host', () => {
     renderApp();
 
     expect(
-      await screen.findByText('No movies yet. Import a folder to get started.'),
+      await screen.findByText('No movies yet. Bulk import the library to get started.'),
     ).toBeInTheDocument();
     expect(search).toBe(
       `?sort=${standingBrowseQuery.sort}&direction=${standingBrowseQuery.direction}&page=${standingBrowseQuery.page}&pageSize=${standingBrowseQuery.pageSize}`,
     );
   });
 
-  it('opens the import dialog with title, folder path focus, actions, and focus trap', async () => {
+  it('opens the bulk import dialog with candidates, actions, and focus trap', async () => {
+    server.use(
+      http.get('/api/movies/import/candidates', () =>
+        HttpResponse.json({ newFolders: ['Alpha'] }, { status: 200 }),
+      ),
+    );
     renderApp();
-    const importFolder = screen.getByRole('button', { name: 'Import folder' });
-    fireEvent.click(importFolder);
+    const bulkImport = screen.getByRole('button', { name: 'Bulk import' });
+    fireEvent.click(bulkImport);
 
-    const dialog = screen.getByRole('dialog', { name: 'Import a movie folder' });
-    const folderPath = screen.getByLabelText('Folder path');
-    expect(folderPath).toHaveFocus();
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    expect(dialog).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Import' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(await within(dialog).findByLabelText('Alpha')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Alpha'));
 
+    within(dialog).getByRole('button', { name: 'Clear all' }).focus();
     fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
-    expect(screen.getByRole('button', { name: 'Import' })).toHaveFocus();
+    expect(within(dialog).getByRole('button', { name: 'Import' })).toHaveFocus();
     fireEvent.keyDown(dialog, { key: 'Tab' });
-    expect(folderPath).toHaveFocus();
+    expect(within(dialog).getByRole('button', { name: 'Clear all' })).toHaveFocus();
   });
 
-  it('returns focus to Import folder on Escape, Cancel, and successful import', async () => {
+  it('returns focus to Bulk import on Escape and Cancel', async () => {
     renderApp();
-    const importFolder = screen.getByRole('button', { name: 'Import folder' });
+    const bulkImport = screen.getByRole('button', { name: 'Bulk import' });
 
-    fireEvent.click(importFolder);
+    fireEvent.click(bulkImport);
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(importFolder).toHaveFocus();
+    expect(bulkImport).toHaveFocus();
 
-    fireEvent.click(importFolder);
+    fireEvent.click(bulkImport);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(importFolder).toHaveFocus();
-
-    fireEvent.click(importFolder);
-    fireEvent.change(screen.getByLabelText('Folder path'), {
-      target: { value: 'F:/library/NewArrival' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'NewArrival' })).toBeInTheDocument();
-    });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(importFolder).toHaveFocus();
+    expect(bulkImport).toHaveFocus();
   });
 });
 
@@ -286,7 +283,7 @@ describe('App movie details routing', () => {
 
     renderApp();
 
-    expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bulk import' })).toBeInTheDocument();
     expect(await screen.findByText('Dune')).toBeInTheDocument();
   });
 });
@@ -300,7 +297,7 @@ describe('App layout shell', () => {
     expect(screen.getByRole('link', { name: 'LamuFlix' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Library' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Watchlist' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bulk import' })).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Search titles')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Watchlist' }));
@@ -310,7 +307,7 @@ describe('App layout shell', () => {
       'true',
     );
     expect(screen.getByRole('link', { name: 'LamuFlix' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Import folder' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bulk import' })).toBeInTheDocument();
   });
 
   it('reflects a shared ?watchlist=true link in the shell toggle', async () => {

@@ -38,6 +38,14 @@ export interface paths {
     /** Import a movie folder into the library. */
     post: operations["ImportMovie"];
   };
+  "/api/movies/import/candidates": {
+    /** List library folders not yet imported. */
+    get: operations["ListImportCandidates"];
+  };
+  "/api/movies/import/library": {
+    /** Import selected library folders and retry failed enrichments. */
+    post: operations["ImportLibraryFolders"];
+  };
   "/api/movies/rescan": {
     /** Re-probe every stored movie folder and refresh changed formats. */
     post: operations["RescanLibrary"];
@@ -146,6 +154,26 @@ export interface components {
       name: string;
       /** Format: int32 */
       movieCount: number | string;
+    };
+    ImportCandidatesResponse: {
+      newFolders: string[];
+    };
+    ImportFolderFailureDto: {
+      folder: string;
+      reason: string;
+    };
+    ImportLibraryRequest: {
+      folders: string[];
+      retryFailed: boolean;
+    };
+    ImportLibraryResponse: {
+      /** Format: int32 */
+      imported: number | string;
+      /** Format: int32 */
+      skipped: number | string;
+      /** Format: int32 */
+      retried: number | string;
+      failures: components["schemas"]["ImportFolderFailureDto"][];
     };
     ImportMovieRequest: {
       folderPath: string;
@@ -555,6 +583,51 @@ export interface operations {
       };
       /** @description Conflict */
       409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** List library folders not yet imported. */
+  ListImportCandidates: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ImportCandidatesResponse"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Import selected library folders and retry failed enrichments. */
+  ImportLibraryFolders: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ImportLibraryRequest"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ImportLibraryResponse"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };

@@ -4,7 +4,6 @@ import { client } from '../api/client';
 import type { components, paths } from '../api/types';
 
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
-type MovieSummary = components['schemas']['MovieSummaryResponse'];
 
 export const standingBrowseQuery = {
   sort: 'Title',
@@ -18,100 +17,25 @@ export const standingBrowseQuery = {
 
 export const browseMoviesQueryKey = ['browseMovies', standingBrowseQuery] as const;
 
-export const GENERIC_IMPORT_ERROR = 'Something went wrong. Try again.';
 export const GENERIC_RETRY_ERROR = 'Something went wrong. Try again.';
+export const GENERIC_BULK_IMPORT_ERROR = 'Something went wrong. Try again.';
 
-export class ImportFieldError extends Error {
-  readonly kind = 'field' as const;
-}
+export const BULK_IMPORT_REASON_TEXT: Record<string, string> = {
+  'folder-not-found': 'That folder could not be found. It may have been removed.',
+  'no-video': 'No playable video was found in that folder.',
+  'invalid-folder': 'That folder path is not valid.',
+  'import-failed': 'That folder could not be imported.',
+};
 
-export class ImportGenericError extends Error {
-  readonly kind = 'generic' as const;
-}
+export type ImportCandidates = components['schemas']['ImportCandidatesResponse'];
+export type BulkImportSummary = components['schemas']['ImportLibraryResponse'];
 
 export class RetryRowError extends Error {
   readonly kind = 'row' as const;
 }
 
-export function lastFolderSegment(folderPath: string): string {
-  const trimmed = folderPath.replace(/[\\/]+$/, '');
-  const parts = trimmed.split(/[\\/]/).filter(Boolean);
-  return parts.at(-1) ?? trimmed;
-}
-
-export function movieIdFromLocation(location: string | null): string | null {
-  if (!location) {
-    return null;
-  }
-
-  const match = location.match(/\/api\/movies\/([^/?#]+)/);
-  return match?.[1] ?? null;
-}
-
-function folderPathProblemMessage(error: unknown): string | undefined {
-  if (!error || typeof error !== 'object' || !('errors' in error)) {
-    return undefined;
-  }
-
-  const errors = (error as { errors?: Record<string, unknown> }).errors;
-  const folderPath = errors?.folderPath;
-  if (Array.isArray(folderPath) && typeof folderPath[0] === 'string') {
-    return folderPath[0];
-  }
-
-  return undefined;
-}
-
-let importPlaceholderPending = false;
-let importPlaceholderToken = 0;
-let onImportPlaceholderReconciled: (() => void) | null = null;
-
 export function invalidateBrowseMovies(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
-}
-
-export function armImportPlaceholder(queryClient: QueryClient, onReconciled: () => void): void {
-  importPlaceholderToken += 1;
-  importPlaceholderPending = true;
-  onImportPlaceholderReconciled = onReconciled;
-  invalidateBrowseMovies(queryClient);
-}
-
-export function isImportPlaceholderPending(): boolean {
-  return importPlaceholderPending;
-}
-
-export function clearImportPlaceholder(): void {
-  importPlaceholderPending = false;
-  importPlaceholderToken = 0;
-  onImportPlaceholderReconciled = null;
-}
-
-function reconcileImportPlaceholder(): void {
-  if (!importPlaceholderPending) {
-    return;
-  }
-
-  importPlaceholderPending = false;
-  const notify = onImportPlaceholderReconciled;
-  onImportPlaceholderReconciled = null;
-  notify?.();
-}
-
-export function pendingRow(id: string, title: string): MovieSummary {
-  return {
-    id,
-    title,
-    posterUrl: null,
-    releaseYear: null,
-    runtime: null,
-    imdbRating: null,
-    enrichmentStatus: 'Pending',
-    isInWatchlist: false,
-    isWatched: false,
-    isNotInterested: false,
-    review: 'none',
-  };
 }
 
 export function markRowPending(
@@ -153,7 +77,6 @@ export function useBrowseMoviesQuery(inWatchlist = false, filters: Record<string
   return useQuery({
     queryKey: ['browseMovies', browseParams],
     queryFn: async ({ signal }) => {
-      const tokenAtStart = importPlaceholderToken;
       const { data, error, response } = await client.GET('/api/movies', {
         params: {
           query: browseParams as unknown as NonNullable<
@@ -174,9 +97,6 @@ export function useBrowseMoviesQuery(inWatchlist = false, filters: Record<string
         throw failure;
       }
 
-      if (tokenAtStart !== 0 && tokenAtStart === importPlaceholderToken) {
-        reconcileImportPlaceholder();
-      }
       return data;
     },
     retry: false,
@@ -185,37 +105,63 @@ export function useBrowseMoviesQuery(inWatchlist = false, filters: Record<string
   });
 }
 
-export function useImportMovieMutation() {
+export function useImportCandidatesQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: ['importCandidates'],
+    queryFn: async ({ signal }) => {
+      const { data, error, response } = await client.GET('/api/movies/import/candidates', {
+        signal,
+      });
+      if (error || !data) {
+        throw new Error(error?.detail ?? `Candidates failed (${response?.status ?? 0})`);
+      }
+      return data;
+    },
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useFailedEnrichmentsQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: ['failedEnrichments'],
+    queryFn: async ({ signal }) => {
+      const { data, error, response } = await client.GET('/api/movies', {
+        params: {
+          query: {
+            ...standingBrowseQuery,
+            Statuses: ['Failed'],
+          } as unknown as NonNullable<paths['/api/movies']['get']['parameters']['query']>,
+        },
+        signal,
+      });
+      if (error || !data) {
+        throw new Error(error?.detail ?? `Failed movies failed (${response?.status ?? 0})`);
+      }
+      return data;
+    },
+    enabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useImportLibraryFoldersMutation() {
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async (folderPath: string) => {
-      let error: unknown;
-      let response: Response;
-
-      try {
-        const result = await client.POST('/api/movies/import', {
-          body: { folderPath },
-          parseAs: 'text',
-        });
-        error = result.error;
-        response = result.response;
-      } catch {
-        throw new ImportGenericError(GENERIC_IMPORT_ERROR);
+    mutationFn: async (input: { folders: string[]; retryFailed: boolean }) => {
+      const { data, error, response } = await client.POST('/api/movies/import/library', {
+        body: { folders: input.folders, retryFailed: input.retryFailed },
+      });
+      if (error || !data) {
+        throw new Error(error?.detail ?? `Bulk import failed (${response?.status ?? 0})`);
       }
-
-      if (response.status === 202) {
-        const id = movieIdFromLocation(response.headers.get('Location'));
-        if (id == null) {
-          throw new ImportGenericError(GENERIC_IMPORT_ERROR);
-        }
-
-        return { id, title: lastFolderSegment(folderPath) };
-      }
-
-      if (response.status === 422) {
-        throw new ImportFieldError(folderPathProblemMessage(error) ?? GENERIC_IMPORT_ERROR);
-      }
-
-      throw new ImportGenericError(GENERIC_IMPORT_ERROR);
+      return data;
+    },
+    onSuccess: () => {
+      invalidateBrowseMovies(queryClient);
     },
   });
 }

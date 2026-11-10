@@ -7,7 +7,6 @@ import type { components } from '../api/types';
 import App from '../App';
 import { server } from '../test/server';
 import LibraryView from './LibraryView';
-import { pendingRow } from './libraryQueries';
 import { WATCHLIST_TOGGLE_ERROR, __resetWatchlistStore } from './watchlistStore';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
@@ -65,7 +64,7 @@ describe('watchlist filter empty state', () => {
 
     expect(await screen.findByText('Your watchlist is empty.')).toBeInTheDocument();
     expect(
-      screen.queryByText('No movies yet. Import a folder to get started.'),
+      screen.queryByText('No movies yet. Bulk import the library to get started.'),
     ).not.toBeInTheDocument();
   });
 
@@ -75,7 +74,7 @@ describe('watchlist filter empty state', () => {
     renderApp();
 
     expect(
-      await screen.findByText('No movies yet. Import a folder to get started.'),
+      await screen.findByText('No movies yet. Bulk import the library to get started.'),
     ).toBeInTheDocument();
     expect(screen.queryByText('Your watchlist is empty.')).not.toBeInTheDocument();
   });
@@ -123,7 +122,7 @@ describe('watchlist filter-active removal reconciliation', () => {
 
     expect(await screen.findByText('Your watchlist is empty.')).toBeInTheDocument();
     expect(
-      screen.queryByText('No movies yet. Import a folder to get started.'),
+      screen.queryByText('No movies yet. Bulk import the library to get started.'),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('list', { name: 'Movies' })).not.toBeInTheDocument();
   });
@@ -199,7 +198,15 @@ describe('watchlist filter empty state with a hidden leading item', () => {
 
     render(
       <QueryClientProvider client={client}>
-        <LibraryView leadingItem={pendingRow('99', 'Imported')} inWatchlist />
+        <LibraryView
+          leadingItem={summary({
+            id: '99',
+            title: 'Imported',
+            enrichmentStatus: 'Pending',
+            isInWatchlist: false,
+          })}
+          inWatchlist
+        />
       </QueryClientProvider>,
     );
 

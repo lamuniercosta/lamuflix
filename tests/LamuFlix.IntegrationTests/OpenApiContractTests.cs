@@ -50,6 +50,8 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GET /api/recommendations/for-you",
         "DELETE /api/movies/{id}",
         "POST /api/movies/import",
+        "GET /api/movies/import/candidates",
+        "POST /api/movies/import/library",
         "POST /api/movies/rescan",
         "POST /api/movies/{id}/rescan",
         "POST /api/movies/{id}/enrichment",

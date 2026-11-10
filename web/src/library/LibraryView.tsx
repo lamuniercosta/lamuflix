@@ -155,7 +155,7 @@ function ResultsBody(props: ResultsBodyProps) {
     return <p>Your watchlist is empty.</p>;
   }
   if (props.mode === 'libraryEmpty') {
-    return <p>No movies yet. Import a folder to get started.</p>;
+    return <p>No movies yet. Bulk import the library to get started.</p>;
   }
   return (
     <>

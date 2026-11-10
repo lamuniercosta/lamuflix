@@ -1,0 +1,45 @@
+# DEV-487 — Brief
+
+Source: YouTrack DEV-487 (fetched 2026-11-10 via `scripts/get-task.ps1`).
+Type: feature. Branch:
+`feature/DEV-487-bulk-import-scan-the-library-root-and-import-all-new-folders`.
+
+## Problem
+
+The only way to add movies is the Import folder dialog, which takes one folder
+name typed by hand. There is no browse, scan or bulk option. The user's real
+library has 342 folders. A video file sitting directly in the library root
+(`Big Buck Bunny (2008).mp4`) cannot be imported at all (404).
+
+## Wanted
+
+A "Scan library" action that lists folders (and loose video files) not yet
+imported, and imports the selected ones or all of them, with progress.
+
+## Done when
+
+A fresh stack can import a whole library root in one action, and already
+imported folders are skipped.
+
+Source: user test of the running Compose stack on 2026-11-09 (17-movie
+stand-in library).
+
+## Settled scope (grill 2026-11-10, see CONCLUSIONS.md)
+
+1. UX is the task-verbatim scan list: candidates listed, import selected or
+   all, with progress. No one-click blind variant.
+2. Extension beyond Done-when: the bulk pass also covers Failed-enrichment
+   movies (requeue), per the originating "new or failed movies" ask.
+3. The per-folder Import dialog is removed (component, unit test, and
+   dialog-driven App/polling/e2e coverage reworked around the scan action).
+   `POST /api/movies/import` remains the single-folder API surface.
+
+## Known starting facts (verified pre-grill, not decisions)
+
+- Core already has an internal one-shot bulk path (`ImportLibraryCommand`,
+  `FileSystemLibraryFolderDiscovery`, `ScopedMovieFolderImporter`) with no
+  HTTP surface and fail-fast duplicate semantics — unsuitable as-is for a
+  repeatable skip-imported scan.
+- `POST /api/movies/rescan` re-probes stored movies only; it cannot discover
+  new folders on disk.
+- Discovery already yields a root identity for loose root-level video.

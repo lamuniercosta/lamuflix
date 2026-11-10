@@ -275,6 +275,17 @@ const rescanMovieData = {
   newFormat: 'mkv',
 } satisfies Schemas['RescanMovieResponse'];
 
+const listImportCandidatesData = {
+  newFolders: [],
+} satisfies Schemas['ImportCandidatesResponse'];
+
+const importLibraryFoldersData = {
+  imported: 0,
+  skipped: 0,
+  retried: 0,
+  failures: [],
+} satisfies Schemas['ImportLibraryResponse'];
+
 export const browseMovies = Object.freeze(browseMoviesData);
 export const movieDetails = Object.freeze(movieDetailsData);
 export const movieDetailsNoTrailer = Object.freeze(movieDetailsNoTrailerData);
@@ -295,6 +306,8 @@ export const subtitleContent = subtitleContentData;
 export const playbackCapabilities = Object.freeze(playbackCapabilitiesData);
 export const rescanLibrary = Object.freeze(rescanLibraryData);
 export const rescanMovie = Object.freeze(rescanMovieData);
+export const listImportCandidates = Object.freeze(listImportCandidatesData);
+export const importLibraryFolders = Object.freeze(importLibraryFoldersData);
 
 export const success = Object.freeze({
   BrowseMovies: browseMovies,
@@ -312,6 +325,8 @@ export const success = Object.freeze({
   GetPlaybackCapabilities: playbackCapabilities,
   RescanLibrary: rescanLibrary,
   RescanMovie: rescanMovie,
+  ListImportCandidates: listImportCandidates,
+  ImportLibraryFolders: importLibraryFolders,
 });
 
 export const acceptedLocation = '/api/movies/1';

@@ -805,6 +805,8 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "GetMovieDetails",
                 "DeleteMovie",
                 "ImportMovie",
+                "ListImportCandidates",
+                "ImportLibraryFolders",
                 "RescanLibrary",
                 "RescanMovie",
                 "RequestEnrichment",

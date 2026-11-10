@@ -34,6 +34,10 @@ public interface IMovieRepository
 
     Task<IReadOnlyList<MovieId>> SnapshotMovieIdsAsync(CancellationToken ct);
 
+    Task<IReadOnlyList<LibraryPath>> SnapshotMoviePathsAsync(CancellationToken ct);
+
+    Task<IReadOnlyList<MovieId>> FindFailedMovieIdsAsync(CancellationToken ct);
+
     Task<string?> GetPlotAsync(MovieId id, CancellationToken ct);
 
     /// <summary>

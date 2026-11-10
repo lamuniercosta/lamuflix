@@ -49,6 +49,8 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string SubtitleTracksRoute = "/api/movies/{id:int}/subtitles";
     private const string SubtitleContentRoute = "/api/movies/{id:int}/subtitles/{trackId}/content";
     private const string ImportMovieRoute = "/api/movies/import";
+    private const string ListImportCandidatesRoute = "/api/movies/import/candidates";
+    private const string ImportLibraryFoldersRoute = "/api/movies/import/library";
     private const string RescanLibraryRoute = "/api/movies/rescan";
     private const string RescanMovieRoute = "/api/movies/{id}/rescan";
     private const string RequestEnrichmentRoute = "/api/movies/{id}/enrichment";
@@ -83,6 +85,16 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                 typeof(ICommandHandler<ImportLibraryCommand, ImportLibraryResult>),
                 typeof(ImportLibraryCommand),
                 typeof(ImportLibraryResult)
+            },
+            {
+                typeof(IQueryHandler<ImportCandidatesQuery, ImportCandidatesResult>),
+                typeof(ImportCandidatesQuery),
+                typeof(ImportCandidatesResult)
+            },
+            {
+                typeof(ICommandHandler<ImportLibraryFoldersCommand, ImportLibraryFoldersResult>),
+                typeof(ImportLibraryFoldersCommand),
+                typeof(ImportLibraryFoldersResult)
             },
             {
                 typeof(IQueryHandler<BrowseMoviesQuery, PagedResult<MovieSummary>>),
@@ -277,6 +289,8 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     SubtitleTracksRoute,
                     SubtitleContentRoute,
                     ImportMovieRoute,
+                    ListImportCandidatesRoute,
+                    ImportLibraryFoldersRoute,
                     RescanLibraryRoute,
                     RescanMovieRoute,
                     RequestEnrichmentRoute,
