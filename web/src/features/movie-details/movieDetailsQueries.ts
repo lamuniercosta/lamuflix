@@ -37,7 +37,10 @@ export function usePeopleLookup() {
   return useQuery({
     queryKey: ['detailsPeople'],
     queryFn: async ({ signal }) => {
-      const { data, error, response } = await client.GET('/api/people', { signal });
+      const { data, error, response } = await client.GET('/api/people', {
+        params: { query: { role: 'actor' } as unknown as Record<string, unknown> },
+        signal,
+      });
       if (error || !data) {
         throw new Error(`People request failed (${response.status})`);
       }
