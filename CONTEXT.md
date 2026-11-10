@@ -224,3 +224,19 @@ _Avoid_: auto-download on stream, background subtitle job
 **Existing track**
 An authorized exact-basename SRT already on library storage; its language may be unknown.
 _Avoid_: treating missing language as noMatch for an already-present file
+
+**Sidecar subtitle**
+An existing SRT file in the resolved primary video's directory whose filename matches the frozen recognition policy: case-insensitive exact stem against `<stem>.srt`, `<stem>.<suffix>.srt`, or `<stem>-<suffix>.srt`, same directory only, with one suffix token and no compound grammar.
+_Avoid_: downloaded subtitle, embedded stream, recursive library search
+
+**Subtitle track**
+One selectable eligible sidecar, identified through a server-issued opaque token rather than a position or a path.
+_Avoid_: ordinal index as identity, client-supplied path
+
+**Default marker**
+An exact `default` filename suffix marking a track `isDefault: true`; a server-side sorting hint only, never permission to auto-enable subtitles.
+_Avoid_: automatic On, preferred language
+
+**WebVTT**
+The UTF-8 browser subtitle representation produced from eligible SRT content on request.
+_Avoid_: serving raw SRT to the browser as the delivery format

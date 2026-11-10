@@ -2,7 +2,7 @@
 
 **Input**: `specs/DEV-454/` spec.md, plan.md, grill-closed brief.md (Q1–Q8 + Phase 2 step 6 + Ledger S4 final Patron disposition), CONCLUSIONS.md, ASSUMPTIONS.md, recon-DEV-454 (supplement:7–22), adjudication-DEV-454-Keel, note DEV-454, specs/PRODUCT.md
 
-**Status**: Phase 0–3 cleared. T000 Gate 1 merge + explicit owner approval recorded (`CONCLUSIONS.md` Phase B T000). T001 cleared with Patron-authorized deferral of executed T001(d) safe-open and T001(g) `traceId` response proofs to Phase 2/3 (`CONCLUSIONS.md` Phase B T001 deferral at `dc0550d7`). Constitution v1.13.0 applied (`ba713407`). Phase 2 (T002–T005) cleared at `77d41dab`. Phase 3 (T006–T009) cleared: content query/handler, WebVTT conversion, decoders, four `LibraryOptions` bounds, post-open `SafeFileHandle` re-verification, thin content route, and the real-filesystem content matrix (including the deferred T001(d)/(g) proofs) are green. PLAN FROZEN / Gate 1 merge history remains as recorded; no claim that later phases, delivery, or merge are complete.
+**Status**: Phase 0–3 cleared. T000 Gate 1 merge + explicit owner approval recorded (`CONCLUSIONS.md` Phase B T000). T001 cleared with Patron-authorized deferral of executed T001(d) safe-open and T001(g) `traceId` response proofs to Phase 2/3 (`CONCLUSIONS.md` Phase B T001 deferral at `dc0550d7`). Constitution v1.13.0 applied (`ba713407`). Phase 2 (T002–T005) cleared at `77d41dab`. Phase 3 (T006–T009) cleared: content query/handler, WebVTT conversion, decoders, four `LibraryOptions` bounds, post-open `SafeFileHandle` re-verification, thin content route, and the real-filesystem content matrix (including the deferred T001(d)/(g) proofs) are green. Phase 4 (T025) cleared: the four-term `CONTEXT.md` vocabulary append is applied additively with no ADR and no global rewrite. PLAN FROZEN / Gate 1 merge history remains as recorded; no claim that later phases, delivery, or merge are complete.
 
 **Gate 1**: Owner structural checkbox (brief Ledger S4 final Patron disposition; charter 2.3(b)) — **explicitly approved** and recorded in T000:
 
@@ -96,7 +96,7 @@ Phase 11  T024          (canonical Phase 5 delivery)
 **Checkpoint**: Only the four terms present as additive entries; no ADR.
 **Execution note**: Historical id T025 runs here (after T009, before T010) without renumbering (Ledger S6).
 
-- [ ] T025 After T009: Append only `Sidecar subtitle`, `Subtitle track`, `Default marker`, and `WebVTT` entries to existing `CONTEXT.md` using term, definition, and `_Avoid_:` — no global glossary rewrite; no new ADR; no other CONTEXT edits (analyze-round-1 C2; brief vocabulary/Q6; constitution VIII; FR-016)
+- [X] T025 After T009: Append only `Sidecar subtitle`, `Subtitle track`, `Default marker`, and `WebVTT` entries to existing `CONTEXT.md` using term, definition, and `_Avoid_:` — no global glossary rewrite; no new ADR; no other CONTEXT edits (analyze-round-1 C2; brief vocabulary/Q6; constitution VIII; FR-016). **Cleared**: four additive entries appended after the existing `Existing track` entry; no other CONTEXT.md edits.
 
 ---
 
