@@ -13,6 +13,7 @@ internal static class ApiEndpoints
             .MapLibraryEndpoints()
             .MapThumbnailEndpoints()
             .MapStreamEndpoints()
+            .MapSubtitleEndpoints()
             .MapImportEndpoints()
             .MapRescanEndpoints()
             .MapEnrichmentEndpoints()

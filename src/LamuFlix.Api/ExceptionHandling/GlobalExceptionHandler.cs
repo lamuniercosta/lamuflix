@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Pipeline;
+using LamuFlix.Core.Ports;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -43,6 +44,10 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 StatusCodes.Status409Conflict,
                 CreateImdbIdConflictProblem(imdbIdConflict)),
             FeatureDisabledException => await WriteAsync(
+                httpContext,
+                StatusCodes.Status403Forbidden,
+                CreateForbiddenProblem()),
+            LibraryFileAccessDeniedException => await WriteAsync(
                 httpContext,
                 StatusCodes.Status403Forbidden,
                 CreateForbiddenProblem()),
