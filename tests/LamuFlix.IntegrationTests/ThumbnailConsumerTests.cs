@@ -575,7 +575,8 @@ public sealed class ThumbnailConsumerTests(RabbitMqFixture fixture) : IClassFixt
 
         generator.OutputPaths.ShouldHaveSingleItem();
         File.Exists(generator.OutputPaths[0]).ShouldBeFalse();
-        (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailQueue, ct)).MessageCount.ShouldBe(1U);
+        await WaitUntilAsync(async token =>
+            (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailQueue, token)).MessageCount == 1U, ct);
         (await probe.DeclarePassiveAsync(RabbitMqTopology.ThumbnailDeadLetterQueue, ct)).MessageCount.ShouldBe(0U);
         host.Log.Entries.Any(entry => HasState(entry, "FailureReason")).ShouldBeFalse();
     }
