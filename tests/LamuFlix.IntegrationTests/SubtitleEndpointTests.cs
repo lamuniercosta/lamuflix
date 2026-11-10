@@ -13,7 +13,6 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
@@ -314,8 +313,9 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        response.Content.Headers.ContentType!.MediaType.ShouldBe("text/vtt");
-        response.Content.Headers.ContentType.CharSet.ShouldBe("utf-8");
+        var contentType = response.Content.Headers.ContentType.ShouldNotBeNull();
+        contentType.MediaType.ShouldBe("text/vtt");
+        contentType.CharSet.ShouldBe("utf-8");
         response.Headers.GetValues(ContentTypeOptionsHeader).ShouldBe([NoSniffValue]);
         AssertFrozenNoStore(response);
         body.ShouldStartWith("WEBVTT\n\n");
@@ -380,7 +380,7 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
-        response.Content.Headers.ContentType!.MediaType.ShouldBe(ProblemDetailsJson);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
         AssertFrozenNoStore(response);
         var problem = JsonSerializer.Deserialize<JsonElement>(body);
         problem.GetProperty("status").GetInt32().ShouldBe((int)HttpStatusCode.UnprocessableEntity);
@@ -652,7 +652,7 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        response.Content.Headers.ContentType!.MediaType.ShouldBe(ProblemDetailsJson);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
         AssertFrozenNoStore(response);
         var problem = JsonSerializer.Deserialize<JsonElement>(body);
         problem.GetProperty("status").GetInt32().ShouldBe((int)HttpStatusCode.Forbidden);
@@ -709,7 +709,7 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
 
         // assert
         response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
-        response.Content.Headers.ContentType!.MediaType.ShouldBe(ProblemDetailsJson);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
         response.Headers.GetValues(ContentTypeOptionsHeader).ShouldBe([NoSniffValue]);
         AssertFrozenNoStore(response);
         var problem = JsonSerializer.Deserialize<JsonElement>(body);
@@ -741,9 +741,9 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
                                         && track.GetProperty("label").GetString() == "Subtitles");
         var good = tracks.Single(track => track.GetProperty("label").GetString() == "English");
         var badContent = await client.GetAsync(
-            ContentRoute(KnownId, bad.GetProperty("id").GetString()!), ct);
+            ContentRoute(KnownId, bad.GetProperty("id").GetString().ShouldNotBeNull()), ct);
         var goodContent = await client.GetAsync(
-            ContentRoute(KnownId, good.GetProperty("id").GetString()!), ct);
+            ContentRoute(KnownId, good.GetProperty("id").GetString().ShouldNotBeNull()), ct);
 
         // assert
         list.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -778,7 +778,7 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
         return FirstTrackToken(await list.Content.ReadAsStringAsync(cancellationToken));
     }
 
-    private static byte[] Utf8(string document) => System.Text.Encoding.UTF8.GetBytes(document);
+    private static byte[] Utf8(string document) => Encoding.UTF8.GetBytes(document);
 
     private static string Document(params string[] lines) => string.Join("\n", lines) + "\n";
 
@@ -787,7 +787,7 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
     private static byte[] SrtWithBom(string document) =>
         [.. new byte[] { 0xEF, 0xBB, 0xBF }, .. Utf8(document)];
     private static byte[] Windows1252Srt(string index, string timing, string text) =>
-        CodePagesEncodingProvider.Instance.GetEncoding(1252)!
+        CodePagesEncodingProvider.Instance.GetEncoding(1252).ShouldNotBeNull()
             .GetBytes(string.Join("\n", index, timing, text) + "\n");
 
     private static string BoundedDocument() => Document(
@@ -811,7 +811,7 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
     private static int FirstOver(string bound, string document) => ExactBound(bound, document) - 1;
 
     private static int OutputBytes(string document) =>
-        System.Text.Encoding.UTF8.GetByteCount(SubtitleWebVttConverter.Convert(
+        Encoding.UTF8.GetByteCount(SubtitleWebVttConverter.Convert(
             document,
             new SubtitleConversionLimits(1000, 1000, 1_000_000)));
 

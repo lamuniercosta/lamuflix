@@ -1,7 +1,5 @@
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
 

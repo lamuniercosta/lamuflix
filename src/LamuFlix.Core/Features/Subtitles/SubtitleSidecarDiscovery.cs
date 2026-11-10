@@ -16,9 +16,9 @@ public sealed record SubtitleSidecarCandidate(string FileName, string Label, str
 /// </summary>
 public static class SubtitleSidecarDiscovery
 {
-    public const string SubtitleExtension = ".srt";
-    public const string UndeterminedLanguage = "und";
-    public const string BrazilianPortugueseLanguage = "pt-BR";
+    private const string SubtitleExtension = ".srt";
+    private const string UndeterminedLanguage = "und";
+    private const string BrazilianPortugueseLanguage = "pt-BR";
 
     private const string DefaultMarker = "default";
     private const string EnglishSuffix = "en";

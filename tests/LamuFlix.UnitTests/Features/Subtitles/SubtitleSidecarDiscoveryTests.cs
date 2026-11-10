@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Core.Features.Subtitles;
-using Shouldly;
-using Xunit;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
 
