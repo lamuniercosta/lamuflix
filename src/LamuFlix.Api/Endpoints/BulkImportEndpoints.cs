@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
 using LamuFlix.Core.Pipeline;
 using Microsoft.AspNetCore.Builder;
@@ -44,24 +42,11 @@ internal static class BulkImportEndpoints
         ICommandHandler<ImportLibraryFoldersCommand, ImportLibraryFoldersResult> handler,
         CancellationToken cancellationToken)
     {
-        var folders = new List<string>(request.Folders.Length);
-        foreach (var folder in request.Folders)
-        {
-            if (!LibraryPath.TryCreate(folder, out _))
-            {
-                throw new ValidationException(new Dictionary<string, string[]>
-                {
-                    ["folders"] = ["Folder path must be non-blank and must not contain '..'."],
-                });
-            }
-
-            folders.Add(folder);
-        }
-
+        var folders = request.Folders ?? [];
         var result = await handler.HandleAsync(
             new ImportLibraryFoldersCommand(folders, request.RetryFailed), cancellationToken);
         return TypedResults.Ok(ImportLibraryResponse.From(result));
     }
 }
 
-internal sealed record ImportLibraryRequest(string[] Folders, bool RetryFailed);
+internal sealed record ImportLibraryRequest(string[]? Folders, bool RetryFailed);

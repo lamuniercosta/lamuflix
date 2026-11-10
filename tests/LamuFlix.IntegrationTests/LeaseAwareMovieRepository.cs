@@ -84,6 +84,9 @@ public sealed class LeaseAwareMovieRepository(TimeProvider time, TimeSpan claimL
     public Task<IReadOnlyList<MovieId>> FindFailedMovieIdsAsync(CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<MovieId>>([.. movies.Values.Where(movie => movie.Status == EnrichmentStatus.Failed).Select(movie => movie.Id)]);
 
+    public Task<IReadOnlyList<Movie>> FindFailedMoviesAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Movie>>([.. movies.Values.Where(movie => movie.Status == EnrichmentStatus.Failed).OrderBy(movie => movie.Id.Value)]);
+
     public Task<string?> GetPlotAsync(MovieId id, CancellationToken ct) =>
         Task.FromResult(movies.GetValueOrDefault(id)?.Metadata?.Synopsis);
 

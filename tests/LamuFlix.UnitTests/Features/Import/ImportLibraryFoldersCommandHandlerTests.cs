@@ -11,6 +11,7 @@ using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Import;
 using LamuFlix.UnitTests.Pipeline;
 using NSubstitute;
+using NSubstitute.Core;
 using NSubstitute.ExceptionExtensions;
 
 namespace LamuFlix.UnitTests.Features.Import;
@@ -66,11 +67,9 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         result.Skipped.ShouldBe(0);
         result.Failures.Select(failure => failure.Folder.Value).ShouldBe(["Gone"]);
         result.Failures.Select(failure => failure.Reason).ShouldBe(["import-failed"]);
-        capture.Measurements.Count.ShouldBe(2);
-        capture.Measurements.Select(measured => measured.InstrumentName)
-            .ShouldBe([ImportInstrumentName, ImportInstrumentName]);
-        capture.Measurements.Select(measured => measured.Value).ShouldBe([1L, 1L]);
-        capture.Measurements.All(measured => measured.Tags.Length == 0).ShouldBeTrue();
+        capture.Measurements.ShouldBeEmpty();
+        await importer.Received(1).ImportAsync(new LibraryPath("Alpha"), ct);
+        await importer.Received(1).ImportAsync(new LibraryPath("Bravo"), ct);
     }
 
     [Fact]
@@ -122,18 +121,14 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_RetryFailed_RequeuesOnlyFailedAndNotFoundWithOutboxStaged()
+    public async Task HandleAsync_RetryFailed_RequeuesOnlyFailedMoviesWithOutboxStaged()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
         movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
         var failed = MovieAt(1, EnrichmentStatus.Failed);
-        var notFound = MovieAt(2, EnrichmentStatus.NotFound);
-        var pending = MovieAt(3, EnrichmentStatus.Pending);
-        movies.FindFailedMovieIdsAsync(ct).Returns([failed.Id, notFound.Id, pending.Id]);
-        movies.GetAsync(failed.Id, ct).Returns(failed);
-        movies.GetAsync(notFound.Id, ct).Returns(notFound);
-        movies.GetAsync(pending.Id, ct).Returns(pending);
+        var pending = MovieAt(2, EnrichmentStatus.Pending);
+        movies.FindFailedMoviesAsync(ct).Returns([failed, pending]);
         var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
 
         // act
@@ -141,14 +136,54 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
             new ImportLibraryFoldersCommand([], RetryFailed: true), ct);
 
         // assert
-        result.Retried.ShouldBe(2);
+        result.Retried.ShouldBe(1);
         failed.Status.ShouldBe(EnrichmentStatus.Pending);
-        notFound.Status.ShouldBe(EnrichmentStatus.Pending);
         pending.Status.ShouldBe(EnrichmentStatus.Pending);
         outbox.Received(1).Stage(new EnrichmentRequested(failed.Id, 1));
-        outbox.Received(1).Stage(new EnrichmentRequested(notFound.Id, 1));
         outbox.DidNotReceive().Stage(new EnrichmentRequested(pending.Id, 1));
         await movies.Received(1).SaveChangesAsync(ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DuplicateFolderInRequest_ImportsOnceAndSkipsRepeat()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
+        importer.ImportAsync(new LibraryPath("Heat"), ct).Returns(new MovieId(1));
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["Heat", "heat"], RetryFailed: false), ct);
+
+        // assert
+        result.Imported.ShouldBe(1);
+        result.Skipped.ShouldBe(1);
+        result.Failures.ShouldBeEmpty();
+        await importer.Received(1).ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_CancelledDuringImport_PropagatesInsteadOfRecordingFailure()
+    {
+        // arrange
+        using var source = new CancellationTokenSource();
+        movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>()).Returns(new List<LibraryPath>());
+        importer.ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>())
+            .Returns((Func<CallInfo, MovieId>)(call =>
+            {
+                source.Cancel();
+                throw new OperationCanceledException("cancelled");
+            }));
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+
+        // act
+        var act = () => handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["Heat"], RetryFailed: false), source.Token);
+
+        // assert
+        await Should.ThrowAsync<OperationCanceledException>(act);
     }
 
     [Fact]

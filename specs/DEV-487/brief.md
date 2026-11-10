@@ -34,6 +34,12 @@ stand-in library).
    dialog-driven App/polling/e2e coverage reworked around the scan action).
    `POST /api/movies/import` remains the single-folder API surface.
 
+## Remediation loop (fix 2026-11-10)
+
+- Closing bar: all 8 accepted `$code-review` findings closed, re-review of the round diff clean, `dotnet test` for touched areas plus Roslyn/complexity gates pass.
+- Frozen scope: the 8 CONFIRMED findings in `findings-f59eb1722b543291fdaa2c4236e1c08b581e5c85.json` only (null Folders 500; double-count ImportCount; duplicate-folder double import; cancelled-as-failure; N+1 failed retry; duplicated skip set; triplicated folder validation; dead NotFound branch). No new behavior.
+- Round cap: 2.
+
 ## Known starting facts (verified pre-grill, not decisions)
 
 - Core already has an internal one-shot bulk path (`ImportLibraryCommand`,

@@ -163,7 +163,7 @@ export interface components {
       reason: string;
     };
     ImportLibraryRequest: {
-      folders: string[];
+      folders: null | string[];
       retryFailed: boolean;
     };
     ImportLibraryResponse: {

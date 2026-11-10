@@ -19,11 +19,7 @@ public sealed class ImportCandidatesQueryHandler(
     {
         ArgumentNullException.ThrowIfNull(query);
         var imported = await movies.SnapshotMoviePathsAsync(cancellationToken);
-        var importedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var path in imported)
-        {
-            importedPaths.Add(path.Value);
-        }
+        var importedPaths = ImportedPathSet.FromPaths(imported);
 
         var newFolders = new List<LibraryPath>();
         await foreach (var folder in discovery.DiscoverAsync(cancellationToken))

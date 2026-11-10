@@ -25,18 +25,14 @@ public sealed class ImportLibraryFoldersCommandHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
         var snapshot = await movies.SnapshotMoviePathsAsync(cancellationToken);
-        var importedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var path in snapshot)
-        {
-            importedPaths.Add(path.Value);
-        }
+        var importedPaths = ImportedPathSet.FromPaths(snapshot);
 
         var imported = 0;
         var skipped = 0;
         var retried = 0;
         var failures = new List<ImportLibraryFolderFailure>();
 
-        foreach (var folder in command.Folders)
+        foreach (var folder in command.Folders ?? [])
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (importedPaths.Contains(folder))
@@ -48,8 +44,12 @@ public sealed class ImportLibraryFoldersCommandHandler(
             try
             {
                 await importer.ImportAsync(new LibraryPath(folder), cancellationToken);
-                EnrichmentMetrics.ImportCount.Add(1);
                 imported++;
+                importedPaths.Add(folder);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception exception)
             {
@@ -59,24 +59,17 @@ public sealed class ImportLibraryFoldersCommandHandler(
 
         if (command.RetryFailed)
         {
-            var failedIds = await movies.FindFailedMovieIdsAsync(cancellationToken);
-            foreach (var id in failedIds)
+            var failed = await movies.FindFailedMoviesAsync(cancellationToken);
+            foreach (var movie in failed)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var movie = await movies.GetAsync(id, cancellationToken);
-                if (movie is null)
-                {
-                    continue;
-                }
-
-                if (!ReferenceEquals(movie.Status, EnrichmentStatus.NotFound)
-                    && !ReferenceEquals(movie.Status, EnrichmentStatus.Failed))
+                if (!ReferenceEquals(movie.Status, EnrichmentStatus.Failed))
                 {
                     continue;
                 }
 
                 movie.RequestEnrichment();
-                outbox.Stage(new EnrichmentRequested(id, 1));
+                outbox.Stage(new EnrichmentRequested(movie.Id, 1));
                 retried++;
             }
 

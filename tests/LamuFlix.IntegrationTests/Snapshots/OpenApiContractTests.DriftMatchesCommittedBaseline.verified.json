@@ -1960,7 +1960,10 @@
         "type": "object",
         "properties": {
           "folders": {
-            "type": "array",
+            "type": [
+              "null",
+              "array"
+            ],
             "items": {
               "type": "string"
             }

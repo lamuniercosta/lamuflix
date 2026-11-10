@@ -87,6 +87,39 @@ public sealed class EfMovieRepositoryBulkImportTests(PostgresFixture fixture) : 
         ids.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task FindFailedMoviesAsync_MixedStatuses_ReturnsOnlyFailedMoviesInIdOrder()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        await SeedAsync(db, "PendingFilm", EnrichmentStatus.Pending, ct);
+        await SeedAsync(db, "EnrichedFilm", EnrichmentStatus.Enriched, ct);
+        await SeedAsync(db, "NotFoundFilm", EnrichmentStatus.NotFound, ct);
+        var first = await SeedAsync(db, "ZedFilm", EnrichmentStatus.Failed, ct);
+        var second = await SeedAsync(db, "AshFilm", EnrichmentStatus.Failed, ct);
+
+        // act
+        var repository = Repository(db);
+        var movies = await repository.FindFailedMoviesAsync(ct);
+
+        // assert
+        movies.Select(movie => movie.Id).ShouldBe([first.Id, second.Id]);
+
+        // act
+        foreach (var movie in movies)
+        {
+            movie.RequestEnrichment();
+        }
+
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var fresh = fixture.CreateMigratedContext();
+        var reread = await Repository(fresh).GetAsync(first.Id, ct);
+        reread.ShouldNotBeNull().Status.ShouldBe(EnrichmentStatus.Pending);
+    }
+
     private static async Task<(MovieId Id, LibraryPath Path)> SeedAsync(
         LamuFlixDbContext db,
         string pathSuffix,
