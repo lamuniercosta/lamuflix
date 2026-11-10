@@ -130,7 +130,9 @@ test.describe('DEV-455 browser playback through web nginx', () => {
     expect(capability.localPlayEnabled, 'Compose keeps Features.LocalPlay=false').toBe(false);
 
     await page.goto(`${context.baseURL}/movies/${String(movieId)}`);
-    await detailsActions(page).getByRole('button', { name: 'Play', exact: true }).click();
+    await detailsActions(page)
+      .getByRole('button', { name: `Play ${title} in browser` })
+      .click();
 
     const region = playerRegion(page);
     await expect(region).toBeVisible({ timeout: context.waitBudgetMs });
@@ -278,7 +280,9 @@ test.describe('DEV-455 browser playback through web nginx', () => {
     expect(capabilityResponse.status()).toBe(200);
     const capability = (await capabilityResponse.json()) as CapabilitiesResponse;
 
-    const browserPlay = detailsActions(page).getByRole('button', { name: 'Play', exact: true });
+    const browserPlay = detailsActions(page).getByRole('button', {
+      name: `Play ${title} in browser`,
+    });
     const localControl = page.getByRole('button', { name: /in BS Player/ });
     await expect(browserPlay).toBeVisible({ timeout: context.waitBudgetMs });
     await expect(localControl).toHaveCount(0);
@@ -321,7 +325,9 @@ test.describe('DEV-455 browser playback through web nginx', () => {
     );
 
     await page.goto(`${context.baseURL}/movies/${String(movieId)}`);
-    await detailsActions(page).getByRole('button', { name: 'Play', exact: true }).click();
+    await detailsActions(page)
+      .getByRole('button', { name: `Play ${title} in browser` })
+      .click();
 
     const region = playerRegion(page);
     const error = region.getByRole('alert');
@@ -368,7 +374,9 @@ test.describe('DEV-455 browser playback through web nginx', () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${context.baseURL}/movies/${String(movieId)}`);
-    await detailsActions(page).getByRole('button', { name: 'Play', exact: true }).click();
+    await detailsActions(page)
+      .getByRole('button', { name: `Play ${title} in browser` })
+      .click();
 
     const region = playerRegion(page);
     await expect(region).toBeVisible({ timeout: context.waitBudgetMs });
