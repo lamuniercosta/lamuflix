@@ -26,16 +26,14 @@ public static class SubtitleMovieResolution
 
         reader.AuthorizeFolder(details.Path);
 
-        PrimaryVideo? primary = null;
         try
         {
-            primary = scanner.ResolvePrimaryVideo(details.Path);
+            var primary = scanner.ResolvePrimaryVideo(details.Path);
+            return new ResolvedSubtitleMovie(details.Path, Path.GetFileName(primary.Path.Value));
         }
         catch (InvalidTransitionException)
         {
             throw new NotFoundException();
         }
-
-        return new ResolvedSubtitleMovie(details.Path, Path.GetFileName(primary!.Path.Value));
     }
 }
