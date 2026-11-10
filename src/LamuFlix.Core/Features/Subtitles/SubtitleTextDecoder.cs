@@ -34,12 +34,17 @@ public static class SubtitleTextDecoder
     }
 
     private static bool HasUnsupportedByteOrderMark(ReadOnlySpan<byte> payload) =>
+        HasUtf16ByteOrderMark(payload) || HasUtf32ByteOrderMark(payload);
+
+    private static bool HasUtf16ByteOrderMark(ReadOnlySpan<byte> payload) =>
         payload.Length >= 2
         && ((payload[0] == 0xFF && payload[1] == 0xFE)
-            || (payload[0] == 0xFE && payload[1] == 0xFF)
-            || (payload.Length >= 4
-                && ((payload[0] == 0x00 && payload[1] == 0x00 && payload[2] == 0xFE && payload[3] == 0xFF)
-                    || (payload[0] == 0xFF && payload[1] == 0xFE && payload[2] == 0x00 && payload[3] == 0x00))));
+            || (payload[0] == 0xFE && payload[1] == 0xFF));
+
+    private static bool HasUtf32ByteOrderMark(ReadOnlySpan<byte> payload) =>
+        payload.Length >= 4
+        && ((payload[0] == 0x00 && payload[1] == 0x00 && payload[2] == 0xFE && payload[3] == 0xFF)
+            || (payload[0] == 0xFF && payload[1] == 0xFE && payload[2] == 0x00 && payload[3] == 0x00));
 
     private static ReadOnlySpan<byte> StripUtf8ByteOrderMark(ReadOnlySpan<byte> payload) =>
         payload.Length >= 3 && payload[0] == Utf8BomFirst && payload[1] == Utf8BomSecond && payload[2] == Utf8BomThird

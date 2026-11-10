@@ -86,34 +86,27 @@ internal static class SubtitleEndpoints
     /// the error written later by the single <c>IExceptionHandler</c>, so a sniffing browser never treats a
     /// subtitle payload as another type.
     /// </summary>
-    private static void EnforceNoSniff(HttpContext httpContext)
-    {
-        httpContext.Response.Headers[ContentTypeOptionsHeader] = NoSniffValue;
-        httpContext.Response.OnStarting(
-            static state =>
-            {
-                var response = (HttpResponse)state;
-                response.Headers[ContentTypeOptionsHeader] = NoSniffValue;
-                return Task.CompletedTask;
-            },
-            httpContext.Response);
-    }
+    private static void EnforceNoSniff(HttpContext httpContext) =>
+        ApplyHeader(httpContext, ContentTypeOptionsHeader, NoSniffValue);
 
     /// <summary>
     /// Applies the frozen <c>private, no-store</c> policy on success and on every error response. The
     /// error is written later by the single <c>IExceptionHandler</c> and the ProblemDetails writer emits
     /// its own cache headers, so the value is re-applied while the response is starting to win over it.
     /// </summary>
-    private static void EnforceNoStore(HttpContext httpContext)
+    private static void EnforceNoStore(HttpContext httpContext) =>
+        ApplyHeader(httpContext, CacheControlHeader, NoStoreValue);
+
+    private static void ApplyHeader(HttpContext httpContext, string name, string value)
     {
-        httpContext.Response.Headers[CacheControlHeader] = NoStoreValue;
+        httpContext.Response.Headers[name] = value;
         httpContext.Response.OnStarting(
             static state =>
             {
-                var response = (HttpResponse)state;
-                response.Headers[CacheControlHeader] = NoStoreValue;
+                var (response, header, headerValue) = ((HttpResponse, string, string))state;
+                response.Headers[header] = headerValue;
                 return Task.CompletedTask;
             },
-            httpContext.Response);
+            (httpContext.Response, name, value));
     }
 }

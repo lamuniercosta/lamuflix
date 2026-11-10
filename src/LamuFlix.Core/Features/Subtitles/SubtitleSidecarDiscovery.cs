@@ -93,6 +93,11 @@ public static class SubtitleSidecarDiscovery
             return null;
         }
 
+        return ClassifySuffix(fileName, withoutExtension, suffix);
+    }
+
+    private static SubtitleSidecarCandidate ClassifySuffix(string fileName, string withoutExtension, string suffix)
+    {
         if (string.Equals(suffix, DefaultMarker, StringComparison.OrdinalIgnoreCase))
         {
             return new SubtitleSidecarCandidate(fileName, DefaultLabel, UndeterminedLanguage, IsDefault: true);

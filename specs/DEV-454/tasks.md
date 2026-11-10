@@ -136,7 +136,7 @@ Phase 11  T024          (canonical Phase 5 delivery)
 
 ## Phase 8: Refactor (Cog)
 
-- [ ] T018 After T017: **Cog** runs `/refactor` once over completed implementation for this ticket (C# complexity/duplication; web cleanup in-scope of web-implement); fix without expanding scope, editing untouched Stream/local-play files, or lowering thresholds (brief Q8; FR-015).
+- [X] T018 After T017: **Cog** runs `/refactor` once over completed implementation for this ticket (C# complexity/duplication; web cleanup in-scope of web-implement); fix without expanding scope, editing untouched Stream/local-play files, or lowering thresholds (brief Q8; FR-015). **Cleared**: extracted `ClassifySuffix` (SidecarDiscovery), `ValidatePayload` (WebVttConverter), `HasUtf16/32ByteOrderMark` (TextDecoder), shared `SubtitleMovieResolution` for both handlers, and unified `ApplyHeader` (SubtitleEndpoints); web reviewed with no changes; unit 70 + integration 36 green, Roslyn/cyclomatic clean.
 
 ---
 
