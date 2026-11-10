@@ -11,6 +11,7 @@ These are deliberate Patron taste decisions, not unverified implementation facts
 | [assumed] Selection lifetime | Viewer session only; reset on movie change; no persisted or browser-language selection | Patron Q4 |
 | [assumed] Empty state | Hide selector when the track list is empty | Patron Q4 |
 | [assumed] Error copy and retry | Subtitles unavailable; switch Off and allow retry by reselecting a track while video continues | Patron Q4 |
+| [assumed] List-failure copy and retry | Subtitles unavailable with explicit Retry while video continues and subtitles stay Off (never empty-list hide on list error) | Patron Phase 2 Step 6 (Sentry F7) |
 | [assumed] Invalid-content presentation | Generic sanitized 422 error; no filesystem paths or cue contents | Patron Q2/Q3 |
 
 ## Explicit uncertainties, not assumed facts
