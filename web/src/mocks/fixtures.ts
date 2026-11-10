@@ -249,6 +249,14 @@ const movieThumbnailData = '/9j/4AAQSkZJRg==';
 
 const movieStreamData: Schemas['Stream'] = '';
 
+const subtitleTracksData = [
+  { id: 'f8a2c1', label: 'English', language: 'en', isDefault: true },
+  { id: '9d3e70', label: 'Portuguese', language: 'pt', isDefault: false },
+] satisfies Schemas['SubtitleTrackDto'][];
+
+const subtitleContentData =
+  'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello there.\n\n00:00:03.000 --> 00:00:04.500\nGeneral Kenobi.\n';
+
 const playbackCapabilitiesData = {
   localPlayEnabled: false,
 } satisfies Schemas['PlaybackCapabilitiesDto'];
@@ -282,6 +290,8 @@ export const people = Object.freeze(peopleData);
 export const directors = Object.freeze(directorsData);
 export const movieThumbnail = movieThumbnailData;
 export const movieStream = movieStreamData;
+export const subtitleTracks = Object.freeze(subtitleTracksData);
+export const subtitleContent = subtitleContentData;
 export const playbackCapabilities = Object.freeze(playbackCapabilitiesData);
 export const rescanLibrary = Object.freeze(rescanLibraryData);
 export const rescanMovie = Object.freeze(rescanMovieData);
@@ -297,6 +307,8 @@ export const success = Object.freeze({
   GetDirectors: directors,
   GetMovieThumbnail: movieThumbnail,
   StreamMovie: movieStream,
+  ListMovieSubtitleTracks: subtitleTracks,
+  GetMovieSubtitleContent: subtitleContent,
   GetPlaybackCapabilities: playbackCapabilities,
   RescanLibrary: rescanLibrary,
   RescanMovie: rescanMovie,

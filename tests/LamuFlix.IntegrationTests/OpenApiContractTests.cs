@@ -44,6 +44,8 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GET /api/movies/{id}",
         "GET /api/movies/{id}/thumbnail",
         "GET /api/movies/{id}/stream",
+        "GET /api/movies/{id}/subtitles",
+        "GET /api/movies/{id}/subtitles/{trackId}/content",
         "GET /api/movies/{id}/recommendations",
         "GET /api/recommendations/for-you",
         "DELETE /api/movies/{id}",
@@ -77,6 +79,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "CollectionDto",
         "PersonDto",
         "DirectorDto",
+        "SubtitleTrackDto",
     ];
 
     private static readonly string[] OperationMethods =
@@ -188,6 +191,109 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
 
         responses.GetProperty("416").TryGetProperty("content", out _).ShouldBeFalse();
         foreach (var status in new[] { "400", "403", "404", "409", "500" })
+        {
+            var problemSchema = responses.GetProperty(status).GetProperty("content")
+                .GetProperty("application/problem+json").GetProperty("schema");
+            problemSchema.GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
+        }
+    }
+
+    [Fact]
+    public async Task Document_GetMovieSubtitles_DocumentsTheTrackArrayAndFrozenProblems()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        var operation = parsed.RootElement.GetProperty("paths")
+            .GetProperty("/api/movies/{id}/subtitles")
+            .GetProperty("get");
+        operation.GetProperty("operationId").GetString().ShouldBe("ListMovieSubtitleTracks");
+        operation.GetProperty("summary").GetString().ShouldBe(
+            "List the eligible sidecar subtitle tracks of a movie.");
+
+        var parameter = operation.GetProperty("parameters").EnumerateArray().ShouldHaveSingleItem();
+        parameter.GetProperty("name").GetString().ShouldBe("id");
+        parameter.GetProperty("in").GetString().ShouldBe("path");
+        parameter.GetProperty("required").GetBoolean().ShouldBeTrue();
+        parameter.GetProperty("schema").GetProperty("type").GetString().ShouldBe("integer");
+        parameter.GetProperty("schema").GetProperty("format").GetString().ShouldBe("int32");
+
+        var responses = operation.GetProperty("responses");
+        responses.EnumerateObject().Select(response => response.Name)
+            .ShouldBe(["200", "400", "403", "404", "500"], ignoreOrder: true);
+        var successSchema = responses.GetProperty("200").GetProperty("content")
+            .GetProperty("application/json").GetProperty("schema");
+        successSchema.GetProperty("type").GetString().ShouldBe("array");
+        successSchema.GetProperty("items").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/SubtitleTrackDto");
+        foreach (var status in new[] { "400", "403", "404", "500" })
+        {
+            var problemSchema = responses.GetProperty(status).GetProperty("content")
+                .GetProperty("application/problem+json").GetProperty("schema");
+            problemSchema.GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
+        }
+
+        var dto = parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .GetProperty("SubtitleTrackDto");
+        dto.GetProperty("type").GetString().ShouldBe("object");
+        dto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["id", "label", "language", "isDefault"], ignoreOrder: true);
+        var properties = dto.GetProperty("properties");
+        properties.EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["id", "label", "language", "isDefault"], ignoreOrder: true);
+        properties.GetProperty("id").GetProperty("type").GetString().ShouldBe("string");
+        properties.GetProperty("label").GetProperty("type").GetString().ShouldBe("string");
+        properties.GetProperty("language").GetProperty("type").GetString().ShouldBe("string");
+        properties.GetProperty("isDefault").GetProperty("type").GetString().ShouldBe("boolean");
+    }
+
+    [Fact]
+    public async Task Document_GetMovieSubtitleContent_DocumentsTextVttSuccessAndFrozenProblems()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        var operation = parsed.RootElement.GetProperty("paths")
+            .GetProperty("/api/movies/{id}/subtitles/{trackId}/content")
+            .GetProperty("get");
+        operation.GetProperty("operationId").GetString().ShouldBe("GetMovieSubtitleContent");
+        operation.GetProperty("summary").GetString().ShouldBe(
+            "Serve one eligible sidecar subtitle track converted to WebVTT.");
+
+        var parameters = operation.GetProperty("parameters").EnumerateArray()
+            .ToDictionary(
+                parameter => parameter.GetProperty("name").GetString()
+                    ?? throw new InvalidOperationException("OpenAPI parameter is missing a name."),
+                StringComparer.Ordinal);
+        parameters.Keys.ShouldBe(["id", "trackId"], ignoreOrder: true);
+        parameters["id"].GetProperty("in").GetString().ShouldBe("path");
+        parameters["id"].GetProperty("required").GetBoolean().ShouldBeTrue();
+        parameters["trackId"].GetProperty("in").GetString().ShouldBe("path");
+        parameters["trackId"].GetProperty("required").GetBoolean().ShouldBeTrue();
+        parameters["trackId"].GetProperty("schema").GetProperty("type").GetString().ShouldBe("string");
+
+        var responses = operation.GetProperty("responses");
+        responses.EnumerateObject().Select(response => response.Name)
+            .ShouldBe(["200", "400", "403", "404", "422", "500"], ignoreOrder: true);
+        var success = responses.GetProperty("200").GetProperty("content");
+        success.EnumerateObject().Select(content => content.Name).ShouldBe(["text/vtt; charset=utf-8"]);
+        success.GetProperty("text/vtt; charset=utf-8").GetProperty("schema").GetProperty("type").GetString()
+            .ShouldBe("string");
+        foreach (var status in new[] { "400", "403", "404", "422", "500" })
         {
             var problemSchema = responses.GetProperty(status).GetProperty("content")
                 .GetProperty("application/problem+json").GetProperty("schema");

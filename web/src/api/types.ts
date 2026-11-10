@@ -26,6 +26,14 @@ export interface paths {
     /** Stream the primary video file of a movie. */
     get: operations["StreamMovie"];
   };
+  "/api/movies/{id}/subtitles": {
+    /** List the eligible sidecar subtitle tracks of a movie. */
+    get: operations["ListMovieSubtitleTracks"];
+  };
+  "/api/movies/{id}/subtitles/{trackId}/content": {
+    /** Serve one eligible sidecar subtitle track converted to WebVTT. */
+    get: operations["GetMovieSubtitleContent"];
+  };
   "/api/movies/import": {
     /** Import a movie folder into the library. */
     post: operations["ImportMovie"];
@@ -255,6 +263,12 @@ export interface components {
     };
     /** Format: binary */
     Stream: string;
+    SubtitleTrackDto: {
+      id: string;
+      label: string;
+      language: string;
+      isDefault: boolean;
+    };
   };
   responses: never;
   parameters: never;
@@ -419,6 +433,93 @@ export interface operations {
       /** @description Range Not Satisfiable */
       416: {
         content: never;
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** List the eligible sidecar subtitle tracks of a movie. */
+  ListMovieSubtitleTracks: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SubtitleTrackDto"][];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Serve one eligible sidecar subtitle track converted to WebVTT. */
+  GetMovieSubtitleContent: {
+    parameters: {
+      path: {
+        id: number;
+        trackId: string;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "text/vtt; charset=utf-8": string;
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
       };
       /** @description Internal Server Error */
       500: {
