@@ -256,6 +256,61 @@ describe('subtitle track modes', () => {
     expect(selector()?.value).toBe('');
   });
 
+  it('re-disables a track the browser selects after Off', async () => {
+    renderPlayer();
+
+    await screen.findByRole('combobox', { name: subtitleSelectLabel('Dune') });
+    fireEvent.change(selector() as HTMLSelectElement, { target: { value: ENGLISH.id } });
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
+
+    fireEvent.change(selector() as HTMLSelectElement, { target: { value: '' } });
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('disabled'));
+
+    act(() => {
+      trackElement(ENGLISH.id).track.mode = 'showing';
+      video().textTracks.dispatchEvent(new Event('change'));
+    });
+
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('disabled'));
+    expect(modeOf(PORTUGUESE.id)).toBe('disabled');
+    expect(selector()?.value).toBe('');
+  });
+
+  it('re-disables every non-selected track the browser selects after a switch', async () => {
+    renderPlayer();
+
+    await screen.findByRole('combobox', { name: subtitleSelectLabel('Dune') });
+    fireEvent.change(selector() as HTMLSelectElement, { target: { value: PORTUGUESE.id } });
+    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('showing'));
+
+    act(() => {
+      trackElement(ENGLISH.id).track.mode = 'showing';
+      video().textTracks.dispatchEvent(new Event('addtrack'));
+    });
+
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('disabled'));
+    expect(modeOf(PORTUGUESE.id)).toBe('showing');
+  });
+
+  it('re-disables the tracks when the browser re-selects on media load', async () => {
+    renderPlayer();
+
+    await screen.findByRole('combobox', { name: subtitleSelectLabel('Dune') });
+    fireEvent.change(selector() as HTMLSelectElement, { target: { value: ENGLISH.id } });
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
+
+    fireEvent.change(selector() as HTMLSelectElement, { target: { value: '' } });
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('disabled'));
+
+    act(() => {
+      trackElement(PORTUGUESE.id).track.mode = 'showing';
+      video().dispatchEvent(new Event('loadedmetadata'));
+    });
+
+    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('disabled'));
+    expect(modeOf(ENGLISH.id)).toBe('disabled');
+  });
+
   it('requests content from the movie id and the opaque token only', async () => {
     renderPlayer();
 

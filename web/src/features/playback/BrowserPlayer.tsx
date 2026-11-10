@@ -27,7 +27,7 @@ import {
   retryLabel,
 } from './playerCopy';
 import SubtitleSelector from './SubtitleSelector';
-import { applySubtitleTrackModes } from './subtitleTrackModes';
+import { applySubtitleTrackModes, watchSubtitleTrackModes } from './subtitleTrackModes';
 import { useBrowserPlayer, type MediaDiagnostic } from './useBrowserPlayer';
 import { useSubtitlePlayback } from './useSubtitlePlayback';
 import './BrowserPlayer.css';
@@ -79,10 +79,22 @@ export default function BrowserPlayer({
   }, [movieId]);
 
   // FR-010: only the selected, loaded track is `showing`; every other listed track is `disabled`,
-  // and Off renders no track at all, so all of them stay disabled.
+  // and Off leaves all of them disabled.
+  const desiredTrackId = showTrack ? (selection?.trackId ?? null) : null;
+  const desiredTrackIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    applySubtitleTrackModes(videoRef.current, showTrack ? (selection?.trackId ?? null) : null);
-  }, [selection, showTrack, videoRef]);
+    desiredTrackIdRef.current = desiredTrackId;
+    applySubtitleTrackModes(videoRef.current, desiredTrackId);
+  }, [desiredTrackId, videoRef]);
+
+  // Chromium applies its own text-track selection when the media or the track list settles, which
+  // can flip a rendered track back to `showing` after Off or a switch. Keep enforcing the desired
+  // modes for the life of the element so non-selected tracks stay disabled.
+  useEffect(
+    () => watchSubtitleTrackModes(videoRef.current, () => desiredTrackIdRef.current),
+    [videoRef],
+  );
 
   const assignChrome = useCallback((element: HTMLElement | null) => {
     if (!element) return;
@@ -155,7 +167,7 @@ export default function BrowserPlayer({
               const active = showTrack && selection?.trackId === track.id;
               return (
                 <track
-                  key={`${track.id}:${active ? selection?.attempt : 0}`}
+                  key={track.id}
                   kind="subtitles"
                   label={track.label}
                   srcLang={track.language}
