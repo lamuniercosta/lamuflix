@@ -7,11 +7,11 @@ using LamuFlix.Core.Ports;
 
 namespace LamuFlix.Core.Features.Subtitles;
 
-internal sealed record ResolvedSubtitleMovie(LibraryPath Folder, string PrimaryFileName);
+public sealed record ResolvedSubtitleMovie(LibraryPath Folder, string PrimaryFileName);
 
-internal static class SubtitleMovieResolution
+public static class SubtitleMovieResolution
 {
-    internal static async Task<ResolvedSubtitleMovie> ResolveAsync(
+    public static async Task<ResolvedSubtitleMovie> ResolveAsync(
         IMovieCatalog catalog,
         IMediaLibraryScanner scanner,
         ILibraryFileReader reader,
