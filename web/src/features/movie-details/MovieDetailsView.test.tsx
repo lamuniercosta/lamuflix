@@ -357,6 +357,21 @@ describe('MovieDetailsView cast and more-with', () => {
     expect(window.location.pathname).toBe('/');
     expect(window.location.search).toBe('?actorIds=1');
   });
+
+  it('requests the people lookup with role=actor', async () => {
+    const recorded: (string | null)[] = [];
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieWithActors(['Timothée Chalamet']))),
+      http.get('*/api/people', ({ request }) => {
+        recorded.push(new URL(request.url).searchParams.get('role'));
+        return HttpResponse.json(people, { status: 200 });
+      }),
+    );
+    renderView();
+
+    await waitFor(() => expect(recorded.length).toBeGreaterThan(0));
+    recorded.forEach((role) => expect(role).toBe('actor'));
+  });
 });
 
 describe('MovieDetailsView file section', () => {
