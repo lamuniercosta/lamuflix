@@ -215,6 +215,86 @@ function Get-EligibleTestProjects {
     return @($eligible | Sort-Object)
 }
 
+function Get-MemberMutateSpan {
+    <#
+      Member-boundary spans of one C# file as Stryker mutate entries, with UTF-16
+      offsets read from the checkout bytes. Line endings are kept, never
+      normalized, so a CRLF and an LF checkout each produce offsets that match
+      what Stryker reads on that checkout. The boundary rule mirrors
+      scripts/ci-stryker-shard.sh: a member starts after a blank line at the
+      file's member indent.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$FullPath,
+        [Parameter(Mandatory)][string]$DisplayPath
+    )
+
+    $bytes = [System.IO.File]::ReadAllBytes($FullPath)
+    $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+    if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
+        $text = $text.Substring(1)
+    }
+    $ending = if ($text.Contains([char]13)) { 'CRLF' } else { 'LF' }
+
+    $lineStarts = [System.Collections.Generic.List[int]]::new()
+    $lineStarts.Add(0)
+    for ($i = 0; $i -lt $text.Length; $i++) {
+        if ($text[$i] -eq [char]13) {
+            if (($i + 1) -lt $text.Length -and $text[$i + 1] -eq [char]10) { $i++ }
+            if (($i + 1) -lt $text.Length) { $lineStarts.Add($i + 1) }
+        }
+        elseif ($text[$i] -eq [char]10) {
+            if (($i + 1) -lt $text.Length) { $lineStarts.Add($i + 1) }
+        }
+    }
+
+    $lineEnds = [System.Collections.Generic.List[int]]::new()
+    for ($k = 0; $k -lt $lineStarts.Count; $k++) {
+        if ($k + 1 -lt $lineStarts.Count) { $lineEnds.Add($lineStarts[$k + 1]) } else { $lineEnds.Add($text.Length) }
+    }
+
+    $indent = '        '
+    for ($k = 0; $k -lt $lineStarts.Count; $k++) {
+        $candidate = $text.Substring($lineStarts[$k], $lineEnds[$k] - $lineStarts[$k])
+        if ($candidate -match '^\s*namespace\s+[\w.]+\s*;') { $indent = '    '; break }
+    }
+
+    $bounds = [System.Collections.Generic.List[int]]::new()
+    $bounds.Add(0)
+    for ($k = 1; $k -lt $lineStarts.Count; $k++) {
+        $previous = $text.Substring($lineStarts[$k - 1], $lineEnds[$k - 1] - $lineStarts[$k - 1])
+        if ($previous -notmatch '^\s*$') { continue }
+        $current = $text.Substring($lineStarts[$k], $lineEnds[$k] - $lineStarts[$k])
+        if (-not $current.StartsWith($indent, [System.StringComparison]::Ordinal)) { continue }
+        if ($current.Length -le $indent.Length) { continue }
+        if ([char]::IsWhiteSpace($current[$indent.Length])) { continue }
+        if ($current.Trim() -eq '}' -or $current.Trim() -eq '};') { continue }
+        $bounds.Add($lineStarts[$k])
+    }
+    $bounds.Add($text.Length)
+
+    $spans = [System.Collections.Generic.List[PSCustomObject]]::new()
+    for ($j = 0; $j -lt $bounds.Count - 1; $j++) {
+        $startLine = 1
+        $at = $lineStarts.IndexOf($bounds[$j])
+        if ($at -ge 0) { $startLine = $at + 1 }
+        $entry = if ($bounds.Count -eq 2) { $DisplayPath } else { "$DisplayPath{$($bounds[$j])..$($bounds[$j + 1])}" }
+        $spans.Add([PSCustomObject]@{
+                Display   = $entry
+                Start     = $bounds[$j]
+                End       = $bounds[$j + 1]
+                StartLine = $startLine
+            })
+    }
+
+    return [PSCustomObject]@{
+        Spans      = @($spans)
+        LineStarts = @($lineStarts)
+        Length     = $text.Length
+        Ending     = $ending
+    }
+}
+
 function Evaluate-MutationReport {
     param(
         [string]$ReportPath,
@@ -233,6 +313,7 @@ function Evaluate-MutationReport {
     $mutatedFiles = [System.Collections.Generic.List[string]]::new()
     $outsideFiles = [System.Collections.Generic.List[string]]::new()
     $filesWithMutantsNoneTested = [System.Collections.Generic.List[string]]::new()
+    $changedMutants = [System.Collections.Generic.List[PSCustomObject]]::new()
     $artifactKillers = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
     $artifactKills = 0
     $unattributedKills = 0
@@ -330,6 +411,21 @@ function Evaluate-MutationReport {
                     if ($removedByMutateFilter) { $mutateFilterRemoved++ }
                     if ($removedByMutateFilter -or $status -eq 'CompileError') { $filterResidue++ }
 
+                    if ($isChanged) {
+                        $mutLine = 0
+                        $mutColumn = 1
+                        if (($m.PSObject.Properties.Match('location').Count -gt 0) -and $m.location -and ($m.location.PSObject.Properties.Match('start').Count -gt 0) -and $m.location.start) {
+                            if (($m.location.start.PSObject.Properties.Match('line').Count -gt 0) -and $m.location.start.line) { $mutLine = [int]$m.location.start.line }
+                            if (($m.location.start.PSObject.Properties.Match('column').Count -gt 0) -and $m.location.start.column -and ([int]$m.location.start.column) -gt 0) { $mutColumn = [int]$m.location.start.column }
+                        }
+                        $changedMutants.Add([PSCustomObject]@{
+                                File          = $fileRel
+                                Line          = $mutLine
+                                Column        = $mutColumn
+                                FilterRemoved = [bool]$removedByMutateFilter
+                            })
+                    }
+
                     switch ($status) {
                         'Killed' {
                             $killed++
@@ -395,6 +491,38 @@ function Evaluate-MutationReport {
 
                 if ($isChanged -and $fileTested -eq 0) {
                     $filesWithMutantsNoneTested.Add("$fileRel ($mutantCount mutant(s), 0 tested)")
+                }
+            }
+        }
+    }
+
+    # Member-span scope check: a member span whose listed mutants are all
+    # 'Removed by mutate filter' matched no mutant, so the score silently
+    # excludes that member. Recomputing the spans from the checkout bytes keeps
+    # the check line-ending invariant. Files that the evaluation checkout does
+    # not contain are skipped.
+    if ($ChangedFiles.Count -gt 0 -and $changedMutants.Count -gt 0) {
+        foreach ($group in @($changedMutants | Group-Object File)) {
+            $fullPath = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot ($group.Name -replace '/', [System.IO.Path]::DirectorySeparatorChar)))
+            if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { continue }
+            try {
+                $scope = Get-MemberMutateSpan -FullPath $fullPath -DisplayPath $group.Name
+            }
+            catch {
+                continue
+            }
+            if ($scope.Length -eq 0 -or $scope.LineStarts.Count -eq 0) { continue }
+            foreach ($span in $scope.Spans) {
+                $inside = [System.Collections.Generic.List[PSCustomObject]]::new()
+                foreach ($mut in $group.Group) {
+                    if ($mut.Line -lt 1) { continue }
+                    $lineIndex = [Math]::Min($mut.Line, $scope.LineStarts.Count) - 1
+                    $offset = $scope.LineStarts[$lineIndex] + ($mut.Column - 1)
+                    if ($offset -ge $scope.Length) { $offset = $scope.Length - 1 }
+                    if ($offset -ge $span.Start -and $offset -lt $span.End) { $inside.Add($mut) }
+                }
+                if ($inside.Count -gt 0 -and @($inside | Where-Object { -not $_.FilterRemoved }).Count -eq 0) {
+                    $failureReasons.Add("Changed file '$($group.Name)' member span $($span.Display) (line $($span.StartLine), offsets from $($scope.Ending) checkout bytes) lists $($inside.Count) mutant(s), all 'Removed by mutate filter' (0 processed): the span matched no mutants. Likely line-ending skew between the spans Stryker used and this checkout; recompute spans on the checkout or normalize line endings.")
                 }
             }
         }

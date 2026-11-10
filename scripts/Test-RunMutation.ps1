@@ -1365,6 +1365,97 @@ public static class ScopeGuard
             '"enabled": false'
         ) -MustNotContain @('SKIPPED', 'more than one candidate')
 
+    Write-Host ''
+    Write-Host 'Member span skew cases:'
+
+    # A member whose listed mutants are all 'Removed by mutate filter' is the
+    # silent-skip signature: the span Stryker used matched no mutant in that
+    # member, so the score silently excludes it. Cases 34 and 35 pin the two
+    # checkout endings; 36 is the fully-tested control.
+    $spanSkewChanged = 'src/Contoso.Core/ScopeGuard.cs'
+    $spanSkewReport = Join-Path $script:work 'span-skew-report.json'
+    $spanSkewSetupCrlf = {
+        $body = (@(
+            'namespace Contoso.Core;',
+            '',
+            'public static class ScopeGuard',
+            '{',
+            '    public static int Holds(int value) => value > 0 ? value : -value;',
+            '',
+            '    public static int Clamp(int value) => value < 0 ? 0 : value;',
+            '}'
+        ) -join "`r`n") + "`r`n"
+        Write-FixtureFile $spanSkewChanged $body
+        Write-ScopeReport -Path $spanSkewReport -FilesJson @"
+    "$spanSkewChanged": {
+      "mutants": [
+        { "id": "1", "status": "Killed", "killedBy": ["t1"], "mutatorName": "Statement", "location": { "start": { "line": 5 } } },
+        { "id": "2", "status": "Ignored", "statusReason": "Removed by mutate filter", "mutatorName": "Statement", "location": { "start": { "line": 7 } } },
+        { "id": "3", "status": "Ignored", "statusReason": "Removed by mutate filter", "mutatorName": "Block", "location": { "start": { "line": 7 } } }
+      ]
+    }
+"@
+    }
+    $spanSkewSetupLf = {
+        $body = (@(
+            'namespace Contoso.Core;',
+            '',
+            'public static class ScopeGuard',
+            '{',
+            '    public static int Holds(int value) => value > 0 ? value : -value;',
+            '',
+            '    public static int Clamp(int value) => value < 0 ? 0 : value;',
+            '}'
+        ) -join "`n") + "`n"
+        Write-FixtureFile $spanSkewChanged $body
+        Write-ScopeReport -Path $spanSkewReport -FilesJson @"
+    "$spanSkewChanged": {
+      "mutants": [
+        { "id": "1", "status": "Killed", "killedBy": ["t1"], "mutatorName": "Statement", "location": { "start": { "line": 5 } } },
+        { "id": "2", "status": "Ignored", "statusReason": "Removed by mutate filter", "mutatorName": "Statement", "location": { "start": { "line": 7 } } },
+        { "id": "3", "status": "Ignored", "statusReason": "Removed by mutate filter", "mutatorName": "Block", "location": { "start": { "line": 7 } } }
+      ]
+    }
+"@
+    }
+
+    Assert-MutationCase -Name '34 CRLF member span with mutants but none processed fails naming line-ending skew' -Setup $spanSkewSetupCrlf `
+        -Arguments @('-EvaluateReport', $spanSkewReport, '-ScopeFile', $spanSkewChanged) -ExpectedExit 1 -MustContain @(
+            'matched no mutants',
+            'CRLF checkout bytes',
+            $spanSkewChanged
+        )
+
+    Assert-MutationCase -Name '35 LF member span with mutants but none processed fails with the LF ending label' -Setup $spanSkewSetupLf `
+        -Arguments @('-EvaluateReport', $spanSkewReport, '-ScopeFile', $spanSkewChanged) -ExpectedExit 1 -MustContain @(
+            'matched no mutants',
+            'LF checkout bytes',
+            $spanSkewChanged
+        ) -MustNotContain @('CRLF')
+
+    Assert-MutationCase -Name '36 CRLF member span with a tested mutant passes without the skew message' -Setup {
+        $body = (@(
+            'namespace Contoso.Core;',
+            '',
+            'public static class ScopeGuard',
+            '{',
+            '    public static int Holds(int value) => value > 0 ? value : -value;',
+            '',
+            '    public static int Clamp(int value) => value < 0 ? 0 : value;',
+            '}'
+        ) -join "`r`n") + "`r`n"
+        Write-FixtureFile $spanSkewChanged $body
+        Write-ScopeReport -Path $spanSkewReport -FilesJson @"
+    "$spanSkewChanged": {
+      "mutants": [
+        { "id": "1", "status": "Killed", "killedBy": ["t1"], "mutatorName": "Statement", "location": { "start": { "line": 5 } } },
+        { "id": "2", "status": "Killed", "killedBy": ["t1"], "mutatorName": "Statement", "location": { "start": { "line": 7 } } }
+      ]
+    }
+"@
+    } -Arguments @('-EvaluateReport', $spanSkewReport, '-ScopeFile', $spanSkewChanged) -ExpectedExit 0 -MustContain @(
+            'PASSED'
+        ) -MustNotContain @('matched no mutants', 'FAILED')
 }
 catch {
     Write-Host "Mutation fixture: FAILED - $($_.Exception.Message)" -ForegroundColor Red
