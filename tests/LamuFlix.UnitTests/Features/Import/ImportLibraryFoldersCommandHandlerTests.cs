@@ -187,6 +187,50 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_SameFolderDifferentSpelling_ImportsOnceAndSkipsRepeat()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
+        importer.ImportAsync(new LibraryPath("Heat"), ct).Returns(new MovieId(1));
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["Heat/", "Heat"], RetryFailed: false), ct);
+
+        // assert
+        result.Imported.ShouldBe(1);
+        result.Skipped.ShouldBe(1);
+        result.Failures.ShouldBeEmpty();
+        await importer.Received(1).ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_OverlappingPasses_SerializesSoSecondSkipsImported()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var stored = new List<string>();
+        movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>())
+            .Returns((Func<CallInfo, Task<IReadOnlyList<LibraryPath>>>)(call => SnapshotAfterDelayAsync(stored, call.Arg<CancellationToken>())));
+        importer.ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>())
+            .Returns((Func<CallInfo, Task<MovieId>>)(call => ImportAfterDelayAsync(stored, call.Arg<LibraryPath>(), call.Arg<CancellationToken>())));
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+
+        // act
+        var first = handler.HandleAsync(new ImportLibraryFoldersCommand(["Heat"], RetryFailed: false), ct);
+        var second = handler.HandleAsync(new ImportLibraryFoldersCommand(["Heat"], RetryFailed: false), ct);
+        var results = await Task.WhenAll(first, second);
+
+        // assert
+        results.Sum(result => result.Imported).ShouldBe(1);
+        results.Sum(result => result.Skipped).ShouldBe(1);
+        results.SelectMany(result => result.Failures).ShouldBeEmpty();
+        await importer.Received(1).ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Validator_EmptyFoldersWithoutRetry_Fails()
     {
         // arrange
@@ -229,6 +273,26 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
 
         // assert
         result.IsValid.ShouldBeFalse();
+    }
+
+    private static async Task<IReadOnlyList<LibraryPath>> SnapshotAfterDelayAsync(List<string> stored, CancellationToken ct)
+    {
+        await Task.Delay(50, ct);
+        lock (stored)
+        {
+            return [.. stored.Select(path => new LibraryPath(path))];
+        }
+    }
+
+    private static async Task<MovieId> ImportAfterDelayAsync(List<string> stored, LibraryPath path, CancellationToken ct)
+    {
+        await Task.Delay(20, ct);
+        lock (stored)
+        {
+            stored.Add(path.Value);
+        }
+
+        return new MovieId(1);
     }
 
     private static Movie MovieAt(int id, EnrichmentStatus status) =>

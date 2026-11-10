@@ -31,3 +31,11 @@ Order: T1, then T2 + T3 (parallel-safe: disjoint files), then T4, then T5, then 
 - [X] R1-F6 [Low, standards] Duplicated skip set (both handlers): shared `ImportedPathSet.FromPaths` helper (source: code-review).
 - [X] R1-F7 [Low, standards] Triplicated folder validation (`BulkImportEndpoints.cs`): endpoint pre-validation dropped, validator owns the rule (source: code-review).
 - [X] R1-F8 [Low, standards] Dead NotFound branch (handler + unit test): Failed-only guard on the single-query result; test stubs `FindFailedMoviesAsync` (source: code-review).
+
+## Remediation round 2 (code-review 6bec2fbd, 5 accepted findings, cap 2)
+
+- [X] R2-F1 [Medium, performance] Split-query fan-out (`EfMovieRepository.FindFailedMoviesAsync`): added `.AsSplitQuery()` (source: code-review).
+- [X] R2-F2 [Medium, standards] Dead port (`IMovieRepository.FindFailedMovieIdsAsync`): deleted port method, EF implementation, two integration tests, seven double implementations, one stale assertion; zero references remain in `src`/`tests` (source: code-review).
+- [X] R2-F3 [Medium, risk] Overlapping-pass race (`ImportLibraryFoldersCommandHandler`): static `PassGate` serializes whole passes; overlap test proves second pass skips (source: code-review).
+- [X] R2-F4 [Low, risk] Raw-string dedupe (`ImportLibraryFoldersCommandHandler`): single canonical `LibraryPath` before the skip check, reused for import, set-add, failures (source: code-review).
+- [X] R2-F5 [Low, standards] Redundant null layers: endpoint owns `?? []`; handler and validator simplified (source: code-review).

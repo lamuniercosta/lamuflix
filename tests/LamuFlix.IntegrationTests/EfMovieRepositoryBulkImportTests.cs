@@ -54,40 +54,6 @@ public sealed class EfMovieRepositoryBulkImportTests(PostgresFixture fixture) : 
     }
 
     [Fact]
-    public async Task FindFailedMovieIdsAsync_MixedStatuses_ReturnsOnlyFailedIds()
-    {
-        // arrange
-        var ct = TestContext.Current.CancellationToken;
-        await using var db = fixture.CreateMigratedContext();
-        await SeedAsync(db, "PendingFilm", EnrichmentStatus.Pending, ct);
-        await SeedAsync(db, "EnrichedFilm", EnrichmentStatus.Enriched, ct);
-        await SeedAsync(db, "NotFoundFilm", EnrichmentStatus.NotFound, ct);
-        var failed = await SeedAsync(db, "FailedFilm", EnrichmentStatus.Failed, ct);
-
-        // act
-        var ids = await Repository(db).FindFailedMovieIdsAsync(ct);
-
-        // assert
-        ids.ShouldBe([failed.Id]);
-    }
-
-    [Fact]
-    public async Task FindFailedMovieIdsAsync_NoFailed_ReturnsEmpty()
-    {
-        // arrange
-        var ct = TestContext.Current.CancellationToken;
-        await using var db = fixture.CreateMigratedContext();
-        await SeedAsync(db, "PendingFilm", EnrichmentStatus.Pending, ct);
-        await SeedAsync(db, "EnrichedFilm", EnrichmentStatus.Enriched, ct);
-
-        // act
-        var ids = await Repository(db).FindFailedMovieIdsAsync(ct);
-
-        // assert
-        ids.ShouldBeEmpty();
-    }
-
-    [Fact]
     public async Task FindFailedMoviesAsync_MixedStatuses_ReturnsOnlyFailedMoviesInIdOrder()
     {
         // arrange

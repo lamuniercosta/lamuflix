@@ -19,64 +19,75 @@ public sealed class ImportLibraryFoldersCommandHandler(
     private const string InvalidFolderReason = "invalid-folder";
     private const string ImportFailedReason = "import-failed";
 
+    private static readonly SemaphoreSlim PassGate = new(1, 1);
+
     public async Task<ImportLibraryFoldersResult> HandleAsync(
         ImportLibraryFoldersCommand command,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var snapshot = await movies.SnapshotMoviePathsAsync(cancellationToken);
-        var importedPaths = ImportedPathSet.FromPaths(snapshot);
-
-        var imported = 0;
-        var skipped = 0;
-        var retried = 0;
-        var failures = new List<ImportLibraryFolderFailure>();
-
-        foreach (var folder in command.Folders ?? [])
+        await PassGate.WaitAsync(cancellationToken);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (importedPaths.Contains(folder))
-            {
-                skipped++;
-                continue;
-            }
+            var snapshot = await movies.SnapshotMoviePathsAsync(cancellationToken);
+            var importedPaths = ImportedPathSet.FromPaths(snapshot);
 
-            try
-            {
-                await importer.ImportAsync(new LibraryPath(folder), cancellationToken);
-                imported++;
-                importedPaths.Add(folder);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                failures.Add(new ImportLibraryFolderFailure(new LibraryPath(folder), MapReason(exception)));
-            }
-        }
+            var imported = 0;
+            var skipped = 0;
+            var retried = 0;
+            var failures = new List<ImportLibraryFolderFailure>();
 
-        if (command.RetryFailed)
-        {
-            var failed = await movies.FindFailedMoviesAsync(cancellationToken);
-            foreach (var movie in failed)
+            foreach (var folder in command.Folders)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!ReferenceEquals(movie.Status, EnrichmentStatus.Failed))
+                var path = new LibraryPath(folder);
+                if (importedPaths.Contains(path.Value))
                 {
+                    skipped++;
                     continue;
                 }
 
-                movie.RequestEnrichment();
-                outbox.Stage(new EnrichmentRequested(movie.Id, 1));
-                retried++;
+                try
+                {
+                    await importer.ImportAsync(path, cancellationToken);
+                    imported++;
+                    importedPaths.Add(path.Value);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    failures.Add(new ImportLibraryFolderFailure(path, MapReason(exception)));
+                }
             }
 
-            await movies.SaveChangesAsync(cancellationToken);
-        }
+            if (command.RetryFailed)
+            {
+                var failed = await movies.FindFailedMoviesAsync(cancellationToken);
+                foreach (var movie in failed)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!ReferenceEquals(movie.Status, EnrichmentStatus.Failed))
+                    {
+                        continue;
+                    }
 
-        return new ImportLibraryFoldersResult(imported, skipped, retried, failures);
+                    movie.RequestEnrichment();
+                    outbox.Stage(new EnrichmentRequested(movie.Id, 1));
+                    retried++;
+                }
+
+                await movies.SaveChangesAsync(cancellationToken);
+            }
+
+            return new ImportLibraryFoldersResult(imported, skipped, retried, failures);
+        }
+        finally
+        {
+            PassGate.Release();
+        }
     }
 
     private static string MapReason(Exception exception) => exception switch
