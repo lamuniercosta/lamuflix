@@ -238,9 +238,6 @@ public sealed class FeaturesConsumerActivationTests
         public Task<IReadOnlyList<LibraryPath>> SnapshotMoviePathsAsync(CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<LibraryPath>>([]);
 
-        public Task<IReadOnlyList<MovieId>> FindFailedMovieIdsAsync(CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<MovieId>>([]);
-
         public Task<IReadOnlyList<Movie>> FindFailedMoviesAsync(CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<Movie>>([]);
     }

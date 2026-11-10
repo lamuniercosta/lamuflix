@@ -988,16 +988,6 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         return paths;
     }
 
-    public async Task<IReadOnlyList<MovieId>> FindFailedMovieIdsAsync(CancellationToken ct)
-    {
-        var ids = await db.Movies
-            .AsNoTracking()
-            .Where(movie => movie.Status == EnrichmentStatus.Failed)
-            .Select(movie => movie.Id)
-            .ToArrayAsync(ct);
-        return PresentIds(ids);
-    }
-
     public async Task<IReadOnlyList<Movie>> FindFailedMoviesAsync(CancellationToken ct)
     {
         var records = await db.Movies
@@ -1008,6 +998,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             .Include(movie => movie.Keywords)
             .Include(movie => movie.FullCast)
             .Include(movie => movie.Collection)
+            .AsSplitQuery()
             .Where(movie => movie.Status == EnrichmentStatus.Failed)
             .OrderBy(movie => movie.Id)
             .ToArrayAsync(ct);

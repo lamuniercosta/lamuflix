@@ -119,9 +119,6 @@ public sealed class ImportCandidatesQueryHandlerTests
         // act
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new ImportCandidatesQuery(), ct));
-
-        // assert
-        await movies.DidNotReceive().FindFailedMovieIdsAsync(Arg.Any<CancellationToken>());
     }
 
     private static LibraryPath Folder(string value) => new(value);

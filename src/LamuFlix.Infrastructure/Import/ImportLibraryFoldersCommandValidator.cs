@@ -9,7 +9,7 @@ public sealed class ImportLibraryFoldersCommandValidator : AbstractValidator<Imp
     public ImportLibraryFoldersCommandValidator()
     {
         RuleFor(command => command.Folders)
-            .Must((command, folders) => command.RetryFailed || (folders is not null && folders.Count > 0))
+            .Must((command, folders) => command.RetryFailed || folders.Count > 0)
             .WithMessage("Select at least one folder or retry failed enrichments.");
 
         RuleForEach(command => command.Folders)
