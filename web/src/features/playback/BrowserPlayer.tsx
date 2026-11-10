@@ -26,7 +26,10 @@ import {
   playerRegionLabel,
   retryLabel,
 } from './playerCopy';
+import SubtitleSelector from './SubtitleSelector';
+import { applySubtitleTrackModes } from './subtitleTrackModes';
 import { useBrowserPlayer, type MediaDiagnostic } from './useBrowserPlayer';
+import { useSubtitlePlayback } from './useSubtitlePlayback';
 import './BrowserPlayer.css';
 
 const SEEK_STEP_SECONDS = 10;
@@ -67,10 +70,19 @@ export default function BrowserPlayer({
     onDiagnostic,
   });
   const regionRef = useRef<HTMLElement | null>(null);
+  const subtitles = useSubtitlePlayback(movieId);
+  const { selection, contentStatus, tracks } = subtitles;
+  const showTrack = selection !== null && contentStatus === 'ready';
 
   useEffect(() => {
     regionRef.current?.focus();
   }, [movieId]);
+
+  // FR-010: only the selected, loaded track is `showing`; every other listed track is `disabled`,
+  // and Off renders no track at all, so all of them stay disabled.
+  useEffect(() => {
+    applySubtitleTrackModes(videoRef.current, showTrack ? (selection?.trackId ?? null) : null);
+  }, [selection, showTrack, videoRef]);
 
   const assignChrome = useCallback((element: HTMLElement | null) => {
     if (!element) return;
@@ -138,7 +150,21 @@ export default function BrowserPlayer({
     >
       <div className="browser-player-frame">
         <MediaController ref={assignChrome} noHotkeys className="browser-player-chrome">
-          <video ref={videoRef} slot="media" className="browser-player-video" playsInline />
+          <video ref={videoRef} slot="media" className="browser-player-video" playsInline>
+            {tracks.map((track) => {
+              const active = showTrack && selection?.trackId === track.id;
+              return (
+                <track
+                  key={`${track.id}:${active ? selection?.attempt : 0}`}
+                  kind="subtitles"
+                  label={track.label}
+                  srcLang={track.language}
+                  src={active ? selection?.src : undefined}
+                  data-track-id={track.id}
+                />
+              );
+            })}
+          </video>
           <MediaLoadingIndicator slot="centered-chrome" noAutohide />
           <MediaControlBar>
             <MediaPlayButton />
@@ -163,6 +189,15 @@ export default function BrowserPlayer({
         {status === 'ended' && <p className="sr-only">{ENDED_ANNOUNCEMENT}</p>}
       </div>
 
+      <SubtitleSelector
+        title={title}
+        listStatus={subtitles.listStatus}
+        contentStatus={subtitles.contentStatus}
+        tracks={subtitles.tracks}
+        selectedId={selection?.trackId ?? null}
+        onSelect={subtitles.select}
+        onRetryList={subtitles.retryList}
+      />
       {status === 'error' ? (
         <div className="browser-player-actions">
           <p role="alert" className="browser-player-error">
