@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { server } from '../../test/server';
 import { movieDetails, movieDetailsNoTrailer } from '../../mocks/fixtures';
+import { playLabel } from '../playback/playerCopy';
 import MovieDetailsView from './MovieDetailsView';
 
 const VALID_KEY = 'dQw4w9WgXcQ';
@@ -135,7 +136,7 @@ describe('MovieDetailsView trailer section', () => {
     useDetails(detailsWith(null));
     renderView();
 
-    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'File' })).toBeInTheDocument();
   });
 });

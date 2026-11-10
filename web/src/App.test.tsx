@@ -16,7 +16,7 @@ import { useEnrichmentStatus } from './library/useEnrichmentStatus';
 import { retryAcceptedHandler, standingBrowseQuery } from './test/handlers';
 import { server } from './test/server';
 import { installMediaStubs } from './test/mediaElement';
-import { playerRegionLabel } from './features/playback/playerCopy';
+import { playerRegionLabel, playLabel } from './features/playback/playerCopy';
 
 const recordedDetailsProps = vi.hoisted(() => [] as MovieDetailsViewProps[]);
 
@@ -278,7 +278,7 @@ describe('App movie details routing', () => {
     renderApp();
 
     expect(await screen.findByRole('heading', { name: 'Dune' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
   });
 
   it('renders the library screen on paths outside /movies/<id>', async () => {
@@ -329,7 +329,7 @@ describe('App layout shell', () => {
       window.history.replaceState({}, '', path);
       const view = renderApp();
       expect(await screen.findByText('Dune', {}, { timeout: 10_000 })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: playLabel('Dune') })).not.toBeInTheDocument();
       view.unmount();
       cleanup();
       window.history.replaceState({}, '', '/');
@@ -342,7 +342,7 @@ describe('App layout shell', () => {
     await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
-    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/movies/1');
 
     fireEvent.click(screen.getByRole('link', { name: 'Library (Pending)' }));
@@ -381,12 +381,12 @@ describe('App layout shell', () => {
     await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
-    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
 
     window.history.replaceState({}, '', '/');
     window.dispatchEvent(new PopStateEvent('popstate'));
     expect(await screen.findByRole('link', { name: 'Dune' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: playLabel('Dune') })).not.toBeInTheDocument();
   });
 
   it('keeps details search local until Enter, then preserves filters and replaces text', async () => {
@@ -395,7 +395,7 @@ describe('App layout shell', () => {
     await screen.findByText('Dune', {}, { timeout: 10_000 });
 
     fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
-    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
 
     const search = screen.getByPlaceholderText('Search titles');
     fireEvent.change(search, { target: { value: 'arrival' } });
@@ -433,7 +433,7 @@ describe('App layout shell', () => {
   it('resyncs the details back link when only history state changes', async () => {
     window.history.replaceState({ libraryReturnUrl: '/?text=a' }, '', '/movies/1');
     renderApp();
-    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Library ("a")' })).toHaveAttribute('href', '/?text=a');
 
     window.history.replaceState({ libraryReturnUrl: '/?text=b' }, '', '/movies/1');
@@ -571,7 +571,7 @@ describe('App enrichment hub shell', () => {
     expect(connections[0].startCalls).toBe(1);
 
     fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
-    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
 
     fireEvent.click(detailsBackLink());
     expect(await screen.findByText('Dune')).toBeInTheDocument();
@@ -587,7 +587,7 @@ describe('App enrichment hub shell', () => {
 
     renderApp(seam);
 
-    expect(await screen.findByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
     expect(recordedDetailsProps.at(-1)?.enrichmentStatus).toBe(seam);
   });
 });

@@ -10,6 +10,7 @@ import {
   OPEN_LOCAL_COPY,
   playerRegionLabel,
   openLocalLabel,
+  playLabel,
   retryLabel,
 } from '../playback/playerCopy';
 import {
@@ -72,7 +73,7 @@ describe('MovieDetailsView Open in BS Player visibility', () => {
 
     const secondary = await screen.findByRole('button', { name: openLocalLabel('Dune') });
     expect(secondary).toHaveTextContent(OPEN_LOCAL_COPY);
-    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
   });
 
   it('hides the secondary action when capability is false', async () => {
@@ -84,7 +85,7 @@ describe('MovieDetailsView Open in BS Player visibility', () => {
 
     await screen.findByRole('heading', { name: 'Dune' });
     await waitFor(() => expect(secondaryButton()).toBeNull());
-    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
   });
 
   it('hides the secondary action while capability is loading and keeps browser Play', async () => {
@@ -99,7 +100,7 @@ describe('MovieDetailsView Open in BS Player visibility', () => {
 
     await screen.findByRole('heading', { name: 'Dune' });
     expect(secondaryButton()).toBeNull();
-    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: openLocalLabel('Dune') })).toBeInTheDocument();
   });
 
@@ -112,7 +113,7 @@ describe('MovieDetailsView Open in BS Player visibility', () => {
 
     await screen.findByRole('heading', { name: 'Dune' });
     await waitFor(() => expect(secondaryButton()).toBeNull());
-    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
   });
 });
 
@@ -127,7 +128,7 @@ describe('MovieDetailsView Open in BS Player launches local playback', () => {
     renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    fireEvent.click(screen.getByRole('button', { name: playLabel('Dune') }));
     await screen.findByRole('region', { name: playerRegionLabel('Dune') });
     expect(posts).toEqual([]);
 
@@ -214,7 +215,7 @@ describe('MovieDetailsView browser failure offers explicit local recovery', () =
     );
     renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Play' }));
+    fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
     const region = await screen.findByRole('region', { name: playerRegionLabel('Dune') });
 
     await act(async () => {
@@ -236,7 +237,7 @@ describe('MovieDetailsView browser failure offers explicit local recovery', () =
     );
     renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Play' }));
+    fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
     const region = await screen.findByRole('region', { name: playerRegionLabel('Dune') });
 
     await act(async () => {
@@ -256,7 +257,7 @@ describe('MovieDetailsView browser failure offers explicit local recovery', () =
     );
     renderView();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Play' }));
+    fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
     const region = await screen.findByRole('region', { name: playerRegionLabel('Dune') });
     await act(async () => {
       region.querySelector('video')?.dispatchEvent(new Event('error'));

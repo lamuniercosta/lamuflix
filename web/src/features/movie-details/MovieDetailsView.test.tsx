@@ -12,7 +12,7 @@ import {
   relatedMovies,
 } from '../../mocks/fixtures';
 import { installMediaStubs, type MediaStubHandle } from '../../test/mediaElement';
-import { playerRegionLabel } from '../playback/playerCopy';
+import { playerRegionLabel, playLabel } from '../playback/playerCopy';
 import { movieStreamUrl } from '../playback/streamSource';
 import { browseMoviesQueryKey } from '../../library/libraryQueries';
 import type {
@@ -150,7 +150,7 @@ describe('MovieDetailsView browser Play default', () => {
     await screen.findByRole('heading', { name: 'Dune' });
     expect(screen.queryByRole('region', { name: playerRegionLabel('Dune') })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    fireEvent.click(screen.getByRole('button', { name: playLabel('Dune') }));
 
     const playerRegion = await screen.findByRole('region', { name: playerRegionLabel('Dune') });
     expect(playerRegion).toBeInTheDocument();
@@ -165,7 +165,7 @@ describe('MovieDetailsView browser Play default', () => {
     const { container } = renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
-    const playButton = screen.getByRole('button', { name: 'Play' });
+    const playButton = screen.getByRole('button', { name: playLabel('Dune') });
     fireEvent.click(playButton);
     await screen.findByRole('region', { name: playerRegionLabel('Dune') });
     fireEvent.click(playButton);
@@ -190,7 +190,7 @@ describe('MovieDetailsView browser Play default', () => {
 
     await screen.findByRole('heading', { name: 'Dune' });
     expect(screen.queryByRole('region', { name: playerRegionLabel('Dune') })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
   });
 
   it('keeps the rest of the details page usable while the player is open', async () => {
@@ -198,7 +198,7 @@ describe('MovieDetailsView browser Play default', () => {
     renderView();
 
     await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    fireEvent.click(screen.getByRole('button', { name: playLabel('Dune') }));
     await screen.findByRole('region', { name: playerRegionLabel('Dune') });
 
     expect(screen.getByRole('heading', { name: 'Dune' })).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe('MovieDetailsView browser Play default', () => {
     const first = renderView(1);
 
     await screen.findByRole('heading', { name: 'Dune' });
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    fireEvent.click(screen.getByRole('button', { name: playLabel('Dune') }));
     await screen.findByRole('region', { name: playerRegionLabel('Dune') });
     media.calls.length = 0;
 
