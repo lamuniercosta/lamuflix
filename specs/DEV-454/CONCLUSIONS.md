@@ -158,3 +158,24 @@ Patron answer:
 - **Analyze & Plan Challenge Adjudication (`adjudication-DEV-454-Keel:1-80`, `DEV-454:52-55`)**: All 17 plan challenge findings (Sentry 8, Ledger 6, Compass 3) have verified dispositions across final repaired artifacts (`26/26` requirement keys mapped across `T000-T025`, `0` unmapped tasks, `0` drafting ambiguities/duplications).
 - **User-Visible Outcome & Merge Bar (`specs/DEV-454/spec.md:110-129`, `specs/DEV-454/checklists/requirements.md:34-39,69`)**: `spec.md` defines `"What the User Will See"` and `SMOKE-001` through `SMOKE-004` against the Compose stack (checklist items remain deliberately unticked per `checklists/requirements.md:5,69` until Keel's post-owner-approval reread/freeze); Gate 1 spec PR merge remains user-owned.
 
+---
+
+## Phase B T000 - Verified Gate 1 merge and explicit owner approval (2026-11-10)
+
+**Verdict**: T000 receipt complete. Gate 1 spec PR merge and explicit owner approval are both recorded; the Ledger S4 owner structural approval prerequisite is satisfied.
+
+**Evidence**: Conductor-supplied recon in canvas note `DEV-454:50-69`, including verbatim `gh pr view 357 --json state,mergedAt,mergeCommit,title,url,body` output at line 58 and summary fields at lines 65-69.
+
+- Spec PR: [#357 - DEV-454: spec](https://github.com/lamuniercosta/lamuflix/pull/357).
+- Verified state: `MERGED`; merged at `2026-11-10T05:11:16Z`.
+- Verified merge commit: `c0bf581310fdcd0b690f17166e264b89d61bbd9b`. This supplied receipt supersedes the earlier Conductor ask naming `2f9bad9b` as the merge commit.
+- Explicit owner disposition: **APPROVED**, evidenced by the checked owner checkbox in the returned PR body (`DEV-454:58`), reproduced verbatim below. Approval is established by that explicit checked approval text, separately from the merge receipt.
+
+> - [x] Approve the DEV-454 narrow constitution v1.13.0 amendment to Principles II and V: recognize existing LibraryFileAccessDeniedException as an expected failure and map it to sanitized 403 Forbidden in the single GlobalExceptionHandler, preserving all other exception mappings and the requirement that endpoints do not map exceptions independently.
+
+The approved exact amendment text in the same PR body is:
+
+- Principle II sentence addition: `Expected domain failures also include LibraryFileAccessDeniedException for library file policy and containment denial.`
+- Principle V table-row addition: `LibraryFileAccessDeniedException` -> `403`.
+
+This receipt supersedes the earlier pending-approval and pending-merge descriptions for T000 only. The PR body retains historical draft and pending language; the checked approval and verified merge fields above supply the two required receipts. No constitution application, PLAN FROZEN decision, T001 completion, dependency delivery, implementation clearance, runtime acceptance, or implementation merge clearance is claimed. T001 must still verify that the approved constitutional text is present before implementation relies on the global 403 arm, and satisfy its remaining pickup prerequisites.
