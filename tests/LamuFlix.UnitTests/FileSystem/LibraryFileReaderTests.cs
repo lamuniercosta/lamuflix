@@ -422,6 +422,87 @@ public sealed class LibraryFileReaderTests
         results.ShouldAllBe(bytes => bytes.SequenceEqual(expected));
     }
 
+    [Fact]
+    public void EnumerateFiles_EligibleSidecarsAndUnrelatedFiles_ReturnsOnlyTopLevelRegularFileNamesInOrdinalOrder()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), Payload());
+        library.WriteFile(Path.Combine(MovieFolder, "Heat.en.srt"), Payload());
+        library.WriteFile(Path.Combine(MovieFolder, "Heat.srt"), Payload());
+        library.WriteFile(Path.Combine(MovieFolder, "nested", "Heat.de.srt"), Payload());
+        var reader = CreateReader(library.Root);
+
+        // act
+        var files = reader.EnumerateFiles(new LibraryPath(MovieFolder));
+
+        // assert
+        files.ShouldBe(["Heat.en.srt", PrimaryFileName, "Heat.srt"]);
+    }
+
+    [Fact]
+    public void EnumerateFiles_FolderOutsideRoot_ThrowsAccessDenied()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        using var outside = new TemporaryDirectory();
+        outside.WriteFile(Path.Combine(MovieFolder, "Heat.en.srt"), Payload());
+        var reader = CreateReader(library.Root);
+        var outsideFolder = Path.Combine(outside.Root, MovieFolder);
+
+        // act
+        var act = () => reader.EnumerateFiles(new LibraryPath(outsideFolder));
+
+        // assert
+        Should.Throw<LibraryFileAccessDeniedException>(act);
+    }
+
+    [Fact]
+    public void EnumerateFiles_MissingFolder_ThrowsNotFound()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        var reader = CreateReader(library.Root);
+
+        // act
+        var act = () => reader.EnumerateFiles(new LibraryPath(MovieFolder));
+
+        // assert
+        Should.Throw<NotFoundException>(act);
+    }
+
+    [Fact]
+    public void EnumerateFiles_RegularFilePath_ThrowsAccessDenied()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), Payload());
+        var reader = CreateReader(library.Root);
+
+        // act
+        var act = () => reader.EnumerateFiles(new LibraryPath(Path.Combine(MovieFolder, PrimaryFileName)));
+
+        // assert
+        Should.Throw<LibraryFileAccessDeniedException>(act);
+    }
+
+    [Fact]
+    public void EnumerateFiles_LinkedFolderInsideRoot_ThrowsAccessDeniedEvenWhenTargetIsContained()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, "Heat.en.srt"), Payload());
+        var linkPath = Path.Combine(library.Root, "linked-movie");
+        CreateDirectoryLinkOrFail(linkPath, Path.Combine(library.Root, MovieFolder));
+        var reader = CreateReader(library.Root);
+
+        // act
+        var act = () => reader.EnumerateFiles(new LibraryPath("linked-movie"));
+
+        // assert
+        Should.Throw<LibraryFileAccessDeniedException>(act);
+    }
+
     private static ILibraryFileReader CreateReader(string rootPath)
     {
         var hostEnvironment = Substitute.For<IHostEnvironment>();

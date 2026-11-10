@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using LamuFlix.Core.Domain;
@@ -40,6 +41,60 @@ public sealed partial class LibraryFileReader(
 
         RejectNonRegularFile(authorized);
         return OpenAuthorized(authorized);
+    }
+
+    public IReadOnlyList<string> EnumerateFiles(LibraryPath folder)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+
+        var authorized = AuthorizeExisting(folder.Value);
+        if (!Directory.Exists(authorized))
+        {
+            throw Denied();
+        }
+
+        return EnumerateRegularFiles(authorized);
+    }
+
+    private static IReadOnlyList<string> EnumerateRegularFiles(string authorizedDirectory)
+    {
+        var names = new List<string>();
+        foreach (var candidate in Directory.EnumerateFileSystemEntries(authorizedDirectory, "*", SearchOption.TopDirectoryOnly))
+        {
+            if (IsRegularFileEntry(candidate))
+            {
+                names.Add(Path.GetFileName(candidate));
+            }
+        }
+
+        names.Sort(StringComparer.Ordinal);
+        return names;
+    }
+
+    private static bool IsRegularFileEntry(string candidate)
+    {
+        try
+        {
+            if (HasReparsePointInChain(candidate, Path.GetDirectoryName(candidate) ?? candidate))
+            {
+                return false;
+            }
+
+            var info = new FileInfo(candidate);
+            if (!info.Exists || info.LinkTarget is not null
+                || (info.Attributes & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != 0)
+            {
+                return false;
+            }
+
+            return IsRegularFile(candidate);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or ArgumentException
+                or NotSupportedException or System.Security.SecurityException)
+        {
+            return false;
+        }
     }
 
     private string AuthorizeExisting(string candidate)

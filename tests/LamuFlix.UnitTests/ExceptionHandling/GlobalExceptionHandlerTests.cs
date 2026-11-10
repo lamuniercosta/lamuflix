@@ -138,6 +138,29 @@ public sealed class GlobalExceptionHandlerTests
     }
 
     [Fact]
+    public async Task TryHandleAsync_LibraryFileAccessDeniedException_WritesSanitized403()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+        var exception = new LamuFlix.Core.Ports.LibraryFileAccessDeniedException(
+            "The requested library path is outside the authorized library root.");
+
+        // act
+        var handled = await handler.TryHandleAsync(context, exception, CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status403Forbidden);
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status403Forbidden);
+        root.GetProperty("title").GetString().ShouldBe("Forbidden");
+        root.GetProperty("type").GetString().ShouldBe("https://tools.ietf.org/html/rfc9110#section-15.5.4");
+        root.GetProperty("traceId").GetString().ShouldBe("trace-296");
+        AssertNoLeak(root, "outside the authorized library root", nameof(LamuFlix.Core.Ports.LibraryFileAccessDeniedException));
+    }
+
+    [Fact]
     public async Task TryHandleAsync_UnhandledException_Writes500ProblemDetailsWithoutStackLeak()
     {
         // arrange

@@ -860,6 +860,17 @@ public sealed class StreamEndpointTests(ApiHostFactory factory)
             OpenedStreams.Add(tracking);
             return tracking;
         }
+
+        public IReadOnlyList<string> EnumerateFiles(LibraryPath folder)
+        {
+            ArgumentNullException.ThrowIfNull(folder);
+            EnumeratedFolders.Add(folder.Value);
+            return Files;
+        }
+
+        public IReadOnlyList<string> Files { get; init; } = [];
+
+        public List<string> EnumeratedFolders { get; } = [];
     }
 
     private sealed class TrackingStream(Stream inner) : Stream

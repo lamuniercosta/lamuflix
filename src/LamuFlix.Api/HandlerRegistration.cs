@@ -10,6 +10,7 @@ using LamuFlix.Core.Features.Import;
 using LamuFlix.Core.Features.Library;
 using LamuFlix.Core.Features.Playback;
 using LamuFlix.Core.Features.Recommendations;
+using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Features.Watchlist;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
@@ -73,6 +74,7 @@ internal static class HandlerRegistration
         services.AddHandler<RescanLibraryCommandHandler, RescanLibraryCommand, RescanLibraryResult>();
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();
         services.AddHandler<GetPlaybackCapabilitiesQueryHandler, GetPlaybackCapabilitiesQuery, PlaybackCapabilitiesResult>();
+        services.AddHandler<ListSubtitleTracksQueryHandler, ListSubtitleTracksQuery, ListSubtitleTracksResult>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();
         services.AddHandler<MarkWatchedCommandHandler, MarkWatchedCommand, Unit>();
