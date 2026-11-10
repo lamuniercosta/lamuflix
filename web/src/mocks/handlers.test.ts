@@ -13,6 +13,8 @@ import {
   people,
   problemDetails,
   acceptedLocation,
+  subtitleContent as subtitleContentFixture,
+  subtitleTracks as subtitleTracksFixture,
 } from './fixtures';
 
 const client = createApiClient('https://test.local');
@@ -62,6 +64,12 @@ describe('generated MSW handlers', () => {
     const thumbnail = await client.GET('/api/movies/{id}/thumbnail', {
       params: { path: { id: 1 } },
     });
+    const subtitleTracks = await client.GET('/api/movies/{id}/subtitles', {
+      params: { path: { id: 1 } },
+    });
+    const subtitleContent = await client.GET('/api/movies/{id}/subtitles/{trackId}/content', {
+      params: { path: { id: 1, trackId: 'f8a2c1' } },
+    });
 
     // assert
     expect(browse.data).toEqual(browseMovies);
@@ -81,6 +89,8 @@ describe('generated MSW handlers', () => {
     expect(peopleList.data).toEqual(people);
     expect(directorList.data).toEqual(directors);
     expect(thumbnail.data).toEqual(movieThumbnail);
+    expect(subtitleTracks.data).toEqual(subtitleTracksFixture);
+    expect(subtitleContent.data).toEqual(subtitleContentFixture);
   });
 
   it('serves the null-metadata details variant through an override', async () => {
