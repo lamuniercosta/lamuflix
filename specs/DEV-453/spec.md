@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/453-spec`
 **Created**: 2026-11-09
-**Status**: Draft — Plan Challenge round 1 planning repairs against brief Authoritative Plan Challenge adjudication addendum (2026-11-10). **blocked: structural (C4/VII)**. Gate 1 stays closed until the owner checkbox below is answered. No analyze-clean, PLAN FROZEN, implementation clearance, runtime acceptance, or merge claim. Affected SubtitlesOptions / OpenSubtitlesOptions ValidateOnStart implementation remains blocked until owner approval and the corresponding scoped constitution/governance amendment lifecycle. Principle I port work remains independent.
+**Status**: `gate1: provisional`
 **Input**: Ticket DEV-453 (parent DEV-100); grill-closed `brief.md` (Q1–Q12) + Authoritative analyze adjudication addendum + Authoritative Plan Challenge adjudication addendum (2026-11-10); `CONCLUSIONS.md` corrected Patron analyze rulings; `ASSUMPTIONS.md`; Keel-authored `docs/adr/0038-subtitle-provider-and-sidecar-boundary.md` (Proposed); Maestri notes `DEV-453`, `recon-DEV-453`, `adjudication-DEV-453-Keel`; `specs/PRODUCT.md`; `.specify/memory/constitution.md` (cite only). Dependencies: DEV-457, DEV-454. Grill commit: `cd575e55`.
 
 ## Owner question — Gate 1

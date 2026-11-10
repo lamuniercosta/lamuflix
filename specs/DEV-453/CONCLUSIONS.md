@@ -204,3 +204,13 @@ This is post-grill consistency adjudication, not Q13 or a reopening of the 12-qu
 
 - **Verdict**: Confirmed (accepted by Keel) — deliberately authorize an append-only update to repository-root `CONTEXT.md` adding the five settled domain terms (`Ordered language preferences`, `Selected subtitle`, `Sidecar`, `Preparation`, `Existing track`) with their `term / definition / _Avoid_:` entries, preserving all existing `CONTEXT.md` entries, under `specs/PRODUCT.md` §5 Care Item #6 and superseding only the Q12 file-bound restriction (`no root glossary rewrite`).
 - **Cited Basis**: `.specify/memory/constitution.md:522, 537, 629` (Principle VIII), `specs/PRODUCT.md` §5 Care Item #6, and `recon-DEV-453:52-56`.
+
+
+---
+
+## Phase 2 Step 7 — Owner Approval of Principle VII Departure & `gate1: provisional` (2026-11-10)
+
+- **Verdict**: Approved — record owner approval of the C4 / Principle VII departure on PR #358 (`SubtitlesOptions` / `OpenSubtitlesOptions` `ValidateOnStart()` deferred to prepare-time `409 Conflict`, with no guessed numeric defaults) and mark `spec.md` `**Status**:` as `gate1: provisional`.
+- **Cited Basis**:
+  - **Owner word is final (Charter §2.3 / Maestri note `DEV-453` lines 166–169)**: Owner ticked `[x]` on the C4/VII Principle VII departure checkbox on PR #358, approving deferral of `SubtitlesOptions` / `OpenSubtitlesOptions` `ValidateOnStart()` validation to `POST /movies/{id}/subtitles/prepare` (`409 Conflict`) so missing or invalid acquisition settings never block read-only startup or existing-track serving.
+  - **Plan Challenge & Checklist Clearance (`DEV-453` lines 147–151, `specs/DEV-453/checklists/requirements.md` lines 32–37)**: Plan Challenge repairs are verified clean across all 19 findings, and `checklists/requirements.md` has all "User-Visible Outcome" items ticked (`[x]`) with "Nothing visible" justified in `spec.md`.
