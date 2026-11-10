@@ -86,9 +86,12 @@ export default function BrowserPlayer({
 
       switch (event.key) {
         case ' ':
-        case 'k':
           event.preventDefault();
           if (isChromeControl(event.target)) return;
+          togglePlay();
+          return;
+        case 'k':
+          event.preventDefault();
           togglePlay();
           return;
         case 'ArrowRight':
