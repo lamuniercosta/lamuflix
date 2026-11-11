@@ -18,6 +18,8 @@ public static class SubtitleProviderServiceCollectionExtensions
             .ConfigurePrimaryHttpMessageHandler(static () => new HttpClientHandler { AllowAutoRedirect = false })
             .ConfigureHttpClient(static client => client.Timeout = System.Threading.Timeout.InfiniteTimeSpan);
 
+        services.AddHealthChecks().AddCheck<SubtitleProviderHealthCheck>("subtitle-provider");
+
         return services;
     }
 }

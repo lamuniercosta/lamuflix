@@ -85,4 +85,26 @@ public static class TelemetryConstants
     public const string OutboxRetentionDeletedMetricName = "lamuflix.outbox.retention.deleted";
 
     public const string OutboxRetentionFailuresMetricName = "lamuflix.outbox.retention.failures";
+
+    public const string SubtitlePrepare = "Subtitle.Prepare";
+
+    public const string SubtitleServe = "Subtitle.Serve";
+
+    public const string SubtitleProviderLookup = "Subtitle.ProviderLookup";
+
+    public const string SubtitleDurationMetricName = "lamuflix.subtitle.duration";
+
+    public const string SubtitleOutcomeMetricName = "lamuflix.subtitle.outcome";
+
+    public const string SubtitleSavedOutcome = "saved";
+
+    public const string SubtitleAlreadyPresentOutcome = "already_present";
+
+    public const string SubtitleNoMatchOutcome = "no_match";
+
+    public const string SubtitleReadyState = "ready";
+
+    public const string SubtitleDisabledOrUnconfiguredState = "disabled_or_unconfigured";
+
+    public const string SubtitleAcquisitionStateTagName = "lamuflix.subtitle.acquisition_state";
 }
