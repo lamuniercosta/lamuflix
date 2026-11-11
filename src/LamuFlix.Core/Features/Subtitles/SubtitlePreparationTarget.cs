@@ -31,20 +31,24 @@ public sealed record SubtitlePreparationTarget(
 
         reader.AuthorizeFolder(details.Path);
 
-        PrimaryVideo primary;
-        try
-        {
-            primary = scanner.ResolvePrimaryVideo(details.Path);
-        }
-        catch (InvalidTransitionException)
-        {
-            throw new NotFoundException();
-        }
+        var primary = ResolvePrimaryVideo(scanner, details.Path);
 
         return new SubtitlePreparationTarget(
             details.Path,
             primary.Path,
             Path.GetFileName(primary.Path.Value),
             details.Title);
+    }
+
+    private static PrimaryVideo ResolvePrimaryVideo(IMediaLibraryScanner scanner, LibraryPath folder)
+    {
+        try
+        {
+            return scanner.ResolvePrimaryVideo(folder);
+        }
+        catch (InvalidTransitionException)
+        {
+            throw new NotFoundException();
+        }
     }
 }
