@@ -133,3 +133,52 @@ recovered with options `Off`, `Default`, `English`, `Portuguese (Brazil)`.
 - Runs before the recorded one failed on this file's own assertions or on the Compose stack
   (the Api container exited 139 during startup twice) and the `20d919e8` run's SMOKE-002 failure;
   those are superseded by the remediation and are not counted as evidence for this receipt.
+
+## Delivery-head reconciliation (Compass L2, recorded 2026-11-11)
+
+The execution SHA above (`fe136230`) is preserved unchanged: SMOKE-001–004 PASS belongs to
+that run and is not rewritten to a later commit. The web tree the browser exercised is
+behavior-identical to that SHA except for the one viewer fix below; every backend path the
+browser run exercised changed after `fe136230`, so this section records a verified bounded
+equivalence at fix HEAD `6f7ea9fe`, not a re-execution. T024 must still re-run
+`scripts/run-e2e-smoke.ps1` against the final delivery HEAD.
+
+Post-smoke delta (`git diff fe136230..6f7ea9fe`, 36 files, backend + comments + one viewer fix):
+
+- Backend behavior-preserving refactors: shared `SubtitleMovieResolution` extraction used by
+  both handlers, `ClassifySuffix` / `ValidatePayload` / UTF-16/32 BOM helper extractions,
+  `ApplyHeader` unification in `SubtitleEndpoints`, and const visibility tightening. No route,
+  status code, header value, token, decode, or conversion behavior changed by these moves.
+- Remediation behavior changes, all telemetry- or comment-scoped except one: Compass M2 adds
+  `Activity` `lamuflix.movie.id` / `failure_category` tags only (no HTTP behavior change);
+  Ledger S3 replaces two boolean literals with `const` (identical decoder behavior); Ledger S1
+  strips explanatory comments (no behavior); Compass L3 invalidates pending subtitle content
+  on movie change/unmount in `useSubtitlePlayback.ts` (viewer behavior fix for a scenario the
+  `fe136230` smoke run did not exercise).
+- Web comment-only strips (`BrowserPlayer.tsx`, `SubtitleSelector.tsx`, `subtitleContent.ts`,
+  `subtitleTrackModes.ts`, `mediaChrome.ts`, e2e helpers): deletions only, no behavior.
+
+Equivalence evidence executed at `6f7ea9fe` (no product-code change after these runs):
+
+- `dotnet test tests/LamuFlix.UnitTests`: **3137 passed**, 1 skipped — covers both handlers,
+  discovery, decoder, converter, tokens, resolution, and the new `SubtitleDiagnostics`
+  category mapping on every failure path the browser run exercises (list 200, content 200,
+  404, 422, 403, 500).
+- `SubtitleEndpointTests`: **35 passed** — the real-HTTP pipeline asserts list/content bodies,
+  `private, no-store` on all paths, `nosniff` on the content route, sanitized 403/404/422/500
+  bodies, the token allowlist, and the new real-filesystem replacement proof (matched sidecar
+  swapped for an outside link between match and open fails closed with 403 and no outside
+  bytes).
+- `scripts/run-web-gates.ps1 -All`: **PASS** (lint, tsc, vitest, build) — covers the L3 stale
+  late-failure and late-success tests plus all existing viewer suites.
+- `scripts/run-property-tests.ps1`: **PASS** (143 across 5 projects).
+- Static gates on the changed C#: Roslyn exit 0, cyclomatic exit 0, InspectCode exit 0,
+  `dotnet format --verify-no-changes` exit 0.
+
+Known non-equivalence, left to T024: the L3 viewer fix itself (stale pending content after a
+movie change) was proved only in `jsdom`/Vitest, never in a real browser; and the full
+`dotnet test` run at this HEAD showed one flake in the untouched
+`EnrichmentConsumerTests.Consumer_AnEligibleEnrichmentWithThumbnailsEnabled_PublishesBeforeAck`
+(1614 passed, 1 failed; the test passes in isolation and the area is outside this ticket's
+diff). The vulnerable-packages gate FAILs identically on clean `c9a5f3c7` (Aspire 13.6.4
+advisories, no package change in this diff) and is routed to Gauge, not fixed here.
