@@ -94,6 +94,8 @@ public static class TelemetryConstants
 
     public const string SubtitleDurationMetricName = "lamuflix.subtitle.duration";
 
+    public const string SubtitleDurationUnit = "s";
+
     public const string SubtitleOutcomeMetricName = "lamuflix.subtitle.outcome";
 
     public const string SubtitleSavedOutcome = "saved";
