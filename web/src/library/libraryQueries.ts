@@ -167,7 +167,6 @@ export function useImportLibraryFoldersMutation() {
     },
     onSuccess: () => {
       invalidateBrowseMovies(queryClient);
-      invalidateImportSources(queryClient);
     },
   });
 }

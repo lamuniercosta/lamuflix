@@ -1,8 +1,11 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { AlertTriangleIcon } from '../ui/icons';
 import {
   BULK_IMPORT_REASON_TEXT,
   GENERIC_BULK_IMPORT_ERROR,
+  invalidateBrowseMovies,
+  invalidateImportSources,
   useFailedEnrichmentsQuery,
   useImportCandidatesQuery,
   useImportLibraryFoldersMutation,
@@ -12,6 +15,12 @@ import {
 type BulkImportDialogProps = {
   open: boolean;
   onClose: () => void;
+};
+
+type BulkImportProgress = {
+  done: number;
+  total: number;
+  folder: string;
 };
 
 function focusableElements(root: HTMLElement): HTMLElement[] {
@@ -26,6 +35,8 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
   const errorId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const alertRef = useRef<HTMLParagraphElement>(null);
+  const stopRequested = useRef(false);
+  const queryClient = useQueryClient();
   const candidates = useImportCandidatesQuery(open);
   const failed = useFailedEnrichmentsQuery(open);
   const importLibrary = useImportLibraryFoldersMutation();
@@ -33,6 +44,8 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
   const [retryFailed, setRetryFailed] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [summary, setSummary] = useState<BulkImportSummary | null>(null);
+  const [progress, setProgress] = useState<BulkImportProgress | null>(null);
+  const [running, setRunning] = useState(false);
 
   if (!open) {
     return null;
@@ -42,10 +55,12 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
   const failedItems = failed.data?.items ?? [];
 
   function handleClose() {
+    stopRequested.current = true;
     setSelected(new Set());
     setRetryFailed(false);
     setErrorMessage(null);
     setSummary(null);
+    setProgress(null);
     onClose();
   }
 
@@ -97,19 +112,65 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
     setErrorMessage(null);
     setSummary(null);
 
+    const targets = [...selected];
+    const totals = { imported: 0, skipped: 0, retried: 0 };
+    const failures: BulkImportSummary['failures'] = [];
+    stopRequested.current = false;
+    setRunning(true);
+
     try {
-      const result = await importLibrary.mutateAsync({
-        folders: [...selected],
-        retryFailed,
+      for (let index = 0; index < targets.length; index++) {
+        if (stopRequested.current) {
+          return;
+        }
+
+        setProgress({ done: index, total: targets.length, folder: targets[index] });
+        const result = await importLibrary.mutateAsync({
+          folders: [targets[index]],
+          retryFailed: false,
+        });
+        totals.imported += Number(result.imported);
+        totals.skipped += Number(result.skipped);
+        totals.retried += Number(result.retried);
+        failures.push(...result.failures);
+        setProgress({ done: index + 1, total: targets.length, folder: targets[index] });
+      }
+
+      if (retryFailed) {
+        const result = await importLibrary.mutateAsync({ folders: [], retryFailed: true });
+        totals.imported += Number(result.imported);
+        totals.skipped += Number(result.skipped);
+        totals.retried += Number(result.retried);
+        failures.push(...result.failures);
+      }
+
+      setSummary({
+        imported: totals.imported,
+        skipped: totals.skipped,
+        retried: totals.retried,
+        failures,
       });
-      setSummary(result);
     } catch {
       setErrorMessage(GENERIC_BULK_IMPORT_ERROR);
       queueMicrotask(() => alertRef.current?.focus());
+      if (totals.imported + totals.skipped + totals.retried > 0) {
+        setSummary({
+          imported: totals.imported,
+          skipped: totals.skipped,
+          retried: totals.retried,
+          failures,
+        });
+      }
+    } finally {
+      invalidateBrowseMovies(queryClient);
+      invalidateImportSources(queryClient);
+      setRunning(false);
+      setProgress(null);
     }
   }
 
-  const busy = importLibrary.isPending;
+  const busy = running;
+  const inFlight = progress !== null && progress.done < progress.total;
   const nothingToDo = selected.size === 0 && !retryFailed;
 
   return (
@@ -201,6 +262,18 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
               <AlertTriangleIcon size={18} />
               {errorMessage}
             </p>
+          ) : null}
+          {inFlight && progress !== null ? (
+            <div
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={progress.total}
+              aria-valuenow={progress.done}
+              aria-label="Bulk import progress"
+              className="lamu-dialog-progress"
+            >
+              Importing {progress.done + 1} of {progress.total}: {progress.folder}
+            </div>
           ) : null}
           {summary ? (
             <div role="status" id={statusId}>
