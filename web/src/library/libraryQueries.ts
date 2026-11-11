@@ -38,6 +38,11 @@ export function invalidateBrowseMovies(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: ['browseMovies'] }).catch(() => {});
 }
 
+export function invalidateImportSources(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: ['importCandidates'] }).catch(() => {});
+  void queryClient.invalidateQueries({ queryKey: ['failedEnrichments'] }).catch(() => {});
+}
+
 export function markRowPending(
   current: BrowseMoviesResponse | undefined,
   id: number | string,
@@ -162,6 +167,7 @@ export function useImportLibraryFoldersMutation() {
     },
     onSuccess: () => {
       invalidateBrowseMovies(queryClient);
+      invalidateImportSources(queryClient);
     },
   });
 }
