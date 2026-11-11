@@ -285,3 +285,81 @@ jobs:
         run: |
           pwsh -NoProfile -File ./scripts/run-property-tests.ps1 -Project tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj
           exit $LASTEXITCODE
+
+  publish-images:
+    name: publish-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, web, e2e, container-build, property-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: API image metadata
+        id: meta-api
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/lamuniercosta/lamuflix-api
+          tags: |
+            type=raw,value=sha-${{ github.sha }}
+            type=raw,value=main
+
+      - name: Build and push API image
+        id: push-api
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=gha,scope=publish-api
+          cache-to: type=gha,mode=max,scope=publish-api
+
+      - name: Web image metadata
+        id: meta-web
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/lamuniercosta/lamuflix-web
+          tags: |
+            type=raw,value=sha-${{ github.sha }}
+            type=raw,value=main
+
+      - name: Build and push Web image
+        id: push-web
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+          cache-from: type=gha,scope=publish-web
+          cache-to: type=gha,mode=max,scope=publish-web
+
+      - name: Record image digests
+        env:
+          API_DIGEST: ${{ steps.push-api.outputs.digest }}
+          WEB_DIGEST: ${{ steps.push-web.outputs.digest }}
+        run: |
+          {
+            echo "## Published images"
+            echo ""
+            echo "- ghcr.io/lamuniercosta/lamuflix-api@${API_DIGEST}"
+            echo "- ghcr.io/lamuniercosta/lamuflix-web@${WEB_DIGEST}"
+          } >> "$GITHUB_STEP_SUMMARY"
