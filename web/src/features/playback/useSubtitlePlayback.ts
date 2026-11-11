@@ -130,6 +130,9 @@ export function useSubtitlePlayback(movieId: number | string): SubtitlePlayback 
         contentError: false,
       });
     })();
+    return () => {
+      if (listGeneration.current === generation) listGeneration.current += 1;
+    };
   }, [numericId, listAttempt]);
 
   useEffect(
