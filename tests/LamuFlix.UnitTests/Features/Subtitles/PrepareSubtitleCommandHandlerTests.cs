@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -12,7 +11,6 @@ using LamuFlix.Core.Ports;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using Shouldly;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
 
@@ -55,9 +53,9 @@ public sealed class PrepareSubtitleCommandHandlerTests
         // assert
         result.Outcome.ShouldBe(SubtitlePrepareOutcome.AlreadyPresent);
         result.SelectedLanguage.ShouldBeNull();
-        await provider.DidNotReceiveWithAnyArgs().SearchAsync(default!, TestContext.Current.CancellationToken);
+        await provider.DidNotReceiveWithAnyArgs().SearchAsync(Arg.Any<SubtitleSearch>(), TestContext.Current.CancellationToken);
         await store.DidNotReceiveWithAnyArgs().CreateAsync(
-            default!, default!, default, TestContext.Current.CancellationToken);
+            Arg.Any<LibraryPath>(), Arg.Any<string>(), default, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -72,7 +70,7 @@ public sealed class PrepareSubtitleCommandHandlerTests
 
         // assert
         await Should.ThrowAsync<SubtitleAcquisitionUnavailableException>(act);
-        await provider.DidNotReceiveWithAnyArgs().SearchAsync(default!, TestContext.Current.CancellationToken);
+        await provider.DidNotReceiveWithAnyArgs().SearchAsync(Arg.Any<SubtitleSearch>(), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -104,9 +102,9 @@ public sealed class PrepareSubtitleCommandHandlerTests
         // assert
         result.Outcome.ShouldBe(SubtitlePrepareOutcome.NoMatch);
         result.SelectedLanguage.ShouldBeNull();
-        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(default!, TestContext.Current.CancellationToken);
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
         await store.DidNotReceiveWithAnyArgs().CreateAsync(
-            default!, default!, default, TestContext.Current.CancellationToken);
+            Arg.Any<LibraryPath>(), Arg.Any<string>(), default, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -166,7 +164,7 @@ public sealed class PrepareSubtitleCommandHandlerTests
         // assert
         await Should.ThrowAsync<SubtitleQuotaExceededException>(act);
         await store.DidNotReceiveWithAnyArgs().CreateAsync(
-            default!, default!, default, TestContext.Current.CancellationToken);
+            Arg.Any<LibraryPath>(), Arg.Any<string>(), default, TestContext.Current.CancellationToken);
     }
 
     [Fact]

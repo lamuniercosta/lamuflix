@@ -61,5 +61,5 @@ public static class SubtitleTelemetry
     }
 
     private static Activity? Start(string name) =>
-        Source.StartActivity(name, ActivityKind.Internal);
+        Source.StartActivity(name);
 }

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using LamuFlix.Core.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

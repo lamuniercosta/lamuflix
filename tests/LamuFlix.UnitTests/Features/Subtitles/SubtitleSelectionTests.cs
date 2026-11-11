@@ -185,6 +185,7 @@ public sealed class SubtitleSelectionTests
     public void Select_NullCandidates_Throws()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => SubtitleSelection.Select(null!, EnglishThenPortuguese);
 
         // assert

@@ -6,8 +6,6 @@ using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
@@ -53,6 +51,7 @@ public sealed class SubtitlePreparationSurvivorTests
         SubtitleCandidate?[] candidates = [null, new(1, "en", DownloadCount: 1, MatchesMovieHash: false)];
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null entry exercises the skip guard
         var selected = SubtitleSelection.Select(candidates!, ["en"]);
 
         // assert
@@ -86,6 +85,7 @@ public sealed class SubtitlePreparationSurvivorTests
     public void Fail_WithNullMovieId_ThrowsArgumentNullException()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => SubtitleTelemetry.Fail(null, null!, new NotFoundException());
 
         // assert
@@ -116,7 +116,7 @@ public sealed class SubtitlePreparationSurvivorTests
         // assert
         await Should.ThrowAsync<NotFoundException>(act);
         await store.DidNotReceiveWithAnyArgs().ReadAsync(
-            default!, default!, default, TestContext.Current.CancellationToken);
+            Arg.Any<LibraryPath>(), Arg.Any<string>(), default, TestContext.Current.CancellationToken);
     }
 }
 

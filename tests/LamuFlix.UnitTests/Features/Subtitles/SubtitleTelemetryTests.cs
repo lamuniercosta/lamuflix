@@ -1,12 +1,8 @@
 using System;
 using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Pipeline;
-using LamuFlix.Core.Ports;
-using Shouldly;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
 
@@ -16,11 +12,7 @@ public sealed class SubtitleTelemetryTests
     public void StartPrepare_StartsAnActivityNamedForThePrepareOperation()
     {
         // arrange
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-        };
+        using var listener = ListeningListener();
         ActivitySource.AddActivityListener(listener);
 
         // act
@@ -95,6 +87,7 @@ public sealed class SubtitleTelemetryTests
     public void Complete_WithNullMovieId_ThrowsArgumentNullException()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => SubtitleTelemetry.Complete(null, null!, TelemetryConstants.SubtitleNoMatchOutcome, TimeSpan.Zero);
 
         // assert
@@ -105,6 +98,7 @@ public sealed class SubtitleTelemetryTests
     public void Fail_WithNullException_ThrowsArgumentNullException()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => SubtitleTelemetry.Fail(null, new MovieId(7), null!);
 
         // assert
@@ -125,6 +119,6 @@ public sealed class SubtitleTelemetryTests
         new()
         {
             ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName,
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
         };
 }

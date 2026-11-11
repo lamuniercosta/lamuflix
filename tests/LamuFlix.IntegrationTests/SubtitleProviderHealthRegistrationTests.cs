@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -42,7 +41,7 @@ public sealed class SubtitleProviderHealthRegistrationTests
     public async Task LiveProbe_WithUnconfiguredAcquisition_StillReturnsOkAndRunsNoDependencyChecks()
     {
         // arrange
-        using var host = new ApiHostFactory(retainSweeper: false, retainHealthChecks: true);
+        await using var host = new ApiHostFactory(retainSweeper: false, retainHealthChecks: true);
         using var client = host.CreateClient();
 
         // act
@@ -56,7 +55,7 @@ public sealed class SubtitleProviderHealthRegistrationTests
     public async Task ReadyProbe_WithUnconfiguredAcquisition_ReportsTheOptionalProviderAsHealthy()
     {
         // arrange
-        using var host = new ApiHostFactory(retainSweeper: false, retainHealthChecks: true);
+        await using var host = new ApiHostFactory(retainSweeper: false, retainHealthChecks: true);
         using var client = host.CreateClient();
 
         // act

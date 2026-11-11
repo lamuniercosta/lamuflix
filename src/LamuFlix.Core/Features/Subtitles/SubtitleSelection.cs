@@ -35,6 +35,7 @@ public static class SubtitleSelection
         SubtitleCandidate? best = null;
         foreach (var candidate in candidates)
         {
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract // runtime guard for suppressed-null entries, covered by Select_NullCandidateEntry_IsSkipped
             if (candidate is null || !LanguageMatches(candidate.Language, language))
             {
                 continue;

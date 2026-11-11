@@ -4,7 +4,6 @@ using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using Shouldly;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
 
@@ -77,9 +76,12 @@ public sealed class SubtitleAcquisitionSettingsTests
     [Fact]
     public void Require_NullOptions_ThrowsArgumentNullException()
     {
+        // arrange
+        var provider = Microsoft.Extensions.Options.Options.Create(ConfiguredProvider());
+
         // act
-        var act = () => SubtitleAcquisitionSettings.Require(
-            null!, Microsoft.Extensions.Options.Options.Create(ConfiguredProvider()));
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
+        var act = () => SubtitleAcquisitionSettings.Require(null!, provider);
 
         // assert
         Should.Throw<ArgumentNullException>(act);

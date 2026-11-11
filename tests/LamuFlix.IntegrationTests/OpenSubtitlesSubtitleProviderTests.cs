@@ -11,7 +11,6 @@ using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
 using Microsoft.Extensions.Options;
 using Shouldly;
-using WireMock;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
@@ -533,6 +532,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task DownloadAsync_NullCandidate_Throws()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => Provider().DownloadAsync(null!, TestContext.Current.CancellationToken);
 
         // assert
@@ -543,6 +543,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_NullSearch_Throws()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => Provider().SearchAsync(null!, TestContext.Current.CancellationToken);
 
         // assert
@@ -592,7 +593,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
     private (string Body, string[] ApiKeys, string[] UserAgents) SearchRequest()
     {
-        var entries = server.LogEntries.Where(entry => entry.RequestMessage!.Path == SearchPath).ToArray();
+        var entries = server.LogEntries.Where(entry => entry.RequestMessage is { Path: SearchPath }).ToArray();
         entries.Length.ShouldBe(1);
         var message = entries[0].RequestMessage.ShouldNotBeNull();
         return (message.Body.ShouldNotBeNull(), HeaderValues(message.Headers, "Api-Key"), HeaderValues(message.Headers, "User-Agent"));
@@ -600,7 +601,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
     private (string Body, string Method) LinkGetRequest()
     {
-        var entries = server.LogEntries.Where(entry => entry.RequestMessage!.Path == LinkPath).ToArray();
+        var entries = server.LogEntries.Where(entry => entry.RequestMessage is { Path: LinkPath }).ToArray();
         entries.Length.ShouldBe(1);
         var message = entries[0].RequestMessage.ShouldNotBeNull();
         return (message.Body ?? string.Empty, message.Method.ShouldNotBeNull());
@@ -608,12 +609,12 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
 
     private string DownloadRequestBody()
     {
-        var entries = server.LogEntries.Where(entry => entry.RequestMessage!.Path == DownloadPath).ToArray();
+        var entries = server.LogEntries.Where(entry => entry.RequestMessage is { Path: DownloadPath }).ToArray();
         entries.Length.ShouldBe(1);
-        return entries[0].RequestMessage!.Body.ShouldNotBeNull();
+        return entries[0].RequestMessage.ShouldNotBeNull().Body.ShouldNotBeNull();
     }
 
-    private int Count(string path) => server.LogEntries.Count(entry => entry.RequestMessage!.Path == path);
+    private int Count(string path) => server.LogEntries.Count(entry => entry.RequestMessage?.Path == path);
 
     private static string[] HeaderValues(IDictionary<string, WireMock.Types.WireMockList<string>>? headers, string name) =>
         headers is not null && headers.TryGetValue(name, out var values) ? [.. values] : [];

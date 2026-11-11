@@ -2,7 +2,6 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -14,7 +13,7 @@ using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.FileSystem;
 
-public sealed partial class SubtitleSidecarStore(
+public sealed class SubtitleSidecarStore(
     ILibraryFileReader reader,
     IOptions<LibraryOptions> libraryOptions,
     IHostEnvironment hostEnvironment) : ISubtitleSidecarStore

@@ -91,7 +91,7 @@ public sealed class MovieHashPropertyTests
     private static byte[] RandomWindow(int seed)
     {
         var window = new byte[Window];
-        var state = (ulong)(uint)seed | 1UL;
+        var state = (uint)seed | 1UL;
         for (var offset = 0; offset < window.Length; offset += sizeof(ulong))
         {
             state ^= state << 13;

@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
