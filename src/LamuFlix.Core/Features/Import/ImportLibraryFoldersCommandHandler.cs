@@ -3,15 +3,18 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Core.Features.Import;
 
 public sealed class ImportLibraryFoldersCommandHandler(
     IMovieFolderImporter importer,
     IMovieRepository movies,
-    IEnrichmentOutbox outbox)
+    IEnrichmentOutbox outbox,
+    IOptions<LibraryOptions> libraryOptions)
     : ICommandHandler<ImportLibraryFoldersCommand, ImportLibraryFoldersResult>
 {
     public async Task<ImportLibraryFoldersResult> HandleAsync(
@@ -30,11 +33,13 @@ public sealed class ImportLibraryFoldersCommandHandler(
         foreach (var folder in command.Folders)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!LibraryPath.TryCreate(folder, out var path))
+            if (!LibraryPath.TryCanonicalizeUnderRoot(folder, libraryOptions.Value.RootPath, out var canonical))
             {
                 failures.Add(new ImportLibraryFolderFailure(folder, ImportFolderFailureReason.InvalidFolder));
                 continue;
             }
+
+            var path = new LibraryPath(canonical);
 
             if (importedPaths.Contains(path.Value))
             {
