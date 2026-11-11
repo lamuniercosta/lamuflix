@@ -166,6 +166,147 @@ describe('BulkImportDialog', () => {
     expect(within(dialog).getByText('No movies are waiting in Failed enrichment.')).toBeVisible();
   });
 
+  it('shows per-folder progress while the pass runs', async () => {
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      candidatesHandler(['Alpha', 'Bravo']),
+      http.post('/api/movies/import/library', async () => {
+        await gate;
+        return HttpResponse.json(
+          { imported: 1, skipped: 0, retried: 0, failures: [] },
+          { status: 200 },
+        );
+      }),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(within(dialog).getByLabelText('Bravo'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+
+    const bar = await within(dialog).findByRole('progressbar');
+    expect(bar).toHaveTextContent('Importing 1 of 2');
+    expect(bar).toHaveTextContent('Alpha');
+
+    release?.();
+
+    const status = await within(dialog).findByRole('status');
+    expect(status).toHaveTextContent('Imported 2');
+    expect(within(dialog).queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('stops issuing folder requests when the dialog is closed mid-pass', async () => {
+    let posts = 0;
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      candidatesHandler(['Alpha', 'Bravo']),
+      http.post('/api/movies/import/library', async () => {
+        posts += 1;
+        await gate;
+        return HttpResponse.json(
+          { imported: 1, skipped: 0, retried: 0, failures: [] },
+          { status: 200 },
+        );
+      }),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(within(dialog).getByLabelText('Bravo'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    await within(dialog).findByRole('progressbar');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    release?.();
+
+    await waitFor(() => {
+      expect(posts).toBe(1);
+    });
+    expect(posts).toBe(1);
+  });
+
+  it('aggregates counts and failures across the per-folder requests', async () => {
+    let call = 0;
+    server.use(
+      candidatesHandler(['Alpha', 'Bravo']),
+      http.post('/api/movies/import/library', () => {
+        call += 1;
+        if (call === 1) {
+          return HttpResponse.json(
+            { imported: 1, skipped: 0, retried: 0, failures: [] },
+            { status: 200 },
+          );
+        }
+        return HttpResponse.json(
+          {
+            imported: 0,
+            skipped: 1,
+            retried: 0,
+            failures: [{ folder: 'Bravo', reason: 'no-video' }],
+          },
+          { status: 200 },
+        );
+      }),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(within(dialog).getByLabelText('Bravo'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+
+    const status = await within(dialog).findByRole('status');
+    expect(status).toHaveTextContent('Imported 1');
+    expect(status).toHaveTextContent('Skipped 1');
+    expect(status).toHaveTextContent(BULK_IMPORT_REASON_TEXT['no-video']);
+  });
+
+  it('keeps the partial summary and reports an error when a folder fails mid-pass', async () => {
+    let call = 0;
+    server.use(
+      candidatesHandler(['Alpha', 'Bravo']),
+      http.post('/api/movies/import/library', () => {
+        call += 1;
+        if (call === 1) {
+          return HttpResponse.json(
+            { imported: 1, skipped: 0, retried: 0, failures: [] },
+            { status: 200 },
+          );
+        }
+        return HttpResponse.json(
+          { type: 'about:blank', title: 'Internal Server Error', status: 500 },
+          { status: 500 },
+        );
+      }),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(within(dialog).getByLabelText('Bravo'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(GENERIC_BULK_IMPORT_ERROR);
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Imported 1');
+  });
+
   it('shows a scan error with retry when the candidate query fails', async () => {
     let calls = 0;
     server.use(
