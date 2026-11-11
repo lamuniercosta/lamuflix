@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+spec:
+  schedule: "0 4 * * *"
+  timeZone: America/Sao_Paulo
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: backup
+              image: pgvector/pgvector
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  t=/backups/.lamuflix-home-nightly.partial
+                  trap 'rm -f "$t"' EXIT
+                  f="/backups/lamuflix-home-nightly-$(date +%Y%m%d-%H%M).dump"
+                  pg_dump -h postgres -U "$POSTGRES_USER" -d lamuflix -Fc --no-owner --no-acl -f "$t"
+                  pg_restore -l "$t" >/dev/null
+                  mv "$t" "$f"
+                  ls -1t /backups/lamuflix-home-nightly-*.dump | tail -n +15 | while read -r old; do rm -f -- "$old"; done
+              env:
+                - name: TZ
+                  value: America/Sao_Paulo
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-credentials
+                      key: POSTGRES_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-credentials
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  memory: 128Mi
+                limits:
+                  memory: 256Mi
+          volumes:
+            - name: backups
+              hostPath:
+                path: /backups
+                type: Directory

@@ -1,0 +1,6 @@
+{
+  "description": "Compose and manifests agree on every checked item",
+  "exitCode": 0,
+  "mustContain": ["checks, 0 failed"],
+  "mustNotContain": ["FAIL  "]
+}

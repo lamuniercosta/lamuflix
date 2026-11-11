@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+      initContainers:
+        - name: wait-postgres-rabbitmq
+          image: ghcr.io/lamuniercosta/lamuflix-api
+          command:
+            - /bin/bash
+            - -c
+            - |
+              for h in postgres:5432 rabbitmq:5672; do
+                until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
+              done
+          resources:
+            requests:
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+        - name: wait-ollama-model
+          image: ghcr.io/lamuniercosta/lamuflix-api
+          command:
+            - /bin/bash
+            - -c
+            - |
+              until (exec 3<>/dev/tcp/ollama/11434 && printf 'GET /api/tags HTTP/1.1\r\nHost: ollama\r\nConnection: close\r\n\r\n' >&3 && timeout 5 cat <&3 | grep -q all-minilm); do sleep 3; done
+          resources:
+            requests:
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+      containers:
+        - name: api
+          image: ghcr.io/lamuniercosta/lamuflix-api
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: Ollama__Endpoint
+              value: http://ollama:11434/
+            - name: Tmdb__Enabled
+              value: "true"
+            - name: Tmdb__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: tmdb-credentials
+                  key: apiKey
+                  optional: true
+          volumeMounts:
+            - name: api-settings
+              mountPath: /app/appsettings.Production.json
+              subPath: appsettings.Production.json
+              readOnly: true
+            - name: library
+              mountPath: /media/library
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 1536Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+      volumes:
+        - name: api-settings
+          secret:
+            secretName: api-settings
+        - name: library
+          hostPath:
+            path: /media/library
+            type: Directory

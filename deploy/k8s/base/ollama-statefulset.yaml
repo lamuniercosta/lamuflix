@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  serviceName: ollama
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama
+          command: ["/bin/sh", "-c", "ollama serve & /bin/sh /scripts/ollama-init.sh; wait"]
+          ports:
+            - name: http
+              containerPort: 11434
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:11434"
+            - name: OLLAMA_EMBEDDING_MODEL
+              value: all-minilm
+            - name: OLLAMA_READY_TIMEOUT_SECONDS
+              value: "120"
+            - name: OLLAMA_PULL_TIMEOUT_SECONDS
+              value: "900"
+            - name: OLLAMA_POLL_INTERVAL_SECONDS
+              value: "2"
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+            - name: init-script
+              mountPath: /scripts
+              readOnly: true
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "ollama show \"$OLLAMA_EMBEDDING_MODEL\" >/dev/null 2>&1"]
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 120
+          resources:
+            requests:
+              memory: 768Mi
+            limits:
+              memory: 1536Mi
+              cpu: "1"
+      volumes:
+        - name: init-script
+          configMap:
+            name: ollama-init
+  volumeClaimTemplates:
+    - metadata:
+        name: models
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi

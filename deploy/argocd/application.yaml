@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lamuflix-home
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/lamuniercosta/lamuflix.git
+    targetRevision: env/home
+    path: manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lamuflix-home
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

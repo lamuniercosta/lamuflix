@@ -1,0 +1,6 @@
+{
+  "description": "Compose service rabbitmq has no workload in the rendered output",
+  "exitCode": 1,
+  "mustContain": ["FAIL  compose 'rabbitmq' has a workload"],
+  "mustNotContain": []
+}

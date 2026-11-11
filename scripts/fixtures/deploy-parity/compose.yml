@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.40.13@sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429}
+
+  ollama-model-init:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.40.13@sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429}
+    entrypoint: ["/bin/sh", "/scripts/ollama-init.sh"]
+
+  rabbitmq:
+    image: rabbitmq:4-alpine
+
+  api:
+    environment:
+      Ollama__Endpoint: http://ollama:11434/
+      Tmdb__Enabled: ${TMDB_ENABLED:-true}
+      Tmdb__ApiKey: ${TMDB_API_KEY:-}
+
+  web:
+    ports:
+      - "3000:8080"

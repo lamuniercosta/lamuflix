@@ -1,0 +1,6 @@
+{
+  "description": "Postgres digest in the manifests differs from Compose",
+  "exitCode": 1,
+  "mustContain": ["FAIL  image digest of 'postgres' matches compose"],
+  "mustNotContain": []
+}

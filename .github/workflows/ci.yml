@@ -181,6 +181,19 @@ jobs:
       - name: Build docker/Dockerfile.web
         run: docker build -f docker/Dockerfile.web .
 
+  deploy-parity:
+    name: deploy-parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check Compose and home manifests agree
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ./scripts/Test-DeployParity.ps1
+          exit $LASTEXITCODE
+
   # Whole-Core mutation runs after merge to main (or on manual dispatch), not on PRs; the
   # diff-scoped gate (run-mutation.ps1) still runs pre-PR. With coverage-analysis=off every
   # mutant runs the whole eligible unit suite, so one job outgrew its limit (cancelled at 2 h).

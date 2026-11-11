@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lamuflix-home
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: lamuflix-home
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: lamuflix-home
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+          ports:
+            - name: postgres
+              containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: lamuflix-home
+spec:
+  selector:
+    app: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: 11434
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+  namespace: lamuflix-home
+spec:
+  serviceName: ollama
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:0.40.13@sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429
+          command: ["/bin/sh", "-c", "ollama serve & /bin/sh /scripts/ollama-init.sh; wait"]
+          ports:
+            - name: http
+              containerPort: 11434
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: lamuflix-home
+spec:
+  selector:
+    app: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: lamuflix-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/lamuniercosta/lamuflix-api@sha256:df424c14e6f1066c331049862fbe8e530f811d9ffa0fadeda0f8ab22af4bfa7b
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: Ollama__Endpoint
+              value: http://ollama:11434/
+            - name: Tmdb__Enabled
+              value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: lamuflix-home
+spec:
+  type: NodePort
+  selector:
+    app: web
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30100
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: lamuflix-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/lamuniercosta/lamuflix-web@sha256:bb663d2a725cdad7a9149d9a962bfc7e9b76c7b0c0cfd16c2a79dc2ac187aabe
+          ports:
+            - name: http
+              containerPort: 8080
+
+---
