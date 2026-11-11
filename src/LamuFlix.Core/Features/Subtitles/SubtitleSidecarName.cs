@@ -11,7 +11,7 @@ public static class SubtitleSidecarName
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(primaryFileName);
 
-        if (!string.Equals(Path.GetFileName(primaryFileName), primaryFileName, StringComparison.Ordinal))
+        if (primaryFileName.IndexOfAny(['/', '\\']) >= 0)
         {
             throw new ArgumentException("The primary file name must not carry a directory.", nameof(primaryFileName));
         }
