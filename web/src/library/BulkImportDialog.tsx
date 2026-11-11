@@ -139,7 +139,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
         setProgress({ done: index + 1, total: targets.length, folder: targets[index] });
       }
 
-      if (retryFailed) {
+      if (retryFailed && !stopRequested.current) {
         const result = await importLibrary.mutateAsync({ folders: [], retryFailed: true });
         totals.imported += Number(result.imported);
         totals.skipped += Number(result.skipped);
