@@ -1,0 +1,15 @@
+{
+  "commit": "b4785b0995dda2f67edce159ebeb384119714535",
+  "images": {
+    "api": {
+      "image": "ghcr.io/lamuniercosta/lamuflix-api",
+      "digest": "sha256:40676227be529f107b5ed152d9a1915b9b14b5fc5c72eb2a8ad8d9da8cefe18d"
+    },
+    "web": {
+      "image": "ghcr.io/lamuniercosta/lamuflix-web",
+      "digest": "sha256:0e7cd7252d0a0dcd13d160bdfd814527ac166d1d9a04db03abd84f0f3776bc64"
+    }
+  },
+  "promotedAtUtc": "2026-11-11T23:54:41Z",
+  "workflowRun": "https://github.com/lamuniercosta/lamuflix/actions/runs/43123312303"
+}

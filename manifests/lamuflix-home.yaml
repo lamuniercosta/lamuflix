@@ -1,0 +1,667 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: lamuflix-home
+---
+apiVersion: v1
+data:
+  ollama-init.sh: |
+    #!/bin/sh
+    # DEV-349: one-shot Ollama model initializer.
+    #
+    # Waits for the Ollama server with a finite deadline, pulls the configured
+    # embedding model, and exits 0 only when that model is available. The model
+    # name is passed to `ollama pull` as one fixed quoted argument; unset or empty
+    # values are rejected and no eval or code interpolation is used.
+    set -eu
+
+    model="${OLLAMA_EMBEDDING_MODEL:-}"
+    readiness_timeout="${OLLAMA_READY_TIMEOUT_SECONDS:-120}"
+    pull_timeout="${OLLAMA_PULL_TIMEOUT_SECONDS:-900}"
+    poll_interval="${OLLAMA_POLL_INTERVAL_SECONDS:-2}"
+
+    if [ -z "$model" ]; then
+      echo "ollama-init: OLLAMA_EMBEDDING_MODEL must be set and non-empty" >&2
+      exit 1
+    fi
+
+    for value in "$readiness_timeout" "$pull_timeout" "$poll_interval"; do
+      case "$value" in
+        '' | *[!0-9]*)
+          echo "ollama-init: OLLAMA_READY_TIMEOUT_SECONDS, OLLAMA_PULL_TIMEOUT_SECONDS, and OLLAMA_POLL_INTERVAL_SECONDS must be whole seconds" >&2
+          exit 1
+          ;;
+      esac
+    done
+
+    if [ "$poll_interval" -lt 1 ] || [ "$readiness_timeout" -lt 1 ] || [ "$pull_timeout" -lt 1 ]; then
+      echo "ollama-init: timeout and poll values must be at least 1 second" >&2
+      exit 1
+    fi
+
+    echo "ollama-init: waiting up to ${readiness_timeout}s for the Ollama server"
+    elapsed=0
+    ready=0
+    while [ "$elapsed" -lt "$readiness_timeout" ]; do
+      if ollama list >/dev/null 2>&1; then
+        ready=1
+        break
+      fi
+      sleep "$poll_interval"
+      elapsed=$((elapsed + poll_interval))
+    done
+
+    if [ "$ready" -ne 1 ]; then
+      echo "ollama-init: Ollama server was not ready within ${readiness_timeout}s" >&2
+      exit 1
+    fi
+
+    echo "ollama-init: pulling model '$model' (budget ${pull_timeout}s)"
+    if ! timeout "$pull_timeout" ollama pull "$model"; then
+      echo "ollama-init: failed to pull model '$model'" >&2
+      exit 1
+    fi
+
+    if ! ollama show "$model" >/dev/null 2>&1; then
+      echo "ollama-init: model '$model' is not available after pull" >&2
+      exit 1
+    fi
+
+    echo "ollama-init: model '$model' is ready"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: ollama-init-49g579fk6t
+  namespace: lamuflix-home
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: api
+  namespace: lamuflix-home
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/name: api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: ollama
+  namespace: lamuflix-home
+spec:
+  ports:
+  - name: http
+    port: 11434
+    targetPort: 11434
+  selector:
+    app.kubernetes.io/name: ollama
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: postgres
+  namespace: lamuflix-home
+spec:
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+  selector:
+    app.kubernetes.io/name: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: rabbitmq
+  namespace: lamuflix-home
+spec:
+  ports:
+  - name: amqp
+    port: 5672
+    targetPort: 5672
+  selector:
+    app.kubernetes.io/name: rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: web
+  namespace: lamuflix-home
+spec:
+  ports:
+  - name: http
+    nodePort: 30100
+    port: 8080
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/name: web
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: api
+  namespace: lamuflix-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+        app.kubernetes.io/part-of: lamuflix-home
+    spec:
+      containers:
+      - env:
+        - name: Ollama__Endpoint
+          value: http://ollama:11434/
+        - name: Tmdb__Enabled
+          value: "true"
+        - name: Tmdb__ApiKey
+          valueFrom:
+            secretKeyRef:
+              key: apiKey
+              name: tmdb-credentials
+              optional: true
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:40676227be529f107b5ed152d9a1915b9b14b5fc5c72eb2a8ad8d9da8cefe18d
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/live
+            port: http
+          periodSeconds: 20
+        name: api
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          periodSeconds: 10
+        resources:
+          limits:
+            memory: 1536Mi
+          requests:
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /health/ready
+            port: http
+          periodSeconds: 10
+        volumeMounts:
+        - mountPath: /app/appsettings.Production.json
+          name: api-settings
+          readOnly: true
+          subPath: appsettings.Production.json
+        - mountPath: /media/library
+          name: library
+          readOnly: true
+      initContainers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          for h in postgres:5432 rabbitmq:5672; do
+            until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
+          done
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:40676227be529f107b5ed152d9a1915b9b14b5fc5c72eb2a8ad8d9da8cefe18d
+        name: wait-postgres-rabbitmq
+        resources:
+          limits:
+            memory: 64Mi
+          requests:
+            memory: 32Mi
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          until (exec 3<>/dev/tcp/ollama/11434 && printf 'GET /api/tags HTTP/1.1\r\nHost: ollama\r\nConnection: close\r\n\r\n' >&3 && timeout 5 cat <&3 | grep -q all-minilm); do sleep 3; done
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:40676227be529f107b5ed152d9a1915b9b14b5fc5c72eb2a8ad8d9da8cefe18d
+        name: wait-ollama-model
+        resources:
+          limits:
+            memory: 64Mi
+          requests:
+            memory: 32Mi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+      volumes:
+      - name: api-settings
+        secret:
+          secretName: api-settings
+      - hostPath:
+          path: /media/library
+          type: Directory
+        name: library
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: web
+  namespace: lamuflix-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+        app.kubernetes.io/part-of: lamuflix-home
+    spec:
+      containers:
+      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:0e7cd7252d0a0dcd13d160bdfd814527ac166d1d9a04db03abd84f0f3776bc64
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 20
+        name: web
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+        resources:
+          limits:
+            memory: 128Mi
+          requests:
+            memory: 32Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: ollama
+  namespace: lamuflix-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+  serviceName: ollama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ollama
+        app.kubernetes.io/part-of: lamuflix-home
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -c
+        - ollama serve & /bin/sh /scripts/ollama-init.sh; wait
+        env:
+        - name: OLLAMA_HOST
+          value: 0.0.0.0:11434
+        - name: OLLAMA_EMBEDDING_MODEL
+          value: all-minilm
+        - name: OLLAMA_READY_TIMEOUT_SECONDS
+          value: "120"
+        - name: OLLAMA_PULL_TIMEOUT_SECONDS
+          value: "900"
+        - name: OLLAMA_POLL_INTERVAL_SECONDS
+          value: "2"
+        image: ollama/ollama@sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429
+        name: ollama
+        ports:
+        - containerPort: 11434
+          name: http
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - ollama show "$OLLAMA_EMBEDDING_MODEL" >/dev/null 2>&1
+          failureThreshold: 120
+          periodSeconds: 10
+          timeoutSeconds: 10
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1536Mi
+          requests:
+            memory: 768Mi
+        volumeMounts:
+        - mountPath: /root/.ollama
+          name: models
+        - mountPath: /scripts
+          name: init-script
+          readOnly: true
+      volumes:
+      - configMap:
+          name: ollama-init-49g579fk6t
+        name: init-script
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app.kubernetes.io/part-of: lamuflix-home
+      name: models
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 2Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: postgres
+  namespace: lamuflix-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  serviceName: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: lamuflix-home
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: lamuflix
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_USER
+              name: postgres-credentials
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_PASSWORD
+              name: postgres-credentials
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        image: pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: postgres
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 1Gi
+          requests:
+            memory: 512Mi
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: data
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app.kubernetes.io/part-of: lamuflix-home
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: rabbitmq
+  namespace: lamuflix-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  serviceName: rabbitmq
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/part-of: lamuflix-home
+    spec:
+      containers:
+      - env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            secretKeyRef:
+              key: RABBITMQ_DEFAULT_USER
+              name: rabbitmq-credentials
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              key: RABBITMQ_DEFAULT_PASS
+              name: rabbitmq-credentials
+        image: rabbitmq@sha256:8425b8435b0203e87292cf1a4a7e5f8108c610bbd8217f8cc952f43628b24987
+        livenessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - -q
+            - ping
+          initialDelaySeconds: 60
+          periodSeconds: 20
+          timeoutSeconds: 10
+        name: rabbitmq
+        ports:
+        - containerPort: 5672
+          name: amqp
+        readinessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - -q
+            - ping
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /var/lib/rabbitmq
+          name: data
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app.kubernetes.io/part-of: lamuflix-home
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: postgres-backup
+  namespace: lamuflix-home
+spec:
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: lamuflix-home
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: lamuflix-home
+        spec:
+          containers:
+          - command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              t=/backups/.lamuflix-home-nightly.partial
+              trap 'rm -f "$t"' EXIT
+              f="/backups/lamuflix-home-nightly-$(date +%Y%m%d-%H%M).dump"
+              pg_dump -h postgres -U "$POSTGRES_USER" -d lamuflix -Fc --no-owner --no-acl -f "$t"
+              pg_restore -l "$t" >/dev/null
+              mv "$t" "$f"
+              ls -1t /backups/lamuflix-home-nightly-*.dump | tail -n +15 | while read -r old; do rm -f -- "$old"; done
+            env:
+            - name: TZ
+              value: America/Sao_Paulo
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  key: POSTGRES_USER
+                  name: postgres-credentials
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: POSTGRES_PASSWORD
+                  name: postgres-credentials
+            image: pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+            name: backup
+            resources:
+              limits:
+                memory: 256Mi
+              requests:
+                memory: 128Mi
+            volumeMounts:
+            - mountPath: /backups
+              name: backups
+          restartPolicy: Never
+          volumes:
+          - hostPath:
+              path: /backups
+              type: Directory
+            name: backups
+  schedule: 0 4 * * *
+  timeZone: America/Sao_Paulo
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: postgres-presync-backup
+  namespace: lamuflix-home
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: lamuflix-home
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          if ! pg_isready -h postgres >/dev/null 2>&1; then
+            echo "skipped: postgres not reachable"
+            exit 0
+          fi
+          t=/backups/.lamuflix-home-presync.partial
+          trap 'rm -f "$t"' EXIT
+          f="/backups/lamuflix-home-presync-$(date +%Y%m%d-%H%M).dump"
+          pg_dump -h postgres -U "$POSTGRES_USER" -d lamuflix -Fc --no-owner --no-acl -f "$t"
+          pg_restore -l "$t" >/dev/null
+          mv "$t" "$f"
+          ls -1t /backups/lamuflix-home-presync-*.dump | tail -n +11 | while read -r old; do rm -f -- "$old"; done
+        env:
+        - name: TZ
+          value: America/Sao_Paulo
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_USER
+              name: postgres-credentials
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_PASSWORD
+              name: postgres-credentials
+        image: pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+        name: backup
+        resources:
+          limits:
+            memory: 256Mi
+          requests:
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /backups
+          name: backups
+      restartPolicy: Never
+      volumes:
+      - hostPath:
+          path: /backups
+          type: Directory
+        name: backups
