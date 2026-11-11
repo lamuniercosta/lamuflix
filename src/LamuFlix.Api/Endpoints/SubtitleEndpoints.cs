@@ -24,7 +24,6 @@ internal static class SubtitleEndpoints
     private const string SubtitleContentType = "text/vtt; charset=utf-8";
     private const string SidecarContentType = "application/x-subrip";
     private const string AttachmentPrefix = "attachment; filename=\"";
-    private const string ExtendedAttachmentPrefix = "attachment; filename=\"";
     private const string ExtendedFileNamePrefix = "\"; filename*=UTF-8''";
     private const char UnsafeAsciiReplacement = '_';
 
@@ -169,7 +168,7 @@ internal static class SubtitleEndpoints
         }
 
         return string.Concat(
-            ExtendedAttachmentPrefix,
+            AttachmentPrefix,
             fallback,
             ExtendedFileNamePrefix,
             Uri.EscapeDataString(fileName));

@@ -29,56 +29,94 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (TryMapSubtitleProblem(exception, httpContext, out var subtitleStatus, out var subtitleProblem))
+        {
+            return await WriteAsync(httpContext, subtitleStatus, subtitleProblem);
+        }
+
+        var (status, problem) = MapCoreProblem(exception);
+        return await WriteAsync(httpContext, status, problem);
+    }
+
+    private static bool TryMapSubtitleProblem(
+        Exception exception,
+        HttpContext httpContext,
+        out int status,
+        out ProblemDetails problem)
+    {
+        switch (exception)
+        {
+            case SubtitleQuotaExceededException quotaExceeded:
+                status = StatusCodes.Status429TooManyRequests;
+                problem = CreateQuotaProblem(quotaExceeded, httpContext);
+                return true;
+            case SubtitleProviderTimeoutException:
+                status = StatusCodes.Status504GatewayTimeout;
+                problem = CreateGatewayTimeoutProblem();
+                return true;
+            case SubtitleProviderFailureException:
+                status = StatusCodes.Status502BadGateway;
+                problem = CreateBadGatewayProblem();
+                return true;
+            case SubtitleAcquisitionUnavailableException:
+                status = StatusCodes.Status409Conflict;
+                problem = CreateConflictProblem();
+                return true;
+            default:
+                status = 0;
+                problem = null!;
+                return false;
+        }
+    }
+
+    private static (int Status, ProblemDetails Problem) MapCoreProblem(Exception exception)
+    {
+        if (TryMapRequestProblem(exception, out var status, out var problem))
+        {
+            return (status, problem);
+        }
+
+        return MapAccessProblem(exception);
+    }
+
+    private static bool TryMapRequestProblem(Exception exception, out int status, out ProblemDetails problem)
+    {
+        switch (exception)
+        {
+            case ValidationException validationException:
+                status = StatusCodes.Status422UnprocessableEntity;
+                problem = CreateValidationProblem(validationException);
+                return true;
+            case BadHttpRequestException:
+                status = StatusCodes.Status400BadRequest;
+                problem = CreateBadRequestProblem();
+                return true;
+            case NotFoundException:
+                status = StatusCodes.Status404NotFound;
+                problem = CreateNotFoundProblem();
+                return true;
+            case InvalidTransitionException:
+                status = StatusCodes.Status409Conflict;
+                problem = CreateConflictProblem();
+                return true;
+            case ImdbIdConflictException imdbIdConflict:
+                status = StatusCodes.Status409Conflict;
+                problem = CreateImdbIdConflictProblem(imdbIdConflict);
+                return true;
+            default:
+                status = 0;
+                problem = null!;
+                return false;
+        }
+    }
+
+    private static (int Status, ProblemDetails Problem) MapAccessProblem(Exception exception)
+    {
         return exception switch
         {
-            ValidationException validationException => await WriteAsync(
-                httpContext,
-                StatusCodes.Status422UnprocessableEntity,
-                CreateValidationProblem(validationException)),
-            BadHttpRequestException => await WriteAsync(
-                httpContext,
-                StatusCodes.Status400BadRequest,
-                CreateBadRequestProblem()),
-            NotFoundException => await WriteAsync(
-                httpContext,
-                StatusCodes.Status404NotFound,
-                CreateNotFoundProblem()),
-            InvalidTransitionException => await WriteAsync(
-                httpContext,
-                StatusCodes.Status409Conflict,
-                CreateConflictProblem()),
-            ImdbIdConflictException imdbIdConflict => await WriteAsync(
-                httpContext,
-                StatusCodes.Status409Conflict,
-                CreateImdbIdConflictProblem(imdbIdConflict)),
-            FeatureDisabledException => await WriteAsync(
-                httpContext,
-                StatusCodes.Status403Forbidden,
-                CreateForbiddenProblem()),
-            LibraryFileAccessDeniedException => await WriteAsync(
-                httpContext,
-                StatusCodes.Status403Forbidden,
-                CreateForbiddenProblem()),
-            SubtitleAcquisitionUnavailableException => await WriteAsync(
-                httpContext,
-                StatusCodes.Status409Conflict,
-                CreateConflictProblem()),
-            SubtitleQuotaExceededException quotaExceeded => await WriteAsync(
-                httpContext,
-                StatusCodes.Status429TooManyRequests,
-                CreateQuotaProblem(quotaExceeded, httpContext)),
-            SubtitleProviderTimeoutException => await WriteAsync(
-                httpContext,
-                StatusCodes.Status504GatewayTimeout,
-                CreateGatewayTimeoutProblem()),
-            SubtitleProviderFailureException => await WriteAsync(
-                httpContext,
-                StatusCodes.Status502BadGateway,
-                CreateBadGatewayProblem()),
-            _ => await WriteAsync(
-                httpContext,
-                StatusCodes.Status500InternalServerError,
-                CreateServerErrorProblem()),
+            FeatureDisabledException => (StatusCodes.Status403Forbidden, CreateForbiddenProblem()),
+            LibraryFileAccessDeniedException => (StatusCodes.Status403Forbidden, CreateForbiddenProblem()),
+            _ => (StatusCodes.Status500InternalServerError, CreateServerErrorProblem()),
         };
     }
 
@@ -105,28 +143,22 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
     }
 
     private static ProblemDetails CreateBadRequestProblem() =>
-        new()
-        {
-            Status = StatusCodes.Status400BadRequest,
-            Title = "Bad Request",
-            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
-        };
+        CreateProblem(
+            StatusCodes.Status400BadRequest,
+            "Bad Request",
+            "https://tools.ietf.org/html/rfc9110#section-15.5.1");
 
     private static ProblemDetails CreateNotFoundProblem() =>
-        new()
-        {
-            Status = StatusCodes.Status404NotFound,
-            Title = "Not Found",
-            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.5",
-        };
+        CreateProblem(
+            StatusCodes.Status404NotFound,
+            "Not Found",
+            "https://tools.ietf.org/html/rfc9110#section-15.5.5");
 
     private static ProblemDetails CreateConflictProblem() =>
-        new()
-        {
-            Status = StatusCodes.Status409Conflict,
-            Title = "Conflict",
-            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
-        };
+        CreateProblem(
+            StatusCodes.Status409Conflict,
+            "Conflict",
+            "https://tools.ietf.org/html/rfc9110#section-15.5.10");
 
     private static ProblemDetails CreateImdbIdConflictProblem(ImdbIdConflictException imdbIdConflict)
     {
@@ -137,12 +169,10 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
     }
 
     private static ProblemDetails CreateForbiddenProblem() =>
-        new()
-        {
-            Status = StatusCodes.Status403Forbidden,
-            Title = "Forbidden",
-            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4",
-        };
+        CreateProblem(
+            StatusCodes.Status403Forbidden,
+            "Forbidden",
+            "https://tools.ietf.org/html/rfc9110#section-15.5.4");
 
     private static ProblemDetails CreateQuotaProblem(
         SubtitleQuotaExceededException quotaExceeded,
@@ -165,26 +195,28 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
     }
 
     private static ProblemDetails CreateBadGatewayProblem() =>
-        new()
-        {
-            Status = StatusCodes.Status502BadGateway,
-            Title = "Bad Gateway",
-            Type = "https://tools.ietf.org/html/rfc9110#section-15.6.3",
-        };
+        CreateProblem(
+            StatusCodes.Status502BadGateway,
+            "Bad Gateway",
+            "https://tools.ietf.org/html/rfc9110#section-15.6.3");
 
     private static ProblemDetails CreateGatewayTimeoutProblem() =>
-        new()
-        {
-            Status = StatusCodes.Status504GatewayTimeout,
-            Title = "Gateway Timeout",
-            Type = "https://tools.ietf.org/html/rfc9110#section-15.6.5",
-        };
+        CreateProblem(
+            StatusCodes.Status504GatewayTimeout,
+            "Gateway Timeout",
+            "https://tools.ietf.org/html/rfc9110#section-15.6.5");
 
     private static ProblemDetails CreateServerErrorProblem() =>
+        CreateProblem(
+            StatusCodes.Status500InternalServerError,
+            "Internal Server Error",
+            "https://tools.ietf.org/html/rfc9110#section-15.6.1");
+
+    private static ProblemDetails CreateProblem(int status, string title, string type) =>
         new()
         {
-            Status = StatusCodes.Status500InternalServerError,
-            Title = "Internal Server Error",
-            Type = "https://tools.ietf.org/html/rfc9110#section-15.6.1",
+            Status = status,
+            Title = title,
+            Type = type,
         };
 }

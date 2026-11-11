@@ -23,18 +23,17 @@ public sealed class SubtitleProviderOptionsValidator : IValidateOptions<Subtitle
     {
         if (string.IsNullOrWhiteSpace(options.ApiKey))
         {
-            failures.Add($"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.ApiKey)} must be provided.");
+            failures.Add($"{Field(nameof(SubtitleProviderOptions.ApiKey))} must be provided.");
         }
 
         if (string.IsNullOrWhiteSpace(options.UserAgent))
         {
-            failures.Add(
-                $"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.UserAgent)} must be provided.");
+            failures.Add($"{Field(nameof(SubtitleProviderOptions.UserAgent))} must be provided.");
         }
 
         if (string.IsNullOrWhiteSpace(options.BaseUrl) || !IsHttpsOrLoopbackHttp(options.BaseUrl))
         {
-            failures.Add($"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.BaseUrl)} {BaseUrlFailure}");
+            failures.Add($"{Field(nameof(SubtitleProviderOptions.BaseUrl))} {BaseUrlFailure}");
         }
     }
 
@@ -42,18 +41,14 @@ public sealed class SubtitleProviderOptionsValidator : IValidateOptions<Subtitle
     {
         if (options.DownloadAllowedHosts.Length == 0)
         {
-            failures.Add(
-                $"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.DownloadAllowedHosts)} must list at "
-                + "least one allowed download host.");
+            failures.Add($"{Field(nameof(SubtitleProviderOptions.DownloadAllowedHosts))} must list at least one allowed download host.");
         }
 
         for (var index = 0; index < options.DownloadAllowedHosts.Length; index++)
         {
             if (string.IsNullOrWhiteSpace(options.DownloadAllowedHosts[index]))
             {
-                failures.Add(
-                    $"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.DownloadAllowedHosts)}[{index}] "
-                    + "must not be blank.");
+                failures.Add($"{Field(nameof(SubtitleProviderOptions.DownloadAllowedHosts))}[{index}] must not be blank.");
             }
         }
     }
@@ -62,18 +57,16 @@ public sealed class SubtitleProviderOptionsValidator : IValidateOptions<Subtitle
     {
         if (options.MaxDownloadBytes <= 0)
         {
-            failures.Add(
-                $"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.MaxDownloadBytes)} must be greater "
-                + "than zero.");
+            failures.Add($"{Field(nameof(SubtitleProviderOptions.MaxDownloadBytes))} must be greater than zero.");
         }
 
         if (options.RequestTimeout <= TimeSpan.Zero)
         {
-            failures.Add(
-                $"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.RequestTimeout)} must be greater "
-                + "than zero.");
+            failures.Add($"{Field(nameof(SubtitleProviderOptions.RequestTimeout))} must be greater than zero.");
         }
     }
+
+    private static string Field(string name) => $"{SubtitleProviderOptions.SectionName}:{name}";
 
     private static bool IsHttpsOrLoopbackHttp(string text) =>
         Uri.TryCreate(text, UriKind.Absolute, out var uri)

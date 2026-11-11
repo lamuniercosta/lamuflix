@@ -12,14 +12,12 @@ internal static class SubtitleRequestUriPolicy
             return false;
         }
 
-        if (!uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-            && !(uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && uri.IsLoopback))
-        {
-            return false;
-        }
-
-        return IsAllowedHost(uri.Host, allowedHosts);
+        return IsAllowedScheme(uri) && IsAllowedHost(uri.Host, allowedHosts);
     }
+
+    private static bool IsAllowedScheme(Uri uri) =>
+        uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+        || (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && uri.IsLoopback);
 
     public static bool IsAllowedHost(string host, IReadOnlyList<string> allowedHosts)
     {
