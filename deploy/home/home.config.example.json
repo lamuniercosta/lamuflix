@@ -1,0 +1,10 @@
+{
+  "clusterName": "lamuflix-home",
+  "libraryPath": "C:\\Example\\Movies",
+  "backupPath": "C:\\Example\\lamuflix-home\\backups",
+  "webPort": 3100,
+  "argoPort": 3180,
+  "timeZone": "America/Sao_Paulo",
+  "gitRepoUrl": "https://github.com/lamuniercosta/lamuflix.git",
+  "gitBranch": "env/home"
+}

@@ -83,7 +83,7 @@ Without a TMDb key, leave `TMDB_ENABLED=false`. With TMDb enabled and a blank ke
 
 ## Windows daily-driver setup
 
-The daily-driver host runs the Api and the Vite dev server as Windows processes while Postgres and RabbitMQ run as durable containers from `docker-compose.daily-driver.yml`. The host keeps its containers — and its catalog — across restarts, unlike the disposable AppHost. This is a third entrypoint next to the full Compose stack above and the AppHost: **run one entrypoint at a time**.
+The daily-driver host runs the Api and the Vite dev server as Windows processes while Postgres and RabbitMQ run as durable containers from `docker-compose.daily-driver.yml`. The host keeps its containers — and its catalog — across restarts, unlike the disposable AppHost. This is a third entrypoint next to the full Compose stack above and the AppHost. They compete for the same host ports, so **only one of them can hold those ports at a time** (see [Port owners](#troubleshoot)).
 
 ### Prerequisites
 
@@ -177,7 +177,7 @@ Stopping and resetting are different operations.
 ### Troubleshoot
 
 - **Port collision.** A host Postgres, RabbitMQ, or another entrypoint can already hold `5432` or `5672`. Check with `Get-NetTCPConnection -LocalPort 5432,5672 -ErrorAction SilentlyContinue`, then either stop the other owner or set `POSTGRES_PORT` / `RABBITMQ_PORT` in the Compose operator channel and point the Api connection string at the new port.
-- **One entrypoint at a time.** Running the full Compose stack, the AppHost, and the daily-driver project together invites port and credential confusion. Stop one before starting another; they share no state.
+- **Port owners.** The Compose stack, the AppHost and the daily-driver project all publish host ports such as `3000`, `5432`, `5672` and `11434`, so only one of them can hold those ports at a time. Stop one before starting another that needs the same ports. The home cluster (see [Home deployment](#home-deployment-kubernetes-and-gitops)) publishes only `3100` and `3180` and keeps its own Postgres, RabbitMQ and ollama inside the cluster, so it can run beside any of them.
 - **Credentials do not match.** `docker compose config` failing on a missing variable means the Compose operator channel is empty in that shell. A running Api that cannot reach Postgres or RabbitMQ usually means the Api local settings channel and the Compose channel disagree.
 - **Volumes look gone after `down`.** `down` without `-v` keeps named volumes; `down -v` does not. `docker volume ls` shows the project-scoped volumes.
 - **Durability versus upgrades.** Restarting or recreating the *same* container images with volumes retained keeps your state, and that is what this runbook asks you to verify. It does **not** certify an image upgrade: changing an image tag or digest is a separate, deliberate decision. The daily-driver file keeps the current `rabbitmq:4-alpine` tag and the pinned Postgres digest; a digest change is not authorised silently by a successful restart.
@@ -235,6 +235,48 @@ Illustrative configuration with placeholders only — replace every placeholder 
 
 - `Name` is your label; `ExecutablePath` is an absolute path you discover locally; `Formats` are the top-level video extensions you want this player to open (`.mkv` and `mkv` are both accepted, and only listed extensions are mapped — an unlisted one is refused with a `422` validation error).
 - Compose LocalPlay stays off. The playback proof runs against the existing gated endpoint, unchanged: `POST /api/movies/{id}/play` returns `204` on a successful launch, `403` when LocalPlay is disabled or the request is not proven local, and `422` when no configured player maps the file's extension.
+
+## Home deployment (Kubernetes and GitOps)
+
+The home instance runs on a single-node [kind](https://kind.sigs.k8s.io/) cluster named `lamuflix-home`. Argo CD (v3.6.1, pinned) reconciles `manifests/` from the `env/home` branch. Images are the digests published from `main` by CI ([ADR 0039](docs/adr/0039-publish-images-from-main.md)). The layout, the trade-offs and the rejected options are in [ADR 0040](docs/adr/0040-home-deployment-on-kind-with-argo-cd.md).
+
+| Part | Where |
+|---|---|
+| Base manifests | `deploy/k8s/base` |
+| Home overlay (image digests, namespace) | `deploy/k8s/overlays/home` |
+| kind cluster template | `deploy/kind/cluster.template.yaml` |
+| Argo CD bootstrap and Application | `deploy/argocd` |
+| Home config and secret names (examples, no values) | `deploy/home` |
+| Operator scripts and their `Test-*` companions | `scripts/home` |
+| Compose and manifest parity check (runs in CI) | `scripts/Test-DeployParity.ps1` |
+| Promotion (manual or on a `v*` tag) | `.github/workflows/promote-home.yml` |
+
+Ports on the host: the app at `http://127.0.0.1:3100`, Argo CD at `http://127.0.0.1:3180`, the Kubernetes API on `127.0.0.1:3080`. Nothing listens on a LAN address.
+
+Secrets never enter Git. The operator keeps the config and secret values in a folder outside the repository (default `F:\Dev\lamuflix-home\home.config.json`; the shape is in `deploy/home/home.config.example.json`, and `deploy/home/secrets.example.json` lists the secret names only).
+
+Operator commands (PowerShell 7):
+
+```powershell
+pwsh -NoProfile -File scripts/home/New-HomeCluster.ps1 -WhatIf
+pwsh -NoProfile -File scripts/home/New-HomeCluster.ps1
+pwsh -NoProfile -File scripts/home/Get-HomeStatus.ps1
+pwsh -NoProfile -File scripts/home/Backup-HomeCatalog.ps1
+pwsh -NoProfile -File scripts/home/Restore-HomeCatalog.ps1 -DumpPath <path-to-dump> -WhatIf
+pwsh -NoProfile -File scripts/home/Remove-HomeCluster.ps1 -Confirm -WhatIf
+```
+
+Read the `-WhatIf` output before dropping it. `Remove-HomeCluster.ps1` takes a catalog backup first and deletes only the kind cluster. It never touches `E:\Filmes` or the backups folder. `Restore-HomeCatalog.ps1` never overwrites or deletes a dump, and it refuses a non-empty catalog unless `-Force` is given.
+
+Promotion: run `promote-home.yml` from the Actions tab with a `main` commit sha. `dry_run` defaults to true and only shows the rendered diff. Argo CD syncs the cluster once a run with `dry_run` off pushes `env/home`.
+
+Each stateful service keeps its data in a PersistentVolumeClaim, and those claims are never pruned. Postgres is dumped before any sync (PreSync Job) and nightly at 04:00 (CronJob). Dumps go to `/backups`, and each job deletes only files that match its own name pattern.
+
+To render the manifests locally:
+
+```powershell
+kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/k8s/overlays/home
+```
 
 ## Ollama embedding model
 

@@ -1,0 +1,6 @@
+{
+  "description": "Compose adds service redis without a manifest (criterion 17)",
+  "exitCode": 1,
+  "mustContain": ["FAIL  compose 'redis' has a workload"],
+  "mustNotContain": []
+}

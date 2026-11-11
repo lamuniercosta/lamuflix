@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: ghcr.io/lamuniercosta/lamuflix-api
+    newName: ghcr.io/lamuniercosta/lamuflix-api
+    digest: sha256:df424c14e6f1066c331049862fbe8e530f811d9ffa0fadeda0f8ab22af4bfa7b
+  - name: ghcr.io/lamuniercosta/lamuflix-web
+    newName: ghcr.io/lamuniercosta/lamuflix-web
+    digest: sha256:bb663d2a725cdad7a9149d9a962bfc7e9b76c7b0c0cfd16c2a79dc2ac187aabe
+  - name: pgvector/pgvector
+    newName: pgvector/pgvector
+    digest: sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+  - name: rabbitmq
+    newName: rabbitmq
+    digest: sha256:8425b8435b0203e87292cf1a4a7e5f8108c610bbd8217f8cc952f43628b24987
+  - name: ollama/ollama
+    newName: ollama/ollama
+    digest: sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429

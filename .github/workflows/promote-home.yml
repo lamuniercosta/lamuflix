@@ -1,0 +1,259 @@
+name: Promote to home
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit on main whose sha-<sha> images are published (full or short)
+        required: true
+        type: string
+      dry_run:
+        description: Render and show the diff in the job summary without pushing env/home
+        required: false
+        default: true
+        type: boolean
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-home
+  cancel-in-progress: false
+
+env:
+  IMAGE_API: ghcr.io/lamuniercosta/lamuflix-api
+  IMAGE_WEB: ghcr.io/lamuniercosta/lamuflix-web
+  OVERLAY: deploy/k8s/overlays/home
+
+jobs:
+  promote:
+    name: promote-home
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: home
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve commit
+        id: commit
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SHA: ${{ inputs.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            requested="$INPUT_SHA"
+          else
+            requested="$EVENT_SHA"
+          fi
+          if ! [[ "$requested" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+            echo "::error::Not a commit sha: $requested"
+            exit 1
+          fi
+          full="$(git rev-parse --verify --quiet "${requested}^{commit}")" || {
+            echo "::error::Commit $requested is not in the repository."
+            exit 1
+          }
+          git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+          if ! git merge-base --is-ancestor "$full" origin/main; then
+            echo "::error::Refusing to promote $full: it is not on main."
+            exit 1
+          fi
+          echo "sha=$full" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image digests
+        id: digests
+        shell: bash
+        env:
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+          resolve() {
+            local image="$1" digest=""
+            digest="$(docker buildx imagetools inspect "${image}:sha-${SHA}" --format '{{.Manifest.Digest}}')" || digest=""
+            if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "::error::Image ${image}:sha-${SHA} is not published. Let CI publish this commit first." >&2
+              return 1
+            fi
+            printf '%s' "$digest"
+          }
+          api="$(resolve "$IMAGE_API")" || exit 1
+          web="$(resolve "$IMAGE_WEB")" || exit 1
+          {
+            echo "api=$api"
+            echo "web=$web"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Render home overlay with image digests
+        id: render
+        shell: pwsh
+        env:
+          SHA: ${{ steps.commit.outputs.sha }}
+          API_DIGEST: ${{ steps.digests.outputs.api }}
+          WEB_DIGEST: ${{ steps.digests.outputs.web }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git checkout --detach $env:SHA
+          if ($LASTEXITCODE -ne 0) { throw 'git checkout of the promoted commit failed' }
+
+          $kustomization = Join-Path $env:OVERLAY 'kustomization.yaml'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.AddRange([string[]](Get-Content -LiteralPath $kustomization))
+          $targets = @(
+            [pscustomobject]@{ Image = $env:IMAGE_API; Digest = $env:API_DIGEST },
+            [pscustomobject]@{ Image = $env:IMAGE_WEB; Digest = $env:WEB_DIGEST }
+          )
+          foreach ($target in $targets) {
+            $pattern = '^\s*(-\s+)?newName:\s*[''"]?' + [regex]::Escape($target.Image) + '[''"]?\s*$'
+            $hits = @(0..($lines.Count - 1) | Where-Object { $lines[$_] -match $pattern })
+            if ($hits.Count -ne 1) { throw "Expected one newName entry for $($target.Image), found $($hits.Count)" }
+            $start = $hits[0]
+            while ($start -gt 0 -and $lines[$start] -notmatch '^\s*-\s') { $start-- }
+            $end = $hits[0] + 1
+            while ($end -lt $lines.Count -and $lines[$end] -notmatch '^\s*-\s' -and $lines[$end] -notmatch '^\S') { $end++ }
+            $digestLines = @($start..($end - 1) | Where-Object { $lines[$_] -match '^\s*(-\s+)?digest:' })
+            if ($digestLines.Count -ne 1) { throw "Expected one digest in the $($target.Image) entry, found $($digestLines.Count)" }
+            $lines[$digestLines[0]] = $lines[$digestLines[0]] -replace 'digest:.*$', "digest: $($target.Digest)"
+          }
+          Set-Content -LiteralPath $kustomization -Value $lines -Encoding utf8
+          $written = Get-Content -LiteralPath $kustomization -Raw
+          foreach ($target in $targets) {
+            if (-not $written.Contains("digest: $($target.Digest)")) { throw "Digest for $($target.Image) was not written" }
+          }
+
+          $manifestPath = Join-Path $env:RUNNER_TEMP 'home-out/manifests/lamuflix-home.yaml'
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $manifestPath) | Out-Null
+          kubectl version --client
+          kubectl kustomize --load-restrictor LoadRestrictionsNone $env:OVERLAY | Set-Content -LiteralPath $manifestPath -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'kubectl kustomize failed' }
+
+          $content = Get-Content -LiteralPath $manifestPath -Raw
+          if ($content -match '(?m)^kind:\s*Secret\s*$') { throw 'Rendered output contains a Secret; secrets must never be written to env/home' }
+          foreach ($target in $targets) {
+            $name = ($target.Image -split '/')[-1]
+            $refs = @([regex]::Matches($content, [regex]::Escape($name) + '@sha256:[0-9a-f]{64}') | ForEach-Object { $_.Value } | Sort-Object -Unique)
+            if ($refs.Count -ne 1 -or $refs[0] -ne "$name@$($target.Digest)") { throw "Rendered $name does not reference exactly the expected digest" }
+          }
+
+      - name: Update env/home
+        id: publish
+        shell: bash
+        env:
+          SHA: ${{ steps.commit.outputs.sha }}
+          API_DIGEST: ${{ steps.digests.outputs.api }}
+          WEB_DIGEST: ${{ steps.digests.outputs.web }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          home="$RUNNER_TEMP/env-home"
+          out="$RUNNER_TEMP/home-out"
+
+          remote_refs="$(git ls-remote --heads origin env/home)"
+          if [ -n "$remote_refs" ]; then
+            git fetch --no-tags origin '+refs/heads/env/home:refs/remotes/origin/env/home'
+            git worktree add --detach "$home" refs/remotes/origin/env/home
+          else
+            git worktree add --orphan -b promote-home-root "$home"
+          fi
+
+          cd "$home"
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          mkdir -p manifests
+          cp "$out/manifests/lamuflix-home.yaml" manifests/lamuflix-home.yaml
+          jq -n \
+            --arg commit "$SHA" \
+            --arg apiImage "$IMAGE_API" \
+            --arg apiDigest "$API_DIGEST" \
+            --arg webImage "$IMAGE_WEB" \
+            --arg webDigest "$WEB_DIGEST" \
+            --arg promotedAtUtc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg workflowRun "$RUN_URL" \
+            '{commit: $commit, images: {api: {image: $apiImage, digest: $apiDigest}, web: {image: $webImage, digest: $webDigest}}, promotedAtUtc: $promotedAtUtc, workflowRun: $workflowRun}' \
+            > RELEASE.json
+
+          new_identity="$(jq -S 'del(.promotedAtUtc, .workflowRun)' RELEASE.json)"
+          old_identity=""
+          if [ -n "$remote_refs" ] && git cat-file -e refs/remotes/origin/env/home:RELEASE.json 2>/dev/null; then
+            old_identity="$(git show refs/remotes/origin/env/home:RELEASE.json | jq -S 'del(.promotedAtUtc, .workflowRun)')"
+          fi
+
+          git add -A
+          changed=true
+          if [ "$old_identity" = "$new_identity" ] && git diff --cached --quiet -- manifests; then
+            changed=false
+          fi
+
+          if [ "$DRY_RUN" = "true" ]; then
+            git diff --cached --no-color > "$RUNNER_TEMP/promote.diff"
+            {
+              echo "## promote-home dry run (nothing pushed)"
+              echo ""
+              echo "- Commit: $SHA"
+              echo "- API digest: $API_DIGEST"
+              echo "- Web digest: $WEB_DIGEST"
+              echo "- Changed: $changed"
+              echo ""
+              if [ "$changed" = true ]; then
+                echo '```diff'
+                head -c 900000 "$RUNNER_TEMP/promote.diff"
+                echo ""
+                echo '```'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "Dry run: not pushing."
+            exit 0
+          fi
+
+          if [ "$changed" = false ]; then
+            {
+              echo "## promote-home"
+              echo ""
+              echo "No change: env/home already has this commit and these digests. No commit made."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "No change; nothing to commit."
+            exit 0
+          fi
+
+          msg="$RUNNER_TEMP/commit-message.txt"
+          {
+            echo "home: promote ${SHA:0:8}"
+            echo ""
+            echo "Source commit: $SHA"
+            echo "API image digest: $API_DIGEST"
+            echo "Web image digest: $WEB_DIGEST"
+            echo "Workflow run: $RUN_URL"
+          } > "$msg"
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -F "$msg"
+          git push origin HEAD:refs/heads/env/home
+
+          {
+            echo "## promote-home"
+            echo ""
+            echo "Pushed env/home for commit $SHA."
+            echo "- API digest: $API_DIGEST"
+            echo "- Web digest: $WEB_DIGEST"
+          } >> "$GITHUB_STEP_SUMMARY"
