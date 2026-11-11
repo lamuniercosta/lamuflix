@@ -161,6 +161,7 @@ public sealed class EnrichmentConsumerTests(RabbitMqFixture fixture) : IClassFix
 
         await host.StartAsync(ct);
         await host.Publisher.EnqueueAsync(new EnrichmentRequested(movie, 1), ct);
+        await host.WaitForStatusAsync(ct, movie, EnrichmentStatus.Enriched);
         var published = await probe.PollConsumeAsync(
             RabbitMqTopology.ThumbnailQueue,
             candidate => ReadThumbnail(candidate).MovieId.Value == 1101,
