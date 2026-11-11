@@ -88,7 +88,7 @@ public sealed class ImportLibraryFoldersCommandHandler(
             await movies.SaveChangesAsync(cancellationToken);
         }
 
-        return new ImportLibraryFoldersResult(imported, skipped, retried, failures);
+        return new ImportLibraryFoldersResult(imported, skipped, retried, [.. failures]);
     }
 
     private static async Task<bool> IsImportedAfterFaultAsync(

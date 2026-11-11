@@ -33,6 +33,6 @@ public sealed class ImportCandidatesQueryHandler(
             newFolders.Add(folder);
         }
 
-        return new ImportCandidatesResult(newFolders);
+        return new ImportCandidatesResult([.. newFolders]);
     }
 }
