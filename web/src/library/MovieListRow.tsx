@@ -99,7 +99,7 @@ export default function MovieListRow({
         data-watchlisted={String(watchlist.isInWatchlist)}
         data-error={watchlist.error ? 'true' : 'false'}
       >
-        <WatchlistToggleButton movieId={id} isInWatchlist={movie.isInWatchlist} />
+        <WatchlistToggleButton movieId={id} isInWatchlist={movie.isInWatchlist} title={title} />
       </div>
     </div>
   );
