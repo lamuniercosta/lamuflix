@@ -66,7 +66,8 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         result.Imported.ShouldBe(2);
         result.Skipped.ShouldBe(0);
         result.Failures.Select(failure => failure.Folder).ShouldBe(["Gone"]);
-        result.Failures.Select(failure => failure.Reason).ShouldBe(["import-failed"]);
+        result.Failures.Select(failure => failure.Reason).ShouldBe([ImportFolderFailureReason.ImportFailed]);
+        result.Failures.ShouldHaveSingleItem().Reason.Code.ShouldBe("import-failed");
         capture.Measurements.ShouldBeEmpty();
         await importer.Received(1).ImportAsync(new LibraryPath("Alpha"), ct);
         await importer.Received(1).ImportAsync(new LibraryPath("Bravo"), ct);
@@ -87,13 +88,13 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
 
         // assert
         result.Imported.ShouldBe(0);
-        result.Failures.ShouldHaveSingleItem().Reason.ShouldBe("folder-not-found");
+        result.Failures.ShouldHaveSingleItem().Reason.ShouldBe(ImportFolderFailureReason.FolderNotFound);
     }
 
     [Theory]
     [InlineData("NoVideo", "no-video")]
     [InlineData("Invalid", "invalid-folder")]
-    public async Task HandleAsync_OtherFaults_MapToClosedCodes(string folder, string reason)
+    public async Task HandleAsync_OtherFaults_MapToClosedCodes(string folder, string expectedCode)
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -117,7 +118,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
             new ImportLibraryFoldersCommand([folder], RetryFailed: false), ct);
 
         // assert
-        result.Failures.ShouldHaveSingleItem().Reason.ShouldBe(reason);
+        result.Failures.ShouldHaveSingleItem().Reason.Code.ShouldBe(expectedCode);
     }
 
     [Fact]
@@ -250,7 +251,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         // assert
         result.Imported.ShouldBe(1);
         result.Failures.Select(failure => failure.Folder).ShouldBe(["../secret"]);
-        result.Failures.Select(failure => failure.Reason).ShouldBe(["invalid-folder"]);
+        result.Failures.Select(failure => failure.Reason).ShouldBe([ImportFolderFailureReason.InvalidFolder]);
         await importer.Received(1).ImportAsync(new LibraryPath("Heat"), ct);
     }
 

@@ -27,6 +27,6 @@ internal sealed record ImportLibraryResponse(
 internal sealed record ImportFolderFailureDto(string Folder, string Reason)
 {
     public static ImportFolderFailureDto From(ImportLibraryFolderFailure failure) =>
-        new(failure.Folder, failure.Reason);
+        new(failure.Folder, failure.Reason.Code);
 }
 // ReSharper restore NotAccessedPositionalProperty.Global
