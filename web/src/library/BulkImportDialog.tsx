@@ -53,6 +53,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
 
   const folders = candidates.data?.newFolders ?? [];
   const failedItems = failed.data?.items ?? [];
+  const selectedFolders = folders.filter((folder) => selected.has(folder));
 
   function handleClose() {
     stopRequested.current = true;
@@ -104,7 +105,9 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
   }
 
   function toggleSelectAll() {
-    setSelected((current) => (current.size === folders.length ? new Set() : new Set(folders)));
+    setSelected((current) =>
+      folders.every((folder) => current.has(folder)) ? new Set() : new Set(folders),
+    );
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -112,7 +115,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
     setErrorMessage(null);
     setSummary(null);
 
-    const targets = [...selected];
+    const targets = selectedFolders;
     const totals = { imported: 0, skipped: 0, retried: 0 };
     const failures: BulkImportSummary['failures'] = [];
     stopRequested.current = false;
@@ -171,7 +174,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
 
   const busy = running;
   const inFlight = progress !== null && progress.done < progress.total;
-  const nothingToDo = selected.size === 0 && !retryFailed;
+  const nothingToDo = selectedFolders.length === 0 && !retryFailed;
 
   return (
     <div className="lamu-dialog-scrim">
@@ -194,7 +197,9 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
               onClick={toggleSelectAll}
               disabled={busy || folders.length === 0}
             >
-              {selected.size === folders.length && folders.length > 0 ? 'Clear all' : 'Select all'}
+              {folders.length > 0 && selectedFolders.length === folders.length
+                ? 'Clear all'
+                : 'Select all'}
             </button>
             {candidates.isError ? (
               <p role="alert" className="lamu-dialog-alert">
