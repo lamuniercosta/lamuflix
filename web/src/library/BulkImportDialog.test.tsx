@@ -122,6 +122,50 @@ describe('BulkImportDialog', () => {
     });
   });
 
+  it('refreshes the candidate and failed lists after a successful import', async () => {
+    let folders = ['Alpha'];
+    let failedRows = [failedRow('Broken Cut')];
+    server.use(
+      http.get('/api/movies/import/candidates', () =>
+        HttpResponse.json({ newFolders: folders }, { status: 200 }),
+      ),
+      http.post('/api/movies/import/library', async ({ request }) => {
+        const body = (await request.json()) as { folders: string[]; retryFailed: boolean };
+        folders = folders.filter((folder) => !body.folders.includes(folder));
+        if (body.retryFailed) {
+          failedRows = [];
+        }
+        return HttpResponse.json(
+          { imported: body.folders.length, skipped: 0, retried: 0, failures: [] },
+          { status: 200 },
+        );
+      }),
+      http.get('/api/movies', ({ request }) => {
+        const statuses = new URL(request.url).searchParams.getAll('Statuses');
+        return HttpResponse.json(browseBody(statuses.includes('Failed') ? failedRows : []), {
+          status: 200,
+        });
+      }),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(
+      await within(dialog).findByRole('checkbox', { name: 'Retry failed enrichments' }),
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+
+    await waitFor(() => {
+      expect(within(dialog).queryByLabelText('Alpha')).not.toBeInTheDocument();
+      expect(
+        within(dialog).queryByRole('checkbox', { name: 'Retry failed enrichments' }),
+      ).not.toBeInTheDocument();
+    });
+    expect(within(dialog).getByText('No movies are waiting in Failed enrichment.')).toBeVisible();
+  });
+
   it('shows the generic error with fixed reason text on import failure', async () => {
     server.use(
       candidatesHandler(['Alpha']),
