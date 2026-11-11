@@ -48,6 +48,8 @@ public sealed class ThumbnailConsumer(
         "Thumbnail processing for {MovieId} requeued because the host is stopping";
     private const string CompletedLogMessage =
         "Thumbnail processing for {MovieId} completed";
+    private const string ResolutionLogMessage =
+        "Thumbnail resolution for {MovieId} is unavailable and the message is requeued redelivered {Redelivered}";
 
     private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
@@ -215,6 +217,15 @@ public sealed class ThumbnailConsumer(
             logger.LogInformation(ShutdownLogMessage, request.MovieId.Value);
             await RequeueAsync(consumerChannel, delivery);
         }
+        catch (ScannerResolutionUnavailableException exception)
+        {
+            logger.LogWarning(
+                exception.Cause,
+                ResolutionLogMessage,
+                request.MovieId.Value,
+                delivery.Redelivered);
+            await RequeueAsync(consumerChannel, delivery);
+        }
         catch (Exception exception)
         {
             MarkError(activity, request.MovieId, exception);
@@ -313,7 +324,25 @@ public sealed class ThumbnailConsumer(
 
         await using var scope = scopes.CreateAsyncScope();
         var scanner = scope.ServiceProvider.GetService<IMediaLibraryScanner>();
-        return ThumbnailPathResolver.ResolvePublishPath(movie.Path, scanner) ?? requested;
+        try
+        {
+            return ThumbnailPathResolver.ResolvePublishPath(movie.Path, scanner) ?? requested;
+        }
+        catch (IOException exception)
+        {
+            throw new ScannerResolutionUnavailableException(exception);
+        }
+    }
+
+    private sealed class ScannerResolutionUnavailableException : Exception
+    {
+        public ScannerResolutionUnavailableException(IOException inner)
+            : base("Thumbnail scanner resolution is unavailable.", inner)
+        {
+            Cause = inner;
+        }
+
+        public IOException Cause { get; }
     }
 
     private bool TryCanonicalizeRequestPath(string filePath, out string canonical)

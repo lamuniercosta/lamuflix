@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -311,9 +312,7 @@ public sealed class EnrichmentConsumer(
             return;
         }
 
-        var publishPath = ThumbnailPathResolver.ResolvePublishPath(
-            movie.Path,
-            scope.ServiceProvider.GetService<IMediaLibraryScanner>());
+        var publishPath = ResolveThumbnailPublishPath(movie, scope.ServiceProvider, request);
         if (publishPath is null)
         {
             return;
@@ -322,6 +321,25 @@ public sealed class EnrichmentConsumer(
         await thumbnailPublisher.PublishAsync(
             new ThumbnailRequested(movie.Id, publishPath),
             cancellationToken);
+    }
+
+    private string? ResolveThumbnailPublishPath(
+        Movie movie,
+        IServiceProvider services,
+        EnrichmentRequested request)
+    {
+        try
+        {
+            return ThumbnailPathResolver.ResolvePublishPath(movie.Path, services.GetService<IMediaLibraryScanner>());
+        }
+        catch (IOException exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Thumbnail resolution for {MovieId} failed and the thumbnail publish is skipped",
+                request.MovieId.Value);
+            return null;
+        }
     }
 
     private bool IsThumbnailPublishEnabled(ProcessEnrichmentOutcome outcome) =>
