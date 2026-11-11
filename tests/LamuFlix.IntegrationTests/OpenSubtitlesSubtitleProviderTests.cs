@@ -568,7 +568,11 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             options = configure(options);
         }
 
-        var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        var client = new HttpClient(new HttpClientHandler
+        {
+            AllowAutoRedirect = false,
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+        })
         {
             Timeout = Timeout.InfiniteTimeSpan,
         };

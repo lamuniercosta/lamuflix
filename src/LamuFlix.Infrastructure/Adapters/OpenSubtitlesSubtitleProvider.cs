@@ -270,8 +270,7 @@ public sealed class OpenSubtitlesSubtitleProvider(
                 .Where(language => !string.IsNullOrWhiteSpace(language))
                 .Select(language => language.Trim().ToLowerInvariant()));
 
-    // ReSharper disable NotAccessedPositionalProperty.Local
-    // Serialized by System.Text.Json as the OpenSubtitles request body, never read in code.
+    // ReSharper disable NotAccessedPositionalProperty.Local // Serialized by System.Text.Json as the OpenSubtitles request body, never read in code.
     private sealed record SearchRequest(
         [property: JsonPropertyName("moviehash")] string? MovieHash,
         [property: JsonPropertyName("query")] string? Query,

@@ -7,7 +7,7 @@ namespace LamuFlix.Core.Options;
 public sealed class SubtitleProviderOptionsValidator : IValidateOptions<SubtitleProviderOptions>
 {
     private const string BaseUrlFailure =
-        "The BaseUrl field must be an absolute https URL, or http on a loopback host.";
+        "The BaseUrl field must be an absolute https URL.";
 
     public ValidateOptionsResult Validate(string? name, SubtitleProviderOptions options)
     {
@@ -31,7 +31,7 @@ public sealed class SubtitleProviderOptionsValidator : IValidateOptions<Subtitle
             failures.Add($"{Field(nameof(SubtitleProviderOptions.UserAgent))} must be provided.");
         }
 
-        if (string.IsNullOrWhiteSpace(options.BaseUrl) || !IsHttpsOrLoopbackHttp(options.BaseUrl))
+        if (string.IsNullOrWhiteSpace(options.BaseUrl) || !IsHttps(options.BaseUrl))
         {
             failures.Add($"{Field(nameof(SubtitleProviderOptions.BaseUrl))} {BaseUrlFailure}");
         }
@@ -68,8 +68,7 @@ public sealed class SubtitleProviderOptionsValidator : IValidateOptions<Subtitle
 
     private static string Field(string name) => $"{SubtitleProviderOptions.SectionName}:{name}";
 
-    private static bool IsHttpsOrLoopbackHttp(string text) =>
+    private static bool IsHttps(string text) =>
         Uri.TryCreate(text, UriKind.Absolute, out var uri)
-        && (uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-            || (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && uri.IsLoopback));
+        && uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
 }

@@ -167,6 +167,24 @@ public sealed class SubtitleSelectionTests
         selected.FileId.ShouldBe(4);
     }
 
+    [Theory]
+    [InlineData("EN", "en")]
+    [InlineData("EN", " EN ")]
+    [InlineData("pt-BR", "PT-br")]
+    public void Select_MatchDiffersInCaseOrPadding_ReturnsTheConfiguredPreferenceCode(string preference, string candidateLanguage)
+    {
+        // arrange
+        SubtitleCandidate[] candidates = [new(4, candidateLanguage, DownloadCount: 1, MatchesMovieHash: false)];
+
+        // act
+        var selected = SubtitleSelection.Select(candidates, [preference]);
+
+        // assert
+        selected.ShouldNotBeNull();
+        selected.FileId.ShouldBe(4);
+        selected.Language.ShouldBe(preference);
+    }
+
     [Fact]
     public void Select_BlankPreferenceInTheList_IsSkippedWithoutThrowing()
     {

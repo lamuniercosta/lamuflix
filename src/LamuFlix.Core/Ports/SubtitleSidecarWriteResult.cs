@@ -1,12 +1,15 @@
 namespace LamuFlix.Core.Ports;
 
-// ReSharper disable UnusedAutoPropertyAccessor.Global
-// Compared through record equality; never read directly.
+// ReSharper disable UnusedAutoPropertyAccessor.Global // Compared through record equality; never read directly.
 public sealed record SubtitleSidecarWriteResult
 {
-    public static readonly SubtitleSidecarWriteResult Created = new("created");
+    private const string CreatedCode = "created";
 
-    public static readonly SubtitleSidecarWriteResult AlreadyPresent = new("alreadyPresent");
+    private const string AlreadyPresentCode = "alreadyPresent";
+
+    public static readonly SubtitleSidecarWriteResult Created = new(CreatedCode);
+
+    public static readonly SubtitleSidecarWriteResult AlreadyPresent = new(AlreadyPresentCode);
 
     private SubtitleSidecarWriteResult(string code) => Code = code;
 

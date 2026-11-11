@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO.Abstractions;
@@ -105,7 +105,6 @@ internal static class HandlerRegistration
 
     private static void AddSubtitleAcquisitionOptions(IServiceCollection services)
     {
-        // Subtitle acquisition settings are evaluated at prepare time, so a read-only demo without credentials still starts (DEV-453).
         services.AddOptions<SubtitlesOptions>().BindConfiguration(SubtitlesOptions.SectionName);
         services.AddSingleton<IValidateOptions<SubtitlesOptions>, SubtitlesOptionsValidator>();
         services.AddOptions<SubtitleProviderOptions>().BindConfiguration(SubtitleProviderOptions.SectionName);

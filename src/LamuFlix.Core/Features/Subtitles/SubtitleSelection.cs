@@ -18,7 +18,7 @@ public static class SubtitleSelection
             var selected = BestOfLanguage(candidates, language);
             if (selected is not null)
             {
-                return selected;
+                return selected with { Language = language };
             }
         }
 

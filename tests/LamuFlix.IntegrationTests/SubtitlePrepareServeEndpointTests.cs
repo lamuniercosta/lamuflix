@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -11,10 +12,12 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Adapters;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using Shouldly;
 using WireMock.RequestBuilders;
@@ -715,6 +718,22 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
     private void DetailsReturning(MovieDetails details) =>
         catalog.GetDetailsAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(details);
 
+    private static OpenSubtitlesSubtitleProvider CreateTestSubtitleProvider(IServiceProvider services)
+    {
+        var client = new HttpClient(new HttpClientHandler
+        {
+            AllowAutoRedirect = false,
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+        })
+        {
+            Timeout = Timeout.InfiniteTimeSpan,
+        };
+        return new OpenSubtitlesSubtitleProvider(
+            client,
+            services.GetRequiredService<IOptions<SubtitleProviderOptions>>(),
+            services.GetRequiredService<TimeProvider>());
+    }
+
     private WebApplicationFactory<Program> CreateHost(
         string libraryRoot,
         IReadOnlyDictionary<string, string?>? additionalSettings = null) =>
@@ -732,7 +751,11 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
 
             builder.ConfigureAppConfiguration((_, configuration) =>
                 configuration.AddInMemoryCollection(settings));
-            builder.ConfigureTestServices(services => services.AddSingleton(catalog));
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton(catalog);
+                services.AddSingleton<ISubtitleProvider>(CreateTestSubtitleProvider);
+            });
         });
 
     private static string PrepareRoute(int id) =>
