@@ -3,15 +3,14 @@
 ## Core (records, `Core/Features/Import/`; commands/queries sealed per Principle II)
 
 - `ImportCandidatesQuery` — sealed payload-free record.
-- `ImportCandidatesResult(IReadOnlyList<LibraryPath> NewFolders)` — canonical relative identities; root video = `"."`.
-- `ImportLibraryFoldersCommand(IReadOnlyList<string> Folders, bool RetryFailed)` — raw strings in; the handler canonicalizes each under `LibraryOptions.RootPath` with `LibraryPath.TryCanonicalizeUnderRoot` before the skip check, so an absolute in-root path resolves to the same identity the importer persists; at least one of (non-empty `Folders`, `RetryFailed`) required.
+- `ImportCandidatesResult(ImmutableArray<LibraryPath> NewFolders)` — canonical relative identities; root video = `"."`.
+- `ImportLibraryFoldersCommand(ImmutableArray<string> Folders, bool RetryFailed)` — raw strings in; the constructor normalizes a default array to empty so the validator and handler never see an uninitialized collection; the handler canonicalizes each under `LibraryOptions.RootPath` with `LibraryPath.TryCanonicalizeUnderRoot` before the skip check, so an absolute in-root path resolves to the same identity the importer persists; at least one of (non-empty `Folders`, `RetryFailed`) required.
 - `ImportLibraryFolderFailure(string Folder, ImportFolderFailureReason Reason)` — one per faulted folder. `Folder` is the request string as sent, so an entry that is not a valid `LibraryPath` is still representable. `Reason` is the `ImportFolderFailureReason` Enumeration, never exception text (Principle IV): `FolderNotFound` (`NotFoundException`), `NoVideo` (scanner `InvalidTransitionException`), `InvalidFolder` (`ValidationException`), `ImportFailed` (anything else); its `Code` is the wire value.
-- `ImportLibraryFoldersResult(int Imported, int Skipped, int Retried, IReadOnlyList<ImportLibraryFolderFailure> Failures)`.
+- `ImportLibraryFoldersResult(int Imported, int Skipped, int Retried, ImmutableArray<ImportLibraryFolderFailure> Failures)`.
 
 ## Repository additions (`IMovieRepository` / `EfMovieRepository`)
 
 - `SnapshotMoviePathsAsync(CancellationToken) → IReadOnlyList<LibraryPath>` — `AsNoTracking`, `OrderBy(id)`, select `LibraryPath`.
-- `FindFailedMovieIdsAsync(CancellationToken) → IReadOnlyList<MovieId>` — `AsNoTracking`, `Where(Status == Failed)`, select id, `PresentIds` pattern.
 
 ## Telemetry
 

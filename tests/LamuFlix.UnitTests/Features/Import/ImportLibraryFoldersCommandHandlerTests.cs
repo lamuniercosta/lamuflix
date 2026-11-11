@@ -370,14 +370,14 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
     }
 
     [Fact]
-    public async Task Validator_NullFoldersWithoutRetry_FailsInsteadOfThrowing()
+    public async Task Validator_DefaultFoldersWithoutRetry_FailsInsteadOfThrowing()
     {
         // arrange
         var validator = new ImportLibraryFoldersCommandValidator();
 
         // act
         var result = await validator.ValidateAsync(
-            new ImportLibraryFoldersCommand(null!, RetryFailed: false),
+            new ImportLibraryFoldersCommand(default, RetryFailed: false),
             TestContext.Current.CancellationToken);
 
         // assert

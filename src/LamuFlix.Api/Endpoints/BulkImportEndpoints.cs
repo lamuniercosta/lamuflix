@@ -44,7 +44,7 @@ internal static class BulkImportEndpoints
     {
         var folders = request.Folders ?? [];
         var result = await handler.HandleAsync(
-            new ImportLibraryFoldersCommand(folders, request.RetryFailed), cancellationToken);
+            new ImportLibraryFoldersCommand([.. folders], request.RetryFailed), cancellationToken);
         return TypedResults.Ok(ImportLibraryResponse.From(result));
     }
 }
