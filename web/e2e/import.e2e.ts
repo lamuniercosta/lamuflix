@@ -63,7 +63,10 @@ async function stubControl(action: string, args: string[] = []): Promise<void> {
 test.describe('pending import', () => {
   test('shows a Pending row for the imported folder while the provider response is held', async ({
     page,
-  }) => {
+  }, testInfo) => {
+    const folderPath =
+      testInfo.retry > 0 ? context.reservedFolders.retry : context.reservedFolders.initial;
+
     await stubControl('arm', [context.reservedMovie.title]);
     try {
       await page.goto(context.baseURL);
@@ -78,11 +81,12 @@ test.describe('pending import', () => {
       await page.getByRole('button', { name: 'Bulk import' }).click();
       const dialog = page.getByRole('dialog', { name: 'Bulk import' });
       await expect(dialog).toBeVisible({ timeout: context.waitBudgetMs });
-      await dialog.getByRole('button', { name: 'Select all' }).click();
+      await dialog.getByRole('checkbox', { name: folderPath }).check();
       await dialog.getByRole('button', { name: 'Import', exact: true }).click();
 
       const response = await responsePromise;
       expect(response.status()).toBe(200);
+      expect((await response.json()).imported).toBe(1);
 
       const grid = page.getByRole('list', { name: 'Movies' });
       const row = grid.getByRole('listitem').filter({
