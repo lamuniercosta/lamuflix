@@ -278,6 +278,48 @@ To render the manifests locally:
 kubectl kustomize --load-restrictor LoadRestrictionsNone deploy/k8s/overlays/home
 ```
 
+## Subtitles
+
+Subtitle handling has two modes, and the default is the read-only one. Serving an existing subtitle is separate from acquiring a new one: nothing in ordinary playback or streaming ever calls a subtitle provider.
+
+**Read-only demo (default).** `docker/api.settings.example.json` ships `Subtitles:SaveEnabled: false` with an empty `Subtitles:PreferredLanguages` array and no `Subtitles:OpenSubtitles` section at all, so the plain stack starts with acquisition disabled and unconfigured. Missing or invalid acquisition settings never block startup and never block existing-track serving. The Compose library mount stays read-only (`${LIBRARY_PATH:-./docker/sample-library}:/media/library:ro`), which is exactly what the demo needs:
+
+| Endpoint | Behavior in the demo |
+|---|---|
+| `GET /api/movies/{id}/subtitles` | Lists the sidecar tracks discovered for the movie. |
+| `GET /api/movies/{id}/subtitles/{trackId}/content` | Serves one track converted to WebVTT. |
+| `GET /api/movies/{id}/subtitles/sidecar` | Serves an existing exact-basename `.srt` beside the primary video as `application/x-subrip`, byte-for-byte, with `X-Content-Type-Options: nosniff` and an attachment `Content-Disposition`. This path makes no provider traffic and needs no API key. |
+| `POST /api/movies/{id}/subtitles/prepare` | Returns `200` with `alreadyPresent` when the exact-basename sidecar already exists, even with saving disabled or the mount read-only. Otherwise it answers `409` because acquisition is disabled or unconfigured. |
+
+So a library that already has `Film.srt` next to `Film.mkv` needs no configuration at all: serving works, and `prepare` simply reports `alreadyPresent`.
+
+**Writable daily-driver (opt-in).** Acquisition is enabled deliberately, per host, in the **Api local settings channel** (user secrets or an ignored local settings file) — never in a tracked file. Four things must be true before `prepare` can download and save:
+
+1. `Subtitles:SaveEnabled` is `true`.
+2. `Subtitles:PreferredLanguages` lists the language codes you accept, in priority order. Selection never leaves this list.
+3. The `Subtitles:OpenSubtitles` acquisition settings are complete and valid: `ApiKey` (secret), `BaseUrl`, `UserAgent`, `DownloadAllowedHosts`, `MaxDownloadBytes`, and `RequestTimeout`.
+4. The library the Api reads is writable by the Api process.
+
+```powershell
+# Api local settings channel: user secrets, never committed
+dotnet user-secrets set "Subtitles:SaveEnabled" "true" --project src/LamuFlix.Api
+dotnet user-secrets set "Subtitles:PreferredLanguages:0" "<primary language code>" --project src/LamuFlix.Api
+dotnet user-secrets set "Subtitles:PreferredLanguages:1" "<fallback language code>" --project src/LamuFlix.Api
+dotnet user-secrets set "Subtitles:OpenSubtitles:ApiKey" "<your provider API key>" --project src/LamuFlix.Api
+dotnet user-secrets set "Subtitles:OpenSubtitles:BaseUrl" "<provider https base URL>" --project src/LamuFlix.Api
+dotnet user-secrets set "Subtitles:OpenSubtitles:UserAgent" "<your-application>/<version>" --project src/LamuFlix.Api
+dotnet user-secrets set "Subtitles:OpenSubtitles:DownloadAllowedHosts:0" "<allowed download host>" --project src/LamuFlix.Api
+dotnet user-secrets set "Subtitles:OpenSubtitles:MaxDownloadBytes" "<byte ceiling you accept>" --project src/LamuFlix.Api
+dotnet user-secrets set "Subtitles:OpenSubtitles:RequestTimeout" "<timeout, e.g. HH:MM:SS>" --project src/LamuFlix.Api
+```
+
+- **No guessed numeric defaults.** Every acquisition bound above is yours to state; the app ships no fallback for `MaxDownloadBytes` or `RequestTimeout`, and an incomplete or invalid set keeps acquisition off with a `409` instead of failing startup.
+- **`BaseUrl` must be HTTPS**, except for a loopback host (used for local contract testing). `DownloadAllowedHosts` is an explicit allowlist: a download URL outside it, or any redirect, is refused without contacting the destination.
+- **Writable library.** The daily-driver entrypoint runs the Api as a host process, so writeability is a property of `Library:RootPath` and the account running the Api — grant the Api process write permission on that folder. The daily-driver Compose file contains only Postgres and RabbitMQ and mounts no library; the read-only `:ro` bind mount belongs to the full Compose stack and is not the writable setup.
+- **Secrets stay local.** Put the API key and any machine-specific path only in the Api local settings channel. Never commit credentials or absolute library paths to `docker/api.settings.example.json`, `.env.example`, or any other tracked file.
+- **What a save looks like.** On success the exact-basename sidecar appears next to the video (`Film.mkv` → `Film.srt`, no language suffix, the name BS Player autodetects) and `prepare` answers `200` with `saved` and the matched `selectedLanguage`. An existing sidecar is never overwritten or re-downloaded.
+- **The optional-provider health check** stays Healthy in both modes. It reports sanitized local metadata only (`ready` or `disabled_or_unconfigured`), makes no network or quota calls, and is not part of `/health/live`. A green health check therefore never proves the provider is reachable.
+
 ## Ollama embedding model
 
 Compose provisions Ollama with the embedding model the API needs for semantic search. `docker compose up` starts two Ollama services ([ADR-0025](docs/adr/ADR-0025-isolated-ollama-test.md)):

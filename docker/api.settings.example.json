@@ -25,5 +25,9 @@
   "Library": {
     "RootPath": "/media/library",
     "LegacyRootPaths": []
+  },
+  "Subtitles": {
+    "SaveEnabled": false,
+    "PreferredLanguages": []
   }
 }
