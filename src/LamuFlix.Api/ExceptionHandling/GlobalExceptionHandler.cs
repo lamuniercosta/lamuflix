@@ -64,6 +64,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 return true;
             default:
                 status = 0;
+                // ReSharper disable once NullableWarningSuppressionIsUsed // out value unread when returning false
                 problem = null!;
                 return false;
         }
@@ -105,6 +106,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 return true;
             default:
                 status = 0;
+                // ReSharper disable once NullableWarningSuppressionIsUsed // out value unread when returning false
                 problem = null!;
                 return false;
         }

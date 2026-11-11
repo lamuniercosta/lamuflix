@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Features.Subtitles;
@@ -175,6 +174,7 @@ public sealed class SubtitleLookupTests
     public async Task FindAsync_NullProvider_Throws()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => SubtitleLookup.FindAsync(
             null!,
             new SubtitleLookupRequest(Hash, FileSize, PrimaryTitle, EnglishThenPortuguese),
@@ -188,6 +188,7 @@ public sealed class SubtitleLookupTests
     public async Task FindAsync_NullRequestTerminal_Throws()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => SubtitleLookup.FindAsync(
             new RecordingProvider(new Dictionary<string, IReadOnlyList<SubtitleCandidate>>(StringComparer.Ordinal)),
             null!,
@@ -205,7 +206,7 @@ public sealed class SubtitleLookupTests
         {
             Searches.Add(search);
             var key = search.MovieHash ?? search.Title ?? string.Empty;
-            return Task.FromResult<IReadOnlyList<SubtitleCandidate>>(
+            return Task.FromResult(
                 results.TryGetValue(key, out var candidates) ? candidates : []);
         }
 

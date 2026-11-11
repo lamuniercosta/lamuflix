@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 
 namespace LamuFlix.Core.Options;
 

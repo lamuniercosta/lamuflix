@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -10,9 +9,7 @@ using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.FileSystem;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using NSubstitute;
-using Shouldly;
 
 namespace LamuFlix.UnitTests.FileSystem;
 
@@ -153,10 +150,11 @@ public sealed class SubtitleSidecarStoreTests
         outside.WriteFile(Path.Combine(MovieFolder, SidecarFileName), SidecarPayload());
         var store = CreateStore(library.Root);
         var ct = TestContext.Current.CancellationToken;
+        var outsideMovieFolder = Path.Combine(outside.Root, MovieFolder);
 
         // act
         var act = () => store.ReadAsync(
-            new LibraryPath(Path.Combine(outside.Root, MovieFolder)),
+            new LibraryPath(outsideMovieFolder),
             PrimaryFileName,
             ServingBound,
             ct);
@@ -200,7 +198,8 @@ public sealed class SubtitleSidecarStoreTests
         // assert
         result.ShouldBe(SubtitleSidecarWriteResult.Created);
         var created = Path.Combine(library.Root, MovieFolder, SidecarFileName);
-        File.ReadAllBytes(created).ShouldBe(content);
+        var written = await File.ReadAllBytesAsync(created, ct);
+        written.ShouldBe(content);
         Directory.GetFiles(Path.Combine(library.Root, MovieFolder), "*.tmp").ShouldBeEmpty();
     }
 
@@ -224,7 +223,8 @@ public sealed class SubtitleSidecarStoreTests
 
         // assert
         result.ShouldBe(SubtitleSidecarWriteResult.AlreadyPresent);
-        File.ReadAllBytes(Path.Combine(library.Root, MovieFolder, SidecarFileName)).ShouldBe(original);
+        var preserved = await File.ReadAllBytesAsync(Path.Combine(library.Root, MovieFolder, SidecarFileName), ct);
+        preserved.ShouldBe(original);
     }
 
     [Fact]
@@ -256,7 +256,7 @@ public sealed class SubtitleSidecarStoreTests
         // assert
         results.Count(result => result == SubtitleSidecarWriteResult.Created).ShouldBe(1);
         results.Count(result => result == SubtitleSidecarWriteResult.AlreadyPresent).ShouldBe(1);
-        var content = File.ReadAllBytes(Path.Combine(root, MovieFolder, SidecarFileName));
+        var content = await File.ReadAllBytesAsync(Path.Combine(root, MovieFolder, SidecarFileName), ct);
         content.Length.ShouldBe(64);
         content.ShouldAllBe(value => value == content[0]);
     }
@@ -270,13 +270,14 @@ public sealed class SubtitleSidecarStoreTests
         var store = CreateStore(library.Root);
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
+        var token = cancellation.Token;
 
         // act
         var act = () => store.CreateAsync(
             new LibraryPath(MovieFolder),
             PrimaryFileName,
             SidecarPayload(),
-            cancellation.Token);
+            token);
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
@@ -294,10 +295,11 @@ public sealed class SubtitleSidecarStoreTests
         outside.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
         var store = CreateStore(library.Root);
         var ct = TestContext.Current.CancellationToken;
+        var outsideMovieFolder = Path.Combine(outside.Root, MovieFolder);
 
         // act
         var act = () => store.CreateAsync(
-            new LibraryPath(Path.Combine(outside.Root, MovieFolder)),
+            new LibraryPath(outsideMovieFolder),
             PrimaryFileName,
             SidecarPayload(),
             ct);
@@ -369,7 +371,8 @@ public sealed class SubtitleSidecarStoreTests
 
         // assert
         await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
-        File.ReadAllBytes(target).ShouldBe(SidecarPayload());
+        var targetContent = await File.ReadAllBytesAsync(target, ct);
+        targetContent.ShouldBe(SidecarPayload());
     }
 
     [Fact]

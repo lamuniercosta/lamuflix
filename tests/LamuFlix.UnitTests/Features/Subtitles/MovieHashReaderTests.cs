@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
+using LamuFlix.Core.Ports;
 using LamuFlix.Core.Options;
 using LamuFlix.Infrastructure.FileSystem;
 using Microsoft.Extensions.Hosting;
@@ -100,7 +101,7 @@ public sealed class MovieHashReaderTests
     public async Task ReadAsync_NonSeekableStream_ReturnsNoHashInsteadOfThrowing()
     {
         // arrange
-        var reader = Substitute.For<LamuFlix.Core.Ports.ILibraryFileReader>();
+        var reader = Substitute.For<ILibraryFileReader>();
         reader.OpenRead(Arg.Any<LibraryPath>()).Returns(_ => new NonSeekableStream());
 
         // act
@@ -119,7 +120,7 @@ public sealed class MovieHashReaderTests
         // arrange
         using var library = new TemporaryDirectory();
         library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), new byte[MovieHash.MinimumEligibleLength]);
-        var reader = Substitute.For<LamuFlix.Core.Ports.ILibraryFileReader>();
+        var reader = Substitute.For<ILibraryFileReader>();
         reader.OpenRead(Arg.Any<LibraryPath>()).Returns(new ShortReportingStream(MovieHash.MinimumEligibleLength));
 
         // act
@@ -136,6 +137,7 @@ public sealed class MovieHashReaderTests
     public async Task ReadAsync_NullReader_Throws()
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => MovieHashReader.ReadAsync(
             null!,
             new LibraryPath(PrimaryFileName),

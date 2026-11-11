@@ -10,7 +10,6 @@ using LamuFlix.Core.Ports;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using Shouldly;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
 
@@ -106,7 +105,7 @@ public sealed class GetSubtitleSidecarQueryHandlerTests
         // assert
         await Should.ThrowAsync<NotFoundException>(act);
         await store.DidNotReceiveWithAnyArgs().ReadAsync(
-            default!, default!, default, TestContext.Current.CancellationToken);
+            Arg.Any<LibraryPath>(), Arg.Any<string>(), default, TestContext.Current.CancellationToken);
     }
 
     private void Arrange()

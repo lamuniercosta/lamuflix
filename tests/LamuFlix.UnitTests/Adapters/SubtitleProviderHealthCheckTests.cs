@@ -1,14 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Infrastructure.Adapters;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Options;
-using Shouldly;
 
 namespace LamuFlix.UnitTests.Adapters;
 
@@ -148,6 +144,7 @@ public sealed class SubtitleProviderHealthCheckTests
         var healthCheck = CreateHealthCheck(EnabledSubtitles(), ConfiguredProvider());
 
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
         var act = () => healthCheck.CheckHealthAsync(null!, TestContext.Current.CancellationToken);
 
         // assert
@@ -156,6 +153,7 @@ public sealed class SubtitleProviderHealthCheckTests
 
     private static string? AcquisitionState(HealthCheckResult result) =>
         result.Data.TryGetValue(TelemetryConstants.SubtitleAcquisitionStateTagName, out var value)
+            // ReSharper disable once ConditionalAccessQualifierIsNonNullableAccordingToAPIContract // health data may carry a null value at runtime
             ? value?.ToString()
             : null;
 

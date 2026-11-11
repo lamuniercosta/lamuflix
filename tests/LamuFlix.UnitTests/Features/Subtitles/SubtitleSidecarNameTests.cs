@@ -1,6 +1,5 @@
 using System;
 using LamuFlix.Core.Features.Subtitles;
-using Shouldly;
 
 namespace LamuFlix.UnitTests.Features.Subtitles;
 
@@ -32,6 +31,7 @@ public sealed class SubtitleSidecarNameTests
     public void For_UnusablePrimaryVideoName_ThrowsArgumentException(string? primaryFileName)
     {
         // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed // InlineData null probes the guard
         var act = () => SubtitleSidecarName.For(primaryFileName!);
 
         // assert

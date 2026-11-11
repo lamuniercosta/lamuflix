@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -271,12 +270,15 @@ public sealed class OpenSubtitlesSubtitleProvider(
                 .Where(language => !string.IsNullOrWhiteSpace(language))
                 .Select(language => language.Trim().ToLowerInvariant()));
 
+    // ReSharper disable NotAccessedPositionalProperty.Local
+    // Serialized by System.Text.Json as the OpenSubtitles request body, never read in code.
     private sealed record SearchRequest(
         [property: JsonPropertyName("moviehash")] string? MovieHash,
         [property: JsonPropertyName("query")] string? Query,
         [property: JsonPropertyName("languages")] string Languages);
 
     private sealed record DownloadRequest([property: JsonPropertyName("file_id")] long FileId);
+    // ReSharper restore NotAccessedPositionalProperty.Local
 
     private sealed record SearchResponse([property: JsonPropertyName("data")] SearchEntry[]? Data);
 

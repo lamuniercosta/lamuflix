@@ -171,7 +171,7 @@ public sealed class SubtitlePreparationTargetTests
 
         // assert
         await Should.ThrowAsync<NotFoundException>(act);
-        scanner.DidNotReceiveWithAnyArgs().ResolvePrimaryVideo(default!);
+        scanner.DidNotReceiveWithAnyArgs().ResolvePrimaryVideo(Arg.Any<LibraryPath>());
     }
 
     private void DetailsReturning() =>

@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
@@ -78,7 +77,7 @@ public sealed class PrepareSubtitleCommandHandler(
             : SubtitlePreparationResult.AlreadyPresent();
     }
 
-    private void LogOutcome(LamuFlix.Core.Domain.MovieId movieId, SubtitlePreparationResult result) =>
+    private void LogOutcome(Domain.MovieId movieId, SubtitlePreparationResult result) =>
         logger.LogInformation(
             "Subtitle preparation for {MovieId} finished with {Outcome}.",
             movieId.Value,
