@@ -62,6 +62,8 @@ docker compose up -d --build
 
 Applying changes to `docker/api.settings.json` requires restarting the API because some options are read at startup. Open http://localhost:3000. To mount a different library directory, set `LIBRARY_PATH` in `.env` before starting (defaults to `./docker/sample-library`). Imports take the movie folder name relative to the library root (for example `2 Days in New York[2012]`), and full paths still work.
 
+The header's `Bulk import` action lists every folder under the root that is not yet imported, plus a loose video file sitting directly in the root, and imports the selection or all of it in one pass; already-imported folders are skipped, so repeating the pass is safe. It is backed by `GET /api/movies/import/candidates` (`newFolders`) and `POST /api/movies/import/library` (`folders`, `retryFailed`), which returns `imported`, `skipped`, `retried` counts and per-folder `failures` with a closed reason code (`folder-not-found`, `no-video`, `invalid-folder`, `import-failed`) — one folder never aborts the rest. `retryFailed` also requeues movies stuck in Failed enrichment. `POST /api/movies/import` remains the single-folder call.
+
 `LIBRARY_PATH` changes the mount; keep it consistent with `Library:RootPath` (`/media/library` inside the container) and add the old mount to `Library:LegacyRootPaths` when an existing catalog was seeded from a different location. On an existing catalog, stop the API before upgrading and read [Operating a library-relative upgrade](#operating-a-library-relative-upgrade) first.
 
 ### TMDb collection membership
