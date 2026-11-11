@@ -68,7 +68,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         "1\n00:00:01 --> 00:00:03\ntext\n",
     };
 
-    private readonly WireMockServer server = LoopbackWireMock.Start();
+    private readonly WireMockServer server = LoopbackWireMock.StartHttps();
     private readonly List<IDisposable> disposables = [];
 
     public void Dispose()
@@ -268,7 +268,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task SearchAsync_RedirectResponse_FailsAsAProviderFailureWithoutContactingTheDestination(int status)
     {
         // arrange
-        using var destination = LoopbackWireMock.Start();
+        using var destination = LoopbackWireMock.StartHttps();
         server.Given(Request.Create().WithPath(SearchPath).UsingPost())
             .RespondWith(Response.Create().WithStatusCode(status).WithHeader("Location", destination.Urls[0]));
         var provider = Provider();
@@ -410,7 +410,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
     public async Task DownloadAsync_LinkResponseRedirect_FailsWithoutFollowingIt()
     {
         // arrange
-        using var destination = LoopbackWireMock.Start();
+        using var destination = LoopbackWireMock.StartHttps();
         StubDownloadLinkResponse(
             Response.Create().WithStatusCode(301).WithHeader("Location", destination.Urls[0]));
         var provider = Provider();

@@ -278,7 +278,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         library.WriteMovieFile(MovieFolder, SidecarFileName, Encoding.UTF8.GetBytes(SidecarText));
         DetailsReturning(KnownDetails(MovieFolder));
@@ -356,7 +356,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         StubProvider(provider);
@@ -386,7 +386,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         provider.Given(Request.Create().WithPath(SearchPath).UsingPost())
@@ -417,7 +417,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         provider.Given(Request.Create().WithPath(SearchPath).UsingPost())
@@ -441,7 +441,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         provider.Given(Request.Create().WithPath(SearchPath).UsingPost())
@@ -463,7 +463,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         provider.Given(Request.Create().WithPath(SearchPath).UsingPost())
@@ -487,7 +487,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         provider.Given(Request.Create().WithPath(SearchPath).UsingPost())
@@ -515,7 +515,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         provider.Given(Request.Create().WithPath(SearchPath).UsingPost())
@@ -539,7 +539,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
     {
         // arrange
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         provider.Given(Request.Create().WithPath(SearchPath).UsingPost())
@@ -576,7 +576,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         DetailsReturning(KnownDetails(MovieFolder));
         provider.Given(Request.Create().WithPath(SearchPath).UsingPost())
@@ -644,7 +644,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         // arrange
         var ct = TestContext.Current.CancellationToken;
         using var library = new TemporaryLibrary();
-        using var provider = LoopbackWireMock.Start();
+        using var provider = LoopbackWireMock.StartHttps();
         library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
         library.WriteMovieFile(MovieFolder, SidecarFileName, Encoding.UTF8.GetBytes(SidecarText));
         DetailsReturning(KnownDetails(MovieFolder));
