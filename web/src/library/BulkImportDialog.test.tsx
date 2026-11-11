@@ -307,6 +307,44 @@ describe('BulkImportDialog', () => {
     expect(within(dialog).getByRole('status')).toHaveTextContent('Imported 1');
   });
 
+  it('drops imported folders from the selection after the refresh', async () => {
+    let importCalls = 0;
+    let folders = ['Alpha', 'Bravo'];
+    server.use(
+      http.get('/api/movies/import/candidates', () =>
+        HttpResponse.json({ newFolders: folders }, { status: 200 }),
+      ),
+      http.post('/api/movies/import/library', async ({ request }) => {
+        importCalls += 1;
+        const body = (await request.json()) as { folders: string[] };
+        folders = folders.filter((folder) => !body.folders.includes(folder));
+        return HttpResponse.json(
+          { imported: body.folders.length, skipped: 0, retried: 0, failures: [] },
+          { status: 200 },
+        );
+      }),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+
+    await waitFor(() => {
+      expect(within(dialog).queryByLabelText('Alpha')).not.toBeInTheDocument();
+    });
+
+    expect(within(dialog).getByRole('button', { name: 'Import' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Select all' })).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Select all' }));
+    expect(within(dialog).getByLabelText('Bravo')).toBeChecked();
+    expect(within(dialog).getByRole('button', { name: 'Import' })).toBeEnabled();
+    expect(importCalls).toBe(1);
+  });
+
   it('keeps recorded per-folder failures when a later request errors', async () => {
     let call = 0;
     server.use(
