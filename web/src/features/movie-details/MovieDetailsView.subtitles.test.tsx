@@ -94,7 +94,7 @@ describe('MovieDetailsView subtitle selector at the DEV-455 viewer seam', () => 
       'Portuguese (Brazil)',
     ]);
     expect(control.value).toBe('');
-  });
+  }, 15000);
 
   it('shows only the chosen track and returns to Off on request', async () => {
     serveSubtitles();

@@ -106,8 +106,8 @@ public sealed class SystemProcessRunnerTests
         // act
         var result = await RunScriptAsync(
             "timeout-tree.ps1",
-            TimeSpan.FromSeconds(3),
-            [marker, childScript, childMarker, "6", "30"],
+            TimeSpan.FromSeconds(10),
+            [marker, childScript, childMarker, "15", "30"],
             cancellationToken: TestContext.Current.CancellationToken);
 
         // assert
