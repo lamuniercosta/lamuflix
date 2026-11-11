@@ -4,10 +4,6 @@ using LamuFlix.Core.Pipeline;
 
 namespace LamuFlix.Core.Features.Subtitles;
 
-/// <summary>
-/// One sanitized <see cref="ValidationException"/> payload for unreadable or unusable subtitle content.
-/// The message never names a path, a file name, or any cue text.
-/// </summary>
 internal static class SubtitlePayloadErrors
 {
     private const string TrackKey = "Track";

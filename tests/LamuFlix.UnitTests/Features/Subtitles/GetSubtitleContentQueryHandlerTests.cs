@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -195,6 +196,69 @@ public sealed class GetSubtitleContentQueryHandlerTests
         // assert
         await Should.ThrowAsync<NotFoundException>(act);
         reader.DidNotReceiveWithAnyArgs().OpenRead(Arg.Any<LibraryPath>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_MissingMovie_TagsMovieIdAndNotFoundCategory()
+    {
+        // arrange
+        using var activity = new Activity("SubtitleDiagnostics").Start();
+        var id = new MovieId(MovieIdValue);
+        catalog.GetDetailsAsync(id, Arg.Any<CancellationToken>()).Returns((MovieDetails?)null);
+        var handler = CreateHandler();
+
+        // act
+        var act = () => handler.HandleAsync(new GetSubtitleContentQuery(id, "any"), CancellationToken.None);
+
+        // assert
+        await Should.ThrowAsync<NotFoundException>(act);
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(MovieIdValue);
+        activity.GetTagItem(TelemetryConstants.FailureCategoryTagName).ShouldBe(TelemetryConstants.NotFoundOutcome);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DeniedFolder_TagsDeniedCategory()
+    {
+        // arrange
+        using var activity = new Activity("SubtitleDiagnostics").Start();
+        var id = new MovieId(MovieIdValue);
+        DetailsReturning(id);
+        reader.When(instance => instance.AuthorizeFolder(Arg.Any<LibraryPath>()))
+            .Throw(new LibraryFileAccessDeniedException());
+        var handler = CreateHandler();
+
+        // act
+        var act = () => handler.HandleAsync(new GetSubtitleContentQuery(id, "any"), CancellationToken.None);
+
+        // assert
+        await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(MovieIdValue);
+        activity.GetTagItem(TelemetryConstants.FailureCategoryTagName).ShouldBe(TelemetryConstants.DeniedOutcome);
+    }
+
+    [Fact]
+    public async Task HandleAsync_PayloadOverConfiguredInputBound_TagsValidationCategory()
+    {
+        // arrange
+        using var activity = new Activity("SubtitleDiagnostics").Start();
+        var id = new MovieId(MovieIdValue);
+        DetailsReturning(id);
+        PrimaryReturning();
+        reader.EnumerateFiles(Arg.Any<LibraryPath>()).Returns([PrimaryFileName, $"{Stem}.en.srt"]);
+        reader.OpenRead(Arg.Any<LibraryPath>())
+            .Returns(StreamOf("1\n00:00:01,000 --> 00:00:02,000\npayload\n"));
+        var handler = CreateHandler(maxInputBytes: 8);
+
+        // act
+        var act = () => handler.HandleAsync(
+            new GetSubtitleContentQuery(id, SubtitleTrackToken.For(id, $"{Stem}.en.srt")),
+            CancellationToken.None);
+
+        // assert
+        await Should.ThrowAsync<ValidationException>(act);
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(MovieIdValue);
+        activity.GetTagItem(TelemetryConstants.FailureCategoryTagName)
+            .ShouldBe(TelemetryConstants.HandlerOutcomeValidationFailed);
     }
 
     private GetSubtitleContentQueryHandler CreateHandler(int maxInputBytes = 8388608) =>

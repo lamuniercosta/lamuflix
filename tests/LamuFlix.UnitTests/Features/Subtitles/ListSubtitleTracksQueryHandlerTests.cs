@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -121,6 +122,42 @@ public sealed class ListSubtitleTracksQueryHandlerTests
         // assert
         await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
         reader.DidNotReceiveWithAnyArgs().EnumerateFiles(Arg.Any<LibraryPath>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_MissingMovie_TagsMovieIdAndNotFoundCategory()
+    {
+        // arrange
+        using var activity = new Activity("SubtitleDiagnostics").Start();
+        var id = new MovieId(MovieIdValue);
+        catalog.GetDetailsAsync(id, Arg.Any<CancellationToken>()).Returns((MovieDetails?)null);
+
+        // act
+        var act = () => handler.HandleAsync(new ListSubtitleTracksQuery(id), CancellationToken.None);
+
+        // assert
+        await Should.ThrowAsync<NotFoundException>(act);
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(MovieIdValue);
+        activity.GetTagItem(TelemetryConstants.FailureCategoryTagName).ShouldBe(TelemetryConstants.NotFoundOutcome);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DeniedFolder_TagsMovieIdAndDeniedCategory()
+    {
+        // arrange
+        using var activity = new Activity("SubtitleDiagnostics").Start();
+        var id = new MovieId(MovieIdValue);
+        DetailsReturning(id, MovieFolder);
+        reader.When(instance => instance.AuthorizeFolder(Arg.Any<LibraryPath>()))
+            .Throw(new LibraryFileAccessDeniedException());
+
+        // act
+        var act = () => handler.HandleAsync(new ListSubtitleTracksQuery(id), CancellationToken.None);
+
+        // assert
+        await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(MovieIdValue);
+        activity.GetTagItem(TelemetryConstants.FailureCategoryTagName).ShouldBe(TelemetryConstants.DeniedOutcome);
     }
 
     private static string Stem => "Heat.1995.1080p";

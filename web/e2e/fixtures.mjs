@@ -72,11 +72,6 @@ const OTHER_MOVIE = {
   relativePath: 'available/Tears of Steel (2012)',
 };
 
-/**
- * Sidecar subtitle samples written into the git-ignored runtime library only, never committed as
- * media. Labels, languages, default marker and served order are whatever `SubtitleSidecarDiscovery`
- * derives from these file names: default marker first, then language ordinal, then label.
- */
 export const SUBTITLE_FIXTURES = {
   listed: {
     title: 'Big Buck Bunny',
@@ -106,10 +101,6 @@ export const SUBTITLE_FIXTURES = {
       },
     ],
   },
-  /**
-   * A sidecar that is discovered and listed but cannot be converted: the real content route answers a
-   * sanitized 422, which is how the viewer's failure handling is exercised without a fake transport.
-   */
   broken: {
     title: 'Elephants Dream',
     relativePath: 'seeded/Elephants Dream (2006)',
@@ -126,7 +117,6 @@ export const SUBTITLE_FIXTURES = {
   },
 };
 
-// One long cue covers the whole synthetic clip, so an active cue is observable at any playback time.
 const SRT_CUE_WINDOW = '00:00:00,000 --> 00:00:59,000';
 
 function writeSidecar(directory, track) {

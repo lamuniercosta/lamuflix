@@ -4,12 +4,6 @@ using LamuFlix.Core.Pipeline;
 
 namespace LamuFlix.Core.Features.Subtitles;
 
-/// <summary>
-/// Decodes sidecar subtitle bytes with the frozen policy: unsupported UTF-16/UTF-32 byte order marks are
-/// rejected, otherwise strict UTF-8 is attempted (an optional UTF-8 BOM is stripped) and Windows-1252 is
-/// used only when strict UTF-8 fails. No statistical guessing and no replacement-character success.
-/// Newlines are normalized to LF.
-/// </summary>
 public static class SubtitleTextDecoder
 {
     private const int Windows1252CodePage = 1252;
@@ -17,8 +11,11 @@ public static class SubtitleTextDecoder
     private const byte Utf8BomSecond = 0xBB;
     private const byte Utf8BomThird = 0xBF;
 
+    private const bool EmitUtf8Identifier = false;
+    private const bool ThrowOnInvalidBytes = true;
+
     private static readonly UTF8Encoding StrictUtf8 =
-        new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+        new(encoderShouldEmitUTF8Identifier: EmitUtf8Identifier, throwOnInvalidBytes: ThrowOnInvalidBytes);
 
     public static string Decode(ReadOnlySpan<byte> payload)
     {

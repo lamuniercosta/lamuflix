@@ -111,11 +111,6 @@ async function assertPlaybackAdvances(page: Page): Promise<void> {
     .toBeGreaterThan(started);
 }
 
-/**
- * The synthetic acceptance clips are 8–14 s long, so a subtitle interaction that takes a few seconds
- * can reach the natural end of the media. Rewinding before a continuity check measures the player,
- * not how long the fixture happens to be.
- */
 async function rewindAndResume(page: Page, title: string): Promise<void> {
   await playerVideo(page).evaluate((element) => {
     (element as HTMLVideoElement).currentTime = 0;
@@ -137,11 +132,6 @@ interface TrackSnapshot {
   activeCues: string[];
 }
 
-/**
- * Reads the browser's own track state for the tracks this viewer actually rendered. The DOM track
- * elements are used rather than `video.textTracks`, because Chromium keeps removed tracks in that
- * list and would report tracks that no longer exist in the page.
- */
 async function readTracks(page: Page): Promise<TrackSnapshot[]> {
   return playerVideo(page).evaluate((element) => {
     const video = element as HTMLVideoElement;
@@ -177,7 +167,6 @@ interface TrackStateProbe {
   textTrackCount: number;
 }
 
-/** Reads tracks plus the selector and the raw `textTracks` length, so a failure names its evidence. */
 async function probeTrackState(page: Page, title: string): Promise<TrackStateProbe> {
   const tracks = await readTracks(page);
   const textTrackCount = await playerVideo(page).evaluate(
@@ -188,10 +177,6 @@ async function probeTrackState(page: Page, title: string): Promise<TrackStatePro
   return { tracks, selectorValue, textTrackCount };
 }
 
-/**
- * Waits for a track-state condition and returns the last observation either way, so a failed check
- * reports what the browser actually rendered rather than only which boolean was wrong.
- */
 async function waitForTrackState(
   page: Page,
   title: string,

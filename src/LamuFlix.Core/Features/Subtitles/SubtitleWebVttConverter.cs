@@ -5,16 +5,8 @@ using System.Text;
 
 namespace LamuFlix.Core.Features.Subtitles;
 
-/// <summary>Configured conversion bounds enforced while parsing and emitting WebVTT.</summary>
 public sealed record SubtitleConversionLimits(int MaxCues, int MaxLineCharacters, int MaxOutputBytes);
 
-/// <summary>
-/// Converts an SRT document into literal WebVTT: <c>WEBVTT</c> plus a blank line, cue order and timing
-/// preserved, sequence indices dropped, comma milliseconds converted to dot milliseconds, and
-/// <c>&amp;</c>, <c>&lt;</c>, <c>&gt;</c> escaped so cue text renders literally. Valid overlapping cues stay
-/// valid and NOTE/STYLE/REGION-looking words inside a cue remain literal text. Only structures that cannot
-/// be represented as literal WebVTT are rejected, always with a sanitized payload error.
-/// </summary>
 public static class SubtitleWebVttConverter
 {
     private const string Header = "WEBVTT\n\n";

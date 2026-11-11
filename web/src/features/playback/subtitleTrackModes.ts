@@ -1,8 +1,3 @@
-/**
- * FR-010 track modes at the viewer seam: the selected sidecar track is `showing`, every other
- * rendered track is `disabled`. With no selection (Off) no track is `showing`, so they are all
- * disabled.
- */
 const TRACK_SELECTOR = 'track[data-track-id]';
 
 const LIST_EVENTS = ['change', 'addtrack', 'removetrack'] as const;
@@ -23,12 +18,6 @@ export function applySubtitleTrackModes(
   }
 }
 
-/**
- * Chromium runs its own text-track selection when the media or the track list settles, which can
- * flip a rendered track to `showing` after this viewer has already applied Off or a switch. The
- * browser-owned track list is therefore watched and the desired modes are re-applied on every
- * change, so every non-selected rendered track stays `disabled` for the life of the element.
- */
 export function watchSubtitleTrackModes(
   video: HTMLVideoElement | null,
   selectedTrackId: () => string | null,

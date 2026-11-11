@@ -1,6 +1,5 @@
 using System;
 using System.Buffers;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,13 +11,6 @@ using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Core.Features.Subtitles;
 
-/// <summary>
-/// Serves one eligible sidecar track as WebVTT. The handler owns the whole policy: it reauthorizes the
-/// movie folder, freshly enumerates the eligible sidecars, recomputes their tokens and matches the
-/// requested token against that allowlist only, then opens the matched regular file through the authorized
-/// reader, reads it within the configured input bound, decodes it, and converts it. Tokens are identifiers,
-/// never paths, and the result is an immutable document payload with no live stream.
-/// </summary>
 public sealed class GetSubtitleContentQueryHandler(
     IMovieCatalog catalog,
     IMediaLibraryScanner scanner,
@@ -34,18 +26,25 @@ public sealed class GetSubtitleContentQueryHandler(
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        var options = libraryOptions.Value;
-        var movie = await SubtitleMovieResolution.ResolveAsync(catalog, scanner, reader, query.Id, cancellationToken);
+        SubtitleDiagnostics.TagMovie(query.Id);
+        try
+        {
+            var options = libraryOptions.Value;
+            var movie = await SubtitleMovieResolution.ResolveAsync(catalog, scanner, reader, query.Id, cancellationToken);
 
-        Activity.Current?.SetTag(TelemetryConstants.MovieId, query.Id.Value);
+            var fileName = ResolveEligibleFileName(query, movie.Folder, movie.PrimaryFileName);
+            var payload = await ReadBoundedAsync(
+                CombinePath(movie.Folder, fileName),
+                options.MaxSubtitleInputBytes,
+                cancellationToken);
 
-        var fileName = ResolveEligibleFileName(query, movie.Folder, movie.PrimaryFileName);
-        var payload = await ReadBoundedAsync(
-            CombinePath(movie.Folder, fileName),
-            options.MaxSubtitleInputBytes,
-            cancellationToken);
-
-        return new SubtitleContentResult(Convert(SubtitleTextDecoder.Decode(payload), options));
+            return new SubtitleContentResult(Convert(SubtitleTextDecoder.Decode(payload), options));
+        }
+        catch (Exception exception) when (exception is NotFoundException or ValidationException or LibraryFileAccessDeniedException)
+        {
+            SubtitleDiagnostics.TagFailure(exception);
+            throw;
+        }
     }
 
     private static string Convert(string document, LibraryOptions options)

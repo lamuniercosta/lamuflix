@@ -23,13 +23,6 @@ export interface SubtitleSelectorProps {
   onRetryList: () => void;
 }
 
-/**
- * Off plus the server-listed tracks of one movie, in served order. Track labels render as JSX text
- * children only, so a hostile basename can never be interpreted as markup. The selector stays
- * hidden until a successful non-empty list exists; a failed list keeps Off and offers an explicit
- * Retry rather than presenting itself as a successful empty result. A failed track load keeps the
- * video playing, returns to Off and allows retry by reselecting a track.
- */
 export default function SubtitleSelector({
   title,
   listStatus,
