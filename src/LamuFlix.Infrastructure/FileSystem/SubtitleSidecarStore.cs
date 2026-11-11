@@ -314,29 +314,27 @@ public sealed partial class SubtitleSidecarStore(
     private static bool HasReparsePointInChain(string candidate, string root)
     {
         var current = candidate;
-        while (!string.IsNullOrEmpty(current))
+        while (!string.IsNullOrEmpty(current) && !IsSamePath(current, root))
         {
-            if (string.Equals(current, root, PathComparison))
-            {
-                return false;
-            }
-
             if (IsReparsePoint(current))
             {
                 return true;
             }
 
-            var parent = Path.GetDirectoryName(current);
-            if (parent is null || string.Equals(parent, current, PathComparison))
-            {
-                return false;
-            }
-
-            current = parent;
+            current = ParentOrEmpty(current);
         }
 
         return false;
     }
+
+    private static string ParentOrEmpty(string current)
+    {
+        var parent = Path.GetDirectoryName(current);
+        return parent is null || IsSamePath(parent, current) ? string.Empty : parent;
+    }
+
+    private static bool IsSamePath(string left, string right) =>
+        string.Equals(left, right, PathComparison);
 
     private static bool IsReparsePoint(string path)
     {
@@ -360,9 +358,10 @@ public sealed partial class SubtitleSidecarStore(
     private static LibraryFileAccessDeniedException Denied() =>
         new("The requested library path is outside the authorized library root or is not a regular file.");
 
-    private static StringComparison NameComparison =>
-        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    private static StringComparison NameComparison => OrdinalFileComparison;
 
-    private static StringComparison PathComparison =>
+    private static StringComparison PathComparison => OrdinalFileComparison;
+
+    private static StringComparison OrdinalFileComparison =>
         OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 }

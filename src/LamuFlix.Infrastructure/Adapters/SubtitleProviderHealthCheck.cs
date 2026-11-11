@@ -36,20 +36,21 @@ internal sealed class SubtitleProviderHealthCheck(
             }));
     }
 
-    private bool IsReady()
-    {
-        var subtitles = subtitlesOptions.Value;
-        if (!subtitles.SaveEnabled || subtitles.PreferredLanguages.Length == 0)
-        {
-            return false;
-        }
+    private bool IsReady() =>
+        HasSubtitlesConfigured(subtitlesOptions.Value) && HasProviderConfigured(providerOptions.Value);
 
-        var provider = providerOptions.Value;
-        return !string.IsNullOrWhiteSpace(provider.ApiKey)
-            && !string.IsNullOrWhiteSpace(provider.UserAgent)
-            && !string.IsNullOrWhiteSpace(provider.BaseUrl)
-            && provider.DownloadAllowedHosts.Length > 0
-            && provider.MaxDownloadBytes > 0
-            && provider.RequestTimeout > TimeSpan.Zero;
-    }
+    private static bool HasSubtitlesConfigured(SubtitlesOptions subtitles) =>
+        subtitles.SaveEnabled && subtitles.PreferredLanguages.Length > 0;
+
+    private static bool HasProviderConfigured(SubtitleProviderOptions provider) =>
+        HasCredentials(provider) && HasBounds(provider);
+
+    private static bool HasCredentials(SubtitleProviderOptions provider) =>
+        !string.IsNullOrWhiteSpace(provider.ApiKey)
+        && !string.IsNullOrWhiteSpace(provider.UserAgent)
+        && !string.IsNullOrWhiteSpace(provider.BaseUrl)
+        && provider.DownloadAllowedHosts.Length > 0;
+
+    private static bool HasBounds(SubtitleProviderOptions provider) =>
+        provider.MaxDownloadBytes > 0 && provider.RequestTimeout > TimeSpan.Zero;
 }
