@@ -15,6 +15,7 @@ using LamuFlix.Core.Features.Watchlist;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Adapters;
 using LamuFlix.Infrastructure.FileSystem;
 using LamuFlix.Infrastructure.Import;
 using LamuFlix.Infrastructure.Library;
@@ -94,6 +95,7 @@ internal static class HandlerRegistration
             serviceProvider => serviceProvider.GetRequiredService<SetMovieReviewCommandValidator>());
         services.AddHandler<SetMovieReviewCommandHandler, SetMovieReviewCommand, Unit>();
         AddSubtitleAcquisitionOptions(services);
+        services.AddSubtitleProvider();
 
         return services;
     }
