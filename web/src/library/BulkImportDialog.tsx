@@ -135,25 +135,51 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
             >
               {selected.size === folders.length && folders.length > 0 ? 'Clear all' : 'Select all'}
             </button>
-            <ul>
-              {folders.map((folder) => (
-                <li key={folder}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(folder)}
-                      disabled={busy}
-                      onChange={() => toggleFolder(folder)}
-                    />
-                    {folder}
-                  </label>
-                </li>
-              ))}
-            </ul>
+            {candidates.isError ? (
+              <p role="alert" className="lamu-dialog-alert">
+                <AlertTriangleIcon size={18} />
+                Could not scan the library.{' '}
+                <button
+                  type="button"
+                  className="lamu-action-quiet"
+                  onClick={() => void candidates.refetch()}
+                >
+                  Retry scan
+                </button>
+              </p>
+            ) : (
+              <ul>
+                {folders.map((folder) => (
+                  <li key={folder}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(folder)}
+                        disabled={busy}
+                        onChange={() => toggleFolder(folder)}
+                      />
+                      {folder}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <fieldset>
             <legend>Failed enrichments</legend>
-            {failedItems.length === 0 ? (
+            {failed.isError ? (
+              <p role="alert" className="lamu-dialog-alert">
+                <AlertTriangleIcon size={18} />
+                Could not load failed enrichments.{' '}
+                <button
+                  type="button"
+                  className="lamu-action-quiet"
+                  onClick={() => void failed.refetch()}
+                >
+                  Retry
+                </button>
+              </p>
+            ) : failedItems.length === 0 ? (
               <p>No movies are waiting in Failed enrichment.</p>
             ) : (
               <>
