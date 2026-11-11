@@ -14,22 +14,14 @@ export interface SubtitleSelection {
   trackId: string;
   label: string;
   language: string;
-  /**
-   * Track source: the content route built from the movie id and the server-issued opaque token,
-   * replaced by an owned object URL once the converted WebVTT has loaded.
-   */
   src: string;
-  /** True when `src` is an object URL this viewer owns and must revoke. */
   owned: boolean;
-  /** Monotonic selection attempt; only the current attempt may apply a success or a failure. */
   attempt: number;
   status: Exclude<SubtitleContentStatus, 'idle' | 'error'>;
 }
 
 interface SubtitleState {
-  /** Movie this snapshot belongs to; a different movie id makes the snapshot stale by definition. */
   movieId: number;
-  /** List attempt this snapshot answers; a newer attempt makes it stale by definition. */
   listAttempt: number;
   listStatus: SubtitleListStatus;
   tracks: readonly SubtitleTrack[];
@@ -97,16 +89,6 @@ function initialSnapshot(movieId: number): SubtitleState {
   };
 }
 
-/**
- * Session-local subtitle selection for one movie.
- *
- * Selection starts Off even when the served list carries a default marker and never reads persisted
- * storage or the browser language. Track identity, labels and the content route come only from the
- * served list, so nothing is derived from filenames or paths. The stored snapshot is tagged with the
- * movie and list attempt it answers and every content load with a selection attempt, so only the
- * current movie and selection may apply a success or a failure. Object URLs the viewer created are
- * revoked on Off, movie change and unmount.
- */
 export function useSubtitlePlayback(movieId: number | string): SubtitlePlayback {
   const numericId = Number(movieId);
   const [listAttempt, setListAttempt] = useState(0);
@@ -150,8 +132,13 @@ export function useSubtitlePlayback(movieId: number | string): SubtitlePlayback 
     })();
   }, [numericId, listAttempt]);
 
-  // A movie change or unmount releases whatever this viewer still owns.
-  useEffect(() => () => releaseOwnedUrl(), [numericId, releaseOwnedUrl]);
+  useEffect(
+    () => () => {
+      attemptRef.current += 1;
+      releaseOwnedUrl();
+    },
+    [numericId, releaseOwnedUrl],
+  );
 
   const select = useCallback(
     (trackId: string | null) => {

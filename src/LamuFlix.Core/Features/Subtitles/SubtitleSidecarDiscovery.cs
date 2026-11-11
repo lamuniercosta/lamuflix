@@ -5,15 +5,8 @@ using System.Linq;
 
 namespace LamuFlix.Core.Features.Subtitles;
 
-/// <summary>One eligible sidecar found beside the resolved primary video. No token yet.</summary>
 public sealed record SubtitleSidecarCandidate(string FileName, string Label, string Language, bool IsDefault);
 
-/// <summary>
-/// Recognizes eligible BS Player style sidecar subtitles for one resolved primary video: exact,
-/// case-insensitive stem matching against <c>&lt;stem&gt;.srt</c>, <c>&lt;stem&gt;.&lt;suffix&gt;.srt</c> and
-/// <c>&lt;stem&gt;-&lt;suffix&gt;.srt</c> in the primary video's own directory only. No fuzzy matching, no
-/// recursion, no compound suffix grammar.
-/// </summary>
 public static class SubtitleSidecarDiscovery
 {
     private const string SubtitleExtension = ".srt";
@@ -29,12 +22,6 @@ public static class SubtitleSidecarDiscovery
     private const string EnglishLabel = "English";
     private const string BrazilianPortugueseLabel = "Portuguese (Brazil)";
 
-    /// <summary>
-    /// Returns the eligible sidecars for the primary video file <paramref name="primaryFileName"/> from the
-    /// candidate file names of its directory, sorted default-marker first, then language and label ordinal
-    /// case-insensitively, then file name ordinal, with duplicate labels disambiguated as <c>(2)</c>,
-    /// <c>(3)</c> after sorting.
-    /// </summary>
     public static IReadOnlyList<SubtitleSidecarCandidate> Discover(
         string primaryFileName,
         IEnumerable<string> candidateFileNames)
@@ -89,7 +76,6 @@ public static class SubtitleSidecarDiscovery
         if (suffix.Length == 0 || suffix.Contains('.', StringComparison.Ordinal)
             || suffix.Contains('-', StringComparison.Ordinal))
         {
-            // No compound language/flag grammar: a suffix is exactly one token.
             return null;
         }
 

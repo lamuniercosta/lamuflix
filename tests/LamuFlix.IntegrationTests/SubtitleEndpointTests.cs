@@ -13,10 +13,13 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.FileSystem;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Shouldly;
@@ -692,6 +695,43 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
     }
 
     [Fact]
+    public async Task GetContent_SidecarReplacedWithLinkBeforeOpen_FailsClosedWithoutUnauthorizedBytes()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        using var outside = new TemporaryLibrary();
+        const string sentinel = "replacement sentinel bytes";
+        var outsideFile = outside.WriteMovieFile(MovieFolder, "outside.srt", Utf8(sentinel));
+        var sidecarFileName = $"{Stem}.en.srt";
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, sidecarFileName, Srt(
+            "1", "00:00:01,000 --> 00:00:02,000", "eligible cue"));
+        DetailsReturning(KnownDetails(MovieFolder));
+        var libraryRoot = library.Root;
+        await using var host = CreateHost(
+            libraryRoot,
+            readerFactory: services => new ReplacingFileReader(
+                new LibraryFileReader(
+                    services.GetRequiredService<IOptions<LibraryOptions>>(),
+                    services.GetRequiredService<IHostEnvironment>()),
+                libraryRoot,
+                sidecarFileName,
+                outsideFile));
+        using var client = host.CreateClient();
+        var token = await ListSingleToken(client, ct);
+
+        // act
+        var content = await client.GetAsync(ContentRoute(KnownId, token), ct);
+        var contentBody = await content.Content.ReadAsStringAsync(ct);
+
+        // assert
+        content.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        contentBody.ShouldNotContain(sentinel);
+        contentBody.ShouldNotContain(outside.Root);
+    }
+
+    [Fact]
     public async Task GetContent_UnexpectedFailure_ReturnsGenericSanitizedProblemDetailsHeaders()
     {
         // arrange
@@ -752,10 +792,6 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
         (await goodContent.Content.ReadAsStringAsync(ct)).ShouldContain("good track");
     }
 
-    /// <summary>
-    /// The frozen policy is <c>private, no-store</c>. Framework serialization may reorder directives,
-    /// and directive order carries no HTTP meaning, so the directive set is asserted instead.
-    /// </summary>
     private static void AssertFrozenNoStore(HttpResponseMessage response)
     {
         var values = response.Headers.GetValues(CacheControlHeader).ShouldHaveSingleItem();
@@ -860,7 +896,8 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
 
     private WebApplicationFactory<Program> CreateHost(
         string libraryRoot,
-        IReadOnlyDictionary<string, string?>? additionalSettings = null) =>
+        IReadOnlyDictionary<string, string?>? additionalSettings = null,
+        Func<IServiceProvider, ILibraryFileReader>? readerFactory = null) =>
         factory.WithWebHostBuilder(builder =>
         {
             var settings = new Dictionary<string, string?>
@@ -875,8 +912,38 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
 
             builder.ConfigureAppConfiguration((_, configuration) =>
                 configuration.AddInMemoryCollection(settings));
-            builder.ConfigureTestServices(services => services.AddSingleton(catalog));
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton(catalog);
+                if (readerFactory is not null)
+                {
+                    services.AddScoped(readerFactory);
+                }
+            });
         });
+
+    private sealed class ReplacingFileReader(
+        ILibraryFileReader inner,
+        string libraryRoot,
+        string sidecarFileName,
+        string linkTarget) : ILibraryFileReader
+    {
+        public void AuthorizeFolder(LibraryPath folder) => inner.AuthorizeFolder(folder);
+
+        public IReadOnlyList<string> EnumerateFiles(LibraryPath folder) => inner.EnumerateFiles(folder);
+
+        public Stream OpenRead(LibraryPath file)
+        {
+            if (string.Equals(Path.GetFileName(file.Value), sidecarFileName, StringComparison.Ordinal))
+            {
+                var linkPath = Path.Combine(libraryRoot, file.Value);
+                File.Delete(linkPath);
+                CreateFileLinkOrFail(linkPath, linkTarget);
+            }
+
+            return inner.OpenRead(file);
+        }
+    }
 
     private sealed class TemporaryLibrary : IDisposable
     {

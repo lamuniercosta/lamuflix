@@ -78,8 +78,6 @@ export default function BrowserPlayer({
     regionRef.current?.focus();
   }, [movieId]);
 
-  // FR-010: only the selected, loaded track is `showing`; every other listed track is `disabled`,
-  // and Off leaves all of them disabled.
   const desiredTrackId = showTrack ? (selection?.trackId ?? null) : null;
   const desiredTrackIdRef = useRef<string | null>(null);
 
@@ -88,9 +86,6 @@ export default function BrowserPlayer({
     applySubtitleTrackModes(videoRef.current, desiredTrackId);
   }, [desiredTrackId, videoRef]);
 
-  // Chromium applies its own text-track selection when the media or the track list settles, which
-  // can flip a rendered track back to `showing` after Off or a switch. Keep enforcing the desired
-  // modes for the life of the element so non-selected tracks stay disabled.
   useEffect(
     () => watchSubtitleTrackModes(videoRef.current, () => desiredTrackIdRef.current),
     [videoRef],

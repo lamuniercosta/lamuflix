@@ -125,10 +125,6 @@ public sealed partial class LibraryFileReader(
         return authorized;
     }
 
-    /// <summary>
-    /// Re-verifies the already opened handle, so a path swapped between the pre-open checks and the open
-    /// cannot hand back a directory or a reparse point. Failure closes the stream and denies the request.
-    /// </summary>
     private static void VerifyOpenedStream(FileStream stream)
     {
         var handle = stream.SafeFileHandle;

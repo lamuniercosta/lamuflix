@@ -68,6 +68,8 @@ public static class TelemetryConstants
 
     public const string FailedOutcome = "failed";
 
+    public const string DeniedOutcome = "denied";
+
     public const string OmdbProviderName = "omdb";
 
     public const string TmdbProviderName = "tmdb";

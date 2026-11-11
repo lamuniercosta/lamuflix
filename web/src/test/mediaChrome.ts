@@ -50,11 +50,6 @@ for (const name of ['textTracks', 'audioTracks', 'videoRenditions'] as const) {
   });
 }
 
-/**
- * jsdom exposes `HTMLTrackElement.track` as `undefined` and never loads sidecar text, so the tests
- * get a minimal TextTrack-shaped object carrying the attribute-derived identity and a writable
- * `mode`, which is exactly what the viewer sets and asserts.
- */
 interface StubTextTrack {
   kind: string | null;
   label: string | null;

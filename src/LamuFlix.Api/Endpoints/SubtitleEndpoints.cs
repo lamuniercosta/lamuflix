@@ -81,19 +81,9 @@ internal static class SubtitleEndpoints
         return TypedResults.Text(result.WebVtt, SubtitleContentType);
     }
 
-    /// <summary>
-    /// Applies <c>X-Content-Type-Options: nosniff</c> on the content route for the success body and for
-    /// the error written later by the single <c>IExceptionHandler</c>, so a sniffing browser never treats a
-    /// subtitle payload as another type.
-    /// </summary>
     private static void EnforceNoSniff(HttpContext httpContext) =>
         ApplyHeader(httpContext, ContentTypeOptionsHeader, NoSniffValue);
 
-    /// <summary>
-    /// Applies the frozen <c>private, no-store</c> policy on success and on every error response. The
-    /// error is written later by the single <c>IExceptionHandler</c> and the ProblemDetails writer emits
-    /// its own cache headers, so the value is re-applied while the response is starting to win over it.
-    /// </summary>
     private static void EnforceNoStore(HttpContext httpContext) =>
         ApplyHeader(httpContext, CacheControlHeader, NoStoreValue);
 

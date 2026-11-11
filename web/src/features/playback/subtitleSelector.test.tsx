@@ -86,7 +86,6 @@ function failTrackList(status = 500) {
   );
 }
 
-/** Serves WebVTT for every content request, optionally delaying one specific track. */
 function serveContent(
   options: { slowTrackId?: string; slowMs?: number; failTrackId?: string } = {},
 ) {
@@ -504,5 +503,38 @@ describe('subtitle generation guard', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 80));
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
+  });
+});
+
+describe('subtitle stale content', () => {
+  it('drops a late content failure after the movie changes', async () => {
+    serveContent({ failTrackId: ENGLISH.id, slowTrackId: ENGLISH.id, slowMs: 90 });
+    const { rerender } = renderPlayer();
+
+    await screen.findByRole('combobox', { name: subtitleSelectLabel('Dune') });
+    fireEvent.change(selector() as HTMLSelectElement, { target: { value: ENGLISH.id } });
+
+    serveTracks([PORTUGUESE]);
+    rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
+
+    const control = (await screen.findByRole('combobox', {
+      name: subtitleSelectLabel('Heat'),
+    })) as HTMLSelectElement;
+    expect(control.value).toBe('');
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
+    expect(selector('Heat')?.value).toBe('');
+  });
+
+  it('releases a late content success that resolves after unmount', async () => {
+    serveContent({ slowTrackId: ENGLISH.id, slowMs: 90 });
+    const { unmount } = renderPlayer();
+
+    await screen.findByRole('combobox', { name: subtitleSelectLabel('Dune') });
+    fireEvent.change(selector() as HTMLSelectElement, { target: { value: ENGLISH.id } });
+    unmount();
+
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    expect(owned).toEqual([]);
   });
 });
