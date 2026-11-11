@@ -85,6 +85,8 @@ internal static class HandlerRegistration
         services.AddHandler<GetPlaybackCapabilitiesQueryHandler, GetPlaybackCapabilitiesQuery, PlaybackCapabilitiesResult>();
         services.AddHandler<ListSubtitleTracksQueryHandler, ListSubtitleTracksQuery, ListSubtitleTracksResult>();
         services.AddHandler<GetSubtitleContentQueryHandler, GetSubtitleContentQuery, SubtitleContentResult>();
+        services.AddHandler<PrepareSubtitleCommandHandler, PrepareSubtitleCommand, SubtitlePreparationResult>();
+        services.AddHandler<GetSubtitleSidecarQueryHandler, GetSubtitleSidecarQuery, SubtitleSidecarResult>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();
         services.AddHandler<MarkWatchedCommandHandler, MarkWatchedCommand, Unit>();

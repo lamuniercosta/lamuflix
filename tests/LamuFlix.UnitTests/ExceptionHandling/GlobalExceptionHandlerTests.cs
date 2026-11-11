@@ -205,6 +205,134 @@ public sealed class GlobalExceptionHandlerTests
     }
 
     [Fact]
+    public async Task TryHandleAsync_SubtitleAcquisitionUnavailableException_WritesSanitized409()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new SubtitleAcquisitionUnavailableException("Subtitles:SaveEnabled is disabled."),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status409Conflict);
+        root.GetProperty("title").GetString().ShouldBe("Conflict");
+        root.GetProperty("traceId").GetString().ShouldBe("trace-296");
+        AssertNoLeak(root, "SaveEnabled is disabled", nameof(SubtitleAcquisitionUnavailableException));
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_SubtitleQuotaExceededException_WritesSanitized429WithRetryAfter()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new SubtitleQuotaExceededException(TimeSpan.FromSeconds(120)),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status429TooManyRequests);
+        context.Response.Headers.RetryAfter.ToString().ShouldBe("120");
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status429TooManyRequests);
+        root.GetProperty("title").GetString().ShouldBe("Too Many Requests");
+        root.GetProperty("traceId").GetString().ShouldBe("trace-296");
+        AssertNoLeak(root, "The subtitle provider quota was exhausted.", nameof(SubtitleQuotaExceededException));
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_SubtitleQuotaExceededExceptionWithoutRetryAfter_OmitsTheHeader()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new SubtitleQuotaExceededException(),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status429TooManyRequests);
+        context.Response.Headers.ContainsKey("Retry-After").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_SubtitleProviderFailureException_WritesSanitized502()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new SubtitleProviderFailureException("The subtitle provider attempted to redirect the request."),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status502BadGateway);
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status502BadGateway);
+        root.GetProperty("title").GetString().ShouldBe("Bad Gateway");
+        AssertNoLeak(root, "attempted to redirect", nameof(SubtitleProviderFailureException));
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_SubtitleProviderTimeoutException_WritesSanitized504()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new SubtitleProviderTimeoutException(),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status504GatewayTimeout);
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status504GatewayTimeout);
+        root.GetProperty("title").GetString().ShouldBe("Gateway Timeout");
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_CallerAbortCancellation_IsNeverMappedToAGatewayTimeout()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+        using var aborted = new CancellationTokenSource();
+        context.RequestAborted = aborted.Token;
+        await aborted.CancelAsync();
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new OperationCanceledException(aborted.Token),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeFalse();
+        context.Response.StatusCode.ShouldNotBe(StatusCodes.Status504GatewayTimeout);
+    }
+
+    [Fact]
     public async Task TryHandleAsync_NullHttpContext_ThrowsArgumentNullException()
     {
         // arrange

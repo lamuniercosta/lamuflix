@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Pipeline;
 
 namespace LamuFlix.UnitTests.Pipeline;
@@ -14,6 +15,8 @@ public sealed class EnrichmentMetricsTests
     private const string DurationInstrumentName = "lamuflix.enrichment.duration";
     private const string OutcomeInstrumentName = "lamuflix.enrichment.outcome";
     private const string ImportInstrumentName = "lamuflix.import.count";
+    private const string SubtitleDurationInstrumentName = "lamuflix.subtitle.duration";
+    private const string SubtitleOutcomeInstrumentName = "lamuflix.subtitle.outcome";
     private const string ProviderTagKey = "provider";
     private const string OutcomeTagKey = "outcome";
     private const string FailureCategoryTagKey = "failure_category";
@@ -44,20 +47,39 @@ public sealed class EnrichmentMetricsTests
     }
 
     [Fact]
-    public void ApplicationMeter_PublishesExactlyTheThreeRuledInstruments()
+    public void ApplicationMeter_PublishesExactlyTheRuledInstruments()
     {
         // arrange
         _ = EnrichmentMetrics.EnrichmentDuration;
+        SubtitleTelemetry.Complete(null, new MovieId(1), TelemetryConstants.SubtitleSavedOutcome, TimeSpan.Zero);
         using var capture = new ApplicationMeterCapture();
 
         // assert
-        capture.PublishedInstruments.Count.ShouldBe(3);
+        capture.PublishedInstruments.Count.ShouldBe(5);
         capture.PublishedInstruments.Keys.ShouldContain(DurationInstrumentName);
         capture.PublishedInstruments.Keys.ShouldContain(OutcomeInstrumentName);
         capture.PublishedInstruments.Keys.ShouldContain(ImportInstrumentName);
+        capture.PublishedInstruments.Keys.ShouldContain(SubtitleDurationInstrumentName);
+        capture.PublishedInstruments.Keys.ShouldContain(SubtitleOutcomeInstrumentName);
         capture.PublishedInstruments[DurationInstrumentName].Meter.Name.ShouldBe(MeterName);
         capture.PublishedInstruments[OutcomeInstrumentName].Meter.Name.ShouldBe(MeterName);
         capture.PublishedInstruments[ImportInstrumentName].Meter.Name.ShouldBe(MeterName);
+    }
+
+    [Fact]
+    public void SubtitleInstruments_CarryTheRuledTypesAndUnits()
+    {
+        // arrange
+        SubtitleTelemetry.Complete(null, new MovieId(1), TelemetryConstants.SubtitleSavedOutcome, TimeSpan.Zero);
+        using var capture = new ApplicationMeterCapture();
+
+        // assert
+        capture.PublishedInstruments[SubtitleDurationInstrumentName]
+            .ShouldBeOfType<Histogram<double>>()
+            .Unit.ShouldBe("s");
+        capture.PublishedInstruments[SubtitleOutcomeInstrumentName]
+            .ShouldBeOfType<Counter<long>>()
+            .Unit.ShouldBeNull();
     }
 
     [Fact]

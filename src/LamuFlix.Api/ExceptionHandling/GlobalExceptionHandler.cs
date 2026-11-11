@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -19,6 +20,13 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
     {
         ArgumentNullException.ThrowIfNull(httpContext);
         ArgumentNullException.ThrowIfNull(exception);
+
+        if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+        {
+            // A caller abort is request cancellation, never a provider gateway timeout.
+            return false;
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
 
         return exception switch
@@ -51,6 +59,22 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 httpContext,
                 StatusCodes.Status403Forbidden,
                 CreateForbiddenProblem()),
+            SubtitleAcquisitionUnavailableException => await WriteAsync(
+                httpContext,
+                StatusCodes.Status409Conflict,
+                CreateConflictProblem()),
+            SubtitleQuotaExceededException quotaExceeded => await WriteAsync(
+                httpContext,
+                StatusCodes.Status429TooManyRequests,
+                CreateQuotaProblem(quotaExceeded, httpContext)),
+            SubtitleProviderTimeoutException => await WriteAsync(
+                httpContext,
+                StatusCodes.Status504GatewayTimeout,
+                CreateGatewayTimeoutProblem()),
+            SubtitleProviderFailureException => await WriteAsync(
+                httpContext,
+                StatusCodes.Status502BadGateway,
+                CreateBadGatewayProblem()),
             _ => await WriteAsync(
                 httpContext,
                 StatusCodes.Status500InternalServerError,
@@ -118,6 +142,42 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             Status = StatusCodes.Status403Forbidden,
             Title = "Forbidden",
             Type = "https://tools.ietf.org/html/rfc9110#section-15.5.4",
+        };
+
+    private static ProblemDetails CreateQuotaProblem(
+        SubtitleQuotaExceededException quotaExceeded,
+        HttpContext httpContext)
+    {
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too Many Requests",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.30",
+        };
+
+        if (quotaExceeded.RetryAfter is { } retryAfter)
+        {
+            httpContext.Response.Headers.RetryAfter =
+                Math.Ceiling(retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        }
+
+        return problem;
+    }
+
+    private static ProblemDetails CreateBadGatewayProblem() =>
+        new()
+        {
+            Status = StatusCodes.Status502BadGateway,
+            Title = "Bad Gateway",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.6.3",
+        };
+
+    private static ProblemDetails CreateGatewayTimeoutProblem() =>
+        new()
+        {
+            Status = StatusCodes.Status504GatewayTimeout,
+            Title = "Gateway Timeout",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.6.5",
         };
 
     private static ProblemDetails CreateServerErrorProblem() =>

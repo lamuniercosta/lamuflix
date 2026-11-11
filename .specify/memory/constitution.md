@@ -1,6 +1,81 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.14.0 → 1.15.0 (MINOR: Principle VII subtitle options enumeration
+and owner-approved prepare-time acquisition validation exception; DEV-453)
+
+Amendment 1.15.0 (2026-11-11), DEV-453 scoped C4/VII application:
+  Authority: owner approval on PR #358, recorded in specs/DEV-453/CONCLUSIONS.md
+    Phase 2 Step 7 (lines 211–216), T000 merged spec-PR receipt, brief.md Principle VII
+    amendment execution entry, and explicit Conductor instruction to apply this amendment.
+  ADR: docs/adr/0038-subtitle-provider-and-sidecar-boundary.md remains Proposed;
+    existing subtitle acquisition/read separation is retained, not reauthored or Accepted.
+  Modified principles:
+    VII. Configuration Isolation and Deterministic Time (title unchanged): append only
+       SubtitlesOptions and SubtitleProviderOptions to the closed options-record list;
+       apply the approved subtitle-acquisition ValidateOnStart exception so missing or
+       invalid acquisition settings yield prepare-time 409 without breaking startup or
+       existing-track serving. Preserve typed binding, secret isolation and no guessed
+       numeric defaults; all other options retain startup validation.
+    Static-Analysis Gates checklist: reference the same narrow Principle VII exception
+       from the startup-validation item, without weakening any unrelated check.
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/plan-template.md — Constitution Check derives current principles.
+    .specify/templates/spec-template.md — no options inventory or startup-validation rule.
+    .specify/templates/tasks-template.md — no closed options inventory; existing governance
+       tasks remain applicable. .specify/templates/commands/ is absent.
+  Runtime guidance reviewed:
+    README.md and AGENTS.md — no duplicated options inventory or unconditional
+    ValidateOnStart rule requiring an edit. Feature spec/plan/tasks pickup summaries
+    are synchronized with this application; historical ruling text remains historical.
+  Migration / follow-up:
+    No schema/data migration or existing-code rewrite. T003 introduces functionality-named
+    options and prepare-time validation; T004 wires typed binding in HandlerRegistration.cs.
+    Do not add ValidateOnStart for subtitle acquisition settings or numeric fallback values.
+    Preserve SaveEnabled false, empty preferences, existing-sidecar precedence and secret
+    injection; new provider/store registrations remain in their later implementation tasks.
+    T003/T004 remain unchecked and retain T002/T003 dependencies. This local amendment still
+    requires normal delivery review/approval and claims no implementation or runtime PASS.
+  Deferred placeholders / template follow-up: none
+
+Version change: 1.13.0 → 1.14.0 (MINOR: Principle I adds the DEV-453 subtitle ports
+and feature-folder enumeration; ADR 0038)
+
+Amendment 1.14.0 (2026-11-11), DEV-453 T001c governance pickup:
+  Authority: specs/DEV-453/brief.md Q7, Plan Challenge item 5 and Phase B pickup
+    adjudication addendum; CONCLUSIONS.md T000 merged spec-PR #358 receipt and
+    Patron pickup ruling at 261290ff; Conductor explicitly authorized T001c execution.
+  ADR: docs/adr/0038-subtitle-provider-and-sidecar-boundary.md verified present;
+    status remains Proposed. This amendment does not automatically Accept the ADR.
+  Modified principles:
+    I. Ports and Adapters (title unchanged): append only ISubtitleProvider and
+       ISubtitleSidecarStore to the closed named-port list and Subtitles to the
+       feature-folder list. Preserve every other entry, reference rule and isolation rule.
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/plan-template.md — principle-derived Constitution Check.
+    .specify/templates/spec-template.md — no duplicated feature/port inventory.
+    .specify/templates/tasks-template.md — existing ADR/constitution tasks apply.
+    .specify/templates/commands/ — absent; no command templates to synchronize.
+  Runtime guidance reviewed:
+    README.md and AGENTS.md — no duplicated closed inventory requiring an edit.
+  Migration / follow-up:
+    No schema/data migration or existing-code rewrite is required.
+    T002 must append |ISubtitleProvider|ISubtitleSidecarStore before )$ in
+    ArchitectureTests PortWhitelistPattern atomically with the port definitions,
+    preserving the existing 17 alternatives and order (19 after insertion), selector,
+    count floor and test bodies. Existing sibling-feature isolation applies to Subtitles;
+    handlers use shared Domain/Ports/Pipeline, not sibling feature namespaces.
+    Do not backfill historically omitted ports. Principle VII subtitle options and
+    owner-approved prepare-time validation require a separate scoped amendment before
+    affected T003/T004 implementation; this Principle I amendment does not supply it.
+    This document amendment requires normal delivery review/approval; it is not landed
+    evidence, implementation compliance, gate PASS, runtime acceptance or merge clearance.
+  Deferred placeholders / template follow-up: none
+
 Version change: 1.12.0 → 1.13.0 (MINOR: Principle II expected-domain-failure sentence and
 Principle V exception→status row for LibraryFileAccessDeniedException → 403; DEV-454)
 
@@ -379,13 +454,14 @@ Project reference rules are strict and unidirectional:
 
 - Core MUST NOT reference EF Core, Npgsql, RabbitMQ, `System.IO` process APIs, or any HTTP client.
 - Feature folders in Core (`Library`, `Import`, `Enrichment`, `Playback`, `Watchlist`,
-  `Recommendations`, `WatchHistory`) MUST NOT reference each other; shared concepts live in
+  `Recommendations`, `WatchHistory`, `Subtitles`) MUST NOT reference each other; shared concepts live in
   `Domain/`, `Ports/`, or `Pipeline/`.
 - Ports live in `Core/Ports/`; the only ports are `IMovieRepository`, `IMovieCatalog`,
   `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `ILibraryFileReader`, `ILibraryFolderDiscovery`,
   `IMovieFolderImporter`, `IMediaPlayerLauncher`,
   `IRecommendationCandidateSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`,
-  `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, `IThumbnailGenerator`, and the BCL/M.E.AI abstractions `TimeProvider` and
+  `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, `IThumbnailGenerator`,
+  `ISubtitleProvider`, `ISubtitleSidecarStore`, and the BCL/M.E.AI abstractions `TimeProvider` and
   `IEmbeddingGenerator<string, Embedding<float>>`. Adding a port requires an ADR.
 - These rules MUST be enforced by `LamuFlix.ArchitectureTests`; a violation fails the build.
 
@@ -526,12 +602,24 @@ for connection strings, API keys, library roots, or player paths.
 
 - All configuration is bound to options records (`LibraryOptions`, `PlaybackOptions`,
   `OmdbOptions`, `OmdbQuotaOptions`, `TmdbOptions`, `RabbitMqOptions`, `EnrichmentOptions`, `FeatureOptions`,
-  `RecommendationOptions`, `ThumbnailOptions`) with data-annotation validation and `ValidateOnStart()`. Reading
+  `RecommendationOptions`, `ThumbnailOptions`, `SubtitlesOptions`, `SubtitleProviderOptions`)
+  with data-annotation validation and `ValidateOnStart()`, except for subtitle acquisition
+  settings under the narrowly scoped rule below. Reading
   `IConfiguration` by magic string outside options binding is forbidden, except for the
   narrowly scoped owner-approved reader in `LocalPlayListenerValidationHostedService`
   (`LamuFlix.Api`), which may inspect `Kestrel:Endpoints` section presence and endpoint `Url`
   values solely to prove effective listeners loopback before server bind when
   `Features:LocalPlay` is true (DEV-458; ADR-0036).
+- **Subtitle acquisition exception (DEV-453; owner C4/VII approval on PR #358):**
+  `SubtitlesOptions` and nested `SubtitleProviderOptions` MUST remain typed options;
+  the vendor configuration path remains `Subtitles:OpenSubtitles`. Missing or invalid
+  subtitle acquisition settings MUST NOT fail host startup via `ValidateOnStart()` or
+  prevent existing-track serving. After authorization and the existing-sidecar check,
+  `POST /movies/{id}/subtitles/prepare` MUST evaluate acquisition settings and return
+  `409 Conflict` when missing or invalid. No guessed numeric safety defaults are allowed;
+  `SaveEnabled` defaults false and language preferences default empty. Secret isolation
+  remains mandatory. This exception applies only to subtitle acquisition validation;
+  all other options retain their startup-validation requirements.
 - Local values live in `dotnet user-secrets` or `appsettings.Development.json` (git-ignored);
   containers receive them as environment variables.
 - Player mapping is configuration (`PlaybackOptions.Players[]`), never a database table.
@@ -650,7 +738,7 @@ Every PR MUST satisfy all of the following before merging:
 - [ ] New external dependencies register a health check and telemetry names in
       `TelemetryConstants`
 - [ ] No secrets, machine paths, or `IConfiguration` magic strings; new options records are
-      validated at startup
+      validated at startup, except subtitle acquisition settings under Principle VII
 - [ ] No `DateTime.Now`-family calls; `TimeProvider` injected
 - [ ] `CancellationToken` flows through every async path; no sync-over-async
 - [ ] New domain terms added to `CONTEXT.md`; no Portuguese identifiers introduced
@@ -824,4 +912,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.13.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-10
+**Version**: 1.15.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-11
