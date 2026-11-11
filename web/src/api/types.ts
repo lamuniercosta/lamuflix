@@ -34,6 +34,14 @@ export interface paths {
     /** Serve one eligible sidecar subtitle track converted to WebVTT. */
     get: operations["GetMovieSubtitleContent"];
   };
+  "/api/movies/{id}/subtitles/prepare": {
+    /** Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled. */
+    post: operations["PrepareMovieSubtitle"];
+  };
+  "/api/movies/{id}/subtitles/sidecar": {
+    /** Serve the existing exact-basename sidecar subtitle of a movie without acquisition. */
+    get: operations["GetMovieSubtitleSidecar"];
+  };
   "/api/movies/import": {
     /** Import a movie folder into the library. */
     post: operations["ImportMovie"];
@@ -291,6 +299,10 @@ export interface components {
     };
     /** Format: binary */
     Stream: string;
+    SubtitlePrepareResponse: {
+      outcome: string;
+      selectedLanguage: null | string;
+    };
     SubtitleTrackDto: {
       id: string;
       label: string;
@@ -523,6 +535,122 @@ export interface operations {
       200: {
         content: {
           "text/vtt; charset=utf-8": string;
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled. */
+  PrepareMovieSubtitle: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SubtitlePrepareResponse"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Too Many Requests */
+      429: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Gateway Timeout */
+      504: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Serve the existing exact-basename sidecar subtitle of a movie without acquisition. */
+  GetMovieSubtitleSidecar: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/x-subrip": string;
         };
       };
       /** @description Bad Request */
