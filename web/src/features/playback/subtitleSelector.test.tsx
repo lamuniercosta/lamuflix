@@ -504,6 +504,16 @@ describe('subtitle generation guard', () => {
     await new Promise((resolve) => setTimeout(resolve, 80));
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
   });
+
+  it('drops a late list success that resolves after unmount', async () => {
+    serveTracks([ENGLISH, PORTUGUESE], 40);
+    const { unmount } = renderPlayer();
+    unmount();
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(selector()).toBeNull();
+    expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
+  });
 });
 
 describe('subtitle stale content', () => {
