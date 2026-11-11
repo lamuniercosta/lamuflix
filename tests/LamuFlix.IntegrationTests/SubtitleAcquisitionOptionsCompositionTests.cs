@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
+using LamuFlix.Infrastructure.Adapters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Shouldly;
@@ -39,6 +41,21 @@ public sealed class SubtitleAcquisitionOptionsCompositionTests(ApiHostFactory fa
         exception.Message.ShouldContain(nameof(SubtitleProviderOptions.ApiKey));
         exception.Message.ShouldContain(nameof(SubtitleProviderOptions.MaxDownloadBytes));
         exception.Message.ShouldContain(nameof(SubtitleProviderOptions.RequestTimeout));
+    }
+
+    [Fact]
+    public void StartedComposition_RegistersTheSubtitleProviderAdapterWithoutOpeningAcquisitionOptions()
+    {
+        // arrange
+        using var scope = factory.Services.CreateScope();
+
+        // act
+        var provider = scope.ServiceProvider.GetService<ISubtitleProvider>();
+        var options = scope.ServiceProvider.GetService<IOptions<SubtitleProviderOptions>>();
+
+        // assert
+        provider.ShouldBeOfType<OpenSubtitlesSubtitleProvider>();
+        options.ShouldNotBeNull();
     }
 
     [Fact]
