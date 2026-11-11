@@ -12,6 +12,7 @@ using LamuFlix.Core.Features.Playback;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Features.Watchlist;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.FileSystem;
@@ -22,6 +23,7 @@ using LamuFlix.Infrastructure.Recommendations;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Api;
 
@@ -91,7 +93,17 @@ internal static class HandlerRegistration
         services.AddScoped<IValidator<SetMovieReviewCommand>>(
             serviceProvider => serviceProvider.GetRequiredService<SetMovieReviewCommandValidator>());
         services.AddHandler<SetMovieReviewCommandHandler, SetMovieReviewCommand, Unit>();
+        AddSubtitleAcquisitionOptions(services);
 
         return services;
+    }
+
+    private static void AddSubtitleAcquisitionOptions(IServiceCollection services)
+    {
+        // Subtitle acquisition settings are evaluated at prepare time, so a read-only demo without credentials still starts (DEV-453).
+        services.AddOptions<SubtitlesOptions>().BindConfiguration(SubtitlesOptions.SectionName);
+        services.AddSingleton<IValidateOptions<SubtitlesOptions>, SubtitlesOptionsValidator>();
+        services.AddOptions<SubtitleProviderOptions>().BindConfiguration(SubtitleProviderOptions.SectionName);
+        services.AddSingleton<IValidateOptions<SubtitleProviderOptions>, SubtitleProviderOptionsValidator>();
     }
 }
