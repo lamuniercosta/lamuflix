@@ -245,7 +245,7 @@ public sealed class ThumbnailConsumer(
             return null;
         }
 
-        var source = await ResolveSourceAsync(movie, requested, cancellationToken);
+        var source = await ResolveSourceAsync(movie, requested);
         if (source is null || !TryAuthorizeSource(source, out var authorizedSource))
         {
             return UnauthorizedSourcePath;
@@ -304,7 +304,7 @@ public sealed class ThumbnailConsumer(
         string.IsNullOrWhiteSpace(movie.Metadata?.PosterUrl)
         && ThumbnailPathResolver.TryResolveSource(movie.Path.Value, canonicalPath, out _);
 
-    private async Task<string?> ResolveSourceAsync(Movie movie, string requested, CancellationToken cancellationToken)
+    private async Task<string?> ResolveSourceAsync(Movie movie, string requested)
     {
         if (!ThumbnailPathResolver.IsFolderRequest(movie.Path.Value, requested))
         {
