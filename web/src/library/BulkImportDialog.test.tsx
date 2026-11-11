@@ -307,6 +307,45 @@ describe('BulkImportDialog', () => {
     expect(within(dialog).getByRole('status')).toHaveTextContent('Imported 1');
   });
 
+  it('keeps recorded per-folder failures when a later request errors', async () => {
+    let call = 0;
+    server.use(
+      candidatesHandler(['Alpha', 'Bravo']),
+      http.post('/api/movies/import/library', () => {
+        call += 1;
+        if (call === 1) {
+          return HttpResponse.json(
+            {
+              imported: 0,
+              skipped: 0,
+              retried: 0,
+              failures: [{ folder: 'Alpha', reason: 'no-video' }],
+            },
+            { status: 200 },
+          );
+        }
+        return HttpResponse.json(
+          { type: 'about:blank', title: 'Internal Server Error', status: 500 },
+          { status: 500 },
+        );
+      }),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(within(dialog).getByLabelText('Bravo'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(GENERIC_BULK_IMPORT_ERROR);
+    const status = within(dialog).getByRole('status');
+    expect(status).toHaveTextContent('Imported 0');
+    expect(status).toHaveTextContent(BULK_IMPORT_REASON_TEXT['no-video']);
+  });
+
   it('shows a scan error with retry when the candidate query fails', async () => {
     let calls = 0;
     server.use(

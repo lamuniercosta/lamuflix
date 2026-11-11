@@ -153,7 +153,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
     } catch {
       setErrorMessage(GENERIC_BULK_IMPORT_ERROR);
       queueMicrotask(() => alertRef.current?.focus());
-      if (totals.imported + totals.skipped + totals.retried > 0) {
+      if (failures.length > 0 || totals.imported + totals.skipped + totals.retried > 0) {
         setSummary({
           imported: totals.imported,
           skipped: totals.skipped,
