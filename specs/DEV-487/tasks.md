@@ -49,7 +49,7 @@ Order: T1, then T2 + T3 (parallel-safe: disjoint files), then T4, then T5, then 
 ## Remediation round 4 (pr-review #363 inline review, 5 accepted findings, cap reopened by parent)
 
 - [ ] R4-F1 [High, spec] Per-folder progress absent (`web/src/library/BulkImportDialog.tsx`): drive the pass one folder per request and publish an in-flight progress region (source: pr-review #363).
-- [ ] R4-F2 [Medium, risk] Absolute request paths bypass the skip set (`ImportLibraryFoldersCommandHandler`): canonicalize under `LibraryOptions.RootPath` before the skip check (source: pr-review #363).
+- [X] R4-F2 [Medium, risk] Absolute request paths bypass the skip set (`ImportLibraryFoldersCommandHandler`): canonicalize under `LibraryOptions.RootPath` before the skip check (source: pr-review #363).
 - [ ] R4-F3 [Medium, risk] Scan and Failed-query errors render as empty lists (`BulkImportDialog`): surface `isError` with a Retry action (source: pr-review #363).
 - [ ] R4-F4 [Medium, risk] Dialog lists stay stale after a successful import (`libraryQueries.ts`): invalidate `importCandidates` and `failedEnrichments` too (source: pr-review #363).
 - [X] R4-F5 [Medium, standards] Closed failure-reason set modelled as `string` (`ImportLibraryFolderFailure`): introduce `ImportFolderFailureReason` as an Enumeration and update `data-model.md` (source: pr-review #363).

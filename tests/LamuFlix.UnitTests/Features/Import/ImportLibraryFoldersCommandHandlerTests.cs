@@ -7,9 +7,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
+using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Import;
 using LamuFlix.UnitTests.Pipeline;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using NSubstitute.Core;
 using NSubstitute.ExceptionExtensions;
@@ -26,13 +28,16 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IEnrichmentOutbox outbox = Substitute.For<IEnrichmentOutbox>();
 
+    private static readonly IOptions<LibraryOptions> LibraryRoot = Microsoft.Extensions.Options.Options.Create(
+        new LibraryOptions { RootPath = "C:/library" });
+
     [Fact]
     public async Task HandleAsync_AlreadyImportedFolder_SkipsWithoutCallingImporter()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
         movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath> { new("Heat") });
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var result = await handler.HandleAsync(
@@ -56,7 +61,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         importer.ImportAsync(new LibraryPath("Gone"), ct).ThrowsAsync(new InvalidOperationException("boom"));
         importer.ImportAsync(new LibraryPath("Bravo"), ct).Returns(new MovieId(2));
         using var capture = new ImportCountCapture();
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var result = await handler.HandleAsync(
@@ -80,7 +85,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         var ct = TestContext.Current.CancellationToken;
         movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
         importer.ImportAsync(new LibraryPath("Gone"), ct).ThrowsAsync(new LamuFlix.Core.Pipeline.NotFoundException());
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var result = await handler.HandleAsync(
@@ -111,7 +116,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
                     new Dictionary<string, string[]> { ["folders"] = ["bad"] }));
         }
 
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var result = await handler.HandleAsync(
@@ -130,7 +135,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         var failed = MovieAt(1, EnrichmentStatus.Failed);
         var pending = MovieAt(2, EnrichmentStatus.Pending);
         movies.FindFailedMoviesAsync(ct).Returns([failed, pending]);
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var result = await handler.HandleAsync(
@@ -152,7 +157,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         var ct = TestContext.Current.CancellationToken;
         movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
         importer.ImportAsync(new LibraryPath("Heat"), ct).Returns(new MovieId(1));
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var result = await handler.HandleAsync(
@@ -177,7 +182,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
                 source.Cancel();
                 throw new OperationCanceledException("cancelled");
             }));
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var act = () => handler.HandleAsync(
@@ -194,7 +199,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         var ct = TestContext.Current.CancellationToken;
         movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
         importer.ImportAsync(new LibraryPath("Heat"), ct).Returns(new MovieId(1));
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var result = await handler.HandleAsync(
@@ -222,7 +227,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
                 throw new InvalidOperationException("duplicate key value violates unique constraint");
             });
         importer.ImportAsync(new LibraryPath("Bravo"), ct).Returns(new MovieId(2));
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var result = await handler.HandleAsync(
@@ -242,7 +247,7 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         var ct = TestContext.Current.CancellationToken;
         movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
         importer.ImportAsync(new LibraryPath("Heat"), ct).Returns(new MovieId(1));
-        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox);
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
 
         // act
         var result = await handler.HandleAsync(
@@ -253,6 +258,70 @@ public sealed class ImportLibraryFoldersCommandHandlerTests
         result.Failures.Select(failure => failure.Folder).ShouldBe(["../secret"]);
         result.Failures.Select(failure => failure.Reason).ShouldBe([ImportFolderFailureReason.InvalidFolder]);
         await importer.Received(1).ImportAsync(new LibraryPath("Heat"), ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_AbsolutePathAlreadyImported_SkipsCanonicalIdentity()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath> { new("Alpha") });
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["C:/library/Alpha"], RetryFailed: false), ct);
+
+        // assert
+        result.Imported.ShouldBe(0);
+        result.Skipped.ShouldBe(1);
+        result.Failures.ShouldBeEmpty();
+        await importer.DidNotReceive().ImportAsync(Arg.Any<LibraryPath>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_AbsolutePath_ImportsCanonicalRelativeIdentity()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        movies.SnapshotMoviePathsAsync(ct).Returns(new List<LibraryPath>());
+        importer.ImportAsync(new LibraryPath("Alpha"), ct).Returns(new MovieId(1));
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["C:/library/Alpha"], RetryFailed: false), ct);
+
+        // assert
+        result.Imported.ShouldBe(1);
+        result.Failures.ShouldBeEmpty();
+        await importer.Received(1).ImportAsync(new LibraryPath("Alpha"), ct);
+    }
+
+    [Fact]
+    public async Task HandleAsync_AbsolutePathRacedAfterFault_CountsAsSkipped()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var stored = new List<LibraryPath>();
+        movies.SnapshotMoviePathsAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<IReadOnlyList<LibraryPath>>([.. stored]));
+        importer.ImportAsync(new LibraryPath("Alpha"), ct)
+            .Returns<MovieId>(_ =>
+            {
+                stored.Add(new LibraryPath("Alpha"));
+                throw new InvalidOperationException("duplicate key value violates unique constraint");
+            });
+        var handler = new ImportLibraryFoldersCommandHandler(importer, movies, outbox, LibraryRoot);
+
+        // act
+        var result = await handler.HandleAsync(
+            new ImportLibraryFoldersCommand(["C:/library/Alpha"], RetryFailed: false), ct);
+
+        // assert
+        result.Imported.ShouldBe(0);
+        result.Skipped.ShouldBe(1);
+        result.Failures.ShouldBeEmpty();
     }
 
     [Fact]
