@@ -16,8 +16,7 @@ internal static class SubtitleRequestUriPolicy
     }
 
     private static bool IsAllowedScheme(Uri uri) =>
-        uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-        || (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && uri.IsLoopback);
+        uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
 
     public static bool IsAllowedHost(string host, IReadOnlyList<string> allowedHosts)
     {

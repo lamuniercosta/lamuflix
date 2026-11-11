@@ -11,6 +11,6 @@ public static class LoopbackWireMock
 {
     public static WireMockServer Start() => WireMockServer.Start(new WireMockServerSettings
     {
-        Urls = ["http://127.0.0.1:0"],
+        Urls = ["https://127.0.0.1:0"],
     });
 }

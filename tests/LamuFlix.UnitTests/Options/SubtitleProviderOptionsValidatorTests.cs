@@ -17,7 +17,7 @@ public sealed class SubtitleProviderOptionsValidatorTests
     }
 
     [Fact]
-    public void Validate_LoopbackHttpBaseUrl_Succeeds()
+    public void Validate_LoopbackHttpBaseUrl_FailsNamingBaseUrl()
     {
         // arrange
         var options = Complete() with { BaseUrl = "http://localhost:8080/api/v1/" };
@@ -26,7 +26,7 @@ public sealed class SubtitleProviderOptionsValidatorTests
         var result = Validate(options);
 
         // assert
-        result.ShouldBe(ValidateOptionsResult.Success);
+        ShouldFailNaming(result, nameof(SubtitleProviderOptions.BaseUrl));
     }
 
     [Theory]

@@ -314,7 +314,7 @@ dotnet user-secrets set "Subtitles:OpenSubtitles:RequestTimeout" "<timeout, e.g.
 ```
 
 - **No guessed numeric defaults.** Every acquisition bound above is yours to state; the app ships no fallback for `MaxDownloadBytes` or `RequestTimeout`, and an incomplete or invalid set keeps acquisition off with a `409` instead of failing startup.
-- **`BaseUrl` must be HTTPS**, except for a loopback host (used for local contract testing). `DownloadAllowedHosts` is an explicit allowlist: a download URL outside it, or any redirect, is refused without contacting the destination.
+- **`BaseUrl` must be HTTPS** with no plaintext exception. `DownloadAllowedHosts` is an explicit allowlist: a download URL outside it, or any redirect, is refused without contacting the destination.
 - **Writable library.** The daily-driver entrypoint runs the Api as a host process, so writeability is a property of `Library:RootPath` and the account running the Api — grant the Api process write permission on that folder. The daily-driver Compose file contains only Postgres and RabbitMQ and mounts no library; the read-only `:ro` bind mount belongs to the full Compose stack and is not the writable setup.
 - **Secrets stay local.** Put the API key and any machine-specific path only in the Api local settings channel. Never commit credentials or absolute library paths to `docker/api.settings.example.json`, `.env.example`, or any other tracked file.
 - **What a save looks like.** On success the exact-basename sidecar appears next to the video (`Film.mkv` → `Film.srt`, no language suffix, the name BS Player autodetects) and `prepare` answers `200` with `saved` and the matched `selectedLanguage`. An existing sidecar is never overwritten or re-downloaded.

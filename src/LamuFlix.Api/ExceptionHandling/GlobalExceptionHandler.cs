@@ -23,7 +23,6 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
 
         if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
         {
-            // A caller abort is request cancellation, never a provider gateway timeout.
             return false;
         }
 

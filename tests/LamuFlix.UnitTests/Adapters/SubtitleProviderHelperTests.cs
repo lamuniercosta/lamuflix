@@ -36,13 +36,13 @@ public sealed class SubtitleRequestUriPolicyTests
     }
 
     [Fact]
-    public void IsPermitted_LoopbackHttp_IsPermittedForTheLocalStubStack()
+    public void IsPermitted_LoopbackHttp_IsRejected()
     {
         // act
         var permitted = SubtitleRequestUriPolicy.IsPermitted(new Uri("http://127.0.0.1:8123/api/v1/subtitles"), ["127.0.0.1"]);
 
         // assert
-        permitted.ShouldBeTrue();
+        permitted.ShouldBeFalse();
     }
 
     [Fact]

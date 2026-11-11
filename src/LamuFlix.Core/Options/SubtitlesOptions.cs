@@ -1,8 +1,7 @@
 
 namespace LamuFlix.Core.Options;
 
-// ReSharper disable UnusedAutoPropertyAccessor.Global
-// Bound from configuration by ServiceDefaultsExtensions.AddLamuFlixOptions
+// ReSharper disable UnusedAutoPropertyAccessor.Global // Bound from configuration by ServiceDefaultsExtensions.AddLamuFlixOptions
 public sealed record SubtitlesOptions
 {
     public const string SectionName = "Subtitles";
