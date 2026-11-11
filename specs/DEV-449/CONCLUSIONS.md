@@ -1,0 +1,9 @@
+# DEV-449 Conclusions
+
+## Scope Ruling: Vulnerable NuGet Packages Gate (`scripts/run-vulnerable-packages.ps1`)
+
+**Verdict:** Bump the vulnerable NuGet packages inside `DEV-449` (`Directory.Packages.props` and `src/LamuFlix.AppHost/LamuFlix.AppHost.csproj`) so `scripts/run-vulnerable-packages.ps1` exits 0; no separate follow-up ticket needed.
+
+- **Gate-forced edit is in scope:** Per `lamuflix-team-charter` §2.3 item 6 ("a forced edit is in scope: cite the AC or gate and move on"), modifying `Directory.Packages.props` and `src/LamuFlix.AppHost/LamuFlix.AppHost.csproj` (`Sdk="Aspire.AppHost.Sdk/..."`) is forced by the mandatory `scripts/run-vulnerable-packages.ps1` gate (`task-pipeline` Phase 3 step 5 & Phase 5 step 6).
+- **Time-boxed accept cannot clear the merge bar:** `harness.yml` sets `gates.vulnerablePackages.fail: true` and `scripts/run-vulnerable-packages.ps1` has no waiver/exemption table—any detected advisory exits 1. Under `AGENTS.md` Non-negotiables ("Never lower a gate threshold to make a gate pass") and `task-pipeline` Phase 5 step 6 ("All gate scripts exit 0... Exit 1 and `Could not run` never meet the bar"), a separate ticket with a text-only time-boxed accept would still leave `run-vulnerable-packages.ps1` exiting 1 and block `DEV-449` and the rest of the build chain.
+- **Remediation scope (`lamuflix-team-charter` §2.3 item 1):** Cog is authorized to upgrade `Aspire.Hosting.AppHost`, `Aspire.Hosting.PostgreSQL`, `Aspire.Hosting.RabbitMQ` (plus the `Aspire.AppHost.Sdk` version in `src/LamuFlix.AppHost/LamuFlix.AppHost.csproj`), and upgrade or pin `Microsoft.AspNetCore.WebUtilities` (or its parent package in `Directory.Packages.props` / `tests/LamuFlix.IntegrationTests/LamuFlix.IntegrationTests.csproj` via Central Package Management) to patched versions so `scripts/run-vulnerable-packages.ps1` exits 0.
