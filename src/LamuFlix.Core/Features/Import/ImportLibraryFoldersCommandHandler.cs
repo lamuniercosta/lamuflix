@@ -14,11 +14,6 @@ public sealed class ImportLibraryFoldersCommandHandler(
     IEnrichmentOutbox outbox)
     : ICommandHandler<ImportLibraryFoldersCommand, ImportLibraryFoldersResult>
 {
-    private const string FolderNotFoundReason = "folder-not-found";
-    private const string NoVideoReason = "no-video";
-    private const string InvalidFolderReason = "invalid-folder";
-    private const string ImportFailedReason = "import-failed";
-
     public async Task<ImportLibraryFoldersResult> HandleAsync(
         ImportLibraryFoldersCommand command,
         CancellationToken cancellationToken)
@@ -37,7 +32,7 @@ public sealed class ImportLibraryFoldersCommandHandler(
             cancellationToken.ThrowIfCancellationRequested();
             if (!LibraryPath.TryCreate(folder, out var path))
             {
-                failures.Add(new ImportLibraryFolderFailure(folder, InvalidFolderReason));
+                failures.Add(new ImportLibraryFolderFailure(folder, ImportFolderFailureReason.InvalidFolder));
                 continue;
             }
 
@@ -107,11 +102,11 @@ public sealed class ImportLibraryFoldersCommandHandler(
         return importedPaths.Contains(path.Value);
     }
 
-    private static string MapReason(Exception exception) => exception switch
+    private static ImportFolderFailureReason MapReason(Exception exception) => exception switch
     {
-        NotFoundException => FolderNotFoundReason,
-        InvalidTransitionException => NoVideoReason,
-        ValidationException => InvalidFolderReason,
-        _ => ImportFailedReason,
+        NotFoundException => ImportFolderFailureReason.FolderNotFound,
+        InvalidTransitionException => ImportFolderFailureReason.NoVideo,
+        ValidationException => ImportFolderFailureReason.InvalidFolder,
+        _ => ImportFolderFailureReason.ImportFailed,
     };
 }
