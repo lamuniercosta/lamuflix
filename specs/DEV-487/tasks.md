@@ -56,7 +56,7 @@ Order: T1, then T2 + T3 (parallel-safe: disjoint files), then T4, then T5, then 
 
 ## Remediation round 5 (pr-review #363 re-review at 16e9d775, 4 accepted findings, last permitted round)
 
-- [ ] R5-F1 [Medium, risk] Cancelled pass still runs the retry-failed request (`BulkImportDialog.onSubmit`): gate the retry phase on the stop flag (source: pr-review #363`.
+- [X] R5-F1 [Medium, risk] Cancelled pass still runs the retry-failed request (`BulkImportDialog.onSubmit`): gate the retry phase on the stop flag (source: pr-review #363`.
 - [X] R5-F2 [Medium, risk] Selections keep vanished candidates (`BulkImportDialog`): derive the effective selection from the current candidate list (source: pr-review #363).
 - [X] R5-F3 [Medium, risk] Partial failure details dropped when no success count moved (`BulkImportDialog` catch): include accumulated failures in the partial-summary guard (source: pr-review #363).
 - [X] R5-F4 [Low, standards] Mutable-backed collections in new Core records (`ImportLibraryFoldersCommand`, `ImportCandidatesResult`, `ImportLibraryFoldersResult`): use `ImmutableArray<T>` and reconcile `data-model.md` (source: pr-review #363).

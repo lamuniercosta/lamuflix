@@ -307,6 +307,50 @@ describe('BulkImportDialog', () => {
     expect(within(dialog).getByRole('status')).toHaveTextContent('Imported 1');
   });
 
+  it('does not retry failed movies after the dialog is closed mid-pass', async () => {
+    const bodies: { folders: string[]; retryFailed: boolean }[] = [];
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      candidatesHandler(['Alpha']),
+      http.get('/api/movies', ({ request }) => {
+        const statuses = new URL(request.url).searchParams.getAll('Statuses');
+        return HttpResponse.json(
+          browseBody(statuses.includes('Failed') ? [failedRow('Broken Cut')] : []),
+          { status: 200 },
+        );
+      }),
+      http.post('/api/movies/import/library', async ({ request }) => {
+        bodies.push((await request.json()) as { folders: string[]; retryFailed: boolean });
+        await gate;
+        return HttpResponse.json(
+          { imported: 1, skipped: 0, retried: 0, failures: [] },
+          { status: 200 },
+        );
+      }),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(
+      await within(dialog).findByRole('checkbox', { name: 'Retry failed enrichments' }),
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    await within(dialog).findByRole('progressbar');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    release?.();
+
+    await waitFor(() => {
+      expect(bodies).toHaveLength(1);
+    });
+    expect(bodies[0]).toEqual({ folders: ['Alpha'], retryFailed: false });
+  });
+
   it('drops imported folders from the selection after the refresh', async () => {
     let importCalls = 0;
     let folders = ['Alpha', 'Bravo'];
