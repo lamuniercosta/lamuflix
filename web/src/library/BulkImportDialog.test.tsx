@@ -166,6 +166,55 @@ describe('BulkImportDialog', () => {
     expect(within(dialog).getByText('No movies are waiting in Failed enrichment.')).toBeVisible();
   });
 
+  it('shows a scan error with retry when the candidate query fails', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/movies/import/candidates', () => {
+        calls += 1;
+        if (calls === 1) {
+          return HttpResponse.json(
+            { type: 'about:blank', title: 'Internal Server Error', status: 500 },
+            { status: 500 },
+          );
+        }
+        return HttpResponse.json({ newFolders: ['Alpha'] }, { status: 200 });
+      }),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent('Could not scan the library.');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Retry scan' }));
+
+    expect(await within(dialog).findByLabelText('Alpha')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows an error when the failed-enrichment query fails', async () => {
+    server.use(
+      candidatesHandler([]),
+      http.get('/api/movies', () =>
+        HttpResponse.json(
+          { type: 'about:blank', title: 'Internal Server Error', status: 500 },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent('Could not load failed enrichments.');
+    expect(
+      within(dialog).queryByText('No movies are waiting in Failed enrichment.'),
+    ).not.toBeInTheDocument();
+  });
+
   it('shows the generic error with fixed reason text on import failure', async () => {
     server.use(
       candidatesHandler(['Alpha']),
