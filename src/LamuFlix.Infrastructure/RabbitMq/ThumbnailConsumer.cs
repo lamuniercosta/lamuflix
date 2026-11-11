@@ -245,7 +245,8 @@ public sealed class ThumbnailConsumer(
             return null;
         }
 
-        if (!TryAuthorizeSource(movie.Path.Value, out var authorizedSource))
+        var source = await ResolveSourceAsync(movie, requested, cancellationToken);
+        if (source is null || !TryAuthorizeSource(source, out var authorizedSource))
         {
             return UnauthorizedSourcePath;
         }
@@ -301,11 +302,19 @@ public sealed class ThumbnailConsumer(
 
     private static bool IsEligible(Movie movie, string canonicalPath) =>
         string.IsNullOrWhiteSpace(movie.Metadata?.PosterUrl)
-        && !string.IsNullOrWhiteSpace(movie.Path.Value)
-        && string.Equals(
-            movie.Path.Value.ToUpperInvariant(),
-            canonicalPath.ToUpperInvariant(),
-            StringComparison.Ordinal);
+        && ThumbnailPathResolver.TryResolveSource(movie.Path.Value, canonicalPath, out _);
+
+    private async Task<string?> ResolveSourceAsync(Movie movie, string requested, CancellationToken cancellationToken)
+    {
+        if (!ThumbnailPathResolver.IsFolderRequest(movie.Path.Value, requested))
+        {
+            return requested;
+        }
+
+        await using var scope = scopes.CreateAsyncScope();
+        var scanner = scope.ServiceProvider.GetService<IMediaLibraryScanner>();
+        return ThumbnailPathResolver.ResolvePublishPath(movie.Path, scanner) ?? requested;
+    }
 
     private bool TryCanonicalizeRequestPath(string filePath, out string canonical)
     {

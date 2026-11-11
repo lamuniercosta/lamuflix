@@ -311,8 +311,16 @@ public sealed class EnrichmentConsumer(
             return;
         }
 
+        var publishPath = ThumbnailPathResolver.ResolvePublishPath(
+            movie.Path,
+            scope.ServiceProvider.GetService<IMediaLibraryScanner>());
+        if (publishPath is null)
+        {
+            return;
+        }
+
         await thumbnailPublisher.PublishAsync(
-            new ThumbnailRequested(movie.Id, movie.Path.Value),
+            new ThumbnailRequested(movie.Id, publishPath),
             cancellationToken);
     }
 
