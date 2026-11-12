@@ -48,6 +48,29 @@ public sealed class GetSubtitleContentQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_SubsTrackToken_ReturnsConvertedWebVtt()
+    {
+        // arrange
+        var id = new MovieId(MovieIdValue);
+        DetailsReturning(id);
+        PrimaryReturning();
+        reader.EnumerateFiles(new LibraryPath(MovieFolder)).Returns([PrimaryFileName, $"Subs/{Stem}-eng.srt"]);
+        reader.OpenRead(new LibraryPath($"{MovieFolder}/Subs/{Stem}-eng.srt"))
+            .Returns(StreamOf("1\n00:00:01,000 --> 00:00:02,000\ncue text\n"));
+        var handler = CreateHandler();
+
+        // act
+        var result = await handler.HandleAsync(
+            new GetSubtitleContentQuery(id, SubtitleTrackToken.For(id, $"Subs/{Stem}-eng.srt")),
+            CancellationToken.None);
+
+        // assert
+        result.WebVtt.ShouldStartWith("WEBVTT\n\n");
+        result.WebVtt.ShouldContain("cue text");
+        result.WebVtt.ShouldNotContain(MovieFolder);
+    }
+
+    [Fact]
     public async Task HandleAsync_TokenNotInFreshAllowlist_ThrowsNotFoundBeforeOpeningAnything()
     {
         // arrange

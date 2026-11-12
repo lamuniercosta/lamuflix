@@ -59,6 +59,28 @@ public sealed class ListSubtitleTracksQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_SubsCandidate_ReturnsTokenizedTrackWithRelativeFileName()
+    {
+        // arrange
+        var id = new MovieId(MovieIdValue);
+        var ct = CancellationToken.None;
+        DetailsReturning(id, MovieFolder);
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder))
+            .Returns(new PrimaryVideo(new LibraryPath($"{MovieFolder}/{PrimaryFileName}"), new MediaFormat("mkv")));
+        reader.EnumerateFiles(new LibraryPath(MovieFolder))
+            .Returns([PrimaryFileName, $"Subs/{Stem}-eng.srt"]);
+
+        // act
+        var result = await handler.HandleAsync(new ListSubtitleTracksQuery(id), ct);
+
+        // assert
+        var track = result.Tracks.ShouldHaveSingleItem();
+        track.Label.ShouldBe("English");
+        track.Language.ShouldBe("en");
+        track.Id.ShouldBe(SubtitleTrackToken.For(id, $"Subs/{Stem}-eng.srt"));
+    }
+
+    [Fact]
     public async Task HandleAsync_NoEligibleSidecars_ReturnsEmptyTrackList()
     {
         // arrange

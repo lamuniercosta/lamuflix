@@ -458,6 +458,75 @@ public sealed class LibraryFileReaderTests
     }
 
     [Fact]
+    public void EnumerateFiles_SubsSubfolder_IncludesPrefixedEntriesInOrdinalOrder()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), Payload());
+        library.WriteFile(Path.Combine(MovieFolder, "Heat.en.srt"), Payload());
+        library.WriteFile(Path.Combine(MovieFolder, "Subs", "Heat-eng.srt"), Payload());
+        library.WriteFile(Path.Combine(MovieFolder, "Subs", "English.srt"), Payload());
+        library.WriteFile(Path.Combine(MovieFolder, "nested", "Heat.de.srt"), Payload());
+        var reader = CreateReader(library.Root);
+
+        // act
+        var files = reader.EnumerateFiles(new LibraryPath(MovieFolder));
+
+        // assert
+        files.ShouldBe(["Heat.en.srt", PrimaryFileName, "Subs/English.srt", "Subs/Heat-eng.srt"]);
+    }
+
+    [Fact]
+    public void EnumerateFiles_LowercaseSubsSubfolder_IncludesPrefixedEntries()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), Payload());
+        library.WriteFile(Path.Combine(MovieFolder, "subs", "Heat-eng.srt"), Payload());
+        var reader = CreateReader(library.Root);
+
+        // act
+        var files = reader.EnumerateFiles(new LibraryPath(MovieFolder));
+
+        // assert
+        files.ShouldContain("subs/Heat-eng.srt");
+    }
+
+    [Fact]
+    public void EnumerateFiles_SubsNestedSubfolder_ExcludesDeepEntries()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), Payload());
+        library.WriteFile(Path.Combine(MovieFolder, "Subs", "nested", "Heat-eng.srt"), Payload());
+        var reader = CreateReader(library.Root);
+
+        // act
+        var files = reader.EnumerateFiles(new LibraryPath(MovieFolder));
+
+        // assert
+        files.ShouldBe([PrimaryFileName]);
+    }
+
+    [Fact]
+    public void EnumerateFiles_LinkedSubsSubfolder_SkipsSubsEntriesButReturnsTopLevel()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), Payload());
+        library.WriteFile(Path.Combine("real-subs", "Heat-eng.srt"), Payload());
+        var linkPath = Path.Combine(library.Root, MovieFolder, "Subs");
+        CreateDirectoryLinkOrFail(linkPath, Path.Combine(library.Root, "real-subs"));
+        var reader = CreateReader(library.Root);
+
+        // act
+        var files = reader.EnumerateFiles(new LibraryPath(MovieFolder));
+
+        // assert
+        files.ShouldBe([PrimaryFileName]);
+    }
+
+    [Fact]
     public void EnumerateFiles_FolderOutsideRoot_ThrowsAccessDenied()
     {
         // arrange

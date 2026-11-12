@@ -156,6 +156,189 @@ public sealed class SubtitleSidecarDiscoveryTests
         tracks.ShouldAllBe(track => !track.Label.Contains('/') && !track.Label.Contains('\\'));
     }
 
+    [Theory]
+    [InlineData($"Subs/{Stem}-pob.srt")]
+    [InlineData($"Subs/{Stem}.pob.srt")]
+    [InlineData($"Subs/{Stem}-pb.srt")]
+    public void Discover_SubsBrazilianPortugueseSuffixVariants_ReturnPortugueseBrazilTrack(string fileName)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe(fileName);
+        track.Label.ShouldBe("Portuguese (Brazil)");
+        track.Language.ShouldBe("pt-BR");
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData($"Subs/{Stem}-por.srt", "pt", "Portuguese")]
+    [InlineData($"Subs/{Stem}-pt.srt", "pt", "Portuguese")]
+    [InlineData($"Subs/{Stem}-eng.srt", "en", "English")]
+    [InlineData($"Subs/{Stem}.eng.srt", "en", "English")]
+    [InlineData($"Subs/{Stem}-spa.srt", "es", "Spanish")]
+    [InlineData($"Subs/{Stem}-es.srt", "es", "Spanish")]
+    [InlineData($"{Stem}-eng.srt", "en", "English")]
+    [InlineData($"{Stem}-spa.srt", "es", "Spanish")]
+    public void Discover_BsPlayerCodeVariants_MapLanguageAndLabel(
+        string fileName, string language, string label)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe(fileName);
+        track.Label.ShouldBe(label);
+        track.Language.ShouldBe(language);
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData($"Subs/{Stem}-fre.srt", "fr", "French")]
+    [InlineData($"Subs/{Stem}-ger.srt", "de", "German")]
+    [InlineData($"Subs/{Stem}-dut.srt", "nl", "Dutch")]
+    [InlineData($"Subs/{Stem}-ita.srt", "it", "Italian")]
+    public void Discover_SubsIso639DashTwoCode_MapsLanguageAndLabel(
+        string fileName, string language, string label)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe(fileName);
+        track.Label.ShouldBe(label);
+        track.Language.ShouldBe(language);
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("subs")]
+    [InlineData("SUBS")]
+    [InlineData("Subs")]
+    public void Discover_SubsFolderName_IsCaseInsensitive(string folder)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [$"{folder}/{Stem}-eng.srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.Label.ShouldBe("English");
+        track.Language.ShouldBe("en");
+    }
+
+    [Fact]
+    public void Discover_SubsBackslashSeparator_MapsLanguageAndLabel()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [$"Subs\\{Stem}-eng.srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.Label.ShouldBe("English");
+        track.Language.ShouldBe("en");
+    }
+
+    [Fact]
+    public void Discover_SubsNumberedDuplicate_StripsCounterToReadableLabel()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [$"Subs/{Stem}-eng(2).srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe($"Subs/{Stem}-eng(2).srt");
+        track.Label.ShouldBe("English");
+        track.Language.ShouldBe("en");
+    }
+
+    [Fact]
+    public void Discover_SameFolderAndSubsEnglishDuplicates_NumberLabelsDeterministically()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(
+            Primary,
+            [$"Subs/{Stem}-eng(2).srt", $"{Stem}.en.srt"]);
+
+        // assert
+        tracks.Select(track => track.Label).ShouldBe(["English", "English (2)"]);
+        tracks.Select(track => track.FileName).ShouldBe([$"{Stem}.en.srt", $"Subs/{Stem}-eng(2).srt"]);
+    }
+
+    [Theory]
+    [InlineData("Subs/English.srt", "English", "en")]
+    [InlineData("Subs/Forced.eng.srt", "English (Forced)", "en")]
+    [InlineData("Subs/SDH.eng.HI.srt", "English (SDH)", "en")]
+    public void Discover_SubsReleaseGroupNames_MapReadableLabels(
+        string fileName, string label, string language)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe(fileName);
+        track.Label.ShouldBe(label);
+        track.Language.ShouldBe(language);
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Discover_SubsUnknownLeaf_ListsWithLeafLabelAndUndeterminedLanguage()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, ["Subs/random.srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe("Subs/random.srt");
+        track.Label.ShouldBe("random");
+        track.Language.ShouldBe("und");
+    }
+
+    [Fact]
+    public void Discover_SubsBareStem_ReturnsSubtitlesTrackWithUndeterminedLanguage()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [$"Subs/{Stem}.srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.Label.ShouldBe("Subtitles");
+        track.Language.ShouldBe("und");
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("other/Heat.1995.1080p-en.srt")]
+    [InlineData("Subs/nested/Heat.1995.1080p-en.srt")]
+    [InlineData("Subs/../Heat.1995.1080p-en.srt")]
+    [InlineData("../Heat.1995.1080p-en.srt")]
+    public void Discover_NonSubsOrDeeperOrTraversalCandidates_AreExcluded(string fileName)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        tracks.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Discover_SubsTracks_LabelsNeverExposeDirectoryPaths()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(
+            Primary,
+            [$"Subs/{Stem}-eng.srt", "Subs/English.srt", "Subs/Forced.eng.srt", "Subs/random.srt"]);
+
+        // assert
+        tracks.Count.ShouldBe(4);
+        tracks.ShouldAllBe(track => !track.Label.Contains('/') && !track.Label.Contains('\\'));
+    }
+
     [Fact]
     public void Discover_PrimaryWithoutStem_ReturnsEmpty()
     {
