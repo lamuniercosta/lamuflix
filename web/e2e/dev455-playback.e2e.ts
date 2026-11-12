@@ -77,12 +77,12 @@ async function isPaused(page: Page): Promise<boolean> {
   return playerVideo(page).evaluate((element) => (element as HTMLVideoElement).paused);
 }
 
-async function startPlayback(page: Page, title: string): Promise<void> {
+async function startPlayback(page: Page): Promise<void> {
   const video = playerVideo(page);
   await expect(video).toBeVisible({ timeout: context.waitBudgetMs });
   if (await isPaused(page)) {
     const explicitPlay = playerRegion(page).getByRole('button', {
-      name: `Play ${title} in browser`,
+      name: /^play$/i,
     });
     if (await explicitPlay.isVisible()) {
       await explicitPlay.click();
@@ -137,8 +137,9 @@ test.describe('DEV-455 browser playback through web nginx', () => {
     const region = playerRegion(page);
     await expect(region).toBeVisible({ timeout: context.waitBudgetMs });
     await expect(region).toBeFocused();
+    await expect(page.getByRole('button', { name: `Play ${title} in browser` })).toHaveCount(1);
 
-    await startPlayback(page, title);
+    await startPlayback(page);
     await assertPlaybackAdvances(page);
 
     await expect
@@ -233,9 +234,9 @@ test.describe('DEV-455 browser playback through web nginx', () => {
     const region = playerRegion(page);
     await expect(region).toBeVisible({ timeout: context.waitBudgetMs });
 
-    const explicitPlay = region.getByRole('button', { name: `Play ${title} in browser` });
+    const playPause = region.getByRole('button', { name: /^(play|pause)$/i });
     const blockedByAutoplay = await isPaused(page);
-    await startPlayback(page, title);
+    await startPlayback(page);
     const started = await currentTime(page);
     await assertPlaybackAdvances(page);
 
@@ -245,7 +246,7 @@ test.describe('DEV-455 browser playback through web nginx', () => {
       movieId,
       title,
       autoplayDenied: blockedByAutoplay,
-      explicitPlayOffered: await explicitPlay.isVisible(),
+      explicitPlayOffered: await playPause.isVisible(),
       startedAt: started,
     });
 
@@ -344,7 +345,7 @@ test.describe('DEV-455 browser playback through web nginx', () => {
 
     await page.unroute(`**/api/movies/${String(movieId)}/stream`);
     await retry.click();
-    await startPlayback(page, title);
+    await startPlayback(page);
     const recovered = await currentTime(page);
     await assertPlaybackAdvances(page);
 
@@ -384,7 +385,7 @@ test.describe('DEV-455 browser playback through web nginx', () => {
     await expect(fullscreenButtons).toHaveCount(1);
     const box = await region.locator('.browser-player-frame').boundingBox();
 
-    await startPlayback(page, title);
+    await startPlayback(page);
     const started = await currentTime(page);
     await assertPlaybackAdvances(page);
 

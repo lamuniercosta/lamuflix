@@ -150,10 +150,12 @@ describe('MovieDetailsView browser Play default', () => {
     await screen.findByRole('heading', { name: 'Dune' });
     expect(screen.queryByRole('region', { name: playerRegionLabel('Dune') })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: playLabel('Dune') }));
+    const playButton = screen.getByRole('button', { name: playLabel('Dune') });
+    fireEvent.click(playButton);
 
     const playerRegion = await screen.findByRole('region', { name: playerRegionLabel('Dune') });
-    expect(playerRegion).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: playLabel('Dune') })).toBe(playButton);
+    expect(playerRegion.querySelector('media-control-bar media-play-button')).toBeInTheDocument();
     expect(container.querySelectorAll('video')).toHaveLength(1);
     expect(media.calls).toContain(`src:${movieStreamUrl(1)}`);
     await new Promise((resolve) => setTimeout(resolve, 20));

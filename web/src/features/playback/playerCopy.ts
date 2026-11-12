@@ -2,7 +2,6 @@ export const LOADING_COPY = 'Loading player…';
 export const ERROR_COPY = "Couldn't play this movie. Check your connection and try again.";
 export const AUTOPLAY_BLOCKED_COPY = 'Playback is ready. Choose Play to start watching.';
 export const ENDED_ANNOUNCEMENT = 'Playback finished.';
-export const PLAY_COPY = 'Play';
 export const RETRY_COPY = 'Retry';
 export const OPEN_LOCAL_COPY = 'Open in BS Player';
 export const SPEED_LABEL = 'Playback speed';
