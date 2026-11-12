@@ -68,6 +68,20 @@ Ruling: Yes — ratify the standing closing bar, three-challenger coverage (`Sen
 - **Closing bar & frozen scope (`recon-DEV-483` lines 42–48; `CONCLUSIONS.md` Q1)**: Every verified in-scope correctness, security, contract, or ticket-acceptance violation at any severity (Critical through Low) blocks closure until fixed or proven invalid, while non-blocking accepted Low items require explicit recorded disposition and any observation outside the Q1 frozen scope is not a finding in this round ("anything else is a follow-up issue, not a finding in this round").
 - **Implications (`recon-DEV-483` line 42 `Done when`; `AGENTS.md` Verification commands)**: Unresolved blocking findings at the 2-round cap stop for a Patron ruling / remain open on the PR for user review rather than auto-clearing; failed or `Could not run` mandatory gates remain open, and passing code gates alone never closes DEV-483 without both the Q2 17-movie Compose runtime receipt and Rigger's `(verified)` confirmation that the diagnosed cause is documented on the YouTrack ticket.
 
+---
+
+## Q6 — Task ordering and grill closure
+
+Keel: DEV-483 grill Q6/12 (closure): Confirm shared understanding and this task order so I can close brief.md: Quill drafts spec/plan/tasks from the recorded Q1-Q5 rulings; Keel runs read-only analysis and brief alignment; three-axis plan challenge and freeze precede owner Gate 1. Phase B starts with pickup drift check, then Q2 baseline/reproduction and causal diagnosis; request a cited Patron ruling for any expanded file/protected surface, implement the minimal causal fix with Q4 regressions, run required gates and Q2 after-measurements including delayed-timeout trigger, then send the evidence-backed root cause to Rigger via Patron for ticket documentation and verified read-back. Three-axis implementation review, adjudication and exact-head verification/publication precede a user-owned merge; never merge or treat plan freeze as Gate 1 or runtime acceptance. Brief will preserve every full Q&A and distinguish evidence still to collect from decisions. No new glossary concept or ADR is proposed for this reversible Size M diagnosis. Please confirm closure or identify one remaining decision, append full Q&A with rationale and implications before replying.
+
+Patron (complete answer):
+Ruling: Yes — confirm shared understanding, approve the end-to-end Phase A and Phase B task ordering, confirm no new glossary entry or ADR is required for this reversible `size:M` bug diagnosis, and close the DEV-483 grill at Q6/12.
+
+- **Cited basis (`task-pipeline` Phase 2–Phase 8; `lamuflix-team-charter` §2.3, §3.1; `recon-DEV-483` lines 42–48)**: Phase A proceeds strictly through `brief.md`, Quill drafting `spec.md`/`plan.md`/`tasks.md` from Q1–Q6 and `recon-DEV-483`, Keel read-only `/speckit-analyze` and brief alignment, three-axis plan challenge (`Sentry`, `Ledger`, `Compass`, <= 2 rounds), plan freeze, and Patron `gate1: provisional` before the user merges the spec PR (Gate 1).
+- **Phase B execution & YouTrack cause documentation (`CONCLUSIONS.md` Q2–Q5; `lamuflix-team-charter` §3.1)**: Phase B begins with pickup `origin/main` drift recon, Q2 baseline reproduction and root-cause isolation across the Q3 candidate seams (stopping for `needs recon` if unestablished or requesting a cited Patron ruling before touching any file/surface outside Q3), minimal causal implementation with Q4 deterministic/Testcontainers regressions, full .NET verification gates plus Q2 post-fix Compose timing receipts (including `GET /api/movies/9999` 404 `< 300 ms` and the post-startup `for-you?take=10` 30s-timeout trigger + `>= 60 s` settled batch `< 1 s`), and routing the verified root cause through Patron to Rigger for YouTrack ticket documentation with `(verified)` read-back.
+- **Implications (`specs/PRODUCT.md` §2; `lamuflix-team-charter` §2.3)**: The DEV-483 grill is closed after Q6/12 with zero open questions and zero §2.3(a)/(b) structural escalations; Keel may now write `specs/DEV-483/brief.md` preserving all complete Q1–Q6 exchanges and `specs/DEV-483/ASSUMPTIONS.md` tags, and report grill completion to Bernstein.
+
+
 
 
 
