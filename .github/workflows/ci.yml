@@ -1,10 +1,26 @@
 name: CI
 
 on:
+  # Changes that touch only docs skip build and test: spec and doc changes need neither, and
+  # gitleaks.yml still scans them on every PR and push to main. This list must stay in sync
+  # with the pathspec in promote-home.yml ("Resolve commit" step), which skips the same paths
+  # when it picks the commit whose sha-<sha> images exist.
   push:
     branches: [main]
+    paths-ignore:
+      - 'specs/**'
+      - 'docs/**'
+      - '.specify/**'
+      - 'CONTEXT.md'
+      - '**/*.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'specs/**'
+      - 'docs/**'
+      - '.specify/**'
+      - 'CONTEXT.md'
+      - '**/*.md'
   workflow_dispatch:
 
 permissions:
