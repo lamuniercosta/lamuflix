@@ -75,12 +75,12 @@ function isPlayerOwned(target: EventTarget | null, container: HTMLElement | null
   return target instanceof Node && container !== null && container.contains(target);
 }
 
-function isChromeControl(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest('media-control-bar') !== null;
-}
+const SPACE_OWNING_SELECTOR =
+  'button, [role="button"], [role="radio"], [role="tab"], [role="menuitem"], ' +
+  '[role="menuitemradio"], [role="menuitemcheckbox"]';
 
-function isActivatableControl(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && target.closest('button, [role="radio"]') !== null;
+function ownsSpaceActivation(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.closest(SPACE_OWNING_SELECTOR) !== null;
 }
 
 export default function BrowserPlayer({
@@ -97,6 +97,7 @@ export default function BrowserPlayer({
   });
   const regionRef = useRef<HTMLElement | null>(null);
   const ccTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const gearTriggerRef = useRef<HTMLElement | null>(null);
   const speedMenuRef = useRef<HTMLElement | null>(null);
   const panelId = useId();
   const gearId = useId();
@@ -108,10 +109,44 @@ export default function BrowserPlayer({
   const subtitles = useSubtitlePlayback(movieId);
   const { selection, contentStatus, tracks } = subtitles;
   const showTrack = selection !== null && contentStatus === 'ready';
+  const focusInsideSurfaceRef = useRef(false);
+  const previousMovieRef = useRef(movieId);
+  const ccOpenRef = useRef(ccOpen);
+  const menuOpenRef = useRef(false);
 
   useEffect(() => {
+    ccOpenRef.current = ccOpen;
+  }, [ccOpen]);
+
+  useEffect(() => {
+    const previous = previousMovieRef.current;
+    previousMovieRef.current = movieId;
+    if (previous !== movieId) {
+      if (focusInsideSurfaceRef.current) regionRef.current?.focus();
+      focusInsideSurfaceRef.current = false;
+      return;
+    }
     regionRef.current?.focus();
   }, [movieId]);
+
+  useEffect(() => {
+    const onFocusIn = (event: Event) => {
+      const target = event.target;
+      const panel = document.getElementById(panelId);
+      const menu = speedMenuRef.current;
+      focusInsideSurfaceRef.current =
+        (panel !== null && target instanceof Node && panel.contains(target)) ||
+        (menu !== null && target instanceof Node && menu.contains(target));
+    };
+    document.addEventListener('focusin', onFocusIn);
+    return () => document.removeEventListener('focusin', onFocusIn);
+  }, [panelId]);
+
+  useEffect(() => {
+    if (!ccOpen) return;
+    const panel = document.getElementById(panelId);
+    panel?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
+  }, [ccOpen, movieId, panelId]);
 
   const openCcPanel = useCallback(() => {
     if (speedMenuRef.current) speedMenuRef.current.hidden = true;
@@ -122,6 +157,32 @@ export default function BrowserPlayer({
     setCcSurface(freshSurface(movieId));
   }, [movieId]);
 
+  const restoreTriggerFocus = useCallback((surface: 'cc' | 'menu') => {
+    const trigger = surface === 'cc' ? ccTriggerRef.current : gearTriggerRef.current;
+    if (trigger?.isConnected) {
+      trigger.focus();
+      return;
+    }
+    regionRef.current?.focus();
+  }, []);
+
+  const closeCcPanelAndRestore = useCallback(() => {
+    const wasOpen = ccOpenRef.current;
+    closeCcPanel();
+    if (wasOpen) restoreTriggerFocus('cc');
+  }, [closeCcPanel, restoreTriggerFocus]);
+
+  const closeMenu = useCallback(() => {
+    const menu = speedMenuRef.current;
+    if (menu && !menu.hidden) menu.hidden = true;
+  }, []);
+
+  const closeMenuAndRestore = useCallback(() => {
+    const wasOpen = menuOpenRef.current;
+    closeMenu();
+    if (wasOpen) restoreTriggerFocus('menu');
+  }, [closeMenu, restoreTriggerFocus]);
+
   const selectTab = useCallback(
     (tab: SubtitlePanelTab) => {
       setCcSurface((current) => ({ ...freshSurface(movieId), open: current.open, tab }));
@@ -131,11 +192,11 @@ export default function BrowserPlayer({
 
   const toggleCcPanel = useCallback(() => {
     if (ccOpen) {
-      closeCcPanel();
+      closeCcPanelAndRestore();
       return;
     }
     openCcPanel();
-  }, [ccOpen, closeCcPanel, openCcPanel]);
+  }, [ccOpen, closeCcPanelAndRestore, openCcPanel]);
 
   const desiredTrackId = showTrack ? (selection?.trackId ?? null) : null;
   const desiredTrackIdRef = useRef<string | null>(null);
@@ -158,6 +219,7 @@ export default function BrowserPlayer({
 
   const assignGear = useCallback((element: HTMLElement | null) => {
     if (!element) return;
+    gearTriggerRef.current = element;
     element.setAttribute('aria-label', SETTINGS_LABEL);
   }, []);
 
@@ -168,6 +230,7 @@ export default function BrowserPlayer({
   }, []);
 
   useEffect(() => {
+    menuOpenRef.current = false;
     const menu = speedMenuRef.current;
     if (menu) menu.hidden = true;
   }, [movieId]);
@@ -177,6 +240,7 @@ export default function BrowserPlayer({
     if (!menu) return;
     const onToggle = (event: Event) => {
       const newState = (event as Event & { newState?: string }).newState;
+      menuOpenRef.current = newState === 'open';
       if (newState !== 'open') return;
       setCcSurface(freshSurface(movieId));
     };
@@ -184,17 +248,76 @@ export default function BrowserPlayer({
     return () => menu.removeEventListener('toggle', onToggle);
   }, [movieId]);
 
+  useEffect(() => {
+    const panel = () => document.getElementById(panelId);
+    const withinSurface = (node: unknown): boolean => {
+      if (!(node instanceof Node)) return false;
+      const surfaces = [panel(), speedMenuRef.current];
+      return surfaces.some((element) => element !== null && element.contains(node));
+    };
+    const withinTrigger = (node: unknown): boolean => {
+      if (!(node instanceof Node)) return false;
+      const triggers = [ccTriggerRef.current, gearTriggerRef.current];
+      return triggers.some((element) => element !== null && element.contains(node));
+    };
+
+    const onPointerDown = (event: Event) => {
+      const cc = ccOpenRef.current;
+      const menu = menuOpenRef.current;
+      if (!cc && !menu) return;
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      if (path.some((node) => withinSurface(node) || withinTrigger(node))) return;
+      if (cc) closeCcPanel();
+      if (menu) closeMenu();
+    };
+
+    let wasFullscreen: boolean | null = null;
+    const onFullscreenChange = () => {
+      const isFullscreen = document.fullscreenElement !== null;
+      const exited = wasFullscreen === null ? !isFullscreen : wasFullscreen && !isFullscreen;
+      wasFullscreen = isFullscreen;
+      if (!exited) return;
+      const cc = ccOpenRef.current;
+      const menu = menuOpenRef.current;
+      if (!cc && !menu) return;
+      if (cc) closeCcPanelAndRestore();
+      if (menu) closeMenuAndRestore();
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+    };
+  }, [closeCcPanel, closeCcPanelAndRestore, closeMenu, closeMenuAndRestore, panelId]);
+
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
       if (event.defaultPrevented) return;
       if (!isPlayerOwned(event.target, regionRef.current)) return;
       if (isExcludedTarget(event.target)) return;
-      if (isActivatableControl(event.target)) return;
+
+      if (event.key === 'Escape') {
+        const cc = ccOpenRef.current;
+        const menu = menuOpenRef.current;
+        if (cc || menu) {
+          event.preventDefault();
+          if (cc) closeCcPanelAndRestore();
+          if (menu) closeMenuAndRestore();
+          return;
+        }
+        if (document.fullscreenElement) {
+          event.preventDefault();
+          void document.exitFullscreen?.().catch(() => {});
+        }
+        return;
+      }
 
       switch (event.key) {
         case ' ':
+          if (ownsSpaceActivation(event.target)) return;
           event.preventDefault();
-          if (isChromeControl(event.target)) return;
           togglePlay();
           return;
         case 'k':
@@ -222,17 +345,11 @@ export default function BrowserPlayer({
           void regionRef.current?.requestFullscreen?.().catch(() => {});
           return;
         }
-        case 'Escape':
-          if (document.fullscreenElement) {
-            event.preventDefault();
-            void document.exitFullscreen?.().catch(() => {});
-          }
-          return;
         default:
           return;
       }
     },
-    [seekBy, toggleMute, togglePlay],
+    [closeCcPanelAndRestore, closeMenuAndRestore, seekBy, toggleMute, togglePlay],
   );
 
   return (
@@ -302,7 +419,7 @@ export default function BrowserPlayer({
               onTabChange={selectTab}
               onSelect={subtitles.select}
               onRetryList={subtitles.retryList}
-              onClose={closeCcPanel}
+              onClose={closeCcPanelAndRestore}
             />
           ) : null}
         </MediaController>

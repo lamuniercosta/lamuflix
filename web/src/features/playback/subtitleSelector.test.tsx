@@ -606,3 +606,55 @@ describe('subtitle stale content', () => {
     expect(owned).toEqual([]);
   });
 });
+
+describe('subtitle track keyboard operation inside the player surface', () => {
+  it('selects a track then Off with the keyboard alone and never seeks', async () => {
+    media = installMediaStubs();
+    render(<BrowserPlayer title="Dune" movieId={1} streamUrl="/api/movies/1/stream" />);
+    media.setSeekable(video(), [[0, 100]]);
+    const panel = await openPanel();
+    const rows = await within(panel).findAllByRole('radio');
+    const names = rows.map((row) => row.getAttribute('aria-label'));
+    expect(names).toEqual([SUBTITLES_OFF_COPY, 'English', 'Portuguese (Brazil)']);
+
+    rows[1].focus();
+    fireEvent.keyDown(rows[1], { key: 'Enter' });
+
+    await waitFor(() => expect(modeOf('token-en')).toBe('showing'));
+    expect(video().currentTime).toBe(0);
+
+    const refreshed = await within(panel).findAllByRole('radio');
+    refreshed[2].focus();
+    fireEvent.keyDown(refreshed[2], { key: ' ' });
+
+    await waitFor(() => expect(modeOf('token-pob')).toBe('showing'));
+    expect(modeOf('token-en')).toBe('disabled');
+    expect(video().currentTime).toBe(0);
+
+    const off = (await within(panel).findAllByRole('radio'))[0];
+    off.focus();
+    fireEvent.keyDown(off, { key: ' ' });
+
+    await waitFor(() => expect(modeOf('token-pob')).toBe('disabled'));
+    expect(checkedLabel()).toBe(SUBTITLES_OFF_COPY);
+    expect(video().currentTime).toBe(0);
+  });
+
+  it('moves and selects with the arrow keys while the video keeps its position', async () => {
+    media = installMediaStubs();
+    render(<BrowserPlayer title="Dune" movieId={1} streamUrl="/api/movies/1/stream" />);
+    media.setSeekable(video(), [[0, 100]]);
+    const panel = await openPanel();
+    const rows = await within(panel).findAllByRole('radio');
+
+    rows[0].focus();
+    fireEvent.keyDown(rows[0], { key: 'ArrowDown' });
+    await waitFor(() => expect(checkedLabel()).toBe('English'));
+    expect(video().currentTime).toBe(0);
+
+    const moved = (await within(panel).findAllByRole('radio'))[1];
+    fireEvent.keyDown(moved, { key: 'ArrowDown' });
+    await waitFor(() => expect(checkedLabel()).toBe('Portuguese (Brazil)'));
+    expect(video().currentTime).toBe(0);
+  });
+});

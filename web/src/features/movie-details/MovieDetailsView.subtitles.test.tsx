@@ -208,3 +208,89 @@ describe('MovieDetailsView subtitle track list at the DEV-455 viewer seam', () =
     expect(media.calls.filter((call) => call.startsWith('src:'))).toHaveLength(0);
   });
 });
+
+describe('MovieDetailsView player surface coordination', () => {
+  it('opens the CC panel, moves focus in, closes on Escape and restores trigger focus', async () => {
+    serveSubtitles();
+    renderView();
+
+    fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
+    await screen.findByRole('region', { name: playerRegionLabel('Dune') });
+
+    const trigger = ccTrigger();
+    fireEvent.click(trigger);
+    const panel = await screen.findByRole('region', { name: subtitlePanelLabel('Dune') });
+    const tab = within(panel).getByRole('tab', { name: 'Subtitles' });
+    await waitFor(() => expect(tab).toHaveFocus());
+
+    fireEvent.keyDown(document.activeElement ?? panel, { key: 'Escape' });
+
+    await waitFor(() => expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('region', { name: subtitlePanelLabel('Dune') })).toBeNull();
+    expect(ccTrigger()).toHaveFocus();
+  }, 15000);
+
+  it('dismisses the panel on an outside pointerdown without pausing playback', async () => {
+    serveSubtitles();
+    renderView();
+
+    fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
+    await screen.findByRole('region', { name: playerRegionLabel('Dune') });
+    const detailsHeading = screen.getByRole('heading', { level: 1 });
+    await openCcPanel();
+
+    await act(async () => {
+      video().dispatchEvent(new Event('playing'));
+    });
+    media.calls.length = 0;
+
+    fireEvent.pointerDown(detailsHeading);
+
+    await waitFor(() => expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false'));
+    expect(media.calls.filter((call) => call === 'pause')).toHaveLength(0);
+  }, 15000);
+
+  it('keeps the CC trigger focusable and the panel keyboard reachable after a movie-details rerender', async () => {
+    serveSubtitles();
+    const { rerender } = renderView();
+    fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
+    await openCcPanel();
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await act(async () => {
+      rerender(
+        <QueryClientProvider client={client}>
+          <MovieDetailsView movieId={1} />
+        </QueryClientProvider>,
+      );
+    });
+
+    const trigger = await screen.findByRole('button', { name: SUBTITLES_LABEL });
+    if (trigger.getAttribute('aria-expanded') === 'true') fireEvent.click(trigger);
+    fireEvent.click(trigger);
+
+    const panel = await screen.findByRole('region', { name: subtitlePanelLabel('Dune') });
+    expect(within(panel).getByRole('tablist')).toBeInTheDocument();
+    expect(within(panel).getByRole('tab', { name: 'Subtitles' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  }, 15000);
+
+  it('closes the CC panel when the gear settings menu opens', async () => {
+    serveSubtitles();
+    renderView();
+
+    fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
+    await openCcPanel();
+
+    fireEvent.click(within(region()).getByRole('button', { name: 'Settings' }));
+
+    await waitFor(() => expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('region', { name: subtitlePanelLabel('Dune') })).toBeNull();
+    expect(within(region()).getByRole('button', { name: 'Settings' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  }, 15000);
+});

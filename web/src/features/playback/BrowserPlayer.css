@@ -248,7 +248,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .browser-player * {
+  .browser-player *,
+  .browser-player-chrome media-playback-rate-menu,
+  .browser-player-chrome media-playback-rate-menu::part(menu),
+  .browser-player-chrome media-playback-rate-menu media-chrome-menu-item,
+  .browser-player-chrome media-playback-rate-menu media-chrome-menu-item::part(indicator) {
     animation: none !important;
     transition: none !important;
   }
