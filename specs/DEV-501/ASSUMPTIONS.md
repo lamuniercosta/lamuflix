@@ -1,0 +1,15 @@
+# DEV-501 — Assumed details approved by Patron
+
+All entries below are deliberate Patron decisions; none substitutes for missing recon or an owner gate. See CONCLUSIONS Q1–Q9 and brief.md for operative rules.
+
+- [assumed] Q4: Distinct-token Jaccard overlap with invariant case-folding and Unicode letter/digit tokens; rounded integer percentage using midpoint-away-from-zero (Q9), empty union 0. Basis: recon:23–25 requires hash override and token overlap without specifying the exact formula.
+- [assumed] Q4: Equal match/download counts use ordinal release name then candidate ID. Basis: recon:25; stable tie display.
+- [assumed] Q4: With no configured preferred language, show a choose-language prompt and wait for an explicit choice. Basis: recon:13–14 does not define the empty preference state.
+- [assumed] Q4: Bounded candidate state defaults to five minutes and 1000 entries per process, configurable and TimeProvider-driven. Basis: server-controlled selection and no schema/dependency changes; expiry requires a new free search.
+- [assumed] Q5/Q7: Collision suffix has no space: `<stem>-<code>(1).srt`, then `(2)`. Basis: recon:28,47,80; no-overwrite requirement.
+- [assumed] Q5/Q6: Only the matching current movie/session may activate a completed download; a changed-language completion adds the local track without replacing current remote search results. Basis: recon:29–30,70; preserve playback state.
+- [assumed] Q6: Copy: “Search by language”, “No subtitles found for this language”, “Downloads unavailable for this library”; quota exhaustion includes the provider-supplied reset when known. Basis: recon:13,50–59,70. Palette supplies design.md before plan challenge; wording changes still require recorded Patron disposition.
+- [assumed] Q6: Render provider UTC reset in local time and unknown quota as unavailable; elapsed reset alone is not proof of replenishment. Basis: recon:51–53; truthful provider data.
+- [assumed] Compass F1: `GET /api/subtitles/languages` orders configured `Subtitles:PreferredLanguages` first (in configured order, deduplicated), followed by remaining supported catalog entries sorted by ordinal `englishName` then `code`. Basis: recon:13–14; deterministic dropdown ordering.
+
+No new dependency, database, player library or local execution behavior is assumed. Q2's constitution-maintenance ruling and Q7's staging interpretation are cited policy decisions in CONCLUSIONS, not taste assumptions. Gate 1, plan freeze and runtime acceptance remain open.
