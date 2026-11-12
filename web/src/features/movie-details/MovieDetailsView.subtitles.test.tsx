@@ -132,7 +132,7 @@ describe('MovieDetailsView subtitle selector at the DEV-455 viewer seam', () => 
     fireEvent.change(control, { target: { value: 'token-en' } });
 
     expect(await screen.findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
-    expect(within(region()).getByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
+    expect(within(region()).getByRole('button', { name: /^(play|pause)$/i })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

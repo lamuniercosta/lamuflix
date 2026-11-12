@@ -91,11 +91,11 @@ async function isPaused(page: Page): Promise<boolean> {
   return playerVideo(page).evaluate((element) => (element as HTMLVideoElement).paused);
 }
 
-async function startPlayback(page: Page, title: string): Promise<void> {
+async function startPlayback(page: Page): Promise<void> {
   await expect(playerVideo(page)).toBeVisible({ timeout: context.waitBudgetMs });
   if (await isPaused(page)) {
     const explicitPlay = playerRegion(page).getByRole('button', {
-      name: `Play ${title} in browser`,
+      name: /^play$/i,
     });
     if (await explicitPlay.isVisible()) {
       await explicitPlay.click();
@@ -111,15 +111,15 @@ async function assertPlaybackAdvances(page: Page): Promise<void> {
     .toBeGreaterThan(started);
 }
 
-async function rewindAndResume(page: Page, title: string): Promise<void> {
+async function rewindAndResume(page: Page): Promise<void> {
   await playerVideo(page).evaluate((element) => {
     (element as HTMLVideoElement).currentTime = 0;
   });
-  await startPlayback(page, title);
+  await startPlayback(page);
 }
 
-async function assertPlaybackStillWorks(page: Page, title: string): Promise<boolean> {
-  await rewindAndResume(page, title);
+async function assertPlaybackStillWorks(page: Page): Promise<boolean> {
+  await rewindAndResume(page);
   await assertPlaybackAdvances(page);
   return !(await isPaused(page));
 }
@@ -215,7 +215,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     test.setTimeout(context.waitBudgetMs);
     const fixture = context.subtitleFixtures.listed;
     const movieId = await openPlayer(page, request, fixture.title);
-    await startPlayback(page, fixture.title);
+    await startPlayback(page);
 
     const listResponse = await request.get(
       `${context.baseURL}/api/movies/${String(movieId)}/subtitles`,
@@ -261,7 +261,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     const fixture = context.subtitleFixtures.listed;
     const target = fixture.tracks[fixture.tracks.length - 1];
     await openPlayer(page, request, fixture.title);
-    await startPlayback(page, fixture.title);
+    await startPlayback(page);
 
     const control = selector(page, fixture.title);
     await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
@@ -302,7 +302,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
       (probe) => probe.tracks.every((track) => track.mode === 'disabled'),
       20_000,
     );
-    const playbackContinuedAfterOff = await assertPlaybackStillWorks(page, fixture.title);
+    const playbackContinuedAfterOff = await assertPlaybackStillWorks(page);
 
     record({
       smoke: 'SMOKE-002',
@@ -349,7 +349,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     expect(brokenTracks.length, 'the broken sidecar is listed so it can be chosen').toBe(1);
 
     await openPlayer(page, request, broken.title);
-    await startPlayback(page, broken.title);
+    await startPlayback(page);
 
     const control = selector(page, broken.title);
     await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
@@ -368,7 +368,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     await expect(control).toHaveValue('');
     const playingAfterFailure = !(await isPaused(page));
     const modesAfterFailure = await readTracks(page);
-    const playbackContinued = await assertPlaybackStillWorks(page, broken.title);
+    const playbackContinued = await assertPlaybackStillWorks(page);
 
     await control.selectOption('');
     await control.selectOption(optionValue!);
@@ -425,7 +425,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     });
 
     await openPlayer(page, request, fixture.title);
-    await startPlayback(page, fixture.title);
+    await startPlayback(page);
 
     const unavailable = playerRegion(page).getByText(UNAVAILABLE_COPY);
     await expect(unavailable).toBeVisible({ timeout: context.waitBudgetMs });
@@ -436,7 +436,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     });
     await expect(retry).toBeVisible({ timeout: context.waitBudgetMs });
     const playingAfterFailure = !(await isPaused(page));
-    const playbackContinued = await assertPlaybackStillWorks(page, fixture.title);
+    const playbackContinued = await assertPlaybackStillWorks(page);
     const attemptsBeforeRetry = attempts;
 
     await page.unroute(listPattern);

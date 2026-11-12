@@ -9,9 +9,7 @@ import {
   ERROR_COPY,
   LOADING_COPY,
   OPEN_LOCAL_COPY,
-  PLAY_COPY,
   playerRegionLabel,
-  playLabel,
   openLocalLabel,
   retryLabel,
 } from './playerCopy';
@@ -106,8 +104,7 @@ describe('BrowserPlayer autoplay denial', () => {
 
     expect(await screen.findByText(AUTOPLAY_BLOCKED_COPY)).toBeInTheDocument();
     expect(screen.queryByText(ERROR_COPY)).toBeNull();
-    const playControl = within(region()).getByRole('button', { name: playLabel('Dune') });
-    expect(playControl).toHaveTextContent(PLAY_COPY);
+    const playControl = await within(region()).findByRole('button', { name: /^play$/i });
 
     media.calls.length = 0;
     fireEvent.click(playControl);
@@ -405,25 +402,20 @@ describe('BrowserPlayer keyboard scope', () => {
 });
 
 describe('BrowserPlayer terminal states', () => {
-  it('announces the ended state politely and offers replay from the beginning', async () => {
+  it('announces the ended state politely and replays from the beginning with K', async () => {
     renderPlayer();
 
     await act(async () => {
-      video().dispatchEvent(new Event('ended'));
+      const element = video();
+      element.currentTime = 90;
+      element.dispatchEvent(new Event('ended'));
     });
     expect(screen.getByText(ENDED_ANNOUNCEMENT)).toBeInTheDocument();
     media.calls.length = 0;
 
-    fireEvent.click(within(region()).getByRole('button', { name: playLabel('Dune') }));
+    fireEvent.keyDown(region(), { key: 'k' });
     await waitFor(() => expect(media.calls).toContain('play'));
     expect(video().currentTime).toBe(0);
     expect(screen.queryByRole('alert')).toBeNull();
-  });
-
-  it('keeps the visible play control labelled for the movie', async () => {
-    renderPlayer();
-    expect(within(region()).getByRole('button', { name: playLabel('Dune') })).toHaveTextContent(
-      PLAY_COPY,
-    );
   });
 });

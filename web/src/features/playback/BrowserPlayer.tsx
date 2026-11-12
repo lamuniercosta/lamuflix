@@ -18,11 +18,9 @@ import {
   ERROR_COPY,
   LOADING_COPY,
   OPEN_LOCAL_COPY,
-  PLAY_COPY,
   PLAYBACK_SPEEDS,
   RETRY_COPY,
   openLocalLabel,
-  playLabel,
   playerRegionLabel,
   retryLabel,
 } from './playerCopy';
@@ -205,7 +203,7 @@ export default function BrowserPlayer({
         onSelect={subtitles.select}
         onRetryList={subtitles.retryList}
       />
-      {status === 'error' ? (
+      {status === 'error' && (
         <div className="browser-player-actions">
           <p role="alert" className="browser-player-error">
             {ERROR_COPY}
@@ -228,17 +226,6 @@ export default function BrowserPlayer({
               {OPEN_LOCAL_COPY}
             </button>
           ) : null}
-        </div>
-      ) : (
-        <div className="browser-player-actions">
-          <button
-            type="button"
-            className="lamu-action-primary"
-            aria-label={playLabel(title)}
-            onClick={togglePlay}
-          >
-            {PLAY_COPY}
-          </button>
         </div>
       )}
     </section>
