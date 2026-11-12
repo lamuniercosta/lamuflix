@@ -232,7 +232,7 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
         public void Add(LogRecord record) => entries.Enqueue(record);
     }
 
-    private sealed record LogRecord(LogLevel Level, string Category, string Message);
+    private sealed record LogRecord(LogLevel Level);
 
     private sealed class CaptureLoggerProvider(CaptureLog log) : ILoggerProvider
     {
@@ -262,7 +262,7 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
                 return;
             }
 
-            log.Add(new LogRecord(logLevel, category, formatter(state, exception)));
+            log.Add(new LogRecord(logLevel));
         }
     }
 }
