@@ -97,6 +97,25 @@ kind: Service
 metadata:
   labels:
     app.kubernetes.io/part-of: lamuflix-home
+  name: aspire-dashboard
+  namespace: lamuflix-home
+spec:
+  ports:
+  - name: ui
+    port: 18888
+    targetPort: ui
+  - name: otlp-grpc
+    port: 18889
+    targetPort: otlp-grpc
+  selector:
+    app.kubernetes.io/name: aspire-dashboard
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
   name: ollama
   namespace: lamuflix-home
 spec:
@@ -178,6 +197,10 @@ spec:
       - env:
         - name: Ollama__Endpoint
           value: http://ollama:11434/
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://aspire-dashboard:18889
+        - name: OTEL_SERVICE_NAME
+          value: lamuflix-api
         - name: Tmdb__Enabled
           value: "true"
         - name: Tmdb__ApiKey
@@ -186,7 +209,7 @@ spec:
               key: apiKey
               name: tmdb-credentials
               optional: true
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:40676227be529f107b5ed152d9a1915b9b14b5fc5c72eb2a8ad8d9da8cefe18d
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:bc19cfaea3e1f4bd6179a63afa58b4cc5fc13bb6fcf3829269dc6d3502f9fa78
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -231,7 +254,7 @@ spec:
           for h in postgres:5432 rabbitmq:5672; do
             until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
           done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:40676227be529f107b5ed152d9a1915b9b14b5fc5c72eb2a8ad8d9da8cefe18d
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:bc19cfaea3e1f4bd6179a63afa58b4cc5fc13bb6fcf3829269dc6d3502f9fa78
         name: wait-postgres-rabbitmq
         resources:
           limits:
@@ -243,7 +266,7 @@ spec:
         - -c
         - |
           until (exec 3<>/dev/tcp/ollama/11434 && printf 'GET /api/tags HTTP/1.1\r\nHost: ollama\r\nConnection: close\r\n\r\n' >&3 && timeout 5 cat <&3 | grep -q all-minilm); do sleep 3; done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:40676227be529f107b5ed152d9a1915b9b14b5fc5c72eb2a8ad8d9da8cefe18d
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:bc19cfaea3e1f4bd6179a63afa58b4cc5fc13bb6fcf3829269dc6d3502f9fa78
         name: wait-ollama-model
         resources:
           limits:
@@ -267,6 +290,54 @@ kind: Deployment
 metadata:
   labels:
     app.kubernetes.io/part-of: lamuflix-home
+  name: aspire-dashboard
+  namespace: lamuflix-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aspire-dashboard
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aspire-dashboard
+        app.kubernetes.io/part-of: lamuflix-home
+    spec:
+      containers:
+      - image: mcr.microsoft.com/dotnet/aspire-dashboard@sha256:e69a221d6d4ce3ee9bd74b9474c073dd154ef8df7eaa535c2f50f4a554adce54
+        livenessProbe:
+          failureThreshold: 3
+          periodSeconds: 20
+          tcpSocket:
+            port: ui
+        name: aspire-dashboard
+        ports:
+        - containerPort: 18888
+          name: ui
+        - containerPort: 18889
+          name: otlp-grpc
+        readinessProbe:
+          periodSeconds: 10
+          tcpSocket:
+            port: ui
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
   name: web
   namespace: lamuflix-home
 spec:
@@ -281,7 +352,7 @@ spec:
         app.kubernetes.io/part-of: lamuflix-home
     spec:
       containers:
-      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:0e7cd7252d0a0dcd13d160bdfd814527ac166d1d9a04db03abd84f0f3776bc64
+      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:dab8c8b46babf718c45e5f93e04c5de2986eac82d1d4ed6dcd63e74eaa2b7ed7
         livenessProbe:
           httpGet:
             path: /
