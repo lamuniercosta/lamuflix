@@ -132,21 +132,6 @@ kind: Service
 metadata:
   labels:
     app.kubernetes.io/part-of: lamuflix-home
-  name: postgres
-  namespace: lamuflix-home
-spec:
-  ports:
-  - name: postgres
-    port: 5432
-    targetPort: 5432
-  selector:
-    app.kubernetes.io/name: postgres
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/part-of: lamuflix-home
   name: rabbitmq
   namespace: lamuflix-home
 spec:
@@ -210,7 +195,7 @@ spec:
               key: apiKey
               name: tmdb-credentials
               optional: true
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:a13dd066b2e559ebaaf65feb2c36cd0dd71d129f9b1999c76d6ffb47e8249590
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:7c8c9f360a6135fac897e1fd78af538314b267d98ff6d5f791f7acaf542983dd
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -252,11 +237,11 @@ spec:
         - /bin/bash
         - -c
         - |
-          for h in postgres:5432 rabbitmq:5672; do
+          for h in rabbitmq:5672; do
             until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
           done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:a13dd066b2e559ebaaf65feb2c36cd0dd71d129f9b1999c76d6ffb47e8249590
-        name: wait-postgres-rabbitmq
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:7c8c9f360a6135fac897e1fd78af538314b267d98ff6d5f791f7acaf542983dd
+        name: wait-rabbitmq
         resources:
           limits:
             memory: 64Mi
@@ -267,7 +252,7 @@ spec:
         - -c
         - |
           until (exec 3<>/dev/tcp/ollama/11434 && printf 'GET /api/tags HTTP/1.1\r\nHost: ollama\r\nConnection: close\r\n\r\n' >&3 && timeout 5 cat <&3 | grep -q all-minilm); do sleep 3; done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:a13dd066b2e559ebaaf65feb2c36cd0dd71d129f9b1999c76d6ffb47e8249590
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:7c8c9f360a6135fac897e1fd78af538314b267d98ff6d5f791f7acaf542983dd
         name: wait-ollama-model
         resources:
           limits:
@@ -353,7 +338,7 @@ spec:
         app.kubernetes.io/part-of: lamuflix-home
     spec:
       containers:
-      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:d133dbc60c7d2641761e6050a000b3fc142712bf6f2606f1541476899f8beffd
+      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:86b7dee96062c855cf42eaea26c4d4787e74241ad2164f22d265c64219811e25
         livenessProbe:
           httpGet:
             path: /
@@ -465,81 +450,6 @@ metadata:
     argocd.argoproj.io/sync-options: Prune=false
   labels:
     app.kubernetes.io/part-of: lamuflix-home
-  name: postgres
-  namespace: lamuflix-home
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: postgres
-  serviceName: postgres
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: postgres
-        app.kubernetes.io/part-of: lamuflix-home
-    spec:
-      containers:
-      - env:
-        - name: POSTGRES_DB
-          value: lamuflix
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_USER
-              name: postgres-credentials
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_PASSWORD
-              name: postgres-credentials
-        - name: PGDATA
-          value: /var/lib/postgresql/data/pgdata
-        image: pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
-        livenessProbe:
-          exec:
-            command:
-            - pg_isready
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-        name: postgres
-        ports:
-        - containerPort: 5432
-          name: postgres
-        readinessProbe:
-          exec:
-            command:
-            - pg_isready
-          periodSeconds: 10
-          timeoutSeconds: 5
-        resources:
-          limits:
-            memory: 1Gi
-          requests:
-            memory: 512Mi
-        volumeMounts:
-        - mountPath: /var/lib/postgresql/data
-          name: data
-  volumeClaimTemplates:
-  - metadata:
-      labels:
-        app.kubernetes.io/part-of: lamuflix-home
-      name: data
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 5Gi
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  annotations:
-    argocd.argoproj.io/sync-options: Prune=false
-  labels:
-    app.kubernetes.io/part-of: lamuflix-home
   name: rabbitmq
   namespace: lamuflix-home
 spec:
@@ -608,132 +518,3 @@ spec:
       resources:
         requests:
           storage: 1Gi
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  labels:
-    app.kubernetes.io/part-of: lamuflix-home
-  name: postgres-backup
-  namespace: lamuflix-home
-spec:
-  concurrencyPolicy: Forbid
-  jobTemplate:
-    metadata:
-      labels:
-        app.kubernetes.io/part-of: lamuflix-home
-    spec:
-      backoffLimit: 1
-      template:
-        metadata:
-          labels:
-            app.kubernetes.io/part-of: lamuflix-home
-        spec:
-          containers:
-          - command:
-            - /bin/sh
-            - -c
-            - |
-              set -eu
-              t=/backups/.lamuflix-home-nightly.partial
-              trap 'rm -f "$t"' EXIT
-              f="/backups/lamuflix-home-nightly-$(date +%Y%m%d-%H%M).dump"
-              pg_dump -h postgres -U "$POSTGRES_USER" -d lamuflix -Fc --no-owner --no-acl -f "$t"
-              pg_restore -l "$t" >/dev/null
-              mv "$t" "$f"
-              ls -1t /backups/lamuflix-home-nightly-*.dump | tail -n +15 | while read -r old; do rm -f -- "$old"; done
-            env:
-            - name: TZ
-              value: America/Sao_Paulo
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  key: POSTGRES_USER
-                  name: postgres-credentials
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: POSTGRES_PASSWORD
-                  name: postgres-credentials
-            image: pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
-            name: backup
-            resources:
-              limits:
-                memory: 256Mi
-              requests:
-                memory: 128Mi
-            volumeMounts:
-            - mountPath: /backups
-              name: backups
-          restartPolicy: Never
-          volumes:
-          - hostPath:
-              path: /backups
-              type: Directory
-            name: backups
-  schedule: 0 4 * * *
-  timeZone: America/Sao_Paulo
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-  labels:
-    app.kubernetes.io/part-of: lamuflix-home
-  name: postgres-presync-backup
-  namespace: lamuflix-home
-spec:
-  backoffLimit: 1
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/part-of: lamuflix-home
-    spec:
-      containers:
-      - command:
-        - /bin/sh
-        - -c
-        - |
-          set -eu
-          if ! pg_isready -h postgres >/dev/null 2>&1; then
-            echo "skipped: postgres not reachable"
-            exit 0
-          fi
-          t=/backups/.lamuflix-home-presync.partial
-          trap 'rm -f "$t"' EXIT
-          f="/backups/lamuflix-home-presync-$(date +%Y%m%d-%H%M).dump"
-          pg_dump -h postgres -U "$POSTGRES_USER" -d lamuflix -Fc --no-owner --no-acl -f "$t"
-          pg_restore -l "$t" >/dev/null
-          mv "$t" "$f"
-          ls -1t /backups/lamuflix-home-presync-*.dump | tail -n +11 | while read -r old; do rm -f -- "$old"; done
-        env:
-        - name: TZ
-          value: America/Sao_Paulo
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_USER
-              name: postgres-credentials
-        - name: PGPASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: POSTGRES_PASSWORD
-              name: postgres-credentials
-        image: pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
-        name: backup
-        resources:
-          limits:
-            memory: 256Mi
-          requests:
-            memory: 128Mi
-        volumeMounts:
-        - mountPath: /backups
-          name: backups
-      restartPolicy: Never
-      volumes:
-      - hostPath:
-          path: /backups
-          type: Directory
-        name: backups
