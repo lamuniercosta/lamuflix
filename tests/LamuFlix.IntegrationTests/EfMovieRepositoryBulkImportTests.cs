@@ -1,13 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Tests.Common;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Shouldly;
 using Xunit;
 
@@ -101,6 +107,40 @@ public sealed class EfMovieRepositoryBulkImportTests(PostgresFixture fixture) : 
         return (record.Id, record.LibraryPath);
     }
 
+    [Fact]
+    public async Task DisposeAsync_DeferredNotificationFlushFails_LogsWarningWithoutErrorEntries()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var log = new CaptureLog();
+        var failing = Substitute.For<IEnrichmentStatusNotifier>();
+        failing
+            .NotifyAsync(Arg.Any<MovieId>(), Arg.Any<EnrichmentStatus>(), Arg.Any<CancellationToken>())
+            .Throws(new InvalidOperationException("broadcast down"));
+        var repository = new EfMovieRepository(
+            db,
+            TimeProvider.System,
+            Options.Create(new EnrichmentOptions { ClaimLease = ClaimLease }),
+            failing,
+            new CaptureLogger(log));
+        var movie = Movie.Create(new MovieId(1), "Flush Film", new LibraryPath("FlushFilm"), new MediaFormat("mp4"));
+        await using (var transaction = await db.Database.BeginTransactionAsync(ct))
+        {
+            await repository.AddAsync(movie, ct);
+            await repository.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+
+        // act
+        await repository.DisposeAsync();
+
+        // assert
+        log.Entries.Where(entry => entry.Level == LogLevel.Error).ShouldBeEmpty();
+        var warning = log.Entries.Single(entry => entry.Level == LogLevel.Warning);
+        warning.Message.ShouldContain("notification failed");
+    }
+
     private static EfMovieRepository Repository(LamuFlixDbContext db) =>
         new(
             db,
@@ -108,4 +148,42 @@ public sealed class EfMovieRepositoryBulkImportTests(PostgresFixture fixture) : 
             Options.Create(new EnrichmentOptions { ClaimLease = ClaimLease }),
             new RecordingEnrichmentStatusNotifier(),
             NullLogger<EfMovieRepository>.Instance);
+
+    private sealed class CaptureLog
+    {
+        private readonly List<LogRecord> entries = [];
+
+        public IReadOnlyList<LogRecord> Entries => entries;
+
+        public void Add(LogRecord record) => entries.Add(record);
+    }
+
+    private sealed record LogRecord(LogLevel Level, string Message);
+
+    private sealed class CaptureLogger(CaptureLog log) : ILogger<EfMovieRepository>
+    {
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            log.Add(new LogRecord(logLevel, formatter(state, exception)));
+        }
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+
+            public void Dispose()
+            {
+            }
+        }
+    }
 }

@@ -37,6 +37,20 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
         return await WriteAsync(httpContext, status, problem);
     }
 
+    public static bool ShouldSuppressDiagnostics(Exception exception) => exception switch
+    {
+        ValidationException => true,
+        BadHttpRequestException => true,
+        NotFoundException => true,
+        InvalidTransitionException => true,
+        ImdbIdConflictException => true,
+        FeatureDisabledException => true,
+        LibraryFileAccessDeniedException => true,
+        SubtitleQuotaExceededException => true,
+        SubtitleAcquisitionUnavailableException => true,
+        _ => false,
+    };
+
     private static bool TryMapSubtitleProblem(
         Exception exception,
         HttpContext httpContext,

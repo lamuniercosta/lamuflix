@@ -68,7 +68,7 @@ await RunLibraryPathGateAsync(app);
 
 app.UseExceptionHandler(new ExceptionHandlerOptions
 {
-    SuppressDiagnosticsCallback = static _ => false,
+    SuppressDiagnosticsCallback = static context => GlobalExceptionHandler.ShouldSuppressDiagnostics(context.Exception),
 });
 app.UseStatusCodePages();
 app.UseCors(CorsPolicyName);
