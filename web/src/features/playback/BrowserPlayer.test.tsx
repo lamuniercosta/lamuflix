@@ -9,10 +9,13 @@ import {
   ERROR_COPY,
   LOADING_COPY,
   OPEN_LOCAL_COPY,
+  SETTINGS_LABEL,
   playerRegionLabel,
+  playLabel,
   openLocalLabel,
   retryLabel,
 } from './playerCopy';
+import { SUBTITLES_LABEL } from './subtitleCopy';
 
 const STREAM = '/api/movies/1/stream';
 let media: MediaStubHandle;
@@ -24,6 +27,18 @@ function region(title = 'Dune'): HTMLElement {
 function video(container: HTMLElement = region()): HTMLVideoElement {
   const element = container.querySelector('video');
   if (!element) throw new Error('expected a video element inside the player region');
+  return element;
+}
+
+function controlBar(container: HTMLElement = region()): HTMLElement {
+  const element = container.querySelector<HTMLElement>('media-control-bar');
+  if (!element) throw new Error('expected a media control bar inside the player region');
+  return element;
+}
+
+function playControl(container: HTMLElement = region()): HTMLElement {
+  const element = container.querySelector<HTMLElement>('media-play-button');
+  if (!element) throw new Error('expected an in-bar play control inside the player region');
   return element;
 }
 
@@ -94,7 +109,7 @@ describe('BrowserPlayer region', () => {
 });
 
 describe('BrowserPlayer autoplay denial', () => {
-  it('keeps an explicit Play control and shows no terminal error', async () => {
+  it('keeps an explicit in-bar Play control and shows no terminal error', async () => {
     const play = media.deferNextPlay();
     renderPlayer();
 
@@ -104,10 +119,10 @@ describe('BrowserPlayer autoplay denial', () => {
 
     expect(await screen.findByText(AUTOPLAY_BLOCKED_COPY)).toBeInTheDocument();
     expect(screen.queryByText(ERROR_COPY)).toBeNull();
-    const playControl = await within(region()).findByRole('button', { name: /^play$/i });
+    expect(region().querySelectorAll('media-play-button')).toHaveLength(1);
 
     media.calls.length = 0;
-    fireEvent.click(playControl);
+    fireEvent.click(playControl());
     await waitFor(() => expect(media.calls).toEqual(['play']));
   });
 });
@@ -238,6 +253,59 @@ describe('BrowserPlayer source lifecycle', () => {
   });
 });
 
+describe('BrowserPlayer control bar composition', () => {
+  it('shows current time with duration in one display and no separate duration display', async () => {
+    renderPlayer();
+
+    const timeDisplays = region().querySelectorAll('media-time-display');
+    expect(timeDisplays).toHaveLength(1);
+    expect(timeDisplays[0]).toHaveAttribute('showduration');
+    expect(region().querySelector('media-duration-display')).toBeNull();
+
+    const element = timeDisplays[0] as HTMLElement & { shadowRoot: ShadowRoot | null };
+    element.setAttribute('mediaduration', '4625');
+    element.setAttribute('mediacurrenttime', '12');
+
+    const rendered = element.shadowRoot?.querySelector('slot')?.innerHTML ?? '';
+    expect(rendered.replace(/&nbsp;|\u00a0/g, ' ')).toBe('0:12 / 1:17:05');
+  });
+
+  it('keeps exactly one in-bar play control and drops the duplicate Play action', () => {
+    renderPlayer();
+
+    const playControls = region().querySelectorAll('media-play-button');
+    expect(playControls).toHaveLength(1);
+    expect(controlBar().querySelectorAll('media-play-button')).toHaveLength(1);
+
+    const named = screen
+      .queryAllByRole('button')
+      .filter((button) => button.getAttribute('aria-label') === playLabel('Dune'));
+    expect(named).toHaveLength(0);
+  });
+
+  it('renders play, seek, combined time, volume, subtitles, settings and real fullscreen controls', () => {
+    renderPlayer();
+
+    const bar = controlBar();
+    expect(bar.querySelectorAll('media-play-button')).toHaveLength(1);
+    expect(bar.querySelectorAll('media-time-range')).toHaveLength(1);
+    expect(bar.querySelectorAll('media-time-display')).toHaveLength(1);
+    expect(bar.querySelectorAll('media-mute-button')).toHaveLength(1);
+    expect(bar.querySelectorAll('media-volume-range')).toHaveLength(1);
+    expect(bar.querySelectorAll('media-fullscreen-button')).toHaveLength(1);
+    expect(within(region()).getByRole('button', { name: SUBTITLES_LABEL })).toBeInTheDocument();
+    expect(within(region()).getByRole('button', { name: SETTINGS_LABEL })).toBeInTheDocument();
+    expect(bar.querySelector('media-playback-rate-button')).toBeNull();
+  });
+
+  it('renders no subtitle select element', () => {
+    renderPlayer();
+
+    expect(region().querySelector('select')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+});
+
 describe('BrowserPlayer seeking', () => {
   it('ignores seeks until valid seekable bounds exist', async () => {
     renderPlayer();
@@ -354,20 +422,12 @@ describe('BrowserPlayer keyboard scope', () => {
     }
   });
 
-  it('cycles the speed presets 0.5 / 1 / 1.5 / 2 through the chrome', async () => {
+  it('cycles no ad-hoc rate control in the bar while the settings trigger owns speed', () => {
     renderPlayer();
 
-    const rateButton = region().querySelector('media-playback-rate-button') as HTMLElement | null;
-    expect(rateButton).not.toBeNull();
-    expect(rateButton?.getAttribute('rates')).toBe('0.5 1 1.5 2');
-
-    const observed: number[] = [];
-    for (let step = 0; step < 5; step += 1) {
-      rateButton?.click();
-      await waitFor(() => expect(video().playbackRate).toBeGreaterThan(0));
-      observed.push(video().playbackRate);
-    }
-    expect(new Set(observed)).toEqual(new Set([0.5, 1, 1.5, 2]));
+    expect(region().querySelector('media-playback-rate-button')).toBeNull();
+    expect(video().playbackRate).toBe(1);
+    expect(within(region()).getByRole('button', { name: SETTINGS_LABEL })).toBeInTheDocument();
   });
 
   it('ignores shortcuts from editable fields, dialogs and outside the player', async () => {
@@ -402,13 +462,11 @@ describe('BrowserPlayer keyboard scope', () => {
 });
 
 describe('BrowserPlayer terminal states', () => {
-  it('announces the ended state politely and replays from the beginning with K', async () => {
+  it('announces the ended state politely and offers replay from the beginning', async () => {
     renderPlayer();
 
     await act(async () => {
-      const element = video();
-      element.currentTime = 90;
-      element.dispatchEvent(new Event('ended'));
+      video().dispatchEvent(new Event('ended'));
     });
     expect(screen.getByText(ENDED_ANNOUNCEMENT)).toBeInTheDocument();
     media.calls.length = 0;
@@ -417,5 +475,11 @@ describe('BrowserPlayer terminal states', () => {
     await waitFor(() => expect(media.calls).toContain('play'));
     expect(video().currentTime).toBe(0);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('exposes a single in-bar play control and no separate labelled Play action', async () => {
+    renderPlayer();
+    expect(region().querySelectorAll('media-play-button')).toHaveLength(1);
+    expect(within(region()).queryByRole('button', { name: playLabel('Dune') })).toBeNull();
   });
 });

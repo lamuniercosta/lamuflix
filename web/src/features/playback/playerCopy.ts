@@ -5,6 +5,7 @@ export const ENDED_ANNOUNCEMENT = 'Playback finished.';
 export const RETRY_COPY = 'Retry';
 export const OPEN_LOCAL_COPY = 'Open in BS Player';
 export const SPEED_LABEL = 'Playback speed';
+export const SETTINGS_LABEL = 'Settings';
 export const PLAYBACK_SPEEDS = [0.5, 1, 1.5, 2] as const;
 
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];

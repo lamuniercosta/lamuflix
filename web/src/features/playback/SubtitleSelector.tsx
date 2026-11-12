@@ -1,6 +1,5 @@
-import type { ChangeEvent } from 'react';
+import { useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
-  SUBTITLES_LABEL,
   SUBTITLES_OFF_COPY,
   SUBTITLES_RETRY_COPY,
   SUBTITLES_UNAVAILABLE_COPY,
@@ -23,6 +22,13 @@ export interface SubtitleSelectorProps {
   onRetryList: () => void;
 }
 
+interface TrackChoice {
+  id: string | null;
+  label: string;
+}
+
+const OFF_CHOICE: TrackChoice = { id: null, label: SUBTITLES_OFF_COPY };
+
 export default function SubtitleSelector({
   title,
   listStatus,
@@ -32,10 +38,7 @@ export default function SubtitleSelector({
   onSelect,
   onRetryList,
 }: SubtitleSelectorProps) {
-  const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const value = event.target.value;
-    onSelect(value === '' ? null : value);
-  };
+  const groupRef = useRef<HTMLDivElement | null>(null);
 
   if (listStatus === 'error') {
     return (
@@ -57,26 +60,94 @@ export default function SubtitleSelector({
 
   if (listStatus !== 'ready' || tracks.length === 0) return null;
 
+  const choices: TrackChoice[] = [
+    OFF_CHOICE,
+    ...tracks.map((track) => ({ id: track.id, label: track.label })),
+  ];
+  const activeIndex = Math.max(
+    0,
+    choices.findIndex((choice) => choice.id === selectedId),
+  );
+
+  const focusChoice = (index: number) => {
+    const next = groupRef.current?.querySelectorAll<HTMLElement>('[role="radio"]')[index];
+    next?.focus();
+  };
+
+  const move = (index: number, delta: number) => {
+    const nextIndex = (index + delta + choices.length) % choices.length;
+    onSelect(choices[nextIndex].id);
+    focusChoice(nextIndex);
+  };
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'ArrowRight':
+        event.preventDefault();
+        event.stopPropagation();
+        move(index, 1);
+        break;
+      case 'ArrowUp':
+      case 'ArrowLeft':
+        event.preventDefault();
+        event.stopPropagation();
+        move(index, -1);
+        break;
+      case 'Home':
+        event.preventDefault();
+        event.stopPropagation();
+        onSelect(choices[0].id);
+        focusChoice(0);
+        break;
+      case 'End':
+        event.preventDefault();
+        event.stopPropagation();
+        onSelect(choices[choices.length - 1].id);
+        focusChoice(choices.length - 1);
+        break;
+      case ' ':
+      case 'Enter':
+        event.preventDefault();
+        event.stopPropagation();
+        onSelect(choices[index].id);
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <div className="subtitle-selector">
-      <label className="subtitle-selector-field">
-        <span className="subtitle-selector-caption" aria-hidden="true">
-          {SUBTITLES_LABEL}
-        </span>
-        <select
-          className="subtitle-selector-select"
-          aria-label={subtitleSelectLabel(title)}
-          value={selectedId ?? ''}
-          onChange={handleChange}
-        >
-          <option value="">{SUBTITLES_OFF_COPY}</option>
-          {tracks.map((track) => (
-            <option key={track.id} value={track.id}>
-              {track.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div
+        ref={groupRef}
+        className="subtitle-selector-list"
+        role="radiogroup"
+        aria-label={subtitleSelectLabel(title)}
+      >
+        {choices.map((choice, index) => {
+          const checked = choice.id === selectedId || (index === 0 && selectedId === null);
+          return (
+            <button
+              key={choice.id ?? 'off'}
+              type="button"
+              role="radio"
+              aria-checked={checked}
+              aria-label={choice.label}
+              data-track-id={choice.id ?? ''}
+              tabIndex={index === activeIndex ? 0 : -1}
+              className="subtitle-selector-option"
+              onClick={() => onSelect(choice.id)}
+              onKeyDown={(event) => handleKeyDown(event, index)}
+            >
+              <span className="subtitle-selector-check" aria-hidden="true">
+                {checked ? '✓' : ''}
+              </span>
+              <span className="subtitle-selector-option-label">{choice.label}</span>
+            </button>
+          );
+        })}
+      </div>
       {contentStatus === 'error' ? (
         <p className="subtitle-selector-status" role="status">
           {SUBTITLES_UNAVAILABLE_COPY}

@@ -2,11 +2,9 @@ import { useCallback, useEffect, useRef, type KeyboardEvent as ReactKeyboardEven
 import {
   MediaController,
   MediaControlBar,
-  MediaDurationDisplay,
   MediaFullscreenButton,
   MediaLoadingIndicator,
   MediaMuteButton,
-  MediaPlaybackRateButton,
   MediaPlayButton,
   MediaTimeDisplay,
   MediaTimeRange,
@@ -18,12 +16,13 @@ import {
   ERROR_COPY,
   LOADING_COPY,
   OPEN_LOCAL_COPY,
-  PLAYBACK_SPEEDS,
   RETRY_COPY,
+  SETTINGS_LABEL,
   openLocalLabel,
   playerRegionLabel,
   retryLabel,
 } from './playerCopy';
+import { SUBTITLES_LABEL } from './subtitleCopy';
 import SubtitleSelector from './SubtitleSelector';
 import { applySubtitleTrackModes, watchSubtitleTrackModes } from './subtitleTrackModes';
 import { useBrowserPlayer, type MediaDiagnostic } from './useBrowserPlayer';
@@ -53,6 +52,10 @@ function isPlayerOwned(target: EventTarget | null, container: HTMLElement | null
 
 function isChromeControl(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && target.closest('media-control-bar') !== null;
+}
+
+function isActivatableControl(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.closest('button, [role="radio"]') !== null;
 }
 
 export default function BrowserPlayer({
@@ -100,6 +103,7 @@ export default function BrowserPlayer({
       if (event.defaultPrevented) return;
       if (!isPlayerOwned(event.target, regionRef.current)) return;
       if (isExcludedTarget(event.target)) return;
+      if (isActivatableControl(event.target)) return;
 
       switch (event.key) {
         case ' ':
@@ -174,11 +178,15 @@ export default function BrowserPlayer({
           <MediaControlBar>
             <MediaPlayButton />
             <MediaTimeRange />
-            <MediaTimeDisplay />
-            <MediaDurationDisplay />
+            <MediaTimeDisplay showDuration noToggle />
             <MediaMuteButton />
             <MediaVolumeRange />
-            <MediaPlaybackRateButton rates={PLAYBACK_SPEEDS} />
+            <button type="button" className="browser-player-trigger" aria-label={SUBTITLES_LABEL}>
+              CC
+            </button>
+            <button type="button" className="browser-player-trigger" aria-label={SETTINGS_LABEL}>
+              <span aria-hidden="true">⚙</span>
+            </button>
             <MediaFullscreenButton />
           </MediaControlBar>
         </MediaController>
@@ -203,7 +211,8 @@ export default function BrowserPlayer({
         onSelect={subtitles.select}
         onRetryList={subtitles.retryList}
       />
-      {status === 'error' && (
+
+      {status === 'error' ? (
         <div className="browser-player-actions">
           <p role="alert" className="browser-player-error">
             {ERROR_COPY}
@@ -227,7 +236,7 @@ export default function BrowserPlayer({
             </button>
           ) : null}
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

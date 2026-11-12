@@ -10,6 +10,7 @@
 }
 
 .browser-player-frame {
+  position: relative;
   border-radius: var(--lamu-radius-media);
   overflow: hidden;
   background: #000;
@@ -21,10 +22,52 @@
   aspect-ratio: 16 / 9;
 }
 
+.browser-player-chrome media-control-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lamu-space-1);
+}
+
+.browser-player-chrome media-time-range {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+}
+
+.browser-player-chrome media-time-display {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .browser-player-video {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.browser-player-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0 var(--lamu-space-2);
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.browser-player-trigger:hover {
+  background: var(--color-panel);
+}
+
+.browser-player-trigger:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .browser-player-state {
@@ -47,37 +90,47 @@
 }
 
 .subtitle-selector {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--lamu-space-3);
+  display: grid;
+  gap: var(--lamu-space-2);
+  min-width: 0;
 }
 
-.subtitle-selector-field {
+.subtitle-selector-list {
+  display: grid;
+  gap: var(--lamu-space-1);
+}
+
+.subtitle-selector-option {
   display: flex;
   align-items: center;
   gap: var(--lamu-space-2);
-}
-
-.subtitle-selector-caption {
-  color: var(--color-ink);
-}
-
-.subtitle-selector-select {
-  min-width: 12rem;
+  width: 100%;
   padding: var(--lamu-space-1) var(--lamu-space-2);
-  border-radius: var(--lamu-radius-control, 6px);
-  border: 1px solid currentColor;
+  border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
-  max-width: 100%;
-  text-overflow: ellipsis;
+  text-align: left;
+  cursor: pointer;
 }
 
-.subtitle-selector-select:focus-visible {
+.subtitle-selector-option[aria-checked='true'] {
+  color: var(--color-accent);
+}
+
+.subtitle-selector-option:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
+}
+
+.subtitle-selector-check {
+  display: inline-block;
+  width: 1rem;
+}
+
+.subtitle-selector-option-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .subtitle-selector-status {
