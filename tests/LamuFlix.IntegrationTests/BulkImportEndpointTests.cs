@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -12,6 +13,7 @@ using LamuFlix.Core.Ports;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Shouldly;
@@ -29,6 +31,7 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
     private readonly ILibraryFolderDiscovery discovery = Substitute.For<ILibraryFolderDiscovery>();
     private readonly IMovieFolderImporter importer = Substitute.For<IMovieFolderImporter>();
     private readonly IEnrichmentOutbox outbox = Substitute.For<IEnrichmentOutbox>();
+    private readonly CaptureLog log = new();
 
     [Fact]
     public async Task ListCandidates_SeededMovies_ReturnsOnlyNewFolders()
@@ -183,6 +186,23 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
         payload.ShouldNotContain("C:/library is missing");
     }
 
+    [Fact]
+    public async Task ImportLibrary_ValidationFailure_ProducesNoErrorLogEntries()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsJsonAsync(
+            LibraryRoute, new { folders = new[] { "../secret" }, retryFailed = false }, ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        log.Entries.Where(entry => entry.Level == LogLevel.Error).ShouldBeEmpty();
+    }
+
     private WebApplicationFactory<Program> CreateHost() =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
@@ -190,6 +210,7 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
             services.AddSingleton(discovery);
             services.AddSingleton(importer);
             services.AddSingleton(outbox);
+            services.AddSingleton<ILoggerProvider>(new CaptureLoggerProvider(log));
         }));
 
     private static async IAsyncEnumerable<LibraryPath> Folders(params LibraryPath[] folders)
@@ -200,5 +221,48 @@ public sealed class BulkImportEndpointTests(ApiHostFactory factory) : IClassFixt
         }
 
         await Task.CompletedTask;
+    }
+
+    private sealed class CaptureLog
+    {
+        private readonly ConcurrentQueue<LogRecord> entries = new();
+
+        public IReadOnlyList<LogRecord> Entries => [.. entries];
+
+        public void Add(LogRecord record) => entries.Enqueue(record);
+    }
+
+    private sealed record LogRecord(LogLevel Level, string Category, string Message);
+
+    private sealed class CaptureLoggerProvider(CaptureLog log) : ILoggerProvider
+    {
+        public ILogger CreateLogger(string categoryName) => new CaptureLogger(log, categoryName);
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class CaptureLogger(CaptureLog log, string category) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (!category.EndsWith("ExceptionHandlerMiddleware", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            log.Add(new LogRecord(logLevel, category, formatter(state, exception)));
+        }
     }
 }

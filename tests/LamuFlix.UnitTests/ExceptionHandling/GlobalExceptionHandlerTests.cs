@@ -377,6 +377,55 @@ public sealed class GlobalExceptionHandlerTests
             () => handler.TryHandleAsync(context, exception, cancellationTokenSource.Token).AsTask());
     }
 
+    [Theory]
+    [MemberData(nameof(ExpectedRequestFailures))]
+    public void ShouldSuppressDiagnostics_ExpectedRequestFailure_ReturnsTrue(Exception exception)
+    {
+        // act
+        var suppress = GlobalExceptionHandler.ShouldSuppressDiagnostics(exception);
+
+        // assert
+        suppress.ShouldBeTrue();
+    }
+
+    [Theory]
+    [MemberData(nameof(UnexpectedFailures))]
+    public void ShouldSuppressDiagnostics_UnexpectedFailure_ReturnsFalse(Exception exception)
+    {
+        // act
+        var suppress = GlobalExceptionHandler.ShouldSuppressDiagnostics(exception);
+
+        // assert
+        suppress.ShouldBeFalse();
+    }
+
+    public static TheoryData<Exception> ExpectedRequestFailures()
+    {
+        return new TheoryData<Exception>
+        {
+            CreateValidationException(),
+            new BadHttpRequestException("Bad request."),
+            new NotFoundException(),
+            new InvalidTransitionException("Retry", "Enriched"),
+            new ImdbIdConflictException(new ImdbId("tt0083658"), new MovieId(7)),
+            new FeatureDisabledException("local-play-off"),
+            new LibraryFileAccessDeniedException(
+                "The requested library path is outside the authorized library root."),
+            new SubtitleQuotaExceededException(TimeSpan.FromSeconds(120)),
+            new SubtitleAcquisitionUnavailableException("Subtitles:SaveEnabled is disabled."),
+        };
+    }
+
+    public static TheoryData<Exception> UnexpectedFailures()
+    {
+        return new TheoryData<Exception>
+        {
+            new InvalidOperationException("boom-secret"),
+            new SubtitleProviderFailureException("The subtitle provider attempted to redirect the request."),
+            new SubtitleProviderTimeoutException(),
+        };
+    }
+
     private enum SampleStatus
     {
         Pending,

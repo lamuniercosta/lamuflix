@@ -241,7 +241,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Flushing deferred enrichment status notifications failed while disposing the movie repository.");
+            logger.LogWarning(exception, "Flushing deferred enrichment status notifications failed while disposing the movie repository.");
         }
     }
 
@@ -259,7 +259,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Flushing deferred enrichment status notifications failed while disposing the movie repository.");
+            logger.LogWarning(exception, "Flushing deferred enrichment status notifications failed while disposing the movie repository.");
         }
     }
 
@@ -347,7 +347,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             }
             catch (Exception exception)
             {
-                logger.LogError(
+                logger.LogWarning(
                     exception,
                     "Deferred enrichment status notification failed for movie {MovieId}.",
                     transition.MovieId.Value);
@@ -385,7 +385,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         }
         catch (Exception exception)
         {
-            logger.LogError(
+            logger.LogWarning(
                 exception,
                 "Post-commit enrichment status notification failed for movie {MovieId} at {EnrichmentStatus}.",
                 transition.MovieId.Value,
