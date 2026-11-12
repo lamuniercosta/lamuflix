@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -13,7 +14,7 @@ using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.FileSystem;
 
-public sealed class SubtitleSidecarStore(
+public sealed partial class SubtitleSidecarStore(
     ILibraryFileReader reader,
     IOptions<LibraryOptions> libraryOptions,
     IHostEnvironment hostEnvironment) : ISubtitleSidecarStore
@@ -23,6 +24,7 @@ public sealed class SubtitleSidecarStore(
     private const int TempFileAttempts = 8;
     private const string SizeKey = "Subtitle";
     private const string SizeMessage = "The subtitle sidecar exceeds the configured serving bound.";
+    private const int ErrnoExist = 17; // EEXIST on Linux and macOS.
 
     public Task<bool> ExistsAsync(
         LibraryPath folder,
@@ -93,7 +95,10 @@ public sealed class SubtitleSidecarStore(
         }
     }
 
-    private static SubtitleSidecarWriteResult Commit(string temp, string target)
+    private static SubtitleSidecarWriteResult Commit(string temp, string target) =>
+        OperatingSystem.IsWindows() ? CommitByMove(temp, target) : CommitByLink(temp, target);
+
+    private static SubtitleSidecarWriteResult CommitByMove(string temp, string target)
     {
         try
         {
@@ -106,6 +111,30 @@ public sealed class SubtitleSidecarStore(
 
         return SubtitleSidecarWriteResult.Created;
     }
+
+    // File.Move(overwrite: false) is not atomic on Unix: it checks for the target and then calls
+    // rename(2), which silently replaces a file that a racing writer created in between. link(2)
+    // fails with EEXIST atomically instead, and the complete temp file becomes the target in one step.
+    private static SubtitleSidecarWriteResult CommitByLink(string temp, string target)
+    {
+        if (OperatingSystem.IsMacOS() ? LinkMacOS(temp, target) == 0 : LinkLinux(temp, target) == 0)
+        {
+            return SubtitleSidecarWriteResult.Created;
+        }
+
+        if (Marshal.GetLastPInvokeError() == ErrnoExist)
+        {
+            return SubtitleSidecarWriteResult.AlreadyPresent;
+        }
+
+        throw new IOException("The subtitle sidecar could not be created without replacing an existing file.");
+    }
+
+    [LibraryImport("libc", SetLastError = true, StringMarshalling = StringMarshalling.Utf8, EntryPoint = "link")]
+    private static partial int LinkLinux(string existingPath, string newPath);
+
+    [LibraryImport("libSystem.dylib", SetLastError = true, StringMarshalling = StringMarshalling.Utf8, EntryPoint = "link")]
+    private static partial int LinkMacOS(string existingPath, string newPath);
 
     private static async Task WriteTempAsync(
         string temp,
