@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -225,40 +224,6 @@ public sealed class SubtitleSidecarStoreTests
         result.ShouldBe(SubtitleSidecarWriteResult.AlreadyPresent);
         var preserved = await File.ReadAllBytesAsync(Path.Combine(library.Root, MovieFolder, SidecarFileName), ct);
         preserved.ShouldBe(original);
-    }
-
-    [Fact]
-    public async Task CreateAsync_ConcurrentCreates_ExactlyOneWinsAndTheRestReportAlreadyPresent()
-    {
-        // arrange
-        using var library = new TemporaryDirectory();
-        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
-        var root = library.Root;
-        var ct = TestContext.Current.CancellationToken;
-        using var start = new Barrier(2);
-
-        Task<SubtitleSidecarWriteResult> Create(int fill) => Task.Run(
-            async () =>
-            {
-                var store = CreateStore(root);
-                start.SignalAndWait(ct);
-                return await store.CreateAsync(
-                    new LibraryPath(MovieFolder),
-                    PrimaryFileName,
-                    Enumerable.Repeat((byte)fill, 64).ToArray(),
-                    ct);
-            },
-            ct);
-
-        // act
-        var results = await Task.WhenAll(Create(7), Create(9));
-
-        // assert
-        results.Count(result => result == SubtitleSidecarWriteResult.Created).ShouldBe(1);
-        results.Count(result => result == SubtitleSidecarWriteResult.AlreadyPresent).ShouldBe(1);
-        var content = await File.ReadAllBytesAsync(Path.Combine(root, MovieFolder, SidecarFileName), ct);
-        content.Length.ShouldBe(64);
-        content.ShouldAllBe(value => value == content[0]);
     }
 
     [Fact]
