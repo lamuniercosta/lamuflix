@@ -79,8 +79,31 @@ function playerVideo(page: Page) {
   return playerRegion(page).locator('video');
 }
 
-function selector(page: Page, title: string) {
-  return playerRegion(page).getByRole('combobox', { name: `Subtitles for ${title}` });
+function ccTrigger(page: Page) {
+  return playerRegion(page).getByRole('button', { name: 'Subtitles' });
+}
+
+function subtitlePanel(page: Page, title: string) {
+  return playerRegion(page).getByRole('region', { name: `Subtitle settings for ${title}` });
+}
+
+function trackGroup(page: Page, title: string) {
+  return playerRegion(page).getByRole('radiogroup', { name: `Subtitles for ${title}` });
+}
+
+function trackRadio(page: Page, title: string, name: string) {
+  return trackGroup(page, title).getByRole('radio', { name });
+}
+
+async function openSubtitlesPanel(page: Page, title: string): Promise<void> {
+  await ccTrigger(page).click();
+  await expect(subtitlePanel(page, title)).toBeVisible({ timeout: context.waitBudgetMs });
+}
+
+async function radioLabels(page: Page, title: string): Promise<string[]> {
+  return trackGroup(page, title)
+    .getByRole('radio')
+    .evaluateAll((elements) => elements.map((element) => element.getAttribute('aria-label') ?? ''));
 }
 
 async function currentTime(page: Page): Promise<number> {
@@ -172,8 +195,15 @@ async function probeTrackState(page: Page, title: string): Promise<TrackStatePro
   const textTrackCount = await playerVideo(page).evaluate(
     (element) => (element as HTMLVideoElement).textTracks.length,
   );
-  const control = selector(page, title);
-  const selectorValue = (await control.count()) > 0 ? await control.inputValue() : '<no selector>';
+  const group = trackGroup(page, title);
+  let selectorValue = '<no selector>';
+  if ((await group.count()) > 0) {
+    const checked = group.getByRole('radio', { checked: true });
+    selectorValue =
+      (await checked.count()) > 0
+        ? ((await checked.first().getAttribute('aria-label')) ?? '<unlabeled>')
+        : '<none checked>';
+  }
   return { tracks, selectorValue, textTrackCount };
 }
 
@@ -223,9 +253,10 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     expect(listResponse.status()).toBe(200);
     const served = (await listResponse.json()) as SubtitleTrackDto[];
 
-    const control = selector(page, fixture.title);
-    await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
-    const observed = await control.locator('option').allTextContents();
+    await openSubtitlesPanel(page, fixture.title);
+    const group = trackGroup(page, fixture.title);
+    await expect(group).toBeVisible({ timeout: context.waitBudgetMs });
+    const observed = await radioLabels(page, fixture.title);
 
     record({
       smoke: 'SMOKE-001',
@@ -239,7 +270,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
         isDefault: track.isDefault,
       })),
       observedOptions: observed,
-      selectorVisible: await control.isVisible(),
+      selectorVisible: await group.isVisible(),
     });
 
     expect(observed[0], 'the first option is Off').toBe(OFF_COPY);
@@ -263,15 +294,13 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     await openPlayer(page, request, fixture.title);
     await startPlayback(page);
 
-    const control = selector(page, fixture.title);
-    await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
-    const optionValue = await control
-      .locator('option')
-      .nth(fixture.tracks.length)
-      .getAttribute('value');
-    expect(optionValue, 'the target track has a served option value').not.toBeNull();
+    await openSubtitlesPanel(page, fixture.title);
+    const group = trackGroup(page, fixture.title);
+    await expect(group).toBeVisible({ timeout: context.waitBudgetMs });
+    const targetRadio = trackRadio(page, fixture.title, target.label);
+    await expect(targetRadio).toBeVisible({ timeout: context.waitBudgetMs });
 
-    await control.selectOption(optionValue!);
+    await targetRadio.click();
     const shownState = await waitForTrackState(
       page,
       fixture.title,
@@ -295,7 +324,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
       .every((track) => track.mode === 'disabled');
     const playingWithCues = !(await isPaused(page));
 
-    await control.selectOption('');
+    await trackRadio(page, fixture.title, OFF_COPY).click();
     const offState = await waitForTrackState(
       page,
       fixture.title,
@@ -351,9 +380,11 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     await openPlayer(page, request, broken.title);
     await startPlayback(page);
 
-    const control = selector(page, broken.title);
-    await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
-    const optionValue = await control.locator('option').nth(1).getAttribute('value');
+    await openSubtitlesPanel(page, broken.title);
+    const group = trackGroup(page, broken.title);
+    await expect(group).toBeVisible({ timeout: context.waitBudgetMs });
+    const brokenRadio = trackRadio(page, broken.title, brokenTracks[0].label);
+    await expect(brokenRadio).toBeVisible({ timeout: context.waitBudgetMs });
     const contentStatuses: number[] = [];
     page.on('response', (response) => {
       if (response.url().includes('/subtitles/') && response.url().endsWith('/content')) {
@@ -361,17 +392,17 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
       }
     });
 
-    await control.selectOption(optionValue!);
+    await brokenRadio.click();
 
     const unavailable = playerRegion(page).getByText(UNAVAILABLE_COPY);
     await expect(unavailable).toBeVisible({ timeout: context.waitBudgetMs });
-    await expect(control).toHaveValue('');
+    await expect(trackRadio(page, broken.title, OFF_COPY)).toHaveAttribute('aria-checked', 'true');
     const playingAfterFailure = !(await isPaused(page));
     const modesAfterFailure = await readTracks(page);
     const playbackContinued = await assertPlaybackStillWorks(page);
 
-    await control.selectOption('');
-    await control.selectOption(optionValue!);
+    await trackRadio(page, broken.title, OFF_COPY).click();
+    await brokenRadio.click();
     await expect
       .poll(async () => contentStatuses.length, { timeout: context.waitBudgetMs })
       .toBeGreaterThan(1);
@@ -382,7 +413,9 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
       browser: `chromium ${browser.version()}`,
       title: broken.title,
       contentStatuses,
-      selectorValueAfterFailure: await control.inputValue(),
+      selectorValueAfterFailure: await trackRadio(page, broken.title, OFF_COPY).getAttribute(
+        'aria-checked',
+      ),
       unavailableVisible: await unavailable.isVisible(),
       playingAfterFailure,
       modesAfterFailure: modesAfterFailure.map((track) => ({
@@ -427,10 +460,12 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     await openPlayer(page, request, fixture.title);
     await startPlayback(page);
 
+    await openSubtitlesPanel(page, fixture.title);
+
     const unavailable = playerRegion(page).getByText(UNAVAILABLE_COPY);
     await expect(unavailable).toBeVisible({ timeout: context.waitBudgetMs });
-    const control = selector(page, fixture.title);
-    const comboboxCount = await control.count();
+    const group = trackGroup(page, fixture.title);
+    const groupCount = await group.count();
     const retry = playerRegion(page).getByRole('button', {
       name: `Retry loading subtitles for ${fixture.title}`,
     });
@@ -441,9 +476,9 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
 
     await page.unroute(listPattern);
     await retry.click();
-    await expect(control).toBeVisible({ timeout: context.waitBudgetMs });
+    await expect(group).toBeVisible({ timeout: context.waitBudgetMs });
     await expect
-      .poll(async () => control.locator('option').count(), { timeout: context.waitBudgetMs })
+      .poll(async () => group.getByRole('radio').count(), { timeout: context.waitBudgetMs })
       .toBeGreaterThan(1);
 
     record({
@@ -452,16 +487,16 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
       movieId,
       title: fixture.title,
       failedListAttempts: attemptsBeforeRetry,
-      comboboxCountWhileFailed: comboboxCount,
+      trackGroupCountWhileFailed: groupCount,
       unavailableVisible: await unavailable.isVisible(),
       retryVisible: true,
       playingAfterFailure,
       playbackContinuedAfterFailure: playbackContinued,
-      recoveredOptions: await control.locator('option').allTextContents(),
+      recoveredOptions: await radioLabels(page, fixture.title),
     });
 
     expect(attemptsBeforeRetry, 'the failed list was actually requested').toBeGreaterThan(0);
-    expect(comboboxCount, 'a failed list never renders as a successful empty selection').toBe(0);
+    expect(groupCount, 'a failed list never renders as a successful empty selection').toBe(0);
     expect(playingAfterFailure, 'video keeps playing while the list fails').toBe(true);
     expect(playbackContinued, 'video still plays after the list failure').toBe(true);
   });
