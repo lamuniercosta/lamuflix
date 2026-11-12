@@ -17,6 +17,7 @@ export const handlers = [
   http.get('*/api/movies/:id/thumbnail', () => HttpResponse.json(success.GetMovieThumbnail, { status: 200 })),
   http.get('*/api/movies/:id/stream', () => HttpResponse.json(success.StreamMovie, { status: 200 })),
   http.get('*/api/subtitles/languages', () => HttpResponse.json(success.ListSubtitleLanguages, { status: 200 })),
+  http.get('*/api/movies/:id/subtitles/search', () => HttpResponse.json(success.SearchMovieSubtitles, { status: 200 })),
   http.get('*/api/movies/:id/subtitles', () => HttpResponse.json(success.ListMovieSubtitleTracks, { status: 200 })),
   http.get('*/api/movies/:id/subtitles/:trackId/content', () => HttpResponse.json(success.GetMovieSubtitleContent, { status: 200 })),
   http.post('*/api/movies/:id/subtitles/prepare', () => HttpResponse.json(success.PrepareMovieSubtitle, { status: 200 })),

@@ -30,6 +30,10 @@ export interface paths {
     /** List the supported subtitle languages with the configured preferences first. */
     get: operations["ListSubtitleLanguages"];
   };
+  "/api/movies/{id}/subtitles/search": {
+    /** Search the subtitle provider for ranked candidates in one supported language. */
+    get: operations["SearchMovieSubtitles"];
+  };
   "/api/movies/{id}/subtitles": {
     /** List the eligible sidecar subtitle tracks of a movie. */
     get: operations["ListMovieSubtitleTracks"];
@@ -303,6 +307,10 @@ export interface components {
     };
     /** Format: binary */
     Stream: string;
+    SubtitleDownloadAvailabilityDto: {
+      enabled: boolean;
+      reason: string;
+    };
     SubtitleLanguageOptionDto: {
       code: string;
       englishName: string;
@@ -315,6 +323,26 @@ export interface components {
     SubtitlePrepareResponse: {
       outcome: string;
       selectedLanguage: null | string;
+    };
+    SubtitleQuotaDto: {
+      /** Format: int32 */
+      remainingDownloads: null | number | string;
+      /** Format: date-time */
+      resetAtUtc: null | string;
+    };
+    SubtitleSearchCandidateDto: {
+      candidateId: string;
+      language: string;
+      releaseName: string;
+      /** Format: int32 */
+      matchPercent: number | string;
+      /** Format: int32 */
+      downloadCount: number | string;
+    };
+    SubtitleSearchResponse: {
+      candidates: components["schemas"]["SubtitleSearchCandidateDto"][];
+      quota: components["schemas"]["SubtitleQuotaDto"];
+      downloadAvailability: components["schemas"]["SubtitleDownloadAvailabilityDto"];
     };
     SubtitleTrackDto: {
       id: string;
@@ -506,6 +534,79 @@ export interface operations {
       };
       /** @description Internal Server Error */
       500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Search the subtitle provider for ranked candidates in one supported language. */
+  SearchMovieSubtitles: {
+    parameters: {
+      query: {
+        language: string;
+      };
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SubtitleSearchResponse"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Too Many Requests */
+      429: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Gateway Timeout */
+      504: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };

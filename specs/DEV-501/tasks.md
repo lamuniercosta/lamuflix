@@ -83,14 +83,14 @@
 
 ### Tests
 
-- [ ] T011 [P] [US1] Unit tests for language validation/defaults/canonical normalization and empty-preferences-valid behavior beside Core subtitle tests (`SupportedSubtitleLanguagesTests` / query-layer tests).
-- [ ] T012 [P] [US1] Integration/API tests scaffold for `GET /api/subtitles/languages` and `GET /api/movies/{id}/subtitles/search` in `tests/LamuFlix.IntegrationTests/SubtitleSearchDownloadEndpointTests.cs`.
+- [X] T011 [P] [US1] Unit tests for language validation/defaults/canonical normalization and empty-preferences-valid behavior beside Core subtitle tests (`SupportedSubtitleLanguagesTests` / query-layer tests).
+- [X] T012 [P] [US1] Integration/API tests scaffold for `GET /api/subtitles/languages` and `GET /api/movies/{id}/subtitles/search` in `tests/LamuFlix.IntegrationTests/SubtitleSearchDownloadEndpointTests.cs`.
 
 ### Implementation
 
-- [ ] T013 [US1] Add `SearchSubtitlesQuery` + `SearchSubtitlesQueryValidator` + handler + result in `src/LamuFlix.Core/Features/Subtitles/` using provider search, `SubtitleMatchScorer`, `SubtitleCandidateBinder` issuance, quota/availability projection; register in `HandlerRegistration.cs`. FluentValidation failures remain `ValidationException` → 422 via centralized handler (no endpoint remap).
-- [ ] T014 [US1] Map `GET /movies/{id:int}/subtitles/search` and ensure languages route wired in `SubtitleEndpoints.cs` with DTO mappers; status mapping per FR-003; `Cache-Control: private, no-store` on success and mapped errors; read-only returns disabled downloadAvailability without blocking search when provider config valid; missing/invalid provider config → 409 `provider_not_configured`; empty preferences alone must not 409.
-- [ ] T015 [US1] Prove T012 green: catalog ordering/default; sorted candidates; always-present `quota` with null fields when unknown; downloadAvailability; ProblemDetails `reason` + `traceId`; **422** for decorator ValidationException; **400** for malformed binding/domain language prechecks outside ValidationException; 403/404/409; GET **429** `search_rate_limited` (not download-quota narrative); 502/504; private no-store on success and every mapped GET error; caller cancellation not reported as timeout. GET proofs alone do **not** satisfy POST coverage.
+- [X] T013 [US1] Add `SearchSubtitlesQuery` + `SearchSubtitlesQueryValidator` + handler + result in `src/LamuFlix.Core/Features/Subtitles/` using provider search, `SubtitleMatchScorer`, `SubtitleCandidateBinder` issuance, quota/availability projection; register in `HandlerRegistration.cs`. FluentValidation failures remain `ValidationException` → 422 via centralized handler (no endpoint remap).
+- [X] T014 [US1] Map `GET /movies/{id:int}/subtitles/search` and ensure languages route wired in `SubtitleEndpoints.cs` with DTO mappers; status mapping per FR-003; `Cache-Control: private, no-store` on success and mapped errors; read-only returns disabled downloadAvailability without blocking search when provider config valid; missing/invalid provider config → 409 `provider_not_configured`; empty preferences alone must not 409.
+- [X] T015 [US1] Prove T012 green: catalog ordering/default; sorted candidates; always-present `quota` with null fields when unknown; downloadAvailability; ProblemDetails `reason` + `traceId`; **422** for decorator ValidationException; **400** for malformed binding/domain language prechecks outside ValidationException; 403/404/409; GET **429** `search_rate_limited` (not download-quota narrative); 502/504; private no-store on success and every mapped GET error; caller cancellation not reported as timeout. GET proofs alone do **not** satisfy POST coverage.
 
 **Checkpoint**: Search-only MVP via API.
 

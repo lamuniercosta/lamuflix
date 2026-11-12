@@ -333,6 +333,131 @@ public sealed class GlobalExceptionHandlerTests
     }
 
     [Fact]
+    public async Task TryHandleAsync_SubtitleRequestRejectedException_Writes400InvalidRequest()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new SubtitleRequestRejectedException("unsupported language"),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status400BadRequest);
+        root.GetProperty("reason").GetString().ShouldBe("invalid_request");
+        root.GetProperty("traceId").GetString().ShouldBe("trace-296");
+        AssertNoLeak(root, "unsupported language", nameof(SubtitleRequestRejectedException));
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_SubtitleMovieNotFoundException_Writes404MovieNotFound()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new SubtitleMovieNotFoundException(),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status404NotFound);
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("reason").GetString().ShouldBe("movie_not_found");
+        root.GetProperty("traceId").GetString().ShouldBe("trace-296");
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_SubtitleProviderNotConfiguredException_Writes409ProviderNotConfigured()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new SubtitleProviderNotConfiguredException("Subtitles:OpenSubtitles:ApiKey is missing."),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("reason").GetString().ShouldBe("provider_not_configured");
+        AssertNoLeak(root, "ApiKey is missing", nameof(SubtitleProviderNotConfiguredException));
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_SubtitleSearchRateLimitedException_Writes429SearchRateLimitedWithRetryAfter()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        var handled = await handler.TryHandleAsync(
+            context,
+            new SubtitleSearchRateLimitedException(TimeSpan.FromSeconds(30)),
+            CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status429TooManyRequests);
+        context.Response.Headers.RetryAfter.ToString().ShouldBe("30");
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("reason").GetString().ShouldBe("search_rate_limited");
+        AssertNoLeak(root, "rate-limited", nameof(SubtitleSearchRateLimitedException));
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_SubtitleQuotaExceededException_CarriesTheDownloadQuotaReason()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+
+        // act
+        await handler.TryHandleAsync(context, new SubtitleQuotaExceededException(), CancellationToken.None);
+
+        // assert
+        using var document = await ReadBody(context);
+        document.RootElement.GetProperty("reason").GetString().ShouldBe("download_quota_exhausted");
+    }
+
+    [Fact]
+    public async Task TryHandleAsync_SubtitleProviderFailureAndTimeout_CarryTheirReasons()
+    {
+        // arrange
+        var failureHandler = CreateHandler(out var failureContext);
+        var timeoutHandler = CreateHandler(out var timeoutContext);
+
+        // act
+        await failureHandler.TryHandleAsync(
+            failureContext,
+            new SubtitleProviderFailureException("unusable response"),
+            CancellationToken.None);
+        await timeoutHandler.TryHandleAsync(
+            timeoutContext,
+            new SubtitleProviderTimeoutException(),
+            CancellationToken.None);
+
+        // assert
+        using var failureDocument = await ReadBody(failureContext);
+        failureDocument.RootElement.GetProperty("reason").GetString().ShouldBe("provider_unavailable");
+        using var timeoutDocument = await ReadBody(timeoutContext);
+        timeoutDocument.RootElement.GetProperty("reason").GetString().ShouldBe("provider_timeout");
+    }
+
+    [Fact]
     public async Task TryHandleAsync_NullHttpContext_ThrowsArgumentNullException()
     {
         // arrange
@@ -413,6 +538,10 @@ public sealed class GlobalExceptionHandlerTests
                 "The requested library path is outside the authorized library root."),
             new SubtitleQuotaExceededException(TimeSpan.FromSeconds(120)),
             new SubtitleAcquisitionUnavailableException("Subtitles:SaveEnabled is disabled."),
+            new SubtitleProviderNotConfiguredException("Subtitles:OpenSubtitles:ApiKey is missing."),
+            new SubtitleRequestRejectedException("unsupported language"),
+            new SubtitleMovieNotFoundException(),
+            new SubtitleSearchRateLimitedException(TimeSpan.FromSeconds(30)),
         };
     }
 

@@ -46,6 +46,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GET /api/movies/{id}/stream",
         "GET /api/subtitles/languages",
         "GET /api/movies/{id}/subtitles",
+        "GET /api/movies/{id}/subtitles/search",
         "GET /api/movies/{id}/subtitles/{trackId}/content",
         "POST /api/movies/{id}/subtitles/prepare",
         "GET /api/movies/{id}/subtitles/sidecar",
@@ -86,6 +87,10 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "DirectorDto",
         "SubtitleTrackDto",
         "SubtitlePrepareResponse",
+        "SubtitleSearchResponse",
+        "SubtitleSearchCandidateDto",
+        "SubtitleQuotaDto",
+        "SubtitleDownloadAvailabilityDto",
     ];
 
     private static readonly string[] OperationMethods =
@@ -202,6 +207,67 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
                 .GetProperty("application/problem+json").GetProperty("schema");
             problemSchema.GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
         }
+    }
+
+    [Fact]
+    public async Task Document_GetMovieSubtitleSearch_DocumentsTheRankedCandidatesEnvelope()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        var operation = parsed.RootElement.GetProperty("paths")
+            .GetProperty("/api/movies/{id}/subtitles/search")
+            .GetProperty("get");
+        operation.GetProperty("operationId").GetString().ShouldBe("SearchMovieSubtitles");
+        operation.GetProperty("summary").GetString().ShouldBe(
+            "Search the subtitle provider for ranked candidates in one supported language.");
+
+        var parameters = operation.GetProperty("parameters").EnumerateArray().ToArray();
+        parameters.Select(parameter => parameter.GetProperty("name").GetString())
+            .ShouldBe(["id", "language"], ignoreOrder: true);
+        var language = parameters.Single(parameter => parameter.GetProperty("name").GetString() == "language");
+        language.GetProperty("in").GetString().ShouldBe("query");
+        language.GetProperty("required").GetBoolean().ShouldBeTrue();
+        language.GetProperty("schema").GetProperty("type").GetString().ShouldBe("string");
+
+        var responses = operation.GetProperty("responses");
+        responses.EnumerateObject().Select(response => response.Name)
+            .ShouldBe(["200", "400", "403", "404", "409", "422", "429", "500", "502", "504"], ignoreOrder: true);
+        responses.GetProperty("200").GetProperty("content").GetProperty("application/json")
+            .GetProperty("schema").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/SubtitleSearchResponse");
+        foreach (var status in new[] { "400", "403", "404", "409", "422", "429", "500", "502", "504" })
+        {
+            responses.GetProperty(status).GetProperty("content")
+                .GetProperty("application/problem+json").GetProperty("schema")
+                .GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
+        }
+
+        var schemas = parsed.RootElement.GetProperty("components").GetProperty("schemas");
+        var response = schemas.GetProperty("SubtitleSearchResponse");
+        response.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["candidates", "quota", "downloadAvailability"], ignoreOrder: true);
+        response.GetProperty("properties").EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["candidates", "quota", "downloadAvailability"], ignoreOrder: true);
+
+        var candidate = schemas.GetProperty("SubtitleSearchCandidateDto");
+        candidate.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["candidateId", "language", "releaseName", "matchPercent", "downloadCount"], ignoreOrder: true);
+
+        var quota = schemas.GetProperty("SubtitleQuotaDto");
+        quota.GetProperty("properties").EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["remainingDownloads", "resetAtUtc"], ignoreOrder: true);
+
+        var availability = schemas.GetProperty("SubtitleDownloadAvailabilityDto");
+        availability.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["enabled", "reason"], ignoreOrder: true);
     }
 
     [Fact]
