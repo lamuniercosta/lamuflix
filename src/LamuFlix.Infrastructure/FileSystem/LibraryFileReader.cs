@@ -67,19 +67,108 @@ public sealed partial class LibraryFileReader(
         return EnumerateRegularFiles(authorized);
     }
 
+    private const string SubsDirectoryName = "Subs";
+
     private static IReadOnlyList<string> EnumerateRegularFiles(string authorizedDirectory)
     {
         var names = new List<string>();
+        var subs = new List<string>();
         foreach (var candidate in Directory.EnumerateFileSystemEntries(authorizedDirectory, "*", SearchOption.TopDirectoryOnly))
         {
             if (IsRegularFileEntry(candidate))
             {
                 names.Add(Path.GetFileName(candidate));
             }
+            else if (IsSubsDirectory(candidate, authorizedDirectory))
+            {
+                subs.Add(candidate);
+            }
         }
+
+        names.AddRange(ReadSubsFiles(SelectSubsDirectory(subs)));
 
         names.Sort(StringComparer.Ordinal);
         return names;
+    }
+
+    private static bool IsSubsDirectory(string candidate, string authorizedDirectory)
+    {
+        try
+        {
+            if (!string.Equals(
+                Path.GetFileName(candidate), SubsDirectoryName, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var info = new DirectoryInfo(candidate);
+            if (!info.Exists || info.LinkTarget is not null
+                || (info.Attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                return false;
+            }
+
+            return !HasReparsePointInChain(candidate, authorizedDirectory);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or ArgumentException
+                or NotSupportedException or System.Security.SecurityException)
+        {
+            return false;
+        }
+    }
+
+    private static string? SelectSubsDirectory(List<string> subs)
+    {
+        string? fallback = null;
+        foreach (var directory in subs)
+        {
+            var name = Path.GetFileName(directory);
+            if (string.Equals(name, SubsDirectoryName, StringComparison.Ordinal))
+            {
+                return directory;
+            }
+
+            if (fallback is null
+                || string.Compare(name, Path.GetFileName(fallback), StringComparison.Ordinal) < 0)
+            {
+                fallback = directory;
+            }
+        }
+
+        return fallback;
+    }
+
+    private static List<string> ReadSubsFiles(string? selected)
+    {
+        var files = new List<string>();
+        if (selected is null)
+        {
+            return files;
+        }
+
+        string[] entries;
+        try
+        {
+            entries = Directory.GetFileSystemEntries(selected, "*", SearchOption.TopDirectoryOnly);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or ArgumentException
+                or NotSupportedException or System.Security.SecurityException)
+        {
+            return files;
+        }
+
+        var prefix = string.Concat(Path.GetFileName(selected), "/");
+        foreach (var candidate in entries)
+        {
+            if (IsRegularFileEntry(candidate))
+            {
+                files.Add(string.Concat(prefix, Path.GetFileName(candidate)));
+            }
+        }
+
+        return files;
     }
 
     private static bool IsRegularFileEntry(string candidate)
