@@ -146,5 +146,14 @@ Question: Round percentage midpoints away from zero; use leading-dot .srt stagin
   - **Clean `400` vs `422` split across Q3/D1/D2 (`lamuflix-team-charter` §2.3(4))**: Malformed HTTP/route/query/JSON binding or domain/token precheck rejections outside `ValidationException` (such as stale, unknown, evicted, or cross-movie `candidateId` with `reason: "stale_candidate"`) return `400 Bad Request` per Q3/D1/D2, whereas FluentValidation failures raised by the validation decorator on `GET /api/movies/{id}/subtitles/search` and `POST /api/movies/{id}/subtitles/download` return `422 Unprocessable Entity` (`reason: "invalid_request"`). (`GET /api/subtitles/languages` is parameterless and unaffected unless a validator applies.)
   - **Contract & test alignment**: Explicitly include `422 Unprocessable Entity` (RFC 7807 `ProblemDetails` with `traceId` and `extensions["reason"] = "invalid_request"`) alongside `400 Bad Request` in the approved `spec.md`, `plan.md`, `tasks.md`, OpenAPI contract (`web/src/api/openapi.json` → `web/src/api/types.ts`), and API/handler tests.
 
+---
+## Phase 2 Step 7 — `gate1: provisional` Review
+- **Verdict**: Approved `gate1: provisional` with zero owner structural checkboxes (`specs/DEV-501/PLAN_ADJUDICATION.md:3,82,86`; `specs/DEV-501/brief.md:5`; `specs/DEV-501/checklists/requirements.md:34-40`; `lamuflix-team-charter` §2.3).
+- **Basis**:
+  - **Clean SpecKit analysis & frozen plan**: Keel closed Phase 2 challenge round 1 with all 28 challenger items disposed, 23 FRs + 8 SCs mapped across 33 unique tasks (100% coverage), zero remaining Critical/High/Medium/Low plan findings, and `PLAN FROZEN` (`specs/DEV-501/PLAN_ADJUDICATION.md:72-86`; `DEV-501` note lines 101–106).
+  - **Zero owner structural checkboxes (§2.3)**: Every §2.3 care item (routes/DTOs, concrete `SubtitleCandidateBinder`/`SubtitleMatchScorer`, guarded `Subs\` writes, prepare-only removal table, Principle VII `1.15.0` → `1.16.0` forced maintenance, and Principle V `400`/`422` preservation) is settled by ticket text or cited Patron rulings Q1–Q9, F1, D1–D5, and Principle V without contradicting ticket scope or departing from the constitution (`specs/DEV-501/CONCLUSIONS.md` Q1–Q9, F1, D1–D5; `specs/DEV-501/PLAN_ADJUDICATION.md:60,82`).
+  - **User-visible outcomes verified**: All four `User-Visible Outcome` checklist items in `specs/DEV-501/checklists/requirements.md:34-40` are ticked (`SMOKE-001..003` and `What the User Will See` in `specs/DEV-501/spec.md:64-76`), and `spec.md:5` is marked `gate1: provisional`.
+
+
 
 
