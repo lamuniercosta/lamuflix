@@ -22,7 +22,7 @@ $library = Join-Path $root 'library'
 $backups = Join-Path $root 'backups'
 New-Item -ItemType Directory -Force -Path $library, $backups | Out-Null
 $sourceEnv = Join-Path $root 'source.env'
-Write-TestText -Path $sourceEnv -Text "OMDB_API_KEY=omdb-test-value`nTMDB_API_KEY=tmdb-test-value`n"
+Write-TestText -Path $sourceEnv -Text "OMDB_API_KEY=omdb-test-value`nTMDB_API_KEY=tmdb-test-value`nOPENSUBTITLES_API_KEY=opensubtitles-test-value`n"
 $sourceEnvNoOmdb = Join-Path $root 'source-no-omdb.env'
 Write-TestText -Path $sourceEnvNoOmdb -Text "TMDB_API_KEY=tmdb-test-value`n"
 
@@ -95,7 +95,14 @@ Assert-Case 'fresh: legacy postgres-credentials secret is removed if present' (T
 Assert-Case 'fresh: no leftover apply files' (-not (Get-ChildItem -LiteralPath $secrets1 -Filter '_apply-*' -ErrorAction SilentlyContinue))
 $omdbInSettings = ([string]$settings.Omdb.ApiKey -eq 'omdb-test-value')
 Assert-Case 'fresh: OMDb key copied from source' $omdbInSettings
-Assert-Case 'fresh: secret values are not printed' ((-not $r1.Output.Contains($neonPass)) -and (-not $r1.Output.Contains('omdb-test-value')) -and (-not $r1.Output.Contains('tmdb-test-value')))
+Assert-Case 'fresh: subtitle saving is enabled for the home library' ([bool]$settings.Subtitles.SaveEnabled -eq $true)
+Assert-Case 'fresh: subtitle preferred languages are pt-BR then en' ((@($settings.Subtitles.PreferredLanguages) -join ',') -eq 'pt-BR,en')
+$provider = $settings.Subtitles.PSObject.Properties['OpenSubtitles'] ? $settings.Subtitles.OpenSubtitles : $null
+Assert-Case 'fresh: OpenSubtitles key copied from source' (($null -ne $provider) -and ([string]$provider.ApiKey -eq 'opensubtitles-test-value'))
+Assert-Case 'fresh: OpenSubtitles endpoint is the production https API' (($null -ne $provider) -and ([string]$provider.BaseUrl -eq 'https://api.opensubtitles.com'))
+Assert-Case 'fresh: OpenSubtitles allows the API and download hosts' (($null -ne $provider) -and ((@($provider.DownloadAllowedHosts) -join ',') -eq 'api.opensubtitles.com,dl.opensubtitles.org'))
+Assert-Case 'fresh: OpenSubtitles keeps a download ceiling and timeout' (($null -ne $provider) -and ([long]$provider.MaxDownloadBytes -gt 0) -and ([string]$provider.RequestTimeout -ne ''))
+Assert-Case 'fresh: secret values are not printed' ((-not $r1.Output.Contains($neonPass)) -and (-not $r1.Output.Contains('omdb-test-value')) -and (-not $r1.Output.Contains('tmdb-test-value')) -and (-not $r1.Output.Contains('opensubtitles-test-value')))
 Assert-Case 'fresh: secret values are not in the call log' ((-not (($r1.Log -join "`n").Contains($neonPass))))
 
 # Case 2: rerun on the same ops folder with the cluster present
@@ -158,6 +165,18 @@ $r7 = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $cfg7, '-ArgoM
 Assert-Case 'missing OMDb key: exit 1' ($r7.ExitCode -eq 1) "exit $($r7.ExitCode)"
 Assert-Case 'missing OMDb key: names the key, not a value' ($r7.Output -match 'OMDB_API_KEY')
 Assert-Case 'missing OMDb key: no cluster created' (-not (Test-LogHas $r7 'create cluster'))
+
+# Case 9: OpenSubtitles key absent from the source; no cluster is created
+$sourceEnvNoSubs = Join-Path $root 'source-no-subs.env'
+Write-TestText -Path $sourceEnvNoSubs -Text "OMDB_API_KEY=omdb-test-value`nTMDB_API_KEY=tmdb-test-value`n"
+$ops9 = New-Ops 'case-nosubs'
+$cfg9 = Write-TestConfig -Path (Join-Path $ops9 'home.config.json') -LibraryPath $library -BackupPath $backups `
+    -KubeconfigPath (Join-Path $ops9 'kubeconfig') -SecretSourcePath $sourceEnvNoSubs
+Write-StubRules -Path $rules -Rules @(@{ tool = 'kind'; match = '^get clusters'; stdout = '' })
+$r9 = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $cfg9, '-ArgoManifestPath', $argoManifest) -BinDir $bin -LogPath $log -RulesPath $rules
+Assert-Case 'missing OpenSubtitles key: exit 1' ($r9.ExitCode -eq 1) "exit $($r9.ExitCode)"
+Assert-Case 'missing OpenSubtitles key: names the key, not a value' ($r9.Output -match 'OPENSUBTITLES_API_KEY')
+Assert-Case 'missing OpenSubtitles key: no cluster created' (-not (Test-LogHas $r9 'create cluster'))
 
 # Case 8: neon.env absent; the script names DATABASE_URL and creates no cluster
 $ops8 = New-Ops 'case-noneon' -WithoutNeon

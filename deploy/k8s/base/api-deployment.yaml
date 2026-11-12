@@ -72,7 +72,7 @@ spec:
               readOnly: true
             - name: library
               mountPath: /media/library
-              readOnly: true
+              readOnly: false
           startupProbe:
             httpGet:
               path: /health/ready

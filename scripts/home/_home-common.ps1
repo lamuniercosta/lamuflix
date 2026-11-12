@@ -4,7 +4,7 @@
 #   clusterName, libraryPath, backupPath, webPort (3100), argoPort (3180)
 # Optional keys:
 #   kubeconfigPath   default <opsRoot>\kubeconfig. Must not be the user's ~\.kube\config.
-#   secretSourcePath env-style file holding TMDB_API_KEY and OMDB_API_KEY (values are never printed)
+#   secretSourcePath env-style file holding TMDB_API_KEY, OMDB_API_KEY and OPENSUBTITLES_API_KEY (values are never printed)
 #   releaseJsonPath  RELEASE.json written by promote-home, read by Get-HomeStatus
 #   kind, kubectl, docker   executables, default from PATH
 #   waitSeconds      default 900
