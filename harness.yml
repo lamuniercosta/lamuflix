@@ -27,7 +27,7 @@ gates:
     # spanning more is failing outside the mutation; clean whole-Core runs peak at 9 (DEV-410).
     maxKillFileSpan: 15
     # Test classes exempt from maxKillFileSpan (maxKillShare still applies). Each drives a
-    # recommendation handler end to end, so one test legitimately kills mutants in 16-20
+    # handler end to end (recommendations, prepare-subtitle), so one test legitimately kills mutants in 16-20
     # files (22 distinct, all on the handler call path; CI run 41277335738). Raising the
     # limit to 22 instead would also pass the 21-file contaminated kill from that branch.
     killFileSpanExempt:
@@ -36,6 +36,7 @@ gates:
       LamuFlix.UnitTests.Features.Recommendations.GetForYouRecommendationsQueryHandlerTests: "drives the for-you handler end to end; real reach 18 files"
       LamuFlix.UnitTests.Features.Recommendations.GetForYouRecommendationsQueryHandlerPropertyTests: "properties over the for-you handler; real reach 16 files"
       LamuFlix.UnitTests.Features.Recommendations.ReviewRankingHandlerTests: "drives the recommendation handlers end to end over review signals; real reach 20 files"
+      LamuFlix.UnitTests.Features.Subtitles.PrepareSubtitleCommandHandlerTests: "drives the prepare-subtitle handler end to end over the subtitle path and shared Core types; real reach 16 files"
     exclusions:
       # Constitution IX scopes mutation to LamuFlix.Core. LamuFlix.UnitTests references
       # both projects below, so the gate prints a stale-exclusion WARNING for each. Their
