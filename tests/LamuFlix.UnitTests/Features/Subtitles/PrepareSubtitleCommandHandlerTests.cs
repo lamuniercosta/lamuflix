@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -93,7 +92,7 @@ public sealed class PrepareSubtitleCommandHandlerTests
         // arrange
         Arrange(sidecarPresent: false);
         provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<SubtitleCandidate>>([]));
+            .Returns(Task.FromResult(new SubtitleSearchResult([], SubtitleQuota.Unknown)));
         var handler = CreateHandler();
 
         // act
@@ -113,9 +112,9 @@ public sealed class PrepareSubtitleCommandHandlerTests
         // arrange
         Arrange(sidecarPresent: false);
         provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<SubtitleCandidate>>([new SubtitleCandidate(101, "en", 7, false)]));
+            .Returns(Task.FromResult(new SubtitleSearchResult([new SubtitleCandidate(101, "en", 7, false, "Heat.1995.1080p")], SubtitleQuota.Unknown)));
         provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new byte[] { 0x31, 0x0A }));
+            .Returns(Task.FromResult(new SubtitleDownload([0x31, 0x0A], SubtitleQuota.Unknown)));
         store.CreateAsync(Arg.Any<LibraryPath>(), Arg.Any<string>(), Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(SubtitleSidecarWriteResult.Created));
         var handler = CreateHandler();
@@ -134,9 +133,9 @@ public sealed class PrepareSubtitleCommandHandlerTests
         // arrange
         Arrange(sidecarPresent: false);
         provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<SubtitleCandidate>>([new SubtitleCandidate(101, "en", 7, false)]));
+            .Returns(Task.FromResult(new SubtitleSearchResult([new SubtitleCandidate(101, "en", 7, false, "Heat.1995.1080p")], SubtitleQuota.Unknown)));
         provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new byte[] { 0x31, 0x0A }));
+            .Returns(Task.FromResult(new SubtitleDownload([0x31, 0x0A], SubtitleQuota.Unknown)));
         store.CreateAsync(Arg.Any<LibraryPath>(), Arg.Any<string>(), Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(SubtitleSidecarWriteResult.AlreadyPresent));
         var handler = CreateHandler();

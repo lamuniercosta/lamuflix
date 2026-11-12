@@ -413,6 +413,37 @@
         }
       }
     },
+    "/api/subtitles/languages": {
+      "get": {
+        "tags": [
+          "SubtitleEndpoints"
+        ],
+        "summary": "List the supported subtitle languages with the configured preferences first.",
+        "operationId": "ListSubtitleLanguages",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleLanguagesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/movies/{id}/subtitles": {
       "get": {
         "tags": [
@@ -2750,6 +2781,46 @@
       "Stream": {
         "type": "string",
         "format": "binary"
+      },
+      "SubtitleLanguageOptionDto": {
+        "required": [
+          "code",
+          "englishName",
+          "nativeName"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "englishName": {
+            "type": "string"
+          },
+          "nativeName": {
+            "type": "string"
+          }
+        }
+      },
+      "SubtitleLanguagesResponse": {
+        "required": [
+          "defaultLanguage",
+          "languages"
+        ],
+        "type": "object",
+        "properties": {
+          "defaultLanguage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubtitleLanguageOptionDto"
+            }
+          }
+        }
       },
       "SubtitlePrepareResponse": {
         "required": [

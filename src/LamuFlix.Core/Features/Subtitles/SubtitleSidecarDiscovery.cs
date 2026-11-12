@@ -110,6 +110,11 @@ public static class SubtitleSidecarDiscovery
             return false;
         }
 
+        if (leaf[0] == '.')
+        {
+            return false;
+        }
+
         foreach (var character in leaf)
         {
             if (char.IsControl(character))
@@ -145,7 +150,17 @@ public static class SubtitleSidecarDiscovery
         }
 
         suffix = StripDuplicateCounter(suffix);
-        if (suffix is null || suffix.Length == 0 || suffix.Contains('.') || suffix.Contains('-'))
+        if (suffix is null || suffix.Length == 0)
+        {
+            return null;
+        }
+
+        if (languages.TryGetValue(suffix, out var exact))
+        {
+            return new SubtitleSidecarCandidate(fileName, exact.Label, exact.Language, IsDefault: false);
+        }
+
+        if (suffix.Contains('.') || suffix.Contains('-'))
         {
             return null;
         }
@@ -387,6 +402,14 @@ public static class SubtitleSidecarDiscovery
         foreach (var entry in entries)
         {
             table[entry.Code] = (entry.Language, entry.Label);
+        }
+
+        foreach (var language in SupportedSubtitleLanguages.All)
+        {
+            if (!table.ContainsKey(language.Code))
+            {
+                table[language.Code] = (language.Code, language.EnglishName);
+            }
         }
 
         return table;

@@ -44,6 +44,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GET /api/movies/{id}",
         "GET /api/movies/{id}/thumbnail",
         "GET /api/movies/{id}/stream",
+        "GET /api/subtitles/languages",
         "GET /api/movies/{id}/subtitles",
         "GET /api/movies/{id}/subtitles/{trackId}/content",
         "POST /api/movies/{id}/subtitles/prepare",

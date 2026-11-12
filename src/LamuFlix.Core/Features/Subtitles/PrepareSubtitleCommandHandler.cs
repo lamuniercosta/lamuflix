@@ -71,7 +71,7 @@ public sealed class PrepareSubtitleCommandHandler(
         }
 
         var content = await provider.DownloadAsync(candidate, cancellationToken);
-        var write = await store.CreateAsync(target.Folder, target.PrimaryFileName, content, cancellationToken);
+        var write = await store.CreateAsync(target.Folder, target.PrimaryFileName, content.Content, cancellationToken);
         return write == SubtitleSidecarWriteResult.Created
             ? SubtitlePreparationResult.Saved(candidate.Language)
             : SubtitlePreparationResult.AlreadyPresent();

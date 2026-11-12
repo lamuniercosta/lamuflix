@@ -310,6 +310,16 @@ export const directors = Object.freeze(directorsData);
 export const movieThumbnail = movieThumbnailData;
 export const movieStream = movieStreamData;
 export const subtitleTracks = Object.freeze(subtitleTracksData);
+
+const subtitleLanguagesData = {
+  defaultLanguage: 'pt-BR',
+  languages: [
+    { code: 'pt-BR', englishName: 'Portuguese (BR)', nativeName: 'Português (BR)' },
+    { code: 'en', englishName: 'English', nativeName: 'English' },
+  ],
+} satisfies Schemas['SubtitleLanguagesResponse'];
+
+export const subtitleLanguages = Object.freeze(subtitleLanguagesData);
 export const subtitleContent = subtitleContentData;
 export const preparedSubtitle = Object.freeze(preparedSubtitleData);
 export const subtitleSidecar = subtitleSidecarData;
@@ -331,6 +341,7 @@ export const success = Object.freeze({
   GetMovieThumbnail: movieThumbnail,
   StreamMovie: movieStream,
   ListMovieSubtitleTracks: subtitleTracks,
+  ListSubtitleLanguages: subtitleLanguages,
   GetMovieSubtitleContent: subtitleContent,
   PrepareMovieSubtitle: preparedSubtitle,
   GetMovieSubtitleSidecar: subtitleSidecar,

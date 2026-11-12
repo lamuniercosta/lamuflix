@@ -26,6 +26,10 @@ export interface paths {
     /** Stream the primary video file of a movie. */
     get: operations["StreamMovie"];
   };
+  "/api/subtitles/languages": {
+    /** List the supported subtitle languages with the configured preferences first. */
+    get: operations["ListSubtitleLanguages"];
+  };
   "/api/movies/{id}/subtitles": {
     /** List the eligible sidecar subtitle tracks of a movie. */
     get: operations["ListMovieSubtitleTracks"];
@@ -299,6 +303,15 @@ export interface components {
     };
     /** Format: binary */
     Stream: string;
+    SubtitleLanguageOptionDto: {
+      code: string;
+      englishName: string;
+      nativeName: string;
+    };
+    SubtitleLanguagesResponse: {
+      defaultLanguage: null | string;
+      languages: components["schemas"]["SubtitleLanguageOptionDto"][];
+    };
     SubtitlePrepareResponse: {
       outcome: string;
       selectedLanguage: null | string;
@@ -473,6 +486,23 @@ export interface operations {
       /** @description Range Not Satisfiable */
       416: {
         content: never;
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** List the supported subtitle languages with the configured preferences first. */
+  ListSubtitleLanguages: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SubtitleLanguagesResponse"];
+        };
       };
       /** @description Internal Server Error */
       500: {
