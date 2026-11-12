@@ -22,7 +22,7 @@ import LibraryErrorBoundary from './library/LibraryErrorBoundary';
 import LibraryView from './library/LibraryView';
 import type { EnrichmentStatusSubscription } from './library/useEnrichmentStatus';
 import { AmbientProvider } from './ui/AmbientProvider';
-import { RetryIcon, SearchIcon } from './ui/icons';
+import { CloseIcon, RetryIcon, SearchIcon } from './ui/icons';
 
 function shellSearchId(prefix: string): string {
   return `${prefix}-shell-search`;
@@ -32,11 +32,14 @@ function SearchField({
   id,
   value,
   onChange,
+  onClear,
 }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
+  onClear?: () => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="lamu-search-field">
       <SearchIcon size={20} />
@@ -44,12 +47,26 @@ function SearchField({
         Search titles
       </label>
       <input
+        ref={inputRef}
         id={id}
         type="search"
         placeholder="Search titles"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+      {onClear !== undefined && value !== '' ? (
+        <button
+          type="button"
+          className="lamu-search-field-clear"
+          aria-label="Clear search"
+          onClick={() => {
+            onClear();
+            inputRef.current?.focus();
+          }}
+        >
+          <CloseIcon size={16} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -106,6 +123,11 @@ function ShellSearch({
           setDraft(value);
           commit.schedule(value);
         }}
+        onClear={() => {
+          commit.cancel();
+          setDraft('');
+          target('');
+        }}
       />
     </div>
   );
@@ -134,7 +156,7 @@ function DetailsSearch({
           onSubmit(draft);
         }}
       >
-        <SearchField id={id} value={draft} onChange={setDraft} />
+        <SearchField id={id} value={draft} onChange={setDraft} onClear={() => setDraft('')} />
       </form>
     </div>
   );

@@ -227,6 +227,31 @@ html {
   appearance: none;
 }
 
+.lamu-search-field-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--color-field-dim);
+  cursor: pointer;
+}
+
+.lamu-search-field-clear:hover,
+.lamu-search-field-clear:focus-visible {
+  color: var(--color-booth-ink);
+}
+
+.lamu-search-field-clear:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
 /* On the details page the search rides in the top bar at control size. */
 .lamu-shell-nav .lamu-shell-search {
   flex: 0 1 22rem;
@@ -414,6 +439,8 @@ button.lamu-chip {
 
 .lamu-dialog {
   width: min(30rem, 100%);
+  max-height: calc(100dvh - 2 * var(--lamu-space-4));
+  overflow-y: auto;
   padding: var(--lamu-space-6);
   color: var(--color-ink);
   background-color: var(--color-reel);
@@ -422,6 +449,13 @@ button.lamu-chip {
 
 .lamu-dialog > h2 {
   margin-bottom: var(--lamu-space-4);
+}
+
+.lamu-dialog-folders {
+  max-height: min(20rem, 40dvh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
 }
 
 .lamu-dialog form > label {
