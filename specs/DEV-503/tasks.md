@@ -103,12 +103,12 @@ Phase 9   T019          (delivery / merge-bar handoff — user merges)
 
 ### Tests for User Story 3
 
-- [ ] T009 [US3] After T008: Add failing Vitest/RTL coverage in `web/src/features/playback/BrowserPlayer.test.tsx` for gear menu speeds exactly `0.5, 0.75, 1, 1.25, 1.5, 1.75, 2`, current selection indication **matching real media rate on ratechange / source / movie / metadata changes**, playback rate change, no off-step options, no saved preference, **no forced 1× reset**, and mutual exclusion versus CC (FR-007, FR-010, FR-016; SMOKE-004; `PLAN_ADJUDICATION.md` repair 7)
+- [X] T009 [US3] After T008: Add failing Vitest/RTL coverage in `web/src/features/playback/BrowserPlayer.test.tsx` for gear menu speeds exactly `0.5, 0.75, 1, 1.25, 1.5, 1.75, 2`, current selection indication **matching real media rate on ratechange / source / movie / metadata changes**, playback rate change, no off-step options, no saved preference, **no forced 1× reset**, and mutual exclusion versus CC (FR-007, FR-010, FR-016; SMOKE-004; `PLAN_ADJUDICATION.md` repair 7)
 
 ### Implementation for User Story 3
 
-- [ ] T010 [US3] After T009: Wire media-chrome settings-menu Settings/speed in `web/src/features/playback/BrowserPlayer.tsx` / `BrowserPlayer.css` / Q8-approved `playerCopy.ts` using **T001-verified** official media-chrome 4.19.4 docs for exact APIs and `design.md` / Q8 presentation (`0.5x`…`2x`, `1x (Normal)` only if label customization supported — else STOP for decision rather than custom menu/library substitution; room for future audio/quality without fabricating working deferred controls or rendered placeholder entries); reflect actual media rate including ratechange/source/movie/metadata transitions; retain verified native speed semantics (not rewrapped); no persistence and no forced 1× (FR-007, FR-015, FR-018; `PLAN_ADJUDICATION.md` repairs 2/7)
-- [ ] T011 [US3] After T010: Make T009 green against T010 (FR-016)
+- [X] T010 [US3] After T009: Wire media-chrome settings-menu Settings/speed in `web/src/features/playback/BrowserPlayer.tsx` / `BrowserPlayer.css` / Q8-approved `playerCopy.ts` using **T001-verified** official media-chrome 4.19.4 docs for exact APIs and `design.md` / Q8 presentation (`0.5x`…`2x`, `1x (Normal)` only if label customization supported — else STOP for decision rather than custom menu/library substitution; room for future audio/quality without fabricating working deferred controls or rendered placeholder entries); reflect actual media rate including ratechange/source/movie/metadata transitions; retain verified native speed semantics (not rewrapped); no persistence and no forced 1× (FR-007, FR-015, FR-018; `PLAN_ADJUDICATION.md` repairs 2/7)
+- [X] T011 [US3] After T010: Make T009 green against T010 (FR-016)
 
 **Checkpoint**: US1–US3 independently testable.
 
