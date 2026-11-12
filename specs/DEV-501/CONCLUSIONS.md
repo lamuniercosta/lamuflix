@@ -138,4 +138,13 @@ Question: Round percentage midpoints away from zero; use leading-dot .srt stagin
   - **No guessed identity matching**: Never match remote candidates to local tracks by `releaseName` or filename heuristics, and do not add persistence for candidate-to-track identity (`PLAN_ADJUDICATION.md:51,74`).
   - **Required Palette repair in `specs/DEV-501/design.md` (`[assumed]`)**: Palette must remove the `[x]` / `[ ]` prefixes from the `RESULTS` wireframe rows (`design.md:33-35`) and remove `active check` from `CandidateRow` in the component tree (`design.md:55`) so the wireframe and component tree match `design.md:29,42` ("The active check appears only on the truly active downloaded track, never on a candidate").
 
+---
+## Cross-Artifact Alignment — Principle V (`422 Unprocessable Entity` vs `400 Bad Request`)
+- **Verdict**: Approved — preserve `.specify/memory/constitution.md` Principle V (`422 Unprocessable Entity` for `ValidationException`) unchanged and add `422` explicitly to DEV-501 contracts/tests; NOT `blocked: structural` (`.specify/memory/constitution.md:551-569`; `recon-DEV-501:122`; `lamuflix-team-charter` §2.3(4)).
+- **Basis**:
+  - **Constitution Principle V preservation (`.specify/memory/constitution.md:551-569`; `recon-DEV-501:122`)**: FluentValidation command/query/request validation failures thrown as `ValidationException` in the validation decorator MUST map to `422 Unprocessable Entity` (`reason: "invalid_request"`) via the single centralized `IExceptionHandler` with `AddProblemDetails()` and `traceId`, with zero global remap of `ValidationException` and zero endpoint raw exception responses (`BadRequest(ex.Message)`).
+  - **Clean `400` vs `422` split across Q3/D1/D2 (`lamuflix-team-charter` §2.3(4))**: Malformed HTTP/route/query/JSON binding or domain/token precheck rejections outside `ValidationException` (such as stale, unknown, evicted, or cross-movie `candidateId` with `reason: "stale_candidate"`) return `400 Bad Request` per Q3/D1/D2, whereas FluentValidation failures raised by the validation decorator on `GET /api/movies/{id}/subtitles/search` and `POST /api/movies/{id}/subtitles/download` return `422 Unprocessable Entity` (`reason: "invalid_request"`). (`GET /api/subtitles/languages` is parameterless and unaffected unless a validator applies.)
+  - **Contract & test alignment**: Explicitly include `422 Unprocessable Entity` (RFC 7807 `ProblemDetails` with `traceId` and `extensions["reason"] = "invalid_request"`) alongside `400 Bad Request` in the approved `spec.md`, `plan.md`, `tasks.md`, OpenAPI contract (`web/src/api/openapi.json` → `web/src/api/types.ts`), and API/handler tests.
+
+
 
