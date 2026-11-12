@@ -167,9 +167,7 @@ public sealed class SubtitleCandidateBinder
         SubtitleCandidateBinding? victim = null;
         foreach (var entry in bindings.Values)
         {
-            if (victim is null
-                || entry.ExpiresAtUtc < victim.ExpiresAtUtc
-                || (entry.ExpiresAtUtc == victim.ExpiresAtUtc && entry.IssuedSequence < victim.IssuedSequence))
+            if (victim is null || ExpiresEarlier(entry, victim))
             {
                 victim = entry;
             }
@@ -177,6 +175,10 @@ public sealed class SubtitleCandidateBinder
 
         return victim?.CandidateId;
     }
+
+    private static bool ExpiresEarlier(SubtitleCandidateBinding entry, SubtitleCandidateBinding victim) =>
+        entry.ExpiresAtUtc < victim.ExpiresAtUtc
+            || (entry.ExpiresAtUtc == victim.ExpiresAtUtc && entry.IssuedSequence < victim.IssuedSequence);
 
     private string MintToken()
     {

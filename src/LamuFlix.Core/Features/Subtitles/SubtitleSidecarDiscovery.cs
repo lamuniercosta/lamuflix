@@ -137,20 +137,13 @@ public static class SubtitleSidecarDiscovery
             return new SubtitleSidecarCandidate(fileName, BareLabel, UndeterminedLanguage, IsDefault: false);
         }
 
-        var separator = withoutExtension[stem.Length];
-        if (separator is not ('.' or '-'))
+        if (!TryGetStemSuffix(withoutExtension, stem, out var rawSuffix))
         {
             return null;
         }
 
-        var suffix = withoutExtension[(stem.Length + 1)..];
-        if (suffix.Length == 0)
-        {
-            return null;
-        }
-
-        suffix = StripDuplicateCounter(suffix);
-        if (suffix is null || suffix.Length == 0)
+        var suffix = StripDuplicateCounter(rawSuffix);
+        if (string.IsNullOrEmpty(suffix))
         {
             return null;
         }
@@ -160,13 +153,29 @@ public static class SubtitleSidecarDiscovery
             return new SubtitleSidecarCandidate(fileName, exact.Label, exact.Language, IsDefault: false);
         }
 
-        if (suffix.Contains('.') || suffix.Contains('-'))
+        if (HasQualifierSeparator(suffix))
         {
             return null;
         }
 
         return ClassifySuffix(fileName, withoutExtension, suffix, languages);
     }
+
+    private static bool TryGetStemSuffix(string withoutExtension, string stem, out string suffix)
+    {
+        suffix = string.Empty;
+        var separator = withoutExtension[stem.Length];
+        if (separator is not ('.' or '-'))
+        {
+            return false;
+        }
+
+        suffix = withoutExtension[(stem.Length + 1)..];
+        return suffix.Length != 0;
+    }
+
+    private static bool HasQualifierSeparator(string suffix) =>
+        suffix.Contains('.') || suffix.Contains('-');
 
     private static string? StripDuplicateCounter(string suffix)
     {
@@ -220,13 +229,7 @@ public static class SubtitleSidecarDiscovery
         var parts = withoutExtension.Split('.');
         if (parts.Length == 1)
         {
-            var bare = StripDuplicateCounter(parts[0]) ?? parts[0];
-            if (languages.TryGetValue(bare, out var single) || names.TryGetValue(bare, out single))
-            {
-                return new SubtitleSidecarCandidate(fileName, single.Label, single.Language, IsDefault: false);
-            }
-
-            return new SubtitleSidecarCandidate(fileName, parts[0], UndeterminedLanguage, IsDefault: false);
+            return MatchSinglePart(fileName, parts[0], languages, names);
         }
 
         var codeIndex = FindCodePart(parts, languages);
@@ -235,6 +238,30 @@ public static class SubtitleSidecarDiscovery
             return new SubtitleSidecarCandidate(fileName, withoutExtension, UndeterminedLanguage, IsDefault: false);
         }
 
+        return MatchCodedPart(fileName, parts, codeIndex, languages);
+    }
+
+    private static SubtitleSidecarCandidate MatchSinglePart(
+        string fileName,
+        string part,
+        Dictionary<string, (string Language, string Label)> languages,
+        Dictionary<string, (string Language, string Label)> names)
+    {
+        var bare = StripDuplicateCounter(part) ?? part;
+        if (languages.TryGetValue(bare, out var single) || names.TryGetValue(bare, out single))
+        {
+            return new SubtitleSidecarCandidate(fileName, single.Label, single.Language, IsDefault: false);
+        }
+
+        return new SubtitleSidecarCandidate(fileName, part, UndeterminedLanguage, IsDefault: false);
+    }
+
+    private static SubtitleSidecarCandidate MatchCodedPart(
+        string fileName,
+        string[] parts,
+        int codeIndex,
+        Dictionary<string, (string Language, string Label)> languages)
+    {
         var entry = languages[parts[codeIndex]];
         var qualifier = FindQualifier(parts, codeIndex);
         var label = qualifier is null ? entry.Label : string.Concat(entry.Label, " (", qualifier, ")");
