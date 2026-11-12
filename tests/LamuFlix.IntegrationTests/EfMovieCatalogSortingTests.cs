@@ -34,6 +34,9 @@ public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture) : IAsync
             movie.ImdbRating = new ImdbRating(movie == alpha ? 7.0m : 8.0m);
         }
 
+        alpha.AddedAt = MovieCatalogSeed.FixedTime;
+        beta.AddedAt = MovieCatalogSeed.FixedTime.AddDays(1);
+        nullKey.AddedAt = MovieCatalogSeed.FixedTime.AddDays(2);
         context.Movies.AddRange(alpha, beta, nullKey);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
@@ -54,7 +57,9 @@ public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture) : IAsync
         { MovieSort.Rating, SortDirection.Ascending, ["Alpha", "Beta", "Zulu"] },
         { MovieSort.Rating, SortDirection.Descending, ["Beta", "Alpha", "Zulu"] },
         { MovieSort.Runtime, SortDirection.Ascending, ["Alpha", "Beta", "Zulu"] },
-        { MovieSort.Runtime, SortDirection.Descending, ["Beta", "Alpha", "Zulu"] }
+        { MovieSort.Runtime, SortDirection.Descending, ["Beta", "Alpha", "Zulu"] },
+        { MovieSort.Added, SortDirection.Ascending, ["Alpha", "Beta", "Zulu"] },
+        { MovieSort.Added, SortDirection.Descending, ["Zulu", "Beta", "Alpha"] }
     };
 
     [Fact]
@@ -99,5 +104,49 @@ public sealed class EfMovieCatalogSortingTests(PostgresFixture fixture) : IAsync
 
         // assert
         actual.ShouldBe(["Alpha", "Bravo"]);
+    }
+
+    [Fact]
+    public async Task OrderByMovieSort_Added_DescendingPutsNewestAddedFirst()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var older = MovieCatalogSeed.Create("Older", "added-older");
+        older.AddedAt = MovieCatalogSeed.FixedTime;
+        var newer = MovieCatalogSeed.Create("Newer", "added-newer");
+        newer.AddedAt = MovieCatalogSeed.FixedTime.AddHours(1);
+        context.Movies.AddRange(older, newer);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // act
+        var actual = await context.Movies.OrderByMovieSort(MovieSort.Added, SortDirection.Descending)
+            .Select(movie => movie.Title).ToArrayAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        actual.ShouldBe(["Newer", "Older"]);
+    }
+
+    [Fact]
+    public async Task OrderByMovieSort_Added_EqualAddedAt_UsesTitleThenIdTieBreakers()
+    {
+        // arrange
+        await using var context = fixture.CreateMigratedContext();
+        var bravo = MovieCatalogSeed.Create("Bravo", "added-tie-bravo");
+        var firstAlpha = MovieCatalogSeed.Create("Alpha", "added-tie-alpha-first");
+        var secondAlpha = MovieCatalogSeed.Create("Alpha", "added-tie-alpha-second");
+        foreach (var movie in new[] { bravo, firstAlpha, secondAlpha })
+        {
+            movie.AddedAt = MovieCatalogSeed.FixedTime;
+        }
+
+        context.Movies.AddRange(bravo, firstAlpha, secondAlpha);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        // act
+        var ordered = await context.Movies.OrderByMovieSort(MovieSort.Added, SortDirection.Descending)
+            .Select(movie => movie.Id).ToArrayAsync(TestContext.Current.CancellationToken);
+
+        // assert
+        ordered.ShouldBe(new[] { firstAlpha.Id, secondAlpha.Id }.OrderBy(id => id?.Value).Append(bravo.Id));
     }
 }

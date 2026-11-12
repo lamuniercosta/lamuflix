@@ -232,6 +232,7 @@ export function FilterPanel(props: FilterPanelProps) {
 
   const queryRef = useRef(query);
   const castInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     queryRef.current = query;
   }, [query]);
@@ -468,6 +469,15 @@ export function FilterPanel(props: FilterPanelProps) {
     onClear?.();
   };
 
+  const handleSearchClear = () => {
+    cancelSearchText();
+    setSearchText('');
+    update((next) => {
+      next.text = '';
+    });
+    searchInputRef.current?.focus();
+  };
+
   return (
     <section className="lamu-filter-panel" aria-label="Filters">
       {showTitleSearch ? (
@@ -475,17 +485,30 @@ export function FilterPanel(props: FilterPanelProps) {
           <label htmlFor={searchId} className="lamu-filter-sublabel">
             Search titles
           </label>
-          <input
-            id={searchId}
-            type="search"
-            className="lamu-field-input"
-            placeholder="Search titles"
-            value={searchText}
-            onChange={(event) => {
-              setSearchText(event.target.value);
-              commitSearchText.schedule(event.target.value);
-            }}
-          />
+          <div className="lamu-filter-search">
+            <input
+              ref={searchInputRef}
+              id={searchId}
+              type="search"
+              className="lamu-field-input"
+              placeholder="Search titles"
+              value={searchText}
+              onChange={(event) => {
+                setSearchText(event.target.value);
+                commitSearchText.schedule(event.target.value);
+              }}
+            />
+            {searchText === '' ? null : (
+              <button
+                type="button"
+                className="lamu-filter-search-clear"
+                aria-label="Clear search"
+                onClick={handleSearchClear}
+              >
+                <CloseIcon size={14} />
+              </button>
+            )}
+          </div>
         </div>
       ) : null}
 

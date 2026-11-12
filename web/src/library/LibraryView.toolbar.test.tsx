@@ -169,6 +169,23 @@ describe('Library results toolbar', () => {
     expect(screen.getByText('Sort: Year (newest)')).toBeInTheDocument();
   });
 
+  it('sorts by Added from the Sort by select and shows the summary', async () => {
+    window.history.replaceState({}, '', '/');
+    renderApp();
+    await waitForLibrary();
+
+    fireEvent.change(getSortSelect(), { target: { value: 'Added|Descending' } });
+    let params = new URLSearchParams(window.location.search);
+    expect(params.get('sort')).toBe('Added');
+    expect(params.get('direction')).toBe('Descending');
+    expect(screen.getByText('Sort: Added (newest)')).toBeInTheDocument();
+
+    fireEvent.change(getSortSelect(), { target: { value: 'Added|Ascending' } });
+    params = new URLSearchParams(window.location.search);
+    expect(params.get('sort')).toBe('Added');
+    expect(screen.getByText('Sort: Added (oldest)')).toBeInTheDocument();
+  });
+
   it('restores the query on Back and Forward navigation', async () => {
     window.history.replaceState({}, '', '/');
     renderApp();

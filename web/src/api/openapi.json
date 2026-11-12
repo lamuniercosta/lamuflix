@@ -134,7 +134,8 @@
                 "Title",
                 "Year",
                 "Rating",
-                "Runtime"
+                "Runtime",
+                "Added"
               ],
               "type": "string"
             }

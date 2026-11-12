@@ -89,7 +89,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(16);
+        migrations.Length.ShouldBe(17);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -106,6 +106,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         migrations[13].ShouldEndWith("_AddMovieTrailerKey");
         migrations[14].ShouldEndWith("_AddExplicitMovieReviews");
         migrations[15].ShouldEndWith("_AddLibraryPathKey");
+        migrations[16].ShouldEndWith("_AddMovieAddedAt");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -140,7 +141,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddLibraryPathKey");
+        applied[^1].ShouldEndWith("_AddMovieAddedAt");
         var rows = await catalog.ListLegacyMoviesAsync(cancellationToken);
         rows.Count.ShouldBe(priorCount);
         foreach (var movie in seeded)
@@ -205,7 +206,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         applied[1].ShouldEndWith("_AddMovieWriters");
         var priorColumns = await catalog.ListColumnsAsync("movies", cancellationToken);
         priorColumns.ShouldBe(
-            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id" and not "enrichment_deferred_until" and not "trailer_key" and not "review" and not "library_path_key"),
+            latestColumns.Where(column => column is not "is_watched" and not "is_not_interested" and not "parsed_release_year" and not "manual_imdb_id" and not "collection_id" and not "enrichment_deferred_until" and not "trailer_key" and not "review" and not "library_path_key" and not "added_at"),
             ignoreOrder: true);
         priorColumns.ShouldNotContain("is_watched");
         priorColumns.ShouldNotContain("is_not_interested");
@@ -308,7 +309,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddLibraryPathKey");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddMovieAddedAt");
     }
 
     [Fact]

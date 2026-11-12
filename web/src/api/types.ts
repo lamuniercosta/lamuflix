@@ -341,7 +341,7 @@ export interface operations {
         Statuses?: string[];
         InWatchlist?: string;
         CollectionId?: string;
-        sort: "Title" | "Year" | "Rating" | "Runtime";
+        sort: "Title" | "Year" | "Rating" | "Runtime" | "Added";
         direction: "Ascending" | "Descending";
         page: number;
         pageSize: number;

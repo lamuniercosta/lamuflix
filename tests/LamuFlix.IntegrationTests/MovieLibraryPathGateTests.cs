@@ -58,9 +58,9 @@ public sealed class MovieLibraryPathGateTests(PostgresFixture fixture) : IClassF
         // assert
         var migrations = context.Database.GetMigrations().ToArray();
         migrations[0].ShouldEndWith("_Initial");
-        migrations[^1].ShouldEndWith("_AddLibraryPathKey");
+        migrations[^1].ShouldEndWith("_AddMovieAddedAt");
         migrations.ShouldNotContain(name => name.Contains("LibraryPathKeyActivation", StringComparison.Ordinal));
-        migrations.Length.ShouldBe(16);
+        migrations.Length.ShouldBe(17);
     }
 
     [Fact]
@@ -604,7 +604,7 @@ public sealed class MovieLibraryPathGateTests(PostgresFixture fixture) : IClassF
     {
         var ids = await context.Database
             .SqlQuery<int>(
-                $"INSERT INTO movies (title, library_path, format, status, enrichment_attempts, is_in_watchlist) VALUES ({title}, {libraryPath}, 'mkv', 0, 0, false) RETURNING id AS \"Value\"")
+                $"INSERT INTO movies (title, library_path, format, status, enrichment_attempts, is_in_watchlist, added_at) VALUES ({title}, {libraryPath}, 'mkv', 0, 0, false, now()) RETURNING id AS \"Value\"")
             .ToListAsync(cancellationToken);
         return new MovieId(ids.Single());
     }

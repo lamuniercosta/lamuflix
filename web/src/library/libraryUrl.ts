@@ -1,6 +1,6 @@
 import type { paths } from '../api/types';
 
-export type LibrarySort = 'Title' | 'Year' | 'Rating' | 'Runtime';
+export type LibrarySort = 'Title' | 'Year' | 'Rating' | 'Runtime' | 'Added';
 
 export type LibraryDirection = 'Ascending' | 'Descending';
 
@@ -42,7 +42,7 @@ export const LIBRARY_DEFAULTS = {
   pageSize: 24,
 } satisfies LibraryUrlState;
 
-const SORT_NAMES: readonly LibrarySort[] = ['Title', 'Year', 'Rating', 'Runtime'];
+const SORT_NAMES: readonly LibrarySort[] = ['Title', 'Year', 'Rating', 'Runtime', 'Added'];
 const DIRECTION_NAMES: readonly LibraryDirection[] = ['Ascending', 'Descending'];
 const DIRECTION_ALIASES: Readonly<Record<string, LibraryDirection>> = {
   Asc: 'Ascending',

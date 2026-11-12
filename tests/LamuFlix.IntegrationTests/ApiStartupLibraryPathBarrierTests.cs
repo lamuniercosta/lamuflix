@@ -168,7 +168,7 @@ public sealed class ApiStartupLibraryPathBarrierTests(PostgresFixture fixture)
         string libraryPath,
         CancellationToken cancellationToken) =>
         context.Database.ExecuteSqlRawAsync(
-            "INSERT INTO movies (title, library_path, format, status, enrichment_attempts, is_in_watchlist) VALUES ({0}, {1}, 'mkv', 0, 0, false)",
+            "INSERT INTO movies (title, library_path, format, status, enrichment_attempts, is_in_watchlist, added_at) VALUES ({0}, {1}, 'mkv', 0, 0, false, now())",
             [title, libraryPath],
             cancellationToken);
 }

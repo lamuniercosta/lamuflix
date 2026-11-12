@@ -10,6 +10,8 @@ export const SORT_OPTIONS = [
   { label: 'IMDb (highest)', sort: 'Rating', direction: 'Descending' },
   { label: 'Runtime (shortest)', sort: 'Runtime', direction: 'Ascending' },
   { label: 'Runtime (longest)', sort: 'Runtime', direction: 'Descending' },
+  { label: 'Added (newest)', sort: 'Added', direction: 'Descending' },
+  { label: 'Added (oldest)', sort: 'Added', direction: 'Ascending' },
 ];
 export const DEFAULT_PAGE = 1;
 export const DEFAULT_PAGE_SIZE = 20;

@@ -30,6 +30,7 @@ internal sealed class BrowseMoviesOperationTransformer : IOpenApiOperationTransf
                 JsonValue.Create("Year"),
                 JsonValue.Create("Rating"),
                 JsonValue.Create("Runtime"),
+                JsonValue.Create("Added"),
             ],
         });
         Apply("Direction", "direction", new OpenApiSchema

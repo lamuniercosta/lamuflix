@@ -81,6 +81,7 @@ public static class MovieRecordQueryExtensions
         sort == MovieSort.Title ? OrderByTitle(query, direction)
         : sort == MovieSort.Year ? OrderByYear(query, direction)
         : sort == MovieSort.Rating ? OrderByRating(query, direction)
+        : sort == MovieSort.Added ? OrderByAdded(query, direction)
         : OrderByRuntime(query, direction);
 
     private static IQueryable<MovieRecord> ApplyRuntimeBounds(IQueryable<MovieRecord> query, RuntimeRange range)
@@ -301,4 +302,9 @@ public static class MovieRecordQueryExtensions
         direction == SortDirection.Ascending
             ? query.OrderBy(movie => movie.RuntimeMinutes == null).ThenBy(movie => movie.RuntimeMinutes).ThenBy(movie => movie.Title).ThenBy(movie => movie.Id)
             : query.OrderBy(movie => movie.RuntimeMinutes == null).ThenByDescending(movie => movie.RuntimeMinutes).ThenBy(movie => movie.Title).ThenBy(movie => movie.Id);
+
+    private static IOrderedQueryable<MovieRecord> OrderByAdded(IQueryable<MovieRecord> query, SortDirection direction) =>
+        direction == SortDirection.Ascending
+            ? query.OrderBy(movie => movie.AddedAt).ThenBy(movie => movie.Title).ThenBy(movie => movie.Id)
+            : query.OrderByDescending(movie => movie.AddedAt).ThenBy(movie => movie.Title).ThenBy(movie => movie.Id);
 }
