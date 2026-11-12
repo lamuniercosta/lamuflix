@@ -74,20 +74,33 @@ public static class SubtitleSidecarDiscovery
     {
         folder = null;
         leaf = fileName;
-        var parts = fileName.Split('/', '\\');
-        if (parts.Length == 1)
+        var separator = IndexOfSeparator(fileName, 0);
+        if (separator < 0)
         {
             return IsSafeLeaf(leaf);
         }
 
-        if (parts.Length != 2 || !string.Equals(parts[0], SubsFolderName, StringComparison.OrdinalIgnoreCase))
+        if (IndexOfSeparator(fileName, separator + 1) >= 0)
         {
             return false;
         }
 
-        folder = parts[0];
-        leaf = parts[1];
-        return IsSafeLeaf(leaf);
+        folder = fileName[..separator];
+        leaf = fileName[(separator + 1)..];
+        return string.Equals(folder, SubsFolderName, StringComparison.OrdinalIgnoreCase) && IsSafeLeaf(leaf);
+    }
+
+    private static int IndexOfSeparator(string value, int startIndex)
+    {
+        for (var index = startIndex; index < value.Length; index++)
+        {
+            if (value[index] is '/' or '\\')
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private static bool IsSafeLeaf(string leaf)
