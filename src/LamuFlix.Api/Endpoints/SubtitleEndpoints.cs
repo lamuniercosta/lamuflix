@@ -69,20 +69,6 @@ internal static class SubtitleEndpoints
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
-        api.MapPost("/movies/{id}/subtitles/prepare", PrepareSubtitleAsync)
-            .WithName("PrepareMovieSubtitle")
-            .WithSummary("Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled.")
-            .Produces<SubtitlePrepareResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests)
-            .ProducesProblem(StatusCodes.Status502BadGateway)
-            .ProducesProblem(StatusCodes.Status504GatewayTimeout)
-            .ProducesProblem(StatusCodes.Status500InternalServerError);
-
         api.MapPost("/movies/{id:int}/subtitles/download", DownloadSubtitleAsync)
             .WithName("DownloadMovieSubtitle")
             .WithSummary("Download one selected subtitle candidate into the movie Subs folder.")
@@ -186,19 +172,6 @@ internal static class SubtitleEndpoints
 
         var result = await handler.HandleAsync(new GetSubtitleContentQuery(movieId, trackId), cancellationToken);
         return TypedResults.Text(result.WebVtt, SubtitleContentType);
-    }
-
-    private static async Task<Ok<SubtitlePrepareResponse>> PrepareSubtitleAsync(
-        string id,
-        HttpContext httpContext,
-        ICommandHandler<PrepareSubtitleCommand, SubtitlePreparationResult> handler,
-        CancellationToken cancellationToken)
-    {
-        EnforceNoStore(httpContext);
-
-        var movieId = ParseMovieId(id);
-        var result = await handler.HandleAsync(new PrepareSubtitleCommand(movieId), cancellationToken);
-        return TypedResults.Ok(SubtitlePrepareResponse.From(result));
     }
 
     private static async Task<Created<SubtitleDownloadResponse>> DownloadSubtitleAsync(

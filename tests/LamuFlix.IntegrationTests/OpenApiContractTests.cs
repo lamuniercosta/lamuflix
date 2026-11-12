@@ -49,7 +49,6 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GET /api/movies/{id}/subtitles/search",
         "GET /api/movies/{id}/subtitles/{trackId}/content",
         "POST /api/movies/{id}/subtitles/download",
-        "POST /api/movies/{id}/subtitles/prepare",
         "GET /api/movies/{id}/subtitles/sidecar",
         "GET /api/movies/{id}/recommendations",
         "GET /api/recommendations/for-you",
@@ -87,7 +86,6 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "PersonDto",
         "DirectorDto",
         "SubtitleTrackDto",
-        "SubtitlePrepareResponse",
         "SubtitleSearchResponse",
         "SubtitleSearchCandidateDto",
         "SubtitleQuotaDto",
@@ -434,7 +432,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
     }
 
     [Fact]
-    public async Task Document_PrepareMovieSubtitle_DocumentsOutcomeDtoAndFrozenProblemMatrix()
+    public async Task Document_RetiredPrepareRoute_IsAbsentFromTheContract()
     {
         // arrange
         await using var development = CreateDevelopmentHost();
@@ -446,43 +444,11 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
 
         // assert
         Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
-        var operation = parsed.RootElement.GetProperty("paths")
-            .GetProperty("/api/movies/{id}/subtitles/prepare")
-            .GetProperty("post");
-        operation.GetProperty("operationId").GetString().ShouldBe("PrepareMovieSubtitle");
-        operation.GetProperty("summary").GetString().ShouldBe(
-            "Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled.");
-
-        var parameter = operation.GetProperty("parameters").EnumerateArray().ShouldHaveSingleItem();
-        parameter.GetProperty("name").GetString().ShouldBe("id");
-        parameter.GetProperty("in").GetString().ShouldBe("path");
-        parameter.GetProperty("required").GetBoolean().ShouldBeTrue();
-        parameter.GetProperty("schema").GetProperty("type").GetString().ShouldBe("string");
-
-        var responses = operation.GetProperty("responses");
-        responses.EnumerateObject().Select(response => response.Name)
-            .ShouldBe(["200", "400", "403", "404", "409", "422", "429", "500", "502", "504"], ignoreOrder: true);
-        var successSchema = responses.GetProperty("200").GetProperty("content")
-            .GetProperty("application/json").GetProperty("schema");
-        successSchema.GetProperty("$ref").GetString()
-            .ShouldBe("#/components/schemas/SubtitlePrepareResponse");
-        foreach (var status in new[] { "400", "403", "404", "409", "422", "429", "500", "502", "504" })
-        {
-            var problemSchema = responses.GetProperty(status).GetProperty("content")
-                .GetProperty("application/problem+json").GetProperty("schema");
-            problemSchema.GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
-        }
-
-        var dto = parsed.RootElement.GetProperty("components").GetProperty("schemas")
-            .GetProperty("SubtitlePrepareResponse");
-        dto.GetProperty("type").GetString().ShouldBe("object");
-        dto.GetProperty("required").EnumerateArray().Select(item => item.GetString())
-            .ShouldBe(["outcome", "selectedLanguage"], ignoreOrder: true);
-        var properties = dto.GetProperty("properties");
-        properties.EnumerateObject().Select(property => property.Name)
-            .ShouldBe(["outcome", "selectedLanguage"], ignoreOrder: true);
-        properties.GetProperty("outcome").GetProperty("type").GetString().ShouldBe("string");
-        SchemaTypes(properties.GetProperty("selectedLanguage")).ShouldBe(["null", "string"]);
+        parsed.RootElement.GetProperty("paths").TryGetProperty(
+            "/api/movies/{id}/subtitles/prepare",
+            out _).ShouldBeFalse();
+        parsed.RootElement.GetProperty("components").GetProperty("schemas")
+            .TryGetProperty("SubtitlePrepareResponse", out _).ShouldBeFalse();
     }
 
     [Fact]
