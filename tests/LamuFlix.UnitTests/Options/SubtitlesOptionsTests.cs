@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using LamuFlix.Core.Options;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +28,21 @@ public sealed class SubtitlesOptionsTests
         // assert
         options.SaveEnabled.ShouldBeFalse();
         options.PreferredLanguages.ShouldBeEmpty();
+        options.CandidateTokenTtl.ShouldBe(SubtitlesOptions.DefaultCandidateTokenTtl);
+        options.CandidateStoreMaxEntries.ShouldBe(1000);
+        options.MaxSubtitleDownloadBytes.ShouldBe(2 * 1024 * 1024);
+        options.MaxSubtitlePublicationAttempts.ShouldBe(10_000);
+    }
+
+    [Fact]
+    public void Defaults_CandidateTokenTtlIsFivePositiveMinutes()
+    {
+        // act
+        var options = new SubtitlesOptions();
+
+        // assert
+        options.CandidateTokenTtl.ShouldBe(TimeSpan.FromMinutes(5));
+        options.CandidateTokenTtl.ShouldBeGreaterThan(TimeSpan.Zero);
     }
 
     [Fact]

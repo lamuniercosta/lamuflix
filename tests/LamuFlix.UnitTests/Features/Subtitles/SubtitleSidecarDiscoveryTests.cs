@@ -436,4 +436,50 @@ public sealed class SubtitleSidecarDiscoveryTests
         second.Select(track => (track.FileName, track.Label, track.Language, track.IsDefault)).ShouldBe(
             first.Select(track => (track.FileName, track.Label, track.Language, track.IsDefault)));
     }
+
+    [Theory]
+    [InlineData($"Subs/{Stem}-pt-BR.srt")]
+    [InlineData($"Subs/{Stem}-pt-BR(1).srt")]
+    [InlineData($"{Stem}-pt-BR.srt")]
+    public void Discover_DownloadedSubsName_IsListedAsALocalTrack(string fileName)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe(fileName);
+        track.Language.ShouldBe("pt-BR");
+    }
+
+    [Theory]
+    [InlineData($"Subs/.{Stem}-pt-BR.0123456789abcdef0123456789abcdef.srt")]
+    [InlineData($"Subs/.{Stem}-pt-BR.0123456789abcdef0123456789abcdef.tmp")]
+    [InlineData($".{Stem}-pt-BR.srt")]
+    public void Discover_LeadingDotStagingArtifact_IsNeverListed(string fileName)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        tracks.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Discover_StagingBesideAPublishedTrack_ListsOnlyThePublishedTrack()
+    {
+        // arrange
+        IReadOnlyList<string> candidates =
+        [
+            $"Subs/{Stem}-pt-BR.srt",
+            $"Subs/.{Stem}-pt-BR.0123456789abcdef0123456789abcdef.srt",
+        ];
+
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, candidates);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe($"Subs/{Stem}-pt-BR.srt");
+    }
 }

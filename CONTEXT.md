@@ -240,3 +240,31 @@ _Avoid_: automatic On, preferred language
 **WebVTT**
 The UTF-8 browser subtitle representation produced from eligible SRT content on request.
 _Avoid_: serving raw SRT to the browser as the delivery format
+
+**Subtitle Candidate**
+A remote provider search result offered for explicit download; never an installed local
+track merely because it appears in search results.
+_Avoid_: subtitle match, remote track, available subtitle as an installed track
+
+**Candidate ID**
+The opaque, process-local selection token the server binds to a movie, a canonical
+language code and one provider candidate. It is not a path, a URL or a raw provider file
+ID, and it carries no cryptographic-security claim.
+_Avoid_: file id, provider link, download URL
+
+**Local Subtitle Track**
+A discovered subtitle the viewer can select and play, including a downloaded SRT
+successfully published under `Subs\`. It is selectable independently of subtitle
+download availability.
+_Avoid_: downloaded subtitle as distinct from a local track, remote candidate
+
+**Subtitle Match Percent**
+The integer 0–100 ranking score of a subtitle candidate: 100 on a moviehash match,
+otherwise the rounded distinct-token overlap of the release name against the video
+filename stem. It carries no confidence claim beyond that comparison.
+_Avoid_: confidence score, quality rating, similarity percentage
+
+**Subtitle Download Availability**
+The server-reported acquisition write capability and its safe reason, separate from free
+language search and from playing an existing local subtitle track.
+_Avoid_: download quota, provider status, save permission

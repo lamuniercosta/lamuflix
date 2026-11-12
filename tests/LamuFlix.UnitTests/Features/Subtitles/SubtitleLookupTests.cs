@@ -202,15 +202,16 @@ public sealed class SubtitleLookupTests
     {
         public List<SubtitleSearch> Searches { get; } = [];
 
-        public Task<IReadOnlyList<SubtitleCandidate>> SearchAsync(SubtitleSearch search, CancellationToken cancellationToken)
+        public Task<SubtitleSearchResult> SearchAsync(SubtitleSearch search, CancellationToken cancellationToken)
         {
             Searches.Add(search);
             var key = search.MovieHash ?? search.Title ?? string.Empty;
-            return Task.FromResult(
-                results.TryGetValue(key, out var candidates) ? candidates : []);
+            IReadOnlyList<SubtitleCandidate> candidates =
+                results.TryGetValue(key, out var found) ? found : [];
+            return Task.FromResult(new SubtitleSearchResult(candidates, SubtitleQuota.Unknown));
         }
 
-        public Task<byte[]> DownloadAsync(SubtitleCandidate candidate, CancellationToken cancellationToken) =>
-            Task.FromResult(Array.Empty<byte>());
+        public Task<SubtitleDownload> DownloadAsync(SubtitleCandidate candidate, CancellationToken cancellationToken) =>
+            Task.FromResult(new SubtitleDownload([], SubtitleQuota.Unknown));
     }
 }

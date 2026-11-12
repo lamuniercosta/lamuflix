@@ -29,6 +29,12 @@ internal static class SubtitleEndpoints
 
     internal static RouteGroupBuilder MapSubtitleEndpoints(this RouteGroupBuilder api)
     {
+        api.MapGet("/subtitles/languages", GetSubtitleLanguagesAsync)
+            .WithName("ListSubtitleLanguages")
+            .WithSummary("List the supported subtitle languages with the configured preferences first.")
+            .Produces<SubtitleLanguagesResponse>()
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+
         api.MapGet("/movies/{id:int}/subtitles", ListSubtitleTracksAsync)
             .WithName("ListMovieSubtitleTracks")
             .WithSummary("List the eligible sidecar subtitle tracks of a movie.")
@@ -73,6 +79,20 @@ internal static class SubtitleEndpoints
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         return api;
+    }
+
+    private static async Task<Ok<SubtitleLanguagesResponse>> GetSubtitleLanguagesAsync(
+        HttpContext httpContext,
+        IQueryHandler<GetSubtitleLanguagesQuery, GetSubtitleLanguagesResult> handler,
+        CancellationToken cancellationToken)
+    {
+        EnforceNoStore(httpContext);
+
+        var result = await handler.HandleAsync(new GetSubtitleLanguagesQuery(), cancellationToken);
+        return TypedResults.Ok(new SubtitleLanguagesResponse(
+            result.DefaultLanguage,
+            [.. result.Languages.Select(language =>
+                new SubtitleLanguageOptionDto(language.Code, language.EnglishName, language.NativeName))]));
     }
 
     private static async Task<Ok<SubtitleTrackDto[]>> ListSubtitleTracksAsync(

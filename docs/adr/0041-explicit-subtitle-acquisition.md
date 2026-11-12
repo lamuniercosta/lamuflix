@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Explicit subtitle acquisition with guarded Subs publication
@@ -10,7 +10,7 @@ Candidates are bounded, expiring process-local bindings to movie/language/provid
 
 Read-only libraries retain search and local subtitle playback while download is visibly disabled. Quota exhaustion, timeout and acquisition configuration failures preserve video and local tracks; only provider-supplied quota/reset values are displayed. There is no automatic paid download or automatic retry. DTOs flow through OpenAPI to generated TypeScript.
 
-Retire prepare-only route/flow/config/tests while retaining shared client, moviehash, typed options, secret isolation and safe atomic IO. Patron Q2 rules the corresponding prepare-specific Principle VII replacement is ticket-mandated maintenance; the spec/plan must include its amendment/version procedure and preserve acquisition-vs-local-serving protections. This ADR proposes that alignment; it does not itself amend the constitution or grant Gate 1. Runtime acceptance remains open until the home-cluster receipts, real browser playback and BS Player recognition required by the ticket are recorded.
+Retire prepare-only route/flow/config/tests while retaining shared client, moviehash, typed options, secret isolation and safe atomic IO. Patron Q2 rules the corresponding prepare-specific Principle VII replacement is ticket-mandated maintenance; the spec/plan must include its amendment/version procedure and preserve acquisition-vs-local-serving protections. This ADR proposed that alignment; it is now Accepted by constitution amendment 1.16.0 (`.specify/memory/constitution.md` Sync Impact Report, 2026-11-12). Accepting this ADR does not itself grant Gate 1, implementation compliance or runtime acceptance. Runtime acceptance remains open until the home-cluster receipts, real browser playback and BS Player recognition required by the ticket are recorded.
 
 ## Language catalog and concrete Core collaborators
 
@@ -32,4 +32,4 @@ After Gate 1, apply Principle VII constitution 1.15.0 → 1.16.0, update Sync Im
 
 ADR 0041 supersedes only the prepare-route wording of Proposed ADR 0038 (`0038-subtitle-provider-and-sidecar-boundary.md`); its provider/read-write separation survives and ADR 0038 remains Proposed. Add only qualified acquisition terms to CONTEXT.md without rewriting existing Movie, Library or exact-basename sidecar-serving vocabulary. D4's confirmed delete/update/retain classification is in brief.md; incomplete current-source inventories in recon:113–130 must be verified during pickup and T026 before deletion or installer/snapshot invocation. No reviewer inventory is silently promoted to verified source fact. A missing current path/workflow stops execution as needs recon.
 
-The active check belongs only to the actually active downloaded local subtitle track. Candidate rows use Get, never selection checks or guessed candidate-to-track identity. Quota/rate-limit/timeout/read-only errors preserve video and local selection. Current plan freeze, owner Gate 1, implementation checks and runtime acceptance are independent claims; this Proposed ADR grants none of those execution approvals.
+The active check belongs only to the actually active downloaded local subtitle track. Candidate rows use Get, never selection checks or guessed candidate-to-track identity. Quota/rate-limit/timeout/read-only errors preserve video and local selection. Current plan freeze, owner Gate 1, implementation checks and runtime acceptance are independent claims; this Accepted ADR grants none of those execution approvals.

@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +21,7 @@ public sealed partial class SubtitleSidecarStore(
     IHostEnvironment hostEnvironment) : ISubtitleSidecarStore
 {
     private const string SubtitleExtension = ".srt";
+    private const string SubsFolderName = "Subs";
     private const int ReadBufferSize = 81920;
     private const int TempFileAttempts = 8;
     private const string SizeKey = "Subtitle";
@@ -93,6 +95,175 @@ public sealed partial class SubtitleSidecarStore(
         {
             DeleteQuietly(temp);
         }
+    }
+
+    public async Task<SubtitlePublishResult> PublishToSubsAsync(
+        LibraryPath folder,
+        string primaryFileName,
+        string languageCode,
+        ReadOnlyMemory<byte> content,
+        int maxAttempts,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxAttempts);
+
+        var stem = SubtitleStem(primaryFileName);
+        var baseName = string.Concat(stem, "-", CanonicalLanguageCode(languageCode));
+        AuthorizePrimary(folder, primaryFileName);
+
+        var movieDirectory = ResolveExistingMovieDirectory(folder);
+        var subsDirectory = Path.Combine(movieDirectory, SubsFolderName);
+        EnforceSubsContainment(movieDirectory, subsDirectory);
+
+        if (!Directory.Exists(subsDirectory))
+        {
+            Directory.CreateDirectory(subsDirectory);
+        }
+
+        EnforceSubsContainment(movieDirectory, subsDirectory);
+        if (!Directory.Exists(subsDirectory))
+        {
+            throw Denied();
+        }
+
+        var staged = StagePath(subsDirectory, baseName);
+        try
+        {
+            await WriteTempAsync(staged, content, cancellationToken).ConfigureAwait(false);
+            return PublishStaged(staged, subsDirectory, movieDirectory, baseName, maxAttempts, cancellationToken);
+        }
+        finally
+        {
+            DeleteQuietly(staged);
+        }
+    }
+
+    private static SubtitlePublishResult PublishStaged(
+        string staged,
+        string subsDirectory,
+        string movieDirectory,
+        string baseName,
+        int maxAttempts,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            EnforceSubsContainment(movieDirectory, subsDirectory);
+
+            var fileName = CollisionFileName(baseName, attempt);
+            if (Commit(staged, Path.Combine(subsDirectory, fileName)) == SubtitleSidecarWriteResult.Created)
+            {
+                return SubtitlePublishResult.Published(fileName);
+            }
+        }
+
+        return SubtitlePublishResult.AttemptsExhausted();
+    }
+
+    private static string CollisionFileName(string baseName, int attempt) =>
+        attempt == 1
+            ? string.Concat(baseName, SubtitleExtension)
+            : string.Concat(
+                baseName,
+                "(",
+                attempt.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ")",
+                SubtitleExtension);
+
+    private static string StagePath(string subsDirectory, string baseName)
+    {
+        var candidate = Path.Combine(subsDirectory, string.Concat(".", baseName, ".", Guid.NewGuid().ToString("N"), SubtitleExtension));
+        return candidate;
+    }
+
+    private string ResolveExistingMovieDirectory(LibraryPath folder)
+    {
+        var root = ResolveRoot();
+        var combined = LibraryPath.IsAbsolute(folder.Value)
+            ? folder.Value
+            : Path.Combine(root, folder.Value.Trim('/', '\\'));
+
+        string directory;
+        try
+        {
+            directory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(combined));
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw Denied();
+        }
+
+        if (!IsContained(root, directory) || HasReparsePointInChain(directory, root))
+        {
+            throw Denied();
+        }
+
+        if (!Directory.Exists(directory))
+        {
+            throw new NotFoundException();
+        }
+
+        return directory;
+    }
+
+    private static void EnforceSubsContainment(string movieDirectory, string subsDirectory)
+    {
+        var expected = Path.TrimEndingDirectorySeparator(Path.Combine(movieDirectory, SubsFolderName));
+        if (!string.Equals(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(subsDirectory)),
+            Path.GetFullPath(expected),
+            PathComparison))
+        {
+            throw Denied();
+        }
+
+        if (!IsContained(movieDirectory, subsDirectory) || HasReparsePointInChain(subsDirectory, movieDirectory))
+        {
+            throw Denied();
+        }
+
+        if (IsReparsePoint(subsDirectory))
+        {
+            throw Denied();
+        }
+    }
+
+    private static string SubtitleStem(string primaryFileName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(primaryFileName);
+
+        if (primaryFileName.IndexOfAny(['/', '\\']) >= 0)
+        {
+            throw Denied();
+        }
+
+        var stem = Path.GetFileNameWithoutExtension(primaryFileName);
+        if (string.IsNullOrEmpty(stem) || stem is "." or ".."
+            || stem.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            throw Denied();
+        }
+
+        return stem;
+    }
+
+    private static string CanonicalLanguageCode(string languageCode)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageCode);
+
+        var trimmed = languageCode.Trim();
+        if (trimmed is "." or ".."
+            || trimmed.IndexOfAny(['/', '\\', '.']) >= 0
+            || trimmed.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || !trimmed.All(static character => char.IsAsciiLetterOrDigit(character) || character == '-'))
+        {
+            throw Denied();
+        }
+
+        return trimmed;
     }
 
     private static SubtitleSidecarWriteResult Commit(string temp, string target) =>

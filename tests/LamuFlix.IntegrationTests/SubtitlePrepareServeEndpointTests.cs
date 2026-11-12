@@ -731,6 +731,7 @@ public sealed class SubtitlePrepareServeEndpointTests(ApiHostFactory factory)
         return new OpenSubtitlesSubtitleProvider(
             client,
             services.GetRequiredService<IOptions<SubtitleProviderOptions>>(),
+            services.GetRequiredService<IOptions<SubtitlesOptions>>(),
             services.GetRequiredService<TimeProvider>());
     }
 
