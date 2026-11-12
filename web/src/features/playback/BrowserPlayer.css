@@ -139,6 +139,9 @@
   border-radius: var(--lamu-radius-control);
   background: var(--color-panel);
   color: var(--color-ink);
+  /* media-controller sets line-height: 0 on its host; without this, text-only
+     children (status lines) collapse to zero height and overlap. */
+  line-height: normal;
 }
 
 .subtitle-panel-header {
