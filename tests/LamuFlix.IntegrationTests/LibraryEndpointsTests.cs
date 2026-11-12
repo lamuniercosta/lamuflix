@@ -833,7 +833,6 @@ public sealed class LibraryEndpointsTests(ApiHostFactory factory) : IClassFixtur
                 "ListMovieSubtitleTracks",
                 "GetMovieSubtitleContent",
                 "DownloadMovieSubtitle",
-                "PrepareMovieSubtitle",
                 "GetMovieSubtitleSidecar",
             ],
             ignoreOrder: true);

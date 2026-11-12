@@ -20,7 +20,8 @@ public sealed class SubtitleSetupDocumentationTests
         "GET /api/movies/{id}/subtitles",
         "GET /api/movies/{id}/subtitles/{trackId}/content",
         "GET /api/movies/{id}/subtitles/sidecar",
-        "POST /api/movies/{id}/subtitles/prepare",
+        "GET /api/movies/{id}/subtitles/search",
+        "POST /api/movies/{id}/subtitles/download",
         ":ro",
         "no provider traffic",
     ];

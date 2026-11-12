@@ -51,7 +51,6 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
     private const string SubtitleSearchRoute = "/api/movies/{id:int}/subtitles/search";
     private const string SubtitleContentRoute = "/api/movies/{id:int}/subtitles/{trackId}/content";
     private const string SubtitleDownloadRoute = "/api/movies/{id:int}/subtitles/download";
-    private const string SubtitlePrepareRoute = "/api/movies/{id}/subtitles/prepare";
     private const string SubtitleSidecarRoute = "/api/movies/{id}/subtitles/sidecar";
     private const string ImportMovieRoute = "/api/movies/import";
     private const string ListImportCandidatesRoute = "/api/movies/import/candidates";
@@ -295,7 +294,6 @@ public sealed class ApiHostCompositionTests(ApiHostFactory factory) : IClassFixt
                     SubtitleSearchRoute,
                     SubtitleTracksRoute,
                     SubtitleContentRoute,
-                    SubtitlePrepareRoute,
                     SubtitleDownloadRoute,
                     SubtitleSidecarRoute,
                     ImportMovieRoute,

@@ -257,11 +257,6 @@ const subtitleTracksData = [
 const subtitleContentData =
   'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello there.\n\n00:00:03.000 --> 00:00:04.500\nGeneral Kenobi.\n';
 
-const preparedSubtitleData = {
-  outcome: 'saved',
-  selectedLanguage: 'en',
-} satisfies Schemas['SubtitlePrepareResponse'];
-
 const subtitleSidecarData =
   '1\n00:00:01,000 --> 00:00:02,000\nHello there.\n\n2\n00:00:03,000 --> 00:00:04,500\nGeneral Kenobi.\n';
 
@@ -349,7 +344,6 @@ const subtitleDownloadData = {
 
 export const subtitleDownload = Object.freeze(subtitleDownloadData);
 export const subtitleContent = subtitleContentData;
-export const preparedSubtitle = Object.freeze(preparedSubtitleData);
 export const subtitleSidecar = subtitleSidecarData;
 export const playbackCapabilities = Object.freeze(playbackCapabilitiesData);
 export const rescanLibrary = Object.freeze(rescanLibraryData);
@@ -373,7 +367,6 @@ export const success = Object.freeze({
   SearchMovieSubtitles: subtitleSearch,
   DownloadMovieSubtitle: subtitleDownload,
   GetMovieSubtitleContent: subtitleContent,
-  PrepareMovieSubtitle: preparedSubtitle,
   GetMovieSubtitleSidecar: subtitleSidecar,
   GetPlaybackCapabilities: playbackCapabilities,
   RescanLibrary: rescanLibrary,

@@ -20,7 +20,6 @@ export const handlers = [
   http.get('*/api/movies/:id/subtitles/search', () => HttpResponse.json(success.SearchMovieSubtitles, { status: 200 })),
   http.get('*/api/movies/:id/subtitles', () => HttpResponse.json(success.ListMovieSubtitleTracks, { status: 200 })),
   http.get('*/api/movies/:id/subtitles/:trackId/content', () => HttpResponse.json(success.GetMovieSubtitleContent, { status: 200 })),
-  http.post('*/api/movies/:id/subtitles/prepare', () => HttpResponse.json(success.PrepareMovieSubtitle, { status: 200 })),
   http.post('*/api/movies/:id/subtitles/download', () => HttpResponse.json(success.DownloadMovieSubtitle, { status: 201 })),
   http.get('*/api/movies/:id/subtitles/sidecar', () => HttpResponse.json(success.GetMovieSubtitleSidecar, { status: 200 })),
   http.post('*/api/movies/import', () => new HttpResponse(null, { status: 202, headers: { Location: acceptedLocation, 'Content-Length': '0' } })),

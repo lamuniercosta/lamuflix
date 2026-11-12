@@ -94,7 +94,6 @@ internal static class HandlerRegistration
             serviceProvider => serviceProvider.GetRequiredService<DownloadSubtitleCommandValidator>());
         services.AddHandler<DownloadSubtitleCommandHandler, DownloadSubtitleCommand, DownloadSubtitleResult>();
         services.AddHandler<GetSubtitleContentQueryHandler, GetSubtitleContentQuery, SubtitleContentResult>();
-        services.AddHandler<PrepareSubtitleCommandHandler, PrepareSubtitleCommand, SubtitlePreparationResult>();
         services.AddHandler<GetSubtitleSidecarQueryHandler, GetSubtitleSidecarQuery, SubtitleSidecarResult>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();

@@ -42,10 +42,6 @@ export interface paths {
     /** Serve one eligible sidecar subtitle track converted to WebVTT. */
     get: operations["GetMovieSubtitleContent"];
   };
-  "/api/movies/{id}/subtitles/prepare": {
-    /** Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled. */
-    post: operations["PrepareMovieSubtitle"];
-  };
   "/api/movies/{id}/subtitles/download": {
     /** Download one selected subtitle candidate into the movie Subs folder. */
     post: operations["DownloadMovieSubtitle"];
@@ -330,10 +326,6 @@ export interface components {
     SubtitleLanguagesResponse: {
       defaultLanguage: null | string;
       languages: components["schemas"]["SubtitleLanguageOptionDto"][];
-    };
-    SubtitlePrepareResponse: {
-      outcome: string;
-      selectedLanguage: null | string;
     };
     SubtitleQuotaDto: {
       /** Format: int32 */
@@ -705,76 +697,6 @@ export interface operations {
       };
       /** @description Internal Server Error */
       500: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
-      };
-    };
-  };
-  /** Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled. */
-  PrepareMovieSubtitle: {
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      /** @description OK */
-      200: {
-        content: {
-          "application/json": components["schemas"]["SubtitlePrepareResponse"];
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
-      };
-      /** @description Not Found */
-      404: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
-      };
-      /** @description Conflict */
-      409: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
-      };
-      /** @description Unprocessable Entity */
-      422: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
-      };
-      /** @description Too Many Requests */
-      429: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
-      };
-      /** @description Bad Gateway */
-      502: {
-        content: {
-          "application/problem+json": components["schemas"]["ProblemDetails"];
-        };
-      };
-      /** @description Gateway Timeout */
-      504: {
         content: {
           "application/problem+json": components["schemas"]["ProblemDetails"];
         };
