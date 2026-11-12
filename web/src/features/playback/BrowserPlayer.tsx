@@ -33,7 +33,7 @@ import {
   playerRegionLabel,
   retryLabel,
 } from './playerCopy';
-import { SUBTITLES_LABEL } from './subtitleCopy';
+import { SUBTITLES_LABEL, SUBTITLES_TRIGGER_COPY } from './subtitleCopy';
 import SubtitlePanel, { type SubtitlePanelTab } from './SubtitlePanel';
 import { applySubtitleTrackModes, watchSubtitleTrackModes } from './subtitleTrackModes';
 import { useBrowserPlayer, type MediaDiagnostic } from './useBrowserPlayer';
@@ -416,7 +416,7 @@ export default function BrowserPlayer({
               aria-controls={panelId}
               onClick={toggleCcPanel}
             >
-              CC
+              {SUBTITLES_TRIGGER_COPY}
             </button>
             <MediaSettingsMenuButton id={gearId} invokeTarget={speedMenuId} ref={assignGear} />
             <MediaFullscreenButton />
@@ -427,6 +427,7 @@ export default function BrowserPlayer({
             aria-label={SPEED_LABEL}
             rates={[...PLAYBACK_RATE_OPTIONS]}
             ref={assignSpeedMenu}
+            {...{ noautohide: '' }}
           >
             <span slot="header">{SPEED_LABEL}</span>
           </MediaPlaybackRateMenu>

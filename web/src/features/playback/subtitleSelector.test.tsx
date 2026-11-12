@@ -5,7 +5,9 @@ import type { ComponentProps } from 'react';
 import BrowserPlayer from './BrowserPlayer';
 import { playerRegionLabel } from './playerCopy';
 import {
+  SUBTITLES_EMPTY_COPY,
   SUBTITLES_LABEL,
+  SUBTITLES_LOADING_COPY,
   SUBTITLES_OFF_COPY,
   SUBTITLES_RETRY_COPY,
   SUBTITLES_UNAVAILABLE_COPY,
@@ -198,6 +200,25 @@ describe('subtitle track list states', () => {
     expect(group()).toBeNull();
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
     expect(screen.queryByRole('button', { name: subtitlesRetryLabel('Dune') })).toBeNull();
+  });
+
+  it('shows honest loading copy while the served list is pending', async () => {
+    serveTracks([ENGLISH, PORTUGUESE], 90);
+    renderPlayer();
+
+    fireEvent.click(ccTrigger());
+    expect(await screen.findByText(SUBTITLES_LOADING_COPY)).toBeInTheDocument();
+    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+  });
+
+  it('shows honest empty copy for a successful empty result', async () => {
+    serveTracks([]);
+    renderPlayer();
+
+    await openPanel();
+    expect(group()).toBeNull();
+    expect(screen.getByText(SUBTITLES_EMPTY_COPY)).toBeInTheDocument();
+    expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
   });
 
   it('offers Off plus served labels in served order, with duplicate counters preserved', async () => {
