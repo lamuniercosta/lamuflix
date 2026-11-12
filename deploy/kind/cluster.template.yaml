@@ -16,6 +16,10 @@ nodes:
         hostPort: 3180
         listenAddress: "127.0.0.1"
         protocol: TCP
+      - containerPort: 30188
+        hostPort: 18888
+        listenAddress: "127.0.0.1"
+        protocol: TCP
     extraMounts:
       - hostPath: '{{LIBRARY_PATH}}'
         containerPath: /media/library
