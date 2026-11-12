@@ -3,13 +3,14 @@ kind: Service
 metadata:
   name: aspire-dashboard
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app.kubernetes.io/name: aspire-dashboard
   ports:
     - name: ui
       port: 18888
       targetPort: ui
+      nodePort: 30188
     - name: otlp-grpc
       port: 18889
       targetPort: otlp-grpc
