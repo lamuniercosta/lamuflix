@@ -580,7 +580,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         RequiredQuery(parameters["pageSize"]).ShouldBeTrue();
         parameters["sort"].GetProperty("schema").GetProperty("type").GetString().ShouldBe("string");
         parameters["sort"].GetProperty("schema").GetProperty("enum").EnumerateArray().Select(item => item.GetString())
-            .ShouldBe(["Title", "Year", "Rating", "Runtime"]);
+            .ShouldBe(["Title", "Year", "Rating", "Runtime", "Added"]);
         parameters["direction"].GetProperty("schema").GetProperty("type").GetString().ShouldBe("string");
         parameters["direction"].GetProperty("schema").GetProperty("enum").EnumerateArray().Select(item => item.GetString())
             .ShouldBe(["Ascending", "Descending"]);

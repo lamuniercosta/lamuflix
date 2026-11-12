@@ -162,6 +162,10 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("added_at");
+
                     b.Property<int?>("CollectionId")
                         .HasColumnType("integer")
                         .HasColumnName("collection_id");
@@ -272,6 +276,8 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                         .HasColumnName("trailer_key");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AddedAt");
 
                     b.HasIndex("CollectionId");
 

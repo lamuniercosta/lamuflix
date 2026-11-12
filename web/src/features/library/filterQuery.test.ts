@@ -3,6 +3,7 @@ import {
   isRatingActive,
   normalizeRatingValue,
   parseFilterQuery,
+  SORT_OPTIONS,
   toApiQuery,
   toUrlQuery,
 } from './filterQuery';
@@ -222,5 +223,21 @@ describe('filterQuery director scalar', () => {
 
   it('forwards the raw scalar into the canonical API query', () => {
     expect(toApiQuery('directorId=abc')).toContain('directorId=abc');
+  });
+});
+
+describe('filterQuery Added sort', () => {
+  it('passes Added and its direction through both query forms', () => {
+    expect(toUrlQuery('sort=Added&direction=Descending')).toBe('sort=Added&direction=Descending');
+    expect(toApiQuery('sort=Added&direction=Descending')).toBe(
+      'sort=Added&direction=Descending&page=1&pageSize=20',
+    );
+  });
+
+  it('offers newest and oldest Added options after the Runtime options', () => {
+    expect(SORT_OPTIONS.slice(-2)).toEqual([
+      { label: 'Added (newest)', sort: 'Added', direction: 'Descending' },
+      { label: 'Added (oldest)', sort: 'Added', direction: 'Ascending' },
+    ]);
   });
 });

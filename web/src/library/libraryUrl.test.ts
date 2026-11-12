@@ -42,3 +42,17 @@ describe('libraryUrl collectionId', () => {
     expect(toApiParams(LIBRARY_DEFAULTS).CollectionId).toBeUndefined();
   });
 });
+
+describe('libraryUrl Added sort', () => {
+  it('accepts Added as a sort name and round trips it', () => {
+    const state = parseLibraryUrl('?sort=Added&direction=Desc');
+    expect(state.sort).toBe('Added');
+    expect(state.direction).toBe('Descending');
+    expect(serializeLibraryUrl(state)).toContain('sort=Added');
+    expect(toApiParams(state)).toMatchObject({ Sort: 'Added' });
+  });
+
+  it('falls back to the default sort for an unknown name', () => {
+    expect(parseLibraryUrl('?sort=Added2').sort).toBe('Title');
+  });
+});

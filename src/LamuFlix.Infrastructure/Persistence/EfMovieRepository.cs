@@ -114,12 +114,13 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         return rows == 1;
     }
 
-    private static MovieRecord ToRecord(Movie movie)
+    private MovieRecord ToRecord(Movie movie)
     {
         var record = new MovieRecord
         {
             Id = movie.Id,
             Title = movie.Title,
+            AddedAt = timeProvider.GetUtcNow(),
             LibraryPath = movie.Path,
             Format = movie.Format,
             IsInWatchlist = movie.IsInWatchlist,

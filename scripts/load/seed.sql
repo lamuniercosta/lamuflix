@@ -8,7 +8,8 @@ INSERT INTO movies (
     format,
     is_in_watchlist,
     status,
-    enrichment_attempts
+    enrichment_attempts,
+    added_at
 )
 SELECT
     '/dev427/movie-' || lpad(i::text, 4, '0') || '.mp4',
@@ -16,7 +17,8 @@ SELECT
     'mp4',
     false,
     1,
-    0
+    0,
+    now()
 FROM generate_series(1, 500) AS series(i)
 ON CONFLICT (library_path) DO NOTHING;
 

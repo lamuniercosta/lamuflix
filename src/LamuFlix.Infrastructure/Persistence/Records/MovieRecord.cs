@@ -24,6 +24,8 @@ public sealed class MovieRecord
 
     public required EnrichmentStatus Status { get; set; }
 
+    public DateTimeOffset AddedAt { get; set; }
+
     public DateTimeOffset? EnrichedAt { get; set; }
 
     public int EnrichmentAttempts { get; set; }

@@ -73,6 +73,10 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
             .HasColumnType("integer")
             .HasConversion(new EnrichmentStatusConverter())
             .IsRequired();
+        builder.Property(movie => movie.AddedAt)
+            .HasColumnName("added_at")
+            .HasColumnType("timestamptz")
+            .IsRequired();
         builder.Property(movie => movie.EnrichedAt)
             .HasColumnName("enriched_at")
             .HasColumnType("timestamptz")
@@ -174,6 +178,7 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
         builder.HasIndex(movie => movie.Title);
         builder.HasIndex(movie => movie.ReleaseYear);
         builder.HasIndex(movie => movie.Status);
+        builder.HasIndex(movie => movie.AddedAt);
         builder.HasIndex(movie => movie.LibraryPath).IsUnique();
         builder.HasIndex(movie => movie.LibraryPathKey).IsUnique();
         builder.HasIndex(movie => movie.ImdbId)

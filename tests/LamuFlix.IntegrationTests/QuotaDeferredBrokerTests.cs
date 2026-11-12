@@ -88,6 +88,7 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
             _ => new MetadataLookupResult.Failed(EnrichmentFailureCategory.QuotaExhausted),
             clock);
         var movie = await host.AddMovieAsync(ct, EnrichmentStatus.Pending, deferredUntil: NextUtcMidnight.AddMinutes(-1));
+        clock.ResetReads(); // seeding reads the clock for AddedAt; the scripted sequence must start at the consumer
         await host.Publisher.PublishAsync(
             new EnrichmentRequested(movie, 6),
             RabbitMqTopology.QuotaDeferredRoutingKey,
@@ -631,6 +632,8 @@ public sealed class QuotaDeferredBrokerTests(RabbitMqFixture rabbit, PostgresFix
     private sealed class EqualDeadlineTimeProvider(DateTimeOffset persisted) : TimeProvider
     {
         private int reads;
+
+        public void ResetReads() => Volatile.Write(ref reads, 0);
 
         public override DateTimeOffset GetUtcNow() => Interlocked.Increment(ref reads) switch
         {

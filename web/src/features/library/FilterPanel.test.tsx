@@ -743,6 +743,44 @@ describe('FilterPanel', () => {
     expect(last.maxRating).toBeNull();
     expect(window.location.search).toBe('');
   });
+
+  it('shows the clear search button only while the title search has text', () => {
+    render(<FilterPanel />);
+    expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search titles'), { target: { value: 'dune' } });
+    expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument();
+  });
+
+  it('clears the title search immediately, cancels the pending commit and refocuses the input', () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    render(<FilterPanel onChange={onChange} />);
+
+    const search = screen.getByPlaceholderText('Search titles');
+    fireEvent.change(search, { target: { value: 'dune' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+
+    // No timer advance: the empty text is committed synchronously.
+    const last = onChange.mock.calls.at(-1)?.[0] as ReturnType<typeof parseFilterQuery>;
+    expect(last.text).toBe('');
+    expect(search).toHaveValue('');
+    expect(search).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeInTheDocument();
+
+    const callsAfterClear = onChange.mock.calls.length;
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(onChange.mock.calls.length).toBe(callsAfterClear);
+    expect(
+      onChange.mock.calls.every((call) => (call[0] as { text?: string }).text !== 'dune'),
+    ).toBe(true);
+  });
 });
 
 describe('FilterPanel collection section', () => {

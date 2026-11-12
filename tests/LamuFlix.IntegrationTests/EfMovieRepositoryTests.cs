@@ -75,6 +75,49 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
     }
 
     [Fact]
+    public async Task AddAsync_NewMovie_StampsAddedAtFromTheClock()
+    {
+        // arrange
+        var scannedAt = Now.AddMinutes(7);
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db, scannedAt);
+        var ct = TestContext.Current.CancellationToken;
+        var id = await repository.NextIdentityAsync(ct);
+        var movie = Movie.Create(id, "Scanned", new LibraryPath("C:/library/scanned.mkv"), new MediaFormat("mkv"));
+
+        // act
+        await repository.AddAsync(movie, ct);
+        await repository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        var addedAt = await verify.Movies.AsNoTracking().Where(item => item.Id == id).Select(item => item.AddedAt)
+            .SingleAsync(ct);
+        addedAt.ShouldBe(scannedAt);
+    }
+
+    [Fact]
+    public async Task SaveChanges_ExistingMovieUpdate_DoesNotRestampAddedAt()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var (_, movie) = await SeedPendingMovieAsync(db, "Added once", "added-once");
+        var laterRepository = Repository(db, Now.AddDays(3));
+        var loaded = await laterRepository.GetAsync(movie.Id, ct);
+        loaded.ShouldNotBeNull();
+        loaded.AddToWatchlist();
+
+        // act
+        await laterRepository.SaveChangesAsync(ct);
+
+        // assert
+        await using var verify = OpenSibling(db);
+        var record = await verify.Movies.AsNoTracking().SingleAsync(item => item.Id == movie.Id, ct);
+        record.AddedAt.ShouldBe(Now);
+    }
+
+    [Fact]
     public async Task AddAsync_DuplicateId_ThrowsInvalidOperationException()
     {
         await using var db = fixture.CreateMigratedContext();

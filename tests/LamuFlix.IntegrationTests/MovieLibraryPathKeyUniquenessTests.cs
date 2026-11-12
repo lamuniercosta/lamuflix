@@ -341,7 +341,7 @@ public sealed class MovieLibraryPathKeyUniquenessTests(PostgresFixture fixture)
         string key,
         CancellationToken cancellationToken) =>
         context.Database.ExecuteSqlRawAsync(
-            "INSERT INTO movies (title, library_path, library_path_key, format, status, enrichment_attempts, is_in_watchlist) VALUES ({0}, {1}, {2}, 'mkv', 0, 0, false)",
+            "INSERT INTO movies (title, library_path, library_path_key, format, status, enrichment_attempts, is_in_watchlist, added_at) VALUES ({0}, {1}, {2}, 'mkv', 0, 0, false, now())",
             [title, path, key],
             cancellationToken);
 

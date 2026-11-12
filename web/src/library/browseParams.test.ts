@@ -21,3 +21,11 @@ describe('buildBrowseParams director scalar', () => {
     expect(params.page).toBe(3);
   });
 });
+
+describe('buildBrowseParams Added sort', () => {
+  it('forwards Added with its direction', () => {
+    const params = buildBrowseParams('sort=Added&direction=Descending');
+    expect(params.sort).toBe('Added');
+    expect(params.direction).toBe('Descending');
+  });
+});
