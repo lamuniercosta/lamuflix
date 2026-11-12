@@ -7,6 +7,7 @@ import { movieDetails } from '../../mocks/fixtures';
 import { installMediaStubs, type MediaStubHandle } from '../../test/mediaElement';
 import { playerRegionLabel, playLabel } from '../playback/playerCopy';
 import {
+  SUBTITLES_LABEL,
   SUBTITLES_OFF_COPY,
   SUBTITLES_RETRY_COPY,
   SUBTITLES_UNAVAILABLE_COPY,
@@ -48,6 +49,33 @@ function video(): HTMLVideoElement {
   return element;
 }
 
+function trackGroup(): HTMLElement | null {
+  return screen.queryByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+}
+
+function trackLabels(): string[] {
+  const group = trackGroup();
+  if (!group) return [];
+  return within(group)
+    .getAllByRole('radio')
+    .map((radio) => radio.getAttribute('aria-label') ?? '');
+}
+
+function checkedLabel(): string | null {
+  const group = trackGroup();
+  if (!group) return null;
+  const checked = within(group)
+    .getAllByRole('radio')
+    .find((radio) => radio.getAttribute('aria-checked') === 'true');
+  return checked?.getAttribute('aria-label') ?? null;
+}
+
+function choose(label: string): void {
+  const group = trackGroup();
+  if (!group) throw new Error('expected the subtitle radiogroup to be rendered');
+  fireEvent.click(within(group).getByRole('radio', { name: label }));
+}
+
 function modeOf(trackId: string): TextTrackMode | undefined {
   const element = video().querySelector<HTMLTrackElement>(`track[data-track-id="${trackId}"]`);
   return element?.track?.mode;
@@ -77,7 +105,7 @@ afterEach(() => {
   window.history.replaceState({}, '', '/');
 });
 
-describe('MovieDetailsView subtitle selector at the DEV-455 viewer seam', () => {
+describe('MovieDetailsView subtitle track list at the DEV-455 viewer seam', () => {
   it('offers Off plus served tracks once the browser player is open', async () => {
     serveSubtitles();
     renderView();
@@ -85,15 +113,9 @@ describe('MovieDetailsView subtitle selector at the DEV-455 viewer seam', () => 
     fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
     await screen.findByRole('region', { name: playerRegionLabel('Dune') });
 
-    const control = (await screen.findByRole('combobox', {
-      name: subtitleSelectLabel('Dune'),
-    })) as HTMLSelectElement;
-    expect(Array.from(control.options).map((option) => option.textContent)).toEqual([
-      SUBTITLES_OFF_COPY,
-      'English',
-      'Portuguese (Brazil)',
-    ]);
-    expect(control.value).toBe('');
+    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    expect(trackLabels()).toEqual([SUBTITLES_OFF_COPY, 'English', 'Portuguese (Brazil)']);
+    expect(checkedLabel()).toBe(SUBTITLES_OFF_COPY);
   }, 15000);
 
   it('shows only the chosen track and returns to Off on request', async () => {
@@ -101,20 +123,20 @@ describe('MovieDetailsView subtitle selector at the DEV-455 viewer seam', () => 
     renderView();
 
     fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
-    const control = (await screen.findByRole('combobox', {
-      name: subtitleSelectLabel('Dune'),
-    })) as HTMLSelectElement;
+    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
 
-    fireEvent.change(control, { target: { value: 'token-pob' } });
+    choose('Portuguese (Brazil)');
     await waitFor(() => expect(modeOf('token-pob')).toBe('showing'));
     expect(modeOf('token-en')).toBe('disabled');
+    expect(checkedLabel()).toBe('Portuguese (Brazil)');
 
-    fireEvent.change(control, { target: { value: '' } });
+    choose(SUBTITLES_OFF_COPY);
     await waitFor(() => expect(modeOf('token-pob')).toBe('disabled'));
     expect(modeOf('token-en')).toBe('disabled');
+    expect(checkedLabel()).toBe(SUBTITLES_OFF_COPY);
   });
 
-  it('keeps the browser player and its Play control during a content failure', async () => {
+  it('keeps the browser player and its in-bar Play control during a content failure', async () => {
     serveSubtitles();
     server.use(
       http.get(
@@ -125,14 +147,13 @@ describe('MovieDetailsView subtitle selector at the DEV-455 viewer seam', () => 
     renderView();
 
     fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
-    const control = (await screen.findByRole('combobox', {
-      name: subtitleSelectLabel('Dune'),
-    })) as HTMLSelectElement;
+    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
 
-    fireEvent.change(control, { target: { value: 'token-en' } });
+    choose('English');
 
     expect(await screen.findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
-    expect(within(region()).getByRole('button', { name: /^(play|pause)$/i })).toBeInTheDocument();
+    expect(within(region()).getByRole('button', { name: SUBTITLES_LABEL })).toBeInTheDocument();
+    expect(region().querySelectorAll('media-play-button')).toHaveLength(1);
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -148,7 +169,7 @@ describe('MovieDetailsView subtitle selector at the DEV-455 viewer seam', () => 
     expect(await screen.findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
     const retry = within(region()).getByRole('button', { name: subtitlesRetryLabel('Dune') });
     expect(retry).toHaveTextContent(SUBTITLES_RETRY_COPY);
-    expect(screen.queryByRole('combobox', { name: subtitleSelectLabel('Dune') })).toBeNull();
+    expect(trackGroup()).toBeNull();
   });
 
   it('does not disturb video playback when a track is chosen or turned off', async () => {
@@ -162,13 +183,11 @@ describe('MovieDetailsView subtitle selector at the DEV-455 viewer seam', () => 
     });
     media.calls.length = 0;
 
-    const control = (await screen.findByRole('combobox', {
-      name: subtitleSelectLabel('Dune'),
-    })) as HTMLSelectElement;
-    fireEvent.change(control, { target: { value: 'token-en' } });
+    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    choose('English');
     await waitFor(() => expect(modeOf('token-en')).toBe('showing'));
 
-    fireEvent.change(control, { target: { value: '' } });
+    choose(SUBTITLES_OFF_COPY);
     await waitFor(() => expect(modeOf('token-en')).toBe('disabled'));
 
     expect(media.calls.filter((call) => call === 'pause')).toHaveLength(0);
