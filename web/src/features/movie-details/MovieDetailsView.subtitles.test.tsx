@@ -11,6 +11,7 @@ import {
   SUBTITLES_OFF_COPY,
   SUBTITLES_RETRY_COPY,
   SUBTITLES_UNAVAILABLE_COPY,
+  subtitlePanelLabel,
   subtitleSelectLabel,
   subtitlesRetryLabel,
 } from '../playback/subtitleCopy';
@@ -51,6 +52,18 @@ function video(): HTMLVideoElement {
 
 function trackGroup(): HTMLElement | null {
   return screen.queryByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+}
+
+function ccTrigger(): HTMLElement {
+  return within(region()).getByRole('button', { name: SUBTITLES_LABEL });
+}
+
+async function openCcPanel(): Promise<HTMLElement> {
+  const trigger = ccTrigger();
+  if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger);
+  const panel = await screen.findByRole('region', { name: subtitlePanelLabel('Dune') });
+  await waitFor(() => expect(panel.querySelector('[aria-busy="true"]')).toBeNull());
+  return panel;
 }
 
 function trackLabels(): string[] {
@@ -113,7 +126,7 @@ describe('MovieDetailsView subtitle track list at the DEV-455 viewer seam', () =
     fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
     await screen.findByRole('region', { name: playerRegionLabel('Dune') });
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openCcPanel();
     expect(trackLabels()).toEqual([SUBTITLES_OFF_COPY, 'English', 'Portuguese (Brazil)']);
     expect(checkedLabel()).toBe(SUBTITLES_OFF_COPY);
   }, 15000);
@@ -123,7 +136,7 @@ describe('MovieDetailsView subtitle track list at the DEV-455 viewer seam', () =
     renderView();
 
     fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openCcPanel();
 
     choose('Portuguese (Brazil)');
     await waitFor(() => expect(modeOf('token-pob')).toBe('showing'));
@@ -147,7 +160,7 @@ describe('MovieDetailsView subtitle track list at the DEV-455 viewer seam', () =
     renderView();
 
     fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openCcPanel();
 
     choose('English');
 
@@ -165,6 +178,7 @@ describe('MovieDetailsView subtitle track list at the DEV-455 viewer seam', () =
 
     fireEvent.click(await screen.findByRole('button', { name: playLabel('Dune') }));
     await screen.findByRole('region', { name: playerRegionLabel('Dune') });
+    await openCcPanel();
 
     expect(await screen.findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
     const retry = within(region()).getByRole('button', { name: subtitlesRetryLabel('Dune') });
@@ -183,7 +197,7 @@ describe('MovieDetailsView subtitle track list at the DEV-455 viewer seam', () =
     });
     media.calls.length = 0;
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openCcPanel();
     choose('English');
     await waitFor(() => expect(modeOf('token-en')).toBe('showing'));
 

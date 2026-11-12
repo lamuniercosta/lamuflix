@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import {
   MediaController,
   MediaControlBar,
@@ -23,7 +30,7 @@ import {
   retryLabel,
 } from './playerCopy';
 import { SUBTITLES_LABEL } from './subtitleCopy';
-import SubtitleSelector from './SubtitleSelector';
+import SubtitlePanel, { type SubtitlePanelTab } from './SubtitlePanel';
 import { applySubtitleTrackModes, watchSubtitleTrackModes } from './subtitleTrackModes';
 import { useBrowserPlayer, type MediaDiagnostic } from './useBrowserPlayer';
 import { useSubtitlePlayback } from './useSubtitlePlayback';
@@ -32,6 +39,16 @@ import './BrowserPlayer.css';
 const SEEK_STEP_SECONDS = 10;
 const NON_INTERACTIVE_SELECTOR =
   'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]';
+
+interface CcSurface {
+  movieId: number | string;
+  open: boolean;
+  tab: SubtitlePanelTab;
+}
+
+function freshSurface(movieId: number | string): CcSurface {
+  return { movieId, open: false, tab: 'subtitles' };
+}
 
 export interface BrowserPlayerProps {
   title: string;
@@ -71,6 +88,12 @@ export default function BrowserPlayer({
     onDiagnostic,
   });
   const regionRef = useRef<HTMLElement | null>(null);
+  const ccTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelId = useId();
+  const [ccSurface, setCcSurface] = useState<CcSurface>(() => freshSurface(movieId));
+  const surface = ccSurface.movieId === movieId ? ccSurface : freshSurface(movieId);
+  const ccOpen = surface.open;
+  const ccTab = surface.tab;
   const subtitles = useSubtitlePlayback(movieId);
   const { selection, contentStatus, tracks } = subtitles;
   const showTrack = selection !== null && contentStatus === 'ready';
@@ -78,6 +101,29 @@ export default function BrowserPlayer({
   useEffect(() => {
     regionRef.current?.focus();
   }, [movieId]);
+
+  const openCcPanel = useCallback(() => {
+    setCcSurface({ movieId, open: true, tab: 'subtitles' });
+  }, [movieId]);
+
+  const closeCcPanel = useCallback(() => {
+    setCcSurface(freshSurface(movieId));
+  }, [movieId]);
+
+  const selectTab = useCallback(
+    (tab: SubtitlePanelTab) => {
+      setCcSurface((current) => ({ ...freshSurface(movieId), open: current.open, tab }));
+    },
+    [movieId],
+  );
+
+  const toggleCcPanel = useCallback(() => {
+    if (ccOpen) {
+      closeCcPanel();
+      return;
+    }
+    openCcPanel();
+  }, [ccOpen, closeCcPanel, openCcPanel]);
 
   const desiredTrackId = showTrack ? (selection?.trackId ?? null) : null;
   const desiredTrackIdRef = useRef<string | null>(null);
@@ -181,7 +227,15 @@ export default function BrowserPlayer({
             <MediaTimeDisplay showDuration noToggle />
             <MediaMuteButton />
             <MediaVolumeRange />
-            <button type="button" className="browser-player-trigger" aria-label={SUBTITLES_LABEL}>
+            <button
+              ref={ccTriggerRef}
+              type="button"
+              className="browser-player-trigger"
+              aria-label={SUBTITLES_LABEL}
+              aria-expanded={ccOpen}
+              aria-controls={panelId}
+              onClick={toggleCcPanel}
+            >
               CC
             </button>
             <button type="button" className="browser-player-trigger" aria-label={SETTINGS_LABEL}>
@@ -189,6 +243,21 @@ export default function BrowserPlayer({
             </button>
             <MediaFullscreenButton />
           </MediaControlBar>
+          {ccOpen ? (
+            <SubtitlePanel
+              title={title}
+              panelId={panelId}
+              activeTab={ccTab}
+              listStatus={subtitles.listStatus}
+              contentStatus={subtitles.contentStatus}
+              tracks={subtitles.tracks}
+              selectedId={selection?.trackId ?? null}
+              onTabChange={selectTab}
+              onSelect={subtitles.select}
+              onRetryList={subtitles.retryList}
+              onClose={closeCcPanel}
+            />
+          ) : null}
         </MediaController>
       </div>
 
@@ -201,16 +270,6 @@ export default function BrowserPlayer({
         )}
         {status === 'ended' && <p className="sr-only">{ENDED_ANNOUNCEMENT}</p>}
       </div>
-
-      <SubtitleSelector
-        title={title}
-        listStatus={subtitles.listStatus}
-        contentStatus={subtitles.contentStatus}
-        tracks={subtitles.tracks}
-        selectedId={selection?.trackId ?? null}
-        onSelect={subtitles.select}
-        onRetryList={subtitles.retryList}
-      />
 
       {status === 'error' ? (
         <div className="browser-player-actions">
