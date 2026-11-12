@@ -13,7 +13,8 @@ public sealed record SubtitleCandidateBinding(
     SubtitleCandidate Candidate,
     string ReleaseName,
     DateTimeOffset ExpiresAtUtc,
-    long IssuedSequence);
+    long IssuedSequence,
+    SubtitleQuota LastKnownQuota);
 
 public sealed class SubtitleCandidateBinder
 {
@@ -55,7 +56,12 @@ public sealed class SubtitleCandidateBinder
         }
     }
 
-    public string Issue(MovieId movieId, string language, SubtitleCandidate candidate, string releaseName)
+    public string Issue(
+        MovieId movieId,
+        string language,
+        SubtitleCandidate candidate,
+        string releaseName,
+        SubtitleQuota? lastKnownQuota = null)
     {
         ArgumentNullException.ThrowIfNull(movieId);
         ArgumentException.ThrowIfNullOrWhiteSpace(language);
@@ -75,7 +81,8 @@ public sealed class SubtitleCandidateBinder
                 candidate,
                 releaseName,
                 now.Add(TokenTtl()),
-                ++sequence);
+                ++sequence,
+                lastKnownQuota ?? SubtitleQuota.Unknown);
             return candidateId;
         }
     }

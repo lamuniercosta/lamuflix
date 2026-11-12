@@ -336,6 +336,18 @@ const subtitleSearchData = {
 } satisfies Schemas['SubtitleSearchResponse'];
 
 export const subtitleSearch = Object.freeze(subtitleSearchData);
+
+const subtitleDownloadData = {
+  track: {
+    id: 'track-en-1080p',
+    label: 'English',
+    language: 'en',
+    isDefault: false,
+  },
+  quota: { remainingDownloads: 16, resetAtUtc: '2026-03-04T05:06:07+00:00' },
+} satisfies Schemas['SubtitleDownloadResponse'];
+
+export const subtitleDownload = Object.freeze(subtitleDownloadData);
 export const subtitleContent = subtitleContentData;
 export const preparedSubtitle = Object.freeze(preparedSubtitleData);
 export const subtitleSidecar = subtitleSidecarData;
@@ -359,6 +371,7 @@ export const success = Object.freeze({
   ListMovieSubtitleTracks: subtitleTracks,
   ListSubtitleLanguages: subtitleLanguages,
   SearchMovieSubtitles: subtitleSearch,
+  DownloadMovieSubtitle: subtitleDownload,
   GetMovieSubtitleContent: subtitleContent,
   PrepareMovieSubtitle: preparedSubtitle,
   GetMovieSubtitleSidecar: subtitleSidecar,

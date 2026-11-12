@@ -83,6 +83,20 @@ internal static class SubtitleEndpoints
             .ProducesProblem(StatusCodes.Status504GatewayTimeout)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
+        api.MapPost("/movies/{id:int}/subtitles/download", DownloadSubtitleAsync)
+            .WithName("DownloadMovieSubtitle")
+            .WithSummary("Download one selected subtitle candidate into the movie Subs folder.")
+            .Produces<SubtitleDownloadResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+
         api.MapGet("/movies/{id}/subtitles/sidecar", GetSubtitleSidecarAsync)
             .WithName("GetMovieSubtitleSidecar")
             .WithSummary("Serve the existing exact-basename sidecar subtitle of a movie without acquisition.")
@@ -185,6 +199,32 @@ internal static class SubtitleEndpoints
         var movieId = ParseMovieId(id);
         var result = await handler.HandleAsync(new PrepareSubtitleCommand(movieId), cancellationToken);
         return TypedResults.Ok(SubtitlePrepareResponse.From(result));
+    }
+
+    private static async Task<Created<SubtitleDownloadResponse>> DownloadSubtitleAsync(
+        int id,
+        SubtitleDownloadRequest request,
+        HttpContext httpContext,
+        ICommandHandler<DownloadSubtitleCommand, DownloadSubtitleResult> handler,
+        CancellationToken cancellationToken)
+    {
+        EnforceNoStore(httpContext);
+
+        if (!MovieId.TryCreate(id, out var movieId))
+        {
+            throw new BadHttpRequestException($"Movie id '{id}' is not a valid movie identifier.");
+        }
+
+        var result = await handler.HandleAsync(
+            new DownloadSubtitleCommand(movieId, request.CandidateId),
+            cancellationToken);
+
+        var track = result.Track;
+        return TypedResults.Created(
+            string.Create(CultureInfo.InvariantCulture, $"/api/movies/{id}/subtitles"),
+            new SubtitleDownloadResponse(
+                new SubtitleTrackDto(track.Id, track.Label, track.Language, track.IsDefault),
+                new SubtitleQuotaDto(result.Quota.RemainingDownloads, result.Quota.ResetAtUtc)));
     }
 
     private static async Task<IResult> GetSubtitleSidecarAsync(

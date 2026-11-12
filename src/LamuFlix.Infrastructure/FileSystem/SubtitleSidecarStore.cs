@@ -97,6 +97,22 @@ public sealed partial class SubtitleSidecarStore(
         }
     }
 
+    public Task EnsurePublishableAsync(
+        LibraryPath folder,
+        string primaryFileName,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        _ = SubtitleStem(primaryFileName);
+        AuthorizePrimary(folder, primaryFileName);
+
+        var movieDirectory = ResolveExistingMovieDirectory(folder);
+        EnforceSubsContainment(movieDirectory, Path.Combine(movieDirectory, SubsFolderName));
+        return Task.CompletedTask;
+    }
+
     public async Task<SubtitlePublishResult> PublishToSubsAsync(
         LibraryPath folder,
         string primaryFileName,
@@ -168,7 +184,7 @@ public sealed partial class SubtitleSidecarStore(
             : string.Concat(
                 baseName,
                 "(",
-                attempt.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                (attempt - 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ")",
                 SubtitleExtension);
 

@@ -48,6 +48,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "GET /api/movies/{id}/subtitles",
         "GET /api/movies/{id}/subtitles/search",
         "GET /api/movies/{id}/subtitles/{trackId}/content",
+        "POST /api/movies/{id}/subtitles/download",
         "POST /api/movies/{id}/subtitles/prepare",
         "GET /api/movies/{id}/subtitles/sidecar",
         "GET /api/movies/{id}/recommendations",
@@ -91,6 +92,8 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         "SubtitleSearchCandidateDto",
         "SubtitleQuotaDto",
         "SubtitleDownloadAvailabilityDto",
+        "SubtitleDownloadRequest",
+        "SubtitleDownloadResponse",
     ];
 
     private static readonly string[] OperationMethods =
@@ -268,6 +271,63 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         var availability = schemas.GetProperty("SubtitleDownloadAvailabilityDto");
         availability.GetProperty("required").EnumerateArray().Select(item => item.GetString())
             .ShouldBe(["enabled", "reason"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public async Task Document_PostMovieSubtitleDownload_DocumentsCandidateBodyAndTrackEnvelope()
+    {
+        // arrange
+        await using var development = CreateDevelopmentHost();
+        using var client = development.CreateClient();
+
+        // act
+        var document = await GenerateDocumentAsync(client);
+        using var parsed = JsonDocument.Parse(document);
+
+        // assert
+        Operations(parsed.RootElement).ShouldBe(ExpectedOperations, ignoreOrder: true);
+        var operation = parsed.RootElement.GetProperty("paths")
+            .GetProperty("/api/movies/{id}/subtitles/download")
+            .GetProperty("post");
+        operation.GetProperty("operationId").GetString().ShouldBe("DownloadMovieSubtitle");
+        operation.GetProperty("summary").GetString().ShouldBe(
+            "Download one selected subtitle candidate into the movie Subs folder.");
+
+        var parameter = operation.GetProperty("parameters").EnumerateArray().ShouldHaveSingleItem();
+        parameter.GetProperty("name").GetString().ShouldBe("id");
+        parameter.GetProperty("in").GetString().ShouldBe("path");
+        parameter.GetProperty("required").GetBoolean().ShouldBeTrue();
+
+        var requestSchema = ResolveSchema(
+            parsed.RootElement,
+            operation.GetProperty("requestBody").GetProperty("content")
+                .GetProperty("application/json").GetProperty("schema"));
+        requestSchema.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["candidateId"]);
+        requestSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["candidateId"]);
+
+        var responses = operation.GetProperty("responses");
+        responses.EnumerateObject().Select(response => response.Name)
+            .ShouldBe(["201", "400", "403", "404", "409", "422", "429", "500", "502", "504"], ignoreOrder: true);
+        responses.GetProperty("201").GetProperty("content").GetProperty("application/json")
+            .GetProperty("schema").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/SubtitleDownloadResponse");
+        foreach (var status in new[] { "400", "403", "404", "409", "422", "429", "500", "502", "504" })
+        {
+            responses.GetProperty(status).GetProperty("content")
+                .GetProperty("application/problem+json").GetProperty("schema")
+                .GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ProblemDetails");
+        }
+
+        var schemas = parsed.RootElement.GetProperty("components").GetProperty("schemas");
+        var response = schemas.GetProperty("SubtitleDownloadResponse");
+        response.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .ShouldBe(["track", "quota"], ignoreOrder: true);
+        response.GetProperty("properties").EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["track", "quota"], ignoreOrder: true);
+        response.GetProperty("properties").GetProperty("track").GetProperty("$ref").GetString()
+            .ShouldBe("#/components/schemas/SubtitleTrackDto");
     }
 
     [Fact]

@@ -60,7 +60,7 @@ public sealed class SearchSubtitlesQueryHandler(
         EnsureProviderConfigured();
 
         var search = await SearchProviderAsync(target, language.Code, cancellationToken);
-        var candidates = Rank(query.Id, language.Code, search.Candidates, VideoStem(target.PrimaryFileName));
+        var candidates = Rank(query.Id, language.Code, search.Candidates, VideoStem(target.PrimaryFileName), search.Quota);
         var downloadEnabled = subtitlesOptions.Value.SaveEnabled;
 
         return new SearchSubtitlesResult(
@@ -151,14 +151,15 @@ public sealed class SearchSubtitlesQueryHandler(
         MovieId movieId,
         string languageCode,
         IReadOnlyList<SubtitleCandidate> candidates,
-        string videoStem)
+        string videoStem,
+        SubtitleQuota quota)
     {
         var entries = new List<RankedCandidate>(candidates.Count);
         foreach (var candidate in candidates)
         {
             var releaseName = candidate.ReleaseName ?? string.Empty;
             entries.Add(new RankedCandidate(
-                binder.Issue(movieId, languageCode, candidate, releaseName),
+                binder.Issue(movieId, languageCode, candidate, releaseName, quota),
                 candidate,
                 releaseName,
                 SubtitleMatchScorer.Score(videoStem, releaseName, candidate.MatchesMovieHash)));
