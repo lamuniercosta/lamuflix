@@ -384,7 +384,11 @@ $appImages = [ordered]@{
     api = 'ghcr.io/lamuniercosta/lamuflix-api'
     web = 'ghcr.io/lamuniercosta/lamuflix-web'
 }
-$forbiddenText = @('OTEL_EXPORTER_OTLP_ENDPOINT')
+# Rendered workloads that exist only in the home cluster, with no Compose service by design.
+$clusterOnlyWorkloads = @('aspire-dashboard')
+# The API exports telemetry to the in-cluster Aspire dashboard, and only the API sets it.
+$otelEndpointName = 'OTEL_EXPORTER_OTLP_ENDPOINT'
+$otelEndpointValue = 'http://aspire-dashboard:18889'
 $webNodePort = '30100'
 
 try {
@@ -408,6 +412,10 @@ try {
         Add-Check "compose '$name' has a workload" ($null -ne (Get-DocByKindName $workloads $workloadKinds $target)) "no StatefulSet or Deployment named '$target' in the rendered output"
     }
     foreach ($n in $renderedNames) {
+        if ($clusterOnlyWorkloads -contains $n) {
+            Add-Check "workload '$n' is cluster-only (no compose service by design)" $true
+            continue
+        }
         Add-Check "workload '$n' has a compose service" ($targetOf.Values -contains $n) "rendered workload '$n' has no compose service"
     }
 
@@ -437,6 +445,7 @@ try {
         ollama   = $ollamaPort
         api      = '8080'
         web      = $webPort
+        'aspire-dashboard' = '18889'
     }
 
     foreach ($name in $expectedPorts.Keys) {
@@ -508,9 +517,14 @@ try {
         }
     }
 
-    foreach ($f in $forbiddenText) {
-        Add-Check "$f absent from the rendered output" (-not $renderedText.Contains($f)) "$f appears in the rendered output"
+    $otelOccurrences = ([regex]::Matches($renderedText, [regex]::Escape($otelEndpointName))).Count
+    $otelValue = ''
+    $apiOtelContainers = @(Get-Containers $apiWl)
+    if ($apiOtelContainers.Count -gt 0) {
+        $apiOtelEnv = Get-EnvMap $apiOtelContainers[0]
+        if ($apiOtelEnv.ContainsKey($otelEndpointName)) { $otelValue = [string](Get-Field $apiOtelEnv[$otelEndpointName] 'value') }
     }
+    Add-Check "$otelEndpointName is set once, on api, to the in-cluster dashboard" ($otelOccurrences -eq 1 -and $otelValue -eq $otelEndpointValue) "occurrences $otelOccurrences, api value '$otelValue'"
 }
 catch {
     Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
