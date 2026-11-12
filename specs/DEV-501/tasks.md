@@ -117,13 +117,13 @@
 
 ### Tests
 
-- [ ] T021 [P] [US3] Vitest/RTL coverage beside `web/src/features/playback/` tests: language default/change (incl. empty preferences / null default); ordering; stale discard; Get serialization; read-only disabled Get; quota unavailable/exhausted copy; search-rate-limit vs download-quota copy; timeout/error + manual retry; session-safe activation; changed-language completion; **active check only on actual active local track** (D5 — no candidate-row active check).
+- [X] T021 [P] [US3] Vitest/RTL coverage beside `web/src/features/playback/` tests: language default/change (incl. empty preferences / null default); ordering; stale discard; Get serialization; read-only disabled Get; quota unavailable/exhausted copy; search-rate-limit vs download-quota copy; timeout/error + manual retry; session-safe activation; changed-language completion; **active check only on actual active local track** (D5 — no candidate-row active check).
 
 ### Implementation
 
-- [ ] T022 [US3] **After T025–T027 complete** (prepare retirement + final backend contract regeneration/snapshot approval), run `cd web && npm run generate:api` so clients/mocks validate against the final regenerated `web/src/api/openapi.json` / `types.ts` — never hand-edit generated contracts. Snapshot/installer workflows remain gated pickup discoveries (recon:128 incomplete); do not invent commands.
-- [ ] T023 [US3] web-implement Subtitles tab UI in `web/src/features/playback/` (`BrowserPlayer.tsx` / `SubtitleSelector.tsx` and tab section files) per `design.md` + D5: LanguageSearch from generated catalog types, QuotaLine, LocalTrackList (active check here only), CandidateList (Get only), SubtitleStatus; native select/radio/button a11y; no new state library; media-chrome retained.
-- [ ] T024 [US3] Wire generated clients only; refuse Get client-side when `downloadAvailability.enabled` is false; discard stale searches; keep Off/local usable; map distinct 429 reasons to approved copy; SMOKE-001..003 to `web/e2e/` only if Compose-visible path available — otherwise document smoke deferral vs runtime OPEN receipts.
+- [X] T022 [US3] **After T025–T027 complete** (prepare retirement + final backend contract regeneration/snapshot approval), run `cd web && npm run generate:api` so clients/mocks validate against the final regenerated `web/src/api/openapi.json` / `types.ts` — never hand-edit generated contracts. Snapshot/installer workflows remain gated pickup discoveries (recon:128 incomplete); do not invent commands.
+- [X] T023 [US3] web-implement Subtitles tab UI in `web/src/features/playback/` (`BrowserPlayer.tsx` / `SubtitleSelector.tsx` and tab section files) per `design.md` + D5: LanguageSearch from generated catalog types, QuotaLine, LocalTrackList (active check here only), CandidateList (Get only), SubtitleStatus; native select/radio/button a11y; no new state library; media-chrome retained.
+- [X] T024 [US3] Wire generated clients only; refuse Get client-side when `downloadAvailability.enabled` is false; discard stale searches; keep Off/local usable; map distinct 429 reasons to approved copy; SMOKE-001..003 to `web/e2e/` only if Compose-visible path available — otherwise document smoke deferral vs runtime OPEN receipts.
 
 **Checkpoint**: UI states match design without stopping playback.
 

@@ -36,6 +36,7 @@ export interface SubtitlePlayback {
   contentStatus: SubtitleContentStatus;
   select: (trackId: string | null) => void;
   retryList: () => void;
+  refreshAfterDownload: (track: SubtitleTrack) => void;
 }
 
 async function fetchTrackList(movieId: number): Promise<readonly SubtitleTrack[] | null> {
@@ -199,5 +200,66 @@ export function useSubtitlePlayback(movieId: number | string): SubtitlePlayback 
     setListAttempt((current) => current + 1);
   }, [releaseOwnedUrl]);
 
-  return { listStatus, tracks, selection, contentStatus, select, retryList };
+  const refreshAfterDownload = useCallback(
+    (track: SubtitleTrack) => {
+      listGeneration.current += 1;
+      const generation = listGeneration.current;
+      attemptRef.current += 1;
+      const attempt = attemptRef.current;
+      releaseOwnedUrl();
+      const route = subtitleContentUrl(numericId, track.id);
+      setSnapshot((current) => ({
+        ...current,
+        movieId: numericId,
+        listAttempt,
+        listStatus: 'ready',
+        contentError: false,
+        selection: {
+          trackId: track.id,
+          label: track.label,
+          language: track.language,
+          src: route,
+          owned: false,
+          attempt,
+          status: 'loading',
+        },
+      }));
+
+      void (async () => {
+        const [loaded, text] = await Promise.all([
+          fetchTrackList(numericId),
+          fetchTrackContent(route),
+        ]);
+        if (generation !== listGeneration.current || attempt !== attemptRef.current) return;
+        const ownedUrl = text === null ? null : createOwnedUrl(text);
+        if (generation !== listGeneration.current || attempt !== attemptRef.current) {
+          revokeOwnedUrl(ownedUrl);
+          return;
+        }
+        if (loaded) {
+          const merged = loaded.some((entry) => entry.id === track.id)
+            ? loaded
+            : [...loaded, track];
+          setSnapshot((current) => ({ ...current, tracks: merged }));
+        }
+        if (!ownedUrl) {
+          attemptRef.current += 1;
+          setSnapshot((current) => ({ ...current, selection: null, contentError: true }));
+          return;
+        }
+        ownedUrlRef.current = ownedUrl;
+        setSnapshot((current) =>
+          current.selection && current.selection.attempt === attempt
+            ? {
+                ...current,
+                selection: { ...current.selection, src: ownedUrl, owned: true, status: 'ready' },
+              }
+            : current,
+        );
+      })();
+    },
+    [listAttempt, numericId, releaseOwnedUrl],
+  );
+
+  return { listStatus, tracks, selection, contentStatus, select, retryList, refreshAfterDownload };
 }
