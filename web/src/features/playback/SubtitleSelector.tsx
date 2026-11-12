@@ -88,47 +88,58 @@ export default function SubtitleSelector({
     next?.focus();
   };
 
-  const move = (index: number, delta: number) => {
-    const nextIndex = (index + delta + choices.length) % choices.length;
-    onSelect(choices[nextIndex].id);
-    focusChoice(nextIndex);
+  const selectAndFocus = (index: number) => {
+    onSelect(choices[index].id);
+    focusChoice(index);
   };
 
-  const handleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+  const move = (index: number, delta: number) => {
+    selectAndFocus((index + delta + choices.length) % choices.length);
+  };
+
+  const handleMoveKey = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number): boolean => {
     switch (event.key) {
       case 'ArrowDown':
       case 'ArrowRight':
-        event.preventDefault();
-        event.stopPropagation();
         move(index, 1);
-        break;
+        return true;
       case 'ArrowUp':
       case 'ArrowLeft':
-        event.preventDefault();
-        event.stopPropagation();
         move(index, -1);
-        break;
-      case 'Home':
-        event.preventDefault();
-        event.stopPropagation();
-        onSelect(choices[0].id);
-        focusChoice(0);
-        break;
-      case 'End':
-        event.preventDefault();
-        event.stopPropagation();
-        onSelect(choices[choices.length - 1].id);
-        focusChoice(choices.length - 1);
-        break;
-      case ' ':
-      case 'Enter':
-        event.preventDefault();
-        event.stopPropagation();
-        onSelect(choices[index].id);
-        break;
+        return true;
       default:
-        break;
+        return false;
     }
+  };
+
+  const handleJumpKey = (event: ReactKeyboardEvent<HTMLButtonElement>): boolean => {
+    switch (event.key) {
+      case 'Home':
+        selectAndFocus(0);
+        return true;
+      case 'End':
+        selectAndFocus(choices.length - 1);
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (handleMoveKey(event, index)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (handleJumpKey(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (event.key !== ' ' && event.key !== 'Enter') return;
+    event.preventDefault();
+    event.stopPropagation();
+    onSelect(choices[index].id);
   };
 
   return (

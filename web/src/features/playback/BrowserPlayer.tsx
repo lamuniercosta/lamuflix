@@ -83,6 +83,21 @@ function ownsSpaceActivation(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && target.closest(SPACE_OWNING_SELECTOR) !== null;
 }
 
+function isContainedInAny(node: unknown, elements: readonly (Node | null)[]): boolean {
+  if (!(node instanceof Node)) return false;
+  return elements.some((element) => element !== null && element.contains(node));
+}
+
+function exitFullscreenIfActive(): boolean {
+  if (!document.fullscreenElement) return false;
+  void document.exitFullscreen?.().catch(() => {});
+  return true;
+}
+
+function enterFullscreen(element: HTMLElement | null): void {
+  void element?.requestFullscreen?.().catch(() => {});
+}
+
 export default function BrowserPlayer({
   title,
   movieId,
@@ -250,16 +265,10 @@ export default function BrowserPlayer({
 
   useEffect(() => {
     const panel = () => document.getElementById(panelId);
-    const withinSurface = (node: unknown): boolean => {
-      if (!(node instanceof Node)) return false;
-      const surfaces = [panel(), speedMenuRef.current];
-      return surfaces.some((element) => element !== null && element.contains(node));
-    };
-    const withinTrigger = (node: unknown): boolean => {
-      if (!(node instanceof Node)) return false;
-      const triggers = [ccTriggerRef.current, gearTriggerRef.current];
-      return triggers.some((element) => element !== null && element.contains(node));
-    };
+    const withinSurface = (node: unknown): boolean =>
+      isContainedInAny(node, [panel(), speedMenuRef.current]);
+    const withinTrigger = (node: unknown): boolean =>
+      isContainedInAny(node, [ccTriggerRef.current, gearTriggerRef.current]);
 
     const onPointerDown = (event: Event) => {
       const cc = ccOpenRef.current;
@@ -292,64 +301,78 @@ export default function BrowserPlayer({
     };
   }, [closeCcPanel, closeCcPanelAndRestore, closeMenu, closeMenuAndRestore, panelId]);
 
+  const handleEscapeKey = useCallback(
+    (event: ReactKeyboardEvent<HTMLElement>): boolean => {
+      if (event.key !== 'Escape') return false;
+      const cc = ccOpenRef.current;
+      const menu = menuOpenRef.current;
+      if (cc || menu) {
+        event.preventDefault();
+        if (cc) closeCcPanelAndRestore();
+        if (menu) closeMenuAndRestore();
+        return true;
+      }
+      if (exitFullscreenIfActive()) event.preventDefault();
+      return true;
+    },
+    [closeCcPanelAndRestore, closeMenuAndRestore],
+  );
+
+  const handleToggleKey = useCallback(
+    (event: ReactKeyboardEvent<HTMLElement>): boolean => {
+      switch (event.key) {
+        case ' ':
+          if (ownsSpaceActivation(event.target)) return true;
+          event.preventDefault();
+          togglePlay();
+          return true;
+        case 'k':
+          event.preventDefault();
+          togglePlay();
+          return true;
+        case 'm':
+          event.preventDefault();
+          toggleMute();
+          return true;
+        default:
+          return false;
+      }
+    },
+    [toggleMute, togglePlay],
+  );
+
+  const handleSeekKey = useCallback(
+    (event: ReactKeyboardEvent<HTMLElement>): boolean => {
+      switch (event.key) {
+        case 'ArrowRight':
+          event.preventDefault();
+          seekBy(SEEK_STEP_SECONDS);
+          return true;
+        case 'ArrowLeft':
+          event.preventDefault();
+          seekBy(-SEEK_STEP_SECONDS);
+          return true;
+        case 'f':
+          event.preventDefault();
+          if (!exitFullscreenIfActive()) enterFullscreen(regionRef.current);
+          return true;
+        default:
+          return false;
+      }
+    },
+    [seekBy],
+  );
+
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
       if (event.defaultPrevented) return;
       if (!isPlayerOwned(event.target, regionRef.current)) return;
       if (isExcludedTarget(event.target)) return;
-
-      if (event.key === 'Escape') {
-        const cc = ccOpenRef.current;
-        const menu = menuOpenRef.current;
-        if (cc || menu) {
-          event.preventDefault();
-          if (cc) closeCcPanelAndRestore();
-          if (menu) closeMenuAndRestore();
-          return;
-        }
-        if (document.fullscreenElement) {
-          event.preventDefault();
-          void document.exitFullscreen?.().catch(() => {});
-        }
-        return;
-      }
-
-      switch (event.key) {
-        case ' ':
-          if (ownsSpaceActivation(event.target)) return;
-          event.preventDefault();
-          togglePlay();
-          return;
-        case 'k':
-          event.preventDefault();
-          togglePlay();
-          return;
-        case 'ArrowRight':
-          event.preventDefault();
-          seekBy(SEEK_STEP_SECONDS);
-          return;
-        case 'ArrowLeft':
-          event.preventDefault();
-          seekBy(-SEEK_STEP_SECONDS);
-          return;
-        case 'm':
-          event.preventDefault();
-          toggleMute();
-          return;
-        case 'f': {
-          event.preventDefault();
-          if (document.fullscreenElement) {
-            void document.exitFullscreen?.().catch(() => {});
-            return;
-          }
-          void regionRef.current?.requestFullscreen?.().catch(() => {});
-          return;
-        }
-        default:
-          return;
-      }
+      if (handleEscapeKey(event)) return;
+      if (handleToggleKey(event)) return;
+      handleSeekKey(event);
     },
-    [closeCcPanelAndRestore, closeMenuAndRestore, seekBy, toggleMute, togglePlay],
+    [handleEscapeKey, handleSeekKey, handleToggleKey],
   );
 
   return (
