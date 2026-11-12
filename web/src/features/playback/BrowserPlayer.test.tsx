@@ -122,6 +122,8 @@ beforeEach(() => {
 afterEach(() => {
   media.restore();
   vi.restoreAllMocks();
+  Reflect.deleteProperty(document, 'fullscreenElement');
+  Reflect.deleteProperty(document, 'exitFullscreen');
 });
 
 describe('BrowserPlayer region', () => {
@@ -488,6 +490,8 @@ describe('BrowserPlayer keyboard scope', () => {
 
     if (fullscreenDescriptor) {
       Object.defineProperty(document, 'fullscreenElement', fullscreenDescriptor);
+    } else {
+      Reflect.deleteProperty(document, 'fullscreenElement');
     }
   });
 
@@ -760,5 +764,387 @@ describe('BrowserPlayer gear speed menu', () => {
     expect(reopened).toBeInTheDocument();
     await waitFor(() => expect(speedMenu().hasAttribute('hidden')).toBe(true));
     expect(gearTrigger()).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+describe('BrowserPlayer focus and dismissal', () => {
+  it('moves focus into the panel when the CC trigger opens it', async () => {
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+
+    const surface = await openPanel();
+    const activeTab = within(surface).getByRole('tab', { name: SUBTITLES_LABEL });
+    await waitFor(() => expect(activeTab).toHaveFocus());
+  });
+
+  it('closes on Escape and returns focus to the CC trigger before exiting fullscreen', async () => {
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    const exitFullscreen = vi.fn().mockResolvedValue(undefined);
+    const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
+    HTMLElement.prototype.requestFullscreen = requestFullscreen;
+    Object.defineProperty(document, 'exitFullscreen', {
+      configurable: true,
+      value: exitFullscreen,
+    });
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => region(),
+    });
+
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+    const row = within(surface).getAllByRole('tab')[1];
+    row.focus();
+
+    fireEvent.keyDown(document.activeElement ?? surface, { key: 'Escape' });
+
+    await waitFor(() => expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(ccTrigger()).toHaveFocus();
+    expect(exitFullscreen).not.toHaveBeenCalled();
+
+    if (descriptor) {
+      Object.defineProperty(document, 'fullscreenElement', descriptor);
+    }
+  });
+
+  it('exits fullscreen on Escape only when no surface is open', async () => {
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    const exitFullscreen = vi.fn().mockResolvedValue(undefined);
+    const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
+    HTMLElement.prototype.requestFullscreen = requestFullscreen;
+    Object.defineProperty(document, 'exitFullscreen', {
+      configurable: true,
+      value: exitFullscreen,
+    });
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => region(),
+    });
+
+    renderPlayer();
+    fireEvent.keyDown(region(), { key: 'Escape' });
+
+    await waitFor(() => expect(exitFullscreen).toHaveBeenCalledTimes(1));
+
+    if (descriptor) {
+      Object.defineProperty(document, 'fullscreenElement', descriptor);
+    }
+  });
+
+  it('closes a stale CC panel when fullscreen exits and restores trigger focus', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
+    let current: Element | null = null;
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => current,
+    });
+
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+    within(surface).getAllByRole('tab')[1].focus();
+
+    current = region();
+    document.dispatchEvent(new Event('fullscreenchange'));
+    current = null;
+    document.dispatchEvent(new Event('fullscreenchange'));
+
+    await waitFor(() => expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(ccTrigger()).toHaveFocus();
+
+    if (descriptor) {
+      Object.defineProperty(document, 'fullscreenElement', descriptor);
+    }
+  });
+
+  it('closes a stale gear menu when fullscreen exits and restores trigger focus', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
+    let current: Element | null = null;
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => current,
+    });
+
+    renderPlayer();
+    await openGear();
+    speedOptions()[0].focus();
+
+    current = region();
+    document.dispatchEvent(new Event('fullscreenchange'));
+    current = null;
+    document.dispatchEvent(new Event('fullscreenchange'));
+
+    await waitFor(() => expect(speedMenu().hasAttribute('hidden')).toBe(true));
+    expect(gearTrigger()).toHaveFocus();
+
+    if (descriptor) {
+      Object.defineProperty(document, 'fullscreenElement', descriptor);
+    }
+  });
+
+  it('dismisses the panel on an outside pointerdown and keeps destination focus', async () => {
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    await openPanel();
+
+    const destination = document.createElement('a');
+    destination.href = '#elsewhere';
+    destination.textContent = 'elsewhere';
+    document.body.append(destination);
+    destination.focus();
+
+    fireEvent.pointerDown(destination);
+
+    await waitFor(() => expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false'));
+    expect(destination).toHaveFocus();
+    destination.remove();
+  });
+
+  it('never dismisses the panel from inside the surface or pointercancel alone', async () => {
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    fireEvent.pointerDown(surface);
+    fireEvent.pointerCancel(video());
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(ccTrigger()).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('tablist')).toBeInTheDocument();
+  });
+
+  it('switches surfaces once when the other trigger is pressed', async () => {
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    await openPanel();
+
+    fireEvent.pointerDown(gearTrigger());
+    fireEvent.click(gearTrigger());
+
+    await waitFor(() => expect(speedMenu().hasAttribute('hidden')).toBe(false));
+    expect(gearTrigger()).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByRole('tablist')).toBeNull();
+  });
+
+  it('closes the gear menu on Escape and restores trigger focus', async () => {
+    renderPlayer();
+    await openGear();
+    const item = speedOptions()[2];
+    item.focus();
+
+    fireEvent.keyDown(item, { key: 'Escape' });
+
+    await waitFor(() => expect(speedMenu().hasAttribute('hidden')).toBe(true));
+    expect(gearTrigger()).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
+describe('BrowserPlayer hotkey isolation on panel and menu controls', () => {
+  it('keeps K, M and F working while a panel control holds focus', async () => {
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    HTMLElement.prototype.requestFullscreen = requestFullscreen;
+
+    renderPlayer();
+    await act(async () => {
+      video().dispatchEvent(new Event('playing'));
+    });
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    media.calls.length = 0;
+    const tab = within(surface).getByRole('tab', { name: SUBTITLES_LABEL });
+    tab.focus();
+    fireEvent.keyDown(tab, { key: 'k' });
+    await waitFor(() => expect(media.calls).toEqual(['pause']));
+
+    const close = within(surface).getByRole('button', { name: CLOSE_SUBTITLES_PANEL_LABEL });
+    close.focus();
+    fireEvent.keyDown(close, { key: 'm' });
+    expect(video().muted).toBe(true);
+
+    fireEvent.keyDown(close, { key: 'f' });
+    expect(requestFullscreen).toHaveBeenCalledTimes(1);
+  });
+
+  it('never seeks when a tab or a track row consumes the arrow keys', async () => {
+    renderPlayer();
+    media.setSeekable(video(), [[0, 100]]);
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    const rows = await within(surface).findAllByRole('radio');
+    rows[0].focus();
+    fireEvent.keyDown(rows[0], { key: 'ArrowRight' });
+    expect(video().currentTime).toBe(0);
+    fireEvent.keyDown(rows[0], { key: 'ArrowLeft' });
+    expect(video().currentTime).toBe(0);
+
+    const subtitlesTab = within(surface).getByRole('tab', { name: SUBTITLES_LABEL });
+    subtitlesTab.focus();
+    fireEvent.keyDown(subtitlesTab, { key: 'ArrowRight' });
+    expect(video().currentTime).toBe(0);
+    expect(within(surface).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('applies exactly one action when panel controls consume Space or Enter', async () => {
+    renderPlayer();
+    await act(async () => {
+      video().dispatchEvent(new Event('playing'));
+    });
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    media.calls.length = 0;
+    const rows = await within(surface).findAllByRole('radio');
+    rows[0].focus();
+    fireEvent.keyDown(rows[0], { key: ' ' });
+    fireEvent.keyUp(rows[0], { key: ' ' });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(media.calls).toEqual([]);
+    expect(ccTrigger()).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('leaves the activation of a focused tab to the control without toggling playback', async () => {
+    renderPlayer();
+    await act(async () => {
+      video().dispatchEvent(new Event('playing'));
+    });
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    media.calls.length = 0;
+    const optionsTab = within(surface).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL });
+    optionsTab.focus();
+    fireEvent.keyDown(optionsTab, { key: ' ' });
+    fireEvent.keyUp(optionsTab, { key: ' ' });
+    fireEvent.keyDown(optionsTab, { key: 'Enter' });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(media.calls).toEqual([]);
+    expect(ccTrigger()).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('preserves the ten-second arrow seek from the close control', async () => {
+    renderPlayer();
+    media.setSeekable(video(), [[0, 100]]);
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    const close = within(surface).getByRole('button', { name: CLOSE_SUBTITLES_PANEL_LABEL });
+    close.focus();
+
+    fireEvent.keyDown(close, { key: 'ArrowRight' });
+    expect(video().currentTime).toBe(10);
+    fireEvent.keyDown(close, { key: 'ArrowLeft' });
+    expect(video().currentTime).toBe(0);
+  });
+
+  it('preserves the ten-second arrow seek from the speed menu trigger', async () => {
+    renderPlayer();
+    media.setSeekable(video(), [[0, 100]]);
+
+    gearTrigger().focus();
+    fireEvent.keyDown(gearTrigger(), { key: 'ArrowRight' });
+    expect(video().currentTime).toBe(10);
+  });
+
+  it('keeps hotkeys working on a speed menu item without double activation', async () => {
+    renderPlayer();
+    await act(async () => {
+      video().dispatchEvent(new Event('playing'));
+    });
+    await openGear();
+
+    const item = speedOptions()[1];
+    item.focus();
+    media.calls.length = 0;
+
+    item.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', bubbles: true, composed: true }));
+
+    await waitFor(() => expect(media.calls).toEqual(['pause']));
+    expect(video().playbackRate).toBe(1);
+  });
+
+  it('changes speed through keyboard alone while the menu consumes the keys', async () => {
+    renderPlayer();
+    await openGear();
+
+    const first = speedOptions()[0];
+    first.focus();
+    first.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true }),
+    );
+
+    const focused = speedMenu().shadowRoot.activeElement as HTMLElement | null;
+    expect(focused).not.toBeNull();
+    focused?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }),
+    );
+
+    await waitFor(() => expect(video().playbackRate).toBe(0.75));
+    expect(checkedSpeed()).toBe('0.75x');
+    expect(media.calls.filter((call) => call === 'pause')).toHaveLength(0);
+  });
+});
+
+describe('BrowserPlayer surface lifecycle', () => {
+  it('resets the surface on movie change and restores focus lost with it', async () => {
+    const { rerender } = renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+    const rows = await within(surface).findAllByRole('radio');
+    rows[0].focus();
+
+    await act(async () => {
+      rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
+    });
+
+    expect(screen.queryByRole('tablist')).toBeNull();
+    await waitFor(() => expect(region('Heat')).toHaveFocus());
+  });
+
+  it('leaves outside focus untouched on movie change', async () => {
+    const outside = document.createElement('button');
+    outside.textContent = 'outside';
+    document.body.append(outside);
+
+    const { rerender } = renderPlayer();
+    fireEvent.click(ccTrigger());
+    await openPanel();
+
+    outside.focus();
+    await act(async () => {
+      rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
+    });
+
+    expect(outside).toHaveFocus();
+    outside.remove();
+  });
+
+  it('unmounts without focusing detached nodes or stealing destination focus', async () => {
+    const outside = document.createElement('button');
+    outside.textContent = 'outside';
+    document.body.append(outside);
+
+    const first = renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+    within(surface).getAllByRole('tab')[1].focus();
+
+    outside.focus();
+    await act(async () => {
+      first.unmount();
+    });
+
+    expect(outside).toHaveFocus();
+    expect(document.activeElement?.isConnected).toBe(true);
+    outside.remove();
   });
 });
