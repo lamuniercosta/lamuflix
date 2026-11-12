@@ -23,19 +23,9 @@ public static class SubtitleMatchScorer
             return NoOverlapPercent;
         }
 
-        var intersection = 0;
-        foreach (var token in releaseTokens)
-        {
-            if (videoTokens.Contains(token))
-            {
-                intersection++;
-            }
-        }
-
+        var intersection = CountIntersection(videoTokens, releaseTokens);
         var union = videoTokens.Count + releaseTokens.Count - intersection;
-        return union == 0
-            ? NoOverlapPercent
-            : (int)Math.Round(100d * intersection / union, MidpointRounding.AwayFromZero);
+        return ToPercent(intersection, union);
     }
 
     public static IReadOnlySet<string> DistinctTokens(string? value)
@@ -80,6 +70,25 @@ public static class SubtitleMatchScorer
         tokens.Add(builder.ToString());
         builder.Clear();
     }
+
+    private static int CountIntersection(IReadOnlySet<string> videoTokens, IReadOnlySet<string> releaseTokens)
+    {
+        var intersection = 0;
+        foreach (var token in releaseTokens)
+        {
+            if (videoTokens.Contains(token))
+            {
+                intersection++;
+            }
+        }
+
+        return intersection;
+    }
+
+    private static int ToPercent(int intersection, int union) =>
+        union == 0
+            ? NoOverlapPercent
+            : (int)Math.Round(100d * intersection / union, MidpointRounding.AwayFromZero);
 
     private static bool IsTokenCharacter(char character) =>
         char.IsLetter(character) || char.IsDigit(character);
