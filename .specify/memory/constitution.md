@@ -459,8 +459,8 @@ Project reference rules are strict and unidirectional:
 - Ports live in `Core/Ports/`; the only ports are `IMovieRepository`, `IMovieCatalog`,
   `IMetadataProvider`, `IEnrichmentQueue`, `IMediaLibraryScanner`, `ILibraryFileReader`, `ILibraryFolderDiscovery`,
   `IMovieFolderImporter`, `IMediaPlayerLauncher`,
-  `IRecommendationCandidateSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`,
-  `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, `IThumbnailGenerator`,
+  `IRecommendationCandidateSource`, `IRecommendationProfileSource`, `IPlaybackHistory`, `IMovieFeaturesRepository`,
+  `IEnrichmentOutbox`, `IEnrichmentStatusNotifier`, `IOmdbRequestGate`, `IThumbnailGenerator`,
   `ISubtitleProvider`, `ISubtitleSidecarStore`, and the BCL/M.E.AI abstractions `TimeProvider` and
   `IEmbeddingGenerator<string, Embedding<float>>`. Adding a port requires an ADR.
 - These rules MUST be enforced by `LamuFlix.ArchitectureTests`; a violation fails the build.
