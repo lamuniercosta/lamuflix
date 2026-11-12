@@ -18,3 +18,6 @@ images:
   - name: ollama/ollama
     newName: ollama/ollama
     digest: sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429
+  - name: mcr.microsoft.com/dotnet/aspire-dashboard
+    newName: mcr.microsoft.com/dotnet/aspire-dashboard
+    digest: sha256:e69a221d6d4ce3ee9bd74b9474c073dd154ef8df7eaa535c2f50f4a554adce54

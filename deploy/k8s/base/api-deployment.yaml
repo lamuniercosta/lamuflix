@@ -53,6 +53,10 @@ spec:
           env:
             - name: Ollama__Endpoint
               value: http://ollama:11434/
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://aspire-dashboard:18889
+            - name: OTEL_SERVICE_NAME
+              value: lamuflix-api
             - name: Tmdb__Enabled
               value: "true"
             - name: Tmdb__ApiKey

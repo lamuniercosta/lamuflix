@@ -18,6 +18,8 @@ resources:
   - api-service.yaml
   - web-deployment.yaml
   - web-service.yaml
+  - aspire-dashboard-deployment.yaml
+  - aspire-dashboard-service.yaml
   - postgres-backup-cronjob.yaml
   - postgres-presync-backup-job.yaml
 configMapGenerator:
