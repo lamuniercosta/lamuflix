@@ -23,6 +23,6 @@ nodes:
     extraMounts:
       - hostPath: '{{LIBRARY_PATH}}'
         containerPath: /media/library
-        readOnly: true
+        readOnly: false
       - hostPath: '{{BACKUP_PATH}}'
         containerPath: /backups

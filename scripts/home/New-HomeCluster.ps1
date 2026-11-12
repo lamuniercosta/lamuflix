@@ -48,6 +48,8 @@ function New-ApiSettingsFile {
 
     $omdb = Read-EnvValue -Path $Cfg.SecretSourcePath -Key 'OMDB_API_KEY'
     if (-not $omdb) { throw 'OMDB_API_KEY not found in secretSourcePath' }
+    $opensubtitles = Read-EnvValue -Path $Cfg.SecretSourcePath -Key 'OPENSUBTITLES_API_KEY'
+    if (-not $opensubtitles) { throw 'OPENSUBTITLES_API_KEY not found in secretSourcePath' }
 
     $settings = Get-Content -LiteralPath $example -Raw | ConvertFrom-Json
     $settings.PSObject.Properties.Remove('OTEL_EXPORTER_OTLP_ENDPOINT')
@@ -55,6 +57,16 @@ function New-ApiSettingsFile {
     $settings.RabbitMq.UserName = $rmq['RABBITMQ_DEFAULT_USER']
     $settings.RabbitMq.Password = $rmq['RABBITMQ_DEFAULT_PASS']
     $settings.Omdb.ApiKey = $omdb
+    $settings.Subtitles.SaveEnabled = $true
+    $settings.Subtitles.PreferredLanguages = @('pt-BR', 'en')
+    $settings.Subtitles | Add-Member -NotePropertyName 'OpenSubtitles' -NotePropertyValue ([pscustomobject][ordered]@{
+        ApiKey = $opensubtitles
+        BaseUrl = 'https://api.opensubtitles.com'
+        UserAgent = 'LamuFlix/1.0 (personal library)'
+        DownloadAllowedHosts = @('api.opensubtitles.com', 'dl.opensubtitles.org')
+        MaxDownloadBytes = 1048576
+        RequestTimeout = '00:00:15'
+    }) -Force
 
     Write-TextFileUtf8 -Path (Join-Path $SecretsDir 'api.settings.json') -Text ($settings | ConvertTo-Json -Depth 20)
 }
