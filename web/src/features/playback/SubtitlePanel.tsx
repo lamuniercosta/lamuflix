@@ -58,27 +58,25 @@ export default function SubtitlePanel({
     tabRefs.current[tab]?.focus();
   };
 
+  const stepTab = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+    event.preventDefault();
+    event.stopPropagation();
+    activate(TABS[index]);
+  };
+
   const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
     switch (event.key) {
       case 'ArrowRight':
-        event.preventDefault();
-        event.stopPropagation();
-        activate(TABS[(index + 1) % TABS.length]);
+        stepTab(event, (index + 1) % TABS.length);
         return;
       case 'ArrowLeft':
-        event.preventDefault();
-        event.stopPropagation();
-        activate(TABS[(index - 1 + TABS.length) % TABS.length]);
+        stepTab(event, (index - 1 + TABS.length) % TABS.length);
         return;
       case 'Home':
-        event.preventDefault();
-        event.stopPropagation();
-        activate(TABS[0]);
+        stepTab(event, 0);
         return;
       case 'End':
-        event.preventDefault();
-        event.stopPropagation();
-        activate(TABS[TABS.length - 1]);
+        stepTab(event, TABS.length - 1);
         return;
       default:
         return;
