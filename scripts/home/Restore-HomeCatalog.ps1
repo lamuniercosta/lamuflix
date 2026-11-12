@@ -1,8 +1,11 @@
 #Requires -Version 7.0
 # Restores a catalog dump into the lamuflix database of the home cluster.
-# Order: verify the dump with pg_restore -l, pause Argo CD auto-sync, scale api to 0, restore,
-# scale api back up, wait for readiness, then resume auto-sync (always, even after a failure).
-# Refuses a non-empty catalog unless -Force. Never overwrites, moves or deletes the dump.
+# Order: verify the dump with pg_restore -l, pause Argo CD auto-sync, scale api to 0, drop and
+# recreate the lamuflix database, restore, scale api back up, wait for readiness, then resume
+# auto-sync (always, even after a failure).
+# The api migrates the schema on startup, so the restore always goes into a fresh database;
+# restoring over the migrated tables leaves the join tables empty (FK violations).
+# Refuses a non-empty catalog unless -Force; -Force replaces the catalog. Never moves or deletes the dump.
 # Never prints secret values.
 #
 # Usage: pwsh -NoProfile -File scripts/home/Restore-HomeCatalog.ps1 -DumpPath <file.dump> [-Force] [-WhatIf]
@@ -55,6 +58,14 @@ function Ensure-CatalogDatabase {
     }
 }
 
+function Reset-CatalogDatabase {
+    param($Cfg, [string]$DbUser)
+    Assert-Kube -Cfg $Cfg -KubeArgs @('-n', $AppNamespace, 'exec', $PostgresPod, '--', 'psql', '-U', $DbUser, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1',
+        '-c', "DROP DATABASE IF EXISTS $DatabaseName", '-c', "CREATE DATABASE $DatabaseName") `
+        -What 'drop and recreate the lamuflix database' | Out-Null
+    Write-HomeInfo "recreated empty database $DatabaseName"
+}
+
 function Get-MovieCount {
     param($Cfg, [string]$DbUser)
     $query = 'select case when to_regclass(''public.movies'') is null then -1 else (select count(*) from movies) end'
@@ -67,7 +78,7 @@ function Get-MovieCount {
 }
 
 function Copy-AndRestore {
-    param($Cfg, [string]$DbUser, [string]$DumpFile, [bool]$Clean)
+    param($Cfg, [string]$DbUser, [string]$DumpFile)
     $dir = Split-Path -Parent $DumpFile
     $name = Split-Path -Leaf $DumpFile
     Push-Location -LiteralPath $dir
@@ -77,9 +88,7 @@ function Copy-AndRestore {
     finally {
         Pop-Location
     }
-    $restoreArgs = @('pg_restore', '-U', $DbUser, '-d', $DatabaseName, '--no-owner', '--no-acl')
-    if ($Clean) { $restoreArgs += @('--clean', '--if-exists') }
-    $restoreArgs += '/tmp/restore.dump'
+    $restoreArgs = @('pg_restore', '-U', $DbUser, '-d', $DatabaseName, '--no-owner', '--no-acl', '--exit-on-error', '/tmp/restore.dump')
     try {
         Assert-Kube -Cfg $Cfg -KubeArgs (@('-n', $AppNamespace, 'exec', $PostgresPod, '--') + $restoreArgs) -What 'pg_restore inside postgres' | Out-Null
     }
@@ -105,7 +114,7 @@ try {
     Write-HomeInfo "dump listed by pg_restore -l: $(Split-Path -Leaf $dumpFile)"
 
     if ($WhatIf) {
-        Write-HomeInfo 'WhatIf: no changes made. Would pause auto-sync, scale api to 0, restore into the lamuflix database, scale api to 1, wait for readiness, resume auto-sync and report the movie count.'
+        Write-HomeInfo 'WhatIf: no changes made. Would pause auto-sync, scale api to 0, drop and recreate the lamuflix database, restore the dump, scale api to 1, wait for readiness, resume auto-sync and report the movie count.'
         exit 0
     }
 
@@ -119,7 +128,8 @@ try {
         }
 
         Assert-Kube -Cfg $cfg -KubeArgs @('-n', $AppNamespace, 'scale', 'deployment/api', '--replicas=0') -What 'scale api to 0' | Out-Null
-        Copy-AndRestore -Cfg $cfg -DbUser $dbUser -DumpFile $dumpFile -Clean ([bool]$Force)
+        Reset-CatalogDatabase -Cfg $cfg -DbUser $dbUser
+        Copy-AndRestore -Cfg $cfg -DbUser $dbUser -DumpFile $dumpFile
         Write-HomeInfo 'dump restored'
 
         Assert-Kube -Cfg $cfg -KubeArgs @('-n', $AppNamespace, 'scale', 'deployment/api', '--replicas=1') -What 'scale api to 1' | Out-Null
