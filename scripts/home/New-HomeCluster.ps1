@@ -33,11 +33,6 @@ function Ensure-Namespace {
 
 function Get-FreshCredentials {
     param([string]$SecretsDir)
-    $pgEnv = Join-Path $SecretsDir 'postgres.env'
-    if (-not (Test-Path -LiteralPath $pgEnv)) {
-        Write-EnvFile -Path $pgEnv -Values ([ordered]@{ POSTGRES_USER = 'lamuflix'; 'POSTGRES_PASSWORD' = (New-RandomSecret -Length 40) })
-        Write-HomeInfo 'generated postgres credentials (values not shown)'
-    }
     $rmqEnv = Join-Path $SecretsDir 'rabbitmq.env'
     if (-not (Test-Path -LiteralPath $rmqEnv)) {
         Write-EnvFile -Path $rmqEnv -Values ([ordered]@{ RABBITMQ_DEFAULT_USER = 'lamuflix'; RABBITMQ_DEFAULT_PASS = (New-RandomSecret -Length 40) })
@@ -49,7 +44,6 @@ function New-ApiSettingsFile {
     param([string]$RepoRoot, [string]$SecretsDir, $Cfg)
     $example = Join-Path $RepoRoot 'docker\api.settings.example.json'
     if (-not (Test-Path -LiteralPath $example -PathType Leaf)) { throw "missing $example" }
-    $pg = Read-EnvFile (Join-Path $SecretsDir 'postgres.env')
     $rmq = Read-EnvFile (Join-Path $SecretsDir 'rabbitmq.env')
 
     $omdb = Read-EnvValue -Path $Cfg.SecretSourcePath -Key 'OMDB_API_KEY'
@@ -57,7 +51,7 @@ function New-ApiSettingsFile {
 
     $settings = Get-Content -LiteralPath $example -Raw | ConvertFrom-Json
     $settings.PSObject.Properties.Remove('OTEL_EXPORTER_OTLP_ENDPOINT')
-    $settings.ConnectionStrings.DefaultConnection = "Host=postgres;Database=lamuflix;Username=$($pg['POSTGRES_USER']);Password=$($pg['POSTGRES_PASSWORD'])"
+    $settings.ConnectionStrings.DefaultConnection = ConvertTo-NpgsqlConnectionString -Url (Read-NeonDatabaseUrl -SecretsDir $SecretsDir)
     $settings.RabbitMq.UserName = $rmq['RABBITMQ_DEFAULT_USER']
     $settings.RabbitMq.Password = $rmq['RABBITMQ_DEFAULT_PASS']
     $settings.Omdb.ApiKey = $omdb
@@ -99,6 +93,14 @@ function Publish-Secret {
         Remove-Item -LiteralPath $tmp -ErrorAction SilentlyContinue
     }
     Write-HomeInfo "secret $Name applied (values not shown)"
+}
+
+# The in-cluster postgres is gone; its credentials Secret is removed so nothing keeps the old password.
+function Remove-LegacyPostgresSecret {
+    param($Cfg)
+    $r = Invoke-Kube -Cfg $Cfg -KubeArgs @('-n', $AppNamespace, 'delete', 'secret', 'postgres-credentials', '--ignore-not-found')
+    if ($r.ExitCode -ne 0) { throw "could not remove the legacy postgres-credentials secret (kubectl exit $($r.ExitCode))" }
+    Write-HomeInfo 'legacy postgres-credentials secret removed if present'
 }
 
 function New-KindCluster {
@@ -191,6 +193,7 @@ try {
     New-Item -ItemType Directory -Force -Path $scratch | Out-Null
 
     Get-FreshCredentials -SecretsDir $secretsDir
+    $catalogDbFile = Write-CatalogDatabaseEnv -SecretsDir $secretsDir
     New-ApiSettingsFile -RepoRoot $repoRoot -SecretsDir $secretsDir -Cfg $cfg
     $tmdbFile = Get-TmdbKeyFile -Cfg $cfg -SecretsDir $secretsDir
 
@@ -199,7 +202,8 @@ try {
     Ensure-Namespace -Cfg $cfg -Name $AppNamespace
     Ensure-Namespace -Cfg $cfg -Name $ArgoNamespace
 
-    Publish-Secret -Cfg $cfg -Name 'postgres-credentials' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$(Join-Path $secretsDir 'postgres.env')")
+    Remove-LegacyPostgresSecret -Cfg $cfg
+    Publish-Secret -Cfg $cfg -Name 'catalog-database' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$catalogDbFile")
     Publish-Secret -Cfg $cfg -Name 'rabbitmq-credentials' -SecretsDir $secretsDir -CreateArgs @("--from-env-file=$(Join-Path $secretsDir 'rabbitmq.env')")
     Publish-Secret -Cfg $cfg -Name 'api-settings' -SecretsDir $secretsDir -CreateArgs @("--from-file=appsettings.Production.json=$(Join-Path $secretsDir 'api.settings.json')")
     if ($tmdbFile) {

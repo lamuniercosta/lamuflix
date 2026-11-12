@@ -8,8 +8,6 @@ labels:
     includeTemplates: true
 resources:
   - namespace.yaml
-  - postgres-statefulset.yaml
-  - postgres-service.yaml
   - rabbitmq-statefulset.yaml
   - rabbitmq-service.yaml
   - ollama-statefulset.yaml
@@ -20,8 +18,6 @@ resources:
   - web-service.yaml
   - aspire-dashboard-deployment.yaml
   - aspire-dashboard-service.yaml
-  - postgres-backup-cronjob.yaml
-  - postgres-presync-backup-job.yaml
 configMapGenerator:
   - name: ollama-init
     files:
