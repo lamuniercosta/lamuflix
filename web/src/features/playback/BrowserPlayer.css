@@ -70,6 +70,35 @@
   outline-offset: 2px;
 }
 
+.browser-player-chrome media-settings-menu-button,
+.browser-player-chrome media-settings-menu-button::part(button) {
+  color: inherit;
+  font: inherit;
+}
+
+.browser-player-chrome media-settings-menu-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.browser-player-chrome media-playback-rate-menu {
+  --media-menu-background: var(--color-panel);
+  --media-settings-menu-background: var(--color-panel);
+  --media-settings-menu-min-width: 12rem;
+  --media-menu-border: 1px solid var(--color-rule);
+  --media-menu-border-radius: var(--lamu-radius-control);
+  --media-text-color: var(--color-ink);
+  --media-primary-color: var(--color-ink);
+  --media-menu-item-checked-background: var(--color-reel);
+  --media-menu-item-hover-background: var(--color-reel);
+  --media-control-background: var(--color-panel);
+  --media-secondary-color: var(--color-panel);
+  --media-icon-color: var(--color-accent);
+  --media-menu-item-checked-indicator-display: inline-block;
+  max-width: calc(100% - var(--lamu-space-6));
+  overflow-y: auto;
+}
+
 .browser-player-state {
   display: grid;
   gap: var(--lamu-space-2);

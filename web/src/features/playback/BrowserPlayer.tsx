@@ -17,15 +17,19 @@ import {
   MediaTimeRange,
   MediaVolumeRange,
 } from 'media-chrome/react';
+import { MediaPlaybackRateMenu, MediaSettingsMenuButton } from 'media-chrome/react/menu';
 import {
   AUTOPLAY_BLOCKED_COPY,
   ENDED_ANNOUNCEMENT,
   ERROR_COPY,
   LOADING_COPY,
   OPEN_LOCAL_COPY,
+  PLAYBACK_RATE_OPTIONS,
   RETRY_COPY,
   SETTINGS_LABEL,
+  SPEED_LABEL,
   openLocalLabel,
+  playbackRateLabel,
   playerRegionLabel,
   retryLabel,
 } from './playerCopy';
@@ -44,6 +48,10 @@ interface CcSurface {
   movieId: number | string;
   open: boolean;
   tab: SubtitlePanelTab;
+}
+
+interface SpeedMenuElement extends HTMLElement {
+  formatMenuItemText: (text: string, rate: number) => string;
 }
 
 function freshSurface(movieId: number | string): CcSurface {
@@ -89,7 +97,10 @@ export default function BrowserPlayer({
   });
   const regionRef = useRef<HTMLElement | null>(null);
   const ccTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const speedMenuRef = useRef<HTMLElement | null>(null);
   const panelId = useId();
+  const gearId = useId();
+  const speedMenuId = useId();
   const [ccSurface, setCcSurface] = useState<CcSurface>(() => freshSurface(movieId));
   const surface = ccSurface.movieId === movieId ? ccSurface : freshSurface(movieId);
   const ccOpen = surface.open;
@@ -103,6 +114,7 @@ export default function BrowserPlayer({
   }, [movieId]);
 
   const openCcPanel = useCallback(() => {
+    if (speedMenuRef.current) speedMenuRef.current.hidden = true;
     setCcSurface({ movieId, open: true, tab: 'subtitles' });
   }, [movieId]);
 
@@ -143,6 +155,34 @@ export default function BrowserPlayer({
     element.removeAttribute('role');
     element.removeAttribute('aria-label');
   }, []);
+
+  const assignGear = useCallback((element: HTMLElement | null) => {
+    if (!element) return;
+    element.setAttribute('aria-label', SETTINGS_LABEL);
+  }, []);
+
+  const assignSpeedMenu = useCallback((element: SpeedMenuElement | null) => {
+    if (!element) return;
+    speedMenuRef.current = element;
+    element.formatMenuItemText = (_text: string, rate: number) => playbackRateLabel(rate);
+  }, []);
+
+  useEffect(() => {
+    const menu = speedMenuRef.current;
+    if (menu) menu.hidden = true;
+  }, [movieId]);
+
+  useEffect(() => {
+    const menu = speedMenuRef.current;
+    if (!menu) return;
+    const onToggle = (event: Event) => {
+      const newState = (event as Event & { newState?: string }).newState;
+      if (newState !== 'open') return;
+      setCcSurface(freshSurface(movieId));
+    };
+    menu.addEventListener('toggle', onToggle);
+    return () => menu.removeEventListener('toggle', onToggle);
+  }, [movieId]);
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
@@ -238,11 +278,18 @@ export default function BrowserPlayer({
             >
               CC
             </button>
-            <button type="button" className="browser-player-trigger" aria-label={SETTINGS_LABEL}>
-              <span aria-hidden="true">⚙</span>
-            </button>
+            <MediaSettingsMenuButton id={gearId} invokeTarget={speedMenuId} ref={assignGear} />
             <MediaFullscreenButton />
           </MediaControlBar>
+          <MediaPlaybackRateMenu
+            id={speedMenuId}
+            hidden
+            aria-label={SPEED_LABEL}
+            rates={[...PLAYBACK_RATE_OPTIONS]}
+            ref={assignSpeedMenu}
+          >
+            <span slot="header">{SPEED_LABEL}</span>
+          </MediaPlaybackRateMenu>
           {ccOpen ? (
             <SubtitlePanel
               title={title}

@@ -12,6 +12,7 @@ import {
   LOADING_COPY,
   OPEN_LOCAL_COPY,
   SETTINGS_LABEL,
+  playbackRateLabel,
   playerRegionLabel,
   playLabel,
   openLocalLabel,
@@ -66,6 +67,52 @@ function panelId(): string {
 async function openPanel(): Promise<HTMLElement> {
   await screen.findByRole('tablist');
   return screen.getByRole('region', { name: subtitlePanelLabel('Dune') });
+}
+
+interface SpeedMenuElement extends HTMLElement {
+  shadowRoot: ShadowRoot;
+}
+
+function gearTrigger(title = 'Dune'): HTMLElement {
+  return within(region(title)).getByRole('button', { name: SETTINGS_LABEL });
+}
+
+function speedMenu(title = 'Dune'): SpeedMenuElement {
+  const element = region(title).querySelector('media-playback-rate-menu');
+  if (!element || !element.shadowRoot) {
+    throw new Error('expected the settings speed menu inside the player region');
+  }
+  return element as SpeedMenuElement;
+}
+
+function speedOptions(title = 'Dune'): HTMLElement[] {
+  return Array.from(
+    speedMenu(title).shadowRoot.querySelectorAll<HTMLElement>('[role="menuitemradio"]'),
+  );
+}
+
+function speedLabels(title = 'Dune'): string[] {
+  return speedOptions(title).map((option) => (option.textContent ?? '').trim());
+}
+
+function checkedSpeed(title = 'Dune'): string {
+  const index = speedOptions(title).findIndex(
+    (option) => option.getAttribute('aria-checked') === 'true',
+  );
+  return speedLabels(title)[index];
+}
+
+async function openGear(title = 'Dune'): Promise<void> {
+  fireEvent.click(gearTrigger(title));
+  await waitFor(() => expect(speedMenu(title).hasAttribute('hidden')).toBe(false));
+}
+
+async function setLiveRate(rate: number): Promise<void> {
+  await act(async () => {
+    const element = video();
+    element.playbackRate = rate;
+    element.dispatchEvent(new Event('ratechange'));
+  });
 }
 
 beforeEach(() => {
@@ -612,5 +659,106 @@ describe('BrowserPlayer CC panel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(ERROR_COPY);
     expect(ccTrigger()).toBeInTheDocument();
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
+  });
+});
+
+describe('BrowserPlayer gear speed menu', () => {
+  it('offers exactly the seven quarter-step speeds with normal labelled once', async () => {
+    renderPlayer();
+    await openGear();
+
+    expect(speedMenu().getAttribute('rates')).toBe('0.5 0.75 1 1.25 1.5 1.75 2');
+    expect(speedLabels()).toEqual(['0.5x', '0.75x', '1x (Normal)', '1.25x', '1.5x', '1.75x', '2x']);
+  });
+
+  it('opens the speed menu from the gear trigger and closes it again', async () => {
+    renderPlayer();
+
+    expect(gearTrigger()).toHaveAttribute('aria-label', SETTINGS_LABEL);
+    expect(speedMenu().hasAttribute('hidden')).toBe(true);
+
+    await openGear();
+    expect(gearTrigger()).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(gearTrigger());
+    await waitFor(() => expect(speedMenu().hasAttribute('hidden')).toBe(true));
+    expect(gearTrigger()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('checks the speed matching the live media rate and changes playback rate', async () => {
+    renderPlayer();
+    await openGear();
+
+    expect(checkedSpeed()).toBe('1x (Normal)');
+
+    fireEvent.click(speedOptions()[4]);
+    await waitFor(() => expect(video().playbackRate).toBe(1.5));
+    expect(checkedSpeed()).toBe('1.5x');
+
+    fireEvent.click(speedOptions()[0]);
+    await waitFor(() => expect(video().playbackRate).toBe(0.5));
+    expect(checkedSpeed()).toBe('0.5x');
+  });
+
+  it('follows rate changes from outside the menu without resetting to 1x', async () => {
+    renderPlayer();
+    await openGear();
+
+    await setLiveRate(0.75);
+    expect(checkedSpeed()).toBe('0.75x');
+
+    await setLiveRate(2);
+    expect(checkedSpeed()).toBe('2x');
+    expect(video().playbackRate).toBe(2);
+    expect(checkedSpeed()).not.toBe('1x (Normal)');
+  });
+
+  it('resynchronizes the checked speed after a movie change', async () => {
+    const { rerender } = renderPlayer({ movieId: 1 });
+    await setLiveRate(1.75);
+    await openGear();
+    expect(checkedSpeed()).toBe('1.75x');
+
+    await act(async () => {
+      rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
+    });
+
+    await openGear('Heat');
+    const liveRate = video(region('Heat')).playbackRate;
+    expect(checkedSpeed('Heat')).toBe(playbackRateLabel(liveRate));
+  });
+
+  it('keeps no saved speed preference and no forced reset beyond live state', async () => {
+    renderPlayer();
+    await openGear();
+    fireEvent.click(speedOptions()[5]);
+    await waitFor(() => expect(video().playbackRate).toBe(1.75));
+    await waitFor(() => expect(speedMenu().hasAttribute('hidden')).toBe(true));
+
+    await setLiveRate(1);
+    await openGear();
+
+    expect(checkedSpeed()).toBe('1x (Normal)');
+    expect(video().playbackRate).toBe(1);
+    expect(window.localStorage.getItem('playbackRate')).toBeNull();
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it('closes the CC panel when the gear opens and closes the gear when CC opens', async () => {
+    renderPlayer();
+
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+    expect(surface).toBeInTheDocument();
+
+    await openGear();
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(ccTrigger());
+    const reopened = await openPanel();
+    expect(reopened).toBeInTheDocument();
+    await waitFor(() => expect(speedMenu().hasAttribute('hidden')).toBe(true));
+    expect(gearTrigger()).toHaveAttribute('aria-expanded', 'false');
   });
 });
