@@ -1,5 +1,8 @@
 export const SUBTITLES_LABEL = 'Subtitles';
+export const SUBTITLES_TRIGGER_COPY = 'CC';
 export const SUBTITLES_OFF_COPY = 'Off';
+export const SUBTITLES_LOADING_COPY = 'Loading subtitles…';
+export const SUBTITLES_EMPTY_COPY = 'This movie has no subtitle tracks.';
 export const SUBTITLES_UNAVAILABLE_COPY = 'Subtitles unavailable';
 export const SUBTITLES_RETRY_COPY = 'Retry';
 export const SUBTITLES_OPTIONS_LABEL = 'Options';

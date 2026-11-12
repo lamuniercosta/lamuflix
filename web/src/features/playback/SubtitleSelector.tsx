@@ -1,5 +1,7 @@
 import { useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
+  SUBTITLES_EMPTY_COPY,
+  SUBTITLES_LOADING_COPY,
   SUBTITLES_OFF_COPY,
   SUBTITLES_RETRY_COPY,
   SUBTITLES_UNAVAILABLE_COPY,
@@ -59,17 +61,21 @@ export default function SubtitleSelector({
   }
 
   if (listStatus === 'loading') {
-    return <div className="subtitle-selector" aria-busy="true" />;
+    return (
+      <div className="subtitle-selector" aria-busy="true">
+        <p className="subtitle-selector-status" role="status">
+          {SUBTITLES_LOADING_COPY}
+        </p>
+      </div>
+    );
   }
 
   if (tracks.length === 0) {
     return (
       <div className="subtitle-selector">
-        {contentStatus === 'error' ? (
-          <p className="subtitle-selector-status" role="status">
-            {SUBTITLES_UNAVAILABLE_COPY}
-          </p>
-        ) : null}
+        <p className="subtitle-selector-status" role="status">
+          {contentStatus === 'error' ? SUBTITLES_UNAVAILABLE_COPY : SUBTITLES_EMPTY_COPY}
+        </p>
       </div>
     );
   }

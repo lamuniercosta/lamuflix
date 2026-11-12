@@ -128,22 +128,28 @@ export default function SubtitlePanel({
       <div
         className="subtitle-panel-body"
         role="tabpanel"
-        id={tabPanelId(activeTab)}
-        aria-labelledby={tabId(activeTab)}
+        id={tabPanelId('subtitles')}
+        aria-labelledby={tabId('subtitles')}
+        hidden={activeTab !== 'subtitles'}
       >
-        {activeTab === 'subtitles' ? (
-          <SubtitleSelector
-            title={title}
-            listStatus={listStatus}
-            contentStatus={contentStatus}
-            tracks={tracks}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            onRetryList={onRetryList}
-          />
-        ) : (
-          <p className="subtitle-panel-options">{SUBTITLES_OPTIONS_EMPTY_COPY}</p>
-        )}
+        <SubtitleSelector
+          title={title}
+          listStatus={listStatus}
+          contentStatus={contentStatus}
+          tracks={tracks}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          onRetryList={onRetryList}
+        />
+      </div>
+      <div
+        className="subtitle-panel-body"
+        role="tabpanel"
+        id={tabPanelId('options')}
+        aria-labelledby={tabId('options')}
+        hidden={activeTab !== 'options'}
+      >
+        <p className="subtitle-panel-options">{SUBTITLES_OPTIONS_EMPTY_COPY}</p>
       </div>
     </div>
   );

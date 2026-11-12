@@ -23,6 +23,7 @@ import {
   SUBTITLES_LABEL,
   SUBTITLES_OPTIONS_EMPTY_COPY,
   SUBTITLES_OPTIONS_LABEL,
+  SUBTITLES_TRIGGER_COPY,
   SUBTITLES_UNAVAILABLE_COPY,
   subtitlePanelLabel,
 } from './subtitleCopy';
@@ -608,6 +609,31 @@ describe('BrowserPlayer CC panel', () => {
     expect(within(surface).getByRole('tabpanel')).toBeInTheDocument();
   });
 
+  it('renders the CC trigger text from the approved copy module', () => {
+    renderPlayer();
+
+    expect(ccTrigger()).toHaveTextContent(SUBTITLES_TRIGGER_COPY);
+  });
+
+  it('keeps both tabs wired to existing panels in either tab state', async () => {
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    const controlsResolve = () =>
+      within(surface)
+        .getAllByRole('tab')
+        .every(
+          (tab) =>
+            surface.ownerDocument.getElementById(tab.getAttribute('aria-controls') ?? '') !== null,
+        );
+    expect(controlsResolve()).toBe(true);
+
+    fireEvent.click(within(surface).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL }));
+    expect(controlsResolve()).toBe(true);
+    expect(within(surface).getAllByRole('tabpanel')).toHaveLength(1);
+  });
+
   it('shows only honest empty-shell copy on the Options tab', async () => {
     renderPlayer();
     fireEvent.click(ccTrigger());
@@ -673,6 +699,13 @@ describe('BrowserPlayer gear speed menu', () => {
 
     expect(speedMenu().getAttribute('rates')).toBe('0.5 0.75 1 1.25 1.5 1.75 2');
     expect(speedLabels()).toEqual(['0.5x', '0.75x', '1x (Normal)', '1.25x', '1.5x', '1.75x', '2x']);
+  });
+
+  it('keeps the open speed menu exempt from controller autohide', async () => {
+    renderPlayer();
+    await openGear();
+
+    expect(speedMenu().hasAttribute('noautohide')).toBe(true);
   });
 
   it('opens the speed menu from the gear trigger and closes it again', async () => {
