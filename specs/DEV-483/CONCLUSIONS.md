@@ -94,6 +94,17 @@ Ruling: Approve Keel's consolidated Round 1 plan-challenge disposition proposal 
 - **Standards / Ledger dispositions (`CONCLUSIONS.md` Q3–Q4; `AGENTS.md` Non-negotiables & Verification commands; `lamuflix-team-charter` §2.3)**: Accepting `Ledger M1–M3, L1–L4` enforces Q2 sample integrity (excluding duplicate/overlapping samples), `AGENTS.md` non-negotiables (`TimeProvider` for injected time, existing `Activity`/logging facilities only, zero unapproved API/instrumentation expansion), Q3/Q4 boundary discipline (preserving the stop point and keeping dependency-direction/layering verification inside existing test suites), script-driven `run-mutation.ps1` and complexity/refactor gate verdicts from `harness.yml` without assumed exemptions or lowered thresholds, scrubbed untracked runtime evidence under `git rev-parse --git-path dev-483-evidence` (disposable per §2.3 and free of secrets/config dumps), and metadata refresh at plan freeze.
 - **Spec / Compass dispositions (`CONCLUSIONS.md` Q5–Q6; `task-pipeline` Phase 2–Phase 4)**: Accepting `Compass M1–M2, L1–L3` enforces exact-HEAD final gate and runtime/cause receipt freshness after any remediation commit (Q5), strict task ordering where `T008` (YouTrack cause routing via Patron -> Rigger and packaging) requires `T007` post-fix Q2 runtime status and mandatory gates first (Q6), deduplicated metadata and repeated diagnostic controls (`L1–L2`), and generic Build-lane role attribution without hardcoding seat names (`L3`).
 
+---
+
+## Phase 2 Step 7 — Provisional Gate 1 Ruling
+
+Ruling: Approve `gate1: provisional` for the DEV-483 spec package (`spec.md`, `plan.md`, `tasks.md`, `brief.md`, `PLAN_ADJUDICATION.md`, `checklists/requirements.md`) with zero §2.3(a)/(b) structural escalation; ordinary owner Gate 1 merge of the spec PR remains pending.
+
+- **Product & ticket alignment (`recon-DEV-483` lines 34–49; `specs/DEV-483/spec.md` FR-001–FR-020, SC-001–SC-006; `specs/PRODUCT.md` §2, §3, §5)**: The spec package faithfully covers the three target routes (`GET /api/movies/{id}` including `9999` `404` `< 300 ms`, `GET /api/movies/{id}/recommendations` `< 1 s`, and `GET /api/recommendations/for-you?take=10` `< 1 s` including the post-startup timeout trigger and `>= 60 s` settled re-test), enforces the diagnosis-first stop point (`needs recon` if unestablished) within the Q3 candidate file boundary, requires Rigger-verified YouTrack cause documentation, and preserves existing public contracts and recommendation semantics.
+- **Plan freeze, challenge closure & checklist verification (`specs/DEV-483/brief.md` lines 3, 224–232; `PLAN_ADJUDICATION.md` lines 60–89; `checklists/requirements.md` lines 34–52)**: Keel step 3.3 `/speckit-analyze` is clean, all 21 Round 1 findings across `Sentry`, `Ledger`, and `Compass` are adjudicated with all 10 Quill repairs verified closed on independent reread, `PLAN FROZEN` is declared by Keel with reviewer-author snapshot attestations recorded, and all "User-Visible Outcome" items (`SMOKE-001`–`SMOKE-003`) are ticked in `checklists/requirements.md`.
+- **Gate boundary (`lamuflix-team-charter` §2.3, §3.1; `specs/DEV-483/tasks.md` T000)**: `spec.md` is marked `**Status**: gate1: provisional`; zero owner structural checkboxes apply, and Phase B (`T001+`) remains gated on the user's merge of the spec PR (`T000`).
+
+
 
 
 
