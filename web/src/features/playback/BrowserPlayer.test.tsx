@@ -1,8 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentProps } from 'react';
 import BrowserPlayer from './BrowserPlayer';
 import { autoplayDenial, installMediaStubs, type MediaStubHandle } from '../../test/mediaElement';
+import { server } from '../../test/server';
 import {
   AUTOPLAY_BLOCKED_COPY,
   ENDED_ANNOUNCEMENT,
@@ -15,7 +17,14 @@ import {
   openLocalLabel,
   retryLabel,
 } from './playerCopy';
-import { SUBTITLES_LABEL } from './subtitleCopy';
+import {
+  CLOSE_SUBTITLES_PANEL_LABEL,
+  SUBTITLES_LABEL,
+  SUBTITLES_OPTIONS_EMPTY_COPY,
+  SUBTITLES_OPTIONS_LABEL,
+  SUBTITLES_UNAVAILABLE_COPY,
+  subtitlePanelLabel,
+} from './subtitleCopy';
 
 const STREAM = '/api/movies/1/stream';
 let media: MediaStubHandle;
@@ -44,6 +53,19 @@ function playControl(container: HTMLElement = region()): HTMLElement {
 
 function renderPlayer(props: Partial<ComponentProps<typeof BrowserPlayer>> = {}) {
   return render(<BrowserPlayer title="Dune" movieId={1} streamUrl={STREAM} {...props} />);
+}
+
+function ccTrigger(): HTMLElement {
+  return within(region()).getByRole('button', { name: SUBTITLES_LABEL });
+}
+
+function panelId(): string {
+  return ccTrigger().getAttribute('aria-controls') ?? '';
+}
+
+async function openPanel(): Promise<HTMLElement> {
+  await screen.findByRole('tablist');
+  return screen.getByRole('region', { name: subtitlePanelLabel('Dune') });
 }
 
 beforeEach(() => {
@@ -481,5 +503,114 @@ describe('BrowserPlayer terminal states', () => {
     renderPlayer();
     expect(region().querySelectorAll('media-play-button')).toHaveLength(1);
     expect(within(region()).queryByRole('button', { name: playLabel('Dune') })).toBeNull();
+  });
+});
+
+describe('BrowserPlayer CC panel', () => {
+  it('keeps the CC trigger visible when the movie serves no local tracks', async () => {
+    server.use(
+      http.get('*/api/movies/:id/subtitles', () => HttpResponse.json([], { status: 200 })),
+    );
+    renderPlayer();
+
+    expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(ccTrigger());
+
+    const surface = await openPanel();
+    expect(ccTrigger()).toHaveAttribute('aria-expanded', 'true');
+    expect(within(surface).getByRole('tablist')).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+  });
+
+  it('keeps the CC trigger visible and polite when the track list fails', async () => {
+    server.use(
+      http.get('*/api/movies/:id/subtitles', () => new HttpResponse(null, { status: 500 })),
+    );
+    renderPlayer();
+
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    expect(await within(surface).findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
+    expect(within(surface).getByRole('status')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(ccTrigger()).toBeInTheDocument();
+  });
+
+  it('opens a non-modal labelled panel with the Subtitles tab active and never a dialog', async () => {
+    renderPlayer();
+
+    expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(ccTrigger()).toHaveAttribute('aria-expanded', 'true');
+    expect(ccTrigger()).toHaveAttribute('aria-controls', panelId());
+
+    const tabs = within(surface).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual([SUBTITLES_LABEL, SUBTITLES_OPTIONS_LABEL]);
+    expect(within(surface).getByRole('tab', { name: SUBTITLES_LABEL })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(within(surface).getByRole('tabpanel')).toBeInTheDocument();
+  });
+
+  it('shows only honest empty-shell copy on the Options tab', async () => {
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    fireEvent.click(within(surface).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL }));
+
+    expect(within(surface).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(within(surface).getByText(SUBTITLES_OPTIONS_EMPTY_COPY)).toBeInTheDocument();
+    expect(within(surface).queryByRole('radiogroup')).toBeNull();
+    expect(within(surface).queryByRole('slider')).toBeNull();
+    expect(within(surface).queryByRole('switch')).toBeNull();
+  });
+
+  it('closes through the labelled close control and returns to collapsed state', async () => {
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    fireEvent.click(within(surface).getByRole('button', { name: CLOSE_SUBTITLES_PANEL_LABEL }));
+
+    await waitFor(() => expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false'));
+    expect(screen.queryByRole('tablist')).toBeNull();
+  });
+
+  it('toggles the panel from the CC trigger and returns to the Subtitles tab each open', async () => {
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+    fireEvent.click(within(surface).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL }));
+
+    fireEvent.click(ccTrigger());
+    await waitFor(() => expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false'));
+
+    fireEvent.click(ccTrigger());
+    const reopened = await openPanel();
+    expect(within(reopened).getByRole('tab', { name: SUBTITLES_LABEL })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('keeps the playback failure alert distinct from the polite subtitle status', async () => {
+    renderPlayer();
+
+    await act(async () => {
+      video().dispatchEvent(new Event('error'));
+    });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(ERROR_COPY);
+    expect(ccTrigger()).toBeInTheDocument();
+    expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
   });
 });

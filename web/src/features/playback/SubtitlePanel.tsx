@@ -1,0 +1,152 @@
+import { useId, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  CLOSE_SUBTITLES_PANEL_LABEL,
+  SUBTITLES_LABEL,
+  SUBTITLES_OPTIONS_EMPTY_COPY,
+  SUBTITLES_OPTIONS_LABEL,
+  subtitlePanelLabel,
+} from './subtitleCopy';
+import SubtitleSelector from './SubtitleSelector';
+import type {
+  SubtitleContentStatus,
+  SubtitleListStatus,
+  SubtitleTrack,
+} from './useSubtitlePlayback';
+
+export type SubtitlePanelTab = 'subtitles' | 'options';
+
+export interface SubtitlePanelProps {
+  title: string;
+  panelId: string;
+  activeTab: SubtitlePanelTab;
+  listStatus: SubtitleListStatus;
+  contentStatus: SubtitleContentStatus;
+  tracks: readonly SubtitleTrack[];
+  selectedId: string | null;
+  onTabChange: (tab: SubtitlePanelTab) => void;
+  onSelect: (trackId: string | null) => void;
+  onRetryList: () => void;
+  onClose: () => void;
+}
+
+const TABS: readonly SubtitlePanelTab[] = ['subtitles', 'options'];
+
+export default function SubtitlePanel({
+  title,
+  panelId,
+  activeTab,
+  listStatus,
+  contentStatus,
+  tracks,
+  selectedId,
+  onTabChange,
+  onSelect,
+  onRetryList,
+  onClose,
+}: SubtitlePanelProps) {
+  const baseId = useId();
+  const tabRefs = useRef<Record<SubtitlePanelTab, HTMLButtonElement | null>>({
+    subtitles: null,
+    options: null,
+  });
+
+  const tabId = (tab: SubtitlePanelTab) => `${baseId}-${tab}-tab`;
+  const tabPanelId = (tab: SubtitlePanelTab) => `${baseId}-${tab}-panel`;
+
+  const activate = (tab: SubtitlePanelTab) => {
+    onTabChange(tab);
+    tabRefs.current[tab]?.focus();
+  };
+
+  const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+    switch (event.key) {
+      case 'ArrowRight':
+        event.preventDefault();
+        event.stopPropagation();
+        activate(TABS[(index + 1) % TABS.length]);
+        return;
+      case 'ArrowLeft':
+        event.preventDefault();
+        event.stopPropagation();
+        activate(TABS[(index - 1 + TABS.length) % TABS.length]);
+        return;
+      case 'Home':
+        event.preventDefault();
+        event.stopPropagation();
+        activate(TABS[0]);
+        return;
+      case 'End':
+        event.preventDefault();
+        event.stopPropagation();
+        activate(TABS[TABS.length - 1]);
+        return;
+      default:
+        return;
+    }
+  };
+
+  return (
+    <div
+      id={panelId}
+      className="subtitle-panel"
+      role="region"
+      aria-label={subtitlePanelLabel(title)}
+      {...{ noautohide: '' }}
+    >
+      <div className="subtitle-panel-header">
+        <div className="subtitle-panel-tabs" role="tablist" aria-label={subtitlePanelLabel(title)}>
+          {TABS.map((tab, index) => {
+            const selected = tab === activeTab;
+            return (
+              <button
+                key={tab}
+                ref={(element) => {
+                  tabRefs.current[tab] = element;
+                }}
+                type="button"
+                role="tab"
+                id={tabId(tab)}
+                aria-selected={selected}
+                aria-controls={tabPanelId(tab)}
+                tabIndex={selected ? 0 : -1}
+                className="subtitle-panel-tab"
+                onClick={() => onTabChange(tab)}
+                onKeyDown={(event) => handleTabKeyDown(event, index)}
+              >
+                {tab === 'subtitles' ? SUBTITLES_LABEL : SUBTITLES_OPTIONS_LABEL}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className="subtitle-panel-close"
+          aria-label={CLOSE_SUBTITLES_PANEL_LABEL}
+          onClick={onClose}
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div
+        className="subtitle-panel-body"
+        role="tabpanel"
+        id={tabPanelId(activeTab)}
+        aria-labelledby={tabId(activeTab)}
+      >
+        {activeTab === 'subtitles' ? (
+          <SubtitleSelector
+            title={title}
+            listStatus={listStatus}
+            contentStatus={contentStatus}
+            tracks={tracks}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            onRetryList={onRetryList}
+          />
+        ) : (
+          <p className="subtitle-panel-options">{SUBTITLES_OPTIONS_EMPTY_COPY}</p>
+        )}
+      </div>
+    </div>
+  );
+}

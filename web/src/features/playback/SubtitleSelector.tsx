@@ -58,7 +58,21 @@ export default function SubtitleSelector({
     );
   }
 
-  if (listStatus !== 'ready' || tracks.length === 0) return null;
+  if (listStatus === 'loading') {
+    return <div className="subtitle-selector" aria-busy="true" />;
+  }
+
+  if (tracks.length === 0) {
+    return (
+      <div className="subtitle-selector">
+        {contentStatus === 'error' ? (
+          <p className="subtitle-selector-status" role="status">
+            {SUBTITLES_UNAVAILABLE_COPY}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   const choices: TrackChoice[] = [
     OFF_CHOICE,

@@ -5,9 +5,11 @@ import type { ComponentProps } from 'react';
 import BrowserPlayer from './BrowserPlayer';
 import { playerRegionLabel } from './playerCopy';
 import {
+  SUBTITLES_LABEL,
   SUBTITLES_OFF_COPY,
   SUBTITLES_RETRY_COPY,
   SUBTITLES_UNAVAILABLE_COPY,
+  subtitlePanelLabel,
   subtitleSelectLabel,
   subtitlesRetryLabel,
 } from './subtitleCopy';
@@ -63,6 +65,18 @@ function video(): HTMLVideoElement {
 
 function group(title = 'Dune'): HTMLElement | null {
   return screen.queryByRole('radiogroup', { name: subtitleSelectLabel(title) });
+}
+
+function ccTrigger(title = 'Dune'): HTMLElement {
+  return within(region(title)).getByRole('button', { name: SUBTITLES_LABEL });
+}
+
+async function openPanel(title = 'Dune'): Promise<HTMLElement> {
+  const trigger = ccTrigger(title);
+  if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger);
+  const panel = await screen.findByRole('region', { name: subtitlePanelLabel(title) });
+  await waitFor(() => expect(panel.querySelector('[aria-busy="true"]')).toBeNull());
+  return panel;
 }
 
 function radios(title = 'Dune'): HTMLElement[] {
@@ -180,6 +194,7 @@ describe('subtitle track list states', () => {
 
     await waitFor(() => expect(listRequests).toBeGreaterThan(0));
     await new Promise((resolve) => setTimeout(resolve, 20));
+    await openPanel();
     expect(group()).toBeNull();
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
     expect(screen.queryByRole('button', { name: subtitlesRetryLabel('Dune') })).toBeNull();
@@ -193,7 +208,7 @@ describe('subtitle track list states', () => {
     ]);
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     expect(trackLabels()).toEqual([SUBTITLES_OFF_COPY, 'Default', 'English (2)', 'English (3)']);
     expect(trackIds()).toEqual(['', 'default', 'dup-a', 'dup-b']);
   });
@@ -201,7 +216,7 @@ describe('subtitle track list states', () => {
   it('starts Off even when the served list carries a default marker', async () => {
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     expect(checkedLabel()).toBe(SUBTITLES_OFF_COPY);
     expect(modeOf(ENGLISH.id)).toBe('disabled');
     expect(modeOf(PORTUGUESE.id)).toBe('disabled');
@@ -211,7 +226,7 @@ describe('subtitle track list states', () => {
   it('keeps exactly one radio in the tab order', async () => {
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     expect(radios().filter((radio) => radio.getAttribute('tabindex') === '0')).toHaveLength(1);
     expect(checkedLabel()).toBe(SUBTITLES_OFF_COPY);
   });
@@ -221,7 +236,7 @@ describe('subtitle track list states', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
 
@@ -236,7 +251,7 @@ describe('subtitle track list text-only labels', () => {
     serveTracks([ENGLISH, HOSTILE]);
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     const option = within(group() as HTMLElement).getByRole('radio', { name: HOSTILE.label });
     expect(option).toHaveAttribute('data-track-id', HOSTILE.id);
     expect(option.querySelector('img')).toBeNull();
@@ -249,7 +264,7 @@ describe('subtitle track modes', () => {
   it('shows only the selected track and keeps the others disabled', async () => {
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(PORTUGUESE.label);
 
     await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('showing'));
@@ -261,7 +276,7 @@ describe('subtitle track modes', () => {
   it('disables every track on Off', async () => {
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
 
@@ -274,7 +289,7 @@ describe('subtitle track modes', () => {
   it('selects a track and returns to Off through keyboard activation alone', async () => {
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     const off = within(group() as HTMLElement).getByRole('radio', { name: SUBTITLES_OFF_COPY });
     off.focus();
     fireEvent.keyDown(off, { key: 'ArrowDown' });
@@ -292,7 +307,7 @@ describe('subtitle track modes', () => {
   it('re-disables a track the browser selects after Off', async () => {
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
 
@@ -312,7 +327,7 @@ describe('subtitle track modes', () => {
   it('re-disables every non-selected track the browser selects after a switch', async () => {
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(PORTUGUESE.label);
     await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('showing'));
 
@@ -328,7 +343,7 @@ describe('subtitle track modes', () => {
   it('re-disables the tracks when the browser re-selects on media load', async () => {
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
 
@@ -347,7 +362,7 @@ describe('subtitle track modes', () => {
   it('requests content from the movie id and the opaque token only', async () => {
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
 
     await waitFor(() => expect(contentRequests).toEqual([ENGLISH.id]));
@@ -357,7 +372,7 @@ describe('subtitle track modes', () => {
 
   it('revokes its owned object URL on Off and on unmount', async () => {
     const { unmount } = renderPlayer();
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
 
     choose(ENGLISH.label);
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
@@ -377,7 +392,7 @@ describe('subtitle selection lifetime', () => {
   it('resets the selection to Off and revokes the owned URL when the movie changes', async () => {
     const { rerender } = renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
     expect(owned).toHaveLength(1);
@@ -385,7 +400,7 @@ describe('subtitle selection lifetime', () => {
     serveTracks([ENGLISH]);
     rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Heat') });
+    await openPanel('Heat');
     expect(checkedLabel('Heat')).toBe(SUBTITLES_OFF_COPY);
     const heatVideo = region('Heat').querySelector('video');
     expect(heatVideo?.querySelectorAll('track')).toHaveLength(1);
@@ -402,7 +417,7 @@ describe('subtitle content failure', () => {
       video().dispatchEvent(new Event('playing'));
     });
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     media.calls.length = 0;
     choose(ENGLISH.label);
 
@@ -419,11 +434,30 @@ describe('subtitle content failure', () => {
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
   });
 
+  it('keeps Off and releases every owned URL through a rapid track A/B/Off sequence', async () => {
+    serveContent({ slowTrackId: ENGLISH.id, slowMs: 60 });
+    renderPlayer();
+
+    await openPanel();
+    choose(ENGLISH.label);
+    choose(PORTUGUESE.label);
+    choose(SUBTITLES_OFF_COPY);
+
+    await waitFor(() => expect(checkedLabel()).toBe(SUBTITLES_OFF_COPY));
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('disabled'));
+    expect(modeOf(PORTUGUESE.id)).toBe('disabled');
+    expect(owned).toEqual([]);
+
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(owned).toEqual([]);
+    expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
+  });
+
   it('ignores a stale content success that resolves after a newer selection', async () => {
     serveContent({ slowTrackId: ENGLISH.id, slowMs: 90 });
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
     choose(PORTUGUESE.label);
 
@@ -439,7 +473,7 @@ describe('subtitle content failure', () => {
     serveContent({ failTrackId: ENGLISH.id, slowTrackId: ENGLISH.id, slowMs: 90 });
     renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
     choose(PORTUGUESE.label);
 
@@ -459,6 +493,7 @@ describe('subtitle list failure', () => {
       video().dispatchEvent(new Event('playing'));
     });
 
+    await openPanel();
     expect(await screen.findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
     expect(group()).toBeNull();
     expect(screen.getByRole('button', { name: subtitlesRetryLabel('Dune') })).toHaveTextContent(
@@ -472,6 +507,7 @@ describe('subtitle list failure', () => {
     failTrackList();
     renderPlayer();
 
+    await openPanel();
     await screen.findByText(SUBTITLES_UNAVAILABLE_COPY);
     serveTracks([ENGLISH, PORTUGUESE]);
 
@@ -492,7 +528,7 @@ describe('subtitle generation guard', () => {
     await serveTracks([PORTUGUESE]);
     rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Heat') });
+    await openPanel('Heat');
     await new Promise((resolve) => setTimeout(resolve, 140));
     expect(trackIds('Heat')).toEqual(['', PORTUGUESE.id]);
     expect(within(region('Heat')).queryByText('English')).toBeNull();
@@ -510,7 +546,7 @@ describe('subtitle generation guard', () => {
     await serveTracks([PORTUGUESE]);
     rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Heat') });
+    await openPanel('Heat');
     await new Promise((resolve) => setTimeout(resolve, 160));
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
   });
@@ -545,13 +581,13 @@ describe('subtitle stale content', () => {
     serveContent({ failTrackId: ENGLISH.id, slowTrackId: ENGLISH.id, slowMs: 90 });
     const { rerender } = renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
 
     serveTracks([PORTUGUESE]);
     rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Heat') });
+    await openPanel('Heat');
     expect(checkedLabel('Heat')).toBe(SUBTITLES_OFF_COPY);
     await new Promise((resolve) => setTimeout(resolve, 160));
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
@@ -562,7 +598,7 @@ describe('subtitle stale content', () => {
     serveContent({ slowTrackId: ENGLISH.id, slowMs: 90 });
     const { unmount } = renderPlayer();
 
-    await screen.findByRole('radiogroup', { name: subtitleSelectLabel('Dune') });
+    await openPanel();
     choose(ENGLISH.label);
     unmount();
 
