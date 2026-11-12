@@ -320,6 +320,22 @@ const subtitleLanguagesData = {
 } satisfies Schemas['SubtitleLanguagesResponse'];
 
 export const subtitleLanguages = Object.freeze(subtitleLanguagesData);
+
+const subtitleSearchData = {
+  candidates: [
+    {
+      candidateId: 'f8a2c1d4e5b60718f8a2c1d4e5b60718',
+      language: 'en',
+      releaseName: 'Heat.1995.1080p.BluRay.x264-GROUP',
+      matchPercent: 100,
+      downloadCount: 42,
+    },
+  ],
+  quota: { remainingDownloads: 17, resetAtUtc: '2026-03-04T05:06:07+00:00' },
+  downloadAvailability: { enabled: true, reason: '' },
+} satisfies Schemas['SubtitleSearchResponse'];
+
+export const subtitleSearch = Object.freeze(subtitleSearchData);
 export const subtitleContent = subtitleContentData;
 export const preparedSubtitle = Object.freeze(preparedSubtitleData);
 export const subtitleSidecar = subtitleSidecarData;
@@ -342,6 +358,7 @@ export const success = Object.freeze({
   StreamMovie: movieStream,
   ListMovieSubtitleTracks: subtitleTracks,
   ListSubtitleLanguages: subtitleLanguages,
+  SearchMovieSubtitles: subtitleSearch,
   GetMovieSubtitleContent: subtitleContent,
   PrepareMovieSubtitle: preparedSubtitle,
   GetMovieSubtitleSidecar: subtitleSidecar,
