@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,8 @@ namespace LamuFlix.Api.ExceptionHandling;
 public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {
     private const string ReasonExtensionName = "reason";
+
+    private const string QuotaExtensionName = "quota";
 
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
@@ -55,6 +58,9 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
         SubtitleRequestRejectedException => true,
         SubtitleMovieNotFoundException => true,
         SubtitleSearchRateLimitedException => true,
+        SubtitleStaleCandidateException => true,
+        SubtitleReadOnlyLibraryException => true,
+        SubtitleDownloadQuotaExhaustedException => true,
         _ => false,
     };
 
@@ -69,6 +75,18 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             case SubtitleQuotaExceededException quotaExceeded:
                 status = StatusCodes.Status429TooManyRequests;
                 problem = CreateQuotaProblem(quotaExceeded, httpContext);
+                return true;
+            case SubtitleDownloadQuotaExhaustedException downloadQuotaExhausted:
+                status = StatusCodes.Status429TooManyRequests;
+                problem = CreateDownloadQuotaProblem(downloadQuotaExhausted);
+                return true;
+            case SubtitleStaleCandidateException:
+                status = StatusCodes.Status400BadRequest;
+                problem = WithReason(CreateBadRequestProblem(), SubtitleProblemReasons.StaleCandidate);
+                return true;
+            case SubtitleReadOnlyLibraryException:
+                status = StatusCodes.Status409Conflict;
+                problem = WithReason(CreateConflictProblem(), SubtitleProblemReasons.ReadOnlyLibrary);
                 return true;
             case SubtitleSearchRateLimitedException searchRateLimited:
                 status = StatusCodes.Status429TooManyRequests;
@@ -153,7 +171,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
         return exception switch
         {
             FeatureDisabledException => (StatusCodes.Status403Forbidden, CreateForbiddenProblem()),
-            LibraryFileAccessDeniedException => (StatusCodes.Status403Forbidden, CreateForbiddenProblem()),
+            LibraryFileAccessDeniedException => (StatusCodes.Status403Forbidden, CreateAccessDeniedProblem()),
             _ => (StatusCodes.Status500InternalServerError, CreateServerErrorProblem()),
         };
     }
@@ -213,6 +231,9 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             "Forbidden",
             "https://tools.ietf.org/html/rfc9110#section-15.5.4");
 
+    private static ProblemDetails CreateAccessDeniedProblem() =>
+        WithReason(CreateForbiddenProblem(), SubtitleProblemReasons.AccessDenied);
+
     private static ProblemDetails CreateQuotaProblem(
         SubtitleQuotaExceededException quotaExceeded,
         HttpContext httpContext)
@@ -233,6 +254,26 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
 
         return problem;
     }
+
+    private static ProblemDetails CreateDownloadQuotaProblem(SubtitleDownloadQuotaExhaustedException quotaExhausted)
+    {
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too Many Requests",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.30",
+        };
+        problem.Extensions[ReasonExtensionName] = SubtitleProblemReasons.DownloadQuotaExhausted;
+        problem.Extensions[QuotaExtensionName] = QuotaExtension(quotaExhausted.Quota);
+        return problem;
+    }
+
+    private static Dictionary<string, object?> QuotaExtension(SubtitleQuota quota) =>
+        new(StringComparer.Ordinal)
+        {
+            ["remainingDownloads"] = quota.RemainingDownloads,
+            ["resetAtUtc"] = quota.ResetAtUtc,
+        };
 
     private static ProblemDetails CreateSearchRateLimitedProblem(
         SubtitleSearchRateLimitedException searchRateLimited,

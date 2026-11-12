@@ -46,6 +46,10 @@ export interface paths {
     /** Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled. */
     post: operations["PrepareMovieSubtitle"];
   };
+  "/api/movies/{id}/subtitles/download": {
+    /** Download one selected subtitle candidate into the movie Subs folder. */
+    post: operations["DownloadMovieSubtitle"];
+  };
   "/api/movies/{id}/subtitles/sidecar": {
     /** Serve the existing exact-basename sidecar subtitle of a movie without acquisition. */
     get: operations["GetMovieSubtitleSidecar"];
@@ -310,6 +314,13 @@ export interface components {
     SubtitleDownloadAvailabilityDto: {
       enabled: boolean;
       reason: string;
+    };
+    SubtitleDownloadRequest: {
+      candidateId: null | string;
+    };
+    SubtitleDownloadResponse: {
+      track: components["schemas"]["SubtitleTrackDto"];
+      quota: components["schemas"]["SubtitleQuotaDto"];
     };
     SubtitleLanguageOptionDto: {
       code: string;
@@ -712,6 +723,81 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["SubtitlePrepareResponse"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Too Many Requests */
+      429: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Gateway Timeout */
+      504: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Download one selected subtitle candidate into the movie Subs folder. */
+  DownloadMovieSubtitle: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubtitleDownloadRequest"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        content: {
+          "application/json": components["schemas"]["SubtitleDownloadResponse"];
         };
       };
       /** @description Bad Request */

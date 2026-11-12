@@ -89,6 +89,10 @@ internal static class HandlerRegistration
         services.AddScoped<IValidator<SearchSubtitlesQuery>>(
             serviceProvider => serviceProvider.GetRequiredService<SearchSubtitlesQueryValidator>());
         services.AddHandler<SearchSubtitlesQueryHandler, SearchSubtitlesQuery, SearchSubtitlesResult>();
+        services.AddScoped<DownloadSubtitleCommandValidator>();
+        services.AddScoped<IValidator<DownloadSubtitleCommand>>(
+            serviceProvider => serviceProvider.GetRequiredService<DownloadSubtitleCommandValidator>());
+        services.AddHandler<DownloadSubtitleCommandHandler, DownloadSubtitleCommand, DownloadSubtitleResult>();
         services.AddHandler<GetSubtitleContentQueryHandler, GetSubtitleContentQuery, SubtitleContentResult>();
         services.AddHandler<PrepareSubtitleCommandHandler, PrepareSubtitleCommand, SubtitlePreparationResult>();
         services.AddHandler<GetSubtitleSidecarQueryHandler, GetSubtitleSidecarQuery, SubtitleSidecarResult>();

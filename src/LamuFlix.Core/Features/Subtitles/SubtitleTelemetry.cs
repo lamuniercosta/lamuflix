@@ -27,6 +27,8 @@ public static class SubtitleTelemetry
 
     public static Activity? StartProviderLookup() => Start(TelemetryConstants.SubtitleProviderLookup);
 
+    public static Activity? StartDownload() => Start(TelemetryConstants.SubtitleDownload);
+
     public static void Complete(Activity? activity, MovieId movieId, string outcome, TimeSpan elapsed)
     {
         ArgumentNullException.ThrowIfNull(movieId);

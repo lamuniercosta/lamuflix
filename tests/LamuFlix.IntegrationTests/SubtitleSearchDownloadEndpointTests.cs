@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Adapters;
@@ -462,6 +463,483 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
         stub.LogEntries.Count.ShouldBeGreaterThan(0);
     }
 
+    [Fact]
+    public async Task PostDownload_SuccessfulCandidate_PublishesIntoSubsAndReturns201TrackAndQuota()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        var content = SidecarPayload();
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                new SubtitleQuota(9, null))));
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload(content, new SubtitleQuota(8, null))));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        AssertFrozenNoStore(response);
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+        root.EnumerateObject().Select(property => property.Name)
+            .ShouldBe(["track", "quota"], ignoreOrder: true);
+        var track = root.GetProperty("track");
+        track.GetProperty("language").GetString().ShouldBe("en");
+        track.GetProperty("label").GetString().ShouldBe("English");
+        track.GetProperty("isDefault").GetBoolean().ShouldBeFalse();
+        track.GetProperty("id").GetString().ShouldNotBeNullOrWhiteSpace();
+        root.GetProperty("quota").GetProperty("remainingDownloads").GetInt32().ShouldBe(8);
+        var published = Path.Combine(library.Root, MovieFolder, "Subs", "Heat.1995.1080p-en.srt");
+        File.Exists(published).ShouldBeTrue();
+        (await File.ReadAllBytesAsync(published, ct)).ShouldBe(content);
+        body.ShouldNotContain(library.Root);
+        body.ShouldNotContain(SentinelKey);
+    }
+
+    [Fact]
+    public async Task PostDownload_MalformedMovieId_Returns400FromBinding()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsync(
+            "/api/movies/0/subtitles/download",
+            DownloadBody("0123456789abcdef0123456789abcdef"),
+            ct);
+
+        // assert
+        var body = await response.Content.ReadAsStringAsync(ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        using var document = JsonDocument.Parse(body);
+        document.RootElement.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain(library.Root);
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
+            Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task PostDownload_EmptyCandidateId_Returns422FromTheValidationDecorator(string candidateId)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.UnprocessableEntity, "invalid_request", library.Root);
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
+            Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task PostDownload_UnknownCandidateId_Returns400StaleCandidateBeforePaidCall()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsync(
+            DownloadRoute(KnownId),
+            DownloadBody("0123456789abcdef0123456789abcdef"),
+            ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "stale_candidate", library.Root);
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
+            Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task PostDownload_CandidateIssuedForAnotherMovie_Returns400StaleCandidate()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = IssueDirect(host, KnownId + 1);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, "stale_candidate", library.Root);
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
+            Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task PostDownload_MissingMovie_Returns404MovieNotFound()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        catalog.GetDetailsAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns((MovieDetails?)null);
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody("0123456789abcdef0123456789abcdef"), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.NotFound, "movie_not_found", library.Root);
+    }
+
+    [Fact]
+    public async Task PostDownload_ReadOnlyLibrary_Returns409ReadOnlyLibraryBeforeMissingProviderConfig()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                SubtitleQuota.Unknown)));
+        var readOnlySettings = Preferences(ProviderSettings(), ["en"]);
+        readOnlySettings[$"{SubtitlesOptions.SectionName}:{nameof(SubtitlesOptions.SaveEnabled)}"] = "false";
+        await using var host = CreateHost(library.Root, readOnlySettings);
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.Conflict, "read_only_library", library.Root);
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
+            Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task PostDownload_MissingProviderConfiguration_Returns409ProviderNotConfigured()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        var writable = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [$"{SubtitlesOptions.SectionName}:{nameof(SubtitlesOptions.SaveEnabled)}"] = "true",
+            [$"{SubtitlesOptions.SectionName}:{nameof(SubtitlesOptions.PreferredLanguages)}:0"] = "en",
+        };
+        await using var host = CreateHost(library.Root, writable);
+        using var client = host.CreateClient();
+        var candidateId = IssueDirect(host);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.Conflict, "provider_not_configured", library.Root);
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
+            Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task PostDownload_ContainmentRefusal_Returns403AccessDenied()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        using var outside = new TemporaryLibrary();
+        outside.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(outside.Root));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = IssueDirect(host);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.Forbidden, "access_denied", outside.Root);
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
+            Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task PostDownload_KnownZeroQuota_Returns429DownloadQuotaExhaustedBeforePaidCall()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                new SubtitleQuota(0, new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.Zero)))));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.TooManyRequests, "download_quota_exhausted", library.Root);
+        var body = await response.Content.ReadAsStringAsync(ct);
+        using var document = JsonDocument.Parse(body);
+        var quota = document.RootElement.GetProperty("quota");
+        quota.GetProperty("remainingDownloads").GetInt32().ShouldBe(0);
+        quota.GetProperty("resetAtUtc").ValueKind.ShouldBe(JsonValueKind.String);
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
+            Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task PostDownload_ProviderFailure_Returns502ProviderUnavailable()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                SubtitleQuota.Unknown)));
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<SubtitleDownload>(new SubtitleProviderFailureException("unusable download")));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.BadGateway, "provider_unavailable", library.Root);
+        SubsFiles(library.Root).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PostDownload_InvalidSrtPayload_Returns502AndWritesNothing()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                SubtitleQuota.Unknown)));
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload("<html>not a subtitle</html>"u8.ToArray(), SubtitleQuota.Unknown)));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.BadGateway, "provider_unavailable", library.Root);
+        SubsFiles(library.Root).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PostDownload_OversizePayload_Returns502BeforeStaging()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                SubtitleQuota.Unknown)));
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload(new byte[70000], SubtitleQuota.Unknown)));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.BadGateway, "provider_unavailable", library.Root);
+        SubsFiles(library.Root).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PostDownload_ProviderTimeout_Returns504ProviderTimeout()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                SubtitleQuota.Unknown)));
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<SubtitleDownload>(new SubtitleProviderTimeoutException()));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        await AssertProblemAsync(response, HttpStatusCode.GatewayTimeout, "provider_timeout", library.Root);
+        SubsFiles(library.Root).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PostDownload_CollisionPublish_Returns201WithNextFreeParenFileName()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        var existing = SidecarPayload();
+        library.WriteMovieFileForSubs(MovieFolder, "Heat.1995.1080p-en.srt", existing);
+        DetailsReturning(KnownDetails(MovieFolder));
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                SubtitleQuota.Unknown)));
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload(SidecarPayload(), SubtitleQuota.Unknown)));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var response = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var subs = Path.Combine(library.Root, MovieFolder, "Subs");
+        Directory.GetFiles(subs, "*.srt").Select(Path.GetFileName).ShouldContain("Heat.1995.1080p-en(1).srt");
+        (await File.ReadAllBytesAsync(Path.Combine(subs, "Heat.1995.1080p-en.srt"), ct)).ShouldBe(existing);
+        Directory.GetFiles(subs, ".*").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PostDownload_SuccessfulTrack_IsPersistedInTheLocalTrackList()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                SubtitleQuota.Unknown)));
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload(SidecarPayload(), SubtitleQuota.Unknown)));
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+
+        // act
+        var post = await client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), ct);
+        var list = await client.GetAsync(
+            string.Create(CultureInfo.InvariantCulture, $"/api/movies/{KnownId}/subtitles"),
+            ct);
+
+        // assert
+        post.StatusCode.ShouldBe(HttpStatusCode.Created);
+        list.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var posted = JsonDocument.Parse(await post.Content.ReadAsStringAsync(ct));
+        var postedId = posted.RootElement.GetProperty("track").GetProperty("id").GetString()
+            .ShouldNotBeNull();
+        using var listed = JsonDocument.Parse(await list.Content.ReadAsStringAsync(ct));
+        listed.RootElement.EnumerateArray()
+            .Select(track => track.GetProperty("id").GetString())
+            .ShouldContain(postedId);
+    }
+
+    [Fact]
+    public async Task PostDownload_CallerCancellation_CleansStagingAndIsNotAGatewayTimeout()
+    {
+        // arrange
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP")],
+                SubtitleQuota.Unknown)));
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(async callInfo =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, callInfo.Arg<CancellationToken>());
+                return new SubtitleDownload(SidecarPayload(), SubtitleQuota.Unknown);
+            });
+        await using var host = CreateHost(library.Root, WritableProviderSettings());
+        using var client = host.CreateClient();
+        var candidateId = await IssueCandidateAsync(client);
+        using var cancellation = new CancellationTokenSource();
+
+        // act
+        var request = client.PostAsync(DownloadRoute(KnownId), DownloadBody(candidateId), cancellation.Token);
+        await cancellation.CancelAsync();
+        HttpStatusCode? observed;
+        try
+        {
+            using var response = await request;
+            observed = response.StatusCode;
+        }
+        catch (OperationCanceledException)
+        {
+            observed = null;
+        }
+
+        // assert
+        observed.ShouldNotBe(HttpStatusCode.GatewayTimeout);
+        SubsFiles(library.Root).ShouldBeEmpty();
+    }
+
+    private static List<string> SubsFiles(string libraryRoot)
+    {
+        var subs = Path.Combine(libraryRoot, MovieFolder, "Subs");
+        return Directory.Exists(subs)
+            ? [.. Directory.GetFiles(subs, "*", SearchOption.TopDirectoryOnly)]
+            : [];
+    }
+
     private static async Task AssertProblemAsync(
         HttpResponseMessage response,
         HttpStatusCode expectedStatus,
@@ -481,6 +959,37 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
         body.ShouldNotContain(SentinelKey);
         body.ShouldNotContain("stackTrace");
     }
+
+    private static string DownloadRoute(int id) =>
+        string.Create(CultureInfo.InvariantCulture, $"/api/movies/{id}/subtitles/download");
+
+    private static StringContent DownloadBody(string? candidateId) =>
+        new(
+            JsonSerializer.Serialize(new Dictionary<string, string?> { ["candidateId"] = candidateId }),
+            System.Text.Encoding.UTF8,
+            "application/json");
+
+    private static async Task<string> IssueCandidateAsync(HttpClient client, int id = KnownId)
+    {
+        using var response = await client.GetAsync(SearchRoute(id, "en"), TestContext.Current.CancellationToken);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var document = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        return document.RootElement.GetProperty("candidates")[0].GetProperty("candidateId")
+            .GetString()
+            .ShouldNotBeNull();
+    }
+
+    private static string IssueDirect(
+        WebApplicationFactory<Program> host,
+        int movieId = KnownId,
+        SubtitleQuota? quota = null) =>
+        host.Services.GetRequiredService<SubtitleCandidateBinder>().Issue(
+            new MovieId(movieId),
+            "en",
+            new SubtitleCandidate(101, "en", 4, false, "Heat.1995.1080p.BluRay-GROUP"),
+            "Heat.1995.1080p.BluRay-GROUP",
+            quota ?? SubtitleQuota.Unknown);
 
     private static void AssertFrozenNoStore(HttpResponseMessage response)
     {
@@ -578,6 +1087,9 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
             services.GetRequiredService<TimeProvider>());
     }
 
+    private static byte[] SidecarPayload() =>
+        "1\n00:00:01,000 --> 00:00:02,000\nhello subtitle\n"u8.ToArray();
+
     private static MovieDetails KnownDetails(string storedPath) =>
         new(
             new MovieId(KnownId),
@@ -602,6 +1114,9 @@ public sealed class SubtitleSearchDownloadEndpointTests(ApiHostFactory factory)
 
         public void WriteMoviePrimary(string movieFolder, string fileName) =>
             WriteMovieFile(movieFolder, fileName, [0x1A, 0x45, 0xDF, 0xA3]);
+
+        public void WriteMovieFileForSubs(string movieFolder, string fileName, byte[] contents) =>
+            WriteMovieFile(Path.Combine(movieFolder, "Subs"), fileName, contents);
 
         private void WriteMovieFile(string movieFolder, string fileName, byte[] contents)
         {
