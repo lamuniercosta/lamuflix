@@ -10,6 +10,29 @@ public sealed class SubtitleSidecarDiscoveryTests
     private const string Primary = "Heat.1995.1080p.mkv";
     private const string Stem = "Heat.1995.1080p";
 
+    [Theory]
+    [InlineData("m.eng().srt")]
+    [InlineData("m.eng(no).srt")]
+    [InlineData("m.eng(2x).srt")]
+    public void Discover_MalformedDuplicateCounter_IsExcluded(string fileName)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover("m.mkv", [fileName]);
+
+        // assert
+        tracks.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Discover_ControlCharacterInLeaf_IsExcluded()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover("m.mkv", [string.Concat("m.en", '\u0001', ".srt")]);
+
+        // assert
+        tracks.ShouldBeEmpty();
+    }
+
     [Fact]
     public void Discover_BareFilename_ReturnsSubtitlesTrackWithUndeterminedLanguage()
     {
@@ -205,6 +228,46 @@ public sealed class SubtitleSidecarDiscoveryTests
         string fileName, string language, string label)
     {
         // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe(fileName);
+        track.Label.ShouldBe(label);
+        track.Language.ShouldBe(language);
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("ara", "ar", "Arabic")]
+    [InlineData("ar", "ar", "Arabic")]
+    [InlineData("arm", "hy", "Armenian")]
+    [InlineData("hye", "hy", "Armenian")]
+    [InlineData("hy", "hy", "Armenian")]
+    [InlineData("baq", "eu", "Basque")]
+    [InlineData("eus", "eu", "Basque")]
+    [InlineData("eu", "eu", "Basque")]
+    [InlineData("hrv", "hr", "Croatian")]
+    [InlineData("scr", "hr", "Croatian")]
+    [InlineData("hr", "hr", "Croatian")]
+    [InlineData("deu", "de", "German")]
+    [InlineData("de", "de", "German")]
+    [InlineData("gre", "el", "Greek")]
+    [InlineData("ell", "el", "Greek")]
+    [InlineData("el", "el", "Greek")]
+    [InlineData("heb", "he", "Hebrew")]
+    [InlineData("he", "he", "Hebrew")]
+    [InlineData("rum", "ro", "Romanian")]
+    [InlineData("ron", "ro", "Romanian")]
+    [InlineData("ro", "ro", "Romanian")]
+    [InlineData("per", "fa", "Persian")]
+    [InlineData("fas", "fa", "Persian")]
+    [InlineData("fa", "fa", "Persian")]
+    public void Discover_LanguageCodeAliases_ReturnCanonicalLanguageAndLabel(
+        string code, string language, string label)
+    {
+        // act
+        var fileName = $"Subs/{Stem}.{code}.srt";
         var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
 
         // assert
