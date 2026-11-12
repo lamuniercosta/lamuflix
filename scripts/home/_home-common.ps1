@@ -169,16 +169,46 @@ function Read-EnvValue {
     return $null
 }
 
-function Get-NewestDump {
-    param([string]$Directory, [string]$Pattern = 'lamuflix-home-*.dump')
-    if (-not (Test-Path -LiteralPath $Directory -PathType Container)) { return $null }
-    return Get-ChildItem -LiteralPath $Directory -Filter $Pattern -File |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
+# PostgreSQL 18 tools image, pinned by digest. Matches the Neon server version, so pg_restore and psql
+# read and write the same archive format. Used by the operator scripts that run pg_restore -l,
+# pg_restore and psql against Neon.
+$HomePostgresImage = 'postgres:18@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42'
+
+# Neon is the database of record. secrets\neon.env holds DATABASE_URL (libpq URI, value may be quoted).
+# secrets\catalog-database.env holds the same URL unquoted, for docker --env-file and kubectl --from-env-file.
+function Read-NeonDatabaseUrl {
+    param([Parameter(Mandatory)][string]$SecretsDir)
+    $url = Read-EnvValue -Path (Join-Path $SecretsDir 'neon.env') -Key 'DATABASE_URL'
+    if (-not $url) { throw 'DATABASE_URL not found in secrets\neon.env' }
+    if ($url -notmatch '^postgres(ql)?://') { throw 'DATABASE_URL must be a postgresql:// URL' }
+    return $url
 }
 
-# Same digest as deploy/k8s/base (postgres) and phase2-decisions. Used only to run pg_restore -l on the host.
-$HomePostgresImage = 'pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d'
+function Write-CatalogDatabaseEnv {
+    param([Parameter(Mandatory)][string]$SecretsDir)
+    $url = Read-NeonDatabaseUrl -SecretsDir $SecretsDir
+    $path = Join-Path $SecretsDir 'catalog-database.env'
+    Write-EnvFile -Path $path -Values ([ordered]@{ DATABASE_URL = $url })
+    return $path
+}
+
+# Converts a libpq URI to the Npgsql form the API reads. Values are decoded from the URI, and any ';' is
+# rejected because it would end the value early in an Npgsql connection string.
+function ConvertTo-NpgsqlConnectionString {
+    param([Parameter(Mandatory)][string]$Url)
+    $uri = [System.Uri]::new($Url)
+    $parts = $uri.UserInfo.Split(':', 2)
+    if ($parts.Count -ne 2) { throw 'DATABASE_URL must contain a user and a password' }
+    $user = [System.Uri]::UnescapeDataString($parts[0])
+    $password = [System.Uri]::UnescapeDataString($parts[1])
+    $database = [System.Uri]::UnescapeDataString($uri.AbsolutePath.TrimStart('/'))
+    if (-not $database) { throw 'DATABASE_URL must name a database' }
+    foreach ($v in @($user, $password, $database)) {
+        if ($v.Contains(';')) { throw 'DATABASE_URL contains a ";" in a value; use a password without ";"' }
+    }
+    $port = if ($uri.Port -gt 0) { $uri.Port } else { 5432 }
+    return "Host=$($uri.Host);Port=$port;Database=$database;Username=$user;Password=$password;SSL Mode=Require"
+}
 
 function Test-DumpWithPgRestore {
     param([Parameter(Mandatory)]$Cfg, [Parameter(Mandatory)][string]$DumpPath)

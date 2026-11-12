@@ -18,13 +18,13 @@ spec:
         runAsNonRoot: true
         runAsUser: 1654
       initContainers:
-        - name: wait-postgres-rabbitmq
+        - name: wait-rabbitmq
           image: ghcr.io/lamuniercosta/lamuflix-api
           command:
             - /bin/bash
             - -c
             - |
-              for h in postgres:5432 rabbitmq:5672; do
+              for h in rabbitmq:5672; do
                 until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
               done
           resources:

@@ -98,7 +98,8 @@ $patterns = [ordered]@{
     'JWT'                      = '\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'
     'Generic Bearer token'     = '(?i)\bBearer\s+(?!eyJ)[A-Za-z0-9_-]{20,}\b'
     'Azure storage AccountKey' = '(?i)\bAccountKey\s*=\s*[A-Za-z0-9+/]{20,}={0,2}\b'
-    'connection string password' = '(?i)(password|pwd)\s*=\s*[^;''"\s]{8,}'
+    # A value starting with $, [ or ( is PowerShell code (a variable or expression), not a literal.
+    'connection string password' = '(?i)(password|pwd)\s*=\s*(?![$\[(])[^;''"\s]{8,}'
     'assigned secret literal'  = '(?i)\b(api[_-]?key|secret|token|passwd|password)\b\s*[:=]\s*[''"][A-Za-z0-9_/+=.-]{20,}[''"]'
 }
 
