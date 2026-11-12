@@ -102,6 +102,7 @@ metadata:
 spec:
   ports:
   - name: ui
+    nodePort: 30188
     port: 18888
     targetPort: ui
   - name: otlp-grpc
@@ -109,7 +110,7 @@ spec:
     targetPort: otlp-grpc
   selector:
     app.kubernetes.io/name: aspire-dashboard
-  type: ClusterIP
+  type: NodePort
 ---
 apiVersion: v1
 kind: Service
@@ -209,7 +210,7 @@ spec:
               key: apiKey
               name: tmdb-credentials
               optional: true
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:bc19cfaea3e1f4bd6179a63afa58b4cc5fc13bb6fcf3829269dc6d3502f9fa78
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:a13dd066b2e559ebaaf65feb2c36cd0dd71d129f9b1999c76d6ffb47e8249590
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -254,7 +255,7 @@ spec:
           for h in postgres:5432 rabbitmq:5672; do
             until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
           done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:bc19cfaea3e1f4bd6179a63afa58b4cc5fc13bb6fcf3829269dc6d3502f9fa78
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:a13dd066b2e559ebaaf65feb2c36cd0dd71d129f9b1999c76d6ffb47e8249590
         name: wait-postgres-rabbitmq
         resources:
           limits:
@@ -266,7 +267,7 @@ spec:
         - -c
         - |
           until (exec 3<>/dev/tcp/ollama/11434 && printf 'GET /api/tags HTTP/1.1\r\nHost: ollama\r\nConnection: close\r\n\r\n' >&3 && timeout 5 cat <&3 | grep -q all-minilm); do sleep 3; done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:bc19cfaea3e1f4bd6179a63afa58b4cc5fc13bb6fcf3829269dc6d3502f9fa78
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:a13dd066b2e559ebaaf65feb2c36cd0dd71d129f9b1999c76d6ffb47e8249590
         name: wait-ollama-model
         resources:
           limits:
@@ -352,7 +353,7 @@ spec:
         app.kubernetes.io/part-of: lamuflix-home
     spec:
       containers:
-      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:dab8c8b46babf718c45e5f93e04c5de2986eac82d1d4ed6dcd63e74eaa2b7ed7
+      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:d133dbc60c7d2641761e6050a000b3fc142712bf6f2606f1541476899f8beffd
         livenessProbe:
           httpGet:
             path: /
