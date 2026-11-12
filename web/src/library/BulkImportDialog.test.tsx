@@ -73,6 +73,19 @@ describe('BulkImportDialog', () => {
     expect(within(dialog).getByLabelText('Bravo')).toBeChecked();
   });
 
+  it('puts the candidate folder checkboxes in a scrollable list', async () => {
+    server.use(
+      candidatesHandler(['Alpha', 'Bravo']),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    const folderInput = await within(dialog).findByLabelText('Alpha');
+    expect(folderInput.closest('ul')).toHaveClass('lamu-dialog-folders');
+  });
+
   it('shows the failed section from the Statuses=Failed browse', async () => {
     server.use(
       candidatesHandler([]),

@@ -427,6 +427,48 @@ describe('App layout shell', () => {
     expect(params.getAll('statuses')).toContain('Pending');
   });
 
+  it('shows the library Clear button only while the search has text', async () => {
+    window.history.replaceState({}, '', '/');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
+
+    expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Search titles'), {
+      target: { value: 'dune' },
+    });
+    expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument();
+  });
+
+  it('clears the library search at once, keeps focus, and drops the text param', async () => {
+    window.history.replaceState({}, '', '/?text=dune');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    const search = screen.getByPlaceholderText('Search titles');
+    expect(search).toHaveValue('');
+    expect(search).toHaveFocus();
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get('text')).toBeNull();
+    });
+  });
+
+  it('clears details search text in place without leaving the details page', async () => {
+    window.history.replaceState({}, '', '/');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
+
+    fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
+    expect(await screen.findByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
+
+    const search = screen.getByPlaceholderText('Search titles');
+    fireEvent.change(search, { target: { value: 'arrival' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(search).toHaveValue('');
+    expect(search).toHaveFocus();
+    expect(window.location.pathname).toBe('/movies/1');
+  });
+
   it('resyncs the details back link when only history state changes', async () => {
     window.history.replaceState({ libraryReturnUrl: '/?text=a' }, '', '/movies/1');
     renderApp();

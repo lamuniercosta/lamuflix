@@ -214,7 +214,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
                 </button>
               </p>
             ) : (
-              <ul>
+              <ul className="lamu-dialog-folders">
                 {folders.map((folder) => (
                   <li key={folder}>
                     <label>
