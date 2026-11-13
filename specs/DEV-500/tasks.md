@@ -86,13 +86,13 @@ Phase 9   T027          (delivery / merge-bar handoff — user merges)
 
 ### Tests for User Story 2
 
-- [ ] T006 [US2] After T005: Add failing Vitest coverage in `web/src/features/playback/subtitlePreferences.test.ts` (extend) for global key `lamuflix:subtitle-style:v1`, provisional default profile from ASSUMPTIONS/Q3, permitted ranges/steps, internal font tokens `system-sans`|`serif`|`monospace`, edge tokens `none`|`drop-shadow`|`raised`|`depressed`|`outline`, hex colors, invalid/malformed style → full default profile, and Reset-to-default removing only the style key without clearing delay (FR-006–FR-007, FR-010–FR-012, FR-017; SMOKE-002; plan-challenge item 6)
+- [x] T006 [US2] After T005: Add failing Vitest coverage in `web/src/features/playback/subtitlePreferences.test.ts` (extend) for global key `lamuflix:subtitle-style:v1`, provisional default profile from ASSUMPTIONS/Q3, permitted ranges/steps, internal font tokens `system-sans`|`serif`|`monospace`, edge tokens `none`|`drop-shadow`|`raised`|`depressed`|`outline`, hex colors, invalid/malformed style → full default profile, and Reset-to-default removing only the style key without clearing delay (FR-006–FR-007, FR-010–FR-012, FR-017; SMOKE-002; plan-challenge item 6)
 
 ### Implementation for User Story 2
 
-- [ ] T007 [P] [US2] After T006: Extend `web/src/features/playback/subtitlePreferences.ts` with style profile defaults/validation/codec per Q3/Q6/ASSUMPTIONS and ratified enum tokens (FR-006–FR-007, FR-010–FR-011, FR-015)
-- [ ] T008 [P] [US2] After T006: Add ticket labels/help and settled preview sample copy to `web/src/features/playback/subtitleCopy.ts` (`Negative shows subtitles earlier, positive later.`; preview sample `The quick brown fox jumps over the lazy dog.`; separate labels Text color, Text opacity, Background color, Background opacity; exact `Text size (%)`) (FR-001, FR-006, FR-014, FR-015; Q7)
-- [ ] T009 [US2] After T007–T008: Make T006 green against T007–T008 (FR-017)
+- [x] T007 [P] [US2] After T006: Extend `web/src/features/playback/subtitlePreferences.ts` with style profile defaults/validation/codec per Q3/Q6/ASSUMPTIONS and ratified enum tokens (FR-006–FR-007, FR-010–FR-011, FR-015)
+- [x] T008 [P] [US2] After T006: Add ticket labels/help and settled preview sample copy to `web/src/features/playback/subtitleCopy.ts` (`Negative shows subtitles earlier, positive later.`; preview sample `The quick brown fox jumps over the lazy dog.`; separate labels Text color, Text opacity, Background color, Background opacity; exact `Text size (%)`) (FR-001, FR-006, FR-014, FR-015; Q7)
+- [x] T009 [US2] After T007–T008: Make T006 green against T007–T008 (FR-017)
 
 **Checkpoint**: US1 + US2 preference rules independently testable.
 

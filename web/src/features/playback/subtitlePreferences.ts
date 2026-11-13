@@ -1,6 +1,52 @@
 export const SUBTITLE_DELAY_KEY_PREFIX = 'lamuflix:subtitle-delay:v1:';
 
+export const SUBTITLE_STYLE_KEY = 'lamuflix:subtitle-style:v1';
+
 const SAFE_INTEGER_PATTERN = /^-?\d+$/;
+
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+export const SUBTITLE_FONT_TOKENS = ['system-sans', 'serif', 'monospace'] as const;
+
+export const SUBTITLE_EDGE_TOKENS = [
+  'none',
+  'drop-shadow',
+  'raised',
+  'depressed',
+  'outline',
+] as const;
+
+export type SubtitleFontToken = (typeof SUBTITLE_FONT_TOKENS)[number];
+
+export type SubtitleEdgeToken = (typeof SUBTITLE_EDGE_TOKENS)[number];
+
+export const SUBTITLE_TEXT_SIZE_MIN = 50;
+export const SUBTITLE_TEXT_SIZE_MAX = 200;
+export const SUBTITLE_TEXT_SIZE_STEP = 10;
+
+export const SUBTITLE_OPACITY_MIN = 0;
+export const SUBTITLE_OPACITY_MAX = 100;
+export const SUBTITLE_OPACITY_STEP = 5;
+
+export interface SubtitleStyleProfile {
+  font: SubtitleFontToken;
+  textSize: number;
+  textColor: string;
+  textOpacity: number;
+  bgColor: string;
+  bgOpacity: number;
+  edge: SubtitleEdgeToken;
+}
+
+export const DEFAULT_SUBTITLE_STYLE: Readonly<SubtitleStyleProfile> = {
+  font: 'system-sans',
+  textSize: 100,
+  textColor: '#FFFFFF',
+  textOpacity: 100,
+  bgColor: '#000000',
+  bgOpacity: 75,
+  edge: 'none',
+};
 
 export interface SubtitleStorage {
   getItem(key: string): string | null;
@@ -77,6 +123,117 @@ export function removeSubtitleDelay(
   if (key === null) return false;
   try {
     storage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function isHexColor(value: unknown): value is string {
+  return typeof value === 'string' && HEX_COLOR_PATTERN.test(value);
+}
+
+function isSteppedValue(value: unknown, min: number, max: number, step: number): value is number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) return false;
+  if (value < min || value > max) return false;
+  return (value - min) % step === 0;
+}
+
+function isFontToken(value: unknown): value is SubtitleFontToken {
+  return SUBTITLE_FONT_TOKENS.includes(value as SubtitleFontToken);
+}
+
+function isEdgeToken(value: unknown): value is SubtitleEdgeToken {
+  return SUBTITLE_EDGE_TOKENS.includes(value as SubtitleEdgeToken);
+}
+
+function validateSubtitleStyle(value: unknown): SubtitleStyleProfile | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  if (!isFontToken(candidate.font)) return null;
+  if (!isEdgeToken(candidate.edge)) return null;
+  if (
+    !isSteppedValue(
+      candidate.textSize,
+      SUBTITLE_TEXT_SIZE_MIN,
+      SUBTITLE_TEXT_SIZE_MAX,
+      SUBTITLE_TEXT_SIZE_STEP,
+    )
+  ) {
+    return null;
+  }
+  if (
+    !isSteppedValue(
+      candidate.textOpacity,
+      SUBTITLE_OPACITY_MIN,
+      SUBTITLE_OPACITY_MAX,
+      SUBTITLE_OPACITY_STEP,
+    )
+  ) {
+    return null;
+  }
+  if (
+    !isSteppedValue(
+      candidate.bgOpacity,
+      SUBTITLE_OPACITY_MIN,
+      SUBTITLE_OPACITY_MAX,
+      SUBTITLE_OPACITY_STEP,
+    )
+  ) {
+    return null;
+  }
+  if (!isHexColor(candidate.textColor)) return null;
+  if (!isHexColor(candidate.bgColor)) return null;
+  return {
+    font: candidate.font,
+    textSize: candidate.textSize,
+    textColor: candidate.textColor,
+    textOpacity: candidate.textOpacity,
+    bgColor: candidate.bgColor,
+    bgOpacity: candidate.bgOpacity,
+    edge: candidate.edge,
+  };
+}
+
+function defaultSubtitleStyle(): SubtitleStyleProfile {
+  return { ...DEFAULT_SUBTITLE_STYLE };
+}
+
+export function sanitizeSubtitleStyle(value: unknown): SubtitleStyleProfile {
+  return validateSubtitleStyle(value) ?? defaultSubtitleStyle();
+}
+
+function parseStoredStyle(raw: string | null): SubtitleStyleProfile {
+  if (raw === null) return defaultSubtitleStyle();
+  try {
+    return sanitizeSubtitleStyle(JSON.parse(raw));
+  } catch {
+    return defaultSubtitleStyle();
+  }
+}
+
+export function readSubtitleStyle(storage: SubtitleStorage): SubtitleStyleProfile {
+  try {
+    return parseStoredStyle(storage.getItem(SUBTITLE_STYLE_KEY));
+  } catch {
+    return defaultSubtitleStyle();
+  }
+}
+
+export function writeSubtitleStyle(storage: SubtitleStorage, style: unknown): boolean {
+  const validated = validateSubtitleStyle(style);
+  if (validated === null) return false;
+  try {
+    storage.setItem(SUBTITLE_STYLE_KEY, JSON.stringify(validated));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function removeSubtitleStyle(storage: SubtitleStorage): boolean {
+  try {
+    storage.removeItem(SUBTITLE_STYLE_KEY);
     return true;
   } catch {
     return false;

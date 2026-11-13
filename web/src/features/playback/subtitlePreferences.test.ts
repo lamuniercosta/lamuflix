@@ -1,12 +1,46 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_SUBTITLE_STYLE,
   SUBTITLE_DELAY_KEY_PREFIX,
+  SUBTITLE_EDGE_TOKENS,
+  SUBTITLE_FONT_TOKENS,
+  SUBTITLE_OPACITY_MAX,
+  SUBTITLE_OPACITY_MIN,
+  SUBTITLE_OPACITY_STEP,
+  SUBTITLE_STYLE_KEY,
+  SUBTITLE_TEXT_SIZE_MAX,
+  SUBTITLE_TEXT_SIZE_MIN,
+  SUBTITLE_TEXT_SIZE_STEP,
+  isHexColor,
   readSubtitleDelay,
+  readSubtitleStyle,
   removeSubtitleDelay,
+  removeSubtitleStyle,
   sanitizeSubtitleDelay,
+  sanitizeSubtitleStyle,
   subtitleDelayKey,
   writeSubtitleDelay,
+  writeSubtitleStyle,
+  type SubtitleStyleProfile,
 } from './subtitlePreferences';
+import {
+  CAPTION_STYLE_LABEL,
+  RESET_STYLE_LABEL,
+  RESET_TIMING_LABEL,
+  SUBTITLE_BACKGROUND_COLOR_LABEL,
+  SUBTITLE_BACKGROUND_OPACITY_LABEL,
+  SUBTITLE_DELAY_HELP_COPY,
+  SUBTITLE_DELAY_LABEL,
+  SUBTITLE_EDGE_LABEL,
+  SUBTITLE_EDGE_OPTION_LABELS,
+  SUBTITLE_FONT_LABEL,
+  SUBTITLE_FONT_OPTION_LABELS,
+  SUBTITLE_PREVIEW_LABEL,
+  SUBTITLE_PREVIEW_SAMPLE_COPY,
+  SUBTITLE_TEXT_COLOR_LABEL,
+  SUBTITLE_TEXT_OPACITY_LABEL,
+  SUBTITLE_TEXT_SIZE_LABEL,
+} from './subtitleCopy';
 
 const STYLE_KEY = 'lamuflix:subtitle-style:v1';
 
@@ -35,6 +69,19 @@ function brokenStorage() {
     removeItem: (): void => {
       throw new Error('remove failed');
     },
+  };
+}
+
+function customProfile(overrides: Partial<SubtitleStyleProfile> = {}): SubtitleStyleProfile {
+  return {
+    font: 'serif',
+    textSize: 140,
+    textColor: '#FFEEDD',
+    textOpacity: 90,
+    bgColor: '#112233',
+    bgOpacity: 40,
+    edge: 'outline',
+    ...overrides,
   };
 }
 
@@ -255,5 +302,256 @@ describe('removeSubtitleDelay', () => {
     writeSubtitleDelay(storage, 7, 'token-en', 500);
     expect(removeSubtitleDelay(storage, 7.5, 'token-en')).toBe(false);
     expect(readSubtitleDelay(storage, 7, 'token-en')).toBe(500);
+  });
+});
+
+describe('subtitle style profile constants', () => {
+  it('uses the versioned global style key', () => {
+    expect(SUBTITLE_STYLE_KEY).toBe('lamuflix:subtitle-style:v1');
+  });
+
+  it('exposes the ratified internal font and edge tokens only', () => {
+    expect(SUBTITLE_FONT_TOKENS).toEqual(['system-sans', 'serif', 'monospace']);
+    expect(SUBTITLE_EDGE_TOKENS).toEqual(['none', 'drop-shadow', 'raised', 'depressed', 'outline']);
+  });
+
+  it('exposes the permitted ranges and steps', () => {
+    expect(SUBTITLE_TEXT_SIZE_MIN).toBe(50);
+    expect(SUBTITLE_TEXT_SIZE_MAX).toBe(200);
+    expect(SUBTITLE_TEXT_SIZE_STEP).toBe(10);
+    expect(SUBTITLE_OPACITY_MIN).toBe(0);
+    expect(SUBTITLE_OPACITY_MAX).toBe(100);
+    expect(SUBTITLE_OPACITY_STEP).toBe(5);
+  });
+
+  it('matches the provisional Q3 default profile', () => {
+    expect(DEFAULT_SUBTITLE_STYLE).toEqual({
+      font: 'system-sans',
+      textSize: 100,
+      textColor: '#FFFFFF',
+      textOpacity: 100,
+      bgColor: '#000000',
+      bgOpacity: 75,
+      edge: 'none',
+    });
+  });
+
+  it('returns a fresh default profile that cannot corrupt the shared default', () => {
+    const first = sanitizeSubtitleStyle(null);
+    first.textColor = '#123456';
+    expect(DEFAULT_SUBTITLE_STYLE.textColor).toBe('#FFFFFF');
+    expect(sanitizeSubtitleStyle(null)).toEqual(DEFAULT_SUBTITLE_STYLE);
+  });
+});
+
+describe('isHexColor', () => {
+  it('accepts six-digit hex colors in either case', () => {
+    expect(isHexColor('#FFFFFF')).toBe(true);
+    expect(isHexColor('#000000')).toBe(true);
+    expect(isHexColor('#a1b2C3')).toBe(true);
+  });
+
+  it('rejects anything that is not a six-digit hex color', () => {
+    expect(isHexColor('#FFF')).toBe(false);
+    expect(isHexColor('FFFFFF')).toBe(false);
+    expect(isHexColor('#GGGGGG')).toBe(false);
+    expect(isHexColor('red')).toBe(false);
+    expect(isHexColor('#FFFFFF; color: red')).toBe(false);
+    expect(isHexColor('')).toBe(false);
+    expect(isHexColor(null)).toBe(false);
+    expect(isHexColor(123456)).toBe(false);
+  });
+});
+
+describe('sanitizeSubtitleStyle', () => {
+  it('accepts a fully valid stored profile unchanged', () => {
+    expect(sanitizeSubtitleStyle(customProfile())).toEqual(customProfile());
+  });
+
+  it('accepts every ratified token and range boundary', () => {
+    for (const font of SUBTITLE_FONT_TOKENS) {
+      for (const edge of SUBTITLE_EDGE_TOKENS) {
+        const profile = customProfile({
+          font,
+          edge,
+          textSize: SUBTITLE_TEXT_SIZE_MIN,
+          textOpacity: SUBTITLE_OPACITY_MIN,
+          bgOpacity: SUBTITLE_OPACITY_MAX,
+        });
+        expect(sanitizeSubtitleStyle(profile)).toEqual(profile);
+      }
+    }
+  });
+
+  it('falls back to the whole default profile for malformed values', () => {
+    const invalidProfiles: unknown[] = [
+      null,
+      undefined,
+      'not-an-object',
+      [],
+      {},
+      { ...customProfile(), font: 'comic-sans' },
+      { ...customProfile(), edge: 'glow' },
+      { ...customProfile(), textSize: 45 },
+      { ...customProfile(), textSize: 205 },
+      { ...customProfile(), textSize: 145 },
+      { ...customProfile(), textSize: '100' },
+      { ...customProfile(), textOpacity: -5 },
+      { ...customProfile(), textOpacity: 98 },
+      { ...customProfile(), bgOpacity: 105 },
+      { ...customProfile(), textColor: 'white' },
+      { ...customProfile(), bgColor: '#12345' },
+      { ...customProfile(), textColor: '#fff; background: red' },
+    ];
+
+    for (const value of invalidProfiles) {
+      expect(sanitizeSubtitleStyle(value)).toEqual(DEFAULT_SUBTITLE_STYLE);
+    }
+  });
+
+  it('does not partially merge a profile with one bad field', () => {
+    const partial = sanitizeSubtitleStyle({ ...customProfile(), edge: 'glow' });
+    expect(partial).toEqual(DEFAULT_SUBTITLE_STYLE);
+    expect(partial.font).toBe('system-sans');
+    expect(partial.textSize).toBe(100);
+  });
+});
+
+describe('readSubtitleStyle', () => {
+  it('returns the default profile when nothing is stored', () => {
+    expect(readSubtitleStyle(memoryStorage())).toEqual(DEFAULT_SUBTITLE_STYLE);
+  });
+
+  it('round-trips a stored profile', () => {
+    const storage = memoryStorage();
+    expect(writeSubtitleStyle(storage, customProfile())).toBe(true);
+    expect(readSubtitleStyle(storage)).toEqual(customProfile());
+  });
+
+  it('restores the global style across movie and track changes', () => {
+    const storage = memoryStorage();
+    writeSubtitleStyle(storage, customProfile({ font: 'monospace', bgOpacity: 20 }));
+    writeSubtitleDelay(storage, 7, 'token-en', 500);
+    expect(readSubtitleStyle(storage).font).toBe('monospace');
+    expect(readSubtitleStyle(storage).bgOpacity).toBe(20);
+    expect(readSubtitleDelay(storage, 7, 'token-en')).toBe(500);
+  });
+
+  it('falls back to the whole default profile for invalid stored data', () => {
+    const cases = [
+      'not json',
+      '',
+      ' ',
+      'null',
+      '[]',
+      '"serif"',
+      '{}',
+      JSON.stringify({ ...customProfile(), font: 'comic-sans' }),
+      JSON.stringify({ ...customProfile(), textSize: 500 }),
+    ];
+    for (const raw of cases) {
+      expect(readSubtitleStyle(memoryStorage({ [SUBTITLE_STYLE_KEY]: raw }))).toEqual(
+        DEFAULT_SUBTITLE_STYLE,
+      );
+    }
+  });
+
+  it('returns the default profile when storage reads fail', () => {
+    expect(readSubtitleStyle(brokenStorage())).toEqual(DEFAULT_SUBTITLE_STYLE);
+  });
+});
+
+describe('writeSubtitleStyle', () => {
+  it('persists the validated profile under the global key', () => {
+    const storage = memoryStorage();
+    expect(writeSubtitleStyle(storage, customProfile())).toBe(true);
+    expect(JSON.parse(storage.entries.get(SUBTITLE_STYLE_KEY) as string)).toEqual(customProfile());
+  });
+
+  it('rejects an invalid profile instead of writing it', () => {
+    const storage = memoryStorage();
+    expect(writeSubtitleStyle(storage, customProfile({ font: 'comic-sans' as never }))).toBe(false);
+    expect(storage.entries.size).toBe(0);
+  });
+
+  it('reports failure without throwing when storage writes fail', () => {
+    expect(writeSubtitleStyle(brokenStorage(), customProfile())).toBe(false);
+  });
+});
+
+describe('removeSubtitleStyle', () => {
+  it('removes only the style key and leaves delay values intact', () => {
+    const storage = memoryStorage();
+    writeSubtitleStyle(storage, customProfile());
+    writeSubtitleDelay(storage, 7, 'token-en', 500);
+    writeSubtitleDelay(storage, 7, 'token-pob', -200);
+
+    expect(removeSubtitleStyle(storage)).toBe(true);
+
+    expect(readSubtitleStyle(storage)).toEqual(DEFAULT_SUBTITLE_STYLE);
+    expect(storage.entries.has(SUBTITLE_STYLE_KEY)).toBe(false);
+    expect(readSubtitleDelay(storage, 7, 'token-en')).toBe(500);
+    expect(readSubtitleDelay(storage, 7, 'token-pob')).toBe(-200);
+  });
+
+  it('succeeds when no style was ever saved', () => {
+    const storage = memoryStorage();
+    expect(removeSubtitleStyle(storage)).toBe(true);
+    expect(storage.entries.size).toBe(0);
+  });
+
+  it('reports failure without throwing when storage removal fails', () => {
+    expect(removeSubtitleStyle(brokenStorage())).toBe(false);
+  });
+});
+
+describe('subtitle ticket copy', () => {
+  it('keeps the authoritative label and help text', () => {
+    expect(SUBTITLE_DELAY_LABEL).toBe('Subtitle delay');
+    expect(SUBTITLE_DELAY_HELP_COPY).toBe('Negative shows subtitles earlier, positive later.');
+    expect(RESET_TIMING_LABEL).toBe('Reset timing');
+    expect(CAPTION_STYLE_LABEL).toBe('Caption style');
+    expect(SUBTITLE_PREVIEW_LABEL).toBe('Subtitle preview');
+    expect(RESET_STYLE_LABEL).toBe('Reset to default');
+  });
+
+  it('keeps the four color and opacity labels separate', () => {
+    expect(SUBTITLE_TEXT_COLOR_LABEL).toBe('Text color');
+    expect(SUBTITLE_TEXT_OPACITY_LABEL).toBe('Text opacity');
+    expect(SUBTITLE_BACKGROUND_COLOR_LABEL).toBe('Background color');
+    expect(SUBTITLE_BACKGROUND_OPACITY_LABEL).toBe('Background opacity');
+    expect(
+      new Set([
+        SUBTITLE_TEXT_COLOR_LABEL,
+        SUBTITLE_TEXT_OPACITY_LABEL,
+        SUBTITLE_BACKGROUND_COLOR_LABEL,
+        SUBTITLE_BACKGROUND_OPACITY_LABEL,
+      ]).size,
+    ).toBe(4);
+  });
+
+  it('keeps the exact Text size and Edge style labels', () => {
+    expect(SUBTITLE_TEXT_SIZE_LABEL).toBe('Text size (%)');
+    expect(SUBTITLE_EDGE_LABEL).toBe('Edge style');
+    expect(SUBTITLE_FONT_LABEL).toBe('Font');
+  });
+
+  it('settles the preview sample copy', () => {
+    expect(SUBTITLE_PREVIEW_SAMPLE_COPY).toBe('The quick brown fox jumps over the lazy dog.');
+  });
+
+  it('labels every ratified font and edge token', () => {
+    expect(SUBTITLE_FONT_OPTION_LABELS).toEqual({
+      'system-sans': 'System sans-serif',
+      serif: 'Serif',
+      monospace: 'Monospace',
+    });
+    expect(SUBTITLE_EDGE_OPTION_LABELS).toEqual({
+      none: 'None',
+      'drop-shadow': 'Drop shadow',
+      raised: 'Raised',
+      depressed: 'Depressed',
+      outline: 'Outline',
+    });
   });
 });
