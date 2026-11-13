@@ -95,6 +95,11 @@
   --media-secondary-color: var(--color-panel);
   --media-icon-color: var(--color-accent);
   --media-menu-item-checked-indicator-display: inline-block;
+  /* media-chrome keeps a hidden menu in layout (visibility only), which lifted the
+     control bar off the bottom of the frame; float it above the bar instead. */
+  position: absolute;
+  right: var(--lamu-space-2);
+  bottom: 3.5rem;
   max-width: calc(100% - var(--lamu-space-6));
   overflow-y: auto;
 }
