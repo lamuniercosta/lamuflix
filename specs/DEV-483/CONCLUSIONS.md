@@ -110,3 +110,30 @@ Ruling: Approve `gate1: provisional` for the DEV-483 spec package (`spec.md`, `p
 
 
 
+
+## Phase B Gate 1 landing and pickup reanalysis — 2026-11-13
+
+Keel records ordinary owner Gate 1 as landed: [spec PR #387](https://github.com/lamuniercosta/lamuflix/pull/387), state MERGED, merged at `2026-11-12T12:30:51Z`, merge commit `bac075b02239eee02fe5e39bf40e8a0d21a0be1d`. Source: `recon-DEV-483:33-36` (Wisp reports `gh pr view` receipt and matching `git log`) and `DEV-483:28-34`. This supersedes the earlier Gate 1 pending entries; historical decisions and receipts remain intact. T000 is complete. No agent merge was performed.
+
+Pickup: `F:/Dev/LamuFlix.worktrees/DEV-483`, branch `feature/DEV-483`, inspected HEAD `f88ab2336b6733684041082ad10c5d87d28e4e23`, initially clean. Recon lines 25-27 report the landed spec/plan/tasks additions relative to Phase A base `73f3f74a`; no production-code drift equivalence is inferred. Phase A branch, worktree, recon line references, and pending-status text remain historical metadata, not current pickup facts. This dated receipt and the Phase B tasks status take precedence for current Gate 1 and pickup status.
+
+### Read-only cross-artifact analysis
+
+Reviewed `brief.md`, `spec.md`, `plan.md`, and `tasks.md` against the picked HEAD, supplied recon, and current constitution principles. SpecKit prerequisite execution was explicitly excluded by the Conductor for this Phase B branch; no successful prerequisite run is claimed. No before/after analyze hooks are configured in `.specify/extensions.yml`. Analysis itself made no edits; the receipt and task-status changes follow the authorized recording step.
+
+| Requirement coverage | Tasks |
+|---|---|
+| FR-001–FR-005: target scope, preserved semantics, causal diagnosis and file/protected boundaries | T001–T005 |
+| FR-006–FR-008: deterministic seam regressions, real persistence, no unit latency timers | T004–T006 |
+| FR-009–FR-013: Q2 isolation, fixtures/oracles, cold/batch/settled samples, every-sample limits, no synthetic PASS | T001–T003, T007 |
+| FR-014–FR-018: Rigger cause read-back, mandatory gates, review caps, contract/layer preservation, no new ADR | T004–T011; existing brief Q6 and plan structure |
+| FR-019–FR-020: existing diagnostic facilities, time/comment rules, Build ownership and separate status boundaries | T000–T006, T009–T011 |
+| SC-001–SC-006: latency, diagnosis/documentation, regression, gates and reviewed handoff | T002–T011 |
+
+No new delivery-scope contradiction, uncovered functional requirement, dependency-order cycle, or constitution conflict identified. Diagnosis-first and the sequence T007 → T009 → T008 → T010 → T011 remain intact. Historical pending/freeze headers do not authorize bypassing the dated receipts. No scope, file boundary, protocol, threshold, gate eligibility or acceptance requirement is changed by pickup.
+
+### T001 completion blocker / Phase 2 status
+
+T001 is NOT complete. `recon-DEV-483:18,29-31` explicitly does not establish detailed non-endpoint seams/coverage, fixture IDs/history/candidates, route-specific payload oracles, or exact Activity/log facilities; current recon also provides no Compose reachability/readiness/reset protocol or actual applicable complexity/refactor and mutation configuration receipt required by T001. The Gate 1 addendum establishes only the merge receipt. `DEV-483:17-27` supplies the pre-edit baseline: property tests, vulnerable packages, format and full tests PASS (5305 passed, 3 skipped); three analyzer gates and web gates SKIPPED (scope-empty), never PASS. These baseline results are attributed to Gauge, not independently rerun by Keel and not final implementation receipts.
+
+Keel reanalysis is complete within the supplied evidence; T001 stays unchecked and T002+ remain blocked on the missing recon prerequisites. Needs recon: supply T001 candidate/test seam inventory, Compose reachability and readiness without prewarming, pinned/reset dataset/history with concrete details/recommendation fixtures and route-specific status/payload oracles, exact existing diagnostic facilities, and actual applicable complexity/refactor and mutation eligibility/configuration receipts. No root cause, production fix, runtime acceptance, cause-documentation completion or merge clearance is claimed.
