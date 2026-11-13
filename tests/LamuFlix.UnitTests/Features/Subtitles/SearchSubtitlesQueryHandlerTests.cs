@@ -487,6 +487,7 @@ public sealed class SearchSubtitlesQueryHandlerTests
         var activity = stopped.ShouldHaveSingleItem();
         activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(424242);
         activity.GetTagItem(TelemetryConstants.OutcomeTagName).ShouldBe(TelemetryConstants.SucceededOutcome);
+        ambient.GetTagItem(TelemetryConstants.MovieId).ShouldBe(424242);
     }
 
     [Fact]
@@ -509,6 +510,7 @@ public sealed class SearchSubtitlesQueryHandlerTests
         activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(424242);
         activity.Status.ShouldBe(ActivityStatusCode.Error);
         activity.GetTagItem(TelemetryConstants.FailureCategoryTagName).ShouldBe(TelemetryConstants.FailedOutcome);
+        ambient.GetTagItem(TelemetryConstants.MovieId).ShouldBe(424242);
     }
 
     private static Activity StartActivity() => new Activity("test").Start();

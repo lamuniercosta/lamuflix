@@ -150,6 +150,16 @@ public sealed class SubtitleMatchScorerTests
     }
 
     [Fact]
+    public void Compare_NullSecondReleaseName_OrdersAgainstEmptyRatherThanAnyLiteral()
+    {
+        // act
+        var result = SubtitleMatchScorer.Compare("A", "x", null, "y");
+
+        // assert
+        result.ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
     public void Score_IsSymmetricForDistinctTokenOverlap()
     {
         // arrange

@@ -354,6 +354,36 @@ public sealed class GetSubtitleLanguagesQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_AllPreferencesUnsupported_DefaultIsNullAndCatalogIsComplete()
+    {
+        // arrange
+        var handler = Handler(["xx-YY"]);
+
+        // act
+        var result = await handler.HandleAsync(
+            new GetSubtitleLanguagesQuery(), TestContext.Current.CancellationToken);
+
+        // assert
+        result.DefaultLanguage.ShouldBeNull();
+        result.Languages.Length.ShouldBe(SupportedSubtitleLanguages.All.Count);
+    }
+
+    [Fact]
+    public async Task HandleAsync_BlankLeadingPreference_DefaultSkipsToTheFirstSupportedEntry()
+    {
+        // arrange
+        var handler = Handler([" ", "es"]);
+
+        // act
+        var result = await handler.HandleAsync(
+            new GetSubtitleLanguagesQuery(), TestContext.Current.CancellationToken);
+
+        // assert
+        result.DefaultLanguage.ShouldBe("es");
+        result.Languages[0].Code.ShouldBe("es");
+    }
+
+    [Fact]
     public async Task HandleAsync_NullQuery_ThrowsArgumentNullException()
     {
         // arrange

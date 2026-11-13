@@ -163,6 +163,30 @@ public sealed class SubtitleCandidateBinderTests
     }
 
     [Fact]
+    public void Issue_StaggeredExpiriesBeyondCapacity_EvictsEarliestExpiryFirst()
+    {
+        // arrange
+        var clock = new MutableTimeProvider(Now);
+        var binder = new SubtitleCandidateBinder(clock, new Random(13), () => Ttl, () => 2);
+        var first = Issue(binder, Movie);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        var second = Issue(binder, Movie);
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        // act
+        var third = Issue(binder, Movie);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        var fourth = Issue(binder, Movie);
+
+        // assert
+        binder.Count.ShouldBe(2);
+        binder.TryResolve(first, Movie, out _).ShouldBeFalse();
+        binder.TryResolve(second, Movie, out _).ShouldBeFalse();
+        binder.TryResolve(third, Movie, out _).ShouldBeTrue();
+        binder.TryResolve(fourth, Movie, out _).ShouldBeTrue();
+    }
+
+    [Fact]
     public void Count_NewBinder_IsEmpty()
     {
         // act
