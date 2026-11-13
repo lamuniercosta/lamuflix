@@ -13,7 +13,7 @@ public sealed record OutboxRelayOptions : IValidatableObject
 
     public int BatchSize { get; init; } = 100;
 
-    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(1);
+    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(10);
 
     public TimeSpan PublishTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
