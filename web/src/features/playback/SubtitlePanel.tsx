@@ -2,10 +2,10 @@ import { useId, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
   CLOSE_SUBTITLES_PANEL_LABEL,
   SUBTITLES_LABEL,
-  SUBTITLES_OPTIONS_EMPTY_COPY,
   SUBTITLES_OPTIONS_LABEL,
   subtitlePanelLabel,
 } from './subtitleCopy';
+import SubtitleOptions, { type SubtitleOptionsProps } from './SubtitleOptions';
 import SubtitlesTab from './SubtitlesTab';
 import type { SubtitlePlayback } from './useSubtitlePlayback';
 
@@ -19,6 +19,7 @@ export interface SubtitlePanelProps {
   playback: SubtitlePlayback;
   onTabChange: (tab: SubtitlePanelTab) => void;
   onClose: () => void;
+  options: SubtitleOptionsProps;
 }
 
 const TABS: readonly SubtitlePanelTab[] = ['subtitles', 'options'];
@@ -31,6 +32,7 @@ export default function SubtitlePanel({
   playback,
   onTabChange,
   onClose,
+  options,
 }: SubtitlePanelProps) {
   const baseId = useId();
   const tabRefs = useRef<Record<SubtitlePanelTab, HTMLButtonElement | null>>({
@@ -129,7 +131,7 @@ export default function SubtitlePanel({
         aria-labelledby={tabId('options')}
         hidden={activeTab !== 'options'}
       >
-        <p className="subtitle-panel-options">{SUBTITLES_OPTIONS_EMPTY_COPY}</p>
+        <SubtitleOptions {...options} />
       </div>
     </div>
   );

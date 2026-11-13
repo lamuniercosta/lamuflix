@@ -1,0 +1,42 @@
+.caption-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--lamu-space-4, 1rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0 var(--lamu-space-4, 1rem);
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+  transition: none;
+}
+
+.caption-overlay-box {
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 2px;
+  text-align: center;
+  overflow-wrap: break-word;
+  transition: none;
+}
+
+.caption-overlay[data-mode='preview'] {
+  position: static;
+  padding: 12px;
+  border-radius: var(--lamu-radius-media, 8px);
+  background-color: #1e1e22;
+  background-image:
+    linear-gradient(45deg, #2a2a30 25%, transparent 25%, transparent 75%, #2a2a30 75%),
+    linear-gradient(45deg, #2a2a30 25%, transparent 25%, transparent 75%, #2a2a30 75%);
+  background-position:
+    0 0,
+    6px 6px;
+  background-size: 12px 12px;
+  margin-bottom: 12px;
+  min-height: 48px;
+  justify-content: center;
+}

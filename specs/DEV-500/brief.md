@@ -98,8 +98,9 @@ Patron ratified the following bounded file plan under `web/src/features/playback
 
 | File(s) | Responsibility |
 | --- | --- |
-| `BrowserPlayer.tsx` | Mount overlay; integrate preferences, media and shortcuts |
-| Delivered `SubtitleSelector.tsx` / CC shell | Options integration; preserve selection/Off/retry and shell interaction behavior |
+| `BrowserPlayer.tsx` | Own tab selection and delivered panel mount; mount overlay; integrate preferences, media and shortcuts |
+| Delivered `SubtitlePanel.tsx` | Own tab semantics and Options tab body; integrate props-fed Options content in the existing shell |
+| `SubtitleSelector.tsx` | Preserve Subtitles-tab track selection/Off/loading/error/retry behavior |
 | `useSubtitlePlayback.ts`, `subtitleTrackModes.ts` | Only needed loaded/hidden selected-track integration |
 | `subtitleCopy.ts` | Ticket labels/help and settled preview copy |
 | New `subtitlePreferences.ts` | Defaults, validation and storage codec/helpers |
@@ -180,3 +181,40 @@ Patron-ratified decisions (basis Q3–Q8; `PRODUCT.md` §§2–5; current recon 
 Repair mechanics within these decisions: name `subtitleTiming.ts` as the implementation owner of shifted intervals/active-cue rules; name `subtitleTiming.test.ts` explicitly. Split Options work into preference lifecycle/storage, presentational controls, shell/shortcut integration and loaded/hidden track seams with red/green tasks and no same-file parallel writes. Use deterministic fake media/cue readiness and fake timers/stubbed rAF. Guard stale async work by generation/identity; retain abort and object-URL cleanup with the existing resource owner rather than duplicate ownership. Test out-of-order completion, rapid switches, StrictMode remount, original-baseline independence, long exact delay sequences, half-open boundaries, large delays, paused scheduling, unchanged-active-cue no updates, storage accessor throws and specific unsafe-text vectors. Recompute shifted intervals only when baseline/delay change; compare ordered cue identities so unchanged membership/order does not trigger state churn. Test cleanup of each resource actually acquired, not hypothetical observers. Browser receipts own real cue loading, fullscreen, responsive scale and target/motion/contrast observations; DOM assertions do not prove native suppression. If acceptance fixes change code, rerun affected tests and applicable gates and refresh receipts at the resulting head.
 
 Palette design is delivered; its corrections remain pending. Quill must update stale prerequisite language and distinguish pending design repairs from absent design. Gates still precede browser receipts. Keep task IDs with explicit execution order, or renumber all references consistently; do not run by numeric ID alone. No new owner checkbox is triggered by Patron's rulings; ordinary Gate 1 remains pending.
+
+
+## Phase B T001 — Landed-main integration amendment and reanalysis (2026-11-13)
+
+Authority: Conductor explicitly requested this bounded reanalysis and brief/tasks amendment at `F:/Dev/LamuFlix.worktrees/DEV-500`, branch `feature/DEV-500`, HEAD `f88ab2336b6733684041082ad10c5d87d28e4e23`. Local `main` and `origin/main` resolve to that same SHA. Source facts come exclusively from refreshed `recon-DEV-500:4-27`; dependency ancestry is recorded by Rigger in task note `DEV-500:21-27`. This section supersedes historical shell ownership, current-recon line descriptions, and pending-design language above and in the drafting-era plan/spec; it does not rewrite historical rulings.
+
+### Demonstrated integration drift (Q2/Q8 amendment)
+
+- `SubtitlePanel.tsx:16-32,95-107,138-147` owns tab semantics and the two tabpanel bodies. Integrate props-fed `SubtitleOptions` in its existing Options body, replacing the placeholder content. This delivered shell file is explicitly within Q8; no parallel shell or cherry-pick.
+- `BrowserPlayer.tsx:202-207,412-435` owns tab selection, the CC trigger and panel mount. Keep the sole `useSubtitleOptions` instance here and pass state/actions through the delivered panel to Options and to the shared overlay. Preserve existing tab/focus/dismissal behavior.
+- `SubtitleSelector.tsx` owns Subtitles-tab track selection, Off, loading/error/retry. It is not the Options body owner; preserve its behavior and focused regressions. No unrelated rewrite is authorized.
+- T018/T019/T022 exercise these ownership boundaries through player integration and selector regression coverage. Pure preferences/timing, cue lifecycle, presentational controls, hidden-track work and their serial ordering remain as ratified.
+
+Basis: recon `:11-18`, Q2/Q8 explicit drift-amendment permission, and the Conductor ask. This is reuse of the delivered dependency within the existing scope, with no new dependency, architecture, API, schema, LocalPlay or constitution departure.
+
+### Read-only analysis result, followed by separately authorized edits
+
+The SpecKit prerequisite command (`check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks`, with `PYTHONUTF8=1`) could not run successfully: it rejects `feature/DEV-500` as nonnumeric. No analyze hooks are registered. The requested manual bounded cross-artifact comparison used spec FR-001–FR-019 / SC-001–SC-006, plan, tasks, this brief, the landed constitution, design status, prior independent reread and refreshed recon. The analysis itself made no writes; the Conductor separately authorized the brief/tasks amendments.
+
+| ID | Severity | Location | Finding / disposition |
+| --- | --- | --- | --- |
+| I1 | Medium | Q8; plan Source Code; T001/T018/T019/T022 | Historical selector/CC-shell wording misattributes Options ownership. Corrected in Q8 and tasks; this amendment supplies the explicit delivered-panel boundary for the historical plan/spec wording. |
+| I2 | High, blocking clearance | T000; CONCLUSIONS Gate 1 provisional confirmation; recon :25-27 | No verified DEV-500 spec-PR merge receipt is present in the supplied authoritative evidence. Provisional confirmation and landed spec files do not establish owner Gate 1. T000 remains unchecked. |
+| I3 | Low | plan status/design references; tasks header/dependencies | Drafting-era pending-freeze/pending-design text is stale: KEEL_REPAIR_REREAD.md final correction declares PLAN FROZEN and recon :21 confirms delivered corrected design. Tasks status refreshed; plan remains historical and is qualified by this amendment. |
+
+Coverage remains 25/25 FR/SC items mapped to 28 tasks T000–T027 (planning coverage only), with no newly uncovered requirement, new duplication or constitution conflict identified within this bounded check. Coverage families: FR-001–005 / SC-001 → T002–005,T016–019,T025; FR-006–007,011 / SC-002 → T003–004,T006–009,T011,T016–017,T025; FR-008–009 → T010–013,T018–021,T025; FR-010,012–013 / SC-003–004 → T003–004,T011,T014–015,T018–019,T025; FR-014–017,019 → T001–023,T025 as scoped; FR-018 / SC-005 → T024–025; SC-006 → T023. T000–001 and T026–027 are mapped lifecycle/governance work, not orphan implementation tasks.
+
+### Clearance and remaining evidence
+
+PLAN FROZEN is established by the final 2026-11-12 correction in `KEEL_REPAIR_REREAD.md:60-69`. DEV-503 shell presence and landed-main pickup are supported by refreshed recon and Rigger ancestry receipt. Palette design is delivered with corrections applied (recon :21). **Gate 1 / T000 is not verified; T001 remains incomplete and T002+ blocked.** Gauge baseline is not supplied by this analysis and is not claimed as PASS. No production edits, tests, gates or runtime acceptance were performed.
+
+References were not found tracked; real-layout external fixture configuration was not found in recon scope (:22-23). Keep T024–T025 open; do not invent paths or claim visual/runtime fidelity. Backend identity stability remains unproven. Required next evidence: verified DEV-500 spec-PR URL/number, merged SHA and owner Gate 1 receipt for T000; Gauge pre-edit baseline for T001. This documentation-only reanalysis does not authorize Build past the existing gate.
+
+
+### T000/T001 clearance update — verified direct owner landing (2026-11-13)
+
+The Conductor supplied and explicitly accepted the verified direct owner landing of the spec package on origin/main: Lamunier Costa, `c3b28aae2379bacd7c5365a83001f55153e8d491`, subject `DEV-500: spec`; no separate PR. Refreshed recon :29-37 records commit provenance; the Conductor instruction supplies the Gate 1 disposition. The receipt is appended to `CONCLUSIONS.md`. This supersedes I2 and the initial blocked clearance above: T000/T001 are checked complete as instructed; T002 is next. Gauge baseline evidence remains with Gauge/Conductor before production edits and is not claimed as run or PASS here. Missing references/fixtures, runtime acceptance and backend identity stability remain as qualified above. This records an owner action already taken, with no agent merge or auto-merge.

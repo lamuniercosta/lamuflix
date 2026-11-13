@@ -304,23 +304,25 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
     const shownState = await waitForTrackState(
       page,
       fixture.title,
-      (probe) => probe.tracks.filter((track) => track.mode === 'showing').length === 1,
+      (probe) => probe.tracks.filter((track) => track.mode === 'hidden').length === 1,
       20_000,
     );
-    expect(shownState.ok, `one track is showing: ${describeTracks(shownState.probe)}`).toBe(true);
+    expect(shownState.ok, `one track is loaded hidden: ${describeTracks(shownState.probe)}`).toBe(
+      true,
+    );
 
     const cueState = await waitForTrackState(
       page,
       fixture.title,
       (probe) =>
         (
-          probe.tracks.find((track) => track.mode === 'showing')?.activeCues.join(' ') ?? ''
+          probe.tracks.find((track) => track.mode === 'hidden')?.activeCues.join(' ') ?? ''
         ).includes(target.cueText ?? ''),
       20_000,
     );
-    const shownCues = cueState.probe.tracks.find((track) => track.mode === 'showing');
+    const shownCues = cueState.probe.tracks.find((track) => track.mode === 'hidden');
     const othersDisabled = cueState.probe.tracks
-      .filter((track) => track.mode !== 'showing')
+      .filter((track) => track.mode !== 'hidden')
       .every((track) => track.mode === 'disabled');
     const playingWithCues = !(await isPaused(page));
 
@@ -349,7 +351,7 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
 
     expect(
       cueState.ok,
-      `the shown track renders the cue text: ${describeTracks(cueState.probe)}`,
+      `the hidden track loads the cue text: ${describeTracks(cueState.probe)}`,
     ).toBe(true);
     expect(shownCues?.label, 'the shown track is the one the viewer chose').toBe(target.label);
     expect(othersDisabled, 'every other listed track stays disabled').toBe(true);

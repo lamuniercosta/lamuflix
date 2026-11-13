@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySubtitleTrackModes } from './subtitleTrackModes';
+import { applySubtitleTrackModes, watchSubtitleTrackModes } from './subtitleTrackModes';
 
 function trackElement(trackId: string): HTMLTrackElement {
   const element = document.createElement('track');
@@ -18,7 +18,7 @@ function modes(elements: HTMLTrackElement[]): Record<string, string> {
 }
 
 describe('applySubtitleTrackModes', () => {
-  it('shows only the selected track and disables every other listed track', () => {
+  it('loads only the selected track as hidden and disables every other listed track', () => {
     const english = trackElement('en');
     const portuguese = trackElement('pt');
     const video = document.createElement('video');
@@ -26,7 +26,7 @@ describe('applySubtitleTrackModes', () => {
 
     applySubtitleTrackModes(video, 'pt');
 
-    expect(modes([english, portuguese])).toEqual({ en: 'disabled', pt: 'showing' });
+    expect(modes([english, portuguese])).toEqual({ en: 'disabled', pt: 'hidden' });
   });
 
   it('disables every track for Off and tolerates missing containers', () => {
@@ -40,16 +40,64 @@ describe('applySubtitleTrackModes', () => {
     expect(() => applySubtitleTrackModes(null, 'en')).not.toThrow();
   });
 
-  it('moves the single showing track when the selection changes', () => {
+  it('moves the single hidden track when the selection changes', () => {
     const english = trackElement('en');
     const portuguese = trackElement('pt');
     const video = document.createElement('video');
     video.append(english, portuguese);
 
     applySubtitleTrackModes(video, 'en');
-    expect(modes([english, portuguese])).toEqual({ en: 'showing', pt: 'disabled' });
+    expect(modes([english, portuguese])).toEqual({ en: 'hidden', pt: 'disabled' });
 
     applySubtitleTrackModes(video, 'pt');
-    expect(modes([english, portuguese])).toEqual({ en: 'disabled', pt: 'showing' });
+    expect(modes([english, portuguese])).toEqual({ en: 'disabled', pt: 'hidden' });
+  });
+
+  it('re-applies hidden mode when the browser switches the selected track to showing', () => {
+    const english = trackElement('en');
+    const video = document.createElement('video');
+    video.append(english);
+
+    const stop = watchSubtitleTrackModes(video, () => 'en');
+    english.track!.mode = 'showing';
+    video.textTracks.dispatchEvent(new Event('change'));
+
+    expect(english.track?.mode).toBe('hidden');
+    stop();
+  });
+
+  it('releases every media and track-list listener it acquired', () => {
+    const video = document.createElement('video');
+    const added: string[] = [];
+    const removed: string[] = [];
+    type Listener = EventListenerOrEventListenerObject;
+    type Options = boolean | AddEventListenerOptions | undefined;
+    const trackList = video.textTracks;
+    const addToList = trackList.addEventListener.bind(trackList);
+    const removeFromList = trackList.removeEventListener.bind(trackList);
+    trackList.addEventListener = (type: string, listener: Listener, options?: Options) => {
+      added.push(`list:${type}`);
+      addToList(type, listener, options);
+    };
+    trackList.removeEventListener = (type: string, listener: Listener, options?: Options) => {
+      removed.push(`list:${type}`);
+      removeFromList(type, listener, options);
+    };
+    const addToVideo = video.addEventListener.bind(video);
+    const removeFromVideo = video.removeEventListener.bind(video);
+    video.addEventListener = (type: string, listener: Listener, options?: Options) => {
+      added.push(`media:${type}`);
+      addToVideo(type, listener, options);
+    };
+    video.removeEventListener = (type: string, listener: Listener, options?: Options) => {
+      removed.push(`media:${type}`);
+      removeFromVideo(type, listener, options);
+    };
+
+    const stop = watchSubtitleTrackModes(video, () => 'en');
+    stop();
+
+    expect(added.length).toBeGreaterThan(0);
+    expect(removed.sort()).toEqual(added.sort());
   });
 });

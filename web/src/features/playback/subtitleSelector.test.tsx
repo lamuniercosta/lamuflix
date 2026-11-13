@@ -253,17 +253,16 @@ describe('subtitle track list states', () => {
   });
 
   it('never persists a selection and never auto-selects from the browser language', async () => {
-    const getItem = vi.spyOn(Storage.prototype, 'getItem');
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
     renderPlayer();
 
     await openPanel();
     choose(ENGLISH.label);
-    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('hidden'));
 
-    expect(getItem).not.toHaveBeenCalledWith(expect.stringMatching(/subtitle/i));
-    const subtitleWrites = setItem.mock.calls.filter(([key]) => /subtitle/i.test(String(key)));
-    expect(subtitleWrites).toEqual([]);
+    const writes = setItem.mock.calls.filter(([key]) => /subtitle/i.test(String(key)));
+    expect(writes).toEqual([]);
+    expect(checkedLabel()).toBe(ENGLISH.label);
   });
 });
 
@@ -288,7 +287,7 @@ describe('subtitle track modes', () => {
     await openPanel();
     choose(PORTUGUESE.label);
 
-    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('hidden'));
     expect(modeOf(ENGLISH.id)).toBe('disabled');
     expect(checkedLabel()).toBe(PORTUGUESE.label);
     expect(video().querySelectorAll('track')).toHaveLength(2);
@@ -299,7 +298,7 @@ describe('subtitle track modes', () => {
 
     await openPanel();
     choose(ENGLISH.label);
-    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('hidden'));
 
     choose(SUBTITLES_OFF_COPY);
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('disabled'));
@@ -316,7 +315,7 @@ describe('subtitle track modes', () => {
     fireEvent.keyDown(off, { key: 'ArrowDown' });
 
     await waitFor(() => expect(checkedLabel()).toBe(ENGLISH.label));
-    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('hidden'));
 
     const english = within(group() as HTMLElement).getByRole('radio', { name: ENGLISH.label });
     fireEvent.keyDown(english, { key: 'ArrowUp' });
@@ -330,7 +329,7 @@ describe('subtitle track modes', () => {
 
     await openPanel();
     choose(ENGLISH.label);
-    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('hidden'));
 
     choose(SUBTITLES_OFF_COPY);
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('disabled'));
@@ -350,7 +349,7 @@ describe('subtitle track modes', () => {
 
     await openPanel();
     choose(PORTUGUESE.label);
-    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('hidden'));
 
     act(() => {
       trackElement(ENGLISH.id).track.mode = 'showing';
@@ -358,7 +357,7 @@ describe('subtitle track modes', () => {
     });
 
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('disabled'));
-    expect(modeOf(PORTUGUESE.id)).toBe('showing');
+    expect(modeOf(PORTUGUESE.id)).toBe('hidden');
   });
 
   it('re-disables the tracks when the browser re-selects on media load', async () => {
@@ -366,7 +365,7 @@ describe('subtitle track modes', () => {
 
     await openPanel();
     choose(ENGLISH.label);
-    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('hidden'));
 
     choose(SUBTITLES_OFF_COPY);
     await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('disabled'));
@@ -396,7 +395,7 @@ describe('subtitle track modes', () => {
     await openPanel();
 
     choose(ENGLISH.label);
-    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('hidden'));
     expect(owned).toHaveLength(1);
 
     choose(SUBTITLES_OFF_COPY);
@@ -415,7 +414,7 @@ describe('subtitle selection lifetime', () => {
 
     await openPanel();
     choose(ENGLISH.label);
-    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(ENGLISH.id)).toBe('hidden'));
     expect(owned).toHaveLength(1);
 
     serveTracks([ENGLISH]);
@@ -451,7 +450,7 @@ describe('subtitle content failure', () => {
 
     serveContent();
     choose(PORTUGUESE.label);
-    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('hidden'));
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
   });
 
@@ -482,7 +481,7 @@ describe('subtitle content failure', () => {
     choose(ENGLISH.label);
     choose(PORTUGUESE.label);
 
-    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('hidden'));
     await new Promise((resolve) => setTimeout(resolve, 140));
 
     expect(checkedLabel()).toBe(PORTUGUESE.label);
@@ -498,7 +497,7 @@ describe('subtitle content failure', () => {
     choose(ENGLISH.label);
     choose(PORTUGUESE.label);
 
-    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('showing'));
+    await waitFor(() => expect(modeOf(PORTUGUESE.id)).toBe('hidden'));
     await new Promise((resolve) => setTimeout(resolve, 140));
 
     expect(screen.queryByText(SUBTITLES_UNAVAILABLE_COPY)).toBeNull();
@@ -641,14 +640,14 @@ describe('subtitle track keyboard operation inside the player surface', () => {
     rows[1].focus();
     fireEvent.keyDown(rows[1], { key: 'Enter' });
 
-    await waitFor(() => expect(modeOf('token-en')).toBe('showing'));
+    await waitFor(() => expect(modeOf('token-en')).toBe('hidden'));
     expect(video().currentTime).toBe(0);
 
     const refreshed = await within(panel).findAllByRole('radio');
     refreshed[2].focus();
     fireEvent.keyDown(refreshed[2], { key: ' ' });
 
-    await waitFor(() => expect(modeOf('token-pob')).toBe('showing'));
+    await waitFor(() => expect(modeOf('token-pob')).toBe('hidden'));
     expect(modeOf('token-en')).toBe('disabled');
     expect(video().currentTime).toBe(0);
 

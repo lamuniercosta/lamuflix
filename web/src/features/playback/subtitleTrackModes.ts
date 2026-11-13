@@ -13,7 +13,8 @@ export function applySubtitleTrackModes(
   for (const element of tracks) {
     const textTrack = element.track;
     if (!textTrack) continue;
-    const desired = element.dataset.trackId === selectedTrackId ? 'showing' : 'disabled';
+    const desired: TextTrackMode =
+      element.dataset.trackId === selectedTrackId ? 'hidden' : 'disabled';
     if (textTrack.mode !== desired) textTrack.mode = desired;
   }
 }
