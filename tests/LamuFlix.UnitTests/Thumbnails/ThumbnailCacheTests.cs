@@ -252,6 +252,30 @@ public sealed class ThumbnailCacheTests
     }
 
     [Fact]
+    public void TryOpenCanonical_WithLockedFile_ReturnsFalseAfterRetries()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "FileShare.None locking is Windows-specific.");
+        // arrange
+        using var temporary = new TemporaryDirectory();
+        var cache = CreateCache(temporary.Path);
+        var canonicalPath = Path.Combine(temporary.Path, "39.jpg");
+        WriteJpeg(canonicalPath, 0x99);
+
+        // act
+        bool opened;
+        FileStream? stream;
+        using (new FileStream(canonicalPath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            opened = cache.TryOpenCanonical(new MovieId(39), out stream);
+        }
+
+        // assert
+        opened.ShouldBeFalse();
+        stream.ShouldBeNull();
+        File.ReadAllBytes(canonicalPath).ShouldBe(new byte[] { SoiFirstByte, SoiSecondByte, 0x99, 0x00 });
+    }
+
+    [Fact]
     public void TryOpenCanonical_WithCanonicalReparsePoint_ReturnsFalse()
     {
         // arrange
