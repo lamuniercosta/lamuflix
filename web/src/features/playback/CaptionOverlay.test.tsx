@@ -209,3 +209,20 @@ describe('CaptionOverlay', () => {
     expect(previewBox.style.color).toBe(liveBox.style.color);
   });
 });
+
+describe('CaptionOverlay player auto-hide', () => {
+  it.each(['windowed', 'fullscreen'] as const)(
+    'opts out of media-chrome auto-hide on the %s surface so captions stay visible',
+    (surface) => {
+      const { container } = render(
+        <CaptionOverlay
+          surface={surface}
+          cues={[{ id: 'a', text: 'Caption' }]}
+          style={style()}
+          surfaceWidthPx={640}
+        />,
+      );
+      expect(overlay(container).hasAttribute('noautohide')).toBe(true);
+    },
+  );
+});
