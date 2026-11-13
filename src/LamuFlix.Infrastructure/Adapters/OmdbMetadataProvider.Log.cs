@@ -47,5 +47,11 @@ public sealed partial class OmdbMetadataProvider
             Level = LogLevel.Warning,
             Message = "The OMDb request quota could not be recorded, so the request was not dispatched; failure {FailureType}.")]
         public static partial void QuotaPersistenceFailed(ILogger logger, string failureType);
+
+        [LoggerMessage(
+            EventId = 8,
+            Level = LogLevel.Warning,
+            Message = "OMDb reported its daily request limit as reached (HTTP 401). The API key is valid; requests resume when OMDb resets the limit.")]
+        public static partial void DailyLimitReached(ILogger logger);
     }
 }

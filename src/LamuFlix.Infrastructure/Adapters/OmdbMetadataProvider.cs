@@ -28,6 +28,7 @@ public sealed partial class OmdbMetadataProvider(
 {
     private const string NoStatus = "none";
     private const string MalformedBody = "malformed body";
+    private const string RequestLimitMessage = "Request limit reached";
     private const string UnusableBody = "unusable body";
     private const string MissingTitle = "missing or unusable title";
     private const string FoundFlag = "True";
@@ -275,7 +276,7 @@ public sealed partial class OmdbMetadataProvider(
     {
         if (!response.IsSuccessStatusCode)
         {
-            return new Fetch.Rejected(StatusFailure(response.StatusCode));
+            return new Fetch.Rejected(await RejectedStatusAsync(response, ct));
         }
 
         Response? body;
@@ -332,6 +333,28 @@ public sealed partial class OmdbMetadataProvider(
     {
         Log.InvalidResponse(logger, MalformedBody);
         return Failure(EnrichmentFailureCategory.InvalidResponse);
+    }
+
+    /// <summary>
+    /// OMDb answers HTTP 401 both for a bad key and for a spent daily quota ("Request limit reached!").
+    /// Only the body tells them apart, so a 401 carrying the limit message is a quota failure, not a
+    /// key problem, and must not mark the provider unhealthy as unauthorized.
+    /// </summary>
+    private async Task<MetadataLookupResult> RejectedStatusAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.StatusCode == HttpStatusCode.Unauthorized && await IsRequestLimitBodyAsync(response, ct))
+        {
+            Log.DailyLimitReached(logger);
+            return Failure(EnrichmentFailureCategory.QuotaExhausted);
+        }
+
+        return StatusFailure(response.StatusCode);
+    }
+
+    private static async Task<bool> IsRequestLimitBodyAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        var payload = await response.Content.ReadAsStringAsync(ct);
+        return payload.Contains(RequestLimitMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     private MetadataLookupResult StatusFailure(HttpStatusCode statusCode)
