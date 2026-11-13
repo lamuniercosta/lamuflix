@@ -1,6 +1,7 @@
 #Requires -Version 7.0
 # Removes the home kind cluster and nothing else. Refuses to run without -Confirm.
-# The catalog lives in the Neon database, outside the cluster, so removing the cluster does not touch it.
+# Deletes only the named kind cluster. The catalog lives in a PersistentVolumeClaim inside the cluster,
+# so removing the cluster discards it; the movies are reimported afterwards. No dump is taken.
 # Host folders, E:\Filmes and the backups folder are never touched by this script.
 # -WhatIf prints the plan and changes nothing.
 #

@@ -55,7 +55,7 @@ function New-StatusOps {
     Write-TestText -Path $kube -Text ''
     $cfg = Write-TestConfig -Path (Join-Path $ops 'home.config.json') -LibraryPath $root -BackupPath $backups `
         -KubeconfigPath $kube -WebPort $WebPort -ReleaseJsonPath $ReleaseJson
-    return [pscustomobject]@{ Config = $cfg }
+    return [pscustomobject]@{ Config = $cfg; Backups = $backups }
 }
 
 function Get-KindRule {
@@ -89,7 +89,6 @@ try {
     $r1 = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $o1.Config) -BinDir $bin -LogPath (Join-Path $root 'c1.log') -RulesPath $rules
     Assert-Case 'healthy: exit 0' ($r1.ExitCode -eq 0) "exit $($r1.ExitCode): $($r1.Output)"
     Assert-Case 'healthy: STATUS healthy printed' ($r1.Output -match 'STATUS: healthy')
-    Assert-Case 'healthy: no dump check printed' (-not ($r1.Output -match 'dump'))
     Assert-Case 'healthy: reports the deployed commit from RELEASE.json' ($r1.Output -match 'abc1234')
     Assert-Case 'healthy: both web routes return 200' (($r1.Output -match 'web / : 200') -and ($r1.Output -match 'web /api/genres : 200'))
     Assert-Case 'healthy: read-only (no write verbs called)' (-not (Test-LogHas $r1 'patch|apply|delete|create|scale|exec'))
@@ -102,37 +101,37 @@ try {
     Assert-Case 'OutOfSync: reports the sync problem' ($r2.Output -match 'argo sync status is not Synced')
     Assert-Case 'OutOfSync: degraded line printed' ($r2.Output -match 'STATUS: degraded')
 
-    # Case 3: /api/genres answers 500 while / answers 200
-    $port3 = Get-FreePort
-    $null = Start-TestServer -Port $port3 -GenresStatus 500
-    $o3 = New-StatusOps 'case-genres500' -WebPort $port3
+    # Case 5: /api/genres answers 500 while / answers 200
+    $port5 = Get-FreePort
+    $null = Start-TestServer -Port $port5 -GenresStatus 500
+    $o5 = New-StatusOps 'case-genres500' -WebPort $port5
     Write-StubRules -Path $rules -Rules (@(Get-KindRule) + (Get-ArgoRules))
-    $r3 = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $o3.Config) -BinDir $bin -LogPath (Join-Path $root 'c3.log') -RulesPath $rules
-    Assert-Case 'genres 500: exit 1' ($r3.ExitCode -eq 1) "exit $($r3.ExitCode)"
-    Assert-Case 'genres 500: reports the route' ($r3.Output -match 'web /api/genres returned 500')
-
-    # Case 4: nothing listens on the web port
-    $closedPort = Get-FreePort
-    $o4 = New-StatusOps 'case-closed' -WebPort $closedPort
-    Write-StubRules -Path $rules -Rules (@(Get-KindRule) + (Get-ArgoRules))
-    $r4 = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $o4.Config) -BinDir $bin -LogPath (Join-Path $root 'c4.log') -RulesPath $rules
-    Assert-Case 'closed web port: exit 1' ($r4.ExitCode -eq 1) "exit $($r4.ExitCode)"
-    Assert-Case 'closed web port: reports unreachable' ($r4.Output -match 'web / returned unreachable')
-
-    # Case 5: cluster absent; no Argo call is made and the problem is named
-    $o5 = New-StatusOps 'case-nocluster' -WebPort $port
-    Write-StubRules -Path $rules -Rules @(Get-KindRule -Output '')
     $r5 = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $o5.Config) -BinDir $bin -LogPath (Join-Path $root 'c5.log') -RulesPath $rules
-    Assert-Case 'no cluster: exit 1' ($r5.ExitCode -eq 1) "exit $($r5.ExitCode)"
-    Assert-Case 'no cluster: reports the missing cluster' ($r5.Output -match 'is not present')
-    Assert-Case 'no cluster: no Argo query made' ((Count-LogLines $r5 'status.') -eq 0)
+    Assert-Case 'genres 500: exit 1' ($r5.ExitCode -eq 1) "exit $($r5.ExitCode)"
+    Assert-Case 'genres 500: reports the route' ($r5.Output -match 'web /api/genres returned 500')
 
-    # Case 6: releaseJsonPath set but the file is missing
-    $o6 = New-StatusOps 'case-norelease' -WebPort $port -ReleaseJson (Join-Path $root 'missing-RELEASE.json')
+    # Case 6: nothing listens on the web port
+    $closedPort = Get-FreePort
+    $o6 = New-StatusOps 'case-closed' -WebPort $closedPort
     Write-StubRules -Path $rules -Rules (@(Get-KindRule) + (Get-ArgoRules))
     $r6 = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $o6.Config) -BinDir $bin -LogPath (Join-Path $root 'c6.log') -RulesPath $rules
-    Assert-Case 'missing RELEASE.json: exit 1' ($r6.ExitCode -eq 1) "exit $($r6.ExitCode)"
-    Assert-Case 'missing RELEASE.json: names the file problem' ($r6.Output -match 'releaseJsonPath is set but the file is missing')
+    Assert-Case 'closed web port: exit 1' ($r6.ExitCode -eq 1) "exit $($r6.ExitCode)"
+    Assert-Case 'closed web port: reports unreachable' ($r6.Output -match 'web / returned unreachable')
+
+    # Case 7: cluster absent; no Argo call is made and the problem is named
+    $o7 = New-StatusOps 'case-nocluster' -WebPort $port
+    Write-StubRules -Path $rules -Rules @(Get-KindRule -Output '')
+    $r7 = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $o7.Config) -BinDir $bin -LogPath (Join-Path $root 'c7.log') -RulesPath $rules
+    Assert-Case 'no cluster: exit 1' ($r7.ExitCode -eq 1) "exit $($r7.ExitCode)"
+    Assert-Case 'no cluster: reports the missing cluster' ($r7.Output -match 'is not present')
+    Assert-Case 'no cluster: no Argo query made' ((Count-LogLines $r7 'status.') -eq 0)
+
+    # Case 8: releaseJsonPath set but the file is missing
+    $o8 = New-StatusOps 'case-norelease' -WebPort $port -ReleaseJson (Join-Path $root 'missing-RELEASE.json')
+    Write-StubRules -Path $rules -Rules (@(Get-KindRule) + (Get-ArgoRules))
+    $r8 = Invoke-HomeCase -Script $target -Arguments @('-ConfigPath', $o8.Config) -BinDir $bin -LogPath (Join-Path $root 'c8.log') -RulesPath $rules
+    Assert-Case 'missing RELEASE.json: exit 1' ($r8.ExitCode -eq 1) "exit $($r8.ExitCode)"
+    Assert-Case 'missing RELEASE.json: names the file problem' ($r8.Output -match 'releaseJsonPath is set but the file is missing')
 }
 finally {
     foreach ($proc in $servers) {

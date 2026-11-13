@@ -379,10 +379,7 @@ function Invoke-Kustomize {
 # Compose service name -> rendered workload name, where they differ.
 $aliases = @{ 'ollama-model-init' = 'ollama' }
 $workloadKinds = @('StatefulSet', 'Deployment')
-$imageServices = @('rabbitmq', 'ollama')
-# Compose services the home cluster does not run in-cluster by design. The catalog database is Neon
-# (hosted Postgres, reached through the catalog-database secret), so there is no postgres workload or Service.
-$externalComposeServices = @('postgres')
+$imageServices = @('postgres', 'rabbitmq', 'ollama')
 $appImages = [ordered]@{
     api = 'ghcr.io/lamuniercosta/lamuflix-api'
     web = 'ghcr.io/lamuniercosta/lamuflix-web'
@@ -412,10 +409,6 @@ try {
     foreach ($name in $composeNames) {
         $target = if ($aliases.ContainsKey($name)) { $aliases[$name] } else { $name }
         $targetOf[$name] = $target
-        if ($externalComposeServices -contains $name) {
-            Add-Check "compose '$name' is external (no in-cluster workload by design)" $true
-            continue
-        }
         Add-Check "compose '$name' has a workload" ($null -ne (Get-DocByKindName $workloads $workloadKinds $target)) "no StatefulSet or Deployment named '$target' in the rendered output"
     }
     foreach ($n in $renderedNames) {
@@ -447,6 +440,7 @@ try {
     $webPort = if ($webComposePorts.Count -gt 0) { ([string]$webComposePorts[0] -split ':')[-1] } else { '' }
 
     $expectedPorts = [ordered]@{
+        postgres = '5432'
         rabbitmq = '5672'
         ollama   = $ollamaPort
         api      = '8080'
