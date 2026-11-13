@@ -307,10 +307,9 @@ test.describe('DEV-454 sidecar subtitles in the real browser', () => {
       (probe) => probe.tracks.filter((track) => track.mode === 'hidden').length === 1,
       20_000,
     );
-    expect(
-      shownState.ok,
-      `one track is loaded hidden: ${describeTracks(shownState.probe)}`,
-    ).toBe(true);
+    expect(shownState.ok, `one track is loaded hidden: ${describeTracks(shownState.probe)}`).toBe(
+      true,
+    );
 
     const cueState = await waitForTrackState(
       page,
