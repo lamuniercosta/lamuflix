@@ -139,7 +139,7 @@ describe('MovieDetailsView subtitle track list at the DEV-455 viewer seam', () =
     await openCcPanel();
 
     choose('Portuguese (Brazil)');
-    await waitFor(() => expect(modeOf('token-pob')).toBe('showing'));
+    await waitFor(() => expect(modeOf('token-pob')).toBe('hidden'));
     expect(modeOf('token-en')).toBe('disabled');
     expect(checkedLabel()).toBe('Portuguese (Brazil)');
 
@@ -199,7 +199,7 @@ describe('MovieDetailsView subtitle track list at the DEV-455 viewer seam', () =
 
     await openCcPanel();
     choose('English');
-    await waitFor(() => expect(modeOf('token-en')).toBe('showing'));
+    await waitFor(() => expect(modeOf('token-en')).toBe('hidden'));
 
     choose(SUBTITLES_OFF_COPY);
     await waitFor(() => expect(modeOf('token-en')).toBe('disabled'));

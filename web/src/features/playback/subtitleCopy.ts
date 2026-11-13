@@ -12,6 +12,9 @@ export const SUBTITLES_OPTIONS_EMPTY_COPY = 'Subtitle timing and style options w
 export const CLOSE_SUBTITLES_PANEL_LABEL = 'Close subtitles panel';
 
 export const SUBTITLE_DELAY_LABEL = 'Subtitle delay';
+export const SUBTITLE_DELAY_EARLIER_LABEL = 'Subtitles earlier';
+export const SUBTITLE_DELAY_LATER_LABEL = 'Subtitles later';
+export const SUBTITLE_TIMING_LABEL = 'Subtitle timing';
 export const SUBTITLE_DELAY_HELP_COPY = 'Negative shows subtitles earlier, positive later.';
 export const RESET_TIMING_LABEL = 'Reset timing';
 export const CAPTION_STYLE_LABEL = 'Caption style';

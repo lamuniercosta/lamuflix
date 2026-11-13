@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ComponentProps } from 'react';
+import { StrictMode, type ComponentProps } from 'react';
 import BrowserPlayer from './BrowserPlayer';
+import { createFakeCueList, fakeCues, type FakeCueList } from './subtitleTestDoubles';
 import { autoplayDenial, installMediaStubs, type MediaStubHandle } from '../../test/mediaElement';
 import { server } from '../../test/server';
 import {
@@ -20,13 +21,21 @@ import {
 } from './playerCopy';
 import {
   CLOSE_SUBTITLES_PANEL_LABEL,
+  RESET_TIMING_LABEL,
+  SUBTITLE_BACKGROUND_OPACITY_LABEL,
+  SUBTITLE_DELAY_LABEL,
+  SUBTITLE_DELAY_LATER_LABEL,
+  SUBTITLE_EDGE_LABEL,
+  SUBTITLE_PREVIEW_SAMPLE_COPY,
   SUBTITLES_LABEL,
+  SUBTITLES_OFF_COPY,
   SUBTITLES_OPTIONS_EMPTY_COPY,
   SUBTITLES_OPTIONS_LABEL,
   SUBTITLES_TRIGGER_COPY,
   SUBTITLES_UNAVAILABLE_COPY,
   subtitlePanelLabel,
 } from './subtitleCopy';
+import { SUBTITLE_DELAY_KEY_PREFIX, SUBTITLE_STYLE_KEY } from './subtitlePreferences';
 
 const STREAM = '/api/movies/1/stream';
 let media: MediaStubHandle;
@@ -57,17 +66,17 @@ function renderPlayer(props: Partial<ComponentProps<typeof BrowserPlayer>> = {})
   return render(<BrowserPlayer title="Dune" movieId={1} streamUrl={STREAM} {...props} />);
 }
 
-function ccTrigger(): HTMLElement {
-  return within(region()).getByRole('button', { name: SUBTITLES_LABEL });
+function ccTrigger(title = 'Dune'): HTMLElement {
+  return within(region(title)).getByRole('button', { name: SUBTITLES_LABEL });
 }
 
 function panelId(): string {
   return ccTrigger().getAttribute('aria-controls') ?? '';
 }
 
-async function openPanel(): Promise<HTMLElement> {
+async function openPanel(title = 'Dune'): Promise<HTMLElement> {
   await screen.findByRole('tablist');
-  return screen.getByRole('region', { name: subtitlePanelLabel('Dune') });
+  return screen.getByRole('region', { name: subtitlePanelLabel(title) });
 }
 
 interface SpeedMenuElement extends HTMLElement {
@@ -118,6 +127,7 @@ async function setLiveRate(rate: number): Promise<void> {
 
 beforeEach(() => {
   media = installMediaStubs();
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -634,7 +644,7 @@ describe('BrowserPlayer CC panel', () => {
     expect(within(surface).getAllByRole('tabpanel')).toHaveLength(1);
   });
 
-  it('shows only honest empty-shell copy on the Options tab', async () => {
+  it('renders the populated Options tab instead of the empty-shell placeholder', async () => {
     renderPlayer();
     fireEvent.click(ccTrigger());
     const surface = await openPanel();
@@ -645,9 +655,10 @@ describe('BrowserPlayer CC panel', () => {
       'aria-selected',
       'true',
     );
-    expect(within(surface).getByText(SUBTITLES_OPTIONS_EMPTY_COPY)).toBeInTheDocument();
+    expect(within(surface).queryByText(SUBTITLES_OPTIONS_EMPTY_COPY)).toBeNull();
+    expect(within(surface).getByText(SUBTITLE_DELAY_LABEL)).toBeInTheDocument();
+    expect(within(surface).getByText(SUBTITLE_PREVIEW_SAMPLE_COPY)).toBeInTheDocument();
     expect(within(surface).queryByRole('radiogroup')).toBeNull();
-    expect(within(surface).queryByRole('slider')).toBeNull();
     expect(within(surface).queryByRole('switch')).toBeNull();
   });
 
@@ -1179,5 +1190,499 @@ describe('BrowserPlayer surface lifecycle', () => {
     expect(outside).toHaveFocus();
     expect(document.activeElement?.isConnected).toBe(true);
     outside.remove();
+  });
+});
+
+interface CueTrackStub {
+  lists: Map<HTMLTrackElement, FakeCueList & { mode: TextTrackMode }>;
+  restore: () => void;
+}
+
+function installCueTracks(): CueTrackStub {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLTrackElement.prototype, 'track');
+  const lists = new Map<HTMLTrackElement, FakeCueList & { mode: TextTrackMode }>();
+  Object.defineProperty(HTMLTrackElement.prototype, 'track', {
+    configurable: true,
+    get(this: HTMLTrackElement) {
+      let list = lists.get(this);
+      if (!list) {
+        list = Object.assign(createFakeCueList(fakeCues()), { mode: 'disabled' as TextTrackMode });
+        lists.set(this, list);
+      }
+      return list;
+    },
+  });
+  return {
+    lists,
+    restore: () => {
+      if (descriptor) Object.defineProperty(HTMLTrackElement.prototype, 'track', descriptor);
+    },
+  };
+}
+
+function liveOverlay(): HTMLElement | null {
+  return region().querySelector<HTMLElement>(
+    '[data-testid="caption-overlay"]:not([data-surface="preview"])',
+  );
+}
+
+function liveCaptionTexts(): string[] {
+  const overlay = liveOverlay();
+  if (!overlay) return [];
+  return Array.from(overlay.querySelectorAll<HTMLElement>('[data-testid="caption-box"]')).map(
+    (node) => node.textContent ?? '',
+  );
+}
+
+async function playMedia(title = 'Dune'): Promise<void> {
+  await act(async () => {
+    await video(region(title)).play();
+  });
+}
+
+function delayKey(movieId = 1, trackId = 'f8a2c1'): string {
+  return `${SUBTITLE_DELAY_KEY_PREFIX}${JSON.stringify([movieId, trackId])}`;
+}
+
+async function openOptions(): Promise<HTMLElement> {
+  if (ccTrigger().getAttribute('aria-expanded') !== 'true') fireEvent.click(ccTrigger());
+  const surface = await openPanel();
+  fireEvent.click(within(surface).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL }));
+  return surface;
+}
+
+function delayValue(surface: HTMLElement): string {
+  return surface.querySelector<HTMLElement>('[data-delay-value]')?.textContent ?? '';
+}
+
+async function selectTrack(label = 'English', title = 'Dune'): Promise<void> {
+  const surface = await openPanelIn(title);
+  fireEvent.click(within(surface).getByRole('tab', { name: SUBTITLES_LABEL }));
+  const group = await within(surface).findByRole('radiogroup');
+  fireEvent.click(within(group).getByRole('radio', { name: label }));
+  await waitFor(() =>
+    expect(group.querySelector('[aria-checked="true"]')?.getAttribute('aria-label')).toBe(label),
+  );
+}
+
+async function openPanelIn(title: string): Promise<HTMLElement> {
+  if (ccTrigger(title).getAttribute('aria-expanded') !== 'true') fireEvent.click(ccTrigger(title));
+  return openPanel(title);
+}
+
+describe('BrowserPlayer Options integration', () => {
+  let cues: CueTrackStub;
+  let listRequests: number;
+
+  beforeEach(() => {
+    cues = installCueTracks();
+    listRequests = 0;
+    server.use(
+      http.get('*/api/movies/:id/subtitles', () => {
+        listRequests += 1;
+        return HttpResponse.json(
+          [
+            { id: 'f8a2c1', label: 'English', language: 'en', isDefault: true },
+            { id: '9d3e70', label: 'Portuguese', language: 'pt', isDefault: false },
+          ],
+          { status: 200 },
+        );
+      }),
+    );
+  });
+
+  afterEach(() => {
+    cues.restore();
+  });
+
+  it('renders the Options controls inside the delivered panel body without a second panel', async () => {
+    renderPlayer();
+    const surface = await openOptions();
+
+    expect(within(surface).queryByText(SUBTITLES_OPTIONS_EMPTY_COPY)).toBeNull();
+    expect(within(surface).getByText(SUBTITLE_DELAY_LABEL)).toBeInTheDocument();
+    expect(within(surface).getByText(SUBTITLE_PREVIEW_SAMPLE_COPY)).toBeInTheDocument();
+    expect(within(surface).getAllByRole('tabpanel')).toHaveLength(1);
+    expect(surface.querySelectorAll('[role="tabpanel"]')).toHaveLength(2);
+    expect(screen.getAllByRole('region', { name: subtitlePanelLabel('Dune') })).toHaveLength(1);
+    expect(surface.querySelectorAll('[data-delay-value]')).toHaveLength(1);
+  });
+
+  it('keeps the timing cluster disabled until a usable track is selected and editable while Off', async () => {
+    renderPlayer();
+    const surface = await openOptions();
+
+    expect(within(surface).getByRole('button', { name: RESET_TIMING_LABEL })).toBeDisabled();
+    expect(within(surface).getByLabelText(SUBTITLE_BACKGROUND_OPACITY_LABEL)).toBeEnabled();
+
+    await selectTrack('English');
+    const reopened = await openOptions();
+
+    await waitFor(() =>
+      expect(within(reopened).getByRole('button', { name: RESET_TIMING_LABEL })).toBeEnabled(),
+    );
+
+    fireEvent.click(within(reopened).getByRole('tab', { name: SUBTITLES_LABEL }));
+    const off = await within(reopened).findByRole('radio', { name: SUBTITLES_OFF_COPY });
+    fireEvent.click(off);
+
+    const back = await openOptions();
+    await waitFor(() =>
+      expect(within(back).getByRole('button', { name: RESET_TIMING_LABEL })).toBeDisabled(),
+    );
+    expect(within(back).getByLabelText(SUBTITLE_EDGE_LABEL)).toBeEnabled();
+  });
+
+  it('persists a stepper change for the selected pair without reloading subtitles or media', async () => {
+    renderPlayer();
+    await selectTrack('English');
+    const surface = await openOptions();
+    const requestsBefore = listRequests;
+    media.calls.length = 0;
+
+    fireEvent.click(within(surface).getByRole('button', { name: SUBTITLE_DELAY_LATER_LABEL }));
+
+    expect(delayValue(surface)).toBe('+0.1 s');
+    expect(window.localStorage.getItem(delayKey())).toBe('100');
+    expect(listRequests).toBe(requestsBefore);
+    expect(media.calls).toEqual([]);
+
+    fireEvent.click(within(surface).getByRole('button', { name: SUBTITLE_DELAY_LATER_LABEL }), {
+      shiftKey: true,
+    });
+    expect(delayValue(surface)).toBe('+0.6 s');
+    expect(window.localStorage.getItem(delayKey())).toBe('600');
+  });
+
+  it('shifts the live captions immediately and moves them back on Reset timing', async () => {
+    const mediaElement = renderPlayer();
+    await selectTrack('English');
+    const surface = await openOptions();
+
+    await act(async () => {
+      video().currentTime = 1.05;
+      video().dispatchEvent(new Event('timeupdate'));
+    });
+    expect(liveCaptionTexts()).toEqual(['First line']);
+
+    fireEvent.click(within(surface).getByRole('button', { name: SUBTITLE_DELAY_LATER_LABEL }));
+
+    await act(async () => {
+      video().dispatchEvent(new Event('timeupdate'));
+    });
+    expect(liveCaptionTexts()).toEqual([]);
+
+    await act(async () => {
+      video().currentTime = 1.15;
+      video().dispatchEvent(new Event('timeupdate'));
+    });
+    expect(liveCaptionTexts()).toEqual(['First line']);
+
+    fireEvent.click(within(surface).getByRole('button', { name: RESET_TIMING_LABEL }));
+    expect(delayValue(surface)).toBe('0.0 s');
+    expect(window.localStorage.getItem(delayKey())).toBeNull();
+
+    mediaElement.unmount();
+  });
+
+  it('applies a style change to the preview and the live overlay without refetching', async () => {
+    renderPlayer();
+    await selectTrack('English');
+    const surface = await openOptions();
+    await act(async () => {
+      video().currentTime = 1.5;
+      video().dispatchEvent(new Event('timeupdate'));
+    });
+    const requestsBefore = listRequests;
+
+    fireEvent.change(within(surface).getByLabelText(SUBTITLE_EDGE_LABEL), {
+      target: { value: 'outline' },
+    });
+
+    const previewBox = surface.querySelector<HTMLElement>(
+      '[data-surface="preview"] [data-testid="caption-box"]',
+    );
+    expect(previewBox?.style.textShadow).toContain('rgba(0, 0, 0, 0.9)');
+    const liveBox = region().querySelector<HTMLElement>(
+      '[data-surface="windowed"] [data-testid="caption-box"]',
+    );
+    expect(liveBox?.style.textShadow).toBe(previewBox?.style.textShadow);
+    expect(listRequests).toBe(requestsBefore);
+    expect(JSON.parse(window.localStorage.getItem(SUBTITLE_STYLE_KEY) ?? '{}').edge).toBe(
+      'outline',
+    );
+  });
+
+  it('mounts the single live overlay inside the media-chrome fullscreen subtree', async () => {
+    renderPlayer();
+    await selectTrack('English');
+    await act(async () => {
+      video().currentTime = 1.5;
+      video().dispatchEvent(new Event('timeupdate'));
+    });
+
+    const chrome = region().querySelector('media-controller');
+    expect(
+      chrome?.querySelectorAll('[data-testid="caption-overlay"]:not([data-surface="preview"])'),
+    ).toHaveLength(1);
+    expect(liveOverlay()?.getAttribute('aria-hidden')).toBe('true');
+    expect(liveOverlay()?.getAttribute('data-surface')).toBe('windowed');
+  });
+
+  it('does not duplicate a native caption stream alongside the custom overlay', async () => {
+    renderPlayer();
+    await selectTrack('English');
+    await act(async () => {
+      video().currentTime = 1.5;
+      video().dispatchEvent(new Event('timeupdate'));
+    });
+
+    expect(liveCaptionTexts()).toEqual(['First line']);
+    expect(video().querySelectorAll('track[kind="subtitles"]')).toHaveLength(2);
+    expect(region().querySelectorAll('video')).toHaveLength(1);
+    expect(region().querySelectorAll('[data-testid="caption-overlay"]')).toHaveLength(
+      ccTrigger().getAttribute('aria-expanded') === 'true' ? 2 : 1,
+    );
+    expect(cues.lists.size).toBeGreaterThan(0);
+  });
+});
+
+describe('BrowserPlayer subtitle delay hotkeys', () => {
+  it('moves the delay later and earlier with H and G while playing', async () => {
+    renderPlayer();
+    await selectTrack('English');
+    await playMedia();
+
+    fireEvent.keyDown(region(), { key: 'h' });
+    expect(window.localStorage.getItem(delayKey())).toBe('100');
+
+    fireEvent.keyDown(region(), { key: 'h', shiftKey: true });
+    expect(window.localStorage.getItem(delayKey())).toBe('600');
+
+    fireEvent.keyDown(region(), { key: 'g' });
+    expect(window.localStorage.getItem(delayKey())).toBe('500');
+
+    fireEvent.keyDown(region(), { key: 'g', shiftKey: true });
+    expect(window.localStorage.getItem(delayKey())).toBe('0');
+  });
+
+  it('keeps the Options value in step with the hotkeys through one shared instance', async () => {
+    renderPlayer();
+    await selectTrack('English');
+    const surface = await openOptions();
+    await playMedia();
+
+    fireEvent.keyDown(region(), { key: 'h' });
+    fireEvent.keyDown(region(), { key: 'h', shiftKey: true });
+
+    expect(delayValue(surface)).toBe('+0.6 s');
+    expect(surface.querySelectorAll('[data-delay-value]')).toHaveLength(1);
+  });
+
+  it('ignores G and H while paused', async () => {
+    renderPlayer();
+    await selectTrack('English');
+    await act(async () => {
+      video().pause();
+    });
+
+    fireEvent.keyDown(region(), { key: 'h' });
+    fireEvent.keyDown(region(), { key: 'g' });
+
+    expect(window.localStorage.getItem(delayKey())).toBeNull();
+  });
+
+  it('ignores G and H without a usable selected track', async () => {
+    renderPlayer();
+    await act(async () => {
+      await video().play();
+    });
+
+    fireEvent.keyDown(region(), { key: 'h' });
+    fireEvent.keyDown(region(), { key: 'g' });
+
+    expect(Object.keys(window.localStorage)).toEqual(['media-chrome-pref-muted']);
+  });
+
+  it('ignores G and H from editable, select, range, color and dialog contexts', async () => {
+    renderPlayer();
+    await selectTrack('English');
+    const surface = await openOptions();
+    await playMedia();
+
+    const targets: HTMLElement[] = [
+      within(surface).getByLabelText(SUBTITLE_BACKGROUND_OPACITY_LABEL),
+      within(surface).getByLabelText(SUBTITLE_EDGE_LABEL),
+    ];
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    const textarea = document.createElement('textarea');
+    const editable = document.createElement('div');
+    editable.setAttribute('contenteditable', 'true');
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    const nested = document.createElement('button');
+    nested.textContent = 'nested';
+    dialog.append(nested);
+    document.body.append(colorInput, textarea, editable, dialog);
+    targets.push(colorInput, textarea, editable, nested);
+
+    for (const target of targets) {
+      fireEvent.keyDown(target, { key: 'h', bubbles: true });
+      fireEvent.keyDown(target, { key: 'g', bubbles: true });
+    }
+
+    expect(window.localStorage.getItem(delayKey())).toBeNull();
+
+    colorInput.remove();
+    textarea.remove();
+    editable.remove();
+    dialog.remove();
+  });
+
+  it('ignores G and H with Ctrl, Alt or Meta modifiers', async () => {
+    renderPlayer();
+    await selectTrack('English');
+    await playMedia();
+
+    fireEvent.keyDown(region(), { key: 'h', ctrlKey: true });
+    fireEvent.keyDown(region(), { key: 'h', altKey: true });
+    fireEvent.keyDown(region(), { key: 'h', metaKey: true });
+    fireEvent.keyDown(region(), { key: 'g', ctrlKey: true });
+    fireEvent.keyDown(region(), { key: 'g', altKey: true });
+    fireEvent.keyDown(region(), { key: 'g', metaKey: true });
+
+    expect(window.localStorage.getItem(delayKey())).toBeNull();
+  });
+
+  it('keeps the delay per pair when the movie and track switch rapidly', async () => {
+    const { rerender } = renderPlayer();
+    await selectTrack('English');
+    await playMedia();
+
+    fireEvent.keyDown(region(), { key: 'h' });
+    expect(window.localStorage.getItem(delayKey(1, 'f8a2c1'))).toBe('100');
+
+    await act(async () => {
+      rerender(<BrowserPlayer title="Heat" movieId={2} streamUrl="/api/movies/2/stream" />);
+    });
+    fireEvent.click(ccTrigger('Heat'));
+    const heat = await openPanel('Heat');
+    const heatGroup = await within(heat).findByRole('radiogroup');
+    fireEvent.click(within(heatGroup).getByRole('radio', { name: 'English' }));
+    await playMedia('Heat');
+
+    fireEvent.keyDown(region('Heat'), { key: 'h' });
+
+    expect(window.localStorage.getItem(delayKey(2, 'f8a2c1'))).toBe('100');
+    expect(window.localStorage.getItem(delayKey(1, 'f8a2c1'))).toBe('100');
+    expect(
+      Object.keys(window.localStorage).filter((key) => key.startsWith('lamuflix:')),
+    ).toHaveLength(2);
+  });
+
+  it('restores a stored pair delay and keeps a never-saved pair at zero', async () => {
+    window.localStorage.setItem(delayKey(1, 'f8a2c1'), '-700');
+    renderPlayer();
+    await selectTrack('English');
+    const surface = await openOptions();
+    expect(delayValue(surface)).toBe('-0.7 s');
+
+    fireEvent.click(within(surface).getByRole('tab', { name: SUBTITLES_LABEL }));
+    const group = await within(surface).findByRole('radiogroup');
+    fireEvent.click(within(group).getByRole('radio', { name: 'Portuguese' }));
+    await waitFor(() =>
+      expect(group.querySelector('[aria-checked="true"]')?.getAttribute('aria-label')).toBe(
+        'Portuguese',
+      ),
+    );
+
+    const back = await openOptions();
+    await waitFor(() => expect(delayValue(back)).toBe('0.0 s'));
+  });
+
+  it('keeps one shared preference instance under a StrictMode remount', async () => {
+    render(
+      <StrictMode>
+        <BrowserPlayer title="Dune" movieId={1} streamUrl={STREAM} />
+      </StrictMode>,
+    );
+    await selectTrack('English');
+    const surface = await openOptions();
+    await playMedia();
+
+    fireEvent.keyDown(region(), { key: 'h' });
+
+    expect(window.localStorage.getItem(delayKey())).toBe('100');
+    expect(delayValue(surface)).toBe('+0.1 s');
+    expect(surface.querySelectorAll('[data-delay-value]')).toHaveLength(1);
+  });
+});
+
+describe('BrowserPlayer Options and selector coexistence', () => {
+  let cues: CueTrackStub;
+
+  beforeEach(() => {
+    cues = installCueTracks();
+  });
+
+  afterEach(() => {
+    cues.restore();
+  });
+
+  it('preserves selection, Off and retry behaviour while Options content lives in the same body', async () => {
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+    const group = await within(surface).findByRole('radiogroup');
+    const optionsTab = within(surface).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL });
+    const subtitlesTab = within(surface).getByRole('tab', { name: SUBTITLES_LABEL });
+
+    fireEvent.click(within(group).getByRole('radio', { name: 'English' }));
+    await waitFor(() => expect(cues.lists.size).toBeGreaterThan(0));
+
+    fireEvent.click(optionsTab);
+    expect(within(surface).getByRole('tabpanel')).not.toHaveAttribute('hidden');
+    expect(within(surface).getByText(SUBTITLE_DELAY_LABEL)).toBeInTheDocument();
+
+    fireEvent.click(subtitlesTab);
+    const reopened = await within(surface).findByRole('radiogroup');
+    expect(reopened.querySelector('[aria-checked="true"]')?.getAttribute('aria-label')).toBe(
+      'English',
+    );
+
+    fireEvent.click(within(reopened).getByRole('radio', { name: SUBTITLES_OFF_COPY }));
+    await waitFor(() =>
+      expect(reopened.querySelector('[aria-checked="true"]')?.getAttribute('aria-label')).toBe(
+        SUBTITLES_OFF_COPY,
+      ),
+    );
+
+    fireEvent.click(ccTrigger());
+    await waitFor(() => expect(ccTrigger()).toHaveAttribute('aria-expanded', 'false'));
+    fireEvent.click(ccTrigger());
+    const reopenedPanel = await openPanel();
+    expect(within(reopenedPanel).getByRole('tab', { name: SUBTITLES_LABEL })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('keeps the Options tab usable when the track list fails, with retry still offered', async () => {
+    server.use(
+      http.get('*/api/movies/:id/subtitles', () => new HttpResponse(null, { status: 500 })),
+    );
+    renderPlayer();
+    fireEvent.click(ccTrigger());
+    const surface = await openPanel();
+
+    expect(await within(surface).findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
+
+    fireEvent.click(within(surface).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL }));
+    const back = await openOptions();
+    expect(within(back).getByRole('button', { name: RESET_TIMING_LABEL })).toBeDisabled();
+
+    fireEvent.click(within(back).getByRole('tab', { name: SUBTITLES_LABEL }));
+    expect(await within(back).findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
   });
 });

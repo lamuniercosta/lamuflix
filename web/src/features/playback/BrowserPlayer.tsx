@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -34,10 +35,14 @@ import {
   retryLabel,
 } from './playerCopy';
 import { SUBTITLES_LABEL, SUBTITLES_TRIGGER_COPY } from './subtitleCopy';
+import CaptionOverlay from './CaptionOverlay';
 import SubtitlePanel, { type SubtitlePanelTab } from './SubtitlePanel';
 import { applySubtitleTrackModes, watchSubtitleTrackModes } from './subtitleTrackModes';
 import { useBrowserPlayer, type MediaDiagnostic } from './useBrowserPlayer';
+import { useSubtitleCues, type SubtitleCueList } from './useSubtitleCues';
+import { useSubtitleOptions } from './useSubtitleOptions';
 import { useSubtitlePlayback } from './useSubtitlePlayback';
+import type { SubtitleStorage } from './subtitlePreferences';
 import './BrowserPlayer.css';
 
 const SEEK_STEP_SECONDS = 10;
@@ -98,6 +103,17 @@ function enterFullscreen(element: HTMLElement | null): void {
   void element?.requestFullscreen?.().catch(() => {});
 }
 
+const DEFAULT_SURFACE_WIDTH_PX = 640;
+const TRACK_ELEMENT_SELECTOR = 'track[data-track-id]';
+
+function readLocalStorage(): SubtitleStorage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
 export default function BrowserPlayer({
   title,
   movieId,
@@ -124,6 +140,35 @@ export default function BrowserPlayer({
   const subtitles = useSubtitlePlayback(movieId);
   const { selection, contentStatus, tracks } = subtitles;
   const showTrack = selection !== null && contentStatus === 'ready';
+  const selectionTrackId = selection?.trackId ?? null;
+  const options = useSubtitleOptions({
+    movieId,
+    trackId: showTrack ? selectionTrackId : null,
+    storage: readLocalStorage,
+  });
+  const timingEnabled = showTrack;
+  const [mediaElement, setMediaElement] = useState<HTMLVideoElement | null>(null);
+  const [surfaceWidthPx, setSurfaceWidthPx] = useState(DEFAULT_SURFACE_WIDTH_PX);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const desiredTrackId = showTrack ? (selection?.trackId ?? null) : null;
+
+  const cueList = useMemo<SubtitleCueList | null>(() => {
+    if (!mediaElement || desiredTrackId === null) return null;
+    const element = Array.from(
+      mediaElement.querySelectorAll<HTMLTrackElement>(TRACK_ELEMENT_SELECTOR),
+    ).find((candidate) => candidate.dataset.trackId === desiredTrackId);
+    const track = element?.track as unknown as SubtitleCueList | null | undefined;
+    if (!track || typeof track.addEventListener !== 'function') return null;
+    return track;
+  }, [desiredTrackId, mediaElement]);
+
+  const activeCues = useSubtitleCues({
+    media: mediaElement,
+    cueList,
+    hasTrack: timingEnabled,
+    delayMs: options.delayMs,
+  });
   const focusInsideSurfaceRef = useRef(false);
   const previousMovieRef = useRef(movieId);
   const ccOpenRef = useRef(ccOpen);
@@ -213,18 +258,41 @@ export default function BrowserPlayer({
     openCcPanel();
   }, [ccOpen, closeCcPanelAndRestore, openCcPanel]);
 
-  const desiredTrackId = showTrack ? (selection?.trackId ?? null) : null;
   const desiredTrackIdRef = useRef<string | null>(null);
+
+  const assignVideo = useCallback(
+    (element: HTMLVideoElement | null) => {
+      videoRef.current = element;
+      setMediaElement(element);
+    },
+    [videoRef],
+  );
 
   useEffect(() => {
     desiredTrackIdRef.current = desiredTrackId;
-    applySubtitleTrackModes(videoRef.current, desiredTrackId);
-  }, [desiredTrackId, videoRef]);
+    applySubtitleTrackModes(mediaElement, desiredTrackId);
+  }, [desiredTrackId, mediaElement]);
 
   useEffect(
-    () => watchSubtitleTrackModes(videoRef.current, () => desiredTrackIdRef.current),
-    [videoRef],
+    () => watchSubtitleTrackModes(mediaElement, () => desiredTrackIdRef.current),
+    [mediaElement],
   );
+
+  useEffect(() => {
+    if (!mediaElement) return;
+    const measure = () => {
+      const rect = mediaElement.getBoundingClientRect();
+      setSurfaceWidthPx(rect.width > 0 ? rect.width : DEFAULT_SURFACE_WIDTH_PX);
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    document.addEventListener('fullscreenchange', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      document.removeEventListener('fullscreenchange', measure);
+    };
+  }, [mediaElement]);
 
   const assignChrome = useCallback((element: HTMLElement | null) => {
     if (!element) return;
@@ -341,6 +409,24 @@ export default function BrowserPlayer({
     [toggleMute, togglePlay],
   );
 
+  const handleDelayKey = useCallback(
+    (event: ReactKeyboardEvent<HTMLElement>): boolean => {
+      if (event.ctrlKey || event.altKey || event.metaKey) return false;
+      const direction =
+        event.key === 'h' || event.key === 'H'
+          ? 'later'
+          : event.key === 'g' || event.key === 'G'
+            ? 'earlier'
+            : null;
+      if (direction === null) return false;
+      event.preventDefault();
+      if (!timingEnabled || !mediaElement || mediaElement.paused) return true;
+      options.adjustDelay(direction, event.shiftKey);
+      return true;
+    },
+    [mediaElement, options, timingEnabled],
+  );
+
   const handleSeekKey = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>): boolean => {
       switch (event.key) {
@@ -370,9 +456,10 @@ export default function BrowserPlayer({
       if (isExcludedTarget(event.target)) return;
       if (handleEscapeKey(event)) return;
       if (handleToggleKey(event)) return;
+      if (handleDelayKey(event)) return;
       handleSeekKey(event);
     },
-    [handleEscapeKey, handleSeekKey, handleToggleKey],
+    [handleDelayKey, handleEscapeKey, handleSeekKey, handleToggleKey],
   );
 
   return (
@@ -385,7 +472,7 @@ export default function BrowserPlayer({
     >
       <div className="browser-player-frame">
         <MediaController ref={assignChrome} noHotkeys className="browser-player-chrome">
-          <video ref={videoRef} slot="media" className="browser-player-video" playsInline>
+          <video ref={assignVideo} slot="media" className="browser-player-video" playsInline>
             {tracks.map((track) => {
               const active = showTrack && selection?.trackId === track.id;
               return (
@@ -431,6 +518,12 @@ export default function BrowserPlayer({
           >
             <span slot="header">{SPEED_LABEL}</span>
           </MediaPlaybackRateMenu>
+          <CaptionOverlay
+            surface={isFullscreen ? 'fullscreen' : 'windowed'}
+            cues={timingEnabled ? activeCues : []}
+            style={options.style}
+            surfaceWidthPx={surfaceWidthPx}
+          />
           {ccOpen ? (
             <SubtitlePanel
               title={title}
@@ -444,6 +537,15 @@ export default function BrowserPlayer({
               onSelect={subtitles.select}
               onRetryList={subtitles.retryList}
               onClose={closeCcPanelAndRestore}
+              options={{
+                delayMs: options.delayMs,
+                timingEnabled,
+                style: options.style,
+                onAdjustDelay: options.adjustDelay,
+                onResetDelay: options.resetDelay,
+                onUpdateStyle: options.updateStyle,
+                onResetStyle: options.resetStyle,
+              }}
             />
           ) : null}
         </MediaController>
