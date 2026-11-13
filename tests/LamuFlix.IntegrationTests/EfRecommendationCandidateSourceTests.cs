@@ -24,6 +24,18 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
 {
     private const double SimilarityTolerance = 1e-5;
 
+    private const int SplitQueryReaderCount = 8;
+
+    private static readonly string[] AssociationTables =
+    [
+        "movie_actors",
+        "movie_directors",
+        "movie_genres",
+        "movie_writers",
+        "movie_keywords",
+        "movie_tmdb_cast",
+    ];
+
     private static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
 
     public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
@@ -242,7 +254,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         candidates.Count.ShouldBe(7);
         candidates.Select(candidate => candidate.Movie.Id.Value)
             .ShouldBe(Enumerable.Range(153, 7).Reverse());
-        interceptor.ReaderCount.ShouldBe(2);
+        interceptor.ReaderCount.ShouldBe(SplitQueryReaderCount);
     }
 
     [Fact]
@@ -385,7 +397,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
     }
 
     [Fact]
-    public async Task GetCandidatesAsync_PopulatedPool_UsesAtMostTwoReadersWithNoPerCandidateReads()
+    public async Task GetCandidatesAsync_PopulatedPool_UsesBoundedReadersWithNoPerCandidateReads()
     {
         // arrange
         var ct = TestContext.Current.CancellationToken;
@@ -406,7 +418,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
 
         // assert
         candidates.Count.ShouldBe(24);
-        interceptor.ReaderCount.ShouldBe(2);
+        interceptor.ReaderCount.ShouldBe(SplitQueryReaderCount);
     }
 
     [Fact]
@@ -424,7 +436,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
 
         // assert
         var candidateCommand = interceptor.ReaderCommands
-            .Single(command => command.Contains("<=>", StringComparison.Ordinal));
+            .Single(command => command.Contains("<=>", StringComparison.Ordinal) && AssociationJoins(command) == 0);
         candidateCommand.ShouldContain("movie_features");
         Regex.IsMatch(candidateCommand, @"ORDER\s+BY", RegexOptions.IgnoreCase).ShouldBeTrue();
         Regex.IsMatch(candidateCommand, @"LIMIT", RegexOptions.IgnoreCase).ShouldBeTrue();
@@ -495,7 +507,7 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
 
         // assert
         candidates.Count.ShouldBe(1);
-        interceptor.ReaderCount.ShouldBe(2);
+        interceptor.ReaderCount.ShouldBe(SplitQueryReaderCount);
         interceptor.ReaderTokens.ShouldAllBe(token => token == caller.Token);
     }
 
@@ -519,6 +531,40 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
         // assert
         var failure = await Should.ThrowAsync<InvalidOperationException>(act);
         failure.Message.ShouldBe("reader failed");
+    }
+
+    [Fact]
+    public async Task GetCandidatesAsync_DenseAssociationPool_LoadsEveryCollectionWithoutFanningThemIntoOneJoin()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var dense = SignalRecord(2);
+        dense.Directors.Add(new DirectorRecord { Name = "Director One" });
+        dense.Writers.Add(new WriterRecord { Name = "Writer One" });
+        await SeedRecordsAsync(
+            ct,
+            Record(1, "Selected", EnrichmentStatus.Enriched),
+            dense);
+        await SeedVectorsAsync(ct, (1, UnitVector()), (2, CosineVector(0.8)));
+        var interceptor = new RecordingCommandInterceptor();
+        await using var db = OpenInstrumentedContext(interceptor);
+        var source = Source(db);
+
+        // act
+        var candidates = await source.GetCandidatesAsync(new MovieId(1), 900, ct);
+
+        // assert
+        var candidate = candidates.Single(item => item.Movie.Id == new MovieId(2)).Movie;
+        var metadata = candidate.Metadata.ShouldNotBeNull();
+        metadata.Actors.ShouldBe(["Base Actor"]);
+        metadata.Genres.ShouldBe(["Drama"]);
+        metadata.Directors.ShouldBe(["Director One"]);
+        metadata.Writers.ShouldBe(["Writer One"]);
+        var signals = metadata.Signals.ShouldNotBeNull();
+        signals.Keywords.Select(keyword => (keyword.Id, keyword.Name)).ShouldBe([(101, "Heist"), (202, "Noir")]);
+        signals.FullCast.Order(StringComparer.Ordinal).ShouldBe(["Base Actor", "Guest Actor"]);
+        interceptor.ReaderCommands.ShouldNotBeEmpty();
+        interceptor.ReaderCommands.Max(AssociationJoins).ShouldBeLessThanOrEqualTo(1);
     }
 
     private async Task SeedDefaultCappedPortfolioAsync(CancellationToken ct)
@@ -642,6 +688,20 @@ public sealed class EfRecommendationCandidateSourceTests(PostgresFixture fixture
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
+    }
+
+    private static int AssociationJoins(string command)
+    {
+        var counted = 0;
+        foreach (var table in AssociationTables)
+        {
+            if (command.Contains(table, StringComparison.Ordinal))
+            {
+                counted++;
+            }
+        }
+
+        return counted;
     }
 
     private static EfRecommendationCandidateSource Source(

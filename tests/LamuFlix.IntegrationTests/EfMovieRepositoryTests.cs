@@ -26,6 +26,16 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
 
+    private static readonly string[] AssociationTables =
+    [
+        "movie_actors",
+        "movie_directors",
+        "movie_genres",
+        "movie_writers",
+        "movie_keywords",
+        "movie_tmdb_cast",
+    ];
+
     public async ValueTask InitializeAsync() => await fixture.ResetAsync(TestContext.Current.CancellationToken);
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -63,6 +73,66 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         loaded.EnrichmentAttempts.ShouldBe(2);
         loaded.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.RateLimited);
         loaded.LastAttemptAt.ShouldBe(Now.AddHours(-1));
+    }
+
+    [Fact]
+    public async Task GetAsync_DenseAssociations_LoadsEveryCollectionWithoutFanningThemIntoOneJoin()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var seed = fixture.CreateMigratedContext();
+        seed.Collections.Add(new CollectionRecord { Id = 900, Name = "Franchise 900" });
+        var record = new MovieRecord
+        {
+            Id = new MovieId(1),
+            Title = "Dense",
+            LibraryPath = new LibraryPath("C:/library/dense.mkv"),
+            Format = new MediaFormat("mkv"),
+            Status = EnrichmentStatus.Enriched,
+            MetadataTitle = "Dense",
+            CollectionId = 900
+        };
+        record.Directors.Add(new DirectorRecord { Name = "Director One" });
+        record.Directors.Add(new DirectorRecord { Name = "Director Two" });
+        record.Actors.Add(new ActorRecord { Name = "Actor One" });
+        record.Actors.Add(new ActorRecord { Name = "Actor Two" });
+        record.Actors.Add(new ActorRecord { Name = "Actor Three" });
+        record.Genres.Add(new GenreRecord { Name = "Drama" });
+        record.Genres.Add(new GenreRecord { Name = "War" });
+        record.Genres.Add(new GenreRecord { Name = "History" });
+        record.Writers.Add(new WriterRecord { Name = "Writer One" });
+        record.Writers.Add(new WriterRecord { Name = "Writer Two" });
+        record.Keywords.Add(new KeywordRecord { Id = 101, Name = "Heist" });
+        record.Keywords.Add(new KeywordRecord { Id = 102, Name = "Noir" });
+        record.Keywords.Add(new KeywordRecord { Id = 103, Name = "Caper" });
+        record.Keywords.Add(new KeywordRecord { Id = 104, Name = "Betrayal" });
+        record.FullCast.Add(new ActorRecord { Name = "Actor One" });
+        record.FullCast.Add(new ActorRecord { Name = "Actor Two" });
+        record.FullCast.Add(new ActorRecord { Name = "Actor Three" });
+        record.FullCast.Add(new ActorRecord { Name = "Actor Four" });
+        record.FullCast.Add(new ActorRecord { Name = "Actor Five" });
+        seed.Movies.Add(record);
+        await seed.SaveChangesAsync(ct);
+        var interceptor = new ReaderCommandCaptureInterceptor();
+        await using var db = OpenInstrumentedContext(fixture.ConnectionString, interceptor);
+
+        // act
+        var movie = await Repository(db).GetAsync(new MovieId(1), ct);
+
+        // assert
+        movie.ShouldNotBeNull();
+        var metadata = movie.Metadata.ShouldNotBeNull();
+        metadata.CollectionName.ShouldBe("Franchise 900");
+        metadata.Directors.ShouldBe(["Director One", "Director Two"], ignoreOrder: true);
+        metadata.Actors.ShouldBe(["Actor One", "Actor Two", "Actor Three"], ignoreOrder: true);
+        metadata.Genres.ShouldBe(["Drama", "War", "History"], ignoreOrder: true);
+        metadata.Writers.ShouldBe(["Writer One", "Writer Two"], ignoreOrder: true);
+        var signals = metadata.Signals.ShouldNotBeNull();
+        signals.Keywords.Select(keyword => keyword.Name).ShouldBe(["Caper", "Betrayal", "Heist", "Noir"], ignoreOrder: true);
+        signals.FullCast.Order(StringComparer.Ordinal).ShouldBe(
+            ["Actor Five", "Actor Four", "Actor One", "Actor Three", "Actor Two"]);
+        interceptor.Commands.ShouldNotBeEmpty();
+        interceptor.Commands.Max(AssociationJoins).ShouldBeLessThanOrEqualTo(1);
     }
 
     [Fact]
@@ -986,6 +1056,35 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
             .AddInterceptors(interceptor)
             .Options;
         return new LamuFlixDbContext(options);
+    }
+
+    private static int AssociationJoins(string command)
+    {
+        var counted = 0;
+        foreach (var table in AssociationTables)
+        {
+            if (command.Contains(table, StringComparison.Ordinal))
+            {
+                counted++;
+            }
+        }
+
+        return counted;
+    }
+
+    private sealed class ReaderCommandCaptureInterceptor : DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = [];
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
     }
 
     private sealed class RetryableConflictInterceptor(int allowedFailures) : DbCommandInterceptor
