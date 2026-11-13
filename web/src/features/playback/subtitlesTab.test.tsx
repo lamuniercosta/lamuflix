@@ -294,6 +294,40 @@ describe('subtitle language search', () => {
     expect(screen.queryByText('Dune.2021.EN-STALE')).toBeNull();
   });
 
+  it('dims retained results and disables Get while a deferred language search is pending', async () => {
+    renderPlayer();
+    await screen.findByText(SUBTITLE_READY_COPY);
+
+    server.use(
+      http.get('*/api/movies/:id/subtitles/search', async ({ request }) => {
+        if (new URL(request.url).searchParams.get('language') === 'en') {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+        return HttpResponse.json(SEARCH, { status: 200 });
+      }),
+    );
+
+    fireEvent.change(languageSelect(), { target: { value: 'en' } });
+
+    await waitFor(() => expect(screen.getByText(SUBTITLE_SEARCHING_COPY)).toBeInTheDocument());
+    const candidates = within(region()).getByTitle(SEARCH.candidates[0].releaseName).closest('ul');
+    expect(candidates?.className).toMatch(/subtitles-tab-candidates-searching/);
+    const pending = getButtons();
+    expect(pending.length).toBeGreaterThan(0);
+    pending.forEach((button) => expect(button).toBeDisabled());
+
+    fireEvent.click(pending[0]);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(downloadBodies).toEqual([]);
+
+    await screen.findByText(SUBTITLE_READY_COPY);
+    await waitFor(() =>
+      expect(getButtons().every((button) => !button.matches(':disabled'))).toBe(true),
+    );
+  });
+
   it('keeps local tracks and Off above the remote results in every state', async () => {
     renderPlayer();
     await screen.findByText(SUBTITLE_READY_COPY);

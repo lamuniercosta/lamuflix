@@ -63,6 +63,10 @@
   list-style: none;
 }
 
+.subtitles-tab-candidates-searching {
+  opacity: 0.55;
+}
+
 .subtitles-tab-candidate {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto auto;
