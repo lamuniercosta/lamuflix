@@ -4,8 +4,11 @@ namespace LamuFlix.Core.Domain;
 
 public sealed class Review : SmartEnum<Review, int>
 {
+    // Stryker disable once all : static enum member is initialised once per mutant-test server, so a mutant here is baked into every later mutant (ADR 0016)
     public static readonly Review None = new("none", 0);
+    // Stryker disable once all : static enum member is initialised once per mutant-test server, so a mutant here is baked into every later mutant (ADR 0016)
     public static readonly Review Liked = new("liked", 1);
+    // Stryker disable once all : static enum member is initialised once per mutant-test server, so a mutant here is baked into every later mutant (ADR 0016)
     public static readonly Review Disliked = new("disliked", 2);
 
     private Review(string name, int value)
