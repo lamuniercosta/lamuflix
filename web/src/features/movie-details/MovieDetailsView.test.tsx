@@ -131,6 +131,46 @@ describe('MovieDetailsView', () => {
     expect(screen.getByRole('img', { name: 'Dune poster' })).toBeInTheDocument();
     expect(screen.queryByAltText('Dune poster')).not.toBeInTheDocument();
   });
+
+  it('retries the poster image when a refetch replaces the URL after a failure', async () => {
+    // arrange
+    const withPoster = (posterUrl: string) => ({
+      ...fullMovie,
+      metadata: { ...fullMovie.metadata, posterUrl },
+    });
+    let current = withPoster('/posters/dune-a.jpg');
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(current)));
+    const listeners = new Set<(notification: EnrichmentStatusNotification) => void>();
+    const seam: EnrichmentStatusSubscription = {
+      subscribe: (listener: (notification: EnrichmentStatusNotification) => void) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MovieDetailsView movieId={1} enrichmentStatus={seam} />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    // act
+    fireEvent.error(screen.getByAltText('Dune poster'));
+    expect(screen.queryByAltText('Dune poster')).not.toBeInTheDocument();
+    current = withPoster('/posters/dune-b.jpg');
+    act(() => {
+      for (const listener of [...listeners]) {
+        listener({ kind: 'event', payload: { id: 1, enrichmentStatus: 'Enriched' } });
+      }
+    });
+
+    // assert
+    const retried = await screen.findByAltText('Dune poster');
+    expect(retried).toHaveAttribute('src', '/posters/dune-b.jpg');
+  });
 });
 
 describe('MovieDetailsView browser Play default', () => {

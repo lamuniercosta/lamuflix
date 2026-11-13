@@ -90,14 +90,14 @@ function enrichmentRequestMessage(error: EnrichmentRequestError): string {
 }
 
 function Poster({ title, posterUrl }: { title: string; posterUrl: string | null }) {
-  const [posterFailed, setPosterFailed] = useState(false);
-  if (posterUrl && !posterFailed) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  if (posterUrl && posterUrl !== failedUrl) {
     return (
       <img
         className="details-poster"
         src={posterUrl}
         alt={`${title} poster`}
-        onError={() => setPosterFailed(true)}
+        onError={() => setFailedUrl(posterUrl)}
       />
     );
   }
