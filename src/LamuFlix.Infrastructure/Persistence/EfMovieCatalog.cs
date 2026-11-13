@@ -56,6 +56,7 @@ public sealed class EfMovieCatalog(LamuFlixDbContext dbContext) : IMovieCatalog
     {
         var record = await dbContext.Movies.AsNoTracking()
             .Where(movie => movie.Id == id)
+            .AsSplitQuery()
             .Select(movie => new MovieDetailsRecord(
                 movie.Id,
                 movie.Title,

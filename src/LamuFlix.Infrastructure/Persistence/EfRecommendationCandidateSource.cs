@@ -101,7 +101,8 @@ public sealed class EfRecommendationCandidateSource(
             .Include(movie => movie.Writers)
             .Include(movie => movie.Keywords)
             .Include(movie => movie.FullCast)
-            .Include(movie => movie.Collection);
+            .Include(movie => movie.Collection)
+            .AsSplitQuery();
 
     private static void AddCandidate(
         List<RecommendationCandidate> candidates,

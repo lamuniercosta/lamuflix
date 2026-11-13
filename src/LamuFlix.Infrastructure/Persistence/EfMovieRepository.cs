@@ -581,6 +581,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             .Include(movie => movie.Keywords)
             .Include(movie => movie.FullCast)
             .Include(movie => movie.Collection)
+            .AsSplitQuery()
             .SingleOrDefaultAsync(movie => movie.Id == id, ct);
 
     private async Task AcquireSnapshotLocksAsync(IReadOnlyList<TrackedMovie> tracked, CancellationToken ct)
