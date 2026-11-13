@@ -90,11 +90,23 @@ function enrichmentRequestMessage(error: EnrichmentRequestError): string {
 }
 
 function Poster({ title, posterUrl }: { title: string; posterUrl: string | null }) {
-  if (posterUrl) {
-    return <img className="details-poster" src={posterUrl} alt={`${title} poster`} />;
+  const [posterFailed, setPosterFailed] = useState(false);
+  if (posterUrl && !posterFailed) {
+    return (
+      <img
+        className="details-poster"
+        src={posterUrl}
+        alt={`${title} poster`}
+        onError={() => setPosterFailed(true)}
+      />
+    );
   }
   return (
-    <div className="details-poster details-poster-placeholder" aria-hidden="true">
+    <div
+      className="details-poster details-poster-placeholder"
+      role="img"
+      aria-label={`${title} poster`}
+    >
       <FilmIcon size={48} />
     </div>
   );
