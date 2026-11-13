@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Ports;
@@ -19,6 +22,9 @@ namespace LamuFlix.IntegrationTests;
 
 public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) : IAsyncLifetime, IClassFixture<PostgresFixture>
 {
+    // 1 playback-events reader + 5 split profile-row readers (root + 4 collections) + 1 embeddings reader.
+    private const int SplitQueryReaderCount = 7;
+
     private static readonly DateTimeOffset FirstLaunch = new(2026, 9, 1, 20, 0, 0, TimeSpan.Zero);
 
     private static readonly DateTimeOffset SecondLaunch = new(2026, 9, 20, 21, 30, 0, TimeSpan.Zero);
@@ -326,6 +332,82 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
             new GenreWeightsCalculator(new EfMovieCatalog(db), new GenreWeightsCache()),
             TimeProvider.System,
             Options.Create(new RecommendationOptions()));
+
+    [Fact]
+    public async Task GetProfileInputsAsync_DenseAssociations_LoadsEveryCollectionThroughSplitQueries()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using (var seed = fixture.CreateMigratedContext())
+        {
+            var record = new MovieRecord
+            {
+                Title = "Dense profile",
+                LibraryPath = new LibraryPath("C:/library/dense-profile.mkv"),
+                Format = new MediaFormat("mkv"),
+                IsWatched = true,
+                Status = EnrichmentStatus.Enriched,
+            };
+            record.Genres.Add(new GenreRecord { Name = "Sci-Fi" });
+            record.Genres.Add(new GenreRecord { Name = "Drama" });
+            record.Actors.Add(new ActorRecord { Name = "Rutger Hauer" });
+            record.Actors.Add(new ActorRecord { Name = "Harrison Ford" });
+            record.Directors.Add(new DirectorRecord { Name = "Ridley Scott" });
+            record.FullCast.Add(new ActorRecord { Name = "Guest Actor" });
+            record.FullCast.Add(new ActorRecord { Name = "Harrison Ford" });
+            seed.Movies.Add(record);
+            await seed.SaveChangesAsync(ct);
+        }
+
+        var interceptor = new RecordingCommandInterceptor();
+        await using var db = OpenInstrumentedContext(interceptor);
+        var source = CreateSource(db);
+
+        // act
+        var inputs = await source.GetProfileInputsAsync([], ct);
+
+        // assert
+        var movie = inputs.Movies.ShouldHaveSingleItem();
+        movie.Genres.ShouldBe(["Drama", "Sci-Fi"]);
+        movie.Directors.ShouldBe(["Ridley Scott"]);
+        movie.Cast.ShouldBe(["Guest Actor", "Harrison Ford", "Rutger Hauer"]);
+        interceptor.ReaderCount.ShouldBe(SplitQueryReaderCount);
+    }
+
+    private LamuFlixDbContext OpenInstrumentedContext(DbCommandInterceptor interceptor)
+    {
+        var options = new DbContextOptionsBuilder<LamuFlixDbContext>()
+            .UseNpgsql(fixture.ConnectionString, o => o.UseVector())
+            .AddInterceptors(interceptor)
+            .Options;
+        return new LamuFlixDbContext(options);
+    }
+
+    private sealed class RecordingCommandInterceptor : DbCommandInterceptor
+    {
+        private int readerCount;
+
+        public int ReaderCount => readerCount;
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            readerCount++;
+            return ValueTask.FromResult(result);
+        }
+
+        public override InterceptionResult<DbDataReader> ReaderExecuting(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result)
+        {
+            readerCount++;
+            return result;
+        }
+    }
 
     private async Task<MovieId> SeedMovieAsync(
         string title,

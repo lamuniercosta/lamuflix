@@ -129,6 +129,7 @@ public sealed class EfRecommendationProfileSource(
             .Include(movie => movie.Directors)
             .Include(movie => movie.Actors)
             .Include(movie => movie.FullCast)
+            .AsSplitQuery()
             .Where(movie => movie.Id != null
                             && (movie.IsWatched
                                 || launchedIds.Contains(movie.Id)
