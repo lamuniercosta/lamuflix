@@ -52,6 +52,41 @@ function numericValue(event: ChangeEvent<HTMLInputElement>): number {
   return Number(event.target.value);
 }
 
+interface StyleRangeRowProps {
+  label: string;
+  inputId: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  onChange: (value: number) => void;
+}
+
+function StyleRangeRow({ label, inputId, min, max, step, value, onChange }: StyleRangeRowProps) {
+  return (
+    <div className="subtitle-options-row">
+      <label className="subtitle-options-label" htmlFor={inputId}>
+        {label}
+      </label>
+      <div className="subtitle-options-control">
+        <input
+          id={inputId}
+          className="subtitle-options-range"
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(event) => onChange(numericValue(event))}
+        />
+        <output className="subtitle-options-value" aria-live="off">
+          {`${value}%`}
+        </output>
+      </div>
+    </div>
+  );
+}
+
 export default function SubtitleOptions({
   delayMs,
   timingEnabled,
@@ -138,26 +173,15 @@ export default function SubtitleOptions({
           </select>
         </div>
 
-        <div className="subtitle-options-row">
-          <label className="subtitle-options-label" htmlFor={`${styleId}-size`}>
-            {SUBTITLE_TEXT_SIZE_LABEL}
-          </label>
-          <div className="subtitle-options-control">
-            <input
-              id={`${styleId}-size`}
-              className="subtitle-options-range"
-              type="range"
-              min={SUBTITLE_TEXT_SIZE_MIN}
-              max={SUBTITLE_TEXT_SIZE_MAX}
-              step={SUBTITLE_TEXT_SIZE_STEP}
-              value={style.textSize}
-              onChange={(event) => onUpdateStyle({ textSize: numericValue(event) })}
-            />
-            <output className="subtitle-options-value" aria-live="off">
-              {`${style.textSize}%`}
-            </output>
-          </div>
-        </div>
+        <StyleRangeRow
+          label={SUBTITLE_TEXT_SIZE_LABEL}
+          inputId={`${styleId}-size`}
+          min={SUBTITLE_TEXT_SIZE_MIN}
+          max={SUBTITLE_TEXT_SIZE_MAX}
+          step={SUBTITLE_TEXT_SIZE_STEP}
+          value={style.textSize}
+          onChange={(textSize) => onUpdateStyle({ textSize })}
+        />
 
         <div className="subtitle-options-row">
           <label className="subtitle-options-label" htmlFor={`${styleId}-text-color`}>
@@ -172,26 +196,15 @@ export default function SubtitleOptions({
           />
         </div>
 
-        <div className="subtitle-options-row">
-          <label className="subtitle-options-label" htmlFor={`${styleId}-text-opacity`}>
-            {SUBTITLE_TEXT_OPACITY_LABEL}
-          </label>
-          <div className="subtitle-options-control">
-            <input
-              id={`${styleId}-text-opacity`}
-              className="subtitle-options-range"
-              type="range"
-              min={SUBTITLE_OPACITY_MIN}
-              max={SUBTITLE_OPACITY_MAX}
-              step={SUBTITLE_OPACITY_STEP}
-              value={style.textOpacity}
-              onChange={(event) => onUpdateStyle({ textOpacity: numericValue(event) })}
-            />
-            <output className="subtitle-options-value" aria-live="off">
-              {`${style.textOpacity}%`}
-            </output>
-          </div>
-        </div>
+        <StyleRangeRow
+          label={SUBTITLE_TEXT_OPACITY_LABEL}
+          inputId={`${styleId}-text-opacity`}
+          min={SUBTITLE_OPACITY_MIN}
+          max={SUBTITLE_OPACITY_MAX}
+          step={SUBTITLE_OPACITY_STEP}
+          value={style.textOpacity}
+          onChange={(textOpacity) => onUpdateStyle({ textOpacity })}
+        />
 
         <div className="subtitle-options-row">
           <label className="subtitle-options-label" htmlFor={`${styleId}-bg-color`}>
@@ -206,26 +219,15 @@ export default function SubtitleOptions({
           />
         </div>
 
-        <div className="subtitle-options-row">
-          <label className="subtitle-options-label" htmlFor={`${styleId}-bg-opacity`}>
-            {SUBTITLE_BACKGROUND_OPACITY_LABEL}
-          </label>
-          <div className="subtitle-options-control">
-            <input
-              id={`${styleId}-bg-opacity`}
-              className="subtitle-options-range"
-              type="range"
-              min={SUBTITLE_OPACITY_MIN}
-              max={SUBTITLE_OPACITY_MAX}
-              step={SUBTITLE_OPACITY_STEP}
-              value={style.bgOpacity}
-              onChange={(event) => onUpdateStyle({ bgOpacity: numericValue(event) })}
-            />
-            <output className="subtitle-options-value" aria-live="off">
-              {`${style.bgOpacity}%`}
-            </output>
-          </div>
-        </div>
+        <StyleRangeRow
+          label={SUBTITLE_BACKGROUND_OPACITY_LABEL}
+          inputId={`${styleId}-bg-opacity`}
+          min={SUBTITLE_OPACITY_MIN}
+          max={SUBTITLE_OPACITY_MAX}
+          step={SUBTITLE_OPACITY_STEP}
+          value={style.bgOpacity}
+          onChange={(bgOpacity) => onUpdateStyle({ bgOpacity })}
+        />
 
         <div className="subtitle-options-row">
           <label className="subtitle-options-label" htmlFor={`${styleId}-edge`}>

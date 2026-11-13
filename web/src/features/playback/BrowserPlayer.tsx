@@ -38,6 +38,7 @@ import { SUBTITLES_LABEL, SUBTITLES_TRIGGER_COPY } from './subtitleCopy';
 import CaptionOverlay from './CaptionOverlay';
 import SubtitlePanel, { type SubtitlePanelTab } from './SubtitlePanel';
 import { applySubtitleTrackModes, watchSubtitleTrackModes } from './subtitleTrackModes';
+import type { SubtitleDelayDirection } from './subtitleTiming';
 import { useBrowserPlayer, type MediaDiagnostic } from './useBrowserPlayer';
 import { useSubtitleCues, type SubtitleCueList } from './useSubtitleCues';
 import { useSubtitleOptions } from './useSubtitleOptions';
@@ -412,12 +413,9 @@ export default function BrowserPlayer({
   const handleDelayKey = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>): boolean => {
       if (event.ctrlKey || event.altKey || event.metaKey) return false;
-      const direction =
-        event.key === 'h' || event.key === 'H'
-          ? 'later'
-          : event.key === 'g' || event.key === 'G'
-            ? 'earlier'
-            : null;
+      let direction: SubtitleDelayDirection | null = null;
+      if (event.key === 'h' || event.key === 'H') direction = 'later';
+      else if (event.key === 'g' || event.key === 'G') direction = 'earlier';
       if (direction === null) return false;
       event.preventDefault();
       if (!timingEnabled || !mediaElement || mediaElement.paused) return true;

@@ -39,6 +39,12 @@ function listenerBag(): ListenerBag {
   };
 }
 
+function totalListenerCount(bag: ListenerBag): number {
+  let total = 0;
+  for (const bucket of bag.listeners.values()) total += bucket.size;
+  return total;
+}
+
 export interface FakeCueList extends SubtitleCueList {
   setCues(cues: readonly FakeCue[] | null): void;
   emit(type: string): void;
@@ -57,11 +63,7 @@ export function createFakeCueList(cues: readonly FakeCue[] | null = null): FakeC
     },
     emit: (type: string) => bag.emit(type),
     listenerCount: (type: string) => bag.count(type),
-    totalListenerCount() {
-      let total = 0;
-      for (const bucket of bag.listeners.values()) total += bucket.size;
-      return total;
-    },
+    totalListenerCount: () => totalListenerCount(bag),
   };
   return list;
 }
@@ -101,11 +103,7 @@ export function createFakeMediaClock(currentTime = 0): FakeMediaClock {
     },
     emit: (type: string) => bag.emit(type),
     listenerCount: (type: string) => bag.count(type),
-    totalListenerCount() {
-      let total = 0;
-      for (const bucket of bag.listeners.values()) total += bucket.size;
-      return total;
-    },
+    totalListenerCount: () => totalListenerCount(bag),
   };
   return clock;
 }

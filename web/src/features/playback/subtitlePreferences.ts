@@ -147,50 +147,43 @@ function isEdgeToken(value: unknown): value is SubtitleEdgeToken {
   return SUBTITLE_EDGE_TOKENS.includes(value as SubtitleEdgeToken);
 }
 
+function asSteppedNumber(value: unknown, min: number, max: number, step: number): number | null {
+  return isSteppedValue(value, min, max, step) ? value : null;
+}
+
 function validateSubtitleStyle(value: unknown): SubtitleStyleProfile | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
   const candidate = value as Record<string, unknown>;
   if (!isFontToken(candidate.font)) return null;
   if (!isEdgeToken(candidate.edge)) return null;
-  if (
-    !isSteppedValue(
-      candidate.textSize,
-      SUBTITLE_TEXT_SIZE_MIN,
-      SUBTITLE_TEXT_SIZE_MAX,
-      SUBTITLE_TEXT_SIZE_STEP,
-    )
-  ) {
-    return null;
-  }
-  if (
-    !isSteppedValue(
-      candidate.textOpacity,
-      SUBTITLE_OPACITY_MIN,
-      SUBTITLE_OPACITY_MAX,
-      SUBTITLE_OPACITY_STEP,
-    )
-  ) {
-    return null;
-  }
-  if (
-    !isSteppedValue(
-      candidate.bgOpacity,
-      SUBTITLE_OPACITY_MIN,
-      SUBTITLE_OPACITY_MAX,
-      SUBTITLE_OPACITY_STEP,
-    )
-  ) {
-    return null;
-  }
+  const textSize = asSteppedNumber(
+    candidate.textSize,
+    SUBTITLE_TEXT_SIZE_MIN,
+    SUBTITLE_TEXT_SIZE_MAX,
+    SUBTITLE_TEXT_SIZE_STEP,
+  );
+  const textOpacity = asSteppedNumber(
+    candidate.textOpacity,
+    SUBTITLE_OPACITY_MIN,
+    SUBTITLE_OPACITY_MAX,
+    SUBTITLE_OPACITY_STEP,
+  );
+  const bgOpacity = asSteppedNumber(
+    candidate.bgOpacity,
+    SUBTITLE_OPACITY_MIN,
+    SUBTITLE_OPACITY_MAX,
+    SUBTITLE_OPACITY_STEP,
+  );
+  if (textSize === null || textOpacity === null || bgOpacity === null) return null;
   if (!isHexColor(candidate.textColor)) return null;
   if (!isHexColor(candidate.bgColor)) return null;
   return {
     font: candidate.font,
-    textSize: candidate.textSize,
+    textSize,
     textColor: candidate.textColor,
-    textOpacity: candidate.textOpacity,
+    textOpacity,
     bgColor: candidate.bgColor,
-    bgOpacity: candidate.bgOpacity,
+    bgOpacity,
     edge: candidate.edge,
   };
 }
