@@ -9,6 +9,8 @@ description: "Task list for DEV-483 movie details and recommendation endpoint la
 
 **Status**: Challenge-repair round 1 — Quill applying `PLAN_ADJUDICATION.md` fix list 1–10. PLAN FROZEN withheld pending Keel independent reread. Gate 1, implementation, runtime acceptance, and merge remain distinct and open. Quill does not declare freeze or Gate 1.
 
+**Phase B pickup — 2026-11-13**: Gate 1 verified landed via PR #387 at `bac075b02239eee02fe5e39bf40e8a0d21a0be1d`; T000 complete. Keel reanalysis at `f88ab2336b6733684041082ad10c5d87d28e4e23` complete; Gauge baseline recorded in DEV-483 note. T001 remains blocked on missing recon prerequisites; T002+ must not start. See CONCLUSIONS.md Phase B receipt for evidence and the precise needs recon request. This current status supersedes the historical drafting status above without changing requirements.
+
 **Tests**: Required (`brief.md` Q4; FR-006–FR-008). Prefer failing tests before production edits at the diagnosed seam. Latency wall-clock proof is Compose Q2 receipt only — never unit timers. Persistence/query-translation behaviour uses Testcontainers, never driver mocks. No new test framework/dependency/benchmark platform. Deterministic performance-relevant invariants come from actual diagnosis (query/round-trip bounds only if causal). If cached profile source is touched, prove existing cache identity/history boundaries with regression coverage — collect missing semantics through recon; never invent per-user architecture.
 
 **Format**: `- [ ] [ID] [P?] [Story?] Description with file path`. `[P]` = parallelisable once own prerequisites are complete (different files, no incomplete deps). Same-file edits are never `[P]`. Shared gate/receipt/diagnosis tasks are never `[P]`.
@@ -46,7 +48,7 @@ Ordering per brief Q6 / Round 1 fix 9: **T007 → T009 → T008 → T010 → T01
 **Purpose**: Produce/open the spec PR, then confirm ordinary owner Gate 1 merge before Build work.
 **Checkpoint**: Spec PR opened by Rigger under Bernstein coordination; verified user-merge receipt in `CONCLUSIONS.md`, or stop. No Build tasks before that receipt.
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-483 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-483 in `specs/DEV-483/CONCLUSIONS.md`. Receipt only. T001–T011 MUST NOT proceed without verified merge (`brief.md` task ordering; Q6; no structural owner checkbox on this ticket).
+- [X] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-483 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-483 in `specs/DEV-483/CONCLUSIONS.md`. Receipt only. T001–T011 MUST NOT proceed without verified merge (`brief.md` task ordering; Q6; no structural owner checkbox on this ticket).
 
 ---
 
