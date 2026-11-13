@@ -10,7 +10,7 @@ public sealed record SubtitleLanguage(string Code, string EnglishName, string Na
 
 public static class SupportedSubtitleLanguages
 {
-    private static readonly SubtitleLanguage[] CatalogEntries =
+    private static SubtitleLanguage[] CatalogEntries() =>
     [
         new("pt-BR", "Portuguese (BR)", "Português (BR)"),
         new("pt", "Portuguese", "Português"),
@@ -66,7 +66,7 @@ public static class SupportedSubtitleLanguages
         new("cy", "Welsh", "Cymraeg"),
     ];
 
-    private static readonly (string Alias, string Canonical)[] Aliases =
+    private static (string Alias, string Canonical)[] Aliases() =>
     [
         ("pob", "pt-BR"),
         ("pb", "pt-BR"),
@@ -142,11 +142,7 @@ public static class SupportedSubtitleLanguages
         ("cym", "cy"),
     ];
 
-    private static readonly ImmutableArray<SubtitleLanguage> Catalog = [.. CatalogEntries];
-
-    private static readonly ImmutableDictionary<string, SubtitleLanguage> ByCode = BuildLookup();
-
-    public static IReadOnlyList<SubtitleLanguage> All => Catalog;
+    public static IReadOnlyList<SubtitleLanguage> All => CatalogEntries();
 
     public static bool TryResolve(string? code, [NotNullWhen(true)] out SubtitleLanguage? language)
     {
@@ -156,12 +152,32 @@ public static class SupportedSubtitleLanguages
             return false;
         }
 
-        return ByCode.TryGetValue(code.Trim(), out language);
+        var trimmed = code.Trim();
+        foreach (var entry in CatalogEntries())
+        {
+            if (string.Equals(entry.Code, trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                language = entry;
+                return true;
+            }
+        }
+
+        foreach (var (alias, canonical) in Aliases())
+        {
+            if (string.Equals(alias, trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                language = ByCanonical(canonical);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static IReadOnlyList<SubtitleLanguage> OrderedFor(IEnumerable<string>? preferredCodes)
     {
-        var ordered = ImmutableArray.CreateBuilder<SubtitleLanguage>(Catalog.Length);
+        var catalog = CatalogEntries();
+        var ordered = ImmutableArray.CreateBuilder<SubtitleLanguage>(catalog.Length);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (preferredCodes is not null)
         {
@@ -174,7 +190,7 @@ public static class SupportedSubtitleLanguages
             }
         }
 
-        ordered.AddRange(Catalog
+        ordered.AddRange(catalog
             .Where(language => !seen.Contains(language.Code))
             .OrderBy(language => language.EnglishName, StringComparer.Ordinal)
             .ThenBy(language => language.Code, StringComparer.Ordinal));
@@ -182,22 +198,6 @@ public static class SupportedSubtitleLanguages
         return ordered.ToImmutable();
     }
 
-    private static ImmutableDictionary<string, SubtitleLanguage> BuildLookup()
-    {
-        var builder = ImmutableDictionary.CreateBuilder<string, SubtitleLanguage>(StringComparer.OrdinalIgnoreCase);
-        foreach (var language in Catalog)
-        {
-            builder[language.Code] = language;
-        }
-
-        foreach (var (alias, canonical) in Aliases)
-        {
-            builder[alias] = ByCanonical(canonical);
-        }
-
-        return builder.ToImmutable();
-    }
-
     private static SubtitleLanguage ByCanonical(string code) =>
-        Catalog.First(language => string.Equals(language.Code, code, StringComparison.OrdinalIgnoreCase));
+        CatalogEntries().First(language => string.Equals(language.Code, code, StringComparison.OrdinalIgnoreCase));
 }

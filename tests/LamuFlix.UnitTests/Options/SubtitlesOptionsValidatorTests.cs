@@ -56,7 +56,7 @@ public sealed class SubtitlesOptionsValidatorTests
         // assert
         ShouldFailNaming(result, $"{nameof(SubtitlesOptions.PreferredLanguages)}[1]");
         result.Failed.ShouldBeTrue();
-        string.Join("; ", result.Failures).ShouldContain("must not be blank.");
+        result.Failures.ShouldHaveSingleItem().ShouldContain("must not be blank.");
     }
 
     [Fact]
