@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { FilmIcon, RetryIcon, StarFilledIcon } from '../ui/icons';
-import { WatchlistToggleButton } from './watchlist';
-import { useWatchlistToggle } from './watchlistStore';
+import { MovieFeedbackActions } from './MovieFeedbackActions';
 import type { MovieCardProps } from './MovieCard';
 import { canRetryEnrichment, displayValue, formatRating } from './movieCardFormat';
 
@@ -21,9 +20,9 @@ export default function MovieListRow({
   onRetry,
   retryError,
   retryErrorId,
+  feedbackClients,
 }: MovieCardProps) {
   const [posterFailed, setPosterFailed] = useState(false);
-  const watchlist = useWatchlistToggle(movie.id, movie.isInWatchlist);
 
   const { id, title, enrichmentStatus: status } = movie;
   const showPoster = Boolean(movie.posterUrl) && !posterFailed;
@@ -36,12 +35,12 @@ export default function MovieListRow({
         {showPoster ? (
           <img
             src={movie.posterUrl ?? undefined}
-            alt=""
+            alt={title}
             loading="lazy"
             onError={() => setPosterFailed(true)}
           />
         ) : (
-          <div className="movie-card-placeholder" aria-hidden="true">
+          <div className="movie-card-placeholder" role="img" aria-label={title}>
             <FilmIcon size={18} />
           </div>
         )}
@@ -94,12 +93,15 @@ export default function MovieListRow({
         ) : null}
       </div>
 
-      <div
-        className="movie-row-watch"
-        data-watchlisted={String(watchlist.isInWatchlist)}
-        data-error={watchlist.error ? 'true' : 'false'}
-      >
-        <WatchlistToggleButton movieId={id} isInWatchlist={movie.isInWatchlist} title={title} />
+      <div className="movie-row-watch">
+        <MovieFeedbackActions
+          movieId={id}
+          title={title}
+          isWatched={movie.isWatched}
+          review={movie.review}
+          isInWatchlist={movie.isInWatchlist}
+          clients={feedbackClients}
+        />
       </div>
     </div>
   );

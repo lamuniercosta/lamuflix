@@ -119,6 +119,18 @@ describe('MovieDetailsView', () => {
     await screen.findByRole('heading', { name: 'Dune' });
     expect(screen.queryByText('Dune poster')).not.toBeInTheDocument();
   });
+
+  it('falls back to the placeholder when the poster fails to load', async () => {
+    server.use(http.get('*/api/movies/:id', () => HttpResponse.json(fullMovie)));
+    renderView();
+
+    await screen.findByRole('heading', { name: 'Dune' });
+
+    fireEvent.error(screen.getByAltText('Dune poster'));
+
+    expect(screen.getByRole('img', { name: 'Dune poster' })).toBeInTheDocument();
+    expect(screen.queryByAltText('Dune poster')).not.toBeInTheDocument();
+  });
 });
 
 describe('MovieDetailsView browser Play default', () => {
