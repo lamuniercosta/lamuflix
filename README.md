@@ -265,11 +265,11 @@ pwsh -NoProfile -File scripts/home/Restore-HomeCatalog.ps1 -DumpPath <path-to-du
 pwsh -NoProfile -File scripts/home/Remove-HomeCluster.ps1 -Confirm -WhatIf
 ```
 
-Read the `-WhatIf` output before dropping it. `Remove-HomeCluster.ps1` deletes only the kind cluster. The catalog lives in the Neon database, outside the cluster, so removing the cluster does not touch it. It never touches `E:\Filmes` or the backups folder. `Restore-HomeCatalog.ps1` never overwrites or deletes a dump, and it refuses a non-empty catalog unless `-Force` is given.
+Read the `-WhatIf` output before dropping it. `Remove-HomeCluster.ps1` deletes only the kind cluster, and with it the catalog database, so the movies have to be reimported afterwards. It never touches `E:\Filmes` or the backups folder. `Restore-HomeCatalog.ps1` never overwrites or deletes a dump, and it refuses a non-empty catalog unless `-Force` is given.
 
 Promotion: run `promote-home.yml` from the Actions tab with a `main` commit sha. `dry_run` defaults to true and only shows the rendered diff. Argo CD syncs the cluster once a run with `dry_run` off pushes `env/home`.
 
-The catalog database is Neon (hosted Postgres), not a service in the cluster. There are no automated dumps. If the catalog is lost, it is rebuilt by reimporting the movies. Each in-cluster stateful service (RabbitMQ, ollama) keeps its data in a PersistentVolumeClaim, and those claims are never pruned.
+Each stateful service keeps its data in a PersistentVolumeClaim, and those claims are never pruned. There are no automated dumps. If the catalog is lost, it is rebuilt by reimporting the movies. `Restore-HomeCatalog.ps1` can still load a dump made by hand.
 
 To render the manifests locally:
 

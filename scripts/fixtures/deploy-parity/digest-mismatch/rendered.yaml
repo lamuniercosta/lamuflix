@@ -108,7 +108,7 @@ spec:
     spec:
       containers:
         - name: ollama
-          image: ollama/ollama:0.40.13@sha256:1111111111111111111111111111111111111111111111111111111111111111
+          image: ollama/ollama:0.40.13@sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429
           command: ["/bin/sh", "-c", "ollama serve & /bin/sh /scripts/ollama-init.sh; wait"]
           ports:
             - name: http

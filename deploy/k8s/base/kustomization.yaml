@@ -8,6 +8,8 @@ labels:
     includeTemplates: true
 resources:
   - namespace.yaml
+  - postgres-statefulset.yaml
+  - postgres-service.yaml
   - rabbitmq-statefulset.yaml
   - rabbitmq-service.yaml
   - ollama-statefulset.yaml

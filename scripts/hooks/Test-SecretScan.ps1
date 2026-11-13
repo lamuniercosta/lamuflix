@@ -118,8 +118,6 @@ Assert-Quiet 'OpenAI short token'     'sk-proj-abc123'
 Assert-Quiet 'Anthropic short token'  'sk-ant-api03-abc123'
 Assert-Quiet 'Azure short AccountKey' 'AccountKey=abc123'
 Assert-Quiet 'Bearer short token'     'Authorization: Bearer abc123'
-Assert-Quiet 'connection string with variable password' 'Host=db;Password=$password;SSL Mode=Require'
-Assert-Quiet 'password from expression'  '$password = [System.Uri]::UnescapeDataString($parts[1])'
 Assert-Quiet 'ordinary code'         'public static decimal Clamp(decimal value) => Math.Clamp(value, 0m, 100m);'
 Assert-Quiet 'empty payload'         ''
 

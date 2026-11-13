@@ -1,6 +1,6 @@
 {
-  "description": "Ollama digest in the manifests differs from Compose",
+  "description": "Postgres digest in the manifests differs from Compose",
   "exitCode": 1,
-  "mustContain": ["FAIL  image digest of 'ollama' matches compose"],
+  "mustContain": ["FAIL  image digest of 'postgres' matches compose"],
   "mustNotContain": []
 }

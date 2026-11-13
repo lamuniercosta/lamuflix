@@ -1,7 +1,7 @@
 #Requires -Version 7.0
-# Read-only status for the home cluster: cluster present, Argo CD sync and health, deployed commit and
-# the two web routes. One line per check; "STATUS: healthy" only when every check passes.
-# Exit 0 when healthy, 1 otherwise. Changes nothing on the cluster or the host.
+# Read-only status for the home cluster: cluster present, Argo CD sync and health, deployed commit
+# and the two web routes. One line per check; "STATUS: healthy" only when
+# every check passes. Exit 0 when healthy, 1 otherwise. Changes nothing on the cluster or the host.
 #
 # Usage: pwsh -NoProfile -File scripts/home/Get-HomeStatus.ps1 [-ConfigPath <file>] [-ClusterName <name>]
 
