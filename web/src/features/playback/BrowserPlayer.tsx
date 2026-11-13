@@ -35,7 +35,6 @@ import {
 } from './playerCopy';
 import { SUBTITLES_LABEL, SUBTITLES_TRIGGER_COPY } from './subtitleCopy';
 import SubtitlePanel, { type SubtitlePanelTab } from './SubtitlePanel';
-import SubtitlesTab from './SubtitlesTab';
 import { applySubtitleTrackModes, watchSubtitleTrackModes } from './subtitleTrackModes';
 import { useBrowserPlayer, type MediaDiagnostic } from './useBrowserPlayer';
 import { useSubtitlePlayback } from './useSubtitlePlayback';
@@ -437,13 +436,9 @@ export default function BrowserPlayer({
               title={title}
               panelId={panelId}
               activeTab={ccTab}
-              listStatus={subtitles.listStatus}
-              contentStatus={subtitles.contentStatus}
-              tracks={subtitles.tracks}
-              selectedId={selection?.trackId ?? null}
+              movieId={Number(movieId)}
+              playback={subtitles}
               onTabChange={selectTab}
-              onSelect={subtitles.select}
-              onRetryList={subtitles.retryList}
               onClose={closeCcPanelAndRestore}
             />
           ) : null}
@@ -460,7 +455,6 @@ export default function BrowserPlayer({
         {status === 'ended' && <p className="sr-only">{ENDED_ANNOUNCEMENT}</p>}
       </div>
 
-      <SubtitlesTab title={title} movieId={Number(movieId)} playback={subtitles} />
       {status === 'error' ? (
         <div className="browser-player-actions">
           <p role="alert" className="browser-player-error">

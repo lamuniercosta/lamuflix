@@ -5,6 +5,7 @@ import type { ComponentProps } from 'react';
 import BrowserPlayer from './BrowserPlayer';
 import { playerRegionLabel } from './playerCopy';
 import {
+  SUBTITLES_LABEL,
   SUBTITLE_CHOOSE_LANGUAGE_COPY,
   SUBTITLE_GETTING_COPY,
   SUBTITLE_GET_COPY,
@@ -90,9 +91,12 @@ let downloadBodies: unknown[] = [];
 let owned: string[] = [];
 
 function renderPlayer(props: Partial<ComponentProps<typeof BrowserPlayer>> = {}) {
-  return render(
+  const view = render(
     <BrowserPlayer title="Dune" movieId={1} streamUrl="/api/movies/1/stream" {...props} />,
   );
+  const trigger = within(region()).getByRole('button', { name: SUBTITLES_LABEL });
+  if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger);
+  return view;
 }
 
 function region(title = 'Dune'): HTMLElement {
@@ -334,7 +338,7 @@ describe('subtitle language search', () => {
 
     const container = within(region());
     const heading = container.getByText(SUBTITLE_LOCAL_TRACKS_LABEL);
-    const offOption = container.getByRole('option', { name: 'Off' });
+    const offOption = container.getByRole('radio', { name: 'Off' });
     const firstResult = container.getByTitle(SEARCH.candidates[0].releaseName);
     expect(
       heading.compareDocumentPosition(offOption) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -377,12 +381,11 @@ describe('subtitle download states', () => {
 
     await waitFor(() => expect(downloadBodies).toEqual([{ candidateId: 'cand-96' }]));
     await waitFor(() => {
-      const select = within(region()).getByRole('combobox', { name: 'Subtitles for Dune' });
-      expect((select as HTMLSelectElement).value).toBe(DOWNLOADED.track.id);
+      expect(within(region()).getByRole('radio', { name: DOWNLOADED.track.label })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
     });
-    expect(
-      within(region()).getByRole('option', { name: DOWNLOADED.track.label }),
-    ).toBeInTheDocument();
   });
 
   it('shows Getting while one download is in flight and blocks a second Get', async () => {
@@ -456,7 +459,7 @@ describe('subtitle download states', () => {
     expect(await screen.findByText(SUBTITLE_SEARCH_RATE_LIMITED_COPY)).toBeInTheDocument();
     expect(screen.queryByText(SUBTITLE_QUOTA_REACHED_COPY)).toBeNull();
     expect(screen.queryByText(/Download quota reached/)).toBeNull();
-    expect(within(region()).getByRole('option', { name: 'Off' })).toBeInTheDocument();
+    expect(within(region()).getByRole('radio', { name: 'Off' })).toBeInTheDocument();
   });
 
   it('shows a stale candidate 400 inline without retrying the paid call', async () => {
@@ -496,11 +499,11 @@ describe('subtitle download states', () => {
   it('keeps playback and the active local track through every acquisition failure', async () => {
     renderPlayer();
     await screen.findByText(SUBTITLE_READY_COPY);
-    const localSelect = within(region()).getByRole('combobox', { name: 'Subtitles for Dune' });
-    fireEvent.change(localSelect, { target: { value: TRACKS[0].id } });
+    fireEvent.click(within(region()).getByRole('radio', { name: TRACKS[0].label }));
     await waitFor(() =>
-      expect(within(region()).getByRole('combobox', { name: 'Subtitles for Dune' })).toHaveValue(
-        TRACKS[0].id,
+      expect(within(region()).getByRole('radio', { name: TRACKS[0].label })).toHaveAttribute(
+        'aria-checked',
+        'true',
       ),
     );
 
@@ -508,8 +511,9 @@ describe('subtitle download states', () => {
     fireEvent.click(getButtons()[0]);
 
     expect(await screen.findByText('The subtitle provider is unavailable.')).toBeInTheDocument();
-    expect(within(region()).getByRole('combobox', { name: 'Subtitles for Dune' })).toHaveValue(
-      TRACKS[0].id,
+    expect(within(region()).getByRole('radio', { name: TRACKS[0].label })).toHaveAttribute(
+      'aria-checked',
+      'true',
     );
     expect(media.calls).not.toContain('pause');
   });
@@ -519,8 +523,8 @@ describe('subtitle download states', () => {
     renderPlayer();
 
     await screen.findByText(SUBTITLE_NO_RESULTS_COPY);
-    expect(within(region()).getByRole('option', { name: 'Off' })).toBeInTheDocument();
-    expect(within(region()).getByRole('option', { name: TRACKS[0].label })).toBeInTheDocument();
+    expect(within(region()).getByRole('radio', { name: 'Off' })).toBeInTheDocument();
+    expect(within(region()).getByRole('radio', { name: TRACKS[0].label })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Get subtitle / })).toBeNull();
   });
 
@@ -559,7 +563,7 @@ describe('subtitle download states', () => {
     await waitFor(() => expect(downloadBodies).toHaveLength(1));
     await waitFor(() => {
       expect(
-        within(region()).getByRole('option', { name: DOWNLOADED.track.label }),
+        within(region()).getByRole('radio', { name: DOWNLOADED.track.label }),
       ).toBeInTheDocument();
     });
     expect(within(region()).getByText('Dune.2021.en-en')).toBeInTheDocument();
@@ -570,18 +574,18 @@ describe('subtitle download states', () => {
     renderPlayer();
     await screen.findByText(SUBTITLE_READY_COPY);
 
-    const local = within(region()).getByRole('combobox', {
-      name: 'Subtitles for Dune',
-    }) as HTMLSelectElement;
-    fireEvent.change(local, { target: { value: TRACKS[0].id } });
+    fireEvent.click(within(region()).getByRole('radio', { name: TRACKS[0].label }));
     await waitFor(() =>
-      expect(within(region()).getByRole('combobox', { name: 'Subtitles for Dune' })).toHaveValue(
-        TRACKS[0].id,
+      expect(within(region()).getByRole('radio', { name: TRACKS[0].label })).toHaveAttribute(
+        'aria-checked',
+        'true',
       ),
     );
 
-    const checked = Array.from(local.options).filter((option) => option.selected);
-    expect(checked.map((option) => option.textContent)).toEqual([TRACKS[0].label]);
+    const checked = within(region())
+      .getAllByRole('radio')
+      .filter((radio) => radio.getAttribute('aria-checked') === 'true');
+    expect(checked.map((radio) => radio.getAttribute('aria-label'))).toEqual([TRACKS[0].label]);
 
     for (const candidate of SEARCH.candidates) {
       const row = within(region()).getByTitle(candidate.releaseName).closest('li');
