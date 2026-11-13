@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -17,12 +18,14 @@ namespace LamuFlix.Infrastructure.Adapters;
 public sealed class OpenSubtitlesSubtitleProvider(
     HttpClient httpClient,
     IOptions<SubtitleProviderOptions> optionsProvider,
+    IOptions<SubtitlesOptions> subtitlesOptions,
     TimeProvider timeProvider) : ISubtitleProvider
 {
     private const string SearchPath = "api/v1/subtitles";
     private const string DownloadPath = "api/v1/download";
     private const string ApiKeyHeader = "Api-Key";
     private const string UserAgentHeader = "User-Agent";
+    private const string RemainingDownloadsHeader = "X-RateLimit-Remaining";
     private const char LanguageSeparator = ',';
 
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
@@ -32,7 +35,11 @@ public sealed class OpenSubtitlesSubtitleProvider(
 
     private SubtitleProviderOptions Options => optionsProvider.Value;
 
-    public async Task<IReadOnlyList<SubtitleCandidate>> SearchAsync(SubtitleSearch search, CancellationToken cancellationToken)
+    private long MaxDownloadBytes => Math.Min(
+        Options.MaxDownloadBytes > 0 ? Options.MaxDownloadBytes : SubtitlesOptions.DefaultMaxSubtitleDownloadBytes,
+        subtitlesOptions.Value.MaxSubtitleDownloadBytes);
+
+    public async Task<SubtitleSearchResult> SearchAsync(SubtitleSearch search, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(search);
 
@@ -50,10 +57,11 @@ public sealed class OpenSubtitlesSubtitleProvider(
             () => new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = JsonContent.Create(request, options: SerializerOptions) },
             cancellationToken);
         EnsureAccepted(response, "The subtitle provider rejected the search request.");
-        return await ReadCandidatesAsync(response, search.MovieHash is not null, cancellationToken);
+        var candidates = await ReadCandidatesAsync(response, search.MovieHash is not null, cancellationToken);
+        return new SubtitleSearchResult(candidates, QuotaFrom(response));
     }
 
-    public async Task<byte[]> DownloadAsync(SubtitleCandidate candidate, CancellationToken cancellationToken)
+    public async Task<SubtitleDownload> DownloadAsync(SubtitleCandidate candidate, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(candidate);
 
@@ -70,6 +78,7 @@ public sealed class OpenSubtitlesSubtitleProvider(
             },
             cancellationToken);
         EnsureAccepted(response, "The subtitle provider rejected the download request.");
+        var quota = QuotaFrom(response);
 
         var link = await ReadDownloadLinkAsync(response, cancellationToken);
         EnsurePermitted(
@@ -79,7 +88,44 @@ public sealed class OpenSubtitlesSubtitleProvider(
 
         using var payload = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, link), cancellationToken);
         EnsureAccepted(payload, "The subtitle provider returned an unusable subtitle download.");
-        return await ReadBoundedContentAsync(payload, cancellationToken);
+        return new SubtitleDownload(await ReadBoundedContentAsync(payload, cancellationToken), quota);
+    }
+
+    private SubtitleQuota QuotaFrom(HttpResponseMessage response)
+    {
+        if (!TryReadIntHeader(response, RemainingDownloadsHeader, out var remainingDownloads))
+        {
+            remainingDownloads = null;
+        }
+
+        var resetAtUtc = RetryAfter(response) is { } delay
+            ? timeProvider.GetUtcNow().Add(delay)
+            : (DateTimeOffset?)null;
+
+        return remainingDownloads is null && resetAtUtc is null
+            ? SubtitleQuota.Unknown
+            : new SubtitleQuota(remainingDownloads, resetAtUtc);
+    }
+
+    private static bool TryReadIntHeader(HttpResponseMessage response, string name, out int? value)
+    {
+        value = null;
+        if (!response.Headers.TryGetValues(name, out var values))
+        {
+            return false;
+        }
+
+        foreach (var candidate in values)
+        {
+            if (int.TryParse(candidate, System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            {
+                value = parsed;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async Task<HttpResponseMessage> SendAsync(
@@ -147,7 +193,19 @@ public sealed class OpenSubtitlesSubtitleProvider(
             fileId.Value,
             attributes.Language,
             attributes.DownloadCount ?? 0,
-            attributes.MovieHashMatch ?? hashSearch);
+            attributes.MovieHashMatch ?? hashSearch,
+            ReleaseName(attributes));
+    }
+
+    private static string? ReleaseName(SearchAttributes attributes)
+    {
+        if (!string.IsNullOrWhiteSpace(attributes.Release))
+        {
+            return attributes.Release.Trim();
+        }
+
+        var fileName = attributes.Files?.FirstOrDefault()?.FileName;
+        return string.IsNullOrWhiteSpace(fileName) ? null : Path.GetFileNameWithoutExtension(fileName.Trim());
     }
 
     private static async Task<Uri> ReadDownloadLinkAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -172,14 +230,15 @@ public sealed class OpenSubtitlesSubtitleProvider(
 
     private async Task<byte[]> ReadBoundedContentAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
+        var bound = MaxDownloadBytes;
         var declaredLength = response.Content.Headers.ContentLength;
-        if (declaredLength is { } length && length > Options.MaxDownloadBytes)
+        if (declaredLength is { } length && length > bound)
         {
             throw new SubtitleProviderFailureException("The downloaded subtitle exceeded the configured size bound.");
         }
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var buffer = new byte[Options.MaxDownloadBytes];
+        var buffer = new byte[bound];
         var total = 0;
         while (total < buffer.Length)
         {
@@ -198,7 +257,7 @@ public sealed class OpenSubtitlesSubtitleProvider(
         }
 
         var payload = buffer.AsSpan(0, total);
-        if (!SubtitlePayloadValidator.IsAcceptable(payload, Options.MaxDownloadBytes))
+        if (!SubtitlePayloadValidator.IsAcceptable(payload, bound))
         {
             throw new SubtitleProviderFailureException("The downloaded subtitle is not a valid SRT document.");
         }
@@ -206,7 +265,7 @@ public sealed class OpenSubtitlesSubtitleProvider(
         return payload.ToArray();
     }
 
-    private static async Task<bool> HasMoreAsync(System.IO.Stream stream, CancellationToken cancellationToken)
+    private static async Task<bool> HasMoreAsync(Stream stream, CancellationToken cancellationToken)
     {
         var probe = new byte[1];
         return await stream.ReadAsync(probe, cancellationToken) > 0;
@@ -287,9 +346,12 @@ public sealed class OpenSubtitlesSubtitleProvider(
         [property: JsonPropertyName("language")] string? Language,
         [property: JsonPropertyName("download_count")] int? DownloadCount,
         [property: JsonPropertyName("moviehash_match")] bool? MovieHashMatch,
+        [property: JsonPropertyName("release")] string? Release,
         [property: JsonPropertyName("files")] SearchFile[]? Files);
 
-    private sealed record SearchFile([property: JsonPropertyName("file_id")] long? FileId);
+    private sealed record SearchFile(
+        [property: JsonPropertyName("file_id")] long? FileId,
+        [property: JsonPropertyName("file_name")] string? FileName);
 
     private sealed record DownloadResponse([property: JsonPropertyName("link")] string? Link);
 }

@@ -54,6 +54,42 @@ public sealed class SubtitleSidecarStoreConcurrencyTests
         content.ShouldAllBe(value => value == content[0]);
     }
 
+    [Fact]
+    public async Task PublishToSubsAsync_ConcurrentPublishes_EachWritesADistinctNextFreeSlot()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
+        var root = library.Root;
+        var ct = TestContext.Current.CancellationToken;
+        using var start = new Barrier(2);
+
+        Task<SubtitlePublishResult> Publish(byte fill) => Task.Run(
+            async () =>
+            {
+                var store = CreateStore(root);
+                start.SignalAndWait(ct);
+                return await store.PublishToSubsAsync(
+                    new LibraryPath(MovieFolder),
+                    PrimaryFileName,
+                    "pt-BR",
+                    Enumerable.Repeat(fill, 32).ToArray(),
+                    10,
+                    ct);
+            },
+            ct);
+
+        // act
+        var results = await Task.WhenAll(Publish(7), Publish(9));
+
+        // assert
+        results.ShouldAllBe(result => result.Outcome == SubtitlePublishOutcome.Published);
+        results.Select(result => result.FileName).Distinct(StringComparer.Ordinal).Count().ShouldBe(2);
+        var subs = Path.Combine(root, MovieFolder, "Subs");
+        Directory.GetFiles(subs, "*.srt", SearchOption.TopDirectoryOnly).Length.ShouldBe(2);
+        Directory.GetFiles(subs, ".*", SearchOption.TopDirectoryOnly).ShouldBeEmpty();
+    }
+
     private static SubtitleSidecarStore CreateStore(string rootPath)
     {
         var hostEnvironment = Substitute.For<IHostEnvironment>();

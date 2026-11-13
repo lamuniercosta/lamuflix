@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Pipeline;
+using LamuFlix.Core.Ports;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -29,6 +30,26 @@ internal static class SubtitleEndpoints
 
     internal static RouteGroupBuilder MapSubtitleEndpoints(this RouteGroupBuilder api)
     {
+        api.MapGet("/subtitles/languages", GetSubtitleLanguagesAsync)
+            .WithName("ListSubtitleLanguages")
+            .WithSummary("List the supported subtitle languages with the configured preferences first.")
+            .Produces<SubtitleLanguagesResponse>()
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+        api.MapGet("/movies/{id:int}/subtitles/search", SearchSubtitlesAsync)
+            .WithName("SearchMovieSubtitles")
+            .WithSummary("Search the subtitle provider for ranked candidates in one supported language.")
+            .Produces<SubtitleSearchResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status502BadGateway)
+            .ProducesProblem(StatusCodes.Status504GatewayTimeout)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+
         api.MapGet("/movies/{id:int}/subtitles", ListSubtitleTracksAsync)
             .WithName("ListMovieSubtitleTracks")
             .WithSummary("List the eligible sidecar subtitle tracks of a movie.")
@@ -48,10 +69,10 @@ internal static class SubtitleEndpoints
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
-        api.MapPost("/movies/{id}/subtitles/prepare", PrepareSubtitleAsync)
-            .WithName("PrepareMovieSubtitle")
-            .WithSummary("Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled.")
-            .Produces<SubtitlePrepareResponse>()
+        api.MapPost("/movies/{id:int}/subtitles/download", DownloadSubtitleAsync)
+            .WithName("DownloadMovieSubtitle")
+            .WithSummary("Download one selected subtitle candidate into the movie Subs folder.")
+            .Produces<SubtitleDownloadResponse>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -73,6 +94,46 @@ internal static class SubtitleEndpoints
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         return api;
+    }
+
+    private static async Task<Ok<SubtitleLanguagesResponse>> GetSubtitleLanguagesAsync(
+        HttpContext httpContext,
+        IQueryHandler<GetSubtitleLanguagesQuery, GetSubtitleLanguagesResult> handler,
+        CancellationToken cancellationToken)
+    {
+        EnforceNoStore(httpContext);
+
+        var result = await handler.HandleAsync(new GetSubtitleLanguagesQuery(), cancellationToken);
+        return TypedResults.Ok(new SubtitleLanguagesResponse(
+            result.DefaultLanguage,
+            [.. result.Languages.Select(language =>
+                new SubtitleLanguageOptionDto(language.Code, language.EnglishName, language.NativeName))]));
+    }
+
+    private static async Task<Ok<SubtitleSearchResponse>> SearchSubtitlesAsync(
+        int id,
+        string language,
+        HttpContext httpContext,
+        IQueryHandler<SearchSubtitlesQuery, SearchSubtitlesResult> handler,
+        CancellationToken cancellationToken)
+    {
+        EnforceNoStore(httpContext);
+
+        if (!MovieId.TryCreate(id, out var movieId))
+        {
+            throw new SubtitleRequestRejectedException($"Movie id '{id}' is not a valid movie identifier.");
+        }
+
+        var result = await handler.HandleAsync(new SearchSubtitlesQuery(movieId, language), cancellationToken);
+        return TypedResults.Ok(new SubtitleSearchResponse(
+            [.. result.Candidates.Select(candidate => new SubtitleSearchCandidateDto(
+                candidate.CandidateId,
+                candidate.Language,
+                candidate.ReleaseName,
+                candidate.MatchPercent,
+                candidate.DownloadCount))],
+            new SubtitleQuotaDto(result.Quota.RemainingDownloads, result.Quota.ResetAtUtc),
+            new SubtitleDownloadAvailabilityDto(result.DownloadEnabled, result.DownloadReason)));
     }
 
     private static async Task<Ok<SubtitleTrackDto[]>> ListSubtitleTracksAsync(
@@ -113,17 +174,30 @@ internal static class SubtitleEndpoints
         return TypedResults.Text(result.WebVtt, SubtitleContentType);
     }
 
-    private static async Task<Ok<SubtitlePrepareResponse>> PrepareSubtitleAsync(
-        string id,
+    private static async Task<Created<SubtitleDownloadResponse>> DownloadSubtitleAsync(
+        int id,
+        SubtitleDownloadRequest request,
         HttpContext httpContext,
-        ICommandHandler<PrepareSubtitleCommand, SubtitlePreparationResult> handler,
+        ICommandHandler<DownloadSubtitleCommand, DownloadSubtitleResult> handler,
         CancellationToken cancellationToken)
     {
         EnforceNoStore(httpContext);
 
-        var movieId = ParseMovieId(id);
-        var result = await handler.HandleAsync(new PrepareSubtitleCommand(movieId), cancellationToken);
-        return TypedResults.Ok(SubtitlePrepareResponse.From(result));
+        if (!MovieId.TryCreate(id, out var movieId))
+        {
+            throw new BadHttpRequestException($"Movie id '{id}' is not a valid movie identifier.");
+        }
+
+        var result = await handler.HandleAsync(
+            new DownloadSubtitleCommand(movieId, request.CandidateId),
+            cancellationToken);
+
+        var track = result.Track;
+        return TypedResults.Created(
+            string.Create(CultureInfo.InvariantCulture, $"/api/movies/{id}/subtitles"),
+            new SubtitleDownloadResponse(
+                new SubtitleTrackDto(track.Id, track.Label, track.Language, track.IsDefault),
+                new SubtitleQuotaDto(result.Quota.RemainingDownloads, result.Quota.ResetAtUtc)));
     }
 
     private static async Task<IResult> GetSubtitleSidecarAsync(

@@ -1,6 +1,51 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 1.15.0 → 1.16.0 (MINOR: Principle VII subtitle acquisition validation
+reaches the DEV-501 search/download routes; ADR 0041 Accepted)
+
+Amendment 1.16.0 (2026-11-12), DEV-501 scoped Principle VII application:
+  Authority: owner rulings 5–7 on the DEV-501 ticket, reproduced in
+    specs/DEV-501/CONCLUSIONS.md Q1–Q9 with the catalog, D1–D5 and Principle V
+    plan-challenge adjudications; specs/DEV-501/plan.md Constitution Check; Gate 1
+    owner approval on merged spec PR #381.
+  ADR: docs/adr/0041-explicit-subtitle-acquisition.md is Accepted by this amendment.
+    10|    ADR 0041 supersedes only the prepare-route wording of Proposed
+    docs/adr/0038-subtitle-provider-and-sidecar-boundary.md; ADR 0038 stays Proposed and
+    its provider/read-write separation is preserved, not reauthored.
+  Modified principles:
+    VII. Configuration Isolation and Deterministic Time (title unchanged): replace the
+       prepare-time acquisition validation wording with search/download acquisition
+       validation. `GET /api/subtitles/languages` is key-free and makes no provider call;
+       an empty `Subtitles:PreferredLanguages` list is valid configuration. Search and
+       download evaluate acquisition settings at request time and return `409 Conflict`
+       when missing or invalid. Retain typed binding at `Subtitles:OpenSubtitles`, secret
+       isolation, the `ValidateOnStart()` exception so missing or invalid acquisition
+       settings never fail host startup or existing-track serving, `SaveEnabled`
+       defaulting false, and no guessed numeric safety defaults. This exception still
+       applies only to subtitle acquisition validation.
+    Static-Analysis Gates checklist: keep the same narrow Principle VII exception
+       reference, now naming the search/download routes.
+  Added sections: none
+  Removed sections: none
+  Templates reviewed (no updates required):
+    .specify/templates/plan-template.md — Constitution Check derives current principles.
+    .specify/templates/spec-template.md — no options inventory or startup-validation rule.
+    .specify/templates/tasks-template.md — no closed options inventory of its own.
+    .specify/templates/commands/ — absent; no command templates to synchronize.
+  Runtime guidance reviewed:
+    README.md — the acquisition setup walkthrough still matches the retained typed
+    options and secret isolation; its prepare-route description is retired by T025/T026
+    of the same ticket rather than by this amendment.
+  Migration / follow-up:
+    No schema/data migration. Prepare-only code, settings and tests are removed by the
+    same ticket after current-source verification. Principle I is unchanged because
+    `SubtitleCandidateBinder` and `SubtitleMatchScorer` are internal Core collaborators,
+    not new ports. Principle V is preserved, not amended: decorator `ValidationException`
+    stays `422`, and malformed binding plus domain/token prechecks outside it stay `400`.
+    Principle VI telemetry conventions are preserved when prepare-only signals retire.
+  Deferred placeholders / template follow-up: none
+
 Version change: 1.14.0 → 1.15.0 (MINOR: Principle VII subtitle options enumeration
 and owner-approved prepare-time acquisition validation exception; DEV-453)
 
@@ -610,16 +655,21 @@ for connection strings, API keys, library roots, or player paths.
   (`LamuFlix.Api`), which may inspect `Kestrel:Endpoints` section presence and endpoint `Url`
   values solely to prove effective listeners loopback before server bind when
   `Features:LocalPlay` is true (DEV-458; ADR-0036).
-- **Subtitle acquisition exception (DEV-453; owner C4/VII approval on PR #358):**
+- **Subtitle acquisition exception (DEV-453 owner C4/VII approval on PR #358; scope
+  updated by DEV-501, ADR 0041):**
   `SubtitlesOptions` and nested `SubtitleProviderOptions` MUST remain typed options;
   the vendor configuration path remains `Subtitles:OpenSubtitles`. Missing or invalid
   subtitle acquisition settings MUST NOT fail host startup via `ValidateOnStart()` or
-  prevent existing-track serving. After authorization and the existing-sidecar check,
-  `POST /movies/{id}/subtitles/prepare` MUST evaluate acquisition settings and return
-  `409 Conflict` when missing or invalid. No guessed numeric safety defaults are allowed;
-  `SaveEnabled` defaults false and language preferences default empty. Secret isolation
-  remains mandatory. This exception applies only to subtitle acquisition validation;
-  all other options retain their startup-validation requirements.
+  prevent existing-track serving. `GET /api/movies/{id}/subtitles/search` and
+  `POST /api/movies/{id}/subtitles/download` MUST evaluate acquisition settings at
+  request time and return `409 Conflict` when missing or invalid, with the read-only
+  library policy taking precedence over that configuration failure on download.
+  `GET /api/subtitles/languages` is key-free, makes no provider call, and is unaffected
+  by acquisition configuration. An empty language preference list is valid
+  configuration, not an acquisition failure. No guessed numeric safety defaults are
+  allowed; `SaveEnabled` defaults false and language preferences default empty. Secret
+  isolation remains mandatory. This exception applies only to subtitle acquisition
+  validation; all other options retain their startup-validation requirements.
 - Local values live in `dotnet user-secrets` or `appsettings.Development.json` (git-ignored);
   containers receive them as environment variables.
 - Player mapping is configuration (`PlaybackOptions.Players[]`), never a database table.
@@ -738,7 +788,8 @@ Every PR MUST satisfy all of the following before merging:
 - [ ] New external dependencies register a health check and telemetry names in
       `TelemetryConstants`
 - [ ] No secrets, machine paths, or `IConfiguration` magic strings; new options records are
-      validated at startup, except subtitle acquisition settings under Principle VII
+      validated at startup, except subtitle acquisition search/download settings under
+      Principle VII
 - [ ] No `DateTime.Now`-family calls; `TimeProvider` injected
 - [ ] `CancellationToken` flows through every async path; no sync-over-async
 - [ ] New domain terms added to `CONTEXT.md`; no Portuguese identifiers introduced
@@ -912,4 +963,4 @@ WHAT is built; this constitution owns HOW), the constitution prevails.
 Non-compliant code MUST be blocked from merging unless an amendment is simultaneously submitted
 and approved.
 
-**Version**: 1.15.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-11
+**Version**: 1.16.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-11-12

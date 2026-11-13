@@ -72,7 +72,33 @@ public sealed class SubtitleHandlerSurvivorTests
         var act = () => SubtitleSidecarDiscovery.Discover(PrimaryFileName, null!);
 
         // assert
-        Should.Throw<ArgumentNullException>(act);
+        Should.Throw<ArgumentNullException>(act).ParamName.ShouldBe("candidateFileNames");
+    }
+
+    [Fact]
+    public void Discover_SubsReleaseGroup_ResolvesTheCodedLanguage()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover("m.mkv", ["Subs/x.en.srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe("Subs/x.en.srt");
+        track.Language.ShouldBe("en");
+        track.Label.ShouldBe("English (x)");
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Discover_UnknownSinglePart_ReportsUndeterminedLanguageWithoutDefault()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover("m.mkv", ["Subs/xyz.srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.Language.ShouldBe("und");
+        track.IsDefault.ShouldBeFalse();
     }
 
     [Fact]

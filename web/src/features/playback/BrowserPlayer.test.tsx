@@ -593,8 +593,8 @@ describe('BrowserPlayer CC panel', () => {
     fireEvent.click(ccTrigger());
     const surface = await openPanel();
 
-    expect(await within(surface).findByText(SUBTITLES_UNAVAILABLE_COPY)).toBeInTheDocument();
-    expect(within(surface).getByRole('status')).toBeInTheDocument();
+    const failure = await within(surface).findByText(SUBTITLES_UNAVAILABLE_COPY);
+    expect(failure.closest('[role="status"]')).not.toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(ccTrigger()).toBeInTheDocument();
   });

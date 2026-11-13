@@ -26,6 +26,14 @@ export interface paths {
     /** Stream the primary video file of a movie. */
     get: operations["StreamMovie"];
   };
+  "/api/subtitles/languages": {
+    /** List the supported subtitle languages with the configured preferences first. */
+    get: operations["ListSubtitleLanguages"];
+  };
+  "/api/movies/{id}/subtitles/search": {
+    /** Search the subtitle provider for ranked candidates in one supported language. */
+    get: operations["SearchMovieSubtitles"];
+  };
   "/api/movies/{id}/subtitles": {
     /** List the eligible sidecar subtitle tracks of a movie. */
     get: operations["ListMovieSubtitleTracks"];
@@ -34,9 +42,9 @@ export interface paths {
     /** Serve one eligible sidecar subtitle track converted to WebVTT. */
     get: operations["GetMovieSubtitleContent"];
   };
-  "/api/movies/{id}/subtitles/prepare": {
-    /** Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled. */
-    post: operations["PrepareMovieSubtitle"];
+  "/api/movies/{id}/subtitles/download": {
+    /** Download one selected subtitle candidate into the movie Subs folder. */
+    post: operations["DownloadMovieSubtitle"];
   };
   "/api/movies/{id}/subtitles/sidecar": {
     /** Serve the existing exact-basename sidecar subtitle of a movie without acquisition. */
@@ -299,9 +307,45 @@ export interface components {
     };
     /** Format: binary */
     Stream: string;
-    SubtitlePrepareResponse: {
-      outcome: string;
-      selectedLanguage: null | string;
+    SubtitleDownloadAvailabilityDto: {
+      enabled: boolean;
+      reason: string;
+    };
+    SubtitleDownloadRequest: {
+      candidateId: null | string;
+    };
+    SubtitleDownloadResponse: {
+      track: components["schemas"]["SubtitleTrackDto"];
+      quota: components["schemas"]["SubtitleQuotaDto"];
+    };
+    SubtitleLanguageOptionDto: {
+      code: string;
+      englishName: string;
+      nativeName: string;
+    };
+    SubtitleLanguagesResponse: {
+      defaultLanguage: null | string;
+      languages: components["schemas"]["SubtitleLanguageOptionDto"][];
+    };
+    SubtitleQuotaDto: {
+      /** Format: int32 */
+      remainingDownloads: null | number | string;
+      /** Format: date-time */
+      resetAtUtc: null | string;
+    };
+    SubtitleSearchCandidateDto: {
+      candidateId: string;
+      language: string;
+      releaseName: string;
+      /** Format: int32 */
+      matchPercent: number | string;
+      /** Format: int32 */
+      downloadCount: number | string;
+    };
+    SubtitleSearchResponse: {
+      candidates: components["schemas"]["SubtitleSearchCandidateDto"][];
+      quota: components["schemas"]["SubtitleQuotaDto"];
+      downloadAvailability: components["schemas"]["SubtitleDownloadAvailabilityDto"];
     };
     SubtitleTrackDto: {
       id: string;
@@ -482,6 +526,96 @@ export interface operations {
       };
     };
   };
+  /** List the supported subtitle languages with the configured preferences first. */
+  ListSubtitleLanguages: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SubtitleLanguagesResponse"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
+  /** Search the subtitle provider for ranked candidates in one supported language. */
+  SearchMovieSubtitles: {
+    parameters: {
+      query: {
+        language: string;
+      };
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SubtitleSearchResponse"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Too Many Requests */
+      429: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Bad Gateway */
+      502: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+      /** @description Gateway Timeout */
+      504: {
+        content: {
+          "application/problem+json": components["schemas"]["ProblemDetails"];
+        };
+      };
+    };
+  };
   /** List the eligible sidecar subtitle tracks of a movie. */
   ListMovieSubtitleTracks: {
     parameters: {
@@ -569,18 +703,23 @@ export interface operations {
       };
     };
   };
-  /** Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled. */
-  PrepareMovieSubtitle: {
+  /** Download one selected subtitle candidate into the movie Subs folder. */
+  DownloadMovieSubtitle: {
     parameters: {
       path: {
-        id: string;
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubtitleDownloadRequest"];
       };
     };
     responses: {
-      /** @description OK */
-      200: {
+      /** @description Created */
+      201: {
         content: {
-          "application/json": components["schemas"]["SubtitlePrepareResponse"];
+          "application/json": components["schemas"]["SubtitleDownloadResponse"];
         };
       };
       /** @description Bad Request */

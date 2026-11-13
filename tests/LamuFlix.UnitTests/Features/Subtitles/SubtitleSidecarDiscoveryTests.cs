@@ -436,4 +436,291 @@ public sealed class SubtitleSidecarDiscoveryTests
         second.Select(track => (track.FileName, track.Label, track.Language, track.IsDefault)).ShouldBe(
             first.Select(track => (track.FileName, track.Label, track.Language, track.IsDefault)));
     }
+
+    [Theory]
+    [InlineData($"Subs/{Stem}-pt-BR.srt")]
+    [InlineData($"Subs/{Stem}-pt-BR(1).srt")]
+    [InlineData($"{Stem}-pt-BR.srt")]
+    public void Discover_DownloadedSubsName_IsListedAsALocalTrack(string fileName)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe(fileName);
+        track.Language.ShouldBe("pt-BR");
+    }
+
+    [Theory]
+    [InlineData($"Subs/.{Stem}-pt-BR.0123456789abcdef0123456789abcdef.srt")]
+    [InlineData($"Subs/.{Stem}-pt-BR.0123456789abcdef0123456789abcdef.tmp")]
+    [InlineData($".{Stem}-pt-BR.srt")]
+    public void Discover_LeadingDotStagingArtifact_IsNeverListed(string fileName)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        tracks.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Discover_StagingBesideAPublishedTrack_ListsOnlyThePublishedTrack()
+    {
+        // arrange
+        IReadOnlyList<string> candidates =
+        [
+            $"Subs/{Stem}-pt-BR.srt",
+            $"Subs/.{Stem}-pt-BR.0123456789abcdef0123456789abcdef.srt",
+        ];
+
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, candidates);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe($"Subs/{Stem}-pt-BR.srt");
+    }
+
+    [Theory]
+    [MemberData(nameof(SubsFolderCodes))]
+    public void Discover_SubsFolderCode_ResolvesLanguageAndLabel(string code, string language, string label)
+    {
+        // arrange
+        var fileName = $"Subs/{code}.srt";
+
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.FileName.ShouldBe(fileName);
+        track.Label.ShouldBe(label);
+        track.Language.ShouldBe(language);
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData($"Subs/{Stem}-en().srt")]
+    [InlineData($"Subs/{Stem}-en(x).srt")]
+    [InlineData($"Subs/{Stem}-en(1x).srt")]
+    public void Discover_EmptyOrNonDigitDuplicateCounter_IsExcluded(string fileName)
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [fileName]);
+
+        // assert
+        tracks.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Discover_ReleaseGroupDuplicateCounter_StripsCounterToReadableLabel()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, ["Subs/en(1).srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.Label.ShouldBe("English");
+        track.Language.ShouldBe("en");
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Discover_ReleaseGroupWithQualifier_LabelsWithQualifier()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, ["Subs/eng.forced.srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.Label.ShouldBe("English (forced)");
+        track.Language.ShouldBe("en");
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Discover_ReleaseGroupWithoutQualifier_OmitsTheQualifierSuffix()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, ["Subs/eng..srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.Label.ShouldBe("English");
+        track.Language.ShouldBe("en");
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Discover_ReleaseGroupWithoutCode_ListsWithBasenameLabel()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, ["Subs/Show.S01E01.srt"]);
+
+        // assert
+        var track = tracks.ShouldHaveSingleItem();
+        track.Label.ShouldBe("Show.S01E01");
+        track.Language.ShouldBe("und");
+        track.IsDefault.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Discover_OtherFolder_IsExcluded()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, ["Other/en.srt"]);
+
+        // assert
+        tracks.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Discover_ControlCharacterLeaf_IsExcluded()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(Primary, [$"{Stem}.en\u0001.srt"]);
+
+        // assert
+        tracks.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Discover_DotFileWithoutSeparator_IsExcluded()
+    {
+        // act
+        var tracks = SubtitleSidecarDiscovery.Discover(".hidden", [".hidden.srt"]);
+
+        // assert
+        tracks.ShouldBeEmpty();
+    }
+
+    public static TheoryData<string, string, string> SubsFolderCodes => new()
+    {
+        { "pb", "pt-BR", "Portuguese (Brazil)" },
+        { "pob", "pt-BR", "Portuguese (Brazil)" },
+        { "pt-BR", "pt-BR", "Portuguese (BR)" },
+        { "por", "pt", "Portuguese" },
+        { "pt", "pt", "Portuguese" },
+        { "en", "en", "English" },
+        { "eng", "en", "English" },
+        { "es", "es", "Spanish" },
+        { "spa", "es", "Spanish" },
+        { "alb", "sq", "Albanian" },
+        { "sqi", "sq", "Albanian" },
+        { "sq", "sq", "Albanian" },
+        { "ara", "ar", "Arabic" },
+        { "ar", "ar", "Arabic" },
+        { "arm", "hy", "Armenian" },
+        { "hye", "hy", "Armenian" },
+        { "hy", "hy", "Armenian" },
+        { "baq", "eu", "Basque" },
+        { "eus", "eu", "Basque" },
+        { "eu", "eu", "Basque" },
+        { "bel", "be", "Belarusian" },
+        { "be", "be", "Belarusian" },
+        { "ben", "bn", "Bengali" },
+        { "bn", "bn", "Bengali" },
+        { "bos", "bs", "Bosnian" },
+        { "bs", "bs", "Bosnian" },
+        { "bul", "bg", "Bulgarian" },
+        { "bg", "bg", "Bulgarian" },
+        { "cat", "ca", "Catalan" },
+        { "ca", "ca", "Catalan" },
+        { "chi", "zh", "Chinese" },
+        { "zho", "zh", "Chinese" },
+        { "zh", "zh", "Chinese" },
+        { "hrv", "hr", "Croatian" },
+        { "scr", "hr", "Croatian" },
+        { "hr", "hr", "Croatian" },
+        { "cze", "cs", "Czech" },
+        { "ces", "cs", "Czech" },
+        { "cs", "cs", "Czech" },
+        { "dan", "da", "Danish" },
+        { "da", "da", "Danish" },
+        { "dut", "nl", "Dutch" },
+        { "nld", "nl", "Dutch" },
+        { "nl", "nl", "Dutch" },
+        { "est", "et", "Estonian" },
+        { "et", "et", "Estonian" },
+        { "fin", "fi", "Finnish" },
+        { "fi", "fi", "Finnish" },
+        { "fre", "fr", "French" },
+        { "fra", "fr", "French" },
+        { "fr", "fr", "French" },
+        { "geo", "ka", "Georgian" },
+        { "kat", "ka", "Georgian" },
+        { "ka", "ka", "Georgian" },
+        { "ger", "de", "German" },
+        { "deu", "de", "German" },
+        { "de", "de", "German" },
+        { "glg", "gl", "Galician" },
+        { "gl", "gl", "Galician" },
+        { "gre", "el", "Greek" },
+        { "ell", "el", "Greek" },
+        { "el", "el", "Greek" },
+        { "heb", "he", "Hebrew" },
+        { "he", "he", "Hebrew" },
+        { "hin", "hi", "Hindi" },
+        { "hi", "hi", "Hindi" },
+        { "hun", "hu", "Hungarian" },
+        { "hu", "hu", "Hungarian" },
+        { "ice", "is", "Icelandic" },
+        { "isl", "is", "Icelandic" },
+        { "is", "is", "Icelandic" },
+        { "ind", "id", "Indonesian" },
+        { "id", "id", "Indonesian" },
+        { "ita", "it", "Italian" },
+        { "it", "it", "Italian" },
+        { "jpn", "ja", "Japanese" },
+        { "ja", "ja", "Japanese" },
+        { "kor", "ko", "Korean" },
+        { "ko", "ko", "Korean" },
+        { "lav", "lv", "Latvian" },
+        { "lv", "lv", "Latvian" },
+        { "lit", "lt", "Lithuanian" },
+        { "lt", "lt", "Lithuanian" },
+        { "mac", "mk", "Macedonian" },
+        { "mkd", "mk", "Macedonian" },
+        { "mk", "mk", "Macedonian" },
+        { "may", "ms", "Malay" },
+        { "msa", "ms", "Malay" },
+        { "ms", "ms", "Malay" },
+        { "nor", "no", "Norwegian" },
+        { "no", "no", "Norwegian" },
+        { "per", "fa", "Persian" },
+        { "fas", "fa", "Persian" },
+        { "fa", "fa", "Persian" },
+        { "pol", "pl", "Polish" },
+        { "pl", "pl", "Polish" },
+        { "rum", "ro", "Romanian" },
+        { "ron", "ro", "Romanian" },
+        { "ro", "ro", "Romanian" },
+        { "rus", "ru", "Russian" },
+        { "ru", "ru", "Russian" },
+        { "slo", "sk", "Slovak" },
+        { "slk", "sk", "Slovak" },
+        { "sk", "sk", "Slovak" },
+        { "slv", "sl", "Slovenian" },
+        { "sl", "sl", "Slovenian" },
+        { "srp", "sr", "Serbian" },
+        { "scc", "sr", "Serbian" },
+        { "sr", "sr", "Serbian" },
+        { "swe", "sv", "Swedish" },
+        { "sv", "sv", "Swedish" },
+        { "tha", "th", "Thai" },
+        { "th", "th", "Thai" },
+        { "tur", "tr", "Turkish" },
+        { "tr", "tr", "Turkish" },
+        { "ukr", "uk", "Ukrainian" },
+        { "uk", "uk", "Ukrainian" },
+        { "urd", "ur", "Urdu" },
+        { "ur", "ur", "Urdu" },
+        { "vie", "vi", "Vietnamese" },
+        { "vi", "vi", "Vietnamese" },
+        { "wel", "cy", "Welsh" },
+        { "cym", "cy", "Welsh" },
+        { "cy", "cy", "Welsh" },
+    };
 }

@@ -257,11 +257,6 @@ const subtitleTracksData = [
 const subtitleContentData =
   'WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello there.\n\n00:00:03.000 --> 00:00:04.500\nGeneral Kenobi.\n';
 
-const preparedSubtitleData = {
-  outcome: 'saved',
-  selectedLanguage: 'en',
-} satisfies Schemas['SubtitlePrepareResponse'];
-
 const subtitleSidecarData =
   '1\n00:00:01,000 --> 00:00:02,000\nHello there.\n\n2\n00:00:03,000 --> 00:00:04,500\nGeneral Kenobi.\n';
 
@@ -310,8 +305,45 @@ export const directors = Object.freeze(directorsData);
 export const movieThumbnail = movieThumbnailData;
 export const movieStream = movieStreamData;
 export const subtitleTracks = Object.freeze(subtitleTracksData);
+
+const subtitleLanguagesData = {
+  defaultLanguage: 'pt-BR',
+  languages: [
+    { code: 'pt-BR', englishName: 'Portuguese (BR)', nativeName: 'Português (BR)' },
+    { code: 'en', englishName: 'English', nativeName: 'English' },
+  ],
+} satisfies Schemas['SubtitleLanguagesResponse'];
+
+export const subtitleLanguages = Object.freeze(subtitleLanguagesData);
+
+const subtitleSearchData = {
+  candidates: [
+    {
+      candidateId: 'f8a2c1d4e5b60718f8a2c1d4e5b60718',
+      language: 'en',
+      releaseName: 'Heat.1995.1080p.BluRay.x264-GROUP',
+      matchPercent: 100,
+      downloadCount: 42,
+    },
+  ],
+  quota: { remainingDownloads: 17, resetAtUtc: '2026-03-04T05:06:07+00:00' },
+  downloadAvailability: { enabled: true, reason: '' },
+} satisfies Schemas['SubtitleSearchResponse'];
+
+export const subtitleSearch = Object.freeze(subtitleSearchData);
+
+const subtitleDownloadData = {
+  track: {
+    id: 'track-en-1080p',
+    label: 'English',
+    language: 'en',
+    isDefault: false,
+  },
+  quota: { remainingDownloads: 16, resetAtUtc: '2026-03-04T05:06:07+00:00' },
+} satisfies Schemas['SubtitleDownloadResponse'];
+
+export const subtitleDownload = Object.freeze(subtitleDownloadData);
 export const subtitleContent = subtitleContentData;
-export const preparedSubtitle = Object.freeze(preparedSubtitleData);
 export const subtitleSidecar = subtitleSidecarData;
 export const playbackCapabilities = Object.freeze(playbackCapabilitiesData);
 export const rescanLibrary = Object.freeze(rescanLibraryData);
@@ -331,8 +363,10 @@ export const success = Object.freeze({
   GetMovieThumbnail: movieThumbnail,
   StreamMovie: movieStream,
   ListMovieSubtitleTracks: subtitleTracks,
+  ListSubtitleLanguages: subtitleLanguages,
+  SearchMovieSubtitles: subtitleSearch,
+  DownloadMovieSubtitle: subtitleDownload,
   GetMovieSubtitleContent: subtitleContent,
-  PrepareMovieSubtitle: preparedSubtitle,
   GetMovieSubtitleSidecar: subtitleSidecar,
   GetPlaybackCapabilities: playbackCapabilities,
   RescanLibrary: rescanLibrary,

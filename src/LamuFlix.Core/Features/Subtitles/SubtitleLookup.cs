@@ -24,10 +24,10 @@ public static class SubtitleLookup
 
         if (!string.IsNullOrWhiteSpace(request.MovieHash))
         {
-            var hashCandidates = await provider.SearchAsync(
+            var hashResult = await provider.SearchAsync(
                 new SubtitleSearch(request.MovieHash, request.FileSize, Title: null, request.PreferredLanguages),
                 cancellationToken);
-            if (SubtitleSelection.Select(hashCandidates, request.PreferredLanguages) is { } hashMatch)
+            if (SubtitleSelection.Select(hashResult.Candidates, request.PreferredLanguages) is { } hashMatch)
             {
                 return hashMatch;
             }
@@ -38,9 +38,9 @@ public static class SubtitleLookup
             return null;
         }
 
-        var titleCandidates = await provider.SearchAsync(
+        var titleResult = await provider.SearchAsync(
             new SubtitleSearch(MovieHash: null, request.FileSize, request.Title, request.PreferredLanguages),
             cancellationToken);
-        return SubtitleSelection.Select(titleCandidates, request.PreferredLanguages);
+        return SubtitleSelection.Select(titleResult.Candidates, request.PreferredLanguages);
     }
 }

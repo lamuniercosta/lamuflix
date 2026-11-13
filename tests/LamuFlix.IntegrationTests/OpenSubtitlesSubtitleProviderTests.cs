@@ -41,6 +41,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
                 "language": "en",
                 "download_count": 42,
                 "moviehash_match": true,
+                "release": "Dune.2021.1080p.BluRay.x264-GROUP",
                 "files": [ { "file_id": 101 }, { "file_id": 102 } ]
               }
             },
@@ -49,7 +50,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
                 "language": "pt-br",
                 "download_count": 7,
                 "moviehash_match": false,
-                "files": [ { "file_id": 201 } ]
+                "files": [ { "file_id": 201, "file_name": "Dune.2021.WEB-DL.H264.srt" } ]
               }
             }
           ]
@@ -92,17 +93,20 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         var provider = Provider();
 
         // act
-        var candidates = await provider.SearchAsync(
+        var result = await provider.SearchAsync(
             new SubtitleSearch(Hash, 4_000_000, Title: null, ["en", "PT-BR"]),
             TestContext.Current.CancellationToken);
 
         // assert
+        var candidates = result.Candidates;
         candidates.Count.ShouldBe(2);
         candidates[0].FileId.ShouldBe(101);
         candidates[0].Language.ShouldBe("en");
         candidates[0].DownloadCount.ShouldBe(42);
         candidates[0].MatchesMovieHash.ShouldBeTrue();
+        candidates[0].ReleaseName.ShouldBe("Dune.2021.1080p.BluRay.x264-GROUP");
         candidates[1].FileId.ShouldBe(201);
+        candidates[1].ReleaseName.ShouldBe("Dune.2021.WEB-DL.H264");
         var (body, apiKeys, userAgents) = SearchRequest();
         apiKeys.ShouldBe([ApiKey]);
         userAgents.ShouldBe([UserAgent]);
@@ -348,7 +352,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         var content = await provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
 
         // assert
-        Encoding.UTF8.GetString(content).ShouldBe(ValidSrt);
+        Encoding.UTF8.GetString(content.Content).ShouldBe(ValidSrt);
         DownloadRequestBody().ShouldContain("\"file_id\":101");
         LinkGetRequest().Method.ShouldBe("GET");
     }
@@ -449,7 +453,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         var content = await provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
 
         // assert
-        content.ShouldNotBeEmpty();
+        content.Content.ShouldNotBeEmpty();
     }
 
     [Fact]
@@ -463,7 +467,7 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         var content = await provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
 
         // assert
-        content.ShouldNotBeEmpty();
+        content.Content.ShouldNotBeEmpty();
     }
 
     [Fact]
@@ -550,9 +554,146 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
         await Should.ThrowAsync<ArgumentNullException>(act);
     }
 
+    [Fact]
+    public async Task SearchAsync_QuotaHeaders_MapRemainingAndRetryAfterIntoResetAtUtc()
+    {
+        // arrange
+        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("X-RateLimit-Remaining", "17")
+                .WithHeader("Retry-After", "90")
+                .WithBody(SearchBody));
+        var provider = Provider();
+
+        // act
+        var result = await provider.SearchAsync(
+            new SubtitleSearch(Hash, 4_000_000, Title: null, ["en"]),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.Quota.RemainingDownloads.ShouldBe(17);
+        result.Quota.ResetAtUtc.ShouldBe(Now.AddSeconds(90));
+    }
+
+    [Fact]
+    public async Task SearchAsync_WithoutQuotaMetadata_ReportsAnUnknownQuotaWithoutInventingValues()
+    {
+        // arrange
+        StubSearch(SearchBody);
+        var provider = Provider();
+
+        // act
+        var result = await provider.SearchAsync(
+            new SubtitleSearch(Hash, 4_000_000, Title: null, ["en"]),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.Quota.ShouldBe(SubtitleQuota.Unknown);
+        result.Quota.RemainingDownloads.ShouldBeNull();
+        result.Quota.ResetAtUtc.ShouldBeNull();
+        result.Quota.IsExhausted.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task SearchAsync_ZeroRemainingDownloads_ReportsAnExhaustedQuota()
+    {
+        // arrange
+        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("X-RateLimit-Remaining", "0")
+                .WithBody(SearchBody));
+        var provider = Provider();
+
+        // act
+        var result = await provider.SearchAsync(
+            new SubtitleSearch(Hash, 4_000_000, Title: null, ["en"]),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.Quota.RemainingDownloads.ShouldBe(0);
+        result.Quota.IsExhausted.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task SearchAsync_NonNumericRemainingHeader_IsTreatedAsUnknown()
+    {
+        // arrange
+        server.Given(Request.Create().WithPath(SearchPath).UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("X-RateLimit-Remaining", "soon")
+                .WithBody(SearchBody));
+        var provider = Provider();
+
+        // act
+        var result = await provider.SearchAsync(
+            new SubtitleSearch(Hash, 4_000_000, Title: null, ["en"]),
+            TestContext.Current.CancellationToken);
+
+        // assert
+        result.Quota.RemainingDownloads.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task DownloadAsync_QuotaHeaders_AreReportedWithThePayload()
+    {
+        // arrange
+        server.Given(Request.Create().WithPath(DownloadPath).UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("X-RateLimit-Remaining", "3")
+                .WithBody($"{{\"link\":\"{BaseUrl + LinkPath}\"}}"));
+        server.Given(Request.Create().WithPath(LinkPath).UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(ValidSrt));
+        var provider = Provider();
+
+        // act
+        var download = await provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
+
+        // assert
+        download.Quota.RemainingDownloads.ShouldBe(3);
+        download.Content.ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public async Task DownloadAsync_SearchPathQuotaIsNotReused_EachResponseMapsItsOwnHeaders()
+    {
+        // arrange
+        StubDownload(ValidSrt);
+        var provider = Provider();
+
+        // act
+        var download = await provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
+
+        // assert
+        download.Quota.ShouldBe(SubtitleQuota.Unknown);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_PayloadOverTheSubtitlesDownloadBound_FailsAsAProviderFailure()
+    {
+        // arrange
+        var oversized = string.Concat("1\n00:00:01,000 --> 00:00:03,500\n", new string('x', 2048), "\n");
+        server.Given(Request.Create().WithPath(DownloadPath).UsingPost())
+            .RespondWith(Response.Create().WithBody($"{{\"link\":\"{BaseUrl + LinkPath}\"}}"));
+        server.Given(Request.Create().WithPath(LinkPath).UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(oversized));
+        var provider = Provider(subtitles: new SubtitlesOptions { MaxSubtitleDownloadBytes = 1024 });
+
+        // act
+        var act = () => provider.DownloadAsync(Candidate(), TestContext.Current.CancellationToken);
+
+        // assert
+        await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+    }
+
     private static SubtitleCandidate Candidate() => new(101, "en", DownloadCount: 42, MatchesMovieHash: true);
 
-    private OpenSubtitlesSubtitleProvider Provider(Func<SubtitleProviderOptions, SubtitleProviderOptions>? configure = null)
+    private OpenSubtitlesSubtitleProvider Provider(
+        Func<SubtitleProviderOptions, SubtitleProviderOptions>? configure = null,
+        SubtitlesOptions? subtitles = null)
     {
         var options = new SubtitleProviderOptions
         {
@@ -577,7 +718,11 @@ public sealed class OpenSubtitlesSubtitleProviderTests : IDisposable
             Timeout = Timeout.InfiniteTimeSpan,
         };
         disposables.Add(client);
-        return new OpenSubtitlesSubtitleProvider(client, Options.Create(options), new FixedTimeProvider(Now));
+        return new OpenSubtitlesSubtitleProvider(
+            client,
+            Options.Create(options),
+            Options.Create(subtitles ?? new SubtitlesOptions()),
+            new FixedTimeProvider(Now));
     }
 
     private void StubSearch(string body) =>

@@ -6,12 +6,8 @@ import {
   subtitlePanelLabel,
 } from './subtitleCopy';
 import SubtitleOptions, { type SubtitleOptionsProps } from './SubtitleOptions';
-import SubtitleSelector from './SubtitleSelector';
-import type {
-  SubtitleContentStatus,
-  SubtitleListStatus,
-  SubtitleTrack,
-} from './useSubtitlePlayback';
+import SubtitlesTab from './SubtitlesTab';
+import type { SubtitlePlayback } from './useSubtitlePlayback';
 
 export type SubtitlePanelTab = 'subtitles' | 'options';
 
@@ -19,13 +15,9 @@ export interface SubtitlePanelProps {
   title: string;
   panelId: string;
   activeTab: SubtitlePanelTab;
-  listStatus: SubtitleListStatus;
-  contentStatus: SubtitleContentStatus;
-  tracks: readonly SubtitleTrack[];
-  selectedId: string | null;
+  movieId: number;
+  playback: SubtitlePlayback;
   onTabChange: (tab: SubtitlePanelTab) => void;
-  onSelect: (trackId: string | null) => void;
-  onRetryList: () => void;
   onClose: () => void;
   options: SubtitleOptionsProps;
 }
@@ -36,13 +28,9 @@ export default function SubtitlePanel({
   title,
   panelId,
   activeTab,
-  listStatus,
-  contentStatus,
-  tracks,
-  selectedId,
+  movieId,
+  playback,
   onTabChange,
-  onSelect,
-  onRetryList,
   onClose,
   options,
 }: SubtitlePanelProps) {
@@ -134,15 +122,7 @@ export default function SubtitlePanel({
         aria-labelledby={tabId('subtitles')}
         hidden={activeTab !== 'subtitles'}
       >
-        <SubtitleSelector
-          title={title}
-          listStatus={listStatus}
-          contentStatus={contentStatus}
-          tracks={tracks}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          onRetryList={onRetryList}
-        />
+        <SubtitlesTab title={title} movieId={movieId} playback={playback} />
       </div>
       <div
         className="subtitle-panel-body"

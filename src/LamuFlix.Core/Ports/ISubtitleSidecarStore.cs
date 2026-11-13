@@ -20,4 +20,17 @@ public interface ISubtitleSidecarStore
         string primaryFileName,
         ReadOnlyMemory<byte> content,
         CancellationToken cancellationToken);
+
+    Task EnsurePublishableAsync(
+        LibraryPath folder,
+        string primaryFileName,
+        CancellationToken cancellationToken);
+
+    Task<SubtitlePublishResult> PublishToSubsAsync(
+        LibraryPath folder,
+        string primaryFileName,
+        string languageCode,
+        ReadOnlyMemory<byte> content,
+        int maxAttempts,
+        CancellationToken cancellationToken);
 }

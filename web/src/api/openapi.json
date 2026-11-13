@@ -413,6 +413,168 @@
         }
       }
     },
+    "/api/subtitles/languages": {
+      "get": {
+        "tags": [
+          "SubtitleEndpoints"
+        ],
+        "summary": "List the supported subtitle languages with the configured preferences first.",
+        "operationId": "ListSubtitleLanguages",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleLanguagesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/movies/{id}/subtitles/search": {
+      "get": {
+        "tags": [
+          "SubtitleEndpoints"
+        ],
+        "summary": "Search the subtitle provider for ranked candidates in one supported language.",
+        "operationId": "SearchMovieSubtitles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubtitleSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/movies/{id}/subtitles": {
       "get": {
         "tags": [
@@ -580,30 +742,42 @@
         }
       }
     },
-    "/api/movies/{id}/subtitles/prepare": {
+    "/api/movies/{id}/subtitles/download": {
       "post": {
         "tags": [
           "SubtitleEndpoints"
         ],
-        "summary": "Acquire the exact-basename sidecar subtitle of a movie when acquisition is enabled.",
-        "operationId": "PrepareMovieSubtitle",
+        "summary": "Download one selected subtitle candidate into the movie Subs folder.",
+        "operationId": "DownloadMovieSubtitle",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubtitleDownloadRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Created",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SubtitlePrepareResponse"
+                  "$ref": "#/components/schemas/SubtitleDownloadResponse"
                 }
               }
             }
@@ -2751,21 +2925,171 @@
         "type": "string",
         "format": "binary"
       },
-      "SubtitlePrepareResponse": {
+      "SubtitleDownloadAvailabilityDto": {
         "required": [
-          "outcome",
-          "selectedLanguage"
+          "enabled",
+          "reason"
         ],
         "type": "object",
         "properties": {
-          "outcome": {
-            "type": "string"
+          "enabled": {
+            "type": "boolean"
           },
-          "selectedLanguage": {
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "SubtitleDownloadRequest": {
+        "required": [
+          "candidateId"
+        ],
+        "type": "object",
+        "properties": {
+          "candidateId": {
             "type": [
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "SubtitleDownloadResponse": {
+        "required": [
+          "track",
+          "quota"
+        ],
+        "type": "object",
+        "properties": {
+          "track": {
+            "$ref": "#/components/schemas/SubtitleTrackDto"
+          },
+          "quota": {
+            "$ref": "#/components/schemas/SubtitleQuotaDto"
+          }
+        }
+      },
+      "SubtitleLanguageOptionDto": {
+        "required": [
+          "code",
+          "englishName",
+          "nativeName"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "englishName": {
+            "type": "string"
+          },
+          "nativeName": {
+            "type": "string"
+          }
+        }
+      },
+      "SubtitleLanguagesResponse": {
+        "required": [
+          "defaultLanguage",
+          "languages"
+        ],
+        "type": "object",
+        "properties": {
+          "defaultLanguage": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubtitleLanguageOptionDto"
+            }
+          }
+        }
+      },
+      "SubtitleQuotaDto": {
+        "required": [
+          "remainingDownloads",
+          "resetAtUtc"
+        ],
+        "type": "object",
+        "properties": {
+          "remainingDownloads": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "resetAtUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "SubtitleSearchCandidateDto": {
+        "required": [
+          "candidateId",
+          "language",
+          "releaseName",
+          "matchPercent",
+          "downloadCount"
+        ],
+        "type": "object",
+        "properties": {
+          "candidateId": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "releaseName": {
+            "type": "string"
+          },
+          "matchPercent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "downloadCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "SubtitleSearchResponse": {
+        "required": [
+          "candidates",
+          "quota",
+          "downloadAvailability"
+        ],
+        "type": "object",
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubtitleSearchCandidateDto"
+            }
+          },
+          "quota": {
+            "$ref": "#/components/schemas/SubtitleQuotaDto"
+          },
+          "downloadAvailability": {
+            "$ref": "#/components/schemas/SubtitleDownloadAvailabilityDto"
           }
         }
       },

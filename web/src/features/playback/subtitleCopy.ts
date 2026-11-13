@@ -10,6 +10,27 @@ export const SUBTITLES_RETRY_COPY = 'Retry';
 export const SUBTITLES_OPTIONS_LABEL = 'Options';
 export const SUBTITLES_OPTIONS_EMPTY_COPY = 'Subtitle timing and style options will appear here.';
 export const CLOSE_SUBTITLES_PANEL_LABEL = 'Close subtitles panel';
+export const SUBTITLE_RETRY_COPY = 'Retry';
+export const SUBTITLE_RETRY_SEARCH_LABEL = 'Retry subtitle search';
+
+export const SUBTITLE_LANGUAGE_LABEL = 'Search by language';
+export const SUBTITLE_CHOOSE_LANGUAGE_COPY = 'Choose a language to search for subtitles';
+export const SUBTITLE_NO_RESULTS_COPY = 'No subtitles found for this language';
+export const SUBTITLE_SEARCHING_COPY = 'Searching…';
+export const SUBTITLE_READY_COPY = 'Ready';
+export const SUBTITLE_GET_COPY = 'Get';
+export const SUBTITLE_GETTING_COPY = 'Getting…';
+export const SUBTITLE_LOCAL_TRACKS_LABEL = 'Local tracks';
+export const SUBTITLE_QUOTA_UNAVAILABLE_COPY = 'Downloads left: unavailable';
+export const SUBTITLE_READ_ONLY_COPY = 'Downloads unavailable for this library';
+export const SUBTITLE_SEARCH_RATE_LIMITED_COPY =
+  'Subtitle search is temporarily rate-limited. Try again in a moment.';
+export const SUBTITLE_QUOTA_REACHED_COPY = 'Download quota reached.';
+export const SUBTITLE_STALE_CANDIDATE_COPY = 'That result expired. Search again.';
+export const SUBTITLE_PROVIDER_TIMEOUT_COPY = 'The subtitle provider timed out.';
+export const SUBTITLE_PROVIDER_FAILURE_COPY = 'The subtitle provider is unavailable.';
+export const SUBTITLE_INVALID_REQUEST_COPY = 'That subtitle request was not accepted.';
+export const SUBTITLE_SEARCH_FAILURE_COPY = 'The subtitle search failed.';
 
 export const SUBTITLE_DELAY_LABEL = 'Subtitle delay';
 export const SUBTITLE_DELAY_EARLIER_LABEL = 'Subtitles earlier';
@@ -53,4 +74,12 @@ export function subtitlePanelLabel(title: string): string {
 
 export function subtitlesRetryLabel(title: string): string {
   return `Retry loading subtitles for ${title}`;
+}
+
+export function subtitleGetLabel(releaseName: string): string {
+  return `Get subtitle ${releaseName}`;
+}
+
+export function subtitleQuotaReachedResetCopy(localReset: string): string {
+  return `Download quota reached. Resets at ${localReset}.`;
 }

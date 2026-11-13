@@ -84,8 +84,16 @@ internal static class HandlerRegistration
         services.AddHandler<PlayMovieCommandHandler, PlayMovieCommand, Unit>();
         services.AddHandler<GetPlaybackCapabilitiesQueryHandler, GetPlaybackCapabilitiesQuery, PlaybackCapabilitiesResult>();
         services.AddHandler<ListSubtitleTracksQueryHandler, ListSubtitleTracksQuery, ListSubtitleTracksResult>();
+        services.AddHandler<GetSubtitleLanguagesQueryHandler, GetSubtitleLanguagesQuery, GetSubtitleLanguagesResult>();
+        services.AddScoped<SearchSubtitlesQueryValidator>();
+        services.AddScoped<IValidator<SearchSubtitlesQuery>>(
+            serviceProvider => serviceProvider.GetRequiredService<SearchSubtitlesQueryValidator>());
+        services.AddHandler<SearchSubtitlesQueryHandler, SearchSubtitlesQuery, SearchSubtitlesResult>();
+        services.AddScoped<DownloadSubtitleCommandValidator>();
+        services.AddScoped<IValidator<DownloadSubtitleCommand>>(
+            serviceProvider => serviceProvider.GetRequiredService<DownloadSubtitleCommandValidator>());
+        services.AddHandler<DownloadSubtitleCommandHandler, DownloadSubtitleCommand, DownloadSubtitleResult>();
         services.AddHandler<GetSubtitleContentQueryHandler, GetSubtitleContentQuery, SubtitleContentResult>();
-        services.AddHandler<PrepareSubtitleCommandHandler, PrepareSubtitleCommand, SubtitlePreparationResult>();
         services.AddHandler<GetSubtitleSidecarQueryHandler, GetSubtitleSidecarQuery, SubtitleSidecarResult>();
         services.AddHandler<AddToWatchlistCommandHandler, AddToWatchlistCommand, Unit>();
         services.AddHandler<RemoveFromWatchlistCommandHandler, RemoveFromWatchlistCommand, Unit>();
@@ -109,5 +117,10 @@ internal static class HandlerRegistration
         services.AddSingleton<IValidateOptions<SubtitlesOptions>, SubtitlesOptionsValidator>();
         services.AddOptions<SubtitleProviderOptions>().BindConfiguration(SubtitleProviderOptions.SectionName);
         services.AddSingleton<IValidateOptions<SubtitleProviderOptions>, SubtitleProviderOptionsValidator>();
+        services.AddSingleton(serviceProvider => new SubtitleCandidateBinder(
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            new Random(),
+            () => serviceProvider.GetRequiredService<IOptions<SubtitlesOptions>>().Value.CandidateTokenTtl,
+            () => serviceProvider.GetRequiredService<IOptions<SubtitlesOptions>>().Value.CandidateStoreMaxEntries));
     }
 }

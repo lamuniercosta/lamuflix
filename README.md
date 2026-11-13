@@ -287,12 +287,14 @@ Subtitle handling has two modes, and the default is the read-only one. Serving a
 |---|---|
 | `GET /api/movies/{id}/subtitles` | Lists the sidecar tracks discovered for the movie. |
 | `GET /api/movies/{id}/subtitles/{trackId}/content` | Serves one track converted to WebVTT. |
+| `GET /api/subtitles/languages` | Lists the supported languages with the configured preferences first. Needs no provider key. |
+| `GET /api/movies/{id}/subtitles/search` | Searches the provider for ranked candidates in one language. In the demo it answers `409` because the provider is unconfigured; a read-only library still searches. |
+| `POST /api/movies/{id}/subtitles/download` | Saves one chosen candidate into the movie `Subs` folder. In the demo it answers `409` because saving is disabled and the provider is unconfigured. |
 | `GET /api/movies/{id}/subtitles/sidecar` | Serves an existing exact-basename `.srt` beside the primary video as `application/x-subrip`, byte-for-byte, with `X-Content-Type-Options: nosniff` and an attachment `Content-Disposition`. This path makes no provider traffic and needs no API key. |
-| `POST /api/movies/{id}/subtitles/prepare` | Returns `200` with `alreadyPresent` when the exact-basename sidecar already exists, even with saving disabled or the mount read-only. Otherwise it answers `409` because acquisition is disabled or unconfigured. |
 
-So a library that already has `Film.srt` next to `Film.mkv` needs no configuration at all: serving works, and `prepare` simply reports `alreadyPresent`.
+So a library that already has `Film.srt` next to `Film.mkv` needs no configuration at all: serving works with no acquisition settings present.
 
-**Writable daily-driver (opt-in).** Acquisition is enabled deliberately, per host, in the **Api local settings channel** (user secrets or an ignored local settings file) — never in a tracked file. Four things must be true before `prepare` can download and save:
+**Writable daily-driver (opt-in).** Explicit acquisition is enabled deliberately, per host, in the **Api local settings channel** (user secrets or an ignored local settings file) — never in a tracked file. Four things must be true before an explicit download can save into `Subs`:
 
 1. `Subtitles:SaveEnabled` is `true`.
 2. `Subtitles:PreferredLanguages` lists the language codes you accept, in priority order. Selection never leaves this list.
@@ -316,7 +318,7 @@ dotnet user-secrets set "Subtitles:OpenSubtitles:RequestTimeout" "<timeout, e.g.
 - **`BaseUrl` must be HTTPS** with no plaintext exception. `DownloadAllowedHosts` is an explicit allowlist: a download URL outside it, or any redirect, is refused without contacting the destination.
 - **Writable library.** The daily-driver entrypoint runs the Api as a host process, so writeability is a property of `Library:RootPath` and the account running the Api — grant the Api process write permission on that folder. The daily-driver Compose file contains only Postgres and RabbitMQ and mounts no library; the read-only `:ro` bind mount belongs to the full Compose stack and is not the writable setup.
 - **Secrets stay local.** Put the API key and any machine-specific path only in the Api local settings channel. Never commit credentials or absolute library paths to `docker/api.settings.example.json`, `.env.example`, or any other tracked file.
-- **What a save looks like.** On success the exact-basename sidecar appears next to the video (`Film.mkv` → `Film.srt`, no language suffix, the name BS Player autodetects) and `prepare` answers `200` with `saved` and the matched `selectedLanguage`. An existing sidecar is never overwritten or re-downloaded.
+- **What a save looks like.** On success a language-tagged sidecar appears in the movie's `Subs` folder (`Film.mkv` → `Subs/Film.pt-BR.srt`, the names BS Player autodetects) and `POST /api/movies/{id}/subtitles/download` answers `201` with the created track and the provider quota. A colliding name is never overwritten.
 - **The optional-provider health check** stays Healthy in both modes. It reports sanitized local metadata only (`ready` or `disabled_or_unconfigured`), makes no network or quota calls, and is not part of `/health/live`. A green health check therefore never proves the provider is reachable.
 
 ## Ollama embedding model

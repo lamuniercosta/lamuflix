@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
+using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using Microsoft.AspNetCore.Diagnostics;
@@ -13,6 +15,10 @@ namespace LamuFlix.Api.ExceptionHandling;
 
 public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {
+    private const string ReasonExtensionName = "reason";
+
+    private const string QuotaExtensionName = "quota";
+
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
         Exception exception,
@@ -48,6 +54,13 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
         LibraryFileAccessDeniedException => true,
         SubtitleQuotaExceededException => true,
         SubtitleAcquisitionUnavailableException => true,
+        SubtitleProviderNotConfiguredException => true,
+        SubtitleRequestRejectedException => true,
+        SubtitleMovieNotFoundException => true,
+        SubtitleSearchRateLimitedException => true,
+        SubtitleStaleCandidateException => true,
+        SubtitleReadOnlyLibraryException => true,
+        SubtitleDownloadQuotaExhaustedException => true,
         _ => false,
     };
 
@@ -63,17 +76,45 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 status = StatusCodes.Status429TooManyRequests;
                 problem = CreateQuotaProblem(quotaExceeded, httpContext);
                 return true;
+            case SubtitleDownloadQuotaExhaustedException downloadQuotaExhausted:
+                status = StatusCodes.Status429TooManyRequests;
+                problem = CreateDownloadQuotaProblem(downloadQuotaExhausted);
+                return true;
+            case SubtitleStaleCandidateException:
+                status = StatusCodes.Status400BadRequest;
+                problem = WithReason(CreateBadRequestProblem(), SubtitleProblemReasons.StaleCandidate);
+                return true;
+            case SubtitleReadOnlyLibraryException:
+                status = StatusCodes.Status409Conflict;
+                problem = WithReason(CreateConflictProblem(), SubtitleProblemReasons.ReadOnlyLibrary);
+                return true;
+            case SubtitleSearchRateLimitedException searchRateLimited:
+                status = StatusCodes.Status429TooManyRequests;
+                problem = CreateSearchRateLimitedProblem(searchRateLimited, httpContext);
+                return true;
             case SubtitleProviderTimeoutException:
                 status = StatusCodes.Status504GatewayTimeout;
-                problem = CreateGatewayTimeoutProblem();
+                problem = WithReason(CreateGatewayTimeoutProblem(), SubtitleProblemReasons.ProviderTimeout);
                 return true;
             case SubtitleProviderFailureException:
                 status = StatusCodes.Status502BadGateway;
-                problem = CreateBadGatewayProblem();
+                problem = WithReason(CreateBadGatewayProblem(), SubtitleProblemReasons.ProviderUnavailable);
+                return true;
+            case SubtitleProviderNotConfiguredException:
+                status = StatusCodes.Status409Conflict;
+                problem = WithReason(CreateConflictProblem(), SubtitleProblemReasons.ProviderNotConfigured);
                 return true;
             case SubtitleAcquisitionUnavailableException:
                 status = StatusCodes.Status409Conflict;
                 problem = CreateConflictProblem();
+                return true;
+            case SubtitleMovieNotFoundException:
+                status = StatusCodes.Status404NotFound;
+                problem = WithReason(CreateNotFoundProblem(), SubtitleProblemReasons.MovieNotFound);
+                return true;
+            case SubtitleRequestRejectedException:
+                status = StatusCodes.Status400BadRequest;
+                problem = WithReason(CreateBadRequestProblem(), SubtitleProblemReasons.InvalidRequest);
                 return true;
             default:
                 status = 0;
@@ -130,7 +171,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
         return exception switch
         {
             FeatureDisabledException => (StatusCodes.Status403Forbidden, CreateForbiddenProblem()),
-            LibraryFileAccessDeniedException => (StatusCodes.Status403Forbidden, CreateForbiddenProblem()),
+            LibraryFileAccessDeniedException => (StatusCodes.Status403Forbidden, CreateAccessDeniedProblem()),
             _ => (StatusCodes.Status500InternalServerError, CreateServerErrorProblem()),
         };
     }
@@ -153,6 +194,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             Title = "Unprocessable Entity",
             Type = "https://tools.ietf.org/html/rfc9110#section-15.5.21",
         };
+        problem.Extensions[ReasonExtensionName] = SubtitleProblemReasons.InvalidRequest;
         problem.Extensions["errors"] = validationException.Errors;
         return problem;
     }
@@ -189,6 +231,9 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             "Forbidden",
             "https://tools.ietf.org/html/rfc9110#section-15.5.4");
 
+    private static ProblemDetails CreateAccessDeniedProblem() =>
+        WithReason(CreateForbiddenProblem(), SubtitleProblemReasons.AccessDenied);
+
     private static ProblemDetails CreateQuotaProblem(
         SubtitleQuotaExceededException quotaExceeded,
         HttpContext httpContext)
@@ -199,6 +244,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             Title = "Too Many Requests",
             Type = "https://tools.ietf.org/html/rfc9110#section-15.5.30",
         };
+        problem.Extensions[ReasonExtensionName] = SubtitleProblemReasons.DownloadQuotaExhausted;
 
         if (quotaExceeded.RetryAfter is { } retryAfter)
         {
@@ -206,6 +252,53 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
                 Math.Ceiling(retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
         }
 
+        return problem;
+    }
+
+    private static ProblemDetails CreateDownloadQuotaProblem(SubtitleDownloadQuotaExhaustedException quotaExhausted)
+    {
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too Many Requests",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.30",
+        };
+        problem.Extensions[ReasonExtensionName] = SubtitleProblemReasons.DownloadQuotaExhausted;
+        problem.Extensions[QuotaExtensionName] = QuotaExtension(quotaExhausted.Quota);
+        return problem;
+    }
+
+    private static Dictionary<string, object?> QuotaExtension(SubtitleQuota quota) =>
+        new(StringComparer.Ordinal)
+        {
+            ["remainingDownloads"] = quota.RemainingDownloads,
+            ["resetAtUtc"] = quota.ResetAtUtc,
+        };
+
+    private static ProblemDetails CreateSearchRateLimitedProblem(
+        SubtitleSearchRateLimitedException searchRateLimited,
+        HttpContext httpContext)
+    {
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too Many Requests",
+            Type = "https://tools.ietf.org/html/rfc9110#section-15.5.30",
+        };
+        problem.Extensions[ReasonExtensionName] = SubtitleProblemReasons.SearchRateLimited;
+
+        if (searchRateLimited.RetryAfter is { } retryAfter)
+        {
+            httpContext.Response.Headers.RetryAfter =
+                Math.Ceiling(retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        }
+
+        return problem;
+    }
+
+    private static ProblemDetails WithReason(ProblemDetails problem, string reason)
+    {
+        problem.Extensions[ReasonExtensionName] = reason;
         return problem;
     }
 

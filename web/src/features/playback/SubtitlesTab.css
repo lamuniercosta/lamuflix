@@ -1,0 +1,121 @@
+.subtitles-tab {
+  display: grid;
+  gap: var(--lamu-space-3);
+  min-width: 0;
+}
+
+.subtitles-tab-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lamu-space-2) var(--lamu-space-3);
+}
+
+.subtitles-tab-field {
+  color: var(--color-ink);
+}
+
+.subtitles-tab-caption {
+  color: var(--color-ink);
+}
+
+.subtitles-tab-select {
+  min-width: 14rem;
+  padding: var(--lamu-space-1) var(--lamu-space-2);
+  border-radius: var(--lamu-radius-control, 6px);
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+.subtitles-tab-select:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.subtitles-tab-quota {
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.subtitles-tab-tracks {
+  display: grid;
+  gap: var(--lamu-space-2);
+  min-width: 0;
+}
+
+.subtitles-tab-heading {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.subtitles-tab-candidates {
+  display: grid;
+  gap: var(--lamu-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subtitles-tab-candidates-searching {
+  opacity: 0.55;
+}
+
+.subtitles-tab-candidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--lamu-space-2) var(--lamu-space-3);
+  min-width: 0;
+}
+
+.subtitles-tab-release {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+
+.subtitles-tab-release:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.subtitles-tab-metric {
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.subtitles-tab-status {
+  margin: 0;
+  min-height: 1.25rem;
+  color: var(--color-ink);
+}
+
+@media (max-width: 40rem) {
+  .subtitles-tab-candidate {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'release release'
+      'metrics get';
+  }
+
+  .subtitles-tab-release {
+    grid-area: release;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subtitles-tab * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

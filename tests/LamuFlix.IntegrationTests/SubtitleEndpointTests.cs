@@ -41,6 +41,11 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
     private const string ContentTypeOptionsHeader = "X-Content-Type-Options";
     private const string NoSniffValue = "nosniff";
     private const string Stem = "Heat.1995.1080p";
+    private const string SidecarFileName = "Heat.1995.1080p.srt";
+    private const string SidecarContentType = "application/x-subrip";
+    private const string ContentDispositionHeader = "Content-Disposition";
+    private const string SidecarText =
+        "1\n00:00:01,000 --> 00:00:03,500\nI have seen things.\n\n2\n00:00:04,000 --> 00:00:06,000\nYou people would not believe.\n";
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
 
@@ -792,6 +797,265 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
         (await goodContent.Content.ReadAsStringAsync(ct)).ShouldContain("good track");
     }
 
+    [Fact]
+    public async Task GetSidecar_ExistingExactBasenameSidecar_ReturnsExactBytesAndHardenedHeaders()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, SidecarFileName, Utf8(SidecarText));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(SidecarRoute(KnownId), ct);
+        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(SidecarContentType);
+        response.Headers.GetValues(ContentTypeOptionsHeader).ShouldBe([NoSniffValue]);
+        var disposition = response.Content.Headers.GetValues(ContentDispositionHeader).ShouldHaveSingleItem();
+        disposition.ShouldStartWith("attachment");
+        disposition.ShouldContain(SidecarFileName);
+        disposition.ShouldNotContain(library.Root);
+        disposition.ShouldNotContain("/");
+        bytes.ShouldBe(Utf8(SidecarText));
+    }
+
+    public static TheoryData<string> SidecarAcquisitionSettings => new()
+    {
+        "SaveEnabled",
+        "ApiKey",
+        "ReadOnly",
+        "Defaults",
+    };
+
+    [Theory]
+    [MemberData(nameof(SidecarAcquisitionSettings))]
+    public async Task GetSidecar_ServingIsIndependentOfAcquisitionSettings(string configuration)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, SidecarFileName, Utf8(SidecarText));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root, SidecarSettingsFor(configuration));
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(SidecarRoute(KnownId), ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        response.Headers.GetValues(ContentTypeOptionsHeader).ShouldBe([NoSniffValue]);
+        (await response.Content.ReadAsStringAsync(ct)).ShouldBe(SidecarText);
+    }
+
+    [Fact]
+    public async Task GetSidecar_ExactBytes_AreServedWithoutTheDownloadedSrtValidityGate()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        var raw = new byte[] { 0x00, 0xFF, 0x10, 0x3C, 0x62, 0x3E };
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, SidecarFileName, raw);
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(SidecarRoute(KnownId), ct);
+        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        bytes.ShouldBe(raw);
+    }
+
+    [Fact]
+    public async Task GetSidecar_MissingSidecar_ReturnsSanitizedNotFoundWithTraceId()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(SidecarRoute(KnownId), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        JsonSerializer.Deserialize<JsonElement>(body).GetProperty("traceId").GetString()
+            .ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain(library.Root);
+        body.ShouldNotContain(SidecarFileName);
+    }
+
+    [Fact]
+    public async Task GetSidecar_UnknownMovie_ReturnsSanitizedNotFound()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        catalog.GetDetailsAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns((MovieDetails?)null);
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(SidecarRoute(UnknownId), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        JsonSerializer.Deserialize<JsonElement>(body).GetProperty("traceId").GetString()
+            .ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain(library.Root);
+    }
+
+    [Fact]
+    public async Task GetSidecar_LibraryFolderOutsideAuthorizedRoot_ReturnsForbidden()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        using var outside = new TemporaryLibrary();
+        outside.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        outside.WriteMovieFile(MovieFolder, SidecarFileName, Utf8(SidecarText));
+        DetailsReturning(KnownDetails(outside.Root));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(SidecarRoute(KnownId), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        body.ShouldNotContain(outside.Root);
+        body.ShouldNotContain(SidecarText);
+    }
+
+    [Fact]
+    public async Task GetSidecar_SidecarBeyondConfiguredServingBound_ReturnsUnprocessableEntity()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, SidecarFileName, Utf8(SidecarText));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root, new Dictionary<string, string?>
+        {
+            [$"{LibraryOptions.SectionName}:{nameof(LibraryOptions.MaxSubtitleInputBytes)}"] = "8",
+        });
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync(SidecarRoute(KnownId), ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        JsonSerializer.Deserialize<JsonElement>(body).GetProperty("traceId").GetString()
+            .ShouldNotBeNullOrWhiteSpace();
+        body.ShouldNotContain("I have seen things");
+    }
+
+    [Fact]
+    public async Task GetSidecar_MalformedRawIdSegment_Returns400ProblemDetails()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.GetAsync("/api/movies/not-a-number/subtitles/sidecar", ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        JsonSerializer.Deserialize<JsonElement>(body).GetProperty("traceId").GetString()
+            .ShouldNotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task GetSidecar_ServesWithoutTouchingTheProvider_WhileListingStaysLocal()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        var provider = Substitute.For<ISubtitleProvider>();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, SidecarFileName, Utf8(SidecarText));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root, providerFactory: _ => provider);
+        using var client = host.CreateClient();
+
+        // act
+        var sidecar = await client.GetAsync(SidecarRoute(KnownId), ct);
+        var list = await client.GetAsync(SubtitlesRoute(KnownId), ct);
+
+        // assert
+        sidecar.StatusCode.ShouldBe(HttpStatusCode.OK);
+        list.StatusCode.ShouldBe(HttpStatusCode.OK);
+        await provider.DidNotReceiveWithAnyArgs().SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>());
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Post_PrepareRoute_IsRetiredAndReturns404()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        using var library = new TemporaryLibrary();
+        library.WriteMoviePrimary(MovieFolder, PrimaryFileName);
+        library.WriteMovieFile(MovieFolder, SidecarFileName, Utf8(SidecarText));
+        DetailsReturning(KnownDetails(MovieFolder));
+        await using var host = CreateHost(library.Root);
+        using var client = host.CreateClient();
+
+        // act
+        var response = await client.PostAsync($"/api/movies/{KnownId}/subtitles/prepare", null, ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    private static Dictionary<string, string?> SidecarSettingsFor(string configuration) => configuration switch
+    {
+        "SaveEnabled" => new Dictionary<string, string?>
+        {
+            [$"{SubtitlesOptions.SectionName}:{nameof(SubtitlesOptions.SaveEnabled)}"] = "true",
+            [$"{SubtitlesOptions.SectionName}:{nameof(SubtitlesOptions.PreferredLanguages)}:0"] = "en",
+        },
+        "ApiKey" => new Dictionary<string, string?>
+        {
+            [$"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.ApiKey)}"] = "sentinel-subtitle-key",
+        },
+        "ReadOnly" => new Dictionary<string, string?>
+        {
+            [$"{SubtitlesOptions.SectionName}:{nameof(SubtitlesOptions.SaveEnabled)}"] = "false",
+            [$"{SubtitleProviderOptions.SectionName}:{nameof(SubtitleProviderOptions.ApiKey)}"] = string.Empty,
+        },
+        _ => new Dictionary<string, string?>(),
+    };
+
+    private static string SidecarRoute(int id) => $"/api/movies/{id}/subtitles/sidecar";
+
     private static void AssertFrozenNoStore(HttpResponseMessage response)
     {
         var values = response.Headers.GetValues(CacheControlHeader).ShouldHaveSingleItem();
@@ -897,7 +1161,8 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
     private WebApplicationFactory<Program> CreateHost(
         string libraryRoot,
         IReadOnlyDictionary<string, string?>? additionalSettings = null,
-        Func<IServiceProvider, ILibraryFileReader>? readerFactory = null) =>
+        Func<IServiceProvider, ILibraryFileReader>? readerFactory = null,
+        Func<IServiceProvider, ISubtitleProvider>? providerFactory = null) =>
         factory.WithWebHostBuilder(builder =>
         {
             var settings = new Dictionary<string, string?>
@@ -918,6 +1183,10 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
                 if (readerFactory is not null)
                 {
                     services.AddScoped(readerFactory);
+                }
+                if (providerFactory is not null)
+                {
+                    services.AddSingleton(providerFactory);
                 }
             });
         });

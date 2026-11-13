@@ -361,6 +361,187 @@ public sealed class SubtitleSidecarStoreTests
         Directory.GetFiles(Path.Combine(library.Root, MovieFolder), "*.srt").ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task PublishToSubsAsync_MissingSubsFolder_CreatesItAndWritesTheBsPlayerName()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
+        var store = CreateStore(library.Root);
+        var ct = TestContext.Current.CancellationToken;
+        var content = SidecarPayload();
+
+        // act
+        var result = await store.PublishToSubsAsync(
+            new LibraryPath(MovieFolder), PrimaryFileName, "pt-BR", content, 10, ct);
+
+        // assert
+        result.Outcome.ShouldBe(SubtitlePublishOutcome.Published);
+        result.FileName.ShouldBe("Heat.1995.1080p-pt-BR.srt");
+        var published = Path.Combine(library.Root, MovieFolder, "Subs", result.FileName);
+        (await File.ReadAllBytesAsync(published, ct)).ShouldBe(content);
+    }
+
+    [Fact]
+    public async Task PublishToSubsAsync_ExistingTargets_UseTheNextFreeParenSlotWithoutOverwriting()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
+        var existing = SidecarPayload();
+        library.WriteFile(Path.Combine(MovieFolder, "Subs", "Heat.1995.1080p-pt-BR.srt"), existing);
+        library.WriteFile(Path.Combine(MovieFolder, "Subs", "Heat.1995.1080p-pt-BR(1).srt"), existing);
+        var store = CreateStore(library.Root);
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        var result = await store.PublishToSubsAsync(
+            new LibraryPath(MovieFolder), PrimaryFileName, "pt-BR", "new"u8.ToArray(), 10, ct);
+
+        // assert
+        result.Outcome.ShouldBe(SubtitlePublishOutcome.Published);
+        result.FileName.ShouldBe("Heat.1995.1080p-pt-BR(2).srt");
+        (await File.ReadAllBytesAsync(
+            Path.Combine(library.Root, MovieFolder, "Subs", "Heat.1995.1080p-pt-BR.srt"), ct)).ShouldBe(existing);
+        (await File.ReadAllBytesAsync(
+            Path.Combine(library.Root, MovieFolder, "Subs", "Heat.1995.1080p-pt-BR(1).srt"), ct)).ShouldBe(existing);
+    }
+
+    [Fact]
+    public async Task PublishToSubsAsync_AttemptCeilingExhausted_ReportsExhaustionAndLeavesNoStaging()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
+        library.WriteFile(Path.Combine(MovieFolder, "Subs", "Heat.1995.1080p-pt-BR.srt"), SidecarPayload());
+        var store = CreateStore(library.Root);
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        var result = await store.PublishToSubsAsync(
+            new LibraryPath(MovieFolder), PrimaryFileName, "pt-BR", "new"u8.ToArray(), 1, ct);
+
+        // assert
+        result.Outcome.ShouldBe(SubtitlePublishOutcome.AttemptsExhausted);
+        result.FileName.ShouldBeEmpty();
+        Directory.GetFiles(Path.Combine(library.Root, MovieFolder, "Subs"), "*").Length.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task PublishToSubsAsync_NeverLeavesLeadingDotStagingFilesBehind()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
+        var store = CreateStore(library.Root);
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        await store.PublishToSubsAsync(
+            new LibraryPath(MovieFolder), PrimaryFileName, "en", SidecarPayload(), 10, ct);
+
+        // assert
+        Directory.GetFiles(Path.Combine(library.Root, MovieFolder, "Subs"), ".*", SearchOption.TopDirectoryOnly)
+            .ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PublishToSubsAsync_CancelledBeforePublish_CleansOwnedStagingAndThrows()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
+        var store = CreateStore(library.Root);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var token = cancellation.Token;
+
+        // act
+        var act = () => store.PublishToSubsAsync(
+            new LibraryPath(MovieFolder), PrimaryFileName, "en", SidecarPayload(), 10, token);
+
+        // assert
+        await Should.ThrowAsync<OperationCanceledException>(act);
+        var subs = Path.Combine(library.Root, MovieFolder, "Subs");
+        Directory.GetFiles(subs, "*", SearchOption.TopDirectoryOnly).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PublishToSubsAsync_FolderOutsideAuthorizedRoot_ThrowsAccessDeniedWithoutWriting()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        using var outside = new TemporaryDirectory();
+        outside.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
+        var store = CreateStore(library.Root);
+        var ct = TestContext.Current.CancellationToken;
+        var outsideMovieFolder = Path.Combine(outside.Root, MovieFolder);
+
+        // act
+        var act = () => store.PublishToSubsAsync(
+            new LibraryPath(outsideMovieFolder), PrimaryFileName, "en", SidecarPayload(), 10, ct);
+
+        // assert
+        await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
+        Directory.Exists(Path.Combine(outsideMovieFolder, "Subs")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task PublishToSubsAsync_LinkedSubsDirectory_RefusesBeforeWritingOutside()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        using var outside = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
+        var target = Path.Combine(outside.Root, "outside-dir");
+        Directory.CreateDirectory(target);
+        CreateDirectoryLinkOrFail(Path.Combine(library.Root, MovieFolder, "Subs"), target);
+        var store = CreateStore(library.Root);
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        var act = () => store.PublishToSubsAsync(
+            new LibraryPath(MovieFolder), PrimaryFileName, "en", SidecarPayload(), 10, ct);
+
+        // assert
+        await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
+        Directory.GetFiles(target).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PublishToSubsAsync_UnsafeLanguageCode_ThrowsAccessDenied()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        library.WriteFile(Path.Combine(MovieFolder, PrimaryFileName), PrimaryPayload());
+        var store = CreateStore(library.Root);
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        var act = () => store.PublishToSubsAsync(
+            new LibraryPath(MovieFolder), PrimaryFileName, "../escape", SidecarPayload(), 10, ct);
+
+        // assert
+        await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
+        Directory.GetFiles(library.Root, "*.srt", SearchOption.AllDirectories).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task PublishToSubsAsync_MissingMovieFolder_ThrowsNotFound()
+    {
+        // arrange
+        using var library = new TemporaryDirectory();
+        var store = CreateStore(library.Root);
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        var act = () => store.PublishToSubsAsync(
+            new LibraryPath("Absent (1999)"), PrimaryFileName, "en", SidecarPayload(), 10, ct);
+
+        // assert
+        await Should.ThrowAsync<NotFoundException>(act);
+    }
+
     private static SubtitleSidecarStore CreateStore(string rootPath)
     {
         var hostEnvironment = Substitute.For<IHostEnvironment>();
@@ -389,6 +570,19 @@ public sealed class SubtitleSidecarStoreTests
             exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             Assert.Fail($"A real symlink fixture is mandatory for this proof but could not be created: {exception.Message}");
+        }
+    }
+
+    private static void CreateDirectoryLinkOrFail(string linkPath, string targetPath)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(linkPath, targetPath);
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            Assert.Fail($"A real directory symlink fixture is mandatory for this proof but could not be created: {exception.Message}");
         }
     }
 
