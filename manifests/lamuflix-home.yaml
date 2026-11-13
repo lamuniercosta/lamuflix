@@ -195,7 +195,7 @@ spec:
               key: apiKey
               name: tmdb-credentials
               optional: true
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:7c8c9f360a6135fac897e1fd78af538314b267d98ff6d5f791f7acaf542983dd
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:52df3a3d3a66cda35e97b16ef2cbc79d1326db5e18f6267c20620f1c8c2a8827
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -231,7 +231,7 @@ spec:
           subPath: appsettings.Production.json
         - mountPath: /media/library
           name: library
-          readOnly: true
+          readOnly: false
       initContainers:
       - command:
         - /bin/bash
@@ -240,7 +240,7 @@ spec:
           for h in rabbitmq:5672; do
             until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
           done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:7c8c9f360a6135fac897e1fd78af538314b267d98ff6d5f791f7acaf542983dd
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:52df3a3d3a66cda35e97b16ef2cbc79d1326db5e18f6267c20620f1c8c2a8827
         name: wait-rabbitmq
         resources:
           limits:
@@ -252,7 +252,7 @@ spec:
         - -c
         - |
           until (exec 3<>/dev/tcp/ollama/11434 && printf 'GET /api/tags HTTP/1.1\r\nHost: ollama\r\nConnection: close\r\n\r\n' >&3 && timeout 5 cat <&3 | grep -q all-minilm); do sleep 3; done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:7c8c9f360a6135fac897e1fd78af538314b267d98ff6d5f791f7acaf542983dd
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:52df3a3d3a66cda35e97b16ef2cbc79d1326db5e18f6267c20620f1c8c2a8827
         name: wait-ollama-model
         resources:
           limits:
@@ -338,7 +338,7 @@ spec:
         app.kubernetes.io/part-of: lamuflix-home
     spec:
       containers:
-      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:86b7dee96062c855cf42eaea26c4d4787e74241ad2164f22d265c64219811e25
+      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:c41ff36bcd00cf937a3dfb75bc22e237b8949a2e466098692d666d0c69bdf6e8
         livenessProbe:
           httpGet:
             path: /
