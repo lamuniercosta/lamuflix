@@ -148,7 +148,6 @@ export default function BrowserPlayer({
     storage: readLocalStorage,
   });
   const timingEnabled = showTrack;
-  const delayEnabled = selectionTrackId !== null;
   const [mediaElement, setMediaElement] = useState<HTMLVideoElement | null>(null);
   const [surfaceWidthPx, setSurfaceWidthPx] = useState(DEFAULT_SURFACE_WIDTH_PX);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -419,11 +418,11 @@ export default function BrowserPlayer({
       else if (event.key === 'g' || event.key === 'G') direction = 'earlier';
       if (direction === null) return false;
       event.preventDefault();
-      if (!delayEnabled || !mediaElement || mediaElement.paused) return true;
+      if (!timingEnabled || !mediaElement || mediaElement.paused) return true;
       options.adjustDelay(direction, event.shiftKey);
       return true;
     },
-    [delayEnabled, mediaElement, options],
+    [timingEnabled, mediaElement, options],
   );
 
   const handleSeekKey = useCallback(

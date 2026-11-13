@@ -1504,6 +1504,58 @@ describe('BrowserPlayer subtitle delay hotkeys', () => {
     expect(Object.keys(window.localStorage)).toEqual(['media-chrome-pref-muted']);
   });
 
+  it('ignores G and H while the selected track is still loading', async () => {
+    let releaseContent!: () => void;
+    const contentGate = new Promise<void>((resolve) => {
+      releaseContent = resolve;
+    });
+    server.use(
+      http.get('*/api/movies/:id/subtitles/:trackId/content', async () => {
+        await contentGate;
+        return new HttpResponse('WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHello.\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/vtt; charset=utf-8' },
+        });
+      }),
+    );
+    renderPlayer();
+    await selectTrack('English');
+    await playMedia();
+
+    fireEvent.keyDown(region(), { key: 'h' });
+    fireEvent.keyDown(region(), { key: 'g' });
+
+    expect(window.localStorage.getItem(delayKey())).toBeNull();
+
+    await act(async () => {
+      releaseContent();
+    });
+    const surface = await openOptions();
+    await waitFor(() =>
+      expect(within(surface).getByRole('button', { name: RESET_TIMING_LABEL })).toBeEnabled(),
+    );
+
+    fireEvent.keyDown(region(), { key: 'h' });
+
+    expect(window.localStorage.getItem(delayKey())).toBe('100');
+  });
+
+  it('ignores G and H when the selected track content is unavailable', async () => {
+    server.use(
+      http.get('*/api/movies/:id/subtitles/:trackId/content', () => {
+        return new HttpResponse(null, { status: 422 });
+      }),
+    );
+    renderPlayer();
+    await selectTrack('English');
+    await playMedia();
+
+    fireEvent.keyDown(region(), { key: 'h' });
+    fireEvent.keyDown(region(), { key: 'g' });
+
+    expect(window.localStorage.getItem(delayKey())).toBeNull();
+  });
+
   it('ignores G and H from editable, select, range, color and dialog contexts', async () => {
     renderPlayer();
     await selectTrack('English');
@@ -1570,7 +1622,16 @@ describe('BrowserPlayer subtitle delay hotkeys', () => {
     const heat = await openPanel('Heat');
     const heatGroup = await within(heat).findByRole('radiogroup');
     fireEvent.click(within(heatGroup).getByRole('radio', { name: 'English' }));
+    await waitFor(() =>
+      expect(heatGroup.querySelector('[aria-checked="true"]')?.getAttribute('aria-label')).toBe(
+        'English',
+      ),
+    );
     await playMedia('Heat');
+    fireEvent.click(within(heat).getByRole('tab', { name: SUBTITLES_OPTIONS_LABEL }));
+    await waitFor(() =>
+      expect(within(heat).getByRole('button', { name: RESET_TIMING_LABEL })).toBeEnabled(),
+    );
 
     fireEvent.keyDown(region('Heat'), { key: 'h' });
 

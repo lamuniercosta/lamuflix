@@ -7,6 +7,7 @@ import {
   createFakeMediaClock,
   fakeCues,
   installFrameLoop,
+  type FakeCue,
   type FakeCueList,
   type FakeFrameLoop,
   type FakeMediaClock,
@@ -57,6 +58,32 @@ interface Fixture {
   update: (patch: Partial<UseSubtitleCuesOptions>) => void;
 }
 
+function nativeLikeCueList(initial: readonly FakeCue[] | null): FakeCueList {
+  const inner = createFakeCueList(null);
+  const nativeCues: Record<string, unknown> = {};
+  const sync = (next: readonly FakeCue[] | null) => {
+    for (const key of Object.keys(nativeCues)) delete nativeCues[key];
+    (next ?? []).forEach((cue, index) => {
+      nativeCues[String(index)] = cue;
+    });
+    nativeCues.length = (next ?? []).length;
+  };
+  sync(initial);
+  return {
+    get cues() {
+      return nativeCues;
+    },
+    addEventListener: (type: string, listener: EventListener) =>
+      inner.addEventListener(type, listener),
+    removeEventListener: (type: string, listener: EventListener) =>
+      inner.removeEventListener(type, listener),
+    setCues: (next: readonly FakeCue[] | null) => sync(next),
+    emit: (type: string) => inner.emit(type),
+    listenerCount: (type: string) => inner.listenerCount(type),
+    totalListenerCount: () => inner.totalListenerCount(),
+  } as unknown as FakeCueList;
+}
+
 function mount(initial: Partial<UseSubtitleCuesOptions> = {}): Fixture {
   const list = (initial.cueList as FakeCueList | undefined) ?? createFakeCueList(fakeCues());
   const base: UseSubtitleCuesOptions = {
@@ -83,6 +110,34 @@ describe('useSubtitleCues', () => {
     act(() => media.emit('timeupdate'));
 
     expect(texts(view.container)).toEqual(['First line']);
+  });
+
+  it('reads cues from a native TextTrackCueList-shaped container without array methods', () => {
+    const list = nativeLikeCueList(fakeCues());
+    expect((list.cues as unknown as { forEach?: unknown }).forEach).toBeUndefined();
+    const { view } = mount({ cueList: list });
+    expect(texts(view.container)).toEqual([]);
+
+    media.setTime(1.5);
+    act(() => media.emit('timeupdate'));
+
+    expect(texts(view.container)).toEqual(['First line']);
+
+    act(() => {
+      list.setCues([{ id: 'late', startTime: 0, endTime: 10, text: 'Late track' }]);
+      list.emit('cuechange');
+    });
+    expect(texts(view.container)).toEqual(['Late track']);
+  });
+
+  it('renders nothing for a native empty-but-loaded cue list instead of throwing', () => {
+    const list = nativeLikeCueList([]);
+    const { view } = mount({ cueList: list });
+
+    media.setTime(1.5);
+    act(() => media.emit('timeupdate'));
+
+    expect(texts(view.container)).toEqual([]);
   });
 
   it('renders nothing without a usable selected track', () => {

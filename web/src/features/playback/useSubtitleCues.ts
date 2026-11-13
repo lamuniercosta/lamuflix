@@ -16,7 +16,7 @@ export interface RawSubtitleCue {
 }
 
 export interface SubtitleCueList {
-  readonly cues: ReadonlyArray<RawSubtitleCue | null> | null;
+  readonly cues: ArrayLike<RawSubtitleCue | null> | null;
   addEventListener(type: string, listener: EventListener): void;
   removeEventListener(type: string, listener: EventListener): void;
 }
@@ -67,10 +67,12 @@ const MEDIA_EVENTS = [
 const EMPTY_CUES: readonly ActiveSubtitleCue[] = [];
 
 function readCues(cueList: SubtitleCueList | null): readonly SubtitleCueSeed[] {
-  if (!cueList || !cueList.cues) return [];
+  const cues = cueList?.cues;
+  if (!cues) return [];
   const seeds: SubtitleCueSeed[] = [];
-  cueList.cues.forEach((cue, index) => {
-    if (!cue) return;
+  for (let index = 0; index < cues.length; index += 1) {
+    const cue = cues[index];
+    if (!cue) continue;
     const startMs = cueTimeToMs(cue.startTime);
     const endMs = cueTimeToMs(cue.endTime);
     seeds.push({
@@ -79,7 +81,7 @@ function readCues(cueList: SubtitleCueList | null): readonly SubtitleCueSeed[] {
       endMs,
       text: cue.text,
     });
-  });
+  }
   return seeds;
 }
 
