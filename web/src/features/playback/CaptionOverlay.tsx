@@ -123,6 +123,7 @@ export default function CaptionOverlay({
       data-surface={surface}
       aria-hidden="true"
       style={{ pointerEvents: 'none', userSelect: 'none' }}
+      {...{ noautohide: '' }}
     >
       {lines.map((line) => (
         <span
