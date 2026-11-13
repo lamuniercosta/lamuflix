@@ -140,6 +140,16 @@ public sealed class SubtitleMatchScorerTests
     }
 
     [Fact]
+    public void Compare_NullReleaseNames_TreatsBothAsEmpty()
+    {
+        // act
+        var result = SubtitleMatchScorer.Compare(null, "a", null, "b");
+
+        // assert
+        result.ShouldBeLessThan(0);
+    }
+
+    [Fact]
     public void Score_IsSymmetricForDistinctTokenOverlap()
     {
         // arrange

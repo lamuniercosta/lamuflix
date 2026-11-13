@@ -1012,8 +1012,8 @@ public sealed class SubtitleEndpointTests(ApiHostFactory factory)
         // assert
         sidecar.StatusCode.ShouldBe(HttpStatusCode.OK);
         list.StatusCode.ShouldBe(HttpStatusCode.OK);
-        await provider.DidNotReceiveWithAnyArgs().SearchAsync(default!, ct);
-        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(default!, ct);
+        await provider.DidNotReceiveWithAnyArgs().SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>());
+        await provider.DidNotReceiveWithAnyArgs().DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

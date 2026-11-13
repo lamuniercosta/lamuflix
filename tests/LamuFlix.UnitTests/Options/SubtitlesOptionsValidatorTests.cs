@@ -56,6 +56,28 @@ public sealed class SubtitlesOptionsValidatorTests
         // assert
         ShouldFailNaming(result, $"{nameof(SubtitlesOptions.PreferredLanguages)}[1]");
         result.Failed.ShouldBeTrue();
+        string.Join("; ", result.Failures).ShouldContain("must not be blank.");
+    }
+
+    [Fact]
+    public void Validate_NullOptions_ThrowsArgumentNullException()
+    {
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
+        var act = () => Validate(null!);
+
+        // assert
+        Should.Throw<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public void Validate_MinimumCandidateStoreMaxEntries_Succeeds()
+    {
+        // act
+        var result = Validate(new SubtitlesOptions { CandidateStoreMaxEntries = 1 });
+
+        // assert
+        result.ShouldBe(ValidateOptionsResult.Success);
     }
 
     [Fact]

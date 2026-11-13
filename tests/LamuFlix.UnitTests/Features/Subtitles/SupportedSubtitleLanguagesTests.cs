@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
@@ -73,7 +75,7 @@ public sealed class SupportedSubtitleLanguagesTests
 
         // assert
         languages.Count.ShouldBeGreaterThan(20);
-        languages.Select(language => language.Code).Distinct(System.StringComparer.OrdinalIgnoreCase).Count()
+        languages.Select(language => language.Code).Distinct(StringComparer.OrdinalIgnoreCase).Count()
             .ShouldBe(languages.Count);
         languages.ShouldAllBe(language =>
             language.Code.Length > 0 && language.EnglishName.Length > 0 && language.NativeName.Length > 0);
@@ -100,8 +102,8 @@ public sealed class SupportedSubtitleLanguagesTests
 
         // assert
         var expected = remaining
-            .OrderBy(language => language.EnglishName, System.StringComparer.Ordinal)
-            .ThenBy(language => language.Code, System.StringComparer.Ordinal)
+            .OrderBy(language => language.EnglishName, StringComparer.Ordinal)
+            .ThenBy(language => language.Code, StringComparer.Ordinal)
             .Select(language => language.Code);
         remaining.Select(language => language.Code).ShouldBe(expected);
     }
@@ -128,6 +130,166 @@ public sealed class SupportedSubtitleLanguagesTests
         ordered[0].Code.ShouldBe("en");
         ordered.Count.ShouldBe(SupportedSubtitleLanguages.All.Count);
     }
+
+    [Theory]
+    [MemberData(nameof(CatalogEntries))]
+    public void TryResolve_EveryCatalogEntry_ResolvesWithBilingualNames(string code, string englishName, string nativeName)
+    {
+        // act
+        var resolved = SupportedSubtitleLanguages.TryResolve(code, out var language);
+
+        // assert
+        resolved.ShouldBeTrue();
+        language.ShouldNotBeNull();
+        language.Code.ShouldBe(code);
+        language.EnglishName.ShouldBe(englishName);
+        language.NativeName.ShouldBe(nativeName);
+    }
+
+    [Theory]
+    [MemberData(nameof(ProviderAliases))]
+    public void TryResolve_EveryProviderAlias_ResolvesToTheCanonicalEntry(string alias, string canonicalCode)
+    {
+        // act
+        var resolved = SupportedSubtitleLanguages.TryResolve(alias, out var language);
+
+        // assert
+        resolved.ShouldBeTrue();
+        language.ShouldNotBeNull();
+        language.Code.ShouldBe(canonicalCode);
+    }
+
+    public static TheoryData<string, string, string> CatalogEntries => new()
+    {
+        { "pt-BR", "Portuguese (BR)", "Português (BR)" },
+        { "pt", "Portuguese", "Português" },
+        { "en", "English", "English" },
+        { "es", "Spanish", "Español" },
+        { "sq", "Albanian", "Shqip" },
+        { "de", "German", "Deutsch" },
+        { "ar", "Arabic", "العربية" },
+        { "hy", "Armenian", "Հայերեն" },
+        { "eu", "Basque", "Euskara" },
+        { "be", "Belarusian", "Беларуская" },
+        { "bn", "Bengali", "বাংলা" },
+        { "bs", "Bosnian", "Bosanski" },
+        { "bg", "Bulgarian", "Български" },
+        { "ca", "Catalan", "Català" },
+        { "zh", "Chinese", "中文" },
+        { "ko", "Korean", "한국어" },
+        { "hr", "Croatian", "Hrvatski" },
+        { "cs", "Czech", "Čeština" },
+        { "da", "Danish", "Dansk" },
+        { "sk", "Slovak", "Slovenčina" },
+        { "sl", "Slovenian", "Slovenščina" },
+        { "sr", "Serbian", "Српски" },
+        { "nl", "Dutch", "Nederlands" },
+        { "et", "Estonian", "Eesti" },
+        { "fi", "Finnish", "Suomi" },
+        { "fr", "French", "Français" },
+        { "gl", "Galician", "Galego" },
+        { "ka", "Georgian", "ქართული" },
+        { "el", "Greek", "Ελληνικά" },
+        { "he", "Hebrew", "עברית" },
+        { "hi", "Hindi", "हिन्दी" },
+        { "hu", "Hungarian", "Magyar" },
+        { "is", "Icelandic", "Íslenska" },
+        { "id", "Indonesian", "Bahasa Indonesia" },
+        { "it", "Italian", "Italiano" },
+        { "ja", "Japanese", "日本語" },
+        { "lv", "Latvian", "Latviešu" },
+        { "lt", "Lithuanian", "Lietuvių" },
+        { "mk", "Macedonian", "Македонски" },
+        { "ms", "Malay", "Bahasa Melayu" },
+        { "no", "Norwegian", "Norsk" },
+        { "fa", "Persian", "فارسی" },
+        { "pl", "Polish", "Polski" },
+        { "ro", "Romanian", "Română" },
+        { "ru", "Russian", "Русский" },
+        { "sv", "Swedish", "Svenska" },
+        { "th", "Thai", "ไทย" },
+        { "tr", "Turkish", "Türkçe" },
+        { "uk", "Ukrainian", "Українська" },
+        { "ur", "Urdu", "اردو" },
+        { "vi", "Vietnamese", "Tiếng Việt" },
+        { "cy", "Welsh", "Cymraeg" },
+    };
+
+    public static TheoryData<string, string> ProviderAliases => new()
+    {
+        { "pob", "pt-BR" },
+        { "pb", "pt-BR" },
+        { "por", "pt" },
+        { "eng", "en" },
+        { "spa", "es" },
+        { "alb", "sq" },
+        { "sqi", "sq" },
+        { "ara", "ar" },
+        { "arm", "hy" },
+        { "hye", "hy" },
+        { "baq", "eu" },
+        { "eus", "eu" },
+        { "bel", "be" },
+        { "ben", "bn" },
+        { "bos", "bs" },
+        { "bul", "bg" },
+        { "cat", "ca" },
+        { "chi", "zh" },
+        { "zho", "zh" },
+        { "kor", "ko" },
+        { "hrv", "hr" },
+        { "scr", "hr" },
+        { "cze", "cs" },
+        { "ces", "cs" },
+        { "dan", "da" },
+        { "slo", "sk" },
+        { "slk", "sk" },
+        { "slv", "sl" },
+        { "srp", "sr" },
+        { "scc", "sr" },
+        { "dut", "nl" },
+        { "nld", "nl" },
+        { "est", "et" },
+        { "fin", "fi" },
+        { "fre", "fr" },
+        { "fra", "fr" },
+        { "glg", "gl" },
+        { "geo", "ka" },
+        { "kat", "ka" },
+        { "ger", "de" },
+        { "deu", "de" },
+        { "gre", "el" },
+        { "ell", "el" },
+        { "heb", "he" },
+        { "hin", "hi" },
+        { "hun", "hu" },
+        { "ice", "is" },
+        { "isl", "is" },
+        { "ind", "id" },
+        { "ita", "it" },
+        { "jpn", "ja" },
+        { "lav", "lv" },
+        { "lit", "lt" },
+        { "mac", "mk" },
+        { "mkd", "mk" },
+        { "may", "ms" },
+        { "msa", "ms" },
+        { "nor", "no" },
+        { "per", "fa" },
+        { "fas", "fa" },
+        { "pol", "pl" },
+        { "rum", "ro" },
+        { "ron", "ro" },
+        { "rus", "ru" },
+        { "swe", "sv" },
+        { "tha", "th" },
+        { "tur", "tr" },
+        { "ukr", "uk" },
+        { "urd", "ur" },
+        { "vie", "vi" },
+        { "wel", "cy" },
+        { "cym", "cy" },
+    };
 }
 
 public sealed class GetSubtitleLanguagesQueryHandlerTests
@@ -189,6 +351,36 @@ public sealed class GetSubtitleLanguagesQueryHandlerTests
 
         // assert
         result.DefaultLanguage.ShouldBe("en");
+    }
+
+    [Fact]
+    public async Task HandleAsync_NullQuery_ThrowsArgumentNullException()
+    {
+        // arrange
+        var handler = Handler([]);
+
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
+        var act = () => handler.HandleAsync(null!, TestContext.Current.CancellationToken);
+
+        // assert
+        await Should.ThrowAsync<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public async Task HandleAsync_CancelledToken_ThrowsOperationCanceledException()
+    {
+        // arrange
+        var handler = Handler(["en"]);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var token = cancellation.Token;
+
+        // act
+        var act = () => handler.HandleAsync(new GetSubtitleLanguagesQuery(), token);
+
+        // assert
+        await Should.ThrowAsync<OperationCanceledException>(act);
     }
 
     private static GetSubtitleLanguagesQueryHandler Handler(string[] preferences) =>
