@@ -5,9 +5,9 @@ description: "Task list for DEV-500 subtitle timing and caption style options"
 
 # Tasks: Subtitle timing and caption style options
 
-**Input**: Design documents from `specs/DEV-500/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q10) plus Phase 2 step 6 amendment, `CONCLUSIONS.md`, `ASSUMPTIONS.md`, `PLAN_ADJUDICATION.md`; Maestri notes `DEV-500`, `recon-DEV-500` (current `:7-16` — historical ticket/reference/dependency citations are qualified); `specs/PRODUCT.md`. Palette `design.md` delivered; corrections pending (Palette-owned).
+**Input**: Design documents from `specs/DEV-500/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q10) plus Phase 2 step 6 amendment, `CONCLUSIONS.md`, `ASSUMPTIONS.md`, `PLAN_ADJUDICATION.md`; Maestri notes `DEV-500`, `recon-DEV-500` (refreshed Phase B pickup `:4-27` — historical ticket/reference/dependency citations remain qualified); `specs/PRODUCT.md`. Palette `design.md` delivered with corrections applied (Palette-owned; refreshed recon :21).
 
-**Status**: Draft — plan adjudication repair applied. Not PLAN FROZEN (pending independent Keel reread). Gate 1 pending user spec-PR merge. No implementation, dependency-ready, runtime, review-closure, or merge clearance.
+**Status**: PLAN FROZEN per final `KEEL_REPAIR_REREAD.md:60–69`. Phase B ownership amendment recorded in `brief.md` (2026-11-13) at landed-main HEAD `f88ab2336b6733684041082ad10c5d87d28e4e23`. DEV-503 shell and corrected Palette design are delivered per refreshed recon. Gate 1 / T000 owner-landing receipt recorded in `CONCLUSIONS.md`; T001 complete per Conductor instruction (2026-11-13). T002 is next; Gauge baseline evidence remains with Gauge/Conductor before production edits and is not claimed PASS here. No implementation, runtime, review-closure, or merge clearance.
 
 **Tests**: Required (`brief.md` Q9; FR-017–FR-018). Prefer failing Vitest/RTL before production edits (`web-implement` TDD). Deterministic timing invariants in Vitest without a new property library. Co-located test-only `subtitleTestDoubles.ts` for fake media/cue readiness and stubbed rAF. Chromium **and** Firefox real-layout receipts are separate required acceptance evidence (after gates). No new test dependency/framework.
 
@@ -17,7 +17,7 @@ description: "Task list for DEV-500 subtitle timing and caption style options"
 
 **Pipeline note**: Numbered `## Phase N:` headings below are **LOCAL `tasks.md` phase IDs** for `/implement` / `web-implement` dispatch. They are **not** canonical `task-pipeline` phases.
 
-**Spec-PR provenance**: Bernstein coordinates; Rigger prepares/opens the spec PR; only the user merges; Keel T000 records the verified merge receipt. No Build work (T001+) before Gate 1.
+**Gate 1 provenance**: Owner Lamunier Costa landed the spec package directly on origin/main in `c3b28aae2379bacd7c5365a83001f55153e8d491` (`DEV-500: spec`), with no separate PR. Conductor explicitly confirmed this as T000 Gate 1 clearance; Keel recorded the receipt in `CONCLUSIONS.md`. The original spec-PR workflow below is historical; no PR merge is claimed.
 
 ---
 
@@ -43,7 +43,7 @@ Phase 9   T027          (delivery / merge-bar handoff — user merges)
 **Purpose**: Produce/open the spec PR, then confirm ordinary owner Gate 1 merge before Build work.
 **Checkpoint**: Spec PR opened by Rigger under Bernstein coordination; verified user-merge receipt in `CONCLUSIONS.md`, or stop. No Build tasks before that receipt.
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-500 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-500 in `specs/DEV-500/CONCLUSIONS.md`. Receipt only. T001–T027 MUST NOT proceed without verified merge (`brief.md` Gate expectations; Q8/Q10; no structural owner checkbox on this ticket). PLAN FROZEN / plan challenge remain Keel-owned and are not claimed by Quill drafting.
+- [x] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-500 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-500 in `specs/DEV-500/CONCLUSIONS.md`. Receipt only. T001–T027 MUST NOT proceed without verified merge (`brief.md` Gate expectations; Q8/Q10; no structural owner checkbox on this ticket). PLAN FROZEN / plan challenge remain Keel-owned and are not claimed by Quill drafting.
 
 ---
 
@@ -52,7 +52,9 @@ Phase 9   T027          (delivery / merge-bar handoff — user merges)
 **Purpose**: Confirm Gate-1-merged artifacts still match landed main; confirm DEV-503 CC shell delivered; refresh Options integration points; locate fixtures/references; incorporate Palette `design.md` (delivered; apply pending corrections if present).
 **Checkpoint**: Fresh recon recorded; cross-artifact reanalysis clean or tasks amended only for authorized demonstrated drift; unresolved dependency/decision/reference gaps stop — no invention. Baseline captured.
 
-- [ ] T001 After T000: **Wisp** obtains fresh Phase B pickup recon against picked HEAD / landed main verifying: DEV-503 CC shell merged and present; exact Options-tab integration ownership/files (provisional historical recon points `BrowserPlayer.tsx:73-75,100,156,199-207` and `SubtitleSelector.tsx:26-38,60-79` — amend brief before tasks if ownership drifted); approved editable Q8 files under `web/src/features/playback/` including `subtitleTestDoubles.ts`; read-only/out-of-bounds surfaces (generated types, package manifests, harness, backend); Palette `design.md` delivered with any pending corrections applied (do not treat design as absent; do not invent geometry beyond design); whether ticket reference assets (`ref-options-timing.png`, `ref-options-style-1.png`, `ref-options-style-2.png`) are available (availability unverified — do not invent defaults from missing images); external fixture-root configuration seams for real `E:\Filmes` copies with `Subs\<video stem>-<code>.srt` without hardcoding paths. Qualify that current `recon-DEV-500:7-16` does not re-prove historical ticket lines and that backend identity stability remains unproven. **Keel** reanalyzes brief/spec/plan/tasks against landed main and amends only for authorized demonstrated drift. **Gauge** records pre-edit web-gates baseline. **STOP** rather than duplicating the CC shell, cherry-picking unmerged DEV-503 commits, inventing visual geometry absent from brief/`design.md`, or claiming screenshot fidelity without inspected references (`brief.md` Q2/Q7/Q8/Q9; FR-015–FR-016). No production edits in this task.
+- [x] T001 After T000: **Wisp** obtains fresh Phase B pickup recon against picked HEAD / landed main verifying: DEV-503 CC shell merged and present; exact Options-tab integration ownership/files (refreshed recon :11-13: `SubtitlePanel.tsx:138-147` owns Options body and tab semantics; `BrowserPlayer.tsx:202-207,412-435` owns tab selection/trigger/panel mount; `SubtitleSelector.tsx` owns track selection/Off/loading/error/retry; explicit Q8 amendment now recorded in brief); approved editable Q8 files under `web/src/features/playback/` including `subtitleTestDoubles.ts`; read-only/out-of-bounds surfaces (generated types, package manifests, harness, backend); Palette `design.md` delivered with any pending corrections applied (do not treat design as absent; do not invent geometry beyond design); whether ticket reference assets (`ref-options-timing.png`, `ref-options-style-1.png`, `ref-options-style-2.png`) are available (availability unverified — do not invent defaults from missing images); external fixture-root configuration seams for real `E:\Filmes` copies with `Subs\<video stem>-<code>.srt` without hardcoding paths. Qualify that refreshed `recon-DEV-500:4-27` does not re-prove historical ticket lines or Gate 1 and that backend identity stability remains unproven. **Keel** reanalyzes brief/spec/plan/tasks against landed main and amends only for authorized demonstrated drift. **Gauge** records pre-edit web-gates baseline. **STOP** rather than duplicating the CC shell, cherry-picking unmerged DEV-503 commits, inventing visual geometry absent from brief/`design.md`, or claiming screenshot fidelity without inspected references (`brief.md` Q2/Q7/Q8/Q9; FR-015–FR-016). No production edits in this task.
+
+**2026-11-13 pickup receipt**: Wisp recon and Keel bounded reanalysis/ownership amendments recorded at `f88ab233`; Gate 1 / T000 is now cleared by the verified direct owner landing (`c3b28aae`, no separate PR), recorded in `CONCLUSIONS.md`. Conductor explicitly instructed T000/T001 completion; T002 is next. Gauge baseline evidence remains for Gauge/Conductor before production edits; no baseline PASS is asserted here. References/real-layout fixture seam remain unavailable in scoped recon; no runtime PASS. See brief Phase B T001 amendment for findings and authority.
 
 ---
 
@@ -134,8 +136,8 @@ Phase 9   T027          (delivery / merge-bar handoff — user merges)
 
 ### Seam C — Shell / shortcuts (`BrowserPlayer` + delivered shell)
 
-- [ ] T018 [US4] After T017: Add failing Vitest/RTL coverage extending `web/src/features/playback/BrowserPlayer.test.tsx` and `web/src/features/playback/subtitleSelector.test.tsx` for single `useSubtitleOptions` instance wired with props into Options/overlay; G/H playing-only with focus guards for `input` (including range/color), `textarea`, `select`, contentEditable, and dialog contexts (including descendants) plus Ctrl/Alt/Meta and no-usable-track guards; Options coexistence in delivered DEV-503 shell; rapid switches; StrictMode remount; no timing/style reload/refetch; fullscreen overlay mount; no duplicate native/custom captions at the shell level (FR-002, FR-008, FR-012–FR-015, FR-017, FR-019; SMOKE-004; Risk F1/F9; plan-challenge items 3/7). Same-file serial ownership: do not parallelize with T019/T022.
-- [ ] T019 [US4] After T018: Integrate into `web/src/features/playback/BrowserPlayer.tsx` (instantiate `useSubtitleOptions` once; mount overlay; G/H in existing shortcut scope; pass props to Options/overlay) and delivered DEV-503 shell via `web/src/features/playback/SubtitleSelector.tsx` / CC shell — do not duplicate shell or cherry-pick; make T018 green (FR-002, FR-008, FR-012–FR-016, FR-019)
+- [ ] T018 [US4] After T017: Add failing Vitest/RTL coverage extending `web/src/features/playback/BrowserPlayer.test.tsx` and `web/src/features/playback/subtitleSelector.test.tsx` for single `useSubtitleOptions` instance wired with props into Options/overlay; G/H playing-only with focus guards for `input` (including range/color), `textarea`, `select`, contentEditable, and dialog contexts (including descendants) plus Ctrl/Alt/Meta and no-usable-track guards; Options coexistence in delivered `SubtitlePanel.tsx` body through the `BrowserPlayer.tsx` panel mount/tab selection, with selector-only track behavior preserved; rapid switches; StrictMode remount; no timing/style reload/refetch; fullscreen overlay mount; no duplicate native/custom captions at the shell level (FR-002, FR-008, FR-012–FR-015, FR-017, FR-019; SMOKE-004; Risk F1/F9; plan-challenge items 3/7). Same-file serial ownership: do not parallelize with T019/T022.
+- [ ] T019 [US4] After T018: Integrate into `web/src/features/playback/BrowserPlayer.tsx` (instantiate `useSubtitleOptions` once; mount overlay; G/H in existing shortcut scope; pass props to Options/overlay) and `web/src/features/playback/SubtitlePanel.tsx` (existing Options tab body/semantics; receive and forward props to `SubtitleOptions`; preserve tab/focus/dismissal behavior); preserve `SubtitleSelector.tsx` selection/Off/loading/error/retry — do not duplicate shell or cherry-pick; make T018 green (FR-002, FR-008, FR-012–FR-016, FR-019)
 
 ### Seam D — Loaded / hidden track
 
@@ -144,7 +146,7 @@ Phase 9   T027          (delivery / merge-bar handoff — user merges)
 
 ### Focused regression (deduplicated)
 
-- [ ] T022 [US4] After T021: Verify existing DEV-503 selection/Off/retry behavioural assertions remain green and add only net-new integration cases required for Options coexistence in `web/src/features/playback/BrowserPlayer.test.tsx` and `web/src/features/playback/subtitleSelector.test.tsx` without rewriting or duplicating T016/T018 test-authoring responsibility; preserve prior assertions (FR-015, FR-017; Ledger 6). Same-file serial after T018–T019.
+- [ ] T022 [US4] After T021: Verify existing DEV-503 selection/Off/retry behavioural assertions remain green and add only net-new integration cases required for Options coexistence in the delivered `SubtitlePanel.tsx` body via player integration in `web/src/features/playback/BrowserPlayer.test.tsx` and `web/src/features/playback/subtitleSelector.test.tsx` without rewriting or duplicating T016/T018 test-authoring responsibility; preserve prior assertions (FR-015, FR-017; Ledger 6). Same-file serial after T018–T019.
 
 **Checkpoint**: All user stories independently functional in component tests; four US4 seams each have red→green owners.
 
@@ -192,7 +194,7 @@ Phase 9   T027          (delivery / merge-bar handoff — user merges)
 ### Phase Dependencies
 
 - **Phase 0 (spec-PR + T000)**: Bernstein/Rigger produce/open; user merges; Keel receipt blocks all Build work
-- **Phase 1 (T001)**: Depends on T000; blocks implementation; requires DEV-503 delivered on main; design delivered (corrections pending)
+- **Phase 1 (T001)**: Depends on T000; blocks implementation; DEV-503 delivered on main and corrected design verified by refreshed recon; T000/T001 complete per owner-landing receipt and Conductor instruction; Gauge baseline evidence remains with Gauge/Conductor before production edits
 - **US1 (Phase 2)**: Depends on T001
 - **US2 (Phase 3)**: Depends on US1 checkpoint (T005)
 - **US3 (Phase 4)**: Depends on US2 checkpoint (T009); T012 greens T010; T013 greens T011
@@ -214,7 +216,7 @@ Phase 9   T027          (delivery / merge-bar handoff — user merges)
 - T002 can run in parallel with T003 once T001 is done (different primary test files)
 - T007 can run in parallel with T008 once T006 is written (different files)
 - T010 can run in parallel with T011 once T009 is done (different primary files / test-only helper)
-- No parallel production edits to the same `BrowserPlayer.tsx` / `SubtitleSelector.tsx` / `useSubtitleOptions.ts` / track-mode files (T015/T017/T019/T021/T022 stay serial on their owned files)
+- No parallel production edits to the same `BrowserPlayer.tsx` / `SubtitlePanel.tsx` / `SubtitleSelector.tsx` / `useSubtitleOptions.ts` / track-mode files (T015/T017/T019/T021/T022 stay serial on their owned files)
 
 ### Parallel Example: User Story 1 tests
 
@@ -249,8 +251,8 @@ User Story 1 pure timing/persistence is the smallest demonstrable slice; ticket 
 
 ## Notes
 
-- Palette `design.md` is delivered; corrections pending — incorporate settled/corrected requirements; do not invent layout/shadow geometry; do not imply design is unavailable (FR-016; Ledger 8 / Compass 5)
+- Palette `design.md` is delivered with corrections applied (refreshed recon :21) — incorporate settled/corrected requirements; do not invent layout/shadow geometry; do not imply design is unavailable (FR-016; Ledger 8 / Compass 5)
 - Screenshot/reference fidelity stays explicitly unverified until T024–T025 inspect assets; provisional Q3 profile is not a fidelity claim
 - Backend identity stability stays unproven; historical recon citations stay qualified
 - Never lower gate thresholds; never treat SKIPPED (scope-empty) as PASS
-- Quill does not invent PLAN FROZEN; Keel owns independent reread / freeze after this repair
+- PLAN FROZEN is recorded in the final independent reread; the Phase B brief amendment supersedes historical plan/spec shell references. Gate 1 receipt now records the verified direct owner landing, without a separate PR.
