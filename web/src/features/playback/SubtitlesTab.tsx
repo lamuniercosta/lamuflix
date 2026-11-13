@@ -121,17 +121,25 @@ function CandidateList({
   statusId,
   downloadingId,
   disabled,
+  searching,
   onGet,
 }: {
   candidates: readonly SubtitleCandidate[];
   statusId: string;
   downloadingId: string | null;
   disabled: boolean;
+  searching: boolean;
   onGet: (candidateId: string) => void;
 }) {
   if (candidates.length === 0) return null;
   return (
-    <ul className="subtitles-tab-candidates">
+    <ul
+      className={
+        searching
+          ? 'subtitles-tab-candidates subtitles-tab-candidates-searching'
+          : 'subtitles-tab-candidates'
+      }
+    >
       {candidates.map((candidate) => (
         <li key={candidate.candidateId} className="subtitles-tab-candidate">
           <span className="subtitles-tab-release" tabIndex={0} title={candidate.releaseName}>
@@ -169,6 +177,7 @@ export default function SubtitlesTab({ title, movieId, playback }: SubtitlesTabP
   const readOnly =
     acquisition.availability?.enabled === false ? readOnlyCopy(acquisition.availability) : null;
   const downloading = acquisition.downloadingCandidateId !== null;
+  const searching = acquisition.searchStatus === 'searching';
   const copy = statusCopy(acquisition, readOnly);
   const retryable = acquisition.searchStatus === 'error' || acquisition.downloadProblem !== null;
 
@@ -219,7 +228,8 @@ export default function SubtitlesTab({ title, movieId, playback }: SubtitlesTabP
         candidates={acquisition.candidates}
         statusId={statusId}
         downloadingId={acquisition.downloadingCandidateId}
-        disabled={readOnly !== null || downloading}
+        disabled={readOnly !== null || downloading || searching}
+        searching={searching}
         onGet={acquisition.getCandidate}
       />
 
