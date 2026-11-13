@@ -1,11 +1,15 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -59,7 +63,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
             CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleMovieNotFoundException>(act);
+        var missingMovie = await Should.ThrowAsync<SubtitleMovieNotFoundException>(act);
+        missingMovie.Message.ShouldBe("The movie is not present in the library.");
         await store.DidNotReceiveWithAnyArgs().EnsurePublishableAsync(
             Arg.Any<LibraryPath>(), Arg.Any<string>(), TestContext.Current.CancellationToken);
         await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
@@ -83,7 +88,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
             CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleStaleCandidateException>(act);
+        var staleCandidate = await Should.ThrowAsync<SubtitleStaleCandidateException>(act);
+        staleCandidate.Message.ShouldBe("The selected subtitle candidate expired or does not belong to this movie.");
         await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
             Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
     }
@@ -103,7 +109,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
             CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleStaleCandidateException>(act);
+        var foreignCandidate = await Should.ThrowAsync<SubtitleStaleCandidateException>(act);
+        foreignCandidate.Message.ShouldBe("The selected subtitle candidate expired or does not belong to this movie.");
         await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
             Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
     }
@@ -122,7 +129,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
             CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleReadOnlyLibraryException>(act);
+        var readOnly = await Should.ThrowAsync<SubtitleReadOnlyLibraryException>(act);
+        readOnly.Message.ShouldBe("Subtitle downloads are disabled for this library.");
         await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
             Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
     }
@@ -141,7 +149,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
             CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleProviderNotConfiguredException>(act);
+        var notConfigured = await Should.ThrowAsync<SubtitleProviderNotConfiguredException>(act);
+        notConfigured.Message.ShouldBe("The subtitle provider acquisition settings are missing or invalid.");
         await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
             Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
     }
@@ -235,7 +244,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
             CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        var invalidPayload = await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        invalidPayload.Message.ShouldBe("The downloaded subtitle is not a valid SRT document.");
         await store.DidNotReceiveWithAnyArgs().PublishToSubsAsync(
             Arg.Any<LibraryPath>(),
             Arg.Any<string>(),
@@ -259,7 +269,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
             CancellationToken.None);
 
         // act + assert
-        await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        var oversize = await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        oversize.Message.ShouldBe("The downloaded subtitle exceeds the configured size bound.");
         await store.DidNotReceiveWithAnyArgs().PublishToSubsAsync(
             Arg.Any<LibraryPath>(),
             Arg.Any<string>(),
@@ -331,7 +342,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
             CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleReadOnlyLibraryException>(act);
+        var ceiling = await Should.ThrowAsync<SubtitleReadOnlyLibraryException>(act);
+        ceiling.Message.ShouldBe("The subtitle could not be published to the Subs folder within the configured attempt ceiling.");
     }
 
     [Fact]
@@ -422,9 +434,242 @@ public sealed class DownloadSubtitleCommandHandlerTests
             CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleStaleCandidateException>(act);
+        var expiredCandidate = await Should.ThrowAsync<SubtitleStaleCandidateException>(act);
+        expiredCandidate.Message.ShouldBe("The selected subtitle candidate expired or does not belong to this movie.");
         await provider.DidNotReceiveWithAnyArgs().DownloadAsync(
             Arg.Any<SubtitleCandidate>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ExactBoundaryPayload_AcceptsTheConfiguredMaximum()
+    {
+        // arrange
+        Arrange();
+        var candidateId = IssueCandidate();
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload(new byte[8], SubtitleQuota.Unknown)));
+        var handler = CreateHandler(maxDownloadBytes: 8);
+        var act = () => handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(MovieIdValue), candidateId),
+            CancellationToken.None);
+
+        // act + assert
+        var boundary = await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        boundary.Message.ShouldBe("The downloaded subtitle is not a valid SRT document.");
+    }
+
+    [Fact]
+    public async Task HandleAsync_EmptyPayload_RefusesTheSizeBound()
+    {
+        // arrange
+        Arrange();
+        var candidateId = IssueCandidate();
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload([], SubtitleQuota.Unknown)));
+        var handler = CreateHandler();
+        var act = () => handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(MovieIdValue), candidateId),
+            CancellationToken.None);
+
+        // act + assert
+        var empty = await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        empty.Message.ShouldBe("The downloaded subtitle exceeds the configured size bound.");
+    }
+
+    [Fact]
+    public async Task HandleAsync_PublishedDefaultMarker_ReturnsDefaultTrack()
+    {
+        // arrange
+        Arrange();
+        var candidateId = IssueCandidate();
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload(SidcarPayload, SubtitleQuota.Unknown)));
+        const string publishedFileName = "Heat.1995.1080p.default.srt";
+        store.PublishToSubsAsync(
+                Arg.Any<LibraryPath>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<ReadOnlyMemory<byte>>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SubtitlePublishResult.Published(publishedFileName)));
+        reader.EnumerateFiles(Arg.Any<LibraryPath>()).Returns([$"Subs/{publishedFileName}"]);
+        var handler = CreateHandler();
+
+        // act
+        var result = await handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(MovieIdValue), candidateId),
+            CancellationToken.None);
+
+        // assert
+        result.Track.Label.ShouldBe("Default");
+        result.Track.Language.ShouldBe("und");
+        result.Track.IsDefault.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task HandleAsync_ValidCandidate_AuthorizesTheLibraryFolder()
+    {
+        // arrange
+        Arrange();
+        var candidateId = IssueCandidate();
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload(SidcarPayload, SubtitleQuota.Unknown)));
+        store.PublishToSubsAsync(
+                Arg.Any<LibraryPath>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<ReadOnlyMemory<byte>>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SubtitlePublishResult.Published("Heat.1995.1080p-en.srt")));
+        var handler = CreateHandler();
+
+        // act
+        await handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(MovieIdValue), candidateId),
+            CancellationToken.None);
+
+        // assert
+        reader.Received(1).AuthorizeFolder(new LibraryPath(MovieFolder));
+    }
+
+    [Fact]
+    public async Task HandleAsync_Success_LogsTheMovieIdAndLanguage()
+    {
+        // arrange
+        Arrange();
+        var candidateId = IssueCandidate();
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload(SidcarPayload, SubtitleQuota.Unknown)));
+        store.PublishToSubsAsync(
+                Arg.Any<LibraryPath>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<ReadOnlyMemory<byte>>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SubtitlePublishResult.Published("Heat.1995.1080p-en.srt")));
+        var recording = new RecordingLogger();
+        var handler = CreateHandler(logger: recording);
+
+        // act
+        await handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(MovieIdValue), candidateId),
+            CancellationToken.None);
+
+        // assert
+        var entry = recording.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Information);
+        entry.Message.ShouldContain(MovieIdValue.ToString());
+        entry.Message.ShouldContain("en");
+    }
+
+    [Fact]
+    public async Task HandleAsync_Success_TagsTheDownloadActivity()
+    {
+        // arrange
+        Arrange();
+        var candidateId = binder.Issue(new MovieId(424242), "en", Candidate(), ReleaseName, SubtitleQuota.Unknown);
+        provider.DownloadAsync(Arg.Any<SubtitleCandidate>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleDownload(SidcarPayload, SubtitleQuota.Unknown)));
+        store.PublishToSubsAsync(
+                Arg.Any<LibraryPath>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<ReadOnlyMemory<byte>>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(SubtitlePublishResult.Published("Heat.1995.1080p-en.srt")));
+        var handler = CreateHandler();
+        using var ambient = StartActivity();
+        var stopped = CaptureStoppedActivities(TelemetryConstants.SubtitleDownload, 424242);
+
+        // act
+        await handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(424242), candidateId),
+            CancellationToken.None);
+
+        // assert
+        var activity = stopped.ShouldHaveSingleItem();
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(424242);
+        activity.GetTagItem(TelemetryConstants.OutcomeTagName).ShouldBe(TelemetryConstants.SucceededOutcome);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ContainmentRefusal_TagsTheDownloadActivityAsAnError()
+    {
+        // arrange
+        Arrange();
+        var candidateId = binder.Issue(new MovieId(424242), "en", Candidate(), ReleaseName, SubtitleQuota.Unknown);
+        store.EnsurePublishableAsync(Arg.Any<LibraryPath>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new LibraryFileAccessDeniedException("outside the authorized library root"));
+        var handler = CreateHandler();
+        using var ambient = StartActivity();
+        var stopped = CaptureStoppedActivities(TelemetryConstants.SubtitleDownload, 424242);
+
+        // act
+        var act = () => handler.HandleAsync(
+            new DownloadSubtitleCommand(new MovieId(424242), candidateId),
+            CancellationToken.None);
+
+        // assert
+        await Should.ThrowAsync<LibraryFileAccessDeniedException>(act);
+        var activity = stopped.ShouldHaveSingleItem();
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(424242);
+        activity.Status.ShouldBe(ActivityStatusCode.Error);
+        activity.GetTagItem(TelemetryConstants.FailureCategoryTagName).ShouldBe(TelemetryConstants.DeniedOutcome);
+    }
+
+    private static Activity StartActivity() => new Activity("test").Start();
+
+    private static List<Activity> CaptureStoppedActivities(string operationName, int movieId)
+    {
+        var stopped = new List<Activity>();
+        var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName,
+            Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == operationName
+                    && Equals(activity.GetTagItem(TelemetryConstants.MovieId), movieId))
+                {
+                    lock (stopped)
+                    {
+                        stopped.Add(activity);
+                    }
+                }
+            },
+        };
+        ActivitySource.AddActivityListener(listener);
+        return stopped;
+    }
+
+    private sealed class RecordingLogger : ILogger<DownloadSubtitleCommandHandler>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NoopScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter) =>
+            Entries.Add((logLevel, formatter(state, exception)));
+
+        private sealed class NoopScope : IDisposable
+        {
+            public static readonly NoopScope Instance = new();
+
+            public void Dispose()
+            {
+            }
+        }
     }
 
     private void Arrange()
@@ -453,7 +698,8 @@ public sealed class DownloadSubtitleCommandHandlerTests
         bool saveEnabled = true,
         bool providerConfigured = true,
         long maxDownloadBytes = SubtitlesOptions.DefaultMaxSubtitleDownloadBytes,
-        int maxAttempts = SubtitlesOptions.DefaultMaxSubtitlePublicationAttempts) =>
+        int maxAttempts = SubtitlesOptions.DefaultMaxSubtitlePublicationAttempts,
+        ILogger<DownloadSubtitleCommandHandler>? logger = null) =>
         new(
             catalog,
             scanner,
@@ -476,7 +722,7 @@ public sealed class DownloadSubtitleCommandHandlerTests
                 MaxSubtitleLineCharacters = 16384,
                 MaxSubtitleOutputBytes = 33554432,
             }),
-            NullLogger<DownloadSubtitleCommandHandler>.Instance);
+            logger ?? NullLogger<DownloadSubtitleCommandHandler>.Instance);
 
     private static Microsoft.Extensions.Options.IOptions<SubtitleProviderOptions> UnconfiguredProviderOptions()
     {

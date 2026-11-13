@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -55,7 +57,8 @@ public sealed class SearchSubtitlesQueryHandlerTests
         var act = () => handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), language), CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleRequestRejectedException>(act);
+        var exception = await Should.ThrowAsync<SubtitleRequestRejectedException>(act);
+        exception.Message.ShouldBe("The requested subtitle language is not a supported language code.");
         await provider.DidNotReceiveWithAnyArgs().SearchAsync(
             Arg.Any<SubtitleSearch>(), TestContext.Current.CancellationToken);
     }
@@ -112,7 +115,8 @@ public sealed class SearchSubtitlesQueryHandlerTests
         var act = () => handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), "en"), CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleMovieNotFoundException>(act);
+        var exception = await Should.ThrowAsync<SubtitleMovieNotFoundException>(act);
+        exception.Message.ShouldBe("The movie is not present in the library.");
         await provider.DidNotReceiveWithAnyArgs().SearchAsync(
             Arg.Any<SubtitleSearch>(), TestContext.Current.CancellationToken);
     }
@@ -128,7 +132,8 @@ public sealed class SearchSubtitlesQueryHandlerTests
         var act = () => handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), "en"), CancellationToken.None);
 
         // assert
-        await Should.ThrowAsync<SubtitleProviderNotConfiguredException>(act);
+        var exception = await Should.ThrowAsync<SubtitleProviderNotConfiguredException>(act);
+        exception.Message.ShouldBe("The subtitle provider acquisition settings are missing or invalid.");
         await provider.DidNotReceiveWithAnyArgs().SearchAsync(
             Arg.Any<SubtitleSearch>(), TestContext.Current.CancellationToken);
     }
@@ -320,6 +325,215 @@ public sealed class SearchSubtitlesQueryHandlerTests
         searches[0].MovieHash.ShouldNotBeNullOrWhiteSpace();
         searches[1].MovieHash.ShouldBeNull();
         searches[1].Title.ShouldBe("Heat");
+    }
+
+    [Fact]
+    public async Task HandleAsync_HashSearchWithCandidates_SkipsTheTitleSearch()
+    {
+        // arrange
+        Arrange();
+        var hashCandidate = new SubtitleCandidate(101, "en", 7, true, "Heat.1995.1080p.BluRay-GROUP");
+        var searches = RecordSearches(new SubtitleSearchResult([hashCandidate], SubtitleQuota.Unknown));
+        var handler = CreateHandler();
+
+        // act
+        var result = await handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), "en"), CancellationToken.None);
+
+        // assert
+        searches.Count.ShouldBe(1);
+        searches[0].MovieHash.ShouldNotBeNullOrWhiteSpace();
+        var candidate = result.Candidates.ShouldHaveSingleItem();
+        candidate.CandidateId.ShouldNotBeNullOrWhiteSpace();
+        candidate.Language.ShouldBe("en");
+        candidate.ReleaseName.ShouldBe("Heat.1995.1080p.BluRay-GROUP");
+        candidate.MatchPercent.ShouldBe(SubtitleMatchScorer.MovieHashMatchPercent);
+        candidate.DownloadCount.ShouldBe(7);
+    }
+
+    [Fact]
+    public async Task HandleAsync_HashSearchEmptyAndMissingTitle_ReturnsEmptyWithoutTitleSearch()
+    {
+        // arrange
+        catalog.GetDetailsAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>()).Returns(new MovieDetails(
+            new MovieId(MovieIdValue),
+            string.Empty,
+            new LibraryPath(MovieFolder),
+            new MediaFormat("mkv"),
+            null,
+            false,
+            false,
+            Review.None,
+            EnrichmentStatus.Enriched));
+        scanner.ResolvePrimaryVideo(Arg.Any<LibraryPath>()).Returns(
+            new PrimaryVideo(new LibraryPath($"{MovieFolder}/{PrimaryFileName}"), new MediaFormat("mkv")));
+        reader.OpenRead(Arg.Any<LibraryPath>()).Returns(new MemoryStream([]));
+        var handler = CreateHandler();
+
+        // act
+        var result = await handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), "en"), CancellationToken.None);
+
+        // assert
+        result.Candidates.ShouldBeEmpty();
+        result.Quota.ShouldBe(SubtitleQuota.Unknown);
+        await provider.DidNotReceiveWithAnyArgs().SearchAsync(
+            Arg.Any<SubtitleSearch>(), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task HandleAsync_NullReleaseName_EmitsEmptyReleaseName()
+    {
+        // arrange
+        Arrange();
+        var searches = RecordSearches(new SubtitleSearchResult(
+            [new SubtitleCandidate(101, "en", 7, true)],
+            SubtitleQuota.Unknown));
+        var handler = CreateHandler();
+
+        // act
+        var result = await handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), "en"), CancellationToken.None);
+
+        // assert
+        searches.Count.ShouldBe(1);
+        result.Candidates.ShouldHaveSingleItem().ReleaseName.ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public async Task HandleAsync_EqualMatchPercents_OrdersByDownloadCount()
+    {
+        // arrange
+        Arrange();
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [
+                    new SubtitleCandidate(101, "en", 1, false, "Heat.1995.1080p.A-GROUP"),
+                    new SubtitleCandidate(202, "en", 99, false, "Heat.1995.1080p.B-GROUP"),
+                ],
+                SubtitleQuota.Unknown)));
+        var handler = CreateHandler();
+
+        // act
+        var result = await handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), "en"), CancellationToken.None);
+
+        // assert
+        result.Candidates.Select(candidate => candidate.DownloadCount).ShouldBe([99, 1]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_DifferingMatchPercents_OrdersByMatchBeforeDownloads()
+    {
+        // arrange
+        Arrange();
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [
+                    new SubtitleCandidate(101, "en", 99, false, "Heat.1995.1080p.B-GROUP"),
+                    new SubtitleCandidate(202, "en", 1, true, "Heat.1995.720p-GROUP"),
+                ],
+                SubtitleQuota.Unknown)));
+        var handler = CreateHandler();
+
+        // act
+        var result = await handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), "en"), CancellationToken.None);
+
+        // assert
+        result.Candidates.Select(candidate => candidate.MatchPercent).ShouldBe(
+        [
+            SubtitleMatchScorer.MovieHashMatchPercent,
+            60,
+        ]);
+        result.Candidates[0].DownloadCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task HandleAsync_EqualMatchAndDownloads_OrdersByReleaseThenCandidateId()
+    {
+        // arrange
+        Arrange();
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new SubtitleSearchResult(
+                [
+                    new SubtitleCandidate(202, "en", 5, false, "Heat.1995.1080p.WEB-GROUP"),
+                    new SubtitleCandidate(101, "en", 5, false, "Heat.1995.1080p.BluRay-GROUP"),
+                ],
+                SubtitleQuota.Unknown)));
+        var handler = CreateHandler();
+
+        // act
+        var result = await handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(MovieIdValue), "en"), CancellationToken.None);
+
+        // assert
+        result.Candidates.Select(candidate => candidate.ReleaseName).ShouldBe(
+        [
+            "Heat.1995.1080p.BluRay-GROUP",
+            "Heat.1995.1080p.WEB-GROUP",
+        ]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_Success_TagsTheProviderLookupActivity()
+    {
+        // arrange
+        Arrange();
+        var searches = RecordSearches(new SubtitleSearchResult([], SubtitleQuota.Unknown));
+        var handler = CreateHandler();
+        using var ambient = StartActivity();
+        var stopped = CaptureStoppedActivities(TelemetryConstants.SubtitleProviderLookup, 424242);
+
+        // act
+        await handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(424242), "en"), CancellationToken.None);
+
+        // assert
+        searches.ShouldNotBeEmpty();
+        var activity = stopped.ShouldHaveSingleItem();
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(424242);
+        activity.GetTagItem(TelemetryConstants.OutcomeTagName).ShouldBe(TelemetryConstants.SucceededOutcome);
+    }
+
+    [Fact]
+    public async Task HandleAsync_Failure_TagsTheProviderLookupActivityAsAnError()
+    {
+        // arrange
+        Arrange();
+        provider.SearchAsync(Arg.Any<SubtitleSearch>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new SubtitleProviderFailureException("unusable search response"));
+        var handler = CreateHandler();
+        using var ambient = StartActivity();
+        var stopped = CaptureStoppedActivities(TelemetryConstants.SubtitleProviderLookup, 424242);
+
+        // act
+        var act = () => handler.HandleAsync(new SearchSubtitlesQuery(new MovieId(424242), "en"), CancellationToken.None);
+
+        // assert
+        await Should.ThrowAsync<SubtitleProviderFailureException>(act);
+        var activity = stopped.ShouldHaveSingleItem();
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(424242);
+        activity.Status.ShouldBe(ActivityStatusCode.Error);
+        activity.GetTagItem(TelemetryConstants.FailureCategoryTagName).ShouldBe(TelemetryConstants.FailedOutcome);
+    }
+
+    private static Activity StartActivity() => new Activity("test").Start();
+
+    private static List<Activity> CaptureStoppedActivities(string operationName, int movieId)
+    {
+        var stopped = new List<Activity>();
+        var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName,
+            Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity =>
+            {
+                if (activity.OperationName == operationName
+                    && Equals(activity.GetTagItem(TelemetryConstants.MovieId), movieId))
+                {
+                    lock (stopped)
+                    {
+                        stopped.Add(activity);
+                    }
+                }
+            },
+        };
+        ActivitySource.AddActivityListener(listener);
+        return stopped;
     }
 
     private List<SubtitleSearch> RecordSearches(SubtitleSearchResult result)

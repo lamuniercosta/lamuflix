@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
 using LamuFlix.Core.Pipeline;
@@ -69,8 +71,37 @@ public sealed class SubtitleTelemetryTests
 
         // assert
         activity.ShouldNotBeNull();
+        activity.GetTagItem(TelemetryConstants.MovieId).ShouldBe(7);
+        activity.GetTagItem(TelemetryConstants.OutcomeTagName).ShouldBe(TelemetryConstants.NotFoundOutcome);
         activity.GetTagItem(TelemetryConstants.FailureCategoryTagName).ShouldBe(TelemetryConstants.NotFoundOutcome);
         activity.Status.ShouldBe(ActivityStatusCode.Error);
+    }
+
+    [Fact]
+    public void Complete_RecordsOutcomeAndDurationMeasurements()
+    {
+        // arrange
+        using var measurements = new MeasurementRecorder();
+
+        // act
+        SubtitleTelemetry.Complete(null, new MovieId(7), "sentinel-outcome", TimeSpan.FromMilliseconds(5));
+
+        // assert
+        measurements.Recorded.ShouldContain((TelemetryConstants.SubtitleOutcomeMetricName, "sentinel-outcome"));
+        measurements.Recorded.ShouldContain((TelemetryConstants.SubtitleDurationMetricName, null));
+    }
+
+    [Fact]
+    public void Fail_RecordsTheFailureOutcomeMeasurement()
+    {
+        // arrange
+        using var measurements = new MeasurementRecorder();
+
+        // act
+        SubtitleTelemetry.Fail(null, new MovieId(7), new InvalidOperationException("sentinel failure"));
+
+        // assert
+        measurements.Recorded.ShouldContain((TelemetryConstants.SubtitleOutcomeMetricName, TelemetryConstants.FailedOutcome));
     }
 
     [Fact]
@@ -121,4 +152,56 @@ public sealed class SubtitleTelemetryTests
             ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName,
             Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
         };
+
+    private sealed class MeasurementRecorder : IDisposable
+    {
+        private readonly MeterListener listener = new();
+
+        internal MeasurementRecorder()
+        {
+            listener.InstrumentPublished = (instrument, publisher) =>
+            {
+                if (instrument.Meter.Name == TelemetryConstants.ActivitySourceName)
+                {
+                    publisher.EnableMeasurementEvents(instrument);
+                }
+            };
+            listener.SetMeasurementEventCallback<long>(RecordOutcome);
+            listener.SetMeasurementEventCallback<double>(RecordDuration);
+            listener.Start();
+        }
+
+        public List<(string Instrument, string? Outcome)> Recorded { get; } = [];
+
+        public void Dispose() => listener.Dispose();
+
+        private void RecordOutcome(Instrument instrument, long value, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
+        {
+            if (instrument.Name == TelemetryConstants.SubtitleOutcomeMetricName)
+            {
+                Recorded.Add((instrument.Name, OutcomeOf(tags)));
+            }
+        }
+
+        private void RecordDuration(Instrument instrument, double value, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
+        {
+            if (instrument.Name == TelemetryConstants.SubtitleDurationMetricName)
+            {
+                Recorded.Add((instrument.Name, null));
+            }
+        }
+
+        private static string? OutcomeOf(ReadOnlySpan<KeyValuePair<string, object?>> tags)
+        {
+            foreach (var tag in tags.ToArray())
+            {
+                if (tag.Key == TelemetryConstants.OutcomeTagName)
+                {
+                    return tag.Value?.ToString();
+                }
+            }
+
+            return null;
+        }
+    }
 }

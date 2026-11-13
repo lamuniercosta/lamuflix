@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Subtitles;
@@ -211,6 +212,136 @@ public sealed class SubtitleCandidateBinderTests
 
         // assert
         Should.Throw<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public void Constructor_NullTimeProvider_ThrowsArgumentNullException()
+    {
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
+        var act = () => { _ = new SubtitleCandidateBinder(null!, new Random(3), () => Ttl, () => SubtitlesCapacity); };
+
+        // assert
+        Should.Throw<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public void Constructor_NullRandom_ThrowsArgumentNullException()
+    {
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
+        var act = () => { _ = new SubtitleCandidateBinder(new MutableTimeProvider(Now), null!, () => Ttl, () => SubtitlesCapacity); };
+
+        // assert
+        Should.Throw<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public void Constructor_NullTokenTtl_ThrowsArgumentNullException()
+    {
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
+        var act = () => { _ = new SubtitleCandidateBinder(new MutableTimeProvider(Now), new Random(3), null!, () => SubtitlesCapacity); };
+
+        // assert
+        Should.Throw<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public void Constructor_NullMaxEntries_ThrowsArgumentNullException()
+    {
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
+        var act = () => { _ = new SubtitleCandidateBinder(new MutableTimeProvider(Now), new Random(3), () => Ttl, null!); };
+
+        // assert
+        Should.Throw<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public void Issue_NullCandidate_ThrowsArgumentNullException()
+    {
+        // arrange
+        var binder = CreateBinder();
+
+        // act
+        // ReSharper disable once NullableWarningSuppressionIsUsed deliberate null exercises the guard
+        var act = () => { _ = binder.Issue(Movie, "pt-BR", null!, "Dune.2021.1080p"); };
+
+        // assert
+        Should.Throw<ArgumentNullException>(act);
+    }
+
+    [Fact]
+    public void TryResolve_ExactlyAtExpiry_ReturnsFalse()
+    {
+        // arrange
+        var clock = new MutableTimeProvider(Now);
+        var binder = CreateBinder(clock);
+        var candidateId = Issue(binder, Movie);
+
+        // act
+        clock.Advance(Ttl);
+        var resolved = binder.TryResolve(candidateId, Movie, out _);
+
+        // assert
+        resolved.ShouldBeFalse();
+        binder.Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Issue_NonPositiveTtl_BindingExpiresImmediately()
+    {
+        // arrange
+        var binder = new SubtitleCandidateBinder(new MutableTimeProvider(Now), new Random(5), () => TimeSpan.Zero, () => SubtitlesCapacity);
+        var candidateId = Issue(binder, Movie);
+
+        // act
+        var resolved = binder.TryResolve(candidateId, Movie, out _);
+
+        // assert
+        resolved.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Issue_AfterTwoExpirations_PurgesBothExpiredBindings()
+    {
+        // arrange
+        var clock = new MutableTimeProvider(Now);
+        var binder = CreateBinder(clock);
+        var first = Issue(binder, Movie);
+        var second = Issue(binder, Movie);
+
+        // act
+        clock.Advance(Ttl);
+        var third = Issue(binder, Movie);
+
+        // assert
+        binder.Count.ShouldBe(1);
+        binder.TryResolve(first, Movie, out _).ShouldBeFalse();
+        binder.TryResolve(second, Movie, out _).ShouldBeFalse();
+        binder.TryResolve(third, Movie, out _).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Issue_BeyondCapacity_EvictsEarliestExpiryRatherThanEarliestIssued()
+    {
+        // arrange
+        var clock = new MutableTimeProvider(Now);
+        var ttls = new Queue<TimeSpan>([TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(10)]);
+        var binder = new SubtitleCandidateBinder(clock, new Random(7), () => ttls.Dequeue(), () => 2);
+        var latestExpiry = Issue(binder, Movie);
+        var earliestExpiry = Issue(binder, Movie);
+
+        // act
+        clock.Advance(TimeSpan.FromSeconds(1));
+        var third = Issue(binder, Movie);
+
+        // assert
+        binder.Count.ShouldBe(2);
+        binder.TryResolve(latestExpiry, Movie, out _).ShouldBeTrue();
+        binder.TryResolve(earliestExpiry, Movie, out _).ShouldBeFalse();
+        binder.TryResolve(third, Movie, out _).ShouldBeTrue();
     }
 
     private static SubtitleCandidateBinder CreateBinder(TimeProvider? clock = null) =>
