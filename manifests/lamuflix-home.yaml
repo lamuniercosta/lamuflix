@@ -132,6 +132,21 @@ kind: Service
 metadata:
   labels:
     app.kubernetes.io/part-of: lamuflix-home
+  name: postgres
+  namespace: lamuflix-home
+spec:
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+  selector:
+    app.kubernetes.io/name: postgres
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
   name: rabbitmq
   namespace: lamuflix-home
 spec:
@@ -195,7 +210,7 @@ spec:
               key: apiKey
               name: tmdb-credentials
               optional: true
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:52df3a3d3a66cda35e97b16ef2cbc79d1326db5e18f6267c20620f1c8c2a8827
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:4c1091f5084d3a5f040a56e988717664f0fcc4c0812d6bb7115ddd5954e2430b
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -237,11 +252,11 @@ spec:
         - /bin/bash
         - -c
         - |
-          for h in rabbitmq:5672; do
+          for h in postgres:5432 rabbitmq:5672; do
             until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
           done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:52df3a3d3a66cda35e97b16ef2cbc79d1326db5e18f6267c20620f1c8c2a8827
-        name: wait-rabbitmq
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:4c1091f5084d3a5f040a56e988717664f0fcc4c0812d6bb7115ddd5954e2430b
+        name: wait-postgres-rabbitmq
         resources:
           limits:
             memory: 64Mi
@@ -252,7 +267,7 @@ spec:
         - -c
         - |
           until (exec 3<>/dev/tcp/ollama/11434 && printf 'GET /api/tags HTTP/1.1\r\nHost: ollama\r\nConnection: close\r\n\r\n' >&3 && timeout 5 cat <&3 | grep -q all-minilm); do sleep 3; done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:52df3a3d3a66cda35e97b16ef2cbc79d1326db5e18f6267c20620f1c8c2a8827
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:4c1091f5084d3a5f040a56e988717664f0fcc4c0812d6bb7115ddd5954e2430b
         name: wait-ollama-model
         resources:
           limits:
@@ -338,7 +353,7 @@ spec:
         app.kubernetes.io/part-of: lamuflix-home
     spec:
       containers:
-      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:c41ff36bcd00cf937a3dfb75bc22e237b8949a2e466098692d666d0c69bdf6e8
+      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:eedad9a2a6fdb578a731ac2c263fb6c99da6b90518d824330e7be51ca128bb88
         livenessProbe:
           httpGet:
             path: /
@@ -442,6 +457,81 @@ spec:
       resources:
         requests:
           storage: 2Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    app.kubernetes.io/part-of: lamuflix-home
+  name: postgres
+  namespace: lamuflix-home
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  serviceName: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: lamuflix-home
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: lamuflix
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_USER
+              name: postgres-credentials
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_PASSWORD
+              name: postgres-credentials
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        image: pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        name: postgres
+        ports:
+        - containerPort: 5432
+          name: postgres
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          limits:
+            memory: 1Gi
+          requests:
+            memory: 512Mi
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: data
+  volumeClaimTemplates:
+  - metadata:
+      labels:
+        app.kubernetes.io/part-of: lamuflix-home
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
 ---
 apiVersion: apps/v1
 kind: StatefulSet
