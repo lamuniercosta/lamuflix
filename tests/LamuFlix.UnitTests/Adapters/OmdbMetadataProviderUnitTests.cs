@@ -24,6 +24,8 @@ public sealed class OmdbMetadataProviderUnitTests
 {
     private static readonly DateTimeOffset Now = new(2026, 3, 4, 5, 6, 7, TimeSpan.Zero);
 
+    private const string RequestLimitBody = """{ "Response": "False", "Error": "Request limit reached!" }""";
+
     private const string RichBody = """
         {
           "Response": "True",
@@ -181,6 +183,32 @@ public sealed class OmdbMetadataProviderUnitTests
     {
         // arrange
         var provider = Provider(new StubHandler(HttpStatusCode.Unauthorized, string.Empty));
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.InvalidResponse);
+    }
+
+    [Fact]
+    public async Task FindAsync_UnauthorizedWithRequestLimitBody_ReturnsQuotaExhausted()
+    {
+        // arrange
+        var provider = Provider(new StubHandler(HttpStatusCode.Unauthorized, RequestLimitBody));
+
+        // act
+        var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        result.ShouldBeOfType<MetadataLookupResult.Failed>().Category.ShouldBe(EnrichmentFailureCategory.QuotaExhausted);
+    }
+
+    [Fact]
+    public async Task FindAsync_UnauthorizedWithInvalidKeyBody_ReturnsInvalidResponse()
+    {
+        // arrange
+        var provider = Provider(new StubHandler(HttpStatusCode.Unauthorized, """{ "Response": "False", "Error": "Invalid API key!" }"""));
 
         // act
         var result = await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
@@ -802,6 +830,35 @@ public sealed class OmdbMetadataProviderUnitTests
 
         // assert
         Health(state).ShouldBe((EnrichmentFailureCategory.InvalidResponse, true));
+    }
+
+    [Fact]
+    public async Task FindAsync_UnauthorizedWithRequestLimitBody_DoesNotRecordUnauthorizedState()
+    {
+        // arrange
+        var state = new MetadataProviderHealthState();
+        var provider = Provider(new StubHandler(HttpStatusCode.Unauthorized, RequestLimitBody), state);
+
+        // act
+        await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        Health(state).ShouldBe((EnrichmentFailureCategory.QuotaExhausted, false));
+    }
+
+    [Fact]
+    public async Task FindAsync_UnauthorizedWithRequestLimitBody_LogsDailyLimitNotInvalidKey()
+    {
+        // arrange
+        var logger = new CapturingLogger();
+        var provider = Provider(new StubHandler(HttpStatusCode.Unauthorized, RequestLimitBody), logger);
+
+        // act
+        await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+
+        // assert
+        logger.Messages.ShouldContain(message => message.Contains("daily request limit", StringComparison.Ordinal));
+        logger.Messages.ShouldNotContain(message => message.Contains("Check the OMDb API key", StringComparison.Ordinal));
     }
 
     [Fact]
