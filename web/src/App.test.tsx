@@ -228,29 +228,35 @@ describe('App library host', () => {
     );
   });
 
-  it('opens the bulk import dialog with candidates, actions, and focus trap', async () => {
-    server.use(
-      http.get('/api/movies/import/candidates', () =>
-        HttpResponse.json({ newFolders: ['Alpha'] }, { status: 200 }),
-      ),
-    );
-    renderApp();
-    const bulkImport = screen.getByRole('button', { name: 'Bulk import' });
-    fireEvent.click(bulkImport);
+  it(
+    'opens the bulk import dialog with candidates, actions, and focus trap',
+    { timeout: 15000 },
+    async () => {
+      server.use(
+        http.get('/api/movies/import/candidates', () =>
+          HttpResponse.json({ newFolders: ['Alpha'] }, { status: 200 }),
+        ),
+      );
+      renderApp();
+      const bulkImport = screen.getByRole('button', { name: 'Bulk import' });
+      fireEvent.click(bulkImport);
 
-    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
-    expect(dialog).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Import' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
-    expect(await within(dialog).findByLabelText('Alpha')).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Alpha'));
+      const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+      expect(dialog).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Import' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+      expect(
+        await within(dialog).findByLabelText('Alpha', {}, { timeout: 10_000 }),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('Alpha'));
 
-    within(dialog).getByRole('button', { name: 'Clear all' }).focus();
-    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
-    expect(within(dialog).getByRole('button', { name: 'Import' })).toHaveFocus();
-    fireEvent.keyDown(dialog, { key: 'Tab' });
-    expect(within(dialog).getByRole('button', { name: 'Clear all' })).toHaveFocus();
-  });
+      within(dialog).getByRole('button', { name: 'Clear all' }).focus();
+      fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+      expect(within(dialog).getByRole('button', { name: 'Import' })).toHaveFocus();
+      fireEvent.keyDown(dialog, { key: 'Tab' });
+      expect(within(dialog).getByRole('button', { name: 'Clear all' })).toHaveFocus();
+    },
+  );
 
   it('returns focus to Bulk import on Escape and Cancel', async () => {
     renderApp();

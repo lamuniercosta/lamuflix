@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Threading;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using Microsoft.Extensions.Hosting;
@@ -16,6 +17,8 @@ public sealed class ThumbnailCache
     private const string CanonicalExtension = ".jpg";
     private const int TemporaryNameLength = 32;
     private const int StreamBufferSize = 4096;
+    private const int OpenAttempts = 3;
+    private static readonly TimeSpan OpenRetryDelay = TimeSpan.FromMilliseconds(10);
 
     private readonly string cacheRoot;
 
@@ -37,24 +40,37 @@ public sealed class ThumbnailCache
             return false;
         }
 
-        FileStream? candidate = null;
-        try
+        for (var attempt = 1; ; attempt++)
         {
-            candidate = OpenSharedRead(canonicalPath);
-            if (!HasJpegSoi(candidate))
+            FileStream? candidate = null;
+            try
             {
-                candidate.Dispose();
+                candidate = OpenSharedRead(canonicalPath);
+                if (!HasJpegSoi(candidate))
+                {
+                    candidate.Dispose();
+                    return false;
+                }
+
+                candidate.Position = 0;
+                stream = candidate;
+                return true;
+            }
+            catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+            {
+                candidate?.Dispose();
                 return false;
             }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                candidate?.Dispose();
+                if (attempt >= OpenAttempts)
+                {
+                    return false;
+                }
 
-            candidate.Position = 0;
-            stream = candidate;
-            return true;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            candidate?.Dispose();
-            return false;
+                Thread.Sleep(OpenRetryDelay);
+            }
         }
     }
 

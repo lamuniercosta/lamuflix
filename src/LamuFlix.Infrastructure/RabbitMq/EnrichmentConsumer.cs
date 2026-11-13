@@ -36,6 +36,8 @@ public sealed class EnrichmentConsumer(
     private const string FailureAttemptHeader = "x-lamuflix-failure-attempt";
     private const string NonRetryableReason = "non_retryable";
     private const string MaxAttemptsExhaustedReason = "max_attempts_exhausted";
+    private const int ThumbnailPublishAttempts = 3;
+    private static readonly TimeSpan ThumbnailPublishRetryDelay = TimeSpan.FromMilliseconds(100);
 
     private static readonly ActivitySource Source = new(TelemetryConstants.ActivitySourceName);
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
@@ -318,9 +320,31 @@ public sealed class EnrichmentConsumer(
             return;
         }
 
-        await thumbnailPublisher.PublishAsync(
-            new ThumbnailRequested(movie.Id, publishPath),
-            cancellationToken);
+        await PublishThumbnailWithRetryAsync(new ThumbnailRequested(movie.Id, publishPath), request, cancellationToken);
+    }
+
+    private async Task PublishThumbnailWithRetryAsync(
+        ThumbnailRequested message,
+        EnrichmentRequested request,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await thumbnailPublisher.PublishAsync(message, cancellationToken);
+                return;
+            }
+            catch (Exception exception) when (attempt < ThumbnailPublishAttempts)
+            {
+                logger.LogWarning(
+                    exception,
+                    "Thumbnail publish for {MovieId} attempt {Attempt} failed transiently and will be retried",
+                    request.MovieId.Value,
+                    attempt);
+                await Task.Delay(ThumbnailPublishRetryDelay, cancellationToken);
+            }
+        }
     }
 
     private string? ResolveThumbnailPublishPath(
