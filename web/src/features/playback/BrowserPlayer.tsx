@@ -144,10 +144,11 @@ export default function BrowserPlayer({
   const selectionTrackId = selection?.trackId ?? null;
   const options = useSubtitleOptions({
     movieId,
-    trackId: showTrack ? selectionTrackId : null,
+    trackId: selectionTrackId,
     storage: readLocalStorage,
   });
   const timingEnabled = showTrack;
+  const delayEnabled = selectionTrackId !== null;
   const [mediaElement, setMediaElement] = useState<HTMLVideoElement | null>(null);
   const [surfaceWidthPx, setSurfaceWidthPx] = useState(DEFAULT_SURFACE_WIDTH_PX);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -418,11 +419,11 @@ export default function BrowserPlayer({
       else if (event.key === 'g' || event.key === 'G') direction = 'earlier';
       if (direction === null) return false;
       event.preventDefault();
-      if (!timingEnabled || !mediaElement || mediaElement.paused) return true;
+      if (!delayEnabled || !mediaElement || mediaElement.paused) return true;
       options.adjustDelay(direction, event.shiftKey);
       return true;
     },
-    [mediaElement, options, timingEnabled],
+    [delayEnabled, mediaElement, options],
   );
 
   const handleSeekKey = useCallback(
