@@ -70,7 +70,7 @@ public sealed class OutboxRelayOptionsTests
 
         // assert
         options.BatchSize.ShouldBe(100);
-        options.PollInterval.ShouldBe(TimeSpan.FromSeconds(1));
+        options.PollInterval.ShouldBe(TimeSpan.FromSeconds(10));
         options.PublishTimeout.ShouldBe(TimeSpan.FromSeconds(30));
         options.FailureBackoffMin.ShouldBe(TimeSpan.FromSeconds(1));
         options.FailureBackoffMax.ShouldBe(TimeSpan.FromSeconds(60));

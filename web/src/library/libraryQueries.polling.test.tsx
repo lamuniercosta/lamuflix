@@ -347,9 +347,12 @@ describe('event and mutation reconciliation without polling', () => {
     browse.setServerStatus('Enriched');
     hub.publish({ id: 3, enrichmentStatus: 'Enriched' });
 
-    await waitFor(() => {
-      expect(browse.calls()).toBeGreaterThan(1);
-    });
+    await waitFor(
+      () => {
+        expect(browse.calls()).toBeGreaterThan(1);
+      },
+      { timeout: 5000 },
+    );
     releaseRetry?.();
     await settle(browse);
 

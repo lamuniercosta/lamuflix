@@ -12,7 +12,7 @@ public sealed record EnrichmentOptions
     [Range(1, int.MaxValue)]
     public int MaxAttempts { get; init; } = 3;
 
-    public TimeSpan SweepInterval { get; init; }
+    public TimeSpan SweepInterval { get; init; } = TimeSpan.FromMinutes(5);
 
     public TimeSpan ClaimLease { get; init; }
 }

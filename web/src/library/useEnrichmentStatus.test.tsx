@@ -432,16 +432,88 @@ describe('useEnrichmentStatus event cache updates', () => {
       expect(readPage(client, standingPageKey)?.items[0].enrichmentStatus).toBe(status);
       expect(readPage(client, filteredPageKey)?.items[0].enrichmentStatus).toBe(status);
       expect(readPage(client, standingPageKey)?.items[1].enrichmentStatus).toBe('Enriched');
-      expect(isInvalidated(client, standingPageKey)).toBe(true);
-      expect(isInvalidated(client, filteredPageKey)).toBe(true);
       expect(listener).toHaveBeenCalledWith({
         kind: 'event',
         payload: { id: 1, enrichmentStatus: status },
       });
     }
 
+    await advance(999);
+    expect(isInvalidated(client, standingPageKey)).toBe(false);
+    expect(isInvalidated(client, filteredPageKey)).toBe(false);
+    await advance(1);
+    expect(isInvalidated(client, standingPageKey)).toBe(true);
+    expect(isInvalidated(client, filteredPageKey)).toBe(true);
+
     unmount();
     await advance(0);
+  });
+
+  it('coalesces a burst of enrichment events into a single browse refetch', async () => {
+    const client = createClient();
+    let fetches = 0;
+    const queryFn = async () => {
+      fetches += 1;
+      return browsePage([browseRow(1, 'Enriched')]);
+    };
+    const hub = createFakeHub();
+    const { unmount } = renderHub(hub.factory, client);
+    await advance(0);
+    const observer = new QueryObserver(client, {
+      queryKey: standingPageKey,
+      queryFn,
+      retry: false,
+    });
+    const unsubscribeObserver = observer.subscribe(() => {});
+    expect(fetches).toBe(1);
+
+    for (const id of [1, 2, 3]) {
+      await act(async () => {
+        emitEvent(hub.connections, { id, enrichmentStatus: 'Enriched' });
+      });
+      await advance(300);
+    }
+
+    expect(fetches).toBe(1);
+    await advance(1000);
+    expect(fetches).toBe(2);
+    await advance(5000);
+    expect(fetches).toBe(2);
+
+    unsubscribeObserver();
+    unmount();
+    await advance(0);
+    expectCleanTeardown(hub.connections);
+  });
+
+  it('drops a pending debounced browse refetch on cleanup', async () => {
+    const client = createClient();
+    let fetches = 0;
+    const queryFn = async () => {
+      fetches += 1;
+      return browsePage([browseRow(1, 'Enriched')]);
+    };
+    const hub = createFakeHub();
+    const { unmount } = renderHub(hub.factory, client);
+    await advance(0);
+    const observer = new QueryObserver(client, {
+      queryKey: standingPageKey,
+      queryFn,
+      retry: false,
+    });
+    const unsubscribeObserver = observer.subscribe(() => {});
+    expect(fetches).toBe(1);
+
+    await act(async () => {
+      emitEvent(hub.connections, { id: 1, enrichmentStatus: 'Enriched' });
+    });
+    unmount();
+    await advance(5000);
+
+    expect(fetches).toBe(1);
+
+    unsubscribeObserver();
+    expectCleanTeardown(hub.connections);
   });
 
   it('ignores the malformed payload matrix without patching or invalidating browse caches', async () => {
@@ -483,6 +555,7 @@ describe('useEnrichmentStatus event cache updates', () => {
     expect(readPage(client, standingPageKey)).toBe(seeded);
     expect(isInvalidated(client, standingPageKey)).toBe(false);
     expect(listener).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
 
     unmount();
     await advance(0);
@@ -584,6 +657,8 @@ describe('useEnrichmentStatus event cache updates', () => {
     await act(async () => {
       emitEvent(hub.connections, { id: 1, enrichmentStatus: 'Enriched' });
     });
+    expect(pendingResponses).toHaveLength(1);
+    await advance(1000);
     expect(pendingResponses).toHaveLength(2);
 
     await act(async () => {
@@ -617,7 +692,8 @@ describe('useEnrichmentStatus event cache updates', () => {
     await act(async () => {
       emitEvent(hub.connections, { id: 1, enrichmentStatus: 'Enriched' });
     });
-    await advance(0);
+    expect(readPage(client, standingPageKey)?.items[0].enrichmentStatus).toBe('Enriched');
+    await advance(1000);
 
     expect(readPage(client, standingPageKey)?.items[0].enrichmentStatus).toBe('Enriched');
     expect(client.getQueryState(standingPageKey)?.status).toBe('error');

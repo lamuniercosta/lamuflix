@@ -39,6 +39,7 @@ const ENRICHMENT_STATUS_EVENT = 'EnrichmentStatusChanged';
 const ENRICHMENT_HUB_PATH = '/hubs/enrichment';
 const BROWSE_MOVIES_QUERY_KEY = ['browseMovies'] as const;
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16000, 30000] as const;
+const BROWSE_INVALIDATE_DEBOUNCE_MS = 1000;
 
 const enrichmentStatusChangedSchema = z.object({
   id: z.number().int().finite(),
@@ -130,12 +131,34 @@ export function useEnrichmentStatus(
     let connection: EnrichmentHubConnection | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let retryAttempt = 0;
+    let invalidateTimer: ReturnType<typeof setTimeout> | null = null;
 
     const clearRetry = () => {
       if (retryTimer !== null) {
         clearTimeout(retryTimer);
         retryTimer = null;
       }
+    };
+
+    const clearDebouncedInvalidate = () => {
+      if (invalidateTimer !== null) {
+        clearTimeout(invalidateTimer);
+        invalidateTimer = null;
+      }
+    };
+
+    const scheduleDebouncedBrowseInvalidate = () => {
+      if (disposed) {
+        return;
+      }
+      clearDebouncedInvalidate();
+      invalidateTimer = setTimeout(() => {
+        invalidateTimer = null;
+        if (disposed) {
+          return;
+        }
+        invalidateBrowse(queryClient);
+      }, BROWSE_INVALIDATE_DEBOUNCE_MS);
     };
 
     const shutdown = (target: EnrichmentHubConnection) => {
@@ -166,7 +189,7 @@ export function useEnrichmentStatus(
         { queryKey: BROWSE_MOVIES_QUERY_KEY },
         (current) => patchBrowseEnrichmentStatus(current, event),
       );
-      invalidateBrowse(queryClient);
+      scheduleDebouncedBrowseInvalidate();
       publish({ kind: 'event', payload: event });
     };
 
@@ -230,6 +253,7 @@ export function useEnrichmentStatus(
     return () => {
       disposed = true;
       clearRetry();
+      clearDebouncedInvalidate();
       registry.listeners.clear();
       const current = connection;
       connection = null;
