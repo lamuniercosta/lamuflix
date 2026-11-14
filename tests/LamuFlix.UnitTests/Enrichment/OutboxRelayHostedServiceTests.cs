@@ -115,7 +115,7 @@ public sealed class OutboxRelayHostedServiceTests
     }
 
     [Fact]
-    public async Task RelayPass_PoisonOldestRowBlocksLaterRowsAndRecoversThroughAFreshScope()
+    public async Task RelayPass_MarksAPoisonOldestRowProcessedAndRelaysTheLaterRow()
     {
         // arrange
         await using var harness = OutboxRelayHarness.Create();
@@ -125,17 +125,15 @@ public sealed class OutboxRelayHostedServiceTests
         worker.Read = _ => Task.FromResult<IReadOnlyList<OutboxMessageRecord>>([poison, later]);
 
         // act
-        var firstOutcome = await worker.RunPassAsync(TestContext.Current.CancellationToken);
-        var secondOutcome = await worker.RunPassAsync(TestContext.Current.CancellationToken);
+        var outcome = await worker.RunPassAsync(TestContext.Current.CancellationToken);
 
         // assert
-        firstOutcome.ShouldBe(OutboxRelayPassResult.Failed);
-        secondOutcome.ShouldBe(OutboxRelayPassResult.Failed);
-        harness.Published.ShouldBeEmpty();
-        worker.SavedRows.ShouldBeEmpty();
-        worker.ReadCalls.ShouldBe(2);
-        worker.ScopedProviders.Distinct().Count().ShouldBe(2);
-        later.ProcessedAt.ShouldBeNull();
+        outcome.ShouldBe(OutboxRelayPassResult.Succeeded);
+        harness.Published.Select(message => message.MovieId.Value).ShouldBe([22]);
+        worker.SavedRows.ShouldBe([1L, 2L]);
+        harness.Logs.Entries.ShouldContain(entry =>
+            entry.Message.Contains("row 1", StringComparison.Ordinal)
+            && entry.Message.Contains("poisoned", StringComparison.Ordinal));
     }
 
     private static Task<IReadOnlyList<OutboxMessageRecord>> FailReadAsync() =>

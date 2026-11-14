@@ -310,6 +310,35 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
     }
 
     [Fact]
+    public async Task RelayPass_MarksACorruptRowDeadAndStillPublishesTheFollowingValidRow()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var corrupt = await InsertCorruptRowAsync(StartedAt.AddMinutes(1), cancellationToken);
+        var valid = await InsertRowAsync(StartedAt.AddMinutes(2), movieId: 100, cancellationToken: cancellationToken);
+        await using var provider = CreateRelayProvider();
+        var worker = CreateWorker(provider);
+
+        // act
+        var pass = await worker.RunPassAsync(cancellationToken);
+
+        // assert
+        pass.ShouldBe(OutboxRelayPassResult.Succeeded);
+        (await ReadProcessedAtAsync(corrupt, cancellationToken)).ShouldBe(StartedAt);
+        (await ReadProcessedAtAsync(valid, cancellationToken)).ShouldBe(StartedAt);
+        var delivered = await DrainAsync(1, cancellationToken);
+        delivered.ShouldHaveSingleItem().ShouldBe(new EnrichmentRequested(new MovieId(100), 1));
+
+        // act
+        var secondPass = await worker.RunPassAsync(cancellationToken);
+
+        // assert
+        secondPass.ShouldBe(OutboxRelayPassResult.Succeeded);
+        (await probe.DeclarePassiveAsync(RabbitMqTopology.RequestedQueue, cancellationToken)).MessageCount.ShouldBe(0u);
+        (await ReadProcessedAtAsync(corrupt, cancellationToken)).ShouldBe(StartedAt);
+    }
+
+    [Fact]
     public async Task ImportCutover_BrokerDownAtRequestThenRecoveryCommitsDurablyAndRelaysWithParity()
     {
         // arrange
@@ -569,6 +598,19 @@ public sealed class OutboxRelayTests(PostgresFixture postgres, RabbitMqFixture r
                 SerializerOptions),
             CreatedAt = createdAt,
             ProcessedAt = processedAt,
+        };
+        context.OutboxMessages.Add(record);
+        await context.SaveChangesAsync(cancellationToken);
+        return record.Id;
+    }
+
+    private async Task<long> InsertCorruptRowAsync(DateTimeOffset createdAt, CancellationToken cancellationToken)
+    {
+        await using var context = postgres.CreateMigratedContext();
+        var record = new OutboxMessageRecord
+        {
+            Payload = "{\"movieId\":\"not-a-movie-id\"}"u8.ToArray(),
+            CreatedAt = createdAt,
         };
         context.OutboxMessages.Add(record);
         await context.SaveChangesAsync(cancellationToken);
