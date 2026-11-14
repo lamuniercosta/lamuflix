@@ -26,11 +26,18 @@
   min-width: 0;
 }
 
+.library-tag-list > li {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .lamu-tag {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   height: 2.125rem;
+  max-width: 100%;
+  min-width: 0;
   padding-left: 0.75rem;
   background-color: var(--color-rule);
   color: var(--color-ink);
@@ -40,6 +47,7 @@
 }
 
 .lamu-tag-kind {
+  flex: none;
   font-family: var(--font-wordmark);
   font-size: 0.9375rem;
   font-weight: 600;
@@ -49,6 +57,9 @@
 }
 
 .lamu-tag-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
