@@ -1,5 +1,4 @@
 using System;
-using FsCheck;
 using FsCheck.Xunit;
 using LamuFlix.Core.Domain;
 

@@ -1,4 +1,3 @@
-using System;
 using LamuFlix.Core.Domain;
 
 namespace LamuFlix.UnitTests.Domain;
