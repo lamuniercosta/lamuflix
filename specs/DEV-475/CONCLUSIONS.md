@@ -104,3 +104,14 @@ Authoritative facts: recon-DEV-475, HEAD e06587031dae1d974a41ee98e7b23aa29110712
 
 **Rationale and implications:** Adding an unverified `@eslint/compat` dependency or forcing peer overrides on an unsupported ESLint 10 pairing risks brittle lint gates and violates Q6's "repo-compatible version" requirement; splitting to a follow-up is explicitly authorized by the ticket's Done-when clause (`recon-DEV-475` line 38), so no owner checkbox is needed. Rigger is asked to create the jsx-a11y follow-up ticket under DEV-490. With jsx-a11y deferred, the unavailable rule-by-file violation inventory (`recon-DEV-475` lines 18–20) is no longer a prerequisite for DEV-475 plan freeze. The ratified sibling component names and state boundaries from `recon-DEV-475` lines 23–25 satisfy the Q3/Q9 component-seam prerequisite.
 
+---
+
+## Q11 — Navigation sibling naming
+
+**Keel question:** [from Keel] DEV-475 navigation sibling naming decision: Conductor requests settled naming in the synchronized brief and ADR. Q2 settles ownership beside useAppNavigation, but Q10 and current recon do not name that sibling. Recommend web/src/features/app-navigation/appNavigation.ts for shared openMovie and the shared programmatic push/replace notification/subscription mechanism, with useAppNavigation.ts retaining React route-state subscription and native Back/Forward handling. This is a filename decision within Q2 existing feature-local boundary, with no new layer or dependency. Basis Q2/Q3 and PRODUCT section 5. Please confirm this exact path or supply the settled alternative, and record the cited ruling in CONCLUSIONS.md. Report back to Keel when recorded.
+
+**Patron answer:** Confirmed: name the feature-local imperative navigation sibling `web/src/features/app-navigation/appNavigation.ts` to own shared `openMovie` and the shared programmatic `pushState`/`replaceState` subscriber-notification mechanism, while `web/src/features/app-navigation/useAppNavigation.ts` retains React route-state subscription and native browser Back/Forward `popstate` handling (basis: Q2 and Q3 rulings in `specs/DEV-475/CONCLUSIONS.md`; `recon-DEV-475` lines 13, 21, and 37–38; `specs/PRODUCT.md` lines 18–19 and §5 lines 43–44).
+
+**Rationale and implications:** `web/src/features/app-navigation/appNavigation.ts` sits directly alongside `useAppNavigation.ts` within the existing `app-navigation` feature directory, introducing no new folder, architectural layer, or dependency. Brief, ADR 0042, spec, plan, and tasks may reference this exact path as the settled imperative navigation module.
+
+
