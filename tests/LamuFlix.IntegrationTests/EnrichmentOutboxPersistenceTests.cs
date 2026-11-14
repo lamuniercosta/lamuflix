@@ -203,6 +203,90 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
     }
 
     [Fact]
+    public async Task MatchImdbIdHandler_OnPathA_CommitsManualMatchAndOutboxTogether()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var timeProvider = new FixedTimeProvider(StagedAt);
+        var id = await SeedNotFoundMovieAsync(timeProvider, "Match Atomic", cancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        var handler = new MatchMovieImdbIdCommandHandler(
+            CreateRepository(context, timeProvider),
+            new EfEnrichmentOutbox(context, timeProvider));
+
+        // act
+        var matched = await handler.HandleAsync(
+            new MatchMovieImdbIdCommand(id, new ImdbId("tt0083658")),
+            cancellationToken);
+
+        // assert
+        matched.ShouldBe(id);
+        await using var verification = fixture.CreateMigratedContext();
+        var storedMovie = await CreateRepository(verification, timeProvider).GetAsync(id, cancellationToken);
+        storedMovie.ShouldNotBeNull();
+        storedMovie.ManualImdbId.ShouldBe(new ImdbId("tt0083658"));
+        storedMovie.Status.ShouldBe(EnrichmentStatus.Pending);
+        var stored = await verification.OutboxMessages.AsNoTracking().SingleAsync(cancellationToken);
+        stored.CreatedAt.ShouldBe(StagedAt);
+        stored.ProcessedAt.ShouldBeNull();
+        var roundTripped = JsonSerializer.Deserialize<EnrichmentRequested>(stored.Payload, WebDefaults);
+        roundTripped.ShouldNotBeNull();
+        roundTripped.MovieId.ShouldBe(id);
+        roundTripped.Attempt.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task MatchImdbIdHandler_WhenTheOutboxInsertFails_RollsBackTheManualMatch()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var timeProvider = new FixedTimeProvider(StagedAt);
+        var id = await SeedNotFoundMovieAsync(timeProvider, "Match Rollback", cancellationToken);
+        await using var context = CreateContextWithOutboxInsertFailure();
+        var handler = new MatchMovieImdbIdCommandHandler(
+            CreateRepository(context, timeProvider),
+            new EfEnrichmentOutbox(context, timeProvider));
+
+        // act
+        await Should.ThrowAsync<DbUpdateException>(
+            () => handler.HandleAsync(new MatchMovieImdbIdCommand(id, new ImdbId("tt0083658")), cancellationToken));
+
+        // assert
+        await using var verification = fixture.CreateMigratedContext();
+        var storedMovie = await CreateRepository(verification, timeProvider).GetAsync(id, cancellationToken);
+        storedMovie.ShouldNotBeNull();
+        storedMovie.ManualImdbId.ShouldBeNull();
+        storedMovie.Status.ShouldBe(EnrichmentStatus.NotFound);
+        (await verification.OutboxMessages.AsNoTracking().CountAsync(cancellationToken)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task MatchImdbIdHandler_WhenAnAmbientTransactionRollsBack_LeavesNoManualMatchAndNoOutboxRow()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var timeProvider = new FixedTimeProvider(StagedAt);
+        var id = await SeedNotFoundMovieAsync(timeProvider, "Match Ambient Rollback", cancellationToken);
+        await using var context = fixture.CreateMigratedContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var handler = new MatchMovieImdbIdCommandHandler(
+            CreateRepository(context, timeProvider),
+            new EfEnrichmentOutbox(context, timeProvider));
+        await handler.HandleAsync(new MatchMovieImdbIdCommand(id, new ImdbId("tt0083658")), cancellationToken);
+
+        // act
+        await transaction.RollbackAsync(cancellationToken);
+
+        // assert
+        await using var verification = fixture.CreateMigratedContext();
+        var storedMovie = await CreateRepository(verification, timeProvider).GetAsync(id, cancellationToken);
+        storedMovie.ShouldNotBeNull();
+        storedMovie.ManualImdbId.ShouldBeNull();
+        storedMovie.Status.ShouldBe(EnrichmentStatus.NotFound);
+        (await verification.OutboxMessages.AsNoTracking().CountAsync(cancellationToken)).ShouldBe(0);
+    }
+
+    [Fact]
     public async Task RequestEnrichmentHandler_OnPathA_CommitsMovieStateAndOutboxTogether()
     {
         // arrange
