@@ -3,7 +3,8 @@ import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'rea
 import { AlertTriangleIcon } from '../ui/icons';
 import {
   BULK_IMPORT_REASON_TEXT,
-  GENERIC_BULK_IMPORT_ERROR,
+  bulkImportErrorMessage,
+  EMPTY_BULK_IMPORT_SELECTION,
   invalidateBrowseMovies,
   invalidateImportSources,
   useFailedEnrichmentsQuery,
@@ -112,10 +113,16 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setErrorMessage(null);
     setSummary(null);
 
     const targets = selectedFolders;
+    if (targets.length === 0 && !retryFailed) {
+      setErrorMessage(EMPTY_BULK_IMPORT_SELECTION);
+      queueMicrotask(() => alertRef.current?.focus());
+      return;
+    }
+
+    setErrorMessage(null);
     const totals = { imported: 0, skipped: 0, retried: 0 };
     const failures: BulkImportSummary['failures'] = [];
     stopRequested.current = false;
@@ -153,8 +160,8 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
         retried: totals.retried,
         failures,
       });
-    } catch {
-      setErrorMessage(GENERIC_BULK_IMPORT_ERROR);
+    } catch (error) {
+      setErrorMessage(bulkImportErrorMessage(error));
       queueMicrotask(() => alertRef.current?.focus());
       if (failures.length > 0 || totals.imported + totals.skipped + totals.retried > 0) {
         setSummary({
