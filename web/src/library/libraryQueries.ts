@@ -19,6 +19,8 @@ export const browseMoviesQueryKey = ['browseMovies', standingBrowseQuery] as con
 
 export const GENERIC_RETRY_ERROR = 'Something went wrong. Try again.';
 export const GENERIC_BULK_IMPORT_ERROR = 'Something went wrong. Try again.';
+export const EMPTY_BULK_IMPORT_SELECTION =
+  'Select at least one folder or retry failed enrichments.';
 
 export const BULK_IMPORT_REASON_TEXT: Record<string, string> = {
   'folder-not-found': 'That folder could not be found. It may have been removed.',
@@ -26,6 +28,35 @@ export const BULK_IMPORT_REASON_TEXT: Record<string, string> = {
   'invalid-folder': 'That folder path is not valid.',
   'import-failed': 'That folder could not be imported.',
 };
+
+export class BulkImportError extends Error {
+  readonly status: number;
+  readonly detail: string | null;
+
+  constructor(status: number, detail: string | null) {
+    super(detail ?? `Bulk import failed (${status})`);
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
+export function bulkImportErrorMessage(error: unknown): string {
+  if (!(error instanceof BulkImportError)) {
+    return GENERIC_BULK_IMPORT_ERROR;
+  }
+
+  const detail = error.detail?.trim();
+
+  if (error.status === 422) {
+    return detail ? detail : EMPTY_BULK_IMPORT_SELECTION;
+  }
+
+  if (error.status === 404) {
+    return BULK_IMPORT_REASON_TEXT['folder-not-found'];
+  }
+
+  return detail ? detail : GENERIC_BULK_IMPORT_ERROR;
+}
 
 export type ImportCandidates = components['schemas']['ImportCandidatesResponse'];
 export type BulkImportSummary = components['schemas']['ImportLibraryResponse'];
@@ -161,7 +192,7 @@ export function useImportLibraryFoldersMutation() {
         body: { folders: input.folders, retryFailed: input.retryFailed },
       });
       if (error || !data) {
-        throw new Error(error?.detail ?? `Bulk import failed (${response?.status ?? 0})`);
+        throw new BulkImportError(response?.status ?? 0, error?.detail ?? null);
       }
       return data;
     },

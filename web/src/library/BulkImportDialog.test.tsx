@@ -8,7 +8,11 @@ import type { components, paths } from '../api/types';
 import App from '../App';
 import { server } from '../test/server';
 import BulkImportDialog from './BulkImportDialog';
-import { BULK_IMPORT_REASON_TEXT, GENERIC_BULK_IMPORT_ERROR } from './libraryQueries';
+import {
+  BULK_IMPORT_REASON_TEXT,
+  EMPTY_BULK_IMPORT_SELECTION,
+  GENERIC_BULK_IMPORT_ERROR,
+} from './libraryQueries';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 
@@ -515,6 +519,123 @@ describe('BulkImportDialog', () => {
 
     const status = await within(dialog).findByRole('status');
     expect(status).toHaveTextContent(BULK_IMPORT_REASON_TEXT['no-video']);
+  });
+
+  it('shows inline empty validation and posts nothing when submit has no selection', async () => {
+    let posts = 0;
+    server.use(
+      candidatesHandler(['Alpha']),
+      http.post('/api/movies/import/library', () => {
+        posts += 1;
+        return HttpResponse.json(
+          { imported: 0, skipped: 0, retried: 0, failures: [] },
+          { status: 200 },
+        );
+      }),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    await within(dialog).findByLabelText('Alpha');
+    const form = dialog.querySelector('form');
+    expect(form).not.toBeNull();
+    fireEvent.submit(form as HTMLFormElement);
+
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(EMPTY_BULK_IMPORT_SELECTION);
+    expect(alert).not.toHaveTextContent(GENERIC_BULK_IMPORT_ERROR);
+    expect(posts).toBe(0);
+  });
+
+  it('falls back to the empty-selection message on a detail-less 422', async () => {
+    server.use(
+      candidatesHandler(['Alpha']),
+      http.post('/api/movies/import/library', () =>
+        HttpResponse.json(
+          { type: 'about:blank', title: 'Unprocessable Entity', status: 422 },
+          { status: 422 },
+        ),
+      ),
+      http.get('/api/movies', ({ request }) => {
+        const statuses = new URL(request.url).searchParams.getAll('Statuses');
+        return HttpResponse.json(
+          browseBody(statuses.includes('Failed') ? [failedRow('Broken Cut')] : []),
+          { status: 200 },
+        );
+      }),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(
+      await within(dialog).findByRole('checkbox', { name: 'Retry failed enrichments' }),
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(EMPTY_BULK_IMPORT_SELECTION);
+    expect(alert).not.toHaveTextContent(GENERIC_BULK_IMPORT_ERROR);
+  });
+
+  it('shows the folder-not-found message on a 404 problem response', async () => {
+    server.use(
+      candidatesHandler(['Alpha']),
+      http.post('/api/movies/import/library', () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Not Found',
+            status: 404,
+            detail: 'The requested folder was not found.',
+          },
+          { status: 404 },
+        ),
+      ),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent(BULK_IMPORT_REASON_TEXT['folder-not-found']);
+    expect(alert).not.toHaveTextContent(GENERIC_BULK_IMPORT_ERROR);
+    expect(alert).not.toHaveTextContent('The requested folder was not found.');
+  });
+
+  it('shows the problem detail on a 409 problem response', async () => {
+    server.use(
+      candidatesHandler(['Alpha']),
+      http.post('/api/movies/import/library', () =>
+        HttpResponse.json(
+          {
+            type: 'about:blank',
+            title: 'Conflict',
+            status: 409,
+            detail: 'That folder is already being imported.',
+          },
+          { status: 409 },
+        ),
+      ),
+      http.get('/api/movies', () => HttpResponse.json(browseBody([]), { status: 200 })),
+    );
+
+    renderDialog();
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    fireEvent.click(await within(dialog).findByLabelText('Alpha'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveTextContent('That folder is already being imported.');
+    expect(alert).not.toHaveTextContent(GENERIC_BULK_IMPORT_ERROR);
+    expect(alert).not.toHaveTextContent(BULK_IMPORT_REASON_TEXT['folder-not-found']);
   });
 
   it('shows the generic error line when the import request fails', async () => {
