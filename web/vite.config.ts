@@ -8,5 +8,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: false,
     setupFiles: ['./src/test/setup.ts'],
+    pool: 'forks',
+    maxWorkers: '50%',
+    testTimeout: 20000,
+    hookTimeout: 30000,
+    teardownTimeout: 15000,
   },
 });
