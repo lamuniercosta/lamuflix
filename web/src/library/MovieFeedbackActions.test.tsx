@@ -111,6 +111,24 @@ describe('MovieFeedbackActions four-icon row', () => {
     ]);
   });
 
+  it('keeps the four icon cells on a single non-wrapping grid row', () => {
+    // arrange / act
+    const { container } = renderActions(makeQueryClient());
+
+    // assert
+    const row = container.querySelector('.movie-feedback-actions') as HTMLElement;
+    const cells = Array.from(row.children).filter((child) =>
+      child.classList.contains('movie-feedback-action'),
+    );
+    expect(cells).toHaveLength(4);
+    expect(actionsCss).toMatch(/\.movie-feedback-actions\s*\{[^}]*display:\s*grid/);
+    expect(actionsCss).toMatch(
+      /\.movie-feedback-actions\s*\{[^}]*grid-template-columns:\s*repeat\(4/,
+    );
+    const rowRule = /\.movie-feedback-actions\s*\{[^}]*\}/.exec(actionsCss)?.[0] ?? '';
+    expect(rowRule).not.toMatch(/flex-wrap/);
+  });
+
   it('renders no bulky text feedback buttons', () => {
     // arrange / act
     const { container } = renderActions(makeQueryClient());

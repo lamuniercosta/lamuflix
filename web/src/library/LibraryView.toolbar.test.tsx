@@ -1,6 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { ReactNode } from 'react';
+import { fileURLToPath } from 'node:url';
 import { http, HttpResponse, delay } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import App from '../App';
@@ -548,5 +551,25 @@ describe('Library collection filter', () => {
     expect(tag).toBeInTheDocument();
     const tagRow = container.querySelector('.library-tags');
     expect(tagRow?.querySelectorAll('.lamu-tag')).toHaveLength(1);
+  });
+
+  it('clips an overlong filter value inside the tag instead of widening the page', async () => {
+    // arrange
+    const here = dirname(fileURLToPath(import.meta.url));
+    const browseCss = readFileSync(join(here, 'browse.css'), 'utf8');
+    server.use(http.get('*/api/collections', () => HttpResponse.json(overlongCollections)));
+    window.history.replaceState({}, '', '/?collectionId=102');
+
+    // act
+    renderApp();
+    await waitForLibrary();
+
+    // assert
+    const tag = await screen.findByText(overlongCollections[0].name, {
+      selector: '.lamu-tag-value',
+    });
+    expect(tag).toBeInTheDocument();
+    expect(browseCss).toMatch(/\.lamu-tag-value\s*\{[^}]*text-overflow:\s*ellipsis/);
+    expect(browseCss).toMatch(/\.library-tag-list\s*>\s*li\s*\{[^}]*max-width:\s*100%/);
   });
 });
