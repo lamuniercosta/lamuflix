@@ -23,6 +23,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
     private const string ImdbIdIndexName = "IX_movies_imdb_id";
     private const string LibraryPathIndexName = "IX_movies_library_path";
     private const string LibraryPathKeyIndexName = "IX_movies_library_path_key";
+    private const string ManualImdbIdIndexName = "IX_movies_manual_imdb_id";
     private const int KeywordLockNamespace = 5;
 
     private readonly TimeSpan[] metadataRetryDelays =
@@ -423,6 +424,11 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             throw new DuplicateLibraryPathException(
                 "A movie already holds this library path.",
                 exception);
+        }
+        catch (Exception exception) when (IsImdbIdConflict(exception))
+        {
+            ResetAfterDuplicateImdbId();
+            throw new DuplicateImdbIdException(exception.Message, exception);
         }
 
         RefreshBaselines();
@@ -910,7 +916,12 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
         UnwrapPostgres(exception) is { } postgres && IsRetryableSqlState(postgres);
 
     private static bool IsImdbIdConflict(Exception exception) =>
-        UnwrapPostgres(exception) is { SqlState: "23505", ConstraintName: ImdbIdIndexName };
+        UnwrapPostgres(exception) is { SqlState: "23505" } postgres && IsImdbIdUniqueIndex(postgres.ConstraintName);
+
+    private static bool IsImdbIdUniqueIndex(string? constraintName) =>
+        constraintName is not null
+        && (string.Equals(constraintName, ImdbIdIndexName, StringComparison.Ordinal)
+            || string.Equals(constraintName, ManualImdbIdIndexName, StringComparison.Ordinal));
 
     private static bool IsLibraryPathConflict(Exception exception) =>
         UnwrapPostgres(exception) is { SqlState: "23505" } postgres
@@ -1059,7 +1070,7 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
     {
         var ids = await db.Movies
             .AsNoTracking()
-            .Where(movie => movie.ImdbId == imdbId)
+            .Where(movie => movie.ImdbId == imdbId || movie.ManualImdbId == imdbId)
             .Select(movie => movie.Id)
             .ToArrayAsync(ct);
         return PresentIds(ids).FirstOrDefault();

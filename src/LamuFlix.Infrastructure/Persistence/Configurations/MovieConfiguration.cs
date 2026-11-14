@@ -184,6 +184,10 @@ public sealed class MovieConfiguration : IEntityTypeConfiguration<MovieRecord>
         builder.HasIndex(movie => movie.ImdbId)
             .IsUnique()
             .HasFilter("imdb_id IS NOT NULL");
+        builder.HasIndex(movie => movie.ManualImdbId)
+            .IsUnique()
+            .HasDatabaseName("IX_movies_manual_imdb_id")
+            .HasFilter("manual_imdb_id IS NOT NULL");
         builder.HasIndex(movie => movie.CollectionId);
     }
 

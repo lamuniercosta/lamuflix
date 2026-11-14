@@ -291,6 +291,11 @@ namespace LamuFlix.Infrastructure.Persistence.Migrations
                     b.HasIndex("LibraryPathKey")
                         .IsUnique();
 
+                    b.HasIndex("ManualImdbId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_movies_manual_imdb_id")
+                        .HasFilter("manual_imdb_id IS NOT NULL");
+
                     b.HasIndex("ReleaseYear");
 
                     b.HasIndex("Status");

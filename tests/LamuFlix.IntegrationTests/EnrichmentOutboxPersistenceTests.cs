@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Text.Json;
@@ -287,6 +288,73 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
     }
 
     [Fact]
+    public async Task MatchImdbIdHandler_WhenASeparateContextAlreadyCommittedTheManualId_ThrowsDuplicateAndLeavesNoLoserOutboxRow()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var timeProvider = new FixedTimeProvider(StagedAt);
+        var winnerId = await SeedNotFoundMovieAsync(timeProvider, "Manual Winner", cancellationToken);
+        var loserId = await SeedNotFoundMovieAsync(timeProvider, "Manual Loser", cancellationToken);
+        var imdbId = new ImdbId("tt0083658");
+        await using var winnerContext = fixture.CreateMigratedContext();
+        var winnerRepository = CreateRepository(winnerContext, timeProvider);
+        var winner = await winnerRepository.GetAsync(winnerId, cancellationToken);
+        await using var loserContext = fixture.CreateMigratedContext();
+        var loserRepository = CreateRepository(loserContext, timeProvider);
+        var loser = await loserRepository.GetAsync(loserId, cancellationToken);
+        loser.ShouldNotBeNull();
+        winner.ShouldNotBeNull();
+
+        // act
+        winner.MatchManually(imdbId);
+        new EfEnrichmentOutbox(winnerContext, timeProvider).Stage(new EnrichmentRequested(winnerId, 1));
+        await winnerRepository.SaveChangesAsync(cancellationToken);
+        loser.MatchManually(imdbId);
+        new EfEnrichmentOutbox(loserContext, timeProvider).Stage(new EnrichmentRequested(loserId, 1));
+        var thrown = await Should.ThrowAsync<DuplicateImdbIdException>(
+            () => loserRepository.SaveChangesAsync(cancellationToken));
+
+        // assert
+        thrown.Message.ShouldNotBeNullOrWhiteSpace();
+        await using var verification = fixture.CreateMigratedContext();
+        var storedWinner = await CreateRepository(verification, timeProvider).GetAsync(winnerId, cancellationToken);
+        storedWinner.ShouldNotBeNull().ManualImdbId.ShouldBe(imdbId);
+        var storedLoser = await CreateRepository(verification, timeProvider).GetAsync(loserId, cancellationToken);
+        storedLoser.ShouldNotBeNull();
+        storedLoser.ManualImdbId.ShouldBeNull();
+        storedLoser.Status.ShouldBe(EnrichmentStatus.NotFound);
+        var stagedMovieIds = await ReadOutboxMovieIdsAsync(verification, cancellationToken);
+        stagedMovieIds.ShouldBe([winnerId.Value]);
+        var visibleHolder = await CreateRepository(verification, timeProvider)
+            .FindMovieIdByImdbIdAsync(imdbId, cancellationToken);
+        visibleHolder.ShouldBe(winnerId);
+    }
+
+    [Fact]
+    public async Task Movies_WithoutAManualImdbId_PersistMultipleNullClaims()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var timeProvider = new FixedTimeProvider(StagedAt);
+
+        // act
+        var first = await SeedNotFoundMovieAsync(timeProvider, "Null Claim One", cancellationToken);
+        var second = await SeedNotFoundMovieAsync(timeProvider, "Null Claim Two", cancellationToken);
+        var third = await SeedNotFoundMovieAsync(timeProvider, "Null Claim Three", cancellationToken);
+
+        // assert
+        await using var verification = fixture.CreateMigratedContext();
+        var stored = await verification.Movies.AsNoTracking()
+            .Where(movie => movie.ManualImdbId == null)
+            .Select(movie => movie.Id)
+            .ToArrayAsync(cancellationToken);
+        stored.ShouldContain(first);
+        stored.ShouldContain(second);
+        stored.ShouldContain(third);
+        stored.Length.ShouldBe(3);
+    }
+
+    [Fact]
     public async Task RequestEnrichmentHandler_OnPathA_CommitsMovieStateAndOutboxTogether()
     {
         // arrange
@@ -472,6 +540,27 @@ public sealed class EnrichmentOutboxPersistenceTests(PostgresFixture fixture) : 
         await repository.AddAsync(movie, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
         return id;
+    }
+
+    private static async Task<int[]> ReadOutboxMovieIdsAsync(
+        LamuFlixDbContext context,
+        CancellationToken cancellationToken)
+    {
+        var payloads = await context.OutboxMessages.AsNoTracking()
+            .Select(message => message.Payload)
+            .ToListAsync(cancellationToken);
+        var ids = new List<int>(payloads.Count);
+        foreach (var payload in payloads)
+        {
+            var request = JsonSerializer.Deserialize<EnrichmentRequested>(payload, WebDefaults);
+            if (request is not null)
+            {
+                ids.Add(request.MovieId.Value);
+            }
+        }
+
+        ids.Sort();
+        return [.. ids];
     }
 
     private LamuFlixDbContext CreateContextWithOutboxInsertFailure()
