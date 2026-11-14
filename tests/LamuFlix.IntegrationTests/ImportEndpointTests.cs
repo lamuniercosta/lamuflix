@@ -285,37 +285,90 @@ public sealed class ImportEndpointTests(ApiHostFactory factory) : IClassFixture<
         scanner.DidNotReceive().Scan(Arg.Any<LibraryPath>());
     }
 
-    [Theory]
-    [InlineData("IX_movies_library_path")]
-    [InlineData("IX_movies_library_path_key")]
-    public async Task ImportMovie_DuplicateFromEitherConstraint_KeepsTheExistingOutcomeWithoutANewConflictMapping(string constraint)
+    [Fact]
+    public async Task ImportMovie_AlreadyImportedFolder_ReturnsConflictProblem()
     {
         // arrange
         scanner.Scan(Arg.Any<LibraryPath>())
             .Returns(callInfo => new ScannedMovie(
                 callInfo.Arg<LibraryPath>(),
-                "Heat",
+                "Fargo",
                 new MediaFormat("mkv"),
                 null,
                 1024));
         movies.NextIdentityAsync(Arg.Any<CancellationToken>()).Returns(new MovieId(42));
         movies.SaveChangesAsync(Arg.Any<CancellationToken>())
-            .ThrowsAsync(new DbUpdateException(
+            .ThrowsAsync(new DuplicateLibraryPathException(
                 "duplicate",
-                new PostgresException("duplicate key", "ERROR", "ERROR", "23505", constraintName: constraint)));
+                new DbUpdateException(
+                    "duplicate",
+                    new PostgresException("duplicate key", "ERROR", "ERROR", "23505", constraintName: "IX_movies_library_path"))));
         await using var host = CreateHost();
         using var client = host.CreateClient();
         var cancellationToken = TestContext.Current.CancellationToken;
 
         // act
-        var response = await client.PostAsJsonAsync(ImportRoute, new { folderPath = "Heat" }, cancellationToken);
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+        var response = await client.PostAsJsonAsync(ImportRoute, new { folderPath = "Fargo[1996]" }, cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         // assert
-        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
-        response.StatusCode.ShouldNotBe(HttpStatusCode.Conflict);
-        payload.ShouldNotContain(constraint);
-        payload.ShouldNotContain("duplicate key");
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(409);
+        problem.GetProperty("title").GetString().ShouldBe("Conflict");
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        problem.GetRawText().ShouldNotContain("IX_movies_library_path");
+        problem.GetRawText().ShouldNotContain("duplicate key");
+        problem.GetRawText().ShouldNotContain(nameof(DuplicateLibraryPathException));
+    }
+
+    [Theory]
+    [InlineData(".")]
+    [InlineData("./")]
+    [InlineData("././")]
+    [InlineData("./.")]
+    public async Task ImportMovie_PathNamingTheLibraryItself_ReturnsUnprocessableEntityWithoutScanning(string folderPath)
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(ImportRoute, new { folderPath }, cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        Fields(problem).ShouldContain("folderPath");
+        scanner.DidNotReceive().Scan(Arg.Any<LibraryPath>());
+        await movies.DidNotReceive().AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("C:/library")]
+    [InlineData("C:/library/")]
+    [InlineData("C:\\library")]
+    [InlineData("C:/library/.")]
+    [InlineData("c:/LIBRARY")]
+    public async Task ImportMovie_AbsoluteLibraryRoot_ReturnsUnprocessableEntityWithoutScanning(string folderPath)
+    {
+        // arrange
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PostAsJsonAsync(ImportRoute, new { folderPath }, cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        Fields(problem).ShouldContain("folderPath");
+        scanner.DidNotReceive().Scan(Arg.Any<LibraryPath>());
+        await movies.DidNotReceive().AddAsync(Arg.Any<Movie>(), Arg.Any<CancellationToken>());
     }
 
     private WebApplicationFactory<Program> CreateHost(params (string Key, string Value)[] settings) =>
