@@ -62,18 +62,20 @@ public sealed class LocalPlayListenerStartupTests
     public async Task StartAsync_LocalPlayDisabledWithWildcardUrl_ImposesNoBindRestriction()
     {
         // arrange
-        var settings = new Dictionary<string, string?>(LocalPlayRealKestrelHostFixture.LocalPlaySettings(false));
-        await using var host = LocalPlayRealKestrelHostFixture.Build(port =>
-        {
-            settings[WebHostDefaults.ServerUrlsKey] = $"http://{AnyHost}:{port}";
-            return settings;
-        });
+        // Deliberately not a real Kestrel host: binding a wildcard prefix makes Windows Firewall raise its
+        // allow-access prompt for the test host. The validator is the unit under test, so drive it directly.
+        var validator = ValidatorHarness.Create(
+            localPlay: false,
+            configuration: new Dictionary<string, string?>
+            {
+                [WebHostDefaults.ServerUrlsKey] = $"http://{AnyHost}:5000",
+            });
 
         // act
-        var result = await host.StartAsync();
+        var failure = await Record.ExceptionAsync(() => validator.StartAsync(TestContext.Current.CancellationToken));
 
         // assert
-        result.Started.ShouldBeTrue(result.Failure?.ToString());
+        failure.ShouldBeNull();
     }
 
     [Theory]
