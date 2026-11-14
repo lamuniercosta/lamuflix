@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Tests.Common;
@@ -53,16 +54,17 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
 
         var baseline = capture.Measurements.Count;
 
-        DbUpdateException rejection;
+        DuplicateLibraryPathException rejection;
         await using (var secondContext = postgres.CreateMigratedContext())
         {
             var secondHandler = NewHandler(secondContext);
-            rejection = await Should.ThrowAsync<DbUpdateException>(
+            rejection = await Should.ThrowAsync<DuplicateLibraryPathException>(
                 () => secondHandler.HandleAsync(new ImportMovieFolderCommand(folder), ct));
         }
 
         // assert
-        var uniqueViolation = rejection.InnerException.ShouldBeOfType<PostgresException>();
+        var uniqueViolation = rejection.InnerException.ShouldBeOfType<DbUpdateException>()
+            .InnerException.ShouldBeOfType<PostgresException>();
         uniqueViolation.SqlState.ShouldBe(PostgresErrorCodes.UniqueViolation);
         uniqueViolation.ConstraintName.ShouldBe(ExactIndexName);
         await using var verificationContext = postgres.CreateMigratedContext();
@@ -100,10 +102,10 @@ public sealed class ImportMovieFolderCommandHandlerPersistenceTests(PostgresFixt
                 .HandleAsync(new ImportMovieFolderCommand(firstFolder), ct);
         }
 
-        DbUpdateException rejection;
+        DuplicateLibraryPathException rejection;
         await using (var secondContext = postgres.CreateMigratedContext())
         {
-            rejection = await Should.ThrowAsync<DbUpdateException>(
+            rejection = await Should.ThrowAsync<DuplicateLibraryPathException>(
                 () => NewHandler(secondContext)
                     .HandleAsync(new ImportMovieFolderCommand(caseVariedFolder), ct));
         }

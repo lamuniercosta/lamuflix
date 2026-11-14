@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
+using LamuFlix.Core.Pipeline;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence.Records;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,8 @@ namespace LamuFlix.Infrastructure.Persistence;
 public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDisposable
 {
     private const string ImdbIdIndexName = "IX_movies_imdb_id";
+    private const string LibraryPathIndexName = "IX_movies_library_path";
+    private const string LibraryPathKeyIndexName = "IX_movies_library_path_key";
     private const int KeywordLockNamespace = 5;
 
     private readonly TimeSpan[] metadataRetryDelays =
@@ -409,7 +412,18 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
             Apply(tracked.Movie, tracked.Record, tracked.Baseline);
         }
 
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException exception) when (IsLibraryPathConflict(exception))
+        {
+            db.ChangeTracker.Clear();
+            identityMap.Clear();
+            throw new DuplicateLibraryPathException(
+                "A movie already holds this library path.",
+                exception);
+        }
 
         RefreshBaselines();
     }
@@ -897,6 +911,10 @@ public sealed class EfMovieRepository : IMovieRepository, IAsyncDisposable, IDis
 
     private static bool IsImdbIdConflict(Exception exception) =>
         UnwrapPostgres(exception) is { SqlState: "23505", ConstraintName: ImdbIdIndexName };
+
+    private static bool IsLibraryPathConflict(Exception exception) =>
+        UnwrapPostgres(exception) is { SqlState: "23505" } postgres
+        && postgres.ConstraintName is LibraryPathIndexName or LibraryPathKeyIndexName;
 
     private static PostgresException? UnwrapPostgres(Exception exception)
     {

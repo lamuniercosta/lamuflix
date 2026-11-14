@@ -114,7 +114,7 @@ public sealed class ImportLibraryCommandHandlerPersistenceTests(PostgresFixture 
                 .GetRequiredService<ICommandHandler<ImportLibraryCommand, ImportLibraryResult>>();
 
             // act
-            await Should.ThrowAsync<DbUpdateException>(
+            await Should.ThrowAsync<DuplicateLibraryPathException>(
                 () => second.HandleAsync(new ImportLibraryCommand(), cancellationToken));
 
             // assert
