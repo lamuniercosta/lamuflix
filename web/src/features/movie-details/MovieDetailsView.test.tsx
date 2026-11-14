@@ -347,6 +347,15 @@ describe('MovieDetailsView load states', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Movie not found.');
   });
 
+  it('links back to the library on GET 404', async () => {
+    server.use(http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 404 })));
+    renderView();
+
+    const link = await screen.findByRole('link', { name: 'Back to library' });
+    expect(link).toBeInTheDocument();
+    expect(link.getAttribute('href')).toBe('/');
+  });
+
   it('shows generic error on GET failure', async () => {
     server.use(http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 500 })));
     renderView();
