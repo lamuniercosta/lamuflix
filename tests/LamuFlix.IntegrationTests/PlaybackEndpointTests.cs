@@ -36,6 +36,8 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
     private const string ProblemDetailsJson = "application/problem+json";
     private const string JsonMediaType = "application/json";
     private const string CapabilitiesRoute = "/api/playback/capabilities";
+    private const string OriginHeaderName = "Origin";
+    private const string FetchSiteHeaderName = "Sec-Fetch-Site";
 
     private readonly IMovieCatalog catalog = Substitute.For<IMovieCatalog>();
     private readonly IMediaLibraryScanner scanner = Substitute.For<IMediaLibraryScanner>();
@@ -415,6 +417,109 @@ public sealed class PlaybackEndpointTests(ApiHostFactory factory) : IClassFixtur
         // assert
         assertBoundaryRefusal(response, body);
         body.ShouldNotContain(headerName);
+    }
+
+    [Theory]
+    [InlineData("https://evil.example")]
+    [InlineData("http://evil.example:8080")]
+    [InlineData("http://localhost.evil.example")]
+    [InlineData("http://10.0.0.5:5173")]
+    [InlineData("null")]
+    public async Task PlayMovie_ForeignOrigin_ReturnsForbiddenBeforeAnySideEffect(string origin)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mkv"));
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+        using var request = RequestWithBrowserMetadata(PlayRoute(KnownId), origin, null);
+
+        // act
+        var response = await client.SendAsync(request, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        assertBoundaryRefusal(response, body);
+    }
+
+    [Theory]
+    [InlineData("cross-site")]
+    [InlineData("Cross-Site")]
+    public async Task PlayMovie_CrossSiteFetchMetadata_ReturnsForbiddenBeforeAnySideEffect(string fetchSite)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mkv"));
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+        using var request = RequestWithBrowserMetadata(PlayRoute(KnownId), null, fetchSite);
+
+        // act
+        var response = await client.SendAsync(request, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        // assert
+        assertBoundaryRefusal(response, body);
+    }
+
+    [Theory]
+    [InlineData("http://localhost:5173", "same-site")]
+    [InlineData("http://localhost:5000", "same-origin")]
+    [InlineData("http://127.0.0.1:5173", "same-site")]
+    [InlineData("http://[::1]:5173", "same-site")]
+    [InlineData("http://localhost:5173", "none")]
+    public async Task PlayMovie_ProvenLocalOrigin_AllowsTheLaunch(string origin, string fetchSite)
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mkv"));
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+        using var request = RequestWithBrowserMetadata(PlayRoute(KnownId), origin, fetchSite);
+
+        // act
+        var response = await client.SendAsync(request, ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        starter.Received(1).Start(Arg.Is<ProcessStartInfo>(info => info.ArgumentList[0] == ResolvedFile));
+    }
+
+    [Fact]
+    public async Task PlayMovie_NonBrowserClientWithoutFetchMetadata_AllowsTheLaunch()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        DetailsReturning(KnownDetails("mkv"));
+        scanner.ResolvePrimaryVideo(new LibraryPath(MovieFolder)).Returns(Resolved("mkv"));
+        await using var host = CreateEnabledHost(".mkv");
+        using var client = host.CreateClient();
+
+        // act
+        using var response = await client.PostAsync(PlayRoute(KnownId), null, ct);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        starter.Received(1).Start(Arg.Is<ProcessStartInfo>(info => info.ArgumentList[0] == ResolvedFile));
+    }
+
+    private static HttpRequestMessage RequestWithBrowserMetadata(string route, string? origin, string? fetchSite)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, route);
+        if (origin is not null)
+        {
+            request.Headers.TryAddWithoutValidation(OriginHeaderName, origin).ShouldBeTrue();
+        }
+
+        if (fetchSite is not null)
+        {
+            request.Headers.TryAddWithoutValidation(FetchSiteHeaderName, fetchSite).ShouldBeTrue();
+        }
+
+        return request;
     }
 
     private void assertBoundaryRefusal(HttpResponseMessage response, string body)
