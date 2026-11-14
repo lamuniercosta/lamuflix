@@ -115,6 +115,34 @@ public sealed class GlobalExceptionHandlerTests
     }
 
     [Fact]
+    public async Task TryHandleAsync_DuplicateLibraryPathException_WritesSanitized409()
+    {
+        // arrange
+        var handler = CreateHandler(out var context);
+        var exception = new DuplicateLibraryPathException(
+            "A movie already holds this library path.",
+            new InvalidOperationException("IX_movies_library_path_key duplicate key"));
+
+        // act
+        var handled = await handler.TryHandleAsync(context, exception, CancellationToken.None);
+
+        // assert
+        handled.ShouldBeTrue();
+        context.Response.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
+        using var document = await ReadBody(context);
+        var root = document.RootElement;
+        root.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status409Conflict);
+        root.GetProperty("title").GetString().ShouldBe("Conflict");
+        root.GetProperty("type").GetString().ShouldBe("https://tools.ietf.org/html/rfc9110#section-15.5.10");
+        root.GetProperty("traceId").GetString().ShouldBe("trace-296");
+        root.TryGetProperty("detail", out _).ShouldBeFalse();
+        AssertNoLeak(
+            root,
+            "IX_movies_library_path_key",
+            nameof(DuplicateLibraryPathException));
+    }
+
+    [Fact]
     public async Task TryHandleAsync_FeatureDisabledException_Writes403WithoutExceptionLeak()
     {
         // arrange
@@ -533,6 +561,7 @@ public sealed class GlobalExceptionHandlerTests
             new NotFoundException(),
             new InvalidTransitionException("Retry", "Enriched"),
             new ImdbIdConflictException(new ImdbId("tt0083658"), new MovieId(7)),
+            new DuplicateLibraryPathException("A movie already holds this library path."),
             new FeatureDisabledException("local-play-off"),
             new LibraryFileAccessDeniedException(
                 "The requested library path is outside the authorized library root."),

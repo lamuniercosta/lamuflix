@@ -50,6 +50,7 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
         NotFoundException => true,
         InvalidTransitionException => true,
         ImdbIdConflictException => true,
+        DuplicateLibraryPathException => true,
         FeatureDisabledException => true,
         LibraryFileAccessDeniedException => true,
         SubtitleQuotaExceededException => true,
@@ -157,6 +158,10 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problemDetails
             case ImdbIdConflictException imdbIdConflict:
                 status = StatusCodes.Status409Conflict;
                 problem = CreateImdbIdConflictProblem(imdbIdConflict);
+                return true;
+            case DuplicateLibraryPathException:
+                status = StatusCodes.Status409Conflict;
+                problem = CreateConflictProblem();
                 return true;
             default:
                 status = 0;

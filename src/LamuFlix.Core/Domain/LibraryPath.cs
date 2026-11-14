@@ -65,8 +65,24 @@ public sealed record LibraryPath
         return true;
     }
 
+    /// <summary>
+    /// True when the canonical identity names the library root itself rather than a folder inside it.
+    /// The root identity is the container the library is scanned from, never an importable movie folder.
+    /// </summary>
+    public static bool IsRootIdentity([NotNullWhen(true)] string? canonical) =>
+        string.Equals(canonical, RootIdentity, StringComparison.Ordinal);
+
+    /// <summary>
+    /// True when this path resolves, under the configured root, to the library root itself: the root
+    /// identity <c>"."</c>, an absolute path naming the root, or a value that normalises to nothing but
+    /// separators and current-directory segments.
+    /// </summary>
+    public static bool ResolvesToLibraryRoot(string? value, string? rootPath) =>
+        TryCanonicalizeUnderRoot(value, rootPath, out var canonical) && IsRootIdentity(canonical);
+
     public static bool OverlapsAtSegmentBoundary(string? first, string? second)
     {
+
         if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(second)
             || UsesWindowsSyntax(first) != UsesWindowsSyntax(second))
         {
