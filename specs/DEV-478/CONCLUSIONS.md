@@ -1,0 +1,7 @@
+# DEV-478 Conclusions
+
+**Verdict**: Keep the database schema unchanged (no unique index on `manual_imdb_id`) and accept commit `961cca6a`'s current handler behavior (rethrow `DuplicateImdbIdException` when no distinct holder movie is found, without adding a `GlobalExceptionHandler` fallback).
+
+- **No schema or index change (`manual_imdb_id`)**: DEV-478 (`size:S`) scopes Wanted strictly to staging the outbox message in the same save and mapping the unique-index violation to `ImdbIdConflictException`'s 409; adding a new unique index or migration on `manual_imdb_id` is an unrequested schema change outside ticket scope (§2.3 item 3, DEV-478 Wanted).
+- **Current handler mapping accepted (`961cca6a`)**: DEV-478 Wanted requires mapping the unique-index race to "the same 409 as `ImdbIdConflictException`", whose contract (`EnrichmentEndpointTests.cs:269-272`) includes `heldByMovieId`; `MatchMovieImdbIdCommandHandler.cs:31-39` resolves the winning holder and throws `ImdbIdConflictException(command.ImdbId, winner)`, which already maps to that 409.
+- **Residual unattributable duplicate rethrows**: `DuplicateImdbIdException` carries only the constraint name (`IX_movies_imdb_id`), so an unattributable violation (no distinct holder visible) is not a concurrent-match conflict with another movie and rightly rethrows as an unexpected persistence failure (`MatchMovieImdbIdCommandHandlerTests.cs:98-130`).
