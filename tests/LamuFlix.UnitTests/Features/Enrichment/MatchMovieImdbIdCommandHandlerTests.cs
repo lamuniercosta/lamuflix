@@ -17,18 +17,18 @@ public sealed class MatchMovieImdbIdCommandHandlerTests
     private const int PriorAttempts = 3;
 
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
-    private readonly IEnrichmentQueue queue = Substitute.For<IEnrichmentQueue>();
+    private readonly IEnrichmentOutbox outbox = Substitute.For<IEnrichmentOutbox>();
     private readonly MatchMovieImdbIdCommandHandler handler;
     private readonly Fixture fixture = new();
 
     public MatchMovieImdbIdCommandHandlerTests()
     {
-        handler = new MatchMovieImdbIdCommandHandler(movies, queue);
+        handler = new MatchMovieImdbIdCommandHandler(movies, outbox);
     }
 
     [Theory]
     [MemberData(nameof(Statuses))]
-    public async Task HandleAsync_AnyStatus_SetsManualIdSavesAndRequeues(EnrichmentStatus status)
+    public async Task HandleAsync_AnyStatus_SetsManualIdAndStagesTheRequestBeforeTheSharedSave(EnrichmentStatus status)
     {
         // arrange
         var movie = MovieIn(status);
@@ -44,34 +44,89 @@ public sealed class MatchMovieImdbIdCommandHandlerTests
         movie.ManualImdbId.ShouldBe(imdbId);
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
         movie.EnrichmentAttempts.ShouldBe(PriorAttempts);
+        outbox.Received(1).Stage(
+            Arg.Is<EnrichmentRequested>(message => message.MovieId == movie.Id && message.Attempt == 1));
         await movies.Received(1).SaveChangesAsync(ct);
-        await queue.Received(1).EnqueueAsync(
-            Arg.Is<EnrichmentRequested>(message => message.MovieId == movie.Id && message.Attempt == 1),
-            ct);
         Received.InOrder(() =>
         {
+            outbox.Stage(Arg.Any<EnrichmentRequested>());
             movies.SaveChangesAsync(ct);
-            queue.EnqueueAsync(Arg.Any<EnrichmentRequested>(), ct);
         });
     }
 
     [Fact]
-    public async Task HandleAsync_QueueFailure_PropagatesAfterSave()
+    public async Task HandleAsync_SaveThrows_PropagatesAfterStaging()
     {
         // arrange
         var movie = MovieIn(EnrichmentStatus.NotFound);
         var ct = CancellationToken.None;
         movies.GetAsync(movie.Id, ct).Returns(movie);
-        queue.EnqueueAsync(Arg.Any<EnrichmentRequested>(), ct)
-            .ThrowsAsync(new InvalidOperationException("broker"));
+        movies.SaveChangesAsync(ct).ThrowsAsync(new InvalidOperationException("save"));
 
         // act
         await Should.ThrowAsync<InvalidOperationException>(
             () => handler.HandleAsync(new MatchMovieImdbIdCommand(movie.Id, new ImdbId("tt0083658")), ct));
 
         // assert
-        movie.ManualImdbId.ShouldBe(new ImdbId("tt0083658"));
-        await movies.Received(1).SaveChangesAsync(ct);
+        outbox.Received(1).Stage(Arg.Any<EnrichmentRequested>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_SaveHitsTheImdbIdUniqueIndex_ThrowsConflictNamingTheRowThatWonTheRace()
+    {
+        // arrange
+        var movie = MovieIn(EnrichmentStatus.NotFound);
+        var imdbId = new ImdbId("tt0083658");
+        var ct = CancellationToken.None;
+        var winner = NewId();
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+        movies.SaveChangesAsync(ct).ThrowsAsync(new DuplicateImdbIdException("IX_movies_imdb_id"));
+        movies.FindMovieIdByImdbIdAsync(imdbId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<MovieId?>(null), Task.FromResult<MovieId?>(winner));
+
+        // act
+        var thrown = await Should.ThrowAsync<ImdbIdConflictException>(
+            () => handler.HandleAsync(new MatchMovieImdbIdCommand(movie.Id, imdbId), ct));
+
+        // assert
+        thrown.ImdbId.ShouldBe(imdbId);
+        thrown.HeldBy.ShouldBe(winner);
+        outbox.Received(1).Stage(Arg.Any<EnrichmentRequested>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_SaveHitsTheImdbIdUniqueIndexButNoHolderIsVisible_RethrowsTheDuplicate()
+    {
+        // arrange
+        var movie = MovieIn(EnrichmentStatus.NotFound);
+        var imdbId = new ImdbId("tt0083658");
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+        movies.SaveChangesAsync(ct).ThrowsAsync(new DuplicateImdbIdException("IX_movies_imdb_id"));
+        movies.FindMovieIdByImdbIdAsync(imdbId, Arg.Any<CancellationToken>()).Returns((MovieId?)null);
+
+        // act
+        var thrown = await Should.ThrowAsync<DuplicateImdbIdException>(
+            () => handler.HandleAsync(new MatchMovieImdbIdCommand(movie.Id, imdbId), ct));
+
+        // assert
+        thrown.Message.ShouldBe("IX_movies_imdb_id");
+    }
+
+    [Fact]
+    public async Task HandleAsync_SaveHitsTheImdbIdUniqueIndexHeldByTheSameMovie_RethrowsTheDuplicate()
+    {
+        // arrange
+        var movie = MovieIn(EnrichmentStatus.NotFound);
+        var imdbId = new ImdbId("tt0083658");
+        var ct = CancellationToken.None;
+        movies.GetAsync(movie.Id, ct).Returns(movie);
+        movies.SaveChangesAsync(ct).ThrowsAsync(new DuplicateImdbIdException("IX_movies_imdb_id"));
+        movies.FindMovieIdByImdbIdAsync(imdbId, Arg.Any<CancellationToken>()).Returns(movie.Id);
+
+        // act
+        await Should.ThrowAsync<DuplicateImdbIdException>(
+            () => handler.HandleAsync(new MatchMovieImdbIdCommand(movie.Id, imdbId), ct));
     }
 
     [Fact]
@@ -87,8 +142,8 @@ public sealed class MatchMovieImdbIdCommandHandlerTests
             () => handler.HandleAsync(new MatchMovieImdbIdCommand(id, new ImdbId("tt0083658")), ct));
 
         // assert
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -111,8 +166,8 @@ public sealed class MatchMovieImdbIdCommandHandlerTests
         thrown.HeldBy.ShouldBe(holderId);
         movie.ManualImdbId.ShouldBeNull();
         movie.Status.ShouldBe(EnrichmentStatus.NotFound);
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
-        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -132,9 +187,8 @@ public sealed class MatchMovieImdbIdCommandHandlerTests
         result.ShouldBe(movie.Id);
         movie.ManualImdbId.ShouldBe(imdbId);
         await movies.Received(1).SaveChangesAsync(ct);
-        await queue.Received(1).EnqueueAsync(
-            Arg.Is<EnrichmentRequested>(message => message.MovieId == movie.Id),
-            ct);
+        outbox.Received(1).Stage(
+            Arg.Is<EnrichmentRequested>(message => message.MovieId == movie.Id && message.Attempt == 1));
     }
 
     public static TheoryData<EnrichmentStatus> Statuses() =>

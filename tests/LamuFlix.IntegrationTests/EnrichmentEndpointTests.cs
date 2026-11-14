@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Shouldly;
 using Xunit;
 
@@ -29,6 +30,7 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
 
     private readonly IMovieRepository movies = Substitute.For<IMovieRepository>();
     private readonly IEnrichmentQueue queue = Substitute.For<IEnrichmentQueue>();
+    private readonly IEnrichmentOutbox outbox = Substitute.For<IEnrichmentOutbox>();
     private readonly Movie movie = Movie.Rehydrate(
         new MovieId(KnownId),
         "Heat",
@@ -186,8 +188,10 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
         movie.ManualImdbId.ShouldBe(new ImdbId("tt0083658"));
         movie.Status.ShouldBe(EnrichmentStatus.Pending);
         await movies.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        await queue.Received(1)
-            .EnqueueAsync(new EnrichmentRequested(new MovieId(KnownId), 1), Arg.Any<CancellationToken>());
+        outbox.Received(1).Stage(
+            Arg.Is<EnrichmentRequested>(message => message.MovieId == new MovieId(KnownId) && message.Attempt == 1));
+        await queue.DidNotReceive()
+            .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -242,7 +246,7 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
     }
 
     [Fact]
-    public async Task MatchImdbId_IdHeldByAnotherMovie_ReturnsConflictProblemNamingTheHolderAndDoesNotEnqueue()
+    public async Task MatchImdbId_IdHeldByAnotherMovie_ReturnsConflictProblemNamingTheHolderAndDoesNotStage()
     {
         // arrange
         movies.GetAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(movie);
@@ -269,10 +273,42 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
         movie.ManualImdbId.ShouldBeNull();
         movie.Status.ShouldBe(EnrichmentStatus.NotFound);
         await movies.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        outbox.DidNotReceive().Stage(Arg.Any<EnrichmentRequested>());
         await queue.DidNotReceive()
             .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
         ConflictMetadata(host, "MatchMovieImdbId").ShouldContain(item =>
             item.StatusCode == StatusCodes.Status409Conflict && item.Type == typeof(ProblemDetails));
+    }
+
+    [Fact]
+    public async Task MatchImdbId_LoserOfAConcurrentMatch_ReturnsConflictProblemNamingTheWinnerAndDoesNotPublish()
+    {
+        // arrange
+        movies.GetAsync(new MovieId(KnownId), Arg.Any<CancellationToken>()).Returns(movie);
+        movies.FindMovieIdByImdbIdAsync(new ImdbId("tt0083658"), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<MovieId?>(null), Task.FromResult<MovieId?>(new MovieId(99)));
+        movies.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new DuplicateImdbIdException("IX_movies_imdb_id"));
+        await using var host = CreateHost();
+        using var client = host.CreateClient();
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // act
+        var response = await client.PutAsJsonAsync(
+            $"/api/movies/{KnownId}/imdb",
+            new { imdbId = "tt0083658" },
+            cancellationToken);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        // assert
+        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe(ProblemDetailsJson);
+        problem.GetProperty("status").GetInt32().ShouldBe(StatusCodes.Status409Conflict);
+        problem.GetProperty("detail").GetString().ShouldBe("IMDb id tt0083658 is already assigned to movie 99.");
+        problem.GetProperty("heldByMovieId").GetInt32().ShouldBe(99);
+        problem.GetRawText().ShouldNotContain(nameof(DuplicateImdbIdException));
+        await queue.DidNotReceive()
+            .EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
     }
 
     private WebApplicationFactory<Program> CreateHost() =>
@@ -280,6 +316,7 @@ public sealed class EnrichmentEndpointTests(ApiHostFactory factory) : IClassFixt
         {
             services.AddSingleton(movies);
             services.AddSingleton(queue);
+            services.AddSingleton(outbox);
         }));
 
     private static IEnumerable<IProducesResponseTypeMetadata> ConflictMetadata(

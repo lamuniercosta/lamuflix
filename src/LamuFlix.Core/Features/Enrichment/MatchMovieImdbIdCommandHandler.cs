@@ -1,12 +1,14 @@
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
-using LamuFlix.Core.Ports;
 using LamuFlix.Core.Pipeline;
+using LamuFlix.Core.Ports;
 
 namespace LamuFlix.Core.Features.Enrichment;
 
-public sealed class MatchMovieImdbIdCommandHandler(IMovieRepository movies, IEnrichmentQueue queue)
+public sealed class MatchMovieImdbIdCommandHandler(
+    IMovieRepository movies,
+    IEnrichmentOutbox outbox)
     : ICommandHandler<MatchMovieImdbIdCommand, MovieId>
 {
     public async Task<MovieId> HandleAsync(MatchMovieImdbIdCommand command, CancellationToken cancellationToken)
@@ -21,8 +23,29 @@ public sealed class MatchMovieImdbIdCommandHandler(IMovieRepository movies, IEnr
         }
 
         movie.MatchManually(command.ImdbId);
-        await movies.SaveChangesAsync(cancellationToken);
-        await queue.EnqueueAsync(new EnrichmentRequested(command.Id, 1), cancellationToken);
+        outbox.Stage(new EnrichmentRequested(command.Id, 1));
+        try
+        {
+            await movies.SaveChangesAsync(cancellationToken);
+        }
+        catch (DuplicateImdbIdException)
+        {
+            if (await OtherHolderAsync(command, cancellationToken) is { } winner)
+            {
+                throw new ImdbIdConflictException(command.ImdbId, winner);
+            }
+
+            throw;
+        }
+
         return command.Id;
     }
+
+    private async Task<MovieId?> OtherHolderAsync(
+        MatchMovieImdbIdCommand command,
+        CancellationToken cancellationToken) =>
+        await movies.FindMovieIdByImdbIdAsync(command.ImdbId, cancellationToken) is { } holder
+        && holder != command.Id
+            ? holder
+            : null;
 }
