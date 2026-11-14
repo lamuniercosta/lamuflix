@@ -309,7 +309,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task FindAsync_WithBlankSecondaryApiKeyAndThePrimaryFinds_KeepsThePrimaryFoundWithUnavailableSignals(
+    public async Task FindAsync_WithBlankSecondaryApiKeyAndThePrimaryFinds_KeepsThePrimaryResult(
         string apiKey)
     {
         // arrange
@@ -323,9 +323,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         var metadata = Metadata(result);
         metadata.Title.ShouldBe("Solaris");
         metadata.Synopsis.ShouldBe("A psychologist...");
-        metadata.Signals.ShouldNotBeNull().KeywordAvailability.ShouldBe(SignalAvailability.Unavailable);
-        metadata.Signals.FullCastAvailability.ShouldBe(SignalAvailability.Unavailable);
-        metadata.Signals.CollectionAvailability.ShouldBe(SignalAvailability.Unavailable);
+        metadata.Signals.ShouldBeNull();
         metadata.CollectionId.ShouldBeNull();
         SecondaryPaths().ShouldBeEmpty();
     }
@@ -333,7 +331,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task FindAsync_WithBlankSecondaryApiKeyAndThePrimaryMisses_ReturnsFailedProviderUnavailable(
+    public async Task FindAsync_WithBlankSecondaryApiKeyAndThePrimaryMisses_ReturnsNotFound(
         string apiKey)
     {
         // arrange
@@ -344,7 +342,7 @@ public sealed class MetadataProviderChainCompositionTests(SecondaryMetadataProvi
         var result = await FindChainAsync(services, "Solaris");
 
         // assert
-        Category(result).ShouldBe(EnrichmentFailureCategory.ProviderUnavailable);
+        result.ShouldBeOfType<MetadataLookupResult.NotFound>();
         SecondaryPaths().ShouldBeEmpty();
     }
 

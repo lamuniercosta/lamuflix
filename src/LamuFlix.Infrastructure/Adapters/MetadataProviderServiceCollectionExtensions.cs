@@ -50,7 +50,7 @@ public static class MetadataProviderServiceCollectionExtensions
         services.AddTransient<IMetadataProvider>(provider =>
         {
             var primary = provider.GetRequiredKeyedService<IMetadataProvider>(TelemetryConstants.OmdbProviderName);
-            if (!provider.GetRequiredService<IOptions<TmdbOptions>>().Value.Enabled)
+            if (!IsSecondaryConfigured(provider.GetRequiredService<IOptions<TmdbOptions>>().Value))
             {
                 return new ChainedMetadataProvider([primary]);
             }
@@ -70,6 +70,9 @@ public static class MetadataProviderServiceCollectionExtensions
 
         return services;
     }
+
+    private static bool IsSecondaryConfigured(TmdbOptions options) =>
+        options.Enabled && !string.IsNullOrWhiteSpace(options.ApiKey);
 
     private static Uri NormalizeBaseUrl(string baseUrl) =>
         new(baseUrl.EndsWith('/') ? baseUrl : string.Concat(baseUrl, "/"));
