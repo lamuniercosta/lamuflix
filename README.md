@@ -212,7 +212,7 @@ LocalPlay is off in Compose (`docker/api.settings.example.json` ships `"LocalPla
 The delivered boundary is fail-closed, so confirm loopback binding **before** you enable LocalPlay:
 
 - When `Features:LocalPlay` is `true`, the Api refuses to start unless every effective Kestrel listener is proven loopback. An unqualified `http://*:5000`, `http://0.0.0.0:5000`, or a non-loopback host name is refused at startup; `http://localhost:5000` is proven loopback.
-- With LocalPlay enabled, a play request is refused unless the peer address is proven loopback and no `Forwarded` / `X-Forwarded-*` / `X-Real-IP` proxy headers are present.
+- With LocalPlay enabled, a play request is refused unless the peer address is proven loopback, no `Forwarded` / `X-Forwarded-*` / `X-Real-IP` proxy headers are present, and the request is not a cross-site browser request. A browser request is cross-site when its `Origin` is not a loopback `http`/`https` origin (including the opaque `null` origin) or when `Sec-Fetch-Site` is `cross-site`; a same-origin SPA launch, and a non-browser client that sends neither header, are still accepted.
 
 Illustrative configuration with placeholders only — replace every placeholder locally and never commit the result:
 
