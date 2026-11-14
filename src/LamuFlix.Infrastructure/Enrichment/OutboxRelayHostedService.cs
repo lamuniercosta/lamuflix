@@ -22,6 +22,14 @@ internal enum OutboxRelayPassResult
     Shutdown = 2,
 }
 
+internal enum OutboxRowRelayResult
+{
+    Published = 0,
+    Poisoned = 1,
+    Failed = 2,
+    Shutdown = 3,
+}
+
 internal enum OutboxRelayCleanupResult
 {
     Succeeded = 0,
@@ -206,17 +214,20 @@ public partial class OutboxRelayHostedService(
             foreach (var row in rows)
             {
                 var outcome = await TryRelayRowAsync(scope.ServiceProvider, row, stoppingToken);
-                if (outcome == OutboxRelayPassResult.Failed)
+                if (outcome == OutboxRowRelayResult.Failed)
                 {
                     return (OutboxRelayPassResult.Failed, null);
                 }
 
-                if (outcome == OutboxRelayPassResult.Shutdown)
+                if (outcome == OutboxRowRelayResult.Shutdown)
                 {
                     return (OutboxRelayPassResult.Shutdown, null);
                 }
 
-                onRowPublished();
+                if (outcome == OutboxRowRelayResult.Published)
+                {
+                    onRowPublished();
+                }
             }
 
             try
@@ -339,7 +350,7 @@ public partial class OutboxRelayHostedService(
             .ExecuteDeleteAsync(cancellationToken);
     }
 
-    private async Task<OutboxRelayPassResult?> TryRelayRowAsync(
+    private async Task<OutboxRowRelayResult> TryRelayRowAsync(
         IServiceProvider scopedProvider,
         OutboxMessageRecord row,
         CancellationToken stoppingToken)
@@ -351,8 +362,8 @@ public partial class OutboxRelayHostedService(
         }
         catch (Exception exception)
         {
-            Log.RowFailure(logger, row.Id, DeserializeCategory, ExceptionTypeName(exception));
-            return OutboxRelayPassResult.Failed;
+            Log.PoisonRow(logger, row.Id, DeserializeCategory, ExceptionTypeName(exception));
+            return await MarkPoisonedRowAsync(scopedProvider, row, stoppingToken);
         }
 
         try
@@ -361,34 +372,57 @@ public partial class OutboxRelayHostedService(
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            return OutboxRelayPassResult.Shutdown;
+            return OutboxRowRelayResult.Shutdown;
         }
         catch (OperationCanceledException exception)
         {
             Log.RowFailure(logger, row.Id, PublishTimeoutCategory, ExceptionTypeName(exception));
-            return OutboxRelayPassResult.Failed;
+            return OutboxRowRelayResult.Failed;
         }
         catch (Exception exception)
         {
             Log.RowFailure(logger, row.Id, PublishCategory, ExceptionTypeName(exception));
-            return OutboxRelayPassResult.Failed;
+            return OutboxRowRelayResult.Failed;
         }
 
+        return await MarkRelayedRowAsync(scopedProvider, row, stoppingToken);
+    }
+
+    private async Task<OutboxRowRelayResult> MarkPoisonedRowAsync(
+        IServiceProvider scopedProvider,
+        OutboxMessageRecord row,
+        CancellationToken stoppingToken) =>
+        await MarkRowAsync(scopedProvider, row, stoppingToken) is { } failure
+            ? failure
+            : OutboxRowRelayResult.Poisoned;
+
+    private async Task<OutboxRowRelayResult> MarkRelayedRowAsync(
+        IServiceProvider scopedProvider,
+        OutboxMessageRecord row,
+        CancellationToken stoppingToken) =>
+        await MarkRowAsync(scopedProvider, row, stoppingToken) is { } failure
+            ? failure
+            : OutboxRowRelayResult.Published;
+
+    private async Task<OutboxRowRelayResult?> MarkRowAsync(
+        IServiceProvider scopedProvider,
+        OutboxMessageRecord row,
+        CancellationToken stoppingToken)
+    {
         try
         {
             await SaveMarkerAsync(scopedProvider, row, timeProvider.GetUtcNow(), stoppingToken);
+            return null;
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            return OutboxRelayPassResult.Shutdown;
+            return OutboxRowRelayResult.Shutdown;
         }
         catch (Exception exception)
         {
             Log.RowFailure(logger, row.Id, MarkerSaveCategory, ExceptionTypeName(exception));
-            return OutboxRelayPassResult.Failed;
+            return OutboxRowRelayResult.Failed;
         }
-
-        return null;
     }
 
     private async Task PublishAsync(EnrichmentRequested request, CancellationToken stoppingToken)
@@ -435,5 +469,11 @@ public partial class OutboxRelayHostedService(
             Level = LogLevel.Error,
             Message = "Outbox relay cleanup failed. Category {Category}. Exception type {ExceptionType}.")]
         public static partial void CleanupFailure(ILogger logger, string category, string exceptionType);
+
+        [LoggerMessage(
+            EventId = 4,
+            Level = LogLevel.Error,
+            Message = "Outbox relay row {RowId} is poisoned and was marked processed. Category {Category}. Exception type {ExceptionType}.")]
+        public static partial void PoisonRow(ILogger logger, long rowId, string category, string exceptionType);
     }
 }
