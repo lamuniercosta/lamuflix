@@ -67,6 +67,12 @@ public sealed class MovieModelTests
         AssertSinglePropertyIndex(entity, nameof(MovieRecord.LibraryPath), true);
         AssertSinglePropertyIndex(entity, nameof(MovieRecord.CollectionId), false);
         AssertFilteredUniqueImdbIdIndex(FindUniqueSinglePropertyIndex(entity, nameof(MovieRecord.ImdbId)));
+        var manual = FindUniqueSinglePropertyIndex(entity, nameof(MovieRecord.ManualImdbId));
+        manual.ShouldNotBeNull();
+        manual.GetDatabaseName().ShouldBe("IX_movies_manual_imdb_id");
+        manual.GetFilter().ShouldNotBeNull()
+            .Replace("\"", string.Empty, StringComparison.Ordinal)
+            .ShouldContain("manual_imdb_id IS NOT NULL");
     }
 
     [Fact]
@@ -85,12 +91,12 @@ public sealed class MovieModelTests
     }
 
     [Fact]
-    public void MoviesIndexes_HaveExactlyEight()
+    public void MoviesIndexes_HaveExactlyNine()
     {
         using var context = CreateContext();
         var entity = RequireEntity(context, typeof(MovieRecord));
 
-        entity.GetIndexes().Count().ShouldBe(8);
+        entity.GetIndexes().Count().ShouldBe(9);
     }
 
     [Fact]

@@ -58,9 +58,9 @@ public sealed class MovieLibraryPathGateTests(PostgresFixture fixture) : IClassF
         // assert
         var migrations = context.Database.GetMigrations().ToArray();
         migrations[0].ShouldEndWith("_Initial");
-        migrations[^1].ShouldEndWith("_AddMovieAddedAt");
+        migrations[^1].ShouldEndWith("_AddManualImdbIdUniqueIndex");
         migrations.ShouldNotContain(name => name.Contains("LibraryPathKeyActivation", StringComparison.Ordinal));
-        migrations.Length.ShouldBe(17);
+        migrations.Length.ShouldBe(18);
     }
 
     [Fact]

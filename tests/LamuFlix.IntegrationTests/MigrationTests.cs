@@ -89,7 +89,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         var cancellationToken = TestContext.Current.CancellationToken;
         var migrations = context.Database.GetMigrations().ToArray();
-        migrations.Length.ShouldBe(17);
+        migrations.Length.ShouldBe(18);
         migrations[0].ShouldEndWith("_Initial");
         migrations[1].ShouldEndWith("_AddMovieWriters");
         migrations[2].ShouldEndWith("_EnableVector");
@@ -107,6 +107,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         migrations[14].ShouldEndWith("_AddExplicitMovieReviews");
         migrations[15].ShouldEndWith("_AddLibraryPathKey");
         migrations[16].ShouldEndWith("_AddMovieAddedAt");
+        migrations[17].ShouldEndWith("_AddManualImdbIdUniqueIndex");
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         applied.ShouldBe(migrations);
         context.Database.HasPendingModelChanges().ShouldBeFalse();
@@ -141,7 +142,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         var applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
         applied.ShouldBe(context.Database.GetMigrations());
-        applied[^1].ShouldEndWith("_AddMovieAddedAt");
+        applied[^1].ShouldEndWith("_AddManualImdbIdUniqueIndex");
         var rows = await catalog.ListLegacyMoviesAsync(cancellationToken);
         rows.Count.ShouldBe(priorCount);
         foreach (var movie in seeded)
@@ -309,7 +310,8 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
         await migrator.MigrateAsync(null, cancellationToken);
 
-        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last().ShouldEndWith("_AddMovieAddedAt");
+        (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).Last()
+            .ShouldEndWith("_AddManualImdbIdUniqueIndex");
     }
 
     [Fact]
@@ -693,6 +695,7 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
         AssertStatusIndex(indexes);
         AssertLibraryPathIndex(indexes);
         AssertImdbIdIndex(indexes);
+        AssertManualImdbIdIndex(indexes);
     }
 
     private static void AssertTitleIndex(List<string> indexes) =>
@@ -727,6 +730,13 @@ public sealed class MigrationTests(PostgresFixture fixture) : IClassFixture<Post
 
     private static void AssertImdbIdIndex(List<string> indexes) =>
         indexes.ShouldContain(def => IsImdbIdIndex(def));
+
+    private static void AssertManualImdbIdIndex(List<string> indexes) =>
+        indexes.ShouldContain(def =>
+            def.Contains("IX_movies_manual_imdb_id", StringComparison.Ordinal)
+            && def.Contains("UNIQUE", StringComparison.Ordinal)
+            && def.Contains("(manual_imdb_id)", StringComparison.Ordinal)
+            && def.Contains("manual_imdb_id IS NOT NULL", StringComparison.Ordinal));
 
     private static async Task AssertPlaybackEventsColumnsAsync(PostgresCatalog catalog, CancellationToken cancellationToken)
     {
