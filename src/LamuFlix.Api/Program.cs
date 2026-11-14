@@ -46,7 +46,8 @@ builder.Services.ConfigureHttpJsonOptions(options => HttpJsonConfiguration.Apply
 builder.Services.AddSignalR()
     .AddJsonProtocol(static options => HttpJsonConfiguration.Apply(options.PayloadSerializerOptions));
 builder.Services.AddSingleton<IEnrichmentStatusNotifier, SignalREnrichmentStatusNotifier>();
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(static options =>
+    options.CustomizeProblemDetails = ProblemDetailsTraceId.Apply);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi("v1", static options =>
 {
