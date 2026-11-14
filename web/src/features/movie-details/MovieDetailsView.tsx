@@ -551,7 +551,21 @@ function MovieDetailsViewInner({
   if (query.isError) {
     const status = (query.error as { status?: number }).status;
     if (status === 404) {
-      return <p role="alert">Movie not found.</p>;
+      return (
+        <div>
+          <p role="alert">Movie not found.</p>
+          <a
+            className="lamu-link"
+            href="/"
+            onClick={(event) => {
+              event.preventDefault();
+              navigateTo('/');
+            }}
+          >
+            Back to library
+          </a>
+        </div>
+      );
     }
     return <p role="alert">Couldn&apos;t load this movie. Try again later.</p>;
   }
