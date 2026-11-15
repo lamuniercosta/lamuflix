@@ -655,6 +655,30 @@ function Get-ArtifactInitializeHint {
     return $script:ArtifactInitializeHint
 }
 
+# One actionable message for missing or unusable storage; tracked specs/ is never an alternative.
+function Get-ArtifactStorageGuidance {
+    param(
+        [string]$Root,
+        [string]$RepositoryId,
+        [string]$Problem = 'is not initialized',
+        [string]$TicketId
+    )
+    $displayRoot = if ([string]::IsNullOrWhiteSpace($Root)) { '<private-root>' } else { $Root }
+    $displayRepository = if ([string]::IsNullOrWhiteSpace($RepositoryId)) { $script:ArtifactRepositoryIdDefault } else { $RepositoryId }
+    $lines = @(
+        "Private artifact storage at '$displayRoot' $Problem for repository id '$displayRepository'."
+        "Initialize it with: $(Get-ArtifactInitializeHint) -Initialize"
+    )
+    if (-not [string]::IsNullOrWhiteSpace($TicketId)) {
+        $lines += "Then seed the ticket operational records with: $(Get-ArtifactInitializeHint) -Bootstrap -TicketId $TicketId -SourceDir <specs/$TicketId>"
+    }
+    if ($Problem -match 'writable') {
+        $lines += "Fix permissions on '$displayRoot' before retrying."
+    }
+    $lines += 'There is no fallback to tracked specs/; operational records stay private.'
+    return ($lines -join ' ')
+}
+
 function Test-ArtifactOnWindows {
     if ($null -ne $IsWindows) { return [bool]$IsWindows }
     return $true
@@ -866,6 +890,11 @@ function New-ArtifactChildPath {
     if (-not (Test-ArtifactPathInside -Path $full -Container $base)) {
         throw "Refusing the artifact path '$RelativePath' because it escapes '$base'."
     }
+    $baseEffective = Get-ArtifactEffectivePath $base
+    $fullEffective = Get-ArtifactEffectivePath $full
+    if (-not (Test-ArtifactPathInside -Path $fullEffective -Container $baseEffective)) {
+        throw "Refusing the artifact path '$RelativePath' because a link redirects it outside '$base'."
+    }
     return $full
 }
 
@@ -957,15 +986,74 @@ function Get-ArtifactStorageState {
 }
 
 function Assert-ArtifactStorage {
-    param([string]$Root, [string]$RepositoryId, [string]$RepoRoot)
+    param([string]$Root, [string]$RepositoryId, [string]$RepoRoot, [string]$TicketId)
     $state = Get-ArtifactStorageState -Root $Root -RepositoryId $RepositoryId -RepoRoot $RepoRoot
     if (-not $state.EXISTS) {
-        throw "Private artifact storage is not initialized at '$($state.ROOT)'. Run: $(Get-ArtifactInitializeHint)"
+        throw (Get-ArtifactStorageGuidance -Root $state.ROOT -RepositoryId $RepositoryId -Problem 'is not initialized' -TicketId $TicketId)
     }
     if (-not $state.WRITABLE) {
-        throw "Private artifact storage at '$($state.ROOT)' is not writable. Fix permissions, then run: $(Get-ArtifactInitializeHint)"
+        throw (Get-ArtifactStorageGuidance -Root $state.ROOT -RepositoryId $RepositoryId -Problem 'is not writable' -TicketId $TicketId)
     }
     return $state.ROOT
+}
+
+# Portable feature selection: .specify/feature.json may pin a feature directory but never a
+# machine-specific private artifact root, and resolution only reads it through this resolver.
+function Test-ArtifactPortableFeatureSelection {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [string]$RepositoryId,
+        [string]$Root
+    )
+    $featureJson = Join-Path (Join-Path $RepoRoot '.specify') 'feature.json'
+    if (-not (Test-Path -LiteralPath $featureJson -PathType Leaf)) {
+        return [pscustomobject]@{ PRESENT = $false; PORTABLE = $true; REASON = $null; PATH = $featureJson }
+    }
+    try {
+        $config = (Get-Content -LiteralPath $featureJson -Raw) | ConvertFrom-Json
+    } catch {
+        return [pscustomobject]@{ PRESENT = $true; PORTABLE = $false; REASON = "cannot be parsed: $($_.Exception.Message)"; PATH = $featureJson }
+    }
+    $defaultRoot = $null
+    try {
+        $privateRoot = if (-not [string]::IsNullOrWhiteSpace($Root)) { [System.IO.Path]::GetFullPath($Root) } else { Get-ArtifactRoot -RepositoryId $RepositoryId -RepoRoot $RepoRoot }
+        try { $defaultRoot = Get-ArtifactDefaultRoot } catch { $defaultRoot = $null }
+    } catch {
+        return [pscustomobject]@{ PRESENT = $true; PORTABLE = $false; REASON = "cannot verify the private root: $($_.Exception.Message)"; PATH = $featureJson }
+    }
+    foreach ($property in @($config.PSObject.Properties)) {
+        if ($property.Value -isnot [string]) { continue }
+        $value = [string]$property.Value
+        if ([string]::IsNullOrWhiteSpace($value)) { continue }
+        $isRooted = [System.IO.Path]::IsPathRooted($value)
+        $candidate = if ($isRooted) { [System.IO.Path]::GetFullPath($value) } else { [System.IO.Path]::GetFullPath((Join-Path $RepoRoot $value)) }
+        $insideRepository = Test-ArtifactPathInside -Path $candidate -Container $RepoRoot
+        $reason = $null
+        if ($candidate -notmatch '<') {
+            if ((Test-ArtifactPathInside -Path $candidate -Container $privateRoot) -or (-not [string]::IsNullOrWhiteSpace($defaultRoot) -and (Test-ArtifactPathInside -Path $candidate -Container $defaultRoot))) {
+                $reason = "stores the machine-specific private artifact root in '$($property.Name)'"
+            } elseif (-not $insideRepository) {
+                $reason = "stores the machine-specific path '$value' in '$($property.Name)' instead of a repository-relative directory"
+            }
+        }
+        if ($reason) {
+            return [pscustomobject]@{ PRESENT = $true; PORTABLE = $false; REASON = $reason; PATH = $featureJson }
+        }
+    }
+    return [pscustomobject]@{ PRESENT = $true; PORTABLE = $true; REASON = $null; PATH = $featureJson }
+}
+
+function Assert-ArtifactPortableFeatureSelection {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [string]$RepositoryId,
+        [string]$Root
+    )
+    $result = Test-ArtifactPortableFeatureSelection -RepoRoot $RepoRoot -RepositoryId $RepositoryId -Root $Root
+    if (-not $result.PORTABLE) {
+        throw "Refusing the feature selection in '$($result.PATH)' because it $($result.REASON). Keep the feature directory repository-relative; operational records resolve through the shared resolver, never through a stored private root."
+    }
+    return $result
 }
 
 # Distinct public and private paths for one ticket; public reads never require private storage.
@@ -988,9 +1076,19 @@ function Get-ArtifactPathsEnv {
         $ticketDir = Get-ArtifactTicketDir -TicketId $ticket -Root $root -RepositoryId $repositoryId -RepoRoot $paths.REPO_ROOT
         $privateAvailable = Test-Path -LiteralPath $ticketDir -PathType Container
     }
+    $selection = Test-ArtifactPortableFeatureSelection -RepoRoot $paths.REPO_ROOT -RepositoryId $repositoryId -Root $root
+    if ($RequirePrivate -and -not $selection.PORTABLE) {
+        Assert-ArtifactPortableFeatureSelection -RepoRoot $paths.REPO_ROOT -RepositoryId $repositoryId -Root $root | Out-Null
+    }
     if ($RequirePrivate -and -not $privateAvailable) {
-        Assert-ArtifactStorage -Root $root -RepositoryId $repositoryId -RepoRoot $paths.REPO_ROOT
-        throw "Private storage for ticket '$ticket' is not initialized. Run: $(Get-ArtifactInitializeHint)"
+        $state = Get-ArtifactStorageState -Root $root -RepositoryId $repositoryId -RepoRoot $paths.REPO_ROOT
+        if (-not $state.EXISTS) {
+            throw (Get-ArtifactStorageGuidance -Root $state.ROOT -RepositoryId $repositoryId -Problem 'is not initialized' -TicketId $ticket)
+        }
+        if (-not $state.WRITABLE) {
+            throw (Get-ArtifactStorageGuidance -Root $state.ROOT -RepositoryId $repositoryId -Problem 'is not writable' -TicketId $ticket)
+        }
+        throw (Get-ArtifactStorageGuidance -Root $state.ROOT -RepositoryId $repositoryId -Problem "does not hold the canonical ticket directory for '$ticket'" -TicketId $ticket)
     }
     if ($RequirePrivate) {
         Assert-ArtifactBootstrapSeed -TicketDir $ticketDir | Out-Null
