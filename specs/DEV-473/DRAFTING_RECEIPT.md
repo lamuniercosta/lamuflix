@@ -103,6 +103,85 @@ Applied Keel `PLAN_ADJUDICATION.md` ten-item Consolidated repair list. Binding d
 
 **Logical private migration inventory path (annotation only — no directories or private writes until T003–T006):** `<private-root>/LamuFlix/DEV-473/` under resolved `LAMUFLIX_ARTIFACT_ROOT` or LocalApplicationData/`LamuFlix/artifacts`. Authoring/check commands use `$env:PYTHONUTF8=1`. Actual initialized private inventory writes remain T021 (bulk) / T011b (bootstrap), not T002.
 
+## Phase 1 Setup — implementation record (T001–T002)
+
+Read-only inventory and annotation performed by Anvil in worktree `F:/Dev/LamuFlix.worktrees/DEV-473`, branch `feature/DEV-473`, HEAD `22261b356b8aec7f06b00380d42f4dbf2b755d28`. No file outside this receipt was modified; no private-root directory was created or written.
+
+### T002 — location-plan annotation (read-only)
+
+- **Intended private migration inventory path (logical):** `<private-root>/LamuFlix/DEV-473/`, i.e. `<private-root>/<repository-id>/DEV-###/` with the default repository id `LamuFlix` (D2/P6). `$env:LAMUFLIX_ARTIFACT_REPOSITORY_ID` is not set in this shell, so the default applies.
+- **Root resolution intent:** absolute `LAMUFLIX_ARTIFACT_ROOT` override when present, otherwise LocalApplicationData/`LamuFlix/artifacts` (spec Scope item 4). No machine-local literal is recorded here.
+- **`$env:PYTHONUTF8=1`** confirmed set for subsequent authoring/check commands in this worktree.
+- **Not done, by design:** no directory creation, no write, no read under the private root. Ordinary I/O stays fail-closed until T003–T006 initialize and validate storage (Q7). Actual private inventory writes remain T011b (bootstrap) and T021 (bulk).
+
+### T001 — bounded discovered caller set (D4)
+
+Evidence gathered by reading tracked sources in this worktree. Paths are repository-relative; line numbers are as of the HEAD above.
+
+**Shared resolver (the one place all cutover writers must route through)**
+
+| Surface | Evidence |
+|---|---|
+| `Get-FeaturePathsEnv` | `.specify/scripts/powershell/common.ps1:284` (precedence at `:290-319`: explicit `SPECIFY_FEATURE_DIRECTORY` → `.specify/feature.json` `feature_directory` → numeric branch prefix) |
+| `Test-FeatureJsonMatchesFeatureDir` | `common.ps1:169` |
+| `Find-FeatureDirByPrefix` | `common.ps1:236` |
+| `Get-FeatureDirFromBranchPrefixOrExit` | `common.ps1:271` |
+| `Test-FeatureBranch` | `common.ps1:140` |
+
+No public/private path split, private-root resolution, confinement, ownership/lock, or SHA-isolation helper exists today. `Get-FeaturePathsEnv` returns only public `specs/`-derived paths (`common.ps1:320-333`). Confirms D1–D4 and P1–P7 are open work, not existing behaviour.
+
+**Confirmed consumers of `Get-FeaturePathsEnv`**
+
+| Consumer | Evidence | Current write behaviour |
+|---|---|---|
+| `check-prerequisites.ps1` | `:57` dot-source, `:60` call, `:62` branch check | read-only stage detection |
+| `setup-plan.ps1` | `:21` dot-source, `:24` call, `:27-28` branch check, `:34` `New-Item -Directory`, `:42` `WriteAllText`, `:46` `New-Item` | writes `plan.md` into the public feature dir |
+| `setup-tasks.ps1` | `:17` dot-source, `:20` call, `:23-24` branch check | reads `plan.md`/`spec.md`, no artifact write |
+
+**Producers**
+
+| Producer | Evidence | Note |
+|---|---|---|
+| `create-new-feature.ps1` | `:177` `specsDir`, `:179` `New-Item -Directory`, `:290-291` `featureDir`/`specFile`, `:348` `New-Item -Directory`, `:350-358` spec write, `:363` sets `$env:SPECIFY_FEATURE` | writes public `specs/<branch>/spec.md`; numbering from local dirs, local branches, and `ls-remote` (`:53-160`) |
+| `.agents/skills/speckit-specify/SKILL.md` / `.claude` twin | instruction block: "Specs live under the default `specs/` directory…", "Create the directory and spec file", "Persist the resolved path to `.specify/feature.json`" | the agent-facing producer that instructs the public write and the `feature.json` pin |
+| `.agents/skills/speckit-plan/SKILL.md` / `.claude` twin | `:56` runs `setup-plan.ps1 -Json` | authoring skill for the setup-plan producer |
+| `.agents/skills/speckit-tasks/SKILL.md` / `.claude` twin | `:56` runs `setup-tasks.ps1 -Json` | authoring skill for the setup-tasks producer |
+
+No tracked script invokes `create-new-feature.ps1`: repository-wide grep finds it only in its own help text (`:20-40`) and in `.specify/integrations/speckit.manifest.json:8` (an upstream hash manifest, not a caller). Its only real driver is the `speckit-specify` skill instruction above. Inventory recorded this instead of inventing a script caller.
+
+**Adapters and other consumers referencing in-scope surfaces**
+
+- `check-prerequisites.ps1` referenced by 11 adapters, mirrored in both trees: `code-review`, `gherkin`, `implement`, `pipeline`, `remediate`, `ship-review`, `speckit-analyze`, `speckit-checklist`, `speckit-clarify`, `speckit-implement`, `speckit-taskstoissues` (`.agents/skills/<name>/SKILL.md` and `.claude/skills/<name>/SKILL.md`).
+- `setup-plan.ps1` referenced by `speckit-plan`; `setup-tasks.ps1` by `speckit-tasks`.
+- Adapters naming `specs/<feature>/…` paths with operational content: `task` (`:47`, `:94`, `brief.md`), `grill-with-docs` (`:9-14`, `CONCLUSIONS.md`), `handoff` (`:12`), `web-implement` (`:10`, `:15`, `:37`), `test-engineer` (`:25`), `scaffold` (`:54`), `architect` (`:21`), `gherkin` (`:21-22`), `code-review` (`:40`, `:168-171`).
+- Adapter trees are 90 files each with no file-set difference; 31 files differ in content, and the sampled difference (`speckit-plan`: `argument-hint`, `user-invocable`, `disable-model-invocation` front matter, and `CLAUDE.md` vs `AGENTS.md` context-file wording) is pre-existing host-specific drift, not ticket-caused. Recorded for T018/T024c drift proof; not corrected here.
+
+**Receipt and docs consumers**
+
+| Surface | Evidence |
+|---|---|
+| `scripts/new-mutation-receipt.ps1` | `:23` mandatory `-ReceiptDir`, `:17` usage example `specs/task/receipts`, `:323` repo-relative join — public receipts today; does not consume the common resolver |
+| `scripts/load/README.md` | `:4`, `:230` reference `specs/DEV-427/` |
+| `scripts/new-task-branch.ps1` | `:202-245` consumes `task.worktreeRoot` with sibling `<repo>.worktrees` default — the T026 scrub's behaviour-preservation target |
+
+**Guard**
+
+- `scripts/hooks/guard.ps1`: `Deny-ProtectedPath` `:85`, `Get-WorktreeBoundary` `:133`, `Deny-OutsideBoundary` `:161`, applied at `:474-475` (Edit/Write/MultiEdit) and `:483-484` (apply_patch). No private-root allowance exists; the P2 extension is new work. Existing regressions live in `scripts/hooks/Test-Guard.ps1` (185 lines) and are separate from the D3 companion.
+
+**Generated / installer-rendered outputs (must stay untouched, P3 precision)**
+
+`CodeMetricsConfig.txt`, `stryker-config.json`, `.editorconfig` gate severities — unchanged and out of scope. No host-skill generator and no runnable `install.ps1` exists in this worktree, matching `recon-DEV-473` lines 38–40.
+
+**Additional observed facts (recorded, not acted on)**
+
+- `.specify/feature.json` is git-ignored (`.gitignore:508`) and absent in this worktree, so selection falls through to the numeric branch prefix — and `check-prerequisites.ps1 -Json -PathsOnly` exits 1 here with `Not on a feature branch. Current branch: feature/DEV-473`. That is the FR-006 portability gap, not a Phase 1 defect.
+- `.specify/integrations/speckit.manifest.json` records SHA-256 for the five in-scope scripts and five templates; all ten hashes drift from the working tree at this HEAD. Upstream runtime state, not a ticket deliverable.
+- `.specify/extensions.yml` registers only `before_specify`, `after_tasks`, `after_implement` hooks; none touches private storage.
+
+### Settled inventables confirmed
+
+D1 (explicit `.specify/scripts/powershell/initialize-artifact-storage.ps1` with migration mode), D2 (environment-only `LAMUFLIX_ARTIFACT_REPOSITORY_ID`, default `LamuFlix`, no harness key), D3 (standalone `.specify/scripts/powershell/Test-ArtifactStorage.ps1`, repo-root `pwsh -NoProfile -File` invocation; historical D3 companion evidence remains the brief D3 exchange), D4 (no closed Gate 1 caller list; the set above is the bounded discovery), and P1–P7 with P3 precision all stand as written. No alternate names, projects, generators, or dependencies were introduced, and no machine-root literal was written into this artifact.
+
 ## Notes
 
 - Phase A docs remain at Conductor-required `specs/DEV-473/` paths; implementation must bootstrap then migrate this ticket’s operational records under the same policy (brief Handoff; FR-019; P1).
