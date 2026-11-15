@@ -135,10 +135,11 @@ function Invoke-Seed {
 
     if (-not (Test-Path -LiteralPath $Source -PathType Container)) {
         [Console]::Error.WriteLine("ERROR: source directory not found: $Source")
+        [Console]::Error.WriteLine("Pass -SourceDir with the repository-relative specs directory holding the ticket operational records.")
         exit 1
     }
     try {
-        Assert-ArtifactStorage -Root $root -RepositoryId $repositoryId -RepoRoot $repoRoot | Out-Null
+        Assert-ArtifactStorage -Root $root -RepositoryId $repositoryId -RepoRoot $repoRoot -TicketId $Ticket | Out-Null
     } catch {
         [Console]::Error.WriteLine("ERROR: $($_.Exception.Message)")
         exit 1
@@ -233,7 +234,13 @@ if ($Initialize) {
     $repositoryId = Get-ArtifactRepositoryId
     $root = Get-ArtifactRoot -RepositoryId $repositoryId -RepoRoot $repoRoot
     $repositoryDir = [System.IO.Path]::GetFullPath((Join-Path $root $repositoryId))
-    New-Item -ItemType Directory -Path $repositoryDir -Force | Out-Null
+    try {
+        New-Item -ItemType Directory -Path $repositoryDir -Force -ErrorAction Stop | Out-Null
+    } catch {
+        [Console]::Error.WriteLine("ERROR: $(Get-ArtifactStorageGuidance -Root $root -RepositoryId $repositoryId -Problem 'cannot be created')")
+        [Console]::Error.WriteLine("Detail: $($_.Exception.Message)")
+        exit 1
+    }
     Write-Output "PRIVATE_ROOT: $root"
     Write-Output "REPOSITORY_ID: $repositoryId"
     Write-Output "REPOSITORY_DIR: $repositoryDir"

@@ -96,13 +96,13 @@ description: "Task list for DEV-473 private artifact migration and path scrub"
 
 > Sequential edits to `.specify/scripts/powershell/Test-ArtifactStorage.ps1` only — no `[P]`
 
-- [ ] T008 [US1] Extend `.specify/scripts/powershell/Test-ArtifactStorage.ps1`: assert public-spec inspection succeeds without private storage and private-required stages fail closed without public recreation (depends on T011c)
-- [ ] T009 [US1] Extend `.specify/scripts/powershell/Test-ArtifactStorage.ps1`: assert rejection of relative roots, in-repo/in-worktree roots, traversal, invalid IDs, symlink/junction escapes, and destination escapes (depends on T008)
+- [X] T008 [US1] Extend `.specify/scripts/powershell/Test-ArtifactStorage.ps1`: assert public-spec inspection succeeds without private storage and private-required stages fail closed without public recreation (depends on T011c)
+- [X] T009 [US1] Extend `.specify/scripts/powershell/Test-ArtifactStorage.ps1`: assert rejection of relative roots, in-repo/in-worktree roots, traversal, invalid IDs, symlink/junction escapes, and destination escapes (depends on T008)
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Expose actionable missing/unwritable-root guidance from `.specify/scripts/powershell/common.ps1` / `.specify/scripts/powershell/initialize-artifact-storage.ps1` without legacy fallback to tracked `specs/`
-- [ ] T011 [US1] Ensure `.specify/feature.json` remains portable with no machine-specific private root stored in Git; confirm selection precedence consumers use shared `Get-FeaturePathsEnv` only
+- [X] T010 [US1] Expose actionable missing/unwritable-root guidance from `.specify/scripts/powershell/common.ps1` / `.specify/scripts/powershell/initialize-artifact-storage.ps1` without legacy fallback to tracked `specs/`
+- [X] T011 [US1] Ensure `.specify/feature.json` remains portable with no machine-specific private root stored in Git; confirm selection precedence consumers use shared `Get-FeaturePathsEnv` only
 
 **Checkpoint**: US1 independently testable
 

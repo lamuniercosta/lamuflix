@@ -46,13 +46,21 @@ function Write-FixtureText {
     [System.IO.File]::WriteAllText($Path, $Text, [System.Text.UTF8Encoding]::new($false))
 }
 
+function Test-ArtifactPathEqual {
+    param([string]$Left, [string]$Right)
+    if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) { return $false }
+    $comparison = if ($null -ne $IsWindows -and -not $IsWindows) { [StringComparison]::Ordinal } else { [StringComparison]::OrdinalIgnoreCase }
+    return [string]::Equals((([System.IO.Path]::GetFullPath($Left)) -replace '\\', '/').TrimEnd('/'), (([System.IO.Path]::GetFullPath($Right)) -replace '\\', '/').TrimEnd('/'), $comparison)
+}
+
 # Run a real workflow script as a child process with a controlled environment.
 function Invoke-ChildScript {
     param(
         [Parameter(Mandatory = $true)][string]$Script,
         [string[]]$Arguments = @(),
         [hashtable]$Environment = @{},
-        [string]$StandardInput = ''
+        [string]$StandardInput = '',
+        [string]$WorkingDirectory = ''
     )
     $saved = @{}
     foreach ($key in $Environment.Keys) {
@@ -67,7 +75,14 @@ function Invoke-ChildScript {
         $saved['LAMUFLIX_ARTIFACT_REPOSITORY_ID'] = [System.Environment]::GetEnvironmentVariable('LAMUFLIX_ARTIFACT_REPOSITORY_ID')
         [System.Environment]::SetEnvironmentVariable('LAMUFLIX_ARTIFACT_REPOSITORY_ID', $null)
     }
+    foreach ($selectionKey in @('SPECIFY_FEATURE_DIRECTORY', 'SPECIFY_FEATURE')) {
+        if (-not $Environment.ContainsKey($selectionKey)) {
+            $saved[$selectionKey] = [System.Environment]::GetEnvironmentVariable($selectionKey)
+            [System.Environment]::SetEnvironmentVariable($selectionKey, $null)
+        }
+    }
     try {
+        if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) { Push-Location -LiteralPath $WorkingDirectory }
         if (-not [string]::IsNullOrEmpty($StandardInput)) {
             $StandardInput | & pwsh -NoProfile -File $Script @Arguments 2>&1 | Out-Null
             $code = $LASTEXITCODE
@@ -77,6 +92,7 @@ function Invoke-ChildScript {
             $code = $LASTEXITCODE
         }
     } finally {
+        if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) { Pop-Location }
         foreach ($key in $saved.Keys) {
             [System.Environment]::SetEnvironmentVariable($key, $saved[$key])
         }
@@ -88,7 +104,8 @@ function Invoke-ChildScript {
 function Invoke-CommonProbe {
     param(
         [Parameter(Mandatory = $true)][string]$Expression,
-        [hashtable]$Environment = @{}
+        [hashtable]$Environment = @{},
+        [string]$WorkingDirectory = ''
     )
     $program = @'
 param([string]$CommonScript, [string]$Expression)
@@ -104,7 +121,7 @@ $payload | ConvertTo-Json -Depth 6 -Compress
 '@
     $probeFile = Join-Path $script:Root ('probe-' + [guid]::NewGuid().ToString('N') + '.ps1')
     Write-FixtureText -Path $probeFile -Text $program
-    $result = Invoke-ChildScript -Script $probeFile -Arguments @($script:CommonScript, $Expression) -Environment $Environment
+    $result = Invoke-ChildScript -Script $probeFile -Arguments @($script:CommonScript, $Expression) -Environment $Environment -WorkingDirectory $WorkingDirectory
     try {
         return ($result.Output | ConvertFrom-Json)
     } catch {
@@ -446,6 +463,191 @@ Release-ArtifactTicketOwnership `$owner
 
     $refreshOnly = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize', '-Refresh') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $seedRoot }
     Assert-Case 'refresh outside bootstrap is rejected' ($refreshOnly.ExitCode -eq 1) "exit $($refreshOnly.ExitCode)"
+
+    Write-Host ''
+    Write-Host 'US1 public-only inspection and private-required failure (T008):'
+
+    $publicCheckout = New-FixtureDir 'us1-public-checkout'
+    New-Item -ItemType Directory -Force -Path (Join-Path $publicCheckout '.specify') | Out-Null
+    $publicTicketDir = Join-Path $publicCheckout 'specs/DEV-901'
+    Write-FixtureText -Path (Join-Path $publicTicketDir 'spec.md') -Text "# DEV-901 spec`n"
+    Write-FixtureText -Path (Join-Path $publicTicketDir 'CONCLUSIONS.md') -Text "# DEV-901 conclusions`n"
+    $us1Root = Join-Path $script:Root 'us1-absent-root'
+    $us1Env = @{ LAMUFLIX_ARTIFACT_ROOT = $us1Root; SPECIFY_FEATURE_DIRECTORY = $publicTicketDir }
+
+    $us1PublicProbe = Invoke-CommonProbe -Expression @'
+$paths = Get-ArtifactPathsEnv -TicketId 'DEV-901'
+[pscustomobject]@{
+    specReadable = (Test-Path -LiteralPath $paths.PUBLIC_SPEC -PathType Leaf)
+    conclusionsReadable = (Test-Path -LiteralPath $paths.PUBLIC_CONCLUSIONS -PathType Leaf)
+    privateAvailable = $paths.PRIVATE_AVAILABLE
+    privateRoot = $paths.PRIVATE_ROOT
+    ticketDir = $paths.PRIVATE_TICKET_DIR
+    publicDir = $paths.PUBLIC_FEATURE_DIR
+}
+'@ -Environment $us1Env -WorkingDirectory $publicCheckout
+    Assert-Case 'a public-spec inspection succeeds without private storage' ($us1PublicProbe.ok -and $us1PublicProbe.value.specReadable) "$($us1PublicProbe.message)"
+    Assert-Case 'public conclusions are inspected without private storage' ($us1PublicProbe.ok -and $us1PublicProbe.value.conclusionsReadable) "$($us1PublicProbe.message)"
+    Assert-Case 'the inspection reports no private storage for the ticket' ($us1PublicProbe.ok -and (-not $us1PublicProbe.value.privateAvailable)) "$($us1PublicProbe.message)"
+    Assert-Case 'private and public ticket paths stay distinct' ($us1PublicProbe.ok -and $us1PublicProbe.value.ticketDir -and -not (Test-ArtifactPathEqual $us1PublicProbe.value.ticketDir $us1PublicProbe.value.publicDir)) "$($us1PublicProbe.message)"
+
+    $publicBefore = @(Get-ChildItem -LiteralPath $publicTicketDir -Recurse -File -Force | ForEach-Object { $_.FullName } | Sort-Object) -join '|'
+    $us1RequirePrivate = Invoke-CommonProbe -Expression "Get-ArtifactPathsEnv -TicketId 'DEV-901' -RequirePrivate | Out-Null" -Environment $us1Env -WorkingDirectory $publicCheckout
+    Assert-Case 'a private-required stage fails closed without private storage' (-not $us1RequirePrivate.ok) $us1RequirePrivate.message
+    Assert-Case 'the failure names the explicit initialization command' ($us1RequirePrivate.message -match 'initialize-artifact-storage\.ps1 -Initialize') $us1RequirePrivate.message
+    Assert-Case 'the failure states that tracked specs/ is not a fallback' ($us1RequirePrivate.message -match 'no fallback to tracked specs/') $us1RequirePrivate.message
+    Assert-Case 'the failure names the ticket it needs' ($us1RequirePrivate.message -match 'DEV-901') $us1RequirePrivate.message
+    $publicAfter = @(Get-ChildItem -LiteralPath $publicTicketDir -Recurse -File -Force | ForEach-Object { $_.FullName } | Sort-Object) -join '|'
+    Assert-Case 'a private-required failure recreates no operational record publicly' ($publicBefore -eq $publicAfter) "before $publicBefore after $publicAfter"
+    Assert-Case 'a private-required failure creates no private root implicitly' (-not (Test-Path -LiteralPath $us1Root)) 'private root was created'
+
+    $us1PublicOnly = @('spec.md', 'CONCLUSIONS.md', 'ASSUMPTIONS.md')
+    $publicOperational = @(Get-ChildItem -LiteralPath $publicTicketDir -File -Force | Where-Object { $us1PublicOnly -notcontains $_.Name })
+    Assert-Case 'the public ticket directory holds only allowlisted names' ($publicOperational.Count -eq 0) (@($publicOperational | ForEach-Object { $_.Name }) -join ', ')
+
+    $missingRootGuidance = Invoke-CommonProbe -Expression "Assert-ArtifactStorage -Root '$us1Root' -TicketId 'DEV-901'" -Environment @{}
+    Assert-Case 'missing-root guidance names the ticket seed command' ((-not $missingRootGuidance.ok) -and ($missingRootGuidance.message -match 'DEV-901') -and ($missingRootGuidance.message -match '-Bootstrap')) $missingRootGuidance.message
+
+    $unwritableRoot = New-FixtureDir 'us1-unwritable-root'
+    $unwritableProbe = Invoke-CommonProbe -Expression @"
+`$target = Join-Path '$unwritableRoot' 'probe-file'
+[System.IO.File]::WriteAllText(`$target, 'block')
+Assert-ArtifactStorage -Root `$target
+"@ -Environment @{}
+    Assert-Case 'a non-directory storage path is reported as unusable' ((-not $unwritableProbe.ok) -and ($unwritableProbe.message -match 'initialize-artifact-storage\.ps1')) $unwritableProbe.message
+
+    $unwritableInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Bootstrap', '-TicketId', 'DEV-901', '-SourceDir', $publicTicketDir) -Environment @{ LAMUFLIX_ARTIFACT_ROOT = (Join-Path $unwritableRoot 'probe-file') }
+    Assert-Case 'bootstrap into an unusable root fails closed' ($unwritableInit.ExitCode -eq 1) "exit $($unwritableInit.ExitCode)"
+    Assert-Case 'bootstrap names a remedy for the unusable root' ($unwritableInit.Output -match 'initialize-artifact-storage\.ps1 -Initialize') $unwritableInit.Output
+
+    Write-Host ''
+    Write-Host 'US1 confinement regressions (T009):'
+
+    $us1ConfinementRoot = New-FixtureDir 'us1-confinement-root'
+    $relativeRootProbe = Invoke-CommonProbe -Expression 'Get-ArtifactRoot' -Environment @{ LAMUFLIX_ARTIFACT_ROOT = './artifacts' }
+    Assert-Case 'a relative override root is rejected before use' ((-not $relativeRootProbe.ok) -and ($relativeRootProbe.message -match 'absolute')) $relativeRootProbe.message
+
+    $worktreeShaped = New-FixtureDir 'us1-worktree-shaped-checkout'
+    Write-FixtureText -Path (Join-Path $worktreeShaped '.git') -Text "gitdir: $($script:RepoRoot)/.git/worktrees/us1`n"
+    $worktreeRootProbe = Invoke-CommonProbe -Expression 'Get-ArtifactRoot' -Environment @{ LAMUFLIX_ARTIFACT_ROOT = (Join-Path $worktreeShaped 'artifacts') }
+    Assert-Case 'a root inside a worktree-shaped checkout is rejected' ((-not $worktreeRootProbe.ok) -and ($worktreeRootProbe.message -match 'outside every repository')) $worktreeRootProbe.message
+
+    $us1Ticket = Join-Path $us1ConfinementRoot 'LamuFlix/DEV-901'
+    New-Item -ItemType Directory -Force -Path $us1Ticket | Out-Null
+    foreach ($badTicketId in @('DEV-901/../DEV-902', 'DEV-901/x', '..', 'DEV-901/sub', '901')) {
+        $badTicketProbe = Invoke-CommonProbe -Expression "Get-ArtifactTicketDir -TicketId '$badTicketId' -Root '$us1ConfinementRoot'" -Environment @{}
+        Assert-Case "ticket id '$badTicketId' is rejected" (-not $badTicketProbe.ok) $badTicketProbe.message
+    }
+
+    $badRepositoryProbe = Invoke-CommonProbe -Expression "Get-ArtifactTicketDir -TicketId 'DEV-901' -Root '$us1ConfinementRoot'" -Environment @{ LAMUFLIX_ARTIFACT_REPOSITORY_ID = '..' }
+    Assert-Case 'an invalid repository id blocks ticket resolution' (-not $badRepositoryProbe.ok) $badRepositoryProbe.message
+
+    $ticketEscapeProbe = Invoke-CommonProbe -Expression "New-ArtifactChildPath -BaseDir '$us1Ticket' -RelativePath 'evidence/../../escaped.md'" -Environment @{}
+    Assert-Case 'a traversal destination under a ticket is rejected' ((-not $ticketEscapeProbe.ok) -and ($ticketEscapeProbe.message -match 'traversal')) $ticketEscapeProbe.message
+
+    $linkOutTarget = New-FixtureDir 'us1-link-out-target'
+    $linkedChild = Join-Path $us1Ticket 'linked'
+    $childLinkCreated = $false
+    try {
+        New-Item -ItemType SymbolicLink -Path $linkedChild -Target $linkOutTarget -ErrorAction Stop | Out-Null
+        $childLinkCreated = $true
+    } catch {
+        $childLinkCreated = $false
+    }
+    if ($childLinkCreated) {
+        $linkChildProbe = Invoke-CommonProbe -Expression "New-ArtifactChildPath -BaseDir '$us1Ticket' -RelativePath 'linked/record.md'" -Environment @{}
+        Assert-Case 'a linked destination escaping the ticket is rejected' ((-not $linkChildProbe.ok) -and ($linkChildProbe.message -match 'link')) $linkChildProbe.message
+    } else {
+        Write-Host 'SKIP  linked destination escape case (link creation is not permitted on this host)'
+    }
+
+    $junctionTarget = New-FixtureDir 'us1-junction-target'
+    $junctionPath = Join-Path $us1ConfinementRoot 'LamuFlix/DEV-902'
+    $junctionCreated = $false
+    try {
+        New-Item -ItemType Junction -Path $junctionPath -Target $junctionTarget -ErrorAction Stop | Out-Null
+        $junctionCreated = $true
+    } catch {
+        $junctionCreated = $false
+    }
+    if ($junctionCreated) {
+        $junctionProbe = Invoke-CommonProbe -Expression "Get-ArtifactTicketDir -TicketId 'DEV-902' -Root '$us1ConfinementRoot' -RepositoryId 'LamuFlix'" -Environment @{}
+        $junctionEscape = Invoke-CommonProbe -Expression "New-ArtifactChildPath -BaseDir '$junctionPath' -RelativePath '../../outside.md'" -Environment @{}
+        Assert-Case 'a junction ticket directory cannot be reached through traversal' (-not $junctionEscape.ok) $junctionEscape.message
+        $junctionLinkProbe = Invoke-CommonProbe -Expression "Test-ArtifactPrivatePath -Path (Join-Path '$junctionPath' 'brief.md')" -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $us1ConfinementRoot }
+        Assert-Case 'a junction-redirected ticket path is not a sanctioned private path' ($junctionLinkProbe.ok -and (-not $junctionLinkProbe.value)) "$($junctionLinkProbe.message) got $($junctionLinkProbe.value)"
+    } else {
+        Write-Host 'SKIP  junction escape case (junction creation is not permitted on this host)'
+    }
+
+    Write-Host ''
+    Write-Host 'US1 portable feature selection (T011):'
+
+    $portableCheckout = New-FixtureDir 'us1-portable-checkout'
+    New-Item -ItemType Directory -Force -Path (Join-Path $portableCheckout '.specify') | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $portableCheckout 'specs/DEV-901') | Out-Null
+    $portableJson = Join-Path $portableCheckout '.specify/feature.json'
+    $portableRoot = New-FixtureDir 'us1-portable-private-root'
+    $portableEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $portableRoot }
+
+    Write-FixtureText -Path $portableJson -Text ('{"feature_directory":"specs/DEV-901"}')
+    $portableProbe = Invoke-CommonProbe -Expression "Test-ArtifactPortableFeatureSelection -RepoRoot '$portableCheckout'" -Environment $portableEnv
+    Assert-Case 'a repository-relative feature.json is portable' ($portableProbe.ok -and $portableProbe.value.PRESENT -and $portableProbe.value.PORTABLE) "$($portableProbe.message) got $($portableProbe.value.REASON)"
+
+    $absentJsonProbe = Invoke-CommonProbe -Expression "Test-ArtifactPortableFeatureSelection -RepoRoot '$($script:Root)'" -Environment $portableEnv
+    Assert-Case 'a missing feature.json is not a portability failure' ($absentJsonProbe.ok -and (-not $absentJsonProbe.value.PRESENT) -and $absentJsonProbe.value.PORTABLE) $absentJsonProbe.message
+
+    Write-FixtureText -Path $portableJson -Text ("{`"feature_directory`":`"$($portableRoot -replace '\\', '\\')/LamuFlix/DEV-901`"}")
+    $privateRootInJson = Invoke-CommonProbe -Expression "Test-ArtifactPortableFeatureSelection -RepoRoot '$portableCheckout'" -Environment $portableEnv
+    Assert-Case 'a stored private artifact root is refused' ($privateRootInJson.ok -and (-not $privateRootInJson.value.PORTABLE)) "$($privateRootInJson.message) got $($privateRootInJson.value.REASON)"
+    $privateRootAssert = Invoke-CommonProbe -Expression "Assert-ArtifactPortableFeatureSelection -RepoRoot '$portableCheckout' | Out-Null" -Environment $portableEnv
+    Assert-Case 'asserting an unportable feature selection fails closed' ((-not $privateRootAssert.ok) -and ($privateRootAssert.message -match 'private artifact root')) $privateRootAssert.message
+
+    Write-FixtureText -Path $portableJson -Text ('{"feature_directory":"../outside-checkout/specs/DEV-901"}')
+    $outsideJson = Invoke-CommonProbe -Expression "Test-ArtifactPortableFeatureSelection -RepoRoot '$portableCheckout'" -Environment $portableEnv
+    Assert-Case 'a machine path outside the checkout is refused' ($outsideJson.ok -and (-not $outsideJson.value.PORTABLE)) "$($outsideJson.message) got $($outsideJson.value.REASON)"
+
+    Write-FixtureText -Path $portableJson -Text 'not json'
+    $brokenJson = Invoke-CommonProbe -Expression "Test-ArtifactPortableFeatureSelection -RepoRoot '$portableCheckout'" -Environment $portableEnv
+    Assert-Case 'an unparseable feature.json is refused' ($brokenJson.ok -and (-not $brokenJson.value.PORTABLE)) "$($brokenJson.message) got $($brokenJson.value.REASON)"
+
+    $selectionPrecedenceEnv = Join-Path $script:Root 'us1-precedence'
+    New-Item -ItemType Directory -Force -Path $selectionPrecedenceEnv | Out-Null
+    $explicitDir = Join-Path $publicCheckout 'specs/DEV-901'
+    Write-FixtureText -Path $portableJson -Text ('{"feature_directory":"specs/DEV-901"}')
+    $precedenceProbe = Invoke-CommonProbe -Expression @'
+$paths = Get-FeaturePathsEnv
+[pscustomobject]@{ featureDir = $paths.FEATURE_DIR; publicSpec = $paths.PUBLIC_SPEC }
+'@ -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $portableRoot; SPECIFY_FEATURE_DIRECTORY = $explicitDir } -WorkingDirectory $portableCheckout
+    Assert-Case 'the explicit feature directory still wins over feature.json' ($precedenceProbe.ok -and (Test-ArtifactPathEqual $precedenceProbe.value.featureDir $explicitDir)) "$($precedenceProbe.message) got $($precedenceProbe.value.featureDir)"
+
+    $jsonPrecedenceProbe = Invoke-CommonProbe -Expression "Get-FeaturePathsEnv" -Environment $portableEnv -WorkingDirectory $portableCheckout
+    Assert-Case 'a portable feature.json selects its feature directory' ($jsonPrecedenceProbe.ok -and (Test-ArtifactPathEqual $jsonPrecedenceProbe.value.FEATURE_DIR (Join-Path $portableCheckout 'specs/DEV-901'))) "$($jsonPrecedenceProbe.message) got $($jsonPrecedenceProbe.value.FEATURE_DIR)"
+
+    $resolverOnly = $true
+    foreach ($consumer in @('check-prerequisites.ps1', 'setup-plan.ps1', 'setup-tasks.ps1')) {
+        $consumerPath = Join-Path $PSScriptRoot $consumer
+        $consumerLines = @(Get-Content -LiteralPath $consumerPath)
+        if (-not (@($consumerLines | Where-Object { $_ -match 'Get-FeaturePathsEnv' }).Count -gt 0)) {
+            $resolverOnly = $false
+            Write-Host "      $consumer does not call the shared resolver" -ForegroundColor Yellow
+        }
+        $duplicated = @($consumerLines | Where-Object { $_.TrimStart() -notmatch '^#' -and $_ -match 'feature\.json|feature_directory' })
+        if ($duplicated.Count -gt 0) {
+            $resolverOnly = $false
+            Write-Host "      $consumer reads feature selection outside the shared resolver: $($duplicated -join ' ')" -ForegroundColor Yellow
+        }
+    }
+    Assert-Case 'feature-selection consumers use only the shared resolver' $resolverOnly 'a consumer duplicates feature selection'
+
+    New-Item -ItemType Directory -Force -Path (Join-Path $portableCheckout 'specs/DEV-901') | Out-Null
+    Write-FixtureText -Path $portableJson -Text ("{`"feature_directory`":`"$($portableRoot -replace '\\', '\\')`"}")
+    $unportablePrivate = Invoke-CommonProbe -Expression "Get-ArtifactPathsEnv -TicketId 'DEV-901' -RequirePrivate | Out-Null" -Environment $portableEnv -WorkingDirectory $portableCheckout
+    Assert-Case 'a private-required stage refuses an unportable feature selection' ((-not $unportablePrivate.ok) -and ($unportablePrivate.message -match 'private artifact root')) $unportablePrivate.message
+
+    Write-FixtureText -Path $portableJson -Text ('{"feature_directory":"specs/DEV-901"}')
+    $portablePrivate = Invoke-CommonProbe -Expression "Get-ArtifactPathsEnv -TicketId 'DEV-901'" -Environment $portableEnv -WorkingDirectory $portableCheckout
+    Assert-Case 'a portable selection resolves without refusing' ($portablePrivate.ok -and $portablePrivate.value.PUBLIC_SPEC -match 'DEV-901') $portablePrivate.message
 } finally {
     if (Test-Path -LiteralPath $script:Root) {
         Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
