@@ -909,20 +909,6 @@ function New-ArtifactChildPath {
     return $full
 }
 
-function Get-ArtifactTicketPaths {
-    param([Parameter(Mandatory = $true)][string]$TicketDir)
-    return [pscustomobject]@{
-        TICKET_DIR     = $TicketDir
-        BRIEF          = Join-Path $TicketDir 'brief.md'
-        PLAN           = Join-Path $TicketDir 'plan.md'
-        TASKS          = Join-Path $TicketDir 'tasks.md'
-        CHECKLISTS_DIR = Join-Path $TicketDir 'checklists'
-        EVIDENCE_DIR   = Join-Path $TicketDir 'evidence'
-        RECEIPTS_DIR   = Join-Path $TicketDir 'receipts'
-        RUN_DIR        = Join-Path $TicketDir 'run'
-    }
-}
-
 function Get-ArtifactSeedProofPath {
     param([Parameter(Mandatory = $true)][string]$TicketDir)
     return (Join-Path $TicketDir 'seed-proof.json')
