@@ -1,0 +1,8 @@
+# DEV-471 — Patron Rulings (CONCLUSIONS)
+
+## Q1: Review loop terms and frozen scope
+- **Verdict**: Approved (`recon-DEV-471:4-37`; `DEV-471:3-29`; `task-pipeline:25-30`; `lamuflix-team-charter:16-31`; `specs/PRODUCT.md:18-48`).
+- **Basis**:
+  - **Standing review loop terms (cited, not re-ruled)**: Per standing pipeline rules (`task-pipeline:27-29`; `specs/DEV-501/CONCLUSIONS.md:3-8`), review is capped at 2 rounds (`<= 2` fix commits per round), all verified unresolved Critical, High, Medium, and Low contract/safety/acceptance findings block closure (escalating to owner review if any remain at the 2-round cap), and speculative abstractions defer (`specs/PRODUCT.md:18`).
+  - **Frozen scope & ADR 0043**: Scope is frozen to `DEV-471` (`recon-DEV-471:4,8-25`; `DEV-471:9,21-29`): per-PR Compose startup plus real end-to-end smoke covering `start`, `import`, `enrich`, `thumbnail`, and `play` with isolated deterministic fixtures/stubs, CI wiring, cleanup, and failure evidence under claimed ADR `0043` (`DEV-471:26-29`; `recon-DEV-471:32-37`); anything else is a follow-up issue, not a finding in this round.
+  - **Section 2.3 boundaries & recon flag**: Under `lamuflix-team-charter:18-31` and `specs/PRODUCT.md:41-48`, zero new dependencies, layers, schema changes, public API changes, or hardcoded secrets are authorized (`recon-DEV-471:9,26-29`); `recon-DEV-471:4,24,29` notes that exact YouTrack body wording beyond the intake summary and whether `play` means browser/HTTP playback versus `Features:LocalPlay` are not established in current recon, so flag bounded recon only if a subsequent question requires ticket-body detail beyond `web/e2e/compose.e2e.yml` + existing API/browser smoke flows.
