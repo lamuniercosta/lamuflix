@@ -152,3 +152,14 @@ Decisions are append-only. Basis: ticket evidence in recon-DEV-473, pinned intak
 - Leaving the live home cluster restore to the operator avoids compounding the incident with unverified agent-run cluster/database operations against live operator state while backups under `<ops-root>/backups/` remain intact (`scripts/home/Remove-HomeCluster.ps1:3-5`).
 - For all T024b/T026 verification of `Get-HomeConfigPathDefault` and `scripts/home/*.ps1`, tests must either invoke `Get-HomeConfigPathDefault` in an isolated temp git/worktree fixture, pass a disposable `-ConfigPath` / `LAMUFLIX_HOME_CONFIG` with no-op tool shims in temp storage, or omit `-Confirm` / use `-WhatIf` so live `kind` is never invoked against the operator default config.
 
+
+---
+
+## Phase 4 review adjudication ruling (5a817f91)
+
+[from Patron] Verdict: Approved Phase 4 review dispositions — (Ledger F1 Medium) delete the new non-exempt explanatory comments in `.specify/scripts/powershell/common.ps1:693,701,1323`, `.specify/scripts/powershell/setup-tasks.ps1:29-31`, and `harness.yml:10-13` while preserving existing help/headers and `AGENTS.md:21-22` exemptions; (Ledger F2 Low, provenance helper extraction) `noted, no ticket`, no extraction in the fix commit; (Ledger F3 Low, `Acquire`/`Release` naming) `noted, no ticket`, no rename in the fix commit; (Compass F3 Low) apply local `README.md` grammar repair in the fix commit; (Compass F2) drop as a spec-compliant non-finding; and confirm Guard (High) and damaged citations (Medium) as mandatory in-scope fixes.
+- `AGENTS.md:21-22` states an unqualified repo-wide prohibition on explanatory comments with only three narrow exemptions; deleting the newly introduced explanatory comments in `.specify/scripts/powershell/common.ps1:693,701,1323`, `.specify/scripts/powershell/setup-tasks.ps1:29-31`, and `harness.yml:10-13` (while preserving existing comment-based help, shebangs, and exemptions) enforces the standing rule without requiring a constitution/rule exception under Charter §2.3.
+- Under Charter §2.3 (follow-up ticket bar) and the Q9 frozen scope and closing bar, Low non-broken refactoring proposals (Ledger F2 provenance helper extraction; Ledger F3 internal `Acquire`/`Release` verb rename) do not warrant a follow-up ticket or fix-commit churn (`noted, no ticket`), whereas local grammar polish in already-touched `README.md` (Compass F3) is a safe in-scope fix and synthetic test fixture segments (Compass F2) comply with Q5 and D3.
+- Under the Q9 closing bar, the substantiated High (`scripts/hooks/guard.ps1` confinement) and Medium (damaged citations from scrubbing) findings remain mandatory fixes before closure.
+
+
