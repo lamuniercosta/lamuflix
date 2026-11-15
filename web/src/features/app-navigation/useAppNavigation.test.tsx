@@ -4,6 +4,7 @@ import {
   currentReturnUrl,
   isLibraryRoute,
   libraryReturnSearch,
+  openMovie,
   openMoviePlayer,
   parseMovieId,
   readPlayerIntent,
@@ -173,6 +174,41 @@ describe('useAppNavigation', () => {
 
     added.mockRestore();
     removed.mockRestore();
+  });
+
+  it('resyncs from the shared notification without a synthetic popstate', () => {
+    window.history.replaceState({}, '', '/?text=dune');
+    const { result } = renderHook(() => useAppNavigation());
+    const before = result.current.route.routeKey;
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
+
+    act(() => {
+      openMovie(7, { playerIntent: true });
+    });
+
+    const popstateDispatches = dispatch.mock.calls.filter(
+      ([event]) => event instanceof PopStateEvent,
+    );
+    expect(popstateDispatches).toHaveLength(0);
+    expect(result.current.route.pathname).toBe('/movies/7');
+    expect(result.current.route.routeKey).toBe(before + 1);
+    expect(readPlayerIntent(window.history.state)).toBe(true);
+    expect(currentReturnUrl()).toBe('/?text=dune');
+
+    dispatch.mockRestore();
+  });
+
+  it('stops applying programmatic navigation after unmount', () => {
+    window.history.replaceState({}, '', '/');
+    const { result, unmount } = renderHook(() => useAppNavigation());
+    const lastKey = result.current.route.routeKey;
+
+    unmount();
+    act(() => {
+      openMoviePlayer(4);
+    });
+
+    expect(result.current.route.routeKey).toBe(lastKey);
   });
 });
 

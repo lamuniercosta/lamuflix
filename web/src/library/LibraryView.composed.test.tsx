@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
+import { navigate } from '../features/app-navigation/appNavigation';
 import { browseMovies, people as successPeople } from '../mocks/fixtures';
 import { server } from '../test/server';
 import LibraryErrorBoundary from './LibraryErrorBoundary';
@@ -275,6 +276,27 @@ describe('LibraryView composition', () => {
 
     window.history.replaceState({}, '', '/?text=dune');
     window.dispatchEvent(new PopStateEvent('popstate'));
+
+    await waitFor(() => {
+      expect(requests.length).toBe(baseline + 1);
+    });
+    expect(requests.at(-1)).toBe('text=dune&sort=Title&direction=Ascending&page=1&pageSize=20');
+    expect(screen.getByPlaceholderText('Search titles')).toHaveValue('dune');
+  });
+
+  it('resyncs the uncontrolled library from a shared programmatic notification', async () => {
+    const requests: string[] = [];
+    countMoviesRequests((request) => {
+      requests.push(new URL(request.url).search.slice(1));
+    });
+
+    renderLibraryView();
+    await screen.findByText('Dune');
+    const baseline = requests.length;
+
+    act(() => {
+      navigate('/?text=dune');
+    });
 
     await waitFor(() => {
       expect(requests.length).toBe(baseline + 1);

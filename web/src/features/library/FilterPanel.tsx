@@ -25,6 +25,7 @@ import {
   type LibrarySort,
 } from './filterQuery';
 import { useDebouncedSearch } from './useDebouncedSearch';
+import { subscribeToRouteChange } from '../app-navigation/appNavigation';
 import './filterPanel.css';
 
 type GenreDto = components['schemas']['GenreDto'];
@@ -260,7 +261,7 @@ export function FilterPanel(props: FilterPanelProps) {
     if (integrated) {
       return;
     }
-    const handler = () => {
+    const resync = () => {
       cancelSearchText();
       const fromUrl = parseFilterQuery(window.location.search);
       setSearchText(String(fromUrl.text ?? ''));
@@ -268,8 +269,7 @@ export function FilterPanel(props: FilterPanelProps) {
         setInternalQuery(fromUrl);
       }
     };
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
+    return subscribeToRouteChange(resync);
   }, [integrated, isControlled, cancelSearchText]);
 
   const [castText, setCastText] = useState('');

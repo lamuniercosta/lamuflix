@@ -11,6 +11,7 @@ import {
   PlayFilledIcon,
   StarFilledIcon,
 } from '../../ui/icons';
+import { navigate, openMovie } from '../app-navigation/appNavigation';
 import { readPlayerIntent, readReturnUrl } from '../app-navigation/useAppNavigation';
 import BrowserPlayer from '../playback/BrowserPlayer';
 import { OPEN_LOCAL_COPY, openLocalLabel, playLabel } from '../playback/playerCopy';
@@ -57,14 +58,8 @@ export interface MovieDetailsViewProps {
   enrichmentStatus?: EnrichmentStatusSubscription;
 }
 
-function navigateTo(href: string, state: unknown = {}): void {
-  window.history.pushState(state, '', href);
-  window.dispatchEvent(new PopStateEvent('popstate'));
-}
-
 function openDetails(id: ActorId): void {
-  const returnUrl = readReturnUrl(window.history.state);
-  navigateTo(`/movies/${String(id)}`, returnUrl ? { libraryReturnUrl: returnUrl } : {});
+  openMovie(id, { returnUrl: readReturnUrl(window.history.state) });
 }
 
 function factsLine(metadata: MovieMetadata | null): string {
@@ -314,7 +309,7 @@ function MoreWithPanel({
           href={libraryHref}
           onClick={(event) => {
             event.preventDefault();
-            navigateTo(libraryHref);
+            navigate(libraryHref);
           }}
         >
           {`See all with ${actor} in Library`}
@@ -510,7 +505,7 @@ function MovieDetailsViewInner({
       onSuccess: async () => {
         await detailsClient.invalidateQueries({ queryKey: ['movieDetails', movieId] });
         await libraryClient.invalidateQueries({ queryKey: ['browseMovies'] });
-        navigateTo('/');
+        navigate('/');
       },
       onError: () => {
         setRemoveFailed(true);
@@ -559,7 +554,7 @@ function MovieDetailsViewInner({
             href="/"
             onClick={(event) => {
               event.preventDefault();
-              navigateTo('/');
+              navigate('/');
             }}
           >
             Back to library

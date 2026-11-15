@@ -161,6 +161,21 @@ describe('MovieCard', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(posts).toBe(0);
   });
+
+  it('falls back to the shared player entry point without a synthetic popstate', () => {
+    window.history.replaceState(null, '', '/');
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
+    renderCard(<MovieCard movie={movie} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Play Heat' }));
+
+    const popstateEvents = dispatch.mock.calls.filter(([event]) => event instanceof PopStateEvent);
+    expect(popstateEvents).toHaveLength(0);
+    expect(window.location.pathname).toBe('/movies/1');
+    expect(window.history.state).toEqual({ libraryReturnUrl: '/', playerIntent: true });
+
+    dispatch.mockRestore();
+  });
 });
 
 describe('MovieCard feedback actions', () => {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, type FocusEvent } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import MovieCard from '../../library/MovieCard';
 import { MovieCarousel } from '../../ui/MovieCarousel';
+import { openMovie } from '../app-navigation/appNavigation';
 import { readReturnUrl } from '../app-navigation/useAppNavigation';
 import {
   toRecommendationMovieId,
@@ -15,14 +16,8 @@ const LOADING_LABEL = 'Loading related movies…';
 const EMPTY_LABEL = 'No related movies yet.';
 const ERROR_LABEL = 'Could not load related movies.';
 
-function navigateTo(href: string, state: unknown = {}): void {
-  window.history.pushState(state, '', href);
-  window.dispatchEvent(new PopStateEvent('popstate'));
-}
-
 function openRecommendedMovie(id: number | string): void {
-  const returnUrl = readReturnUrl(window.history.state);
-  navigateTo(`/movies/${String(id)}`, returnUrl ? { libraryReturnUrl: returnUrl } : {});
+  openMovie(id, { returnUrl: readReturnUrl(window.history.state) });
 }
 
 export interface RelatedMoviesProps {
