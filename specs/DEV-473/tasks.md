@@ -79,8 +79,8 @@ description: "Task list for DEV-473 private artifact migration and path scrub"
 
 **Purpose**: Verified private seed of DEV-473’s own Phase A operational records so consumer cutover cannot self-break. Bulk historical archive/removals remain Phase 5 / US3 / Q8 stage 4.
 
-- [ ] T011b After T003–T006 (and guard primitives T007b/T007c), seed DEV-473’s current Phase A operational records (`brief.md`, `plan.md`, `tasks.md`, checklists, `DRAFTING_RECEIPT.md`, `PLAN_ADJUDICATION.md`, and any other inventoried operational records under `specs/DEV-473/`) into verified private storage under logical `<private-root>/LamuFlix/DEV-473/` via `.specify/scripts/powershell/initialize-artifact-storage.ps1` bootstrap mode; verify raw-byte SHA-256 (P5). **No dual-read. No public-write fallback.** Must complete before T014–T018 private-required consumer activation.
-- [ ] T011c Extend `.specify/scripts/powershell/Test-ArtifactStorage.ps1` to assert bootstrap seed verification and that private-required activation paths remain blocked until seed proof exists (disposable fixtures). Depends on T007c and T011b. Sequential companion edit — no `[P]`.
+- [X] T011b After T003–T006 (and guard primitives T007b/T007c), seed DEV-473’s current Phase A operational records (`brief.md`, `plan.md`, `tasks.md`, checklists, `DRAFTING_RECEIPT.md`, `PLAN_ADJUDICATION.md`, and any other inventoried operational records under `specs/DEV-473/`) into verified private storage under logical `<private-root>/LamuFlix/DEV-473/` via `.specify/scripts/powershell/initialize-artifact-storage.ps1` bootstrap mode; verify raw-byte SHA-256 (P5). **No dual-read. No public-write fallback.** Must complete before T014–T018 private-required consumer activation.
+- [X] T011c Extend `.specify/scripts/powershell/Test-ArtifactStorage.ps1` to assert bootstrap seed verification and that private-required activation paths remain blocked until seed proof exists (disposable fixtures). Depends on T007c and T011b. Sequential companion edit — no `[P]`.
 
 **Checkpoint**: In-flight ticket private seed verified; cutover may activate
 
