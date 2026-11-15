@@ -1,6 +1,6 @@
 # DEV-411 grill conclusions
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-411-spec; branch: feature/411-spec.
+Worktree: <task-worktree>/feature-411-spec; branch: feature/411-spec.
 Facts: recon-DEV-411 at aff9856b62f7ae217ba0c06587b11e968a3d80a3. Authority: Patron. Cap: 12 questions.
 
 ## Q1 — Delivery boundary

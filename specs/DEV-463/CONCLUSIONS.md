@@ -147,7 +147,7 @@ Read-back verification completed: 28 unique sequential T000-T027 tasks; 21 per-f
 ## Phase B T000 — Verified Gate 1 merge receipt (Keel, 2026-11-05)
 
 - Spec PR #329 merged at `225edf4951d8b93bde6d2515998d3728bafa3d42` (`225edf49`); Phase A base `933e8ca827d18afafd659a2fdecd4f2c21953ce7` (`933e8ca8`). Basis: note DEV-463 lines 4–6 and recon-DEV-463 sections 1, 2 and 9. Recon records fetched origin/main equal to picked HEAD, with Phase A base its ancestor.
-- Named pickup worktree: `F:/Dev/LamuFlix.worktrees/DEV-463`, branch `feature/DEV-463`. Pre-edit identity read-back matched the supplied HEAD and branch; worktree was clean.
+- Named pickup worktree: `<task-worktree>/DEV-463`, branch `feature/DEV-463`. Pre-edit identity read-back matched the supplied HEAD and branch; worktree was clean.
 - T000 is complete. This records the owner Gate 1 merge, superseding historical pending-merge wording in Phase A artifacts; it creates no product ruling and does not certify implementation, baseline, gates, runtime acceptance or delivery merge clearance.
 
 ## Phase B T001 — Bounded pickup reanalysis dispositions (Keel, 2026-11-05)

@@ -1,6 +1,6 @@
 # DEV-336 grill conclusions
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-336-spec
+Worktree: <task-worktree>/feature-336-spec
 Branch: feature/336-spec
 Recon pin: 06aedfeabc9e26ecc0348c71ca9983a2a8d27a65
 Decision authority: Patron. Facts: recon-DEV-336. Maximum 12 questions.
@@ -9,7 +9,7 @@ Decision authority: Patron. Facts: recon-DEV-336. Maximum 12 questions.
 
 ## Q1 — Scope and loop discipline
 
-**Keel:** /grill-with-docs DEV-336. Worktree F:/Dev/LamuFlix.worktrees/feature-336-spec branch feature/336-spec. Read notes DEV-336 and recon-DEV-336 plus specs/PRODUCT.md, ticket text, constitution and charter as your decision basis. Max 12 questions, one at a time. Do not write the brief or conclusions; I will append the full exchanges. Q1: Confirm frozen scope is only a sealed Core Recommendations MovieFeatures record, pure mapper from persisted Movie/MovieMetadata, and focused unit tests; empty sets and null scalars on missing metadata; no HTTP, infrastructure, persistence, OMDb work (DEV-411), new dependency or layer. Recommend closing bar zero unresolved Critical/High, lower findings recorded as follow-ups, maximum two review/remediation rounds, anything else is a follow-up issue, not a finding in this round. Please rule with cited basis, note any scope or constitution contradiction, and confirm these loop terms. Facts come from recon-DEV-336. If you need one that is not there, reply needs recon: <question> and stop there.
+**Keel:** /grill-with-docs DEV-336. Worktree <task-worktree>/feature-336-spec branch feature/336-spec. Read notes DEV-336 and recon-DEV-336 plus specs/PRODUCT.md, ticket text, constitution and charter as your decision basis. Max 12 questions, one at a time. Do not write the brief or conclusions; I will append the full exchanges. Q1: Confirm frozen scope is only a sealed Core Recommendations MovieFeatures record, pure mapper from persisted Movie/MovieMetadata, and focused unit tests; empty sets and null scalars on missing metadata; no HTTP, infrastructure, persistence, OMDb work (DEV-411), new dependency or layer. Recommend closing bar zero unresolved Critical/High, lower findings recorded as follow-ups, maximum two review/remediation rounds, anything else is a follow-up issue, not a finding in this round. Please rule with cited basis, note any scope or constitution contradiction, and confirm these loop terms. Facts come from recon-DEV-336. If you need one that is not there, reply needs recon: <question> and stop there.
 
 **Patron (verbatim cited ruling):**
 [from Patron] DEV-336 Q1 ACCEPT: Frozen scope, loop terms, and closing bar confirmed with zero scope or constitution contradictions.
@@ -173,7 +173,7 @@ Sentry F1 is rejected by contrary empirical evidence, Ledger F1 closed, accepted
 
 ## Phase 3 Step 6 — Gate-forced test fixture scope disposition (2026-10-20)
 
-**Conductor / Cog:** In `F:/Dev/LamuFlix.worktrees/DEV-336` (`feature/DEV-336`), `dotnet test` fails on `RabbitMqTopologyTests.EnsureDeclaredAsync_BindsEveryRoutingKeyToItsOwnQueue` during `DisposeAsync` (`ResetTopologyAsync` -> `EnsureTopologyAsync`, broker-side `cluster_not_formed`). Does Patron authorize modifying tracked infrastructure files (`RabbitMqFixture.cs` or `RabbitMqTopology.cs`) to remediate the `DisposeAsync` reset flakiness under DEV-336, or does DEV-336 scope strictly prohibit infrastructure edits?
+**Conductor / Cog:** In `<task-worktree>/DEV-336` (`feature/DEV-336`), `dotnet test` fails on `RabbitMqTopologyTests.EnsureDeclaredAsync_BindsEveryRoutingKeyToItsOwnQueue` during `DisposeAsync` (`ResetTopologyAsync` -> `EnsureTopologyAsync`, broker-side `cluster_not_formed`). Does Patron authorize modifying tracked infrastructure files (`RabbitMqFixture.cs` or `RabbitMqTopology.cs`) to remediate the `DisposeAsync` reset flakiness under DEV-336, or does DEV-336 scope strictly prohibit infrastructure edits?
 
 **Patron (verbatim cited ruling):**
 [from Patron] DEV-336 SCOPE DISPOSITION: Authorize a minimal gate-forced remediation in test support (`tests/LamuFlix.Tests.Common/RabbitMqFixture.cs` only); strictly prohibit any edit to production infrastructure (`src/LamuFlix.Infrastructure/RabbitMq/RabbitMqTopology.cs`).
@@ -185,7 +185,7 @@ Sentry F1 is rejected by contrary empirical evidence, Ledger F1 closed, accepted
 
 ## Phase 3 Step 6 — Follow-up test-body declaration scope disposition (2026-10-20)
 
-**Conductor:** In `F:/Dev/LamuFlix.worktrees/DEV-336` (`feature/DEV-336`), Cog committed `d56c0d8` adding bounded retry to `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs`. Full `dotnet test` still fails with code `541 cluster_not_formed` inside `EveryRetryArgumentIsInEffect` declaring the dead-letter queue via `DeclareAsync` line 195 in `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs` (which bypasses the fixture). Does Patron authorize modifying `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs` to add retry around test-body declarations, or what is Patron scope disposition?
+**Conductor:** In `<task-worktree>/DEV-336` (`feature/DEV-336`), Cog committed `d56c0d8` adding bounded retry to `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs`. Full `dotnet test` still fails with code `541 cluster_not_formed` inside `EveryRetryArgumentIsInEffect` declaring the dead-letter queue via `DeclareAsync` line 195 in `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs` (which bypasses the fixture). Does Patron authorize modifying `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs` to add retry around test-body declarations, or what is Patron scope disposition?
 
 **Patron (verbatim cited ruling):**
 [from Patron] DEV-336 SCOPE DISPOSITION (TEST-BODY DECLARATIONS): Authorize minimal gate-forced bounded retry in `tests/LamuFlix.IntegrationTests/RabbitMqTopologyTests.cs` (alongside `tests/LamuFlix.Tests.Common/RabbitMqFixture.cs`) around test-body topology declarations; keep `src/LamuFlix.Infrastructure/RabbitMq/RabbitMqTopology.cs` strictly untouched.
@@ -199,7 +199,7 @@ Sentry F1 is rejected by contrary empirical evidence, Ledger F1 closed, accepted
 
 ## Phase 4 Step 3 — Code review triage at 7f0294a78a98373d8ef4cb9f145f8e711533d65e (2026-10-20)
 
-**Keel:** DEV-336 Phase 4 step 3 triage at HEAD `7f0294a78a98373d8ef4cb9f145f8e711533d65e` in `F:/Dev/LamuFlix.worktrees/DEV-336`. No Critical/High or Core defects. Survivors: Ledger 1 Medium duplicated divergent retry policies (`RabbitMqFixture.cs:97-116` and `RabbitMqTopologyTests.cs:213-243`); Sentry F1 Low catch-all retries permanent fixture faults for 14s (`RabbitMqFixture.cs:108-112`); Sentry F2 Low `Contains("541")` accepts unrelated `5410` messages and delays permanent failures 14s (`RabbitMqTopologyTests.cs:236`); Ledger 2 Low unreachable `lastFailure` fallback (`RabbitMqFixture.cs:99,111,116`). Reject Sentry F3 stack-reset claim (`line 116` unreachable) and drop Ledger 3 suppression wording (allowed scoped suppression for Q6 null handling). Rule triage under charter §2.3.
+**Keel:** DEV-336 Phase 4 step 3 triage at HEAD `7f0294a78a98373d8ef4cb9f145f8e711533d65e` in `<task-worktree>/DEV-336`. No Critical/High or Core defects. Survivors: Ledger 1 Medium duplicated divergent retry policies (`RabbitMqFixture.cs:97-116` and `RabbitMqTopologyTests.cs:213-243`); Sentry F1 Low catch-all retries permanent fixture faults for 14s (`RabbitMqFixture.cs:108-112`); Sentry F2 Low `Contains("541")` accepts unrelated `5410` messages and delays permanent failures 14s (`RabbitMqTopologyTests.cs:236`); Ledger 2 Low unreachable `lastFailure` fallback (`RabbitMqFixture.cs:99,111,116`). Reject Sentry F3 stack-reset claim (`line 116` unreachable) and drop Ledger 3 suppression wording (allowed scoped suppression for Q6 null handling). Rule triage under charter §2.3.
 
 **Patron (verbatim cited ruling):**
 [from Patron] DEV-336 PHASE 4 STEP 3 TRIAGE: Zero Critical/High or broken-behaviour findings at `7f0294a78a98373d8ef4cb9f145f8e711533d65e`; closing bar met with zero fix round and zero follow-up YouTrack tickets required.

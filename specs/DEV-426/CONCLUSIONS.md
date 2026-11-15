@@ -214,7 +214,7 @@ Shared understanding: Keel closes the grill on these terms, appends this ruling 
 
 ## Phase 0 — Gate 1 receipt and constitution 1.7.0 verification (2026-10-29)
 
-Keel completed T034 and T035 in `F:/Dev/LamuFlix.worktrees/DEV-426`, branch `feature/DEV-426`, from clean pickup HEAD `d261f813aece3a31223d240997d9db0d7e1dc383`. This dated receipt supersedes historical statements that owner approval is pending; earlier planning records and unchecked source-spec wording are preserved.
+Keel completed T034 and T035 in `<task-worktree>/DEV-426`, branch `feature/DEV-426`, from clean pickup HEAD `d261f813aece3a31223d240997d9db0d7e1dc383`. This dated receipt supersedes historical statements that owner approval is pending; earlier planning records and unchecked source-spec wording are preserved.
 
 ### T034 — Verified owner answer and spec-PR merge
 

@@ -10,7 +10,7 @@
 
 ---
 
-Worktree: `F:/Dev/LamuFlix.worktrees/feature-451-spec`; branch: `feature/451-spec`.
+Worktree: `<task-worktree>/feature-451-spec`; branch: `feature/451-spec`.
 Facts: `recon-DEV-451`. Patron decides; Keel records. Grill cap: 12 questions.
 
 ## Q1 — Preserve mutation policy and resolve dirty configuration
@@ -151,7 +151,7 @@ Quill round1 completion report `_quill-ask-keel-planfix1.txt` is retained as bou
 
 ### Authority and Gate 1 receipt
 
-Assigned Build root: `F:/Dev/LamuFlix.worktrees/DEV-451`, branch `feature/DEV-451` (branch read-back matches). Facts below come from the current Phase B `recon-DEV-451` note and `DEV-451` task note; historical Phase A recon citations above remain historical and must not be read as line references into the replacement Phase B note.
+Assigned Build root: `<task-worktree>/DEV-451`, branch `feature/DEV-451` (branch read-back matches). Facts below come from the current Phase B `recon-DEV-451` note and `DEV-451` task note; historical Phase A recon citations above remain historical and must not be read as line references into the replacement Phase B note.
 
 `DEV-451` note lines 3–6 records spec PR #321 merged at `1617165d`. Recon section 2 line 17 repeats that receipt; section 7 line 77 records both Gate 1 provisional commit `fe542c75` and spec merge `1617165d` among the seven landed commits. Accept this as the ordinary Gate 1/spec-merge pickup receipt under the existing no-owner-checkbox contract (spec Owner question; prior Patron provisional ruling). The provisional ruling alone was not final implementation clearance; the recorded spec merge satisfies that separate prerequisite. No additional owner answer or waiver is inferred. PLAN FROZEN remains as recorded above; Phase A Draft/Gate1-not-approved headers are historical snapshots, superseded for intake status by this receipt. This does not waive Phase 0.
 
@@ -229,7 +229,7 @@ Authority: Conductor assignment; `recon-DEV-451-2` sections 9.1–9.7 (continuat
 
 Freeze each pin's first-parent commit diff, using the full immutable base SHAs below rather than the gate default. Recon 9.1/9.2–9.4 verifies `-BaseRef HEAD^` dry-run exit 0 for these same bases. The default merge-base is HEAD and exits 2 scope-empty; it cannot supply this baseline. These are historical **pinned commit-diff cases**, not full-ticket branch ranges: DEV-448 excludes its later integration-test-only commit; DEV-333 is the final refactor commit at the named pin, not the full eight-commit phase range. Do not silently widen or substitute the scope for later comparisons or DEV-444 acceptance.
 
-| Case / replay root under F:/Dev/LamuFlix.worktrees/ | Frozen HEAD | Frozen comparison base |
+| Case / replay root under <task-worktree>/ | Frozen HEAD | Frozen comparison base |
 |---|---|---|
 | DEV-444 / DEV-451-replay-DEV-444 | `0079991451599e408b6ff37de25a6e3e731b2c6a` | `1e95037eda58502e0f7088a31f4502798e51d3a0` |
 | DEV-448 / DEV-451-replay-DEV-448 | `6fcbd1ffdb3805b46937534bac48a37a68ebd62b` | `f8bb21cb38e3b9105ee1bc0500966903a5fad40a` |
@@ -262,8 +262,8 @@ No copy is necessary for those identical files. Recon 9.4 line 87 separately ide
 Before Gauge starts T002, Bernstein must arrange **Rigger's replay-only support overlay** and receipt for DEV-333. This implements the Conductor's explicit overlay instruction and preserves spec FR-004's four-exclusion control; it does not change the assigned DEV-451 harness.yml or grant a shipping-policy edit. Rigger may copy the verified intact DEV-451 support policy into DEV-333 only, after checking both source/destination hashes against the values above:
 
 ```powershell
-Copy-Item -LiteralPath 'F:/Dev/LamuFlix.worktrees/DEV-451/harness.yml' -Destination 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-333/harness.yml'
-Get-FileHash -Algorithm SHA256 -LiteralPath 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-333/harness.yml'
+Copy-Item -LiteralPath '<task-worktree>/DEV-451/harness.yml' -Destination '<task-worktree>/DEV-451-replay-DEV-333/harness.yml'
+Get-FileHash -Algorithm SHA256 -LiteralPath '<task-worktree>/DEV-451-replay-DEV-333/harness.yml'
 ```
 
 Rigger must record before/after hashes, provenance, the exact exclusion-only delta, and unchanged pinned HEAD/src/tests identities. Expected replay dirtiness is only this support file. Retain this exact overlay for all DEV-333 baseline/candidate runs; disclose the overlay rather than describing DEV-333 as an unmodified historical checkout. No generated config, code or tests are edited. The inventory is complete, but this overlay is **specified, not yet verified as applied**; T002 execution waits for the receipt. Missing/different facts require `needs recon`, not a guessed repair. Recon's full-phase-range exit 1 is historical evidence, not a baseline verdict for the selected first-parent scope.
@@ -275,20 +275,20 @@ Bernstein assigns Gauge the three named replay roots plus the bounded DEV-451 ev
 Run the following **one at a time**, from each specified root. The output directory for each attempt must be absent before invocation; if it exists, preserve it and choose a new attempt number, recording why. Native output stays in TEMP as plan.md requires. These commands deliberately omit `-DryRun`, `-WholeProject` and `-Project`:
 
 ```powershell
-Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-444'
+Set-Location '<task-worktree>/DEV-451-replay-DEV-444'
 pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef 1e95037eda58502e0f7088a31f4502798e51d3a0 -OutputRoot (Join-Path $env:TEMP 'DEV-451-baseline-DEV-444-attempt01')
 $baselineExit444 = $LASTEXITCODE
 
-Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-448'
+Set-Location '<task-worktree>/DEV-451-replay-DEV-448'
 pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef f8bb21cb38e3b9105ee1bc0500966903a5fad40a -OutputRoot (Join-Path $env:TEMP 'DEV-451-baseline-DEV-448-attempt01')
 $baselineExit448 = $LASTEXITCODE
 
-Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-333'
+Set-Location '<task-worktree>/DEV-451-replay-DEV-333'
 pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef f00e01bacb63c083349b3a46425189e31e3564c2 -OutputRoot (Join-Path $env:TEMP 'DEV-451-baseline-DEV-333-attempt01')
 $baselineExit333 = $LASTEXITCODE
 ```
 
-Capture each command's complete stdout/stderr, exit and observed wall time, and archive its full output root immediately after that run (including failed/invalid attempts) under `F:/Dev/LamuFlix.worktrees/DEV-451/specs/DEV-451/evidence/baseline/<DEV-id>/attempt01/`. Preserve native `mutation-timing.json`, generated configs and full Stryker JSON reports without rewriting them. Add a receipt in that destination carrying command/root/base/head/src/tests/support hashes, policy-overlay provenance, machine/runtime/load conditions, actual concurrency/timeout/runner, both eligible suites, start/end and wall time, per-project mutant counts, tested/score/verdict, timeout totals/distribution and report paths. If the gate fails before producing timing/report artifacts, record them as absent with the failure; never synthesize native artifacts. Retain stable source-location/mutator/replacement fields for T003 and later matched status matrices; numeric mutant IDs alone do not establish identity.
+Capture each command's complete stdout/stderr, exit and observed wall time, and archive its full output root immediately after that run (including failed/invalid attempts) under `<task-worktree>/DEV-451/specs/DEV-451/evidence/baseline/<DEV-id>/attempt01/`. Preserve native `mutation-timing.json`, generated configs and full Stryker JSON reports without rewriting them. Add a receipt in that destination carrying command/root/base/head/src/tests/support hashes, policy-overlay provenance, machine/runtime/load conditions, actual concurrency/timeout/runner, both eligible suites, start/end and wall time, per-project mutant counts, tested/score/verdict, timeout totals/distribution and report paths. If the gate fails before producing timing/report artifacts, record them as absent with the failure; never synthesize native artifacts. Retain stable source-location/mutator/replacement fields for T003 and later matched status matrices; numeric mutant IDs alone do not establish identity.
 
 Report exits honestly: 0 native gate pass; 1 failure; 2 scope-empty SKIPPED or policy N/A as actually printed, never a measured pass. A valid failing baseline is evidence and must not be erased or rerun to manufacture a pass; Bernstein/Patron receives the actual result before deciding next steps. Interruptions/invalidations remain archived. No lever experiment starts before T003 validates all three baseline evidence sets. T002 does not claim under-30-minute acceptance; T012/T013 retain that separate bar.
 
@@ -298,7 +298,7 @@ Report exits honestly: 0 native gate pass; 1 failure; 2 scope-empty SKIPPED or p
 
 ## T003 baseline evidence validation — blocked (2026-11-04, Keel)
 
-Authority: Conductor T003 assignment; spec US1 / FR-001 / FR-011; tasks T002–T006; frozen T001/T002 execution contract above. Read DEV-451 and both recon notes, spec/plan/tasks/CONCLUSIONS, Gauge report `C:/Users/lamun/AppData/Local/Temp/DEV-451-T002-gauge-report.txt`, and the assigned baseline archives. This is validation of supplied artifacts, not a new replay measurement or independent recon. Branch read-back matches `feature/DEV-451`; existing documentation and evidence changes are preserved.
+Authority: Conductor T003 assignment; spec US1 / FR-001 / FR-011; tasks T002–T006; frozen T001/T002 execution contract above. Read DEV-451 and both recon notes, spec/plan/tasks/CONCLUSIONS, Gauge report `<temp>/DEV-451-T002-gauge-report.txt`, and the assigned baseline archives. This is validation of supplied artifacts, not a new replay measurement or independent recon. Branch read-back matches `feature/DEV-451`; existing documentation and evidence changes are preserved.
 
 ### Accepted and rejected receipts
 
@@ -345,13 +345,13 @@ Section 10.6 refines overlap to wrapper invocation **11:33:19 → 11:36:34, appr
 
 ### Exact Gauge attempt03 handoff
 
-Bernstein assigns **one Gauge runner** exclusive ownership of `F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-448` and the quiet mutation-machine window through archive completion. No other case or runner may start concurrently. Before preflight and again immediately before the real invocation, confirm by machine process query that no other run-mutation.ps1 / dotnet stryker session is active; record the query/result and ownership in the new receipt. Quiet console output is not process completion. If a prior process is active or its state cannot be established, stop and report; do not launch a replacement or terminate it speculatively.
+Bernstein assigns **one Gauge runner** exclusive ownership of `<task-worktree>/DEV-451-replay-DEV-448` and the quiet mutation-machine window through archive completion. No other case or runner may start concurrently. Before preflight and again immediately before the real invocation, confirm by machine process query that no other run-mutation.ps1 / dotnet stryker session is active; record the query/result and ownership in the new receipt. Quiet console output is not process completion. If a prior process is active or its state cannot be established, stop and report; do not launch a replacement or terminate it speculatively.
 
 1. Follow recon 10.7 item 2: verify clean detached HEAD `6fcbd1ffdb3805b46937534bac48a37a68ebd62b`, comparison base `f8bb21cb38e3b9105ee1bc0500966903a5fad40a`, and all eight frozen identities against the full attempt01 receipt (src/tests aggregate hashes plus run-mutation, stryker-config, harness, tools, Directory.Packages.props and Directory.Build.props). Preserve T001 support identities too; stop on any drift. No support overlay or code/test/config edit is needed for DEV-448.
 2. Use a separate, absent preflight root with the exact command below. Require exit 0, mutate only `Features/Recommendations/SimilarityScorer.cs`, both Evaluation and UnitTests, concurrency 8, timeout 90000, mtp/off and since disabled. Capture stdout/stderr and preflight exit. If preflight02 or any named capture/output/archive destination already exists, preserve it and report the collision before measuring; do not overwrite it or invent an attempt number silently.
 
 ```powershell
-Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-448'
+Set-Location '<task-worktree>/DEV-451-replay-DEV-448'
 pwsh -NoProfile -File ./scripts/run-mutation.ps1 -BaseRef f8bb21cb38e3b9105ee1bc0500966903a5fad40a -OutputRoot (Join-Path $env:TEMP 'DEV-451-baseline-DEV-448-preflight02') -DryRun *> (Join-Path $env:TEMP 'DEV-451-DEV-448-preflight02-console.log')
 $preflightExit448 = $LASTEXITCODE
 ```
@@ -359,11 +359,11 @@ $preflightExit448 = $LASTEXITCODE
 3. After successful preflight and the fresh seriality check, execute the following in **one persistent PowerShell session**, synchronously. This expresses recon 10.7 items 4–5 directly in the owning shell, avoiding an outer double-quoted -Command string that would expand TEMP/LASTEXITCODE in the wrong shell. No background job, pattern-triggered stop, Stryker-child-only wait or short command timeout. If the execution tool returns a running session, retain it and wait for that same wrapper; never start another invocation. Record start/end UTC and wall time as observed, independently of native duration.
 
 ```powershell
-Set-Location 'F:/Dev/LamuFlix.worktrees/DEV-451-replay-DEV-448'
+Set-Location '<task-worktree>/DEV-451-replay-DEV-448'
 $attemptOutput448 = Join-Path $env:TEMP 'DEV-451-baseline-DEV-448-attempt03'
 $attemptConsole448 = Join-Path $env:TEMP 'DEV-451-DEV-448-attempt03-console.log'
 $attemptCapture448 = Join-Path $env:TEMP 'DEV-451-DEV-448-attempt03-gauge-timing.json'
-$attemptArchive448 = 'F:/Dev/LamuFlix.worktrees/DEV-451/specs/DEV-451/evidence/baseline/DEV-448/attempt03'
+$attemptArchive448 = '<task-worktree>/DEV-451/specs/DEV-451/evidence/baseline/DEV-448/attempt03'
 foreach ($attemptPath448 in @($attemptOutput448, $attemptConsole448, $attemptCapture448, $attemptArchive448)) {
     if (Test-Path -LiteralPath $attemptPath448) { throw "Preserve existing destination and report collision: $attemptPath448" }
 }
@@ -396,7 +396,7 @@ The head field records the verified preflight pin, not a substitute for the iden
 
 ## T003 final validation — Phase 1 complete (2026-11-04, Keel)
 
-Authority: Conductor attempt03 validation assignment; tasks T002/T003; spec FR-001/FR-011; frozen T001/T002 contract and recon-DEV-451-2-2 section 10. This receipt supersedes the earlier blocked/readiness snapshots for baseline completion only. Branch read-back is `feature/DEV-451` in the assigned Build worktree. Inputs are task note DEV-451 lines 96–101, section 10 recon, Gauge report `C:/Users/lamun/AppData/Local/Temp/DEV-451-T002-attempt03-gauge-report.txt`, and the archived artifacts linked below. No replay measurement or launcher diagnosis was performed by Keel.
+Authority: Conductor attempt03 validation assignment; tasks T002/T003; spec FR-001/FR-011; frozen T001/T002 contract and recon-DEV-451-2-2 section 10. This receipt supersedes the earlier blocked/readiness snapshots for baseline completion only. Branch read-back is `feature/DEV-451` in the assigned Build worktree. Inputs are task note DEV-451 lines 96–101, section 10 recon, Gauge report `<temp>/DEV-451-T002-attempt03-gauge-report.txt`, and the archived artifacts linked below. No replay measurement or launcher diagnosis was performed by Keel.
 
 ### DEV-448 attempt03 — accepted
 
@@ -495,7 +495,7 @@ T005 additionally requires normalized stable source/location/mutator/replacement
 
 ## T004 finalized — authorized scratch contract; ready for T005 (2026-11-04, Keel)
 
-Authority: Conductor T004 resume; DEV-451 task note lines 117–129; recon-DEV-451-3 and recon-DEV-451-3-2; the complete Patron experimental ruling immediately above. Branch read-back is feature/DEV-451 in F:/Dev/LamuFlix.worktrees/DEV-451. This receipt supersedes the prior T004 needs-recon/needs-decision and T005-blocked dispositions for **experiment readiness only**. The supplied recon and explicit authorization satisfy those missing prerequisites; no independent search or runtime experiment is performed by Keel.
+Authority: Conductor T004 resume; DEV-451 task note lines 117–129; recon-DEV-451-3 and recon-DEV-451-3-2; the complete Patron experimental ruling immediately above. Branch read-back is feature/DEV-451 in <task-worktree>/DEV-451. This receipt supersedes the prior T004 needs-recon/needs-decision and T005-blocked dispositions for **experiment readiness only**. The supplied recon and explicit authorization satisfy those missing prerequisites; no independent search or runtime experiment is performed by Keel.
 
 ### Candidate, mechanism and three-script boundary proof
 
@@ -531,7 +531,7 @@ Bernstein may assign Gauge the following bounded writes: the already-authorized 
 3. Launch only with CWD equal to the named replay root; assert git rev-parse --show-toplevel matches. HARNESS_REPO_ROOT must be unset or exactly that same root; record it and stop on conflict. Recon P-COPY-1/3 proves root resolution with the external triplet; P-COPY-2 proves a wrong-CWD launch fails GATE NOT WIRED. All policy/tool/config reads still resolve against the frozen replay root.
 4. Before preflight and again before measurement, record exclusive Gauge ownership and a machine process query proving no other mutation session. Hold the machine quiet through archive completion. Run cases serially, in table order. A silent console is not a completed process. No overlapping runner, background replacement, arbitrary runtime cutoff or best-of retry is allowed.
 
-| Case / replay root under F:/Dev/LamuFlix.worktrees/ | Frozen HEAD | BaseRef | Accepted control |
+| Case / replay root under <task-worktree>/ | Frozen HEAD | BaseRef | Accepted control |
 |---|---|---|---|
 | DEV-444 / DEV-451-replay-DEV-444 | 0079991451599e408b6ff37de25a6e3e731b2c6a | 1e95037eda58502e0f7088a31f4502798e51d3a0 | baseline/DEV-444/attempt01, valid FAIL |
 | DEV-448 / DEV-451-replay-DEV-448 | 6fcbd1ffdb3805b46937534bac48a37a68ebd62b | f8bb21cb38e3b9105ee1bc0500966903a5fad40a | baseline/DEV-448/attempt03, PASS |
@@ -541,7 +541,7 @@ Per case, use recon-DEV-451-3-2 §5.4's exact preflight command and §5.5's sync
 
 - Preflight output: %TEMP%/DEV-451-candidate-<case>-preflight01; log: %TEMP%/DEV-451-<case>-candidate-preflight01-console.log.
 - Real output: %TEMP%/DEV-451-candidate-<case>-attempt01; log: %TEMP%/DEV-451-<case>-candidate-attempt01-console.log; capture: %TEMP%/DEV-451-<case>-candidate-attempt01-gauge-timing.json.
-- Durable attempt destination: F:/Dev/LamuFlix.worktrees/DEV-451/specs/DEV-451/evidence/candidate/<case>/attempt01/.
+- Durable attempt destination: <task-worktree>/DEV-451/specs/DEV-451/evidence/candidate/<case>/attempt01/.
 
 Require every destination absent before use, including preflight logs and evaluation capture files. Preflight must exit 0 with the explicit experimental print and generated perTestInIsolation/mtp/8/90000/since-disabled settings, exact T001 mutate entries and both suites; DEV-333 retains Infrastructure N/A. Dry-run creates no OutputRoot; preserve its printed config as preflight.log. Any drift or failed assertion stops before a real run.
 
@@ -651,7 +651,7 @@ Ratify the limits too: single matched samples, four pre-existing timeouts in DEV
 
 ## T006 closeout and T010 in-place ADR amendment complete (2026-11-04, Keel)
 
-Authority: Bernstein Phase 2 T006 closeout / Phase 4 T010 ask and the complete cited Patron ruling immediately above. Independently compared that complete ruling with C:/Users/lamun/AppData/Local/Temp/DEV-451-T006-patron-ruling.txt; the normalized text matches in full, so the receipt is preserved without duplication. Task-note lines 152-157 confirm ratification and the required in-place amendment. The ruling itself controls the unnamed-document disposition: noted, no ticket, with no unnamed file edits.
+Authority: Bernstein Phase 2 T006 closeout / Phase 4 T010 ask and the complete cited Patron ruling immediately above. Independently compared that complete ruling with <temp>/DEV-451-T006-patron-ruling.txt; the normalized text matches in full, so the receipt is preserved without duplication. Task-note lines 152-157 confirm ratification and the required in-place amendment. The ruling itself controls the unnamed-document disposition: noted, no ticket, with no unnamed file edits.
 
 **T006 complete; Phase 2 closed.** Ratification covers three-script implementability, every ADR 0016 Decision item and DEV-410 safeguard, prior experimental authorization, D1b parameter preservation, local generated default / tracked and CI off distinction, effective-mode guards and consumer boundaries. The only ADR Decision departure is the local generated coverage default; the zero-departure/no-amendment path is unavailable. Full rationale, measured limits and implications are preserved in the ruling and T005 validation above. Recorded the selected plan decision in brief.md before changing ADR 0016, as required by the frozen brief contract.
 

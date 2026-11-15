@@ -1,6 +1,6 @@
 # DEV-335 — Grill conclusions
 
-Phase 2; Keel with Patron. Source facts: task note DEV-335 and recon-DEV-335. Worktree: F:/Dev/LamuFlix.worktrees/feature-335-spec; branch feature/335-spec; recon HEAD 52e443666b5e767edc93befc20eb55de2e77787b. Maximum 12 questions. Append-only full exchanges. This record does not grant Gate 1 or implementation clearance.
+Phase 2; Keel with Patron. Source facts: task note DEV-335 and recon-DEV-335. Worktree: <task-worktree>/feature-335-spec; branch feature/335-spec; recon HEAD 52e443666b5e767edc93befc20eb55de2e77787b. Maximum 12 questions. Append-only full exchanges. This record does not grant Gate 1 or implementation clearance.
 
 ---
 
@@ -155,7 +155,7 @@ Verdict: APPROVED — accept consolidated in-scope plan-challenge Round 1 amendm
 
 ### Patron correction (authoritative for clause 5)
 
-[from Patron] DEV-335 confirmed: clause (5) withdraws mismatched suite names and permits ONLY rating-specific survivor-test extensions in tests/LamuFlix.UnitTests/Library/MovieQuerySurvivorTests.cs, tests/LamuFlix.UnitTests/Library/MovieQueryStringSurvivorTests.cs, and tests/LamuFlix.IntegrationTests/EfMovieCatalogSurvivorTests.cs when mutation requires them (Basis: Q7, Constitution V, recon 82/88/102, Compass F2, Sentry M4, Ledger L2); all other clauses stand; updated file at C:\Users\lamun\AppData\Local\Temp\DEV-335-patron-plan-challenge-r1.txt
+[from Patron] DEV-335 confirmed: clause (5) withdraws mismatched suite names and permits ONLY rating-specific survivor-test extensions in tests/LamuFlix.UnitTests/Library/MovieQuerySurvivorTests.cs, tests/LamuFlix.UnitTests/Library/MovieQueryStringSurvivorTests.cs, and tests/LamuFlix.IntegrationTests/EfMovieCatalogSurvivorTests.cs when mutation requires them (Basis: Q7, Constitution V, recon 82/88/102, Compass F2, Sentry M4, Ledger L2); all other clauses stand; updated file at <temp>\DEV-335-patron-plan-challenge-r1.txt
 
 ### Implications
 

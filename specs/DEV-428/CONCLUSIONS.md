@@ -12,7 +12,7 @@ Append-only decision log. Decision authority: Patron. Question cap: 12. Grill re
 
 ### Patron answer (complete transport reply)
 
-[from Patron] Q1/12 Confirmed: frozen scope (recon-DEV-428:80-104), DEV-17/DEV-429 boundaries (recon-DEV-428:98-103,111-116), and standing 2-round closing bar approved; full cited ruling at C:/Users/lamun/AppData/Local/Temp/patron-DEV-428-q1.md
+[from Patron] Q1/12 Confirmed: frozen scope (recon-DEV-428:80-104), DEV-17/DEV-429 boundaries (recon-DEV-428:98-103,111-116), and standing 2-round closing bar approved; full cited ruling at <temp>/patron-DEV-428-q1.md
 
 ### Patron full ruling
 

@@ -151,7 +151,7 @@ Authority: Patron rulings; Keel records. Worktree: feature/438-spec at baseline 
 
 ### Receipt and evidence boundary
 
-- Worktree: `F:/Dev/LamuFlix.worktrees/DEV-438`; branch: `feature/DEV-438`; HEAD: `933e8ca827d18afafd659a2fdecd4f2c21953ce7`. Branch and HEAD independently read before edits; initial worktree status was clean.
+- Worktree: `<task-worktree>/DEV-438`; branch: `feature/DEV-438`; HEAD: `933e8ca827d18afafd659a2fdecd4f2c21953ce7`. Branch and HEAD independently read before edits; initial worktree status was clean.
 - **T000 complete:** task note `DEV-438:4–6` records spec PR #324 merged at `338df33b`; current `recon-DEV-438` §1 lines 12–13 establishes full merge commit `338df33b78bcb41629d8bdcdecf5aefab41a4410` as an ancestor of pickup HEAD. This records the owner Gate 1 spec-merge receipt; it creates no Patron ruling or owner approval. Historical Phase A pending-Gate-1 statements are superseded by this receipt, not rewritten as contemporaneous approvals.
 - Current main comparison is bounded to `origin/main@933e8ca8 = HEAD`, as measured by current recon §1. Phase A baseline remains `1617165de14cb4f5a34151b49e7948443d36afb9`; the merged spec is the correct comparison for post-merge artifact drift.
 - Facts come from task note `DEV-438` and current 127-line `recon-DEV-438`, especially §§1–6. No production searches or measurements were run by Keel. Historical Phase A notes are not available; their absence is explicitly disposed below. Frozen brief/spec/plan/tasks and constitution v1.10.0 were read for cross-artifact analysis.

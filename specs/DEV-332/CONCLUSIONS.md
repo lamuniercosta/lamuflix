@@ -1,6 +1,6 @@
 # DEV-332 — Grill conclusions
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-332-spec  
+Worktree: <task-worktree>/feature-332-spec  
 Branch verified: feature/332-spec  
 Phase: Phase 2 step 1; question cap 12. This record is append-only.  
 Authority: ticket as captured in note DEV-332; facts only from recon-DEV-332; specs/PRODUCT.md.
@@ -11,7 +11,7 @@ Authority: ticket as captured in note DEV-332; facts only from recon-DEV-332; sp
 
 ### Keel question (full exchange)
 
-[from Keel] /grill-with-docs DEV-332. Phase 2 step 1 in F:/Dev/LamuFlix.worktrees/feature-332-spec branch feature/332-spec. I read DEV-332, recon-DEV-332, and specs/PRODUCT.md. Cap 12 questions, one decision at a time; I record full Q and A append-only in specs/DEV-332/CONCLUSIONS.md and close with brief.md. Facts only from recon. Q1: Confirm the scope boundary: implement the ticket-named local AppHost with postgres, rabbitmq, api, web on 5173, dashboard and F5; AppHost provisions its own local containers; no worker, no Ollama resource, no compose changes, no deployment changes. I recommend this because DEV-332:27-31 explicitly names that topology and excludes compose/deployment, and recon:54 shows compose ports cannot serve the host Api. Cost: local Aspire and compose remain separate dev entry points. Please cite the basis for your ruling; ticket changes require blocked structural. Report your answer back using maestri ask Keel.
+[from Keel] /grill-with-docs DEV-332. Phase 2 step 1 in <task-worktree>/feature-332-spec branch feature/332-spec. I read DEV-332, recon-DEV-332, and specs/PRODUCT.md. Cap 12 questions, one decision at a time; I record full Q and A append-only in specs/DEV-332/CONCLUSIONS.md and close with brief.md. Facts only from recon. Q1: Confirm the scope boundary: implement the ticket-named local AppHost with postgres, rabbitmq, api, web on 5173, dashboard and F5; AppHost provisions its own local containers; no worker, no Ollama resource, no compose changes, no deployment changes. I recommend this because DEV-332:27-31 explicitly names that topology and excludes compose/deployment, and recon:54 shows compose ports cannot serve the host Api. Cost: local Aspire and compose remain separate dev entry points. Please cite the basis for your ruling; ticket changes require blocked structural. Report your answer back using maestri ask Keel.
 
 ### Patron answer (complete)
 

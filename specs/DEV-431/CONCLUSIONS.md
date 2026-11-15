@@ -1,7 +1,7 @@
 # DEV-431 — Grill Conclusions
 
 Source: YouTrack DEV-431 (PR #166 comment `#6179617134`, base commit `66beb8a`).
-Branch: `feature/DEV-431-close-dev-322-k1-acceptance-test-gaps-and-fix-pending-search`, cut from `origin/main` (`e5587d0`) in worktree `F:\Dev\LamuFlix.worktrees\feature-DEV-431-close-dev-322-k1-acceptance-test-gaps-and-fix-pending-search`.
+Branch: `feature/DEV-431-close-dev-322-k1-acceptance-test-gaps-and-fix-pending-search`, cut from `origin/main` (`e5587d0`) in worktree `<task-worktree>\feature-DEV-431-close-dev-322-k1-acceptance-test-gaps-and-fix-pending-search`.
 
 Pre-grill recon (2026-10-15, against worktree HEAD):
 

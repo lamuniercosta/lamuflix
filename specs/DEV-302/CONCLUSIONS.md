@@ -1,6 +1,6 @@
 # DEV-302 — Patron grill rulings
 
-Round 1 of 1, Q1–Q12. Worktree: `F:\Dev\LamuFlix.worktrees\feature-302-spec`; branch: `feature/302-spec`. Ticket read live with `scripts/get-task.ps1 -TaskId DEV-302` on 2026-09-30; no local receipt artifact exists. Recon facts are accepted from Keel and `recon-DEV-302`. No owner checkbox is introduced; Gate 1 remains closed pending the normal spec process.
+Round 1 of 1, Q1–Q12. Worktree: `<task-worktree>\feature-302-spec`; branch: `feature/302-spec`. Ticket read live with `scripts/get-task.ps1 -TaskId DEV-302` on 2026-09-30; no local receipt artifact exists. Recon facts are accepted from Keel and `recon-DEV-302`. No owner checkbox is introduced; Gate 1 remains closed pending the normal spec process.
 
 The current assigned-role §2.3 and `specs/PRODUCT.md` §5 supersede the older escalation wording in `lamuflix-team-charter:9-17/28`.
 

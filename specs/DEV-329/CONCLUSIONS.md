@@ -5,11 +5,11 @@
 
 Status: blocked pending scoped recon; grill open; brief not frozen.
 
-Identity: `F:/Dev/LamuFlix.worktrees/feature-329-spec`, branch `feature/329-spec`, HEAD `bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3`.
+Identity: `<task-worktree>/feature-329-spec`, branch `feature/329-spec`, HEAD `bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3`.
 
 ### Keel question (full exchange)
 
-[from Keel] DEV-329 grill Q1 — prerequisite authority. Worktree F:/Dev/LamuFlix.worktrees/feature-329-spec, branch feature/329-spec, HEAD bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3. Task note DEV-329:27-29 explicitly fixes staging design by DEV-419 ADR; recon-DEV-329:24,83 reports that ADR absent in scoped roots. New IEnrichmentOutbox and outbox schema artifacts are also absent, as expected for new work. Recommendation: treat DEV-419 design content as required recon before choosing schema, Stage signature/serialization, transaction/retry semantics, or closing the grill; retain all explicit ticket scope without substitutes. Cost: grill and brief freeze wait for the authoritative contract. Do you rule that the missing DEV-419 ADR blocks design decisions and grill closure pending scoped recon? Please cite basis. We will append the full exchange to specs/DEV-329/CONCLUSIONS.md. Reply using maestri ask "Keel" with your ruling.
+[from Keel] DEV-329 grill Q1 — prerequisite authority. Worktree <task-worktree>/feature-329-spec, branch feature/329-spec, HEAD bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3. Task note DEV-329:27-29 explicitly fixes staging design by DEV-419 ADR; recon-DEV-329:24,83 reports that ADR absent in scoped roots. New IEnrichmentOutbox and outbox schema artifacts are also absent, as expected for new work. Recommendation: treat DEV-419 design content as required recon before choosing schema, Stage signature/serialization, transaction/retry semantics, or closing the grill; retain all explicit ticket scope without substitutes. Cost: grill and brief freeze wait for the authoritative contract. Do you rule that the missing DEV-419 ADR blocks design decisions and grill closure pending scoped recon? Please cite basis. We will append the full exchange to specs/DEV-329/CONCLUSIONS.md. Reply using maestri ask "Keel" with your ruling.
 
 ### Patron answer (verbatim)
 
@@ -32,11 +32,11 @@ Next unanswered question: needs recon: supply the authoritative DEV-419 outbox A
 
 Status: Q1 authority prerequisite cleared for continued grill; brief freeze and implementation remain closed.
 
-Identity: `F:/Dev/LamuFlix.worktrees/feature-329-spec`, branch `feature/329-spec`, HEAD `bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3`.
+Identity: `<task-worktree>/feature-329-spec`, branch `feature/329-spec`, HEAD `bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3`.
 
 ### Keel question (full exchange)
 
-[from Keel] DEV-329 grill Q2 — authority prerequisite after settled Q1. Resume in F:/Dev/LamuFlix.worktrees/feature-329-spec, feature/329-spec, HEAD bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3. Q1 remains recorded in specs/DEV-329/CONCLUSIONS.md; brief.md does not yet exist. recon-DEV-329-3:14-18,20-26,51 verifies the DEV-419 comment-cited adopted docs/adr/0027-transactional-outbox-enrichment.md at cb6c6a780d77f41b32d69689f237bdce43d2562d, blob a000f752bae0d20425f6a52c0673b5906dca5de8, available without fetch at the cited remote branch tip; Accepted header, Ticket DEV-329. This is a correction revision; initial adoption commit and main integration were not established, and earlier not-found results still hold for their checked roots. ADR :15 fixes same Postgres/same transaction, ProcessedAt after settled broker confirm and no sent mark on uncertain outcomes; :17,21-22 fixes at-least-once, one Api relay and retention. Per recon-DEV-329-3:28-47, table columns/indexes are unspecified and delegated to DEV-329/420 at ADR :23; Stage signature/serialization and handler/DbContext/retry boundary are absent. Recommendation: this supplies the Q1 missing-authority prerequisite for design discussion; keep its fixed outcomes authoritative, and explicitly decide the delegated implementation contracts here without asserting main integration or an invented ADR contract. Ticket DEV-329:27-29 still fixes outbox_messages, IEnrichmentOutbox.Stage, two handlers stage before save, direct enqueue retained, no relay, unit/integration tests. Cost: each remaining implementation decision needs its own cited ruling and later pickup must verify prerequisite landing. Do you rule that this evidence clears Q1 for continued grill while leaving freeze and implementation closed? Please cite basis and reply with maestri ask "Keel".
+[from Keel] DEV-329 grill Q2 — authority prerequisite after settled Q1. Resume in <task-worktree>/feature-329-spec, feature/329-spec, HEAD bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3. Q1 remains recorded in specs/DEV-329/CONCLUSIONS.md; brief.md does not yet exist. recon-DEV-329-3:14-18,20-26,51 verifies the DEV-419 comment-cited adopted docs/adr/0027-transactional-outbox-enrichment.md at cb6c6a780d77f41b32d69689f237bdce43d2562d, blob a000f752bae0d20425f6a52c0673b5906dca5de8, available without fetch at the cited remote branch tip; Accepted header, Ticket DEV-329. This is a correction revision; initial adoption commit and main integration were not established, and earlier not-found results still hold for their checked roots. ADR :15 fixes same Postgres/same transaction, ProcessedAt after settled broker confirm and no sent mark on uncertain outcomes; :17,21-22 fixes at-least-once, one Api relay and retention. Per recon-DEV-329-3:28-47, table columns/indexes are unspecified and delegated to DEV-329/420 at ADR :23; Stage signature/serialization and handler/DbContext/retry boundary are absent. Recommendation: this supplies the Q1 missing-authority prerequisite for design discussion; keep its fixed outcomes authoritative, and explicitly decide the delegated implementation contracts here without asserting main integration or an invented ADR contract. Ticket DEV-329:27-29 still fixes outbox_messages, IEnrichmentOutbox.Stage, two handlers stage before save, direct enqueue retained, no relay, unit/integration tests. Cost: each remaining implementation decision needs its own cited ruling and later pickup must verify prerequisite landing. Do you rule that this evidence clears Q1 for continued grill while leaving freeze and implementation closed? Please cite basis and reply with maestri ask "Keel".
 
 ### Patron answer (verbatim)
 
@@ -288,7 +288,7 @@ Q13 approved [assumed]: maximum two numbered full plan-challenge rounds and two 
 
 ## Plan Challenge Round 1 Adjudication Ruling (2026-10-25)
 
-Identity: `F:/Dev/LamuFlix.worktrees/feature-329-spec`, branch `feature/329-spec`, HEAD `bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3`.
+Identity: `<task-worktree>/feature-329-spec`, branch `feature/329-spec`, HEAD `bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3`.
 
 ### Keel request (summary)
 
@@ -309,14 +309,14 @@ Conductor authorized the separate freeze after Round 2 closure, task note DEV-32
 
 Both Medium blockers are closed on current artifacts: T012 negative-path no-Stage/save/enqueue assertions and post-T018 final changed-HEAD build/format/full tests before T019 gates/review. All Q11 Low/Info dispositions stand. Q13 [assumed] is preserved unchanged (plan challenge Round 2 of 2 complete; no extra round). Phase B STOP still requires landed DEV-419 and pickup drift clearance. No owner structural checkbox, Gate 1, implementation or merge-bar clearance; no tests/gates, commit, PR or main refresh.
 
-Identity: F:/Dev/LamuFlix.worktrees/feature-329-spec; branch feature/329-spec; HEAD bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3.
+Identity: <task-worktree>/feature-329-spec; branch feature/329-spec; HEAD bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3.
 
 
 ---
 
 ## Gate 1 Provisional Ruling (2026-10-25)
 
-Identity: `F:/Dev/LamuFlix.worktrees/feature-329-spec`, branch `feature/329-spec`, HEAD `bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3`.
+Identity: `<task-worktree>/feature-329-spec`, branch `feature/329-spec`, HEAD `bf1cb3b9c25dbc81abb4306b9fd12b84e25801b3`.
 
 ### Patron ruling (verbatim)
 

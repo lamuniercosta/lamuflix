@@ -2,7 +2,7 @@
 
 ## Q1 - Cache scope and cold-cache semantics
 
-Worktree: `F:/Dev/LamuFlix.worktrees/feature-415-spec`; branch: `feature/415-spec`; source HEAD: `e010de28d26d492d5a93de9a90000118c9614f45`.
+Worktree: `<task-worktree>/feature-415-spec`; branch: `feature/415-spec`; source HEAD: `e010de28d26d492d5a93de9a90000118c9614f45`.
 
 **Keel question and recommendation:** Confirm a single personal-library TasteProfile entry. A cold cache is a miss that computes from persisted inputs and yields empty only when no qualifying history exists, rather than returning empty merely because the cache is cold. Preserve existing computation semantics and cache the derived profile; never cache recommendation candidate filtering. A miss requires existing input reads; expiry must account for time-dependent calculation. The package is already authorized by ticket lines 17 and 20, so it requires no owner dependency checkbox. Official HybridCache API/package/expiry/tag/concurrency facts remain missing in recon line 55. Identify any interpretation that changes ticket delivery; do not invent API facts.
 

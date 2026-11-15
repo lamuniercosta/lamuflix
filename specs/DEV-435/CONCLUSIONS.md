@@ -1,6 +1,6 @@
 # DEV-435 scope conclusions
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-DEV-435-measure-pre-pr-mutation-gate-time-per-run-and-cut-it-with-in; branch: feature/DEV-435-measure-pre-pr-mutation-gate-time-per-run-and-cut-it-with-in.
+Worktree: <task-worktree>/feature-DEV-435-measure-pre-pr-mutation-gate-time-per-run-and-cut-it-with-in; branch: feature/DEV-435-measure-pre-pr-mutation-gate-time-per-run-and-cut-it-with-in.
 Facts: note DEV-435:1-130 at 1b1cb41. Authority: Patron.
 
 ## Phase 5 remediation — Speedup scope & AC 3 parity ruling

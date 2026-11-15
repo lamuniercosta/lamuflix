@@ -1,6 +1,6 @@
 # DEV-312 — Phase 2 grill conclusions
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-312-spec. Branch: feature/312-spec. Base and HEAD: 01caa4d1b3e4e4ba7674abfd91bb6af2f3be21bc. Date: 2026-10-08. Append-only decision record. Patron decides; Keel records. Original recon-DEV-312 and chain-4 read successfully. No prior grill questions existed (DEV-312:68-72). Pre-existing harness.yml:45 and .specify/feature.json modifications are preserved.
+Worktree: <task-worktree>/feature-312-spec. Branch: feature/312-spec. Base and HEAD: 01caa4d1b3e4e4ba7674abfd91bb6af2f3be21bc. Date: 2026-10-08. Append-only decision record. Patron decides; Keel records. Original recon-DEV-312 and chain-4 read successfully. No prior grill questions existed (DEV-312:68-72). Pre-existing harness.yml:45 and .specify/feature.json modifications are preserved.
 
 ## Q1 — Frozen delivery scope
 
@@ -100,7 +100,7 @@ Persist and close brief.md; I will not edit concurrently.
 
 ## Phase 2 plan-challenge adjudication — 2026-10-08
 
-Identity: feature/312-spec at 01caa4d1b3e4e4ba7674abfd91bb6af2f3be21bc in F:/Dev/LamuFlix.worktrees/feature-312-spec. All three full axis reports read: Compass (3), Ledger (0), Sentry (6). chain-4:8 read after note access was restored; its missing-access blocker is now resolved. Evidence below is from the named artifacts and reports, not new repository searches, measurements, or gate execution.
+Identity: feature/312-spec at 01caa4d1b3e4e4ba7674abfd91bb6af2f3be21bc in <task-worktree>/feature-312-spec. All three full axis reports read: Compass (3), Ledger (0), Sentry (6). chain-4:8 read after note access was restored; its missing-access blocker is now resolved. Evidence below is from the named artifacts and reports, not new repository searches, measurements, or gate execution.
 
 ### Patron ruling and effect on settled decisions
 
@@ -138,7 +138,7 @@ Quill owns edits only to spec.md, research.md, plan.md, tasks.md, and quickstart
 
 ## Independent post-fix analysis and freeze assessment — 2026-10-08
 
-Identity verified: F:/Dev/LamuFlix.worktrees/feature-312-spec, feature/312-spec, HEAD 01caa4d1b3e4e4ba7674abfd91bb6af2f3be21bc. Read DEV-312, original recon-DEV-312, all three full Compass/Ledger/Sentry reports, brief, conclusions, spec, research, plan, tasks, quickstart and ADR-0007. chain-4: **not found in these roots**; no substitute note or outside temporary ruling artifact was read. Maestri debug confirmed healthy transport. The current authorized Conductor ask supplies this assessment assignment; missing chain access is not treated as proof of any chain transition.
+Identity verified: <task-worktree>/feature-312-spec, feature/312-spec, HEAD 01caa4d1b3e4e4ba7674abfd91bb6af2f3be21bc. Read DEV-312, original recon-DEV-312, all three full Compass/Ledger/Sentry reports, brief, conclusions, spec, research, plan, tasks, quickstart and ADR-0007. chain-4: **not found in these roots**; no substitute note or outside temporary ruling artifact was read. Maestri debug confirmed healthy transport. The current authorized Conductor ask supplies this assessment assignment; missing chain access is not treated as proof of any chain transition.
 
 Read-only speckit-analyze prerequisite command ran once with -Json -RequireTasks -IncludeTasks and resolved specs/DEV-312 with research.md, quickstart.md and tasks.md. No extensions.yml was present. Constitution IX, stack constraints, API/Contract and Documentation Rules were read within the named worktree. Analysis itself changed no artifact; this separately authorized append records its results. No new repository reconnaissance, dependency lookup, gate or test was performed. Technical evidence remains the provided recon and challenger reports; this assessment does not independently certify package/runtime behavior.
 
@@ -204,7 +204,7 @@ Quill edits only research.md, plan.md, tasks.md and quickstart.md where necessar
 
 ## Latest bounded-correction verification and plan freeze — 2026-10-08
 
-Identity: F:/Dev/LamuFlix.worktrees/feature-312-spec, branch feature/312-spec, HEAD/base 01caa4d1b3e4e4ba7674abfd91bb6af2f3be21bc verified before this append. Read the connected DEV-312 and original recon-DEV-312 notes, all three complete Compass/Ledger/Sentry reports, and brief.md, CONCLUSIONS.md, spec.md, research.md, plan.md, tasks.md and quickstart.md. The prior analysis and its numbered correction list at CONCLUSIONS.md:139-203 supply the comparison baseline; these draft artifacts are untracked, so an ordinary tracked git diff does not expose Quill edits. No earlier file revision or external source was inferred from that empty diff.
+Identity: <task-worktree>/feature-312-spec, branch feature/312-spec, HEAD/base 01caa4d1b3e4e4ba7674abfd91bb6af2f3be21bc verified before this append. Read the connected DEV-312 and original recon-DEV-312 notes, all three complete Compass/Ledger/Sentry reports, and brief.md, CONCLUSIONS.md, spec.md, research.md, plan.md, tasks.md and quickstart.md. The prior analysis and its numbered correction list at CONCLUSIONS.md:139-203 supply the comparison baseline; these draft artifacts are untracked, so an ordinary tracked git diff does not expose Quill edits. No earlier file revision or external source was inferred from that empty diff.
 
 Read-only speckit-analyze prerequisites ran once and resolved this feature with tasks present. No .specify/extensions.yml was present. Constitution was read in this worktree. Analysis changed no draft artifact; this separately authorized append records the assessment. No outside-root documentation lookup or new repository reconnaissance was performed. Exact-version/source statements below are assessed as cited planning evidence in Quill research and the supplied reports, not independently fetched package metadata or a runtime certification.
 

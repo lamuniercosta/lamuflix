@@ -5,7 +5,7 @@ Every grill question, Patron's ruling, and its cited basis. Taste assumptions li
 
 - **Ticket.** DEV-295, "Implement EnrichmentFailureCategory taxonomy and root-cause exception
   classifier". In Progress, size M, parent DEV-282, type feature, no `ui:` tag.
-- **Worktree.** `F:/Dev/LamuFlix.worktrees/feature-295-spec`. Branch `feature/295-spec`.
+- **Worktree.** `<task-worktree>/feature-295-spec`. Branch `feature/295-spec`.
 - **Base.** `origin/main` at `baa1524` ("DEV-294 - Add Phase A specification artifacts and ADR 0014").
 - **Feature pin.** `specs/DEV-295`.
 - **Evidence.** Task note `DEV-295`; `recon-DEV-295` lines 1-47; ticket text fetched for DEV-295
@@ -14,7 +14,7 @@ Every grill question, Patron's ruling, and its cited basis. Taste assumptions li
   `OmdbMetadataProvider.cs`; `tests/LamuFlix.Test/EnrichmentTests.cs` and `WorkerTests.cs`;
   `Directory.Packages.props`; `harness.yml`.
 - **Grill cap.** 12 questions, all answered. Q2 was folded into Q1. Patron's full ruling text is
-  the source of record: `C:/Users/lamun/AppData/Local/Temp/DEV-295-Patron-rulings.txt`.
+  the source of record: `<temp>/DEV-295-Patron-rulings.txt`.
 
 ---
 

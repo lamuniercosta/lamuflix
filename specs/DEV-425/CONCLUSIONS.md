@@ -1,6 +1,6 @@
 # DEV-425 grill conclusions
 
-Append-only decision exchanges. Evidence: notes DEV-425 and recon-DEV-425; worktree F:/Dev/LamuFlix.worktrees/feature-425-spec, branch feature/425-spec, base f698aeceb6b6af50a397d076b83ed178566641b0. Patron decides under charter section 2.3. Grill cap: 12 questions.
+Append-only decision exchanges. Evidence: notes DEV-425 and recon-DEV-425; worktree <task-worktree>/feature-425-spec, branch feature/425-spec, base f698aeceb6b6af50a397d076b83ed178566641b0. Patron decides under charter section 2.3. Grill cap: 12 questions.
 
 ## Q1 — Facet contract and vocabulary
 
@@ -115,13 +115,13 @@ Basis (max 3):
 
 ## Q8 — Shared understanding and grill closure
 
-Keel: Please read specs/DEV-425/brief.md, CONTEXT.md, CONCLUSIONS.md and ASSUMPTIONS.md in F:/Dev/LamuFlix.worktrees/feature-425-spec on feature/425-spec. Do you confirm shared understanding and close the grill on Q1-Q7 as faithfully transcribed in the brief, with no unresolved structural checkbox, so these decisions and canonical glossary are ready for Quill speckit-specify/plan/tasks and Palette design? I recommend close: all delivery, parsing, hosts, states, file boundary, tests, gate expectations and loop terms are settled; cost is that any later genuine gap must return as needs decision rather than Quill inventing it. The brief explicitly flags that current recon note replaced initial intake text with Q2 evidence, and cites preserved intake facts in our full exchanges rather than claiming new recon. The brief also follows live task-pipeline M versus L clarify/checklist scope over the stale intake next-line. No production/test gate or plan challenge has run and Gate 1 remains user-owned. Reply approved or give one concrete correction and cited basis; do not edit the four files concurrently. Budget now 8 of 12 questions.
+Keel: Please read specs/DEV-425/brief.md, CONTEXT.md, CONCLUSIONS.md and ASSUMPTIONS.md in <task-worktree>/feature-425-spec on feature/425-spec. Do you confirm shared understanding and close the grill on Q1-Q7 as faithfully transcribed in the brief, with no unresolved structural checkbox, so these decisions and canonical glossary are ready for Quill speckit-specify/plan/tasks and Palette design? I recommend close: all delivery, parsing, hosts, states, file boundary, tests, gate expectations and loop terms are settled; cost is that any later genuine gap must return as needs decision rather than Quill inventing it. The brief explicitly flags that current recon note replaced initial intake text with Q2 evidence, and cites preserved intake facts in our full exchanges rather than claiming new recon. The brief also follows live task-pipeline M versus L clarify/checklist scope over the stale intake next-line. No production/test gate or plan challenge has run and Gate 1 remains user-owned. Reply approved or give one concrete correction and cited basis; do not edit the four files concurrently. Budget now 8 of 12 questions.
 
 Patron response:
 [from Patron] DEV-425 Q8 ruling: Approved — shared understanding confirmed and the grill is closed on Q1-Q7 as faithfully transcribed in brief.md, CONTEXT.md, CONCLUSIONS.md, and ASSUMPTIONS.md, with no unresolved structural checkbox; ready for Quill speckit-specify/plan/tasks and Palette design.
 
 Basis (max 3):
-- Fidelity check: I read all four files in F:/Dev/LamuFlix.worktrees/feature-425-spec on feature/425-spec — brief.md Settled answers Q1-Q7 match the CONCLUSIONS.md exchanges, CONTEXT.md carries the canonical Director/Director facet/Director filter glossary from Q1, and ASSUMPTIONS.md carries the Q4/Q5 taste entries tagged [assumed].
+- Fidelity check: I read all four files in <task-worktree>/feature-425-spec on feature/425-spec — brief.md Settled answers Q1-Q7 match the CONCLUSIONS.md exchanges, CONTEXT.md carries the canonical Director/Director facet/Director filter glossary from Q1, and ASSUMPTIONS.md carries the Q4/Q5 taste entries tagged [assumed].
 - No structural escalation: brief.md Gate expectations and handoff correctly records that no production/test gate or plan challenge has run, Gate 1 remains the user-owned spec merge, the recon-note replacement and preserved intake facts are flagged rather than claimed as new recon, and the live task-pipeline M-versus-L clarify/checklist scope supersedes the stale intake line.
 - Closure cost accepted as recommended: any later genuine gap returns as needs decision through Keel to Patron rather than Quill inventing it; this closure authorizes no Build, closes no later gate, and implies no merge approval.
 

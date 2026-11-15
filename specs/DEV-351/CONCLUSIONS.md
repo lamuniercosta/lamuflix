@@ -1,12 +1,12 @@
 # DEV-351 — Grill conclusions
 
-Append-only decision exchanges. Authority: Patron. Facts: recon-DEV-351, supplemented authoritative ticket at lines 94–111 supersedes the earlier summary-only observations. Worktree: F:/Dev/LamuFlix.worktrees/feature-351-spec; branch feature/351-spec; intake HEAD 1cdb13c487c1b257f20cc4d2466d31414190a814. Question cap: 12. Keel records; Quill drafts later. No implementation or Gate 1 authorization.
+Append-only decision exchanges. Authority: Patron. Facts: recon-DEV-351, supplemented authoritative ticket at lines 94–111 supersedes the earlier summary-only observations. Worktree: <task-worktree>/feature-351-spec; branch feature/351-spec; intake HEAD 1cdb13c487c1b257f20cc4d2466d31414190a814. Question cap: 12. Keel records; Quill drafts later. No implementation or Gate 1 authorization.
 
 ## Opening
 
-Keel: [from Keel] /grill-with-docs DEV-351. Open Phase 2 step 1 grill, maximum 12 questions, one at a time. Worktree F:/Dev/LamuFlix.worktrees/feature-351-spec branch feature/351-spec. Authoritative ticket is now recon-DEV-351:94-111 and DEV-351:15-28; earlier summary-only observations are superseded. Please read those connected notes. Keel will ask numbered decisions, append full exchanges and cited rulings to specs/DEV-351/CONCLUSIONS.md, then close brief.md and ASSUMPTIONS.md. Do not edit files or tracker. Acknowledge readiness; decisions follow. Reply directly, or ask Keel back if this ask returns before you finish.
+Keel: [from Keel] /grill-with-docs DEV-351. Open Phase 2 step 1 grill, maximum 12 questions, one at a time. Worktree <task-worktree>/feature-351-spec branch feature/351-spec. Authoritative ticket is now recon-DEV-351:94-111 and DEV-351:15-28; earlier summary-only observations are superseded. Please read those connected notes. Keel will ask numbered decisions, append full exchanges and cited rulings to specs/DEV-351/CONCLUSIONS.md, then close brief.md and ASSUMPTIONS.md. Do not edit files or tracker. Acknowledge readiness; decisions follow. Reply directly, or ask Keel back if this ask returns before you finish.
 
-Patron: [from Patron] Ready for the DEV-351 grill on F:/Dev/LamuFlix.worktrees/feature-351-spec (feature/351-spec). Read PRODUCT.md, recon-DEV-351 (:1-116, authoritative ticket text at :94-111), and DEV-351 (:15-28). Standing by for Decision 1.
+Patron: [from Patron] Ready for the DEV-351 grill on <task-worktree>/feature-351-spec (feature/351-spec). Read PRODUCT.md, recon-DEV-351 (:1-116, authoritative ticket text at :94-111), and DEV-351 (:15-28). Standing by for Decision 1.
 
 ---
 
@@ -214,7 +214,7 @@ Gate & Loop Status: `OD-1 (C1)` remains an unchecked Critical owner structural c
 ## Phase 2 step 6: Full Plan Challenge adjudication report (Keel)
 
 - Status: adjudication-complete; corrections pending; blocked: structural — C1/OD-1 owner decision.
-- Identity: F:/Dev/LamuFlix.worktrees/feature-351-spec, branch feature/351-spec; intake HEAD 1cdb13c487c1b257f20cc4d2466d31414190a814. Branch verified before edits; six named artifacts inspected. Three exact reports present; no missing axis.
+- Identity: <task-worktree>/feature-351-spec, branch feature/351-spec; intake HEAD 1cdb13c487c1b257f20cc4d2466d31414190a814. Branch verified before edits; six named artifacts inspected. Three exact reports present; no missing axis.
 - Authority: full cited Patron rulings above at DEV-351:161-220, now preserved verbatim in CONCLUSIONS.md. Ledger F1 changes the settled event PK to integer; other dispositions accepted as proposed.
 
 | Source / finding | Ruling and basis | Required disposition |

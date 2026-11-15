@@ -1,6 +1,6 @@
 # DEV-472 Grill Conclusions
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-472-spec
+Worktree: <task-worktree>/feature-472-spec
 Branch: feature/472-spec
 Baseline: e06587031dae1d974a41ee98e7b23aa291107129
 Factual source: recon-DEV-472. Decision authority: Patron under charter section 2.3.
@@ -71,7 +71,7 @@ Factual source: recon-DEV-472. Decision authority: Patron under charter section 
 
 **Keel question:** Please read brief.md together with CONCLUSIONS.md and ASSUMPTIONS.md in specs/DEV-472. Does it accurately capture our shared understanding and all Q1-Q6 decisions, with no unresolved scope decision, so the grill can close and Quill can draft? This confirms the grill only; plan challenge/freeze, Gate 1 and actual runtime acceptance remain separate. Please confirm whether the Q1 stale-reference request has been routed to Rigger, or mark the recording receipt pending.
 
-**Patron answer:** Confirmed: specs/DEV-472/brief.md, CONCLUSIONS.md, and ASSUMPTIONS.md accurately capture all Q1-Q6 decisions from recon-DEV-472 lines 4-23 with no unresolved scope decisions so the grill can close and Quill can draft (plan challenge/freeze, Gate 1, and runtime acceptance remain separate); the Q1 stale-reference comment request has been routed to Rigger (C:/Users/lamun/AppData/Local/Temp/dev-472-youtrack-comment.md) with Rigger verified recording receipt pending.
+**Patron answer:** Confirmed: specs/DEV-472/brief.md, CONCLUSIONS.md, and ASSUMPTIONS.md accurately capture all Q1-Q6 decisions from recon-DEV-472 lines 4-23 with no unresolved scope decisions so the grill can close and Quill can draft (plan challenge/freeze, Gate 1, and runtime acceptance remain separate); the Q1 stale-reference comment request has been routed to Rigger (<temp>/dev-472-youtrack-comment.md) with Rigger verified recording receipt pending.
 
 **Rationale and implications:** Grill closed at seven questions out of the twelve-question budget. Quill may draft from the brief. The stale-reference recording request is routed, but no verified YouTrack write is claimed. No structural escalation remains from this grill. Plan challenge/freeze, Gate 1 and hosted runtime acceptance remain subsequent states.
 
