@@ -6,6 +6,14 @@ enrolled in CI. Scope is frozen by ticket DEV-427 and its public `specs/DEV-427/
 `brief.md`) live in the private artifact root at
 `<private-root>/<repository-id>/DEV-427/`, not in the public tree.
 
+That storage is operator-owned. `.specify/scripts/powershell/initialize-artifact-storage.ps1
+-Initialize` is the only thing that creates it; ordinary reads and writes fail closed rather
+than falling back to a tracked copy. Recording this runbook's receipts there needs no
+initialization of its own, but a missing or migrated archive means you seed or bootstrap the
+ticket first. Backup and cross-machine transfer are your action too: copy the root whole to a
+location outside every checkout. Deleting this ticket's worktree leaves the archive in place,
+and absent records block the next stage rather than being reconstructed from memory.
+
 **Status: Phases 1-4 built (scripts/load skeleton, idempotent seed, workload and preflight,
 measured baseline and evidence), and the Phase 5 bounded negatives are exercised and recorded
 below.** Sections marked *(pending)* are completed by their named tasks; this file must not

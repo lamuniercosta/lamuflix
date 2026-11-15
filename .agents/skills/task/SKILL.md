@@ -95,6 +95,16 @@ Once the worktree exists — working inside it from here on — **immediately ru
 
 Do not proceed past this step until the grill concludes with shared understanding. For a tiny bug fix the grill is short — but it still happens.
 
+## Private artifact storage lifecycle (operator-owned)
+
+Operational records live under `<private-root>/<repository-id>/DEV-###/`, resolved by the shared resolver in `.specify/scripts/powershell/common.ps1`. The root is `$LAMUFLIX_ARTIFACT_ROOT` when set, otherwise the platform local application-data directory plus `LamuFlix/artifacts`; the repository id is `$LAMUFLIX_ARTIFACT_REPOSITORY_ID` when set, otherwise `LamuFlix`.
+
+- **Initialize once per machine.** Only `.specify/scripts/powershell/initialize-artifact-storage.ps1 -Initialize` creates the root. Ordinary workflow reads and writes fail closed with that command in the message; they never fall back to a tracked `specs/` copy.
+- **Seed, then migrate.** `-Bootstrap -TicketId <DEV-###> -SourceDir <specs dir>` copies one ticket's durable records and writes a verified raw-byte SHA-256 proof; `-Migrate -TicketId <DEV-###> -SourceDir <specs dir> [-StageRemovals]`, or `-Migrate -All`, archives verified records and only then stages git removals.
+- **Backup and transfer are yours.** The storage is a plain directory tree with no hosted service behind it. Copy it whole to back it up or to move a ticket to another machine; keep the copy outside every checkout.
+- **Deleting a worktree does not delete the archive.** Removing a task worktree leaves the canonical ticket directory intact, so Phase A decisions survive into a branch or worktree that replaces it.
+- **Missing records block pickup; they are never reconstructed.** If the archive is absent or a seed proof no longer matches, the next stage fails closed. Re-seed deliberately with `-Refresh`, or restore the backup. Do not re-author an approved receipt from memory.
+
 ## 5. Commit convention
 
 Reference the task in every commit **subject** so the tracker links the work:
