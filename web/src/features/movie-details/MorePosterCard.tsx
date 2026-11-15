@@ -7,7 +7,6 @@ type MovieSummary = components['schemas']['MovieSummaryResponse'];
 
 export interface MorePosterCardProps {
   item: MovieSummary;
-  /** Navigation callback supplied by the shell; this card never writes history. */
   onOpen: (id: number | string) => void;
 }
 
@@ -51,7 +50,6 @@ function posterMeta(item: MovieSummary, rating: string | null) {
   );
 }
 
-/** One related-poster card, owning its own image-failure state. */
 export function MorePosterCard({ item, onOpen }: MorePosterCardProps) {
   const [posterFailed, setPosterFailed] = useState(false);
   const href = `/movies/${String(item.id)}`;

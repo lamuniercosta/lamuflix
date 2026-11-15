@@ -12,7 +12,6 @@ export interface FileSectionProps {
   showMatch: boolean;
 }
 
-/** File path, copy feedback and the external/match affordances. */
 export function FileSection({ path, imdbId, movieId, libraryClient, showMatch }: FileSectionProps) {
   const headingId = useId();
   const [copyState, setCopyState] = useState<CopyState>('idle');

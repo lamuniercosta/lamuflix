@@ -32,7 +32,6 @@ export interface LibraryResultsToolbarProps {
   onVariantChange: (variant: LibraryVariant) => void;
 }
 
-/** Filters toggle, result count, sort select and layout switch. */
 export function LibraryResultsToolbar({
   toggleRef,
   panelOpen,

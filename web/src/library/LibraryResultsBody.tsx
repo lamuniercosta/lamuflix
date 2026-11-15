@@ -21,7 +21,6 @@ export interface LibraryResultsBodyProps {
   onPageChange: (page: number) => void;
 }
 
-/** Loading, empty and populated result presentations with their pagination. */
 export function LibraryResultsBody(props: LibraryResultsBodyProps) {
   if (props.loading) {
     return <MovieGrid isLoading pageSize={props.pageSize} variant={props.variant} />;

@@ -8,7 +8,6 @@ export interface MoreWithPanelProps {
   actor: string;
   actorIds: Array<number | string>;
   movieId: number | string;
-  /** Navigation callbacks supplied by the shell; nothing here writes history. */
   onOpenMovie: (id: number | string) => void;
   onNavigate: (href: string) => void;
 }
@@ -40,7 +39,6 @@ function moreStatus(
   return null;
 }
 
-/** Related presentation for the selected actor, plus the library jump. */
 export function MoreWithPanel({
   actor,
   actorIds,

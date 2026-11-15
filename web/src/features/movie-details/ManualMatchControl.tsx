@@ -7,7 +7,6 @@ export interface ManualMatchControlProps {
   className: string;
 }
 
-/** Match-open state and trigger focus for the manual-match dialog. */
 export function ManualMatchControl({ movieId, libraryClient, className }: ManualMatchControlProps) {
   const [matchOpen, setMatchOpen] = useState(false);
   const matchTriggerRef = useRef<HTMLButtonElement>(null);

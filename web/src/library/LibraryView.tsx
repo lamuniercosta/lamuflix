@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { client } from '../api/client';
 import { subscribeToRouteChange } from '../features/app-navigation/appNavigation';
 import {
   currentYearExtent,
@@ -8,12 +10,33 @@ import {
 } from '../features/library/filterQuery';
 import type { FilterQuery } from '../features/library/filterQuery';
 import type { components } from '../api/types';
+import { actorPeopleParams } from './peopleQuery';
 import LibraryBrowseView from './LibraryBrowseView';
 import LibraryErrorBoundary from './LibraryErrorBoundary';
 import './library.css';
 import './browse.css';
 
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
+type GenreDto = components['schemas']['GenreDto'];
+type CollectionDto = components['schemas']['CollectionDto'];
+type PersonDto = components['schemas']['PersonDto'];
+type DirectorDto = components['schemas']['DirectorDto'];
+
+function GenreDtoList(value: unknown): GenreDto[] {
+  return Array.isArray(value) ? (value as GenreDto[]) : [];
+}
+
+function CollectionDtoList(value: unknown): CollectionDto[] {
+  return Array.isArray(value) ? (value as CollectionDto[]) : [];
+}
+
+function PersonDtoList(value: unknown): PersonDto[] {
+  return Array.isArray(value) ? (value as PersonDto[]) : [];
+}
+
+function DirectorDtoList(value: unknown): DirectorDto[] {
+  return Array.isArray(value) ? (value as DirectorDto[]) : [];
+}
 
 function replaceQuery(next: FilterQuery, currentYear: number): void {
   try {
@@ -35,11 +58,6 @@ export interface LibraryViewProps {
   onOpenMovie?: (id: string | number) => void;
 }
 
-/**
- * Orchestration shell: owns URL/query synchronization, the route-effect
- * subscription, the current-year snapshot, and the query/page/clear handlers.
- * Presentation and its local interaction state live in the sibling modules.
- */
 export default function LibraryView({
   leadingItem,
   inWatchlist = false,
@@ -118,6 +136,52 @@ export default function LibraryView({
 
   const apiUrl = useMemo(() => toCanonicalApiQuery(query, currentYear), [query, currentYear]);
 
+  const genresQuery = useQuery({
+    queryKey: ['genres'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/genres');
+      if (error) {
+        throw new Error('Genres could not be loaded.');
+      }
+      return data;
+    },
+  });
+
+  const collectionsQuery = useQuery({
+    queryKey: ['collections'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/collections');
+      if (error) {
+        throw new Error('Collections could not be loaded.');
+      }
+      return data;
+    },
+  });
+
+  const directorsQuery = useQuery({
+    queryKey: ['directors'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/directors');
+      if (error) {
+        throw new Error('Directors could not be loaded.');
+      }
+      return data;
+    },
+  });
+
+  const actorsQuery = useQuery({
+    queryKey: ['people', 'actor'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/people', {
+        params: actorPeopleParams(),
+      });
+      if (error) {
+        throw new Error('Cast could not be loaded.');
+      }
+      return data;
+    },
+  });
+
   return (
     <LibraryErrorBoundary resetKey={apiUrl} clearFilters={handleClearFilters}>
       <LibraryBrowseView
@@ -132,6 +196,16 @@ export default function LibraryView({
         routePath={routePath}
         integrated={integrated}
         onOpenMovie={onOpenMovie}
+        genres={GenreDtoList(genresQuery.data)}
+        collections={CollectionDtoList(collectionsQuery.data)}
+        actors={PersonDtoList(actorsQuery.data)}
+        directors={DirectorDtoList(directorsQuery.data)}
+        genresError={genresQuery.error}
+        collectionsError={collectionsQuery.error}
+        actorsError={actorsQuery.error}
+        directorsError={directorsQuery.error}
+        directorsLoading={directorsQuery.isLoading}
+        onRetryDirectors={() => void directorsQuery.refetch()}
       />
     </LibraryErrorBoundary>
   );

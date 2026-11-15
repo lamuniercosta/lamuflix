@@ -6,7 +6,6 @@ export interface MoviePosterProps {
   posterUrl: string | null;
 }
 
-/** Poster presentation owning its own image-failure state. */
 export function MoviePoster({ title, posterUrl }: MoviePosterProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   if (posterUrl && posterUrl !== failedUrl) {
