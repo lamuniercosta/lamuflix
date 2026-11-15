@@ -80,7 +80,7 @@ Given that feature description, do this:
 
 3. **Create the spec feature directory**:
 
-   Specs live under the default `specs/` directory unless the user explicitly provides `SPECIFY_FEATURE_DIRECTORY`.
+   Specs live under the default `specs/` directory unless the user explicitly provides `SPECIFY_FEATURE_DIRECTORY`. The public `specs/<ticket>/` directory is the public allowlist surface only: `spec.md`, sanitized `CONCLUSIONS.md`, and `ASSUMPTIONS.md` when applicable. Operational records — briefs, plans, tasks, checklists, evidence, receipts — belong to the ticket's private artifact root at `<private-root>/<repository-id>/DEV-###/` and must never be written under `specs/`.
 
    **Resolution order for `SPECIFY_FEATURE_DIRECTORY`**:
    1. If the user explicitly provided `SPECIFY_FEATURE_DIRECTORY` (e.g., via environment variable, argument, or configuration), use it as-is

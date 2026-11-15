@@ -44,7 +44,7 @@ The tracker is **optional**. With no id to work from, pass a description straigh
 ./scripts/get-task.ps1 -TaskId 142
 ```
 
-`get-task.ps1` returns `Id`, `Summary`, `Description`, and `Type`. Use the summary and description as the source of truth. If the user also supplied a description, prefer theirs only when they say so; otherwise use the tracker summary. This text seeds `specs/<feature>/brief.md` when the change goes through the Spec Kit pipeline.
+`get-task.ps1` returns `Id`, `Summary`, `Description`, and `Type`. Use the summary and description as the source of truth. If the user also supplied a description, prefer theirs only when they say so; otherwise use the tracker summary. This text seeds the ticket `brief.md` when the change goes through the Spec Kit pipeline. `brief.md` is an operational record and lives in the private artifact root at `<private-root>/<repository-id>/DEV-###/`, never under `specs/`.
 
 Do not call `gh` or YouTrack REST yourself — the script owns provider dispatch. Do not echo `YOUTRACK_API_KEY`.
 
@@ -91,7 +91,7 @@ When the PR merges, clean up: `git worktree remove <path>`.
 
 ## 4. MANDATORY: grill the development
 
-Once the worktree exists — working inside it from here on — **immediately run `/grill-with-docs`** — do not jump to a spec or code first. This is the essential "question the development" step: it interrogates the task (using the fetched title and body as raw input), settles vocabulary in `CONTEXT.md`, records any ADRs, and produces `specs/<feature>/brief.md`. The spec (`/speckit-specify`) is written from that settled output.
+Once the worktree exists — working inside it from here on — **immediately run `/grill-with-docs`** — do not jump to a spec or code first. This is the essential "question the development" step: it interrogates the task (using the fetched title and body as raw input), settles vocabulary in `CONTEXT.md`, records any ADRs, and produces the ticket `brief.md` in the private artifact root at `<private-root>/<repository-id>/DEV-###/`. The spec (`/speckit-specify`) is written from that settled output.
 
 Do not proceed past this step until the grill concludes with shared understanding. For a tiny bug fix the grill is short — but it still happens.
 

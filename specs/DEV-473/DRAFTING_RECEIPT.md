@@ -188,3 +188,50 @@ D1 (explicit `.specify/scripts/powershell/initialize-artifact-storage.ps1` with 
 - Independent Keel read-only reread follows this repair (round 1 of 2); Quill does not invent PLAN FROZEN or Gate 1.
 - No production C# or web behaviour change planned; applicable scope-empty gates stay non-PASS reports.
 - Machine-root literals remain only in private recon evidence (lines 19 and 30–31).
+
+## Phase 4 User Story 2 — cutover record (T012–T018)
+
+Implemented by Anvil in worktree `F:/Dev/LamuFlix.worktrees/DEV-473`, branch `feature/DEV-473`. Baseline for this phase is the Phase 3 commit `474a358a4b7ad3a2a70816b19bfdaa769fbd1d91`.
+
+### Shared resolver additions (`.specify/scripts/powershell/common.ps1`)
+
+- `New-ArtifactTicketWorkspace` provisions or confirms `<private-root>/<repository-id>/DEV-###/` plus its operational subdirectories. It requires initialized, writable storage but deliberately does **not** demand a bootstrap seed proof: a brand-new ticket has no Phase A records to seed, and `Assert-ArtifactBootstrapSeed` remains the gate for private-required *reads* via `Get-ArtifactPathsEnv -RequirePrivate`.
+- `Invoke-ArtifactTicketWrite` performs one private write under the single shared ownership contract (`Acquire-ArtifactTicketOwnership` / `Release-ArtifactTicketOwnership`), so competing real callers fail closed exactly as P4 requires.
+- `Write-ArtifactRecord` writes one confined record as UTF-8 without BOM, creating parents through `New-ArtifactChildPath` so every path stays confined.
+- `Get-ArtifactTicketIdFromName` now derives the ticket from the last path segment of the branch and feature directory. The previous whole-string match could capture an unrelated `X-NNN` token from a parent directory; that was reproducible in the companion fixtures before the fix.
+
+### Bounded discovered caller set (T018, D4)
+
+Cut over in this phase; none retains a public private-artifact write:
+
+| Caller | Change |
+|---|---|
+| `create-new-feature.ps1` | Optional `-TicketId`; derives the ticket when omitted. Creates the private workspace and `ticket.json` under the shared contract. `specs/<branch>/spec.md` is the only public write and an authored spec is never overwritten. Missing storage fails closed with initialization guidance and writes no public fallback. |
+| `check-prerequisites.ps1` | New `-RequirePrivate` switch. Discovery is read-only: it never creates the private root and never migrates. Plan and tasks resolve to the private ticket directory when it holds them. `-PathsOnly` additionally reports `TICKET_ID`, `PRIVATE_ROOT`, `PRIVATE_TICKET_DIR`, `PRIVATE_AVAILABLE`, `PRIVATE_SEED_VERIFIED`. |
+| `setup-plan.ps1` | Writes `plan.md` to the private ticket directory when the ticket has private storage, creating the workspace for a new ticket, and under the public tree only for a ticket that has not been cut over. |
+| `setup-tasks.ps1` | Same resolution for reading `plan.md` and reporting the `tasks.md` destination. |
+| `scripts/new-mutation-receipt.ps1` | `-ReceiptDir` is now optional. Without it, `-Ticket` resolves `<private-root>/<repository-id>/DEV-###/receipts/sha/<full-sha>/` through the common resolver, and the receipt carries `New-ArtifactProvenance` SHA provenance. It dot-sources `common.ps1` rather than duplicating the resolver. |
+| `scripts/load/README.md` | Operational records referenced by logical identifiers under `<private-root>/<repository-id>/`; no public operational path asserted. |
+
+### Adapter parity (T016 / P3)
+
+Ten pairs updated identically in `.agents/skills/` and `.claude/skills/`: `task`, `grill-with-docs`, `speckit-specify`, `speckit-plan`, `speckit-tasks`, `pipeline`, plus inventoried consumers `code-review`, `handoff`, `web-implement`, `gherkin`. Verified:
+
+- Zero matches for operational-record writes under `specs/<feature>/` in either tree.
+- Added lines identical between each pair. The only pair differences are the pre-existing host-specific `$skill` vs `/skill` invocation form recorded in T001 — inherited drift, not introduced here.
+- No host generator was invoked and no generated output (`CodeMetricsConfig.txt`, `stryker-config.json`, `.editorconfig`) was touched.
+
+### Companion coverage (T012 / T013 / T013b, plus T015)
+
+`.specify/scripts/powershell/Test-ArtifactStorage.ps1` grew from 122 to 185 checks, all appended sequentially in the existing single file:
+
+- **T012**: create path writes privately and keeps `specs/DEV-###/` at `spec.md` only; repeated create preserves an authored spec; missing storage fails closed with guidance and no public fallback.
+- **T013**: a held ownership handle makes two real `setup-plan.ps1` child processes fail closed and name the holder; the lock is never stolen; explicit release lets the writer proceed and land its record privately with no public duplicate; SHA-isolated receipt output carries provenance.
+- **T013b**: real consumer write routes (plan, brief, tasks, checklist, receipts, evidence) are allowed through the guard for Edit, Write and apply-patch; outside-ticket, other-repository and unrelated paths stay denied; a shell command gains no route.
+- **T015**: prerequisite discovery succeeds with public spec only and creates no private root; `-RequirePrivate` fails closed naming the initialization command; a private plan is detected without a seed proof or migration side effect; a missing plan is not recreated publicly.
+
+### Phase 4 checkpoint
+
+- `pwsh -NoProfile -File .specify/scripts/powershell/Test-ArtifactStorage.ps1` → **185 checks, 0 failed, exit 0**.
+- `scripts/hooks/Test-Guard.ps1` → 2 of 103 failed. Both failures (`relative ../../ escape`, `rooted path with .. traversal`) reproduce at the Phase 3 baseline commit with this phase's changes stashed, so they are pre-existing and not caused by T013b. Recorded, not fixed here: `guard.ps1` is outside this phase's task set.
+- US2 is complete only because T014–T018 and the caller/adapter proof above are all present (H3). Phase 5 (US3) was not started.

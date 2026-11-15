@@ -12,6 +12,7 @@
 #   -RequireTasks       Require tasks.md to exist (for implementation phase)
 #   -IncludeTasks       Include tasks.md in AVAILABLE_DOCS list
 #   -PathsOnly          Only output path variables (no validation)
+#   -RequirePrivate     Require the ticket's private artifact storage and bootstrap seed
 #   -Help, -h           Show help message
 
 [CmdletBinding()]
@@ -20,6 +21,7 @@ param(
     [switch]$RequireTasks,
     [switch]$IncludeTasks,
     [switch]$PathsOnly,
+    [switch]$RequirePrivate,
     [switch]$Help
 )
 
@@ -37,6 +39,7 @@ OPTIONS:
   -RequireTasks       Require tasks.md to exist (for implementation phase)
   -IncludeTasks       Include tasks.md in AVAILABLE_DOCS list
   -PathsOnly          Only output path variables (no prerequisite validation)
+  -RequirePrivate     Require the ticket private artifact storage and verified bootstrap seed
   -Help, -h           Show this help message
 
 EXAMPLES:
@@ -63,6 +66,31 @@ if (-not (Test-FeatureBranch -Branch $paths.CURRENT_BRANCH -HasGit:$paths.HAS_GI
     exit 1 
 }
 
+# Public/private artifact resolution. Discovery is read-only: it never creates the private root
+# and never migrates an operational record. Missing private storage only matters to stages that
+# declare they need private inputs.
+$artifactPaths = $null
+$artifactProblem = $null
+try {
+    $artifactPaths = Get-ArtifactPathsEnv -TicketId (Get-ArtifactTicketIdFromName -Branch $paths.CURRENT_BRANCH -FeatureDir $paths.FEATURE_DIR)
+} catch {
+    $artifactProblem = $_.Exception.Message
+}
+
+# A stage that requires private inputs fails closed here rather than reading a public copy.
+if ($RequirePrivate) {
+    if ($artifactProblem) {
+        Write-Output "ERROR: $artifactProblem"
+        exit 1
+    }
+    try {
+        $artifactPaths = Get-ArtifactPathsEnv -TicketId $artifactPaths.TICKET_ID -RequirePrivate
+    } catch {
+        Write-Output "ERROR: $($_.Exception.Message)"
+        exit 1
+    }
+}
+
 # If paths-only mode, output paths and exit (support combined -Json -PathsOnly)
 if ($PathsOnly) {
     if ($Json) {
@@ -73,6 +101,11 @@ if ($PathsOnly) {
             FEATURE_SPEC = $paths.FEATURE_SPEC
             IMPL_PLAN    = $paths.IMPL_PLAN
             TASKS        = $paths.TASKS
+            TICKET_ID    = if ($artifactPaths) { $artifactPaths.TICKET_ID } else { $null }
+            PRIVATE_ROOT = if ($artifactPaths) { $artifactPaths.PRIVATE_ROOT } else { $null }
+            PRIVATE_TICKET_DIR = if ($artifactPaths) { $artifactPaths.PRIVATE_TICKET_DIR } else { $null }
+            PRIVATE_AVAILABLE  = if ($artifactPaths) { $artifactPaths.PRIVATE_AVAILABLE } else { $false }
+            PRIVATE_SEED_VERIFIED = if ($artifactPaths) { $artifactPaths.PRIVATE_SEED_VERIFIED } else { $false }
         } | ConvertTo-Json -Compress
     } else {
         Write-Output "REPO_ROOT: $($paths.REPO_ROOT)"
@@ -81,26 +114,40 @@ if ($PathsOnly) {
         Write-Output "FEATURE_SPEC: $($paths.FEATURE_SPEC)"
         Write-Output "IMPL_PLAN: $($paths.IMPL_PLAN)"
         Write-Output "TASKS: $($paths.TASKS)"
+        if ($artifactPaths) {
+            Write-Output "TICKET_ID: $($artifactPaths.TICKET_ID)"
+            Write-Output "PRIVATE_ROOT: $($artifactPaths.PRIVATE_ROOT)"
+            Write-Output "PRIVATE_TICKET_DIR: $($artifactPaths.PRIVATE_TICKET_DIR)"
+            Write-Output "PRIVATE_AVAILABLE: $($artifactPaths.PRIVATE_AVAILABLE)"
+            Write-Output "PRIVATE_SEED_VERIFIED: $($artifactPaths.PRIVATE_SEED_VERIFIED)"
+        }
     }
     exit 0
 }
 
-# Validate required directories and files
+# Validate required directories and files. Operational records (plan.md, tasks.md) resolve to the
+# private ticket directory when private storage holds them; the public path stays valid only for a
+# ticket that has not been cut over yet. Neither route creates or migrates anything.
+$privatePlan = if ($artifactPaths -and $artifactPaths.PRIVATE_AVAILABLE) { $artifactPaths.PRIVATE_PLAN } else { $null }
+$privateTasks = if ($artifactPaths -and $artifactPaths.PRIVATE_AVAILABLE) { $artifactPaths.PRIVATE_TASKS } else { $null }
+$planPath = if ($privatePlan -and (Test-Path -LiteralPath $privatePlan -PathType Leaf)) { $privatePlan } else { $paths.IMPL_PLAN }
+$tasksPath = if ($privateTasks -and (Test-Path -LiteralPath $privateTasks -PathType Leaf)) { $privateTasks } else { $paths.TASKS }
+
 if (-not (Test-Path $paths.FEATURE_DIR -PathType Container)) {
     Write-Output "ERROR: Feature directory not found: $($paths.FEATURE_DIR)"
     Write-Output "Run /speckit.specify first to create the feature structure."
     exit 1
 }
 
-if (-not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
-    Write-Output "ERROR: plan.md not found in $($paths.FEATURE_DIR)"
+if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
+    Write-Output "ERROR: plan.md not found in $($paths.FEATURE_DIR) or the private ticket directory."
     Write-Output "Run /speckit.plan first to create the implementation plan."
     exit 1
 }
 
 # Check for tasks.md if required
-if ($RequireTasks -and -not (Test-Path $paths.TASKS -PathType Leaf)) {
-    Write-Output "ERROR: tasks.md not found in $($paths.FEATURE_DIR)"
+if ($RequireTasks -and -not (Test-Path -LiteralPath $tasksPath -PathType Leaf)) {
+    Write-Output "ERROR: tasks.md not found in $($paths.FEATURE_DIR) or the private ticket directory."
     Write-Output "Run /speckit.tasks first to create the task list."
     exit 1
 }
@@ -120,7 +167,7 @@ if ((Test-Path $paths.CONTRACTS_DIR) -and (Get-ChildItem -Path $paths.CONTRACTS_
 if (Test-Path $paths.QUICKSTART) { $docs += 'quickstart.md' }
 
 # Include tasks.md if requested and it exists
-if ($IncludeTasks -and (Test-Path $paths.TASKS)) { 
+if ($IncludeTasks -and (Test-Path -LiteralPath $tasksPath)) { 
     $docs += 'tasks.md' 
 }
 
@@ -129,7 +176,11 @@ if ($Json) {
     # JSON output
     [PSCustomObject]@{ 
         FEATURE_DIR = $paths.FEATURE_DIR
-        AVAILABLE_DOCS = $docs 
+        AVAILABLE_DOCS = $docs
+        IMPL_PLAN = $planPath
+        TASKS = $tasksPath
+        TICKET_ID = if ($artifactPaths) { $artifactPaths.TICKET_ID } else { $null }
+        PRIVATE_TICKET_DIR = if ($artifactPaths) { $artifactPaths.PRIVATE_TICKET_DIR } else { $null }
     } | ConvertTo-Json -Compress
 } else {
     # Text output
@@ -143,6 +194,6 @@ if ($Json) {
     Test-FileExists -Path $paths.QUICKSTART -Description 'quickstart.md' | Out-Null
     
     if ($IncludeTasks) {
-        Test-FileExists -Path $paths.TASKS -Description 'tasks.md' | Out-Null
+        Test-FileExists -Path $tasksPath -Description 'tasks.md' | Out-Null
     }
 }

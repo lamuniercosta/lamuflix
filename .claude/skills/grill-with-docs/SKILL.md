@@ -13,6 +13,8 @@ After each decision crystallizes and the user confirms it, write `specs/<feature
 
 The artifact is append-only: never overwrite earlier decisions. Separate each appended decision with a markdown separator (`---`). This entry point's location is known from the pipeline context: `specs/<feature>/CONCLUSIONS.md` alongside `brief.md`. Do not ask the user for a write location. The file is created after the first confirmed decision.
 
+`CONCLUSIONS.md` is a public allowlist record and stays under `specs/<feature>/`. `brief.md` is an operational record and belongs to the ticket's private artifact root at `<private-root>/<repository-id>/DEV-###/` — write it there, never under `specs/`. Resolve both locations through the shared resolver in `.specify/scripts/powershell/common.ps1`; a missing private root fails closed with initialization guidance and is never worked around by writing `brief.md` publicly.
+
 Before the grill concludes, settle the loop terms this task needs and record them as a subsection of `brief.md`, per the `agent-pipeline` rule's Loop Discipline section: the closing bar for `/code-review`/`/ship-review` (which severities block), the frozen scope this task covers (ending "anything else is a follow-up issue, not a finding in this round."), and the round cap (default two). These are decisions, not facts — put them to the user like any other grill question rather than assuming the defaults.
 
 When the grill concludes with shared understanding reached, note that the settled vocabulary in `CONTEXT.md` and any new ADRs are ready to feed into `/speckit-specify` — the spec should use the glossary's canonical terms and must not contradict the ADRs.

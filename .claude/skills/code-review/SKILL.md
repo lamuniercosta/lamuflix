@@ -165,7 +165,7 @@ Keep these **out** of the artifact (they stay inline at Step 6): smell baseline,
 
 Look for the originating spec, in this order:
 
-1. **SpecKit artifacts.** If the repo uses SpecKit (`specify-cli`), the spec lives under `specs/<NNN-feature-name>/` — read `spec.md` as the primary spec, and `plan.md` / `tasks.md` for the intended decomposition. Match the feature directory to the branch name (SpecKit branches and spec directories share the `NNN-feature-name` slug).
+1. **SpecKit artifacts.** If the repo uses SpecKit (`specify-cli`), the spec lives under `specs/<NNN-feature-name>/` — read `spec.md` as the primary spec, and `plan.md` / `tasks.md` for the intended decomposition. Match the feature directory to the branch name (SpecKit branches and spec directories share the `NNN-feature-name` slug). `plan.md` and `tasks.md` are operational records: once the ticket has private artifact storage they live at `<private-root>/<repository-id>/DEV-###/`, so resolve them through `.specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly` rather than assuming they are public.
 2. Issue references in the commit messages (`#123`, `Closes #45`, etc.) — fetch via `gh issue view <n>` or the tracker the repo documents.
 3. A path the user passed as an argument.
 4. A PRD/spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.

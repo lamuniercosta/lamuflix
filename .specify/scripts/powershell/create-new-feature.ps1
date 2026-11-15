@@ -9,6 +9,7 @@ param(
     [Parameter()]
     [long]$Number = 0,
     [switch]$Timestamp,
+    [string]$TicketId,
     [switch]$Help,
     [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
     [string[]]$FeatureDescription
@@ -17,7 +18,7 @@ $ErrorActionPreference = 'Stop'
 
 # Show help if requested
 if ($Help) {
-    Write-Host "Usage: ./create-new-feature.ps1 [-Json] [-DryRun] [-AllowExistingBranch] [-ShortName <name>] [-Number N] [-Timestamp] <feature description>"
+    Write-Host "Usage: ./create-new-feature.ps1 [-Json] [-DryRun] [-AllowExistingBranch] [-ShortName <name>] [-Number N] [-Timestamp] [-TicketId <DEV-###>] <feature description>"
     Write-Host ""
     Write-Host "Options:"
     Write-Host "  -Json               Output in JSON format"
@@ -26,6 +27,7 @@ if ($Help) {
     Write-Host "  -ShortName <name>   Provide a custom short name (2-4 words) for the branch"
     Write-Host "  -Number N           Specify branch number manually (overrides auto-detection)"
     Write-Host "  -Timestamp          Use timestamp prefix (YYYYMMDD-HHMMSS) instead of sequential numbering"
+    Write-Host "  -TicketId <DEV-###> Ticket whose operational records live in the private artifact root"
     Write-Host "  -Help               Show this help message"
     Write-Host ""
     Write-Host "Examples:"
@@ -290,6 +292,41 @@ if ($branchName.Length -gt $maxBranchLength) {
 $featureDir = Join-Path $specsDir $branchName
 $specFile = Join-Path $featureDir 'spec.md'
 
+$resolvedTicket = $TicketId
+if ([string]::IsNullOrWhiteSpace($resolvedTicket)) {
+    $resolvedTicket = Get-ArtifactTicketIdFromName -Branch $branchName -FeatureDir $featureDir
+}
+if (-not [string]::IsNullOrWhiteSpace($resolvedTicket) -and -not (Test-ArtifactTicketId $resolvedTicket)) {
+    Write-Error "Error: '$resolvedTicket' is not a valid ticket identifier. Pass -TicketId with a shape such as DEV-123."
+    exit 1
+}
+
+$ticketDir = $null
+$privateRoot = $null
+if (-not [string]::IsNullOrWhiteSpace($resolvedTicket)) {
+    $repositoryId = Get-ArtifactRepositoryId
+    try {
+        $privateRoot = Get-ArtifactRoot -RepositoryId $repositoryId -RepoRoot $repoRoot
+    } catch {
+        Write-Error "Error: $($_.Exception.Message)"
+        exit 1
+    }
+    try {
+        $ticketDir = Get-ArtifactTicketDir -TicketId $resolvedTicket -Root $privateRoot -RepositoryId $repositoryId -RepoRoot $repoRoot
+    } catch {
+        Write-Error "Error: $($_.Exception.Message)"
+        exit 1
+    }
+    if (-not $DryRun) {
+        try {
+            Assert-ArtifactStorage -Root $privateRoot -RepositoryId $repositoryId -RepoRoot $repoRoot -TicketId $resolvedTicket | Out-Null
+        } catch {
+            Write-Error "Error: $($_.Exception.Message)"
+            exit 1
+        }
+    }
+}
+
 if (-not $DryRun) {
     if ($hasGit) {
         $branchCreated = $false
@@ -345,7 +382,8 @@ if (-not $DryRun) {
         Write-Warning "[specify] Warning: Git repository not detected; skipped branch creation for $branchName"
     }
 
-    New-Item -ItemType Directory -Path $featureDir -Force | Out-Null
+    $publicDir = $featureDir
+    New-Item -ItemType Directory -Path $publicDir -Force | Out-Null
 
     if (-not (Test-Path -PathType Leaf $specFile)) {
         $template = Resolve-Template -TemplateName 'spec-template' -RepoRoot $repoRoot
@@ -359,6 +397,28 @@ if (-not $DryRun) {
         }
     }
 
+    if ($ticketDir) {
+        try {
+            $worktreeId = (& git -C $repoRoot rev-parse --show-toplevel 2>$null | Out-String).Trim()
+            if ([string]::IsNullOrWhiteSpace($worktreeId)) { $worktreeId = $repoRoot }
+            $commitSha = (& git -C $repoRoot rev-parse HEAD 2>$null | Out-String).Trim()
+            if ($commitSha -notmatch '^[0-9a-fA-F]{40}$') { $commitSha = $null }
+            $workspace = New-ArtifactTicketWorkspace -TicketId $resolvedTicket -Root $privateRoot -RepoRoot $repoRoot
+            $record = ([ordered]@{
+                    ticketId   = $resolvedTicket.ToUpperInvariant()
+                    branchName = $branchName
+                    publicDir  = ('specs/' + $branchName)
+                    createdUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                } | ConvertTo-Json -Depth 4) + "`n"
+            Invoke-ArtifactTicketWrite -TicketDir $workspace -Owner 'create-new-feature' -WorktreeId $worktreeId -CommitSha $commitSha -Action {
+                Write-ArtifactRecord -TicketDir $workspace -RelativePath 'ticket.json' -Text $record
+            } | Out-Null
+        } catch {
+            Write-Error "Error: cannot prepare private artifact storage for '$resolvedTicket'.`n$($_.Exception.Message)"
+            exit 1
+        }
+    }
+
     # Set the SPECIFY_FEATURE environment variable for the current session
     $env:SPECIFY_FEATURE = $branchName
 }
@@ -369,6 +429,8 @@ if ($Json) {
         SPEC_FILE = $specFile
         FEATURE_NUM = $featureNum
         HAS_GIT = $hasGit
+        TICKET_ID = if ($ticketDir) { $resolvedTicket.ToUpperInvariant() } else { $null }
+        PRIVATE_TICKET_DIR = $ticketDir
     }
     if ($DryRun) {
         $obj | Add-Member -NotePropertyName 'DRY_RUN' -NotePropertyValue $true
@@ -379,6 +441,10 @@ if ($Json) {
     Write-Output "SPEC_FILE: $specFile"
     Write-Output "FEATURE_NUM: $featureNum"
     Write-Output "HAS_GIT: $hasGit"
+    if ($ticketDir) {
+        Write-Output "TICKET_ID: $($resolvedTicket.ToUpperInvariant())"
+        Write-Output "PRIVATE_TICKET_DIR: $ticketDir"
+    }
     if (-not $DryRun) {
         Write-Output "SPECIFY_FEATURE environment variable set to: $branchName"
     }

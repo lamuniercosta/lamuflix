@@ -26,13 +26,38 @@ if (-not (Test-FeatureJsonMatchesFeatureDir -RepoRoot $paths.REPO_ROOT -ActiveFe
     }
 }
 
-if (-not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
-    [Console]::Error.WriteLine("ERROR: plan.md not found in $($paths.FEATURE_DIR)")
+# Operational records resolve to the private ticket directory once it holds them; a brand-new
+# ticket gets its workspace created here. Discovery is read-only and never migrates or recreates a
+# record under the public specs/ tree when private storage is missing or unusable.
+$ticketId = Get-ArtifactTicketIdFromName -Branch $paths.CURRENT_BRANCH -FeatureDir $paths.FEATURE_DIR
+$privateTicketDir = $null
+$planPath = $paths.IMPL_PLAN
+$tasksPath = $paths.TASKS
+if (-not [string]::IsNullOrWhiteSpace($ticketId)) {
+    try {
+        $artifactPaths = Get-ArtifactPathsEnv -TicketId $ticketId
+        $privateTicketDir = $artifactPaths.PRIVATE_TICKET_DIR
+        if ($artifactPaths.PRIVATE_AVAILABLE) {
+            if (Test-Path -LiteralPath $artifactPaths.PRIVATE_PLAN -PathType Leaf) { $planPath = $artifactPaths.PRIVATE_PLAN }
+            if (Test-Path -LiteralPath $artifactPaths.PRIVATE_TASKS -PathType Leaf) { $tasksPath = $artifactPaths.PRIVATE_TASKS }
+        } elseif (-not (Test-Path -LiteralPath $paths.IMPL_PLAN -PathType Leaf)) {
+            $privateTicketDir = New-ArtifactTicketWorkspace -TicketId $ticketId -Subdirectories @()
+            $planPath = Join-Path $privateTicketDir 'plan.md'
+            $tasksPath = Join-Path $privateTicketDir 'tasks.md'
+        }
+    } catch {
+        [Console]::Error.WriteLine("ERROR: $($_.Exception.Message)")
+        exit 1
+    }
+}
+
+if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
+    [Console]::Error.WriteLine("ERROR: plan.md not found in $($paths.FEATURE_DIR) or the private ticket directory")
     [Console]::Error.WriteLine("Run /speckit.plan first to create the implementation plan.")
     exit 1
 }
 
-if (-not (Test-Path $paths.FEATURE_SPEC -PathType Leaf)) {
+if (-not (Test-Path -LiteralPath $paths.FEATURE_SPEC -PathType Leaf)) {
     [Console]::Error.WriteLine("ERROR: spec.md not found in $($paths.FEATURE_DIR)")
     [Console]::Error.WriteLine("Run /speckit.specify first to create the feature structure.")
     exit 1
@@ -62,10 +87,17 @@ if ($Json) {
         FEATURE_DIR    = $paths.FEATURE_DIR
         AVAILABLE_DOCS = $docs
         TASKS_TEMPLATE = $tasksTemplate
+        TICKET_ID      = $ticketId
+        PRIVATE_TICKET_DIR = $privateTicketDir
+        IMPL_PLAN      = $planPath
+        TASKS_PATH     = $tasksPath
     } | ConvertTo-Json -Compress
 } else {
     Write-Output "FEATURE_DIR: $($paths.FEATURE_DIR)"
     Write-Output "TASKS_TEMPLATE: $(if ($tasksTemplate) { $tasksTemplate } else { 'not found' })"
+    Write-Output "IMPL_PLAN: $planPath"
+    Write-Output "TASKS_PATH: $tasksPath"
+    if ($privateTicketDir) { Write-Output "PRIVATE_TICKET_DIR: $privateTicketDir" }
     Write-Output "AVAILABLE_DOCS:"
     Test-FileExists -Path $paths.RESEARCH -Description 'research.md' | Out-Null
     Test-FileExists -Path $paths.DATA_MODEL -Description 'data-model.md' | Out-Null
