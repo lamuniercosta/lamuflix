@@ -86,3 +86,12 @@ Factual source: recon-DEV-472. Decision authority: Patron under charter section 
 - **(4) Evidence ledger path, non-delivery regression PR, & exit-2 scope (Compass M1, L1):** Pin `specs/DEV-472/EVIDENCE.md` for runtime receipts (logged `[assumed]` in `specs/DEV-472/ASSUMPTIONS.md`), prove changed-C# PR mutation-regression blocking on a separate non-delivery PR so no artificial `src/` edits enter the DEV-472 delivery diff, and retain the Q5 hosted evidence scope with exit-2 (`SKIPPED (scope-empty)` / `N/A`) labelling verified statically (`T006`) and synthetically (`scripts/Test-RunMutation.ps1`) plus explicit residual hosted-label risk recorded.
 
 - Out-of-scope historical-routing prose in `docs/adr/0016-stryker-mtp-runner.md:64-77` and `AGENTS.md` (Ledger M2, Medium; not Critical/High, broken behaviour, or user-requested per charter §2.3): `noted, no ticket`.
+
+---
+
+## Phase 2 Step 7 — Gate 1 Ruling
+
+**Verdict:** `gate1: provisional` approved (`specs/DEV-472/spec.md` `**Status**:` updated); no owner questions or structural checkboxes required.
+
+- **Basis:** Plan is frozen in `specs/DEV-472/brief.md:100-108` after Keel's independent read-back (`PLAN_ADJUDICATION.md`) and Q1–Q7 / Phase 2 Step 6 rulings; `specs/DEV-472/checklists/requirements.md:33-38` User-Visible Outcome items are ticked and `spec.md:69-71` states "Nothing visible" with reason (CI workflow routing and mutation scheduling only).
+- **Escalations (§2.3):** None — no ticket contradiction and no constitution departure (`spec.md:11-13`, `plan.md:39-61`). External `PR mutation` required-check registration remains a tracked runtime prerequisite (`spec.md:157`), not a Gate 1 structural checkbox.
