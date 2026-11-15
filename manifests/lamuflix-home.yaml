@@ -210,7 +210,7 @@ spec:
               key: apiKey
               name: tmdb-credentials
               optional: true
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:a9dd5192ad2c74aff7ea46492d1b478acf122d29bd20cdf0f3a7c38121c7e191
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:08d736c7e552e5a9cd2cf6e3c64d1d8f054af73cc98dd73f5d3571e6f263012b
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -255,7 +255,7 @@ spec:
           for h in postgres:5432 rabbitmq:5672; do
             until (exec 3<>/dev/tcp/${h%:*}/${h#*:}) 2>/dev/null; do sleep 2; done
           done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:a9dd5192ad2c74aff7ea46492d1b478acf122d29bd20cdf0f3a7c38121c7e191
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:08d736c7e552e5a9cd2cf6e3c64d1d8f054af73cc98dd73f5d3571e6f263012b
         name: wait-postgres-rabbitmq
         resources:
           limits:
@@ -267,7 +267,7 @@ spec:
         - -c
         - |
           until (exec 3<>/dev/tcp/ollama/11434 && printf 'GET /api/tags HTTP/1.1\r\nHost: ollama\r\nConnection: close\r\n\r\n' >&3 && timeout 5 cat <&3 | grep -q all-minilm); do sleep 3; done
-        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:a9dd5192ad2c74aff7ea46492d1b478acf122d29bd20cdf0f3a7c38121c7e191
+        image: ghcr.io/lamuniercosta/lamuflix-api@sha256:08d736c7e552e5a9cd2cf6e3c64d1d8f054af73cc98dd73f5d3571e6f263012b
         name: wait-ollama-model
         resources:
           limits:
@@ -353,7 +353,7 @@ spec:
         app.kubernetes.io/part-of: lamuflix-home
     spec:
       containers:
-      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:a9c7d23f438fc3194b5af7de1dc1017acdb42c832916b394fe96fbe090160751
+      - image: ghcr.io/lamuniercosta/lamuflix-web@sha256:96eeb207a2262697eedb676a67fc1147a6ec39f4baa323f1b4a80e0d5c501490
         livenessProbe:
           httpGet:
             path: /
