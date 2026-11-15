@@ -893,6 +893,7 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     $machineRootPath = @('F:', 'Dev', 'LamuFlix.worktrees', 'DEV-901', 'evidence', 'ruling.txt') -join '/'
     $machineRootPrefix = @('F:', 'Dev', 'LamuFlix.worktrees') -join '/'
     Write-FixtureText -Path (Join-Path $ticketA 'spec.md') -Text "# DEV-901 spec`r`n"
+    $damagedHomePlaceholder = @('scripts', '<home>') -join ''
     Write-FixtureText -Path (Join-Path $ticketA 'CONCLUSIONS.md') -Text "# DEV-901 conclusions`r`nRuling recorded at $machineRootPath and C:\Users\fixture\AppData\Local\Temp\ruling.txt. Citation: ``scripts/home/New-HomeCluster.ps1:67`` and /home/fixture/app.`r`n"
     Write-FixtureText -Path (Join-Path $ticketA 'ASSUMPTIONS.md') -Text "# DEV-901 assumptions`n"
     Write-FixtureText -Path (Join-Path $ticketA 'brief.md') -Text "# DEV-901 brief`r`nline two`r`n"
@@ -961,7 +962,7 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     Assert-Case 'the published conclusions keep their decision substance' ($publicConclusions -match 'DEV-901 conclusions') $publicConclusions
     Assert-Case 'the published conclusions carry no machine path' (-not ($publicConclusions -match '[A-Za-z]:[\\/]')) $publicConclusions
     Assert-Case 'the published conclusions use portable identifiers' ($publicConclusions -match '<task-worktree>' -and $publicConclusions -match '<temp>') $publicConclusions
-    Assert-Case 'sanitization keeps repository-relative citations intact' (($publicConclusions -match 'scripts/home/New-HomeCluster\.ps1:67') -and ($publicConclusions -notmatch 'scripts<home>')) $publicConclusions
+    Assert-Case 'sanitization keeps repository-relative citations intact' (($publicConclusions -match 'scripts/home/New-HomeCluster\.ps1:67') -and ($publicConclusions -notmatch $damagedHomePlaceholder)) $publicConclusions
     Assert-Case 'sanitization still scrubs a real home directory path' ($publicConclusions -match '<home>/app' -and $publicConclusions -notmatch '/home/fixture') $publicConclusions
     Assert-Case 'the public spec is preserved and untouched' ((Get-Content -LiteralPath (Join-Path $ticketA 'spec.md') -Raw) -eq "# DEV-901 spec`r`n")
     Assert-Case 'the public assumptions file is preserved' (Test-Path -LiteralPath (Join-Path $ticketA 'ASSUMPTIONS.md') -PathType Leaf)

@@ -13,10 +13,6 @@
 
 Set-StrictMode -Version Latest
 
-# The operator keeps home.config.json outside the repository. Resolved at run time, never
-# stored as a machine path: -ConfigPath wins, then $env:LAMUFLIX_HOME_CONFIG, then a
-# 'lamuflix-home' folder beside the repository root (the sibling convention the task
-# worktrees already use), so a clone on another machine needs no edit.
 function Get-HomeConfigPathDefault {
     param([string]$RepoRoot)
     if (-not [string]::IsNullOrWhiteSpace($env:LAMUFLIX_HOME_CONFIG)) {

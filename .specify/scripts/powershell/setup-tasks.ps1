@@ -26,9 +26,6 @@ if (-not (Test-FeatureJsonMatchesFeatureDir -RepoRoot $paths.REPO_ROOT -ActiveFe
     }
 }
 
-# Operational records resolve to the private ticket directory once it holds them; a brand-new
-# ticket gets its workspace created here. Discovery is read-only and never migrates or recreates a
-# record under the public specs/ tree when private storage is missing or unusable.
 $ticketId = Get-ArtifactTicketIdFromName -Branch $paths.CURRENT_BRANCH -FeatureDir $paths.FEATURE_DIR
 $privateTicketDir = $null
 $planPath = $paths.IMPL_PLAN

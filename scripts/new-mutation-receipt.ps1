@@ -334,8 +334,6 @@ $work = if ($WorkRoot) { [System.IO.Path]::GetFullPath($WorkRoot) } else {
 }
 $checkout = Join-Path $work 'checkout'
 
-# The receipt belongs to the ticket when one is named and no explicit directory is given, so it
-# stays out of the public tree and is isolated by the full measured SHA.
 if ([string]::IsNullOrWhiteSpace($ReceiptDir)) {
     if ([string]::IsNullOrWhiteSpace($Ticket)) {
         Write-Host 'Mutation receipt: FAILED - pass -ReceiptDir, or -Ticket so the receipt can resolve its private location.'

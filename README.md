@@ -253,7 +253,7 @@ The home instance runs on a single-node [kind](https://kind.sigs.k8s.io/) cluste
 
 Ports on the host: the app at `http://127.0.0.1:3100`, Argo CD at `http://127.0.0.1:3180`, the Kubernetes API on `127.0.0.1:3080`. Nothing listens on a LAN address.
 
-Secrets never enter Git. The operator keeps the config and secret values in a folder outside the repository (default a sibling `lamuflix-home` folder beside the checkout, `home.config.json` inside it; set `-ConfigPath` or `$env:LAMUFLIX_HOME_CONFIG` to override. The shape is in `deploy/home/home.config.example.json`, and `deploy/home/secrets.example.json` lists the secret names only).
+Secrets never enter Git. The operator keeps the config and secret values in a folder outside the repository: a sibling `lamuflix-home` folder beside the checkout by default, holding `home.config.json`; set `-ConfigPath` or `$env:LAMUFLIX_HOME_CONFIG` to override. The shape is in `deploy/home/home.config.example.json`, and `deploy/home/secrets.example.json` lists the secret names only.
 
 Operator commands (PowerShell 7):
 

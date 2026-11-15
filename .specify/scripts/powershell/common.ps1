@@ -646,8 +646,6 @@ except Exception:
     return $content
 }
 
-# --- Private artifact storage: public/private resolution, confinement, ownership ---
-
 $script:ArtifactRepositoryIdDefault = 'LamuFlix'
 $script:ArtifactInitializeHint = 'pwsh -NoProfile -File .specify/scripts/powershell/initialize-artifact-storage.ps1'
 
@@ -655,7 +653,6 @@ function Get-ArtifactInitializeHint {
     return $script:ArtifactInitializeHint
 }
 
-# One actionable message for missing or unusable storage; tracked specs/ is never an alternative.
 function Get-ArtifactStorageGuidance {
     param(
         [string]$Root,
@@ -690,7 +687,6 @@ function Test-ArtifactTicketId {
     return ($TicketId.Trim() -cmatch '^[A-Z][A-Z0-9]*-[0-9]+$')
 }
 
-# A repository id is a portable slug: no separators, no drive letters, no traversal.
 function Test-ArtifactRepositoryId {
     param([string]$RepositoryId)
     if ([string]::IsNullOrWhiteSpace($RepositoryId)) { return $false }
@@ -698,7 +694,6 @@ function Test-ArtifactRepositoryId {
     return ($RepositoryId -match '^[A-Za-z0-9][A-Za-z0-9._-]*$')
 }
 
-# Absent, empty and whitespace-only values all mean the default; a nonempty invalid slug is rejected.
 function Get-ArtifactRepositoryId {
     $raw = $env:LAMUFLIX_ARTIFACT_REPOSITORY_ID
     if ([string]::IsNullOrWhiteSpace($raw)) { return $script:ArtifactRepositoryIdDefault }
@@ -746,7 +741,6 @@ function Get-ArtifactPathAncestors {
     return $ancestors
 }
 
-# A path is inside a checkout when it sits under a directory holding .git (directory or worktree file).
 function Test-ArtifactInsideCheckout {
     param([string]$Path, [string]$RepoRoot)
     if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
@@ -758,7 +752,6 @@ function Test-ArtifactInsideCheckout {
     return $false
 }
 
-# Resolve link and junction targets along a path so a confined-looking path cannot point into a checkout.
 function Get-ArtifactEffectivePath {
     param([string]$Path)
     $full = [System.IO.Path]::GetFullPath($Path)
@@ -798,7 +791,6 @@ function Get-ArtifactEffectivePath {
     return [System.IO.Path]::GetFullPath($resolved)
 }
 
-# Resolve the private artifact root: absolute LAMUFLIX_ARTIFACT_ROOT override, else LocalApplicationData/LamuFlix/artifacts.
 function Get-ArtifactRoot {
     param(
         [string]$RepositoryId,
@@ -852,7 +844,6 @@ function Get-ArtifactTicketIdFromName {
     return $null
 }
 
-# Canonical <private-root>/<repository-id>/DEV-###/ directory for one ticket.
 function Get-ArtifactTicketDir {
     param(
         [Parameter(Mandatory = $true)][string]$TicketId,
@@ -882,7 +873,6 @@ function Get-ArtifactTicketDir {
     return $dir
 }
 
-# Join a confined child path under a base directory, rejecting rooted paths, traversal and escapes.
 function New-ArtifactChildPath {
     param(
         [Parameter(Mandatory = $true)][string]$BaseDir,
@@ -921,7 +911,6 @@ function Get-ArtifactBootstrapSeedProof {
     try { return (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json) } catch { return $null }
 }
 
-# Re-verify a recorded bootstrap seed: every proof entry must still match its private copy byte for byte.
 function Test-ArtifactBootstrapSeed {
     param([Parameter(Mandatory = $true)][string]$TicketDir)
     $proof = Get-ArtifactBootstrapSeedProof $TicketDir
@@ -944,7 +933,6 @@ function Test-ArtifactBootstrapSeed {
     return $true
 }
 
-# Private-required activation stays blocked until the in-flight ticket's bootstrap seed is proven.
 function Assert-ArtifactBootstrapSeed {
     param([Parameter(Mandatory = $true)][string]$TicketDir)
     $path = Get-ArtifactSeedProofPath $TicketDir
@@ -957,7 +945,6 @@ function Assert-ArtifactBootstrapSeed {
     return $path
 }
 
-# Ordinary workflow I/O state. Missing or unwritable storage never falls back to tracked specs/.
 function Get-ArtifactStorageState {
     param([string]$Root, [string]$RepositoryId, [string]$RepoRoot)
     if ([string]::IsNullOrWhiteSpace($Root)) {
@@ -994,8 +981,6 @@ function Assert-ArtifactStorage {
     return $state.ROOT
 }
 
-# Portable feature selection: .specify/feature.json may pin a feature directory but never a
-# machine-specific private artifact root, and resolution only reads it through this resolver.
 function Test-ArtifactPortableFeatureSelection {
     param(
         [Parameter(Mandatory = $true)][string]$RepoRoot,
@@ -1053,7 +1038,6 @@ function Assert-ArtifactPortableFeatureSelection {
     return $result
 }
 
-# Distinct public and private paths for one ticket; public reads never require private storage.
 function Get-ArtifactPathsEnv {
     param(
         [string]$TicketId,
@@ -1119,7 +1103,6 @@ function Get-ArtifactPathsEnv {
     return [pscustomobject]$result
 }
 
-# Mutable run output and receipts are isolated by full commit SHA, else by worktree identifier.
 function Get-ArtifactRunDir {
     param(
         [Parameter(Mandatory = $true)][string]$TicketDir,
@@ -1140,7 +1123,6 @@ function Get-ArtifactRunDir {
     return New-ArtifactChildPath -BaseDir (Join-Path $TicketDir $Kind) -RelativePath $isolation
 }
 
-# SHA provenance record attached to gate and review evidence.
 function New-ArtifactProvenance {
     param(
         [Parameter(Mandatory = $true)][string]$TicketId,
@@ -1185,7 +1167,6 @@ function Get-ArtifactProperty {
     return $Object.$Name
 }
 
-# One shared per-ticket exclusive ownership contract: atomic create, fail closed, explicit release.
 function Acquire-ArtifactTicketOwnership {
     param(
         [Parameter(Mandatory = $true)][string]$TicketDir,
@@ -1244,7 +1225,6 @@ function Release-ArtifactTicketOwnership {
     Remove-Item -LiteralPath $path -Force
 }
 
-# Raw-byte SHA-256 of a file; no text or newline normalization.
 function Get-ArtifactFileSha256 {
     param([Parameter(Mandatory = $true)][string]$Path)
     $sha = [System.Security.Cryptography.SHA256]::Create()
@@ -1257,9 +1237,6 @@ function Get-ArtifactFileSha256 {
     return ([System.BitConverter]::ToString($hash) -replace '-', '').ToLowerInvariant()
 }
 
-# Provision or confirm the canonical ticket workspace for a workflow writer. Unlike
-# Get-ArtifactPathsEnv -RequirePrivate this does not demand a bootstrap seed proof: a brand new
-# ticket has no Phase A records to seed yet. Initialized, writable storage is still required.
 function New-ArtifactTicketWorkspace {
     param(
         [Parameter(Mandatory = $true)][string]$TicketId,
@@ -1287,7 +1264,6 @@ function New-ArtifactTicketWorkspace {
     return $ticketDir
 }
 
-# One private write by one real caller, held under the shared per-ticket exclusive contract.
 function Invoke-ArtifactTicketWrite {
     param(
         [Parameter(Mandatory = $true)][string]$TicketDir,
@@ -1304,7 +1280,6 @@ function Invoke-ArtifactTicketWrite {
     }
 }
 
-# Write one confined private record as UTF-8 without BOM; parents are created on demand.
 function Write-ArtifactRecord {
     param(
         [Parameter(Mandatory = $true)][string]$TicketDir,
@@ -1320,7 +1295,6 @@ function Write-ArtifactRecord {
     return $path
 }
 
-# Guard-facing predicate: true only for a normalized path under <private-root>/<repository-id>/DEV-###/.
 function Test-ArtifactPrivatePath {
     param([string]$Path, [string]$RepoRoot)
     try {
