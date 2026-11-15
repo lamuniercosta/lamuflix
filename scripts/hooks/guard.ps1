@@ -147,15 +147,103 @@ function Get-WorktreeBoundary {
     }
 }
 
-function Get-CachedWorktreeBoundary {
-    param($Payload, $ToolInput)
-    if ($script:WorktreeBoundaryResolved) { return $script:WorktreeBoundary }
+function Get-ArtifactRootForGuard {
+    <# Resolve the approved private artifact root the same way the workflow resolver does. #>
+    try {
+        $override = $env:LAMUFLIX_ARTIFACT_ROOT
+        if (-not [string]::IsNullOrWhiteSpace($override)) {
+            $raw = $override.Trim()
+            if (-not [System.IO.Path]::IsPathRooted($raw)) { return $null }
+            if (@(($raw -split '[\\/]') | Where-Object { $_ -eq '..' }).Count -gt 0) { return $null }
+            $root = [System.IO.Path]::GetFullPath($raw)
+        } else {
+            $base = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)
+            if ([string]::IsNullOrWhiteSpace($base)) { return $null }
+            $root = [System.IO.Path]::GetFullPath((Join-Path $base 'LamuFlix/artifacts'))
+        }
+        return $root
+    } catch {
+        return $null
+    }
+}
 
-    $cwd = Get-Prop $Payload @('cwd', 'working_directory', 'workingDirectory')
-    if (-not $cwd) { $cwd = Get-Prop $ToolInput @('cwd', 'working_directory', 'workingDirectory') }
-    $script:WorktreeBoundary = Get-WorktreeBoundary $cwd
-    $script:WorktreeBoundaryResolved = $true
-    return $script:WorktreeBoundary
+function Get-ArtifactRepositoryIdForGuard {
+    <# Absent, empty or whitespace-only means the default; an invalid slug yields no allowance. #>
+    $raw = $env:LAMUFLIX_ARTIFACT_REPOSITORY_ID
+    if ([string]::IsNullOrWhiteSpace($raw)) { return 'LamuFlix' }
+    $trimmed = $raw.Trim()
+    if ($trimmed -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { return $null }
+    return $trimmed
+}
+
+function Get-Comparer {
+    # Case-insensitive on Windows only; POSIX filesystems are case-sensitive.
+    if ($null -ne $IsWindows) {
+        if ($IsWindows) { return [StringComparison]::OrdinalIgnoreCase }
+        return [StringComparison]::Ordinal
+    }
+    return [StringComparison]::OrdinalIgnoreCase
+}
+
+function Test-PathInsideDirectory {
+    param([string]$Path, [string]$Directory)
+    $comparison = Get-Comparer
+    $candidate = ($Path -replace '\\', '/').TrimEnd('/')
+    $parent = ($Directory -replace '\\', '/').TrimEnd('/')
+    if ([string]::IsNullOrWhiteSpace($parent)) { return $false }
+    if ([string]::Equals($candidate, $parent, $comparison)) { return $true }
+    return $candidate.StartsWith("$parent/", $comparison)
+}
+
+function Test-InsideCheckout {
+    <# A path inside a checkout is any path under a directory holding .git. #>
+    param([string]$Path, [string]$Boundary)
+    if (-not [string]::IsNullOrWhiteSpace($Boundary) -and (Test-PathInsideDirectory -Path $Path -Directory $Boundary)) { return $true }
+    $current = $Path
+    while (-not [string]::IsNullOrWhiteSpace($current)) {
+        if (Test-Path -LiteralPath (Join-Path $current '.git')) { return $true }
+        $parent = [System.IO.Path]::GetDirectoryName($current)
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $current) { break }
+        $current = $parent
+    }
+    return $false
+}
+
+function Test-PrivateTicketPath {
+    <#
+      The sanctioned narrow allowance: Edit/Write/apply-patch to a normalized path under
+      <private-root>/<repository-id>/DEV-###/. Nothing else qualifies - no shell route,
+      no blanket allow, no path that resolves into a checkout.
+    #>
+    param([string]$Path, [string]$Boundary)
+
+    try {
+        if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+        $root = Get-ArtifactRootForGuard
+        if ([string]::IsNullOrWhiteSpace($root)) { return $false }
+        $repositoryId = Get-ArtifactRepositoryIdForGuard
+        if ([string]::IsNullOrWhiteSpace($repositoryId)) { return $false }
+
+        if (-not [System.IO.Path]::IsPathRooted($Path)) { return $false }
+        $full = [System.IO.Path]::GetFullPath($Path)
+        foreach ($segment in ($full -split '[\\/]')) {
+            if ($segment -eq '..') { return $false }
+        }
+
+        $base = [System.IO.Path]::GetFullPath((Join-Path $root $repositoryId))
+        if (-not (Test-PathInsideDirectory -Path $full -Directory $base)) { return $false }
+        if ($full.Length -le $base.Length) { return $false }
+
+        $relative = [System.IO.Path]::GetRelativePath($base, $full)
+        if ([string]::IsNullOrWhiteSpace($relative) -or $relative.StartsWith('..')) { return $false }
+        $segments = @($relative -split '[\\/]')
+        if ($segments.Count -lt 1 -or -not ($segments[0] -cmatch '^[A-Z][A-Z0-9]*-[0-9]+$')) { return $false }
+
+        if (Test-InsideCheckout -Path $full -Boundary $Boundary) { return $false }
+        return $true
+    } catch {
+        return $false
+    }
 }
 
 function Deny-OutsideBoundary {
@@ -167,20 +255,27 @@ function Deny-OutsideBoundary {
         if ([string]::IsNullOrWhiteSpace($resolved)) { return }
 
         $resolved = ($resolved.Trim() -replace '\\', '/')
-        $comparison = if ($IsWindows) {
-            [StringComparison]::OrdinalIgnoreCase
-        } else {
-            [StringComparison]::Ordinal
-        }
 
-        $isEqual = [string]::Equals($resolved, $Boundary, $comparison)
-        $isInside = $resolved.StartsWith("$Boundary/", $comparison)
+        $isEqual = [string]::Equals($resolved, $Boundary, (Get-Comparer))
+        $isInside = $resolved.StartsWith("$Boundary/", (Get-Comparer))
         if (-not $isEqual -and -not $isInside) {
-            Deny "writing outside the session worktree boundary ($Boundary). Edit files inside your working copy."
+            if (Test-PrivateTicketPath -Path $resolved -Boundary $Boundary) { return }
+            Deny "writing outside the session worktree boundary ($Boundary). Edit files inside your working copy, or write to a validated private ticket directory."
         }
     } catch {
         return
     }
+}
+
+function Get-CachedWorktreeBoundary {
+    param($Payload, $ToolInput)
+    if ($script:WorktreeBoundaryResolved) { return $script:WorktreeBoundary }
+
+    $cwd = Get-Prop $Payload @('cwd', 'working_directory', 'workingDirectory')
+    if (-not $cwd) { $cwd = Get-Prop $ToolInput @('cwd', 'working_directory', 'workingDirectory') }
+    $script:WorktreeBoundary = Get-WorktreeBoundary $cwd
+    $script:WorktreeBoundaryResolved = $true
+    return $script:WorktreeBoundary
 }
 
 function Split-ShellSegments {

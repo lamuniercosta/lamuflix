@@ -330,6 +330,10 @@ function Get-FeaturePathsEnv {
         DATA_MODEL    = Join-Path $featureDir 'data-model.md'
         QUICKSTART    = Join-Path $featureDir 'quickstart.md'
         CONTRACTS_DIR = Join-Path $featureDir 'contracts'
+        PUBLIC_FEATURE_DIR = $featureDir
+        PUBLIC_SPEC        = Join-Path $featureDir 'spec.md'
+        PUBLIC_CONCLUSIONS = Join-Path $featureDir 'CONCLUSIONS.md'
+        PUBLIC_ASSUMPTIONS = Join-Path $featureDir 'ASSUMPTIONS.md'
     }
 }
 
@@ -640,4 +644,491 @@ except Exception:
     }
 
     return $content
+}
+
+# --- Private artifact storage: public/private resolution, confinement, ownership ---
+
+$script:ArtifactRepositoryIdDefault = 'LamuFlix'
+$script:ArtifactInitializeHint = 'pwsh -NoProfile -File .specify/scripts/powershell/initialize-artifact-storage.ps1'
+
+function Get-ArtifactInitializeHint {
+    return $script:ArtifactInitializeHint
+}
+
+function Test-ArtifactOnWindows {
+    if ($null -ne $IsWindows) { return [bool]$IsWindows }
+    return $true
+}
+
+function Test-ArtifactTicketId {
+    param([string]$TicketId)
+    if ([string]::IsNullOrWhiteSpace($TicketId)) { return $false }
+    return ($TicketId.Trim() -cmatch '^[A-Z][A-Z0-9]*-[0-9]+$')
+}
+
+# A repository id is a portable slug: no separators, no drive letters, no traversal.
+function Test-ArtifactRepositoryId {
+    param([string]$RepositoryId)
+    if ([string]::IsNullOrWhiteSpace($RepositoryId)) { return $false }
+    if ($RepositoryId -ne $RepositoryId.Trim()) { return $false }
+    return ($RepositoryId -match '^[A-Za-z0-9][A-Za-z0-9._-]*$')
+}
+
+# Absent, empty and whitespace-only values all mean the default; a nonempty invalid slug is rejected.
+function Get-ArtifactRepositoryId {
+    $raw = $env:LAMUFLIX_ARTIFACT_REPOSITORY_ID
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $script:ArtifactRepositoryIdDefault }
+    $trimmed = $raw.Trim()
+    if (-not (Test-ArtifactRepositoryId $trimmed)) {
+        throw "LAMUFLIX_ARTIFACT_REPOSITORY_ID must be a portable slug of letters, digits, dot, underscore or hyphen; '$raw' is not valid."
+    }
+    return $trimmed
+}
+
+function Get-ArtifactDefaultRoot {
+    $base = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)
+    if ([string]::IsNullOrWhiteSpace($base)) {
+        throw 'Cannot resolve the platform local application data directory for private artifact storage. Set LAMUFLIX_ARTIFACT_ROOT to an absolute path outside every checkout.'
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $base 'LamuFlix/artifacts'))
+}
+
+function ConvertTo-ArtifactComparisonPath {
+    param([string]$Path)
+    return (([System.IO.Path]::GetFullPath($Path)) -replace '\\', '/').TrimEnd('/')
+}
+
+function Test-ArtifactPathInside {
+    param([string]$Path, [string]$Container)
+    if ([string]::IsNullOrWhiteSpace($Path) -or [string]::IsNullOrWhiteSpace($Container)) { return $false }
+    $comparison = if (Test-ArtifactOnWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+    $candidate = ConvertTo-ArtifactComparisonPath $Path
+    $parent = ConvertTo-ArtifactComparisonPath $Container
+    if ([string]::IsNullOrWhiteSpace($parent)) { return $false }
+    if ([string]::Equals($candidate, $parent, $comparison)) { return $true }
+    return $candidate.StartsWith("$parent/", $comparison)
+}
+
+function Get-ArtifactPathAncestors {
+    param([string]$Path)
+    $ancestors = [System.Collections.Generic.List[string]]::new()
+    $current = [System.IO.Path]::GetFullPath($Path)
+    while (-not [string]::IsNullOrEmpty($current)) {
+        $ancestors.Add($current)
+        $parent = [System.IO.Path]::GetDirectoryName($current)
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $current) { break }
+        $current = $parent
+    }
+    return $ancestors
+}
+
+# A path is inside a checkout when it sits under a directory holding .git (directory or worktree file).
+function Test-ArtifactInsideCheckout {
+    param([string]$Path, [string]$RepoRoot)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $full = [System.IO.Path]::GetFullPath($Path)
+    if (-not [string]::IsNullOrWhiteSpace($RepoRoot) -and (Test-ArtifactPathInside -Path $full -Container $RepoRoot)) { return $true }
+    foreach ($ancestor in (Get-ArtifactPathAncestors $full)) {
+        if (Test-Path -LiteralPath (Join-Path $ancestor '.git')) { return $true }
+    }
+    return $false
+}
+
+# Resolve link and junction targets along a path so a confined-looking path cannot point into a checkout.
+function Get-ArtifactEffectivePath {
+    param([string]$Path)
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $remainder = [System.Collections.Generic.List[string]]::new()
+    $current = $full
+    $resolved = $null
+    while (-not [string]::IsNullOrEmpty($current)) {
+        if (Test-Path -LiteralPath $current) {
+            $resolved = $current
+            try {
+                $item = Get-Item -LiteralPath $current -Force
+                $target = $null
+                if ($null -ne $item.PSObject.Properties['LinkTarget']) { $target = $item.LinkTarget }
+                if ([string]::IsNullOrWhiteSpace($target) -and $null -ne $item.PSObject.Properties['Target']) {
+                    $rawTarget = $item.Target
+                    if ($rawTarget) { $target = @($rawTarget)[0] }
+                }
+                if (-not [string]::IsNullOrWhiteSpace($target)) {
+                    if (-not [System.IO.Path]::IsPathRooted($target)) {
+                        $target = Join-Path ([System.IO.Path]::GetDirectoryName($current)) $target
+                    }
+                    $resolved = [System.IO.Path]::GetFullPath($target)
+                }
+            } catch {
+                $resolved = $current
+            }
+            break
+        }
+        $leaf = [System.IO.Path]::GetFileName($current)
+        if (-not [string]::IsNullOrEmpty($leaf)) { $remainder.Insert(0, $leaf) }
+        $parent = [System.IO.Path]::GetDirectoryName($current)
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $current) { break }
+        $current = $parent
+    }
+    if ([string]::IsNullOrWhiteSpace($resolved)) { return $full }
+    foreach ($part in $remainder) { $resolved = Join-Path $resolved $part }
+    return [System.IO.Path]::GetFullPath($resolved)
+}
+
+# Resolve the private artifact root: absolute LAMUFLIX_ARTIFACT_ROOT override, else LocalApplicationData/LamuFlix/artifacts.
+function Get-ArtifactRoot {
+    param(
+        [string]$RepositoryId,
+        [string]$RepoRoot
+    )
+    $override = $env:LAMUFLIX_ARTIFACT_ROOT
+    if (-not [string]::IsNullOrWhiteSpace($override)) {
+        $raw = $override.Trim()
+        if (-not [System.IO.Path]::IsPathRooted($raw)) {
+            throw "LAMUFLIX_ARTIFACT_ROOT must be an absolute path; '$override' is relative."
+        }
+        $segments = $raw -split '[\\/]'
+        if (@($segments | Where-Object { $_ -eq '..' }).Count -gt 0) {
+            throw "LAMUFLIX_ARTIFACT_ROOT must not contain traversal segments; '$override' does."
+        }
+        $root = [System.IO.Path]::GetFullPath($raw)
+    } else {
+        $root = Get-ArtifactDefaultRoot
+    }
+
+    if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+        try { $RepoRoot = Get-RepoRoot } catch { $RepoRoot = $null }
+    }
+    if (Test-ArtifactInsideCheckout -Path $root -RepoRoot $RepoRoot) {
+        throw "The private artifact root must live outside every repository and worktree; '$root' does not."
+    }
+    $effective = Get-ArtifactEffectivePath $root
+    if (Test-ArtifactInsideCheckout -Path $effective -RepoRoot $RepoRoot) {
+        throw "The private artifact root resolves into a repository or worktree through a link; '$root' points at '$effective'."
+    }
+    return $root
+}
+
+function Get-ArtifactTicketIdFromName {
+    param([string]$Branch, [string]$FeatureDir)
+    foreach ($candidate in @($Branch, $FeatureDir)) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        if ($candidate -match '([A-Za-z][A-Za-z0-9]*-[0-9]+)') { return $Matches[1].ToUpperInvariant() }
+    }
+    return $null
+}
+
+# Canonical <private-root>/<repository-id>/DEV-###/ directory for one ticket.
+function Get-ArtifactTicketDir {
+    param(
+        [Parameter(Mandatory = $true)][string]$TicketId,
+        [string]$Root,
+        [string]$RepositoryId,
+        [string]$RepoRoot
+    )
+    if (-not (Test-ArtifactTicketId $TicketId)) {
+        throw "Invalid ticket identifier '$TicketId'; expected a shape such as DEV-123."
+    }
+    $ticket = $TicketId.Trim().ToUpperInvariant()
+    if ([string]::IsNullOrWhiteSpace($RepositoryId)) { $RepositoryId = Get-ArtifactRepositoryId }
+    if (-not (Test-ArtifactRepositoryId $RepositoryId)) {
+        throw "Invalid repository identifier '$RepositoryId'; expected a portable slug."
+    }
+    if ([string]::IsNullOrWhiteSpace($Root)) {
+        $Root = Get-ArtifactRoot -RepositoryId $RepositoryId -RepoRoot $RepoRoot
+    }
+    $rootFull = [System.IO.Path]::GetFullPath($Root)
+    $dir = [System.IO.Path]::GetFullPath((Join-Path (Join-Path $rootFull $RepositoryId) $ticket))
+    if (-not (Test-ArtifactPathInside -Path $dir -Container $rootFull)) {
+        throw "Refusing a ticket directory that escapes the private root: '$dir'."
+    }
+    if (Test-ArtifactInsideCheckout -Path $dir -RepoRoot $RepoRoot) {
+        throw "Refusing a ticket directory inside a repository or worktree: '$dir'."
+    }
+    return $dir
+}
+
+# Join a confined child path under a base directory, rejecting rooted paths, traversal and escapes.
+function New-ArtifactChildPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$BaseDir,
+        [Parameter(Mandatory = $true)][string]$RelativePath
+    )
+    if ([System.IO.Path]::IsPathRooted($RelativePath)) {
+        throw "Refusing the absolute artifact path '$RelativePath'."
+    }
+    foreach ($segment in ($RelativePath -split '[\\/]')) {
+        if ([string]::IsNullOrEmpty($segment) -or $segment -eq '.') { continue }
+        if ($segment -eq '..') { throw "Refusing the traversal segment in '$RelativePath'." }
+        if ($segment -match '[\x00-\x1f<>:"|?*]') { throw "Refusing the invalid path segment '$segment'." }
+    }
+    $base = [System.IO.Path]::GetFullPath($BaseDir)
+    $full = [System.IO.Path]::GetFullPath((Join-Path $base $RelativePath))
+    if (-not (Test-ArtifactPathInside -Path $full -Container $base)) {
+        throw "Refusing the artifact path '$RelativePath' because it escapes '$base'."
+    }
+    return $full
+}
+
+function Get-ArtifactTicketPaths {
+    param([Parameter(Mandatory = $true)][string]$TicketDir)
+    return [pscustomobject]@{
+        TICKET_DIR     = $TicketDir
+        BRIEF          = Join-Path $TicketDir 'brief.md'
+        PLAN           = Join-Path $TicketDir 'plan.md'
+        TASKS          = Join-Path $TicketDir 'tasks.md'
+        CHECKLISTS_DIR = Join-Path $TicketDir 'checklists'
+        EVIDENCE_DIR   = Join-Path $TicketDir 'evidence'
+        RECEIPTS_DIR   = Join-Path $TicketDir 'receipts'
+        RUN_DIR        = Join-Path $TicketDir 'run'
+    }
+}
+
+# Ordinary workflow I/O state. Missing or unwritable storage never falls back to tracked specs/.
+function Get-ArtifactStorageState {
+    param([string]$Root, [string]$RepositoryId, [string]$RepoRoot)
+    if ([string]::IsNullOrWhiteSpace($Root)) {
+        $Root = Get-ArtifactRoot -RepositoryId $RepositoryId -RepoRoot $RepoRoot
+    }
+    $exists = Test-Path -LiteralPath $Root -PathType Container
+    $writable = $false
+    $probe = $null
+    if ($exists) {
+        $probe = Join-Path $Root ('.artifact-write-probe-' + [guid]::NewGuid().ToString('N'))
+        try {
+            [System.IO.File]::WriteAllText($probe, 'probe')
+            $writable = $true
+        } catch {
+            $writable = $false
+        } finally {
+            if ($probe -and (Test-Path -LiteralPath $probe)) {
+                Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    return [pscustomobject]@{ ROOT = $Root; EXISTS = $exists; WRITABLE = $writable }
+}
+
+function Assert-ArtifactStorage {
+    param([string]$Root, [string]$RepositoryId, [string]$RepoRoot)
+    $state = Get-ArtifactStorageState -Root $Root -RepositoryId $RepositoryId -RepoRoot $RepoRoot
+    if (-not $state.EXISTS) {
+        throw "Private artifact storage is not initialized at '$($state.ROOT)'. Run: $(Get-ArtifactInitializeHint)"
+    }
+    if (-not $state.WRITABLE) {
+        throw "Private artifact storage at '$($state.ROOT)' is not writable. Fix permissions, then run: $(Get-ArtifactInitializeHint)"
+    }
+    return $state.ROOT
+}
+
+# Distinct public and private paths for one ticket; public reads never require private storage.
+function Get-ArtifactPathsEnv {
+    param(
+        [string]$TicketId,
+        [switch]$RequirePrivate
+    )
+    $paths = Get-FeaturePathsEnv
+    $ticket = $TicketId
+    if ([string]::IsNullOrWhiteSpace($ticket)) {
+        $ticket = Get-ArtifactTicketIdFromName -Branch $paths.CURRENT_BRANCH -FeatureDir $paths.FEATURE_DIR
+    }
+    $repositoryId = Get-ArtifactRepositoryId
+    $root = $null
+    $ticketDir = $null
+    $privateAvailable = $false
+    if (-not [string]::IsNullOrWhiteSpace($ticket) -and (Test-ArtifactTicketId $ticket)) {
+        $root = Get-ArtifactRoot -RepositoryId $repositoryId -RepoRoot $paths.REPO_ROOT
+        $ticketDir = Get-ArtifactTicketDir -TicketId $ticket -Root $root -RepositoryId $repositoryId -RepoRoot $paths.REPO_ROOT
+        $privateAvailable = Test-Path -LiteralPath $ticketDir -PathType Container
+    }
+    if ($RequirePrivate -and -not $privateAvailable) {
+        Assert-ArtifactStorage -Root $root -RepositoryId $repositoryId -RepoRoot $paths.REPO_ROOT
+        throw "Private storage for ticket '$ticket' is not initialized. Run: $(Get-ArtifactInitializeHint)"
+    }
+
+    $publicDir = $paths.FEATURE_DIR
+    $result = [ordered]@{
+        REPO_ROOT             = $paths.REPO_ROOT
+        CURRENT_BRANCH        = $paths.CURRENT_BRANCH
+        HAS_GIT               = $paths.HAS_GIT
+        TICKET_ID             = if ([string]::IsNullOrWhiteSpace($ticket)) { $null } else { $ticket.Trim().ToUpperInvariant() }
+        REPOSITORY_ID         = $repositoryId
+        PUBLIC_FEATURE_DIR    = $publicDir
+        PUBLIC_SPEC           = Join-Path $publicDir 'spec.md'
+        PUBLIC_CONCLUSIONS    = Join-Path $publicDir 'CONCLUSIONS.md'
+        PUBLIC_ASSUMPTIONS    = Join-Path $publicDir 'ASSUMPTIONS.md'
+        PRIVATE_ROOT          = $root
+        PRIVATE_TICKET_DIR    = $ticketDir
+        PRIVATE_AVAILABLE     = $privateAvailable
+        PRIVATE_BRIEF         = if ($ticketDir) { Join-Path $ticketDir 'brief.md' } else { $null }
+        PRIVATE_PLAN          = if ($ticketDir) { Join-Path $ticketDir 'plan.md' } else { $null }
+        PRIVATE_TASKS         = if ($ticketDir) { Join-Path $ticketDir 'tasks.md' } else { $null }
+        PRIVATE_CHECKLISTS_DIR = if ($ticketDir) { Join-Path $ticketDir 'checklists' } else { $null }
+        PRIVATE_EVIDENCE_DIR  = if ($ticketDir) { Join-Path $ticketDir 'evidence' } else { $null }
+        PRIVATE_RECEIPTS_DIR  = if ($ticketDir) { Join-Path $ticketDir 'receipts' } else { $null }
+        PRIVATE_RUN_DIR       = if ($ticketDir) { Join-Path $ticketDir 'run' } else { $null }
+    }
+    return [pscustomobject]$result
+}
+
+# Mutable run output and receipts are isolated by full commit SHA, else by worktree identifier.
+function Get-ArtifactRunDir {
+    param(
+        [Parameter(Mandatory = $true)][string]$TicketDir,
+        [string]$WorktreeId,
+        [string]$CommitSha,
+        [ValidateSet('run', 'receipts', 'evidence')][string]$Kind = 'run'
+    )
+    $isolation = $null
+    if (-not [string]::IsNullOrWhiteSpace($CommitSha) -and $CommitSha.Trim() -match '^[0-9a-fA-F]{40}$') {
+        $isolation = Join-Path 'sha' $CommitSha.Trim().ToLowerInvariant()
+    } elseif (-not [string]::IsNullOrWhiteSpace($WorktreeId)) {
+        $safe = ($WorktreeId.Trim() -replace '[^A-Za-z0-9._-]', '-').Trim('-')
+        if ([string]::IsNullOrWhiteSpace($safe)) { throw "Invalid worktree identifier '$WorktreeId'." }
+        $isolation = Join-Path 'worktree' $safe
+    } else {
+        throw 'Mutable run output must be isolated by a full 40-character commit SHA or a worktree identifier.'
+    }
+    return New-ArtifactChildPath -BaseDir (Join-Path $TicketDir $Kind) -RelativePath $isolation
+}
+
+# SHA provenance record attached to gate and review evidence.
+function New-ArtifactProvenance {
+    param(
+        [Parameter(Mandatory = $true)][string]$TicketId,
+        [string]$RepositoryId,
+        [string]$CommitSha,
+        [string]$WorktreeId,
+        [string]$Kind = 'run',
+        [string]$ArtifactPath = ''
+    )
+    if (-not (Test-ArtifactTicketId $TicketId)) { throw "Invalid ticket identifier '$TicketId'." }
+    if ([string]::IsNullOrWhiteSpace($CommitSha) -or $CommitSha.Trim() -notmatch '^[0-9a-fA-F]{40}$') {
+        throw 'Gate and review evidence requires the full 40-character commit SHA it was produced at.'
+    }
+    if ([string]::IsNullOrWhiteSpace($RepositoryId)) { $RepositoryId = Get-ArtifactRepositoryId }
+    return [ordered]@{
+        ticketId     = $TicketId.Trim().ToUpperInvariant()
+        repositoryId = $RepositoryId
+        commitSha    = $CommitSha.Trim().ToLowerInvariant()
+        worktreeId   = if ([string]::IsNullOrWhiteSpace($WorktreeId)) { $null } else { $WorktreeId.Trim() }
+        kind         = $Kind
+        artifactPath = if ([string]::IsNullOrWhiteSpace($ArtifactPath)) { $null } else { $ArtifactPath }
+        recordedUtc  = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    }
+}
+
+function Get-ArtifactOwnershipPath {
+    param([Parameter(Mandatory = $true)][string]$TicketDir)
+    return (Join-Path $TicketDir '.ownership.lock')
+}
+
+function Get-ArtifactOwnership {
+    param([Parameter(Mandatory = $true)][string]$TicketDir)
+    $path = Get-ArtifactOwnershipPath $TicketDir
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
+    try { return (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json) } catch { return $null }
+}
+
+function Get-ArtifactProperty {
+    param($Object, [string]$Name)
+    if (-not $Object) { return $null }
+    if ($null -eq $Object.PSObject.Properties[$Name]) { return $null }
+    return $Object.$Name
+}
+
+# One shared per-ticket exclusive ownership contract: atomic create, fail closed, explicit release.
+function Acquire-ArtifactTicketOwnership {
+    param(
+        [Parameter(Mandatory = $true)][string]$TicketDir,
+        [Parameter(Mandatory = $true)][string]$Owner,
+        [string]$WorktreeId,
+        [string]$CommitSha
+    )
+    if (-not (Test-Path -LiteralPath $TicketDir -PathType Container)) {
+        throw "Cannot take ownership of '$TicketDir' because it does not exist. Run: $(Get-ArtifactInitializeHint)"
+    }
+    $path = Get-ArtifactOwnershipPath $TicketDir
+    $token = [guid]::NewGuid().ToString('N')
+    $record = [ordered]@{
+        token       = $token
+        owner       = $Owner
+        processId   = $PID
+        worktreeId  = if ([string]::IsNullOrWhiteSpace($WorktreeId)) { $null } else { $WorktreeId.Trim() }
+        commitSha   = if ([string]::IsNullOrWhiteSpace($CommitSha)) { $null } else { $CommitSha.Trim() }
+        acquiredUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    }
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes(($record | ConvertTo-Json -Compress))
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($path, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+    } catch [System.IO.IOException] {
+        $holder = Get-ArtifactOwnership $TicketDir
+        $who = 'an unidentified writer'
+        if ($holder) {
+            $who = "$(Get-ArtifactProperty $holder 'owner') (pid $(Get-ArtifactProperty $holder 'processId'), worktree $(Get-ArtifactProperty $holder 'worktreeId'), since $(Get-ArtifactProperty $holder 'acquiredUtc'))"
+        }
+        throw "Ticket '$TicketDir' is already owned by $who. Competing writers fail closed and lock stealing is not automatic; the holder releases with explicit release."
+    }
+    try {
+        $stream.Write($bytes, 0, $bytes.Length)
+        $stream.Flush()
+    } finally {
+        $stream.Dispose()
+    }
+    return [pscustomobject]@{ TICKET_DIR = $TicketDir; PATH = $path; TOKEN = $token; OWNER = $Owner }
+}
+
+function Release-ArtifactTicketOwnership {
+    param([Parameter(Mandatory = $true)]$Handle)
+    if (-not $Handle) { throw 'An ownership handle is required to release a ticket.' }
+    $path = Get-ArtifactProperty $Handle 'PATH'
+    $token = Get-ArtifactProperty $Handle 'TOKEN'
+    $ticketDir = Get-ArtifactProperty $Handle 'TICKET_DIR'
+    if ([string]::IsNullOrWhiteSpace($path)) { throw 'The ownership handle has no lock path.' }
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "The ownership lock '$path' is already released." }
+    $holder = $null
+    try { $holder = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } catch { $holder = $null }
+    $holderToken = Get-ArtifactProperty $holder 'token'
+    if ([string]::IsNullOrWhiteSpace($holderToken) -or $holderToken -ne $token) {
+        throw "Refusing to release ownership of '$ticketDir'; the lock is held by another writer."
+    }
+    Remove-Item -LiteralPath $path -Force
+}
+
+# Raw-byte SHA-256 of a file; no text or newline normalization.
+function Get-ArtifactFileSha256 {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        try { $hash = $sha.ComputeHash($stream) } finally { $stream.Dispose() }
+    } finally {
+        $sha.Dispose()
+    }
+    return ([System.BitConverter]::ToString($hash) -replace '-', '').ToLowerInvariant()
+}
+
+# Guard-facing predicate: true only for a normalized path under <private-root>/<repository-id>/DEV-###/.
+function Test-ArtifactPrivatePath {
+    param([string]$Path, [string]$RepoRoot)
+    try {
+        if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+        $root = Get-ArtifactRoot -RepoRoot $RepoRoot
+        $repositoryId = Get-ArtifactRepositoryId
+        $base = [System.IO.Path]::GetFullPath((Join-Path $root $repositoryId))
+        $effective = Get-ArtifactEffectivePath $Path
+        if (-not (Test-ArtifactPathInside -Path $effective -Container $base)) { return $false }
+        $relative = [System.IO.Path]::GetRelativePath([System.IO.Path]::GetFullPath($base), $effective)
+        if ([string]::IsNullOrWhiteSpace($relative)) { return $false }
+        $segments = @($relative -split '[\\/]')
+        if ($segments.Count -lt 1) { return $false }
+        if (-not (Test-ArtifactTicketId $segments[0])) { return $false }
+        foreach ($segment in $segments) {
+            if ($segment -eq '..') { return $false }
+        }
+        if (Test-ArtifactInsideCheckout -Path $effective -RepoRoot $RepoRoot) { return $false }
+        return $true
+    } catch {
+        return $false
+    }
 }
