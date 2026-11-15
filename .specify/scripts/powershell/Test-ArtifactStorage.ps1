@@ -1163,6 +1163,194 @@ $payload | ConvertTo-Json -Depth 4 -Compress
 
     $generatedUntouched = @(& git -C $script:RepoRoot status --porcelain -- CodeMetricsConfig.txt stryker-config.json .editorconfig 2>$null)
     Assert-Case 'the generated gate outputs stay untouched' ($generatedUntouched.Count -eq 0) (@($generatedUntouched) -join ' | ')
+
+    Write-Host ''
+    Write-Host 'US5 clean-checkout new-ticket smoke (T028):'
+
+    # Disposable only: a throwaway checkout, a GUID temp private root, and a temp "absent" root.
+    # No live operator archive is read or written, and the real repository is never the subject.
+    $smokeRepo = New-GitFixtureCheckout 'us5-clean-checkout'
+    New-Item -ItemType Directory -Force -Path (Join-Path $smokeRepo '.specify/templates') | Out-Null
+    Write-FixtureText -Path (Join-Path $smokeRepo '.specify/templates/spec-template.md') -Text "# spec template`n"
+    & git -C $smokeRepo add -A 2>&1 | Out-Null
+    & git -C $smokeRepo commit --quiet -m 'clean checkout fixture' 2>&1 | Out-Null
+    $smokeHead = ((& git -C $smokeRepo rev-parse HEAD 2>&1) -join '').Trim()
+    Assert-Case 'the clean-checkout fixture records the tree HEAD it runs at' ($smokeHead -match '^[0-9a-f]{40}$') "HEAD '$smokeHead'"
+
+    $smokeRoot = New-FixtureDir 'us5-clean-root'
+    $smokeInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $smokeRoot } -WorkingDirectory $smokeRepo
+    Assert-Case 'the clean-checkout private root initializes explicitly' ($smokeInit.ExitCode -eq 0) "exit $($smokeInit.ExitCode): $($smokeInit.Output)"
+
+    $smokeCreate = Invoke-ChildScript -Script $script:CreateScript -Arguments @('-Json', '-TicketId', 'DEV-920', '-ShortName', 'pickup-smoke', 'Smoke a clean checkout ticket') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $smokeRoot } -WorkingDirectory $smokeRepo
+    Assert-Case 'a new ticket authored from a clean checkout exits 0' ($smokeCreate.ExitCode -eq 0) "exit $($smokeCreate.ExitCode): $($smokeCreate.Output)"
+    $smokePayload = Get-JsonPayload -Text $smokeCreate.Output
+    $smokeTicketDir = Join-Path $smokeRoot 'LamuFlix/DEV-920'
+    Assert-Case 'the clean-checkout ticket writes into the canonical private ticket directory' (Test-ArtifactPathEqual (Get-PayloadValue $smokePayload 'PRIVATE_TICKET_DIR') $smokeTicketDir) "got $(Get-PayloadValue $smokePayload 'PRIVATE_TICKET_DIR')"
+    Assert-Case 'the clean-checkout ticket keeps its operational record external' (Test-Path -LiteralPath (Join-Path $smokeTicketDir 'ticket.json') -PathType Leaf) 'no private ticket record'
+    $smokeBranch = Get-PayloadValue $smokePayload 'BRANCH_NAME'
+    $smokePublic = Join-Path $smokeRepo ('specs/' + $smokeBranch)
+    Assert-Case 'the clean-checkout public directory holds the spec and nothing operational' ((@(Get-ChildItem -LiteralPath $smokePublic -Recurse -File -Force | ForEach-Object { $_.Name }) -join ',') -eq 'spec.md') (@(Get-ChildItem -LiteralPath $smokePublic -Recurse -File -Force | ForEach-Object { $_.Name }) -join ',')
+
+    $smokeReadProbe = Invoke-CommonProbe -Expression @'
+$paths = Get-ArtifactPathsEnv -TicketId 'DEV-920'
+[pscustomobject]@{
+    specReadable = (Test-Path -LiteralPath $paths.PUBLIC_SPEC -PathType Leaf)
+    privateAvailable = $paths.PRIVATE_AVAILABLE
+    privateRootExists = (Test-Path -LiteralPath $paths.PRIVATE_ROOT -PathType Container)
+}
+'@ -Environment @{ LAMUFLIX_ARTIFACT_ROOT = (Join-Path $script:Root 'us5-clean-absent-root'); SPECIFY_FEATURE_DIRECTORY = $smokePublic } -WorkingDirectory $smokeRepo
+    Assert-Case 'the new ticket public spec stays readable without private storage' ($smokeReadProbe.ok -and $smokeReadProbe.value.specReadable) "$($smokeReadProbe.message)"
+    Assert-Case 'the public-only read reports no private storage and creates none' ($smokeReadProbe.ok -and (-not $smokeReadProbe.value.privateAvailable) -and (-not $smokeReadProbe.value.privateRootExists)) "$($smokeReadProbe.message)"
+
+    Write-Host ''
+    Write-Host 'US5 absent-private pickup is a named blocking check (T029):'
+
+    # Phase A authors the durable private records, then the Phase A worktree is deleted entirely.
+    # Phase B picks up from a different disposable checkout with the same private root, so the
+    # canonical ticket directory is the only route to brief/plan/tasks.
+    $phaseARepo = New-GitFixtureCheckout 'us5-phase-a'
+    $phaseATicket = Join-Path $phaseARepo 'specs/DEV-921'
+    Write-FixtureText -Path (Join-Path $phaseATicket 'spec.md') -Text "# DEV-921 spec`n"
+    Write-FixtureText -Path (Join-Path $phaseATicket 'brief.md') -Text "# DEV-921 brief`r`nPhase A durable record`r`n"
+    Write-FixtureText -Path (Join-Path $phaseATicket 'plan.md') -Text "# DEV-921 plan`n"
+    Write-FixtureText -Path (Join-Path $phaseATicket 'tasks.md') -Text "# DEV-921 tasks`n- [ ] T001 pickup`n"
+    Write-FixtureText -Path (Join-Path $phaseATicket 'checklists/requirements.md') -Text "# DEV-921 requirements`n"
+    & git -C $phaseARepo add -A 2>&1 | Out-Null
+    & git -C $phaseARepo commit --quiet -m 'phase a records' 2>&1 | Out-Null
+    $phaseAHead = ((& git -C $phaseARepo rev-parse HEAD 2>&1) -join '').Trim()
+    Assert-Case 'the Phase A fixture records its tree HEAD' ($phaseAHead -match '^[0-9a-f]{40}$') "HEAD '$phaseAHead'"
+
+    $pickupRoot = New-FixtureDir 'us5-pickup-root'
+    $pickupInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $pickupRoot } -WorkingDirectory $phaseARepo
+    Assert-Case 'the pickup fixture private root initializes explicitly' ($pickupInit.ExitCode -eq 0) "exit $($pickupInit.ExitCode): $($pickupInit.Output)"
+    $phaseASeed = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Bootstrap', '-TicketId', 'DEV-921', '-SourceDir', $phaseATicket) -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $pickupRoot } -WorkingDirectory $phaseARepo
+    Assert-Case 'Phase A seeds its durable private records with a verified proof' ($phaseASeed.ExitCode -eq 0) "exit $($phaseASeed.ExitCode): $($phaseASeed.Output)"
+
+    $pickupTicketDir = Join-Path $pickupRoot 'LamuFlix/DEV-921'
+    $archivedBriefHash = Get-ArtifactFileHash -Path (Join-Path $pickupTicketDir 'brief.md')
+    Assert-Case 'the canonical ticket directory holds the seeded brief and plan' ((Test-Path -LiteralPath (Join-Path $pickupTicketDir 'brief.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $pickupTicketDir 'plan.md') -PathType Leaf))
+
+    # Delete the Phase A worktree: the durable records must not depend on it.
+    Remove-Item -LiteralPath $phaseARepo -Recurse -Force
+    Assert-Case 'the Phase A worktree is gone before Phase B picks up' (-not (Test-Path -LiteralPath $phaseARepo))
+
+    $phaseBRepo = New-GitFixtureCheckout 'us5-phase-b'
+    $phaseBPublic = Join-Path $phaseBRepo 'specs/DEV-921'
+    Write-FixtureText -Path (Join-Path $phaseBPublic 'spec.md') -Text "# DEV-921 spec`n"
+    & git -C $phaseBRepo add -A 2>&1 | Out-Null
+    & git -C $phaseBRepo commit --quiet -m 'phase b checkout' 2>&1 | Out-Null
+    $phaseBHead = ((& git -C $phaseBRepo rev-parse HEAD 2>&1) -join '').Trim()
+    Assert-Case 'Phase B runs at its own recorded HEAD' ($phaseBHead -match '^[0-9a-f]{40}$') "HEAD '$phaseBHead'"
+    Assert-Case 'Phase B holds no operational record of its own' (@(Get-ChildItem -LiteralPath $phaseBPublic -File -Force | ForEach-Object { $_.Name }) -join ',' -eq 'spec.md') (@(Get-ChildItem -LiteralPath $phaseBPublic -File -Force | ForEach-Object { $_.Name }) -join ',')
+
+    $pickupEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $pickupRoot; SPECIFY_FEATURE_DIRECTORY = $phaseBPublic; SPECIFY_FEATURE = '901-fixture' }
+    $pickup = Invoke-ChildScript -Script $script:CheckPrereqScript -Arguments @('-Json') -Environment $pickupEnv -WorkingDirectory $phaseBRepo
+    Assert-Case 'Phase B pickup resolves through the canonical private ticket directory' ($pickup.ExitCode -eq 0) "exit $($pickup.ExitCode): $($pickup.Output)"
+    $pickupPayload = Get-JsonPayload -Text $pickup.Output
+    Assert-Case 'pickup reports the private plan, not a public or old-worktree one' (Test-ArtifactPathEqual (Get-PayloadValue $pickupPayload 'IMPL_PLAN') (Join-Path $pickupTicketDir 'plan.md')) "got $(Get-PayloadValue $pickupPayload 'IMPL_PLAN')"
+    Assert-Case 'pickup reports the private tasks list' (Test-ArtifactPathEqual (Get-PayloadValue $pickupPayload 'TASKS') (Join-Path $pickupTicketDir 'tasks.md')) "got $(Get-PayloadValue $pickupPayload 'TASKS')"
+    Assert-Case 'the picked-up brief is the durable Phase A record byte for byte' ((Get-ArtifactFileHash -Path (Join-Path $pickupTicketDir 'brief.md')) -eq $archivedBriefHash)
+    Assert-Case 'pickup reconstructs nothing into the Phase B public directory' (@(Get-ChildItem -LiteralPath $phaseBPublic -File -Force | ForEach-Object { $_.Name }) -join ',' -eq 'spec.md') (@(Get-ChildItem -LiteralPath $phaseBPublic -File -Force | ForEach-Object { $_.Name }) -join ',')
+
+    # Absent private inputs: a stage that needs them must fail closed and reconstruct nothing.
+    $absentRoot = Join-Path $script:Root 'us5-absent-pickup-root'
+    $absentEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $absentRoot; SPECIFY_FEATURE_DIRECTORY = $phaseBPublic; SPECIFY_FEATURE = '901-fixture' }
+    $absentPickup = Invoke-ChildScript -Script $script:CheckPrereqScript -Arguments @('-Json', '-RequirePrivate') -Environment $absentEnv -WorkingDirectory $phaseBRepo
+    Assert-Case 'absent private inputs block pickup as a named blocking check' ($absentPickup.ExitCode -eq 1) "exit $($absentPickup.ExitCode): $($absentPickup.Output)"
+    Assert-Case 'the blocked pickup names the initialization command' ($absentPickup.Output -match 'initialize-artifact-storage\.ps1') $absentPickup.Output
+    Assert-Case 'the blocked pickup invents no approved receipt' ([string]::IsNullOrWhiteSpace(($absentPickup.Output -split "`n" | Where-Object { $_ -match 'seed-proof|bulk-migration\.json' }) -join '')) $absentPickup.Output
+    Assert-Case 'the blocked pickup creates no private root' (-not (Test-Path -LiteralPath $absentRoot)) 'the private root was created'
+    Assert-Case 'the blocked pickup recreates nothing publicly' (@(Get-ChildItem -LiteralPath $phaseBPublic -File -Force | ForEach-Object { $_.Name }) -join ',' -eq 'spec.md') (@(Get-ChildItem -LiteralPath $phaseBPublic -File -Force | ForEach-Object { $_.Name }) -join ',')
+
+    Write-Host ''
+    Write-Host 'US5 archive lifecycle and receipt readback (T030):'
+
+    $lifecycleRepo = New-GitFixtureCheckout 'us5-lifecycle'
+    $lifecycleTicket = Join-Path $lifecycleRepo 'specs/DEV-922'
+    Write-FixtureText -Path (Join-Path $lifecycleTicket 'spec.md') -Text "# DEV-922 spec`n"
+    Write-FixtureText -Path (Join-Path $lifecycleTicket 'CONCLUSIONS.md') -Text "# DEV-922 conclusions`nDecision recorded.`n"
+    Write-FixtureText -Path (Join-Path $lifecycleTicket 'brief.md') -Text "# DEV-922 brief`r`n"
+    Write-FixtureText -Path (Join-Path $lifecycleTicket 'plan.md') -Text "# DEV-922 plan`n"
+    Write-FixtureText -Path (Join-Path $lifecycleTicket 'tasks.md') -Text "# DEV-922 tasks`n"
+    Write-FixtureText -Path (Join-Path $lifecycleTicket 'checklists/requirements.md') -Text "# DEV-922 requirements`n"
+    & git -C $lifecycleRepo add -A 2>&1 | Out-Null
+    & git -C $lifecycleRepo commit --quiet -m 'lifecycle fixture' 2>&1 | Out-Null
+    $lifecycleHead = ((& git -C $lifecycleRepo rev-parse HEAD 2>&1) -join '').Trim()
+    Assert-Case 'the lifecycle fixture records the HEAD its receipts must cite' ($lifecycleHead -match '^[0-9a-f]{40}$') "HEAD '$lifecycleHead'"
+
+    $lifecycleRoot = New-FixtureDir 'us5-lifecycle-root'
+    $lifecycleEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $lifecycleRoot; SPECIFY_FEATURE_DIRECTORY = ''; SPECIFY_FEATURE = ''; PYTHONUTF8 = '1' }
+    $lifecycleInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize') -Environment $lifecycleEnv -WorkingDirectory $lifecycleRepo
+    Assert-Case 'the lifecycle fixture private root initializes explicitly' ($lifecycleInit.ExitCode -eq 0) "exit $($lifecycleInit.ExitCode): $($lifecycleInit.Output)"
+    $lifecycleMigration = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Migrate', '-All', '-StageRemovals', '-Json') -Environment $lifecycleEnv -WorkingDirectory $lifecycleRepo
+    Assert-Case 'the lifecycle migration verifies and stages its removals' ($lifecycleMigration.ExitCode -eq 0) "exit $($lifecycleMigration.ExitCode): $($lifecycleMigration.Output)"
+    $lifecyclePayload = Get-JsonPayload -Text $lifecycleMigration.Output
+
+    $archiveTicketDir = Join-Path $lifecycleRoot 'LamuFlix/DEV-922'
+    $archivePlanHash = Get-ArtifactFileHash -Path (Join-Path $archiveTicketDir 'plan.md')
+    $migrationReceiptPath = Get-PayloadValue $lifecyclePayload 'RECEIPT'
+    Assert-Case 'the migration receipt lands under its full commit SHA' ((Test-ArtifactPathEqual ([System.IO.Path]::GetDirectoryName($migrationReceiptPath)) (Join-Path $lifecycleRoot "LamuFlix/receipts/sha/$lifecycleHead")) -and (Test-Path -LiteralPath $migrationReceiptPath -PathType Leaf)) "receipt $migrationReceiptPath"
+    $migrationReceipt = Get-Content -LiteralPath $migrationReceiptPath -Raw | ConvertFrom-Json
+    Assert-Case 'the migration receipt reads back the full SHA it was produced at' ($migrationReceipt.commitSha -eq $lifecycleHead) "receipt commitSha $($migrationReceipt.commitSha) expected $lifecycleHead"
+    Assert-Case 'the migration receipt reads back as verified for every file' (([bool]$migrationReceipt.verified) -and ($migrationReceipt.fileCount -eq (Get-PayloadValue $lifecyclePayload 'FILE_COUNT'))) "fileCount $($migrationReceipt.fileCount)"
+
+    $gateProbe = Invoke-CommonProbe -Expression @"
+`$ticketDir = '$archiveTicketDir'
+`$provenance = New-ArtifactProvenance -TicketId 'DEV-922' -CommitSha '$lifecycleHead' -WorktreeId 'us5-lifecycle' -Kind 'evidence'
+`$gateDir = Get-ArtifactRunDir -TicketDir `$ticketDir -CommitSha '$lifecycleHead' -Kind 'evidence'
+`$gatePath = Write-ArtifactRecord -TicketDir `$ticketDir -RelativePath ('evidence/sha/$lifecycleHead/gate.json') -Text ((`$provenance | ConvertTo-Json -Depth 4) + "``n")
+[pscustomobject]@{ gatePath = `$gatePath; gateDir = `$gateDir; commitSha = `$provenance.commitSha }
+"@ -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $lifecycleRoot }
+    Assert-Case 'a gate receipt is recorded under the SHA-isolated evidence area' ($gateProbe.ok -and (Test-Path -LiteralPath $gateProbe.value.gatePath -PathType Leaf)) $gateProbe.message
+    $gateReceipt = Get-Content -LiteralPath $gateProbe.value.gatePath -Raw | ConvertFrom-Json
+    Assert-Case 'the gate receipt reads back the full SHA and ticket it belongs to' ($gateReceipt.commitSha -eq $lifecycleHead -and $gateReceipt.ticketId -eq 'DEV-922') "commitSha $($gateReceipt.commitSha)"
+
+    # Deleting the task worktree must not touch the private archive.
+    Remove-Item -LiteralPath $lifecycleRepo -Recurse -Force
+    Assert-Case 'the task worktree is deleted' (-not (Test-Path -LiteralPath $lifecycleRepo))
+    Assert-Case 'the private archive survives the worktree deletion' ((Test-Path -LiteralPath (Join-Path $archiveTicketDir 'plan.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $archiveTicketDir 'brief.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $archiveTicketDir 'checklists/requirements.md') -PathType Leaf)) 'an archived record disappeared'
+    Assert-Case 'the surviving archive is the byte-identical archived copy' ((Get-ArtifactFileHash -Path (Join-Path $archiveTicketDir 'plan.md')) -eq $archivePlanHash)
+    Assert-Case 'the migration and gate receipts survive the worktree deletion' ((Test-Path -LiteralPath $migrationReceiptPath -PathType Leaf) -and (Test-Path -LiteralPath $gateProbe.value.gatePath -PathType Leaf))
+
+    # The Phase B pickup archive is still intact after the Phase A deletion too.
+    Assert-Case 'the Phase A pickup archive also survives its worktree deletion' ((Get-ArtifactFileHash -Path (Join-Path $pickupTicketDir 'brief.md')) -eq $archivedBriefHash)
+
+    Write-Host ''
+    Write-Host 'US5 operator init, backup and transfer guidance (T031):'
+
+    # The operator lifecycle is documented on the cut-over surfaces touched by T016/T017:
+    # both maintained adapter twins and the initializer help. Logical identifiers only.
+    $lifecycleTerms = @(
+        @{ Label = 'initialization'; Pattern = '(?i)-Initialize' },
+        @{ Label = 'backup'; Pattern = '(?i)backup' },
+        @{ Label = 'transfer'; Pattern = '(?i)transfer' }
+    )
+    $guidanceFiles = @(
+        '.agents/skills/task/SKILL.md',
+        '.claude/skills/task/SKILL.md',
+        'scripts/load/README.md'
+    )
+    foreach ($relativeGuidance in $guidanceFiles) {
+        $guidancePath = Join-Path $script:RepoRoot $relativeGuidance
+        $guidanceText = if (Test-Path -LiteralPath $guidancePath -PathType Leaf) { Get-Content -LiteralPath $guidancePath -Raw } else { '' }
+        foreach ($term in $lifecycleTerms) {
+            Assert-Case "$relativeGuidance documents operator $($term.Label)" ($guidanceText -match $term.Pattern) "no $($term.Label) guidance in $relativeGuidance"
+        }
+    }
+
+    $helpRun = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Help') -Environment @{}
+    Assert-Case 'the initializer help documents the operator lifecycle' ($helpRun.ExitCode -eq 0 -and $helpRun.Output -match '(?i)Operator lifecycle') "exit $($helpRun.ExitCode): $($helpRun.Output)"
+    Assert-Case 'the initializer help names backup and transfer ownership' ($helpRun.Output -match '(?i)Backup and cross-machine transfer are operator-owned') $helpRun.Output
+    Assert-Case 'the initializer help names the logical root override, not a machine path' (($helpRun.Output -match 'LAMUFLIX_ARTIFACT_ROOT') -and -not ($helpRun.Output -match '[A-Za-z]:[\\/]')) $helpRun.Output
+
+    $guidanceLeaks = [System.Collections.Generic.List[string]]::new()
+    foreach ($relativeGuidance in $guidanceFiles) {
+        $guidancePath = Join-Path $script:RepoRoot $relativeGuidance
+        if (-not (Test-Path -LiteralPath $guidancePath -PathType Leaf)) { continue }
+        $guidanceText = Get-Content -LiteralPath $guidancePath -Raw
+        if ($guidanceText -match 'LAMUFLIX_ARTIFACT_ROOT\s*=\s*[A-Za-z]:') { $guidanceLeaks.Add($relativeGuidance) }
+    }
+    Assert-Case 'no operator guidance copies a machine-local private path into tracked docs' ($guidanceLeaks.Count -eq 0) ($guidanceLeaks -join ', ')
 } finally {
     if (Test-Path -LiteralPath $script:Root) {
         Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue

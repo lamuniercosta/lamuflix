@@ -34,6 +34,16 @@ function Write-Usage {
     Write-Output '  -StageRemovals   Stage git rm for verified non-allowlist sources (Migrate only)'
     Write-Output '  -Json            Output results in JSON format'
     Write-Output '  -Help            Show this help message'
+    Write-Output ''
+    Write-Output 'Operator lifecycle:'
+    Write-Output '  The private root is $LAMUFLIX_ARTIFACT_ROOT when set, otherwise the platform local'
+    Write-Output '  application-data directory plus LamuFlix/artifacts; the repository id is'
+    Write-Output '  $LAMUFLIX_ARTIFACT_REPOSITORY_ID when set, otherwise LamuFlix.'
+    Write-Output '  Only -Initialize creates the root; ordinary workflow reads and writes fail closed'
+    Write-Output '  and never fall back to a tracked specs/ copy.'
+    Write-Output '  Backup and cross-machine transfer are operator-owned: copy the root whole, outside'
+    Write-Output '  every checkout. Deleting a task worktree does not delete the archive, and absent'
+    Write-Output '  records block pickup instead of being reconstructed.'
 }
 
 if ($Help) { Write-Usage; exit 0 }
