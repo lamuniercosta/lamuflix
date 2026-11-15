@@ -55,6 +55,132 @@ function isUnknownRuntimeIncluded(raw: unknown): boolean {
   return String(raw ?? '').toLowerCase() === 'true';
 }
 
+interface MultiValueSpec {
+  kind: string;
+  field: 'genreIds' | 'actorIds' | 'statuses';
+  nameById: ReadonlyMap<string, string> | null;
+  noun: string;
+  /** Applies removal for one value; the shared factory supplies the match/rebuild. */
+  clear: (next: FilterQuery, value: string) => void;
+}
+
+function multiValueChips(
+  chips: FilterChip[],
+  values: Array<string | number>,
+  spec: MultiValueSpec,
+) {
+  for (const [index, raw] of values.entries()) {
+    const value = String(raw);
+    const name = spec.nameById?.get(value) || value;
+    chips.push({
+      key: `${spec.field === 'statuses' ? 'status' : spec.field.replace('Ids', '')}-${value}-${index}`,
+      kind: spec.kind,
+      value: name,
+      removeLabel: `Remove ${spec.noun} filter ${name}`,
+      clear: (next) => spec.clear(next, value),
+    });
+  }
+}
+
+function withoutFirst(list: Array<string | number>, value: string): Array<string | number> {
+  const position = list.map(String).indexOf(value);
+  if (position < 0) {
+    return list;
+  }
+  return list.filter((_, index) => index !== position);
+}
+
+function present(chips: Array<FilterChip | null>): FilterChip[] {
+  return chips.filter((chip): chip is FilterChip => chip !== null);
+}
+
+interface BoundChipSpec {
+  key: string;
+  kind: string;
+  raw: unknown;
+  extent: number;
+  text: (value: string) => string;
+  removeLabel: (value: string) => string;
+  clear: (next: FilterQuery) => void;
+}
+
+function pushBoundChip(chips: FilterChip[], spec: BoundChipSpec): void {
+  const value = boundActive(spec.raw, spec.extent);
+  if (value === null) {
+    return;
+  }
+  chips.push({
+    key: spec.key,
+    kind: spec.kind,
+    value: spec.text(value),
+    removeLabel: spec.removeLabel(value),
+    clear: spec.clear,
+  });
+}
+
+function flagChip(
+  chips: FilterChip[],
+  enabled: boolean,
+  chip: Omit<FilterChip, 'clear'>,
+  clear: (next: FilterQuery) => void,
+): void {
+  if (!enabled) {
+    return;
+  }
+  chips.push({ ...chip, clear });
+}
+
+function directorChip(query: FilterQuery, names: FilterNameLookups): FilterChip | null {
+  if (!hasDirector(query)) {
+    return null;
+  }
+  const value = String(query.directorId);
+  const name = names.directorNameById.get(value) || `Director ${value}`;
+  return {
+    key: 'director',
+    kind: 'Director',
+    value: name,
+    removeLabel: `Remove director filter ${name}`,
+    clear: (next) => {
+      next.directorId = '';
+    },
+  };
+}
+
+function collectionChip(query: FilterQuery, names: FilterNameLookups): FilterChip | null {
+  if (query.collectionId == null) {
+    return null;
+  }
+  const value = String(query.collectionId);
+  const name = names.collectionNameById.get(value) ?? `Collection ${value}`;
+  return {
+    key: 'collection',
+    kind: 'Collection',
+    value: name,
+    removeLabel: `Remove collection filter ${name}`,
+    clear: (next) => {
+      next.collectionId = null;
+    },
+  };
+}
+
+function ratingChip(query: FilterQuery): FilterChip | null {
+  if (!isRatingActive(query.minRating, query.maxRating)) {
+    return null;
+  }
+  const range = `${ratingBoundText(query.minRating, RATING_MIN_EXTENT)} to ${ratingBoundText(query.maxRating, RATING_MAX_EXTENT)}`;
+  return {
+    key: 'imdbRating',
+    kind: 'IMDb',
+    value: range,
+    removeLabel: 'Remove IMDb rating filter',
+    clear: (next) => {
+      next.minRating = null;
+      next.maxRating = null;
+    },
+  };
+}
+
 /**
  * Pure chip construction: given the current query, the year snapshot and the
  * resolved facet names, returns one descriptor per removable filter value in a
@@ -69,161 +195,97 @@ export function buildFilterChips(
 ): FilterChip[] {
   const chips: FilterChip[] = [];
 
-  for (const [index, id] of (query.genreIds ?? []).entries()) {
-    const value = String(id);
-    const name = names.genreNameById.get(value) || value;
-    chips.push({
-      key: `genre-${value}-${index}`,
-      kind: 'Genre',
-      value: name,
-      removeLabel: `Remove genre filter ${name}`,
-      clear: (next) => {
-        const position = next.genreIds.map(String).indexOf(value);
-        if (position >= 0) {
-          next.genreIds = next.genreIds.filter((_, itemIndex) => itemIndex !== position);
-        }
-      },
-    });
-  }
+  multiValueChips(chips, query.genreIds ?? [], {
+    kind: 'Genre',
+    field: 'genreIds',
+    nameById: names.genreNameById,
+    noun: 'genre',
+    clear: (next, value) => {
+      next.genreIds = withoutFirst(next.genreIds, value);
+    },
+  });
 
-  for (const [index, id] of (query.actorIds ?? []).entries()) {
-    const value = String(id);
-    const name = names.actorNameById.get(value) || value;
-    chips.push({
-      key: `actor-${value}-${index}`,
-      kind: 'Cast',
-      value: name,
-      removeLabel: `Remove cast filter ${name}`,
-      clear: (next) => {
-        const position = next.actorIds.map(String).indexOf(value);
-        if (position >= 0) {
-          next.actorIds = next.actorIds.filter((_, itemIndex) => itemIndex !== position);
-        }
-      },
-    });
-  }
+  multiValueChips(chips, query.actorIds ?? [], {
+    kind: 'Cast',
+    field: 'actorIds',
+    nameById: names.actorNameById,
+    noun: 'cast',
+    clear: (next, value) => {
+      next.actorIds = withoutFirst(next.actorIds, value);
+    },
+  });
 
-  if (hasDirector(query)) {
-    const value = String(query.directorId);
-    const name = names.directorNameById.get(value) || `Director ${value}`;
-    chips.push({
-      key: 'director',
-      kind: 'Director',
-      value: name,
-      removeLabel: `Remove director filter ${name}`,
-      clear: (next) => {
-        next.directorId = '';
-      },
-    });
-  }
+  chips.push(...present([directorChip(query, names), collectionChip(query, names)]));
 
-  if (query.collectionId != null) {
-    const value = String(query.collectionId);
-    const name = names.collectionNameById.get(value) ?? `Collection ${value}`;
-    chips.push({
-      key: 'collection',
-      kind: 'Collection',
-      value: name,
-      removeLabel: `Remove collection filter ${name}`,
-      clear: (next) => {
-        next.collectionId = null;
-      },
-    });
-  }
-
-  const runtimeMin = boundActive(query.runtimeMin, RUNTIME_MIN_EXTENT);
-  if (runtimeMin !== null) {
-    chips.push({
-      key: 'runtimeMin',
-      kind: 'Runtime',
-      value: `from ${runtimeMin} min`,
-      removeLabel: `Remove minimum runtime ${runtimeMin} minutes`,
-      clear: (next) => {
-        next.runtimeMin = '';
-      },
-    });
-  }
-
-  const runtimeMax = boundActive(query.runtimeMax, RUNTIME_MAX_EXTENT);
-  if (runtimeMax !== null) {
-    chips.push({
-      key: 'runtimeMax',
-      kind: 'Runtime',
-      value: `to ${runtimeMax} min`,
-      removeLabel: `Remove maximum runtime ${runtimeMax} minutes`,
-      clear: (next) => {
-        next.runtimeMax = '';
-      },
-    });
-  }
-
-  if (isUnknownRuntimeIncluded(query.runtimeIncludeUnknown)) {
-    chips.push({
+  pushBoundChip(chips, {
+    key: 'runtimeMin',
+    kind: 'Runtime',
+    raw: query.runtimeMin,
+    extent: RUNTIME_MIN_EXTENT,
+    text: (value) => `from ${value} min`,
+    removeLabel: (value) => `Remove minimum runtime ${value} minutes`,
+    clear: (next) => {
+      next.runtimeMin = '';
+    },
+  });
+  pushBoundChip(chips, {
+    key: 'runtimeMax',
+    kind: 'Runtime',
+    raw: query.runtimeMax,
+    extent: RUNTIME_MAX_EXTENT,
+    text: (value) => `to ${value} min`,
+    removeLabel: (value) => `Remove maximum runtime ${value} minutes`,
+    clear: (next) => {
+      next.runtimeMax = '';
+    },
+  });
+  flagChip(
+    chips,
+    isUnknownRuntimeIncluded(query.runtimeIncludeUnknown),
+    {
       key: 'runtimeIncludeUnknown',
       kind: 'Runtime',
       value: 'include unknown',
       removeLabel: 'Remove include unknown runtime filter',
-      clear: (next) => {
-        next.runtimeIncludeUnknown = false;
-      },
-    });
-  }
+    },
+    (next) => {
+      next.runtimeIncludeUnknown = false;
+    },
+  );
+  pushBoundChip(chips, {
+    key: 'yearMin',
+    kind: 'Year',
+    raw: query.yearMin,
+    extent: YEAR_MIN_EXTENT,
+    text: (value) => `from ${value}`,
+    removeLabel: (value) => `Remove minimum year ${value}`,
+    clear: (next) => {
+      next.yearMin = '';
+    },
+  });
+  pushBoundChip(chips, {
+    key: 'yearMax',
+    kind: 'Year',
+    raw: query.yearMax,
+    extent: currentYear,
+    text: (value) => `to ${value}`,
+    removeLabel: (value) => `Remove maximum year ${value}`,
+    clear: (next) => {
+      next.yearMax = '';
+    },
+  });
 
-  const yearMin = boundActive(query.yearMin, YEAR_MIN_EXTENT);
-  if (yearMin !== null) {
-    chips.push({
-      key: 'yearMin',
-      kind: 'Year',
-      value: `from ${yearMin}`,
-      removeLabel: `Remove minimum year ${yearMin}`,
-      clear: (next) => {
-        next.yearMin = '';
-      },
-    });
-  }
+  chips.push(...present([ratingChip(query)]));
 
-  const yearMax = boundActive(query.yearMax, currentYear);
-  if (yearMax !== null) {
-    chips.push({
-      key: 'yearMax',
-      kind: 'Year',
-      value: `to ${yearMax}`,
-      removeLabel: `Remove maximum year ${yearMax}`,
-      clear: (next) => {
-        next.yearMax = '';
-      },
-    });
-  }
-
-  if (isRatingActive(query.minRating, query.maxRating)) {
-    const range = `${ratingBoundText(query.minRating, RATING_MIN_EXTENT)} to ${ratingBoundText(query.maxRating, RATING_MAX_EXTENT)}`;
-    chips.push({
-      key: 'imdbRating',
-      kind: 'IMDb',
-      value: range,
-      removeLabel: 'Remove IMDb rating filter',
-      clear: (next) => {
-        next.minRating = null;
-        next.maxRating = null;
-      },
-    });
-  }
-
-  for (const [index, status] of (query.statuses ?? []).entries()) {
-    const value = String(status);
-    chips.push({
-      key: `status-${value}-${index}`,
-      kind: 'Status',
-      value,
-      removeLabel: `Remove status filter ${value}`,
-      clear: (next) => {
-        const position = next.statuses.indexOf(status);
-        if (position >= 0) {
-          next.statuses = next.statuses.filter((_, itemIndex) => itemIndex !== position);
-        }
-      },
-    });
-  }
+  multiValueChips(chips, query.statuses ?? [], {
+    kind: 'Status',
+    field: 'statuses',
+    nameById: null,
+    noun: 'status',
+    clear: (next, value) => {
+      next.statuses = withoutFirst(next.statuses, value) as string[];
+    },
+  });
 
   return chips;
 }

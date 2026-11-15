@@ -35,6 +35,220 @@ export interface FilterFacetComboboxProps {
   focusSignal?: number;
 }
 
+function nextIndex(key: string, current: number, length: number): number {
+  if (current < 0) {
+    return 0;
+  }
+  if (key === 'ArrowDown') {
+    return Math.min(current + 1, length - 1);
+  }
+  return Math.max(current - 1, 0);
+}
+
+function SuggestionList({
+  visible,
+  listLabel,
+  onPick,
+}: {
+  visible: readonly FacetOption[];
+  listLabel?: string;
+  onPick: (option: FacetOption) => void;
+}) {
+  return (
+    <ul className="lamu-filter-options" aria-label={listLabel}>
+      {visible.map((option) => (
+        <li key={String(option.id)}>
+          <button type="button" className="lamu-filter-option" onClick={() => onPick(option)}>
+            {option.name}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function OptionCount({ count }: { count: string | number | null | undefined }) {
+  if (count === undefined || count === null) {
+    return null;
+  }
+  return (
+    <>
+      <span className="lamu-filter-row-count" aria-hidden="true">
+        {count}
+      </span>
+      <span className="sr-only">, {count} movies</span>
+    </>
+  );
+}
+
+function OptionList({
+  visible,
+  listId,
+  optionId,
+  activeIndex,
+  onPick,
+}: {
+  visible: readonly FacetOption[];
+  listId?: string;
+  optionId?: (index: number) => string;
+  activeIndex: number;
+  onPick: (option: FacetOption) => void;
+}) {
+  return (
+    <ul id={listId} role="listbox" className="lamu-filter-options">
+      {visible.map((option, index) => (
+        <li
+          key={String(option.id)}
+          id={optionId ? optionId(index) : undefined}
+          role="option"
+          aria-selected={activeIndex === index}
+          className={
+            activeIndex === index
+              ? 'lamu-filter-option lamu-filter-option-active'
+              : 'lamu-filter-option'
+          }
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onPick(option)}
+        >
+          <span className="lamu-filter-row-name">{option.name}</span>
+          <OptionCount count={option.count} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+interface FacetBodyInput {
+  kind: FacetComboboxKind;
+  needle: string;
+  visible: readonly FacetOption[];
+  optionsOpen: boolean;
+  draftOpen: boolean;
+  note: ReactNode;
+  listId?: string;
+  listLabel?: string;
+  optionId?: (index: number) => string;
+  activeIndex: number;
+  onPick: (option: FacetOption) => void;
+}
+
+function FacetBody(props: FacetBodyInput): ReactNode {
+  const { kind, needle, visible, optionsOpen, draftOpen, note } = props;
+  if (kind === 'suggestions') {
+    if (needle === '') {
+      return null;
+    }
+    if (visible.length === 0) {
+      return note;
+    }
+    return <SuggestionList visible={visible} listLabel={props.listLabel} onPick={props.onPick} />;
+  }
+  if (optionsOpen) {
+    return (
+      <OptionList
+        visible={visible}
+        listId={props.listId}
+        optionId={props.optionId}
+        activeIndex={props.activeIndex}
+        onPick={props.onPick}
+      />
+    );
+  }
+  return draftOpen ? note : null;
+}
+
+function matchOptions(options: readonly FacetOption[], needle: string): FacetOption[] {
+  if (needle === '') {
+    return [];
+  }
+  return options.filter((option) =>
+    String(option.name ?? '')
+      .toLowerCase()
+      .includes(needle),
+  );
+}
+
+function activeOptionIdOf(
+  open: boolean,
+  optionId: ((index: number) => string) | undefined,
+  activeIndex: number,
+  length: number,
+): string | undefined {
+  if (!open || optionId === undefined || activeIndex < 0 || activeIndex >= length) {
+    return undefined;
+  }
+  return optionId(activeIndex);
+}
+
+interface InputAria {
+  role?: 'combobox';
+  'aria-autocomplete'?: 'list';
+  'aria-expanded'?: boolean;
+  'aria-controls'?: string;
+}
+
+function listControls(
+  draftOpen: boolean,
+  optionsOpen: boolean,
+  listId?: string,
+): string | undefined {
+  if (!draftOpen || !optionsOpen) {
+    return undefined;
+  }
+  return listId;
+}
+
+function inputAria(
+  kind: FacetComboboxKind,
+  optionsOpen: boolean,
+  draftOpen: boolean,
+  listId?: string,
+): InputAria {
+  if (kind !== 'combobox') {
+    return {};
+  }
+  return {
+    role: 'combobox',
+    'aria-autocomplete': 'list',
+    'aria-expanded': optionsOpen,
+    'aria-controls': listControls(draftOpen, optionsOpen, listId),
+  };
+}
+
+function keepsDraft(kind: FacetComboboxKind, event: FocusEvent<HTMLInputElement>): boolean {
+  if (kind !== 'combobox') {
+    return false;
+  }
+  const group = event.currentTarget.closest('fieldset');
+  return Boolean(
+    group && event.relatedTarget instanceof Node && group.contains(event.relatedTarget),
+  );
+}
+
+interface FacetView {
+  needle: string;
+  visible: FacetOption[];
+  draftOpen: boolean;
+  optionsOpen: boolean;
+}
+
+function facetView(
+  kind: FacetComboboxKind,
+  draft: string,
+  options: readonly FacetOption[],
+  limit: number | undefined,
+): FacetView {
+  const needle = draft.trim().toLowerCase();
+  const matched = matchOptions(options, needle);
+  const visible = limit === undefined ? matched : matched.slice(0, limit);
+  return {
+    needle,
+    visible,
+    draftOpen: needle !== '' && kind !== 'filter',
+    optionsOpen: kind === 'combobox' && visible.length > 0,
+  };
+}
+
 /**
  * Owns one facet's local interaction state: the search draft, the active option
  * index and the input ref. Every mounted instance keeps that state to itself, so
@@ -81,82 +295,63 @@ export function FilterFacetCombobox({
     inputRef.current?.focus();
   };
 
-  const needle = draft.trim().toLowerCase();
-  const matched =
-    needle === ''
-      ? []
-      : options.filter((option) =>
-          String(option.name ?? '')
-            .toLowerCase()
-            .includes(needle),
-        );
-  const visible = limit === undefined ? matched : matched.slice(0, limit);
-  const draftOpen = needle !== '' && kind !== 'filter';
-  const optionsOpen = kind === 'combobox' && visible.length > 0;
-  const activeOptionId =
-    optionsOpen && optionId && activeIndex >= 0 && activeIndex < visible.length
-      ? optionId(activeIndex)
-      : undefined;
+  const view = facetView(kind, draft, options, limit);
+  const { needle, visible, draftOpen, optionsOpen } = view;
+  const activeOptionId = activeOptionIdOf(optionsOpen, optionId, activeIndex, visible.length);
+  const onEnter = () => {
+    if (activeOptionId === undefined) {
+      return;
+    }
+    const option = visible[activeIndex];
+    if (option) {
+      commit(option);
+    }
+  };
+
+  const keyHandlers: Record<string, (() => void) | undefined> = {
+    ArrowDown: () => setActiveIndex((current) => nextIndex('ArrowDown', current, visible.length)),
+    ArrowUp: () => setActiveIndex((current) => nextIndex('ArrowUp', current, visible.length)),
+    Enter: onEnter,
+    Escape: () => {
+      reset();
+      inputRef.current?.focus();
+    },
+  };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (kind !== 'combobox' || visible.length === 0) {
       return;
     }
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      setActiveIndex((current) => {
-        if (current < 0) {
-          return 0;
-        }
-        if (event.key === 'ArrowDown') {
-          return Math.min(current + 1, visible.length - 1);
-        }
-        return Math.max(current - 1, 0);
-      });
+    const handler = keyHandlers[event.key];
+    if (handler === undefined) {
       return;
     }
-    if (event.key === 'Enter') {
-      if (activeOptionId === undefined) {
-        return;
-      }
-      event.preventDefault();
-      const option = visible[activeIndex];
-      if (option) {
-        commit(option);
-      }
-      return;
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      reset();
-      inputRef.current?.focus();
-    }
+    event.preventDefault();
+    handler();
   };
 
   const onBlur = (event: FocusEvent<HTMLInputElement>) => {
-    if (kind !== 'combobox') {
+    if (keepsDraft(kind, event)) {
       return;
     }
-    const group = event.currentTarget.closest('fieldset');
-    if (group && event.relatedTarget instanceof Node && group.contains(event.relatedTarget)) {
-      return;
+    if (kind === 'combobox') {
+      reset();
     }
-    reset();
   };
 
+  const note =
+    emptyMessage === undefined ? null : <p className="lamu-filter-note">{emptyMessage}</p>;
+  const aria = inputAria(kind, optionsOpen, draftOpen, listId);
   const input = (
     <input
       ref={inputRef}
       id={inputId}
       type="search"
-      role={kind === 'combobox' ? 'combobox' : undefined}
       aria-label={ariaLabel}
       className="lamu-filter-find"
       placeholder={placeholder}
       autoComplete="off"
-      aria-autocomplete={kind === 'combobox' ? 'list' : undefined}
-      aria-expanded={kind === 'combobox' ? optionsOpen : undefined}
-      aria-controls={kind === 'filter' ? undefined : draftOpen && optionsOpen ? listId : undefined}
+      {...aria}
       aria-activedescendant={activeOptionId}
       value={draft}
       onChange={(event) => {
@@ -182,55 +377,19 @@ export function FilterFacetCombobox({
       {input}
       <div id={kind === 'suggestions' ? listId : undefined} aria-live="polite">
         {status}
-        {kind === 'suggestions' ? (
-          needle === '' ? null : visible.length > 0 ? (
-            <ul className="lamu-filter-options" aria-label={listLabel}>
-              {visible.map((option) => (
-                <li key={String(option.id)}>
-                  <button
-                    type="button"
-                    className="lamu-filter-option"
-                    onClick={() => commit(option)}
-                  >
-                    {option.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="lamu-filter-note">{emptyMessage}</p>
-          )
-        ) : optionsOpen ? (
-          <ul id={listId} role="listbox" className="lamu-filter-options">
-            {visible.map((option, index) => (
-              <li
-                key={String(option.id)}
-                id={optionId ? optionId(index) : undefined}
-                role="option"
-                aria-selected={activeIndex === index}
-                className={
-                  activeIndex === index
-                    ? 'lamu-filter-option lamu-filter-option-active'
-                    : 'lamu-filter-option'
-                }
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => commit(option)}
-              >
-                <span className="lamu-filter-row-name">{option.name}</span>
-                {option.count === undefined || option.count === null ? null : (
-                  <>
-                    <span className="lamu-filter-row-count" aria-hidden="true">
-                      {option.count}
-                    </span>
-                    <span className="sr-only">, {option.count} movies</span>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : draftOpen && emptyMessage !== undefined ? (
-          <p className="lamu-filter-note">{emptyMessage}</p>
-        ) : null}
+        <FacetBody
+          kind={kind}
+          needle={needle}
+          visible={visible}
+          optionsOpen={optionsOpen}
+          draftOpen={draftOpen}
+          note={note}
+          listId={listId}
+          listLabel={listLabel}
+          optionId={optionId}
+          activeIndex={activeIndex}
+          onPick={commit}
+        />
       </div>
     </>
   );

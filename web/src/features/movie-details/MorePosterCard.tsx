@@ -11,6 +11,46 @@ export interface MorePosterCardProps {
   onOpen: (id: number | string) => void;
 }
 
+function PosterArt({
+  item,
+  failed,
+  onFail,
+}: {
+  item: MovieSummary;
+  failed: boolean;
+  onFail: () => void;
+}) {
+  if (item.posterUrl && !failed) {
+    return <img src={item.posterUrl} alt="" loading="lazy" onError={onFail} />;
+  }
+  return (
+    <span className="details-more-placeholder">
+      <FilmIcon size={28} />
+    </span>
+  );
+}
+
+function posterMeta(item: MovieSummary, rating: string | null) {
+  if (item.enrichmentStatus !== 'Enriched') {
+    return 'No metadata yet';
+  }
+  return (
+    <>
+      {rating ? (
+        <>
+          <StarFilledIcon size={12} className="details-more-star" />
+          <span className="sr-only">IMDb </span>
+          {rating}
+        </>
+      ) : (
+        '—'
+      )}
+      <span aria-hidden="true"> | </span>
+      {item.releaseYear ?? '—'}
+    </>
+  );
+}
+
 /** One related-poster card, owning its own image-failure state. */
 export function MorePosterCard({ item, onOpen }: MorePosterCardProps) {
   const [posterFailed, setPosterFailed] = useState(false);
@@ -29,36 +69,12 @@ export function MorePosterCard({ item, onOpen }: MorePosterCardProps) {
         aria-hidden="true"
         onClick={open}
       >
-        {item.posterUrl && !posterFailed ? (
-          <img src={item.posterUrl} alt="" loading="lazy" onError={() => setPosterFailed(true)} />
-        ) : (
-          <span className="details-more-placeholder">
-            <FilmIcon size={28} />
-          </span>
-        )}
+        <PosterArt item={item} failed={posterFailed} onFail={() => setPosterFailed(true)} />
       </a>
       <a className="details-more-title" href={href} onClick={open}>
         {item.title}
       </a>
-      <p className="details-more-meta">
-        {item.enrichmentStatus === 'Enriched' ? (
-          <>
-            {rating ? (
-              <>
-                <StarFilledIcon size={12} className="details-more-star" />
-                <span className="sr-only">IMDb </span>
-                {rating}
-              </>
-            ) : (
-              '—'
-            )}
-            <span aria-hidden="true"> | </span>
-            {item.releaseYear ?? '—'}
-          </>
-        ) : (
-          'No metadata yet'
-        )}
-      </p>
+      <p className="details-more-meta">{posterMeta(item, rating)}</p>
     </li>
   );
 }
