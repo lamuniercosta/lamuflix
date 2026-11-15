@@ -1,8 +1,5 @@
 #Requires -Version 7.0
 # Companion regressions for the private artifact storage resolver, initialization and guard.
-# Every fixture lives under a unique GUID directory in the system temp path; the real scripts run
-# as child processes with a controlled environment. No live operator archive is read or written.
-# Exit 0 when every case passes, 1 otherwise.
 
 [CmdletBinding()]
 param()
@@ -50,7 +47,6 @@ function Write-FixtureText {
     [System.IO.File]::WriteAllText($Path, $Text, [System.Text.UTF8Encoding]::new($false))
 }
 
-# Find the last line of captured child output that parses as JSON (warnings share the stream).
 function Get-JsonPayload {
     param([string]$Text)
     if ([string]::IsNullOrWhiteSpace($Text)) { return $null }
@@ -63,7 +59,6 @@ function Get-JsonPayload {
     return $null
 }
 
-# Safe property read for payloads that may be null or lack the member (StrictMode is on).
 function Get-PayloadValue {
     param($Object, [string]$Name)
     if (-not $Object) { return $null }
@@ -71,13 +66,11 @@ function Get-PayloadValue {
     return $Object.$Name
 }
 
-# Raw-byte SHA-256 of a fixture file, computed here so the migration cases do not trust the subject.
 function Get-ArtifactFileHash {
     param([Parameter(Mandatory = $true)][string]$Path)
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
-# Throwaway Git checkout so the destructive removal cases never touch the real repository.
 function New-GitFixtureCheckout {
     param([string]$Name)
     $path = New-FixtureDir $Name
@@ -93,7 +86,6 @@ function Test-ArtifactPathEqual {    param([string]$Left, [string]$Right)    if 
     return [string]::Equals((([System.IO.Path]::GetFullPath($Left)) -replace '\\', '/').TrimEnd('/'), (([System.IO.Path]::GetFullPath($Right)) -replace '\\', '/').TrimEnd('/'), $comparison)
 }
 
-# Run a real workflow script as a child process with a controlled environment.
 function Invoke-ChildScript {
     param(
         [Parameter(Mandatory = $true)][string]$Script,
@@ -140,7 +132,6 @@ function Invoke-ChildScript {
     return [pscustomobject]@{ ExitCode = $code; Output = ($output -join "`n") }
 }
 
-# Evaluate an expression inside common.ps1 in its own process so a throw cannot poison this run.
 function Invoke-CommonProbe {
     param(
         [Parameter(Mandatory = $true)][string]$Expression,
@@ -169,7 +160,6 @@ $payload | ConvertTo-Json -Depth 6 -Compress
     }
 }
 
-# Drive the real guard hook with a host-shaped payload and return its exit code.
 function Invoke-Guard {
     param(
         [Parameter(Mandatory = $true)][ValidateSet('Edit', 'Write', 'apply_patch', 'Bash')][string]$Tool,
@@ -437,6 +427,34 @@ Release-ArtifactTicketOwnership `$owner
 
     $invalidRepoResult = Invoke-Guard -Tool 'Edit' -Path $allowedPath -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot; LAMUFLIX_ARTIFACT_REPOSITORY_ID = 'bad slug' }
     Assert-Case 'an invalid repository id removes the allowance' ($invalidRepoResult -eq 2) "exit $invalidRepoResult"
+
+    $junctionEscapeTarget = New-FixtureDir 'guard-junction-target'
+    Write-FixtureText -Path (Join-Path $junctionEscapeTarget 'marker.txt') -Text 'x'
+    $junctionEscapeTicket = Join-Path $guardRoot 'LamuFlix/DEV-960'
+    New-Item -ItemType Junction -Path $junctionEscapeTicket -Target $junctionEscapeTarget -ErrorAction Stop | Out-Null
+    $junctionExistingResult = Invoke-Guard -Tool 'Edit' -Path (Join-Path $junctionEscapeTicket 'marker.txt') -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
+    Assert-Case 'a ticket directory junction to an external folder is not sanctioned' ($junctionExistingResult -eq 2) "exit $junctionExistingResult"
+    $junctionNewResult = Invoke-Guard -Tool 'Write' -Path (Join-Path $junctionEscapeTicket 'sub/new.md') -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
+    Assert-Case 'a new file beneath a ticket directory junction is not sanctioned' ($junctionNewResult -eq 2) "exit $junctionNewResult"
+
+    $nestedJunctionTicket = Join-Path $guardRoot 'LamuFlix/DEV-961'
+    New-Item -ItemType Directory -Force -Path $nestedJunctionTicket | Out-Null
+    New-Item -ItemType Junction -Path (Join-Path $nestedJunctionTicket 'inner') -Target $junctionEscapeTarget -ErrorAction Stop | Out-Null
+    $nestedJunctionResult = Invoke-Guard -Tool 'Edit' -Path (Join-Path $nestedJunctionTicket 'inner/marker.txt') -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
+    Assert-Case 'a junction nested inside a ticket directory is not sanctioned' ($nestedJunctionResult -eq 2) "exit $nestedJunctionResult"
+
+    $checkoutLinkTarget = New-GitFixtureCheckout 'guard-junction-checkout'
+    $checkoutJunctionTicket = Join-Path $guardRoot 'LamuFlix/DEV-962'
+    New-Item -ItemType Junction -Path $checkoutJunctionTicket -Target $checkoutLinkTarget -ErrorAction Stop | Out-Null
+    $checkoutJunctionResult = Invoke-Guard -Tool 'Edit' -Path (Join-Path $checkoutJunctionTicket 'file.md') -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
+    Assert-Case 'a ticket directory junction into a checkout is not sanctioned' ($checkoutJunctionResult -eq 2) "exit $checkoutJunctionResult"
+
+    $danglingJunctionTicket = Join-Path $guardRoot 'LamuFlix/DEV-963'
+    $vanishTarget = New-FixtureDir 'guard-vanish-target'
+    New-Item -ItemType Junction -Path $danglingJunctionTicket -Target $vanishTarget -ErrorAction Stop | Out-Null
+    Remove-Item -LiteralPath $vanishTarget -Recurse -Force
+    $danglingJunctionResult = Invoke-Guard -Tool 'Write' -Path (Join-Path $danglingJunctionTicket 'file.md') -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
+    Assert-Case 'a dangling ticket directory junction is not sanctioned' ($danglingJunctionResult -eq 2) "exit $danglingJunctionResult"
 
     $relativeResult = Invoke-Guard -Tool 'Edit' -Path 'LamuFlix/DEV-473/brief.md' -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
     Assert-Case 'a relative path is not treated as a private ticket path' ($relativeResult -eq 0) "exit $relativeResult"
@@ -872,13 +890,10 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     $migrationEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $migrationRoot; SPECIFY_FEATURE_DIRECTORY = ''; SPECIFY_FEATURE = ''; PYTHONUTF8 = '1' }
 
     $ticketA = Join-Path $migrationRepo 'specs/DEV-901'
-    # A machine-looking source path is the input this case exists to see sanitized. It is
-    # assembled from segments rather than written as one literal so this companion does not
-    # reintroduce into tracked files the very machine path DEV-473 removes.
     $machineRootPath = @('F:', 'Dev', 'LamuFlix.worktrees', 'DEV-901', 'evidence', 'ruling.txt') -join '/'
     $machineRootPrefix = @('F:', 'Dev', 'LamuFlix.worktrees') -join '/'
     Write-FixtureText -Path (Join-Path $ticketA 'spec.md') -Text "# DEV-901 spec`r`n"
-    Write-FixtureText -Path (Join-Path $ticketA 'CONCLUSIONS.md') -Text "# DEV-901 conclusions`r`nRuling recorded at $machineRootPath and C:\Users\fixture\AppData\Local\Temp\ruling.txt.`r`n"
+    Write-FixtureText -Path (Join-Path $ticketA 'CONCLUSIONS.md') -Text "# DEV-901 conclusions`r`nRuling recorded at $machineRootPath and C:\Users\fixture\AppData\Local\Temp\ruling.txt. Citation: ``scripts/home/New-HomeCluster.ps1:67`` and /home/fixture/app.`r`n"
     Write-FixtureText -Path (Join-Path $ticketA 'ASSUMPTIONS.md') -Text "# DEV-901 assumptions`n"
     Write-FixtureText -Path (Join-Path $ticketA 'brief.md') -Text "# DEV-901 brief`r`nline two`r`n"
     Write-FixtureText -Path (Join-Path $ticketA 'plan.md') -Text "# DEV-901 plan`nunix newline must stay byte identical`n"
@@ -946,6 +961,8 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     Assert-Case 'the published conclusions keep their decision substance' ($publicConclusions -match 'DEV-901 conclusions') $publicConclusions
     Assert-Case 'the published conclusions carry no machine path' (-not ($publicConclusions -match '[A-Za-z]:[\\/]')) $publicConclusions
     Assert-Case 'the published conclusions use portable identifiers' ($publicConclusions -match '<task-worktree>' -and $publicConclusions -match '<temp>') $publicConclusions
+    Assert-Case 'sanitization keeps repository-relative citations intact' (($publicConclusions -match 'scripts/home/New-HomeCluster\.ps1:67') -and ($publicConclusions -notmatch 'scripts<home>')) $publicConclusions
+    Assert-Case 'sanitization still scrubs a real home directory path' ($publicConclusions -match '<home>/app' -and $publicConclusions -notmatch '/home/fixture') $publicConclusions
     Assert-Case 'the public spec is preserved and untouched' ((Get-Content -LiteralPath (Join-Path $ticketA 'spec.md') -Raw) -eq "# DEV-901 spec`r`n")
     Assert-Case 'the public assumptions file is preserved' (Test-Path -LiteralPath (Join-Path $ticketA 'ASSUMPTIONS.md') -PathType Leaf)
     Assert-Case 'the public spec is never a removal candidate' (@((Get-PayloadValue $sanitizedPayload 'STAGED_REMOVALS') | Where-Object { $_ -match '(^|[\\/])(spec|CONCLUSIONS|ASSUMPTIONS)\.md$' }).Count -eq 0) (@(Get-PayloadValue $sanitizedPayload 'STAGED_REMOVALS') -join ', ')
@@ -1003,8 +1020,6 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     Write-Host ''
     Write-Host 'US4 retained tracked content carries no machine-root path (T024):'
 
-    # The machine root is assembled from segments so this companion never becomes the
-    # tracked file it is checking for. Both slash spellings must be absent, case-insensitively.
     $scrubRootBackslash = (@('F:', 'Dev') -join '\')
     $scrubRootForward = (@('F:', 'Dev') -join '/')
     $trackedMatches = @(& git -C $script:RepoRoot grep -n -I -i -F -e $scrubRootBackslash -e $scrubRootForward -- . ':!.gitignore' 2>$null)
@@ -1023,9 +1038,6 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     Write-Host ''
     Write-Host 'US4 scrubbed defaults preserve intended behaviour (T024b):'
 
-    # A disposable repository proves the default worktree root and its explicit override.
-    # The real checkout is never the subject: this repo's own new-task-branch.ps1 would
-    # otherwise create a real worktree beside the real repository.
     $behaviourRoot = New-FixtureDir 'us4-behaviour'
     $behaviourBare = Join-Path $behaviourRoot 'origin.git'
     & git init --quiet --bare --initial-branch=main $behaviourBare 2>&1 | Out-Null
@@ -1071,12 +1083,9 @@ task:
     Assert-Case 'an explicit worktreeRoot still wins over the derived default' ($overrideRun.ExitCode -eq 0) "exit $($overrideRun.ExitCode): $($overrideRun.Output)"
     Assert-Case 'the explicit worktree root receives the worktree' (@(Get-ChildItem -LiteralPath (Join-Path $behaviourRoot 'explicit-root') -Directory -Force -ErrorAction SilentlyContinue).Count -ge 1) 'the override root stayed empty'
 
-    # Home config default: a disposable checkout resolves its own sibling <repo>-home folder,
-    # and the environment override wins. No live operator config is read or written.
     $homeProbe = Join-Path $behaviourRepo 'scripts/home'
     New-Item -ItemType Directory -Force -Path $homeProbe | Out-Null
     Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'scripts/home/_home-common.ps1') -Destination (Join-Path $homeProbe '_home-common.ps1') -Force
-    # The Home helper lives in _home-common.ps1, not common.ps1, so it gets its own probe.
     $homeProbeProgram = @'
 param([string]$HelperScript, [string]$RepoRoot)
 $ErrorActionPreference = 'Stop'
@@ -1124,9 +1133,6 @@ $payload | ConvertTo-Json -Depth 4 -Compress
     Write-Host ''
     Write-Host 'US4 host adapters keep parity and carry no public operational write (T024c):'
 
-    # Adapters are maintained sources, not generated output. The two host trees differ only
-    # in host spellings: the '$name' vs '/name' invocation sigil, and AGENTS.md vs CLAUDE.md.
-    # Anything else is drift and fails here.
     $adapterRoot = Join-Path $script:RepoRoot '.agents/skills'
     $adapterNames = @(Get-ChildItem -LiteralPath $adapterRoot -Directory | ForEach-Object { $_.Name })
     Assert-Case 'the agent adapter tree is present to check' ($adapterNames.Count -gt 0) "no adapters under '$adapterRoot'"
@@ -1167,8 +1173,6 @@ $payload | ConvertTo-Json -Depth 4 -Compress
     Write-Host ''
     Write-Host 'US5 clean-checkout new-ticket smoke (T028):'
 
-    # Disposable only: a throwaway checkout, a GUID temp private root, and a temp "absent" root.
-    # No live operator archive is read or written, and the real repository is never the subject.
     $smokeRepo = New-GitFixtureCheckout 'us5-clean-checkout'
     New-Item -ItemType Directory -Force -Path (Join-Path $smokeRepo '.specify/templates') | Out-Null
     Write-FixtureText -Path (Join-Path $smokeRepo '.specify/templates/spec-template.md') -Text "# spec template`n"
@@ -1205,9 +1209,6 @@ $paths = Get-ArtifactPathsEnv -TicketId 'DEV-920'
     Write-Host ''
     Write-Host 'US5 absent-private pickup is a named blocking check (T029):'
 
-    # Phase A authors the durable private records, then the Phase A worktree is deleted entirely.
-    # Phase B picks up from a different disposable checkout with the same private root, so the
-    # canonical ticket directory is the only route to brief/plan/tasks.
     $phaseARepo = New-GitFixtureCheckout 'us5-phase-a'
     $phaseATicket = Join-Path $phaseARepo 'specs/DEV-921'
     Write-FixtureText -Path (Join-Path $phaseATicket 'spec.md') -Text "# DEV-921 spec`n"
@@ -1230,7 +1231,6 @@ $paths = Get-ArtifactPathsEnv -TicketId 'DEV-920'
     $archivedBriefHash = Get-ArtifactFileHash -Path (Join-Path $pickupTicketDir 'brief.md')
     Assert-Case 'the canonical ticket directory holds the seeded brief and plan' ((Test-Path -LiteralPath (Join-Path $pickupTicketDir 'brief.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $pickupTicketDir 'plan.md') -PathType Leaf))
 
-    # Delete the Phase A worktree: the durable records must not depend on it.
     Remove-Item -LiteralPath $phaseARepo -Recurse -Force
     Assert-Case 'the Phase A worktree is gone before Phase B picks up' (-not (Test-Path -LiteralPath $phaseARepo))
 
@@ -1252,7 +1252,6 @@ $paths = Get-ArtifactPathsEnv -TicketId 'DEV-920'
     Assert-Case 'the picked-up brief is the durable Phase A record byte for byte' ((Get-ArtifactFileHash -Path (Join-Path $pickupTicketDir 'brief.md')) -eq $archivedBriefHash)
     Assert-Case 'pickup reconstructs nothing into the Phase B public directory' (@(Get-ChildItem -LiteralPath $phaseBPublic -File -Force | ForEach-Object { $_.Name }) -join ',' -eq 'spec.md') (@(Get-ChildItem -LiteralPath $phaseBPublic -File -Force | ForEach-Object { $_.Name }) -join ',')
 
-    # Absent private inputs: a stage that needs them must fail closed and reconstruct nothing.
     $absentRoot = Join-Path $script:Root 'us5-absent-pickup-root'
     $absentEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $absentRoot; SPECIFY_FEATURE_DIRECTORY = $phaseBPublic; SPECIFY_FEATURE = '901-fixture' }
     $absentPickup = Invoke-ChildScript -Script $script:CheckPrereqScript -Arguments @('-Json', '-RequirePrivate') -Environment $absentEnv -WorkingDirectory $phaseBRepo
@@ -1305,21 +1304,17 @@ $paths = Get-ArtifactPathsEnv -TicketId 'DEV-920'
     $gateReceipt = Get-Content -LiteralPath $gateProbe.value.gatePath -Raw | ConvertFrom-Json
     Assert-Case 'the gate receipt reads back the full SHA and ticket it belongs to' ($gateReceipt.commitSha -eq $lifecycleHead -and $gateReceipt.ticketId -eq 'DEV-922') "commitSha $($gateReceipt.commitSha)"
 
-    # Deleting the task worktree must not touch the private archive.
     Remove-Item -LiteralPath $lifecycleRepo -Recurse -Force
     Assert-Case 'the task worktree is deleted' (-not (Test-Path -LiteralPath $lifecycleRepo))
     Assert-Case 'the private archive survives the worktree deletion' ((Test-Path -LiteralPath (Join-Path $archiveTicketDir 'plan.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $archiveTicketDir 'brief.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $archiveTicketDir 'checklists/requirements.md') -PathType Leaf)) 'an archived record disappeared'
     Assert-Case 'the surviving archive is the byte-identical archived copy' ((Get-ArtifactFileHash -Path (Join-Path $archiveTicketDir 'plan.md')) -eq $archivePlanHash)
     Assert-Case 'the migration and gate receipts survive the worktree deletion' ((Test-Path -LiteralPath $migrationReceiptPath -PathType Leaf) -and (Test-Path -LiteralPath $gateProbe.value.gatePath -PathType Leaf))
 
-    # The Phase B pickup archive is still intact after the Phase A deletion too.
     Assert-Case 'the Phase A pickup archive also survives its worktree deletion' ((Get-ArtifactFileHash -Path (Join-Path $pickupTicketDir 'brief.md')) -eq $archivedBriefHash)
 
     Write-Host ''
     Write-Host 'US5 operator init, backup and transfer guidance (T031):'
 
-    # The operator lifecycle is documented on the cut-over surfaces touched by T016/T017:
-    # both maintained adapter twins and the initializer help. Logical identifiers only.
     $lifecycleTerms = @(
         @{ Label = 'initialization'; Pattern = '(?i)-Initialize' },
         @{ Label = 'backup'; Pattern = '(?i)backup' },

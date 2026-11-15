@@ -177,7 +177,6 @@ function Get-ArtifactRepositoryIdForGuard {
 }
 
 function Get-Comparer {
-    # Case-insensitive on Windows only; POSIX filesystems are case-sensitive.
     if ($null -ne $IsWindows) {
         if ($IsWindows) { return [StringComparison]::OrdinalIgnoreCase }
         return [StringComparison]::Ordinal
@@ -209,6 +208,40 @@ function Test-InsideCheckout {
     return $false
 }
 
+function Get-HookLinkTarget {
+    param([string]$Path)
+    try {
+        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+        $target = $null
+        if ($null -ne $item.PSObject.Properties['LinkTarget']) { $target = $item.LinkTarget }
+        if ([string]::IsNullOrWhiteSpace($target) -and $null -ne $item.PSObject.Properties['Target']) {
+            $raw = $item.Target
+            if ($raw) { $target = @($raw)[0] }
+        }
+        if ([string]::IsNullOrWhiteSpace($target)) { return $null }
+        if (-not [System.IO.Path]::IsPathRooted($target)) {
+            $target = Join-Path ([System.IO.Path]::GetDirectoryName($Path)) $target
+        }
+        return [System.IO.Path]::GetFullPath($target)
+    } catch {
+        return $null
+    }
+}
+
+function Get-EffectiveHookPath {
+    param([string]$Path, [int]$Hop = 0)
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $parent = [System.IO.Path]::GetDirectoryName($full)
+    if ([string]::IsNullOrEmpty($parent) -or [string]::Equals($parent, $full, (Get-Comparer))) { return $full }
+    $resolvedParent = $parent
+    if ($Hop -lt 8) { $resolvedParent = Get-EffectiveHookPath -Path $parent -Hop ($Hop + 1) }
+    $candidate = Join-Path $resolvedParent ([System.IO.Path]::GetFileName($full))
+    if ($Hop -ge 8) { return $candidate }
+    $target = Get-HookLinkTarget -Path $candidate
+    if ([string]::IsNullOrWhiteSpace($target)) { return $candidate }
+    return Get-EffectiveHookPath -Path $target -Hop ($Hop + 1)
+}
+
 function Test-PrivateTicketPath {
     <#
       The sanctioned narrow allowance: Edit/Write/apply-patch to a normalized path under
@@ -231,15 +264,16 @@ function Test-PrivateTicketPath {
         }
 
         $base = [System.IO.Path]::GetFullPath((Join-Path $root $repositoryId))
-        if (-not (Test-PathInsideDirectory -Path $full -Directory $base)) { return $false }
-        if ($full.Length -le $base.Length) { return $false }
+        $effective = Get-EffectiveHookPath -Path $full
+        if (-not (Test-PathInsideDirectory -Path $effective -Directory $base)) { return $false }
+        if ($effective.Length -le $base.Length) { return $false }
 
-        $relative = [System.IO.Path]::GetRelativePath($base, $full)
+        $relative = [System.IO.Path]::GetRelativePath($base, $effective)
         if ([string]::IsNullOrWhiteSpace($relative) -or $relative.StartsWith('..')) { return $false }
         $segments = @($relative -split '[\\/]')
         if ($segments.Count -lt 1 -or -not ($segments[0] -cmatch '^[A-Z][A-Z0-9]*-[0-9]+$')) { return $false }
 
-        if (Test-InsideCheckout -Path $full -Boundary $Boundary) { return $false }
+        if (Test-InsideCheckout -Path $effective -Boundary $Boundary) { return $false }
         return $true
     } catch {
         return $false
