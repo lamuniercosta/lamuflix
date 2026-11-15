@@ -9,7 +9,7 @@ Write a handoff document summarising the current conversation so a fresh agent c
 
 Include a "suggested skills" section in the document, which suggests skills that the agent should invoke.
 
-Do not duplicate content already captured in other artifacts (specs, plans, ADRs, issues, commits, diffs). Reference them by path or URL instead. In SpecKit repos, reference the active `specs/<NNN-feature>/spec.md`, `plan.md`, and `tasks.md` (with the current task ID) rather than restating them.
+Do not duplicate content already captured in other artifacts (specs, plans, ADRs, issues, commits, diffs). Reference them by path or URL instead. In SpecKit repos, reference the active `specs/<NNN-feature>/spec.md` and the ticket's `plan.md` and `tasks.md` (with the current task ID) rather than restating them. `plan.md` and `tasks.md` are operational records that live at `<private-root>/<repository-id>/DEV-###/` once the ticket has private artifact storage; reference them by that logical location, not by a machine path.
 
 Include the exact verification commands that were in use, so the next agent can re-establish the feedback loop immediately (e.g. the `dotnet test --filter ...` invocation, `dotnet stryker` scope, or repro script path).
 

@@ -1,6 +1,6 @@
 ---
 name: gherkin
-description: (OPTIONAL / opt-in for now) Convert tasks.md user stories into pruned Gherkin feature files under specs/<feature>/acceptance/. Run after human gate 1 (spec/tasks approved), only when acceptance tests are wanted.
+description: (OPTIONAL / opt-in for now) Convert tasks.md user stories into pruned Gherkin feature files under the ticket private artifact directory. Run after human gate 1 (spec/tasks approved), only when acceptance tests are wanted.
 ---
 
 > **Opt-in stage.** Acceptance tests (Gherkin + Reqnroll) are optional until introduced project-wide. Run this only when the user asks for acceptance coverage; otherwise skip straight from human gate 1 to `$implement`. See the Acceptance-tests policy in `.cursor/rules/agent-pipeline.mdc`.
@@ -18,8 +18,10 @@ $ARGUMENTS
 
 Resolve feature directory:
 
-1. Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` and parse `FEATURE_DIR`
+1. Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` and parse `FEATURE_DIR`, `TASK_ID`, `IMPL_PLAN` and `TASKS`
 2. If that fails, use `$ARGUMENTS` as feature path or `specs/` subdirectory
+
+`plan.md` and `tasks.md` are operational records: once the ticket has private artifact storage they live at `<private-root>/<repository-id>/DEV-###/`, so read them from the resolved `IMPL_PLAN` and `TASKS` paths, not from `FEATURE_DIR`.
 
 ## Goal
 
@@ -27,14 +29,14 @@ Emit executable Gherkin specifications only — no step definitions, no producti
 
 ## Inputs
 
-Read from `FEATURE_DIR`:
+Read the resolved records:
 
 - `spec.md` — user stories, acceptance scenarios (Given/When/Then)
-- `tasks.md` — task IDs, user story phases (P1, P2, …)
+- `tasks.md` (the `TASKS` path) — task IDs, user story phases (P1, P2, …)
 
 ## Output
 
-Create or update `FEATURE_DIR/acceptance/<story-slug>.feature`:
+Create or update `<private-ticket-dir>/acceptance/<story-slug>.feature`. Acceptance files are operational records, not public allowlist entries, so they belong in the ticket's private artifact root at `<private-root>/<repository-id>/DEV-###/` — never under public `specs/<feature>/`.
 
 - One file per user story (P1, P2, P3, …)
 - File name: kebab-case from story title (e.g. `trace-workbook-upload.feature`)

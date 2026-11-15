@@ -1,8 +1,10 @@
 # DEV-427 manual movie-library load baseline
 
 Runbook for the manual `GET /api/movies` load baseline. Manual only: this suite is not
-enrolled in CI. Scope is frozen by ticket DEV-427 and `specs/DEV-427/` (`spec.md` FR-001 to
-FR-012, `plan.md`, `tasks.md`, `brief.md`).
+enrolled in CI. Scope is frozen by ticket DEV-427 and its public `specs/DEV-427/` allowlist
+(`spec.md` FR-001 to FR-012). The ticket's operational records (`plan.md`, `tasks.md`,
+`brief.md`) live in the private artifact root at
+`<private-root>/<repository-id>/DEV-427/`, not in the public tree.
 
 **Status: Phases 1-4 built (scripts/load skeleton, idempotent seed, workload and preflight,
 measured baseline and evidence), and the Phase 5 bounded negatives are exercised and recorded

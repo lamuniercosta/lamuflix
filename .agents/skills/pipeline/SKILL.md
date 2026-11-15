@@ -24,6 +24,13 @@ rather than corrected.
 Past stage 10 the artifacts live on GitHub, not the filesystem. Detect 11 and 12
 with `gh pr view` on the current branch.
 
+`brief.md`, `plan.md` and `tasks.md` are operational records, so they resolve to the
+ticket's private artifact directory `<private-root>/<repository-id>/DEV-###/` once that
+storage exists; a ticket that has not been cut over still has them under `specs/<feature>/`.
+Use `.specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly` to get the
+resolved `TICKET_ID`, `PRIVATE_TICKET_DIR` and `PRIVATE_AVAILABLE` rather than probing
+either tree by hand.
+
 | Condition | Stage | Next command |
 |---|---|---|
 | No branch / no `brief.md` | 0 → 1 | `$task <id> [type]` → `$grill-with-docs` (mandatory) |

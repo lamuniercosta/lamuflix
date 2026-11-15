@@ -834,9 +834,20 @@ function Get-ArtifactRoot {
 
 function Get-ArtifactTicketIdFromName {
     param([string]$Branch, [string]$FeatureDir)
-    foreach ($candidate in @($Branch, $FeatureDir)) {
+    $candidates = @($Branch, $FeatureDir)
+    if (-not [string]::IsNullOrWhiteSpace($FeatureDir)) {
+        $leaf = Split-Path -Leaf ($FeatureDir.TrimEnd('\', '/'))
+        if (-not [string]::IsNullOrWhiteSpace($leaf)) { $candidates += $leaf }
+    }
+    foreach ($candidate in $candidates) {
         if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
-        if ($candidate -match '([A-Za-z][A-Za-z0-9]*-[0-9]+)') { return $Matches[1].ToUpperInvariant() }
+        foreach ($token in @(($candidate -split '[\\/]') | Select-Object -Last 1)) {
+            if ([string]::IsNullOrWhiteSpace($token)) { continue }
+            if ($token -match '([A-Za-z][A-Za-z0-9]*-[0-9]+)') {
+                $found = $Matches[1].ToUpperInvariant()
+                if (Test-ArtifactTicketId $found) { return $found }
+            }
+        }
     }
     return $null
 }
@@ -1258,6 +1269,69 @@ function Get-ArtifactFileSha256 {
         $sha.Dispose()
     }
     return ([System.BitConverter]::ToString($hash) -replace '-', '').ToLowerInvariant()
+}
+
+# Provision or confirm the canonical ticket workspace for a workflow writer. Unlike
+# Get-ArtifactPathsEnv -RequirePrivate this does not demand a bootstrap seed proof: a brand new
+# ticket has no Phase A records to seed yet. Initialized, writable storage is still required.
+function New-ArtifactTicketWorkspace {
+    param(
+        [Parameter(Mandatory = $true)][string]$TicketId,
+        [string[]]$Subdirectories = @('checklists', 'evidence', 'receipts', 'run'),
+        [string]$Root,
+        [string]$RepositoryId,
+        [string]$RepoRoot
+    )
+    if (-not (Test-ArtifactTicketId $TicketId)) {
+        throw "Invalid ticket identifier '$TicketId'; expected a shape such as DEV-123."
+    }
+    if ([string]::IsNullOrWhiteSpace($RepositoryId)) { $RepositoryId = Get-ArtifactRepositoryId }
+    if ([string]::IsNullOrWhiteSpace($Root)) {
+        $Root = Get-ArtifactRoot -RepositoryId $RepositoryId -RepoRoot $RepoRoot
+    }
+    Assert-ArtifactStorage -Root $Root -RepositoryId $RepositoryId -RepoRoot $RepoRoot -TicketId $TicketId | Out-Null
+    $ticketDir = Get-ArtifactTicketDir -TicketId $TicketId -Root $Root -RepositoryId $RepositoryId -RepoRoot $RepoRoot
+    New-Item -ItemType Directory -Path $ticketDir -Force | Out-Null
+    foreach ($subdirectory in $Subdirectories) {
+        $child = New-ArtifactChildPath -BaseDir $ticketDir -RelativePath $subdirectory
+        if (-not (Test-Path -LiteralPath $child -PathType Container)) {
+            New-Item -ItemType Directory -Path $child -Force | Out-Null
+        }
+    }
+    return $ticketDir
+}
+
+# One private write by one real caller, held under the shared per-ticket exclusive contract.
+function Invoke-ArtifactTicketWrite {
+    param(
+        [Parameter(Mandatory = $true)][string]$TicketDir,
+        [Parameter(Mandatory = $true)][string]$Owner,
+        [Parameter(Mandatory = $true)][scriptblock]$Action,
+        [string]$WorktreeId,
+        [string]$CommitSha
+    )
+    $handle = Acquire-ArtifactTicketOwnership -TicketDir $TicketDir -Owner $Owner -WorktreeId $WorktreeId -CommitSha $CommitSha
+    try {
+        return (& $Action)
+    } finally {
+        Release-ArtifactTicketOwnership $handle
+    }
+}
+
+# Write one confined private record as UTF-8 without BOM; parents are created on demand.
+function Write-ArtifactRecord {
+    param(
+        [Parameter(Mandatory = $true)][string]$TicketDir,
+        [Parameter(Mandatory = $true)][string]$RelativePath,
+        [AllowEmptyString()][string]$Text = ''
+    )
+    $path = New-ArtifactChildPath -BaseDir $TicketDir -RelativePath $RelativePath
+    $parent = [System.IO.Path]::GetDirectoryName($path)
+    if (-not [string]::IsNullOrWhiteSpace($parent) -and -not (Test-Path -LiteralPath $parent -PathType Container)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+    [System.IO.File]::WriteAllText($path, $Text, [System.Text.UTF8Encoding]::new($false))
+    return $path
 }
 
 # Guard-facing predicate: true only for a normalized path under <private-root>/<repository-id>/DEV-###/.

@@ -16,6 +16,10 @@ $script:Checks = 0
 $script:RepoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $script:CommonScript = Join-Path $PSScriptRoot 'common.ps1'
 $script:InitScript = Join-Path $PSScriptRoot 'initialize-artifact-storage.ps1'
+$script:CreateScript = Join-Path $PSScriptRoot 'create-new-feature.ps1'
+$script:SetupPlanScript = Join-Path $PSScriptRoot 'setup-plan.ps1'
+$script:SetupTasksScript = Join-Path $PSScriptRoot 'setup-tasks.ps1'
+$script:CheckPrereqScript = Join-Path $PSScriptRoot 'check-prerequisites.ps1'
 $script:GuardScript = [System.IO.Path]::GetFullPath((Join-Path $script:RepoRoot 'scripts/hooks/guard.ps1'))
 $script:Root = Join-Path ([System.IO.Path]::GetTempPath()) ('lamuflix-artifact-test-' + [guid]::NewGuid().ToString('N'))
 
@@ -46,8 +50,28 @@ function Write-FixtureText {
     [System.IO.File]::WriteAllText($Path, $Text, [System.Text.UTF8Encoding]::new($false))
 }
 
-function Test-ArtifactPathEqual {
-    param([string]$Left, [string]$Right)
+# Find the last line of captured child output that parses as JSON (warnings share the stream).
+function Get-JsonPayload {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $null }
+    $lines = @($Text -split "`r?`n" | Where-Object { $_.Trim() })
+    for ($index = $lines.Count - 1; $index -ge 0; $index--) {
+        $candidate = $lines[$index].Trim()
+        if (-not ($candidate.StartsWith('{') -or $candidate.StartsWith('['))) { continue }
+        try { return ($candidate | ConvertFrom-Json) } catch { continue }
+    }
+    return $null
+}
+
+# Safe property read for payloads that may be null or lack the member (StrictMode is on).
+function Get-PayloadValue {
+    param($Object, [string]$Name)
+    if (-not $Object) { return $null }
+    if ($null -eq $Object.PSObject.Properties[$Name]) { return $null }
+    return $Object.$Name
+}
+
+function Test-ArtifactPathEqual {    param([string]$Left, [string]$Right)
     if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) { return $false }
     $comparison = if ($null -ne $IsWindows -and -not $IsWindows) { [StringComparison]::Ordinal } else { [StringComparison]::OrdinalIgnoreCase }
     return [string]::Equals((([System.IO.Path]::GetFullPath($Left)) -replace '\\', '/').TrimEnd('/'), (([System.IO.Path]::GetFullPath($Right)) -replace '\\', '/').TrimEnd('/'), $comparison)
@@ -648,6 +672,181 @@ $paths = Get-FeaturePathsEnv
     Write-FixtureText -Path $portableJson -Text ('{"feature_directory":"specs/DEV-901"}')
     $portablePrivate = Invoke-CommonProbe -Expression "Get-ArtifactPathsEnv -TicketId 'DEV-901'" -Environment $portableEnv -WorkingDirectory $portableCheckout
     Assert-Case 'a portable selection resolves without refusing' ($portablePrivate.ok -and $portablePrivate.value.PUBLIC_SPEC -match 'DEV-901') $portablePrivate.message
+
+    Write-Host ''
+    Write-Host 'US2 new-ticket create path writes private, public allowlist only (T012):'
+
+    $newTicketCheckout = New-FixtureDir 'us2-new-ticket-checkout'
+    New-Item -ItemType Directory -Force -Path (Join-Path $newTicketCheckout '.specify/templates') | Out-Null
+    Write-FixtureText -Path (Join-Path $newTicketCheckout '.specify/templates/spec-template.md') -Text "# spec template`n"
+    $newTicketRoot = Join-Path (New-FixtureDir 'us2-new-ticket-root') 'artifacts'
+
+    $newTicketInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $newTicketRoot } -WorkingDirectory $newTicketCheckout
+    Assert-Case 'the disposable private root initializes for the cut-over create path' ($newTicketInit.ExitCode -eq 0) "exit $($newTicketInit.ExitCode): $($newTicketInit.Output)"
+
+    $createResult = Invoke-ChildScript -Script $script:CreateScript -Arguments @('-Json', '-TicketId', 'DEV-910', '-ShortName', 'new-ticket', 'Create a new ticket') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $newTicketRoot } -WorkingDirectory $newTicketCheckout
+    Assert-Case 'the cut-over create path exits 0' ($createResult.ExitCode -eq 0) "exit $($createResult.ExitCode): $($createResult.Output)"
+    $createPayload = Get-JsonPayload -Text $createResult.Output
+    Assert-Case 'the create path reports the same private ticket directory the resolver derives' ($createPayload -and (Test-ArtifactPathEqual (Get-PayloadValue $createPayload 'PRIVATE_TICKET_DIR') (Join-Path $newTicketRoot 'LamuFlix/DEV-910'))) "got $(Get-PayloadValue $createPayload 'PRIVATE_TICKET_DIR')"
+
+    $branchName = Get-PayloadValue $createPayload 'BRANCH_NAME'
+    Assert-Case 'the create path reports the branch name' (-not [string]::IsNullOrWhiteSpace($branchName)) "got $branchName"
+    $publicTicketDir = Join-Path $newTicketCheckout ('specs/' + $branchName)
+    Assert-Case 'the public ticket directory holds spec.md only' (@(Get-ChildItem -LiteralPath $publicTicketDir -File -Force | ForEach-Object { $_.Name }) -join ',' -eq 'spec.md') (@(Get-ChildItem -LiteralPath $publicTicketDir -File -Force | ForEach-Object { $_.Name }) -join ',')
+    Assert-Case 'the public ticket directory holds no operational subdirectory' (@(Get-ChildItem -LiteralPath $publicTicketDir -Directory -Force).Count -eq 0)
+    Assert-Case 'no operational record lands under public specs/' (@(Get-ChildItem -LiteralPath (Join-Path $newTicketCheckout 'specs') -Recurse -File -Force | Where-Object { $_.Name -match '^(brief|plan|tasks)\.md$' -or $_.DirectoryName -match 'checklists$|evidence$|receipts$' }).Count -eq 0)
+
+    $privateNewTicket = Join-Path $newTicketRoot 'LamuFlix/DEV-910'
+    Assert-Case 'the private ticket directory carries the ticket record' (Test-Path -LiteralPath (Join-Path $privateNewTicket 'ticket.json') -PathType Leaf)
+    Assert-Case 'the private ticket directory carries the operational subdirectories' ((Test-Path -LiteralPath (Join-Path $privateNewTicket 'checklists') -PathType Container) -and (Test-Path -LiteralPath (Join-Path $privateNewTicket 'evidence') -PathType Container) -and (Test-Path -LiteralPath (Join-Path $privateNewTicket 'receipts') -PathType Container))
+    Assert-Case 'the private ticket record names the ticket and public directory' (@(Get-Content -LiteralPath (Join-Path $privateNewTicket 'ticket.json') -Raw | ConvertFrom-Json)[0].ticketId -eq 'DEV-910')
+
+    Write-FixtureText -Path (Join-Path $publicTicketDir 'spec.md') -Text "# authored spec`n"
+    $rerunCreate = Invoke-ChildScript -Script $script:CreateScript -Arguments @('-Json', '-AllowExistingBranch', '-TicketId', 'DEV-910', '-ShortName', 'new-ticket', 'Create a new ticket') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $newTicketRoot } -WorkingDirectory $newTicketCheckout
+    Assert-Case 'a repeated create does not overwrite an authored spec' ((Get-Content -LiteralPath (Join-Path $publicTicketDir 'spec.md') -Raw) -eq "# authored spec`n") "exit $($rerunCreate.ExitCode)"
+
+    $noRootCreate = Invoke-ChildScript -Script $script:CreateScript -Arguments @('-Json', '-TicketId', 'DEV-911', '-ShortName', 'no-root', 'Create without storage') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = (Join-Path $script:Root 'us2-absent-root') } -WorkingDirectory $newTicketCheckout
+    Assert-Case 'the create path fails closed without initialized private storage' ($noRootCreate.ExitCode -ne 0) "exit $($noRootCreate.ExitCode)"
+    Assert-Case 'the create path names the initialization command' ($noRootCreate.Output -match 'initialize-artifact-storage\.ps1') $noRootCreate.Output
+    Assert-Case 'the create path creates no public fallback when private storage is missing' (-not (Test-Path -LiteralPath (Join-Path $newTicketCheckout 'specs/001-no-root') -PathType Container)) 'public fallback was created'
+
+    Write-Host ''
+    Write-Host 'US2 competing real caller processes fail closed (T013):'
+
+    $contentionRoot = New-FixtureDir 'us2-contention-root'
+    $contentionCheckout = New-FixtureDir 'us2-contention-checkout'
+    New-Item -ItemType Directory -Force -Path (Join-Path $contentionCheckout '.specify/templates') | Out-Null
+    Write-FixtureText -Path (Join-Path $contentionCheckout '.specify/templates/spec-template.md') -Text "# spec template`n"
+    Write-FixtureText -Path (Join-Path $contentionCheckout '.specify/templates/plan-template.md') -Text "# plan template`n"
+    $contentionResult = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $contentionRoot } -WorkingDirectory $contentionCheckout
+    Assert-Case 'the contention fixture private root initializes' ($contentionResult.ExitCode -eq 0) "exit $($contentionResult.ExitCode)"
+    $contentionTicket = Join-Path $contentionRoot 'LamuFlix/DEV-912'
+    New-Item -ItemType Directory -Force -Path $contentionTicket | Out-Null
+
+    $heldHandle = Invoke-CommonProbe -Expression "Acquire-ArtifactTicketOwnership -TicketDir '$contentionTicket' -Owner 'writer-a' -WorktreeId 'worktree-a'" -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $contentionRoot }
+    Assert-Case 'the first real writer takes ownership' $heldHandle.ok $heldHandle.message
+
+    $contentionEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $contentionRoot; SPECIFY_FEATURE_DIRECTORY = (Join-Path $contentionCheckout 'specs/DEV-912') }
+    New-Item -ItemType Directory -Force -Path (Join-Path $contentionCheckout 'specs/DEV-912') | Out-Null
+    $blockedWriter = Invoke-ChildScript -Script $script:SetupPlanScript -Arguments @('-Json') -Environment $contentionEnv -WorkingDirectory $contentionCheckout
+    Assert-Case 'a competing real writer process fails closed' ($blockedWriter.ExitCode -ne 0) "exit $($blockedWriter.ExitCode): $($blockedWriter.Output)"
+    Assert-Case 'the competing writer names the holder' ($blockedWriter.Output -match 'writer-a') $blockedWriter.Output
+    Assert-Case 'no private record is written by the blocked writer' (-not (Test-Path -LiteralPath (Join-Path $contentionTicket 'plan.md') -PathType Leaf))
+    Assert-Case 'no public fallback record is written by the blocked writer' (-not (Test-Path -LiteralPath (Join-Path $contentionCheckout 'specs/DEV-912/plan.md') -PathType Leaf))
+
+    $secondBlocked = Invoke-ChildScript -Script $script:SetupPlanScript -Arguments @('-Json') -Environment $contentionEnv -WorkingDirectory $contentionCheckout
+    Assert-Case 'a second competing writer process also fails closed' ($secondBlocked.ExitCode -ne 0) "exit $($secondBlocked.ExitCode)"
+    $lockProbe = Invoke-CommonProbe -Expression "Test-Path -LiteralPath (Get-ArtifactOwnershipPath '$contentionTicket')" -Environment @{}
+    Assert-Case 'denied writers never steal the lock' ($lockProbe.ok -and $lockProbe.value) "$($lockProbe.message)"
+
+    $releaseProbe = Invoke-CommonProbe -Expression @"
+`$holder = Get-ArtifactOwnership '$contentionTicket'
+Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTicket'; PATH = (Get-ArtifactOwnershipPath '$contentionTicket'); TOKEN = (Get-ArtifactProperty `$holder 'token'); OWNER = (Get-ArtifactProperty `$holder 'owner') })
+"@ -Environment @{}
+    Assert-Case 'the holder releases explicitly' $releaseProbe.ok $releaseProbe.message
+
+    $releasedWriter = Invoke-ChildScript -Script $script:SetupPlanScript -Arguments @('-Json') -Environment $contentionEnv -WorkingDirectory $contentionCheckout
+    Assert-Case 'the real writer proceeds after explicit release' ($releasedWriter.ExitCode -eq 0) "exit $($releasedWriter.ExitCode): $($releasedWriter.Output)"
+    Assert-Case 'the released writer writes its record privately' (Test-Path -LiteralPath (Join-Path $contentionTicket 'plan.md') -PathType Leaf)
+    Assert-Case 'the released writer writes no public duplicate' (-not (Test-Path -LiteralPath (Join-Path $contentionCheckout 'specs/001-contended/plan.md') -PathType Leaf))
+
+    $mutableProbe = Invoke-CommonProbe -Expression @"
+`$runDir = Get-ArtifactRunDir -TicketDir '$contentionTicket' -CommitSha ('c' * 40) -Kind 'receipts'
+`$evidence = New-ArtifactProvenance -TicketId 'DEV-912' -CommitSha ('c' * 40) -WorktreeId 'worktree-a' -Kind 'receipts'
+[pscustomobject]@{ runDir = `$runDir; sha = `$evidence.commitSha; ticket = `$evidence.ticketId }
+"@ -Environment @{}
+    Assert-Case 'mutable receipt output is isolated by full SHA' ($mutableProbe.ok -and $mutableProbe.value.runDir -match 'receipts[/\\]sha') $mutableProbe.message
+    Assert-Case 'mutable output carries SHA provenance' ($mutableProbe.ok -and $mutableProbe.value.sha -eq ('c' * 40)) $mutableProbe.message
+
+    Write-Host ''
+    Write-Host 'US2 consumer routes pass the narrow guard allowance (T013b):'
+
+    $routeRoot = New-FixtureDir 'us2-route-root'
+    $routeCheckout = $script:RepoRoot
+    $routeInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $routeRoot } -WorkingDirectory $routeCheckout
+    Assert-Case 'the consumer-route fixture private root initializes' ($routeInit.ExitCode -eq 0) "exit $($routeInit.ExitCode)"
+
+    $routePaths = Invoke-CommonProbe -Expression @"
+`$ticketDir = New-ArtifactTicketWorkspace -TicketId 'DEV-913' -Root '$routeRoot' -RepoRoot '$routeCheckout'
+[pscustomobject]@{
+    ticketDir = `$ticketDir
+    plan = (Join-Path `$ticketDir 'plan.md')
+    brief = (Join-Path `$ticketDir 'brief.md')
+    tasks = (Join-Path `$ticketDir 'tasks.md')
+    checklist = (Join-Path (Join-Path `$ticketDir 'checklists') 'requirements.md')
+    receipt = (Join-Path (Get-ArtifactRunDir -TicketDir `$ticketDir -CommitSha ('d' * 40) -Kind 'receipts') 'receipt.json')
+    evidence = (Join-Path (Get-ArtifactRunDir -TicketDir `$ticketDir -CommitSha ('d' * 40) -Kind 'evidence') 'gate.json')
+    outsideTicket = (Join-Path '$routeRoot' 'LamuFlix/brief.md')
+    otherRepository = (Join-Path '$routeRoot' 'OtherRepo/DEV-913/brief.md')
+    unrelated = (Join-Path '$routeRoot' 'elsewhere/brief.md')
+}
+"@ -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $routeRoot } -WorkingDirectory $routeCheckout
+    Assert-Case 'the consumer-route fixture resolves its private record paths' $routePaths.ok $routePaths.message
+
+    foreach ($routeName in @('plan', 'brief', 'tasks', 'checklist', 'receipt', 'evidence')) {
+        $routePath = $routePaths.value.$routeName
+        foreach ($tool in @('Edit', 'Write')) {
+            $routeExit = Invoke-Guard -Tool $tool -Path $routePath -Cwd $routeCheckout -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $routeRoot }
+            Assert-Case "the real $routeName write route is allowed through the guard ($tool)" ($routeExit -eq 0) "exit $routeExit for $routePath"
+        }
+    }
+
+    foreach ($deniedName in @('outsideTicket', 'otherRepository', 'unrelated')) {
+        $deniedPath = $routePaths.value.$deniedName
+        $deniedExit = Invoke-Guard -Tool 'Edit' -Path $deniedPath -Cwd $routeCheckout -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $routeRoot }
+        Assert-Case "the $deniedName route stays denied" ($deniedExit -eq 2) "exit $deniedExit for $deniedPath"
+    }
+
+    $patchRoute = "*** Begin Patch`n*** Add File: $($routePaths.value.plan)`n*** End Patch"
+    $patchRouteExit = Invoke-Guard -Tool 'apply_patch' -Command $patchRoute -Cwd $routeCheckout -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $routeRoot }
+    Assert-Case 'the real plan route is allowed through an apply-patch' ($patchRouteExit -eq 0) "exit $patchRouteExit"
+
+    $shellRoute = Invoke-Guard -Tool 'Bash' -Command "Set-Content -LiteralPath '$($routePaths.value.plan)' -Value 'x'" -Cwd $routeCheckout -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $routeRoot }
+    Assert-Case 'a shell command gains no private-write route from the allowance' ($shellRoute -eq 0) "exit $shellRoute"
+
+    Write-Host ''
+    Write-Host 'US2 prerequisite stage detection is public/private aware (T015):'
+
+    $stageCheckout = New-FixtureDir 'us2-stage-checkout'
+    New-Item -ItemType Directory -Force -Path (Join-Path $stageCheckout '.specify') | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $stageCheckout '.git') | Out-Null
+    $stageSpecs = Join-Path $stageCheckout 'specs/001-staged'
+    Write-FixtureText -Path (Join-Path $stageSpecs 'spec.md') -Text "# staged spec`n"
+    $stageRoot = Join-Path (New-FixtureDir 'us2-stage-root') 'artifacts'
+    $stageEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $stageRoot; SPECIFY_FEATURE_DIRECTORY = $stageSpecs; SPECIFY_FEATURE = '001-staged' }
+
+    $stagePublic = Invoke-ChildScript -Script $script:CheckPrereqScript -Arguments @('-Json', '-PathsOnly') -Environment $stageEnv -WorkingDirectory $stageCheckout
+    Assert-Case 'prerequisite discovery succeeds without private storage' ($stagePublic.ExitCode -eq 0) "exit $($stagePublic.ExitCode): $($stagePublic.Output)"
+    $stagePayload = Get-JsonPayload -Text $stagePublic.Output
+    Assert-Case 'prerequisite discovery reports the public spec path' ((Get-PayloadValue $stagePayload 'FEATURE_SPEC') -like '*001-staged*') "got $(Get-PayloadValue $stagePayload 'FEATURE_SPEC')"
+    Assert-Case 'prerequisite discovery reports no private availability' ((Get-PayloadValue $stagePayload 'PRIVATE_AVAILABLE') -eq $false) "got $(Get-PayloadValue $stagePayload 'PRIVATE_AVAILABLE')"
+    Assert-Case 'prerequisite discovery creates no private root' (-not (Test-Path -LiteralPath $stageRoot)) 'the private root was created'
+
+    $stageRequired = Invoke-ChildScript -Script $script:CheckPrereqScript -Arguments @('-Json', '-PathsOnly', '-RequirePrivate') -Environment $stageEnv -WorkingDirectory $stageCheckout
+    Assert-Case 'a private-required stage detection fails closed without storage' ($stageRequired.ExitCode -ne 0) "exit $($stageRequired.ExitCode)"
+    Assert-Case 'the private-required failure names the initialization command' ($stageRequired.Output -match 'initialize-artifact-storage\.ps1') $stageRequired.Output
+    Assert-Case 'a private-required failure creates no private root implicitly' (-not (Test-Path -LiteralPath $stageRoot)) 'the private root was created'
+    Assert-Case 'a private-required failure writes no public operational record' (@(Get-ChildItem -LiteralPath $stageSpecs -Recurse -File -Force | ForEach-Object { $_.Name }) -join ',' -eq 'spec.md') (@(Get-ChildItem -LiteralPath $stageSpecs -Recurse -File -Force | ForEach-Object { $_.Name }) -join ',')
+
+    $stageInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize') -Environment $stageEnv -WorkingDirectory $stageCheckout
+    Assert-Case 'the stage fixture root initializes' ($stageInit.ExitCode -eq 0) "exit $($stageInit.ExitCode)"
+    $stageWorkspace = Invoke-CommonProbe -Expression "New-ArtifactTicketWorkspace -TicketId 'DEV-914' -Root '$stageRoot' -RepoRoot '$stageCheckout'" -Environment $stageEnv -WorkingDirectory $stageCheckout
+    Assert-Case 'the stage fixture ticket workspace resolves' $stageWorkspace.ok $stageWorkspace.message
+    Write-FixtureText -Path (Join-Path $stageWorkspace.value 'plan.md') -Text "# private plan`n"
+    $stageTasksEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $stageRoot; SPECIFY_FEATURE_DIRECTORY = (Join-Path $stageCheckout 'specs/DEV-914'); SPECIFY_FEATURE = 'DEV-914' }
+    New-Item -ItemType Directory -Force -Path (Join-Path $stageCheckout 'specs/DEV-914') | Out-Null
+    Write-FixtureText -Path (Join-Path $stageCheckout 'specs/DEV-914/spec.md') -Text "# DEV-914 spec`n"
+
+    $stagePrivate = Invoke-ChildScript -Script $script:CheckPrereqScript -Arguments @('-Json') -Environment $stageTasksEnv -WorkingDirectory $stageCheckout
+    Assert-Case 'stage detection resolves a plan the private directory holds' ($stagePrivate.ExitCode -eq 0) "exit $($stagePrivate.ExitCode): $($stagePrivate.Output)"
+    $privatePlanPayload = Get-JsonPayload -Text $stagePrivate.Output
+    Assert-Case 'stage detection reports the private plan path' ((Get-PayloadValue $privatePlanPayload 'IMPL_PLAN') -like '*DEV-914*plan.md') "got $(Get-PayloadValue $privatePlanPayload 'IMPL_PLAN')"
+    Assert-Case 'stage detection does not require a bootstrap seed proof for a new ticket' ($stagePrivate.ExitCode -eq 0) "exit $($stagePrivate.ExitCode)"
+    Assert-Case 'stage detection performs no migration side effect' (-not (Test-Path -LiteralPath (Join-Path $stageWorkspace.value 'tasks.md') -PathType Leaf)) 'a record was migrated'
+
+    $stageMissingPlan = Invoke-ChildScript -Script $script:CheckPrereqScript -Arguments @('-Json') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $stageRoot; SPECIFY_FEATURE_DIRECTORY = (Join-Path $stageCheckout 'specs/DEV-915'); SPECIFY_FEATURE = 'DEV-915' } -WorkingDirectory $stageCheckout
+    Assert-Case 'a missing plan fails the stage rather than being recreated publicly' ($stageMissingPlan.ExitCode -ne 0) "exit $($stageMissingPlan.ExitCode)"
+    Assert-Case 'no public plan is recreated by stage detection' (-not (Test-Path -LiteralPath (Join-Path $stageCheckout 'specs/DEV-915/plan.md') -PathType Leaf)) 'a public plan was created'
 } finally {
     if (Test-Path -LiteralPath $script:Root) {
         Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue

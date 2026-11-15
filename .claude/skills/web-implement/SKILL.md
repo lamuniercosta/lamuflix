@@ -7,12 +7,12 @@ description: Implement frontend features and components in web/ using a strict T
 
 ## 1. Overview
 
-This skill guides component and UI development within `web/` using test-driven development (TDD) with Vitest and React Testing Library (RTL). All work is derived from `specs/<feature>/tasks.md` and `specs/<feature>/design.md` (when present).
+This skill guides component and UI development within `web/` using test-driven development (TDD) with Vitest and React Testing Library (RTL). All work is derived from the ticket's `tasks.md` and `design.md` (when present). Those are operational records: once the ticket has private artifact storage they live at `<private-root>/<repository-id>/DEV-###/`, so resolve them through `.specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly` instead of assuming they are public.
 
 ## 2. Prerequisites
 
 - Check out the task branch or active worktree.
-- Read `specs/<feature>/tasks.md` and any UI contract in `specs/<feature>/design.md`.
+- Read the ticket `tasks.md` and any UI contract in `design.md`, both resolved through `.specify/scripts/powershell/check-prerequisites.ps1 -Json -PathsOnly`.
 - Inspect API contracts in `web/src/api/` and `web/src/api/types.ts`.
 
 ## 3. The TDD Loop (Red -> Green -> Refactor)
