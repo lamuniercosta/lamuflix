@@ -6,10 +6,13 @@ import type { components } from '../api/types';
 import FilterPanel from '../features/library/FilterPanel';
 import {
   currentYearExtent,
+  DEFAULT_DIRECTION,
+  DEFAULT_SORT,
   isRatingActive,
   isRuntimeActive,
   isYearActive,
   parseFilterQuery,
+  parseSortSelection,
   RATING_MAX_EXTENT,
   RATING_MIN_EXTENT,
   RUNTIME_MAX_EXTENT,
@@ -22,6 +25,7 @@ import {
 import type { FilterQuery } from '../features/library/filterQuery';
 import { buildBrowseParams } from './browseParams';
 import LibraryErrorBoundary from './LibraryErrorBoundary';
+import { actorPeopleParams } from './peopleQuery';
 import { useBrowseMoviesQuery } from './libraryQueries';
 import type { BrowseMoviesQueryError } from './libraryQueries';
 import LibraryTile from './LibraryTile';
@@ -208,7 +212,7 @@ const SORT_LABELS: Record<string, string> = Object.fromEntries(
   SORT_OPTIONS.map((option) => [`${option.sort}|${option.direction}`, option.label]),
 );
 
-const DEFAULT_SORT_VALUE = 'Title|Ascending';
+const DEFAULT_SORT_VALUE = `${DEFAULT_SORT}|${DEFAULT_DIRECTION}`;
 
 function sortValueOf(sort: unknown, direction: unknown): string {
   const value = `${String(sort)}|${String(direction)}`;
@@ -304,7 +308,7 @@ function LibraryBrowseView({
     queryKey: ['people', 'actor'],
     queryFn: async () => {
       const { data, error } = await client.GET('/api/people', {
-        params: { query: { role: 'actor' } as unknown as Record<string, unknown> },
+        params: actorPeopleParams(),
       });
       if (error) {
         throw new Error('Cast could not be loaded.');
@@ -404,10 +408,13 @@ function LibraryBrowseView({
 
   const handleSortChange = useCallback(
     (value: string) => {
-      const [sort, direction] = value.split('|');
+      const selection = parseSortSelection(value);
+      if (!selection) {
+        return;
+      }
       const next = parseFilterQuery(query);
-      next.sort = sort;
-      next.direction = direction;
+      next.sort = selection.sort;
+      next.direction = selection.direction;
       next.page = 1;
       onQueryChange(next);
     },

@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
-import { browseMovies } from '../mocks/fixtures';
+import { browseMovies, people as successPeople } from '../mocks/fixtures';
 import { server } from '../test/server';
 import LibraryErrorBoundary from './LibraryErrorBoundary';
 import LibraryView from './LibraryView';
@@ -120,6 +120,22 @@ describe('LibraryView composition', () => {
 
     await screen.findByText('Dune');
     expect(observed).toBe('text=dune&genreIds=1&sort=Title&direction=Ascending&page=1&pageSize=20');
+  });
+
+  it('requests the people lookup with role=actor through the shared helper', async () => {
+    const recorded: (string | null)[] = [];
+    server.use(
+      http.get('*/api/people', ({ request }) => {
+        recorded.push(new URL(request.url).searchParams.get('role'));
+        return HttpResponse.json(successPeople);
+      }),
+    );
+
+    renderLibraryView();
+    await screen.findByText('Dune');
+
+    await waitFor(() => expect(recorded.length).toBeGreaterThan(0));
+    recorded.forEach((role) => expect(role).toBe('actor'));
   });
 
   it('shows loading frames and stable controls before movie data resolves', async () => {

@@ -21,6 +21,8 @@ import {
   toUrlQuery,
   YEAR_MIN_EXTENT,
   type FilterQuery,
+  type LibraryDirection,
+  type LibrarySort,
 } from './filterQuery';
 import { useDebouncedSearch } from './useDebouncedSearch';
 import './filterPanel.css';
@@ -65,7 +67,7 @@ const STATUS_OPTIONS = [
   { label: 'Failed', wire: 'Failed' },
 ] as const;
 
-const SORT_FIELDS = ['Title', 'Year', 'Rating', 'Runtime'] as const;
+const SORT_FIELDS: readonly LibrarySort[] = ['Title', 'Year', 'Rating', 'Runtime'];
 const CAST_SUGGESTION_LIMIT = 8;
 const DIRECTOR_SUGGESTION_LIMIT = 8;
 const COLLECTION_FIND_THRESHOLD = 8;
@@ -331,7 +333,7 @@ export function FilterPanel(props: FilterPanelProps) {
   const ratingMinText = ratingMinValue.toFixed(1);
   const ratingMaxText = ratingMaxValue.toFixed(1);
   const selectedStatuses = new Set(query.statuses.map(String));
-  const direction = query.direction === 'Descending' ? 'Descending' : 'Ascending';
+  const direction: LibraryDirection = query.direction === 'Descending' ? 'Descending' : 'Ascending';
   const genreFailed = Boolean(props.genreError ?? props.genresError);
   const collectionFailed = Boolean(props.collectionError ?? props.collectionsError);
   const collectionHealthyEmpty = sortedCollections.length === 0 && !collectionFailed;
@@ -435,7 +437,7 @@ export function FilterPanel(props: FilterPanelProps) {
       next.statuses = on ? [...next.statuses, wire] : next.statuses.filter((item) => item !== wire);
     });
 
-  const setSort = (field: string) =>
+  const setSort = (field: LibrarySort) =>
     update((next) => {
       next.sort = field;
     });
