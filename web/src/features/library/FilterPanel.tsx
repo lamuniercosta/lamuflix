@@ -1,12 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type KeyboardEvent,
-} from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { components } from '../../api/types';
 import { CloseIcon } from '../../ui/icons';
 import {
@@ -24,7 +16,10 @@ import {
   type LibraryDirection,
   type LibrarySort,
 } from './filterQuery';
-import { useDebouncedSearch } from './useDebouncedSearch';
+import { DualRangeField } from './DualRangeField';
+import { FilterFacetCombobox, type FacetOption } from './FilterFacetCombobox';
+import { FilterSearchField } from './FilterSearchField';
+import { FilterSortControls } from './FilterSortControls';
 import { subscribeToRouteChange } from '../app-navigation/appNavigation';
 import './filterPanel.css';
 
@@ -68,7 +63,6 @@ const STATUS_OPTIONS = [
   { label: 'Failed', wire: 'Failed' },
 ] as const;
 
-const SORT_FIELDS: readonly LibrarySort[] = ['Title', 'Year', 'Rating', 'Runtime'];
 const CAST_SUGGESTION_LIMIT = 8;
 const DIRECTOR_SUGGESTION_LIMIT = 8;
 const COLLECTION_FIND_THRESHOLD = 8;
@@ -98,71 +92,12 @@ function sortCollections<T extends { id?: string | number; name?: string | null 
   });
 }
 
-interface RangeThumb {
-  id: string;
-  accessibleName: string;
-  valueText: string;
-  value: number;
-  onValueChange: (value: string) => void;
-}
-
-interface DualRangeFieldProps {
-  min: number;
-  max: number;
-  step: number;
-  low: RangeThumb;
-  high: RangeThumb;
-}
-
-// Two overlapping range inputs share one track; each thumb is clamped so the
-// pair can never cross, and the amber fill spans the selected interval.
-function DualRangeField({ min, max, step, low, high }: DualRangeFieldProps) {
-  const span = max - min || 1;
-  const fill = {
-    '--range-from': (low.value - min) / span,
-    '--range-to': (high.value - min) / span,
-  } as CSSProperties;
-  // Keep the low thumb reachable when both thumbs meet near the top end.
-  const lowOnTop = low.value > min + span / 2;
-  return (
-    <div className="lamu-range-field">
-      <div className="lamu-range-caption" aria-hidden="true">
-        <span>{low.valueText}</span>
-        <span>{high.valueText}</span>
-      </div>
-      <div className="lamu-dual-range" style={fill}>
-        <input
-          id={low.id}
-          type="range"
-          className="lamu-range"
-          aria-label={low.accessibleName}
-          min={min}
-          max={max}
-          step={step}
-          value={low.value}
-          style={lowOnTop ? { zIndex: 2 } : undefined}
-          onChange={(event) =>
-            low.onValueChange(String(Math.min(Number(event.target.value), high.value)))
-          }
-        />
-        <input
-          id={high.id}
-          type="range"
-          className="lamu-range"
-          aria-label={high.accessibleName}
-          min={min}
-          max={max}
-          step={step}
-          value={high.value}
-          onChange={(event) =>
-            high.onValueChange(String(Math.max(Number(event.target.value), low.value)))
-          }
-        />
-      </div>
-    </div>
-  );
-}
-
+/**
+ * Orchestration shell: owns query mutation and URL synchronization, the
+ * current-year snapshot, normalized facets, the rating/runtime/release-year
+ * fieldsets and the public query/callback interface. Cohesive sections live in
+ * the sibling modules and are remounted (via `key`) when the shell resyncs.
+ */
 export function FilterPanel(props: FilterPanelProps) {
   const {
     query: queryProp,
@@ -185,6 +120,7 @@ export function FilterPanel(props: FilterPanelProps) {
   const directorInputId = `${ids}-director`;
   const directorListId = `${ids}-director-list`;
   const directorOptionId = (index: number) => `${ids}-director-option-${index}`;
+  const collectionFindId = `${ids}-collection-find`;
   const runtimeMinId = `${ids}-runtime-min`;
   const runtimeMaxId = `${ids}-runtime-max`;
   const yearMinId = `${ids}-year-min`;
@@ -196,6 +132,26 @@ export function FilterPanel(props: FilterPanelProps) {
   const [internalQuery, setInternalQuery] = useState<FilterQuery>(() => readQuery(queryProp));
   const [currentYear] = useState(() => currentYearExtent(new Date()));
   const query = isControlled ? readQuery(queryProp) : internalQuery;
+
+  const queryRef = useRef(query);
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+
+  // Bumped on every resync and on Clear all. The search sibling takes it as its
+  // key, so remounting drops its local draft and any pending debounced commit.
+  const [draftEpoch, setDraftEpoch] = useState(0);
+  // Clear all also empties the facet drafts; navigation leaves them alone.
+  const [clearEpoch, setClearEpoch] = useState(0);
+  // The draft seed the search sibling mounts with, so a resync shows the URL text
+  // even when the shell is controlled and its query has not caught up yet.
+  const [searchSeed, setSearchSeed] = useState(() => String(readQuery(queryProp).text ?? ''));
+  const queryText = String(query.text ?? '');
+  const [prevQueryText, setPrevQueryText] = useState(queryText);
+  if (queryText !== prevQueryText) {
+    setPrevQueryText(queryText);
+    setSearchSeed(queryText);
+  }
 
   const sortedGenres = useMemo(() => sortByName(props.genres ?? []), [props.genres]);
   const sortedCollections = useMemo(
@@ -233,71 +189,37 @@ export function FilterPanel(props: FilterPanelProps) {
     commit(next);
   };
 
-  const queryRef = useRef(query);
-  const castInputRef = useRef<HTMLInputElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    queryRef.current = query;
-  }, [query]);
-
-  const [searchText, setSearchText] = useState(String(query.text ?? ''));
-  const [prevQueryText, setPrevQueryText] = useState(query.text);
-  if (query.text !== prevQueryText) {
-    setPrevQueryText(query.text);
-    setSearchText(String(query.text ?? ''));
-  }
-  const commitSearchText = useDebouncedSearch((value: string) => {
-    const next = parseFilterQuery(queryRef.current);
-    next.text = value;
-    commit(next);
-  });
-  const cancelSearchText = commitSearchText.cancel;
-
-  useEffect(() => {
-    cancelSearchText();
-  }, [routeKey, cancelSearchText]);
-
   useEffect(() => {
     if (integrated) {
       return;
     }
     const resync = () => {
-      cancelSearchText();
       const fromUrl = parseFilterQuery(window.location.search);
-      setSearchText(String(fromUrl.text ?? ''));
       if (!isControlled) {
         setInternalQuery(fromUrl);
       }
+      setSearchSeed(String(fromUrl.text ?? ''));
+      setDraftEpoch((epoch) => epoch + 1);
     };
     return subscribeToRouteChange(resync);
-  }, [integrated, isControlled, cancelSearchText]);
+  }, [integrated, isControlled]);
 
-  const [castText, setCastText] = useState('');
   const [collectionText, setCollectionText] = useState('');
-  const [directorText, setDirectorText] = useState('');
-  const [directorActiveIndex, setDirectorActiveIndex] = useState(-1);
-  const directorInputRef = useRef<HTMLInputElement>(null);
+  const [castFocusSignal, setCastFocusSignal] = useState(0);
+  const [directorFocusSignal, setDirectorFocusSignal] = useState(0);
 
   const selectedDirectorId =
     query.directorId == null || String(query.directorId) === '' ? '' : String(query.directorId);
   const selectedDirector = sortedDirectors.find((item) => String(item.id) === selectedDirectorId);
   const directorFailed = Boolean(props.directorError ?? props.directorsError);
-  const directorNeedle = directorText.trim().toLowerCase();
-  const directorSuggestions =
-    directorNeedle === '' || props.directorLoading || directorFailed
+  const directorOptions: FacetOption[] =
+    props.directorLoading || directorFailed
       ? []
-      : sortedDirectors
-          .filter((item) =>
-            String(item.name ?? '')
-              .toLowerCase()
-              .includes(directorNeedle),
-          )
-          .slice(0, DIRECTOR_SUGGESTION_LIMIT);
-  const directorListOpen = directorSuggestions.length > 0;
-  const activeDirectorId =
-    directorListOpen && directorActiveIndex >= 0 && directorActiveIndex < directorSuggestions.length
-      ? directorOptionId(directorActiveIndex)
-      : undefined;
+      : sortedDirectors.map((item) => ({
+          id: item.id,
+          name: String(item.name ?? ''),
+          count: item.movieCount,
+        }));
 
   const selectedGenreIds = new Set(query.genreIds.map(String));
   const selectedActorIds = new Set(query.actorIds.map(String));
@@ -305,19 +227,9 @@ export function FilterPanel(props: FilterPanelProps) {
     id,
     name: actorNameById.get(String(id)) ?? `Unknown cast member ${String(id)}`,
   }));
-  const castNeedle = castText.trim().toLowerCase();
-  const castSuggestions =
-    castNeedle === ''
-      ? []
-      : sortedActors
-          .filter(
-            (actor) =>
-              !selectedActorIds.has(String(actor.id)) &&
-              String(actor.name ?? '')
-                .toLowerCase()
-                .includes(castNeedle),
-          )
-          .slice(0, CAST_SUGGESTION_LIMIT);
+  const castOptions: FacetOption[] = sortedActors
+    .filter((actor) => !selectedActorIds.has(String(actor.id)))
+    .map((actor) => ({ id: actor.id, name: String(actor.name ?? '') }));
 
   const runtimeMinValue = numberOr(query.runtimeMin, RUNTIME_MIN_EXTENT);
   const runtimeMaxValue = numberOr(query.runtimeMax, RUNTIME_MAX_EXTENT);
@@ -362,7 +274,6 @@ export function FilterPanel(props: FilterPanelProps) {
     });
 
   const addActor = (id: string | number) => {
-    setCastText('');
     update((next) => {
       next.actorIds = [...next.actorIds, id];
     });
@@ -373,63 +284,21 @@ export function FilterPanel(props: FilterPanelProps) {
       next.actorIds = next.actorIds.filter((item) => String(item) !== String(id));
     });
     // The focused remove button unmounts with its chip; keep focus in the cast group.
-    castInputRef.current?.focus();
+    setCastFocusSignal((signal) => signal + 1);
   };
 
   const selectDirector = (id: string | number) => {
-    setDirectorText('');
-    setDirectorActiveIndex(-1);
     update((next) => {
       next.directorId = String(id);
     });
-    directorInputRef.current?.focus();
+    setDirectorFocusSignal((signal) => signal + 1);
   };
 
   const clearDirector = () => {
-    setDirectorText('');
-    setDirectorActiveIndex(-1);
     update((next) => {
       next.directorId = '';
     });
-    directorInputRef.current?.focus();
-  };
-
-  const handleDirectorKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      if (directorSuggestions.length === 0) {
-        return;
-      }
-      event.preventDefault();
-      setDirectorActiveIndex((current) => {
-        if (current < 0) {
-          return 0;
-        }
-        if (event.key === 'ArrowDown') {
-          return Math.min(current + 1, directorSuggestions.length - 1);
-        }
-        return Math.max(current - 1, 0);
-      });
-      return;
-    }
-
-    if (event.key === 'Enter') {
-      if (activeDirectorId === undefined) {
-        return;
-      }
-      event.preventDefault();
-      const suggestion = directorSuggestions[directorActiveIndex];
-      if (suggestion) {
-        selectDirector(suggestion.id);
-      }
-      return;
-    }
-
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      setDirectorText('');
-      setDirectorActiveIndex(-1);
-      directorInputRef.current?.focus();
-    }
+    setDirectorFocusSignal((signal) => signal + 1);
   };
 
   const toggleStatus = (wire: string, on: boolean) =>
@@ -448,11 +317,10 @@ export function FilterPanel(props: FilterPanelProps) {
     });
 
   const handleClear = () => {
-    cancelSearchText();
-    setSearchText('');
-    setCastText('');
-    setDirectorText('');
-    setDirectorActiveIndex(-1);
+    setSearchSeed('');
+    setDraftEpoch((epoch) => epoch + 1);
+    setClearEpoch((epoch) => epoch + 1);
+    setCollectionText('');
     update((next) => {
       next.text = '';
       next.genreIds = [];
@@ -471,47 +339,21 @@ export function FilterPanel(props: FilterPanelProps) {
     onClear?.();
   };
 
-  const handleSearchClear = () => {
-    cancelSearchText();
-    setSearchText('');
-    update((next) => {
-      next.text = '';
-    });
-    searchInputRef.current?.focus();
+  const commitSearchText = (value: string) => {
+    const next = parseFilterQuery(queryRef.current);
+    next.text = value;
+    commit(next);
   };
 
   return (
     <section className="lamu-filter-panel" aria-label="Filters">
       {showTitleSearch ? (
-        <div className="lamu-filter-group">
-          <label htmlFor={searchId} className="lamu-filter-sublabel">
-            Search titles
-          </label>
-          <div className="lamu-filter-search">
-            <input
-              ref={searchInputRef}
-              id={searchId}
-              type="search"
-              className="lamu-field-input"
-              placeholder="Search titles"
-              value={searchText}
-              onChange={(event) => {
-                setSearchText(event.target.value);
-                commitSearchText.schedule(event.target.value);
-              }}
-            />
-            {searchText === '' ? null : (
-              <button
-                type="button"
-                className="lamu-filter-search-clear"
-                aria-label="Clear search"
-                onClick={handleSearchClear}
-              >
-                <CloseIcon size={14} />
-              </button>
-            )}
-          </div>
-        </div>
+        <FilterSearchField
+          key={`search-${routeKey ?? 'none'}-${draftEpoch}`}
+          inputId={searchId}
+          text={searchSeed}
+          onCommit={commitSearchText}
+        />
       ) : null}
 
       <fieldset className="lamu-filter-group">
@@ -578,78 +420,32 @@ export function FilterPanel(props: FilterPanelProps) {
             </span>
           </div>
         ) : null}
-        <label htmlFor={directorInputId} className="sr-only">
-          Director
-        </label>
-        <input
-          ref={directorInputRef}
-          id={directorInputId}
-          type="search"
-          role="combobox"
-          className="lamu-filter-find"
+        <FilterFacetCombobox
+          key={`director-${clearEpoch}`}
+          kind="combobox"
+          inputId={directorInputId}
+          label="Director"
           placeholder="Search directors"
-          autoComplete="off"
-          aria-autocomplete="list"
-          aria-expanded={directorListOpen}
-          aria-controls={directorListOpen ? directorListId : undefined}
-          aria-activedescendant={activeDirectorId}
-          value={directorText}
-          onChange={(event) => {
-            setDirectorText(event.target.value);
-            setDirectorActiveIndex(-1);
-          }}
-          onKeyDown={handleDirectorKeyDown}
-          onBlur={(event) => {
-            const group = event.currentTarget.closest('fieldset');
-            if (
-              group &&
-              event.relatedTarget instanceof Node &&
-              group.contains(event.relatedTarget)
-            ) {
-              return;
-            }
-            setDirectorText('');
-            setDirectorActiveIndex(-1);
-          }}
+          listId={directorListId}
+          optionId={directorOptionId}
+          options={directorOptions}
+          limit={DIRECTOR_SUGGESTION_LIMIT}
+          onSelect={(option) => selectDirector(option.id)}
+          focusSignal={directorFocusSignal}
+          emptyMessage={props.directorLoading ? undefined : 'No directors found'}
+          status={
+            props.directorLoading ? (
+              <p className="lamu-filter-note">Loading directors</p>
+            ) : directorFailed ? (
+              <div className="lamu-filter-note">
+                <p className="lamu-filter-error">Could not load directors</p>
+                <button type="button" className="lamu-link" onClick={props.onRetryDirectors}>
+                  Retry
+                </button>
+              </div>
+            ) : null
+          }
         />
-        <div aria-live="polite">
-          {props.directorLoading ? (
-            <p className="lamu-filter-note">Loading directors</p>
-          ) : directorFailed ? (
-            <div className="lamu-filter-note">
-              <p className="lamu-filter-error">Could not load directors</p>
-              <button type="button" className="lamu-link" onClick={props.onRetryDirectors}>
-                Retry
-              </button>
-            </div>
-          ) : directorListOpen ? (
-            <ul id={directorListId} role="listbox" className="lamu-filter-options">
-              {directorSuggestions.map((item, index) => (
-                <li
-                  key={String(item.id)}
-                  id={directorOptionId(index)}
-                  role="option"
-                  aria-selected={directorActiveIndex === index}
-                  className={
-                    directorActiveIndex === index
-                      ? 'lamu-filter-option lamu-filter-option-active'
-                      : 'lamu-filter-option'
-                  }
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => selectDirector(item.id)}
-                >
-                  <span className="lamu-filter-row-name">{item.name}</span>
-                  <span className="lamu-filter-row-count" aria-hidden="true">
-                    {item.movieCount}
-                  </span>
-                  <span className="sr-only">, {item.movieCount} movies</span>
-                </li>
-              ))}
-            </ul>
-          ) : directorNeedle !== '' ? (
-            <p className="lamu-filter-note">No directors found</p>
-          ) : null}
-        </div>
       </fieldset>
 
       <fieldset className="lamu-filter-group">
@@ -677,39 +473,20 @@ export function FilterPanel(props: FilterPanelProps) {
                 ))}
               </ul>
             ) : null}
-            <label htmlFor={castInputId} className="sr-only">
-              Add a cast member
-            </label>
-            <input
-              ref={castInputRef}
-              id={castInputId}
-              type="search"
-              className="lamu-filter-find"
+            <FilterFacetCombobox
+              key={`cast-${clearEpoch}`}
+              kind="suggestions"
+              inputId={castInputId}
+              label="Add a cast member"
               placeholder="Type a name"
-              autoComplete="off"
-              value={castText}
-              aria-controls={castListId}
-              onChange={(event) => setCastText(event.target.value)}
+              listId={castListId}
+              listLabel="Cast suggestions"
+              options={castOptions}
+              limit={CAST_SUGGESTION_LIMIT}
+              onSelect={(option) => addActor(option.id)}
+              focusSignal={castFocusSignal}
+              emptyMessage="No matching cast members."
             />
-            <div id={castListId} aria-live="polite">
-              {castNeedle === '' ? null : castSuggestions.length > 0 ? (
-                <ul className="lamu-filter-options" aria-label="Cast suggestions">
-                  {castSuggestions.map((actor) => (
-                    <li key={String(actor.id)}>
-                      <button
-                        type="button"
-                        className="lamu-filter-option"
-                        onClick={() => addActor(actor.id)}
-                      >
-                        {actor.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="lamu-filter-note">No matching cast members.</p>
-              )}
-            </div>
           </>
         )}
       </fieldset>
@@ -851,14 +628,15 @@ export function FilterPanel(props: FilterPanelProps) {
           ) : (
             <>
               {sortedCollections.length > COLLECTION_FIND_THRESHOLD ? (
-                <input
-                  type="search"
-                  className="lamu-filter-find"
-                  aria-label="Find a collection"
+                <FilterFacetCombobox
+                  key={`collection-${clearEpoch}`}
+                  kind="filter"
+                  inputId={collectionFindId}
+                  label="Find a collection"
                   placeholder="Find a collection"
-                  autoComplete="off"
-                  value={collectionText}
-                  onChange={(event) => setCollectionText(event.target.value)}
+                  options={[]}
+                  onSelect={() => undefined}
+                  onDraftChange={setCollectionText}
                 />
               ) : null}
               <div className="lamu-filter-rows">
@@ -892,28 +670,12 @@ export function FilterPanel(props: FilterPanelProps) {
       )}
 
       {showSort ? (
-        <fieldset className="lamu-filter-group">
-          <legend className="lamu-filter-legend">Sort</legend>
-          <div className="lamu-chip-row">
-            {SORT_FIELDS.map((field) => (
-              <button
-                key={field}
-                type="button"
-                className="lamu-chip"
-                aria-pressed={query.sort === field}
-                onClick={() => setSort(field)}
-              >
-                {field}
-              </button>
-            ))}
-            <button type="button" className="lamu-chip" onClick={toggleDirection}>
-              {direction}
-            </button>
-          </div>
-          <p className="lamu-filter-note">
-            Titles with no value for the chosen sort are listed last.
-          </p>
-        </fieldset>
+        <FilterSortControls
+          sort={String(query.sort)}
+          direction={direction}
+          onSortChange={setSort}
+          onDirectionToggle={toggleDirection}
+        />
       ) : null}
 
       {showFooter ? (

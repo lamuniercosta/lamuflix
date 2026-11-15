@@ -1,16 +1,9 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import type { components } from '../../api/types';
 import { MovieFeedbackActions } from '../../library/MovieFeedbackActions';
 import { useAmbientPosters } from '../../ui/ambient';
-import {
-  ArrowRightIcon,
-  CopyIcon,
-  ExternalLinkIcon,
-  FilmIcon,
-  PlayFilledIcon,
-  StarFilledIcon,
-} from '../../ui/icons';
+import { PlayFilledIcon, StarFilledIcon } from '../../ui/icons';
 import { navigate, openMovie } from '../app-navigation/appNavigation';
 import { readPlayerIntent, readReturnUrl } from '../app-navigation/useAppNavigation';
 import BrowserPlayer from '../playback/BrowserPlayer';
@@ -32,34 +25,31 @@ import {
   type MovieDetails,
   type MovieMetadata,
 } from './movieDetailsApi';
-import { libraryHrefForActors, matchPersonIds } from './movieDetailsLabels';
+import { matchPersonIds } from './movieDetailsLabels';
 import {
   EnrichmentRequestError,
   useDetailsEnrichmentBridge,
   useLibraryEnrichmentStatus,
-  useMoreWithActors,
   usePeopleLookup,
   useRequestEnrichment,
   type EnrichmentStatus,
 } from './movieDetailsQueries';
-import MatchManuallyDialog from './MatchManuallyDialog';
+import CastSection from './CastSection';
+import FileSection from './FileSection';
+import ManualMatchControl from './ManualMatchControl';
+import MoreWithPanel from './MoreWithPanel';
+import MoviePoster from './MoviePoster';
 import RelatedMovies from './RelatedMovies';
 import TrailerSection from './TrailerSection';
 import type { EnrichmentStatusSubscription } from '../../library/useEnrichmentStatus';
 import './MovieDetailsView.css';
 
 type PersonDto = components['schemas']['PersonDto'];
-type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type ActorId = number | string;
-type CopyState = 'idle' | 'copied' | 'failed';
 
 export interface MovieDetailsViewProps {
   movieId: number | string;
   enrichmentStatus?: EnrichmentStatusSubscription;
-}
-
-function openDetails(id: ActorId): void {
-  openMovie(id, { returnUrl: readReturnUrl(window.history.state) });
 }
 
 function factsLine(metadata: MovieMetadata | null): string {
@@ -82,63 +72,6 @@ function enrichmentRequestMessage(error: EnrichmentRequestError): string {
   if (error.status === 409) return 'A metadata lookup is already running for this movie.';
   if (error.status === 404) return 'This movie is no longer in the library.';
   return "Couldn't request metadata. Try again later.";
-}
-
-function Poster({ title, posterUrl }: { title: string; posterUrl: string | null }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  if (posterUrl && posterUrl !== failedUrl) {
-    return (
-      <img
-        className="details-poster"
-        src={posterUrl}
-        alt={`${title} poster`}
-        onError={() => setFailedUrl(posterUrl)}
-      />
-    );
-  }
-  return (
-    <div
-      className="details-poster details-poster-placeholder"
-      role="img"
-      aria-label={`${title} poster`}
-    >
-      <FilmIcon size={48} />
-    </div>
-  );
-}
-
-function MatchManuallyControl({
-  movieId,
-  libraryClient,
-  className,
-}: {
-  movieId: ActorId;
-  libraryClient: QueryClient;
-  className: string;
-}) {
-  const [matchOpen, setMatchOpen] = useState(false);
-  const matchTriggerRef = useRef<HTMLButtonElement>(null);
-  const closeMatch = () => {
-    setMatchOpen(false);
-    matchTriggerRef.current?.focus();
-  };
-  return (
-    <>
-      <button
-        ref={matchTriggerRef}
-        type="button"
-        className={className}
-        aria-haspopup="dialog"
-        aria-expanded={matchOpen}
-        onClick={() => setMatchOpen(true)}
-      >
-        Match manually
-      </button>
-      {matchOpen && (
-        <MatchManuallyDialog movieId={movieId} libraryClient={libraryClient} onClose={closeMatch} />
-      )}
-    </>
-  );
 }
 
 function NoMetadata({
@@ -169,7 +102,7 @@ function NoMetadata({
         </button>
       )}
       {canMatch && (
-        <MatchManuallyControl
+        <ManualMatchControl
           movieId={movieId}
           libraryClient={libraryClient}
           className="lamu-pill-button"
@@ -186,216 +119,6 @@ function NoMetadata({
         </p>
       )}
     </div>
-  );
-}
-
-function CastSection({
-  actors,
-  people,
-  selected,
-  onSelect,
-}: {
-  actors: string[];
-  people: readonly PersonDto[];
-  selected: string | null;
-  onSelect: (name: string) => void;
-}) {
-  const headingId = useId();
-  return (
-    <section className="details-section" aria-labelledby={headingId}>
-      <h2 id={headingId} className="details-section-heading">
-        Cast
-      </h2>
-      <ul className="details-cast-list">
-        {actors.map((name, index) => {
-          const key = `${index}-${name}`;
-          if (matchPersonIds(name, people).length === 0) {
-            return (
-              <li key={key} className="details-cast-plain">
-                {name}
-              </li>
-            );
-          }
-          return (
-            <li key={key}>
-              <button
-                type="button"
-                className="lamu-chip"
-                aria-pressed={selected === name}
-                onClick={() => onSelect(name)}
-              >
-                {name}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-function MorePosterCard({ item }: { item: MovieSummary }) {
-  const [posterFailed, setPosterFailed] = useState(false);
-  const href = `/movies/${String(item.id)}`;
-  const open = (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-    openDetails(item.id);
-  };
-  const rating = item.imdbRating != null ? formatRating(item.imdbRating) : null;
-  return (
-    <li className="details-more-card">
-      <a
-        className="details-more-poster"
-        href={href}
-        tabIndex={-1}
-        aria-hidden="true"
-        onClick={open}
-      >
-        {item.posterUrl && !posterFailed ? (
-          <img src={item.posterUrl} alt="" loading="lazy" onError={() => setPosterFailed(true)} />
-        ) : (
-          <span className="details-more-placeholder">
-            <FilmIcon size={28} />
-          </span>
-        )}
-      </a>
-      <a className="details-more-title" href={href} onClick={open}>
-        {item.title}
-      </a>
-      <p className="details-more-meta">
-        {item.enrichmentStatus === 'Enriched' ? (
-          <>
-            {rating ? (
-              <>
-                <StarFilledIcon size={12} className="details-more-star" />
-                <span className="sr-only">IMDb </span>
-                {rating}
-              </>
-            ) : (
-              '—'
-            )}
-            <span aria-hidden="true"> | </span>
-            {item.releaseYear ?? '—'}
-          </>
-        ) : (
-          'No metadata yet'
-        )}
-      </p>
-    </li>
-  );
-}
-
-function MoreWithPanel({
-  actor,
-  actorIds,
-  movieId,
-}: {
-  actor: string;
-  actorIds: ActorId[];
-  movieId: ActorId;
-}) {
-  const headingId = useId();
-  const more = useMoreWithActors(actorIds, actorIds.length > 0);
-  const libraryHref = libraryHrefForActors(actorIds);
-  const rows = (more.data ?? []).filter((item) => String(item.id) !== String(movieId));
-  return (
-    <section className="details-section details-more" aria-labelledby={headingId}>
-      <div className="details-section-head">
-        <h2 id={headingId} className="details-section-heading">
-          {`More with ${actor} in your library`}
-        </h2>
-        <a
-          className="lamu-link"
-          href={libraryHref}
-          onClick={(event) => {
-            event.preventDefault();
-            navigate(libraryHref);
-          }}
-        >
-          {`See all with ${actor} in Library`}
-          <ArrowRightIcon size={14} />
-        </a>
-      </div>
-      {more.isPending && (
-        <p role="status" className="details-status">
-          Loading movies…
-        </p>
-      )}
-      {more.isError && (
-        <p role="alert" className="details-status">
-          Couldn&apos;t load more movies. Try again later.
-        </p>
-      )}
-      {more.isSuccess && rows.length === 0 && (
-        <p className="details-status">{`No other movies with ${actor} in your library yet.`}</p>
-      )}
-      {rows.length > 0 && (
-        <ul className="details-more-row">
-          {rows.map((item) => (
-            <MorePosterCard key={String(item.id)} item={item} />
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function FileSection({
-  path,
-  imdbId,
-  movieId,
-  libraryClient,
-  showMatch,
-}: {
-  path: string;
-  imdbId: string | null;
-  movieId: ActorId;
-  libraryClient: QueryClient;
-  showMatch: boolean;
-}) {
-  const headingId = useId();
-  const [copyState, setCopyState] = useState<CopyState>('idle');
-  const copyPath = async () => {
-    try {
-      await navigator.clipboard.writeText(path);
-      setCopyState('copied');
-    } catch {
-      setCopyState('failed');
-    }
-  };
-  return (
-    <section className="details-section details-file" aria-labelledby={headingId}>
-      <h2 id={headingId} className="details-section-heading">
-        File
-      </h2>
-      <p className="details-path">{path}</p>
-      <div className="details-file-actions">
-        <button type="button" className="lamu-link" onClick={() => void copyPath()}>
-          <CopyIcon size={16} />
-          Copy path
-        </button>
-        {copyState === 'copied' && <span role="status">Copied</span>}
-        {copyState === 'failed' && <span role="alert">Couldn&apos;t copy the path.</span>}
-        {imdbId && (
-          <a
-            className="lamu-link"
-            href={`https://www.imdb.com/title/${imdbId}/`}
-            target="_blank"
-            rel="noopener"
-          >
-            View on IMDb
-            <ExternalLinkIcon size={16} />
-          </a>
-        )}
-        {showMatch && (
-          <MatchManuallyControl
-            movieId={movieId}
-            libraryClient={libraryClient}
-            className="lamu-link"
-          />
-        )}
-      </div>
-    </section>
   );
 }
 
@@ -422,6 +145,11 @@ interface MovieDetailsViewInnerProps extends MovieDetailsViewProps {
   libraryClient: QueryClient;
 }
 
+/**
+ * Orchestration shell: owns route/loading/refresh, the details client, local-play
+ * request/result/in-flight state, the selected actor, and the removal dialog and
+ * its focus. Cohesive presentation lives in the sibling modules.
+ */
 function MovieDetailsViewInner({
   movieId,
   enrichmentStatus,
@@ -468,6 +196,11 @@ function MovieDetailsViewInner({
   const removeConfirmRef = useRef<HTMLButtonElement>(null);
   const stripPromptId = useId();
   const [selectedActor, setSelectedActor] = useState<string | null>(null);
+
+  // Navigation callbacks handed to the sibling modules; they never touch history.
+  const openDetails = useCallback((id: ActorId) => {
+    openMovie(id, { returnUrl: readReturnUrl(window.history.state) });
+  }, []);
 
   const closeRemove = useCallback(() => {
     setRemoveOpen(false);
@@ -581,7 +314,7 @@ function MovieDetailsViewInner({
   return (
     <article className="details">
       <div className="details-hero">
-        <Poster title={movie.title} posterUrl={posterUrl} />
+        <MoviePoster title={movie.title} posterUrl={posterUrl} />
         <div className="details-summary">
           <h1 className="details-title">{movie.title}</h1>
           <p className="details-format">{movie.format}</p>
@@ -717,7 +450,13 @@ function MovieDetailsViewInner({
       </div>
 
       {selectedActor && selectedIds.length > 0 && (
-        <MoreWithPanel actor={selectedActor} actorIds={selectedIds} movieId={movieId} />
+        <MoreWithPanel
+          actor={selectedActor}
+          actorIds={selectedIds}
+          movieId={movieId}
+          onOpenMovie={openDetails}
+          onNavigate={navigate}
+        />
       )}
       <TrailerSection title={movie.title} metadata={metadata} />
       <RelatedMovies movieId={movieId} libraryClient={libraryClient} />
