@@ -1,6 +1,7 @@
 # Shared helpers for the operator scripts in scripts/home. Dot-source; no work happens on load.
 #
-# Config file (default F:\Dev\lamuflix-home\home.config.json). Keys follow deploy/home/home.config.example.json:
+# Config file: -ConfigPath, else $env:LAMUFLIX_HOME_CONFIG, else a 'lamuflix-home' folder
+# beside the repository (see Get-HomeConfigPathDefault). Keys follow deploy/home/home.config.example.json:
 #   clusterName, libraryPath, backupPath, webPort (3100), argoPort (3180)
 # Optional keys:
 #   kubeconfigPath   default <opsRoot>\kubeconfig. Must not be the user's ~\.kube\config.
@@ -11,6 +12,32 @@
 #   checkPorts       default true; false skips the port-free preflight (tests only)
 
 Set-StrictMode -Version Latest
+
+# The operator keeps home.config.json outside the repository. Resolved at run time, never
+# stored as a machine path: -ConfigPath wins, then $env:LAMUFLIX_HOME_CONFIG, then a
+# 'lamuflix-home' folder beside the repository root (the sibling convention the task
+# worktrees already use), so a clone on another machine needs no edit.
+function Get-HomeConfigPathDefault {
+    param([string]$RepoRoot)
+    if (-not [string]::IsNullOrWhiteSpace($env:LAMUFLIX_HOME_CONFIG)) {
+        return $env:LAMUFLIX_HOME_CONFIG
+    }
+    $root = $RepoRoot
+    if ([string]::IsNullOrWhiteSpace($root)) {
+        $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+    }
+    $mainRoot = $root
+    $listed = @(git -C $root worktree list --porcelain 2>$null)
+    if ($LASTEXITCODE -eq 0) {
+        $first = $listed | Where-Object { $_ -like 'worktree *' } | Select-Object -First 1
+        if ($first) {
+            $candidate = $first -replace '^worktree ', ''
+            if (Test-Path -LiteralPath $candidate) { $mainRoot = $candidate }
+        }
+    }
+    $sibling = (Split-Path $mainRoot -Leaf) + '-home'
+    return [System.IO.Path]::GetFullPath((Join-Path (Split-Path $mainRoot -Parent) (Join-Path $sibling 'home.config.json')))
+}
 
 function Write-HomeInfo {
     param([string]$Message)

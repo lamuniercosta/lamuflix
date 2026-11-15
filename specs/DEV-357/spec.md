@@ -8,7 +8,7 @@
 
 **Status**: Draft (grill closed at Q9; Phase B technical readiness APPROVED WITH AMENDMENTS FOR QUILL ALIGNMENT at HEAD `0607eb7`; plan freeze, Gate 1, analysis clearance, and source-implementation authorization remain separate and unclaimed)
 
-**Input**: Closed decision brief at `specs/DEV-357/brief.md` (Q1–Q9 plus Phase B pickup amendment 2026-10-24); rulings in `CONCLUSIONS.md`. Authoritative ticket Scope & Technical Design and acceptance text as recorded in brief.md:15-28 (decision authority; not inherited recon note line numbers). Evidence worktree `F:/Dev/LamuFlix.worktrees/DEV-357`; branch `feature/DEV-357`; Phase A base `ba63fbc8f4958df76c2e92f0e9ac6bb3b972fd28`; current source HEAD `0607eb7ea8a4ec48ffffa933767568a87eb8df30`. Runtime facts: recon-DEV-357 and recon-DEV-357-2 Sections 3–4 only.
+**Input**: Closed decision brief at `specs/DEV-357/brief.md` (Q1–Q9 plus Phase B pickup amendment 2026-10-24); rulings in `CONCLUSIONS.md`. Authoritative ticket Scope & Technical Design and acceptance text as recorded in brief.md:15-28 (decision authority; not inherited recon note line numbers). Evidence worktree under the task worktree root (`DEV-357`); branch `feature/DEV-357`; Phase A base `ba63fbc8f4958df76c2e92f0e9ac6bb3b972fd28`; current source HEAD `0607eb7ea8a4ec48ffffa933767568a87eb8df30`. Runtime facts: recon-DEV-357 and recon-DEV-357-2 Sections 3–4 only.
 
 **Controlling closure**: brief.md Q9 closes the grill for drafting. The Phase B amendment establishes technical dependency readiness and the acquisition/MMR approach refinements Quill must encode here; it does not claim plan freeze, Gate 1, gate1: provisional, runtime acceptance, test/gate pass, or merge permission.
 

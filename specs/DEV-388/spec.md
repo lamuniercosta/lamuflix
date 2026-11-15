@@ -121,7 +121,7 @@ Delivery records which evidence proves each ticket acceptance criterion and each
 ## Assumptions
 
 - Confirmation wording and placement are the `[assumed]` recommendation in `specs/DEV-388/ASSUMPTIONS.md`. Navigation back to the library after success is part of that assumption and of Patron Q2.
-- Director and collection exclusion follows Patron Q3. Constitution governance, the single `Initial` migration constraint, and DEV-19's seven-table success criterion were verified in recon section 14. The locked product-plan sentences at `F:/Dev/lamuflix-react-pivot-plan.md:33,47,94` remain Patron-cited and were not verified inside recon roots.
+- Director and collection exclusion follows Patron Q3. Constitution governance, the single `Initial` migration constraint, and DEV-19's seven-table success criterion were verified in recon section 14. The locked product-plan sentences (lines 33, 47, 94 of that out-of-repository document) remain Patron-cited and were not verified inside recon roots.
 - Exact new command, handler, and method names follow the existing Library feature conventions at implementation. The spec locks the port, the feature folder, the route, and the statuses, not a new type name beyond those conventions.
 - No latency or scale target was ruled. None is added. Delete is one movie row plus the cascades the schema already has.
 - Intake solution, Docker, and CI satisfaction, and the 1082-test baseline, are recon facts at a pinned head. Delivery rechecks them. They are not a pass of this change.

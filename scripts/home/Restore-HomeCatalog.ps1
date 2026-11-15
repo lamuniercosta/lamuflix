@@ -11,7 +11,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$DumpPath,
-    [string]$ConfigPath = 'F:\Dev\lamuflix-home\home.config.json',
+    [string]$ConfigPath,
     [string]$ClusterName,
     [string]$KubeconfigPath,
     [switch]$Force,
@@ -21,6 +21,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '_home-common.ps1')
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) { $ConfigPath = Get-HomeConfigPathDefault }
 
 $AppNamespace = 'lamuflix-home'
 $ArgoNamespace = 'argocd'

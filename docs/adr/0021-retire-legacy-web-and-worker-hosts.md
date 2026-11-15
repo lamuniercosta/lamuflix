@@ -6,7 +6,7 @@
 
 ## Context
 
-DEV-388 removes the legacy C# Web and Worker hosts after their required Api and React SPA replacements are evidenced. The missing capability is metadata-only movie deletion through the existing Core, Infrastructure and Api seams, and that deletion is in place before Web retirement. Patron Q3 supersedes the initial director/collection parity interpretation: existing P1 filters satisfy this retirement, and director/collection facets and collection persistence remain outside DEV-388. Constitution governance and migration constraints are verified in recon-DEV-388-2 section 14; the external locked product-plan P2 passages at F:/Dev/lamuflix-react-pivot-plan.md:33,47,94 are Patron-cited and were not independently verified within recon roots.
+DEV-388 removes the legacy C# Web and Worker hosts after their required Api and React SPA replacements are evidenced. The missing capability is metadata-only movie deletion through the existing Core, Infrastructure and Api seams, and that deletion is in place before Web retirement. Patron Q3 supersedes the initial director/collection parity interpretation: existing P1 filters satisfy this retirement, and director/collection facets and collection persistence remain outside DEV-388. Constitution governance and migration constraints are verified in recon-DEV-388-2 section 14; the external locked product-plan P2 passages (lines 33, 47, 94 of that out-of-repository document) are Patron-cited and were not independently verified within recon roots.
 
 Basis: [brief](../../specs/DEV-388/brief.md); [conclusions](../../specs/DEV-388/CONCLUSIONS.md), Q1–Q9 and the Step 6 adjudication rulings.
 

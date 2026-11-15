@@ -2,7 +2,7 @@
 
 **GRILL CLOSED / BRIEF READY FOR QUILL / OWNER DECISION PENDING — 12/12 used.**
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-358-spec; branch feature/358-spec; verified HEAD c2d78146b359bd17ab36ecaa9f33342272d47ebf. Controlling decisions: complete Q1-Q12 exchanges in CONCLUSIONS.md; full answer register and Q11 file manifest in brief.md. This consolidation supersedes historical open/parked assumptions summaries, without altering append-only conclusions.
+Worktree: `feature-358-spec` under the task worktree root; branch feature/358-spec; verified HEAD c2d78146b359bd17ab36ecaa9f33342272d47ebf. Controlling decisions: complete Q1-Q12 exchanges in CONCLUSIONS.md; full answer register and Q11 file manifest in brief.md. This consolidation supersedes historical open/parked assumptions summaries, without altering append-only conclusions.
 
 ## Evidence status
 

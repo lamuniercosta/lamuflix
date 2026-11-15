@@ -18,7 +18,7 @@ $ARGUMENTS
 
 Resolve feature directory:
 
-1. Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` and parse `FEATURE_DIR`, `IMPL_PLAN` and `TASKS`
+1. Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` and parse `FEATURE_DIR`, `TASK_ID`, `IMPL_PLAN` and `TASKS`
 2. If that fails, use `$ARGUMENTS` as feature path or `specs/` subdirectory
 
 `plan.md` and `tasks.md` are operational records: once the ticket has private artifact storage they live at `<private-root>/<repository-id>/DEV-###/`, so read them from the resolved `IMPL_PLAN` and `TASKS` paths, not from `FEATURE_DIR`.

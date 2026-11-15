@@ -1,6 +1,6 @@
 # DEV-439 Assumptions
 
-Worktree: `F:/Dev/LamuFlix.worktrees/feature-439-spec`; branch: `feature/439-spec`.
+Worktree: `feature-439-spec` under the task worktree root; branch: `feature/439-spec`.
 
 ---
 
