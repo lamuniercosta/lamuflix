@@ -66,9 +66,6 @@ if (-not (Test-FeatureBranch -Branch $paths.CURRENT_BRANCH -HasGit:$paths.HAS_GI
     exit 1 
 }
 
-# Public/private artifact resolution. Discovery is read-only: it never creates the private root
-# and never migrates an operational record. Missing private storage only matters to stages that
-# declare they need private inputs.
 $artifactPaths = $null
 $artifactProblem = $null
 try {
@@ -77,7 +74,6 @@ try {
     $artifactProblem = $_.Exception.Message
 }
 
-# A stage that requires private inputs fails closed here rather than reading a public copy.
 if ($RequirePrivate) {
     if ($artifactProblem) {
         Write-Output "ERROR: $artifactProblem"
@@ -125,9 +121,6 @@ if ($PathsOnly) {
     exit 0
 }
 
-# Validate required directories and files. Operational records (plan.md, tasks.md) resolve to the
-# private ticket directory when private storage holds them; the public path stays valid only for a
-# ticket that has not been cut over yet. Neither route creates or migrates anything.
 $privatePlan = if ($artifactPaths -and $artifactPaths.PRIVATE_AVAILABLE) { $artifactPaths.PRIVATE_PLAN } else { $null }
 $privateTasks = if ($artifactPaths -and $artifactPaths.PRIVATE_AVAILABLE) { $artifactPaths.PRIVATE_TASKS } else { $null }
 $planPath = if ($privatePlan -and (Test-Path -LiteralPath $privatePlan -PathType Leaf)) { $privatePlan } else { $paths.IMPL_PLAN }

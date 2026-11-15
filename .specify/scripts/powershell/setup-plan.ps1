@@ -30,10 +30,6 @@ if (-not (Test-FeatureJsonMatchesFeatureDir -RepoRoot $paths.REPO_ROOT -ActiveFe
     }
 }
 
-# plan.md is an operational record: it lands in the private ticket directory once the ticket has
-# private storage, and a brand-new ticket gets its workspace created here. A ticket that has not
-# been cut over still keeps its plan under the public specs/ tree. Neither route falls back to the
-# public tree when private storage is missing or unusable: that fails closed with guidance.
 $planPath = $paths.IMPL_PLAN
 $ticketId = Get-ArtifactTicketIdFromName -Branch $paths.CURRENT_BRANCH -FeatureDir $paths.FEATURE_DIR
 $privateTicketDir = $null
@@ -53,7 +49,6 @@ if (-not [string]::IsNullOrWhiteSpace($ticketId)) {
     }
 }
 
-# Ensure the owning directory exists
 $planParent = [System.IO.Path]::GetDirectoryName($planPath)
 if (-not [string]::IsNullOrWhiteSpace($planParent)) {
     New-Item -ItemType Directory -Path $planParent -Force | Out-Null
