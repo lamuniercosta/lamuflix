@@ -24,13 +24,11 @@ export interface FilterFacetComboboxProps {
   listId?: string;
   listLabel?: string;
   optionId?: (index: number) => string;
-  /** Candidate options, already ordered by the shell; the draft narrows them. */
   options: readonly FacetOption[];
   limit?: number;
   emptyMessage?: string;
   status?: ReactNode;
   onSelect: (option: FacetOption) => void;
-  /** Reported only from interaction handlers; the shell may mirror it. */
   onDraftChange?: (draft: string) => void;
   focusSignal?: number;
 }
@@ -249,13 +247,6 @@ function facetView(
   };
 }
 
-/**
- * Owns one facet's local interaction state: the search draft, the active option
- * index and the input ref. Every mounted instance keeps that state to itself, so
- * the cast, collection and director facets never share a draft or a highlight.
- * Filtering happens here from the drafts; the shell supplies ordered candidates
- * and receives selections. Nothing here touches history or the URL.
- */
 export function FilterFacetCombobox({
   kind,
   inputId,

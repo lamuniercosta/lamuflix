@@ -11,7 +11,6 @@ export interface CastSectionProps {
   onSelect: (name: string) => void;
 }
 
-/** The cast list; selectable names are the ones that resolve to known people. */
 export function CastSection({ actors, people, selected, onSelect }: CastSectionProps) {
   const headingId = useId();
   return (

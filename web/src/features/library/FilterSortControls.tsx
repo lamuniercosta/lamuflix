@@ -9,7 +9,6 @@ export interface FilterSortControlsProps {
 
 const SORT_FIELDS: readonly LibrarySort[] = ['Title', 'Year', 'Rating', 'Runtime'];
 
-/** Sort field and sort direction only; ranges and every other facet live elsewhere. */
 export function FilterSortControls({
   sort,
   direction,

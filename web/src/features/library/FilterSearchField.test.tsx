@@ -54,7 +54,6 @@ describe('FilterSearchField', () => {
       vi.advanceTimersByTime(100);
     });
 
-    // The shell resets a draft by remounting the sibling with a new key.
     rerender(<FilterSearchField key="resync" inputId="search" text="" onCommit={onCommit} />);
     act(() => {
       vi.advanceTimersByTime(300);

@@ -5,17 +5,10 @@ import { useDebouncedSearch } from './useDebouncedSearch';
 
 export interface FilterSearchFieldProps {
   inputId: string;
-  /** The shell's committed search text; a change re-seeds the draft. */
   text: string;
   onCommit: (text: string) => void;
 }
 
-/**
- * Owns the title-search draft, its debounce, and the clear affordance. The shell
- * resets it by remounting (a new `key`) on native traversal, on a shared
- * programmatic notification and on Clear all, which also drops a pending commit;
- * unmounting drops one too. Nothing here reads history or writes the URL.
- */
 export function FilterSearchField({ inputId, text, onCommit }: FilterSearchFieldProps) {
   const [draft, setDraft] = useState(text);
   const [prevText, setPrevText] = useState(text);

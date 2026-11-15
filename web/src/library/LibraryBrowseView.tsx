@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { client } from '../api/client';
+import { useQueryClient } from '@tanstack/react-query';
 import type { components } from '../api/types';
 import FilterPanel from '../features/library/FilterPanel';
 import {
@@ -13,7 +12,6 @@ import {
 } from '../features/library/filterQuery';
 import type { FilterQuery } from '../features/library/filterQuery';
 import { buildBrowseParams } from './browseParams';
-import { actorPeopleParams } from './peopleQuery';
 import { useBrowseMoviesQuery } from './libraryQueries';
 import type { BrowseMoviesQueryError } from './libraryQueries';
 import LibraryTile from './LibraryTile';
@@ -26,25 +24,11 @@ import { useAmbientPosters } from '../ui/ambient';
 type MovieSummary = components['schemas']['MovieSummaryResponse'];
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
 type GenreDto = components['schemas']['GenreDto'];
+type CollectionDto = components['schemas']['CollectionDto'];
+type PersonDto = components['schemas']['PersonDto'];
 type DirectorDto = components['schemas']['DirectorDto'];
 
 const lastGoodQueryKey = ['libraryLastGoodBrowse'];
-
-function GenreDtoList(value: unknown): GenreDto[] {
-  return Array.isArray(value) ? (value as GenreDto[]) : [];
-}
-
-function CollectionDtoList(value: unknown): components['schemas']['CollectionDto'][] {
-  return Array.isArray(value) ? (value as components['schemas']['CollectionDto'][]) : [];
-}
-
-function PersonDtoList(value: unknown): components['schemas']['PersonDto'][] {
-  return Array.isArray(value) ? (value as components['schemas']['PersonDto'][]) : [];
-}
-
-function DirectorDtoList(value: unknown): DirectorDto[] {
-  return Array.isArray(value) ? (value as DirectorDto[]) : [];
-}
 
 function isWatchlistFlag(value: unknown): boolean {
   if (typeof value === 'boolean') {
@@ -102,14 +86,18 @@ export interface LibraryBrowseViewProps {
   routePath?: string;
   integrated?: boolean;
   onOpenMovie?: (id: string | number) => void;
+  genres: GenreDto[];
+  collections: CollectionDto[];
+  actors: PersonDto[];
+  directors: DirectorDto[];
+  genresError?: unknown;
+  collectionsError?: unknown;
+  actorsError?: unknown;
+  directorsError?: unknown;
+  directorsLoading?: boolean;
+  onRetryDirectors?: () => void;
 }
 
-/**
- * Browse presentation owner: view variant, panel visibility, focus signal,
- * hidden ids and grid focus/ref management, plus the facet queries it presents.
- * URL/query synchronization stays in the LibraryView shell; this view only
- * reports values and callbacks upward and never writes history.
- */
 export function LibraryBrowseView({
   query,
   currentYear,
@@ -122,56 +110,20 @@ export function LibraryBrowseView({
   routePath,
   integrated = false,
   onOpenMovie,
+  genres,
+  collections,
+  actors,
+  directors,
+  genresError,
+  collectionsError,
+  actorsError,
+  directorsError,
+  directorsLoading,
+  onRetryDirectors,
 }: LibraryBrowseViewProps) {
   const filters = useMemo(() => buildBrowseParams(query, currentYear), [query, currentYear]);
   const watchlistActive = inWatchlist || isWatchlistFlag(query.inWatchlist);
   const browse = useBrowseMoviesQuery(watchlistActive, filters);
-
-  const genresQuery = useQuery({
-    queryKey: ['genres'],
-    queryFn: async () => {
-      const { data, error } = await client.GET('/api/genres');
-      if (error) {
-        throw new Error('Genres could not be loaded.');
-      }
-      return data;
-    },
-  });
-
-  const collectionsQuery = useQuery({
-    queryKey: ['collections'],
-    queryFn: async () => {
-      const { data, error } = await client.GET('/api/collections');
-      if (error) {
-        throw new Error('Collections could not be loaded.');
-      }
-      return data;
-    },
-  });
-
-  const directorsQuery = useQuery({
-    queryKey: ['directors'],
-    queryFn: async () => {
-      const { data, error } = await client.GET('/api/directors');
-      if (error) {
-        throw new Error('Directors could not be loaded.');
-      }
-      return data;
-    },
-  });
-
-  const actorsQuery = useQuery({
-    queryKey: ['people', 'actor'],
-    queryFn: async () => {
-      const { data, error } = await client.GET('/api/people', {
-        params: actorPeopleParams(),
-      });
-      if (error) {
-        throw new Error('Cast could not be loaded.');
-      }
-      return data;
-    },
-  });
 
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -283,38 +235,20 @@ export function LibraryBrowseView({
   );
 
   const genreNameById = useMemo(
-    () => new Map(GenreDtoList(genresQuery.data).map((genre) => [String(genre.id), genre.name])),
-    [genresQuery.data],
+    () => new Map(genres.map((genre) => [String(genre.id), genre.name])),
+    [genres],
   );
   const actorNameById = useMemo(
-    () =>
-      new Map(
-        PersonDtoList(actorsQuery.data).map((actor) => [
-          String(actor.id),
-          String(actor.name ?? ''),
-        ]),
-      ),
-    [actorsQuery.data],
+    () => new Map(actors.map((actor) => [String(actor.id), String(actor.name ?? '')])),
+    [actors],
   );
   const directorNameById = useMemo(
-    () =>
-      new Map(
-        DirectorDtoList(directorsQuery.data).map((director) => [
-          String(director.id),
-          String(director.name ?? ''),
-        ]),
-      ),
-    [directorsQuery.data],
+    () => new Map(directors.map((director) => [String(director.id), String(director.name ?? '')])),
+    [directors],
   );
   const collectionNameById = useMemo(
-    () =>
-      new Map(
-        CollectionDtoList(collectionsQuery.data).map((item) => [
-          String(item.id),
-          String(item.name ?? ''),
-        ]),
-      ),
-    [collectionsQuery.data],
+    () => new Map(collections.map((item) => [String(item.id), String(item.name ?? '')])),
+    [collections],
   );
 
   const chips = useMemo(
@@ -340,7 +274,7 @@ export function LibraryBrowseView({
 
   const groupCount = activeFilterGroups(query, currentYear);
   const countText = `${totalCount} ${totalCount === 1 ? 'movie' : 'movies'}`;
-  const headingText = libraryTitle(query, GenreDtoList(genresQuery.data), watchlistActive);
+  const headingText = libraryTitle(query, genres, watchlistActive);
 
   return (
     <div className="library-view">
@@ -361,17 +295,17 @@ export function LibraryBrowseView({
         >
           <FilterPanel
             query={query}
-            genres={GenreDtoList(genresQuery.data)}
-            collections={CollectionDtoList(collectionsQuery.data)}
-            actors={PersonDtoList(actorsQuery.data)}
-            directors={DirectorDtoList(directorsQuery.data)}
+            genres={genres}
+            collections={collections}
+            actors={actors}
+            directors={directors}
             onChange={onQueryChange}
-            genresError={genresQuery.error}
-            collectionsError={collectionsQuery.error}
-            actorsError={actorsQuery.error}
-            directorError={directorsQuery.error}
-            directorLoading={directorsQuery.isLoading}
-            onRetryDirectors={() => void directorsQuery.refetch()}
+            genresError={genresError}
+            collectionsError={collectionsError}
+            actorsError={actorsError}
+            directorError={directorsError}
+            directorLoading={directorsLoading}
+            onRetryDirectors={onRetryDirectors}
             integrated={integrated}
             showTitleSearch={!integrated}
             showSort={false}

@@ -145,11 +145,6 @@ interface MovieDetailsViewInnerProps extends MovieDetailsViewProps {
   libraryClient: QueryClient;
 }
 
-/**
- * Orchestration shell: owns route/loading/refresh, the details client, local-play
- * request/result/in-flight state, the selected actor, and the removal dialog and
- * its focus. Cohesive presentation lives in the sibling modules.
- */
 function MovieDetailsViewInner({
   movieId,
   enrichmentStatus,
@@ -197,7 +192,6 @@ function MovieDetailsViewInner({
   const stripPromptId = useId();
   const [selectedActor, setSelectedActor] = useState<string | null>(null);
 
-  // Navigation callbacks handed to the sibling modules; they never touch history.
   const openDetails = useCallback((id: ActorId) => {
     openMovie(id, { returnUrl: readReturnUrl(window.history.state) });
   }, []);

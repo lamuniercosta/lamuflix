@@ -92,12 +92,6 @@ function sortCollections<T extends { id?: string | number; name?: string | null 
   });
 }
 
-/**
- * Orchestration shell: owns query mutation and URL synchronization, the
- * current-year snapshot, normalized facets, the rating/runtime/release-year
- * fieldsets and the public query/callback interface. Cohesive sections live in
- * the sibling modules and are remounted (via `key`) when the shell resyncs.
- */
 export function FilterPanel(props: FilterPanelProps) {
   const {
     query: queryProp,
@@ -138,13 +132,8 @@ export function FilterPanel(props: FilterPanelProps) {
     queryRef.current = query;
   }, [query]);
 
-  // Bumped on every resync and on Clear all. The search sibling takes it as its
-  // key, so remounting drops its local draft and any pending debounced commit.
   const [draftEpoch, setDraftEpoch] = useState(0);
-  // Clear all also empties the facet drafts; navigation leaves them alone.
   const [clearEpoch, setClearEpoch] = useState(0);
-  // The draft seed the search sibling mounts with, so a resync shows the URL text
-  // even when the shell is controlled and its query has not caught up yet.
   const [searchSeed, setSearchSeed] = useState(() => String(readQuery(queryProp).text ?? ''));
   const queryText = String(query.text ?? '');
   const [prevQueryText, setPrevQueryText] = useState(queryText);

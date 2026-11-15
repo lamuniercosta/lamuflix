@@ -10,7 +10,6 @@ import {
 } from '../features/library/filterQuery';
 
 export interface FilterChipClear {
-  /** Applies this chip's removal to a copy of the current query. */
   clear: (next: FilterQuery) => void;
 }
 
@@ -28,8 +27,6 @@ export interface FilterNameLookups {
   collectionNameById: ReadonlyMap<string, string>;
 }
 
-// Q12 requires the pure chip builder to live in this ratified module, so the
-// file intentionally shares a component and pure helpers.
 // eslint-disable-next-line react-refresh/only-export-components -- Q12 chip builder
 export function hasDirector(query: FilterQuery): boolean {
   return query.directorId != null && String(query.directorId) !== '';
@@ -60,7 +57,6 @@ interface MultiValueSpec {
   field: 'genreIds' | 'actorIds' | 'statuses';
   nameById: ReadonlyMap<string, string> | null;
   noun: string;
-  /** Applies removal for one value; the shared factory supplies the match/rebuild. */
   clear: (next: FilterQuery, value: string) => void;
 }
 
@@ -181,12 +177,6 @@ function ratingChip(query: FilterQuery): FilterChip | null {
   };
 }
 
-/**
- * Pure chip construction: given the current query, the year snapshot and the
- * resolved facet names, returns one descriptor per removable filter value in a
- * stable order. Each descriptor carries the mutation that removes just that
- * value, so nothing here touches React state, history or the URL.
- */
 // eslint-disable-next-line react-refresh/only-export-components -- Q12 chip builder
 export function buildFilterChips(
   query: FilterQuery,
@@ -296,7 +286,6 @@ export interface LibraryFilterSummaryProps {
   onClearAll: () => void;
 }
 
-/** Presentation of the active-filter chip row; construction lives in the pure builder. */
 export function LibraryFilterSummary({ chips, onRemove, onClearAll }: LibraryFilterSummaryProps) {
   if (chips.length === 0) {
     return null;
