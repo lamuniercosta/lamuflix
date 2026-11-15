@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   currentReturnUrl,
   libraryReturnSearch,
+  openMovie,
   parseMovieId,
   readReturnUrl,
+  subscribeToRouteChange,
   useAppNavigation,
 } from './features/app-navigation/useAppNavigation';
 import {
@@ -107,11 +109,9 @@ function ShellSearch({
     }
   });
   useEffect(() => {
-    const onPopState = () => {
+    return subscribeToRouteChange(() => {
       commitRef.current.cancel();
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
+    });
   }, []);
 
   return (
@@ -218,20 +218,6 @@ export default function App({ enrichmentStatus }: AppProps) {
       }
       const search = params.toString();
       navigate(search ? `/?${search}` : '/', {});
-    },
-    [route.pathname, route.search, navigate],
-  );
-
-  const openMovie = useCallback(
-    (id: string | number, options?: { playerIntent?: boolean }) => {
-      const current = `${route.pathname}${route.search}`;
-      const state: { libraryReturnUrl: string; playerIntent?: true } = {
-        libraryReturnUrl: current,
-      };
-      if (options?.playerIntent) {
-        state.playerIntent = true;
-      }
-      navigate(`/movies/${String(id)}`, { state });
     },
     [route.pathname, route.search, navigate],
   );

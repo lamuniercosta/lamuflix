@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import type { components } from '../api/types';
+import { subscribeToRouteChange } from '../features/app-navigation/appNavigation';
 import FilterPanel from '../features/library/FilterPanel';
 import {
   currentYearExtent,
@@ -793,8 +794,7 @@ export default function LibraryView({
     if (integrated) {
       return;
     }
-    window.addEventListener('popstate', syncFromUrl);
-    return () => window.removeEventListener('popstate', syncFromUrl);
+    return subscribeToRouteChange(syncFromUrl);
   }, [syncFromUrl, integrated]);
 
   const prevWatchlist = useRef(inWatchlist);

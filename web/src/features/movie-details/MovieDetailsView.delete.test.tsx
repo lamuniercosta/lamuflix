@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { browseMoviesQueryKey, standingBrowseQuery } from '../../library/libraryQueries';
 import { movieDetails } from '../../mocks/fixtures';
 import { server } from '../../test/server';
@@ -68,6 +68,27 @@ describe('MovieDetailsView destructive removal', () => {
     );
     expect(libraryClient.getQueryState(watchlistFilteredKey)?.isInvalidated).toBe(true);
     await waitFor(() => expect(getCalls).toBeGreaterThan(1));
+  });
+
+  it('returns to the library through the shared notification without a synthetic popstate', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieDetails)),
+      http.delete('*/api/movies/:id', () => new HttpResponse(null, { status: 204 })),
+    );
+    renderView();
+
+    await screen.findByRole('heading', { name: 'Dune' });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove from library' }));
+    const confirm = await screen.findByRole('button', { name: 'Remove' });
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
+
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    const popstateEvents = dispatch.mock.calls.filter(([event]) => event instanceof PopStateEvent);
+    expect(popstateEvents).toHaveLength(0);
+
+    dispatch.mockRestore();
   });
 
   it('sends no delete request when the confirmation is cancelled', async () => {

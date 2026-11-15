@@ -339,6 +339,24 @@ describe('App layout shell', () => {
     }
   });
 
+  it('opens a movie client-side through the shared notification without a synthetic popstate', async () => {
+    window.history.replaceState({}, '', '/?statuses=Pending');
+    renderApp();
+    await screen.findByText('Dune', {}, { timeout: 10_000 });
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
+
+    fireEvent.click(screen.getByRole('link', { name: 'Dune' }));
+    expect(await screen.findByRole('button', { name: playLabel('Dune') })).toBeInTheDocument();
+
+    const popstateEvents = dispatch.mock.calls.filter(([event]) => event instanceof PopStateEvent);
+    expect(popstateEvents).toHaveLength(0);
+    expect(window.location.pathname).toBe('/movies/1');
+    expect(window.history.state).toEqual({ libraryReturnUrl: '/?statuses=Pending' });
+    expect(screen.getAllByRole('heading', { name: 'Dune' })).toHaveLength(1);
+
+    dispatch.mockRestore();
+  });
+
   it('opens a movie client-side and restores the exact originating query from the back link', async () => {
     window.history.replaceState({}, '', '/?statuses=Pending&sort=Title&direction=Ascending');
     renderApp();

@@ -4,6 +4,7 @@ import { act } from '@testing-library/react';
 import type { components } from '../../api/types';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import FilterPanel from './FilterPanel';
+import { navigate } from '../app-navigation/appNavigation';
 import { currentYearExtent, parseFilterQuery, YEAR_MIN_EXTENT } from './filterQuery';
 
 type GenreDto = components['schemas']['GenreDto'];
@@ -459,6 +460,30 @@ describe('FilterPanel', () => {
     expect(window.location.search).toBe('');
     const lateCommits = onChange.mock.calls.slice(callsBeforeClear);
     expect(lateCommits.every((call) => (call[0] as { text?: string }).text !== 'dune')).toBe(true);
+  });
+
+  it('cancels a pending text commit on a shared programmatic notification', () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    render(<ControlledHost onChange={onChange} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search titles'), { target: { value: 'stale' } });
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    act(() => {
+      navigate('/?text=restored');
+    });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(screen.getByPlaceholderText('Search titles')).toHaveValue('restored');
+    expect(window.location.search).toBe('?text=restored');
+    expect(
+      onChange.mock.calls.every((call) => (call[0] as { text?: string }).text !== 'stale'),
+    ).toBe(true);
   });
 
   it('cancels a pending text commit on popstate navigation to a new text', () => {

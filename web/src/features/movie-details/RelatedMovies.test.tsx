@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../test/server';
 import { problemDetails, relatedMovies } from '../../mocks/fixtures';
 import {
@@ -226,6 +226,26 @@ describe('RelatedMovies', () => {
     expect(arrival).toHaveAttribute('href', '/movies/2');
     expect(window.location.pathname).toBe('/movies/2');
     expect(window.history.state).toEqual({ libraryReturnUrl: '/?genreIds=1' });
+  });
+
+  it('navigates through the shared notification without a synthetic popstate', async () => {
+    // arrange
+    server.use(recommendationsHandler(relatedMovies as RecommendedMovie[]));
+    window.history.replaceState({ libraryReturnUrl: '/?genreIds=1' }, '', '/movies/1');
+    renderRelated(1);
+    const arrival = await screen.findByRole('link', { name: /Arrival/ });
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
+
+    // act
+    fireEvent.click(arrival);
+
+    // assert
+    const popstateEvents = dispatch.mock.calls.filter(([event]) => event instanceof PopStateEvent);
+    expect(popstateEvents).toHaveLength(0);
+    expect(window.location.pathname).toBe('/movies/2');
+    expect(window.history.state).toEqual({ libraryReturnUrl: '/?genreIds=1' });
+
+    dispatch.mockRestore();
   });
 
   it('drops an invalid library return URL when navigating', async () => {

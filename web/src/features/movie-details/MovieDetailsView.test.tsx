@@ -361,6 +361,22 @@ describe('MovieDetailsView load states', () => {
     expect(window.location.pathname).toBe('/');
   });
 
+  it('exits the 404 details route through the shared notification without a synthetic popstate', async () => {
+    server.use(http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 404 })));
+    renderView();
+
+    const link = await screen.findByRole('link', { name: 'Back to library' });
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
+
+    fireEvent.click(link);
+
+    const popstateEvents = dispatch.mock.calls.filter(([event]) => event instanceof PopStateEvent);
+    expect(popstateEvents).toHaveLength(0);
+    expect(window.location.pathname).toBe('/');
+
+    dispatch.mockRestore();
+  });
+
   it('shows generic error on GET failure', async () => {
     server.use(http.get('*/api/movies/:id', () => new HttpResponse(null, { status: 500 })));
     renderView();
@@ -440,6 +456,28 @@ describe('MovieDetailsView cast and more-with', () => {
     expect(window.history.state).toEqual({ libraryReturnUrl: '/?genreIds=1' });
   });
 
+  it('opens a More-with row through the shared notification without a synthetic popstate', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieWithActors(['Timothée Chalamet']))),
+      http.get('*/api/movies', () => HttpResponse.json(browseMovies)),
+    );
+    window.history.replaceState({ libraryReturnUrl: '/?genreIds=1' }, '', '/movies/1');
+    renderView();
+    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    const row = await screen.findByRole('link', { name: 'Arrival' });
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
+
+    fireEvent.click(row);
+
+    const popstateEvents = dispatch.mock.calls.filter(([event]) => event instanceof PopStateEvent);
+    expect(popstateEvents).toHaveLength(0);
+    expect(window.location.pathname).toBe('/movies/2');
+    expect(window.history.state).toEqual({ libraryReturnUrl: '/?genreIds=1' });
+    expect(readPlayerIntent(window.history.state)).toBe(false);
+
+    dispatch.mockRestore();
+  });
+
   it('shows an empty state when no other library movie has the actor', async () => {
     server.use(
       http.get('*/api/movies/:id', () => HttpResponse.json(movieWithActors(['Timothée Chalamet']))),
@@ -473,6 +511,28 @@ describe('MovieDetailsView cast and more-with', () => {
     fireEvent.click(link);
     expect(window.location.pathname).toBe('/');
     expect(window.location.search).toBe('?actorIds=1');
+  });
+
+  it('exits to the actor filter through the shared notification without a synthetic popstate', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieWithActors(['Timothée Chalamet']))),
+    );
+    renderView();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    const link = await screen.findByRole('link', {
+      name: 'See all with Timothée Chalamet in Library',
+    });
+    const dispatch = vi.spyOn(window, 'dispatchEvent');
+
+    fireEvent.click(link);
+
+    const popstateEvents = dispatch.mock.calls.filter(([event]) => event instanceof PopStateEvent);
+    expect(popstateEvents).toHaveLength(0);
+    expect(window.location.pathname).toBe('/');
+    expect(window.location.search).toBe('?actorIds=1');
+
+    dispatch.mockRestore();
   });
 
   it('requests the people lookup with role=actor', async () => {
