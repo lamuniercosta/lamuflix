@@ -8,7 +8,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$ConfigPath = 'F:\Dev\lamuflix-home\home.config.json',
+    [string]$ConfigPath,
     [string]$ClusterName,
     [string]$KubeconfigPath,
     [string]$ArgoManifestPath,
@@ -18,6 +18,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '_home-common.ps1')
+if ([string]::IsNullOrWhiteSpace($ConfigPath)) { $ConfigPath = Get-HomeConfigPathDefault }
 
 $ArgoInstallUrl = 'https://raw.githubusercontent.com/argoproj/argo-cd/v3.6.1/manifests/install.yaml'
 $ArgoInstallSha256 = '7be23ca7d9ca3d3074dee8332f1ca92a933b990cee7c9cf22cf3843ee8c2913e'

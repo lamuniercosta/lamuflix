@@ -943,7 +943,7 @@ worked around or extended; retiring them follows the epic order in the architect
 
 This constitution is the authoritative, non-negotiable rulebook for LamuFlix. It supersedes
 oral agreements, inline comments, and informal conventions. When in conflict with any other
-document except the locked product plan (`F:\Dev\lamuflix-react-pivot-plan.md`, which owns
+document except the locked product plan (held outside this repository, which owns
 WHAT is built; this constitution owns HOW), the constitution prevails.
 
 **Amendment procedure**:

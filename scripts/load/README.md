@@ -370,7 +370,7 @@ MSYS_NO_PATHCONV=1 docker run --rm -i --network "$NETWORK" \
 ```
 
 On Git Bash for Windows use the absolute Windows form of the mount source, for example
-`-v "F:/Dev/LamuFlix.worktrees/DEV-427/artifacts/load:/artifacts/load"`, with
+`-v "<path-to-this-worktree>/artifacts/load:/artifacts/load"`, with
 `MSYS_NO_PATHCONV=1`. On Linux, `$PWD` is correct as written. k6 exits `0` when every
 threshold passes and `99` when a threshold fails; a budget miss is `FAILED` with the JSON
 retained, not a scope change.

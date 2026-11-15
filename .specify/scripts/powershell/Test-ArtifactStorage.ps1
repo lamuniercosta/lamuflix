@@ -872,8 +872,13 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     $migrationEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $migrationRoot; SPECIFY_FEATURE_DIRECTORY = ''; SPECIFY_FEATURE = ''; PYTHONUTF8 = '1' }
 
     $ticketA = Join-Path $migrationRepo 'specs/DEV-901'
+    # A machine-looking source path is the input this case exists to see sanitized. It is
+    # assembled from segments rather than written as one literal so this companion does not
+    # reintroduce into tracked files the very machine path DEV-473 removes.
+    $machineRootPath = @('F:', 'Dev', 'LamuFlix.worktrees', 'DEV-901', 'evidence', 'ruling.txt') -join '/'
+    $machineRootPrefix = @('F:', 'Dev', 'LamuFlix.worktrees') -join '/'
     Write-FixtureText -Path (Join-Path $ticketA 'spec.md') -Text "# DEV-901 spec`r`n"
-    Write-FixtureText -Path (Join-Path $ticketA 'CONCLUSIONS.md') -Text "# DEV-901 conclusions`r`nRuling recorded at F:/Dev/LamuFlix.worktrees/DEV-901/evidence/ruling.txt and C:\Users\fixture\AppData\Local\Temp\ruling.txt.`r`n"
+    Write-FixtureText -Path (Join-Path $ticketA 'CONCLUSIONS.md') -Text "# DEV-901 conclusions`r`nRuling recorded at $machineRootPath and C:\Users\fixture\AppData\Local\Temp\ruling.txt.`r`n"
     Write-FixtureText -Path (Join-Path $ticketA 'ASSUMPTIONS.md') -Text "# DEV-901 assumptions`n"
     Write-FixtureText -Path (Join-Path $ticketA 'brief.md') -Text "# DEV-901 brief`r`nline two`r`n"
     Write-FixtureText -Path (Join-Path $ticketA 'plan.md') -Text "# DEV-901 plan`nunix newline must stay byte identical`n"
@@ -946,7 +951,7 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     Assert-Case 'the public spec is never a removal candidate' (@((Get-PayloadValue $sanitizedPayload 'STAGED_REMOVALS') | Where-Object { $_ -match '(^|[\\/])(spec|CONCLUSIONS|ASSUMPTIONS)\.md$' }).Count -eq 0) (@(Get-PayloadValue $sanitizedPayload 'STAGED_REMOVALS') -join ', ')
 
     Assert-Case 'the private unsanitized conclusions remain byte-identical (FR-010)' ((Get-ArtifactFileHash -Path (Join-Path $privateA 'CONCLUSIONS.md')) -eq $unsanitizedPrivateConclusions)
-    Assert-Case 'the private original still holds the machine path' ((Get-Content -LiteralPath (Join-Path $privateA 'CONCLUSIONS.md') -Raw) -match 'F:/Dev/LamuFlix\.worktrees')
+    Assert-Case 'the private original still holds the machine path' ((Get-Content -LiteralPath (Join-Path $privateA 'CONCLUSIONS.md') -Raw) -match [regex]::Escape($machineRootPrefix))
 
     Assert-Case 'the migrated ticket directory keeps only the public allowlist' (@(Get-ChildItem -LiteralPath $ticketA -File -Force | ForEach-Object { $_.Name } | Sort-Object) -join ',' -eq 'ASSUMPTIONS.md,CONCLUSIONS.md,spec.md') (@(Get-ChildItem -LiteralPath $ticketA -File -Force | ForEach-Object { $_.Name }) -join ',')
     Assert-Case 'the migrated ticket directory keeps no operational subdirectory' (@(Get-ChildItem -LiteralPath $ticketA -Directory -Force).Count -eq 0)
@@ -994,6 +999,170 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     Assert-Case 'no historical conclusions file was invented anywhere' (@(Get-ChildItem -LiteralPath $migrationSpecsDir -Recurse -File -Force -Filter 'CONCLUSIONS.md' | Where-Object { $_.DirectoryName -match 'DEV-902$' }).Count -eq 0)
     Assert-Case 'every migrated ticket directory holds only allowlisted names' (@(Get-ChildItem -LiteralPath $migrationSpecsDir -Directory -Force | ForEach-Object { @(Get-ChildItem -LiteralPath $_.FullName -Recurse -File -Force | Where-Object { $_.Name -notin @('spec.md', 'CONCLUSIONS.md', 'ASSUMPTIONS.md') }).Count } | Measure-Object -Sum).Sum -eq 0) 'an operational record survived publicly'
     Assert-Case 'the archive holds the operational records the public tree shed' ((Test-Path -LiteralPath (Join-Path $privateA 'plan.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $privateA 'checklists/requirements.md') -PathType Leaf))
+
+    Write-Host ''
+    Write-Host 'US4 retained tracked content carries no machine-root path (T024):'
+
+    # The machine root is assembled from segments so this companion never becomes the
+    # tracked file it is checking for. Both slash spellings must be absent, case-insensitively.
+    $scrubRootBackslash = (@('F:', 'Dev') -join '\')
+    $scrubRootForward = (@('F:', 'Dev') -join '/')
+    $trackedMatches = @(& git -C $script:RepoRoot grep -n -I -i -F -e $scrubRootBackslash -e $scrubRootForward -- . ':!.gitignore' 2>$null)
+    Assert-Case 'no retained tracked file outside .gitignore holds the machine root' ($trackedMatches.Count -eq 0) (@($trackedMatches | Select-Object -First 5) -join ' | ')
+
+    $trackedForwardOnly = @(& git -C $script:RepoRoot grep -n -I -i -F -e $scrubRootForward -- . ':!.gitignore' 2>$null)
+    Assert-Case 'the forward-slash variant of the machine root is absent too' ($trackedForwardOnly.Count -eq 0) (@($trackedForwardOnly | Select-Object -First 5) -join ' | ')
+
+    $harnessText = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'harness.yml') -Raw
+    Assert-Case 'the tracked harness config keeps no machine-specific worktree root' (-not ($harnessText -match '(?i)worktreeRoot\s*:\s*[A-Za-z]:')) $harnessText
+
+    $homeDefaults = @(Get-ChildItem -LiteralPath (Join-Path $script:RepoRoot 'scripts/home') -Filter '*.ps1' -File | Where-Object { $_.Name -notlike 'Test-*' })
+    $homeAbsoluteDefaults = @($homeDefaults | Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match '(?i)\$ConfigPath\s*=\s*''[A-Za-z]:' })
+    Assert-Case 'no Home operator script keeps an absolute ConfigPath default' ($homeAbsoluteDefaults.Count -eq 0) (@($homeAbsoluteDefaults | ForEach-Object { $_.Name }) -join ', ')
+
+    Write-Host ''
+    Write-Host 'US4 scrubbed defaults preserve intended behaviour (T024b):'
+
+    # A disposable repository proves the default worktree root and its explicit override.
+    # The real checkout is never the subject: this repo's own new-task-branch.ps1 would
+    # otherwise create a real worktree beside the real repository.
+    $behaviourRoot = New-FixtureDir 'us4-behaviour'
+    $behaviourBare = Join-Path $behaviourRoot 'origin.git'
+    & git init --quiet --bare --initial-branch=main $behaviourBare 2>&1 | Out-Null
+    $behaviourRepo = Join-Path $behaviourRoot 'repo'
+    & git clone --quiet $behaviourBare $behaviourRepo 2>&1 | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $behaviourRepo 'scripts') | Out-Null
+    Write-FixtureText -Path (Join-Path $behaviourRepo 'README.md') -Text "# fixture`n"
+    foreach ($name in @('new-task-branch.ps1', '_gate-common.ps1', '_harness-config.ps1', 'get-task.ps1')) {
+        Copy-Item -LiteralPath (Join-Path $script:RepoRoot "scripts/$name") -Destination (Join-Path $behaviourRepo "scripts/$name") -Force
+    }
+    Write-FixtureText -Path (Join-Path $behaviourRepo 'harness.yml') -Text @"
+harnessVersion: 0.7.1
+pack: dotnet
+baseBranch: main
+tracker: none
+solution: null
+task:
+  worktree: true
+"@
+    & git -C $behaviourRepo add -A 2>&1 | Out-Null
+    & git -C $behaviourRepo -c user.email='fixture@example.invalid' -c user.name='Fixture' -c commit.gpgsign=false commit --quiet -m 'behaviour fixture' 2>&1 | Out-Null
+    & git -C $behaviourRepo push --quiet -u origin main 2>&1 | Out-Null
+    & git -C $behaviourRepo remote set-head origin main 2>&1 | Out-Null
+    Write-FixtureText -Path (Join-Path $behaviourRoot 'kubeconfig') -Text "# scratch`n"
+
+    $defaultRootRun = Invoke-ChildScript -Script (Join-Path $behaviourRepo 'scripts/new-task-branch.ps1') -Arguments @('-Description', 'Fixture default root', '-Type', 'feature') -Environment @{ LAMUFLIX_HOME_CONFIG = '' } -WorkingDirectory $behaviourRepo
+    Assert-Case 'the scrubbed harness default still creates a task branch' ($defaultRootRun.ExitCode -eq 0) "exit $($defaultRootRun.ExitCode): $($defaultRootRun.Output)"
+    $siblingRoot = Join-Path $behaviourRoot 'repo.worktrees'
+    Assert-Case 'the default worktree root resolves to the sibling <repo>.worktrees folder' (Test-Path -LiteralPath $siblingRoot -PathType Container) "missing '$siblingRoot'"
+    Assert-Case 'the default root held the new worktree, proving the resolution, not just the folder' (@(Get-ChildItem -LiteralPath $siblingRoot -Directory -Force).Count -ge 1) (@(Get-ChildItem -LiteralPath $siblingRoot -Directory -Force | ForEach-Object { $_.Name }) -join ',')
+
+    Write-FixtureText -Path (Join-Path $behaviourRepo 'harness.yml') -Text @"
+harnessVersion: 0.7.1
+pack: dotnet
+baseBranch: main
+tracker: none
+solution: null
+task:
+  worktree: true
+  worktreeRoot: ../explicit-root
+"@
+    $overrideRun = Invoke-ChildScript -Script (Join-Path $behaviourRepo 'scripts/new-task-branch.ps1') -Arguments @('-Description', 'Fixture override root', '-Type', 'feature') -Environment @{ LAMUFLIX_HOME_CONFIG = '' } -WorkingDirectory $behaviourRepo
+    Assert-Case 'an explicit worktreeRoot still wins over the derived default' ($overrideRun.ExitCode -eq 0) "exit $($overrideRun.ExitCode): $($overrideRun.Output)"
+    Assert-Case 'the explicit worktree root receives the worktree' (@(Get-ChildItem -LiteralPath (Join-Path $behaviourRoot 'explicit-root') -Directory -Force -ErrorAction SilentlyContinue).Count -ge 1) 'the override root stayed empty'
+
+    # Home config default: a disposable checkout resolves its own sibling <repo>-home folder,
+    # and the environment override wins. No live operator config is read or written.
+    $homeProbe = Join-Path $behaviourRepo 'scripts/home'
+    New-Item -ItemType Directory -Force -Path $homeProbe | Out-Null
+    Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'scripts/home/_home-common.ps1') -Destination (Join-Path $homeProbe '_home-common.ps1') -Force
+    # The Home helper lives in _home-common.ps1, not common.ps1, so it gets its own probe.
+    $homeProbeProgram = @'
+param([string]$HelperScript, [string]$RepoRoot)
+$ErrorActionPreference = 'Stop'
+. $HelperScript
+try {
+    $value = Get-HomeConfigPathDefault -RepoRoot $RepoRoot
+    $payload = [pscustomobject]@{ ok = $true; value = $value; message = $null }
+} catch {
+    $payload = [pscustomobject]@{ ok = $false; value = $null; message = $_.Exception.Message }
+}
+$payload | ConvertTo-Json -Depth 4 -Compress
+'@
+    $homeProbeFile = Join-Path $script:Root 'probe-home-config.ps1'
+    Write-FixtureText -Path $homeProbeFile -Text $homeProbeProgram
+    $homeHelper = Join-Path $homeProbe '_home-common.ps1'
+    $homeExpected = [System.IO.Path]::GetFullPath((Join-Path $behaviourRoot 'repo-home/home.config.json'))
+    $homeRun = Invoke-ChildScript -Script $homeProbeFile -Arguments @($homeHelper, $behaviourRepo) -Environment @{ LAMUFLIX_HOME_CONFIG = '' } -WorkingDirectory $behaviourRepo
+    $homeResolved = $null
+    try { $homeResolved = $homeRun.Output | ConvertFrom-Json } catch { $homeResolved = $null }
+    Assert-Case 'the Home config default resolves a sibling <repo>-home folder' ([bool]$homeResolved -and [bool]$homeResolved.ok) "probe did not resolve: $($homeRun.Output)"
+    Assert-Case 'the Home config default is the sibling home.config.json' ([string]::Equals([string]$homeResolved.value, $homeExpected, [System.StringComparison]::OrdinalIgnoreCase)) "got '$($homeResolved.value)' expected '$homeExpected'"
+    $envOverridePath = Join-Path $behaviourRoot 'override-home/config.json'
+    $homeOverrideRun = Invoke-ChildScript -Script $homeProbeFile -Arguments @($homeHelper, $behaviourRepo) -Environment @{ LAMUFLIX_HOME_CONFIG = $envOverridePath } -WorkingDirectory $behaviourRepo
+    $homeOverride = $null
+    try { $homeOverride = $homeOverrideRun.Output | ConvertFrom-Json } catch { $homeOverride = $null }
+    Assert-Case 'LAMUFLIX_HOME_CONFIG overrides the Home config default' ([bool]$homeOverride -and [string]::Equals([string]$homeOverride.value, $envOverridePath, [System.StringComparison]::OrdinalIgnoreCase)) "got '$($homeOverride.value)'"
+
+    $homeConfigOps = Join-Path $behaviourRoot 'home-ops'
+    $homeConfigPath = Join-Path $homeConfigOps 'home.config.json'
+    Write-FixtureText -Path $homeConfigPath -Text (@{
+        clusterName    = 'fixture-absent-cluster'
+        libraryPath    = (Join-Path $behaviourRoot 'lib')
+        backupPath     = (Join-Path $behaviourRoot 'backup')
+        kubeconfigPath = (Join-Path $homeConfigOps 'kubeconfig')
+        kind           = 'kind-absent-on-path'
+        kubectl        = 'kubectl-absent-on-path'
+        docker         = 'docker-absent-on-path'
+        waitSeconds    = 5
+        checkPorts     = $false
+    } | ConvertTo-Json)
+    $statusRun = Invoke-ChildScript -Script (Join-Path $script:RepoRoot 'scripts/home/Get-HomeStatus.ps1') -Arguments @('-ConfigPath', $homeConfigPath) -Environment @{} -WorkingDirectory $behaviourRepo
+    Assert-Case 'the scrubbed Home scripts still read an explicit config and fail closed without a cluster' ($statusRun.ExitCode -eq 1 -and $statusRun.Output -match 'cluster') "exit $($statusRun.ExitCode): $($statusRun.Output)"
+    Assert-Case 'the Home status run created no folder and removed nothing' (-not (Test-Path -LiteralPath (Join-Path $homeConfigOps 'kubeconfig'))) 'a kubeconfig was written'
+
+    Write-Host ''
+    Write-Host 'US4 host adapters keep parity and carry no public operational write (T024c):'
+
+    # Adapters are maintained sources, not generated output. The two host trees differ only
+    # in host spellings: the '$name' vs '/name' invocation sigil, and AGENTS.md vs CLAUDE.md.
+    # Anything else is drift and fails here.
+    $adapterRoot = Join-Path $script:RepoRoot '.agents/skills'
+    $adapterNames = @(Get-ChildItem -LiteralPath $adapterRoot -Directory | ForEach-Object { $_.Name })
+    Assert-Case 'the agent adapter tree is present to check' ($adapterNames.Count -gt 0) "no adapters under '$adapterRoot'"
+    $drifted = [System.Collections.Generic.List[string]]::new()
+    $missingTwin = [System.Collections.Generic.List[string]]::new()
+    $normalise = {
+        param([string]$Text)
+        $body = $Text
+        if ($body -match '^(?s)---\r?\n.*?\r?\n---\r?\n') { $body = $body.Substring($Matches[0].Length) }
+        $body = $body -replace '\$([A-Za-z_][A-Za-z0-9_-]*)', '/$1'
+        return ($body -replace '\b(AGENTS|CLAUDE)\.md\b', '<agent-context>.md')
+    }
+    foreach ($name in $adapterNames) {
+        $agentFile = Join-Path $adapterRoot "$name/SKILL.md"
+        $claudeFile = Join-Path (Join-Path $script:RepoRoot '.claude/skills') "$name/SKILL.md"
+        if (-not (Test-Path -LiteralPath $claudeFile -PathType Leaf)) { $missingTwin.Add($name); continue }
+        $agentBody = & $normalise (Get-Content -LiteralPath $agentFile -Raw)
+        $claudeBody = & $normalise (Get-Content -LiteralPath $claudeFile -Raw)
+        if ($agentBody -cne $claudeBody) { $drifted.Add($name) }
+    }
+    Assert-Case 'every agent adapter has a .claude twin' ($missingTwin.Count -eq 0) ($missingTwin -join ', ')
+    Assert-Case 'every adapter pair is in parity apart from host spellings' ($drifted.Count -eq 0) ($drifted -join ', ')
+
+    $adapterWriteResidual = [System.Collections.Generic.List[string]]::new()
+    $adapterFiles = @(Get-ChildItem -LiteralPath (Join-Path $script:RepoRoot '.agents/skills') -Recurse -File -Filter 'SKILL.md') +
+        @(Get-ChildItem -LiteralPath (Join-Path $script:RepoRoot '.claude/skills') -Recurse -File -Filter 'SKILL.md')
+    foreach ($file in $adapterFiles) {
+        $text = Get-Content -LiteralPath $file.FullName -Raw
+        if ($text -match '(?i)write\s+(?:the\s+)?(?:brief|plan|tasks|checklists?)[^\n]*\bspecs/') {
+            $adapterWriteResidual.Add(([System.IO.Path]::GetRelativePath($script:RepoRoot, $file.FullName)) -replace '\\', '/')
+        }
+    }
+    Assert-Case 'no adapter instructs a public operational write under specs/' ($adapterWriteResidual.Count -eq 0) ($adapterWriteResidual -join ', ')
+
+    $generatedUntouched = @(& git -C $script:RepoRoot status --porcelain -- CodeMetricsConfig.txt stryker-config.json .editorconfig 2>$null)
+    Assert-Case 'the generated gate outputs stay untouched' ($generatedUntouched.Count -eq 0) (@($generatedUntouched) -join ' | ')
 } finally {
     if (Test-Path -LiteralPath $script:Root) {
         Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
