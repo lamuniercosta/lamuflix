@@ -1,0 +1,132 @@
+# DEV-510 - Shrink the cached taste profile
+
+## Status and authority
+
+Phase 2 grill closed with Patron after seven questions (cap: twelve). PLAN FROZEN — Keel, 2026-11-15, after Patron PA1 and independent reread; see PLAN_ADJUDICATION.md. Gate 1 remains pending; no implementation, gate execution, home measurement, promotion, or runtime acceptance is claimed.
+
+Worktree: `F:/Dev/LamuFlix.worktrees/feature-510-spec`.
+Branch: `feature/510-spec`.
+Recon baseline: `6edd0d16f0dd51950c56e21f2c866467dc5dff77`.
+
+Authoritative ticket provenance: `recon-DEV-510` lines 51-67, recording `scripts/get-task.ps1 DEV-510` from this worktree. Implementation/test mapping: recon lines 27-37. Earlier recon statements that ticket text was unavailable are superseded by lines 51-67. Full grill exchanges, cited bases and implications are in [CONCLUSIONS.md](CONCLUSIONS.md); quantified acceptance interpretations are tagged `[assumed]` in [ASSUMPTIONS.md](ASSUMPTIONS.md).
+
+Facts come from `recon-DEV-510`. A missing fact is `needs recon: <question>` to Bernstein, never an inferred implementation fact. This brief records decisions, not new measurements.
+
+## Problem and frozen scope
+
+The ticket reports that the cached taste profile exceeds HybridCache's default 1,048,576-byte payload ceiling, causing logged/swallowed cache write failures and repeated profile construction. Its estimates for 145 liked movies identify per-movie plot vectors and retained maps as major contributors; actual serialized totals have not been measured. `CachedProfile` wraps `TasteProfile`, `Generation` and `CreatedAt`.
+
+Frozen scope is exactly ticket work items 1-7 and Done when criteria (recon lines 64-65), following the proposed design (59-60) and exclusions (66): measure actual home payload/component split and latency, confirm limit behavior without distributed cache, transfer per-source plot embeddings to uncached inputs with one additional batched query, prove exact score/reason parity, add large-profile/query regressions and payload observability, run required gates, and perform post-merge home/full-day acceptance. Anything else is a follow-up issue, not a finding in this round.
+
+Explicit exclusions: scoring formula or weight changes; adding distributed cache; caching profile inputs or candidate embeddings. No payload-limit increase as the solution, truncation, source dropping, or silent data loss. The roughly 60 percent size reduction and roughly 1.3 KB/source growth are ticket estimates, not measured results or substitute acceptance evidence.
+
+## Canonical terms and representation contract
+
+- Cached taste profile: the existing cache aggregate, including the `CachedProfile` bookkeeping envelope. Keep aggregate/channel vectors, source identities, and source cast/genre/director maps.
+- Liked-source plot embedding: a liked movie's 384-float plot vector. Remove this per-source vector from cached `LikedSources`; supply it through uncached request inputs keyed by the existing movie identity.
+- Profile inputs: existing per-request inputs, including candidate embeddings and the transferred liked-source embeddings; they remain uncached.
+- Exact parity: identical recommendation title/order, score and `Because you liked X` reason for the same recorded source/candidate inputs.
+
+`GetProfileInputsAsync` retrieves liked-source embeddings with one additional batched query, shared across all candidate scoring in that request. No per-movie or per-candidate round trips. `BestLikedSource` / `PlotChannel` consume these inputs. Preserve existing missing/zero-vector behavior, tie ordering, non-plot channels and all scoring math. No new identity model, architecture or domain term is needed; no root glossary change or ADR is required.
+
+## Authorized implementation file responsibilities
+
+Targeted edits are authorized by Patron Q3/Q7 as required by ticket work items 2-5. This is a planning list, not a claim that files were changed.
+
+| Existing file or declaration | Planned responsibility |
+| --- | --- |
+| `src/LamuFlix.Core/Domain/TasteProfile.cs` | Remove only per-source cached plot vectors; preserve all retained channels and source identity. |
+| `src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs` | Construct the compact liked-source representation without changing aggregates/scoring data. |
+| `src/LamuFlix.Core/Ports/IRecommendationProfileSource.cs` and existing `GetProfileInputsAsync` return-type declaration | Extend internal request inputs with liked-source embeddings keyed by existing identity. |
+| `src/LamuFlix.Infrastructure/Persistence/EfRecommendationProfileSource.cs` | Populate transferred embeddings with one batched additional query. |
+| Existing `ProfileSimilarityCalculator` declaration and `BestLikedSource` / `PlotChannel` consumers | Obtain per-source plot vectors from request inputs; preserve formula and selection behavior. |
+| Existing `GetRecommendationsQueryHandler` and `GetForYouRecommendationsQueryHandler` consumers | Pass/use the extended inputs only where required; prove parity in both paths. |
+| `src/LamuFlix.Infrastructure/Persistence/HybridCachedRecommendationProfileSource.cs` | Compact cache value, serialized-size observations and cache admission/reuse regression support; preserve freshness semantics. |
+| Existing `TasteProfileCacheOptions` and `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs` | Single-source configurable warning fraction and effective-ceiling wiring if needed. |
+| Existing suites listed below | Meaningful size, retrieval, query-count, scoring and cache regressions. |
+| `specs/DEV-510/` | Spec, plan, tasks, runbook and evidence slots drafted by Quill from these decisions. |
+
+Use existing declarations rather than invent guessed paths for declarations whose exact paths are not supplied in recon. Obtain any needed exact location through recon. No new package, project, architectural layer, database schema, public API, LocalPlay, secret-handling or process-launch change is approved. No wholesale rewrite or unrelated file edit. No generated API/TypeScript edit is planned because public contracts do not change.
+
+## Task ordering and acceptance mapping
+
+1. **Baseline before changing representation** (ticket item 1 and parity baseline in item 3): capture actual home Postgres serialized cache total and per-component split; establish how/where the limit is enforced without `IDistributedCache`; capture matched cold/uncached and warm-cache `for-you` timings; record fixed input/database snapshot and candidate set with pre-change title/order, exact score and reason. Preserve the baseline version and safe evidence references.
+2. **Request input contract and retrieval regressions** (item 2 and retrieval portion of item 4): extend existing inputs and EF retrieval for one additional batched liked-source query. Add real Postgres retrieval/query-count coverage; keep inputs uncached.
+3. **Compact profile and scoring integration** (items 2-3): remove only source plot vectors from cached representation and wire existing similarity/calculator/consumer paths to request embeddings. Keep all other maps/vectors and scoring behavior.
+4. **Budget, observability and regressions** (items 4-5): implement the confirmed size/warning contract; prove real cache admission/reuse; add exact parity, property and Testcontainers cases plus existing cache regression coverage.
+5. **Pre/post evidence and gates** (items 1,3,6 and Done when): repeat payload/component and matched latency measurements, demonstrate exact fixed-set title/order/score/reason parity, record all gate results with exact checked SHA. Do not substitute estimates for measured data.
+6. **Post-merge operator validation** (item 7 and Done when): after user-owned merge, authorized operator promotes home and records a complete 24-hour observation and warm-cache latency. Remains `runtime-pending` until the receipt exists; no seat merges or implies deployment authorization.
+
+Quill must keep every item above in spec/plan/tasks, including post-merge work. Baseline access or evidence failures must be reported; do not silently defer pre-change baseline until after the change or mark unavailable data as complete.
+
+## Payload and observability acceptance
+
+Measure actual serialized `CachedProfile` bytes with production-equivalent serializer/options, including `Generation` and `CreatedAt`. Record before/after total and component split. Confirm separately the effective HybridCache limit behavior without a registered distributed cache; do not assume the serialization measurement alone proves this behavior.
+
+Retain the default 1,048,576-byte ceiling. Patron's confirmed `[assumed]` headroom interpretation requires a representative fivefold fixture of 725 liked movies relative to the ticket's 145 baseline, with realistic retained maps and 384-float per-source vectors supplied in uncached inputs. Both this compact serialized fixture and the current home profile must be strictly below 80 percent of the effective ceiling. Do not manufacture the result by thinning maps or source counts. Keep test/operational thresholds in their appropriate configuration source of truth, not scattered literals; never lower harness thresholds.
+
+Emit structured serialized-payload-byte and effective-budget observations on cache construction, plus a warning when bytes reach or exceed a configurable warning fraction, default 0.8. Test below, equal-to and above the warning boundary and cache payload ceiling as applicable. Avoid repeated serialization on cache hits and prove warm reuse. Do not log vectors, profile content, identities, secrets or connection strings. Existing cache failure, expiry and invalidation behavior must remain covered.
+
+## Test strategy
+
+Use existing assertion/mocking libraries and test structure. Test database translation/serialization with Postgres Testcontainers, never a mocked driver. Do not add a test dependency.
+
+Relevant existing suites from recon: `HybridCachedRecommendationProfileSourceCacheTests`, `HybridCachedRecommendationProfileSourceColdTests`, `HybridCachedRecommendationProfileSourceFreshnessTests`, `EfRecommendationProfileSourceTests`, `TasteProfileCalculatorTests`, `TasteProfileProperties`, `TasteProfileReviewAggregateTests`, and `TasteProfileCacheRegistrationTests`.
+
+Required evidence/tests:
+
+- Exact pre/post parity on a fixed, recorded input/database snapshot and candidate set: title/order, score and explanatory reason, unchanged formula/weights. No tolerance introduced to conceal a difference.
+- Deterministic unit/property cases: multiple liked sources, missing/zero vectors, ties, empty/disliked-only profiles, and retained non-plot channels.
+- Postgres retrieval of liked-source embeddings keyed correctly, plus query count bounded independently of source/candidate count (one additional batched query).
+- Both recommendation consumers with cold/warm paths; retain freshness, invalidation/generation, expiration, concurrency/coalescing, cancellation, factory failure, scope-lifetime and uncached input regressions already described by recon.
+- Real serialized envelope size/headroom, threshold boundaries and actual cache admission/reuse. A size-only assertion is not proof that cache hits work.
+
+No sensitive home snapshot is committed. Record reproducible safe inputs/evidence references without secrets or profile-content logs.
+
+## Gate expectations and loop discipline
+
+Ticket-required build verification: Roslyn analyzers, cyclomatic complexity, InspectCode, full tests, and `dotnet format --verify-no-changes`, with no new warnings. Apply applicable pipeline property, vulnerability/security, mutation and web gates as well. Changed production C# requires the mutation gate; surviving mutants require tests, never a lowered threshold. Gate scripts run in the named worktree against the appropriate diff/base and checked SHA. No implementation gates are claimed by this docs-only grill.
+
+Closing bar: every verified Critical, High, Medium and Low finding within frozen scope must be resolved or explicitly dispositioned with cited evidence. No accepted unresolved correctness or acceptance gap closes review. On M, obtain all three Sentry/Ledger/Compass axes at the review stage. Out-of-scope work follows the frozen-scope rule and applicable charter follow-up policy.
+
+Round cap: maximum two review rounds and two remediation commits per round. Remaining above-bar findings after the cap go to user PR review; the cap does not grant clearance. Applicable failed/unrunnable gates block. Scope-empty exit-2 results are nonblocking `SKIPPED (scope-empty)`, never PASS; explicit harness opt-out is `SKIP`, mutation-only configured exclusions are `N/A`, and unavailable checks are `Could not run`. Property-test opt-out requires the pipeline's explicit documented basis; none is assumed here.
+
+## Operational runbook and evidence slots for Quill
+
+Draft a runbook/evidence template under `specs/DEV-510` containing:
+
+- Baseline and post-change SHA, configuration/serializer/effective budget, observed profile/library count, actual serialized total/component bytes and calculated headroom.
+- No-distributed-cache reproduction setup, actual observations and conclusion on limit enforcement, with safe log references.
+- Fixed scoring snapshot/input and candidate-set provenance, compared versions, exact title/order/score/reason results and discrepancies if any.
+- Matched `for-you` inputs/cache state, cold/uncached/warm classification, sample count, timing observations and summary statistics. Publish measurements; no invented speedup target.
+- Synthetic fixture shape/count, serialized bytes, budget assertion, actual cache reuse evidence, bounded-query evidence and applicable gate receipts.
+- Authorized operator promotion receipt after user merge; observation start/end/time zone spanning at least 24 hours, deployed SHA, exercised workload/profile count, `MaximumPayloadBytesExceeded` occurrence count (must be zero), and measured warm-cache latency.
+- Separate status fields for planning/freeze, Gate 1, implementation verification, promotion and runtime acceptance; missing evidence remains pending.
+
+No owner checkbox or constitution departure arose in this grill. Existing ticket scope is authoritative, not an unresolved owner question. Implementation/runtime facts remain unmeasured and cannot be inferred from this decision record.
+
+## Grill answer index
+
+| Question | Confirmed decision | Record |
+| --- | --- | --- |
+| Q1 | Full ticket scope and exclusions, including home work | CONCLUSIONS.md Q1 |
+| Q2 | All-severity explicit dispositions, two rounds/two fix commits, honest gates | CONCLUSIONS.md Q2 |
+| Q3 | Internal-only embedding transfer and targeted edit authorization | CONCLUSIONS.md Q3 |
+| Q4 | Real envelope size, fivefold fixture, 80 percent budget/warning | CONCLUSIONS.md Q4; ASSUMPTIONS.md A1-A2 |
+| Q5 | Exact parity and real-database/query/cache regression coverage | CONCLUSIONS.md Q5 |
+| Q6 | Home measurements, current-home budget, structured observations and full-day receipt | CONCLUSIONS.md Q6; ASSUMPTIONS.md A3 |
+| Q7 | Complete approach, file responsibility, task ordering and shared understanding | CONCLUSIONS.md Q7 |
+
+No additional decision is implied. Quill raises any gap as `needs decision:`; Keel records a decision change here before any derivative artifact is changed.
+
+## PA1 - Plan challenge decisions (2026-11-15)
+
+Patron explicitly approved all 20 finding recommendations without amendment. Full proposal and cited answer are recorded in CONCLUSIONS.md PA1. This amendment precedes derivative artifact edits and governs conflicting draft wording above. Authority: original recon-DEV-510 ticket section lines 59-66, targeted implementation seams lines 3-7, Q1-Q7, Charter 2.3 and AGENTS.md. The targeted recon note now contains seven lines; original ticket/recon line references refer to the previously read original snapshot, not the replacement note numbering.
+
+- **Baseline stop**: T002 must capture a reproducible pre-change fixed scoring snapshot and actual component split, and verify retained maps/envelope plus representative 725-source projection fit strictly below 80 percent of the effective ceiling before T003+. Missing parity baseline or unavailable/infeasible feasibility proof blocks implementation. Record pending/Could not run and stop for recon or a cited Patron disposition; pending alone does not unlock representation edits. Keep 725 and 0.8 frozen. Do not thin maps, raise the ceiling or silently relax acceptance. Only a proposed ticket contradiction or constitution departure becomes an owner structural checkbox; a failed projection alone goes to Patron.
+- **Request join**: Load profile first; use exactly its LikedSources identities, with existing identity equality, as the additional embedding batch key set. Do not independently reload current liked membership. Missing/partial rows use incumbent missing-vector behavior; never invent vectors. Empty identities return an empty map with zero additional embedding queries; nonempty identities use one additional batched query, independent of candidate/source count. Propagate request CancellationToken. Concurrent membership changes do not change the chosen key set; no cross-read transaction/snapshot consistency guarantee is added. Exact parity is for identical fixed inputs. Both consumers pass inputs, and the compact cached source type exposes no plot vector.
+- **Byte observation**: Use the same registered HybridCache serializer/options on the same CachedProfile envelope for construction-only byte measurement; no custom serializer wrapper or new measurement layer. Keep real GetOrCreateAsync admission. Resolve effective ceiling from IOptions<HybridCacheOptions>.Value.MaximumPayloadBytes, never a repeated 1048576 literal. Ticket 1 MiB is a reported default, not a measured runtime value. T001 verifies the pinned package API/signature and serializer resolution; unsupported seam blocks implementation for recon/Patron, never substitute independent JSON defaults. Test observation/admission agreement below/equal/above the actual ceiling using the confirmed no-distributed-cache behavior.
+- **Options and diagnostics**: Authorize src/LamuFlix.Infrastructure/Persistence/TasteProfileCacheOptions.cs, tests/LamuFlix.UnitTests/Options/TasteProfileCacheOptionsTests.cs, tests/LamuFlix.UnitTests/Persistence/TasteProfileCacheRegistrationTests.cs and a minimal LoggerMessage partial beside the cache adapter. Extend the existing registration .Validate chain and ValidateOnStart, no new validator type. WarningFraction must be finite and satisfy 0 < fraction <= 1; default 0.8 is const, never static readonly. Match the existing SectionName:nameof(property) validation-message pattern. Test zero, one, negative, greater than one, NaN and both infinities. Choose logging only: source-generated LoggerMessage with numeric PayloadBytes, BudgetBytes, Fraction, no interpolation or content/identity logs; assert log fields are numeric only.
+- **Cache behavior**: Version the compact cache key namespace; legacy-shaped keys cannot be reused, while existing generation/expiry/invalidation semantics remain. Test seeded legacy key ignored and compact value rebuilt. Construct, observe/warn, then admit or retain incumbent swallowed non-admission semantics and return profile. Size alone never throws to callers, including coalesced waiters. Over-ceiling cases warn before admission, return successfully and do not become false warm hits.
+- **Cost and ordering**: Label warm measurements as profile-cache-hit plus uncached embedding batch (or zero batch for empty sources); record extra query count/cost and returned vector volume without logging content. Split T005 into T005a input-contract/EF retrieval and T005b compact scoring/both-consumer wiring with compiling green boundaries. Parity tests written pre-change stay green; edge-contract tests may start red. TDD is optional; do not manufacture red parity tests. Mutation runs use the documented worktree invocation without --since, preserving maxKillShare and maxKillFileSpan rules.
+- **Documentation**: Waive the three implementation-free/technology-agnostic checklist claims explicitly for this ticket. Ledger L4 redundant process wording is noted as harmless follow-up, with no ticket or cleanup. Round cap and closing bar remain Q2. This is a plan disposition, not proof that implementation tests, payload budgets or runtime acceptance have passed.
