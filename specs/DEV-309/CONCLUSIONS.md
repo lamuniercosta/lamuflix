@@ -2,7 +2,7 @@
 
 ## Grill round 1 — Keel packet DEV-309-keel-q1.md, 2026-10-02
 
-Source: full seven-question packet at C:/Users/lamun/AppData/Local/Temp/DEV-309-keel-q1.md. Ticket text is trusted live recon-DEV-309:5; inherited composition facts are trusted recon-DEV-309:13-26 and recon-DEV-309-2:17-30. No implementation or verification gate was run by Patron.
+Source: full seven-question packet at <temp>/DEV-309-keel-q1.md. Ticket text is trusted live recon-DEV-309:5; inherited composition facts are trusted recon-DEV-309:13-26 and recon-DEV-309-2:17-30. No implementation or verification gate was run by Patron.
 
 ### Q1 — AMEND: recommend the flat Api [AsParameters] request, with full codec fidelity; blocked: structural — Approve binding a flat Api request and mapping it to MovieQuery instead of the ticket's direct [AsParameters] MovieQuery binding?
 

@@ -9,7 +9,7 @@ Question from Keel to Patron:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q1/12 ruling: partially settled, invariant ruled, one missing recon fact named; full ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q1-ruling.md - record it in CONCLUSIONS.md and route the named fact as needs-recon before drafting pause/resume wording.
+> [from Patron] DEV-333 Q1/12 ruling: partially settled, invariant ruled, one missing recon fact named; full ruling at <temp>\patron-DEV-333-Q1-ruling.md - record it in CONCLUSIONS.md and route the named fact as needs-recon before drafting pause/resume wording.
 
 Full Patron ruling (verbatim):
 
@@ -48,7 +48,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q1/12 resumed ruling: settled, enrichment-side quota-specific day-aware composition, no owner question; full cited ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q1-resume-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q2 within the cap.
+> [from Patron] DEV-333 Q1/12 resumed ruling: settled, enrichment-side quota-specific day-aware composition, no owner question; full cited ruling at <temp>\patron-DEV-333-Q1-resume-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q2 within the cap.
 
 Full Patron ruling (verbatim):
 
@@ -91,7 +91,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q2/12 ruling: settled, database-anchored deferral plus durable broker re-dispatch, sweeper as post-expiry backstop; full cited ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q2-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q3.
+> [from Patron] DEV-333 Q2/12 ruling: settled, database-anchored deferral plus durable broker re-dispatch, sweeper as post-expiry backstop; full cited ruling at <temp>\patron-DEV-333-Q2-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q3.
 
 Full ruling (verbatim; Q2 explicitly supersedes Q1 no-schema expectation with its cited care-item-3 approval):
 
@@ -133,7 +133,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q3/12 ruling: settled, Core ImportLibrary command and discovery port with an Infrastructure scope-execution seam, explicit invocation only, ADR without owner checkbox; full cited ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q3-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q4.
+> [from Patron] DEV-333 Q3/12 ruling: settled, Core ImportLibrary command and discovery port with an Infrastructure scope-execution seam, explicit invocation only, ADR without owner checkbox; full cited ruling at <temp>\patron-DEV-333-Q3-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q4.
 
 Full ruling (verbatim):
 
@@ -174,7 +174,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q4/12 ruling: settled, candidate and traversal boundaries with canonical path identity, single shared extension list, and one CONTEXT.md glossary term; full cited ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q4-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q5.
+> [from Patron] DEV-333 Q4/12 ruling: settled, candidate and traversal boundaries with canonical path identity, single shared extension list, and one CONTEXT.md glossary term; full cited ruling at <temp>\patron-DEV-333-Q4-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q5.
 
 Full ruling (verbatim):
 
@@ -223,7 +223,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q4 clarification: confirmed with host-appropriate comparison and filesystem-root-preserving normalization; full ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q4-clarification-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q5.
+> [from Patron] DEV-333 Q4 clarification: confirmed with host-appropriate comparison and filesystem-root-preserving normalization; full ruling at <temp>\patron-DEV-333-Q4-clarification-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q5.
 
 Full ruling (verbatim):
 
@@ -248,7 +248,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q5/12 ruling: settled, single-knob bounded channel with producer/consumer lifecycle and fault-safe termination; full cited ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q5-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q6.
+> [from Patron] DEV-333 Q5/12 ruling: settled, single-knob bounded channel with producer/consumer lifecycle and fault-safe termination; full cited ruling at <temp>\patron-DEV-333-Q5-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q6.
 
 Full ruling (verbatim):
 
@@ -289,7 +289,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q6/12 ruling: settled, fail-fast ImportLibraryResult with cancellation precedence and honest non-resuming rerun semantics, no owner checkbox; full cited ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q6-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q7.
+> [from Patron] DEV-333 Q6/12 ruling: settled, fail-fast ImportLibraryResult with cancellation precedence and honest non-resuming rerun semantics, no owner checkbox; full cited ruling at <temp>\patron-DEV-333-Q6-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q7.
 
 Full ruling (verbatim):
 
@@ -331,7 +331,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q7/12 ruling: acceptance evidence and binding implementation order approved with refinements, no Gherkin; full cited ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q7-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q8.
+> [from Patron] DEV-333 Q7/12 ruling: acceptance evidence and binding implementation order approved with refinements, no Gherkin; full cited ruling at <temp>\patron-DEV-333-Q7-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q8.
 
 Full ruling (verbatim):
 
@@ -369,7 +369,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q7 clarification: confirmed, composed real-gate AC3 added, AC4 tightened to all-success, and the cross-lane contract names are settled in the ruling; full cited ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q7-clarification-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q8.
+> [from Patron] DEV-333 Q7 clarification: confirmed, composed real-gate AC3 added, AC4 tightened to all-success, and the cross-lane contract names are settled in the ruling; full cited ruling at <temp>\patron-DEV-333-Q7-clarification-ruling.md - record verbatim in CONCLUSIONS.md and proceed to Q8.
 
 Full ruling (verbatim):
 
@@ -409,7 +409,7 @@ Question from Keel:
 
 Patron reply:
 
-> [from Patron] DEV-333 Q8/12 ruling: closing loop terms confirmed, no outstanding DEV-333 owner question, grill closure authorized for brief.md and Quill drafting only; full cited ruling at C:\Users\lamun\AppData\Local\Temp\patron-DEV-333-Q8-ruling.md - record verbatim in CONCLUSIONS.md and close the grill.
+> [from Patron] DEV-333 Q8/12 ruling: closing loop terms confirmed, no outstanding DEV-333 owner question, grill closure authorized for brief.md and Quill drafting only; full cited ruling at <temp>\patron-DEV-333-Q8-ruling.md - record verbatim in CONCLUSIONS.md and close the grill.
 
 Full ruling (verbatim):
 

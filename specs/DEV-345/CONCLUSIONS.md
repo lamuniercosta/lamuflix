@@ -1,6 +1,6 @@
 # DEV-345 grill conclusions
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-345-spec; branch: feature/345-spec.
+Worktree: <task-worktree>/feature-345-spec; branch: feature/345-spec.
 Facts: recon-DEV-345 at b02a1e9f4bcba8ad1932b15c38bf9bdf2b6a98bc; YouTrack DEV-345 full ticket text (`scripts/get-task.ps1 DEV-345`). Authority: Patron. Cap: 12 questions.
 
 ## Intake / Grill Opening Ruling (`/grill-with-docs DEV-345`)

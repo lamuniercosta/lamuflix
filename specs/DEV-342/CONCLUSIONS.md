@@ -1,6 +1,6 @@
 # DEV-342 grill conclusions
 
-Source: task note DEV-342 and recon-DEV-342, including authoritative ticket section 8 (`Description:1-18`). Worktree `F:/Dev/LamuFlix.worktrees/feature-342-spec`; branch `feature/342-spec`; base HEAD `8edc1b8f4832006bc812f8ebd2da3caf0e9c3ea9`. Patron is the decision owner; each full exchange is recorded here. Append only.
+Source: task note DEV-342 and recon-DEV-342, including authoritative ticket section 8 (`Description:1-18`). Worktree `<task-worktree>/feature-342-spec`; branch `feature/342-spec`; base HEAD `8edc1b8f4832006bc812f8ebd2da3caf0e9c3ea9`. Patron is the decision owner; each full exchange is recorded here. Append only.
 
 ---
 

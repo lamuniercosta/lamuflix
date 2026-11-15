@@ -1,7 +1,7 @@
 # DEV-324 — Grill conclusions (Patron)
 
 Grill: Phase 2 step 1, M-ticket, 12 questions (cap reached, none over). Worktree
-`F:\Dev\LamuFlix.worktrees\feature-324-spec`, branch `feature/324-spec`, base
+`<task-worktree>\feature-324-spec`, branch `feature/324-spec`, base
 `1de5162257b4eef7f1ca111ef8f6a9d1594ff542`.
 
 Sources: ticket DEV-324 (get-task.ps1, 2026-10-12): *Scope & Technical Design* (S&TD) items 1–2 and

@@ -26,7 +26,7 @@ Verdict: Adopt your recommended request boundary, plus mandatory deployment excl
 
 3. Verification, no silent weakening: spec must verify (a) peer-by-header matrix with rejection before catalog/disk/process/history, (b) actual shipped nginx path cannot elicit launch, (c) actual Aspire path (AppHost Program.cs:16-18,46) cannot elicit launch. Claim is scoped to shipped nginx/Aspire topologies plus that exclusion. An absolute any-proxy guarantee would be blocked: structural, as it needs a non-HTTP trust boundary contradicting the ticket HTTP design — flagged here, not assumed. No ticket or constitution departure in this ruling (constitution LocalPlay/403 at constitution.md:447-448,668-669).
 
-Recorded and committed (dd664bf3) at specs/DEV-458/CONCLUSIONS.md in worktree F:\Dev\LamuFlix.worktrees\feature-458-spec — read section Q1 there as the authoritative text. Proceed to Q2.
+Recorded and committed (dd664bf3) at specs/DEV-458/CONCLUSIONS.md in worktree <task-worktree>\feature-458-spec — read section Q1 there as the authoritative text. Proceed to Q2.
 
 ---
 
@@ -335,7 +335,7 @@ Publication handoff: local reconciliation and freeze need commit/push and update
 
 **Gate 1 merge recorded; T000 complete; Phase 1 (T001–T006) unblocked.** This receipt controls current pickup status over the retained Phase A provisional / Gate 1 closed wording in brief, spec, plan, tasks and the history above. Frozen behavior and scope are unchanged.
 
-Authority: Bernstein T000 pickup ask; task note `DEV-458:4-14`; `recon-DEV-458:4-5,20-27`. Spec [PR #336](https://github.com/lamuniercosta/lamuflix/pull/336) merged at `0fc9dc87`. This is the supplied merge receipt, not an independent GitHub read-back by Keel. Pickup worktree is `F:/Dev/LamuFlix.worktrees/feature-DEV-458-harden-the-local-launcher`, branch `feature/DEV-458-harden-the-local-launcher`, recon HEAD `40a3e613828e3046bc14646f67a059ec804a673a`; Phase A base `659a2e9b`. Branch was verified before edits; working tree was clean.
+Authority: Bernstein T000 pickup ask; task note `DEV-458:4-14`; `recon-DEV-458:4-5,20-27`. Spec [PR #336](https://github.com/lamuniercosta/lamuflix/pull/336) merged at `0fc9dc87`. This is the supplied merge receipt, not an independent GitHub read-back by Keel. Pickup worktree is `<task-worktree>/feature-DEV-458-harden-the-local-launcher`, branch `feature/DEV-458-harden-the-local-launcher`, recon HEAD `40a3e613828e3046bc14646f67a059ec804a673a`; Phase A base `659a2e9b`. Branch was verified before edits; working tree was clean.
 
 ### Read-only pickup analysis
 

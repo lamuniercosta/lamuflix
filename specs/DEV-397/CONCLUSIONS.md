@@ -1,6 +1,6 @@
 # DEV-397 — Patron grill rulings
 
-2026-10-04. Requested by Keel: ten recommended decisions from recon-DEV-397, on feature/397-spec in F:/Dev/LamuFlix.worktrees/feature-397-spec. Recon measurements are trusted evidence, not rerun by Patron. No taste decisions are made in this exchange. Q1 and Q9 remain owner decisions; Gate 1 stays closed.
+2026-10-04. Requested by Keel: ten recommended decisions from recon-DEV-397, on feature/397-spec in <task-worktree>/feature-397-spec. Recon measurements are trusted evidence, not rerun by Patron. No taste decisions are made in this exchange. Q1 and Q9 remain owner decisions; Gate 1 stays closed.
 
 ---
 

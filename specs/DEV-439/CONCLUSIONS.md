@@ -1,6 +1,6 @@
 # DEV-439 Grill Conclusions
 
-Worktree: `F:/Dev/LamuFlix.worktrees/feature-439-spec`; branch: `feature/439-spec`; HEAD: `c2d78146b359bd17ab36ecaa9f33342272d47ebf`.
+Worktree: `<task-worktree>/feature-439-spec`; branch: `feature/439-spec`; HEAD: `c2d78146b359bd17ab36ecaa9f33342272d47ebf`.
 
 ---
 
@@ -177,7 +177,7 @@ The sole unresolved owner checkbox remains the ticket-mandated Principle IV clos
 
 ## T021 — Verified owner Gate 1 answer and spec-PR merge receipt
 
-Recorded by Keel for Phase B pickup in `F:/Dev/LamuFlix.worktrees/DEV-439`, branch `feature/DEV-439`, picked HEAD `993eeebb3068608e232503aaef84422af8885b32`.
+Recorded by Keel for Phase B pickup in `<task-worktree>/DEV-439`, branch `feature/DEV-439`, picked HEAD `993eeebb3068608e232503aaef84422af8885b32`.
 
 **Verified owner answer: approved [x].** The owner checkbox in the body of [spec PR #301](https://github.com/lamuniercosta/lamuflix/pull/301) is checked for the Principle IV `QuotaExhausted` closed-list amendment, constitution 1.8.0 to 1.9.0. Repository owner `lamuniercosta` merged that PR at `2026-11-02T00:50:57Z`; state `MERGED`; merge commit `6e1ce27b4340a2ec85f38fa5965b5f68303877e7`. Source: Conductor live verification recorded in `recon-DEV-439:91-97`, read back by Keel. Landed-main ancestry and picked identity are recorded at `recon-DEV-439:5-9,18-19`.
 
@@ -188,7 +188,7 @@ This records the actual owner answer and merge receipt required by Q1, FR-008, S
 
 ## T000 — Phase B pickup and cross-artifact consistency clearance
 
-Performed after recording and reading back T021 above. Picked HEAD and origin/main were confirmed equal at `993eeebb3068608e232503aaef84422af8885b32` on `feature/DEV-439` in `F:/Dev/LamuFlix.worktrees/DEV-439`. Fresh Phase B evidence is the current `recon-DEV-439`, not the historical Phase A recon with the same note name. Its intake-only disclaimer at lines 86-87 is not a clearance; this analysis supplies the required post-T021 clearance using that refreshed evidence, as directed by Conductor.
+Performed after recording and reading back T021 above. Picked HEAD and origin/main were confirmed equal at `993eeebb3068608e232503aaef84422af8885b32` on `feature/DEV-439` in `<task-worktree>/DEV-439`. Fresh Phase B evidence is the current `recon-DEV-439`, not the historical Phase A recon with the same note name. Its intake-only disclaimer at lines 86-87 is not a clearance; this analysis supplies the required post-T021 clearance using that refreshed evidence, as directed by Conductor.
 
 **Drift disposition:** recon lines 18-26 show zero C# drift from Phase A base `c2d78146b359bd17ab36ecaa9f33342272d47ebf` to picked main, and no web/project/build-contract drift. Constitution and glossary changes are the landed Phase A deliverables. The constitution list citation moved from 309-314 to 330-331 (retry parenthetical 335, version 687); recon lines 47-48 refresh that locator without changing the contract. No implementation task repair is required. The historical unrelated FeaturesConsumerTests diff is absent at this pickup (line 70); preserve unrelated work if encountered later.
 

@@ -345,7 +345,7 @@ Keel adjudicated all 17 findings from Sentry (4), Ledger (8), Compass (5): 0 Cri
 
 Read-only cross-artifact reanalysis and brief-to-plan/tasks comparison: 0 unresolved planning findings, 13 FR + 5 SC = 18/18 requirements with task coverage; 28 unique unchecked tasks; no unmapped feature tasks. No provisional parallel markers on T002 or endpoint test triad/new logging tests. Ordering is T000 Gate 1 receipt -> T001 Wisp facts -> T001b Keel analyze -> T001c Keel verify-only -> T001d Keel constitution/governance -> T003 atomic buildable type/whitelist -> T002 behavioral tests -> T004 reader -> T005 DI -> endpoint -> contracts -> live Compose/browser -> gates/review/delivery. Existing brief Q8 wording is refined by Q11, not permission for noncompiling-red commits.
 
-Receipt: Maestri note adjudication-DEV-456-Keel in LamuFlix notes, with individual dispositions and file:line verification. Worktree F:/Dev/LamuFlix.worktrees/feature-456-spec; branch feature/456-spec; current Git base/HEAD 659a2e9b739c092dc8565ee31ed6bc5bcc4b68e3. The reviewed documents are working-tree artifacts, not committed content attributed to that base SHA.
+Receipt: Maestri note adjudication-DEV-456-Keel in LamuFlix notes, with individual dispositions and file:line verification. Worktree <task-worktree>/feature-456-spec; branch feature/456-spec; current Git base/HEAD 659a2e9b739c092dc8565ee31ed6bc5bcc4b68e3. The reviewed documents are working-tree artifacts, not committed content attributed to that base SHA.
 
 Ordinary Gate 1 remains pending; no structural owner checkbox arises. No implementation authorization, constitution amendment completion, Principle I/VI implementation PASS, runtime/build gate result, live acceptance, PR publication, or merge clearance is claimed. ADR 0037 remains Proposed; T001d in the Build PR still requires the scoped extension/governance, and Phase B Wisp must supply exact DI-file identification and dependency/drift facts before Keel pickup analysis. Required nginx/browser acceptance remains mandatory; Could not run/SKIPPED never PASS. Bernstein owns next routing/publication; the user owns merge.
 
@@ -362,7 +362,7 @@ Ordinary Gate 1 remains pending; no structural owner checkbox arises. No impleme
 
 ## T000 — Gate 1 spec-PR merge receipt (2026-11-08)
 
-Evidence: Conductor pickup instruction and Maestri task note `DEV-456`, Intake lines 5-7, record spec PR #338 merged at `cfbb7ae4`, with `specs/DEV-456/` on main. The task note Rigger intake receipt lines 12-14 names worktree `F:/Dev/LamuFlix.worktrees/DEV-456`, branch `feature/DEV-456`, pickup HEAD `17d9545ced1d0cd811403a0ece4c4ecec3a1f3b6`; recon-DEV-456 lines 4-7 independently records that pickup provenance and the landed spec files. This is a receipt of the recorded owner spec merge, not a new Patron ruling.
+Evidence: Conductor pickup instruction and Maestri task note `DEV-456`, Intake lines 5-7, record spec PR #338 merged at `cfbb7ae4`, with `specs/DEV-456/` on main. The task note Rigger intake receipt lines 12-14 names worktree `<task-worktree>/DEV-456`, branch `feature/DEV-456`, pickup HEAD `17d9545ced1d0cd811403a0ece4c4ecec3a1f3b6`; recon-DEV-456 lines 4-7 independently records that pickup provenance and the landed spec files. This is a receipt of the recorded owner spec merge, not a new Patron ruling.
 
 T000 is complete. This receipt supersedes historical pending-owner-Gate-1 banners only. T001/T001b remain incomplete: recon-DEV-456 identifies the existing API registration seam at `src/LamuFlix.Api/HandlerRegistration.cs:32-34` (lines 11 and 23), conflicting with the Infrastructure-only DI wording in plan/tasks, but does not establish DEV-438/DEV-459 implementation dependency state or DEV-459 PR #343 compatibility. No feature implementation clearance, completed governance, build/runtime PASS, or dependency waiver is claimed. Missing recon must be supplied before the pickup verdict and seam disposition.
 
@@ -391,7 +391,7 @@ Verdict: (1) DEV-459 (#343 at 22404dfc, awaiting-merge) remains a delivery/integ
 ## T001b / T001c / T001d — Pickup execution receipt (2026-11-08)
 
 Authority: Conductor Phase 3 step 2 execution ask; brief Q10/Q11/Q12; T000/T001 receipts above.
-Worktree: `F:/Dev/LamuFlix.worktrees/DEV-456`, verified branch `feature/DEV-456`.
+Worktree: `<task-worktree>/DEV-456`, verified branch `feature/DEV-456`.
 Evidence base: Wisp `recon-DEV-456` lines 4-16 at `17d9545ced1d0cd811403a0ece4c4ecec3a1f3b6`;
 task note `DEV-456` lines 17-23 (pickup drift receipt) and 29-43 (dependency/seam receipt).
 This append supersedes the preceding incomplete-task statuses only; no new product decision.

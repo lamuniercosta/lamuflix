@@ -2,7 +2,7 @@
 
 Grill: `/grill-with-docs DEV-323`, Patron-driven, 12 questions (cap reached exactly). 2026-10-12.
 Sources: ticket text (note `DEV-323`:8), `recon-DEV-323` (cited `R:<line>`), `specs/PRODUCT.md` (cited `P:§`), seat charter.
-Worktree `F:/Dev/LamuFlix.worktrees/feature-323-spec`, branch `feature/323-spec`, base `cb6fe48`.
+Worktree `<task-worktree>/feature-323-spec`, branch `feature/323-spec`, base `cb6fe48`.
 
 ## Owner escalation (spec PR checkbox; Gate 1 stays closed until answered)
 

@@ -161,7 +161,7 @@ Patron answer: APPROVED as the bounded disposition packet proposed by Keel. One 
 
 ## T000 Gate 1 merge receipt — 2026-11-09 (Keel)
 
-**Gate 1 satisfied; T000 complete.** Spec PR #340 was merged at `1955de8a`, and `specs/DEV-455/` is on main. Authority: Conductor pickup instruction; note `DEV-455:5-7`, corroborated by the original intake `recon-DEV-455:5` read before its replacement with the T001 supplement. No independent hosted API query is claimed. Pickup worktree: `F:/Dev/LamuFlix.worktrees/DEV-455`, branch `feature/DEV-455`, recon HEAD `8df286993320a83ed9ebfacf5bdf40bc79ec3dae` (current supplemental `recon-DEV-455:3`).
+**Gate 1 satisfied; T000 complete.** Spec PR #340 was merged at `1955de8a`, and `specs/DEV-455/` is on main. Authority: Conductor pickup instruction; note `DEV-455:5-7`, corroborated by the original intake `recon-DEV-455:5` read before its replacement with the T001 supplement. No independent hosted API query is claimed. Pickup worktree: `<task-worktree>/DEV-455`, branch `feature/DEV-455`, recon HEAD `8df286993320a83ed9ebfacf5bdf40bc79ec3dae` (current supplemental `recon-DEV-455:3`).
 
 This verified receipt supersedes the earlier pending owner Gate 1 wording in this file and the Phase A brief/spec/plan/tasks status statements. No owner structural checkbox existed or is closed by this receipt. Gate 1 approval does not establish dependency delivery, T001 completion, production gate results, runtime acceptance, or merge clearance.
 
@@ -186,7 +186,7 @@ No demonstrated drift requires changing the frozen capability DTO/query/result, 
 
 ## Fresh T001 reanalysis receipt — 2026-11-09 (Keel)
 
-**Technical verdict: dependency delivery and same-source Retry prerequisites satisfied; composite T001 incomplete; Phase 2 T002+ remains blocked.** Reviewed the requested brief, spec, plan, tasks and conclusions against task note `DEV-455:37-48` and fresh `recon-DEV-455:10-32`, pinned to worktree `F:/Dev/LamuFlix.worktrees/DEV-455`, branch `feature/DEV-455`, HEAD `c369465fb32d6e3d1d9ed25fec752881a4e6c68d`. Branch and HEAD were verified locally; initial worktree status was clean. Source facts below are Wisp recon evidence, not independent source searches or runtime execution by Keel.
+**Technical verdict: dependency delivery and same-source Retry prerequisites satisfied; composite T001 incomplete; Phase 2 T002+ remains blocked.** Reviewed the requested brief, spec, plan, tasks and conclusions against task note `DEV-455:37-48` and fresh `recon-DEV-455:10-32`, pinned to worktree `<task-worktree>/DEV-455`, branch `feature/DEV-455`, HEAD `c369465fb32d6e3d1d9ed25fec752881a4e6c68d`. Branch and HEAD were verified locally; initial worktree status was clean. Source facts below are Wisp recon evidence, not independent source searches or runtime execution by Keel.
 
 This receipt supersedes the previous T001 receipt's unmerged DEV-458 blocker and recommended dependency status. It preserves the T000 Gate 1 receipt, frozen decisions, remaining evidence requirements and approved task ordering.
 
@@ -223,7 +223,7 @@ Two pickup gaps remain: authentication compatibility evidence (FR-020/T001(a)) a
 
 ## T001 completion receipt — 2026-11-09 (Keel)
 
-**Technical verdict: T001 complete; Phase 2 T002+ unblocked in the frozen dependency order.** The Conductor supplied the requested authentication recon and Gauge baseline receipts. Reanalysis closes the two evidence gaps in the Fresh T001 receipt above without changing brief Q1-Q12, spec FR-020, the plan, public contracts or task ordering. Pickup remains pinned to `c369465fb32d6e3d1d9ed25fec752881a4e6c68d`, worktree `F:/Dev/LamuFlix.worktrees/DEV-455`, branch `feature/DEV-455`; branch and HEAD were verified again before these documentation edits.
+**Technical verdict: T001 complete; Phase 2 T002+ unblocked in the frozen dependency order.** The Conductor supplied the requested authentication recon and Gauge baseline receipts. Reanalysis closes the two evidence gaps in the Fresh T001 receipt above without changing brief Q1-Q12, spec FR-020, the plan, public contracts or task ordering. Pickup remains pinned to `c369465fb32d6e3d1d9ed25fec752881a4e6c68d`, worktree `<task-worktree>/DEV-455`, branch `feature/DEV-455`; branch and HEAD were verified again before these documentation edits.
 
 | Remaining requirement | New evidence and final disposition |
 |---|---|

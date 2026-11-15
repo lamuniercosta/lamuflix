@@ -4,7 +4,7 @@
 
 Patron applies the current assigned role and specs/PRODUCT.md section 5. Care items 1-6 require cited Patron rulings, not owner checkboxes. Only a ticket deliverable change or a constitution departure Patron judges necessary escalates as blocked: structural. The older canvas charter/task-pipeline escalation wording is superseded by the current direct instruction and PRODUCT.md.
 
-Named worktree: F:/Dev/LamuFlix.worktrees/feature-308-spec, branch feature/308-spec, intake HEAD 6e0f09b1e476fc10ec3e5829d7b8c73ba4c80d03. Preserve Rigger's unrelated tracked .specify/feature.json edit.
+Named worktree: <task-worktree>/feature-308-spec, branch feature/308-spec, intake HEAD 6e0f09b1e476fc10ec3e5829d7b8c73ba4c80d03. Preserve Rigger's unrelated tracked .specify/feature.json edit.
 
 Evidence: live scripts/get-task.ps1 -TaskId DEV-308, DEV-376, DEV-309 and DEV-310 read on 2026-10-02; task note DEV-308:6-18; recon-DEV-308:7-49 (trusted Wisp source citations); chain:5-8; specs/PRODUCT.md; .specify/memory/constitution.md:128-144,196-236,282-295,348-370,461-472. No artifact receipt exists under artifacts/DEV-308; the live task read supplies ticket text. No baseline gates were run; none are claimed green.
 
@@ -405,10 +405,10 @@ Patron verdict: ACCEPT and freeze the final DI recipe: TryAddSingleton for the e
 
 ## Phase B intake - Worktree and branch naming
 
-Patron verdict: (b) Rigger renames the existing worktree to F:/Dev/LamuFlix.worktrees/DEV-308 with git worktree move and its branch to feature/DEV-308 with git branch -m before Phase 3; Conductor aligns chain/task references with those exact names.
+Patron verdict: (b) Rigger renames the existing worktree to <task-worktree>/DEV-308 with git worktree move and its branch to feature/DEV-308 with git branch -m before Phase 3; Conductor aligns chain/task references with those exact names.
 
-- Basis: task-pipeline Phase 1 step 5 (:58) explicitly requires F:/Dev/LamuFlix.worktrees/DEV-### on feature/DEV-###. The script's ToLowerInvariant at scripts/new-task-branch.ps1:89 and slash-to-hyphen folder construction at :239 explain the generated names; they do not override the named Phase B requirement.
-- Basis: task-pipeline Phase 6 introduction and step 2 (:132,136) identify the delivery branch as feature/DEV-### and remove F:/Dev/LamuFlix.worktrees/DEV-###. Renaming now preserves that intake-to-sweep contract without changing the standing pipeline. Rigger verifies the resulting path/branch; Patron does not perform the move.
+- Basis: task-pipeline Phase 1 step 5 (:58) explicitly requires <task-worktree>/DEV-### on feature/DEV-###. The script's ToLowerInvariant at scripts/new-task-branch.ps1:89 and slash-to-hyphen folder construction at :239 explain the generated names; they do not override the named Phase B requirement.
+- Basis: task-pipeline Phase 6 introduction and step 2 (:132,136) identify the delivery branch as feature/DEV-### and remove <task-worktree>/DEV-###. Renaming now preserves that intake-to-sweep contract without changing the standing pipeline. Rigger verifies the resulting path/branch; Patron does not perform the move.
 - Separately, Todo -> In Progress is Rigger's mechanical Phase 1 step 3 action (task-pipeline:53-55), requiring the verified state receipt. This naming correction changes neither ticket deliverables nor constitution; no owner checkbox is required (specs/PRODUCT.md:34-39).
 
 ---

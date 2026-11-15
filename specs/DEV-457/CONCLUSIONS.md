@@ -139,7 +139,7 @@ Official installation evidence is now supplied by recon-DEV-457-2 §12.2–12.3 
 
 **Keel:** Owner Gate 1 is satisfied by spec PR #337 merged at `9506d656`; Phase A base was `659a2e9b`.
 - Evidence: canvas note `DEV-457`, Intake lines 5–7, records the spec PR merge, Phase A base, and `specs/DEV-457/` landed on main; canvas note `recon-DEV-457`, Intake identity and gate lines 4–6, corroborates that receipt and identifies the stale provisional Gate 1 wording in the Phase A artifacts. The Conductor Phase 3 ask explicitly confirms this verified receipt.
-- Pickup identity: `F:/Dev/LamuFlix.worktrees/DEV-457`, branch `feature/DEV-457`, HEAD `17d9545ced1d0cd811403a0ece4c4ecec3a1f3b6` (recon-DEV-457 line 4; DEV-457 lines 12–13).
+- Pickup identity: `<task-worktree>/DEV-457`, branch `feature/DEV-457`, HEAD `17d9545ced1d0cd811403a0ece4c4ecec3a1f3b6` (recon-DEV-457 line 4; DEV-457 lines 12–13).
 - This append supersedes earlier pending/closed owner Gate 1 status statements as historical Phase A status only. All Patron rulings and frozen scope remain unchanged.
 - T000 is complete. T001 remains open: Gate 1 does not establish DEV-458/DEV-459 delivery, pickup completion, implementation clearance, runtime acceptance, or merge clearance (recon-DEV-457 lines 26–30; tasks.md T001; brief.md Q7 and Phase B prerequisites).
 

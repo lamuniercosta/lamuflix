@@ -1,6 +1,6 @@
 # DEV-483 Grill conclusions
 
-Worktree: `F:/Dev/LamuFlix.worktrees/feature-483-spec`; branch: `feature/483-spec`.
+Worktree: `<task-worktree>/feature-483-spec`; branch: `feature/483-spec`.
 Authority: `recon-DEV-483`, authoritative ticket record (`DEV-483`), `specs/PRODUCT.md`, constitution, `task-pipeline`, and `lamuflix-team-charter`.
 
 ---
@@ -115,7 +115,7 @@ Ruling: Approve `gate1: provisional` for the DEV-483 spec package (`spec.md`, `p
 
 Keel records ordinary owner Gate 1 as landed: [spec PR #387](https://github.com/lamuniercosta/lamuflix/pull/387), state MERGED, merged at `2026-11-12T12:30:51Z`, merge commit `bac075b02239eee02fe5e39bf40e8a0d21a0be1d`. Source: `recon-DEV-483:33-36` (Wisp reports `gh pr view` receipt and matching `git log`) and `DEV-483:28-34`. This supersedes the earlier Gate 1 pending entries; historical decisions and receipts remain intact. T000 is complete. No agent merge was performed.
 
-Pickup: `F:/Dev/LamuFlix.worktrees/DEV-483`, branch `feature/DEV-483`, inspected HEAD `f88ab2336b6733684041082ad10c5d87d28e4e23`, initially clean. Recon lines 25-27 report the landed spec/plan/tasks additions relative to Phase A base `73f3f74a`; no production-code drift equivalence is inferred. Phase A branch, worktree, recon line references, and pending-status text remain historical metadata, not current pickup facts. This dated receipt and the Phase B tasks status take precedence for current Gate 1 and pickup status.
+Pickup: `<task-worktree>/DEV-483`, branch `feature/DEV-483`, inspected HEAD `f88ab2336b6733684041082ad10c5d87d28e4e23`, initially clean. Recon lines 25-27 report the landed spec/plan/tasks additions relative to Phase A base `73f3f74a`; no production-code drift equivalence is inferred. Phase A branch, worktree, recon line references, and pending-status text remain historical metadata, not current pickup facts. This dated receipt and the Phase B tasks status take precedence for current Gate 1 and pickup status.
 
 ### Read-only cross-artifact analysis
 

@@ -1,6 +1,6 @@
 # DEV-304 - Patron grill rulings
 
-Round 1, Q1-Q12 (grill budget complete). Worktree: F:\Dev\LamuFlix.worktrees\feature-304-spec; branch: feature/304-spec; intake base: f5d5d60. Ticket substance and repository recon are accepted from Keel and recon-DEV-304, especially §2; no direct tracker query or write was made by Patron. Current assigned-role §2.3 and specs/PRODUCT.md §5 govern these rulings. No owner checkbox is introduced. Gate 1 remains closed pending clean analysis, plan adjudication and owner approval; these rulings do not authorise implementation.
+Round 1, Q1-Q12 (grill budget complete). Worktree: <task-worktree>\feature-304-spec; branch: feature/304-spec; intake base: f5d5d60. Ticket substance and repository recon are accepted from Keel and recon-DEV-304, especially §2; no direct tracker query or write was made by Patron. Current assigned-role §2.3 and specs/PRODUCT.md §5 govern these rulings. No owner checkbox is introduced. Gate 1 remains closed pending clean analysis, plan adjudication and owner approval; these rulings do not authorise implementation.
 
 ## Q1 - Legacy tests
 

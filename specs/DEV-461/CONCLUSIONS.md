@@ -247,7 +247,7 @@ Implications: Phase 2 grill is complete at 10/12 questions used with zero user e
 
 ### Identity and evidence boundary
 
-- Pickup: `F:/Dev/LamuFlix.worktrees/DEV-461`, branch `feature/DEV-461`, HEAD `6d6b510e628c1513523fbd56f581027534924f2d`; clean before receipt edits.
+- Pickup: `<task-worktree>/DEV-461`, branch `feature/DEV-461`, HEAD `6d6b510e628c1513523fbd56f581027534924f2d`; clean before receipt edits.
 - Read: `brief.md` (Q1–Q10 and superseding step 6), `spec.md`, `plan.md`, `tasks.md`, Palette's `design.md`, the appended Gate 1 ruling above, and applicable constitution principles/rules. Current implementation facts come exclusively from Maestri notes `recon-DEV-461` and `DEV-461`; no independent production searches or measurements were performed.
 - Wisp recon is pinned to landed spec HEAD `d6d1050a`, Phase A base `604d98e9`. The inspected diff `d6d1050a...6d6b510e` contains only the 11-line Gate 1 ratification addition to this file, so that recon's production baseline still applies at pickup.
 - Gate 1: Patron's committed Owner Merge Ratification above and task-note lines 27–29 resolve the prior missing-approval stop. Historical `gate1: provisional` / Draft / not-approved headers describe Phase A; the later ratification is authoritative for this pickup. They do not reopen Gate 1.

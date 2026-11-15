@@ -1,6 +1,6 @@
 # DEV-424 — Patron grill rulings
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-424-spec; branch: feature/424-spec.
+Worktree: <task-worktree>/feature-424-spec; branch: feature/424-spec.
 Authority: DEV-424 ticket text (Maestri note DEV-424), recon-DEV-424, specs/PRODUCT.md, assigned Patron §2.3 rules.
 Status: Grill closed — Q1–Q8 ruled, no owner escalation. Keel authorized to write brief.md; Palette design.md, analyze/challenge, and Gate 1 remain separate and pending.
 
@@ -10,7 +10,7 @@ Status: Grill closed — Q1–Q8 ruled, no owner escalation. Keel authorized to 
 
 **Keel — question and recommendation (verbatim from first ask):**
 
-/grill-with-docs DEV-424. Worktree F:/Dev/LamuFlix.worktrees/feature-424-spec branch feature/424-spec. Max 12 questions, one at a time. I read DEV-424 and recon-DEV-424. Q1: Confirm scope and data path: extend TMDb response mapping and MovieMetadata to carry optional collection id and name into the existing enrichment write path; persist CollectionRecord and nullable MovieRecord.CollectionId, with no backfill or grid grouping. I recommend treating these data-path additions and the recon-listed supporting files as necessary consequences of the ticket, with no new dependency or layer. DEV-331 explicitly deferred collections here (recon lines 68-74), and ticket scope is DEV-424 note lines 27-30. Please rule with cited basis whether this stays within ticket scope and authorize the supporting-file edits under section 2.3 item 6. No production edits in this grill. Please reply directly with the ruling.
+/grill-with-docs DEV-424. Worktree <task-worktree>/feature-424-spec branch feature/424-spec. Max 12 questions, one at a time. I read DEV-424 and recon-DEV-424. Q1: Confirm scope and data path: extend TMDb response mapping and MovieMetadata to carry optional collection id and name into the existing enrichment write path; persist CollectionRecord and nullable MovieRecord.CollectionId, with no backfill or grid grouping. I recommend treating these data-path additions and the recon-listed supporting files as necessary consequences of the ticket, with no new dependency or layer. DEV-331 explicitly deferred collections here (recon lines 68-74), and ticket scope is DEV-424 note lines 27-30. Please rule with cited basis whether this stays within ticket scope and authorize the supporting-file edits under section 2.3 item 6. No production edits in this grill. Please reply directly with the ruling.
 
 **Patron — ruling:**
 

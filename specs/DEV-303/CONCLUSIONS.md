@@ -1,6 +1,6 @@
 # DEV-303 — Patron grill rulings
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-303-spec; branch: feature/303-spec.
+Worktree: <task-worktree>/feature-303-spec; branch: feature/303-spec.
 Authority: DEV-303 intake/task note:13 (verified ticket text), specs/PRODUCT.md, constitution, current assigned Patron §2.3; recon facts are trusted as supplied by Wisp/Keel. The connected legacy team-charter care-list escalation wording is stale against the current assigned role and PRODUCT §5; only ticket changes and necessary constitution departures escalate. No such departure is authorised here and no owner checkbox is created.
 
 This records the single Q1–Q12 round at the grill cap. It is a docs-only decision receipt, not an implementation or verification receipt; Gate 1 remains closed. No brief, glossary, ADR, implementation or gate1 edit is made by Patron.

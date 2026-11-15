@@ -300,7 +300,7 @@ Full cited closure:
 
 ## Phase B T001 I1/I2 technical resolution and Quill correction list (Keel, 2026-10-06)
 
-Identity: F:/Dev/LamuFlix.worktrees/DEV-310; branch feature/DEV-310; HEAD 0badbad05f17959d004401f8664603fee499268a; clean before this decision append. The reported 5fc45a14c461f81e1ca53ed74c46b3209555477b is superseded by the Patron parity-ruling commit recorded at DEV-310:265-269. Facts used only from the requested artifacts and recon-DEV-310 sections 14-16; no independent source recon.
+Identity: <task-worktree>/DEV-310; branch feature/DEV-310; HEAD 0badbad05f17959d004401f8664603fee499268a; clean before this decision append. The reported 5fc45a14c461f81e1ca53ed74c46b3209555477b is superseded by the Patron parity-ruling commit recorded at DEV-310:265-269. Facts used only from the requested artifacts and recon-DEV-310 sections 14-16; no independent source recon.
 
 ### I1 HIGH - Technical decision settled; traceability correction required
 
@@ -324,7 +324,7 @@ Disposition: I1 and I2 decisions are resolved by the existing Patron approvals a
 
 ## Phase B T001 verified completion (Keel, 2026-10-07)
 
-Identity verified: F:/Dev/LamuFlix.worktrees/DEV-310; feature/DEV-310; HEAD 0badbad05f17959d004401f8664603fee499268a. Existing four modified artifacts preserved.
+Identity verified: <task-worktree>/DEV-310; feature/DEV-310; HEAD 0badbad05f17959d004401f8664603fee499268a. Existing four modified artifacts preserved.
 
 Quill corrections 1-3 are consistent with DEV-310:279-291: brief.md:64,70,73; plan.md:9,29,81,85,91; tasks.md:31,34,40,127,154. I1 parity is bounded to T002 RecordingMovieCatalog and T005 EfMovieCatalog before the Phase 2 passing checkpoint, with T008/T009 behavior proof retained. I2 T024 preserves two existing routes and seven existing handler rows, adds seven routes and two facet rows after T023, and retains liveness and exact composition checks. No remaining correction or new ruling.
 

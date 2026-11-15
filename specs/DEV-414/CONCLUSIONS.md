@@ -1,6 +1,6 @@
 # DEV-414 grill conclusions
 
-Worktree: F:/Dev/LamuFlix.worktrees/feature-414-spec
+Worktree: <task-worktree>/feature-414-spec
 Branch: feature/414-spec
 Phase A base and verified opening HEAD: 6bd2d427d09878af852e634cb50599f6adce4af2
 Status: grill closed by Patron Q9; brief frozen; Phase 2 step 6 adjudication recorded below; Quill corrections pending.
@@ -28,7 +28,7 @@ This Q1 exchange is durably recorded and safe to summarize. Technical scope, ord
 
 ## Q2 — Separate feature lifecycle
 Keel question (verbatim):
-[from Keel] DEV-414 continuing grill Q2, Q1 remains settled. Worktree F:/Dev/LamuFlix.worktrees/feature-414-spec; branch feature/414-spec; HEAD 6bd2d427d09878af852e634cb50599f6adce4af2. Read supplemental recon-DEV-414, task note, PRODUCT.md, charter, and CONCLUSIONS.md Q1. Q2: Shall feature generation be a separate post-enrichment lifecycle, preserving metadata EnrichmentStatus and EnrichmentAttempts on every feature success/failure/retry, with FeaturesRequested.Attempt counting only feature transport attempts? I recommend yes: ticket lines 20-24 expressly require a separate queue consumer and MovieId upsert; recon section 6 limits the existing claim/MarkFailed state machine to enrichment and distinguishes transport attempts. Cost: feature DLQ state stays in messaging rather than a new database status. Existing glossary Sweeper avoids a second consumer refers to the sweeper itself, not a prohibition on the ticket-required feature consumer; please rule explicitly, including whether any constitution departure or ticket-text change is required. Facts come from recon-DEV-414; do not infer unverified facts. If needed reply needs recon: <question> and stop. Reply to Keel with cited ruling; you may supply an exact temp file path for the answer.
+[from Keel] DEV-414 continuing grill Q2, Q1 remains settled. Worktree <task-worktree>/feature-414-spec; branch feature/414-spec; HEAD 6bd2d427d09878af852e634cb50599f6adce4af2. Read supplemental recon-DEV-414, task note, PRODUCT.md, charter, and CONCLUSIONS.md Q1. Q2: Shall feature generation be a separate post-enrichment lifecycle, preserving metadata EnrichmentStatus and EnrichmentAttempts on every feature success/failure/retry, with FeaturesRequested.Attempt counting only feature transport attempts? I recommend yes: ticket lines 20-24 expressly require a separate queue consumer and MovieId upsert; recon section 6 limits the existing claim/MarkFailed state machine to enrichment and distinguishes transport attempts. Cost: feature DLQ state stays in messaging rather than a new database status. Existing glossary Sweeper avoids a second consumer refers to the sweeper itself, not a prohibition on the ticket-required feature consumer; please rule explicitly, including whether any constitution departure or ticket-text change is required. Facts come from recon-DEV-414; do not infer unverified facts. If needed reply needs recon: <question> and stop. Reply to Keel with cited ruling; you may supply an exact temp file path for the answer.
 
 Patron answer (verbatim):
 [from Patron] DEV-414 Q2 ruling: YES - feature generation is a separate post-enrichment lifecycle; EnrichmentStatus and EnrichmentAttempts are preserved untouched on every feature success, failure, and retry, and FeaturesRequested.Attempt counts only feature transport attempts. No constitution departure and no ticket-text change is required.
@@ -73,7 +73,7 @@ Q2 and Q3 are settled. Q4 framework is approved, but exact category mapping and 
 
 ## Q4 continuation — Corrected categories and publication evidence
 Keel question (verbatim):
-[from Keel] DEV-414 Q4 continuation, Q1-Q3 remain settled. Worktree F:/Dev/LamuFlix.worktrees/feature-414-spec, feature/414-spec, HEAD 6bd2d427d09878af852e634cb50599f6adce4af2. Read recon-DEV-414-2 lines 90-213 corrected evidence. Proposed final classification: honor EmbeddingGenerationException.Category first; otherwise reuse EnrichmentFailureClassifier for transport/persistence exceptions (429 rate_limited retryable; timeout/408/5xx/IO provider_unavailable retryable; JSON/other 4xx invalid_response permanent; unmatched unknown retryable). Malformed payload/Attempt <1 and invalid generated vector map invalid_response permanent; duplicate_imdb_id is never emitted by feature processing. Requested host cancellation bypasses classification and requeues unchanged. Permit only these four fixed category codes in headers, no raw exceptions. Publication: reuse existing publisher with confirms+tracking enabled, mandatory true, Persistent true, await publication and ack afterward; thrown/cancelled publication never permits ack and original must be requeued. Explicitly DO NOT assert awaited BasicPublishAsync broker-ack/nack/return guarantees or exactly-once durability: recon does not establish them. Live-broker tests must cover successful retry/DLQ publication, publish failure without ack, and existing unroutable expectation; test failure blocks rather than a documentation claim. CPM RabbitMQ.Client 7.2.2 governs; DEV-371 6.8.1 text is stale evidence, no dependency change or historical-spec rewrite. Do you approve this bounded decision, resolving the Q4 hold without inventing library semantics, or is additional recon essential? Cite basis; any ticket change/constitution departure uses owner-checkbox path. Facts solely recon-DEV-414-2. Reply to Keel with exact ruling.
+[from Keel] DEV-414 Q4 continuation, Q1-Q3 remain settled. Worktree <task-worktree>/feature-414-spec, feature/414-spec, HEAD 6bd2d427d09878af852e634cb50599f6adce4af2. Read recon-DEV-414-2 lines 90-213 corrected evidence. Proposed final classification: honor EmbeddingGenerationException.Category first; otherwise reuse EnrichmentFailureClassifier for transport/persistence exceptions (429 rate_limited retryable; timeout/408/5xx/IO provider_unavailable retryable; JSON/other 4xx invalid_response permanent; unmatched unknown retryable). Malformed payload/Attempt <1 and invalid generated vector map invalid_response permanent; duplicate_imdb_id is never emitted by feature processing. Requested host cancellation bypasses classification and requeues unchanged. Permit only these four fixed category codes in headers, no raw exceptions. Publication: reuse existing publisher with confirms+tracking enabled, mandatory true, Persistent true, await publication and ack afterward; thrown/cancelled publication never permits ack and original must be requeued. Explicitly DO NOT assert awaited BasicPublishAsync broker-ack/nack/return guarantees or exactly-once durability: recon does not establish them. Live-broker tests must cover successful retry/DLQ publication, publish failure without ack, and existing unroutable expectation; test failure blocks rather than a documentation claim. CPM RabbitMQ.Client 7.2.2 governs; DEV-371 6.8.1 text is stale evidence, no dependency change or historical-spec rewrite. Do you approve this bounded decision, resolving the Q4 hold without inventing library semantics, or is additional recon essential? Cite basis; any ticket change/constitution departure uses owner-checkbox path. Facts solely recon-DEV-414-2. Reply to Keel with exact ruling.
 
 Patron answer (verbatim):
 [from Patron] DEV-414 Q4 continuation ruling: APPROVED as proposed - this resolves the Q4 hold with no additional recon essential, no ticket-text change, and no constitution departure.
@@ -160,7 +160,7 @@ Closed by Patron Q9. Earlier open/hold statements above are historical and super
 ## Phase 2 step 6 — Complete plan-challenge adjudication, round 1
 
 Adjudicator: Keel. Date: 2026-10-23.
-Worktree: F:/Dev/LamuFlix.worktrees/feature-414-spec.
+Worktree: <task-worktree>/feature-414-spec.
 Branch: feature/414-spec.
 Verified HEAD: 6bd2d427d09878af852e634cb50599f6adce4af2.
 Evidence applies to the current working documents, including untracked feature documents and proposed ADR 0026, not HEAD-pinned document content.
@@ -236,7 +236,7 @@ Verdict line: F1 and F3 accepted as in-scope clarification/proof fixes; F2 High 
 ## Phase 2 step 6 — Authorized verification of the four Quill corrections
 
 Verifier: Keel. Date: 2026-10-23.
-Worktree: F:/Dev/LamuFlix.worktrees/feature-414-spec.
+Worktree: <task-worktree>/feature-414-spec.
 Branch: feature/414-spec.
 Verified HEAD: 6bd2d427d09878af852e634cb50599f6adce4af2.
 Scope: verify the adjudicated round-1 four-item list and preserved dispositions only. This is the authorized correction verification, not a new challenge round or a reopening of rejected blockers. The result covers the reviewed working bytes, including untracked feature documents and proposed ADR 0026; HEAD does not pin those document bytes.
@@ -291,7 +291,7 @@ Verdict: gate1: provisional - Phase A spec package is ready for provisional Gate
 
 ## Phase B entry rulings - TB000 and TB003 (2026-10-24)
 
-Worktree: F:/Dev/LamuFlix.worktrees/DEV-414. Branch: feature/DEV-414. Entry HEAD: e010de28.
+Worktree: <task-worktree>/DEV-414. Branch: feature/DEV-414. Entry HEAD: e010de28.
 
 ### TB000 - Epic 7 prerequisite: CLEARED
 

@@ -71,8 +71,24 @@ function Get-PayloadValue {
     return $Object.$Name
 }
 
-function Test-ArtifactPathEqual {    param([string]$Left, [string]$Right)
-    if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) { return $false }
+# Raw-byte SHA-256 of a fixture file, computed here so the migration cases do not trust the subject.
+function Get-ArtifactFileHash {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+# Throwaway Git checkout so the destructive removal cases never touch the real repository.
+function New-GitFixtureCheckout {
+    param([string]$Name)
+    $path = New-FixtureDir $Name
+    & git -C $path init --quiet --initial-branch=901-fixture 2>&1 | Out-Null
+    & git -C $path config user.email 'fixture@example.invalid' 2>&1 | Out-Null
+    & git -C $path config user.name 'Fixture' 2>&1 | Out-Null
+    & git -C $path config commit.gpgsign false 2>&1 | Out-Null
+    return $path
+}
+
+function Test-ArtifactPathEqual {    param([string]$Left, [string]$Right)    if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) { return $false }
     $comparison = if ($null -ne $IsWindows -and -not $IsWindows) { [StringComparison]::Ordinal } else { [StringComparison]::OrdinalIgnoreCase }
     return [string]::Equals((([System.IO.Path]::GetFullPath($Left)) -replace '\\', '/').TrimEnd('/'), (([System.IO.Path]::GetFullPath($Right)) -replace '\\', '/').TrimEnd('/'), $comparison)
 }
@@ -847,6 +863,137 @@ Release-ArtifactTicketOwnership ([pscustomobject]@{ TICKET_DIR = '$contentionTic
     $stageMissingPlan = Invoke-ChildScript -Script $script:CheckPrereqScript -Arguments @('-Json') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $stageRoot; SPECIFY_FEATURE_DIRECTORY = (Join-Path $stageCheckout 'specs/DEV-915'); SPECIFY_FEATURE = 'DEV-915' } -WorkingDirectory $stageCheckout
     Assert-Case 'a missing plan fails the stage rather than being recreated publicly' ($stageMissingPlan.ExitCode -ne 0) "exit $($stageMissingPlan.ExitCode)"
     Assert-Case 'no public plan is recreated by stage detection' (-not (Test-Path -LiteralPath (Join-Path $stageCheckout 'specs/DEV-915/plan.md') -PathType Leaf)) 'a public plan was created'
+
+    Write-Host ''
+    Write-Host 'US3 verified migration copies without clobber and verifies raw bytes (T019):'
+
+    $migrationRepo = New-GitFixtureCheckout 'us3-migration-repo'
+    $migrationRoot = New-FixtureDir 'us3-migration-root'
+    $migrationEnv = @{ LAMUFLIX_ARTIFACT_ROOT = $migrationRoot; SPECIFY_FEATURE_DIRECTORY = ''; SPECIFY_FEATURE = ''; PYTHONUTF8 = '1' }
+
+    $ticketA = Join-Path $migrationRepo 'specs/DEV-901'
+    Write-FixtureText -Path (Join-Path $ticketA 'spec.md') -Text "# DEV-901 spec`r`n"
+    Write-FixtureText -Path (Join-Path $ticketA 'CONCLUSIONS.md') -Text "# DEV-901 conclusions`r`nRuling recorded at F:/Dev/LamuFlix.worktrees/DEV-901/evidence/ruling.txt and C:\Users\fixture\AppData\Local\Temp\ruling.txt.`r`n"
+    Write-FixtureText -Path (Join-Path $ticketA 'ASSUMPTIONS.md') -Text "# DEV-901 assumptions`n"
+    Write-FixtureText -Path (Join-Path $ticketA 'brief.md') -Text "# DEV-901 brief`r`nline two`r`n"
+    Write-FixtureText -Path (Join-Path $ticketA 'plan.md') -Text "# DEV-901 plan`nunix newline must stay byte identical`n"
+    Write-FixtureText -Path (Join-Path $ticketA 'tasks.md') -Text "# DEV-901 tasks`r`n"
+    Write-FixtureText -Path (Join-Path $ticketA 'checklists/requirements.md') -Text "# DEV-901 requirements`r`n"
+
+    $ticketB = Join-Path $migrationRepo 'specs/DEV-902'
+    Write-FixtureText -Path (Join-Path $ticketB 'spec.md') -Text "# DEV-902 spec`n"
+    Write-FixtureText -Path (Join-Path $ticketB 'brief.md') -Text "# DEV-902 brief`n"
+
+    $reviewEvidence = Join-Path $migrationRepo 'docs/reviews/restyle'
+    Write-FixtureText -Path (Join-Path $reviewEvidence 'README.md') -Text "# restyle review`n"
+    Write-FixtureText -Path (Join-Path $reviewEvidence 'evidence/build.txt') -Text "build ok`n"
+    Write-FixtureText -Path (Join-Path $migrationRepo 'specs/PRODUCT.md') -Text "# product`n"
+
+    & git -C $migrationRepo add -A 2>&1 | Out-Null
+    & git -C $migrationRepo commit --quiet -m 'migration fixture' 2>&1 | Out-Null
+    Assert-Case 'the migration fixture repository commits its tracked records' (@(& git -C $migrationRepo rev-list --count HEAD 2>&1) -join '' -match '^\s*1\s*$') (@(& git -C $migrationRepo status --porcelain 2>&1) -join ' ')
+
+    $migrationInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize') -Environment $migrationEnv -WorkingDirectory $migrationRepo
+    Assert-Case 'the migration fixture private root initializes' ($migrationInit.ExitCode -eq 0) "exit $($migrationInit.ExitCode): $($migrationInit.Output)"
+
+    $dryRun = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Migrate', '-All', '-Json') -Environment $migrationEnv -WorkingDirectory $migrationRepo
+    Assert-Case 'bulk migration copies and verifies without removing anything' ($dryRun.ExitCode -eq 0) "exit $($dryRun.ExitCode): $($dryRun.Output)"
+    $dryRunPayload = Get-JsonPayload -Text $dryRun.Output
+    Assert-Case 'bulk migration reports a verified inventory' ((Get-PayloadValue $dryRunPayload 'VERIFIED') -eq $true) "payload $(Get-PayloadValue $dryRunPayload 'VERIFIED')"
+    Assert-Case 'bulk migration verifies every inventoried file' ((Get-PayloadValue $dryRunPayload 'FILE_COUNT') -eq (Get-PayloadValue $dryRunPayload 'EXPECTED_COUNT')) "counts $(Get-PayloadValue $dryRunPayload 'FILE_COUNT')/$(Get-PayloadValue $dryRunPayload 'EXPECTED_COUNT')"
+    Assert-Case 'bulk migration stages no removal when it was not asked to' (@(Get-PayloadValue $dryRunPayload 'STAGED_REMOVALS').Count -eq 0) 'a removal was staged'
+    Assert-Case 'bulk migration leaves every public source in place' ((Test-Path -LiteralPath (Join-Path $ticketA 'brief.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $ticketB 'brief.md') -PathType Leaf))
+
+    $privateRootRepo = Join-Path $migrationRoot 'LamuFlix'
+    $privateA = Join-Path $privateRootRepo 'DEV-901'
+    $privateB = Join-Path $privateRootRepo 'DEV-902'
+    Assert-Case 'bulk migration files the ticket records under the canonical ticket directory' ((Test-Path -LiteralPath (Join-Path $privateA 'checklists/requirements.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $privateA 'brief.md') -PathType Leaf)) 'private ticket record missing'
+    Assert-Case 'bulk migration copies the public allowlist into private storage too' ((Test-Path -LiteralPath (Join-Path $privateA 'spec.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $privateA 'CONCLUSIONS.md') -PathType Leaf))
+    Assert-Case 'bulk migration files repository-level review evidence' (Test-Path -LiteralPath (Join-Path $privateRootRepo 'reviews/restyle/evidence/build.txt') -PathType Leaf)
+    Assert-Case 'bulk migration keeps the product document out of the inventory' (-not (Test-Path -LiteralPath (Join-Path $privateRootRepo 'PRODUCT.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $migrationRepo 'specs/PRODUCT.md') -PathType Leaf))
+
+    $crlfPrivate = Join-Path $privateA 'brief.md'
+    Assert-Case 'bulk migration copies raw bytes without newline normalization' ((Get-ArtifactFileHash -Path $crlfPrivate) -eq (Get-ArtifactFileHash -Path (Join-Path $ticketA 'brief.md'))) 'raw-byte hash differs'
+
+    $idempotentRerun = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Migrate', '-All', '-Json') -Environment $migrationEnv -WorkingDirectory $migrationRepo
+    Assert-Case 'an identical bulk rerun succeeds idempotently' ($idempotentRerun.ExitCode -eq 0) "exit $($idempotentRerun.ExitCode): $($idempotentRerun.Output)"
+    Assert-Case 'an identical bulk rerun reports no failure' (@((Get-JsonPayload -Text $idempotentRerun.Output).FAILURES).Count -eq 0) 'a rerun failure was reported'
+
+    Write-FixtureText -Path $crlfPrivate -Text "# DEV-901 brief`r`nconflicting private copy`r`n"
+    $conflict = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Migrate', '-All', '-StageRemovals', '-Json') -Environment $migrationEnv -WorkingDirectory $migrationRepo
+    Assert-Case 'a differing destination blocks the migration' ($conflict.ExitCode -eq 1) "exit $($conflict.ExitCode)"
+    $conflictPayload = Get-JsonPayload -Text $conflict.Output
+    Assert-Case 'a conflicting destination is reported as a conflict' (@((Get-PayloadValue $conflictPayload 'FAILURES') | Where-Object { $_.outcome -eq 'conflict' }).Count -ge 1) (@(Get-PayloadValue $conflictPayload 'FAILURES') | ConvertTo-Json -Compress)
+    Assert-Case 'a blocked migration stages no removal' (@(Get-PayloadValue $conflictPayload 'STAGED_REMOVALS').Count -eq 0) 'a removal was staged'
+    Assert-Case 'a blocked migration keeps every public source intact' ((Test-Path -LiteralPath (Join-Path $ticketA 'brief.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $ticketB 'brief.md') -PathType Leaf))
+    Assert-Case 'a blocked migration does not clobber the differing private copy' ((Get-Content -LiteralPath $crlfPrivate -Raw) -match 'conflicting private copy') 'the private copy was overwritten'
+
+    $unsanitizedPrivateConclusions = Get-ArtifactFileHash -Path (Join-Path $ticketA 'CONCLUSIONS.md')
+    & git -C $migrationRepo reset --hard --quiet HEAD 2>&1 | Out-Null
+    Remove-Item -LiteralPath $crlfPrivate -Force
+    $sanitizedRun = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Migrate', '-All', '-StageRemovals', '-Json') -Environment $migrationEnv -WorkingDirectory $migrationRepo
+    Assert-Case 'a verified bulk migration with removals succeeds' ($sanitizedRun.ExitCode -eq 0) "exit $($sanitizedRun.ExitCode): $($sanitizedRun.Output)"
+    $sanitizedPayload = Get-JsonPayload -Text $sanitizedRun.Output
+    Assert-Case 'the migration stages the verified non-allowlist removals' (@(Get-PayloadValue $sanitizedPayload 'STAGED_REMOVALS').Count -ge 5) (@(Get-PayloadValue $sanitizedPayload 'STAGED_REMOVALS') -join ', ')
+
+    Assert-Case 'the sanitized public conclusions stay published' (Test-Path -LiteralPath (Join-Path $ticketA 'CONCLUSIONS.md') -PathType Leaf)
+    $publicConclusions = Get-Content -LiteralPath (Join-Path $ticketA 'CONCLUSIONS.md') -Raw
+    Assert-Case 'the published conclusions keep their decision substance' ($publicConclusions -match 'DEV-901 conclusions') $publicConclusions
+    Assert-Case 'the published conclusions carry no machine path' (-not ($publicConclusions -match '[A-Za-z]:[\\/]')) $publicConclusions
+    Assert-Case 'the published conclusions use portable identifiers' ($publicConclusions -match '<task-worktree>' -and $publicConclusions -match '<temp>') $publicConclusions
+    Assert-Case 'the public spec is preserved and untouched' ((Get-Content -LiteralPath (Join-Path $ticketA 'spec.md') -Raw) -eq "# DEV-901 spec`r`n")
+    Assert-Case 'the public assumptions file is preserved' (Test-Path -LiteralPath (Join-Path $ticketA 'ASSUMPTIONS.md') -PathType Leaf)
+    Assert-Case 'the public spec is never a removal candidate' (@((Get-PayloadValue $sanitizedPayload 'STAGED_REMOVALS') | Where-Object { $_ -match '(^|[\\/])(spec|CONCLUSIONS|ASSUMPTIONS)\.md$' }).Count -eq 0) (@(Get-PayloadValue $sanitizedPayload 'STAGED_REMOVALS') -join ', ')
+
+    Assert-Case 'the private unsanitized conclusions remain byte-identical (FR-010)' ((Get-ArtifactFileHash -Path (Join-Path $privateA 'CONCLUSIONS.md')) -eq $unsanitizedPrivateConclusions)
+    Assert-Case 'the private original still holds the machine path' ((Get-Content -LiteralPath (Join-Path $privateA 'CONCLUSIONS.md') -Raw) -match 'F:/Dev/LamuFlix\.worktrees')
+
+    Assert-Case 'the migrated ticket directory keeps only the public allowlist' (@(Get-ChildItem -LiteralPath $ticketA -File -Force | ForEach-Object { $_.Name } | Sort-Object) -join ',' -eq 'ASSUMPTIONS.md,CONCLUSIONS.md,spec.md') (@(Get-ChildItem -LiteralPath $ticketA -File -Force | ForEach-Object { $_.Name }) -join ',')
+    Assert-Case 'the migrated ticket directory keeps no operational subdirectory' (@(Get-ChildItem -LiteralPath $ticketA -Directory -Force).Count -eq 0)
+    Assert-Case 'a ticket without public conclusions receives no synthesized file (P7)' (-not (Test-Path -LiteralPath (Join-Path $ticketB 'CONCLUSIONS.md')) -and -not (Test-Path -LiteralPath (Join-Path $privateB 'CONCLUSIONS.md')))
+    Assert-Case 'a ticket without public conclusions keeps only its allowlist' (@(Get-ChildItem -LiteralPath $ticketB -File -Force | ForEach-Object { $_.Name }) -join ',' -eq 'spec.md') (@(Get-ChildItem -LiteralPath $ticketB -File -Force | ForEach-Object { $_.Name }) -join ',')
+    Assert-Case 'the archived ticket keeps its operational records privately' ((Test-Path -LiteralPath (Join-Path $privateB 'brief.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $privateA 'tasks.md') -PathType Leaf))
+    Assert-Case 'the review evidence leaves the public tree' (-not (Test-Path -LiteralPath (Join-Path $migrationRepo 'docs/reviews/restyle/README.md')) -and (Test-Path -LiteralPath (Join-Path $privateRootRepo 'reviews/restyle/README.md') -PathType Leaf))
+    Assert-Case 'the migration rewrites no Git history' (@(& git -C $migrationRepo rev-list --count HEAD 2>&1) -join '' -match '^\s*1\s*$') (@(& git -C $migrationRepo rev-list --count HEAD 2>&1) -join ' ')
+    Assert-Case 'the migration records its verification receipt with SHA provenance' ((Get-PayloadValue $sanitizedPayload 'RECEIPT') -and (Test-Path -LiteralPath (Get-PayloadValue $sanitizedPayload 'RECEIPT') -PathType Leaf))
+    $bulkReceipt = Get-Content -LiteralPath (Get-PayloadValue $sanitizedPayload 'RECEIPT') -Raw | ConvertFrom-Json
+    Assert-Case 'the migration receipt declares raw-byte verification' ([bool]$bulkReceipt.rawByteSha256)
+    Assert-Case 'the migration receipt carries the full commit SHA' ($bulkReceipt.commitSha -match '^[0-9a-f]{40}$') "commitSha $($bulkReceipt.commitSha)"
+
+    Write-Host ''
+    Write-Host 'US3 ordinary scripts never migrate as a side effect (T020):'
+
+    $noSideEffectRepo = New-GitFixtureCheckout 'us3-side-effect-repo'
+    $noSideEffectRoot = New-FixtureDir 'us3-side-effect-root'
+    $noSideEffectTicket = Join-Path $noSideEffectRepo 'specs/DEV-901'
+    Write-FixtureText -Path (Join-Path $noSideEffectTicket 'spec.md') -Text "# DEV-901 spec`n"
+    Write-FixtureText -Path (Join-Path $noSideEffectTicket 'brief.md') -Text "# DEV-901 brief`n"
+    Write-FixtureText -Path (Join-Path $noSideEffectTicket 'plan.md') -Text "# DEV-901 plan`n"
+    & git -C $noSideEffectRepo add -A 2>&1 | Out-Null
+    & git -C $noSideEffectRepo commit --quiet -m 'side-effect fixture' 2>&1 | Out-Null
+    $noSideEffectInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $noSideEffectRoot } -WorkingDirectory $noSideEffectRepo
+    Assert-Case 'the side-effect fixture private root initializes' ($noSideEffectInit.ExitCode -eq 0) "exit $($noSideEffectInit.ExitCode)"
+    $publicBefore = @(Get-ChildItem -LiteralPath $noSideEffectTicket -Recurse -File -Force | ForEach-Object { $_.Name } | Sort-Object) -join ','
+
+    $prereqSideEffect = Invoke-ChildScript -Script $script:CheckPrereqScript -Arguments @('-Json', '-PathsOnly') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $noSideEffectRoot; SPECIFY_FEATURE_DIRECTORY = $noSideEffectTicket; SPECIFY_FEATURE = '901-fixture' } -WorkingDirectory $noSideEffectRepo
+    Assert-Case 'prerequisite discovery completes on a migrated-shaped ticket' ($prereqSideEffect.ExitCode -eq 0) "exit $($prereqSideEffect.ExitCode): $($prereqSideEffect.Output)"
+    Assert-Case 'prerequisite discovery migrates nothing' (-not (Test-Path -LiteralPath (Join-Path $noSideEffectRoot 'LamuFlix/DEV-901') -PathType Container)) 'a private ticket directory was created'
+    Assert-Case 'prerequisite discovery removes no public record' (@(Get-ChildItem -LiteralPath $noSideEffectTicket -Recurse -File -Force | ForEach-Object { $_.Name } | Sort-Object) -join ',' -eq $publicBefore) 'a public record changed'
+    Assert-Case 'prerequisite discovery stages no Git removal' (@(& git -C $noSideEffectRepo status --porcelain 2>&1).Count -eq 0) (@(& git -C $noSideEffectRepo status --porcelain 2>&1) -join ' ')
+
+    $planSideEffect = Invoke-ChildScript -Script $script:SetupPlanScript -Arguments @('-Json') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $noSideEffectRoot; SPECIFY_FEATURE_DIRECTORY = $noSideEffectTicket; SPECIFY_FEATURE = '901-fixture' } -WorkingDirectory $noSideEffectRepo
+    Assert-Case 'plan setup on an uncut-over ticket writes no private archive of the old records' (-not (Test-Path -LiteralPath (Join-Path $noSideEffectRoot 'LamuFlix/DEV-901/brief.md') -PathType Leaf)) 'brief.md was archived as a side effect'
+    Assert-Case 'plan setup leaves the public brief and tasks in place' ((Test-Path -LiteralPath (Join-Path $noSideEffectTicket 'brief.md') -PathType Leaf) -and -not (Test-Path -LiteralPath (Join-Path $noSideEffectTicket 'tasks.md') -PathType Leaf)) "exit $($planSideEffect.ExitCode)"
+
+    Write-Host ''
+    Write-Host 'US3 historical end state and non-synthesis (T020b):'
+
+    $migrationSpecsDir = Join-Path $migrationRepo 'specs'
+    $noConclusionsTickets = @(Get-ChildItem -LiteralPath $migrationSpecsDir -Directory -Force | Where-Object { -not (Test-Path -LiteralPath (Join-Path $_.FullName 'CONCLUSIONS.md')) })
+    Assert-Case 'the fixture keeps a ticket that has no public conclusions' (@($noConclusionsTickets | Where-Object { $_.Name -eq 'DEV-902' }).Count -eq 1) (@($noConclusionsTickets | ForEach-Object { $_.Name }) -join ',')
+    Assert-Case 'no historical conclusions file was invented anywhere' (@(Get-ChildItem -LiteralPath $migrationSpecsDir -Recurse -File -Force -Filter 'CONCLUSIONS.md' | Where-Object { $_.DirectoryName -match 'DEV-902$' }).Count -eq 0)
+    Assert-Case 'every migrated ticket directory holds only allowlisted names' (@(Get-ChildItem -LiteralPath $migrationSpecsDir -Directory -Force | ForEach-Object { @(Get-ChildItem -LiteralPath $_.FullName -Recurse -File -Force | Where-Object { $_.Name -notin @('spec.md', 'CONCLUSIONS.md', 'ASSUMPTIONS.md') }).Count } | Measure-Object -Sum).Sum -eq 0) 'an operational record survived publicly'
+    Assert-Case 'the archive holds the operational records the public tree shed' ((Test-Path -LiteralPath (Join-Path $privateA 'plan.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $privateA 'checklists/requirements.md') -PathType Leaf))
 } finally {
     if (Test-Path -LiteralPath $script:Root) {
         Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
