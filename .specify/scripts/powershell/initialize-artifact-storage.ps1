@@ -1,9 +1,5 @@
 #!/usr/bin/env pwsh
 # Explicit private artifact storage provisioning and verified record migration.
-#
-# Ordinary workflow reads and writes stay fail-closed: only this script may create
-# the private root. Migration copies without clobbering, verifies raw-byte SHA-256
-# hashes and counts, and only then stages Git removals.
 
 [CmdletBinding()]
 param(
@@ -269,11 +265,10 @@ $sanitizeRules = @(
     @{ Pattern = '(?i)C:[\\/]Users[\\/][^\\/\s"'']+[\\/]AppData[\\/]Local[\\/]Temp'; Replacement = '<temp>' }
     @{ Pattern = '(?i)[EF]:[\\/]Filmes'; Replacement = '<library-root>' }
     @{ Pattern = '(?i)C:[\\/]TestLibrary'; Replacement = '<test-library>' }
-    @{ Pattern = '(?i)/Users/[^/\s"'']+'; Replacement = '<home>' }
-    @{ Pattern = '(?i)/home/[^/\s"'']+'; Replacement = '<home>' }
+    @{ Pattern = '(?<![\w./\\-])(?i)/Users/[^/\s"'']+'; Replacement = '<home>' }
+    @{ Pattern = '(?<![\w./\\-])(?i)/home/[^/\s"'']+'; Replacement = '<home>' }
 )
 
-# Inventory of every bulk migration source set: one per tracked ticket directory plus repository-level evidence.
 function Get-BulkSourceSet {
     param([Parameter(Mandatory = $true)][string]$RepositoryDir)
     $sets = [System.Collections.Generic.List[object]]::new()
@@ -304,8 +299,6 @@ function Get-BulkSourceSet {
     return $sets
 }
 
-# Rewrite machine-specific paths in a public allowlist record as portable identifiers.
-# Returns $true only when the file content actually changed.
 function Update-PublicRecordPaths {
     param([Parameter(Mandatory = $true)][string]$Path)
     $bytes = [System.IO.File]::ReadAllBytes($Path)
@@ -319,8 +312,6 @@ function Update-PublicRecordPaths {
     return $true
 }
 
-# Archive index records the private hash of an allowlist record whose public copy was sanitized,
-# so a later rerun recognizes the rewritten public file as preserved rather than a conflict.
 function Get-MigrationIndexPath {
     param([Parameter(Mandatory = $true)][string]$RepositoryDir)
     return (Join-Path $RepositoryDir 'migration-index.json')
