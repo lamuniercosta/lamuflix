@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isLibraryDirection,
+  isLibrarySort,
   isRatingActive,
   normalizeRatingValue,
   parseFilterQuery,
+  parseSortSelection,
   SORT_OPTIONS,
   toApiQuery,
   toUrlQuery,
@@ -239,5 +242,39 @@ describe('filterQuery Added sort', () => {
       { label: 'Added (newest)', sort: 'Added', direction: 'Descending' },
       { label: 'Added (oldest)', sort: 'Added', direction: 'Ascending' },
     ]);
+  });
+});
+
+describe('filterQuery sort literal typing', () => {
+  it('accepts only the existing sort fields and directions', () => {
+    for (const sort of ['Title', 'Year', 'Rating', 'Runtime', 'Added']) {
+      expect(isLibrarySort(sort)).toBe(true);
+    }
+    for (const direction of ['Ascending', 'Descending']) {
+      expect(isLibraryDirection(direction)).toBe(true);
+    }
+    for (const sort of ['Bogus', '', 'title', null, 7, undefined]) {
+      expect(isLibrarySort(sort)).toBe(false);
+    }
+    for (const direction of ['Asc', 'Desc', '', null, 1]) {
+      expect(isLibraryDirection(direction)).toBe(false);
+    }
+  });
+
+  it('resolves a select value into its typed sort selection', () => {
+    expect(parseSortSelection('Year|Descending')).toEqual({
+      sort: 'Year',
+      direction: 'Descending',
+    });
+    expect(parseSortSelection('Added|Ascending')).toEqual({
+      sort: 'Added',
+      direction: 'Ascending',
+    });
+  });
+
+  it('rejects unknown or malformed select values without repair', () => {
+    for (const value of ['Bogus|Ascending', 'Year|Sideways', 'Year', 'Year|', '|Ascending', '']) {
+      expect(parseSortSelection(value)).toBeNull();
+    }
   });
 });

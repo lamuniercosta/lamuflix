@@ -9,6 +9,7 @@ import {
 import { client } from '../../api/client';
 import type { components } from '../../api/types';
 import { invalidateBrowseMovies, markRowPending } from '../../library/libraryQueries';
+import { actorPeopleParams } from '../../library/peopleQuery';
 import type { EnrichmentStatusSubscription } from '../../library/useEnrichmentStatus';
 
 type BrowseMoviesResponse = components['schemas']['BrowseMoviesResponse'];
@@ -38,7 +39,7 @@ export function usePeopleLookup() {
     queryKey: ['detailsPeople'],
     queryFn: async ({ signal }) => {
       const { data, error, response } = await client.GET('/api/people', {
-        params: { query: { role: 'actor' } as unknown as Record<string, unknown> },
+        params: actorPeopleParams(),
         signal,
       });
       if (error || !data) {

@@ -1,7 +1,44 @@
-export const DEFAULT_SORT = 'Title';
-export const DEFAULT_DIRECTION = 'Ascending';
+export type LibrarySort = 'Title' | 'Year' | 'Rating' | 'Runtime' | 'Added';
+export type LibraryDirection = 'Ascending' | 'Descending';
 
-export const SORT_OPTIONS = [
+const SORT_NAMES: readonly string[] = ['Title', 'Year', 'Rating', 'Runtime', 'Added'];
+const DIRECTION_NAMES: readonly string[] = ['Ascending', 'Descending'];
+
+export function isLibrarySort(value: unknown): value is LibrarySort {
+  return typeof value === 'string' && SORT_NAMES.includes(value);
+}
+
+export function isLibraryDirection(value: unknown): value is LibraryDirection {
+  return typeof value === 'string' && DIRECTION_NAMES.includes(value);
+}
+
+export const DEFAULT_SORT: LibrarySort = 'Title';
+export const DEFAULT_DIRECTION: LibraryDirection = 'Ascending';
+
+interface SortOption {
+  label: string;
+  sort: LibrarySort;
+  direction: LibraryDirection;
+}
+
+export interface SortSelection {
+  sort: LibrarySort;
+  direction: LibraryDirection;
+}
+
+export function parseSortSelection(value: string): SortSelection | null {
+  const parts = value.split('|');
+  if (parts.length !== 2) {
+    return null;
+  }
+  const [sort, direction] = parts;
+  if (!isLibrarySort(sort) || !isLibraryDirection(direction)) {
+    return null;
+  }
+  return { sort, direction };
+}
+
+export const SORT_OPTIONS: readonly SortOption[] = [
   { label: 'Title (A-Z)', sort: 'Title', direction: 'Ascending' },
   { label: 'Title (Z-A)', sort: 'Title', direction: 'Descending' },
   { label: 'Year (oldest)', sort: 'Year', direction: 'Ascending' },
@@ -67,7 +104,6 @@ export interface FilterQuery {
   inWatchlist: string | boolean | number | null;
   unknown: Record<string, string | string[]>;
 }
-
 type SerializeOptions = {
   compact: boolean;
   includeUnknownKeys: boolean;
@@ -318,7 +354,7 @@ export function isYearActive(minRaw: unknown, maxRaw: unknown, currentYear: numb
   return false;
 }
 
-export function isRatingBoundValid(raw: unknown): boolean {
+function isRatingBoundValid(raw: unknown): boolean {
   if (raw == null) {
     return true;
   }
@@ -521,82 +557,10 @@ export function toUrlQuery(input: unknown, currentYear?: unknown): string {
   return serialize(input, { compact: true, includeUnknownKeys: true }, currentYear);
 }
 
-export function toUrlString(input: unknown, currentYear?: unknown): string {
-  return toUrlQuery(input, currentYear);
-}
-
-export function toQueryString(input: unknown, currentYear?: unknown): string {
-  return toUrlQuery(input, currentYear);
-}
-
-export function toUrlSearchParams(input: unknown, currentYear?: unknown): URLSearchParams {
-  return new URLSearchParams(toUrlQuery(input, currentYear));
-}
-
 export function toApiQuery(input: unknown, currentYear?: unknown): string {
   return serialize(input, { compact: false, includeUnknownKeys: false }, currentYear);
-}
-
-export function toCanonicalQuery(input: unknown, currentYear?: unknown): string {
-  return toApiQuery(input, currentYear);
 }
 
 export function toCanonicalApiQuery(input: unknown, currentYear?: unknown): string {
   return toApiQuery(input, currentYear);
 }
-
-export function toApiUrlSearchParams(input: unknown, currentYear?: unknown): URLSearchParams {
-  return new URLSearchParams(toApiQuery(input, currentYear));
-}
-
-export function normalizeFilterQuery(input: unknown, currentYear?: unknown): string {
-  return toApiQuery(input, currentYear);
-}
-
-export function normalizeToFilterQuery(input: unknown): FilterQuery {
-  return parseFilterQuery(input);
-}
-
-export function canonicalizeFilterQuery(input: unknown): string {
-  return toApiQuery(input);
-}
-
-// Aliases for likely hidden imports.
-export const decodeFilterQuery = parseFilterQuery;
-export const fromUrl = parseFilterQuery;
-export const fromSearchParams = parseFilterQuery;
-export const fromUrlSearchParams = parseFilterQuery;
-export const filterQueryFromUrl = parseFilterQuery;
-export const filterQueryFromSearchParams = parseFilterQuery;
-export const serializeFilterQuery = toUrlQuery;
-export const encodeFilterQuery = toUrlQuery;
-export const stringifyFilterQuery = toUrlQuery;
-export const filterQueryToUrl = toUrlQuery;
-export const filterQueryToUrlSearchParams = toUrlSearchParams;
-export const urlQueryFromFilterQuery = toUrlQuery;
-export const toUrl = toUrlQuery;
-export const serializeToUrl = toUrlQuery;
-
-export const filterQueryToApiQuery = toApiQuery;
-export const filterQueryToCanonicalQuery = toApiQuery;
-export const toMovieQueryParams = toApiQuery;
-export const normalizeUrlToApiQuery = toApiQuery;
-
-// Callable module shim.
-const filterQueryCallable = Object.assign(parseFilterQuery, {
-  parse: parseFilterQuery,
-  decode: parseFilterQuery,
-  toUrl: toUrlQuery,
-  toUrlQuery,
-  toUrlString,
-  toQueryString,
-  toUrlSearchParams,
-  toApi: toApiQuery,
-  toApiQuery,
-  toCanonicalQuery,
-  toCanonicalApiQuery,
-  normalize: normalizeFilterQuery,
-  serialize: toUrlQuery,
-  canonicalize: toApiQuery,
-});
-export default filterQueryCallable;
