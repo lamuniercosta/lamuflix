@@ -37,6 +37,7 @@ jobs:
     permissions:
       contents: write
       packages: read
+      actions: read
     steps:
       - name: Check out repository history
         uses: actions/checkout@v7
@@ -112,6 +113,41 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "sha=$found" >> "$GITHUB_OUTPUT"
+
+      - name: Require the mutation gate for a release tag
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ steps.published.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # A release means the commit passed the whole-Core mutation gate that publish-images
+          # deliberately does not wait for (ADR 0039). Judge the CI run of the commit whose
+          # images are promoted: the tagged commit, or the newest one before it with images.
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tags look like v1.2.3, got $TAG."
+            exit 1
+          fi
+          run_id="$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&event=push&branch=main" \
+            --jq '[.workflow_runs[] | select(.path == ".github/workflows/ci.yml")] | sort_by(.created_at) | last | .id // empty')"
+          if [ -z "$run_id" ]; then
+            echo "::error::No CI run on main found for $SHA, so the mutation gate has not been judged."
+            exit 1
+          fi
+          gate="$(gh api "repos/$REPO/actions/runs/$run_id/jobs" --paginate \
+            --jq '.jobs[] | select(.name == "stryker-core-gate") | (.conclusion // .status)')"
+          if [ "$gate" != "success" ]; then
+            echo "::error::stryker-core-gate for $SHA is '${gate:-missing}' (CI run $run_id). Wait for it to pass and re-run this workflow, or promote by sha with workflow_dispatch for a hotfix."
+            exit 1
+          fi
+          {
+            echo "## promote-home release $TAG"
+            echo ""
+            echo "Mutation gate passed for $SHA (CI run $run_id)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve image digests
         id: digests
@@ -196,6 +232,7 @@ jobs:
           WEB_DIGEST: ${{ steps.digests.outputs.web }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
         run: |
           set -euo pipefail
           home="$RUNNER_TEMP/env-home"
@@ -221,7 +258,8 @@ jobs:
             --arg webDigest "$WEB_DIGEST" \
             --arg promotedAtUtc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg workflowRun "$RUN_URL" \
-            '{commit: $commit, images: {api: {image: $apiImage, digest: $apiDigest}, web: {image: $webImage, digest: $webDigest}}, promotedAtUtc: $promotedAtUtc, workflowRun: $workflowRun}' \
+            --arg release "$RELEASE_TAG" \
+            '{release: (if $release == "" then null else $release end), commit: $commit, images: {api: {image: $apiImage, digest: $apiDigest}, web: {image: $webImage, digest: $webDigest}}, promotedAtUtc: $promotedAtUtc, workflowRun: $workflowRun}' \
             > RELEASE.json
 
           new_identity="$(jq -S 'del(.promotedAtUtc, .workflowRun)' RELEASE.json)"
@@ -269,7 +307,11 @@ jobs:
 
           msg="$RUNNER_TEMP/commit-message.txt"
           {
-            echo "home: promote ${SHA:0:8}"
+            if [ -n "$RELEASE_TAG" ]; then
+              echo "home: promote $RELEASE_TAG (${SHA:0:8})"
+            else
+              echo "home: promote ${SHA:0:8}"
+            fi
             echo ""
             echo "Source commit: $SHA"
             echo "API image digest: $API_DIGEST"
@@ -288,3 +330,29 @@ jobs:
             echo "- API digest: $API_DIGEST"
             echo "- Web digest: $WEB_DIGEST"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create the GitHub release
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ steps.published.outputs.sha }}
+          API_DIGEST: ${{ steps.digests.outputs.api }}
+          WEB_DIGEST: ${{ steps.digests.outputs.web }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; leaving it as is."
+            exit 0
+          fi
+          notes="$RUNNER_TEMP/release-notes.md"
+          {
+            echo "Deployed to the home cluster from commit \`$SHA\`."
+            echo ""
+            echo "- API image digest: \`$API_DIGEST\`"
+            echo "- Web image digest: \`$WEB_DIGEST\`"
+            echo ""
+            echo "Roll back by re-running the promote-home run of an earlier release tag."
+          } > "$notes"
+          gh release create "$TAG" --verify-tag --generate-notes --notes-file "$notes" --title "$TAG"
