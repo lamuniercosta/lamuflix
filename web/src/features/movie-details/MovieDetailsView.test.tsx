@@ -12,6 +12,7 @@ import {
   relatedMovies,
 } from '../../mocks/fixtures';
 import { installMediaStubs, type MediaStubHandle } from '../../test/mediaElement';
+import { readPlayerIntent } from '../app-navigation/useAppNavigation';
 import { playerRegionLabel, playLabel } from '../playback/playerCopy';
 import { movieStreamUrl } from '../playback/streamSource';
 import { browseMoviesQueryKey } from '../../library/libraryQueries';
@@ -354,6 +355,10 @@ describe('MovieDetailsView load states', () => {
     const link = await screen.findByRole('link', { name: 'Back to library' });
     expect(link).toBeInTheDocument();
     expect(link.getAttribute('href')).toBe('/');
+
+    fireEvent.click(link);
+
+    expect(window.location.pathname).toBe('/');
   });
 
   it('shows generic error on GET failure', async () => {
@@ -409,6 +414,7 @@ describe('MovieDetailsView cast and more-with', () => {
       http.get('*/api/movies/:id', () => HttpResponse.json(movieWithActors(['Timothée Chalamet']))),
       http.get('*/api/movies', () => HttpResponse.json(browseMovies)),
     );
+    window.history.replaceState({}, '', '/movies/1');
     renderView();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
@@ -416,6 +422,22 @@ describe('MovieDetailsView cast and more-with', () => {
 
     expect(screen.queryByRole('link', { name: 'Dune' })).not.toBeInTheDocument();
     expect(window.location.pathname).toBe('/movies/2');
+    expect(readPlayerIntent(window.history.state)).toBe(false);
+  });
+
+  it('retains the library return URL when opening a More-with row', async () => {
+    server.use(
+      http.get('*/api/movies/:id', () => HttpResponse.json(movieWithActors(['Timothée Chalamet']))),
+      http.get('*/api/movies', () => HttpResponse.json(browseMovies)),
+    );
+    window.history.replaceState({ libraryReturnUrl: '/?genreIds=1' }, '', '/movies/1');
+    renderView();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Timothée Chalamet' }));
+    fireEvent.click(await screen.findByRole('link', { name: 'Arrival' }));
+
+    expect(window.location.pathname).toBe('/movies/2');
+    expect(window.history.state).toEqual({ libraryReturnUrl: '/?genreIds=1' });
   });
 
   it('shows an empty state when no other library movie has the actor', async () => {

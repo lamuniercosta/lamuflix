@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   currentReturnUrl,
   isLibraryRoute,
@@ -144,6 +144,35 @@ describe('useAppNavigation', () => {
 
     expect(result.current.route.routeKey).toBeGreaterThan(before);
     expect(currentReturnUrl()).toBe('/?text=b');
+  });
+
+  it('applies exactly one route update per programmatic navigation', () => {
+    window.history.replaceState({}, '', '/');
+    const { result } = renderHook(() => useAppNavigation());
+
+    const before = result.current.route.routeKey;
+    act(() => {
+      result.current.navigate('/?text=once');
+    });
+
+    expect(result.current.route.routeKey).toBe(before + 1);
+  });
+
+  it('tears down its popstate listener on unmount', () => {
+    window.history.replaceState({}, '', '/');
+    const added = vi.spyOn(window, 'addEventListener');
+    const removed = vi.spyOn(window, 'removeEventListener');
+
+    const { unmount } = renderHook(() => useAppNavigation());
+    const popstateListener = added.mock.calls.find(([type]) => type === 'popstate')?.[1];
+    expect(popstateListener).toBeTypeOf('function');
+
+    unmount();
+
+    expect(removed).toHaveBeenCalledWith('popstate', popstateListener);
+
+    added.mockRestore();
+    removed.mockRestore();
   });
 });
 
