@@ -12,6 +12,7 @@ param(
     [switch]$Migrate,
     [string]$TicketId,
     [string]$SourceDir,
+    [switch]$Refresh,
     [switch]$StageRemovals,
     [switch]$Json,
     [switch]$Help
@@ -21,12 +22,13 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 function Write-Usage {
-    Write-Output 'Usage: ./initialize-artifact-storage.ps1 -Initialize | -Bootstrap -TicketId <DEV-###> -SourceDir <path> | -Migrate -TicketId <DEV-###> -SourceDir <path> [-StageRemovals]'
+    Write-Output 'Usage: ./initialize-artifact-storage.ps1 -Initialize | -Bootstrap -TicketId <DEV-###> -SourceDir <path> [-Refresh] | -Migrate -TicketId <DEV-###> -SourceDir <path> [-StageRemovals]'
     Write-Output '  -Initialize      Create the missing private artifact root and repository directory'
-    Write-Output '  -Bootstrap       Copy one ticket operational record set into verified private storage'
+    Write-Output '  -Bootstrap       Copy one ticket operational record set into verified private storage and record the seed proof'
     Write-Output '  -Migrate         Copy the same way, then stage Git removals only after verification'
     Write-Output '  -TicketId        Ticket identifier such as DEV-473'
     Write-Output '  -SourceDir       Repository-relative directory holding the operational records'
+    Write-Output '  -Refresh         Bootstrap only: replace a differing private seed copy and re-verify it byte for byte'
     Write-Output '  -StageRemovals   Stage git rm for verified non-allowlist sources (Migrate only)'
     Write-Output '  -Json            Output results in JSON format'
     Write-Output '  -Help            Show this help message'
@@ -37,6 +39,12 @@ if ($Help) { Write-Usage; exit 0 }
 $modeCount = @($Initialize, $Bootstrap, $Migrate | Where-Object { $_ }).Count
 if ($modeCount -ne 1) {
     [Console]::Error.WriteLine('ERROR: choose exactly one of -Initialize, -Bootstrap or -Migrate.')
+    Write-Usage
+    exit 1
+}
+
+if ($Refresh -and -not $Bootstrap) {
+    [Console]::Error.WriteLine('ERROR: -Refresh applies to -Bootstrap only.')
     Write-Usage
     exit 1
 }
@@ -76,7 +84,10 @@ function Get-MigrationEntry {
 }
 
 function Copy-MigrationEntry {
-    param([Parameter(Mandatory = $true)]$Entry)
+    param(
+        [Parameter(Mandatory = $true)]$Entry,
+        [switch]$Refresh
+    )
     $parent = [System.IO.Path]::GetDirectoryName($Entry.Destination)
     if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
@@ -86,7 +97,11 @@ function Copy-MigrationEntry {
         if ($existingSha -eq $Entry.SourceSha256) {
             return [pscustomobject]@{ RelativePath = $Entry.RelativePath; Outcome = 'identical'; Verified = $true; Reason = $null }
         }
-        return [pscustomobject]@{ RelativePath = $Entry.RelativePath; Outcome = 'conflict'; Verified = $false; Reason = 'destination differs from the source' }
+        if (-not $Refresh) {
+            return [pscustomobject]@{ RelativePath = $Entry.RelativePath; Outcome = 'conflict'; Verified = $false; Reason = 'destination differs from the source' }
+        }
+        [System.IO.File]::Copy($Entry.Source, $Entry.Destination, $true)
+        return [pscustomobject]@{ RelativePath = $Entry.RelativePath; Outcome = 'refreshed'; Verified = $false; Reason = $null }
     }
     [System.IO.File]::Copy($Entry.Source, $Entry.Destination, $false)
     return [pscustomobject]@{ RelativePath = $Entry.RelativePath; Outcome = 'copied'; Verified = $false; Reason = $null }
@@ -110,7 +125,9 @@ function Invoke-Seed {
         [Parameter(Mandatory = $true)][string]$Ticket,
         [Parameter(Mandatory = $true)][string]$Source,
         [switch]$SkipAllowlist,
-        [switch]$Removals
+        [switch]$Removals,
+        [switch]$SeedProof,
+        [switch]$Refresh
     )
     $repositoryId = Get-ArtifactRepositoryId
     $root = Get-ArtifactRoot -RepositoryId $repositoryId -RepoRoot $repoRoot
@@ -118,6 +135,12 @@ function Invoke-Seed {
 
     if (-not (Test-Path -LiteralPath $Source -PathType Container)) {
         [Console]::Error.WriteLine("ERROR: source directory not found: $Source")
+        exit 1
+    }
+    try {
+        Assert-ArtifactStorage -Root $root -RepositoryId $repositoryId -RepoRoot $repoRoot | Out-Null
+    } catch {
+        [Console]::Error.WriteLine("ERROR: $($_.Exception.Message)")
         exit 1
     }
     New-Item -ItemType Directory -Path $ticketDir -Force | Out-Null
@@ -128,7 +151,7 @@ function Invoke-Seed {
         $entries = Get-MigrationEntry -SourceRoot $Source -DestinationRoot $ticketDir -SkipAllowlist:$SkipAllowlist
         $results = [System.Collections.Generic.List[object]]::new()
         foreach ($entry in $entries) {
-            $copied = Copy-MigrationEntry $entry
+            $copied = Copy-MigrationEntry -Entry $entry -Refresh:$Refresh
             $results.Add((Confirm-MigrationCopy $copied $entry))
         }
     } finally {
@@ -139,6 +162,28 @@ function Invoke-Seed {
     $sourceCount = @(Get-ChildItem -LiteralPath $Source -Recurse -File -Force | Where-Object { -not (Test-AllowlistedName @([System.IO.Path]::GetRelativePath($Source, $_.FullName) -split '[\\/]')[0]) }).Count
     $countMatch = ($results.Count -eq $sourceCount) -and ($results.Count -eq $entries.Count)
     $verified = ($failed.Count -eq 0) -and $countMatch -and $results.Count -gt 0
+
+    $seedProofPath = $null
+    if ($SeedProof) {
+        $seedProofPath = Get-ArtifactSeedProofPath $ticketDir
+        if ($verified) {
+            $proof = [ordered]@{
+                ticketId     = $Ticket.Trim().ToUpperInvariant()
+                repositoryId = $repositoryId
+                sourceDir    = [System.IO.Path]::GetFullPath($Source)
+                ticketDir    = $ticketDir
+                verified     = $true
+                rawByteSha256 = $true
+                fileCount    = $results.Count
+                commitSha    = (& git -C $repoRoot rev-parse HEAD 2>$null | Out-String).Trim()
+                recordedUtc  = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                entries      = @($entries | ForEach-Object { [ordered]@{ path = $_.RelativePath; sha256 = $_.SourceSha256; length = $_.SourceLength } })
+            }
+            [System.IO.File]::WriteAllText($seedProofPath, ($proof | ConvertTo-Json -Depth 6), [System.Text.UTF8Encoding]::new($false))
+        } elseif (Test-Path -LiteralPath $seedProofPath -PathType Leaf) {
+            Remove-Item -LiteralPath $seedProofPath -Force
+        }
+    }
 
     $staged = @()
     if ($StageRemovals -and $Removals) {
@@ -165,12 +210,14 @@ function Invoke-Seed {
         COUNT_MATCH    = $countMatch
         FAILURES       = @($failed | ForEach-Object { [pscustomobject]@{ path = $_.RelativePath; outcome = $_.Outcome; reason = $_.Reason } })
         RESULTS        = @($results | ForEach-Object { [pscustomobject]@{ path = $_.RelativePath; outcome = $_.Outcome; verified = $_.Verified } })
+        SEED_PROOF     = $seedProofPath
         STAGED_REMOVALS = $staged
     }
     if ($Json) {
         $payload | ConvertTo-Json -Depth 6 -Compress
     } else {
         Write-Output "TICKET_DIR: $ticketDir"
+        if ($seedProofPath) { Write-Output "SEED_PROOF: $seedProofPath" }
         foreach ($result in $results) {
             $state = if ($result.Verified) { 'verified' } else { 'FAILED' }
             Write-Output "  $($result.Outcome) $state  $($result.RelativePath)"
@@ -206,7 +253,7 @@ $sourceFull = if ([System.IO.Path]::IsPathRooted($SourceDir)) { $SourceDir } els
 $sourceFull = [System.IO.Path]::GetFullPath($sourceFull)
 
 if ($Bootstrap) {
-    Invoke-Seed -Ticket $TicketId -Source $sourceFull -SkipAllowlist
+    Invoke-Seed -Ticket $TicketId -Source $sourceFull -SkipAllowlist -SeedProof -Refresh:$Refresh
     exit $LASTEXITCODE
 }
 

@@ -883,6 +883,54 @@ function Get-ArtifactTicketPaths {
     }
 }
 
+function Get-ArtifactSeedProofPath {
+    param([Parameter(Mandatory = $true)][string]$TicketDir)
+    return (Join-Path $TicketDir 'seed-proof.json')
+}
+
+function Get-ArtifactBootstrapSeedProof {
+    param([Parameter(Mandatory = $true)][string]$TicketDir)
+    $path = Get-ArtifactSeedProofPath $TicketDir
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
+    try { return (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json) } catch { return $null }
+}
+
+# Re-verify a recorded bootstrap seed: every proof entry must still match its private copy byte for byte.
+function Test-ArtifactBootstrapSeed {
+    param([Parameter(Mandatory = $true)][string]$TicketDir)
+    $proof = Get-ArtifactBootstrapSeedProof $TicketDir
+    if (-not $proof) { return $false }
+    if (-not (Get-ArtifactProperty $proof 'VERIFIED')) { return $false }
+    $entries = @(Get-ArtifactProperty $proof 'ENTRIES')
+    if ($entries.Count -eq 0) { return $false }
+    foreach ($entry in $entries) {
+        $relative = Get-ArtifactProperty $entry 'path'
+        $expected = Get-ArtifactProperty $entry 'sha256'
+        if ([string]::IsNullOrWhiteSpace($relative) -or [string]::IsNullOrWhiteSpace($expected)) { return $false }
+        try {
+            $destination = New-ArtifactChildPath -BaseDir $TicketDir -RelativePath $relative
+        } catch {
+            return $false
+        }
+        if (-not (Test-Path -LiteralPath $destination -PathType Leaf)) { return $false }
+        if ((Get-ArtifactFileSha256 $destination) -ne $expected) { return $false }
+    }
+    return $true
+}
+
+# Private-required activation stays blocked until the in-flight ticket's bootstrap seed is proven.
+function Assert-ArtifactBootstrapSeed {
+    param([Parameter(Mandatory = $true)][string]$TicketDir)
+    $path = Get-ArtifactSeedProofPath $TicketDir
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "No verified bootstrap seed proof exists at '$path'. Seed the ticket operational records first: $script:ArtifactInitializeHint -Bootstrap -TicketId <DEV-###> -SourceDir <specs/DEV-###>"
+    }
+    if (-not (Test-ArtifactBootstrapSeed -TicketDir $TicketDir)) {
+        throw "The bootstrap seed proof at '$path' no longer matches the private records it describes. Re-seed the ticket with -Bootstrap -Refresh before activating private-required consumers."
+    }
+    return $path
+}
+
 # Ordinary workflow I/O state. Missing or unwritable storage never falls back to tracked specs/.
 function Get-ArtifactStorageState {
     param([string]$Root, [string]$RepositoryId, [string]$RepoRoot)
@@ -944,6 +992,10 @@ function Get-ArtifactPathsEnv {
         Assert-ArtifactStorage -Root $root -RepositoryId $repositoryId -RepoRoot $paths.REPO_ROOT
         throw "Private storage for ticket '$ticket' is not initialized. Run: $(Get-ArtifactInitializeHint)"
     }
+    if ($RequirePrivate) {
+        Assert-ArtifactBootstrapSeed -TicketDir $ticketDir | Out-Null
+    }
+    $seedVerified = if ($privateAvailable) { Test-ArtifactBootstrapSeed -TicketDir $ticketDir } else { $false }
 
     $publicDir = $paths.FEATURE_DIR
     $result = [ordered]@{
@@ -959,6 +1011,8 @@ function Get-ArtifactPathsEnv {
         PRIVATE_ROOT          = $root
         PRIVATE_TICKET_DIR    = $ticketDir
         PRIVATE_AVAILABLE     = $privateAvailable
+        PRIVATE_SEED_VERIFIED = $seedVerified
+        PRIVATE_SEED_PROOF    = if ($privateAvailable) { Get-ArtifactSeedProofPath $ticketDir } else { $null }
         PRIVATE_BRIEF         = if ($ticketDir) { Join-Path $ticketDir 'brief.md' } else { $null }
         PRIVATE_PLAN          = if ($ticketDir) { Join-Path $ticketDir 'plan.md' } else { $null }
         PRIVATE_TASKS         = if ($ticketDir) { Join-Path $ticketDir 'tasks.md' } else { $null }

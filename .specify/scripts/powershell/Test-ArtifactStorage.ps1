@@ -221,7 +221,9 @@ try {
     $missingRootState = Invoke-CommonProbe -Expression "Get-ArtifactStorageState -Root '$(Join-Path $script:Root 'absent-root')'" -Environment @{}
     Assert-Case 'missing root reports not initialized' ($missingRootState.ok -and (-not $missingRootState.value.EXISTS)) "$($missingRootState.message)"
 
-    $missingInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Bootstrap', '-TicketId', 'DEV-473', '-SourceDir', (Join-Path $script:RepoRoot 'specs/DEV-473'))
+    $missingInit = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Bootstrap', '-TicketId', 'DEV-473', '-SourceDir', (Join-Path $script:RepoRoot 'specs/DEV-473')) -Environment @{ LAMUFLIX_ARTIFACT_ROOT = (Join-Path $script:Root 'absent-root') }
+    Assert-Case 'bootstrap against a missing root fails closed' ($missingInit.ExitCode -eq 1) "bootstrap exit $($missingInit.ExitCode)"
+    Assert-Case 'bootstrap names the initialization command' ($missingInit.Output -match 'initialize-artifact-storage\.ps1') $missingInit.Output
     $missingExpect = Invoke-CommonProbe -Expression "Assert-ArtifactStorage -Root '$(Join-Path $script:Root 'absent-root')'" -Environment @{}
     Assert-Case 'ordinary storage assertion names the initialization command' ((-not $missingExpect.ok) -and ($missingExpect.message -match 'initialize-artifact-storage\.ps1')) $missingExpect.message
     Assert-Case 'bootstrap does not create the private root implicitly' (-not (Test-Path -LiteralPath (Join-Path $script:Root 'absent-root'))) "bootstrap exit $($missingInit.ExitCode)"
@@ -387,6 +389,63 @@ Release-ArtifactTicketOwnership `$owner
 
     $unrelatedResult = Invoke-Guard -Tool 'Edit' -Path (Join-Path $script:RepoRoot 'scripts/hooks/guard.ps1') -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
     Assert-Case 'ordinary in-worktree edits are unaffected' ($unrelatedResult -eq 0) "exit $unrelatedResult"
+
+    Write-Host ''
+    Write-Host 'Bootstrap seed proof and activation gate (P1):'
+
+    $seedRoot = New-FixtureDir 'seed-root'
+    $seedRepository = Join-Path $seedRoot 'LamuFlix'
+    New-Item -ItemType Directory -Force -Path $seedRepository | Out-Null
+    $seedTicket = Join-Path $seedRepository 'DEV-900'
+    New-Item -ItemType Directory -Force -Path $seedTicket | Out-Null
+
+    $seedSource = Join-Path $script:Root 'seed-source/DEV-900'
+    Write-FixtureText -Path (Join-Path $seedSource 'brief.md') -Text "# brief`r`nline two`r`n"
+    Write-FixtureText -Path (Join-Path $seedSource 'plan.md') -Text "# plan`nunix newline stays byte identical`n"
+    Write-FixtureText -Path (Join-Path $seedSource 'checklists/requirements.md') -Text "# requirements`r`n"
+
+    $unseededActivation = Invoke-CommonProbe -Expression "Assert-ArtifactBootstrapSeed -TicketDir '$seedTicket'" -Environment @{}
+    Assert-Case 'activation is blocked without seed proof' ((-not $unseededActivation.ok) -and ($unseededActivation.message -match 'bootstrap seed')) $unseededActivation.message
+
+    $unseededRequirePrivate = Invoke-CommonProbe -Expression "Get-ArtifactPathsEnv -TicketId 'DEV-900' -RequirePrivate | Out-Null" -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $seedRoot }
+    Assert-Case 'private-required resolution is blocked by a missing seed proof' ((-not $unseededRequirePrivate.ok) -and ($unseededRequirePrivate.message -match 'bootstrap seed')) $unseededRequirePrivate.message
+
+    $seedResult = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Bootstrap', '-TicketId', 'DEV-900', '-SourceDir', $seedSource) -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $seedRoot }
+    Assert-Case 'bootstrap seed exits 0 for a clean seed' ($seedResult.ExitCode -eq 0) "exit $($seedResult.ExitCode): $($seedResult.Output)"
+    Assert-Case 'bootstrap seed records its proof file' (Test-Path -LiteralPath (Join-Path $seedTicket 'seed-proof.json') -PathType Leaf)
+    Assert-Case 'bootstrap seed copies every source file' ((Test-Path -LiteralPath (Join-Path $seedTicket 'checklists/requirements.md') -PathType Leaf) -and (Test-Path -LiteralPath (Join-Path $seedTicket 'brief.md') -PathType Leaf))
+
+    $seedProofFile = Join-Path $seedTicket 'seed-proof.json'
+    $seedProof = Get-Content -LiteralPath $seedProofFile -Raw | ConvertFrom-Json
+    Assert-Case 'seed proof declares raw-byte SHA-256 verification' ([bool]$seedProof.rawByteSha256)
+    Assert-Case 'seed proof counts every seeded file' ($seedProof.fileCount -eq 3) "fileCount $($seedProof.fileCount)"
+    $crlfEntry = @($seedProof.entries | Where-Object { $_.path -eq 'brief.md' })[0]
+    Assert-Case 'seed proof hashes the raw bytes, not normalized text' ($crlfEntry.sha256 -eq (Get-FileHash -LiteralPath (Join-Path $seedSource 'brief.md') -Algorithm SHA256).Hash.ToLowerInvariant()) $crlfEntry.sha256
+
+    $seededActivation = Invoke-CommonProbe -Expression "Assert-ArtifactBootstrapSeed -TicketDir '$seedTicket'" -Environment @{}
+    Assert-Case 'activation is allowed once the seed is proven' $seededActivation.ok $seededActivation.message
+
+    $seededStateProbe = Invoke-CommonProbe -Expression "Get-ArtifactPathsEnv -TicketId 'DEV-900'" -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $seedRoot }
+    Assert-Case 'resolved paths report the verified seed' ($seededStateProbe.ok -and $seededStateProbe.value.PRIVATE_SEED_VERIFIED) $seededStateProbe.message
+
+    $seedRerun = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Bootstrap', '-TicketId', 'DEV-900', '-SourceDir', $seedSource) -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $seedRoot }
+    Assert-Case 'an identical bootstrap rerun succeeds idempotently' ($seedRerun.ExitCode -eq 0) "exit $($seedRerun.ExitCode): $($seedRerun.Output)"
+
+    Write-FixtureText -Path (Join-Path $seedSource 'brief.md') -Text "# brief`r`nline two, edited`r`n"
+    $staleResult = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Bootstrap', '-TicketId', 'DEV-900', '-SourceDir', $seedSource) -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $seedRoot }
+    Assert-Case 'a differing private copy blocks a plain bootstrap' ($staleResult.ExitCode -eq 1) "exit $($staleResult.ExitCode)"
+    Assert-Case 'a failed bootstrap leaves no verified proof behind' (-not (Test-Path -LiteralPath $seedProofFile -PathType Leaf))
+
+    $refreshed = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Bootstrap', '-TicketId', 'DEV-900', '-SourceDir', $seedSource, '-Refresh') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $seedRoot }
+    Assert-Case 'an explicit refresh replaces the differing private copy' ($refreshed.ExitCode -eq 0) "exit $($refreshed.ExitCode): $($refreshed.Output)"
+    Assert-Case 'the refreshed private copy matches the source byte for byte' ((Get-FileHash -LiteralPath (Join-Path $seedTicket 'brief.md') -Algorithm SHA256).Hash.ToLowerInvariant() -eq (Get-FileHash -LiteralPath (Join-Path $seedSource 'brief.md') -Algorithm SHA256).Hash.ToLowerInvariant())
+
+    Write-FixtureText -Path (Join-Path $seedTicket 'brief.md') -Text 'tampered after the seed'
+    $tamperedActivation = Invoke-CommonProbe -Expression "Assert-ArtifactBootstrapSeed -TicketDir '$seedTicket'" -Environment @{}
+    Assert-Case 'tampering after the seed re-blocks activation' ((-not $tamperedActivation.ok) -and ($tamperedActivation.message -match 'Refresh')) $tamperedActivation.message
+
+    $refreshOnly = Invoke-ChildScript -Script $script:InitScript -Arguments @('-Initialize', '-Refresh') -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $seedRoot }
+    Assert-Case 'refresh outside bootstrap is rejected' ($refreshOnly.ExitCode -eq 1) "exit $($refreshOnly.ExitCode)"
 } finally {
     if (Test-Path -LiteralPath $script:Root) {
         Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
