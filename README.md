@@ -267,7 +267,7 @@ pwsh -NoProfile -File scripts/home/Remove-HomeCluster.ps1 -Confirm -WhatIf
 
 Read the `-WhatIf` output before dropping it. `Remove-HomeCluster.ps1` deletes only the kind cluster, and with it the catalog database, so the movies have to be reimported afterwards. It never touches `E:\Filmes` or the backups folder. `Restore-HomeCatalog.ps1` never overwrites or deletes a dump, and it refuses a non-empty catalog unless `-Force` is given.
 
-Promotion: run `promote-home.yml` from the Actions tab with a `main` commit sha. `dry_run` defaults to true and only shows the rendered diff. Argo CD syncs the cluster once a run with `dry_run` off pushes `env/home`.
+Promotion: run `promote-home.yml` from the Actions tab with a `main` commit sha. CI publishes images only for the tip of each push and skips docs-only pushes, so the run promotes the newest commit at or before that sha whose api and web images are both published, and says which one it chose in the job summary. `dry_run` defaults to true and only shows the rendered diff. Argo CD syncs the cluster once a run with `dry_run` off pushes `env/home`.
 
 Each stateful service keeps its data in a PersistentVolumeClaim, and those claims are never pruned. There are no automated dumps. If the catalog is lost, it is rebuilt by reimporting the movies. `Restore-HomeCatalog.ps1` can still load a dump made by hand.
 
