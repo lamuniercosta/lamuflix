@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { ArrowRightIcon } from '../../ui/icons';
 import { libraryHrefForActors } from './movieDetailsLabels';
 import { useMoreWithActors } from './movieDetailsQueries';
@@ -13,6 +13,33 @@ export interface MoreWithPanelProps {
   onNavigate: (href: string) => void;
 }
 
+function moreStatus(
+  pending: boolean,
+  isError: boolean,
+  isSuccess: boolean,
+  rowCount: number,
+  actor: string,
+): ReactNode {
+  if (pending) {
+    return (
+      <p role="status" className="details-status">
+        Loading movies…
+      </p>
+    );
+  }
+  if (isError) {
+    return (
+      <p role="alert" className="details-status">
+        Couldn&apos;t load more movies. Try again later.
+      </p>
+    );
+  }
+  if (isSuccess && rowCount === 0) {
+    return <p className="details-status">{`No other movies with ${actor} in your library yet.`}</p>;
+  }
+  return null;
+}
+
 /** Related presentation for the selected actor, plus the library jump. */
 export function MoreWithPanel({
   actor,
@@ -25,6 +52,7 @@ export function MoreWithPanel({
   const more = useMoreWithActors(actorIds, actorIds.length > 0);
   const libraryHref = libraryHrefForActors(actorIds);
   const rows = (more.data ?? []).filter((item) => String(item.id) !== String(movieId));
+  const status = moreStatus(more.isPending, more.isError, more.isSuccess, rows.length, actor);
   return (
     <section className="details-section details-more" aria-labelledby={headingId}>
       <div className="details-section-head">
@@ -43,19 +71,7 @@ export function MoreWithPanel({
           <ArrowRightIcon size={14} />
         </a>
       </div>
-      {more.isPending && (
-        <p role="status" className="details-status">
-          Loading movies…
-        </p>
-      )}
-      {more.isError && (
-        <p role="alert" className="details-status">
-          Couldn&apos;t load more movies. Try again later.
-        </p>
-      )}
-      {more.isSuccess && rows.length === 0 && (
-        <p className="details-status">{`No other movies with ${actor} in your library yet.`}</p>
-      )}
+      {status}
       {rows.length > 0 && (
         <ul className="details-more-row">
           {rows.map((item) => (

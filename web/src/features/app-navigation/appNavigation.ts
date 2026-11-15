@@ -121,24 +121,28 @@ export function notifyRouteChange(): AppRouteSnapshot {
   return snapshot;
 }
 
-export function navigate(to: string, options?: NavigateOptions): boolean {
-  const url = new URL(to, window.location.origin);
-  const target = `${url.pathname}${url.search}`;
-  const state = options?.state;
-  const sameUrl = target === currentLocation();
+function writeHistory(target: string, state: unknown, replace: boolean): boolean {
   try {
-    if (options?.replace || sameUrl) {
+    if (replace) {
       window.history.replaceState(state ?? null, '', target);
-    } else {
-      window.history.pushState(state ?? null, '', target);
+      return true;
     }
+    window.history.pushState(state ?? null, '', target);
+    return true;
   } catch {
     return false;
   }
-  if (!sameUrl) {
+}
+
+export function navigate(to: string, options?: NavigateOptions): boolean {
+  const url = new URL(to, window.location.origin);
+  const target = `${url.pathname}${url.search}`;
+  const sameUrl = target === currentLocation();
+  const written = writeHistory(target, options?.state, Boolean(options?.replace) || sameUrl);
+  if (written && !sameUrl) {
     notifyRouteChange();
   }
-  return true;
+  return written;
 }
 
 export function replace(to: string, state?: unknown): boolean {

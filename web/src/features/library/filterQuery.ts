@@ -373,11 +373,15 @@ function isRatingBoundEmpty(raw: unknown): boolean {
   return raw == null || String(raw) === '';
 }
 
-export function isRatingActive(minRaw: unknown, maxRaw: unknown): boolean {
+function ratingBoundsValid(minRaw: unknown, maxRaw: unknown): boolean {
   if (minRaw == null || maxRaw == null) {
     return false;
   }
-  if (!isRatingBoundValid(minRaw) || !isRatingBoundValid(maxRaw)) {
+  return isRatingBoundValid(minRaw) && isRatingBoundValid(maxRaw);
+}
+
+export function isRatingActive(minRaw: unknown, maxRaw: unknown): boolean {
+  if (!ratingBoundsValid(minRaw, maxRaw)) {
     return false;
   }
   if (isRatingBoundEmpty(minRaw) || isRatingBoundEmpty(maxRaw)) {
