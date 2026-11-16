@@ -727,6 +727,153 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
                 StringComparer.OrdinalIgnoreCase),
             []);
 
+    [Fact]
+    public async Task HandleAsync_LikedSourcePlotEmbeddingFromInputs_DrivesExactScoreAndReason()
+    {
+        // arrange
+        var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
+        var candidate = NewMovie(2, genres: ["Drama"]);
+        ArrangeLibrary(candidate);
+        var candidateVector = PlotVector(primary: 1.0f);
+        var inputs = new RecommendationProfileInputs(
+            [WatchedHistory(90, "Drama")],
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty.Add(candidate.Id, candidateVector),
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty.Add(new MovieId(90), candidateVector));
+        ArrangeProfile(inputs, ProfileWithLikedSource(candidateVector));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        var item = result.ShouldHaveSingleItem();
+        item.Summary.Id.ShouldBe(candidate.Id);
+        item.Score.ShouldBe(1.0, 1e-12);
+        PersonalTexts(item).ShouldBe(["Because you liked About Time"]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_AbsentLikedSourceEmbeddings_LeavesNonPlotBehaviourUnchanged()
+    {
+        // arrange
+        var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
+        var candidate = NewMovie(2, genres: ["Drama"]);
+        ArrangeLibrary(candidate);
+        var candidateVector = PlotVector(primary: 1.0f);
+        var inputs = new RecommendationProfileInputs(
+            [WatchedHistory(90, "Drama")],
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty.Add(candidate.Id, candidateVector));
+        ArrangeProfile(inputs, ProfileWithLikedSource(candidateVector));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        var item = result.ShouldHaveSingleItem();
+        item.Score.ShouldBe(1.0, 1e-12);
+        PersonalTexts(item).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task HandleAsync_TwoLikedSourcesWithInputVectors_PicksGreatestAffinitySource()
+    {
+        // arrange
+        var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
+        var candidate = NewMovie(2, genres: ["Drama"]);
+        ArrangeLibrary(candidate);
+        var candidateVector = PlotVector(primary: 1.0f, secondary: 0.0f);
+        var weakVector = PlotVector(primary: 1.0f, secondary: 1.0f);
+        var inputs = new RecommendationProfileInputs(
+            [WatchedHistory(90, "Drama"), WatchedHistory(91, "Drama")],
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty.Add(candidate.Id, candidateVector),
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty
+                .Add(new MovieId(90), weakVector)
+                .Add(new MovieId(91), candidateVector));
+        ArrangeProfile(inputs, TwoLikedSources(candidateVector));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        PersonalTexts(result.ShouldHaveSingleItem()).ShouldBe(["Because you liked Perfect Match"]);
+    }
+
+    private static TasteProfile ProfileWithLikedSource(ImmutableArray<float> aggregateVector) =>
+        new(ImmutableDictionary<string, double>.Empty, [])
+        {
+            Liked = new ReviewProfileChannels(
+                aggregateVector,
+                ImmutableDictionary<string, double>.Empty,
+                ImmutableDictionary<string, double>.Empty,
+                ImmutableDictionary<string, double>.Empty),
+            LikedSources =
+            [
+                new LikedReviewSource(
+                    new MovieId(90),
+                    "About Time",
+                    ImmutableDictionary<string, double>.Empty,
+                    ImmutableDictionary<string, double>.Empty,
+                    ImmutableDictionary<string, double>.Empty),
+            ],
+        };
+
+    private static TasteProfile TwoLikedSources(ImmutableArray<float> aggregateVector) =>
+        new(ImmutableDictionary<string, double>.Empty, [])
+        {
+            Liked = new ReviewProfileChannels(
+                aggregateVector,
+                ImmutableDictionary<string, double>.Empty,
+                ImmutableDictionary<string, double>.Empty,
+                ImmutableDictionary<string, double>.Empty),
+            LikedSources =
+            [
+                new LikedReviewSource(
+                    new MovieId(90),
+                    "Weak Match",
+                    ImmutableDictionary<string, double>.Empty,
+                    ImmutableDictionary<string, double>.Empty,
+                    ImmutableDictionary<string, double>.Empty),
+                new LikedReviewSource(
+                    new MovieId(91),
+                    "Perfect Match",
+                    ImmutableDictionary<string, double>.Empty,
+                    ImmutableDictionary<string, double>.Empty,
+                    ImmutableDictionary<string, double>.Empty),
+            ],
+        };
+
+    private static SimilarityWeights PlotOnlyWeights => new()
+    {
+        Director = 0.0,
+        Writers = 0.0,
+        Cast = 0.0,
+        Genres = 0.0,
+        YearProximity = 0.0,
+        RuntimeProximity = 0.0,
+        RatingBoost = 0.0,
+        Keyword = 0.0,
+        Collection = 0.0,
+        ReviewPlotWeight = 1.0,
+    };
+
+    private static ImmutableArray<float> PlotVector(float primary, float secondary = 0.0f)
+    {
+        var builder = ImmutableArray.CreateBuilder<float>(EmbeddingDimensions.Value);
+        for (var index = 0; index < EmbeddingDimensions.Value; index++)
+        {
+            builder.Add(index switch
+            {
+                0 => primary,
+                1 => secondary,
+                _ => 0.0f,
+            });
+        }
+
+        return builder.MoveToImmutable();
+    }
+
+    private static ImmutableArray<string> PersonalTexts(RecommendedMovie movie) =>
+        [.. movie.Reasons.Where(reason => reason.Kind == ReasonKind.Personal).Select(reason => reason.Text)];
+
     private static TasteProfile MatchProfile() => Profile(("Drama", DramaPreferenceWeight));
 
     private static TasteProfileMovie WatchedHistory(int id, params string[] genres) =>

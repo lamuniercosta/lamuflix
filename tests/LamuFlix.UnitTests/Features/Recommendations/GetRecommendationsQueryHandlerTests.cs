@@ -1099,6 +1099,73 @@ public sealed class GetRecommendationsQueryHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_LikedSourceEmbeddingFromInputs_EmitsExactLikedReason()
+    {
+        // arrange
+        var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
+        var selected = NewMovie(1, genres: ["Drama"]);
+        var candidate = NewMovie(20, genres: ["Mystery"]);
+        Arrange(selected, Candidates(candidate));
+        var vector = PlotVector(primary: 1.0f);
+        var profile = new TasteProfile(
+            System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
+            [])
+        {
+            Liked = new ReviewProfileChannels(
+                vector,
+                System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
+                System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
+                System.Collections.Immutable.ImmutableDictionary<string, double>.Empty),
+            LikedSources =
+            [
+                new LikedReviewSource(
+                    new MovieId(90),
+                    "About Time",
+                    System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
+                    System.Collections.Immutable.ImmutableDictionary<string, double>.Empty,
+                    System.Collections.Immutable.ImmutableDictionary<string, double>.Empty),
+            ],
+        };
+        ArrangeProfileWith(
+            [new TasteProfileMovie(new MovieId(90), [], [], [Now], IsWatched: true) { Review = Review.Liked }],
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
+                .Empty.Add(candidate.Id, vector),
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
+                .Empty.Add(new MovieId(90), vector),
+            profile);
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldHaveSingleItem();
+        result[0].Score.ShouldBe(1.0, 1e-12);
+        PersonalTexts(result[0]).ShouldContain("Because you liked About Time");
+    }
+
+    [Fact]
+    public async Task HandleAsync_RelatedConsumerWithoutLikedSourceEmbeddings_KeepsNonPlotBehaviour()
+    {
+        // arrange
+        var handler = NewHandler(weights: PlotOnlyWeights, blendSelectedWeight: 0.0);
+        var selected = NewMovie(1, genres: ["Drama"]);
+        var candidate = NewMovie(21, genres: ["Mystery"]);
+        Arrange(selected, Candidates(candidate));
+        var vector = PlotVector(primary: 1.0f);
+        ArrangeProfileWith(
+            [new TasteProfileMovie(new MovieId(90), [], [], [Now], IsWatched: true) { Review = Review.Liked }],
+            System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>>
+                .Empty.Add(candidate.Id, vector));
+
+        // act
+        var result = await handler.HandleAsync(new GetRecommendationsQuery(selected.Id), CancellationToken.None);
+
+        // assert
+        result.ShouldHaveSingleItem();
+        PersonalTexts(result[0]).ShouldNotContain(text => text.StartsWith("Because you liked", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task HandleAsync_ZeroPlotSimilarity_EmitsNoViewingHistoryReason()
     {
         // arrange
@@ -1150,6 +1217,35 @@ public sealed class GetRecommendationsQueryHandlerTests
             .GetTasteProfileAsync(Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(ComputeProfile(profileMovies)));
     }
+
+    private void ArrangeProfileWith(
+        System.Collections.Immutable.ImmutableArray<TasteProfileMovie> profileMovies,
+        System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>> embeddings,
+        System.Collections.Immutable.ImmutableDictionary<MovieId, System.Collections.Immutable.ImmutableArray<float>> likedSourceEmbeddings,
+        TasteProfile profile)
+    {
+        profileSource
+            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(new RecommendationProfileInputs(profileMovies, embeddings, likedSourceEmbeddings)));
+
+        profileSource
+            .GetTasteProfileAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(profile));
+    }
+
+    private static SimilarityWeights PlotOnlyWeights => new()
+    {
+        Director = 0.0,
+        Writers = 0.0,
+        Cast = 0.0,
+        Genres = 0.0,
+        YearProximity = 0.0,
+        RuntimeProximity = 0.0,
+        RatingBoost = 0.0,
+        Keyword = 0.0,
+        Collection = 0.0,
+        ReviewPlotWeight = 1.0,
+    };
 
     private void ArrangeTasteProfile(TasteProfile profile) =>
         profileSource

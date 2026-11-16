@@ -30,7 +30,7 @@ public sealed class EfRecommendationProfileSource(
     {
         ct.ThrowIfCancellationRequested();
 
-        var inputs = await GetProfileInputsAsync([], ct);
+        var inputs = await ReadProfileInputsCoreAsync([], ct);
         ct.ThrowIfCancellationRequested();
 
         var genreWeights = await genreWeightsCalculator.GetAsync(ct);
@@ -46,15 +46,52 @@ public sealed class EfRecommendationProfileSource(
         ArgumentNullException.ThrowIfNull(candidateMovieIds);
         ct.ThrowIfCancellationRequested();
 
+        var inputs = await ReadProfileInputsCoreAsync([.. candidateMovieIds], ct);
+        ct.ThrowIfCancellationRequested();
+
+        var likedSourceEmbeddings = await ReadEmbeddingsAsync(LikedSourceIds(inputs.Movies), ct);
+
+        return new RecommendationProfileInputs(
+            inputs.Movies,
+            inputs.CandidateEmbeddings,
+            likedSourceEmbeddings);
+    }
+
+    private async Task<RecommendationProfileInputs> ReadProfileInputsCoreAsync(
+        List<MovieId> candidateMovieIds,
+        CancellationToken ct)
+    {
         var launches = await ReadLaunchesAsync(ct);
         ct.ThrowIfCancellationRequested();
 
-        var candidateEmbeddings = await ReadEmbeddingsAsync([.. candidateMovieIds], ct);
+        var candidateEmbeddings = await ReadEmbeddingsAsync(candidateMovieIds, ct);
         ct.ThrowIfCancellationRequested();
 
         var movies = await ReadTasteProfileMoviesAsync(launches, ct);
 
         return new RecommendationProfileInputs(movies, candidateEmbeddings);
+    }
+
+    private static List<MovieId> LikedSourceIds(ImmutableArray<TasteProfileMovie> movies)
+    {
+        if (movies.IsDefaultOrEmpty)
+        {
+            return [];
+        }
+
+        List<MovieId>? ids = null;
+
+        foreach (var movie in movies)
+        {
+            if (!movie.Review.IsLiked)
+            {
+                continue;
+            }
+
+            (ids ??= []).Add(movie.MovieId);
+        }
+
+        return ids ?? [];
     }
 
     private async Task<ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>> ReadLaunchesAsync(

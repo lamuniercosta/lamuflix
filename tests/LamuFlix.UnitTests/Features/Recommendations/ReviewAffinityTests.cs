@@ -36,6 +36,7 @@ public sealed class ReviewAffinityTests
             ["Director A"],
             ImmutableArray<float>.Empty,
             profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             new SimilarityWeights(),
             Table);
 
@@ -58,6 +59,7 @@ public sealed class ReviewAffinityTests
             ["Director A"],
             ImmutableArray<float>.Empty,
             profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             new SimilarityWeights(),
             Table);
 
@@ -81,6 +83,7 @@ public sealed class ReviewAffinityTests
             ["Director A"],
             ImmutableArray<float>.Empty,
             profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             new SimilarityWeights(),
             Table);
 
@@ -105,6 +108,7 @@ public sealed class ReviewAffinityTests
             ["Director A"],
             ImmutableArray<float>.Empty,
             profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             weights,
             Table);
 
@@ -127,6 +131,7 @@ public sealed class ReviewAffinityTests
             [],
             ImmutableArray<float>.Empty,
             profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             new SimilarityWeights { Cast = 0.0, Director = 0.0, ReviewPlotWeight = 0.0 },
             Table);
 
@@ -149,6 +154,7 @@ public sealed class ReviewAffinityTests
             [],
             ImmutableArray<float>.Empty,
             profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             new SimilarityWeights { Cast = 0.0, Director = 0.0, ReviewPlotWeight = 0.0 },
             Table);
 
@@ -168,8 +174,8 @@ public sealed class ReviewAffinityTests
             Liked = Channels(["Drama"], [], []),
             LikedSources =
             [
-                new LikedReviewSource(new MovieId(9), "Weak", Channels(["Horror"], [], [])),
-                new LikedReviewSource(new MovieId(4), "Strong", Channels(["Drama"], [], [])),
+                LikedReviewSource.From(new MovieId(9), "Weak", Channels(["Horror"], [], [])),
+                LikedReviewSource.From(new MovieId(4), "Strong", Channels(["Drama"], [], [])),
             ],
         };
         var weights = new SimilarityWeights { Cast = 0.0, Director = 0.0, ReviewPlotWeight = 0.0 };
@@ -181,6 +187,7 @@ public sealed class ReviewAffinityTests
             [],
             ImmutableArray<float>.Empty,
             profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             weights,
             Table);
 
@@ -201,8 +208,8 @@ public sealed class ReviewAffinityTests
             Liked = Channels(["Drama"], [], []),
             LikedSources =
             [
-                new LikedReviewSource(new MovieId(7), "Higher", Channels(["Drama"], [], [])),
-                new LikedReviewSource(new MovieId(2), "Lower", Channels(["Drama"], [], [])),
+                LikedReviewSource.From(new MovieId(7), "Higher", Channels(["Drama"], [], [])),
+                LikedReviewSource.From(new MovieId(2), "Lower", Channels(["Drama"], [], [])),
             ],
         };
         var weights = new SimilarityWeights { Cast = 0.0, Director = 0.0, ReviewPlotWeight = 0.0 };
@@ -214,6 +221,7 @@ public sealed class ReviewAffinityTests
             [],
             ImmutableArray<float>.Empty,
             profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             weights,
             Table);
 
@@ -231,7 +239,7 @@ public sealed class ReviewAffinityTests
             ImmutableArray<float>.Empty)
         {
             Liked = Channels(["Horror"], [], []),
-            LikedSources = [new LikedReviewSource(new MovieId(1), "Horror", Channels(["Horror"], [], []))],
+            LikedSources = [LikedReviewSource.From(new MovieId(1), "Horror", Channels(["Horror"], [], []))],
         };
         var weights = new SimilarityWeights { Cast = 0.0, Director = 0.0, ReviewPlotWeight = 0.0 };
 
@@ -242,12 +250,118 @@ public sealed class ReviewAffinityTests
             [],
             ImmutableArray<float>.Empty,
             profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
             weights,
             Table);
 
         // assert
         evidence.LikedAffinity.ShouldBe(0.0, Tolerance);
         evidence.LikedSource.ShouldBeNull();
+    }
+
+    [Fact]
+    public void EvaluateReviewAffinity_LikedSourcePlotChannel_ReadsEmbeddingFromInputsKeyedByIdentity()
+    {
+        // arrange
+        var sourceId = new MovieId(4);
+        var sourceVector = Vector(1.0f);
+        var candidateVector = Vector(1.0f);
+        var profile = new TasteProfile(
+            ImmutableDictionary<string, double>.Empty,
+            ImmutableArray<float>.Empty)
+        {
+            Liked = Channels(["Drama"], [], []),
+            LikedSources = [LikedReviewSource.From(sourceId, "Strong", Channels(["Drama"], [], []))],
+        };
+        var embeddings = ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty.Add(sourceId, sourceVector);
+        var weights = new SimilarityWeights { Cast = 0.0, Director = 0.0, Genres = 0.0 };
+
+        // act
+        var evidence = ProfileSimilarityCalculator.EvaluateReviewAffinity(
+            [],
+            [],
+            [],
+            candidateVector,
+            profile,
+            embeddings,
+            weights,
+            Table);
+
+        // assert
+        evidence.LikedSource.HasValue.ShouldBeTrue();
+        evidence.LikedSource.GetValueOrDefault().MovieId.ShouldBe(sourceId);
+        evidence.LikedSource.GetValueOrDefault().Affinity.ShouldBe(1.0, Tolerance);
+    }
+
+    [Fact]
+    public void EvaluateReviewAffinity_MissingInputVector_KeepsIncumbentNonPlotBehaviour()
+    {
+        // arrange
+        var profile = new TasteProfile(
+            ImmutableDictionary<string, double>.Empty,
+            ImmutableArray<float>.Empty)
+        {
+            Liked = Channels(["Drama"], [], []),
+            LikedSources = [LikedReviewSource.From(new MovieId(4), "Source", Channels(["Drama"], [], []))],
+        };
+        var weights = new SimilarityWeights { Cast = 0.0, Director = 0.0, ReviewPlotWeight = 0.0 };
+
+        // act
+        var evidence = ProfileSimilarityCalculator.EvaluateReviewAffinity(
+            ["Drama"],
+            [],
+            [],
+            Vector(1.0f),
+            profile,
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
+            weights,
+            Table);
+
+        // assert
+        evidence.LikedSource.HasValue.ShouldBeTrue();
+        evidence.LikedAffinity.ShouldBe(1.0, Tolerance);
+    }
+
+    [Fact]
+    public void EvaluateReviewAffinity_ZeroInputVector_ContributesNoPlotChannel()
+    {
+        // arrange
+        var sourceId = new MovieId(4);
+        var profile = new TasteProfile(
+            ImmutableDictionary<string, double>.Empty,
+            ImmutableArray<float>.Empty)
+        {
+            Liked = Channels(["Drama"], [], []),
+            LikedSources = [LikedReviewSource.From(sourceId, "Source", Channels(["Drama"], [], []))],
+        };
+        var embeddings = ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty.Add(sourceId, Vector(0.0f));
+        var weights = new SimilarityWeights { Cast = 0.0, Director = 0.0, Genres = 0.0 };
+
+        // act
+        var evidence = ProfileSimilarityCalculator.EvaluateReviewAffinity(
+            [],
+            [],
+            [],
+            Vector(1.0f),
+            profile,
+            embeddings,
+            weights,
+            Table);
+
+        // assert
+        evidence.LikedSource.HasValue.ShouldBeFalse();
+        evidence.HasReviewChannel.ShouldBeFalse();
+    }
+
+    private static ImmutableArray<float> Vector(float value)
+    {
+        var builder = ImmutableArray.CreateBuilder<float>(EmbeddingDimensions.Value);
+        for (var index = 0; index < EmbeddingDimensions.Value; index++)
+        {
+            builder.Add(value);
+        }
+
+        return builder.MoveToImmutable();
     }
 
     private static TasteProfile Profile(ReviewProfileChannels liked, ReviewProfileChannels? disliked = null) =>

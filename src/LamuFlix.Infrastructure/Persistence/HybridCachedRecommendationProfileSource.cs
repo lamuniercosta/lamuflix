@@ -15,7 +15,7 @@ namespace LamuFlix.Infrastructure.Persistence;
 
 public sealed class HybridCachedRecommendationProfileSource : IRecommendationProfileSource
 {
-    private const string CacheKey = "LamuFlix.Recommendations.TasteProfile";
+    private const string CacheKey = "LamuFlix.Recommendations.TasteProfile.v2";
 
     private readonly HybridCache cache;
     private readonly IServiceScopeFactory scopeFactory;

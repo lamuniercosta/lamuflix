@@ -339,7 +339,7 @@ public sealed class ReviewRankingHandlerTests
             LikedSources = likedGenres is { Length: > 0 }
                 ?
                 [
-                    new LikedReviewSource(
+                    LikedReviewSource.From(
                         new MovieId(90),
                         likedTitle ?? "Liked source",
                         Channels(likedGenres, [], [])),
