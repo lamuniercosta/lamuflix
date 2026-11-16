@@ -21,6 +21,7 @@ namespace LamuFlix.IntegrationTests;
 public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture<ApiHostFactory>
 {
     private const string DocumentRoute = "/openapi/v1.json";
+    private const string ScalarDocumentReference = "openapi/v1.json";
     private const string ScalarRoute = "/scalar";
     private const string ScalarTitle = "Scalar API Reference";
     private const string HtmlMediaType = "text/html";
@@ -839,7 +840,7 @@ public sealed class OpenApiContractTests(ApiHostFactory factory) : IClassFixture
         contentType.ShouldNotBeNull();
         contentType.MediaType.ShouldBe(HtmlMediaType);
         body.ShouldContain(ScalarTitle);
-        body.ShouldContain(DocumentRoute);
+        body.ShouldContain(ScalarDocumentReference);
     }
 
     [Theory]
