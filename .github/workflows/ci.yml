@@ -22,6 +22,8 @@ on:
       - 'CONTEXT.md'
       - '**/*.md'
   workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
 
 permissions:
   contents: read
@@ -296,11 +298,11 @@ jobs:
   # line count, large files cut into mutate spans) with a 150 minute cap each; stryker-core-gate
   # then merges the shard reports and applies the one real gate (run-mutation.ps1 -EvaluateReport)
   # to all of Core: the score threshold, kill-share and file-span rules are unchanged, not
-  # per-shard. 16, not 20: the free plan runs 20 jobs at once per account, so 20 shards queued
-  # every PR job behind a main run; 16 leave 4 slots free. Measurements behind the count: ADR 0016.
+  # per-shard. 16, not 20: the free plan runs 20 jobs at once per account, so 16 leave 4 slots
+  # free. Measurements behind the count: ADR 0016.
   stryker-core:
     name: stryker-core (shard ${{ matrix.shard }}/16)
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     strategy:
@@ -333,7 +335,7 @@ jobs:
   stryker-core-gate:
     name: stryker-core-gate
     needs: stryker-core
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
