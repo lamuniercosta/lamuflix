@@ -36,6 +36,7 @@ $defaultOutputRelative = 'artifacts/evaluation/metrics-summary.json'
 $defaultSeed = 356
 $evaluationProjectRelative = 'tests/LamuFlix.Evaluation/LamuFlix.Evaluation.csproj'
 $buildOutputRelative = 'artifacts/evaluation/bin'
+$buildIntermediateRelative = 'artifacts/evaluation/build'
 $entryClass = 'LamuFlix.Evaluation.Entry.EvaluationEntryTests'
 $modeVariable = 'LAMUFLIX_EVALUATION_MODE'
 $modeValue = 'publish'
@@ -111,9 +112,10 @@ if (-not (Test-Path -LiteralPath $fixtureFullPath -PathType Leaf)) {
 
 $projectFullPath = Join-Path $repoRoot $evaluationProjectRelative
 $buildOutputFullPath = Join-Path $repoRoot $buildOutputRelative
+$buildIntermediateFullPath = Join-Path $repoRoot $buildIntermediateRelative
 
 Write-Output 'Building the evaluation executable...'
-& dotnet build $projectFullPath --nologo --verbosity minimal --configuration Debug --output $buildOutputFullPath
+& dotnet build $projectFullPath --nologo --verbosity minimal --configuration Debug --output $buildOutputFullPath --artifacts-path $buildIntermediateFullPath
 if ($LASTEXITCODE -ne 0) {
     throw "The evaluation executable build failed with exit code $LASTEXITCODE."
 }
