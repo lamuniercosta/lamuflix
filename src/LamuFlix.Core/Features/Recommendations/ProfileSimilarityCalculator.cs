@@ -66,10 +66,12 @@ public static class ProfileSimilarityCalculator
         ImmutableArray<string> candidateDirectors,
         ImmutableArray<float> candidateEmbedding,
         TasteProfile profile,
+        ImmutableDictionary<MovieId, ImmutableArray<float>> likedSourceEmbeddings,
         SimilarityWeights weights,
         GenreWeights genreWeights)
     {
         ArgumentNullException.ThrowIfNull(profile);
+        ArgumentNullException.ThrowIfNull(likedSourceEmbeddings);
         ArgumentNullException.ThrowIfNull(weights);
         ArgumentNullException.ThrowIfNull(genreWeights);
         ValidateEmbedding(candidateEmbedding, nameof(candidateEmbedding));
@@ -87,12 +89,13 @@ public static class ProfileSimilarityCalculator
             liked.Value,
             disliked.Value,
             liked.HasChannel || disliked.HasChannel,
-            BestLikedSource(candidate, profile.LikedSources, weights, genreWeights));
+            BestLikedSource(candidate, profile.LikedSources, likedSourceEmbeddings, weights, genreWeights));
     }
 
     private static LikedSourceEvidence? BestLikedSource(
         CandidateChannels candidate,
         ImmutableArray<LikedReviewSource> sources,
+        ImmutableDictionary<MovieId, ImmutableArray<float>> likedSourceEmbeddings,
         SimilarityWeights weights,
         GenreWeights genreWeights)
     {
@@ -105,7 +108,7 @@ public static class ProfileSimilarityCalculator
 
         foreach (var source in sources)
         {
-            best = NextBest(best, candidate, source, weights, genreWeights);
+            best = NextBest(best, candidate, source, likedSourceEmbeddings, weights, genreWeights);
         }
 
         return best;
@@ -115,10 +118,19 @@ public static class ProfileSimilarityCalculator
         LikedSourceEvidence? current,
         CandidateChannels candidate,
         LikedReviewSource source,
+        ImmutableDictionary<MovieId, ImmutableArray<float>> likedSourceEmbeddings,
         SimilarityWeights weights,
         GenreWeights genreWeights)
     {
-        var affinity = Affinity(candidate, source.Channels, weights, genreWeights);
+        var plotEmbedding = likedSourceEmbeddings.GetValueOrDefault(
+            source.MovieId,
+            ImmutableArray<float>.Empty);
+
+        var affinity = Affinity(
+            candidate,
+            new ReviewProfileChannels(plotEmbedding, source.Genres, source.Cast, source.Directors),
+            weights,
+            genreWeights);
 
         if (IsSkipped(affinity))
         {

@@ -121,6 +121,25 @@ public sealed class TasteProfileReviewAggregateTests
     }
 
     [Fact]
+    public void Calculate_LikedSources_OmitPerSourcePlotEmbeddingWhileKeepingMaps()
+    {
+        // arrange
+        var movies = ImmutableArray.Create(
+            ReviewMovie(1, Review.Liked, ["Drama"], Cast: ["Actor A"], Directors: ["Director A"], embedding: Vector(3.0f)));
+
+        // act
+        var profile = Calculator().Calculate(movies, Weights());
+
+        // assert
+        var source = profile.LikedSources.ShouldHaveSingleItem();
+        source.Genres.Keys.ShouldBe(["Drama"]);
+        source.Cast.Keys.ShouldBe(["Actor A"]);
+        source.Directors.Keys.ShouldBe(["Director A"]);
+        typeof(LikedReviewSource).GetProperty("PlotEmbedding").ShouldBeNull();
+        profile.Liked.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
+    }
+
+    [Fact]
     public void Calculate_NoReviews_LeavesBothReviewAggregatesEmpty()
     {
         // arrange

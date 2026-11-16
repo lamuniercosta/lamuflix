@@ -37,6 +37,7 @@ public sealed class ReviewAffinityPropertyTests
                     [],
                     ImmutableArray<float>.Empty,
                     input.Profile,
+                    ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
                     input.Weights,
                     Table);
 
@@ -70,6 +71,7 @@ public sealed class ReviewAffinityPropertyTests
                     [],
                     ImmutableArray<float>.Empty,
                     profile,
+                    ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
                     new SimilarityWeights { Cast = 0.0, Director = 0.0, ReviewPlotWeight = 0.0 },
                     Table);
 
@@ -111,6 +113,7 @@ public sealed class ReviewAffinityPropertyTests
                     [],
                     ImmutableArray<float>.Empty,
                     ReviewlessProfile(input.Profile),
+                    ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
                     input.Weights,
                     Table);
 
@@ -195,6 +198,7 @@ public sealed class ReviewAffinityPropertyTests
                     [],
                     ImmutableArray<float>.Empty,
                     single,
+                    ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
                     weights,
                     Table).LikedAffinity;
                 var manyAffinity = ProfileSimilarityCalculator.EvaluateReviewAffinity(
@@ -203,6 +207,7 @@ public sealed class ReviewAffinityPropertyTests
                     [],
                     ImmutableArray<float>.Empty,
                     many,
+                    ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty,
                     weights,
                     Table).LikedAffinity;
 

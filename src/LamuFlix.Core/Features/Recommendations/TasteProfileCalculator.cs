@@ -67,11 +67,9 @@ public sealed class TasteProfileCalculator
             builder.Add(new LikedReviewSource(
                 movie.MovieId,
                 movie.Title,
-                new ReviewProfileChannels(
-                    movie.PlotEmbedding.IsDefaultOrEmpty ? ImmutableArray<float>.Empty : movie.PlotEmbedding,
-                    GenrePreferences([movie], genreWeights),
-                    PerMovieIncidence(movie.Cast),
-                    PerMovieIncidence(movie.Directors))));
+                GenrePreferences([movie], genreWeights),
+                PerMovieIncidence(movie.Cast),
+                PerMovieIncidence(movie.Directors)));
         }
 
         return builder.ToImmutable();

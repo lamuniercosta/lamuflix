@@ -57,7 +57,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
         var scored = Score(
             eligible,
             profile,
-            profileInputs.CandidateEmbeddings,
+            profileInputs,
             genreWeights,
             recommendationOptions,
             cancellationToken);
@@ -163,12 +163,13 @@ public sealed class GetForYouRecommendationsQueryHandler(
     private static List<ScoredCandidate> Score(
         IReadOnlyList<Movie> eligible,
         TasteProfile profile,
-        ImmutableDictionary<MovieId, ImmutableArray<float>> candidateEmbeddings,
+        RecommendationProfileInputs profileInputs,
         GenreWeights genreWeights,
         RecommendationOptions options,
         CancellationToken cancellationToken)
     {
         var scored = new List<ScoredCandidate>(eligible.Count);
+        var candidateEmbeddings = profileInputs.CandidateEmbeddings;
 
         foreach (var movie in eligible)
         {
@@ -190,6 +191,7 @@ public sealed class GetForYouRecommendationsQueryHandler(
                 RecommendationScoring.Directors(features),
                 embedding,
                 profile,
+                profileInputs.LikedSourceEmbeddings,
                 options.Weights,
                 genreWeights);
 

@@ -62,7 +62,7 @@ public sealed class GetRecommendationsQueryHandler(
             selectedFeatures,
             eligible,
             profile,
-            profileInputs.CandidateEmbeddings,
+            profileInputs,
             genreWeights,
             recommendationOptions,
             cancellationToken);
@@ -123,12 +123,13 @@ public sealed class GetRecommendationsQueryHandler(
         MovieFeatures selectedFeatures,
         IReadOnlyList<RecommendationCandidate> pool,
         TasteProfile profile,
-        ImmutableDictionary<MovieId, ImmutableArray<float>> candidateEmbeddings,
+        RecommendationProfileInputs profileInputs,
         GenreWeights genreWeights,
         RecommendationOptions options,
         CancellationToken cancellationToken)
     {
         var scored = new List<ScoredCandidate>(pool.Count);
+        var candidateEmbeddings = profileInputs.CandidateEmbeddings;
 
         foreach (var candidate in pool)
         {
@@ -139,7 +140,6 @@ public sealed class GetRecommendationsQueryHandler(
             var embedding = candidateEmbeddings.GetValueOrDefault(
                 candidate.Movie.Id,
                 ImmutableArray<float>.Empty);
-
             var similarity = SimilarityScorer.Score(
                 selectedFeatures,
                 features,
@@ -158,6 +158,7 @@ public sealed class GetRecommendationsQueryHandler(
                 RecommendationScoring.Directors(features),
                 embedding,
                 profile,
+                profileInputs.LikedSourceEmbeddings,
                 options.Weights,
                 genreWeights);
 
