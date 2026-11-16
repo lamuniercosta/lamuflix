@@ -208,38 +208,74 @@ function Test-InsideCheckout {
     return $false
 }
 
-function Get-HookLinkTarget {
+function Get-HookLinkProbe {
     param([string]$Path)
     try {
         $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-        $target = $null
-        if ($null -ne $item.PSObject.Properties['LinkTarget']) { $target = $item.LinkTarget }
-        if ([string]::IsNullOrWhiteSpace($target) -and $null -ne $item.PSObject.Properties['Target']) {
-            $raw = $item.Target
-            if ($raw) { $target = @($raw)[0] }
+    } catch [System.Management.Automation.ItemNotFoundException] {
+        return [pscustomobject]@{ Unresolvable = $false; Target = $null }
+    } catch {
+        return [pscustomobject]@{ Unresolvable = $true; Target = $null }
+    }
+    $target = $null
+    if ($null -ne $item.PSObject.Properties['LinkTarget']) { $target = $item.LinkTarget }
+    if ([string]::IsNullOrWhiteSpace($target) -and $null -ne $item.PSObject.Properties['Target']) {
+        $raw = $item.Target
+        if ($raw) { $target = @($raw)[0] }
+    }
+    if ([string]::IsNullOrWhiteSpace($target)) { return [pscustomobject]@{ Unresolvable = $false; Target = $null } }
+    if (-not [System.IO.Path]::IsPathRooted($target)) {
+        $target = Join-Path ([System.IO.Path]::GetDirectoryName($Path)) $target
+    }
+    return [pscustomobject]@{ Unresolvable = $false; Target = [System.IO.Path]::GetFullPath($target) }
+}
+
+function Get-HookPathChain {
+    param([string]$Full)
+    $root = [System.IO.Path]::GetPathRoot($Full)
+    if ([string]::IsNullOrEmpty($root)) { return $null }
+    $chain = [System.Collections.Generic.List[string]]::new()
+    $chain.Add($root)
+    foreach ($segment in ($Full.Substring($root.Length) -split '[\\/]')) {
+        if ([string]::IsNullOrEmpty($segment)) { continue }
+        $chain.Add($segment)
+    }
+    return $chain
+}
+
+function Resolve-HookLinkChain {
+    param([string]$Full, [System.Collections.Generic.HashSet[string]]$Visited)
+    try {
+        $chain = Get-HookPathChain -Full $Full
+        if ($null -eq $chain) { return $null }
+        $current = $chain[0]
+        for ($index = 1; $index -lt $chain.Count; $index++) {
+            $current = Join-Path $current $chain[$index]
+            while ($true) {
+                $probe = Get-HookLinkProbe -Path $current
+                if ($probe.Unresolvable) { return $null }
+                if ([string]::IsNullOrWhiteSpace($probe.Target)) { break }
+                if (-not $Visited.Add($probe.Target)) { return $null }
+                $resolved = Resolve-HookLinkChain -Full $probe.Target -Visited $Visited
+                if ([string]::IsNullOrWhiteSpace($resolved)) { return $null }
+                $current = $resolved
+            }
         }
-        if ([string]::IsNullOrWhiteSpace($target)) { return $null }
-        if (-not [System.IO.Path]::IsPathRooted($target)) {
-            $target = Join-Path ([System.IO.Path]::GetDirectoryName($Path)) $target
-        }
-        return [System.IO.Path]::GetFullPath($target)
+        return $current
     } catch {
         return $null
     }
 }
 
 function Get-EffectiveHookPath {
-    param([string]$Path, [int]$Hop = 0)
-    $full = [System.IO.Path]::GetFullPath($Path)
-    $parent = [System.IO.Path]::GetDirectoryName($full)
-    if ([string]::IsNullOrEmpty($parent) -or [string]::Equals($parent, $full, (Get-Comparer))) { return $full }
-    $resolvedParent = $parent
-    if ($Hop -lt 8) { $resolvedParent = Get-EffectiveHookPath -Path $parent -Hop ($Hop + 1) }
-    $candidate = Join-Path $resolvedParent ([System.IO.Path]::GetFileName($full))
-    if ($Hop -ge 8) { return $candidate }
-    $target = Get-HookLinkTarget -Path $candidate
-    if ([string]::IsNullOrWhiteSpace($target)) { return $candidate }
-    return Get-EffectiveHookPath -Path $target -Hop ($Hop + 1)
+    param([string]$Path)
+    try {
+        $full = [System.IO.Path]::GetFullPath($Path)
+        $visited = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::FromComparison((Get-Comparer)))
+        return Resolve-HookLinkChain -Full $full -Visited $visited
+    } catch {
+        return $null
+    }
 }
 
 function Test-PrivateTicketPath {
@@ -265,6 +301,7 @@ function Test-PrivateTicketPath {
 
         $base = [System.IO.Path]::GetFullPath((Join-Path $root $repositoryId))
         $effective = Get-EffectiveHookPath -Path $full
+        if ([string]::IsNullOrWhiteSpace($effective)) { return $false }
         if (-not (Test-PathInsideDirectory -Path $effective -Directory $base)) { return $false }
         if ($effective.Length -le $base.Length) { return $false }
 
