@@ -7,7 +7,7 @@ description: "Task list for DEV-510 shrink the cached taste profile"
 
 **Input**: Design documents from `specs/DEV-510/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q7), `CONCLUSIONS.md`, `ASSUMPTIONS.md`, `EVIDENCE.md`; Maestri notes `DEV-510`, `recon-DEV-510` (lines 27–37, 51–67); `specs/PRODUCT.md`.
 
-**Status**: PLAN FROZEN — Keel, 2026-11-15, after Patron PA1 and independent cross-artifact reread; see PLAN_ADJUDICATION.md. Gate 1, implementation verification, home measurement/promotion and runtime acceptance remain open; runtime-pending.
+**Status**: PLAN FROZEN — Keel, 2026-11-15, after Patron PA1 and independent cross-artifact reread; see PLAN_ADJUDICATION.md. Gate 1 merge receipt recorded by Keel, 2026-11-16, in CONCLUSIONS.md (spec PR #415, 22261b35). T001 remains partially complete pending pinned-package serializer API/resolution recon; T002 is not yet cleared. Implementation verification, home measurement/promotion and runtime acceptance remain open; runtime-pending.
 
 **Tests**: Required (`brief.md` Test strategy; FR-004–FR-012). TDD is optional. Write parity tests pre-change and keep them green across the representation edit; edge-contract tests may start red. Do not manufacture failing parity tests. Persistence/query-translation and serialization-sensitive behaviour use Postgres Testcontainers — never driver mocks. Exact parity uses equality, not tolerance. No new test framework/dependency. Exact suite file paths for suites named only in recon 35–37 are collected at pickup recon — do not invent paths.
 
@@ -46,7 +46,7 @@ Ordering per brief Task ordering / Q7: **baseline (T002) before representation (
 **Purpose**: Produce/open the spec PR, then confirm ordinary owner Gate 1 merge before Build work.
 **Checkpoint**: Spec PR opened by Rigger under Bernstein coordination; verified user-merge receipt in `CONCLUSIONS.md`, or stop. No Build tasks before that receipt.
 
-- [ ] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-510 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-510 in `specs/DEV-510/CONCLUSIONS.md`. Receipt only. T001–T014 MUST NOT proceed without verified merge (`brief.md` Status; Q7; no structural owner checkbox on this ticket).
+- [x] T000 **Bernstein** coordinates and **Rigger** prepares/opens the DEV-510 spec PR for ordinary owner Gate 1; only the user merges. After merge, **Keel** records the verified Gate 1 spec-PR merge receipt for DEV-510 in `specs/DEV-510/CONCLUSIONS.md`. Receipt only. T001–T014 MUST NOT proceed without verified merge (`brief.md` Status; Q7; no structural owner checkbox on this ticket). Completed receipt: CONCLUSIONS.md Phase B pickup synchronization, spec PR #415 at 22261b356b8aec7f06b00380d42f4dbf2b755d28.
 
 ---
 
