@@ -1,0 +1,263 @@
+name: Compose smoke
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  compose-smoke:
+    name: compose-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Read DEV-471 budgets
+        id: budgets
+        shell: pwsh
+        env:
+          DEV471_JOB_CAP_MINUTES: '120'
+          DEV471_SETUP_RESERVE_MINUTES: '10'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = 'web/e2e/fixtures/dev471/budgets.json'
+          if (-not (Test-Path -LiteralPath $path)) { throw "budget config not found: $path" }
+          $budgets = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+          foreach ($name in @('stackStartupSeconds', 'asyncAssertionSeconds', 'teardownPerProjectSeconds', 'jobCapSeconds')) {
+            $value = $budgets.$name
+            if ($value -isnot [int] -and $value -isnot [long]) { throw "budget config '$name' must be an integer" }
+            if ($value -le 0) { throw "budget config '$name' must be positive" }
+          }
+          if ($null -eq $budgets.wholeTestRetries -or $budgets.wholeTestRetries -ne 0) { throw 'budget config wholeTestRetries must be 0' }
+          $jobCapMinutes = [int][Math]::Ceiling($budgets.jobCapSeconds / 60)
+          if ($jobCapMinutes -ne $env:DEV471_JOB_CAP_MINUTES) {
+            throw ("budget config jobCapSeconds implies {0} minute(s) but the job timeout is {1}" -f $jobCapMinutes, $env:DEV471_JOB_CAP_MINUTES)
+          }
+          $cleanupMinutes = [int][Math]::Ceiling($budgets.teardownPerProjectSeconds / 60)
+          $setupMinutes = [int]$env:DEV471_SETUP_RESERVE_MINUTES
+          $runnerMinutes = $jobCapMinutes - $cleanupMinutes - $setupMinutes
+          if ($runnerMinutes -lt 1) { throw 'the job cap leaves no time for the smoke run once setup and cleanup are reserved' }
+          $startupMinutes = [int][Math]::Ceiling($budgets.stackStartupSeconds / 60)
+          @(
+            "jobCapMinutes=$jobCapMinutes"
+            "runnerMinutes=$runnerMinutes"
+            "cleanupMinutes=$cleanupMinutes"
+            "setupMinutes=$setupMinutes"
+            "startupMinutes=$startupMinutes"
+            "asyncAssertionSeconds=$([int]$budgets.asyncAssertionSeconds)"
+          ) | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
+          @(
+            '### compose-smoke budgets'
+            ''
+            "- job cap: $jobCapMinutes minutes"
+            "- setup reserve: $setupMinutes minutes"
+            "- smoke run: $runnerMinutes minutes"
+            "- cleanup reserve: $cleanupMinutes minutes"
+            "- stack startup: $startupMinutes minutes"
+            "- async assertion: $([int]$budgets.asyncAssertionSeconds) seconds"
+            '- whole-test retries: 0'
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding utf8
+
+      - name: Decide whether the controlled-revert proof is required
+        id: proof
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -u
+          base="${BASE_SHA:-}"
+          required=true
+          if [ -n "$base" ] && git merge-base "$base" HEAD >/dev/null 2>&1; then
+            if changed="$(git diff --name-only "$base...HEAD")"; then
+              if printf '%s\n' "$changed" | grep -qE '^scripts/([^/]*compose-smoke[^/]*|[^/]*startup[^/]*|[^/]*health[^/]*)\.ps1$'; then
+                required=true
+              else
+                required=false
+              fi
+            fi
+          fi
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          echo "DEV-440 controlled-revert proof required: $required (change base: ${base:-unresolved})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.node-version
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web toolchain
+        working-directory: web
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run required Compose smoke
+        id: smoke
+        shell: pwsh
+        timeout-minutes: ${{ fromJSON(steps.budgets.outputs.runnerMinutes) }}
+        run: |
+          $smokeArguments = @('-NoProfile', '-File', './scripts/run-compose-smoke.ps1')
+          if ('${{ steps.proof.outputs.required }}' -eq 'true') { $smokeArguments += '-RegressionProof' }
+          pwsh @smokeArguments
+          exit $LASTEXITCODE
+
+      - name: Guard compose-smoke evidence
+        id: evidence
+        if: always()
+        shell: pwsh
+        env:
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          PROOF_REQUIRED: ${{ steps.proof.outputs.required }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = 'artifacts/compose-smoke'
+          $uploadRoot = 'artifacts/compose-smoke-upload'
+          $smokeFailed = ($env:SMOKE_OUTCOME -ne 'success')
+          if (-not (Test-Path -LiteralPath $root)) {
+            Write-Output ('::error::compose-smoke produced no evidence directory')
+            exit 1
+          }
+          $runs = @(Get-ChildItem -LiteralPath $root -Directory)
+          if ($runs.Count -ne 1) {
+            Write-Output ('::error::expected exactly one compose-smoke run, found {0}' -f $runs.Count)
+            exit 1
+          }
+          $run = $runs[0]
+          $required = @(
+            'receipt.json'
+            'run.log'
+            'projects.txt'
+            'plain-startup-candidate/receipt.json'
+            'plain-startup-candidate/compose.log'
+            'plain-startup-candidate/compose-ps.json'
+            'stubbed-flow/receipt.json'
+            'stubbed-flow/stubbed-flow.log'
+          )
+          if ($env:PROOF_REQUIRED -eq 'true') {
+            $required += @(
+              'plain-startup-regression/receipt.json'
+              'plain-startup-regression/compose.log'
+              'plain-startup-regression/compose-ps.json'
+            )
+          }
+          $files = @(Get-ChildItem -LiteralPath $run.FullName -Recurse -File)
+          $relative = @($files | ForEach-Object { [System.IO.Path]::GetRelativePath($run.FullName, $_.FullName).Replace('\', '/') })
+          $unexpected = @($relative | Where-Object { $required -notcontains $_ })
+          if ($unexpected.Count -gt 0) {
+            Write-Output ('::error::unexpected compose-smoke evidence: {0}' -f ($unexpected -join ', '))
+            exit 1
+          }
+          $missing = @($required | Where-Object { $relative -notcontains $_ })
+          if ($missing.Count -gt 0) {
+            if ($smokeFailed) {
+              Write-Output ('::warning::compose-smoke failed before writing all evidence; missing: {0}' -f ($missing -join ', '))
+            }
+            else {
+              Write-Output ('::error::a passing compose-smoke run is missing evidence: {0}' -f ($missing -join ', '))
+              exit 1
+            }
+          }
+          $credentialKey = [regex]'(?i)(?:^|[^a-z0-9])(password|passwd|apikey|api_key|secret|token)\s*[:=]\s*"?([^\s"'',;]+)'
+          $connectionUser = [regex]'(?i)\busername=([^;"''\s]+)'
+          $generatedUser = [regex]'(?i)lamuflix_[0-9a-f]{6,}'
+          $unsafe = @()
+          foreach ($file in $files) {
+            if ($file.Extension -notin @('.json', '.log', '.txt')) {
+              $unsafe += ('{0} (not an allowlisted evidence type)' -f $file.Name)
+              continue
+            }
+            $text = Get-Content -LiteralPath $file.FullName -Raw
+            if ($null -eq $text) { continue }
+            foreach ($match in $credentialKey.Matches($text)) {
+              if ($match.Groups[2].Value -ne '[redacted]') { $unsafe += ('{0} ({1})' -f $file.Name, $match.Groups[1].Value) }
+            }
+            foreach ($match in $connectionUser.Matches($text)) {
+              if ($match.Groups[1].Value -ne '[redacted]') { $unsafe += ('{0} (connection string username)' -f $file.Name) }
+            }
+            if ($generatedUser.IsMatch($text)) { $unsafe += ('{0} (generated credential value)' -f $file.Name) }
+          }
+          if ($unsafe.Count -gt 0) {
+            Write-Output ('::error::unsafe compose-smoke evidence: {0}' -f (($unsafe | Sort-Object -Unique) -join ', '))
+            exit 1
+          }
+          if (Test-Path -LiteralPath $uploadRoot) { Remove-Item -LiteralPath $uploadRoot -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path $uploadRoot | Out-Null
+          if ($relative.Count -eq 0) {
+            Set-Content -LiteralPath (Join-Path $uploadRoot 'evidence-missing.txt') -Value 'The run produced no allowlisted evidence file.' -Encoding utf8NoBOM
+          }
+          foreach ($name in $relative) {
+            $target = Join-Path $uploadRoot $name
+            $parent = Split-Path -Parent $target
+            if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+            Copy-Item -LiteralPath (Join-Path $run.FullName $name) -Destination $target
+          }
+          Write-Output ('staged {0} allowlisted compose-smoke evidence file(s)' -f $relative.Count)
+
+      - name: Upload compose-smoke evidence
+        if: always() && steps.evidence.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: compose-smoke
+          path: artifacts/compose-smoke-upload
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Clean up compose-smoke projects
+        if: always()
+        shell: pwsh
+        timeout-minutes: ${{ fromJSON(steps.budgets.outputs.cleanupMinutes) }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $projects = @()
+          if (Test-Path -LiteralPath 'artifacts/compose-smoke') {
+            $projects = @(
+              Get-ChildItem -LiteralPath 'artifacts/compose-smoke' -Filter 'projects.txt' -Recurse -File |
+                ForEach-Object { Get-Content -LiteralPath $_.FullName } |
+                ForEach-Object { $_.Trim() } |
+                Where-Object { $_ -match '^lamuflix-smoke-(plain|regress|flow)-[0-9a-f]{8}$' } |
+                Sort-Object -Unique
+            )
+          }
+          if ($projects.Count -eq 0) {
+            Write-Output 'No compose-smoke project was registered; nothing to clean up.'
+            exit 0
+          }
+          $failures = @()
+          foreach ($project in $projects) {
+            $label = 'label=com.docker.compose.project={0}' -f $project
+            $containers = @(docker ps -aq --filter $label)
+            if ($LASTEXITCODE -ne 0) { $failures += $project; continue }
+            foreach ($container in $containers) {
+              if (-not $container.Trim()) { continue }
+              docker rm -f $container.Trim() | Out-Null
+              if ($LASTEXITCODE -ne 0) { $failures += $project }
+            }
+            $networks = @(docker network ls -q --filter $label)
+            if ($LASTEXITCODE -ne 0) { $failures += $project; continue }
+            foreach ($network in $networks) {
+              if (-not $network.Trim()) { continue }
+              docker network rm $network.Trim() | Out-Null
+              if ($LASTEXITCODE -ne 0) { $failures += $project }
+            }
+            $volumes = @(docker volume ls -q --filter $label)
+            if ($LASTEXITCODE -ne 0) { $failures += $project; continue }
+            foreach ($volume in $volumes) {
+              if (-not $volume.Trim()) { continue }
+              docker volume rm $volume.Trim() | Out-Null
+              if ($LASTEXITCODE -ne 0) { $failures += $project }
+            }
+            Write-Output ('cleaned up compose-smoke project {0}' -f $project)
+          }
+          if ($failures.Count -gt 0) {
+            Write-Output ('::error::cleanup failed for compose-smoke project(s): {0}' -f (($failures | Sort-Object -Unique) -join ', '))
+            exit 1
+          }
