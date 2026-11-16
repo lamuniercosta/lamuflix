@@ -1,10 +1,12 @@
 # DEV-510 assumptions
 
-## A1 [assumed] - Quantified headroom
+## A1 [assumed] - Quantified headroom (amended after T002 home measurement, 2026-11-16)
 
-Patron Q4 interprets several-times-library headroom as a fivefold fixture: 725 liked movies relative to the ticket baseline of 145. Retained maps must be representative, with 384-float per-source embeddings in uncached inputs. The serialized compact CachedProfile must be strictly below 80 percent of the effective 1,048,576-byte default ceiling. No reduction of source count, map content, or scoring data is permitted to meet this bound.
+Original Q4 assumption (`5x` = `725` liked movies `< 80%`) was extrapolated from the ticket's unmeasured `~1.3 KB/source` estimate before `T002` measured real home data (`EVIDENCE.md` Section 1c at `d1809a46`) and proved that retained `TasteProfile.Liked.Cast` (`~1.78 KB/source`; `800,238 B` across `449` movies) plus `LikedSources` retained maps (`~1.28 KB/source` mean) grow at `~3.06 KB/source` combined. Amended `[assumed]` A1 operationalizes ticket headroom on realistic retained maps (with `384`-float per-source embeddings in uncached inputs and zero reduction/thinning of source count, map content, or scoring data) as a two-tier budget against `IOptions<HybridCacheOptions>.Value.MaximumPayloadBytes` (`1,048,576 B` default):
+1. **Ticket-baseline `< 80%` budget (`145` liked movies; `36.25x` the live `4`-source home profile)**: Serialized compact `CachedProfile` must be strictly below `80%` (`838,860 B`) of the effective ceiling (measured in `T002` at `465,340 B` = `44.4%` of ceiling, a `~59.4%` reduction from pre-change `~1.15 MB`).
+2. **Multi-fold headroom `< 100%` ceiling + warning-band fixture (`300` liked movies; `2.07x` the `145`-source ticket baseline and `75x` the live `4`-source home profile)**: Serialized compact `CachedProfile` must be strictly below `100%` (`1,048,576 B`) of the effective ceiling (admitted and reused by `HybridCache` without `MaximumPayloadBytesExceeded`) while falling within the `[80%, 100%)` (`838,860 B`–`1,048,575 B`) near-limit warning band (measured in `T002` at `940,943 B` = `89.7%` of ceiling).
 
-Basis: recon-DEV-510 lines 58-65; CONCLUSIONS.md Q4. This is a confirmed acceptance interpretation, not a measured payload claim.
+Basis: `recon-DEV-510` lines 58–66; `EVIDENCE.md` Section 1c (`d1809a46`); `CONCLUSIONS.md` Q4, PA1, and `T002 Feasibility Checkpoint Disposition`; Charter §2.3.
 
 ## A2 [assumed] - Warning default
 
