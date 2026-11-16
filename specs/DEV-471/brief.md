@@ -1,6 +1,6 @@
 # DEV-471 — Compose smoke grill brief
 
-Status: PLAN FROZEN — Keel, 2026-11-15, Phase 2 step 6 complete after three-axis adjudication and two verified repair rounds. Grill Q1–Q7 remains closed with Patron plan-challenge amendments below. Ordinary owner Gate 1 remains pending; no implementation, runtime acceptance, gate PASS, protection verification or merge clearance is claimed.
+Status: PLAN FROZEN — Keel, 2026-11-15. Gate 1 spec PR #414 merged at 0e6a68934ef8767dc00618aecd22d3376f8fb913 (receipt synchronized 2026-11-16). Phase B T001 complete on 2026-11-16; Anvil cleared for local tasks.md Phase 2 T002-T004. See T001 closure and Phase 2 dispatch clearance below. Compose runtime acceptance, implementation gate results, protection verification and merge clearance remain open.
 
 Worktree: F:/Dev/LamuFlix.worktrees/feature-471-spec  
 Branch: feature/471-spec  
@@ -127,6 +127,16 @@ Read-only cross-artifact analysis found T002–T004 consume single budget config
 
 Existing e2e-smoke is confirmed as a job, not confirmed required by protection; only compose-smoke is specified as required under this ticket. Correct unsupported required-check wording in active spec.
 
+## Phase B pickup ruling — Keel (2026-11-16)
+
+This current receipt supersedes historical Gate 1 pending wording in the planning artifacts and exchanges. DEV-471 task note lines 4, 28 and 32 records spec PR #414 merged at `0e6a68934ef8767dc00618aecd22d3376f8fb913`; lines 36-39 records restoration at `c03be7387ca2fb736977c9d3436067802cb7a82b`. Synchronize T000 as complete on that supplied verified receipt; this is not a new approval or live GitHub re-verification.
+
+T001 remains incomplete. Current `recon-DEV-471:17-51` establishes mount/bootstrap, route/event/generated-type seams, LocalPlay protection and helper interfaces at the pickup HEAD. Lines 39 and 50 explicitly leave Chromium decoding unverified; codec metadata and existing test source do not satisfy the browser-decoding checkpoint (`tasks.md` Phase 1; `spec.md` US1). Baseline evidence is recorded separately in DEV-471 task note lines 20-24. No production-seam contradiction requiring a scope change is established by the supplied recon.
+
+Phase 2 T002-T004 dispatch remains blocked until Wisp supplies actual Chromium decoding/advancing-playback evidence for an identified candidate fixture, or an explicit failed/unavailable result for further disposition. Do not move this prerequisite into T004 or substitute ffprobe metadata. The missing fixed settings source is covered by approved disposable-copy generation; plain startup must supply it without the overlay endpoint override. `_gate-common.ps1` is dot-sourced and has no standalone Help interface; do not invent a flag. T001 stays unchecked. No substantive scope or task-order change is made.
+
+Historical recon citations remain historical; current pickup evidence uses the explicitly dated section at lines 17-51 and must not be substituted for the earlier note layout.
+
 ## PLAN FROZEN — Keel receipt (2026-11-15)
 
 Phase 2 step6 complete. All three challenge reports read (Sentry10, Ledger7, Compass9); all26 findings explicitly dispositioned in PLAN_ADJUDICATION.md, accepted repairs independently verified after Quill rounds1 and2 (2/2 cap), with two residual round1 issues closed in final round. Read-only speckit-analyze prerequisite succeeded; final analysis26/26 FR+SC covered across15 tasks, no unresolved inconsistency/ambiguity/constitution/coverage finding. Reviewer compose-smoke checklist27/27 reviewed with individual evidence (CHK027 answer NO), requirements checklist revalidated. ADR0043 final content aligns and remains proposed until Gate1.
@@ -134,3 +144,14 @@ Phase 2 step6 complete. All three challenge reports read (Sentry10, Ledger7, Com
 Frozen implementation decisions are Q1–Q7 as amended by playback provenance, Patron groups1–6 and budget ownership clarification above: dedicated unfiltered workflow; disposable candidate settings prep; real plain startup then isolated stubbed real flow; active403/LocalPlay false; reverse-only4646476f causal proof and change-triggered RegressionProof; one budgets.json owned by T002 before runner use; safe redacted diagnostics and bounded cleanup; operator actual-context required-registration verification blocking Done/implementation merge-bar. Existing ci/promote-home/Compose/nginx remain unchanged.
 
 This freeze supersedes historical pending/withheld language in earlier entries. Keel may synchronize only status pointers in spec/plan/tasks to this decision after Quill has finished; substantive artifacts remain Quill-authored. Ordinary owner Gate1 is still closed until Rigger/Bernstein spec-PR preparation and verified user merge. T001+ remain blocked. Pickup facts (exact mount/routes/events/media/help surfaces) retain explicit recon/STOP obligations; live positive/revert/failure/gate/protection evidence is future work, never inferred from this freeze. No structural owner checkbox is open per cited Patron rulings. No implementation or merge authorized by freeze.
+
+
+## T001 closure and Phase 2 dispatch clearance — Keel (2026-11-16)
+
+Decision: T001 is complete; Anvil is cleared for local tasks.md Phase 2 T002-T004 in `F:/Dev/LamuFlix.worktrees/DEV-471`, branch `feature/DEV-471`. This supersedes the earlier T001-open/dispatch-blocked status and historical Gate 1 pending language. The scope, approach, task order, authorized files, test strategy and closing bar stay as frozen.
+
+Basis: prior pickup reanalysis and recon disposition recorded above and in DEV-471 task note lines 41-57; pre-edit baseline receipts in DEV-471:20-24; remaining fixture-decoding prerequisite now demonstrated by Wisp in `recon-DEV-471:12-35`, section Chromium probe execution. The approved script is in note `DEV-471-Keel-Chromium-probe`. Receipt: exit 0, verdict PASS; `docker/sample-library/Big Buck Bunny (2008).mp4`, 202927 bytes, SHA-256 `3a82a333fe6127cc03bcdbc4e3aff69a6c99abcd34a9a14d60e870d9ced8de07`; Playwright 1.65.0, Chromium 158.0.8127.18; dimensions 320x180, duration 8 seconds, currentTime 0 to 0.004345, readyState 4. These are supplied execution facts, not a probe rerun by Keel. Earlier recon line references retain their historical layout; current probe evidence is specifically lines 12-35.
+
+Dispatch order: T002 creates the single approved `web/e2e/fixtures/dev471/budgets.json` before runner use and implements plain-startup coordination; T003 adds disposable reverse-only `4646476f` RegressionProof mode and diagnostics/cleanup; T004 records developmental positive/negative proof. Preserve the authorized disposable settings bootstrap, unchanged shipped Compose/nginx, LocalPlay false and existing STOP boundaries. No unresolved pickup fact remains in the supplied evidence.
+
+The loopback fixture probe establishes candidate media decodability only. It does not establish seeking, nginx/API/Compose playback, healthy plain startup, full-flow acceptance, controlled-revert proof, failure-path safety, implementation gates or required-check registration. T002-T014 remain unchecked; T010 final-candidate proof supersedes developmental T004; T011 remains a Done/implementation-merge-bar prerequisite. No merge authorization.
