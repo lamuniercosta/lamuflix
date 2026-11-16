@@ -23,13 +23,12 @@ jobs:
         shell: pwsh
         env:
           DEV471_JOB_CAP_MINUTES: '120'
-          DEV471_SETUP_RESERVE_MINUTES: '10'
         run: |
           $ErrorActionPreference = 'Stop'
           $path = 'web/e2e/fixtures/dev471/budgets.json'
           if (-not (Test-Path -LiteralPath $path)) { throw "budget config not found: $path" }
           $budgets = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-          foreach ($name in @('stackStartupSeconds', 'asyncAssertionSeconds', 'teardownPerProjectSeconds', 'jobCapSeconds')) {
+          foreach ($name in @('stackStartupSeconds', 'asyncAssertionSeconds', 'teardownPerProjectSeconds', 'jobCapSeconds', 'setupReserveSeconds')) {
             $value = $budgets.$name
             if ($value -isnot [int] -and $value -isnot [long]) { throw "budget config '$name' must be an integer" }
             if ($value -le 0) { throw "budget config '$name' must be positive" }
@@ -40,7 +39,7 @@ jobs:
             throw ("budget config jobCapSeconds implies {0} minute(s) but the job timeout is {1}" -f $jobCapMinutes, $env:DEV471_JOB_CAP_MINUTES)
           }
           $cleanupMinutes = [int][Math]::Ceiling($budgets.teardownPerProjectSeconds / 60)
-          $setupMinutes = [int]$env:DEV471_SETUP_RESERVE_MINUTES
+          $setupMinutes = [int][Math]::Ceiling($budgets.setupReserveSeconds / 60)
           $runnerMinutes = $jobCapMinutes - $cleanupMinutes - $setupMinutes
           if ($runnerMinutes -lt 1) { throw 'the job cap leaves no time for the smoke run once setup and cleanup are reserved' }
           $startupMinutes = [int][Math]::Ceiling($budgets.stackStartupSeconds / 60)

@@ -4,5 +4,6 @@
   "asyncAssertionSeconds": 120,
   "teardownPerProjectSeconds": 180,
   "jobCapSeconds": 7200,
+  "setupReserveSeconds": 600,
   "wholeTestRetries": 0
 }

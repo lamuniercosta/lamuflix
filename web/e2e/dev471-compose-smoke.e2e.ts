@@ -203,8 +203,6 @@ test.describe('DEV-471 compose smoke', () => {
             if (record.path !== '/api/movies' || record.method !== 'GET') {
               return undefined;
             }
-            // Only a listing payload that already reports the fixture as Enriched could
-            // stand in for the hub update, so the payload itself is what gets judged.
             return response
               .clone()
               .json()
@@ -348,11 +346,6 @@ test.describe('DEV-471 compose smoke', () => {
     await expect(row).toBeVisible({ timeout: context.waitBudgetMs });
     await expect(card).toHaveAttribute('data-status', 'Pending', { timeout: context.waitBudgetMs });
 
-    // Acceptance scenario 3: releasing the held provider response must reach the UI as a
-    // server-originated hub event. Two independent facts are required: a real
-    // EnrichmentStatusChanged frame for this fixture arrived on the in-page hub socket, and
-    // no library listing response ever reported the fixture as already Enriched. A refetch
-    // or poll therefore cannot stand in for the hub update.
     await page.evaluate(() => {
       const state = window as unknown as {
         __dev471Fetches: unknown[];
@@ -491,7 +484,6 @@ test.describe('DEV-471 compose smoke', () => {
       `every stream response must succeed, saw ${JSON.stringify(streamStatuses)}`,
     ).toBe(true);
 
-    // The local process-launch route stays closed through shipped nginx for this fixture.
     const processPlay = await request.post(`${context.baseURL}/api/movies/${movieId}/play`);
     expect(processPlay.status(), 'nginx blocks the local process launch').toBe(403);
     expect(

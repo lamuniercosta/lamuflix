@@ -124,8 +124,6 @@ function validateProviderSettings(settings) {
     throw new Error('Omdb:BaseUrl must be http on the literal host 127.0.0.1');
   }
 
-  // The API container runs unprivileged, so a relative cache directory would resolve under
-  // the read-only content root and every thumbnail would fail with StorageError.
   if (!String(settings.Thumbnails?.CacheDirectory ?? '').startsWith('/')) {
     throw new Error('generated settings must set an absolute Thumbnails:CacheDirectory');
   }
@@ -174,9 +172,6 @@ function buildSettings() {
     Library: {
       RootPath: '/media/library',
     },
-    // The shipped API image runs as an unprivileged user that cannot write the default
-    // relative cache under /app, so the ephemeral test settings point the real generator at
-    // a writable path. Runtime test preparation only; shipped Compose and Dockerfile are unchanged.
     Thumbnails: {
       Enabled: true,
       CacheDirectory: '/tmp/thumbnails',

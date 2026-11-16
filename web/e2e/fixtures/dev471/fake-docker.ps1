@@ -1,21 +1,4 @@
 #!/usr/bin/env pwsh
-# Deterministic orchestration double for the DEV-471 runner failure-path proofs.
-# It stands in for the docker CLI only. It never contacts a Docker daemon and never
-# starts a container, so it exercises the runner's failure handling cheaply and
-# repeatably. It is NOT acceptance evidence: the real positive Compose phases and the
-# controlled-revert proof stay mandatory (brief.md Approach step 5).
-#
-# Scenario: DEV471_FAKE_DOCKER_SCENARIO
-#   unavailable       - docker info fails, as when no daemon is running
-#   startup-timeout   - dependencies are healthy but the api never becomes healthy
-#   assertion-failure - the api is healthy, so the full-flow assertion is what fails
-#   teardown-failure  - the phase reaches teardown and the project cannot be removed
-#   planted-secret    - the api never becomes healthy and its logs carry planted secrets
-# Every invocation is appended to DEV471_FAKE_DOCKER_LOG when that variable is set.
-
-# $args carries the docker command line verbatim. No param block: docker flags
-# such as -p must not be bound as PowerShell parameters.
-
 $ErrorActionPreference = 'Stop'
 $Arguments = @($args | ForEach-Object { [string]$_ })
 $scenario = if ($env:DEV471_FAKE_DOCKER_SCENARIO) { $env:DEV471_FAKE_DOCKER_SCENARIO } else { 'unavailable' }
