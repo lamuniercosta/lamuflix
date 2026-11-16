@@ -1,6 +1,10 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
 using LamuFlix.Infrastructure.Persistence;
@@ -111,6 +115,128 @@ public sealed class TasteProfileCacheRegistrationTests
         ReferenceEquals(first, second).ShouldBeFalse();
     }
 
+    [Fact]
+    public void AddLamuFlixPersistence_RegistersSingleSharedCachedProfileSerializer()
+    {
+        // arrange
+        var services = Compose(Configuration(Valid("00:05:00")));
+        using var provider = services.BuildServiceProvider(
+            new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        // act
+        var first = provider.GetRequiredService<CachedProfileSerializer>();
+        var second = provider.GetRequiredService<CachedProfileSerializer>();
+
+        // assert
+        services.ShouldContain(descriptor =>
+            descriptor.ServiceType == typeof(CachedProfileSerializer)
+            && descriptor.Lifetime == ServiceLifetime.Singleton);
+        ReferenceEquals(first, second).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AddLamuFlixPersistence_InjectsThatSameSerializerInstanceIntoTheCachedSource()
+    {
+        // arrange
+        using var provider = Compose(Configuration(Valid("00:05:00")))
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        // act
+        var registered = provider.GetRequiredService<CachedProfileSerializer>();
+        var adapter = provider.GetRequiredService<HybridCachedRecommendationProfileSource>();
+
+        // assert
+        ReferenceEquals(adapter.Serializer, registered).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task HybridCacheAdmission_SerializesTheEnvelopeThroughTheRegisteredSingleton()
+    {
+        // arrange
+        using var provider = Compose(Configuration(Valid("00:05:00")))
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        var serializer = provider.GetRequiredService<CachedProfileSerializer>();
+
+        // act
+        var first = await provider.GetRequiredService<HybridCache>().GetOrCreateAsync(
+            "LamuFlix.Recommendations.TasteProfile.Probe",
+            _ => ValueTask.FromResult(Envelope()),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        // assert
+        serializer.SerializeCount.ShouldBe(1);
+        serializer.DeserializeCount.ShouldBe(1);
+        serializer.LastSerializedBytes.ShouldBeGreaterThan(0);
+        first.Generation.ShouldBe(42);
+        first.CreatedAt.ShouldBe(CreatedAt);
+        first.Profile.GenrePreferences.Keys.ShouldBe(["Drama"]);
+        first.Profile.PlotEmbedding.Length.ShouldBe(EmbeddingDimensions.Value);
+    }
+
+    [Fact]
+    public async Task HybridCacheAdmission_ByteObservationAndAdmissionAgreeOnTheSameEnvelope()
+    {
+        // arrange
+        using var provider = Compose(Configuration(Valid("00:05:00")))
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        var serializer = provider.GetRequiredService<CachedProfileSerializer>();
+        var envelope = Envelope();
+
+        // act
+        await provider.GetRequiredService<HybridCache>().GetOrCreateAsync(
+            "LamuFlix.Recommendations.TasteProfile.Probe",
+            _ => ValueTask.FromResult(envelope),
+            cancellationToken: TestContext.Current.CancellationToken);
+        var observed = serializer.LastSerializedBytes;
+
+        var writer = new System.Buffers.ArrayBufferWriter<byte>();
+        serializer.Serialize(envelope, writer);
+
+        // assert
+        observed.ShouldBeGreaterThan(0);
+        writer.WrittenCount.ShouldBe(observed);
+        serializer.SerializeCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task HybridCacheAdmission_SecondReadReusesTheAdmittedEntryWithoutReSerializing()
+    {
+        // arrange
+        using var provider = Compose(Configuration(Valid("00:05:00")))
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        var serializer = provider.GetRequiredService<CachedProfileSerializer>();
+        var cache = provider.GetRequiredService<HybridCache>();
+        var ct = TestContext.Current.CancellationToken;
+
+        // act
+        await cache.GetOrCreateAsync(
+            "LamuFlix.Recommendations.TasteProfile.Probe",
+            _ => ValueTask.FromResult(Envelope()),
+            cancellationToken: ct);
+        await cache.GetOrCreateAsync(
+            "LamuFlix.Recommendations.TasteProfile.Probe",
+            _ => ValueTask.FromResult(Envelope()),
+            cancellationToken: ct);
+
+        // assert
+        serializer.SerializeCount.ShouldBe(1);
+    }
+
+    private static readonly DateTimeOffset CreatedAt = new(2026, 11, 16, 12, 0, 0, TimeSpan.Zero);
+
+    private static TasteProfile EnvelopeProfile()
+    {
+        var plot = Enumerable.Range(0, EmbeddingDimensions.Value)
+            .Select(index => index / 384f)
+            .ToImmutableArray();
+
+        return new TasteProfile(
+            ImmutableDictionary.Create<string, double>(StringComparer.OrdinalIgnoreCase).Add("Drama", 0.5),
+            plot);
+    }
+
+    private static CachedProfile Envelope() => new(EnvelopeProfile(), 42, CreatedAt);
+
     private static ServiceCollection Compose(IConfiguration configuration)
     {
         var services = new ServiceCollection();
@@ -139,3 +265,4 @@ public sealed class TasteProfileCacheRegistrationTests
             [$"{TasteProfileCacheOptions.SectionName}:{nameof(TasteProfileCacheOptions.Expiration)}"] = expiration,
         };
 }
+

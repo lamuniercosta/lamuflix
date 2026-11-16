@@ -1,5 +1,7 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
@@ -18,23 +20,28 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
     private readonly HybridCache cache;
     private readonly IServiceScopeFactory scopeFactory;
     private readonly TimeProvider timeProvider;
+    private readonly CachedProfileSerializer serializer;
     private readonly TimeSpan expiration;
 
     private long generation;
 
-    public HybridCachedRecommendationProfileSource(
+    internal HybridCachedRecommendationProfileSource(
         HybridCache cache,
         IServiceScopeFactory scopeFactory,
         TimeProvider timeProvider,
-        IOptions<TasteProfileCacheOptions> options)
+        IOptions<TasteProfileCacheOptions> options,
+        CachedProfileSerializer serializer)
     {
         this.cache = cache ?? throw new ArgumentNullException(nameof(cache));
         this.scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        this.serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
         ArgumentNullException.ThrowIfNull(options);
 
         expiration = options.Value.Expiration;
     }
+
+    internal CachedProfileSerializer Serializer => serializer;
 
     public async Task<TasteProfile> GetTasteProfileAsync(CancellationToken ct)
     {
@@ -107,6 +114,44 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
     private bool IsStale(CachedProfile entry) =>
         entry.Generation != Interlocked.Read(ref generation)
         || timeProvider.GetUtcNow() - entry.CreatedAt >= expiration;
+}
 
-    private sealed record CachedProfile(TasteProfile Profile, long Generation, DateTimeOffset CreatedAt);
+internal sealed record CachedProfile(TasteProfile Profile, long Generation, DateTimeOffset CreatedAt);
+
+internal sealed class CachedProfileSerializer : IHybridCacheSerializer<CachedProfile>
+{
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+
+    private int serializeCount;
+    private int deserializeCount;
+    private int lastSerializedBytes;
+
+    public int SerializeCount => Volatile.Read(ref serializeCount);
+
+    public int DeserializeCount => Volatile.Read(ref deserializeCount);
+
+    public int LastSerializedBytes => Volatile.Read(ref lastSerializedBytes);
+
+    public CachedProfile Deserialize(ReadOnlySequence<byte> source)
+    {
+        Interlocked.Increment(ref deserializeCount);
+
+        var payload = source.IsSingleSegment ? source.FirstSpan.ToArray() : source.ToArray();
+
+        return JsonSerializer.Deserialize<CachedProfile>(payload, SerializerOptions)
+            ?? throw new InvalidOperationException("The cached taste profile payload deserialized to null.");
+    }
+
+    public void Serialize(CachedProfile value, IBufferWriter<byte> target)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(target);
+
+        Interlocked.Increment(ref serializeCount);
+
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(value, SerializerOptions);
+        Volatile.Write(ref lastSerializedBytes, bytes.Length);
+
+        target.Write(bytes);
+    }
 }

@@ -547,7 +547,8 @@ public sealed class EnrichmentStatusNotificationPersistenceTests(PostgresFixture
             new FailingHybridCache(failure),
             provider.GetRequiredService<IServiceScopeFactory>(),
             TimeProvider.System,
-            Options.Create(new TasteProfileCacheOptions { Expiration = TimeSpan.FromMinutes(5) }));
+            Options.Create(new TasteProfileCacheOptions { Expiration = TimeSpan.FromMinutes(5) }),
+            new CachedProfileSerializer());
     }
 
     private sealed class FailingHybridCache(Exception failure) : HybridCache

@@ -84,4 +84,32 @@ public sealed class HybridCachedRecommendationProfileSourceCacheTests(PostgresFi
         profile.ShouldMatchProfile(repeatedProfile);
         harness.Commands.ReaderCount.ShouldBe(readsAfterSecondInputs);
     }
+
+    [Fact]
+    public async Task GetTasteProfileAsync_RealAdmission_SerializesThroughTheRegisteredSingletonEnvelope()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var harness = TasteProfileCacheHarness.Create(fixture);
+        var watchedId = await harness.SeedMovieAsync("Watched profile history", isWatched: true, ct, "Drama", "Sci-Fi");
+        var watchedVector = TasteProfileCacheHarness.VariedVector(offset: 700);
+        await harness.SeedVectorAsync(watchedId, watchedVector, ct);
+
+        // act
+        var first = await harness.Adapter.GetTasteProfileAsync(ct);
+        var serializeCountAfterFirst = harness.Serializer.SerializeCount;
+        var observedBytes = harness.Serializer.LastSerializedBytes;
+        var second = await harness.Adapter.GetTasteProfileAsync(ct);
+
+        // assert
+        serializeCountAfterFirst.ShouldBe(1);
+        harness.Serializer.LastSerializedBytes.ShouldBe(observedBytes);
+        harness.Serializer.SerializeCount.ShouldBe(serializeCountAfterFirst);
+        harness.Serializer.DeserializeCount.ShouldBeGreaterThanOrEqualTo(1);
+        ReferenceEquals(harness.Adapter.Serializer, harness.Serializer).ShouldBeTrue();
+        first.GenrePreferences.Keys.ShouldBe(["Drama", "Sci-Fi"], ignoreOrder: true);
+        first.PlotEmbedding.SequenceEqual(watchedVector).ShouldBeTrue();
+        observedBytes.ShouldBeGreaterThan(first.PlotEmbedding.Length * sizeof(float));
+        first.ShouldMatchProfile(second);
+    }
 }
