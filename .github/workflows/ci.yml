@@ -210,9 +210,88 @@ jobs:
           pwsh -NoProfile -File ./scripts/Test-DeployParity.ps1
           exit $LASTEXITCODE
 
-  # Whole-Core mutation runs after merge to main (or on manual dispatch), not on PRs; the
-  # diff-scoped gate (run-mutation.ps1) still runs pre-PR. With coverage-analysis=off every
-  # mutant runs the whole eligible unit suite, so one job outgrew its limit (cancelled at 2 h).
+  mutation-pr:
+    name: PR mutation
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the immutable pull_request head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Fetch and verify the immutable pull_request base and head
+        shell: pwsh
+        env:
+          PR_MUTATION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_MUTATION_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          if ([string]::IsNullOrWhiteSpace($env:PR_MUTATION_BASE_SHA) -or [string]::IsNullOrWhiteSpace($env:PR_MUTATION_HEAD_SHA)) {
+            throw 'the pull_request payload carries no base or head SHA'
+          }
+          git fetch --no-tags origin $env:PR_MUTATION_BASE_SHA
+          if ($LASTEXITCODE -ne 0) {
+            throw "fetching the immutable base $env:PR_MUTATION_BASE_SHA failed with exit $LASTEXITCODE"
+          }
+          git cat-file -e "$env:PR_MUTATION_BASE_SHA^{commit}"
+          if ($LASTEXITCODE -ne 0) {
+            throw "base commit $env:PR_MUTATION_BASE_SHA is not present after the fetch"
+          }
+          git cat-file -e "$env:PR_MUTATION_HEAD_SHA^{commit}"
+          if ($LASTEXITCODE -ne 0) {
+            throw "head commit $env:PR_MUTATION_HEAD_SHA is not present in this checkout"
+          }
+
+      - name: Run the diff-scoped mutation gate
+        shell: pwsh
+        env:
+          PR_MUTATION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $runner = Join-Path $PWD 'scripts/run-mutation.ps1'
+          if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) {
+            throw "the mutation runner is missing at $runner"
+          }
+          $logPath = Join-Path $env:RUNNER_TEMP 'pr-mutation.log'
+          pwsh -NoProfile -File $runner -BaseRef $env:PR_MUTATION_BASE_SHA *> $logPath
+          $mutationExit = $LASTEXITCODE
+          $output = Get-Content -LiteralPath $logPath -Raw
+          $output
+          if ($mutationExit -eq 0) { exit 0 }
+          if ($mutationExit -eq 2) {
+            $label = if ($output -match 'Mutation testing: SKIPPED - no production C# files changed \(scope-empty\)') {
+              'SKIPPED (scope-empty)'
+            }
+            elseif ($output -match 'Mutation testing: NOT APPLICABLE') {
+              'N/A'
+            }
+            else {
+              ''
+            }
+            if ([string]::IsNullOrWhiteSpace($label)) {
+              throw 'the runner exited 2 without reporting an accepted scope-empty or NOT APPLICABLE verdict'
+            }
+            "PR mutation: $label (runner exit 2, never a mutation PASS)" >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+          throw "the mutation runner exited $mutationExit"
+
+  # With coverage-analysis=off every mutant runs the whole eligible unit suite, so one job
+  # outgrew its limit (cancelled at 2 h).
   # Core is therefore split over 16 parallel shards (scripts/ci-stryker-shard.sh, balanced by
   # line count, large files cut into mutate spans) with a 150 minute cap each; stryker-core-gate
   # then merges the shard reports and applies the one real gate (run-mutation.ps1 -EvaluateReport)
