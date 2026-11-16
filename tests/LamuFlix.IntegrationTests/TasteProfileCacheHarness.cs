@@ -26,6 +26,7 @@ internal sealed class TasteProfileCacheHarness : IAsyncDisposable
 
     private readonly ServiceProvider provider;
     private readonly PostgresFixture fixture;
+    private readonly CachedProfileSerializer serializer;
 
     private TasteProfileCacheHarness(
         PostgresFixture fixture,
@@ -34,10 +35,12 @@ internal sealed class TasteProfileCacheHarness : IAsyncDisposable
         TestCommandInterceptor commands,
         CountingScopeFactory scopes,
         HybridCachedRecommendationProfileSource adapter,
-        TimeSpan expiration)
+        TimeSpan expiration,
+        CachedProfileSerializer serializer)
     {
         this.fixture = fixture;
         this.provider = provider;
+        this.serializer = serializer;
         Time = time;
         Commands = commands;
         Scopes = scopes;
@@ -46,6 +49,8 @@ internal sealed class TasteProfileCacheHarness : IAsyncDisposable
     }
 
     public HybridCachedRecommendationProfileSource Adapter { get; }
+
+    public CachedProfileSerializer Serializer => serializer;
 
     public TestCommandInterceptor Commands { get; }
 
@@ -76,11 +81,13 @@ internal sealed class TasteProfileCacheHarness : IAsyncDisposable
             .UseNpgsql(fixture.ConnectionString, npgsql => npgsql.UseVector())
             .AddInterceptors(commands));
         services.AddScoped<EfRecommendationProfileSource>();
+        var serializer = new CachedProfileSerializer();
+        services.AddSingleton(serializer);
         services.AddHybridCache(options => options.DefaultEntryOptions = new HybridCacheEntryOptions
         {
             Expiration = duration,
             LocalCacheExpiration = duration,
-        });
+        }).AddSerializer<CachedProfile>(serializer);
 
         var provider = services.BuildServiceProvider();
         var scopes = new CountingScopeFactory(provider.GetRequiredService<IServiceScopeFactory>());
@@ -88,9 +95,10 @@ internal sealed class TasteProfileCacheHarness : IAsyncDisposable
             provider.GetRequiredService<HybridCache>(),
             scopes,
             time,
-            Options.Create(new TasteProfileCacheOptions { Expiration = duration }));
+            Options.Create(new TasteProfileCacheOptions { Expiration = duration }),
+            serializer);
 
-        return new TasteProfileCacheHarness(fixture, provider, time, commands, scopes, adapter, duration);
+        return new TasteProfileCacheHarness(fixture, provider, time, commands, scopes, adapter, duration, serializer);
     }
 
     public ValueTask DisposeAsync() => provider.DisposeAsync();

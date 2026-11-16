@@ -151,7 +151,8 @@ public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : 
             cache,
             harness.Services.GetRequiredService<IServiceScopeFactory>(),
             TimeProvider.System,
-            Options.Create(new TasteProfileCacheOptions { Expiration = TimeSpan.FromMinutes(5) }));
+            Options.Create(new TasteProfileCacheOptions { Expiration = TimeSpan.FromMinutes(5) }),
+            harness.Serializer);
 
         var warm = await adapter.GetTasteProfileAsync(ct);
         warm.GenrePreferences.Keys.ShouldBe(["Drama"]);

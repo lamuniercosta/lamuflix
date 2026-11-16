@@ -34,7 +34,10 @@ public static class PersistenceServiceCollectionExtensions
 
         services.AddDbContext<LamuFlixDbContext>(options => options.UseNpgsql(connectionString, o => o.UseVector()));
         services.AddHealthChecks().AddDbContextCheck<LamuFlixDbContext>("postgres", tags: [HealthCheckTags.Ready]);
-        services.AddHybridCache();
+        var profileSerializer = new CachedProfileSerializer();
+        services.AddSingleton(profileSerializer);
+        services.AddHybridCache()
+            .AddSerializer<CachedProfile>(profileSerializer);
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<GenreWeightsCache>();
         services.TryAddScoped<IMovieCatalog, EfMovieCatalog>();
@@ -64,7 +67,12 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IPlaybackHistory, EfPlaybackHistory>();
         services.AddScoped<IRecommendationCandidateSource, EfRecommendationCandidateSource>();
         services.AddScoped<EfRecommendationProfileSource>();
-        services.AddSingleton<HybridCachedRecommendationProfileSource>();
+        services.AddSingleton(provider => new HybridCachedRecommendationProfileSource(
+            provider.GetRequiredService<HybridCache>(),
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<TimeProvider>(),
+            provider.GetRequiredService<IOptions<TasteProfileCacheOptions>>(),
+            profileSerializer));
         services.AddSingleton<IRecommendationProfileSource>(
             provider => provider.GetRequiredService<HybridCachedRecommendationProfileSource>());
         services.AddScoped<IMovieFeaturesRepository, EfMovieFeaturesRepository>();
