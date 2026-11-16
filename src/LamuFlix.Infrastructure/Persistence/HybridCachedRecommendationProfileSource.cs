@@ -9,11 +9,12 @@ using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Ports;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.Persistence;
 
-public sealed class HybridCachedRecommendationProfileSource : IRecommendationProfileSource
+public sealed partial class HybridCachedRecommendationProfileSource : IRecommendationProfileSource
 {
     private const string CacheKey = "LamuFlix.Recommendations.TasteProfile.v2";
 
@@ -21,7 +22,10 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
     private readonly IServiceScopeFactory scopeFactory;
     private readonly TimeProvider timeProvider;
     private readonly CachedProfileSerializer serializer;
+    private readonly ILogger<HybridCachedRecommendationProfileSource> logger;
+    private readonly IOptions<HybridCacheOptions> hybridOptions;
     private readonly TimeSpan expiration;
+    private readonly double warningFraction;
 
     private long generation;
 
@@ -30,18 +34,25 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
         IServiceScopeFactory scopeFactory,
         TimeProvider timeProvider,
         IOptions<TasteProfileCacheOptions> options,
-        CachedProfileSerializer serializer)
+        CachedProfileSerializer serializer,
+        ILogger<HybridCachedRecommendationProfileSource> logger,
+        IOptions<HybridCacheOptions> hybridOptions)
     {
         this.cache = cache ?? throw new ArgumentNullException(nameof(cache));
         this.scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         this.serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this.hybridOptions = hybridOptions ?? throw new ArgumentNullException(nameof(hybridOptions));
         ArgumentNullException.ThrowIfNull(options);
 
         expiration = options.Value.Expiration;
+        warningFraction = options.Value.WarningFraction;
     }
 
     internal CachedProfileSerializer Serializer => serializer;
+
+    internal double WarningFraction => warningFraction;
 
     public async Task<TasteProfile> GetTasteProfileAsync(CancellationToken ct)
     {
@@ -101,7 +112,28 @@ public sealed class HybridCachedRecommendationProfileSource : IRecommendationPro
 
             factoryToken.ThrowIfCancellationRequested();
 
-            return new CachedProfile(profile, generationSnapshot, createdAt);
+            var entry = new CachedProfile(profile, generationSnapshot, createdAt);
+
+            ObservePayload(entry);
+
+            return entry;
+        }
+    }
+
+    internal void ObservePayload(CachedProfile entry)
+    {
+        var writer = new ArrayBufferWriter<byte>();
+        serializer.Serialize(entry, writer);
+
+        var payloadBytes = writer.WrittenCount;
+        var budgetBytes = hybridOptions.Value.MaximumPayloadBytes;
+        var fraction = budgetBytes > 0 ? (double)payloadBytes / budgetBytes : 0.0;
+
+        Log.PayloadObserved(logger, payloadBytes, budgetBytes, fraction);
+
+        if (fraction >= warningFraction)
+        {
+            Log.PayloadNearLimit(logger, payloadBytes, budgetBytes, fraction);
         }
     }
 

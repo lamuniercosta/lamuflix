@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Pgvector;
 
@@ -87,7 +88,7 @@ internal sealed class TasteProfileCacheHarness : IAsyncDisposable
         {
             Expiration = duration,
             LocalCacheExpiration = duration,
-        }).AddSerializer<CachedProfile>(serializer);
+        }).AddSerializer(serializer);
 
         var provider = services.BuildServiceProvider();
         var scopes = new CountingScopeFactory(provider.GetRequiredService<IServiceScopeFactory>());
@@ -96,7 +97,9 @@ internal sealed class TasteProfileCacheHarness : IAsyncDisposable
             scopes,
             time,
             Options.Create(new TasteProfileCacheOptions { Expiration = duration }),
-            serializer);
+            serializer,
+            provider.GetRequiredService<ILogger<HybridCachedRecommendationProfileSource>>(),
+            provider.GetRequiredService<IOptions<HybridCacheOptions>>());
 
         return new TasteProfileCacheHarness(fixture, provider, time, commands, scopes, adapter, duration, serializer);
     }

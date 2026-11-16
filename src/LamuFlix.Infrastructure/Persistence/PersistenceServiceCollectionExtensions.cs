@@ -9,6 +9,7 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace LamuFlix.Infrastructure.Persistence;
@@ -37,7 +38,7 @@ public static class PersistenceServiceCollectionExtensions
         var profileSerializer = new CachedProfileSerializer();
         services.AddSingleton(profileSerializer);
         services.AddHybridCache()
-            .AddSerializer<CachedProfile>(profileSerializer);
+            .AddSerializer(profileSerializer);
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<GenreWeightsCache>();
         services.TryAddScoped<IMovieCatalog, EfMovieCatalog>();
@@ -47,6 +48,11 @@ public static class PersistenceServiceCollectionExtensions
             .Validate(
                 options => options.Expiration > TimeSpan.Zero,
                 $"{TasteProfileCacheOptions.SectionName}:{nameof(TasteProfileCacheOptions.Expiration)} must be greater than zero.")
+            .Validate(
+                options => double.IsFinite(options.WarningFraction)
+                    && options.WarningFraction > 0.0
+                    && options.WarningFraction <= 1.0,
+                $"{TasteProfileCacheOptions.SectionName}:{nameof(TasteProfileCacheOptions.WarningFraction)} must be finite, greater than zero, and at most one.")
             .ValidateOnStart();
         services.AddOptions<HybridCacheOptions>()
             .Configure<IOptions<TasteProfileCacheOptions>>((hybrid, tasteProfile) =>
@@ -72,7 +78,9 @@ public static class PersistenceServiceCollectionExtensions
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<TimeProvider>(),
             provider.GetRequiredService<IOptions<TasteProfileCacheOptions>>(),
-            profileSerializer));
+            profileSerializer,
+            provider.GetRequiredService<ILogger<HybridCachedRecommendationProfileSource>>(),
+            provider.GetRequiredService<IOptions<HybridCacheOptions>>()));
         services.AddSingleton<IRecommendationProfileSource>(
             provider => provider.GetRequiredService<HybridCachedRecommendationProfileSource>());
         services.AddScoped<IMovieFeaturesRepository, EfMovieFeaturesRepository>();

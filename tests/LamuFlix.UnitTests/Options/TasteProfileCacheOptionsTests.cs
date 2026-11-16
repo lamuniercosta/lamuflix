@@ -14,7 +14,12 @@ public sealed class TasteProfileCacheOptionsTests
 {
     private const string ExpirationKey = "TasteProfileCache:Expiration";
 
+    private const string WarningFractionKey = "TasteProfileCache:WarningFraction";
+
     private const string ExpirationFailureMessage = "TasteProfileCache:Expiration must be greater than zero.";
+
+    private const string WarningFractionFailureMessage =
+        "TasteProfileCache:WarningFraction must be finite, greater than zero, and at most one.";
 
     [Fact]
     public void SectionName_IsTasteProfileCache()
@@ -37,6 +42,20 @@ public sealed class TasteProfileCacheOptionsTests
 
         // assert
         expiration.ShouldBe(TimeSpan.FromMinutes(5));
+    }
+
+    [Fact]
+    public void DefaultWarningFraction_IsTheConstDefault()
+    {
+        // arrange
+        var options = new TasteProfileCacheOptions();
+
+        // act
+        var warningFraction = options.WarningFraction;
+
+        // assert
+        TasteProfileCacheOptions.DefaultWarningFraction.ShouldBe(0.8);
+        warningFraction.ShouldBe(TasteProfileCacheOptions.DefaultWarningFraction);
     }
 
     [Theory]
@@ -88,6 +107,74 @@ public sealed class TasteProfileCacheOptionsTests
         exception.Failures.ShouldContain(ExpirationFailureMessage);
     }
 
+    [Theory]
+    [InlineData("0.5")]
+    [InlineData("0.8")]
+    [InlineData("0.0001")]
+    public void FiniteWarningFractionWithinDomain_BindsFromSection(string configured)
+    {
+        // arrange
+        using var provider = Compose(Configuration(Valid("00:05:00", configured))).BuildServiceProvider();
+
+        // act
+        var warningFraction = provider.GetRequiredService<IOptions<TasteProfileCacheOptions>>().Value.WarningFraction;
+
+        // assert
+        warningFraction.ShouldBe(double.Parse(configured, CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public void WarningFractionAtOne_IsAcceptedAsTheUpperBound()
+    {
+        // arrange
+        using var provider = Compose(Configuration(Valid("00:05:00", "1"))).BuildServiceProvider();
+
+        // act
+        var warningFraction = provider.GetRequiredService<IOptions<TasteProfileCacheOptions>>().Value.WarningFraction;
+
+        // assert
+        warningFraction.ShouldBe(1.0);
+    }
+
+    [Fact]
+    public void MissingWarningFraction_FallsBackToTheConstDefault()
+    {
+        // arrange
+        using var provider = Compose(Configuration(Valid("00:05:00"))).BuildServiceProvider();
+
+        // act
+        var warningFraction = provider.GetRequiredService<IOptions<TasteProfileCacheOptions>>().Value.WarningFraction;
+
+        // assert
+        warningFraction.ShouldBe(0.8);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-0.5")]
+    [InlineData("1.0001")]
+    [InlineData("2")]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    public void NonFiniteOrOutOfDomainWarningFraction_FailsStartupValidation(string configured)
+    {
+        // arrange
+        using var provider = Compose(Configuration(Valid("00:05:00", configured))).BuildServiceProvider();
+
+        // act
+        var exception = Should.Throw<OptionsValidationException>(() =>
+        {
+            foreach (var validator in provider.GetServices<IStartupValidator>())
+            {
+                validator.Validate();
+            }
+        });
+
+        // assert
+        exception.Failures.ShouldContain(WarningFractionFailureMessage);
+    }
+
     private static ServiceCollection Compose(IConfiguration configuration)
     {
         var services = new ServiceCollection();
@@ -101,7 +188,7 @@ public sealed class TasteProfileCacheOptionsTests
     private static IConfiguration Configuration(Dictionary<string, string?> values) =>
         new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 
-    private static Dictionary<string, string?> Valid(string? expiration)
+    private static Dictionary<string, string?> Valid(string? expiration, string? warningFraction = null)
     {
         var values = new Dictionary<string, string?>
         {
@@ -117,6 +204,11 @@ public sealed class TasteProfileCacheOptionsTests
         if (expiration is not null)
         {
             values[ExpirationKey] = expiration;
+        }
+
+        if (warningFraction is not null)
+        {
+            values[WarningFractionKey] = warningFraction;
         }
 
         return values;
