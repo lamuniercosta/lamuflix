@@ -11,7 +11,8 @@ Template owned by Quill drafting from `brief.md` Operational runbook section (Q6
 | Stage | Status | Notes |
 | --- | --- | --- |
 | Planning / freeze | PLAN FROZEN | Keel independent reread, 2026-11-15; see PLAN_ADJUDICATION.md |
-| Gate 1 (spec PR merge) | pending | User merges; Keel records receipt |
+| Gate 1 (spec PR merge) | complete (T000) | Spec PR #415 merge receipt in CONCLUSIONS.md at 22261b35 |
+| Serializer seam (T001b) | pending / held | Compile accessibility + runtime same-singleton exact-envelope/`GetOrCreateAsync` proof; held until independent reread |
 | Implementation verification | pending | Gates + parity + size/cache tests at exact SHA |
 | Home promotion | pending | After user-owned delivery merge; authorized operator only |
 | Runtime acceptance (≥24h) | runtime-pending | Remains open until operator receipt exists |
@@ -22,16 +23,17 @@ Template owned by Quill drafting from `brief.md` Operational runbook section (Q6
 
 | Field | Value |
 | --- | --- |
-| Baseline SHA | pending |
-| Configuration / serializer / options identity (safe) | pending |
+| Original unmodified pickup SHA | pending |
+| T001b serializer-seam SHA | pending (after successful T001b) |
+| Configuration / serializer / options identity (safe) | pending (seam provenance from T001b) |
 | Effective payload ceiling (bytes) | pending: read IOptions<HybridCacheOptions>.Value.MaximumPayloadBytes |
 | Observed liked-source / library count | pending |
 | Serialized `CachedProfile` total bytes | pending |
-| Component split (bytes) | pending |
-| Calculated headroom vs ceiling / vs 80% budget | pending |
+| Component split (bytes) | pending (preserve actual pre-representation components; no thinning) |
+| Calculated headroom vs ceiling / vs 80% budget | pending (strict 725 / 0.8 feasibility) |
 | Safe evidence references | pending |
 
-**Rules**: Measure with production-equivalent serializer/options including `Generation` and `CreatedAt`. Do not mark complete if unavailable — leave pending / Could not run. Capture before representation change.
+**Rules**: T002 measures through the live T001b registered singleton `IHybridCacheSerializer<CachedProfile>` / options on the exact `CachedProfile(Profile, Generation, CreatedAt)` envelope over the **unchanged** pre-representation profile (brief.md PA1 amendment Explicit shared serializer; PA1 amendment Serializer setup before baseline / CONCLUSIONS.md sequencing ruling at 85feb708). Record both original pickup SHA and seam SHA plus serializer/configuration provenance. Do not mark complete if unavailable — leave pending / Could not run. Capture before representation change. T001b compilation alone is not runtime measurement proof; no assumed serializer invocation on the no-`IDistributedCache` path.
 
 ---
 
@@ -177,19 +179,26 @@ Matched inputs and cache-state classification must be comparable across pre/post
 
 ## PA1 mandatory evidence additions
 
-T002 hard stop before T003+: fixed pre-change scoring snapshot and measured plot/maps/envelope split plus realistic retained-content 725-source projection must demonstrate feasibility below the frozen 80% effective budget. Missing/unavailable/infeasible proof stops for recon/Patron; pending is not permission to edit. Original ticket/recon citations refer to the earlier snapshot; targeted seams are current note lines 3-7.
+Sequencing (brief.md PA1 amendment Serializer setup before baseline / CONCLUSIONS.md at 85feb708): T001 read-only → T001b serializer-only install/proof → T002 baseline through live seam → T003+. T002 hard stop before T003+: fixed pre-change scoring snapshot and measured plot/maps/envelope split plus realistic retained-content 725-source projection must demonstrate feasibility below the frozen 80% effective budget. Missing/unavailable/infeasible proof stops for recon/Patron; pending is not permission to edit. Original ticket/recon citations refer to the earlier snapshot; targeted seams are current note lines 3-7. PA1 amendment Explicit shared serializer (fca46e8c) plus sequencing ruling (85feb708) place shared `IHybridCacheSerializer<CachedProfile>` registration/injection in T001b (already-authorized persistence files + registration/HybridCache suites), not T008.
 
 | Additional receipt | Value |
 | --- | --- |
-| Shared registered serializer/options identity and pinned API verified (T001) | pending |
+| T001 read-only pickup recon / Gauge baseline (no production edits) | pending; T001 held until independent reread |
+| Original unmodified pickup SHA | pending |
+| T001b compiler/type-check of pinned shared `IHybridCacheSerializer<CachedProfile>` registration signature and shared-envelope accessibility (authorized worktree) | pending; T001b held |
+| T001b runtime same-singleton exact-envelope measurement + real `GetOrCreateAsync` admission proof | pending; compilation alone insufficient; T002 blocked without this |
+| T001b serializer-seam SHA + serializer/configuration provenance | pending |
+| Shared singleton serializer/options identity for admission and construction-only exact-envelope measurement | pending (proven in T001b; reused by T002/T007/T008) |
 | Retained maps/envelope measured bytes and representative 725-source projection (T002) | pending |
-| T002 parity snapshot and feasibility checkpoint passed? | pending; T003+ blocked |
+| T002 parity snapshot and feasibility checkpoint passed? | pending; T003+ blocked; unavailable home remains pending/Could not run |
 | Post-change profile-cache-hit + uncached embedding batch query count/cost and vector volume (4b/T010) | pending |
 | Empty sources zero additional query; missing/partial rows; request key equality; cancellation | pending |
-| Observation/admission byte-decision agreement below/equal/above effective ceiling | pending |
+| Compact-profile runtime observation/admission byte-decision agreement below/equal/above effective ceiling (T007/T008; reuse T001b seam, no reinstall) | pending; compilation alone is not proof |
+| Real `GetOrCreateAsync` admission/reuse without per-hit re-serialization | pending (T001b admission proof; T007/T008 compact reuse) |
+| Separate no-`IDistributedCache` limit-behaviour proof (T002) | pending; do not assume serializer invocation |
 | Finite warning domain: zero, one, negative, >1, NaN, +/-infinity | pending |
 | Numeric-only PayloadBytes/BudgetBytes/Fraction LoggerMessage fields | pending |
 | Over-ceiling warn before admission, coalesced successful return, no false warm hit | pending |
 | Legacy key ignored; versioned compact rebuild; unchanged generation/expiry | pending |
 
-Use the same registered serializer/options on the same envelope, never independent JSON defaults. Mutation from worktrees: pwsh -NoProfile -File ./scripts/run-mutation.ps1 without --since; preserve configured kill-share/file-span/timeout safeguards.
+Admission and construction-only byte measurement MUST use the same registered singleton serializer/options on the exact `CachedProfile(Profile, Generation, CreatedAt)` envelope; thin internal serializer and internal envelope accessibility are permitted inside the two authorized persistence files during T001b; no new layer/package; do not invent an exact `AddSerializer` signature; never reflection or independently assumed JSON defaults; no assumed serializer invocation without distributed cache. T001b compilation alone is not runtime proof of byte/admission agreement; T002 must still prove separate no-distributed-cache behaviour. T007/T008 reuse the T001b seam. Mutation from worktrees: pwsh -NoProfile -File ./scripts/run-mutation.ps1 without --since; preserve configured kill-share/file-span/timeout safeguards. Home measurement/promotion and prior gate/runtime-pending statuses remain as on the status board above. Round-1 derivative repair awaits Keel independent reread; prior no-outstanding claim is withdrawn until that reread.

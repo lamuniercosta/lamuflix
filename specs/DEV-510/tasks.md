@@ -7,7 +7,7 @@ description: "Task list for DEV-510 shrink the cached taste profile"
 
 **Input**: Design documents from `specs/DEV-510/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q7), `CONCLUSIONS.md`, `ASSUMPTIONS.md`, `EVIDENCE.md`; Maestri notes `DEV-510`, `recon-DEV-510` (lines 27–37, 51–67); `specs/PRODUCT.md`.
 
-**Status**: PLAN FROZEN — Keel, 2026-11-15, after Patron PA1 and independent cross-artifact reread; see PLAN_ADJUDICATION.md. Gate 1 merge receipt recorded by Keel, 2026-11-16, in CONCLUSIONS.md (spec PR #415, 22261b35). T001 remains partially complete pending pinned-package serializer API/resolution recon; T002 is not yet cleared. Implementation verification, home measurement/promotion and runtime acceptance remain open; runtime-pending.
+**Status**: PLAN FROZEN — Keel, 2026-11-15, after Patron PA1 and independent cross-artifact reread; see PLAN_ADJUDICATION.md. Gate 1 merge receipt recorded by Keel, 2026-11-16, in CONCLUSIONS.md (spec PR #415, 22261b35). T000 stays complete. Inventory is 17 tasks (was 16) after inserting T001b; 22/22 requirements/criteria coverage (15 FR + 7 SC) is preserved. Per brief.md PA1 amendment Serializer setup before baseline / CONCLUSIONS.md T001/T002/T008 Serializer Setup Sequencing Ruling at 85feb708: T001 remains strictly read-only; T001b installs and proves the shared serializer seam; T002 measures through that live seam. T001, T001b and T002 stay held/unchecked until this derivative synchronization and Keel's independent reread close. Implementation verification, home measurement/promotion and runtime acceptance remain open; runtime-pending.
 
 **Tests**: Required (`brief.md` Test strategy; FR-004–FR-012). TDD is optional. Write parity tests pre-change and keep them green across the representation edit; edge-contract tests may start red. Do not manufacture failing parity tests. Persistence/query-translation and serialization-sensitive behaviour use Postgres Testcontainers — never driver mocks. Exact parity uses equality, not tolerance. No new test framework/dependency. Exact suite file paths for suites named only in recon 35–37 are collected at pickup recon — do not invent paths.
 
@@ -27,17 +27,18 @@ description: "Task list for DEV-510 shrink the cached taste profile"
 
 ```text
 Phase 0   Spec-PR prep → T000   (Bernstein/Rigger produce/open; user merges; Keel Gate 1 merge record) — blocks T001+
-Phase 1   T001          (Wisp pickup recon + path inventory + Keel reanalysis + Gauge baseline) — blocks T002+
-Phase 2   T002          (US1 pre-change baseline into EVIDENCE.md) — blocks representation change
+Phase 1   T001          (Wisp pickup recon + path inventory + Keel reanalysis + Gauge baseline; read-only) — blocks T001b
+Phase 1b  T001b         (serializer-only setup + compile accessibility + runtime singleton/admission proof over unchanged incumbent representation) — blocks T002
+Phase 2   T002          (US1 pre-change baseline into EVIDENCE.md via live T001b seam) — blocks representation change
 Phase 3   T003 → T006   (US2 input contract + compact profile + parity)
-Phase 4   T007 → T009   (US3 budget / warning / cache regressions)
+Phase 4   T007 → T009   (US3 budget / warning / cache regressions; reuses T001b seam)
 Phase 5   T010 → T011   (US4 post-change evidence + mandatory gates)
 Phase 6   T012          (capped three-axis review / remediation per Q2)
 Phase 7   T013          (delivery / merge-bar handoff — user merges)
 Phase 8   T014          (US5 post-merge promotion + ≥24h runtime receipt)
 ```
 
-Ordering per brief Task ordering / Q7: **baseline (T002) before representation (T003+)**. No dependency cycle. Failed/unavailable baseline, gates, or runtime remain open and cannot yield Done when.
+Ordering per brief Task ordering / Q7 and PA1 Serializer setup before baseline: **T001 → T001b → T002 → T003+**. Shared serializer installs in T001b before baseline; baseline (T002) before representation (T003+). No dependency cycle. Failed/unavailable serializer proof, baseline, gates, or runtime remain open and cannot yield Done when.
 
 ---
 
@@ -50,22 +51,31 @@ Ordering per brief Task ordering / Q7: **baseline (T002) before representation (
 
 ---
 
-## Phase 1: Pickup recon (blocks baseline and implementation)
+## Phase 1: Pickup recon (read-only; blocks T001b)
 
-**Purpose**: Confirm Gate-1-merged artifacts still match landed main; resolve exact paths for declarations/suites not path-qualified in `recon-DEV-510`; confirm HybridCache serializer/options identity; Gauge baseline.
-**Checkpoint**: Fresh recon recorded; cross-artifact reanalysis clean or tasks amended only for authorized demonstrated drift; unresolved drift/decision stops — no invention.
+**Purpose**: Confirm Gate-1-merged artifacts still match landed main; resolve exact paths for declarations/suites not path-qualified in `recon-DEV-510`; inventory HybridCache suite/paths, ceiling-configuration and home-access facts needed by later T001b/T002; Gauge baseline. No production edits.
+**Checkpoint**: Fresh recon recorded; cross-artifact reanalysis clean or tasks amended only for authorized demonstrated drift; unresolved drift/decision stops — no invention. T001 stays unchecked and T001b/T002 held until synchronized-artifact independent reread closes; after that reread, T001 status reflects actual read-only evidence only.
 
-- [ ] T001 After T000: **Wisp** obtains fresh Phase B pickup recon against picked HEAD / landed main inventorying: authorized production files `src/LamuFlix.Core/Domain/TasteProfile.cs`, `src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs`, `src/LamuFlix.Core/Ports/IRecommendationProfileSource.cs`, `src/LamuFlix.Infrastructure/Persistence/EfRecommendationProfileSource.cs`, `HybridCachedRecommendationProfileSource.cs`, `PersistenceServiceCollectionExtensions.cs`; exact paths for existing `ProfileSimilarityCalculator` / `BestLikedSource` / `PlotChannel` consumers, `GetRecommendationsQueryHandler`, `GetForYouRecommendationsQueryHandler`, and revalidate the now-confirmed `src/LamuFlix.Infrastructure/Persistence/TasteProfileCacheOptions.cs`; exact paths for suites named in `recon-DEV-510` lines 35–37; production-equivalent serializer/options used for `CachedProfile`; how HybridCache effective ceiling is configured today; home measurement access facts without inventing bytes. **Keel** reanalyzes brief/spec/plan/tasks against landed main and amends only for authorized demonstrated drift. **Gauge** records pre-edit gate baseline. **STOP** `needs recon` on missing seams required for T002+; **STOP** for cited Patron ruling rather than expanding file/protected surface (`brief.md` Q3/Q7; FR-011). No production edits in this task. Targeted recon confirms options and test paths; verify pinned package serializer API and resolution for the same registered HybridCache serializer/options on CachedProfile (no wrapper or independent JSON defaults). Unsupported seam blocks implementation for recon/Patron. Read effective ceiling from IOptions<HybridCacheOptions>.Value.MaximumPayloadBytes; do not hardcode the reported default.
+- [ ] T001 After T000: **Wisp** obtains fresh Phase B pickup recon against picked HEAD / landed main inventorying: authorized production files `src/LamuFlix.Core/Domain/TasteProfile.cs`, `src/LamuFlix.Core/Features/Recommendations/TasteProfileCalculator.cs`, `src/LamuFlix.Core/Ports/IRecommendationProfileSource.cs`, `src/LamuFlix.Infrastructure/Persistence/EfRecommendationProfileSource.cs`, `HybridCachedRecommendationProfileSource.cs`, `PersistenceServiceCollectionExtensions.cs`; exact paths for existing `ProfileSimilarityCalculator` / `BestLikedSource` / `PlotChannel` consumers, `GetRecommendationsQueryHandler`, `GetForYouRecommendationsQueryHandler`, and revalidate the now-confirmed `src/LamuFlix.Infrastructure/Persistence/TasteProfileCacheOptions.cs`; exact paths for suites named in `recon-DEV-510` lines 35–37 and existing HybridCache suites needed by T001b; facts relevant to later shared `IHybridCacheSerializer<CachedProfile>` registration/accessibility for the exact `CachedProfile(Profile, Generation, CreatedAt)` envelope (inventory only — do not install); how HybridCache effective ceiling is configured today; home measurement access facts without inventing bytes. **Keel** reanalyzes brief/spec/plan/tasks against landed main and amends only for authorized demonstrated drift. **Gauge** records pre-edit gate baseline. **STOP** `needs recon` on missing seams required for T001b/T002+; **STOP** for cited Patron ruling rather than expanding file/protected surface (`brief.md` Q3/Q7; FR-011). **Strictly read-only**: no production or test edits in this task. Do not invent an exact `AddSerializer` overload or DI registration signature — those remain T001b verification requirements, not established API facts. Read effective ceiling from IOptions<HybridCacheOptions>.Value.MaximumPayloadBytes; do not hardcode the reported default. Record original unmodified pickup SHA for later EVIDENCE.md provenance. T001/T001b/T002 remain held until derivative sync + independent reread.
+
+---
+
+## Phase 1b: Serializer-only setup before baseline (blocks T002)
+
+**Purpose**: Install and prove only the shared `IHybridCacheSerializer<CachedProfile>` seam over the unchanged incumbent TasteProfile/LikedSources representation so T002 can measure through a live registered singleton. Split out of T008 per brief.md PA1 amendment Serializer setup before baseline / CONCLUSIONS.md sequencing ruling at 85feb708.
+**Checkpoint**: Passing compiler/type-check accessibility evidence AND passing runtime same-singleton exact-envelope measurement plus real `GetOrCreateAsync` admission proof. Compilation alone cannot close T001b. No assumed serializer invocation on the no-`IDistributedCache` path. Unsupported/unavailable proof blocks for recon/Patron; T002 stays held.
+
+- [ ] T001b **Build lane**. After T001: Install and verify only the shared serializer seam confined to already-authorized `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs`, `src/LamuFlix.Infrastructure/Persistence/HybridCachedRecommendationProfileSource.cs`, `tests/LamuFlix.UnitTests/Persistence/TasteProfileCacheRegistrationTests.cs`, and existing HybridCache suites identified by T001 recon. Register/inject one shared `IHybridCacheSerializer<CachedProfile>` singleton (thin internal serializer implementation and internal `CachedProfile` envelope accessibility permitted if needed) over the **unchanged incumbent** pre-change `TasteProfile` / `LikedSources` shape and actual `CachedProfile(Profile, Generation, CreatedAt)` envelope. **Forbid** edits in T001b to `TasteProfile.cs`, `TasteProfileCalculator.cs`, `IRecommendationProfileSource.cs`, `EfRecommendationProfileSource.cs`, scoring math, profile inputs, or cache-key namespace. No new package, project, or architectural layer. Do not invent an exact `AddSerializer` overload or DI registration signature — verify the pinned-package registration/accessibility inside `F:/Dev/LamuFlix.worktrees/DEV-510`. **T001b requires both**: (1) passing compiler/type-check evidence for supported pinned-package registration and shared-envelope accessibility; and (2) a passing runtime test proving real `GetOrCreateAsync` admission and exact-envelope byte measurement invoke that same registered singleton serializer/options. Compilation alone is insufficient. Never substitute independently assumed JSON defaults, reflection, a replacement admission path, or assumed serializer invocation without distributed cache. Record serializer-seam SHA plus serializer/configuration provenance for EVIDENCE.md. Unsupported registration/accessibility or failed runtime agreement blocks T002 for recon/Patron.
 
 ---
 
 ## Phase 2: User Story 1 - Pre-change baseline evidence (Priority: P1)
 
-**Goal**: Capture measured home payload/component bytes, no-distributed-cache limit behaviour, matched for-you latency, and fixed scoring snapshot before any representation change.
+**Goal**: Capture measured home payload/component bytes, no-distributed-cache limit behaviour, matched for-you latency, and fixed scoring snapshot before any representation change, through the live T001b seam.
 **Independent Test**: EVIDENCE.md baseline and fixed pre-change parity snapshot plus retained-map/envelope fivefold feasibility proof exist before edits. Pending/Could not run is honest status but cannot unlock T003+.
-**Order**: T002. **Build lane** owns otherwise-unassigned measurement work.
+**Order**: T002 after successful T001b. **Build lane** owns otherwise-unassigned measurement work.
 
-- [ ] T002 [US1] **Build lane**. After T001: Before any representation edit, fill `specs/DEV-510/EVIDENCE.md` baseline slots: serialized `CachedProfile` total and per-component split from home Postgres using production-equivalent serializer/options (including `Generation` and `CreatedAt`); separate no-`IDistributedCache` limit-behaviour reproduction and conclusion; matched cold/uncached vs warm-cache `for-you` timings with cache-state classification, sample count, elapsed observations, summary statistics, and SHA; fixed input/database snapshot and candidate set with pre-change title/order, exact score, and `Because you liked X` reason. Record safe evidence references only — no secrets/vectors/identities. If access or reproduction is unavailable, mark pending/Could not run explicitly — do **not** silently defer baseline until after the change or invent measurements (FR-011; SC-001; `brief.md` Task ordering step 1; Q6). Hard feasibility gate: record plot-vs-retained-maps-vs-envelope byte split and realistic 725-source retained-content projection against 80% effective ceiling. Missing fixed parity snapshot, missing feasibility evidence or an infeasible projection blocks T003+ for recon/Patron ruling; no silent assumption relaxation.
+- [ ] T002 [US1] **Build lane**. After successful T001b: Before any representation edit, fill `specs/DEV-510/EVIDENCE.md` baseline slots using the live T001b registered singleton seam over the **unchanged** pre-representation profile: record **both** original unmodified pickup SHA **and** T001b serializer-seam SHA plus serializer/configuration provenance; serialized `CachedProfile` total and per-component split from home Postgres (including `Generation` and `CreatedAt`) via that same singleton; separate no-`IDistributedCache` limit-behaviour reproduction and conclusion (do not assume serializer invocation proves that path); matched cold/uncached vs warm-cache `for-you` timings with cache-state classification, sample count, elapsed observations, summary statistics, and SHA; fixed input/database snapshot and candidate set with pre-change title/order, exact score, and `Because you liked X` reason. Preserve actual pre-representation bytes/components — no thinning. Record safe evidence references only — no secrets/vectors/identities. If access or reproduction is unavailable, mark pending/Could not run explicitly — do **not** silently defer baseline until after the change or invent measurements (FR-011; SC-001; `brief.md` Task ordering step 1; Q6; PA1 Serializer setup before baseline). Hard feasibility gate: record plot-vs-retained-maps-vs-envelope byte split and realistic 725-source retained-content projection against strict 80% (0.8) effective ceiling. Missing fixed parity snapshot, missing feasibility evidence or an infeasible projection blocks T003+ for recon/Patron ruling; no silent assumption relaxation. Unavailable home evidence remains pending/Could not run and never unlocks T003+.
 
 **Checkpoint**: T003+ BLOCKED until the fixed pre-change parity snapshot is captured and measured retained-maps/envelope plus representative fivefold projection are proven strictly below the frozen 80% effective-ceiling budget. Unavailable proof or infeasibility is recorded pending/Could not run and stops for recon/Patron disposition; recording pending does not unlock implementation. Keep 725/0.8 frozen; only proposed ticket contradiction or constitution departure goes to owner.
 
@@ -101,11 +111,11 @@ Ordering per brief Task ordering / Q7: **baseline (T002) before representation (
 
 ### Tests for User Story 3
 
-- [ ] T007 [US3] **Build lane**. After T006: Add failing coverage for representative 725-liked-source fixture serialization strictly below 80 percent of IOptions<HybridCacheOptions>.Value.MaximumPayloadBytes (ticket reports 1,048,576-byte default) (realistic retained maps; 384-float vectors in uncached inputs only; no thinning); warning-fraction boundaries below/equal/above default 0.8; payload-ceiling boundaries below/equal/above as applicable using the confirmed no-`IDistributedCache` limit behaviour from T002 (preserve observed failure semantics; if a boundary is inapplicable under that evidence, record evidenced inapplicability rather than assuming rejection); invalid-configuration regression coverage for the new warning setting under preserved or extended typed options validation and `ValidateOnStart` (constitution VII lines 648–652, 672); and actual cache admission/reuse without per-hit re-serialization — extend existing HybridCache / registration / options suites from T001 without inventing undeclared wiring facts (FR-006–FR-010; SC-002; SC-005; `ASSUMPTIONS.md` A1–A2; `brief.md` Q4; `spec.md` scope item 5). Extend tests/LamuFlix.UnitTests/Options/TasteProfileCacheOptionsTests.cs and tests/LamuFlix.UnitTests/Persistence/TasteProfileCacheRegistrationTests.cs for finite 0 < WarningFraction <= 1: 0, 1, negative, >1, NaN, +/-infinity. Use effective runtime options for all budgets, same registered serializer/options on same envelope, and assert observation/admission agreement below/equal/above real ceiling. Assert numeric-only logs; over-ceiling construction warns, returns to coalesced callers without size-only throw, and is not a false warm hit.
+- [ ] T007 [US3] **Build lane**. After T006: Add failing coverage for representative 725-liked-source fixture serialization strictly below 80 percent of IOptions<HybridCacheOptions>.Value.MaximumPayloadBytes (ticket reports 1,048,576-byte default) (realistic retained maps; 384-float vectors in uncached inputs only; no thinning); warning-fraction boundaries below/equal/above default 0.8; payload-ceiling boundaries below/equal/above as applicable using the confirmed no-`IDistributedCache` limit behaviour from T002 (preserve observed failure semantics; if a boundary is inapplicable under that evidence, record evidenced inapplicability rather than assuming rejection); invalid-configuration regression coverage for the new warning setting under preserved or extended typed options validation and `ValidateOnStart` (constitution VII lines 648–652, 672); and actual cache admission/reuse without per-hit re-serialization — extend existing HybridCache / registration / options suites from T001 without inventing undeclared wiring facts (FR-006–FR-010; SC-002; SC-005; `ASSUMPTIONS.md` A1–A2; `brief.md` Q4; `spec.md` scope item 5). Extend tests/LamuFlix.UnitTests/Options/TasteProfileCacheOptionsTests.cs and tests/LamuFlix.UnitTests/Persistence/TasteProfileCacheRegistrationTests.cs for finite 0 < WarningFraction <= 1: 0, 1, negative, >1, NaN, +/-infinity. Use effective runtime options for all budgets. **Reuse the T001b shared singleton seam** (do not reinstall the serializer): prove compact-profile HybridCache admission and construction-only exact-envelope byte measurement still invoke that same registered singleton `IHybridCacheSerializer<CachedProfile>` / options on the actual `CachedProfile(Profile, Generation, CreatedAt)` envelope after representation shrink; assert runtime observation/admission agreement below/equal/above the real ceiling; prove real `GetOrCreateAsync` admission/reuse; and keep the separate no-`IDistributedCache` limit-behaviour proof from T002. Compilation/type-check of registration alone is not runtime proof. Assert numeric-only logs; over-ceiling construction warns, returns to coalesced callers without size-only throw, and is not a false warm hit.
 
 ### Implementation for User Story 3
 
-- [ ] T008 [US3] **Build lane**. After T007: Implement structured serialized-payload-byte and effective-budget observations on cache construction in `src/LamuFlix.Infrastructure/Persistence/HybridCachedRecommendationProfileSource.cs`, and wire configurable warning fraction (const default 0.8) through existing `src/LamuFlix.Infrastructure/Persistence/TasteProfileCacheOptions.cs` and `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs` if needed — **preserve or extend** that type's existing typed options validation and `ValidateOnStart` for the new setting (constitution VII lines 648–652, 672; extend the existing .Validate chain and ValidateOnStart confirmed by targeted recon lines 3-4; no new validator type); single source of truth, no scattered literals, no vector/identity/secret logs, retain default ceiling, preserve freshness semantics (FR-008–FR-010; `brief.md` Q4/Q6). Extend existing validation chain, retain startup validation, match SectionName:nameof(property) error-message style. Logging only through minimal src/LamuFlix.Infrastructure/Persistence/HybridCachedRecommendationProfileSource.Log.cs source-generated LoggerMessage partial with numeric PayloadBytes/BudgetBytes/Fraction and no interpolation. Serialize only on construction with the same registered serializer/options, warn before real GetOrCreateAsync admission, preserve swallowed non-admission and successful return, never throw for size alone. No static readonly warning default.
+- [ ] T008 [US3] **Build lane**. After T007: Implement structured serialized-payload-byte and effective-budget observations on cache construction in `src/LamuFlix.Infrastructure/Persistence/HybridCachedRecommendationProfileSource.cs`, and wire configurable warning fraction (const default 0.8) through existing `src/LamuFlix.Infrastructure/Persistence/TasteProfileCacheOptions.cs` and `src/LamuFlix.Infrastructure/Persistence/PersistenceServiceCollectionExtensions.cs` if needed — **preserve or extend** that type's existing typed options validation and `ValidateOnStart` for the new setting (constitution VII lines 648–652, 672; extend the existing .Validate chain and ValidateOnStart confirmed by targeted recon lines 3-4; no new validator type); single source of truth, no scattered literals, no vector/identity/secret logs, retain default ceiling, preserve freshness semantics (FR-008–FR-010; `brief.md` Q4/Q6). Extend existing validation chain, retain startup validation, match SectionName:nameof(property) error-message style. Logging only through minimal src/LamuFlix.Infrastructure/Persistence/HybridCachedRecommendationProfileSource.Log.cs source-generated LoggerMessage partial with numeric PayloadBytes/BudgetBytes/Fraction and no interpolation. **Do not reinstall the serializer** — reuse the T001b shared `IHybridCacheSerializer<CachedProfile>` singleton already registered over `CachedProfile`; after T003–T006 shrink TasteProfile that same singleton remains the admission/measurement seam. Construction-only byte observation and HybridCache admission MUST continue to use that same singleton serializer/options on the exact `CachedProfile(Profile, Generation, CreatedAt)` envelope; warn before real `GetOrCreateAsync` admission/reuse; preserve swallowed non-admission and successful return; never throw for size alone; never reflection or independently assumed JSON defaults. T007 runtime proofs (compact-profile byte/admission agreement, reuse, separate no-`IDistributedCache` behaviour) remain required — compilation alone is not runtime proof. No static readonly warning default. No new package/project/layer.
 - [ ] T009 [US3] **Build lane**. After T008: Make T007 green; confirm existing HybridCache cold/freshness/cache suites from T001 still cover reuse, expiry, invalidation/generation, concurrency/coalescing, cancellation, factory failure, scope-lifetime, and uncached inputs (FR-009; SC-005). Seed a legacy-shaped entry under the old key namespace; prove it is ignored/rebuilt under the compact version and cannot supply authoritative source vectors. Preserve coalescing and prove rejected entries cause no false warm hit.
 
 **Checkpoint**: US3 independently testable for budget/observability/cache behaviour.
@@ -160,19 +170,20 @@ Ordering per brief Task ordering / Q7: **baseline (T002) before representation (
 ### Phase Dependencies
 
 - **Phase 0 (T000)**: Blocks all Build work
-- **Phase 1 (T001)**: Depends on T000 — blocks baseline and implementation
-- **Phase 2 (T002 / US1)**: Depends on T001 — blocks representation change
+- **Phase 1 (T001)**: Depends on T000 — read-only; blocks T001b
+- **Phase 1b (T001b)**: Depends on T001 — serializer-only setup + compile and runtime proofs; blocks T002
+- **Phase 2 (T002 / US1)**: Depends on successful T001b — blocks representation change
 - **Phase 3 (US2)**: Depends on T002; T003/T004 may run in parallel after T002; T005a after both authored; T005b after T005a; T006 after T005b
-- **Phase 4 (US3)**: Depends on T006
+- **Phase 4 (US3)**: Depends on T006; T007/T008 reuse T001b seam (no serializer reinstall)
 - **Phase 5 (US4)**: Depends on T009; T011 after T010
 - **Phase 6–7**: Depend on T011 status
 - **Phase 8 (US5)**: Depends on user delivery merge after T013 packaging
 
 ### User Story Dependencies
 
-- **US1 (P1)**: After pickup; no code change required
+- **US1 (P1)**: After T001b seam is live; measures unchanged incumbent representation (no representation change in T001b)
 - **US2 (P1) MVP**: After US1 parity baseline and fivefold feasibility checkpoint pass
-- **US3 (P2)**: After US2 compact representation
+- **US3 (P2)**: After US2 compact representation; reuses T001b serializer seam
 - **US4 (P2)**: After US3
 - **US5 (P3)**: After user delivery merge
 
@@ -180,6 +191,7 @@ Ordering per brief Task ordering / Q7: **baseline (T002) before representation (
 
 - T003 and T004 after T002 (different suites)
 - No parallelization of same-file edits, shared evidence fills, or gate runs
+- T001b is never parallel with T001 or T002
 
 ---
 
@@ -187,15 +199,17 @@ Ordering per brief Task ordering / Q7: **baseline (T002) before representation (
 
 ### MVP First (User Stories 1–2)
 
-1. Gate 1 merge + pickup recon
-2. Baseline evidence (US1)
-3. Compact profile + embedding transfer + exact parity (US2)
-4. **STOP and VALIDATE** parity/query-count before budget instrumentation
+1. Gate 1 merge + read-only pickup recon (T001)
+2. Serializer-only setup and runtime agreement over unchanged representation (T001b)
+3. Baseline evidence through live T001b seam (US1 / T002)
+4. Compact profile + embedding transfer + exact parity (US2)
+5. **STOP and VALIDATE** parity/query-count before budget instrumentation
 
 ### Incremental Delivery
 
-1. US1 baseline → US2 MVP → US3 budget/observability → US4 gates/evidence → user merge → US5 runtime receipt
+1. T001 → T001b → US1 baseline → US2 MVP → US3 budget/observability (reuse T001b seam) → US4 gates/evidence → user merge → US5 runtime receipt
 2. Each story leaves prior evidence intact; unavailable runtime stays explicitly open
+3. Task inventory: 17 tasks; requirements/criteria coverage remains 22/22 (15 FR + 7 SC)
 
 ---
 
