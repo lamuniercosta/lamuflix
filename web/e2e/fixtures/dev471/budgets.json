@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "stackStartupSeconds": 1800,
+  "asyncAssertionSeconds": 120,
+  "teardownPerProjectSeconds": 180,
+  "jobCapSeconds": 7200,
+  "wholeTestRetries": 0
+}

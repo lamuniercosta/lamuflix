@@ -2,7 +2,7 @@
 
 **Feature Branch**: `feature/471-spec`
 **Created**: 2026-11-15
-**Status**: `gate1: provisional` — owner questions/checkboxes: none required.
+**Status**: Gate 1 spec PR #414 merged; T000 and T001 complete (2026-11-16). Anvil cleared for local tasks.md Phase 2 T002-T004; Chromium probe receipt recon-DEV-471:12-35 and brief.md T001 closure. Historical Gate 1 pending and T001 blocked wording is superseded. Compose runtime acceptance, implementation gates, protection verification and merge clearance remain open.
 **Input**: Ticket DEV-471 (size L; parent DEV-492); grill-closed `brief.md` (Q1–Q7 plus plan-challenge decision record and groups 1–6 amendment); `CONCLUSIONS.md` (including plan-adjudication provenance and groups 1–6); `ASSUMPTIONS.md`; proposed ADR `docs/adr/0043-unmasked-compose-startup-and-stubbed-smoke.md` (proposed until Gate 1); Maestri notes `DEV-471`, `recon-DEV-471` (retained DEV-440 lines 1–25 plus appended plan-adjudication lines 27–73; verbatim ticket body at lines 36–48); `PLAN_ADJUDICATION.md`; `specs/PRODUCT.md`.
 
 ## Owner question — Gate 1
@@ -235,7 +235,7 @@ Delivery evidence includes deliberate failure-path proofs (including planted-sec
 ## Assumptions
 
 - Budgets and zero whole-test retries are approved `[assumed]` choices recorded in `ASSUMPTIONS.md` (Q5), owned by one validated DEV-471 budget config at `web/e2e/fixtures/dev471/budgets.json`.
-- Existing sample/fixture media decodability in Chromium and exact mount/route/event/media identities are unverified until US1/T001 recon — not assumed true; STOP if unavailable.
+- T001 pickup recon is complete; candidate fixture Chromium decodability is demonstrated in recon-DEV-471:12-35 (identity and limits in brief.md T001 closure). Full-stack fixture-correlated playback remains future acceptance work; STOP for recon if required identities or seams drift.
 - `recon-DEV-471` retains DEV-440 evidence at lines 1–25 and appends plan-adjudication facts at lines 27–73 (verbatim ticket body 36–48). Historical CONCLUSIONS line citations must not be remapped to the current note.
 - Proposed ADR 0043 remains proposed until Gate 1; drafting references it without claiming acceptance. Pre-Gate 1 ADR-review receipt points to `PLAN_ADJUDICATION.md`.
 - Ordinary owner Gate 1 and PLAN FROZEN are distinct from Patron grill closure and from pending SC-006/T011; Quill invents neither freeze nor Gate 1 clearance; no runtime/gates/protection PASS is claimed from planning.

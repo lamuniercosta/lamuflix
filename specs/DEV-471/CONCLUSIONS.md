@@ -162,3 +162,18 @@ The complete cited ruling, rationale and implications are preserved in the prece
 
 
 
+
+## T000 Gate 1 merge receipt and T001 pickup disposition — Keel, 2026-11-16
+
+- **T000 complete**: Spec PR #414 merged at `0e6a68934ef8767dc00618aecd22d3376f8fb913`, per supplied verified DEV-471 task note lines 4, 28 and 32 and artifact-recovery recon lines 6-12. Rigger restored brief/plan/tasks at `c03be7387ca2fb736977c9d3436067802cb7a82b` (DEV-471:36-39). This synchronizes the existing ordinary owner Gate 1 receipt; no new approval or live GitHub re-verification is claimed. Earlier provisional/pending Gate 1 language is historical and superseded by this receipt.
+- **T001 remains open; Phase 2 dispatch blocked**: Recon at `recon-DEV-471:17-51` covers mount/bootstrap, routes/events/generated types, LocalPlay protection, help interfaces and CI coexistence. Its lines 39 and 50 explicitly do not confirm actual Chromium decoding. Metadata inspection and existing E2E source do not meet the T001 fixture-decoding checkpoint; baseline receipts in DEV-471:20-24 do not substitute for it. See brief.md Phase B pickup ruling recorded before this synchronization.
+- **needs recon**: Actual Chromium decode, valid dimensions/metadata and advancing playback for an identified candidate fixture, with command/environment/result evidence tied to the pickup source. If unavailable or failed, record that exact result; do not claim acceptance or start T002-T004.
+- **Boundaries retained**: Supply missing `docker/api.settings.json` only in disposable candidate staging for plain startup; do not use the overlay override to discharge production-startup coverage. Do not invent `_gate-common.ps1 -Help`. No production edits, runtime/gate/protection PASS, implementation merge-bar or merge authorization.
+
+
+## T001 closure and Phase 2 clearance — Keel, 2026-11-16
+
+- **Decision recorded first in brief.md**: T001 complete; Anvil cleared for local tasks.md Phase 2 T002-T004 in the DEV-471 worktree. This supersedes the earlier open/blocked pickup disposition, without scope or ordering changes.
+- **Basis**: Existing pickup reanalysis and baseline receipts in DEV-471:20-24,41-57 plus Wisp Chromium probe execution in recon-DEV-471:12-35, using note DEV-471-Keel-Chromium-probe. Exit 0 / PASS; Big Buck Bunny (2008).mp4, SHA-256 3a82a333fe6127cc03bcdbc4e3aff69a6c99abcd34a9a14d60e870d9ced8de07, 202927 bytes; Playwright 1.65.0 / Chromium 158.0.8127.18; 320x180, duration 8s, currentTime 0 to 0.004345, readyState 4. Final missing pickup checkpoint is satisfied. Earlier recon citations are historical, not current note coordinates.
+- **Status synchronization**: T001 checked in tasks.md; brief/spec/plan/tasks active pointers reflect Phase 2 clearance. T002-T014 remain unchecked. Bernstein owns the DEV-471 task note and chain updates.
+- **Limits**: Fixture-only loopback probe, not full Compose/API/nginx acceptance or seeking. Preserve disposable runtime settings, unchanged shipped Compose/nginx, LocalPlay false, single T002-owned budget config, STOP rules and capped closing bar. T004 developmental and T010 final-candidate proofs, implementation gates and T011 actual required-check verification remain due; no Done or merge clearance.

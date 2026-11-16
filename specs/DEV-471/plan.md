@@ -4,7 +4,7 @@
 
 **Input**: Grill-closed `brief.md` (Q1–Q7 plus plan-challenge decision record and groups 1–6 amendment); `CONCLUSIONS.md` (provenance + groups 1–6); `ASSUMPTIONS.md`; proposed ADR `docs/adr/0043-unmasked-compose-startup-and-stubbed-smoke.md`; Maestri notes `DEV-471`, `recon-DEV-471` (retained lines 1–25 + appended 27–73; verbatim ticket body 36–48); `PLAN_ADJUDICATION.md`; `specs/PRODUCT.md`; `.specify/memory/constitution.md` (cite only).
 
-**Status**: Phase 2 Spec Kit drafting; repair rounds 1–2 applied (round 2 final). PLAN FROZEN declared by Keel in brief.md after final independent verification. Gate 1, implementation, runtime acceptance, and merge remain distinct and open. Quill does not declare freeze or Gate 1. No runtime, gate, or branch-protection PASS is claimed from planning.
+**Status**: PLAN FROZEN. Gate 1 spec PR #414 merged; T000 and T001 complete (receipts synchronized 2026-11-16). Anvil cleared for local Phase 2 T002-T004 on Chromium probe evidence in recon-DEV-471:12-35. See brief.md T001 closure and Phase 2 dispatch clearance. Compose runtime acceptance, implementation gate results, branch-protection verification and merge clearance remain open.
 
 **Artifacts**: `spec.md`, `plan.md`, `tasks.md`, `checklists/requirements.md`, `DRAFTING_RECEIPT.md` (Quill-owned). `checklists/compose-smoke.md` remains Keel reviewer-owned. No `research.md`, `data-model.md`, or `contracts/` — behaviour and file boundaries are frozen in the brief as amended; no public API/schema design delta. ADR 0043 already drafted by Keel (proposed). Pre-Gate 1 ADR content alignment is recorded in `PLAN_ADJUDICATION.md` (Compass L5).
 
