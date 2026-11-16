@@ -12,6 +12,7 @@ import {
   SEED_MOVIES,
   SUBTITLE_FIXTURES,
 } from './fixtures.mjs';
+import { loadDev471Fixture, stageDev471Fixture } from './fixtures/dev471/prepare.mjs';
 
 const execFileAsync = promisify(execFile);
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -36,7 +37,11 @@ const STUB_PORT = 18080;
 const BASE_URL = 'http://localhost:3000';
 const DOCKER = process.env.DOCKER ?? 'docker';
 
-const projectName = `lamuflix-e2e-${randomBytes(4).toString('hex')}`;
+const DEV471_SPEC = 'dev471-compose-smoke.e2e.ts';
+const SMOKE_MODE = process.env.E2E_SMOKE_MODE === 'dev471';
+
+const projectName =
+  process.env.E2E_PROJECT_NAME ?? `lamuflix-e2e-${randomBytes(4).toString('hex')}`;
 const secrets = [];
 const streamEvidenceFile = path.join(evidenceDir, 'stream-acceptance.json');
 const seekEvidenceFile = path.join(evidenceDir, 'browser-seek.json');
@@ -118,6 +123,12 @@ function validateProviderSettings(settings) {
   if (parsed.protocol !== 'http:' || parsed.hostname !== '127.0.0.1') {
     throw new Error('Omdb:BaseUrl must be http on the literal host 127.0.0.1');
   }
+
+  // The API container runs unprivileged, so a relative cache directory would resolve under
+  // the read-only content root and every thumbnail would fail with StorageError.
+  if (!String(settings.Thumbnails?.CacheDirectory ?? '').startsWith('/')) {
+    throw new Error('generated settings must set an absolute Thumbnails:CacheDirectory');
+  }
 }
 
 function writeSettings(settings) {
@@ -163,6 +174,13 @@ function buildSettings() {
     Library: {
       RootPath: '/media/library',
     },
+    // The shipped API image runs as an unprivileged user that cannot write the default
+    // relative cache under /app, so the ephemeral test settings point the real generator at
+    // a writable path. Runtime test preparation only; shipped Compose and Dockerfile are unchanged.
+    Thumbnails: {
+      Enabled: true,
+      CacheDirectory: '/tmp/thumbnails',
+    },
   };
 
   validateProviderSettings(settings);
@@ -206,7 +224,7 @@ const manualMatchMovies = MANUAL_MATCH_MOVIES.map((movie) => ({
   posterUrl: `${BASE_URL}/e2e-posters/${movie.imdbId}.svg`,
 }));
 
-function writeStubResponses() {
+function writeStubResponses(fixture) {
   const responses = [...SEED_MOVIES, RESERVED_MOVIE].map((movie) => ({
     title: movie.title,
     year: movie.year,
@@ -220,10 +238,33 @@ function writeStubResponses() {
       body: foundBody(movie),
     });
   }
+  if (fixture) {
+    responses.push({
+      title: fixture.title,
+      year: fixture.year,
+      body: {
+        Response: 'True',
+        Title: fixture.title,
+        Type: 'movie',
+        Year: String(fixture.year),
+        Runtime: `${fixture.runtimeMinutes} min`,
+        Plot: fixture.plot,
+        Rated: 'N/A',
+        imdbRating: fixture.rating,
+        imdbID: fixture.imdbId,
+        Poster: 'N/A',
+        Genre: fixture.genre,
+        Director: fixture.director,
+        Writer: fixture.director,
+        Actors: fixture.director,
+        Metascore: 'N/A',
+      },
+    });
+  }
   writeFileSync(responsesFile, `${JSON.stringify({ responses }, null, 2)}\n`);
 }
 
-function writeContext() {
+function writeContext(fixture) {
   const context = {
     project: projectName,
     composeFiles: [composePath(baseCompose), composePath(overlayCompose)],
@@ -258,6 +299,9 @@ function writeContext() {
     },
     runtimeDir: composePath(runtimeDir),
   };
+  if (fixture) {
+    context.dev471Fixture = fixture;
+  }
   writeFileSync(contextFile, `${JSON.stringify(context, null, 2)}\n`);
 }
 
@@ -269,8 +313,15 @@ function prepare() {
   writeSettings(settings);
   writeComposeEnv(credentials);
   generateFixtures({ sampleLibraryDir, libraryDir });
-  writeStubResponses();
-  writeContext();
+  const fixture = SMOKE_MODE ? dev471Fixture() : null;
+  writeStubResponses(fixture);
+  writeContext(fixture);
+}
+
+function dev471Fixture() {
+  const fixture = loadDev471Fixture();
+  stageDev471Fixture({ libraryDir, fixture });
+  return fixture;
 }
 
 function bindFree(port, host) {
@@ -754,13 +805,17 @@ async function runStreamAcceptance() {
   );
 }
 
-function hasSpecs() {
-  return readdirSync(scriptDir).some((name) => name.endsWith('.e2e.ts'));
+function selectSpecs() {
+  const specs = readdirSync(scriptDir).filter((name) => name.endsWith('.e2e.ts'));
+  return SMOKE_MODE
+    ? specs.filter((name) => name === DEV471_SPEC)
+    : specs.filter((name) => name !== DEV471_SPEC);
 }
 
 async function runPlaywright() {
-  if (!hasSpecs()) {
-    log('No smoke specs found; verified stack readiness and seeding only.');
+  const specs = selectSpecs();
+  if (specs.length === 0) {
+    log(`No smoke specs selected for this run; verified stack readiness and seeding only.`);
     return 0;
   }
 
@@ -772,6 +827,9 @@ async function runPlaywright() {
         'test',
         '--config',
         path.join(webDir, 'playwright.config.ts'),
+        ...specs.map((name) =>
+          path.relative(webDir, path.join(scriptDir, name)).replaceAll('\\', '/'),
+        ),
       ],
       {
         cwd: webDir,
