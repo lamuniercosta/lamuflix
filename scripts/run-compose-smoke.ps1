@@ -13,13 +13,23 @@ if ($Help) {
     Write-Output @"
 Usage: run-compose-smoke.ps1 [-Help] [-RegressionProof] [-CandidateRef <git-ref>]
 
-Required Compose smoke for DEV-471, phase 1 (plain shipped startup).
+Required Compose smoke for DEV-471. It runs two separately isolated positive
+phases against disposable candidate source copies OUTSIDE the PR checkout.
 
-Phase 1 stages a disposable candidate source copy OUTSIDE the PR checkout,
-generates an ephemeral docker/api.settings.json inside that copy only
-(Features:LocalPlay false, no committed secrets), then starts the shipped
-docker-compose.yml with no e2e Ollama endpoint override. It requires healthy
-Postgres and RabbitMQ, real Ollama model readiness, and API health.
+Phase 1 (plain startup) generates an ephemeral docker/api.settings.json inside
+its copy only (Features:LocalPlay false, no committed secrets), then starts the
+shipped docker-compose.yml with no e2e Ollama endpoint override. It requires
+healthy Postgres and RabbitMQ, real Ollama model readiness, and API health.
+
+Phase 2 (stubbed full flow) starts the shipped base plus the existing
+web/e2e/compose.e2e.yml overlay under a second randomized project, running
+web/e2e/run.mjs with E2E_SMOKE_MODE=dev471. That entrypoint selects only
+web/e2e/dev471-compose-smoke.e2e.ts and asserts, for one fixture-correlated
+movie: the /hubs/ connection through shipped nginx, import through the real
+stack, library listing with deterministic stub enrichment, a decodable
+thumbnail, a genuine server-originated hub update, advancing in-page browser
+playback with real media metadata, and an active process-play POST through
+shipped nginx that must answer 403. Only external providers are stubbed.
 
   -RegressionProof   DEV-440 controlled-revert mode. Runs the phase-1 candidate
                      assertion plus an identical assertion on a second
@@ -674,6 +684,147 @@ function Get-CheckoutBaseline {
     return Get-TextSha256 $status.StdOut
 }
 
+function Connect-ToolchainModules {
+    param([string]$SourceRoot)
+
+    $source = Join-Path $RepoRoot 'web/node_modules'
+    if (-not (Test-Path -LiteralPath $source)) {
+        throw ('web/node_modules is missing in the PR checkout; install the locked web toolchain before running the smoke')
+    }
+
+    $destination = Join-Path $SourceRoot 'web/node_modules'
+    if (Test-Path -LiteralPath $destination) {
+        return
+    }
+
+    New-Item -ItemType Directory -Force -Path (Join-Path $SourceRoot 'web') | Out-Null
+    $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
+    New-Item -ItemType $linkType -Path $destination -Target $source | Out-Null
+    Write-Step '[Stubbed flow] linked the locked web toolchain into the disposable copy (toolchain only, no source)'
+}
+
+function Invoke-StubbedFlowPhase {
+    param(
+        [object]$Budgets,
+        [string]$StagingRoot,
+        [string]$EvidenceRoot,
+        [string]$Commit
+    )
+
+    $phaseName = 'Stubbed flow'
+    $evidencePath = Join-Path $EvidenceRoot 'stubbed-flow'
+    New-Item -ItemType Directory -Force -Path $evidencePath | Out-Null
+
+    $source = Join-Path $StagingRoot 'source-flow'
+    Write-Step ('[{0}] staging a disposable copy of {1} outside the PR checkout' -f $phaseName, $Commit)
+    New-StagingCopy -Commit $Commit -Destination $source | Out-Null
+    Connect-ToolchainModules -SourceRoot $source
+
+    $project = 'lamuflix-smoke-flow-' + (New-RandomToken 4)
+    Register-Project -Project $project -RegistryPath (Join-Path $EvidenceRoot 'projects.txt')
+
+    $runner = Join-Path $source 'web/e2e/run.mjs'
+    if (-not (Test-Path -LiteralPath $runner)) {
+        throw ('the candidate source has no web/e2e/run.mjs; the stubbed full-flow phase cannot run')
+    }
+
+    $receipt = [ordered]@{
+        phase         = 'stubbed-flow'
+        project       = $project
+        source        = [ordered]@{
+            commit     = $Commit
+            copy       = $source
+            entrypoint = 'web/e2e/run.mjs via E2E_SMOKE_MODE=dev471'
+        }
+        localPlay     = $false
+        fixture       = 'web/e2e/fixtures/dev471/smoke-fixture.json'
+        stubbing      = 'external providers only (existing web/e2e/compose.e2e.yml overlay, unchanged)'
+        exit          = $null
+        verdict       = 'FAIL'
+        failure       = $null
+        log           = $null
+    }
+
+    $previousSmokeMode = $env:E2E_SMOKE_MODE
+    $previousProject = $env:E2E_PROJECT_NAME
+    $teardownFailure = $null
+    $failure = $null
+    try {
+        $env:E2E_SMOKE_MODE = 'dev471'
+        $env:E2E_PROJECT_NAME = $project
+        $run = Invoke-Native -FilePath 'node' -Arguments @($runner) -TimeoutSeconds (Get-StepTimeout ($Budgets.StackStartupSeconds * 2) $Budgets) -WorkingDirectory $source
+        $log = Protect-Text (Join-Output $run.StdOut $run.StdErr)
+        Set-Content -LiteralPath (Join-Path $evidencePath 'stubbed-flow.log') -Value $log -Encoding utf8NoBOM
+        $receipt.log = Join-Path $evidencePath 'stubbed-flow.log'
+        $receipt.exit = [ordered]@{ smokeExitCode = $run.ExitCode }
+
+        if ($run.TimedOut) {
+            throw ('the stubbed full-flow phase timed out after {0}s' -f ($Budgets.StackStartupSeconds * 2))
+        }
+        if ($run.ExitCode -ne 0) {
+            throw ('the stubbed full-flow phase exited {0}' -f $run.ExitCode)
+        }
+
+        $receipt.verdict = 'PASS'
+        Write-Step ('[{0}] PASS: fixture-correlated import, stub enrichment, listing, thumbnail, hub update, advancing browser play and process-play 403' -f $phaseName)
+    }
+    catch {
+        $failure = $_.Exception.Message
+        $receipt.failure = Protect-Text $failure
+        if ($null -eq $receipt.log) {
+            Set-Content -LiteralPath (Join-Path $evidencePath 'stubbed-flow.log') -Value (Protect-Text $failure) -Encoding utf8NoBOM
+            $receipt.log = Join-Path $evidencePath 'stubbed-flow.log'
+        }
+    }
+    finally {
+        $env:E2E_SMOKE_MODE = $previousSmokeMode
+        $env:E2E_PROJECT_NAME = $previousProject
+        try {
+            $runtimeEnv = Join-Path $source 'web/e2e/.runtime/compose.env'
+            $downArgs = @('compose', '-p', $project, '-f', (Join-Path $source 'docker-compose.yml'), '-f', (Join-Path $source 'web/e2e/compose.e2e.yml'))
+            if (Test-Path -LiteralPath $runtimeEnv) {
+                $downArgs += @('--env-file', $runtimeEnv)
+            }
+            $downArgs += @('down', '--volumes', '--remove-orphans')
+
+            $remaining = Invoke-Native -FilePath $Docker -Arguments @('ps', '--all', '--quiet', '--filter', ('label=com.docker.compose.project={0}' -f $project)) -TimeoutSeconds $Budgets.TeardownPerProjectSeconds
+            if ($remaining.ExitCode -ne 0) {
+                throw ('could not read the remaining containers for project {0}' -f $project)
+            }
+            if (($remaining.StdOut -split "`n" | Where-Object { $_.Trim() }).Count -eq 0) {
+                Write-Step ('project {0} already has no containers; teardown satisfied' -f $project)
+            }
+            else {
+                $down = Invoke-Native -FilePath $Docker -Arguments $downArgs -TimeoutSeconds $Budgets.TeardownPerProjectSeconds
+                if ($down.TimedOut) {
+                    throw ('teardown of project {0} timed out after {1}s' -f $project, $Budgets.TeardownPerProjectSeconds)
+                }
+                if ($down.ExitCode -ne 0) {
+                    throw ('teardown of project {0} exited {1}: {2}' -f $project, $down.ExitCode, (Protect-Text (Join-Output $down.StdOut $down.StdErr)))
+                }
+                Write-Step ('tore down project-scoped stack {0}' -f $project)
+            }
+        }
+        catch {
+            $teardownFailure = $_.Exception.Message
+            $receipt.verdict = 'FAIL'
+            $receipt.exit = [ordered]@{ smokeExitCode = 1 }
+            $receipt.failure = Protect-Text ('teardown failure: {0}' -f $teardownFailure)
+        }
+    }
+
+    ($receipt | ConvertTo-Json -Depth 8) | Set-Content -LiteralPath (Join-Path $evidencePath 'receipt.json') -Encoding utf8NoBOM
+
+    if ($teardownFailure) {
+        throw ('teardown failed for project {0}: {1}' -f $project, $teardownFailure)
+    }
+    if ($failure) {
+        throw $failure
+    }
+
+    return $receipt
+}
+
 function Invoke-Smoke {
     $budgets = Read-Budgets
     $script:Deadline = $RunStarted.AddSeconds($budgets.JobCapSeconds)
@@ -700,6 +851,7 @@ function Invoke-Smoke {
     $failure = $null
     try {
         $receipts.Add((Invoke-PlainPhase -Mode 'candidate' -Budgets $budgets -StagingRoot $stagingRoot -EvidenceRoot $evidenceRoot -Commit $commit))
+        $receipts.Add((Invoke-StubbedFlowPhase -Budgets $budgets -StagingRoot $stagingRoot -EvidenceRoot $evidenceRoot -Commit $commit))
         if ($RegressionProof) {
             $receipts.Add((Invoke-PlainPhase -Mode 'regression' -Budgets $budgets -StagingRoot $stagingRoot -EvidenceRoot $evidenceRoot -Commit $commit))
         }
