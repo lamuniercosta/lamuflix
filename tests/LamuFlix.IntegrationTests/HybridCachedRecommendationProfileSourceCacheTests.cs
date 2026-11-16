@@ -1,6 +1,11 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
+using LamuFlix.Core.Domain;
+using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Tests.Common;
+using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
 
@@ -102,7 +107,7 @@ public sealed class HybridCachedRecommendationProfileSourceCacheTests(PostgresFi
         var second = await harness.Adapter.GetTasteProfileAsync(ct);
 
         // assert
-        serializeCountAfterFirst.ShouldBe(1);
+        serializeCountAfterFirst.ShouldBe(2);
         harness.Serializer.LastSerializedBytes.ShouldBe(observedBytes);
         harness.Serializer.SerializeCount.ShouldBe(serializeCountAfterFirst);
         harness.Serializer.DeserializeCount.ShouldBeGreaterThanOrEqualTo(1);
@@ -111,5 +116,67 @@ public sealed class HybridCachedRecommendationProfileSourceCacheTests(PostgresFi
         first.PlotEmbedding.SequenceEqual(watchedVector).ShouldBeTrue();
         observedBytes.ShouldBeGreaterThan(first.PlotEmbedding.Length * sizeof(float));
         first.ShouldMatchProfile(second);
+    }
+
+    [Fact]
+    public async Task GetTasteProfileAsync_LegacyNamespaceEntry_IsIgnoredAndRebuiltUnderTheCompactKey()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var harness = TasteProfileCacheHarness.Create(fixture);
+        await harness.SeedMovieAsync("Watched profile history", isWatched: true, ct, "Drama");
+        var cache = harness.Services.GetRequiredService<HybridCache>();
+        var legacy = new CachedProfile(LegacyProfile(), 11, default);
+        await cache.SetAsync(
+            "LamuFlix.Recommendations.TasteProfile",
+            legacy,
+            cancellationToken: ct);
+        var serializeCountAfterSeeding = harness.Serializer.SerializeCount;
+
+        // act
+        var profile = await harness.Adapter.GetTasteProfileAsync(ct);
+
+        // assert
+        profile.GenrePreferences.Keys.ShouldBe(["Drama"]);
+        legacy.Profile.GenrePreferences.Keys.ShouldBe(["Legacy Genre"]);
+        harness.Serializer.SerializeCount.ShouldBeGreaterThan(serializeCountAfterSeeding);
+        var legacyReadBack = await cache.GetOrCreateAsync(
+            "LamuFlix.Recommendations.TasteProfile",
+            _ => ValueTask.FromResult(new CachedProfile(LegacyProfile(), -1, default)),
+            cancellationToken: ct);
+        legacyReadBack.Generation.ShouldBe(legacy.Generation);
+        legacyReadBack.Profile.GenrePreferences.Keys.ShouldBe(["Legacy Genre"]);
+    }
+
+    [Fact]
+    public async Task GetTasteProfileAsync_CompactProfile_SerializesOnConstructionAndReusesWithoutReSerializing()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var harness = TasteProfileCacheHarness.Create(fixture);
+        await harness.SeedMovieAsync("Watched profile history", isWatched: true, ct, "Drama");
+
+        // act
+        var first = await harness.Adapter.GetTasteProfileAsync(ct);
+        var serializeCountAfterFirst = harness.Serializer.SerializeCount;
+        var observedBytes = harness.Serializer.LastSerializedBytes;
+        var second = await harness.Adapter.GetTasteProfileAsync(ct);
+
+        // assert
+        serializeCountAfterFirst.ShouldBe(2);
+        harness.Serializer.SerializeCount.ShouldBe(serializeCountAfterFirst);
+        harness.Serializer.LastSerializedBytes.ShouldBe(observedBytes);
+        ((long)harness.Serializer.LastSerializedBytes).ShouldBeLessThan(
+            new HybridCacheOptions().MaximumPayloadBytes);
+        first.ShouldMatchProfile(second);
+    }
+
+    private static TasteProfile LegacyProfile()
+    {
+        var genres = System.Collections.Immutable.ImmutableDictionary
+            .Create<string, double>(StringComparer.OrdinalIgnoreCase)
+            .Add("Legacy Genre", 1.0);
+
+        return new TasteProfile(genres, System.Collections.Immutable.ImmutableArray<float>.Empty);
     }
 }

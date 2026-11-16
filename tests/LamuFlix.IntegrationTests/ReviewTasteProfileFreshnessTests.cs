@@ -6,6 +6,7 @@ using LamuFlix.Infrastructure.Persistence;
 using LamuFlix.Tests.Common;
 using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Xunit;
@@ -152,7 +153,9 @@ public sealed class ReviewTasteProfileFreshnessTests(PostgresFixture fixture) : 
             harness.Services.GetRequiredService<IServiceScopeFactory>(),
             TimeProvider.System,
             Options.Create(new TasteProfileCacheOptions { Expiration = TimeSpan.FromMinutes(5) }),
-            harness.Serializer);
+            harness.Serializer,
+            NullLogger<HybridCachedRecommendationProfileSource>.Instance,
+            Options.Create(new HybridCacheOptions()));
 
         var warm = await adapter.GetTasteProfileAsync(ct);
         warm.GenrePreferences.Keys.ShouldBe(["Drama"]);

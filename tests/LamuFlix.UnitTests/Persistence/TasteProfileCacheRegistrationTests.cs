@@ -153,7 +153,7 @@ public sealed class TasteProfileCacheRegistrationTests
     public async Task HybridCacheAdmission_SerializesTheEnvelopeThroughTheRegisteredSingleton()
     {
         // arrange
-        using var provider = Compose(Configuration(Valid("00:05:00")))
+        await using var provider = Compose(Configuration(Valid("00:05:00")))
             .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
         var serializer = provider.GetRequiredService<CachedProfileSerializer>();
 
@@ -177,7 +177,7 @@ public sealed class TasteProfileCacheRegistrationTests
     public async Task HybridCacheAdmission_ByteObservationAndAdmissionAgreeOnTheSameEnvelope()
     {
         // arrange
-        using var provider = Compose(Configuration(Valid("00:05:00")))
+        await using var provider = Compose(Configuration(Valid("00:05:00")))
             .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
         var serializer = provider.GetRequiredService<CachedProfileSerializer>();
         var envelope = Envelope();
@@ -189,7 +189,7 @@ public sealed class TasteProfileCacheRegistrationTests
             cancellationToken: TestContext.Current.CancellationToken);
         var observed = serializer.LastSerializedBytes;
 
-        var writer = new System.Buffers.ArrayBufferWriter<byte>();
+        var writer = new ArrayBufferWriter<byte>();
         serializer.Serialize(envelope, writer);
 
         // assert
@@ -202,7 +202,7 @@ public sealed class TasteProfileCacheRegistrationTests
     public async Task HybridCacheAdmission_SecondReadReusesTheAdmittedEntryWithoutReSerializing()
     {
         // arrange
-        using var provider = Compose(Configuration(Valid("00:05:00")))
+        await using var provider = Compose(Configuration(Valid("00:05:00")))
             .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
         var serializer = provider.GetRequiredService<CachedProfileSerializer>();
         var cache = provider.GetRequiredService<HybridCache>();
@@ -220,6 +220,51 @@ public sealed class TasteProfileCacheRegistrationTests
 
         // assert
         serializer.SerializeCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void AddLamuFlixPersistence_BindsConfiguredWarningFraction()
+    {
+        // arrange
+        var configuration = Configuration(Valid("00:05:00"));
+        configuration["TasteProfileCache:WarningFraction"] = "0.65";
+        using var provider = Compose(configuration).BuildServiceProvider();
+
+        // act
+        var warningFraction = provider.GetRequiredService<IOptions<TasteProfileCacheOptions>>().Value.WarningFraction;
+
+        // assert
+        warningFraction.ShouldBe(0.65);
+    }
+
+    [Fact]
+    public void AddLamuFlixPersistence_DefaultsWarningFractionToTheConstDefault()
+    {
+        // arrange
+        using var provider = Compose(Configuration(Valid("00:05:00"))).BuildServiceProvider();
+
+        // act
+        var warningFraction = provider.GetRequiredService<IOptions<TasteProfileCacheOptions>>().Value.WarningFraction;
+
+        // assert
+        warningFraction.ShouldBe(TasteProfileCacheOptions.DefaultWarningFraction);
+        TasteProfileCacheOptions.DefaultWarningFraction.ShouldBe(0.8);
+    }
+
+    [Fact]
+    public void AddLamuFlixPersistence_InjectsTheWarningFractionIntoTheCachedSource()
+    {
+        // arrange
+        var configuration = Configuration(Valid("00:05:00"));
+        configuration["TasteProfileCache:WarningFraction"] = "0.65";
+        using var provider = Compose(configuration).BuildServiceProvider(
+            new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        // act
+        var adapter = provider.GetRequiredService<HybridCachedRecommendationProfileSource>();
+
+        // assert
+        adapter.WarningFraction.ShouldBe(0.65);
     }
 
     private static readonly DateTimeOffset CreatedAt = new(2026, 11, 16, 12, 0, 0, TimeSpan.Zero);
