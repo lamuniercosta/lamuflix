@@ -861,23 +861,33 @@ public sealed class OmdbMetadataProviderUnitTests
         logger.Messages.ShouldNotContain(message => message.Contains("Check the OMDb API key", StringComparison.Ordinal));
     }
 
-    [Fact]
-    public async Task FindAsync_FailedResult_SetsErrorActivityStatus()
+    [Collection(nameof(MetricsCollection))]
+    public sealed class ErrorActivityStatusTests
     {
-        // arrange
-        string? status = null;
-        using var listener = new ActivityListener();
-        listener.ShouldListenTo = source => source.Name == "LamuFlix";
-        listener.Sample = (ref _) => ActivitySamplingResult.AllData;
-        ActivitySource.AddActivityListener(listener);
-        listener.ActivityStopped += activity => status = activity.Status.ToString();
-        var provider = Provider(new StubHandler(HttpStatusCode.OK, "not json"));
+        [Fact]
+        public async Task FindAsync_FailedResult_SetsErrorActivityStatus()
+        {
+            // arrange
+            string? status = null;
+            using var listener = new ActivityListener();
+            listener.ShouldListenTo = source => source.Name == TelemetryConstants.ActivitySourceName;
+            listener.Sample = (ref _) => ActivitySamplingResult.AllData;
+            listener.ActivityStopped = activity =>
+            {
+                if (activity.OperationName == TelemetryConstants.MetadataLookup)
+                {
+                    status = activity.Status.ToString();
+                }
+            };
+            ActivitySource.AddActivityListener(listener);
+            var provider = Provider(new StubHandler(HttpStatusCode.OK, "not json"));
 
-        // act
-        await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
+            // act
+            await provider.FindAsync(new MetadataLookup("Blade Runner", null), TestContext.Current.CancellationToken);
 
-        // assert
-        status.ShouldBe(ActivityStatusCode.Error.ToString());
+            // assert
+            status.ShouldBe(ActivityStatusCode.Error.ToString());
+        }
     }
 
     [Fact]
