@@ -106,3 +106,41 @@ Factual source: recon-DEV-472. Decision authority: Patron under charter section 
 - **Ledger L2 (Low — rewritten explanatory comment block at `.github/workflows/ci.yml:295-302`):** Confirmed in-scope Low defect; minimal repair is removing lines `295-302` of `.github/workflows/ci.yml` only (`specs/DEV-472/CONCLUSIONS.md:85` directed removing the original `.github/workflows/ci.yml:213-224` block, and `AGENTS.md` prohibits explanatory comments).
 - **Compass C1 (Low — T000/T001 receipt gap at `specs/DEV-472/tasks.md:46,55`):** Confirmed in-scope Low receipt gap; minimal repair is recording the verified Gate 1 spec PR #413 merge (`52f6fb2e`, `DEV-472` intake line 4) in `specs/DEV-472/CONCLUSIONS.md`, ticking `T000` in `specs/DEV-472/tasks.md:46`, and separately reconciling `T001` (`specs/DEV-472/tasks.md:55`) against actual recorded pickup receipts without inventing unperformed reanalysis.
 
+---
+
+## Phase 4 Step 4 — Gate 1 Merge Receipt and T000/T001 Reconciliation (C1 repair)
+
+Receipt for `specs/DEV-472/tasks.md:46` (T000). Recorded by Cog under the Phase 4 Step 4 remediation ask from Bernstein; adjudicated scope is the Compass C1 disposition immediately above and the Keel verdict in `findings-DEV-472-Keel` line 12.
+
+### Gate 1 spec PR merge receipt
+
+| Field | Value |
+| --- | --- |
+| PR | [#413](https://github.com/lamuniercosta/lamuflix/pull/413) — `DEV-472: spec` |
+| State | `MERGED` |
+| Base | `main` |
+| Merge commit | `52f6fb2e69eb25b1ae5f1143ade96009fc810dec` |
+| Merged at | 2026-11-15T07:43:58Z |
+| Merge performed by | the user (ordinary owner Gate 1 merge); no seat claimed it |
+
+Verification commands, read-only, from `F:/Dev/LamuFlix.worktrees/DEV-472`:
+
+- `gh pr view 413 --json number,state,mergedAt,mergeCommit,baseRefName,url` → exit 0; `state` `MERGED`, `mergeCommit.oid` `52f6fb2e69eb25b1ae5f1143ade96009fc810dec`, `baseRefName` `main`, `mergedAt` `2026-11-15T07:43:58Z`.
+- `git fetch origin main` then `git merge-base --is-ancestor 52f6fb2e origin/main` → exit 0, so the merge commit is contained in `origin/main` (`d19668de114727c217aeebf567d762b0f75a0c9e` at read-back).
+- `git log -1 --format='%H %ci %s' 52f6fb2e` → `52f6fb2e69eb25b1ae5f1143ade96009fc810dec 2026-11-15 04:43:58 -0300 DEV-472: spec`.
+- `git ls-tree --name-only 52f6fb2e specs/DEV-472/` → `ASSUMPTIONS.md`, `CONCLUSIONS.md`, `DRAFTING_RECEIPT.md`, `PLAN_ADJUDICATION.md`, `brief.md`, `checklists`, `plan.md`, `spec.md`, `tasks.md` (the nine planning artifacts `recon-DEV-472:11` lists).
+
+Gate 1 was an ordinary owner merge of the spec PR, as `specs/DEV-472/tasks.md:22` and `:46` require: Bernstein coordinates, Rigger prepares and opens, only the user merges, Keel records the verified receipt. No structural owner checkbox applied (`specs/DEV-472/tasks.md:46`; this section is that ruling's receipt, not a new gate).
+
+### T001 reconciliation against recorded pickup receipts
+
+`specs/DEV-472/tasks.md:55` (T001) bundles three sub-receipts. Each is reconciled against an artifact that already exists, and none is upgraded on inference:
+
+| T001 sub-receipt | Owner | Status | Recorded evidence |
+| --- | --- | --- | --- |
+| Phase B pickup recon against picked HEAD / landed main | Wisp | **recorded** | `recon-DEV-472:1-26` (HEAD `b98a4b0a`, triggers at `ci.yml:8,16,24`, full matrix at `222-243`, property job at `295-315`, no `concurrency:` block at line 35, required-check read-back at line 34, reuse-only scripts) |
+| Pre-edit applicable-gate baseline | Gauge | **recorded** | note `DEV-472` "Baseline gates" — analyzers exit 2 `SKIPPED (scope-empty)`, vulnerable-packages exit 0 PASS, `dotnet test` exit 0 (5844 passed / 0 failed / 3 skipped) |
+| Keel reanalysis of brief/spec/plan/tasks against landed main | Keel | **pending — not evidenced** | No reanalysis receipt exists for the post-merge landed `main` (`52f6fb2e`). `PLAN_ADJUDICATION.md` and `CONCLUSIONS.md` Phase 2 Steps 6-7 were authored against Phase A base `e0658703` on branch `feature/472-spec`, before the merge. The Phase 4 Step 3 adjudication in note `DEV-472` is review adjudication at `af3a1a5a`, not a T001 reanalysis. |
+
+Because one of the three sub-receipts is unevidenced, T001 stays **unchecked** in `specs/DEV-472/tasks.md:55` and is annotated with this pending sub-receipt rather than ticked. No reanalysis is claimed that was not performed. Wisp's pickup recon and Gauge's baseline do not substitute for Keel's reanalysis, and the ticket's `Spec/Gate 1` status stays distinct from runtime acceptance.
+

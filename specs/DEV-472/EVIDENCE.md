@@ -8,6 +8,19 @@ Runtime acceptance is **not** claimed here. Layers 1 (static assertions) and 2 (
 - Comparison base: `origin/main` = `b98a4b0a6287673e56015145862be43c2e3dd3d0`
 - Implementation file under assertion: `.github/workflows/ci.yml`
 
+## Prerequisite records — Gate 1 merge receipt (T000) and T001 reconciliation
+
+Planning-phase records, distinct from every runtime layer below. Full rulings and verification commands: `specs/DEV-472/CONCLUSIONS.md` "Phase 4 Step 4 — Gate 1 Merge Receipt and T000/T001 Reconciliation".
+
+| Record | Evidence | Status |
+| --- | --- | --- |
+| T000 Gate 1 spec PR merge | PR [#413](https://github.com/lamuniercosta/lamuflix/pull/413) `MERGED` into `main` at `52f6fb2e69eb25b1ae5f1143ade96009fc810dec` (2026-11-15T07:43:58Z); `git merge-base --is-ancestor 52f6fb2e origin/main` exit 0; nine planning artifacts present at that commit | **recorded** |
+| T001 Wisp pickup recon | `recon-DEV-472:1-26` | **recorded** |
+| T001 Gauge pre-edit gate baseline | note `DEV-472` "Baseline gates" (analyzers exit 2 `SKIPPED (scope-empty)`, vulnerable-packages exit 0, `dotnet test` exit 0 with 5844 passed / 0 failed / 3 skipped) | **recorded** |
+| T001 Keel reanalysis against landed `main` | none — `PLAN_ADJUDICATION.md` and `CONCLUSIONS.md` Phase 2 Steps 6-7 precede the merge and were authored against Phase A base `e0658703` | **pending — not evidenced** |
+
+T000 is ticked in `specs/DEV-472/tasks.md:46`. T001 stays unchecked because one of its three sub-receipts is unevidenced; no reanalysis is claimed that was not performed. These records are not runtime acceptance and close none of the T009–T011 / R1 / R2 rows below.
+
 ## Layer 1 — Mechanical static assertions (T006)
 
 Command (run from the worktree root; PyYAML 6.0.3 on Python 3.14.0, `PYTHONIOENCODING=utf-8`; the assertion script lives outside the worktree at `%TEMP%\dev-472-t006-assert.py` and is **not** added to the repository — T006 forbids a new dependency, framework or script file):
