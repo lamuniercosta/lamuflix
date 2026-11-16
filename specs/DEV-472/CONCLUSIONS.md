@@ -95,3 +95,14 @@ Factual source: recon-DEV-472. Decision authority: Patron under charter section 
 
 - **Basis:** Plan is frozen in `specs/DEV-472/brief.md:100-108` after Keel's independent read-back (`PLAN_ADJUDICATION.md`) and Q1–Q7 / Phase 2 Step 6 rulings; `specs/DEV-472/checklists/requirements.md:33-38` User-Visible Outcome items are ticked and `spec.md:69-71` states "Nothing visible" with reason (CI workflow routing and mutation scheduling only).
 - **Escalations (§2.3):** None — no ticket contradiction and no constitution departure (`spec.md:11-13`, `plan.md:39-61`). External `PR mutation` required-check registration remains a tracked runtime prerequisite (`spec.md:157`), not a Gate 1 structural checkbox.
+
+---
+
+## Phase 4 Step 2 — Code Review Adjudication Rulings (at `af3a1a5a`)
+
+**Verdict:** Approved Keel's adjudication across all three findings — L1 out-of-scope (`noted, no ticket` under charter §2.3, no guessed timeout fix), and minimal repair scope confirmed for L2 (Low) and C1 (Low).
+
+- **Ledger L1 (Medium — missing `timeout-minutes` on `mutation-pr`):** Out-of-scope operational improvement (`noted, no ticket`). No spec FR, `harness.yml` setting, or repo rule mandates a job-level `timeout-minutes` or establishes a measured PR diff-mutation ceiling (`AGENTS.md` forbids hardcoded guessed thresholds; `specs/DEV-472/brief.md:15` freezes Q1–Q5 scope and excludes unrelated improvements), and the job already fails closed at the GitHub platform timeout (not Critical/High, broken behaviour, or user-requested per charter §2.3).
+- **Ledger L2 (Low — rewritten explanatory comment block at `.github/workflows/ci.yml:295-302`):** Confirmed in-scope Low defect; minimal repair is removing lines `295-302` of `.github/workflows/ci.yml` only (`specs/DEV-472/CONCLUSIONS.md:85` directed removing the original `.github/workflows/ci.yml:213-224` block, and `AGENTS.md` prohibits explanatory comments).
+- **Compass C1 (Low — T000/T001 receipt gap at `specs/DEV-472/tasks.md:46,55`):** Confirmed in-scope Low receipt gap; minimal repair is recording the verified Gate 1 spec PR #413 merge (`52f6fb2e`, `DEV-472` intake line 4) in `specs/DEV-472/CONCLUSIONS.md`, ticking `T000` in `specs/DEV-472/tasks.md:46`, and separately reconciling `T001` (`specs/DEV-472/tasks.md:55`) against actual recorded pickup receipts without inventing unperformed reanalysis.
+
