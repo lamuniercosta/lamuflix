@@ -712,6 +712,14 @@ function Invoke-PlainPhase {
     }
     catch {
         $failure = $_.Exception.Message
+        if ($null -eq $receipt.prerequisites) {
+            $receipt.prerequisites = [ordered]@{
+                docker = 'available'
+                build  = 'unknown (startup threw before prerequisites bound)'
+            }
+        }
+        if ($null -eq $receipt.health) { $receipt.health = ('startup failed before api health resolved: {0}' -f (Protect-Text $failure)) }
+        if ($null -eq $receipt.exit) { $receipt.exit = [ordered]@{ apiContainerExitCode = 'unknown'; smokeExitCode = 1 } }
         if (-not $receipt.cause) { $receipt.cause = Protect-Text $failure }
     }
     finally {
@@ -721,8 +729,9 @@ function Invoke-PlainPhase {
         catch {
             $teardownFailure = $_.Exception.Message
             $receipt.verdict = 'FAIL'
-            $receipt.exit = [ordered]@{ apiContainerExitCode = $null; smokeExitCode = 1 }
-            $receipt.cause = Protect-Text ('teardown failure: {0}' -f $teardownFailure)
+            if ($null -eq $receipt.exit) { $receipt.exit = [ordered]@{ apiContainerExitCode = 'unknown'; smokeExitCode = 1 } }
+            else { $receipt.exit.smokeExitCode = 1 }
+            $receipt.teardownFailure = Protect-Text ('teardown failure: {0}' -f $teardownFailure)
         }
     }
 
@@ -839,7 +848,28 @@ function Invoke-StubbedFlowPhase {
             $receipt.log = Join-Path $evidencePath 'stubbed-flow.log'
         }
     }
+
     finally {
+        $browserFailures = @()
+        try {
+            $resultsDir = Join-Path $source 'web/e2e/.runtime/test-results'
+            if (Test-Path -LiteralPath $resultsDir) {
+                $shots = @(Get-ChildItem -LiteralPath $resultsDir -Recurse -File -Filter '*.png')
+                if ($shots.Count -gt 0) {
+                    $destDir = Join-Path $evidencePath 'browser-failures'
+                    New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+                    foreach ($shot in $shots) {
+                        $target = Join-Path $destDir $shot.Name
+                        Copy-Item -LiteralPath $shot.FullName -Destination $target -Force
+                        $browserFailures += ('stubbed-flow/browser-failures/{0}' -f $shot.Name)
+                    }
+                }
+            }
+        }
+        catch {
+            Write-StepWarning ('could not stage browser failure evidence: {0}' -f (Protect-Text $_.Exception.Message))
+        }
+        $receipt.browserFailures = $browserFailures
         $env:E2E_SMOKE_MODE = $previousSmokeMode
         $env:E2E_PROJECT_NAME = $previousProject
         try {

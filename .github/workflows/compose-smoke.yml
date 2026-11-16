@@ -150,7 +150,8 @@ jobs:
           }
           $files = @(Get-ChildItem -LiteralPath $run.FullName -Recurse -File)
           $relative = @($files | ForEach-Object { [System.IO.Path]::GetRelativePath($run.FullName, $_.FullName).Replace('\', '/') })
-          $unexpected = @($relative | Where-Object { $required -notcontains $_ })
+          $browserFailure = @($relative | Where-Object { $_ -like 'stubbed-flow/browser-failures/*' -and $_ -like '*.png' })
+          $unexpected = @($relative | Where-Object { $required -notcontains $_ -and $browserFailure -notcontains $_ })
           if ($unexpected.Count -gt 0) {
             Write-Output ('::error::unexpected compose-smoke evidence: {0}' -f ($unexpected -join ', '))
             exit 1
@@ -170,7 +171,7 @@ jobs:
           $generatedUser = [regex]'(?i)lamuflix_[0-9a-f]{6,}'
           $unsafe = @()
           foreach ($file in $files) {
-            if ($file.Extension -notin @('.json', '.log', '.txt')) {
+            if ($file.Extension -notin @('.json', '.log', '.txt', '.png')) {
               $unsafe += ('{0} (not an allowlisted evidence type)' -f $file.Name)
               continue
             }
