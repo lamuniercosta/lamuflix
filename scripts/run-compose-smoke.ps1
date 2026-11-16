@@ -239,6 +239,7 @@ function Read-Budgets {
         asyncAssertionSeconds     = @(10, 600)
         teardownPerProjectSeconds = @(30, 900)
         jobCapSeconds             = @(600, 14400)
+        setupReserveSeconds       = @(60, 3600)
     }
 
     foreach ($key in $bounds.Keys) {
@@ -262,6 +263,7 @@ function Read-Budgets {
         AsyncAssertionSeconds     = [int]$raw.asyncAssertionSeconds
         TeardownPerProjectSeconds = [int]$raw.teardownPerProjectSeconds
         JobCapSeconds             = [int]$raw.jobCapSeconds
+        SetupReserveSeconds       = [int]$raw.setupReserveSeconds
     }
 }
 
