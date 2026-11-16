@@ -456,6 +456,42 @@ Release-ArtifactTicketOwnership `$owner
     $danglingJunctionResult = Invoke-Guard -Tool 'Write' -Path (Join-Path $danglingJunctionTicket 'file.md') -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
     Assert-Case 'a dangling ticket directory junction is not sanctioned' ($danglingJunctionResult -eq 2) "exit $danglingJunctionResult"
 
+    $deepJunctionTicket = Join-Path $guardRoot 'LamuFlix/DEV-964'
+    New-Item -ItemType Directory -Force -Path $deepJunctionTicket | Out-Null
+    New-Item -ItemType Junction -Path (Join-Path $deepJunctionTicket 'leak') -Target $junctionEscapeTarget -ErrorAction Stop | Out-Null
+    $deepNest = Join-Path $deepJunctionTicket 'leak/d1/d2/d3/d4/d5/d6/d7/marker.txt'
+    $deepNestResult = Invoke-Guard -Tool 'Edit' -Path $deepNest -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
+    Assert-Case 'a deeply nested path beneath a ticket directory junction is not sanctioned' ($deepNestResult -eq 2) "exit $deepNestResult"
+
+    $chainedJunctionTicket = Join-Path $guardRoot 'LamuFlix/DEV-965'
+    New-Item -ItemType Directory -Force -Path $chainedJunctionTicket | Out-Null
+    $chainLink = Join-Path $chainedJunctionTicket 'link0'
+    $chainPrevious = New-FixtureDir 'guard-chain-0'
+    New-Item -ItemType Junction -Path $chainLink -Target $chainPrevious -ErrorAction Stop | Out-Null
+    for ($chainIndex = 1; $chainIndex -le 12; $chainIndex++) {
+        $chainNext = New-FixtureDir "guard-chain-$chainIndex"
+        New-Item -ItemType Junction -Path (Join-Path $chainPrevious 'step') -Target $chainNext -ErrorAction Stop | Out-Null
+        $chainPrevious = $chainNext
+    }
+    $chainPath = Join-Path $chainLink ((@(1..12) | ForEach-Object { 'step' }) -join '/')
+    $chainResult = Invoke-Guard -Tool 'Edit' -Path (Join-Path $chainPath 'marker.txt') -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
+    Assert-Case 'a junction chain longer than the old hop ceiling is not sanctioned' ($chainResult -eq 2) "exit $chainResult"
+
+    $cycleTicket = Join-Path $guardRoot 'LamuFlix/DEV-966'
+    New-Item -ItemType Directory -Force -Path $cycleTicket | Out-Null
+    $cycleLeft = New-FixtureDir 'guard-cycle-left'
+    New-Item -ItemType Junction -Path (Join-Path $cycleTicket 'loop') -Target $cycleLeft -ErrorAction Stop | Out-Null
+    New-Item -ItemType Junction -Path (Join-Path $cycleLeft 'back') -Target $cycleTicket -ErrorAction Stop | Out-Null
+    $cyclePath = Join-Path $cycleTicket 'loop/back/loop/back/loop/back/loop/back/marker.txt'
+    $cycleResult = Invoke-Guard -Tool 'Edit' -Path $cyclePath -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
+    Assert-Case 'a link cycle is not sanctioned' ($cycleResult -eq 2) "exit $cycleResult"
+
+    $plainDeepTicket = Join-Path $guardRoot 'LamuFlix/DEV-967'
+    $plainDeepPath = Join-Path $plainDeepTicket 'a/b/c/d/e/f/g/h/i/brief.md'
+    New-Item -ItemType Directory -Force -Path ([System.IO.Path]::GetDirectoryName($plainDeepPath)) | Out-Null
+    $plainDeepResult = Invoke-Guard -Tool 'Edit' -Path $plainDeepPath -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
+    Assert-Case 'a deep path with no links is still sanctioned' ($plainDeepResult -eq 0) "exit $plainDeepResult"
+
     $relativeResult = Invoke-Guard -Tool 'Edit' -Path 'LamuFlix/DEV-473/brief.md' -Cwd $script:RepoRoot -Environment @{ LAMUFLIX_ARTIFACT_ROOT = $guardRoot }
     Assert-Case 'a relative path is not treated as a private ticket path' ($relativeResult -eq 0) "exit $relativeResult"
 
