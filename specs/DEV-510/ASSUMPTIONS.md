@@ -16,9 +16,9 @@ Basis: ticket work item 5, recon-DEV-510 line 64; CONCLUSIONS.md Q4.
 
 ## A3 [assumed] - Current-home payload headroom
 
-Patron Q6 confirms that the current 145-liked-movie home profile must also serialize strictly below the Q4 80 percent budget. Actual bytes and library counts must be measured and recorded; the ticket baseline is not a live measurement.
+Patron Q6 requires the current home profile to serialize strictly below the 80 percent budget once measured. T002 measured the live home profile at **4 liked sources** (not the ticket's 145 baseline): 41,908 B pre-change (4.0% of the 1,048,576 B ceiling; 5.0% of the 838,860 B strict-80% band) and approximately 23,090 B compact (~2.2%). The ticket's 145 liked movies is a fixture scale for the A1 ticket-baseline budget, not the current live-home source count. Actual bytes and library counts must be measured and recorded; estimates are not live measurements.
 
-Basis: recon-DEV-510 lines 64-65; CONCLUSIONS.md Q4 and Q6.
+Basis: recon-DEV-510 lines 64-65; CONCLUSIONS.md Q4, Q6, and T002 Feasibility Checkpoint Disposition at 4abc7c53; EVIDENCE.md Sections 1 / 1c at d1809a46; ASSUMPTIONS.md A1 (amended).
 
 At initial grill closure, no additional assumptions, taste rulings, or question-cap defaults were introduced. Seven questions were asked; all received explicit Patron rulings. No structural escalation or constitution departure was requested or approved.
 
