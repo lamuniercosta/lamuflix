@@ -1,6 +1,6 @@
 # DEV-472 — Evidence ledger
 
-Runtime acceptance is **not** claimed here. Layers 1 (static assertions) and 2 (`scripts/Test-RunMutation.ps1`) are recorded below; hosted runtime receipts are T008–T011 and remain **pending**.
+Runtime acceptance is **not** claimed here. Layers 1 (static assertions) and 2 (`scripts/Test-RunMutation.ps1`) are recorded below, and Layer 3b now carries the hosted evidence ledger; every hosted receipt (T009–T011) and the residual hosted exit-2 label proof remain **pending**.
 
 - Worktree: `F:/Dev/LamuFlix.worktrees/DEV-472`
 - Branch: `feature/DEV-472`
@@ -115,16 +115,48 @@ Run from the worktree at HEAD `180e51dd` against `origin/main` (`b98a4b0a`). The
 
 No gate is folded into PASS: the five exit-2 results are recorded as `SKIPPED (scope-empty)` because nothing was in scope, and no production scope was fabricated to green a skipped lane. No exit 1 and no `Could not run` occurred.
 
-## Layer 3b — Hosted runtime receipts (T008–T011, PENDING)
+## Layer 3b — Hosted evidence ledger (T008)
 
-Nothing in this section is evidenced. Each row stays **pending** until a real hosted run supplies the receipt. Fixture green, workflow-only scope-empty PR success, and a green hosted check are not mutation PASS and not nightly proof.
+Ledger state as of 2026-11-16, before this phase's commit, from worktree `F:/Dev/LamuFlix.worktrees/DEV-472` on `feature/DEV-472`:
 
-| # | Required receipt | Status |
+- HEAD: `6428db07756740f1f913328d2e839a7b1b041374` (T006/T007, US3 validation)
+- `origin/main`: `b98a4b0a6287673e56015145862be43c2e3dd3d0` — the delivered `ci.yml` is **not** on `main`
+- `git ls-remote --heads origin feature/DEV-472`: no output — the branch is **not pushed**, so no hosted run exists for this workflow revision
+
+Nothing in this section is a runtime acceptance claim. Fixture green, a workflow-only scope-empty PR success, and a green hosted check are neither mutation PASS nor nightly proof. Every receipt row below stays **pending** until a real hosted run on the delivered workflow supplies it; `needs recon:` / `needs decision:` is the correct response to any missing fact, not inference.
+
+### Ledger table
+
+| # | Receipt required | Event | Run URL | Head SHA | Base SHA | Outcome | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T009a | Non-delivery PR with changed production C# where a mutation regression fails `PR mutation` | `pull_request` → main | — | — | — | — | **pending** |
+| T009b | External required-check registration for `PR mutation` / `mutation-pr`, live read-back, plus proof a red regression blocks normal merge | repo settings read-back | — | — | — | — | **pending** (see read-back below) |
+| T010 | Main push showing **no** Stryker job ran (SC-002) | `push` → main | — | — | n/a | — | **pending** |
+| T011 | Green scheduled run on the delivered `main` revision: 16/16 shards + `stryker-core-gate` merged-report evaluation (SC-003) | `schedule` | — | — | n/a | — | **pending** |
+| R1 | Hosted exit-2 label proof: `SKIPPED (scope-empty)` or `N/A` summary line on a real PR | `pull_request` | — | — | — | — | **pending** — static/synthetic assurance only (Layer 1 residual-risk row, Layer 2) |
+| R2 | `PR mutation` check appears on a real PR at all (stable identity in hosted context) | `pull_request` | — | — | — | — | **pending** |
+
+### T009b read-back (read-only, no repository-settings write attempted)
+
+Commands run from the worktree root with `gh` authenticated as `lamuniercosta` (token scopes include `repo`, `workflow`):
+
+| Command | Exit | Observed |
 | --- | --- | --- |
-| T009a | Non-delivery PR with changed production C# where a mutation regression fails `PR mutation` (PR / run / base / head SHAs) | **pending** |
-| T009b | External required-check registration for `PR mutation` / `mutation-pr`, live `gh api` read-back, plus red-check-blocks-merge proof (user-owned; no repository-settings write from this plan) | **pending** |
-| T010 | Main-push run showing no Stryker job ran (SC-002) | **pending** |
-| T011 | Green scheduled run on the delivered `main` revision completing all 16 shards and passing `stryker-core-gate` merged-report evaluation, with run URL and SHA (SC-003). `workflow_dispatch` is preflight only and cannot substitute | **pending** |
-| — | Hosted exit-2 label proof (`SKIPPED (scope-empty)` / `N/A` summary line on a real PR) | **pending** — residual risk recorded as static/synthetic-only above |
+| `gh api repos/lamuniercosta/lamuflix/branches/main/protection/required_status_checks` | 1 | `{"message":"Required status checks not enabled", ...}`, HTTP 404 |
+| `gh api repos/lamuniercosta/lamuflix/rulesets` | 0 | `[]` (zero rulesets) |
+| `gh api repos/lamuniercosta/lamuflix/branches/main/protection` | 0 | protection present; `required_pull_request_reviews.required_approving_review_count` 0, `enforce_admins` true, no status-check block |
 
-Static assertion and synthetic fixture success do not replace any row in this table. Required-check registration may remain pending without inventing a structural checkbox (FR-015).
+Interpretation: at this read-back `main` still has no required status checks and no rulesets, matching `recon-DEV-472` line 34. Registration of `PR mutation` therefore remains an **external, user-owned** prerequisite (Bernstein/Rigger coordinated per FR-015); this plan authorizes no repository-settings write and none was performed. T009b cannot close on a failed job alone — it needs registration plus red-blocks-merge proof.
+
+### Negative observation — pre-delivery `main` push still runs Stryker (not T010)
+
+`gh api repos/lamuniercosta/lamuflix/actions/runs/43808979531/jobs` (CI run on `push` to `main` at `d19668de114727c217aeebf567d762b0f75a0c9e`, 2026-11-16T05:14:58Z) lists `stryker-core (shard 1/16)` … `(shard 16/16)` with `conclusion: null` at read-back.
+
+This is **not** a T010 receipt and must not be read as one: that run executes the pre-delivery `ci.yml` from `origin/main` (`b98a4b0a`), which predates this ticket, so Stryker running there is the expected baseline behavior the ticket is meant to change. T010 requires a main push **after** the delivered workflow lands, showing zero Stryker jobs. It stays pending until then.
+
+### Honesty rules carried forward
+
+- Static assertions (Layer 1) and the synthetic fixture (Layer 2) replace no row above.
+- `SKIPPED (scope-empty)`, mutation `N/A`, configured `SKIP`, exit 1, and `Could not run` stay distinct from PASS, and hosted check success stays distinct from mutation PASS.
+- `workflow_dispatch` may preflight T011 but never substitutes for the scheduled receipt.
+- Required-check registration may remain pending without inventing a structural checkbox (FR-015); ticket done is not claimed while T009a/T009b/T010/T011 are pending.
