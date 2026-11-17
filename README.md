@@ -373,6 +373,17 @@ try {
 
 CI excludes the category with `--filter "Category!=OllamaIntegration"` and sets no opt-in variable.
 
+### Hung-test guard
+
+Every test project picks up `tests/LamuFlix.runsettings` via `RunSettingsFilePath` in `Directory.Build.props`, so plain `dotnet test` runs with the blame hang collector: a test that makes no progress for 10 minutes aborts the run, names the hung test, and leaves a mini dump plus `Sequence.xml` under `TestResults`. The slowest integration test stays well under the timeout, and `--filter "Category!=OllamaIntegration"` keeps working alongside the settings file. CI uploads `**/TestResults/**/*` as the `hang-dumps` artifact when the test step fails.
+
+To override the timeout locally, copy the file, change `TestTimeout`, and pass it explicitly (explicit `--settings` wins over the wired default):
+
+```powershell
+Copy-Item tests/LamuFlix.runsettings $env:TEMP/hang-local.runsettings
+dotnet test tests/LamuFlix.UnitTests/LamuFlix.UnitTests.csproj --settings $env:TEMP/hang-local.runsettings
+```
+
 ## Operating a library-relative upgrade
 
 DEV-459 stores movie folders as canonical library-relative identities instead of deployment-specific absolute paths ([ADR 0035](docs/adr/0035-library-relative-movie-paths.md)). The upgrade rewrites stored paths, populates the derived `library_path_key` column, and activates its constraint once, at startup. Treat it as a coordinated maintenance window, not a rolling deploy.

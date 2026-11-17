@@ -20,6 +20,10 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Nullable>enable</Nullable>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Ticket DEV-469: every test project picks up the repo blame-hang runsettings,
+         so plain `dotnet test` fails a hung run with a hang dump and Sequence.xml. -->
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory)tests/LamuFlix.runsettings</RunSettingsFilePath>
   </PropertyGroup>
 
   <ItemGroup>
