@@ -107,3 +107,19 @@ Patron ruling:
 > - **Q5 projection envelope (`recon-DEV-522:5-16`, `findings-DEV-522-Compass:19-24`, charter §2.3 items 4 & 6)**: `Movie.LastFailureCategory` (`src/LamuFlix.Core/Domain/Movie.cs:51,72-127`, `EfMovieRepository.cs:121-143,1153-1156,1209-1225`, `MovieConfiguration.cs:88-93`) and `EnrichmentFailureCategory.SafeDescription` (`src/LamuFlix.Core/Domain/EnrichmentFailureCategory.cs:10-46`) already exist, so `src/LamuFlix.Core/Ports/MovieSummary.cs`, `src/LamuFlix.Core/Ports/MovieDetails.cs`, and `src/LamuFlix.Infrastructure/Persistence/EfMovieCatalog.cs` are approved as AC-forced edits solely to carry the existing nullable category into `LibraryResponses.cs` (`Failed`-only `Code` and `SafeDescription`, `null` for non-`Failed` states, preserving existing routes/statuses and adding no new port, schema, or layer).
 > - **Q4 root-cause gate (`findings-DEV-522-Compass:9-15`, `recon-DEV-522:24`, charter §2.3(a))**: Preserving full ticket delivery requires T001 both to investigate available historical logs/DB rows to classify the actual duplicate trigger (folder scan vs rebuild vs reimport) and to reproduce the defect mechanism against a real DB; if historical evidence is unavailable, T001 stops with `needs recon`, mechanism-only evidence does not close Done-when #3, and any future proposal to accept mechanism-only requires an owner checkbox on the PR.
 > - **Principle VIII vocabulary (`findings-DEV-522-Ledger:29-33`, `recon-DEV-522:6-10`, Constitution Principle VIII)**: `Known import identity`, `Late IMDb discovery`, `Caller-safe failure projection`, and `Defect-mechanism evidence` are spec-local explanatory labels prohibited as code/domain identifiers, and `failureCategory`/`failureMessage` project the existing `EnrichmentFailureCategory` (`Code` and `SafeDescription`) domain concept without requiring a `CONTEXT.md` addition.
+
+
+---
+
+## Gate 1 Ruling — `gate1: provisional`
+
+Conductor request:
+
+> DEV-522 Phase 2 step 7 Gate 1 ruling: review `specs/DEV-522/PLAN_ADJUDICATION.md` and `brief.md`, mark `specs/DEV-522/spec.md` Status as `gate1: provisional`, record Gate 1 ruling in `specs/DEV-522/CONCLUSIONS.md`, and report receipt.
+
+Patron ruling:
+
+> Approved (`gate1: provisional`): mark `specs/DEV-522/spec.md` `**Status**:` line as `gate1: provisional` after verifying clean Spec Kit analysis, complete plan-challenge adjudication (`PLAN FROZEN`), ticked `User-Visible Outcome` checklist items, and absence of any unresolved charter §2.3(a)/(b) owner checkbox.
+> - **Plan challenge & Spec Kit analysis (`specs/DEV-522/PLAN_ADJUDICATION.md:1-45`, `specs/DEV-522/brief.md:189-202`, `DEV-522` note lines 48-63)**: Keel independently verified `/speckit-analyze` clean (23/23 requirements covered across T000–T016, 0 open findings) and adjudicated all 18 plan-challenge findings across Ledger (8), Compass (4), and Sentry (6) to `PLAN FROZEN`.
+> - **User-Visible Outcome checklist (`specs/DEV-522/checklists/requirements.md:32-36`, `specs/DEV-522/spec.md:65-81`)**: All three `User-Visible Outcome` items are checked (`[x]`), covering `MovieCard` and `BulkImportDialog` visible failure-reason behavior and `SMOKE-001`/`SMOKE-002` component-regression mappings.
+> - **No structural owner blocker (`specs/DEV-522/CONCLUSIONS.md:97-108`, `specs/DEV-522/spec.md:8-10`, charter §2.3)**: Full ticket delivery (including T001 historical trigger investigation plus mechanism reproduction) and constitutional compliance are preserved with no owner waiver or checkbox required; final Gate 1 approval remains the user's merge of the spec PR.
