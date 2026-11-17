@@ -1010,6 +1010,55 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         reloaded.Metadata.ShouldBeNull();
     }
 
+    /// <summary>
+    /// DEV-522 T001 mechanism evidence, real database: a distinct library path that learns an IMDb id
+    /// already held by another row settles to Failed with duplicate_imdb_id and the canonical caller-safe
+    /// message. Import never sees the id, so it cannot skip; enrichment is where the collision surfaces.
+    /// No row is merged or deleted, and no raw exception text is persisted.
+    /// </summary>
+    [Fact]
+    public async Task LateImdbCollision_RealDatabase_SettlesTheLoserFailedAsDuplicateWithoutMergingRows()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var holder = PendingMovie(await repository.NextIdentityAsync(ct), "Inception", "inception-1080p");
+        holder.MarkEnriched(SnapshotMetadata("Inception", "tt1375666", [], [], [], [], null), Now);
+        await repository.AddAsync(holder, ct);
+        await repository.SaveChangesAsync(ct);
+
+        var loser = PendingMovie(await repository.NextIdentityAsync(ct), "Inception", "inception-bracket");
+        await repository.AddAsync(loser, ct);
+        await repository.SaveChangesAsync(ct);
+
+        var handler = new ProcessEnrichmentCommandHandler(
+            repository,
+            new ScriptedMetadataProvider(_ => new MetadataLookupResult.Found(
+                SnapshotMetadata("Inception", "tt1375666", [], [], [], [], null))),
+            new RecordingQueue(),
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5), MaxAttempts = 3 }),
+            new FixedTimeProvider(Now),
+            NullLogger<ProcessEnrichmentCommandHandler>.Instance);
+
+        // act: the duplicate path is enriched after the holder already owns the id
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(loser.Id, 1), ct);
+
+        // assert
+        outcome.ShouldBeOfType<ProcessEnrichmentOutcome.Failed>()
+            .Category.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+        await using var afterCollision = OpenSibling(db);
+        var settled = await afterCollision.Movies.AsNoTracking()
+            .SingleAsync(movie => movie.Id == loser.Id, ct);
+        settled.Status.ShouldBe(EnrichmentStatus.Failed);
+        settled.EnrichmentFailureCategory.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+        settled.MetadataTitle.ShouldBeNull();
+        settled.ImdbId.ShouldBeNull();
+        (await afterCollision.Movies.AsNoTracking().CountAsync(ct)).ShouldBe(2);
+        EnrichmentFailureCategory.DuplicateImdbId.SafeDescription
+            .ShouldBe("Another movie in the library already has this IMDb id.");
+    }
+
     private static PostgresException? FindPostgres(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)
@@ -1210,6 +1259,7 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         TerminalFailure,
     }
 
+    // ReSharper disable once ParameterOnlyUsedForPreconditionCheck.Local - `source` is deliberately only a guard: every sibling must open the same fixture connection string, so the parameter documents which context is being mirrored without changing the target.
     private LamuFlixDbContext OpenSibling(LamuFlixDbContext source)
     {
         ArgumentNullException.ThrowIfNull(source);
