@@ -74,9 +74,9 @@ public sealed class HybridCachedRecommendationProfileSourceCacheTests(PostgresFi
         // act
         var profile = await harness.Adapter.GetTasteProfileAsync(ct);
         var readsAfterProfile = harness.Commands.ReaderCount;
-        var firstInputs = await harness.Adapter.GetProfileInputsAsync([firstCandidate, secondCandidate], ct);
+        var firstInputs = await harness.Adapter.GetProfileInputsAsync([firstCandidate, secondCandidate], [], ct);
         var readsAfterFirstInputs = harness.Commands.ReaderCount;
-        var secondInputs = await harness.Adapter.GetProfileInputsAsync([firstCandidate, secondCandidate], ct);
+        var secondInputs = await harness.Adapter.GetProfileInputsAsync([firstCandidate, secondCandidate], [], ct);
         var readsAfterSecondInputs = harness.Commands.ReaderCount;
         var repeatedProfile = await harness.Adapter.GetTasteProfileAsync(ct);
 

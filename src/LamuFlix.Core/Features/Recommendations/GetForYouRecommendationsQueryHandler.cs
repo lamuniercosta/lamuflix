@@ -37,8 +37,12 @@ public sealed class GetForYouRecommendationsQueryHandler(
             return ImmutableList<RecommendedMovie>.Empty;
         }
 
+        var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
         var profileInputs = await profileSource.GetProfileInputsAsync(
             [.. eligible.Select(movie => movie.Id)],
+            [.. profile.LikedSources.Select(source => source.MovieId)],
             cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -48,9 +52,6 @@ public sealed class GetForYouRecommendationsQueryHandler(
         }
 
         var genreWeights = await genreWeightsCalculator.GetAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var profile = await profileSource.GetTasteProfileAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         var recommendationOptions = options.Value;

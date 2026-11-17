@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
@@ -43,7 +43,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], ct);
+        var inputs = await source.GetProfileInputsAsync([], [], ct);
 
         // assert
         var movie = inputs.Movies.ShouldHaveSingleItem();
@@ -66,7 +66,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], ct);
+        var inputs = await source.GetProfileInputsAsync([], [], ct);
 
         // assert
         var movie = inputs.Movies.ShouldHaveSingleItem();
@@ -87,7 +87,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], ct);
+        var inputs = await source.GetProfileInputsAsync([], [], ct);
 
         // assert
         var movie = inputs.Movies.ShouldHaveSingleItem();
@@ -106,7 +106,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], ct);
+        var inputs = await source.GetProfileInputsAsync([], [], ct);
 
         // assert
         inputs.Movies.Select(movie => movie.MovieId).ShouldBe([watchedId]);
@@ -122,7 +122,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], ct);
+        var inputs = await source.GetProfileInputsAsync([], [], ct);
 
         // assert
         var movie = inputs.Movies.Single(row => row.MovieId == movieId);
@@ -146,7 +146,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([firstCandidate, secondCandidate], ct);
+        var inputs = await source.GetProfileInputsAsync([firstCandidate, secondCandidate], [], ct);
 
         // assert
         inputs.CandidateEmbeddings.Keys.ShouldBe([firstCandidate, secondCandidate], ignoreOrder: true);
@@ -166,7 +166,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], ct);
+        var inputs = await source.GetProfileInputsAsync([], [], ct);
 
         // assert
         var movie = inputs.Movies.ShouldHaveSingleItem();
@@ -185,7 +185,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([launchedId], ct);
+        var inputs = await source.GetProfileInputsAsync([launchedId], [], ct);
 
         // assert
         var movie = inputs.Movies.ShouldHaveSingleItem();
@@ -202,7 +202,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         await SeedVectorAsync(movieId, VariedVector(offset: 300), ct);
         await using var db = fixture.CreateMigratedContext();
         var source = CreateSource(db);
-        var inputs = await source.GetProfileInputsAsync([movieId], ct);
+        var inputs = await source.GetProfileInputsAsync([movieId], [], ct);
         var calculator = new TasteProfileCalculator(TimeProvider.System, new RecommendationOptions());
         var weights = GenreWeights.Calculate(new GenreCounts(2, new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)
         {
@@ -229,7 +229,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var act = () => source.GetProfileInputsAsync([], new CancellationToken(canceled: true));
+        var act = () => source.GetProfileInputsAsync([], [], new CancellationToken(canceled: true));
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
@@ -317,7 +317,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([vectorlessId], ct);
+        var inputs = await source.GetProfileInputsAsync([vectorlessId], [], ct);
 
         // assert
         inputs.Movies.Select(movie => movie.MovieId).ShouldBe([watchedId]);
@@ -343,7 +343,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([unwatched], ct);
+        var inputs = await source.GetProfileInputsAsync([unwatched], [firstLiked, secondLiked], ct);
 
         // assert
         inputs.LikedSourceEmbeddings.Keys.ShouldBe([firstLiked, secondLiked], ignoreOrder: true);
@@ -364,13 +364,38 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], ct);
+        var inputs = await source.GetProfileInputsAsync([], [withVector, withoutVector], ct);
 
         // assert
         inputs.Movies.Select(movie => movie.MovieId).ShouldBe([withVector, withoutVector], ignoreOrder: true);
         inputs.LikedSourceEmbeddings.ContainsKey(withVector).ShouldBeTrue();
         inputs.LikedSourceEmbeddings.ShouldNotContainKey(withoutVector);
         inputs.LikedSourceEmbeddings.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task GetProfileInputsAsync_StaleLikedIdentities_StillResolveEmbeddings()
+    {
+        // arrange
+        var ct = TestContext.Current.CancellationToken;
+        var likedId = await SeedLikedMovieAsync("Stale liked", ct, "Drama");
+        var vector = VariedVector(offset: 275);
+        await SeedVectorAsync(likedId, vector, ct);
+        await using (var edit = fixture.CreateMigratedContext())
+        {
+            var record = await edit.Movies.SingleAsync(movie => movie.Id == likedId, ct);
+            record.Review = Review.None;
+            await edit.SaveChangesAsync(ct);
+        }
+
+        await using var db = fixture.CreateMigratedContext();
+        var source = CreateSource(db);
+
+        // act
+        var inputs = await source.GetProfileInputsAsync([], [likedId], ct);
+
+        // assert
+        inputs.LikedSourceEmbeddings[likedId].SequenceEqual(vector).ShouldBeTrue();
     }
 
     [Fact]
@@ -384,7 +409,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], ct);
+        var inputs = await source.GetProfileInputsAsync([], [], ct);
 
         // assert
         inputs.Movies.ShouldHaveSingleItem();
@@ -418,12 +443,10 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         RecommendationProfileInputs inputs;
         await using (var db = OpenInstrumentedContext(interceptor))
         {
-            inputs = await CreateSource(db).GetProfileInputsAsync(candidateIds, ct);
+            inputs = await CreateSource(db).GetProfileInputsAsync(candidateIds, likedIds, ct);
         }
 
         // assert
-        // 7 readers for the profile path (1 playback events + 5 split profile rows + 1 profile embeddings),
-        // + 1 for the candidate batch, + 1 for the single liked-source batch regardless of 6 sources / 5 candidates.
         inputs.LikedSourceEmbeddings.Count.ShouldBe(likedIds.Count);
         inputs.CandidateEmbeddings.Count.ShouldBe(candidateIds.Count);
         interceptor.ReaderCount.ShouldBe(SplitQueryReaderCount + 2);
@@ -442,7 +465,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         RecommendationProfileInputs inputs;
         await using (var db = OpenInstrumentedContext(interceptor))
         {
-            inputs = await CreateSource(db).GetProfileInputsAsync([], ct);
+            inputs = await CreateSource(db).GetProfileInputsAsync([], [likedId], ct);
         }
 
         // assert
@@ -461,7 +484,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var act = () => source.GetProfileInputsAsync([], new CancellationToken(canceled: true));
+        var act = () => source.GetProfileInputsAsync([], [], new CancellationToken(canceled: true));
 
         // assert
         await Should.ThrowAsync<OperationCanceledException>(act);
@@ -505,7 +528,7 @@ public sealed class EfRecommendationProfileSourceTests(PostgresFixture fixture) 
         var source = CreateSource(db);
 
         // act
-        var inputs = await source.GetProfileInputsAsync([], ct);
+        var inputs = await source.GetProfileInputsAsync([], [], ct);
 
         // assert
         var movie = inputs.Movies.ShouldHaveSingleItem();

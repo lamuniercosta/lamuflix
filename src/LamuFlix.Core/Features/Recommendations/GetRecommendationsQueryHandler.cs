@@ -54,6 +54,7 @@ public sealed class GetRecommendationsQueryHandler(
 
         var profileInputs = await profileSource.GetProfileInputsAsync(
             [.. eligible.Select(candidate => candidate.Movie.Id)],
+            [.. profile.LikedSources.Select(source => source.MovieId)],
             cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 

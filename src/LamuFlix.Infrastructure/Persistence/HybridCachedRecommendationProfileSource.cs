@@ -79,15 +79,17 @@ public sealed partial class HybridCachedRecommendationProfileSource : IRecommend
 
     public async Task<RecommendationProfileInputs> GetProfileInputsAsync(
         IReadOnlyCollection<MovieId> candidateMovieIds,
+        IReadOnlyCollection<MovieId> likedSourceIds,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(candidateMovieIds);
+        ArgumentNullException.ThrowIfNull(likedSourceIds);
         ct.ThrowIfCancellationRequested();
 
         var uncachedSource = ResolveUncachedSource(out var scope);
         await using (scope)
         {
-            return await uncachedSource.GetProfileInputsAsync(candidateMovieIds, ct);
+            return await uncachedSource.GetProfileInputsAsync(candidateMovieIds, likedSourceIds, ct);
         }
     }
 

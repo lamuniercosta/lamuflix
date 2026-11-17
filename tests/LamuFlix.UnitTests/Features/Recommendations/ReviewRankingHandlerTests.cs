@@ -430,7 +430,7 @@ public sealed class ReviewRankingHandlerTests
         {
             profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(profile));
-            profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new RecommendationProfileInputs(
                     [
                         new TasteProfileMovie(
@@ -485,7 +485,7 @@ public sealed class ReviewRankingHandlerTests
         {
             profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(profile));
-            profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(new RecommendationProfileInputs(
                     [
                         new TasteProfileMovie(
