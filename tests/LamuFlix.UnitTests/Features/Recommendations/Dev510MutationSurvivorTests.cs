@@ -5,7 +5,6 @@ using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Recommendations;
 using LamuFlix.Core.Options;
 using LamuFlix.Core.Ports;
-using LamuFlix.UnitTests.Features;
 
 namespace LamuFlix.UnitTests.Features.Recommendations;
 
@@ -150,9 +149,9 @@ public sealed class Dev510MutationSurvivorTests
 
         // assert
         lateLower.LikedSource.HasValue.ShouldBeTrue();
-        lateLower.LikedSource!.Value.MovieId.ShouldBe(new MovieId(3));
+        lateLower.LikedSource.GetValueOrDefault().MovieId.ShouldBe(new MovieId(3));
         earlyLower.LikedSource.HasValue.ShouldBeTrue();
-        earlyLower.LikedSource!.Value.MovieId.ShouldBe(new MovieId(3));
+        earlyLower.LikedSource.GetValueOrDefault().MovieId.ShouldBe(new MovieId(3));
     }
 
     [Fact]
@@ -176,7 +175,7 @@ public sealed class Dev510MutationSurvivorTests
 
         // assert
         evidence.LikedSource.HasValue.ShouldBeTrue();
-        evidence.LikedSource!.Value.Title.ShouldBe("Second");
+        evidence.LikedSource.GetValueOrDefault().Title.ShouldBe("Second");
     }
 
     [Fact]
