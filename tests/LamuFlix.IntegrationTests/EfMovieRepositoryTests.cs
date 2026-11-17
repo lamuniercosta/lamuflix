@@ -984,6 +984,37 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
         (await repository.FindMovieIdByImdbIdAsync(new ImdbId("tt0000032"), ct)).ShouldBeNull();
     }
 
+    /// <summary>
+    /// DEV-522 US2, real database: the identity a known IMDb id resolves to is the single existing row,
+    /// including when the id is held only as <see cref="Movie.ManualImdbId"/>. This is the reuse seam
+    /// import-time and enrichment-time lookups share; resolving it creates no row, no Failed row and no
+    /// enrichment enqueue, so a distinct path can never add a second movie for that identity.
+    /// </summary>
+    [Fact]
+    public async Task FindMovieIdByImdbIdAsync_ManualIdHolder_ReturnsTheExistingIdentityWithoutAddingRows()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var holderId = await repository.NextIdentityAsync(ct);
+        var holder = PendingMovie(holderId, "Rogue One", "rogue-one");
+        holder.MatchManually(new ImdbId("tt3748528"));
+        await repository.AddAsync(holder, ct);
+        await repository.SaveChangesAsync(ct);
+        var enqueued = (await db.OutboxMessages.AsNoTracking().CountAsync(ct));
+
+        // act
+        var resolved = await repository.FindMovieIdByImdbIdAsync(new ImdbId("tt3748528"), ct);
+
+        // assert
+        resolved.ShouldBe(holderId);
+        await using var verify = fixture.CreateMigratedContext();
+        (await verify.Movies.AsNoTracking().CountAsync(ct)).ShouldBe(1);
+        (await verify.Movies.AsNoTracking().CountAsync(
+            movie => movie.Status == EnrichmentStatus.Failed, ct)).ShouldBe(0);
+        (await verify.OutboxMessages.AsNoTracking().CountAsync(ct)).ShouldBe(enqueued);
+    }
+
     [Fact]
     public async Task SaveChanges_ImdbIdHeldByAnotherRow_ThrowsDuplicateImdbIdAndLeavesTheRowPendingOnReload()
     {

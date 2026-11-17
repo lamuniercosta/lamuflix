@@ -57,6 +57,15 @@ public sealed class ImportLibraryFoldersCommandHandler(
             {
                 throw;
             }
+            catch (DuplicateLibraryPathException)
+            {
+                // DEV-522 US2: a path/key uniqueness conflict means the identity is already held, so the
+                // batch reuses the existing movie and reports the existing skipped/already-present
+                // outcome. This is a skip, never a failure, and never a second enrichment enqueue
+                // (a skipped import does not reach outbox.Stage).
+                skipped++;
+                importedPaths.Add(path.Value);
+            }
             catch (Exception exception)
             {
                 if (await IsImportedAfterFaultAsync(movies, importedPaths, path, cancellationToken))

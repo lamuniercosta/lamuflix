@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using LamuFlix.Core.Domain;
 using LamuFlix.Core.Features.Import;
@@ -128,6 +129,107 @@ public sealed class ImportLibraryCommandHandlerPersistenceTests(PostgresFixture 
         }
     }
 
+    /// <summary>
+    /// DEV-522 US2, real database: the transport-facing rerun reports the already-imported folders as
+    /// skipped instead of faulting, leaving one row and one enrichment enqueue per folder, and an
+    /// unknown folder added to the same request is still imported.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_RequestedRerun_SkipsKnownPathsAndImportsOnlyTheNewFolder()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var root = CreateLibrary();
+        try
+        {
+            WriteVideo(root, "root");
+            WriteVideo(Path.Combine(root, "Parent"), "parent");
+            WriteVideo(Path.Combine(root, "Parent", "Child"), "child");
+            await using var provider = BuildProvider(root, maxConcurrency: 2);
+            using (var firstScope = provider.CreateScope())
+            {
+                var first = firstScope.ServiceProvider
+                    .GetRequiredService<ICommandHandler<ImportLibraryCommand, ImportLibraryResult>>();
+                (await first.HandleAsync(new ImportLibraryCommand(), cancellationToken)).ImportedCount.ShouldBe(3);
+            }
+
+            WriteVideo(Path.Combine(root, "Newcomer"), "newcomer");
+            using var secondScope = provider.CreateScope();
+            var second = secondScope.ServiceProvider
+                .GetRequiredService<ICommandHandler<ImportLibraryFoldersCommand, ImportLibraryFoldersResult>>();
+
+            // act
+            var result = await second.HandleAsync(
+                new ImportLibraryFoldersCommand(["Parent", "Parent/Child", "Newcomer"], RetryFailed: false),
+                cancellationToken);
+
+            // assert
+            result.Imported.ShouldBe(1);
+            result.Skipped.ShouldBe(2);
+            result.Failures.ShouldBeEmpty();
+            await using var database = postgres.CreateMigratedContext();
+            (await database.Movies.AsNoTracking().CountAsync(cancellationToken)).ShouldBe(4);
+            (await database.OutboxMessages.AsNoTracking().CountAsync(cancellationToken)).ShouldBe(4);
+        }
+        finally
+        {
+            DeleteLibrary(root);
+        }
+    }
+
+    /// <summary>
+    /// DEV-522 US2 concurrency, real database: two imports of the same folder racing through separate
+    /// per-folder scopes end with one row and one enqueue; the loser is translated into the existing
+    /// duplicate-path conflict rather than persisting a second movie.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_ConcurrentSamePathImports_RealDatabaseLeavesOneRowAndOneEnqueue()
+    {
+        // arrange
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var root = CreateLibrary();
+        try
+        {
+            WriteVideo(Path.Combine(root, "Racing"), "racing");
+            await using var provider = BuildProvider(root, maxConcurrency: 4);
+
+            // act
+            var outcomes = await Task.WhenAll(
+                ImportFolderAsync(provider, new LibraryPath("Racing"), cancellationToken),
+                ImportFolderAsync(provider, new LibraryPath("Racing"), cancellationToken));
+
+            // assert
+            outcomes.Count(outcome => outcome is null).ShouldBe(1);
+            outcomes.Single(outcome => outcome is not null)
+                .ShouldBeOfType<DuplicateLibraryPathException>();
+            await using var database = postgres.CreateMigratedContext();
+            (await database.Movies.AsNoTracking().CountAsync(cancellationToken)).ShouldBe(1);
+            (await database.OutboxMessages.AsNoTracking().CountAsync(cancellationToken)).ShouldBe(1);
+        }
+        finally
+        {
+            DeleteLibrary(root);
+        }
+    }
+
+    private static async Task<Exception?> ImportFolderAsync(
+        ServiceProvider provider,
+        LibraryPath folder,
+        CancellationToken cancellationToken)
+    {
+        using var scope = provider.CreateScope();
+        var importer = scope.ServiceProvider.GetRequiredService<IMovieFolderImporter>();
+        try
+        {
+            await importer.ImportAsync(folder, cancellationToken);
+            return null;
+        }
+        catch (Exception failure) when (failure is not OperationCanceledException)
+        {
+            return failure;
+        }
+    }
+
     private ServiceProvider BuildProvider(string root, int maxConcurrency)
     {
         var services = new ServiceCollection();
@@ -151,6 +253,7 @@ public sealed class ImportLibraryCommandHandlerPersistenceTests(PostgresFixture 
         services.AddScoped<ILibraryFolderDiscovery, FileSystemLibraryFolderDiscovery>();
         services.AddScoped<IMovieFolderImporter, ScopedMovieFolderImporter>();
         services.AddHandler<ImportMovieFolderCommandHandler, ImportMovieFolderCommand, MovieId>();
+        services.AddHandler<ImportLibraryFoldersCommandHandler, ImportLibraryFoldersCommand, ImportLibraryFoldersResult>();
         services.AddHandler<ImportLibraryCommandHandler, ImportLibraryCommand, ImportLibraryResult>();
         return services.BuildServiceProvider();
     }

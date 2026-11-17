@@ -21,6 +21,7 @@ public sealed class ImportMovieFolderCommandHandler(
     public async Task<MovieId> HandleAsync(ImportMovieFolderCommand command, CancellationToken cancellationToken)
     {
         var folder = Canonicalize(command.Folder);
+        await RejectWhenAlreadyImportedAsync(folder, cancellationToken);
         var scanned = scanner.Scan(folder);
         var id = await movies.NextIdentityAsync(cancellationToken);
         var movie = Movie.Create(id, scanned.Title, scanned.Path, scanned.Format, scanned.Year);
@@ -29,6 +30,22 @@ public sealed class ImportMovieFolderCommandHandler(
         await movies.SaveChangesAsync(cancellationToken);
         EnrichmentMetrics.ImportCount.Add(1);
         return id;
+    }
+
+    /// <summary>
+    /// DEV-522 US2: a folder whose library path/key is already held is skipped before the scan, the
+    /// identity allocation and <c>outbox.Stage</c>, so a repeated import can never queue a second
+    /// enrichment. The outcome is the existing already-present conflict, and the stored row is reused
+    /// as-is: nothing is merged, deleted or re-created. Import carries no IMDb identity (see T001
+    /// evidence §2b), so a distinct path for an already-known movie is still discovered at enrichment.
+    /// </summary>
+    private async Task RejectWhenAlreadyImportedAsync(LibraryPath folder, CancellationToken cancellationToken)
+    {
+        var imported = await movies.SnapshotMoviePathsAsync(cancellationToken);
+        if (ImportedPathSet.FromPaths(imported).Contains(folder.Value))
+        {
+            throw new DuplicateLibraryPathException();
+        }
     }
 
     private LibraryPath Canonicalize(LibraryPath folder)
