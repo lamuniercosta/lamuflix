@@ -180,6 +180,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
   }
 
   const busy = running;
+  const initialScan = candidates.isPending;
   const scanning = candidates.isPending || candidates.isFetching;
   const inFlight = progress !== null && progress.done < progress.total;
   const nothingToDo = selectedFolders.length === 0 && !retryFailed;
@@ -203,7 +204,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
               type="button"
               className="lamu-action-quiet"
               onClick={toggleSelectAll}
-              disabled={busy || scanning || folders.length === 0}
+              disabled={busy || initialScan || folders.length === 0}
             >
               {folders.length > 0 && selectedFolders.length === folders.length
                 ? 'Clear all'
@@ -221,30 +222,41 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
                   Retry scan
                 </button>
               </p>
-            ) : scanning ? (
+            ) : initialScan ? (
               <p role="status" className="lamu-dialog-hint">
                 Scanning library…
               </p>
             ) : folders.length === 0 ? (
-              <p role="status" className="lamu-dialog-hint">
-                No new movies found
-              </p>
+              scanning ? (
+                <p role="status" className="lamu-dialog-hint">
+                  Scanning library…
+                </p>
+              ) : (
+                <p role="status" className="lamu-dialog-hint">
+                  No new movies found
+                </p>
+              )
             ) : (
-              <ul className="lamu-dialog-folders">
-                {folders.map((folder) => (
-                  <li key={folder}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={selected.has(folder)}
-                        disabled={busy}
-                        onChange={() => toggleFolder(folder)}
-                      />
-                      {folder}
-                    </label>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="lamu-dialog-folders">
+                  {folders.map((folder) => (
+                    <li key={folder}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(folder)}
+                          disabled={busy}
+                          onChange={() => toggleFolder(folder)}
+                        />
+                        {folder}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                {scanning && summary === null ? (
+                  <p className="lamu-dialog-hint">Scanning library…</p>
+                ) : null}
+              </>
             )}
           </div>
           <fieldset>
@@ -328,7 +340,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
             <button
               type="submit"
               className="lamu-action-primary"
-              disabled={busy || scanning || nothingToDo}
+              disabled={busy || initialScan || nothingToDo}
             >
               Import
             </button>
