@@ -683,10 +683,10 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == candidate.Id),
             Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 1 && liked.Single() == new MovieId(90)),
             Arg.Any<CancellationToken>());
-        Received.InOrder(async () =>
+        Received.InOrder(() =>
         {
-            await profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>());
-            await profileSource.GetProfileInputsAsync(
+            _ = profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>());
+            _ = profileSource.GetProfileInputsAsync(
                 Arg.Any<IReadOnlyCollection<MovieId>>(),
                 Arg.Any<IReadOnlyCollection<MovieId>>(),
                 Arg.Any<CancellationToken>());
