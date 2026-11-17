@@ -41,15 +41,17 @@ public sealed class EfRecommendationProfileSource(
 
     public async Task<RecommendationProfileInputs> GetProfileInputsAsync(
         IReadOnlyCollection<MovieId> candidateMovieIds,
+        IReadOnlyCollection<MovieId> likedSourceIds,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(candidateMovieIds);
+        ArgumentNullException.ThrowIfNull(likedSourceIds);
         ct.ThrowIfCancellationRequested();
 
         var inputs = await ReadProfileInputsCoreAsync([.. candidateMovieIds], ct);
         ct.ThrowIfCancellationRequested();
 
-        var likedSourceEmbeddings = await ReadEmbeddingsAsync(LikedSourceIds(inputs.Movies), ct);
+        var likedSourceEmbeddings = await ReadEmbeddingsAsync([.. likedSourceIds], ct);
 
         return new RecommendationProfileInputs(
             inputs.Movies,
@@ -70,28 +72,6 @@ public sealed class EfRecommendationProfileSource(
         var movies = await ReadTasteProfileMoviesAsync(launches, ct);
 
         return new RecommendationProfileInputs(movies, candidateEmbeddings);
-    }
-
-    private static List<MovieId> LikedSourceIds(ImmutableArray<TasteProfileMovie> movies)
-    {
-        if (movies.IsDefaultOrEmpty)
-        {
-            return [];
-        }
-
-        List<MovieId>? ids = null;
-
-        foreach (var movie in movies)
-        {
-            if (!movie.Review.IsLiked)
-            {
-                continue;
-            }
-
-            (ids ??= []).Add(movie.MovieId);
-        }
-
-        return ids ?? [];
     }
 
     private async Task<ImmutableDictionary<MovieId, ImmutableArray<DateTimeOffset>>> ReadLaunchesAsync(

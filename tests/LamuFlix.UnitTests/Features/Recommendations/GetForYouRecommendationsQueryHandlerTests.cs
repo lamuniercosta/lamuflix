@@ -57,7 +57,11 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // assert
         result.ShouldBeEmpty();
         await catalog.DidNotReceive().GetGenreCountsAsync(Arg.Any<CancellationToken>());
-        await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
+        await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
+        await profileSource.Received(1).GetProfileInputsAsync(
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -75,7 +79,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // assert
         result.ShouldBeEmpty();
         await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
-        await profileSource.DidNotReceive().GetProfileInputsAsync(
+        await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
@@ -111,7 +115,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
 
         // assert
         result.ShouldBeEmpty();
-        await profileSource.DidNotReceive().GetProfileInputsAsync(
+        await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
     }
@@ -344,6 +348,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         result.Select(item => item.Summary.Id.Value).Distinct().Count().ShouldBe(101);
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 101),
+            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             Arg.Any<CancellationToken>());
     }
 
@@ -365,6 +370,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         result.Select(item => item.Summary.Id.Value).ShouldBe(new[] { 3 });
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == eligible.Id),
+            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             Arg.Any<CancellationToken>());
     }
 
@@ -510,6 +516,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // assert
         await profileSource.Received(1).GetProfileInputsAsync(
             Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 3 && ids.Contains(new MovieId(2)) && ids.Contains(new MovieId(3)) && ids.Contains(new MovieId(4))),
+            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 0),
             Arg.Any<CancellationToken>());
     }
 
@@ -526,7 +533,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
             () => handler.HandleAsync(new GetForYouRecommendationsQuery(), cts.Token));
         await catalog.DidNotReceive().BrowseAsync(Arg.Any<MovieQuery>(), Arg.Any<CancellationToken>());
         await movies.DidNotReceive().GetAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
-        await profileSource.DidNotReceive().GetProfileInputsAsync(
+        await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
         await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
@@ -573,7 +580,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // act / assert
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetForYouRecommendationsQuery(), cts.Token));
-        await profileSource.DidNotReceive().GetProfileInputsAsync(
+        await profileSource.DidNotReceive().GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<IReadOnlyCollection<MovieId>>(),
             Arg.Any<CancellationToken>());
     }
@@ -585,7 +592,9 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         var handler = NewHandler();
         using var cts = new CancellationTokenSource();
         ArrangeLibrary(NewMovie(2, genres: ["Drama"]));
-        profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+        profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Profile(("Drama", 1.0))));
+        profileSource.GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 // ReSharper disable once AccessToDisposedClosure // lambda runs only within the awaited call inside the using scope
@@ -600,7 +609,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_GenreWeightsCancelToken_ThrowsBeforeCachedProfile()
+    public async Task HandleAsync_GenreWeightsCancelToken_ThrowsAfterProfileAcquisition()
     {
         // arrange
         var handler = NewHandler();
@@ -618,7 +627,11 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         // act / assert
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetForYouRecommendationsQuery(), cts.Token));
-        await profileSource.DidNotReceive().GetTasteProfileAsync(Arg.Any<CancellationToken>());
+        await profileSource.Received(1).GetTasteProfileAsync(Arg.Any<CancellationToken>());
+        await profileSource.Received(1).GetProfileInputsAsync(
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -641,6 +654,43 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
         await Should.ThrowAsync<OperationCanceledException>(
             () => handler.HandleAsync(new GetForYouRecommendationsQuery(), cts.Token));
         await profileSource.Received(1).GetTasteProfileAsync(cts.Token);
+        await profileSource.DidNotReceive().GetProfileInputsAsync(
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<IReadOnlyCollection<MovieId>>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_ForwardsActiveProfileLikedIdentities_ToProfileInputs()
+    {
+        // arrange
+        var handler = NewHandler();
+        var candidate = NewMovie(2, genres: ["Drama"]);
+        ArrangeLibrary(candidate);
+        var vector = PlotVector(primary: 1.0f);
+        var inputs = new RecommendationProfileInputs(
+            [WatchedHistory(90, "Drama")],
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty.Add(candidate.Id, vector),
+            ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty.Add(new MovieId(90), vector));
+        ArrangeProfile(inputs, ProfileWithLikedSource(vector));
+
+        // act
+        var result = await handler.HandleAsync(new GetForYouRecommendationsQuery(), CancellationToken.None);
+
+        // assert
+        result.ShouldHaveSingleItem();
+        await profileSource.Received(1).GetProfileInputsAsync(
+            Arg.Is<IReadOnlyCollection<MovieId>>(ids => ids.Count == 1 && ids.Single() == candidate.Id),
+            Arg.Is<IReadOnlyCollection<MovieId>>(liked => liked.Count == 1 && liked.Single() == new MovieId(90)),
+            Arg.Any<CancellationToken>());
+        Received.InOrder(async () =>
+        {
+            await profileSource.GetTasteProfileAsync(Arg.Any<CancellationToken>());
+            await profileSource.GetProfileInputsAsync(
+                Arg.Any<IReadOnlyCollection<MovieId>>(),
+                Arg.Any<IReadOnlyCollection<MovieId>>(),
+                Arg.Any<CancellationToken>());
+        });
     }
 
     private GetForYouRecommendationsQueryHandler NewHandler(
@@ -699,7 +749,7 @@ public sealed class GetForYouRecommendationsQueryHandlerTests
     private void ArrangeProfile(RecommendationProfileInputs inputs, TasteProfile profile)
     {
         profileSource
-            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(inputs));
         profileSource
             .GetTasteProfileAsync(Arg.Any<CancellationToken>())
@@ -1076,7 +1126,7 @@ public sealed class GetForYouRecommendationsQueryHandlerPropertyTests
 
         var profileSource = Substitute.For<IRecommendationProfileSource>();
         profileSource
-            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new RecommendationProfileInputs(
                 [new TasteProfileMovie(new MovieId(900), ["Drama"], [], [Now], IsWatched: true)],
                 ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty)));

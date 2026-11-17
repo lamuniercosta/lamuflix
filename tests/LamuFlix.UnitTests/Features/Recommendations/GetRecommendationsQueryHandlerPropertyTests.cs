@@ -390,7 +390,7 @@ public sealed class GetRecommendationsQueryHandlerPropertyTests
         catalog.GetGenreCountsAsync(Arg.Any<CancellationToken>()).Returns(Counts);
         var profileSource = Substitute.For<IRecommendationProfileSource>();
         profileSource
-            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
+            .GetProfileInputsAsync(Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<IReadOnlyCollection<MovieId>>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(new RecommendationProfileInputs(
                 ImmutableArray<TasteProfileMovie>.Empty,
                 ImmutableDictionary<MovieId, ImmutableArray<float>>.Empty)));
