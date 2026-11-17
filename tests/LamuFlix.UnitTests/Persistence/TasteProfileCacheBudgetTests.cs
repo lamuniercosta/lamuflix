@@ -21,13 +21,13 @@ public sealed class TasteProfileCacheBudgetTests
     {
         // arrange
         var serializer = new CachedProfileSerializer();
-        var warningBudget = WarningBudget();
+        var warningThreshold = WarningThreshold();
 
         // act
         var bytes = SerializedBytes(serializer, 4);
 
         // assert
-        bytes.ShouldBeLessThan(warningBudget);
+        ((double)bytes).ShouldBeLessThan(warningThreshold);
         bytes.ShouldBeGreaterThan(0);
     }
 
@@ -36,13 +36,13 @@ public sealed class TasteProfileCacheBudgetTests
     {
         // arrange
         var serializer = new CachedProfileSerializer();
-        var warningBudget = WarningBudget();
+        var warningThreshold = WarningThreshold();
 
         // act
         var bytes = SerializedBytes(serializer, 145);
 
         // assert
-        bytes.ShouldBeLessThan(warningBudget);
+        ((double)bytes).ShouldBeLessThan(warningThreshold);
     }
 
     [Fact]
@@ -51,13 +51,13 @@ public sealed class TasteProfileCacheBudgetTests
         // arrange
         var serializer = new CachedProfileSerializer();
         var ceiling = Ceiling();
-        var warningBudget = WarningBudget();
+        var warningThreshold = WarningThreshold();
 
         // act
         var bytes = SerializedBytes(serializer, 300);
 
         // assert
-        bytes.ShouldBeGreaterThanOrEqualTo(warningBudget);
+        ((double)bytes).ShouldBeGreaterThanOrEqualTo(warningThreshold);
         bytes.ShouldBeLessThan(ceiling);
     }
 
@@ -124,8 +124,8 @@ public sealed class TasteProfileCacheBudgetTests
         // assert
         ReferenceEquals(adapter.Serializer, serializer).ShouldBeTrue();
         observed.ShouldBe(serializer.LastSerializedBytes);
-        observed.ShouldBeInRange(
-            WarningBudget(),
+        ((double)observed).ShouldBeInRange(
+            WarningThreshold(),
             Ceiling() - 1);
     }
 
@@ -162,7 +162,20 @@ public sealed class TasteProfileCacheBudgetTests
 
     private static long Ceiling() => new HybridCacheOptions().MaximumPayloadBytes;
 
-    private static long WarningBudget() => (long)(Ceiling() * TasteProfileCacheOptions.DefaultWarningFraction);
+    private static double WarningThreshold() => Ceiling() * TasteProfileCacheOptions.DefaultWarningFraction;
+
+    [Fact]
+    public void WarningThreshold_DistinguishesAdjacentIntegerByteValues()
+    {
+        // arrange
+        var threshold = WarningThreshold();
+
+        // assert
+        threshold.ShouldBe(838860.8);
+        ((double)838860).ShouldBeLessThan(threshold);
+        ((double)838861).ShouldBeGreaterThanOrEqualTo(threshold);
+        ((double)(long)threshold).ShouldBeLessThan(threshold);
+    }
 
     private static long SerializedBytes(CachedProfileSerializer serializer, int likedSourceCount)
     {
