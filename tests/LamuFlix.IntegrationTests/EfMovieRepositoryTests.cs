@@ -1090,6 +1090,86 @@ public sealed class EfMovieRepositoryTests(PostgresFixture fixture) : IAsyncLife
             .ShouldBe("Another movie in the library already has this IMDb id.");
     }
 
+    /// <summary>
+    /// DEV-522 T007, real database: the late-collision settlement is truthful and durable — the loser is
+    /// persisted Failed with duplicate_imdb_id and its canonical caller-safe reason, both rows survive
+    /// (no merge/delete), and the failed row stages no enrichment or features message. Retry integrity
+    /// per T006 then holds on that same durable row: a manual retry requeues exactly one wire message and
+    /// adds no movie, so the collision cannot turn into an indefinite enqueue loop.
+    /// </summary>
+    [Fact]
+    public async Task LateImdbCollision_RealDatabase_SettledRowRetriesOnceWithoutAddingOrMergingMovies()
+    {
+        // arrange: an enriched holder at one path and a distinct pending path whose folder names differ
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = fixture.CreateMigratedContext();
+        var repository = Repository(db);
+        var holder = PendingMovie(await repository.NextIdentityAsync(ct), "Rogue One", "rogue-one-2016");
+        holder.MarkEnriched(SnapshotMetadata("Rogue One", "tt3748528", [], [], [], [], null), Now);
+        await repository.AddAsync(holder, ct);
+        await repository.SaveChangesAsync(ct);
+
+        var loser = PendingMovie(
+            await repository.NextIdentityAsync(ct),
+            "Rogue One A Star Wars Story",
+            "rogue-one-a-star-wars-story-2016");
+        await repository.AddAsync(loser, ct);
+        await repository.SaveChangesAsync(ct);
+
+        var queue = new RecordingQueue();
+        var handler = new ProcessEnrichmentCommandHandler(
+            repository,
+            new ScriptedMetadataProvider(_ => new MetadataLookupResult.Found(
+                SnapshotMetadata("Rogue One", "tt3748528", [], [], [], [], null))),
+            queue,
+            Options.Create(new EnrichmentOptions { ClaimLease = TimeSpan.FromMinutes(5), MaxAttempts = 3 }),
+            new FixedTimeProvider(Now),
+            NullLogger<ProcessEnrichmentCommandHandler>.Instance);
+
+        // act: enrichment discovers the collision only after the holder already owns the id
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(loser.Id, 1), ct);
+
+        // assert: truthful terminal settlement, visible as the canonical safe reason rather than a gap
+        var failed = outcome.ShouldBeOfType<ProcessEnrichmentOutcome.Failed>();
+        failed.Category.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+        failed.Decision.ShouldBe(new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null));
+        queue.Messages.ShouldBeEmpty();
+        queue.FeaturesMessages.ShouldBeEmpty();
+
+        await using (var settled1 = OpenSibling(db))
+        {
+            var record = await settled1.Movies.AsNoTracking().SingleAsync(movie => movie.Id == loser.Id, ct);
+            record.Status.ShouldBe(EnrichmentStatus.Failed);
+            record.EnrichmentFailureCategory.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+            (record.EnrichmentFailureCategory is { } settledCategory
+                ? settledCategory.SafeDescription
+                : null).ShouldBe("Another movie in the library already has this IMDb id.");
+            // the claim that admitted this attempt is the only attempt recorded: the collision
+            // settles terminally on attempt 1, not after cycling to MaxAttempts
+            record.EnrichmentAttempts.ShouldBe(1);
+            record.MetadataTitle.ShouldBeNull();
+            record.ImdbId.ShouldBeNull();
+            record.LibraryPath.ShouldBe(loser.Path);
+            (await settled1.Movies.AsNoTracking().CountAsync(ct)).ShouldBe(2);
+        }
+
+        // act: a manual retry on the durable failed row (the T006 retry path, on real persistence)
+        var retry = new RequestEnrichmentCommandHandler(repository, new EfEnrichmentOutbox(db, TimeProvider.System));
+        await retry.HandleAsync(new RequestEnrichmentCommand(loser.Id), ct);
+
+        // assert: exactly one requeue for the existing row and no new movie, so no loop and no duplicate
+        await using var afterRetry = OpenSibling(db);
+        var staged = await afterRetry.OutboxMessages.AsNoTracking().SingleAsync(ct);
+        JsonSerializer.Deserialize<EnrichmentRequested>(
+                staged.Payload,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            .ShouldBe(new EnrichmentRequested(loser.Id, 1));
+        (await afterRetry.Movies.AsNoTracking().CountAsync(ct)).ShouldBe(2);
+        var requeued = await afterRetry.Movies.AsNoTracking().SingleAsync(movie => movie.Id == loser.Id, ct);
+        requeued.Status.ShouldBe(EnrichmentStatus.Pending);
+        requeued.EnrichmentFailureCategory.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+    }
+
     private static PostgresException? FindPostgres(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)
