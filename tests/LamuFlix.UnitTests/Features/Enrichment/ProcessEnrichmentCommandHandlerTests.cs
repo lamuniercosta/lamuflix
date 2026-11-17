@@ -548,6 +548,97 @@ public sealed class ProcessEnrichmentCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_LateImdbCollisionOnDistinctPath_SettlesFailedWithCanonicalDuplicateReason()
+    {
+        // arrange: a second, distinct library path for a movie whose IMDb id an enriched sibling already
+        // holds. Import never saw the id (DEV-522 T001 evidence 2b), so this is the first moment the
+        // collision can surface and it must settle truthfully rather than vanish or claim success.
+        var movie = PendingMovieAt(new MovieId(501), "Star Wars Collection/Rogue One A Star Wars Story[2016]");
+        var holderId = new MovieId(308);
+        var imdbId = new ImdbId("tt3748528");
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Found(new MovieMetadata("Rogue One", imdbId: imdbId)));
+        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(holderId);
+        var command = new ProcessEnrichmentCommand(movie.Id, 1);
+
+        // act
+        var outcome = await handler.HandleAsync(command, ct);
+
+        // assert: Failed with the duplicate category, never a silent gap or a false success
+        outcome.ShouldBe(new ProcessEnrichmentOutcome.Failed(
+            new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null),
+            EnrichmentFailureCategory.DuplicateImdbId));
+        movie.Status.ShouldBe(EnrichmentStatus.Failed);
+        movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+        movie.LastAttemptAt.ShouldBe(Now);
+        movie.Metadata.ShouldBeNull();
+        movie.ManualImdbId.ShouldBeNull();
+
+        // assert: no auto delete/merge of either row, and nothing is enqueued for a row that failed
+        await movies.DidNotReceive().TryDeleteAsync(Arg.Any<MovieId>(), Arg.Any<CancellationToken>());
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<FeaturesRequested>(), Arg.Any<CancellationToken>());
+        await movies.Received(1).SaveChangesAsync(ct);
+
+        // assert: the canonical caller-safe message is the one the API/UI surface, and the logged
+        // category is the stable code - never raw exception text
+        EnrichmentFailureCategory.DuplicateImdbId.SafeDescription
+            .ShouldBe("Another movie in the library already has this IMDb id.");
+        EnrichmentFailureCategory.DuplicateImdbId.Code.ShouldBe("duplicate_imdb_id");
+        AssertFailureLogged(command, EnrichmentFailureCategory.DuplicateImdbId);
+        AssertNoRawExceptionText(logger.Entries[0]);
+    }
+
+    [Fact]
+    public async Task HandleAsync_LateImdbCollisionAtFirstAttempt_DoesNotRetryOrRequeue()
+    {
+        // arrange: duplicate_imdb_id is non-retryable, so a late collision settles terminally even well
+        // below MaxAttempts. Retrying forever would be the indefinite enqueue loop FR-007 forbids.
+        var movie = PendingMovieAt(new MovieId(501), "Inception[2010]");
+        var imdbId = new ImdbId("tt1375666");
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Found(new MovieMetadata("Inception", imdbId: imdbId)));
+        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(new MovieId(159));
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert: terminal settlement on attempt 1 of MaxAttempts, not a Retry decision
+        var failed = outcome.ShouldBeOfType<ProcessEnrichmentOutcome.Failed>();
+        failed.Decision.ShouldBe(new EnrichmentFailureDecision(EnrichmentFailureAction.DeadLetter, null));
+        failed.Category.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+        movie.Status.ShouldBe(EnrichmentStatus.Failed);
+        movie.EnrichmentAttempts.ShouldBe(0);
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<EnrichmentRequested>(), Arg.Any<CancellationToken>());
+        await queue.DidNotReceive().EnqueueAsync(Arg.Any<FeaturesRequested>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_LateImdbCollision_StaysFailedRatherThanReportingAnImportSkip()
+    {
+        // arrange: guard the T004 phase matrix - a late enrichment collision is Failed + duplicate_imdb_id,
+        // never translated into the import-time skipped/already-present outcome.
+        var movie = PendingMovieAt(new MovieId(494), "Lorne[2026]");
+        var imdbId = new ImdbId("tt39847629");
+        var ct = CancellationToken.None;
+        Claimed(movie, true);
+        provider.FindAsync(Arg.Any<MetadataLookup>(), ct)
+            .Returns(new MetadataLookupResult.Found(new MovieMetadata("Lorne", imdbId: imdbId)));
+        movies.FindMovieIdByImdbIdAsync(imdbId, ct).Returns(new MovieId(464));
+
+        // act
+        var outcome = await handler.HandleAsync(new ProcessEnrichmentCommand(movie.Id, 1), ct);
+
+        // assert
+        outcome.ShouldNotBeOfType<ProcessEnrichmentOutcome.Completed>();
+        movie.Status.ShouldBe(EnrichmentStatus.Failed);
+        movie.LastFailureCategory.ShouldBe(EnrichmentFailureCategory.DuplicateImdbId);
+    }
+
+    [Fact]
     public async Task HandleAsync_FoundImdbIdHeldByTheSameMovie_Enriches()
     {
         // arrange
@@ -648,6 +739,15 @@ public sealed class ProcessEnrichmentCommandHandlerTests
         StateValue(entry, "Category").ShouldBe(category.Code);
     }
 
+    private static void AssertNoRawExceptionText(RecordingLogger<ProcessEnrichmentCommandHandler>.LogEntry entry)
+    {
+        foreach (var value in entry.State.Select(pair => pair.Value?.ToString() ?? string.Empty))
+        {
+            value.Contains("Exception", StringComparison.Ordinal).ShouldBeFalse();
+            value.Contains("://", StringComparison.Ordinal).ShouldBeFalse();
+        }
+    }
+
     private static object? StateValue(
         RecordingLogger<ProcessEnrichmentCommandHandler>.LogEntry entry,
         string name) =>
@@ -669,6 +769,13 @@ public sealed class ProcessEnrichmentCommandHandlerTests
             new LibraryPath("C:/library/a"),
             new MediaFormat("mkv"));
     }
+
+    /// <summary>
+    /// A Pending movie at a named library path, so a late-IMDb regression reads as the distinct folder
+    /// variant it represents rather than an opaque guid.
+    /// </summary>
+    private static Movie PendingMovieAt(MovieId id, string path) =>
+        Movie.Create(id, path, new LibraryPath($"C:/library/{path}"), new MediaFormat("mkv"));
 
     private Movie EnrichedMovie(ReleaseYear releaseYear)
     {
