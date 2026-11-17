@@ -1,6 +1,6 @@
 # DEV-545 grill conclusions
 
-Status: GRILL CLOSED (Q1-Q9). Plan challenge adjudication in progress; not PLAN FROZEN, not Gate 1 approval.
+Status: GRILL CLOSED (Q1-Q9); PLAN FROZEN (PC1-PC4); gate1: provisional.
 
 ## Q1 — Runner placement
 
@@ -258,5 +258,16 @@ Decision: all nine proposal items are ratified and binding. PC1-PC3 supersede co
 - Capture×2 vs leave-one-out evidence boundaries (`recon-DEV-545-2` lines 72, 82; `CONCLUSIONS.md` PC3 items 2 and 6, lines 230, 234): `Done when` line 72 ("Running the capture twice against the same data gives identical files") is covered by the §2 paired recommendation-input fingerprint recorded before Capture A and after Capture B (`EVIDENCE.md:60`, `tasks.md:155`, `spec.md:150`), while `Done when` line 82 ("The leave-one-out run leaves the database row counts unchanged, and the review value of every movie unchanged. A reviewer checks this with a count and a select before and after the run") is covered by the separate §3 paired DB before-state (T020, before leave-one-out) and DB after-state (T021, immediately after leave-one-out, `tasks.md:155-156`) under the shared quiescence precondition (`EVIDENCE.md:58`).
 - Reconciliation of PC3 item 6 with PC3 item 2 (`CONCLUSIONS.md` lines 230, 234; `spec.md:184`; `plan.md:72`; `checklists/harness.md:46`): PC3 item 2 explicitly bounded the leave-one-out DB proof to row counts plus every movie review value before and after (plus code inspection and Testcontainers no-write proof); reading PC3 item 6's phrase ("during Capture x2 and DB before/after window") as requiring a second post-LOO pending/enrichment fingerprint beyond T021's DB row-count + review comparison is not required by the ticket (`recon-DEV-545-2` line 82), so the two distinct before/after pairs in `EVIDENCE.md` §2 and §3 fulfill FR-013 and CHK021 without another edit round.
 - Gate 1 and follow-up disposition (`AGENTS.md` §2.3): Residual Sentry F7 is closed as a reconciled interpretation of PC3 items 2 and 6 (`noted, no ticket`, no structural owner checkbox), clearing the round-2 cap so PLAN FROZEN and Gate 1 (`gate1: provisional`) may proceed.
+
+---
+
+## Gate 1 — Provisional ruling
+
+[from Patron] DEV-545 Gate 1 ruling — Approved `gate1: provisional` with zero structural owner checkboxes: `specs/DEV-545/spec.md` status is marked `gate1: provisional`, all 21 plan-challenge findings across Sentry, Ledger, and Compass are dispositioned under `PLAN FROZEN` (`PLAN_ADJUDICATION.md` at `70f554877defe5ea3d5b35a00306bac3dce0d1f5`), and no ticket contradiction or constitution departure exists.
+
+- Zero structural owner checkboxes (`AGENTS.md` §2.3; `specs/DEV-545/CONCLUSIONS.md` Q1–Q9, PC1–PC4; `specs/PRODUCT.md` §5): Every open design and plan-challenge question is resolved within ticket delivery (`recon-DEV-545-2` Wanted 1–21, Done when) and the constitution without adding, dropping, or contradicting ticket requirements.
+- User-Visible Outcome checklist gate (`specs/DEV-545/checklists/requirements.md:32-36`; `specs/DEV-545/spec.md:18-20`): Verified — "What the User Will See" explicitly states "Nothing visible" with reason (operator tooling and diagnostic seams only; no SPA or production recommendation changes), and the User-Visible Outcome items in `checklists/requirements.md` are ticked.
+- Plan-challenge closure (`specs/DEV-545/PLAN_ADJUDICATION.md`; commit `70f554877defe5ea3d5b35a00306bac3dce0d1f5`): Keel declared `PLAN FROZEN` with all 21 challenge findings dispositioned (`20 Fixed`, `1 Reconciled/Closed under PC4`), satisfying the Phase 2 step 7 prerequisite for `gate1: provisional` (ordinary owner Gate 1 merge approval remains with the user on the Spec PR).
+
 
 
