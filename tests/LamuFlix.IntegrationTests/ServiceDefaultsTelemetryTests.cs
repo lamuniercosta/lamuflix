@@ -55,6 +55,8 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
     private const string RenderedLogBody = "exporter is composed for probe 4217 times";
     private const int FlushTimeoutMilliseconds = 5_000;
     private const int MetricsFlushAttempts = 3;
+    private static readonly TimeSpan LogBodyTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan LogBodyPollInterval = TimeSpan.FromMilliseconds(100);
     private const string MeterScopeName = "LamuFlix";
     private const string DurationMetricName = "lamuflix.enrichment.duration";
     private const string OutcomeMetricName = "lamuflix.enrichment.outcome";
@@ -97,6 +99,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             stub = StartStub();
             env = new EnvironmentOverride(OtlpEndpoint(stub));
             host = CreateProductionHost(OtlpEndpoint(stub), stub.Urls[0]);
+            var cancellationToken = TestContext.Current.CancellationToken;
             var tracer = host.Services.GetRequiredService<TracerProvider>();
             var meterProvider = host.Services.GetRequiredService<MeterProvider>();
             var loggerProvider = host.Services.GetRequiredService<LoggerProvider>();
@@ -114,7 +117,7 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
             Received(stub, TracesPath).ShouldBeTrue();
             Received(stub, MetricsPath).ShouldBeTrue();
             Received(stub, LogsPath).ShouldBeTrue();
-            ReceivedBodyContaining(stub, LogsPath, RenderedLogBody).ShouldBeTrue();
+            await WaitForLogBodyAsync(stub, loggerProvider, cancellationToken);
         }
         finally
         {
@@ -361,6 +364,30 @@ public sealed class ServiceDefaultsTelemetryTests(PostgresFixture postgres, Rabb
                 new($"{EnrichmentOptions.SectionName}:{nameof(EnrichmentOptions.ClaimLease)}", "00:00:01"),
             ],
             disableEnrichmentConsumer: true);
+
+    private static async Task WaitForLogBodyAsync(
+        WireMockServer stub,
+        LoggerProvider loggerProvider,
+        CancellationToken cancellationToken)
+    {
+        // arrange
+        var deadline = TimeProvider.System.GetUtcNow() + LogBodyTimeout;
+
+        // act
+        while (TimeProvider.System.GetUtcNow() < deadline)
+        {
+            loggerProvider.ForceFlush(FlushTimeoutMilliseconds);
+            if (ReceivedBodyContaining(stub, LogsPath, RenderedLogBody))
+            {
+                return;
+            }
+
+            await Task.Delay(LogBodyPollInterval, cancellationToken);
+        }
+
+        // assert
+        ReceivedBodyContaining(stub, LogsPath, RenderedLogBody).ShouldBeTrue();
+    }
 
     private static bool FlushMetricsWithRetry(MeterProvider meterProvider)
     {
