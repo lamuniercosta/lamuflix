@@ -5,6 +5,8 @@ description: "Task list for DEV-472 CI mutation event routing"
 
 # Tasks: Move full Core Stryker off main push (PR diff gate + nightly full run)
 
+> **Superseded in part (2026-11-17):** the `mutation-pr` job (check name `PR mutation`) described here was removed from `.github/workflows/ci.yml` by PR #434. Gauge already runs diff-scoped mutation (`scripts/run-mutation.ps1`) in Phase 5, just before the PR opens, and no new code lands after that, so the PR-side run only repeated it. Do not register `PR mutation` as a required check. The rest of DEV-472 still stands: no Stryker on main push, and the full 16-shard Core run on the nightly schedule and manual dispatch.
+
 **Input**: Design documents from `specs/DEV-472/` — `spec.md`, `plan.md`, grill-closed `brief.md` (Q1–Q7 + Phase 2 step 6 decision addendum), `CONCLUSIONS.md` (including Phase 2 Step 6 at `6f87b755`), `ASSUMPTIONS.md`; Maestri notes `DEV-472`, `recon-DEV-472` (lines 4–35); `PLAN_ADJUDICATION.md` round-1 repair list; `specs/PRODUCT.md`.
 
 **Status**: Round 1 repairs applied from `PLAN_ADJUDICATION.md` Consolidated Quill repair list items 1–9. Awaiting Keel independent read-back for PLAN FROZEN. Gate 1, implementation, runtime acceptance, and merge clearance remain pending.

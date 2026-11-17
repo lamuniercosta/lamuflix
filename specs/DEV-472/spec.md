@@ -1,5 +1,7 @@
 # Feature Specification: Move full Core Stryker off main push (PR diff gate + nightly full run)
 
+> **Superseded in part (2026-11-17):** the `mutation-pr` job (check name `PR mutation`) described here was removed from `.github/workflows/ci.yml` by PR #434. Gauge already runs diff-scoped mutation (`scripts/run-mutation.ps1`) in Phase 5, just before the PR opens, and no new code lands after that, so the PR-side run only repeated it. Do not register `PR mutation` as a required check. The rest of DEV-472 still stands: no Stryker on main push, and the full 16-shard Core run on the nightly schedule and manual dispatch.
+
 **Feature Branch**: `feature/472-spec`
 
 **Created**: 2026-11-14
