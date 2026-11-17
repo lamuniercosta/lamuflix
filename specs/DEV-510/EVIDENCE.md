@@ -201,23 +201,23 @@ Both series use the identical seeded library, the same `GetForYouRecommendations
 
 ## 7. Gate receipts
 
-Checked SHA `ebfb7837c8a88f989534f2c96c56adff5d1361f1` (Cog Scalar contract test fix HEAD). Worktree `F:/Dev/LamuFlix.worktrees/DEV-510`, branch `feature/DEV-510`. All commands run from the worktree root. Gate applicability from `git diff --name-only origin/main...HEAD`: the diff touches `*.cs`/`*.csproj` (C# gates apply, including mutation) and no `web/` files (web gate N/A, screenshots N/A, e2e smoke N/A). This receipt supersedes the prior receipt at `ddf2517dbe0192446b0a572d85278139593274b7`.
+Checked SHA `ba83240514a6b03712203956a2d9fe14e07716e4` (HEAD on `feature/DEV-510`). Worktree `F:/Dev/LamuFlix.worktrees/DEV-510`, branch `feature/DEV-510`. All commands run from the worktree root. Gate applicability from `git diff --name-only origin/main...ba83240514a6b03712203956a2d9fe14e07716e4`: the diff touches `*.cs`/`*.csproj` (C# gates apply, including mutation) and no `web/` files (web gate N/A, screenshots N/A, e2e smoke N/A). This receipt supersedes the prior receipt at `20d438f98213e8a444e41b555242bd11ed13ed54`.
 
 | Gate | Command | Exit / verdict |
 | --- | --- | --- |
-| Roslyn analyzers | `pwsh -NoProfile -File ./scripts/run-roslyn-analyzers.ps1` | exit 0 — **PASS** (no CA/IDE warnings on target files; log `output/gauge-DEV-510/rerun3-roslyn.log`) |
-| Cyclomatic complexity | `pwsh -NoProfile -File ./scripts/run-cyclomatic-complexity.ps1` | exit 0 — **PASS** (no methods exceed threshold of 15; log `output/gauge-DEV-510/rerun3-complexity.log`) |
-| InspectCode | `pwsh -NoProfile -File ./scripts/run-jetbrains-inspectcode.ps1` | exit 0 — **PASS** (0 WARNING+ findings; log `output/gauge-DEV-510/rerun3-inspectcode.log`) |
-| Property tests | `pwsh -NoProfile -File ./scripts/run-property-tests.ps1` | exit 0 — **PASS** (160 tests executed across 5 projects, 0 counterexamples; log `output/gauge-DEV-510/rerun3-property.log`) |
-| Vulnerable packages | `pwsh -NoProfile -File ./scripts/run-vulnerable-packages.ps1` | exit 0 — **PASS** (no vulnerable packages, including transitive; log `output/gauge-DEV-510/rerun3-vuln.log`) |
-| Format | `dotnet format --verify-no-changes` | exit 0 — **PASS** (clean; log `output/gauge-DEV-510/rerun3-format.log`) |
-| Full tests | `dotnet test` | exit 0 — **PASS** (5917 passed / 0 failed / 3 skipped across 5 projects: Evaluation 81, Architecture 16, UnitTests 4010 + 1 skipped, Evaluation Integration 21, IntegrationTests 1789 + 2 skipped; Scalar contract test now passes; log `output/gauge-DEV-510/rerun3-test.log`) |
-| Mutation | `pwsh -NoProfile -File ./scripts/run-mutation.ps1` (without `--since`) | exit 0 — **PASSED** (LamuFlix.Core score 84.36% at or above the 80% threshold; 390 tested — 325 killed, 53 survived, 4 timeout, 8 no-coverage; remaining 53 survivors require no action under the passed verdict, but still need tests if the gate is rerun below threshold; log `output/gauge-DEV-510/rerun3-mutation.log`) |
-| Web gates | `pwsh -NoProfile -File ./scripts/run-web-gates.ps1` | exit 2 — **N/A** (no `web/` files in `origin/main...HEAD` diff; script reported `SKIPPED - no web/ files changed`; log `output/gauge-DEV-510/rerun3-web.log`) |
+| Roslyn analyzers | `pwsh -NoProfile -File ./scripts/run-roslyn-analyzers.ps1` | exit 0 — **PASS** (no CA/IDE warnings on target files; log `output/gauge-DEV-510/final-roslyn.log`) |
+| Cyclomatic complexity | `pwsh -NoProfile -File ./scripts/run-cyclomatic-complexity.ps1` | exit 0 — **PASS** (no methods exceed threshold of 15; log `output/gauge-DEV-510/final-complexity.log`) |
+| InspectCode | `pwsh -NoProfile -File ./scripts/run-jetbrains-inspectcode.ps1` | exit 0 — **PASS** (no WARNING+ issues; log `output/gauge-DEV-510/final-inspectcode.log`) |
+| Property tests | `pwsh -NoProfile -File ./scripts/run-property-tests.ps1` | exit 0 — **PASS** (160 tests executed across 5 projects, 0 counterexamples; log `output/gauge-DEV-510/final-property.log`) |
+| Vulnerable packages | `pwsh -NoProfile -File ./scripts/run-vulnerable-packages.ps1` | exit 0 — **PASS** (no vulnerable packages, including transitive; log `output/gauge-DEV-510/final-vuln.log`) |
+| Format | `dotnet format --verify-no-changes` | exit 0 — **PASS** (clean; log `output/gauge-DEV-510/final-format.log`) |
+| Full tests | `dotnet test` | exit 0 — **PASS** (5921 passed / 0 failed / 3 skipped across 5 projects: Evaluation 81, Architecture 16, UnitTests 4013 + 1 skipped, Evaluation Integration 21, IntegrationTests 1790 + 2 skipped; log `output/gauge-DEV-510/final-test.log`) |
+| Mutation | `pwsh -NoProfile -File ./scripts/run-mutation.ps1` (without `--since`) | exit 0 — **PASSED** (LamuFlix.Core score 84.36% at or above the 80% threshold; 390 tested — 325 killed, 53 survived, 4 timeout, 8 no-coverage; remaining 53 survivors require no action under the passed verdict, but still need tests if the gate is rerun below threshold; log `output/gauge-DEV-510/final-mutation.log`) |
+| Web gates | `pwsh -NoProfile -File ./scripts/run-web-gates.ps1` | exit 2 — **SKIPPED (scope-empty)** — non-blocking; script reported `SKIPPED - no web/ files changed` (never PASS; log `output/gauge-DEV-510/final-web.log`) |
 | Screenshots | — | **N/A** (no `web/src` change in diff) |
 | E2E smoke | `pwsh -NoProfile -File scripts/run-e2e-smoke.ps1` | **N/A** (no SMOKE-### items in `spec.md` and no `web/` in diff) |
 
-**Rules**: Record exact checked SHA. Never rename SKIPPED (scope-empty) / SKIP / N/A / Could not run to PASS. Never lower thresholds. Surviving mutants require tests. No gate was run in T002 — the measurement probe was untracked and is not a gate receipt. Suite verdict on `ebfb7837`: **PASSED** — all applicable gates pass; `dotnet test` exit 0 (Scalar contract test fixed by Cog); mutation holds PASSED at 84.36% (unchanged from `ddf2517d`).
+**Rules**: Record exact checked SHA. Never rename SKIPPED (scope-empty) / SKIP / N/A / Could not run to PASS. Never lower thresholds. Surviving mutants require tests. No gate was run in T002 — the measurement probe was untracked and is not a gate receipt. Suite verdict on `ba832405`: **PASSED** — all applicable gates pass, including InspectCode exit 0 (the prior `AsyncVoidLambda` warnings are gone at this HEAD); `dotnet test` exit 0; mutation PASSED at 84.36%; web gates exit 2 non-blocking SKIP.
 
 ---
 
