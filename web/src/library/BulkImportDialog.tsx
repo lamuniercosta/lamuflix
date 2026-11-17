@@ -180,7 +180,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
   }
 
   const busy = running;
-  const scanning = candidates.isPending;
+  const scanning = candidates.isPending || candidates.isFetching;
   const inFlight = progress !== null && progress.done < progress.total;
   const nothingToDo = selectedFolders.length === 0 && !retryFailed;
 
@@ -203,7 +203,7 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
               type="button"
               className="lamu-action-quiet"
               onClick={toggleSelectAll}
-              disabled={busy || folders.length === 0}
+              disabled={busy || scanning || folders.length === 0}
             >
               {folders.length > 0 && selectedFolders.length === folders.length
                 ? 'Clear all'
@@ -325,7 +325,11 @@ export default function BulkImportDialog({ open, onClose }: BulkImportDialogProp
                 Close
               </button>
             )}
-            <button type="submit" className="lamu-action-primary" disabled={busy || nothingToDo}>
+            <button
+              type="submit"
+              className="lamu-action-primary"
+              disabled={busy || scanning || nothingToDo}
+            >
               Import
             </button>
           </div>

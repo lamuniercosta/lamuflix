@@ -49,6 +49,32 @@ describe('BulkImportDialog scan states', () => {
     resolveScan();
   });
 
+  it('shows the scanning hint on a warm-cache reopen while refetching', async () => {
+    let resolveScan!: () => void;
+    const scanGate = new Promise<void>((resolve) => {
+      resolveScan = resolve;
+    });
+    server.use(
+      http.get('/api/movies/import/candidates', async () => {
+        await scanGate;
+        return HttpResponse.json({ newFolders: ['Alpha'] }, { status: 200 });
+      }),
+      http.get('/api/movies', () => HttpResponse.json(browseBody(), { status: 200 })),
+    );
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['importCandidates'], { newFolders: ['Alpha'] });
+    function Wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    }
+    render(<BulkImportDialog open onClose={() => {}} />, { wrapper: Wrapper });
+
+    const dialog = screen.getByRole('dialog', { name: 'Bulk import' });
+    expect(await within(dialog).findByText(/scanning library/i)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    resolveScan();
+  });
+
   it('reports an empty scan with no new movies', async () => {
     server.use(
       candidatesHandler([]),
